@@ -88,12 +88,12 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`,
+        `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/chat`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            // 'Authorization': `Bearer ${token}` // If backend implements auth
           },
           body: JSON.stringify({ 
             messages: chatMessages,
