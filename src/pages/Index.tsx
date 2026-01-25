@@ -1,13 +1,74 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import React, { useState } from 'react';
+import { UserProvider, useUser } from '@/contexts/UserContext';
+import { MainLayout } from '@/components/layout/MainLayout';
+import { EmployeeDashboard } from '@/components/dashboard/EmployeeDashboard';
+import { BossDashboard } from '@/components/dashboard/BossDashboard';
+import { SalesPipeline } from '@/components/sales/SalesPipeline';
+import { ApprovalCenter } from '@/components/approval/ApprovalCenter';
+import { RewardsWallet } from '@/components/rewards/RewardsWallet';
+
+function AppContent() {
+  const { user } = useUser();
+  const [activeNav, setActiveNav] = useState(user.role === 'boss' ? 'boss-dashboard' : 'dashboard');
+
+  // Update nav when role changes
+  React.useEffect(() => {
+    setActiveNav(user.role === 'boss' ? 'boss-dashboard' : 'dashboard');
+  }, [user.role]);
+
+  const renderContent = () => {
+    switch (activeNav) {
+      case 'dashboard':
+        return <EmployeeDashboard />;
+      case 'boss-dashboard':
+        return <BossDashboard />;
+      case 'exceptions':
+        return <BossDashboard />;
+      case 'team-performance':
+        return <BossDashboard />;
+      case 'sales':
+        return <SalesPipeline />;
+      case 'approval':
+        return <ApprovalCenter />;
+      case 'rewards':
+        return <RewardsWallet />;
+      case 'knowledge':
+        return (
+          <div className="flex items-center justify-center h-96">
+            <div className="text-center">
+              <div className="text-6xl mb-4">📚</div>
+              <h2 className="text-xl font-semibold text-foreground">知识库</h2>
+              <p className="text-muted-foreground mt-2">产品参数、竞品对比、技术文档</p>
+            </div>
+          </div>
+        );
+      case 'settings':
+        return (
+          <div className="flex items-center justify-center h-96">
+            <div className="text-center">
+              <div className="text-6xl mb-4">⚙️</div>
+              <h2 className="text-xl font-semibold text-foreground">系统设置</h2>
+              <p className="text-muted-foreground mt-2">配置AI规则、激励参数、权限管理</p>
+            </div>
+          </div>
+        );
+      default:
+        return <EmployeeDashboard />;
+    }
+  };
+
+  return (
+    <MainLayout activeNav={activeNav} onNavChange={setActiveNav}>
+      {renderContent()}
+    </MainLayout>
+  );
+}
 
 const Index = () => {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
-    </div>
+    <UserProvider>
+      <AppContent />
+    </UserProvider>
   );
 };
 
