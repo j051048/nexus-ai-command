@@ -11,8 +11,11 @@ import {
 } from 'recharts';
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { TrendingUp, TrendingDown } from 'lucide-react';
+import { useWinRateHistory } from '@/hooks/useSalesData';
+import { Skeleton } from '@/components/ui/skeleton';
 
-const winRateData = [
+// Fallback mock data
+const mockWinRateData = [
   { week: '第1周', rate: 18, target: 25 },
   { week: '第2周', rate: 22, target: 25 },
   { week: '第3周', rate: 21, target: 25 },
@@ -35,17 +38,38 @@ const chartConfig = {
 };
 
 export function WinRateChart() {
-  const currentRate = winRateData[winRateData.length - 1].rate;
-  const previousRate = winRateData[winRateData.length - 2].rate;
+  const { data: rawData, isLoading } = useWinRateHistory(8);
+
+  const winRateData = React.useMemo(() => {
+    if (!rawData || rawData.length === 0) return mockWinRateData;
+    return rawData;
+  }, [rawData]);
+
+  const currentRate = winRateData[winRateData.length - 1]?.rate || 0;
+  const previousRate = winRateData[winRateData.length - 2]?.rate || 0;
   const change = currentRate - previousRate;
   const isUp = change >= 0;
+  const hasRealData = rawData && rawData.length > 0;
+
+  if (isLoading) {
+    return (
+      <div className="bg-card rounded-2xl p-4 sm:p-6 border border-border">
+        <Skeleton className="h-6 w-32 mb-2" />
+        <Skeleton className="h-4 w-48 mb-6" />
+        <Skeleton className="h-[200px] sm:h-[250px] w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="bg-card rounded-2xl p-4 sm:p-6 border border-border">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6">
         <div>
           <h3 className="text-lg font-semibold text-foreground">赢率变化曲线</h3>
-          <p className="text-sm text-muted-foreground">近8周销售赢率趋势</p>
+          <p className="text-sm text-muted-foreground">
+            近8周销售赢率趋势
+            {!hasRealData && <span className="text-warning ml-2">(示例数据)</span>}
+          </p>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary">
           <span className="text-2xl font-bold text-foreground mono-number">{currentRate}%</span>

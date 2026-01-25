@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import {
   TrendingUp,
@@ -13,10 +13,15 @@ import {
   XCircle,
   ChevronRight,
   Bot,
+  Database,
+  Loader2,
 } from 'lucide-react';
 import { TeamPerformanceChart, RevenueChart } from '@/components/charts';
+import { useTeamPerformance, useLeaderboard, useSeedDemoData } from '@/hooks/useSalesData';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
-const weeklyReport = {
+const defaultWeeklyReport = {
   cashFlow: 1250000,
   cashFlowTrend: 12.5,
   salesRisks: [
@@ -83,6 +88,41 @@ const getHeatColor = (score: number) => {
 };
 
 export function BossDashboard() {
+  // Fetch real data
+  const { data: teamData } = useTeamPerformance();
+  const { data: leaderboardData } = useLeaderboard(3);
+  const seedDemoData = useSeedDemoData();
+
+  // Calculate weekly report from real data
+  const weeklyReport = useMemo(() => {
+    if (!leaderboardData || leaderboardData.length === 0) {
+      return defaultWeeklyReport;
+    }
+
+    const totalBonus = leaderboardData.reduce((sum, p) => sum + p.bonus, 0);
+    
+    return {
+      ...defaultWeeklyReport,
+      totalIncentives: totalBonus,
+      topPerformers: leaderboardData.map(p => ({
+        name: p.name,
+        score: p.score,
+        bonus: p.bonus,
+      })),
+    };
+  }, [leaderboardData]);
+
+  const hasRealData = leaderboardData && leaderboardData.length > 0;
+
+  const handleSeedData = async () => {
+    try {
+      await seedDemoData.mutateAsync();
+      toast.success('已生成90天示例数据！');
+    } catch (error: any) {
+      toast.error('生成数据失败: ' + error.message);
+    }
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
@@ -93,9 +133,27 @@ export function BossDashboard() {
             早上好！今日仅有 <span className="text-warning font-semibold">3</span> 条异常需要您处理
           </p>
         </div>
-        <div className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-success/20 rounded-xl">
-          <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-success" />
-          <span className="text-success font-medium text-sm sm:text-base">95% 事务已由AI自动处理</span>
+        <div className="flex items-center gap-3">
+          {!hasRealData && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSeedData}
+              disabled={seedDemoData.isPending}
+              className="flex items-center gap-2"
+            >
+              {seedDemoData.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Database className="w-4 h-4" />
+              )}
+              生成示例数据
+            </Button>
+          )}
+          <div className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-success/20 rounded-xl">
+            <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-success" />
+            <span className="text-success font-medium text-sm sm:text-base">95% 事务已由AI自动处理</span>
+          </div>
         </div>
       </div>
 

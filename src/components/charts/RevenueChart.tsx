@@ -10,8 +10,11 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
+import { useRevenueData } from '@/hooks/useSalesData';
+import { Skeleton } from '@/components/ui/skeleton';
 
-const revenueData = [
+// Fallback mock data
+const mockRevenueData = [
   { month: '1月', revenue: 128, target: 120, growth: 8 },
   { month: '2月', revenue: 156, target: 130, growth: 22 },
   { month: '3月', revenue: 189, target: 150, growth: 21 },
@@ -33,16 +36,37 @@ const chartConfig = {
 };
 
 export function RevenueChart() {
+  const { data: rawData, isLoading } = useRevenueData(7);
+
+  const revenueData = React.useMemo(() => {
+    if (!rawData || rawData.length === 0) return mockRevenueData;
+    return rawData;
+  }, [rawData]);
+
   const totalRevenue = revenueData.reduce((sum, d) => sum + d.revenue, 0);
   const totalTarget = revenueData.reduce((sum, d) => sum + d.target, 0);
-  const completion = Math.round((totalRevenue / totalTarget) * 100);
+  const completion = totalTarget > 0 ? Math.round((totalRevenue / totalTarget) * 100) : 0;
+  const hasRealData = rawData && rawData.length > 0;
+
+  if (isLoading) {
+    return (
+      <div className="bg-card rounded-2xl p-4 sm:p-6 border border-border">
+        <Skeleton className="h-6 w-32 mb-2" />
+        <Skeleton className="h-4 w-48 mb-6" />
+        <Skeleton className="h-[200px] sm:h-[250px] w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="bg-card rounded-2xl p-4 sm:p-6 border border-border">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6">
         <div>
           <h3 className="text-lg font-semibold text-foreground">营收分析</h3>
-          <p className="text-sm text-muted-foreground">月度营收与目标对比</p>
+          <p className="text-sm text-muted-foreground">
+            月度营收与目标对比
+            {!hasRealData && <span className="text-warning ml-2">(示例数据)</span>}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">

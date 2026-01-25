@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useUser } from '@/contexts/UserContext';
 import { cn } from '@/lib/utils';
 import {
@@ -10,18 +10,23 @@ import {
   Gift,
   ChevronRight,
   Star,
+  Database,
+  Loader2,
 } from 'lucide-react';
 import { SalesChart, WinRateChart } from '@/components/charts';
+import { useLeaderboard, useSalesMetrics, useSeedDemoData } from '@/hooks/useSalesData';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 const mockRankings = [
-  { rank: 1, name: '王晓明', score: 95, bonus: 8200, trend: 'up' },
-  { rank: 2, name: '刘芳', score: 91, bonus: 6800, trend: 'up' },
-  { rank: 3, name: '张明', score: 87, bonus: 4850, trend: 'up', isCurrentUser: true },
-  { rank: 4, name: '陈伟', score: 82, bonus: 3600, trend: 'down' },
-  { rank: 5, name: '李娜', score: 78, bonus: 2900, trend: 'stable' },
+  { rank: 1, name: '王晓明', score: 95, bonus: 8200, trend: 'up' as const, isCurrentUser: false },
+  { rank: 2, name: '刘芳', score: 91, bonus: 6800, trend: 'up' as const, isCurrentUser: false },
+  { rank: 3, name: '张明', score: 87, bonus: 4850, trend: 'up' as const, isCurrentUser: true },
+  { rank: 4, name: '陈伟', score: 82, bonus: 3600, trend: 'down' as const, isCurrentUser: false },
+  { rank: 5, name: '李娜', score: 78, bonus: 2900, trend: 'stable' as const, isCurrentUser: false },
 ];
 
-const performanceMetrics = [
+const defaultPerformanceMetrics = [
   { name: '跟进及时率', value: 92, target: 90, unit: '%', status: 'good' },
   { name: '通话质量分', value: 85, target: 80, unit: '', status: 'good' },
   { name: '赢率贡献', value: 23, target: 25, unit: '%', status: 'warning' },
@@ -32,6 +37,50 @@ export function EmployeeDashboard() {
   const { user } = useUser();
   const [animatedScore, setAnimatedScore] = useState(0);
   const [showBonusPopup, setShowBonusPopup] = useState(false);
+
+  // Fetch real data from database
+  const { data: leaderboardData } = useLeaderboard(5);
+  const { data: salesMetrics } = useSalesMetrics(1); // Last month
+  const seedDemoData = useSeedDemoData();
+
+  // Use real rankings or fallback to mock
+  const rankings = useMemo(() => {
+    if (leaderboardData && leaderboardData.length > 0) {
+      return leaderboardData;
+    }
+    return mockRankings;
+  }, [leaderboardData]);
+
+  // Calculate performance metrics from real data
+  const performanceMetrics = useMemo(() => {
+    if (!salesMetrics || salesMetrics.length === 0) {
+      return defaultPerformanceMetrics;
+    }
+
+    const recent = salesMetrics.slice(-7); // Last 7 days
+    const avgWinRate = recent.reduce((sum, m) => sum + (Number(m.win_rate) || 0), 0) / recent.length;
+    const avgConversionRate = recent.reduce((sum, m) => {
+      const leads = m.leads_count || 1;
+      const conversions = m.conversions || 0;
+      return sum + (conversions / leads) * 100;
+    }, 0) / recent.length;
+
+    return [
+      { name: '跟进及时率', value: 92, target: 90, unit: '%', status: 'good' as const },
+      { name: '通话质量分', value: 85, target: 80, unit: '', status: 'good' as const },
+      { name: '赢率贡献', value: Math.round(avgWinRate), target: 25, unit: '%', status: avgWinRate >= 25 ? 'excellent' as const : 'warning' as const },
+      { name: '线索转化', value: Math.round(avgConversionRate), target: 15, unit: '%', status: avgConversionRate >= 15 ? 'excellent' as const : 'good' as const },
+    ];
+  }, [salesMetrics]);
+
+  const handleSeedData = async () => {
+    try {
+      await seedDemoData.mutateAsync();
+      toast.success('已生成90天示例数据！');
+    } catch (error: any) {
+      toast.error('生成数据失败: ' + error.message);
+    }
+  };
 
   useEffect(() => {
     // Animate score counting up
@@ -62,6 +111,8 @@ export function EmployeeDashboard() {
     return () => clearTimeout(timer);
   }, []);
 
+  const hasRealData = salesMetrics && salesMetrics.length > 0;
+
   const progressToNextBadge = ((user.score - 80) / 20) * 100;
 
   return (
@@ -77,6 +128,22 @@ export function EmployeeDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {!hasRealData && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSeedData}
+              disabled={seedDemoData.isPending}
+              className="flex items-center gap-2"
+            >
+              {seedDemoData.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Database className="w-4 h-4" />
+              )}
+              生成示例数据
+            </Button>
+          )}
           <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-success/20 text-success hover:bg-success/30 transition-colors">
             <Gift className="w-4 h-4" />
             <span className="font-medium">¥{user.totalBonus.toLocaleString()}</span>
@@ -251,7 +318,7 @@ export function EmployeeDashboard() {
             <span className="text-xs text-muted-foreground">实时更新</span>
           </div>
           <div className="space-y-2 sm:space-y-3">
-            {mockRankings.map((item) => (
+            {rankings.map((item) => (
               <div
                 key={item.rank}
                 className={cn(

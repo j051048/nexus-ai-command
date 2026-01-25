@@ -10,8 +10,12 @@ import {
   Legend 
 } from 'recharts';
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
+import { useSalesMetrics } from '@/hooks/useSalesData';
+import { Skeleton } from '@/components/ui/skeleton';
+import { format } from 'date-fns';
 
-const salesData = [
+// Fallback mock data when no real data exists
+const mockSalesData = [
   { month: '1月', leads: 45, conversions: 12, revenue: 128000 },
   { month: '2月', leads: 52, conversions: 15, revenue: 156000 },
   { month: '3月', leads: 48, conversions: 18, revenue: 189000 },
@@ -33,12 +37,51 @@ const chartConfig = {
 };
 
 export function SalesChart() {
+  const { data: rawData, isLoading, error } = useSalesMetrics(7);
+
+  // Transform raw data into monthly aggregates
+  const salesData = React.useMemo(() => {
+    if (!rawData || rawData.length === 0) return mockSalesData;
+
+    const monthMap = new Map<string, { leads: number; conversions: number; revenue: number }>();
+
+    rawData.forEach((item) => {
+      const monthKey = format(new Date(item.date), 'M月');
+      const current = monthMap.get(monthKey) || { leads: 0, conversions: 0, revenue: 0 };
+      monthMap.set(monthKey, {
+        leads: current.leads + (item.leads_count || 0),
+        conversions: current.conversions + (item.conversions || 0),
+        revenue: current.revenue + (Number(item.revenue) || 0),
+      });
+    });
+
+    return Array.from(monthMap.entries()).map(([month, data]) => ({
+      month,
+      ...data,
+    }));
+  }, [rawData]);
+
+  if (isLoading) {
+    return (
+      <div className="bg-card rounded-2xl p-4 sm:p-6 border border-border">
+        <Skeleton className="h-6 w-32 mb-2" />
+        <Skeleton className="h-4 w-48 mb-6" />
+        <Skeleton className="h-[250px] sm:h-[300px] w-full" />
+      </div>
+    );
+  }
+
+  const hasRealData = rawData && rawData.length > 0;
+
   return (
     <div className="bg-card rounded-2xl p-4 sm:p-6 border border-border">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
         <div>
           <h3 className="text-lg font-semibold text-foreground">销售趋势</h3>
-          <p className="text-sm text-muted-foreground">线索与转化月度趋势</p>
+          <p className="text-sm text-muted-foreground">
+            线索与转化月度趋势
+            {!hasRealData && <span className="text-warning ml-2">(示例数据)</span>}
+          </p>
         </div>
         <div className="flex items-center gap-4 text-sm">
           <div className="flex items-center gap-2">
