@@ -12,6 +12,8 @@ import {
   Clock,
 } from 'lucide-react';
 import { ActiveCard } from '@/types/nexus';
+import { useApprovals } from '@/hooks/useApprovals';
+import { useToast } from '@/hooks/use-toast';
 
 const mockEmployeeCards: ActiveCard[] = [
   {
@@ -104,12 +106,35 @@ export function ActiveCardStream() {
   const [cards, setCards] = useState<ActiveCard[]>([]);
   const [newCardId, setNewCardId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const initialCards = user.role === 'boss' ? mockBossCards : mockEmployeeCards;
-    setCards(initialCards);
-  }, [user.role]);
+  // Real Data Hook
+  const { pendingApprovals, updateStatus, isLoading: isLoadingApprovals } = useApprovals();
+  const { toast } = useToast(); // Ensure we have useToast imported
 
-  // Simulate new card arriving
+  useEffect(() => {
+    // Base Mocks (Keep these to make the UI look alive for non-approval items)
+    const baseMocks = user.role === 'boss'
+      ? mockBossCards.filter(c => c.type !== 'alert') // Remove mock alerts, use real ones
+      : mockEmployeeCards;
+
+    // Convert Real Approvals to Cards
+    const approvalCards: ActiveCard[] = pendingApprovals.map(req => ({
+      id: req.id,
+      type: 'alert',
+      title: '⚠️ 待审批申请',
+      content: `${req.submitter_name} 提交了 ${req.description || '费用'} 申请 (¥${req.amount})，请审批`,
+      priority: 'urgent',
+      timestamp: new Date(req.created_at),
+    }));
+
+    // Combine and Sort
+    const allCards = [...approvalCards, ...baseMocks].sort((a, b) =>
+      b.timestamp.getTime() - a.timestamp.getTime()
+    );
+
+    setCards(allCards);
+  }, [user.role, pendingApprovals]);
+
+  // Simulate new card arriving (Only for employees for now, or non-critical updates)
   useEffect(() => {
     const timer = setTimeout(() => {
       if (user.role === 'employee') {
@@ -129,6 +154,24 @@ export function ActiveCardStream() {
 
     return () => clearTimeout(timer);
   }, [user.role]);
+
+  const handleApprove = async (id: string) => {
+    try {
+      await updateStatus.mutateAsync({ id, status: 'approved' });
+      toast({ title: "已批准", description: "申请已通过系统审核" });
+    } catch (e) {
+      toast({ variant: "destructive", title: "操作失败", description: "无法完成请求" });
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    try {
+      await updateStatus.mutateAsync({ id, status: 'rejected' });
+      toast({ title: "已驳回", description: "申请已被拒绝" });
+    } catch (e) {
+      toast({ variant: "destructive", title: "操作失败", description: "无法完成请求" });
+    }
+  };
 
   const formatTime = (date: Date) => {
     const now = new Date();
@@ -176,10 +219,16 @@ export function ActiveCardStream() {
           )}
           {card.type === 'alert' && (
             <div className="mt-3 flex gap-2 justify-end">
-              <button className="px-3 py-1.5 text-xs font-medium rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30 transition-colors">
+              <button
+                onClick={() => handleReject(card.id)}
+                className="px-3 py-1.5 text-xs font-medium rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30 transition-colors"
+              >
                 驳回
               </button>
-              <button className="px-3 py-1.5 text-xs font-medium rounded-md bg-success text-success-foreground hover:bg-success/90 transition-colors">
+              <button
+                onClick={() => handleApprove(card.id)}
+                className="px-3 py-1.5 text-xs font-medium rounded-md bg-success text-success-foreground hover:bg-success/90 transition-colors"
+              >
                 批准
               </button>
             </div>
