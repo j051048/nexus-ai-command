@@ -12,6 +12,7 @@ import {
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { useWinRateHistory } from '@/hooks/useSalesData';
+import { useCurrentTargets } from '@/hooks/useTargets';
 import { Skeleton } from '@/components/ui/skeleton';
 
 // Fallback mock data
@@ -39,6 +40,13 @@ const chartConfig = {
 
 export function WinRateChart() {
   const { data: rawData, isLoading } = useWinRateHistory(8);
+  const { data: targets } = useCurrentTargets();
+
+  // Get monthly target win rate
+  const targetWinRate = React.useMemo(() => {
+    const monthly = targets?.find(t => t.target_type === 'monthly');
+    return monthly?.win_rate_target || 25; // Default to 25% if no target
+  }, [targets]);
 
   const winRateData = React.useMemo(() => {
     if (!rawData || rawData.length === 0) return mockWinRateData;
@@ -90,7 +98,7 @@ export function WinRateChart() {
             axisLine={false}
           />
           <YAxis 
-            domain={[0, 40]}
+            domain={[0, Math.max(40, targetWinRate + 10)]}
             tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
             tickLine={false}
             axisLine={false}
@@ -101,10 +109,14 @@ export function WinRateChart() {
             formatter={(value: number) => [`${value}%`, '赢率']}
           />
           <ReferenceLine 
-            y={25} 
+            y={targetWinRate} 
             stroke="hsl(var(--muted-foreground))" 
             strokeDasharray="5 5" 
-            label={{ value: '目标 25%', fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+            label={{ 
+              value: `目标 ${targetWinRate}%`, 
+              fill: 'hsl(var(--muted-foreground))', 
+              fontSize: 11 
+            }}
           />
           <Line 
             type="monotone" 
@@ -116,6 +128,17 @@ export function WinRateChart() {
           />
         </LineChart>
       </ChartContainer>
+
+      <div className="flex items-center justify-center gap-6 mt-4 text-sm">
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-1 rounded bg-primary" />
+          <span className="text-muted-foreground">实际赢率</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-0.5 bg-muted-foreground" style={{ borderTop: '2px dashed' }} />
+          <span className="text-muted-foreground">目标线</span>
+        </div>
+      </div>
     </div>
   );
 }

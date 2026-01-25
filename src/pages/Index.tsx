@@ -10,6 +10,7 @@ import { ApprovalCenter } from '@/components/approval/ApprovalCenter';
 import { RewardsWallet } from '@/components/rewards/RewardsWallet';
 import { SalesTargetManager } from '@/components/targets/SalesTargetManager';
 import { EmployeeManagement } from '@/components/admin/EmployeeManagement';
+import { AISettingsPanel } from '@/components/settings/AISettingsPanel';
 
 function AppContent() {
   const { role } = useAuth();
@@ -51,15 +52,7 @@ function AppContent() {
           </div>
         );
       case 'settings':
-        return (
-          <div className="flex items-center justify-center h-96">
-            <div className="text-center">
-              <div className="text-6xl mb-4">⚙️</div>
-              <h2 className="text-xl font-semibold text-foreground">系统设置</h2>
-              <p className="text-muted-foreground mt-2">配置AI规则、激励参数、权限管理</p>
-            </div>
-          </div>
-        );
+        return <AISettingsPanel />;
       default:
         return <EmployeeDashboard />;
     }
