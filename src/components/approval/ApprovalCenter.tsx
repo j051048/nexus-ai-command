@@ -33,12 +33,11 @@ import {
   useSubmitApproval,
   useApproveRequest,
   useRejectRequest,
-  useNotifications,
   useApprovalsRealtime,
-  useNotificationsRealtime,
   usePendingApprovalsCount,
   ApprovalRequest,
 } from '@/hooks/useApprovals';
+import { useNotifications, useNotificationsRealtime } from '@/hooks/useNotifications';
 
 const approvalTypes = [
   { id: 'travel' as const, name: '出差申请', icon: <Plane className="w-5 h-5" />, example: '下周去上海出差见客户，预算2500，包括高铁和酒店', threshold: 3000 },
@@ -48,9 +47,7 @@ const approvalTypes = [
 ];
 
 const statusConfig = {
-  pending: { label: '处理中', color: 'bg-primary/20 text-primary', icon: <Clock className="w-4 h-4" /> },
-  auto_approved: { label: '已自动通过', color: 'bg-success/20 text-success', icon: <CheckCircle2 className="w-4 h-4" /> },
-  requires_boss: { label: '待老板审批', color: 'bg-warning/20 text-warning', icon: <Clock className="w-4 h-4" /> },
+  pending: { label: '待处理', color: 'bg-warning/20 text-warning', icon: <Clock className="w-4 h-4" /> },
   approved: { label: '已批准', color: 'bg-success/20 text-success', icon: <CheckCircle2 className="w-4 h-4" /> },
   rejected: { label: '已驳回', color: 'bg-destructive/20 text-destructive', icon: <XCircle className="w-4 h-4" /> },
 };
@@ -84,9 +81,7 @@ export function ApprovalCenter() {
 // Notification Bell Component
 function NotificationBell() {
   const [showNotifications, setShowNotifications] = useState(false);
-  const { data: notifications } = useNotifications();
-  
-  const unreadCount = notifications?.filter(n => !n.read).length || 0;
+  const { notifications, unreadCount } = useNotifications();
 
   return (
     <>
@@ -158,7 +153,7 @@ function EmployeeApprovalView() {
         amount,
       });
 
-      if (result.auto_approved) {
+      if (result.status === 'approved') {
         toast.success('已自动审批通过！');
       } else {
         toast.success('已提交，等待老板审批');
@@ -167,12 +162,13 @@ function EmployeeApprovalView() {
       setInput('');
       setAmount(0);
       setSelectedType(null);
-    } catch (error: any) {
-      toast.error('提交失败: ' + error.message);
+    } catch (error: unknown) {
+      const err = error as Error;
+      toast.error('提交失败: ' + err.message);
     }
   };
 
-  const useExample = (type: typeof approvalTypes[0]) => {
+  const applyExample = (type: typeof approvalTypes[0]) => {
     setSelectedType(type);
     setInput(type.example);
     // Extract amount from example if possible
@@ -185,8 +181,8 @@ function EmployeeApprovalView() {
   // Calculate stats
   const stats = {
     total: myApprovals?.length || 0,
-    autoApproved: myApprovals?.filter(a => a.status === 'auto_approved').length || 0,
-    pending: myApprovals?.filter(a => a.status === 'requires_boss').length || 0,
+    approved: myApprovals?.filter(a => a.status === 'approved').length || 0,
+    pending: myApprovals?.filter(a => a.status === 'pending').length || 0,
   };
 
   return (
@@ -208,7 +204,7 @@ function EmployeeApprovalView() {
           {approvalTypes.map((type) => (
             <button
               key={type.id}
-              onClick={() => useExample(type)}
+              onClick={() => applyExample(type)}
               className={cn(
                 "p-4 rounded-xl border transition-all text-left",
                 selectedType?.id === type.id
@@ -286,8 +282,8 @@ function EmployeeApprovalView() {
         <div className="bg-card rounded-xl p-5 border border-border">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">自动通过</p>
-              <p className="text-2xl font-bold text-success mt-1">{stats.autoApproved}</p>
+              <p className="text-sm text-muted-foreground">已通过</p>
+              <p className="text-2xl font-bold text-success mt-1">{stats.approved}</p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-success/20 flex items-center justify-center">
               <Sparkles className="w-6 h-6 text-success" />
@@ -315,7 +311,7 @@ function EmployeeApprovalView() {
 
 // Boss View
 function BossApprovalView() {
-  const [statusFilter, setStatusFilter] = useState('requires_boss');
+  const [statusFilter, setStatusFilter] = useState('pending');
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
 
@@ -328,8 +324,9 @@ function BossApprovalView() {
     try {
       await approveRequest.mutateAsync(requestId);
       toast.success('已批准');
-    } catch (error: any) {
-      toast.error('操作失败: ' + error.message);
+    } catch (error: unknown) {
+      const err = error as Error;
+      toast.error('操作失败: ' + err.message);
     }
   };
 
@@ -344,8 +341,9 @@ function BossApprovalView() {
       toast.success('已驳回');
       setRejectingId(null);
       setRejectReason('');
-    } catch (error: any) {
-      toast.error('操作失败: ' + error.message);
+    } catch (error: unknown) {
+      const err = error as Error;
+      toast.error('操作失败: ' + err.message);
     }
   };
 
@@ -369,8 +367,8 @@ function BossApprovalView() {
             <div>
               <p className="text-sm text-muted-foreground">今日处理</p>
               <p className="text-2xl font-bold text-foreground mt-1">
-                {allApprovals?.filter(a => 
-                  new Date(a.submitted_at).toDateString() === new Date().toDateString()
+                {allApprovals?.filter(a =>
+                  new Date(a.created_at).toDateString() === new Date().toDateString()
                 ).length || 0}
               </p>
             </div>
@@ -395,7 +393,7 @@ function BossApprovalView() {
       {/* Filter Tabs */}
       <Tabs value={statusFilter} onValueChange={setStatusFilter}>
         <TabsList>
-          <TabsTrigger value="requires_boss" className="relative">
+          <TabsTrigger value="pending" className="relative">
             待审批
             {(pendingCount || 0) > 0 && (
               <span className="ml-2 px-1.5 py-0.5 text-xs bg-warning text-white rounded-full">
@@ -405,7 +403,6 @@ function BossApprovalView() {
           </TabsTrigger>
           <TabsTrigger value="approved">已批准</TabsTrigger>
           <TabsTrigger value="rejected">已驳回</TabsTrigger>
-          <TabsTrigger value="auto_approved">自动通过</TabsTrigger>
           <TabsTrigger value="all">全部</TabsTrigger>
         </TabsList>
 
@@ -451,8 +448,8 @@ function BossApprovalView() {
           />
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => setRejectingId(null)}>取消</Button>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={handleReject}
               disabled={rejectRequest.isPending}
             >
@@ -479,8 +476,8 @@ function BossApprovalCard({
   isApproving: boolean;
 }) {
   const status = statusConfig[approval.status as keyof typeof statusConfig];
-  const typeInfo = approvalTypes.find(t => t.id === approval.type);
-  const isPending = approval.status === 'requires_boss';
+  const typeInfo = approvalTypes.find(t => t.id === (approval.type as 'travel' | 'purchase' | 'expense' | 'leave'));
+  const isPending = approval.status === 'pending';
 
   return (
     <div className={cn(
@@ -503,7 +500,7 @@ function BossApprovalCard({
             <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground flex-wrap">
               <span>申请人：{approval.submitter_name}</span>
               <span className="font-medium text-foreground">¥{approval.amount}</span>
-              <span>{new Date(approval.submitted_at).toLocaleString('zh-CN')}</span>
+              <span>{new Date(approval.created_at).toLocaleString('zh-CN')}</span>
             </div>
             {approval.ai_reason && (
               <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
@@ -551,11 +548,11 @@ function BossApprovalCard({
 }
 
 // Approval History Component
-function ApprovalHistory({ 
-  approvals, 
-  isLoading 
-}: { 
-  approvals?: ApprovalRequest[]; 
+function ApprovalHistory({
+  approvals,
+  isLoading
+}: {
+  approvals?: ApprovalRequest[];
   isLoading: boolean;
 }) {
   if (isLoading) {
@@ -584,7 +581,7 @@ function ApprovalHistory({
           {approvals.map((item) => {
             const status = statusConfig[item.status as keyof typeof statusConfig];
             const typeInfo = approvalTypes.find(t => t.id === item.type);
-            
+
             return (
               <div
                 key={item.id}
@@ -596,7 +593,7 @@ function ApprovalHistory({
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-foreground truncate">{item.description}</p>
                   <p className="text-xs text-muted-foreground">
-                    {new Date(item.submitted_at).toLocaleString('zh-CN')}
+                    {new Date(item.created_at).toLocaleString('zh-CN')}
                   </p>
                 </div>
                 {item.amount > 0 && (

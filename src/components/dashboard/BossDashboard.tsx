@@ -1,28 +1,24 @@
 import React, { useMemo, useState } from 'react';
-import { cn } from '@/lib/utils';
 import {
-  TrendingUp,
-  TrendingDown,
-  AlertTriangle,
   CheckCircle2,
-  Clock,
-  Users,
-  DollarSign,
   BarChart3,
-  FileCheck,
-  XCircle,
-  ChevronRight,
-  Bot,
   Database,
   Loader2,
   History,
 } from 'lucide-react';
 import { TeamPerformanceChart, RevenueChart } from '@/components/charts';
 import { useTeamPerformance, useLeaderboard, useSeedDemoData, useSalesMetricsRealtime } from '@/hooks/useSalesData';
+import { useApprovals } from '@/hooks/useApprovals';
 import { SalesHistoryPanel } from '@/components/sales';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AIWeeklyReport,
+  ExceptionQueue,
+  TeamPerformanceHeatmap,
+  TopPerformers
+} from './boss';
 
 const defaultWeeklyReport = {
   cashFlow: 1250000,
@@ -39,42 +35,6 @@ const defaultWeeklyReport = {
   ],
 };
 
-const pendingExceptions = [
-  {
-    id: '1',
-    type: 'purchase',
-    title: '采购申请超预算',
-    description: '示波器采购单超出预算10%，需确认',
-    amount: 9900,
-    budget: 9000,
-    submitter: '陈伟',
-    submittedAt: '2小时前',
-    priority: 'high',
-  },
-  {
-    id: '2',
-    type: 'travel',
-    title: '紧急出差申请',
-    description: '客户临时要求现场演示，需加急审批',
-    amount: 4500,
-    budget: 3000,
-    submitter: '李娜',
-    submittedAt: '4小时前',
-    priority: 'urgent',
-  },
-  {
-    id: '3',
-    type: 'expense',
-    title: '报销单金额异常',
-    description: '餐饮费用超出标准，AI建议人工复核',
-    amount: 580,
-    budget: 300,
-    submitter: '张明',
-    submittedAt: '1天前',
-    priority: 'medium',
-  },
-];
-
 const teamHeatmap = [
   { name: '王晓明', mon: 95, tue: 88, wed: 92, thu: 90, fri: 95 },
   { name: '刘芳', mon: 85, tue: 91, wed: 88, thu: 92, fri: 89 },
@@ -83,15 +43,31 @@ const teamHeatmap = [
   { name: '李娜', mon: 70, tue: 75, wed: 78, thu: 76, fri: 80 },
 ];
 
-const getHeatColor = (score: number) => {
-  if (score >= 90) return 'bg-success';
-  if (score >= 80) return 'bg-primary';
-  if (score >= 70) return 'bg-warning';
-  return 'bg-destructive';
-};
-
 export function BossDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
+
+  // 接入真实审批数据 Hook
+  const { pendingApprovals, updateStatus } = useApprovals();
+
+  const handleApprove = async (id: string) => {
+    try {
+      await updateStatus.mutateAsync({ id, status: 'approved' });
+      toast.success('申请批准成功');
+    } catch (e: unknown) {
+      const err = e as Error;
+      toast.error('操作失败: ' + (err?.message || '未知错误'));
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    try {
+      await updateStatus.mutateAsync({ id, status: 'rejected' });
+      toast.success('申请已驳回');
+    } catch (e: unknown) {
+      const err = e as Error;
+      toast.error('操作失败: ' + (err?.message || '未知错误'));
+    }
+  };
 
   // Enable realtime subscription for live updates
   useSalesMetricsRealtime();
@@ -108,7 +84,7 @@ export function BossDashboard() {
     }
 
     const totalBonus = leaderboardData.reduce((sum, p) => sum + p.bonus, 0);
-    
+
     return {
       ...defaultWeeklyReport,
       totalIncentives: totalBonus,
@@ -126,8 +102,9 @@ export function BossDashboard() {
     try {
       await seedDemoData.mutateAsync();
       toast.success('已生成90天示例数据！');
-    } catch (error: any) {
-      toast.error('生成数据失败: ' + error.message);
+    } catch (error: unknown) {
+      const err = error as Error;
+      toast.error('生成数据失败: ' + err.message);
     }
   };
 
@@ -138,7 +115,7 @@ export function BossDashboard() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">总控中心</h1>
           <p className="text-sm sm:text-base text-muted-foreground mt-1">
-            早上好！今日仅有 <span className="text-warning font-semibold">3</span> 条异常需要您处理
+            早上好！今日仅有 <span className="text-warning font-semibold">{pendingApprovals.length}</span> 条异常需要您处理
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -179,247 +156,24 @@ export function BossDashboard() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4 sm:space-y-6 mt-4">
-      {/* AI Weekly Report */}
-      <div className="bg-gradient-card rounded-2xl p-4 sm:p-6 cyber-border">
-        <div className="flex items-center gap-3 mb-4 sm:mb-6">
-          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
-            <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
-          </div>
-          <div>
-            <h2 className="text-base sm:text-lg font-semibold text-foreground">AI 周报摘要</h2>
-            <p className="text-xs text-muted-foreground">本周自动生成 · 数据截至今日 09:00</p>
-          </div>
-        </div>
+          <AIWeeklyReport report={weeklyReport} />
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          <div className="space-y-2">
-            <p className="text-xs sm:text-sm text-muted-foreground">预计本周现金流</p>
-            <div className="flex items-baseline gap-2 flex-wrap">
-              <span className="text-2xl sm:text-3xl font-bold text-foreground mono-number">
-                ¥{(weeklyReport.cashFlow / 10000).toFixed(0)}万
-              </span>
-              <span className="flex items-center text-success text-sm">
-                <TrendingUp className="w-4 h-4" />
-                {weeklyReport.cashFlowTrend}%
-              </span>
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+            <RevenueChart />
+            <TeamPerformanceChart />
           </div>
 
-          <div className="space-y-2">
-            <p className="text-xs sm:text-sm text-muted-foreground">AI检测销售风险</p>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-bold text-warning mono-number">
-                {weeklyReport.salesRisks.length}
-              </span>
-              <span className="text-sm text-muted-foreground">条待关注</span>
-            </div>
-          </div>
+          <ExceptionQueue
+            pendingApprovals={pendingApprovals}
+            onApprove={handleApprove}
+            onReject={handleReject}
+            isProcessing={updateStatus.isPending}
+          />
 
-          <div className="space-y-2">
-            <p className="text-xs sm:text-sm text-muted-foreground">本周自动激励发放</p>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-bold text-success mono-number">
-                ¥{weeklyReport.totalIncentives.toLocaleString()}
-              </span>
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <TeamPerformanceHeatmap data={teamHeatmap} />
+            <TopPerformers performers={weeklyReport.topPerformers} />
           </div>
-
-          <div className="space-y-2">
-            <p className="text-xs sm:text-sm text-muted-foreground">AI审批处理率</p>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl sm:text-3xl font-bold text-primary mono-number">95%</span>
-              <span className="text-sm text-muted-foreground">自动通过</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Risk Alerts */}
-        <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-warning/10 rounded-xl border border-warning/30">
-          <div className="flex items-center gap-2 mb-2 sm:mb-3">
-            <AlertTriangle className="w-4 h-4 text-warning" />
-            <span className="text-sm font-medium text-warning">AI风险提醒</span>
-          </div>
-          <ul className="space-y-2">
-            {weeklyReport.salesRisks.map((risk, index) => (
-              <li key={index} className="text-xs sm:text-sm text-muted-foreground flex items-start gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-warning mt-1.5 flex-shrink-0" />
-                <span>{risk}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        <RevenueChart />
-        <TeamPerformanceChart />
-      </div>
-
-      {/* Exception Queue */}
-      <div className="bg-card rounded-2xl p-4 sm:p-6 border border-border">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-warning/20 flex items-center justify-center">
-              <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-warning" />
-            </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-semibold text-foreground">异常待办</h2>
-              <p className="text-xs text-muted-foreground">仅显示AI无法自动处理的5%异常</p>
-            </div>
-          </div>
-          <span className="text-sm text-muted-foreground">
-            共 <span className="text-warning font-semibold">{pendingExceptions.length}</span> 条
-          </span>
-        </div>
-
-        <div className="space-y-3 sm:space-y-4">
-          {pendingExceptions.map((item) => (
-            <div
-              key={item.id}
-              className={cn(
-                "p-3 sm:p-4 rounded-xl border transition-colors hover:bg-secondary/50",
-                item.priority === 'urgent' && "border-destructive/50 bg-destructive/5",
-                item.priority === 'high' && "border-warning/50 bg-warning/5",
-                item.priority === 'medium' && "border-border"
-              )}
-            >
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className={cn(
-                      "px-2 py-0.5 text-xs font-medium rounded-full",
-                      item.priority === 'urgent' && "bg-destructive/20 text-destructive",
-                      item.priority === 'high' && "bg-warning/20 text-warning",
-                      item.priority === 'medium' && "bg-muted text-muted-foreground"
-                    )}>
-                      {item.priority === 'urgent' ? '紧急' : item.priority === 'high' ? '较高' : '一般'}
-                    </span>
-                    <h3 className="font-medium text-foreground text-sm sm:text-base">{item.title}</h3>
-                  </div>
-                  <p className="text-xs sm:text-sm text-muted-foreground mb-2">{item.description}</p>
-                  <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs text-muted-foreground">
-                    <span>申请人：{item.submitter}</span>
-                    <span>金额：<span className="text-foreground font-medium">¥{item.amount}</span></span>
-                    <span className={item.amount > item.budget ? 'text-warning' : ''}>
-                      预算：¥{item.budget}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex gap-2 flex-shrink-0">
-                  <button className="px-3 sm:px-4 py-2 rounded-lg bg-destructive/20 text-destructive text-xs sm:text-sm font-medium hover:bg-destructive/30 transition-colors flex items-center gap-1">
-                    <XCircle className="w-4 h-4" />
-                    驳回
-                  </button>
-                  <button className="px-3 sm:px-4 py-2 rounded-lg bg-success text-white text-xs sm:text-sm font-medium hover:bg-success/90 transition-colors flex items-center gap-1">
-                    <CheckCircle2 className="w-4 h-4" />
-                    批准
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Team Performance Heatmap */}
-      <div className="grid grid-cols-2 gap-6">
-        <div className="bg-card rounded-2xl p-6 border border-border">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-foreground">团队绩效热力图</h2>
-            <button className="text-xs text-primary hover:underline flex items-center gap-1">
-              详细分析 <ChevronRight className="w-3 h-3" />
-            </button>
-          </div>
-          
-          <div className="space-y-3">
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <div className="w-20" />
-              <div className="flex-1 grid grid-cols-5 gap-2 text-center">
-                <span>周一</span>
-                <span>周二</span>
-                <span>周三</span>
-                <span>周四</span>
-                <span>周五</span>
-              </div>
-            </div>
-            {teamHeatmap.map((member) => (
-              <div key={member.name} className="flex items-center gap-3">
-                <div className="w-20 text-sm text-foreground truncate">{member.name}</div>
-                <div className="flex-1 grid grid-cols-5 gap-2">
-                  {[member.mon, member.tue, member.wed, member.thu, member.fri].map((score, idx) => (
-                    <div
-                      key={idx}
-                      className={cn(
-                        "h-8 rounded flex items-center justify-center text-xs font-medium text-white",
-                        getHeatColor(score)
-                      )}
-                    >
-                      {score}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex items-center justify-center gap-4 mt-4 text-xs">
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 rounded bg-success" />
-              <span className="text-muted-foreground">≥90</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 rounded bg-primary" />
-              <span className="text-muted-foreground">80-89</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 rounded bg-warning" />
-              <span className="text-muted-foreground">70-79</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 rounded bg-destructive" />
-              <span className="text-muted-foreground">&lt;70</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Top Performers */}
-        <div className="bg-card rounded-2xl p-6 border border-border">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-foreground">本周之星</h2>
-            <span className="text-xs text-muted-foreground">按绩效分排名</span>
-          </div>
-
-          <div className="space-y-4">
-            {weeklyReport.topPerformers.map((performer, index) => (
-              <div
-                key={performer.name}
-                className={cn(
-                  "flex items-center gap-4 p-4 rounded-xl",
-                  index === 0 && "bg-gold/10 border border-gold/30"
-                )}
-              >
-                <div className={cn(
-                  "w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold",
-                  index === 0 && "rank-gold",
-                  index === 1 && "rank-silver",
-                  index === 2 && "rank-bronze"
-                )}>
-                  {index + 1}
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-foreground">{performer.name}</p>
-                  <p className="text-sm text-muted-foreground">本周激励 ¥{performer.bonus.toLocaleString()}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-foreground mono-number">{performer.score}</p>
-                  <p className="text-xs text-muted-foreground">绩效分</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
         </TabsContent>
 
         <TabsContent value="history" className="mt-4">
