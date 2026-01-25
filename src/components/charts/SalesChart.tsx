@@ -7,10 +7,12 @@ import {
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
-  Legend 
+  Legend,
+  ReferenceLine
 } from 'recharts';
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { useSalesMetrics } from '@/hooks/useSalesData';
+import { useCurrentTargets } from '@/hooks/useTargets';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 
@@ -38,6 +40,16 @@ const chartConfig = {
 
 export function SalesChart() {
   const { data: rawData, isLoading, error } = useSalesMetrics(7);
+  const { data: targets } = useCurrentTargets();
+
+  // Get monthly target values
+  const monthlyTarget = React.useMemo(() => {
+    const monthly = targets?.find(t => t.target_type === 'monthly');
+    return {
+      leads: monthly?.leads_target || 0,
+      conversions: monthly?.conversions_target || 0,
+    };
+  }, [targets]);
 
   // Transform raw data into monthly aggregates
   const salesData = React.useMemo(() => {
@@ -72,6 +84,7 @@ export function SalesChart() {
   }
 
   const hasRealData = rawData && rawData.length > 0;
+  const hasTargets = monthlyTarget.leads > 0 || monthlyTarget.conversions > 0;
 
   return (
     <div className="bg-card rounded-2xl p-4 sm:p-6 border border-border">
@@ -83,7 +96,7 @@ export function SalesChart() {
             {!hasRealData && <span className="text-warning ml-2">(示例数据)</span>}
           </p>
         </div>
-        <div className="flex items-center gap-4 text-sm">
+        <div className="flex items-center gap-4 text-sm flex-wrap">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-primary" />
             <span className="text-muted-foreground">线索</span>
@@ -92,6 +105,12 @@ export function SalesChart() {
             <div className="w-3 h-3 rounded-full bg-success" />
             <span className="text-muted-foreground">转化</span>
           </div>
+          {hasTargets && (
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-0.5 bg-muted-foreground" style={{ borderTop: '2px dashed' }} />
+              <span className="text-muted-foreground">目标线</span>
+            </div>
+          )}
         </div>
       </div>
       
@@ -122,6 +141,34 @@ export function SalesChart() {
             axisLine={false}
           />
           <Tooltip content={<ChartTooltipContent />} />
+          {monthlyTarget.leads > 0 && (
+            <ReferenceLine 
+              y={monthlyTarget.leads} 
+              stroke="hsl(var(--primary))" 
+              strokeDasharray="5 5" 
+              strokeOpacity={0.6}
+              label={{ 
+                value: `线索目标 ${monthlyTarget.leads}`, 
+                fill: 'hsl(var(--primary))', 
+                fontSize: 10,
+                position: 'right'
+              }}
+            />
+          )}
+          {monthlyTarget.conversions > 0 && (
+            <ReferenceLine 
+              y={monthlyTarget.conversions} 
+              stroke="hsl(var(--success))" 
+              strokeDasharray="5 5" 
+              strokeOpacity={0.6}
+              label={{ 
+                value: `转化目标 ${monthlyTarget.conversions}`, 
+                fill: 'hsl(var(--success))', 
+                fontSize: 10,
+                position: 'right'
+              }}
+            />
+          )}
           <Area 
             type="monotone" 
             dataKey="leads" 

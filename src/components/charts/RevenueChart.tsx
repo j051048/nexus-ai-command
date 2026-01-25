@@ -7,10 +7,12 @@ import {
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  ResponsiveContainer 
+  ResponsiveContainer,
+  ReferenceLine
 } from 'recharts';
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { useRevenueData } from '@/hooks/useSalesData';
+import { useCurrentTargets } from '@/hooks/useTargets';
 import { Skeleton } from '@/components/ui/skeleton';
 
 // Fallback mock data
@@ -37,14 +39,30 @@ const chartConfig = {
 
 export function RevenueChart() {
   const { data: rawData, isLoading } = useRevenueData(7);
+  const { data: targets } = useCurrentTargets();
+
+  // Get monthly revenue target
+  const monthlyRevenueTarget = React.useMemo(() => {
+    const monthly = targets?.find(t => t.target_type === 'monthly');
+    return monthly?.revenue_target ? Number(monthly.revenue_target) / 10000 : 0; // Convert to 万
+  }, [targets]);
 
   const revenueData = React.useMemo(() => {
     if (!rawData || rawData.length === 0) return mockRevenueData;
+    // Add target line to each data point if we have a target
+    if (monthlyRevenueTarget > 0) {
+      return rawData.map(d => ({
+        ...d,
+        target: monthlyRevenueTarget,
+      }));
+    }
     return rawData;
-  }, [rawData]);
+  }, [rawData, monthlyRevenueTarget]);
 
   const totalRevenue = revenueData.reduce((sum, d) => sum + d.revenue, 0);
-  const totalTarget = revenueData.reduce((sum, d) => sum + d.target, 0);
+  const totalTarget = monthlyRevenueTarget > 0 
+    ? monthlyRevenueTarget * revenueData.length 
+    : revenueData.reduce((sum, d) => sum + (d.target || 0), 0);
   const completion = totalTarget > 0 ? Math.round((totalRevenue / totalTarget) * 100) : 0;
   const hasRealData = rawData && rawData.length > 0;
 
@@ -105,6 +123,19 @@ export function RevenueChart() {
               name === 'revenue' ? '实际营收' : '目标'
             ]}
           />
+          {monthlyRevenueTarget > 0 && (
+            <ReferenceLine 
+              y={monthlyRevenueTarget} 
+              stroke="hsl(var(--warning))" 
+              strokeDasharray="5 5" 
+              label={{ 
+                value: `月目标 ${monthlyRevenueTarget}万`, 
+                fill: 'hsl(var(--warning))', 
+                fontSize: 11,
+                position: 'right'
+              }}
+            />
+          )}
           <Bar 
             dataKey="revenue" 
             fill="hsl(var(--primary))" 
