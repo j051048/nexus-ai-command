@@ -13,17 +13,13 @@ export interface AISettings {
 }
 
 export const DEFAULT_MODELS = [
-  { value: 'google/gemini-3-pro-preview', label: 'Gemini 3 Pro Preview (推荐)' },
-  { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash Preview' },
-  { value: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
-  { value: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-  { value: 'openai/gpt-5.2', label: 'GPT-5.2 (最新)' },
-  { value: 'openai/gpt-5', label: 'GPT-5' },
-  { value: 'openai/gpt-5-mini', label: 'GPT-5 Mini' },
-  { value: 'anthropic/claude-4-opus', label: 'Claude 4 Opus' },
-  { value: 'anthropic/claude-4-sonnet', label: 'Claude 4 Sonnet' },
-  { value: 'mistral/mistral-large-2', label: 'Mistral Large 2' },
-  { value: 'meta/llama-4-405b', label: 'Llama 4 405B' },
+  { value: 'gpt-4o', label: 'GPT-4o (稳定推荐)' },
+  { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo (快速)' },
+  { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
+  { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
+  { value: 'google/gemini-pro', label: 'Gemini Pro' },
+  { value: 'google/gemini-1.5-pro-latest', label: 'Gemini 1.5 Pro' },
   { value: 'custom', label: '自定义模型...' },
 ];
 
