@@ -14,16 +14,184 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      badges: {
+        Row: {
+          description: string | null
+          icon: string
+          id: string
+          name: string
+          tier: string | null
+          unlocked_at: string | null
+          user_id: string
+        }
+        Insert: {
+          description?: string | null
+          icon: string
+          id?: string
+          name: string
+          tier?: string | null
+          unlocked_at?: string | null
+          user_id: string
+        }
+        Update: {
+          description?: string | null
+          icon?: string
+          id?: string
+          name?: string
+          tier?: string | null
+          unlocked_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar: string | null
+          created_at: string
+          department: string | null
+          id: string
+          name: string
+          rank: number | null
+          score: number | null
+          total_bonus: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar?: string | null
+          created_at?: string
+          department?: string | null
+          id?: string
+          name: string
+          rank?: number | null
+          score?: number | null
+          total_bonus?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar?: string | null
+          created_at?: string
+          department?: string | null
+          id?: string
+          name?: string
+          rank?: number | null
+          score?: number | null
+          total_bonus?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      sales_metrics: {
+        Row: {
+          calls_made: number | null
+          conversions: number | null
+          created_at: string | null
+          date: string
+          id: string
+          leads_count: number | null
+          revenue: number | null
+          score: number | null
+          user_id: string | null
+          win_rate: number | null
+        }
+        Insert: {
+          calls_made?: number | null
+          conversions?: number | null
+          created_at?: string | null
+          date?: string
+          id?: string
+          leads_count?: number | null
+          revenue?: number | null
+          score?: number | null
+          user_id?: string | null
+          win_rate?: number | null
+        }
+        Update: {
+          calls_made?: number | null
+          conversions?: number | null
+          created_at?: string | null
+          date?: string
+          id?: string
+          leads_count?: number | null
+          revenue?: number | null
+          score?: number | null
+          user_id?: string | null
+          win_rate?: number | null
+        }
+        Relationships: []
+      }
+      team_performance: {
+        Row: {
+          avg_win_rate: number | null
+          created_at: string | null
+          id: string
+          top_performer_id: string | null
+          total_conversions: number | null
+          total_leads: number | null
+          total_revenue: number | null
+          week_start: string
+        }
+        Insert: {
+          avg_win_rate?: number | null
+          created_at?: string | null
+          id?: string
+          top_performer_id?: string | null
+          total_conversions?: number | null
+          total_leads?: number | null
+          total_revenue?: number | null
+          week_start: string
+        }
+        Update: {
+          avg_win_rate?: number | null
+          created_at?: string | null
+          id?: string
+          top_performer_id?: string | null
+          total_conversions?: number | null
+          total_leads?: number | null
+          total_revenue?: number | null
+          week_start?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "boss" | "employee"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +318,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["boss", "employee"],
+    },
   },
 } as const

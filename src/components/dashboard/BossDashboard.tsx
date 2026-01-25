@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Bot,
 } from 'lucide-react';
+import { TeamPerformanceChart, RevenueChart } from '@/components/charts';
 
 const weeklyReport = {
   cashFlow: 1250000,
@@ -83,38 +84,38 @@ const getHeatColor = (score: number) => {
 
 export function BossDashboard() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">总控中心</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">总控中心</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1">
             早上好！今日仅有 <span className="text-warning font-semibold">3</span> 条异常需要您处理
           </p>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-success/20 rounded-xl">
-          <CheckCircle2 className="w-5 h-5 text-success" />
-          <span className="text-success font-medium">95% 事务已由AI自动处理</span>
+        <div className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-success/20 rounded-xl">
+          <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-success" />
+          <span className="text-success font-medium text-sm sm:text-base">95% 事务已由AI自动处理</span>
         </div>
       </div>
 
       {/* AI Weekly Report */}
-      <div className="bg-gradient-card rounded-2xl p-6 cyber-border">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
-            <Bot className="w-5 h-5 text-primary-foreground" />
+      <div className="bg-gradient-card rounded-2xl p-4 sm:p-6 cyber-border">
+        <div className="flex items-center gap-3 mb-4 sm:mb-6">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
+            <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-foreground">AI 周报摘要</h2>
+            <h2 className="text-base sm:text-lg font-semibold text-foreground">AI 周报摘要</h2>
             <p className="text-xs text-muted-foreground">本周自动生成 · 数据截至今日 09:00</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">预计本周现金流</p>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-foreground mono-number">
+            <p className="text-xs sm:text-sm text-muted-foreground">预计本周现金流</p>
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <span className="text-2xl sm:text-3xl font-bold text-foreground mono-number">
                 ¥{(weeklyReport.cashFlow / 10000).toFixed(0)}万
               </span>
               <span className="flex items-center text-success text-sm">
@@ -125,9 +126,9 @@ export function BossDashboard() {
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">AI检测销售风险</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">AI检测销售风险</p>
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-warning mono-number">
+              <span className="text-2xl sm:text-3xl font-bold text-warning mono-number">
                 {weeklyReport.salesRisks.length}
               </span>
               <span className="text-sm text-muted-foreground">条待关注</span>
@@ -135,49 +136,55 @@ export function BossDashboard() {
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">本周自动激励发放</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">本周自动激励发放</p>
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-success mono-number">
+              <span className="text-2xl sm:text-3xl font-bold text-success mono-number">
                 ¥{weeklyReport.totalIncentives.toLocaleString()}
               </span>
             </div>
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">AI审批处理率</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">AI审批处理率</p>
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-primary mono-number">95%</span>
+              <span className="text-2xl sm:text-3xl font-bold text-primary mono-number">95%</span>
               <span className="text-sm text-muted-foreground">自动通过</span>
             </div>
           </div>
         </div>
 
         {/* Risk Alerts */}
-        <div className="mt-6 p-4 bg-warning/10 rounded-xl border border-warning/30">
-          <div className="flex items-center gap-2 mb-3">
+        <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-warning/10 rounded-xl border border-warning/30">
+          <div className="flex items-center gap-2 mb-2 sm:mb-3">
             <AlertTriangle className="w-4 h-4 text-warning" />
             <span className="text-sm font-medium text-warning">AI风险提醒</span>
           </div>
           <ul className="space-y-2">
             {weeklyReport.salesRisks.map((risk, index) => (
-              <li key={index} className="text-sm text-muted-foreground flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-warning" />
-                {risk}
+              <li key={index} className="text-xs sm:text-sm text-muted-foreground flex items-start gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-warning mt-1.5 flex-shrink-0" />
+                <span>{risk}</span>
               </li>
             ))}
           </ul>
         </div>
       </div>
 
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <RevenueChart />
+        <TeamPerformanceChart />
+      </div>
+
       {/* Exception Queue */}
-      <div className="bg-card rounded-2xl p-6 border border-border">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-card rounded-2xl p-4 sm:p-6 border border-border">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-warning/20 flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5 text-warning" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-warning/20 flex items-center justify-center">
+              <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-warning" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-foreground">异常待办</h2>
+              <h2 className="text-base sm:text-lg font-semibold text-foreground">异常待办</h2>
               <p className="text-xs text-muted-foreground">仅显示AI无法自动处理的5%异常</p>
             </div>
           </div>
@@ -186,20 +193,20 @@ export function BossDashboard() {
           </span>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {pendingExceptions.map((item) => (
             <div
               key={item.id}
               className={cn(
-                "p-4 rounded-xl border transition-colors hover:bg-secondary/50",
+                "p-3 sm:p-4 rounded-xl border transition-colors hover:bg-secondary/50",
                 item.priority === 'urgent' && "border-destructive/50 bg-destructive/5",
                 item.priority === 'high' && "border-warning/50 bg-warning/5",
                 item.priority === 'medium' && "border-border"
               )}
             >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span className={cn(
                       "px-2 py-0.5 text-xs font-medium rounded-full",
                       item.priority === 'urgent' && "bg-destructive/20 text-destructive",
@@ -208,22 +215,23 @@ export function BossDashboard() {
                     )}>
                       {item.priority === 'urgent' ? '紧急' : item.priority === 'high' ? '较高' : '一般'}
                     </span>
-                    <h3 className="font-medium text-foreground">{item.title}</h3>
+                    <h3 className="font-medium text-foreground text-sm sm:text-base">{item.title}</h3>
                   </div>
-                  <p className="text-sm text-muted-foreground mb-2">{item.description}</p>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-2">{item.description}</p>
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs text-muted-foreground">
                     <span>申请人：{item.submitter}</span>
                     <span>金额：<span className="text-foreground font-medium">¥{item.amount}</span></span>
-                    <span>预算：<span className={item.amount > item.budget ? 'text-warning' : 'text-foreground'}>¥{item.budget}</span></span>
-                    <span>提交于 {item.submittedAt}</span>
+                    <span className={item.amount > item.budget ? 'text-warning' : ''}>
+                      预算：¥{item.budget}
+                    </span>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <button className="px-4 py-2 rounded-lg bg-destructive/20 text-destructive text-sm font-medium hover:bg-destructive/30 transition-colors flex items-center gap-1">
+                <div className="flex gap-2 flex-shrink-0">
+                  <button className="px-3 sm:px-4 py-2 rounded-lg bg-destructive/20 text-destructive text-xs sm:text-sm font-medium hover:bg-destructive/30 transition-colors flex items-center gap-1">
                     <XCircle className="w-4 h-4" />
                     驳回
                   </button>
-                  <button className="px-4 py-2 rounded-lg bg-success text-white text-sm font-medium hover:bg-success/90 transition-colors flex items-center gap-1">
+                  <button className="px-3 sm:px-4 py-2 rounded-lg bg-success text-white text-xs sm:text-sm font-medium hover:bg-success/90 transition-colors flex items-center gap-1">
                     <CheckCircle2 className="w-4 h-4" />
                     批准
                   </button>
