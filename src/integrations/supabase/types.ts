@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      approval_requests: {
+        Row: {
+          ai_reason: string | null
+          amount: number | null
+          description: string
+          id: string
+          metadata: Json | null
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          submitted_at: string
+          submitted_by: string
+          type: string
+        }
+        Insert: {
+          ai_reason?: string | null
+          amount?: number | null
+          description: string
+          id?: string
+          metadata?: Json | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_at?: string
+          submitted_by: string
+          type: string
+        }
+        Update: {
+          ai_reason?: string | null
+          amount?: number | null
+          description?: string
+          id?: string
+          metadata?: Json | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_at?: string
+          submitted_by?: string
+          type?: string
+        }
+        Relationships: []
+      }
       badges: {
         Row: {
           description: string | null
@@ -40,6 +85,39 @@ export type Database = {
           name?: string
           tier?: string | null
           unlocked_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          data: Json | null
+          id: string
+          message: string
+          read: boolean | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json | null
+          id?: string
+          message: string
+          read?: boolean | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json | null
+          id?: string
+          message?: string
+          read?: boolean | null
+          title?: string
+          type?: string
           user_id?: string
         }
         Relationships: []
@@ -122,6 +200,45 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_targets: {
+        Row: {
+          conversions_target: number | null
+          created_at: string
+          created_by: string | null
+          id: string
+          leads_target: number | null
+          revenue_target: number | null
+          target_period: string
+          target_type: string
+          updated_at: string
+          win_rate_target: number | null
+        }
+        Insert: {
+          conversions_target?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          leads_target?: number | null
+          revenue_target?: number | null
+          target_period: string
+          target_type: string
+          updated_at?: string
+          win_rate_target?: number | null
+        }
+        Update: {
+          conversions_target?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          leads_target?: number | null
+          revenue_target?: number | null
+          target_period?: string
+          target_type?: string
+          updated_at?: string
+          win_rate_target?: number | null
+        }
+        Relationships: []
+      }
       team_performance: {
         Row: {
           avg_win_rate: number | null
@@ -188,6 +305,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      transfer_and_delete_user: {
+        Args: { _transfer_to_user?: string; _user_to_delete: string }
+        Returns: undefined
       }
     }
     Enums: {
