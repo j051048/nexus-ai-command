@@ -20,6 +20,7 @@ export const DEFAULT_MODELS = [
   { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
   { value: 'google/gemini-pro', label: 'Gemini Pro' },
   { value: 'google/gemini-1.5-pro-latest', label: 'Gemini 1.5 Pro' },
+  { value: 'google/gemini-3-pro-preview', label: 'Gemini 3 Pro Preview (实验性)' },
   { value: 'custom', label: '自定义模型...' },
 ];
 
