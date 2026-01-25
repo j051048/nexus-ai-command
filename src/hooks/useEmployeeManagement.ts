@@ -56,65 +56,34 @@ export function useTransferEmployeeData() {
       fromUserId: string;
       toUserId: string;
     }) => {
-      // Transfer sales_metrics
-      const { error: metricsError } = await supabase
-        .from('sales_metrics')
-        .update({ user_id: toUserId })
-        .eq('user_id', fromUserId);
+      // Use the RPC for atomic transfer
+      const { error } = await supabase.rpc('transfer_employee_data', {
+        from_user_id: fromUserId,
+        to_user_id: toUserId,
+      });
 
-      if (metricsError) throw metricsError;
-
-      // Transfer badges
-      const { error: badgesError } = await supabase
-        .from('badges')
-        .update({ user_id: toUserId })
-        .eq('user_id', fromUserId);
-
-      if (badgesError) throw badgesError;
-
-      // Transfer approval requests
-      const { error: approvalsError } = await supabase
-        .from('approval_requests')
-        .update({ submitted_by: toUserId })
-        .eq('submitted_by', fromUserId);
-
-      if (approvalsError) throw approvalsError;
-
+      if (error) throw error;
       return { fromUserId, toUserId };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
-      queryClient.invalidateQueries({ queryKey: ['sales-metrics'] });
-      queryClient.invalidateQueries({ queryKey: ['approvals'] });
+      queryClient.invalidateQueries({ queryKey: ['employee-stats'] });
     },
   });
 }
 
-// Delete employee (remove profile and role, but auth.users needs admin API)
+// Delete employee (remove from public.users)
 export function useDeleteEmployee() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (userId: string) => {
-      // Delete from profiles
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('user_id', userId);
+      // Use the RPC for deletion
+      const { error } = await supabase.rpc('delete_employee', {
+        target_user_id: userId,
+      });
 
-      if (profileError) throw profileError;
-
-      // Delete from user_roles
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId);
-
-      if (roleError) throw roleError;
-
-      // Note: Cannot delete from auth.users directly - would need admin API
-      // The user won't be able to access the app anymore after profile deletion
-
+      if (error) throw error;
       return userId;
     },
     onSuccess: () => {
