@@ -12,6 +12,14 @@ interface MainLayoutProps {
   onNavChange: (nav: string) => void;
 }
 
+import { NotificationCenter } from '../common/NotificationCenter';
+
+interface MainLayoutProps {
+  children: React.ReactNode;
+  activeNav: string;
+  onNavChange: (nav: string) => void;
+}
+
 export function MainLayout({ children, activeNav, onNavChange }: MainLayoutProps) {
   const { user } = useUser();
   const [isChatExpanded, setIsChatExpanded] = useState(false);
@@ -20,7 +28,7 @@ export function MainLayout({ children, activeNav, onNavChange }: MainLayoutProps
   const isMobile = useIsMobile();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background text-foreground">
       {/* Mobile Header */}
       {isMobile && (
         <div className="fixed top-0 left-0 right-0 h-14 bg-card border-b border-border z-40 flex items-center justify-between px-4">
@@ -28,10 +36,13 @@ export function MainLayout({ children, activeNav, onNavChange }: MainLayoutProps
             <Menu className="w-5 h-5" />
           </button>
           <span className="font-semibold text-foreground">Project Nexus</span>
-          <button onClick={() => setIsCardsOpen(true)} className="p-2 hover:bg-secondary rounded-lg relative">
-            <span className="w-2 h-2 rounded-full bg-success absolute top-1 right-1 animate-pulse" />
-            <Menu className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <NotificationCenter />
+            <button onClick={() => setIsCardsOpen(true)} className="p-2 hover:bg-secondary rounded-lg relative">
+              <span className="w-2 h-2 rounded-full bg-success absolute top-1 right-1 animate-pulse" />
+              <Menu className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -46,10 +57,26 @@ export function MainLayout({ children, activeNav, onNavChange }: MainLayoutProps
 
       {/* Desktop Sidebar */}
       {!isMobile && <Sidebar activeNav={activeNav} onNavChange={onNavChange} />}
-      
+
       {/* Main Content Area */}
-      <div className={`${isMobile ? 'pt-14 pb-20' : 'ml-64 mr-80'} min-h-screen`}>
-        <main className="p-4 sm:p-6">
+      <div className={`${isMobile ? 'pt-14 pb-20' : 'ml-64 mr-80'} min-h-screen flex flex-col transition-all duration-300`}>
+        {/* Desktop Header */}
+        {!isMobile && (
+          <header className="h-16 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-30 px-6 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-foreground/80">
+              {/* Contextual Title could go here, for now empty or breadcrumb */}
+              {activeNav === 'dashboard' ? '战绩中心' :
+                activeNav === 'boss-dashboard' ? '总控中心' :
+                  activeNav === 'sales' ? '销售管道' : 'Nexus OS'}
+            </h2>
+            <div className="flex items-center gap-4">
+              {/* Future: Global Search */}
+              <NotificationCenter />
+            </div>
+          </header>
+        )}
+
+        <main className="p-4 sm:p-6 flex-1 overflow-auto">
           {children}
         </main>
       </div>
@@ -87,9 +114,9 @@ export function MainLayout({ children, activeNav, onNavChange }: MainLayoutProps
       )}
 
       {/* Bottom AI Chat Panel */}
-      <AIChatPanel 
-        isExpanded={isChatExpanded} 
-        onToggle={() => setIsChatExpanded(!isChatExpanded)} 
+      <AIChatPanel
+        isExpanded={isChatExpanded}
+        onToggle={() => setIsChatExpanded(!isChatExpanded)}
       />
     </div>
   );
