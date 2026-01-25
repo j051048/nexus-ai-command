@@ -12,11 +12,22 @@ import {
   Star,
   Database,
   Loader2,
+  Plus,
+  History,
 } from 'lucide-react';
 import { SalesChart, WinRateChart } from '@/components/charts';
-import { useLeaderboard, useSalesMetrics, useSeedDemoData } from '@/hooks/useSalesData';
+import { useLeaderboard, useSalesMetrics, useSeedDemoData, useSalesMetricsRealtime } from '@/hooks/useSalesData';
+import { SalesDataEntryForm, SalesHistoryPanel } from '@/components/sales';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const mockRankings = [
   { rank: 1, name: '王晓明', score: 95, bonus: 8200, trend: 'up' as const, isCurrentUser: false },
@@ -37,6 +48,11 @@ export function EmployeeDashboard() {
   const { user } = useUser();
   const [animatedScore, setAnimatedScore] = useState(0);
   const [showBonusPopup, setShowBonusPopup] = useState(false);
+  const [showEntryDialog, setShowEntryDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+
+  // Enable realtime subscription for live updates
+  useSalesMetricsRealtime();
 
   // Fetch real data from database
   const { data: leaderboardData } = useLeaderboard(5);
@@ -127,7 +143,7 @@ export function EmployeeDashboard() {
             早上好，{user.name}！今天也要加油哦 💪
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           {!hasRealData && (
             <Button
               variant="outline"
@@ -144,6 +160,20 @@ export function EmployeeDashboard() {
               生成示例数据
             </Button>
           )}
+          <Dialog open={showEntryDialog} onOpenChange={setShowEntryDialog}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="flex items-center gap-2">
+                <Plus className="w-4 h-4" />
+                录入数据
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>录入销售数据</DialogTitle>
+              </DialogHeader>
+              <SalesDataEntryForm onSuccess={() => setShowEntryDialog(false)} />
+            </DialogContent>
+          </Dialog>
           <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-success/20 text-success hover:bg-success/30 transition-colors">
             <Gift className="w-4 h-4" />
             <span className="font-medium">¥{user.totalBonus.toLocaleString()}</span>
@@ -151,7 +181,20 @@ export function EmployeeDashboard() {
         </div>
       </div>
 
-      {/* Main Stats Grid */}
+      {/* Tab Navigation */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 sm:w-auto sm:inline-flex">
+          <TabsTrigger value="overview" className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4" />
+            概览
+          </TabsTrigger>
+          <TabsTrigger value="history" className="flex items-center gap-2">
+            <History className="w-4 h-4" />
+            历史查询
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-4 sm:space-y-6 mt-4">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Score Card */}
         <div className="col-span-2 bg-gradient-card rounded-2xl p-4 sm:p-6 cyber-border">
@@ -352,6 +395,12 @@ export function EmployeeDashboard() {
           </div>
         </div>
       </div>
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-4">
+          <SalesHistoryPanel />
+        </TabsContent>
+      </Tabs>
 
       {/* Bonus Popup */}
       {showBonusPopup && (

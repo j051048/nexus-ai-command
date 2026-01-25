@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthContext';
 import { format, subDays, startOfWeek, subWeeks } from 'date-fns';
+import { useEffect } from 'react';
 
 export interface SalesMetric {
   id: string;
@@ -36,6 +37,41 @@ export interface TeamMemberPerformance {
   user_id: string;
 }
 
+// Hook for real-time subscription to sales metrics
+export function useSalesMetricsRealtime() {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    const channel = supabase
+      .channel('sales-metrics-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sales_metrics',
+        },
+        (payload) => {
+          console.log('Sales metrics changed:', payload);
+          // Invalidate all related queries to refetch fresh data
+          queryClient.invalidateQueries({ queryKey: ['sales-metrics'] });
+          queryClient.invalidateQueries({ queryKey: ['sales-metrics-range'] });
+          queryClient.invalidateQueries({ queryKey: ['win-rate-history'] });
+          queryClient.invalidateQueries({ queryKey: ['revenue-data'] });
+          queryClient.invalidateQueries({ queryKey: ['team-performance'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session?.user?.id, queryClient]);
+}
+
 // Fetch user's sales metrics for the last N months
 export function useSalesMetrics(months: number = 7) {
   const { session } = useAuth();
@@ -58,6 +94,35 @@ export function useSalesMetrics(months: number = 7) {
       return data as SalesMetric[];
     },
     enabled: !!session?.user?.id,
+  });
+}
+
+// Fetch sales metrics by date range
+export function useSalesMetricsByRange(startDate: string | null, endDate: string | null) {
+  const { session, role } = useAuth();
+
+  return useQuery({
+    queryKey: ['sales-metrics-range', session?.user?.id, role, startDate, endDate],
+    queryFn: async () => {
+      if (!session?.user?.id || !startDate || !endDate) return [];
+
+      let query = supabase
+        .from('sales_metrics')
+        .select('*')
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: false });
+
+      // If not boss, only get own metrics
+      if (role !== 'boss') {
+        query = query.eq('user_id', session.user.id);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as SalesMetric[];
+    },
+    enabled: !!session?.user?.id && !!startDate && !!endDate,
   });
 }
 
@@ -244,7 +309,7 @@ export function useLeaderboard(limit: number = 5) {
   });
 }
 
-// Save daily sales metrics
+// Save daily sales metrics (with upsert to handle existing dates)
 export function useSaveSalesMetric() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
@@ -263,7 +328,7 @@ export function useSaveSalesMetric() {
 
       const { data, error } = await supabase
         .from('sales_metrics')
-        .insert({
+        .upsert({
           user_id: session.user.id,
           date: metric.date || format(new Date(), 'yyyy-MM-dd'),
           leads_count: metric.leads_count || 0,
@@ -272,7 +337,7 @@ export function useSaveSalesMetric() {
           win_rate: metric.win_rate || 0,
           calls_made: metric.calls_made || 0,
           score: metric.score || 0,
-        })
+        }, { onConflict: 'user_id,date' })
         .select()
         .single();
 
@@ -281,6 +346,7 @@ export function useSaveSalesMetric() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-metrics-range'] });
       queryClient.invalidateQueries({ queryKey: ['win-rate-history'] });
       queryClient.invalidateQueries({ queryKey: ['revenue-data'] });
       queryClient.invalidateQueries({ queryKey: ['team-performance'] });
@@ -353,8 +419,39 @@ export function useSeedDemoData() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-metrics-range'] });
       queryClient.invalidateQueries({ queryKey: ['win-rate-history'] });
       queryClient.invalidateQueries({ queryKey: ['revenue-data'] });
     },
   });
+}
+
+// Export sales data as CSV
+export function exportToCSV(data: SalesMetric[], filename: string = 'sales-report') {
+  if (!data || data.length === 0) {
+    throw new Error('No data to export');
+  }
+
+  const headers = ['日期', '线索数', '转化数', '营收', '赢率%', '通话数', '绩效分'];
+  const rows = data.map(row => [
+    row.date,
+    row.leads_count || 0,
+    row.conversions || 0,
+    row.revenue || 0,
+    row.win_rate || 0,
+    row.calls_made || 0,
+    row.score || 0,
+  ]);
+
+  const csvContent = [
+    headers.join(','),
+    ...rows.map(row => row.join(','))
+  ].join('\n');
+
+  const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `${filename}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+  link.click();
+  URL.revokeObjectURL(link.href);
 }

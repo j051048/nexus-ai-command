@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import {
   TrendingUp,
@@ -15,11 +15,14 @@ import {
   Bot,
   Database,
   Loader2,
+  History,
 } from 'lucide-react';
 import { TeamPerformanceChart, RevenueChart } from '@/components/charts';
-import { useTeamPerformance, useLeaderboard, useSeedDemoData } from '@/hooks/useSalesData';
+import { useTeamPerformance, useLeaderboard, useSeedDemoData, useSalesMetricsRealtime } from '@/hooks/useSalesData';
+import { SalesHistoryPanel } from '@/components/sales';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const defaultWeeklyReport = {
   cashFlow: 1250000,
@@ -88,6 +91,11 @@ const getHeatColor = (score: number) => {
 };
 
 export function BossDashboard() {
+  const [activeTab, setActiveTab] = useState('overview');
+
+  // Enable realtime subscription for live updates
+  useSalesMetricsRealtime();
+
   // Fetch real data
   const { data: teamData } = useTeamPerformance();
   const { data: leaderboardData } = useLeaderboard(3);
@@ -157,6 +165,20 @@ export function BossDashboard() {
         </div>
       </div>
 
+      {/* Tab Navigation */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 sm:w-auto sm:inline-flex">
+          <TabsTrigger value="overview" className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4" />
+            概览
+          </TabsTrigger>
+          <TabsTrigger value="history" className="flex items-center gap-2">
+            <History className="w-4 h-4" />
+            历史查询
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-4 sm:space-y-6 mt-4">
       {/* AI Weekly Report */}
       <div className="bg-gradient-card rounded-2xl p-4 sm:p-6 cyber-border">
         <div className="flex items-center gap-3 mb-4 sm:mb-6">
@@ -398,6 +420,12 @@ export function BossDashboard() {
           </div>
         </div>
       </div>
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-4">
+          <SalesHistoryPanel />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
