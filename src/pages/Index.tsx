@@ -8,6 +8,8 @@ import { BossDashboard } from '@/components/dashboard/BossDashboard';
 import { SalesPipeline } from '@/components/sales/SalesPipeline';
 import { ApprovalCenter } from '@/components/approval/ApprovalCenter';
 import { RewardsWallet } from '@/components/rewards/RewardsWallet';
+import { SalesTargetManager } from '@/components/targets/SalesTargetManager';
+import { EmployeeManagement } from '@/components/admin/EmployeeManagement';
 
 function AppContent() {
   const { role } = useAuth();
@@ -34,6 +36,10 @@ function AppContent() {
         return <ApprovalCenter />;
       case 'rewards':
         return <RewardsWallet />;
+      case 'targets':
+        return <SalesTargetManager />;
+      case 'employees':
+        return <EmployeeManagement />;
       case 'knowledge':
         return (
           <div className="flex items-center justify-center h-96">
