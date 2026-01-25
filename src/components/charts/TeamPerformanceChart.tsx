@@ -10,8 +10,11 @@ import {
   Cell
 } from 'recharts';
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
+import { useTeamPerformance } from '@/hooks/useSalesData';
+import { Skeleton } from '@/components/ui/skeleton';
 
-const teamData = [
+// Fallback mock data
+const mockTeamData = [
   { name: '王晓明', score: 95, bonus: 8200, calls: 156, conversions: 12 },
   { name: '刘芳', score: 91, bonus: 6800, calls: 142, conversions: 10 },
   { name: '张明', score: 87, bonus: 4850, calls: 128, conversions: 8 },
@@ -34,14 +37,35 @@ const getBarColor = (score: number) => {
 };
 
 export function TeamPerformanceChart() {
+  const { data: rawData, isLoading } = useTeamPerformance();
+
+  const teamData = React.useMemo(() => {
+    if (!rawData || rawData.length === 0) return mockTeamData;
+    return rawData.slice(0, 5); // Top 5 performers
+  }, [rawData]);
+
   const avgScore = Math.round(teamData.reduce((sum, m) => sum + m.score, 0) / teamData.length);
+  const hasRealData = rawData && rawData.length > 0;
+
+  if (isLoading) {
+    return (
+      <div className="bg-card rounded-2xl p-4 sm:p-6 border border-border">
+        <Skeleton className="h-6 w-32 mb-2" />
+        <Skeleton className="h-4 w-48 mb-6" />
+        <Skeleton className="h-[200px] sm:h-[250px] w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="bg-card rounded-2xl p-4 sm:p-6 border border-border">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6">
         <div>
           <h3 className="text-lg font-semibold text-foreground">团队绩效对比</h3>
-          <p className="text-sm text-muted-foreground">本周成员绩效分对比分析</p>
+          <p className="text-sm text-muted-foreground">
+            本周成员绩效分对比分析
+            {!hasRealData && <span className="text-warning ml-2">(示例数据)</span>}
+          </p>
         </div>
         <div className="flex items-center gap-4 text-sm">
           <div className="px-3 py-1.5 rounded-lg bg-secondary">
