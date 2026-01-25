@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { UserProvider, useUser } from '@/contexts/UserContext';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { EmployeeDashboard } from '@/components/dashboard/EmployeeDashboard';
 import { BossDashboard } from '@/components/dashboard/BossDashboard';
@@ -66,9 +67,11 @@ function AppContent() {
 
 const Index = () => {
   return (
-    <UserProvider>
-      <AppContent />
-    </UserProvider>
+    <ThemeProvider>
+      <UserProvider>
+        <AppContent />
+      </UserProvider>
+    </ThemeProvider>
   );
 };
 

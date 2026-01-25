@@ -74,7 +74,7 @@ export interface AIMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
-  agent?: '@销售指挥官' | '@绩效教练' | '@审批管家' | '@知识助手';
+  agent?: string;
   cards?: ActiveCard[];
 }
 

@@ -3,13 +3,92 @@
 @tailwind utilities;
 
 /* Project Nexus - AI Enterprise Command Center Design System */
-/* Cyberpunk-inspired dark theme with gamification elements */
+/* Dark mode: Cyberpunk-inspired | Light mode: Clean SaaS professional */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @layer base {
   :root {
-    /* Core Colors - Deep Space Theme */
+    /* Light Mode - Clean Professional SaaS Style */
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --card-elevated: 210 20% 96%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Primary - Professional Blue */
+    --primary: 217 91% 50%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 217 91% 60%;
+
+    /* Secondary */
+    --secondary: 210 20% 96%;
+    --secondary-foreground: 222 47% 20%;
+
+    /* Muted */
+    --muted: 210 15% 94%;
+    --muted-foreground: 215 16% 47%;
+
+    /* Accent - Success Green */
+    --accent: 142 69% 45%;
+    --accent-foreground: 0 0% 100%;
+    --success: 142 69% 45%;
+    --success-glow: 142 69% 55%;
+
+    /* Warning Orange */
+    --warning: 36 100% 50%;
+    --warning-foreground: 0 0% 0%;
+
+    /* Destructive */
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* UI Elements */
+    --border: 214 20% 88%;
+    --input: 214 20% 92%;
+    --ring: 217 91% 50%;
+
+    --radius: 0.75rem;
+
+    /* Sidebar - Light */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 30%;
+    --sidebar-primary: 217 91% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 20% 96%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 20% 90%;
+    --sidebar-ring: 217 91% 50%;
+
+    /* Gamification Colors */
+    --gold: 45 100% 50%;
+    --silver: 0 0% 65%;
+    --bronze: 30 60% 45%;
+    --xp-bar: 280 100% 55%;
+
+    /* Gradients - Light Mode */
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 50%) 0%, hsl(217 91% 60%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(142 69% 40%) 0%, hsl(142 69% 50%) 100%);
+    --gradient-warning: linear-gradient(135deg, hsl(36 100% 48%) 0%, hsl(36 100% 55%) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(45 100% 45%) 0%, hsl(55 100% 55%) 100%);
+    --gradient-dark: linear-gradient(180deg, hsl(210 20% 98%) 0%, hsl(210 20% 95%) 100%);
+    --gradient-card: linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(210 20% 98%) 100%);
+    --gradient-cyber: linear-gradient(135deg, hsl(217 91% 50% / 0.08) 0%, hsl(142 69% 45% / 0.08) 100%);
+
+    /* Shadows - Light Mode */
+    --shadow-glow-primary: 0 4px 20px hsl(217 91% 50% / 0.15);
+    --shadow-glow-success: 0 4px 20px hsl(142 69% 45% / 0.15);
+    --shadow-glow-warning: 0 4px 20px hsl(36 100% 50% / 0.15);
+    --shadow-card: 0 2px 8px hsl(0 0% 0% / 0.06), 0 4px 16px hsl(0 0% 0% / 0.04);
+    --shadow-elevated: 0 4px 24px hsl(0 0% 0% / 0.1);
+  }
+
+  .dark {
+    /* Dark Mode - Cyberpunk Style */
     --background: 0 0% 7%;
     --foreground: 0 0% 95%;
 
@@ -20,30 +99,30 @@
     --popover: 0 0% 10%;
     --popover-foreground: 0 0% 95%;
 
-    /* Tech Blue - Primary Brand */
+    /* Tech Blue */
     --primary: 211 100% 50%;
     --primary-foreground: 0 0% 100%;
     --primary-glow: 211 100% 60%;
 
-    /* Secondary - Subtle surfaces */
+    /* Secondary */
     --secondary: 0 0% 15%;
     --secondary-foreground: 0 0% 85%;
 
-    /* Muted - Background accents */
+    /* Muted */
     --muted: 0 0% 12%;
     --muted-foreground: 0 0% 55%;
 
-    /* Incentive Green - Success/Rewards */
+    /* Accent */
     --accent: 142 69% 50%;
     --accent-foreground: 0 0% 100%;
     --success: 142 69% 50%;
     --success-glow: 142 69% 60%;
 
-    /* Warning Orange - Alerts */
+    /* Warning */
     --warning: 36 100% 52%;
     --warning-foreground: 0 0% 0%;
 
-    /* Destructive - Errors */
+    /* Destructive */
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
@@ -52,9 +131,7 @@
     --input: 0 0% 15%;
     --ring: 211 100% 50%;
 
-    --radius: 0.75rem;
-
-    /* Sidebar */
+    /* Sidebar - Dark */
     --sidebar-background: 0 0% 8%;
     --sidebar-foreground: 0 0% 85%;
     --sidebar-primary: 211 100% 50%;
@@ -64,13 +141,13 @@
     --sidebar-border: 0 0% 15%;
     --sidebar-ring: 211 100% 50%;
 
-    /* Gamification Colors */
+    /* Gamification */
     --gold: 45 100% 50%;
     --silver: 0 0% 75%;
     --bronze: 30 60% 45%;
     --xp-bar: 280 100% 60%;
 
-    /* Gradients */
+    /* Gradients - Dark Mode */
     --gradient-primary: linear-gradient(135deg, hsl(211 100% 50%) 0%, hsl(211 100% 65%) 100%);
     --gradient-success: linear-gradient(135deg, hsl(142 69% 45%) 0%, hsl(142 69% 55%) 100%);
     --gradient-warning: linear-gradient(135deg, hsl(36 100% 50%) 0%, hsl(36 100% 60%) 100%);
@@ -79,16 +156,12 @@
     --gradient-card: linear-gradient(135deg, hsl(0 0% 12%) 0%, hsl(0 0% 9%) 100%);
     --gradient-cyber: linear-gradient(135deg, hsl(211 100% 50% / 0.1) 0%, hsl(142 69% 50% / 0.1) 100%);
 
-    /* Shadows */
+    /* Shadows - Dark Mode */
     --shadow-glow-primary: 0 0 20px hsl(211 100% 50% / 0.3);
     --shadow-glow-success: 0 0 20px hsl(142 69% 50% / 0.3);
     --shadow-glow-warning: 0 0 20px hsl(36 100% 50% / 0.3);
     --shadow-card: 0 4px 20px hsl(0 0% 0% / 0.3);
     --shadow-elevated: 0 8px 32px hsl(0 0% 0% / 0.4);
-  }
-
-  .dark {
-    /* Same as root - dark by default */
   }
 }
 
@@ -102,23 +175,40 @@
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 
-  /* Custom scrollbar for dark theme */
-  ::-webkit-scrollbar {
+  /* Custom scrollbar */
+  .dark ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
 
-  ::-webkit-scrollbar-track {
+  .dark ::-webkit-scrollbar-track {
     background: hsl(var(--muted));
   }
 
-  ::-webkit-scrollbar-thumb {
+  .dark ::-webkit-scrollbar-thumb {
     background: hsl(var(--border));
     border-radius: 3px;
   }
 
-  ::-webkit-scrollbar-thumb:hover {
+  .dark ::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--muted-foreground));
+  }
+
+  .light ::-webkit-scrollbar,
+  :root:not(.dark) ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .light ::-webkit-scrollbar-track,
+  :root:not(.dark) ::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+  }
+
+  .light ::-webkit-scrollbar-thumb,
+  :root:not(.dark) ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 3px;
   }
 }
 
@@ -155,9 +245,9 @@
 
   /* Glass morphism effect */
   .glass {
-    background: hsl(0 0% 10% / 0.8);
+    background: hsl(var(--card) / 0.8);
     backdrop-filter: blur(12px);
-    border: 1px solid hsl(0 0% 20% / 0.5);
+    border: 1px solid hsl(var(--border) / 0.5);
   }
 
   /* Pulse animation for live indicators */
@@ -234,9 +324,9 @@
   .shimmer {
     background: linear-gradient(
       90deg,
-      hsl(0 0% 12%) 0%,
-      hsl(0 0% 18%) 50%,
-      hsl(0 0% 12%) 100%
+      hsl(var(--muted)) 0%,
+      hsl(var(--secondary)) 50%,
+      hsl(var(--muted)) 100%
     );
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
@@ -316,7 +406,7 @@
     position: relative;
   }
 
-  .cyber-border::before {
+  .dark .cyber-border::before {
     content: '';
     position: absolute;
     inset: 0;
@@ -327,6 +417,12 @@
     mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
+  }
+
+  .light .cyber-border,
+  :root:not(.dark) .cyber-border {
+    border: 1px solid hsl(var(--border));
+    box-shadow: var(--shadow-card);
   }
 
   /* Ranking badge styles */

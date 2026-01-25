@@ -1,5 +1,7 @@
 import React from 'react';
 import { useUser } from '@/contexts/UserContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
@@ -29,6 +31,7 @@ interface SidebarProps {
 
 export function Sidebar({ activeNav, onNavChange }: SidebarProps) {
   const { user, setRole } = useUser();
+  const { theme } = useTheme();
 
   const employeeNav: NavItem[] = [
     { icon: <LayoutDashboard size={20} />, label: '战绩中心', href: 'dashboard' },
@@ -61,8 +64,17 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps) {
         </div>
       </div>
 
-      {/* Role Switcher */}
-      <div className="px-4 py-4">
+      {/* Theme Toggle & Role Switcher */}
+      <div className="px-4 py-4 space-y-3">
+        {/* Theme Toggle */}
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            {theme === 'dark' ? '夜间模式' : '日间模式'}
+          </span>
+          <ThemeToggle />
+        </div>
+
+        {/* Role Switcher */}
         <div className="bg-secondary rounded-lg p-1 flex">
           <button
             onClick={() => setRole('employee')}
