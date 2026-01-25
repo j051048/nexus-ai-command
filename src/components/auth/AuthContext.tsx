@@ -52,22 +52,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Fetch role using the database function
+      // Fetch role using the database function
       const { data: roleData, error: roleError } = await supabase
         .rpc('get_user_role', { _user_id: userId });
 
-      if (roleError) {
-        console.error('Error fetching role:', roleError);
-        // Fallback logic: check the profileData's role directly if RPC fails
-        if (profileData && (profileData as any).role) {
-          const dbRole = (profileData as any).role;
-          setRole(dbRole === 'founder' ? 'boss' : 'employee');
-        } else {
-          setRole('employee');
-        }
-      } else if (roleData) {
+      if (roleData) {
         setRole(roleData as AppRole);
       } else {
-        setRole('employee');
+        // Fallback logic if RPC fails or returns null
+        let resolvedRole: AppRole = 'employee';
+
+        // 1. Check DB profile directly
+        if (profileData && (profileData as any).role) {
+          const dbRole = (profileData as any).role;
+          resolvedRole = dbRole === 'founder' ? 'boss' : 'employee';
+        }
+        // 2. Check Auth Metadata (Registration Intent) - Critical Fix
+        else {
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          const metaRole = currentUser?.user_metadata?.role;
+          if (metaRole === 'boss') {
+            resolvedRole = 'boss';
+          }
+        }
+        setRole(resolvedRole);
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
