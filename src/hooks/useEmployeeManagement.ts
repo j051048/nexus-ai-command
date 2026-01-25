@@ -19,26 +19,26 @@ export function useAllEmployees() {
   return useQuery({
     queryKey: ['employees', 'all'],
     queryFn: async () => {
-      // Get profiles
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
+      // Get users from public.users table (which now includes role and profile info)
+      const { data: users, error } = await supabase
+        .from('users')
         .select('*')
         .order('name', { ascending: true });
 
-      if (profilesError) throw profilesError;
+      if (error) throw error;
 
-      // Get roles
-      const { data: roles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, role');
-
-      if (rolesError) throw rolesError;
-
-      const roleMap = new Map(roles?.map(r => [r.user_id, r.role]));
-
-      return (profiles || []).map(p => ({
-        ...p,
-        role: roleMap.get(p.user_id) || 'employee',
+      // Cast to any to bypass strict type check on 'users' table which might not be fully generated in types yet
+      return (users as any[] || []).map(u => ({
+        id: u.id,
+        user_id: u.id,
+        name: u.name,
+        avatar: u.avatar,
+        department: u.department,
+        score: u.score || 0,
+        rank: u.rank || 0,
+        total_bonus: u.total_bonus || 0,
+        created_at: u.created_at,
+        role: (u.role === 'founder' ? 'boss' : 'employee') as 'boss' | 'employee',
       })) as Employee[];
     },
   });
@@ -49,11 +49,11 @@ export function useTransferEmployeeData() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ 
-      fromUserId, 
-      toUserId 
-    }: { 
-      fromUserId: string; 
+    mutationFn: async ({
+      fromUserId,
+      toUserId
+    }: {
+      fromUserId: string;
       toUserId: string;
     }) => {
       // Transfer sales_metrics
@@ -128,11 +128,11 @@ export function useUpdateEmployee() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ 
-      userId, 
-      updates 
-    }: { 
-      userId: string; 
+    mutationFn: async ({
+      userId,
+      updates
+    }: {
+      userId: string;
       updates: Partial<Pick<Employee, 'name' | 'department' | 'score' | 'total_bonus'>>;
     }) => {
       const { data, error } = await supabase
