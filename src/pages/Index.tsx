@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { UserProvider, useUser } from '@/contexts/UserContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { UserProvider } from '@/contexts/UserContext';
+import { useAuth } from '@/components/auth/AuthContext';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { EmployeeDashboard } from '@/components/dashboard/EmployeeDashboard';
 import { BossDashboard } from '@/components/dashboard/BossDashboard';
@@ -9,13 +10,13 @@ import { ApprovalCenter } from '@/components/approval/ApprovalCenter';
 import { RewardsWallet } from '@/components/rewards/RewardsWallet';
 
 function AppContent() {
-  const { user } = useUser();
-  const [activeNav, setActiveNav] = useState(user.role === 'boss' ? 'boss-dashboard' : 'dashboard');
+  const { role } = useAuth();
+  const [activeNav, setActiveNav] = useState(role === 'boss' ? 'boss-dashboard' : 'dashboard');
 
   // Update nav when role changes
   React.useEffect(() => {
-    setActiveNav(user.role === 'boss' ? 'boss-dashboard' : 'dashboard');
-  }, [user.role]);
+    setActiveNav(role === 'boss' ? 'boss-dashboard' : 'dashboard');
+  }, [role]);
 
   const renderContent = () => {
     switch (activeNav) {
@@ -59,18 +60,18 @@ function AppContent() {
   };
 
   return (
-    <MainLayout activeNav={activeNav} onNavChange={setActiveNav}>
-      {renderContent()}
-    </MainLayout>
+    <UserProvider>
+      <MainLayout activeNav={activeNav} onNavChange={setActiveNav}>
+        {renderContent()}
+      </MainLayout>
+    </UserProvider>
   );
 }
 
 const Index = () => {
   return (
     <ThemeProvider>
-      <UserProvider>
-        <AppContent />
-      </UserProvider>
+      <AppContent />
     </ThemeProvider>
   );
 };
