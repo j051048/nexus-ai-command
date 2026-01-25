@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from app.models.schemas import PerformanceEvent, PerformanceResult
 from app.services.rule_engine import RuleEngine
-from app.core.supabase import supabase
+from app.core.database import supabase
 from datetime import date
 
 router = APIRouter(prefix="/api/performance", tags=["Performance"])

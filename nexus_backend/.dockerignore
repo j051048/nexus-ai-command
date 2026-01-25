@@ -1,0 +1,10 @@
+
+# Ignore conflicts
+supabase/
+.env
+__pycache__/
+*.pyc
+.git/
+.gitignore
+README.md
+DEPLOY.md

@@ -6,9 +6,9 @@
 
 1. 登录 [Supabase Dashboard](https://supabase.com/dashboard) 并创建一个新项目。
 2. 进入项目的 **SQL Editor**。
-3. 复制并运行 `nexus_backend/supabase/migrations/20240126000000_initial_schema.sql` 中的内容。
+3. 复制并运行 `nexus_backend/supabase_migrations/migrations/20240126000000_initial_schema.sql` 中的内容。
    - 这将创建所有表、枚举、RLS策略和触发器。
-4. (可选) 运行 `nexus_backend/supabase/migrations/20240126999999_seed_data.sql` 填充模拟数据。
+4. (可选) 运行 `nexus_backend/supabase_migrations/migrations/20240126999999_seed_data.sql` 填充模拟数据。
 5. 在 **Project Settings -> API** 中获取：
    - Project URL
    - service_role secret (注意：用于后端服务，不要暴露给前端)
