@@ -96,7 +96,25 @@ export function useSaveAISettings() {
 export function useTestAIConnection() {
   return useMutation({
     mutationFn: async (settings: { base_url: string; api_key: string; model: string }) => {
-      const response = await fetch(settings.base_url, {
+      // Normalize URL: Ensure it ends with /chat/completions if not present
+      let url = settings.base_url.replace(/\/$/, ''); // Remove trailing slash
+      if (!url.endsWith('/chat/completions')) {
+        if (url.endsWith('/v1')) {
+          url += '/chat/completions';
+        } else {
+          // If user just input https://proxy.flydao.top, logic might be ambiguous, 
+          // but standard OpenAI client behavior usually expects base_url to be the root.
+          // However, for this low-code UI, let's try to be smart.
+          // If it doesn't look like a full endpoint, append standard path.
+          // Only do this if it contains 'proxy' or 'gateway' to be safe, or just append /v1/chat/completions as a guess?
+          // Safer bet: If it doesn't end in /v1, assume it needs /v1/chat/completions
+          url += '/v1/chat/completions';
+        }
+      }
+
+      console.log('Testing connection to:', url);
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${settings.api_key}`,
@@ -113,7 +131,17 @@ export function useTestAIConnection() {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.error?.message) {
+            errorMessage += ` - ${errorJson.error.message}`;
+          }
+        } catch (e) {
+          // ignore JSON parse error
+          if (errorText.length < 100) errorMessage += ` - ${errorText}`;
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
