@@ -3,10 +3,28 @@ from app.routers import performance, incentive, approval, kingdee, chat
 import uvicorn
 import os
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(
     title="Project Nexus Backend",
     description="AI-Driven Low-Code Backend for Sales Performance & Governance",
     version="1.0.0"
+)
+
+# CORS Configuration
+origins = [
+    "*", # Allow all for dev convenience. Production should constrain this.
+    "http://localhost:8080",
+    "http://localhost:5173",
+    "https://nexus-ai-command.vercel.app"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Include Routers
