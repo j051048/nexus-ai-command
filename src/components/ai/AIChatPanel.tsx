@@ -95,9 +95,10 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
             'Content-Type': 'application/json',
             // 'Authorization': `Bearer ${token}` // If backend implements auth
           },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             messages: chatMessages,
             agent: detectedAgent,
+            userId: user.id
           }),
           signal: abortControllerRef.current.signal,
         }
@@ -324,7 +325,7 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
                 ))}
               </div>
             )}
-            
+
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowAgents(!showAgents)}

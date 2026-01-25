@@ -4,5 +4,6 @@ supabase==2.3.0
 pydantic==2.6.0
 python-dotenv==1.0.1
 requests==2.31.0
-# httpx will be installed automatically by supabase with the correct version
+# httpx will be installed automatically by supabase, but let's be explicit for advanced functionality
+httpx==0.27.0
 # pymilvus==2.3.6  # Uncomment when Milvus is deployed
