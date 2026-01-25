@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.routers import performance, incentive, approval, kingdee
+from app.routers import performance, incentive, approval, kingdee, chat
 import uvicorn
 import os
 
@@ -14,6 +14,7 @@ app.include_router(performance.router)
 app.include_router(incentive.router)
 app.include_router(approval.router)
 app.include_router(kingdee.router)
+app.include_router(chat.router)
 
 @app.get("/")
 async def root():
