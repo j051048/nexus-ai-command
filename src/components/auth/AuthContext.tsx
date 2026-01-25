@@ -37,27 +37,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchUserData = async (userId: string) => {
     try {
-      // Fetch profile
+      // Fetch profile from 'users' table (using 'id' as PK)
       const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
+        .from('users')
         .select('*')
-        .eq('user_id', userId)
+        .eq('id', userId)
         .maybeSingle();
-      
+
       if (profileError) {
         console.error('Error fetching profile:', profileError);
       } else if (profileData) {
-        setProfile(profileData as Profile);
+        // Map DB fields to Profile interface if needed, or use as is
+        setProfile(profileData as any as Profile);
       }
 
       // Fetch role using the database function
       const { data: roleData, error: roleError } = await supabase
         .rpc('get_user_role', { _user_id: userId });
-      
+
       if (roleError) {
         console.error('Error fetching role:', roleError);
-        // Default to employee if role fetch fails
-        setRole('employee');
+        // Fallback logic: check the profileData's role directly if RPC fails
+        if (profileData && (profileData as any).role) {
+          const dbRole = (profileData as any).role;
+          setRole(dbRole === 'founder' ? 'boss' : 'employee');
+        } else {
+          setRole('employee');
+        }
       } else if (roleData) {
         setRole(roleData as AppRole);
       } else {
@@ -76,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('Auth state changed:', event, newSession?.user?.email);
         setSession(newSession);
         setUser(newSession?.user ?? null);
-        
+
         if (newSession?.user) {
           // Use setTimeout to prevent Supabase deadlock
           setTimeout(() => {

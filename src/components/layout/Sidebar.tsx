@@ -1,5 +1,6 @@
 import React from 'react';
 import { useUser } from '@/contexts/UserContext';
+import { useAuth } from '@/components/auth/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { cn } from '@/lib/utils';
@@ -14,7 +15,18 @@ import {
   TrendingUp,
   AlertTriangle,
   Crown,
+  LogOut,
+  ChevronRight,
+  User as UserIcon,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface NavItem {
   icon: React.ReactNode;
@@ -30,7 +42,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activeNav, onNavChange }: SidebarProps) {
-  const { user, setRole } = useUser();
+  const { user } = useUser();
+  const { signOut } = useAuth();
   const { theme } = useTheme();
 
   const employeeNav: NavItem[] = [
@@ -50,7 +63,13 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps) {
     { icon: <Settings size={20} />, label: '系统设置', href: 'settings' },
   ];
 
+  // Strictly use account role logic
   const navItems = user.role === 'boss' ? bossNav : employeeNav;
+
+  const handleLogout = async () => {
+    await signOut();
+    // Redirect is handled by AuthContext/App state change
+  };
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
@@ -65,40 +84,13 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps) {
         </div>
       </div>
 
-      {/* Theme Toggle & Role Switcher */}
-      <div className="px-4 py-4 space-y-3">
-        {/* Theme Toggle */}
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">
+      {/* Theme Toggle */}
+      <div className="px-4 py-4">
+        <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/50">
+          <span className="text-xs text-muted-foreground pl-1">
             {theme === 'dark' ? '夜间模式' : '日间模式'}
           </span>
           <ThemeToggle />
-        </div>
-
-        {/* Role Switcher */}
-        <div className="bg-secondary rounded-lg p-1 flex">
-          <button
-            onClick={() => setRole('employee')}
-            className={cn(
-              "flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all",
-              user.role === 'employee'
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            员工视角
-          </button>
-          <button
-            onClick={() => setRole('boss')}
-            className={cn(
-              "flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all",
-              user.role === 'boss'
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            老板视角
-          </button>
         </div>
       </div>
 
@@ -136,23 +128,50 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps) {
         </ul>
       </nav>
 
-      {/* User Profile */}
+      {/* User Profile with Dropdown */}
       <div className="p-4 border-t border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-semibold">
-            {user.name[0]}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">{user.name}</p>
-            <p className="text-xs text-muted-foreground">{user.department}</p>
-          </div>
-          {user.role === 'employee' && (
-            <div className="text-right">
-              <p className="text-lg font-bold text-success mono-number">{user.score}</p>
-              <p className="text-xs text-muted-foreground">绩效分</p>
-            </div>
-          )}
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-sidebar-accent transition-colors outline-none group">
+              <div className="w-10 h-10 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-semibold shrink-0 group-hover:scale-105 transition-transform">
+                {user.avatar ? <img src={user.avatar} alt={user.name} className="w-full h-full rounded-full object-cover" /> : user.name[0]}
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-sm font-medium text-foreground truncate">{user.name}</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">{user.department}</p>
+                  <ChevronRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </div>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="right" align="end" className="w-56" sideOffset={8}>
+            <DropdownMenuLabel className="font-normal">
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium leading-none">{user.name}</p>
+                <p className="text-xs leading-none text-muted-foreground">{user.role === 'boss' ? '企业管理员' : '销售精英'}</p>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {user.role === 'employee' && (
+              <DropdownMenuItem className="cursor-default focus:bg-transparent">
+                <div className="flex flex-1 items-center justify-between">
+                  <span className="text-muted-foreground">当前绩效</span>
+                  <span className="font-bold text-success">{user.score}</span>
+                </div>
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => console.log("Profile clicked")}>
+              <UserIcon className="mr-2 h-4 w-4" />
+              <span>个人中心</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>退出登录</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </aside>
   );
