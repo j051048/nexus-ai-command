@@ -1,5 +1,20 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { User, UserRole, Badge } from '@/types/nexus';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useAuth } from '@/components/auth/AuthContext';
+import { Badge } from '@/types/nexus';
+
+type UserRole = 'boss' | 'employee';
+
+interface User {
+  id: string;
+  name: string;
+  avatar: string;
+  role: UserRole;
+  department: string;
+  score: number;
+  rank: number;
+  totalBonus: number;
+  badges: Badge[];
+}
 
 interface UserContextType {
   user: User;
@@ -14,29 +29,48 @@ const defaultBadges: Badge[] = [
   { id: '3', name: '速战速决', icon: '⚡', description: '平均响应时间<2小时', tier: 'bronze', unlockedAt: new Date() },
 ];
 
-const defaultUser: User = {
-  id: '1',
-  name: '张明',
-  avatar: '',
-  role: 'employee',
-  department: '销售部',
-  score: 87,
-  rank: 3,
-  totalBonus: 4850,
-  badges: defaultBadges,
-};
-
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User>(defaultUser);
+  const { profile, role: authRole } = useAuth();
+  
+  const [user, setUser] = useState<User>({
+    id: profile?.user_id || '1',
+    name: profile?.name || '用户',
+    avatar: profile?.avatar || '',
+    role: authRole || 'employee',
+    department: profile?.department || '销售部',
+    score: profile?.score || 87,
+    rank: profile?.rank || 3,
+    totalBonus: Number(profile?.total_bonus) || 4850,
+    badges: defaultBadges,
+  });
+
+  // Sync with auth profile when it changes
+  useEffect(() => {
+    if (profile) {
+      setUser(prev => ({
+        ...prev,
+        id: profile.user_id,
+        name: profile.name,
+        avatar: profile.avatar || '',
+        department: profile.department || '销售部',
+        score: profile.score || 87,
+        rank: profile.rank || 3,
+        totalBonus: Number(profile.total_bonus) || 4850,
+      }));
+    }
+  }, [profile]);
+
+  // Sync role from auth
+  useEffect(() => {
+    if (authRole) {
+      setUser(prev => ({ ...prev, role: authRole }));
+    }
+  }, [authRole]);
 
   const setRole = (role: UserRole) => {
-    setUser(prev => ({
-      ...prev,
-      role,
-      name: role === 'boss' ? '李总' : '张明',
-    }));
+    setUser(prev => ({ ...prev, role }));
   };
 
   const addBonus = (amount: number) => {

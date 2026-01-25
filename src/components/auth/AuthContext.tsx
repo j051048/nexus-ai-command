@@ -35,17 +35,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const fetchUserData = async (userId: string) => {
+    try {
+      // Fetch profile
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+      } else if (profileData) {
+        setProfile(profileData as Profile);
+      }
+
+      // Fetch role using the database function
+      const { data: roleData, error: roleError } = await supabase
+        .rpc('get_user_role', { _user_id: userId });
+      
+      if (roleError) {
+        console.error('Error fetching role:', roleError);
+        // Default to employee if role fetch fails
+        setRole('employee');
+      } else if (roleData) {
+        setRole(roleData as AppRole);
+      } else {
+        setRole('employee');
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      setRole('employee');
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+      async (event, newSession) => {
+        console.log('Auth state changed:', event, newSession?.user?.email);
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
         
-        if (session?.user) {
-          // Fetch profile and role
-          setTimeout(async () => {
-            await fetchUserData(session.user.id);
+        if (newSession?.user) {
+          // Use setTimeout to prevent Supabase deadlock
+          setTimeout(() => {
+            fetchUserData(newSession.user.id);
           }, 0);
         } else {
           setProfile(null);
@@ -56,11 +91,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     // Then check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserData(session.user.id);
+    supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
+      setSession(existingSession);
+      setUser(existingSession?.user ?? null);
+      if (existingSession?.user) {
+        fetchUserData(existingSession.user.id);
       }
       setLoading(false);
     });
@@ -70,31 +105,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const fetchUserData = async (userId: string) => {
-    try {
-      // Fetch profile
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-      
-      if (profileData) {
-        setProfile(profileData as Profile);
-      }
-
-      // Fetch role using the database function
-      const { data: roleData } = await supabase
-        .rpc('get_user_role', { _user_id: userId });
-      
-      if (roleData) {
-        setRole(roleData as AppRole);
-      }
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-    }
-  };
-
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -103,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
-  const signUp = async (email: string, password: string, name: string, role: AppRole) => {
+  const signUp = async (email: string, password: string, name: string, selectedRole: AppRole) => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -111,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         emailRedirectTo: window.location.origin,
         data: {
           name,
-          role,
+          role: selectedRole,
         },
       },
     });
