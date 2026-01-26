@@ -103,6 +103,13 @@ export function DocumentsPage() {
             const response = await fetch(url, {
                 method: 'POST',
                 body: formData,
+                mode: 'cors',
+                credentials: 'omit', // Standard for public APIs to avoid Preflight issues
+            }).catch(err => {
+                if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
+                    throw new Error('网络连接错误：无法连接到后端服务器，请检查基础 URL 配置或跨域限制');
+                }
+                throw err;
             });
 
             const result = await response.json();
