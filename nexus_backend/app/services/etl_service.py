@@ -75,8 +75,9 @@ class ETLService:
             {preview_text}
             """
             response = self.openai_client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gemini-3-flash-preview",
                 messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,
                 response_format={"type": "json_object"}
             )
             extracted_data = json.loads(response.choices[0].message.content)
