@@ -3,19 +3,27 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { UserProvider } from '@/contexts/UserContext';
 import { useAuth } from '@/components/auth/AuthContext';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { EmployeeDashboard } from '@/components/dashboard/EmployeeDashboard';
-import { BossDashboard } from '@/components/dashboard/BossDashboard';
-import { SalesPipeline } from '@/components/sales/SalesPipeline';
-import { ApprovalCenter } from '@/components/approval/ApprovalCenter';
-import { RewardsWallet } from '@/components/rewards/RewardsWallet';
-import { SalesTargetManager } from '@/components/targets/SalesTargetManager';
-import { EmployeeManagement } from '@/components/admin/EmployeeManagement';
-import { AISettingsPanel } from '@/components/settings/AISettingsPanel';
-
-import { ProjectDetail } from '@/components/projects/ProjectDetail';
+import { Loader2 } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 
-import ExceptionsPage from './ExceptionsPage';
+// Lazy load main sections
+const EmployeeDashboard = React.lazy(() => import('@/components/dashboard/EmployeeDashboard').then(m => ({ default: m.EmployeeDashboard })));
+const BossDashboard = React.lazy(() => import('@/components/dashboard/BossDashboard').then(m => ({ default: m.BossDashboard })));
+const SalesPipeline = React.lazy(() => import('@/components/sales/SalesPipeline').then(m => ({ default: m.SalesPipeline })));
+const ApprovalCenter = React.lazy(() => import('@/components/approval/ApprovalCenter').then(m => ({ default: m.ApprovalCenter })));
+const RewardsWallet = React.lazy(() => import('@/components/rewards/RewardsWallet').then(m => ({ default: m.RewardsWallet })));
+const SalesTargetManager = React.lazy(() => import('@/components/targets/SalesTargetManager').then(m => ({ default: m.SalesTargetManager })));
+const EmployeeManagement = React.lazy(() => import('@/components/admin/EmployeeManagement').then(m => ({ default: m.EmployeeManagement })));
+const AISettingsPanel = React.lazy(() => import('@/components/settings/AISettingsPanel').then(m => ({ default: m.AISettingsPanel })));
+const ProjectDetail = React.lazy(() => import('@/components/projects/ProjectDetail').then(m => ({ default: m.ProjectDetail })));
+const ExceptionsPage = React.lazy(() => import('./ExceptionsPage'));
+
+const PageLoader = () => (
+  <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+    <Loader2 className="w-10 h-10 animate-spin text-primary" />
+    <p className="text-muted-foreground animate-pulse">正在加载模块...</p>
+  </div>
+);
 
 function AppContent() {
   const { role } = useAuth();
@@ -77,7 +85,9 @@ function AppContent() {
   return (
     <UserProvider>
       <MainLayout activeNav={activeNav} onNavChange={setActiveNav}>
-        {renderContent()}
+        <React.Suspense fallback={<PageLoader />}>
+          {renderContent()}
+        </React.Suspense>
       </MainLayout>
     </UserProvider>
   );

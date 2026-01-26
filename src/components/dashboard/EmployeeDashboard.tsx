@@ -9,10 +9,11 @@ import {
   Database,
   Loader2,
 } from 'lucide-react';
-import { SalesChart, WinRateChart } from '@/components/charts';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 import { useLeaderboard, useSalesMetrics, useSeedDemoData, useSalesMetricsRealtime } from '@/hooks/useSalesData';
 import { SalesDataEntryForm, SalesHistoryPanel } from '@/components/sales';
-import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -22,13 +23,29 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  PerformanceScoreCard,
-  StatCards,
-  PerformanceMetricsMonitor,
-  BadgePanel,
-  WeeklyRankings
-} from './employee';
+
+// Lazy load heavy components
+const SalesChart = React.lazy(() => import('@/components/charts').then(m => ({ default: m.SalesChart })));
+const WinRateChart = React.lazy(() => import('@/components/charts').then(m => ({ default: m.WinRateChart })));
+const PerformanceScoreCard = React.lazy(() => import('./employee').then(m => ({ default: m.PerformanceScoreCard })));
+const StatCards = React.lazy(() => import('./employee').then(m => ({ default: m.StatCards })));
+const PerformanceMetricsMonitor = React.lazy(() => import('./employee').then(m => ({ default: m.PerformanceMetricsMonitor })));
+const BadgePanel = React.lazy(() => import('./employee').then(m => ({ default: m.BadgePanel })));
+const WeeklyRankings = React.lazy(() => import('./employee').then(m => ({ default: m.WeeklyRankings })));
+
+const ChartSkeleton = () => (
+  <div className="bg-card rounded-2xl p-6 border border-border h-[350px]">
+    <Skeleton className="h-6 w-32 mb-4" />
+    <Skeleton className="h-full w-full" />
+  </div>
+);
+
+const SectionSkeleton = ({ className }: { className?: string }) => (
+  <div className={cn("bg-card rounded-2xl p-6 border border-border", className)}>
+    <Skeleton className="h-6 w-32 mb-4" />
+    <Skeleton className="h-24 w-full" />
+  </div>
+);
 
 const mockRankings = [
   { rank: 1, name: '王晓明', score: 95, bonus: 8200, trend: 'up' as const, isCurrentUser: false },
@@ -197,24 +214,38 @@ export function EmployeeDashboard() {
 
         <TabsContent value="overview" className="space-y-4 sm:space-y-6 mt-4">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <PerformanceScoreCard
-              score={user.score}
-              animatedScore={animatedScore}
-              progressToNextBadge={progressToNextBadge}
-            />
-            <StatCards rank={user.rank} totalBonus={user.totalBonus} />
+            <React.Suspense fallback={<Skeleton className="h-32 w-full rounded-2xl" />}>
+              <PerformanceScoreCard
+                score={user.score}
+                animatedScore={animatedScore}
+                progressToNextBadge={progressToNextBadge}
+              />
+            </React.Suspense>
+            <React.Suspense fallback={<Skeleton className="h-32 w-full rounded-2xl" />}>
+              <StatCards rank={user.rank} totalBonus={user.totalBonus} />
+            </React.Suspense>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-            <SalesChart />
-            <WinRateChart />
+            <React.Suspense fallback={<ChartSkeleton />}>
+              <SalesChart />
+            </React.Suspense>
+            <React.Suspense fallback={<ChartSkeleton />}>
+              <WinRateChart />
+            </React.Suspense>
           </div>
 
-          <PerformanceMetricsMonitor metrics={performanceMetrics} />
+          <React.Suspense fallback={<SectionSkeleton />}>
+            <PerformanceMetricsMonitor metrics={performanceMetrics} />
+          </React.Suspense>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-            <BadgePanel badges={user.badges} />
-            <WeeklyRankings rankings={rankings} />
+            <React.Suspense fallback={<SectionSkeleton />}>
+              <BadgePanel badges={user.badges} />
+            </React.Suspense>
+            <React.Suspense fallback={<SectionSkeleton />}>
+              <WeeklyRankings rankings={rankings} />
+            </React.Suspense>
           </div>
         </TabsContent>
 

@@ -6,19 +6,36 @@ import {
   Loader2,
   History,
 } from 'lucide-react';
-import { TeamPerformanceChart, RevenueChart } from '@/components/charts';
+import { cn } from '@/lib/utils';
 import { useTeamPerformance, useLeaderboard, useSeedDemoData, useSalesMetricsRealtime } from '@/hooks/useSalesData';
 import { useApprovals } from '@/hooks/useApprovals';
 import { SalesHistoryPanel } from '@/components/sales';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  AIWeeklyReport,
-  ExceptionQueue,
-  TeamPerformanceHeatmap,
-  TopPerformers
-} from './boss';
+
+// Lazy load heavy components
+const TeamPerformanceChart = React.lazy(() => import('@/components/charts').then(m => ({ default: m.TeamPerformanceChart })));
+const RevenueChart = React.lazy(() => import('@/components/charts').then(m => ({ default: m.RevenueChart })));
+const AIWeeklyReport = React.lazy(() => import('./boss').then(m => ({ default: m.AIWeeklyReport })));
+const ExceptionQueue = React.lazy(() => import('./boss').then(m => ({ default: m.ExceptionQueue })));
+const TeamPerformanceHeatmap = React.lazy(() => import('./boss').then(m => ({ default: m.TeamPerformanceHeatmap })));
+const TopPerformers = React.lazy(() => import('./boss').then(m => ({ default: m.TopPerformers })));
+
+const ChartSkeleton = () => (
+  <div className="bg-card rounded-2xl p-6 border border-border h-[350px]">
+    <Skeleton className="h-6 w-32 mb-4" />
+    <Skeleton className="h-full w-full" />
+  </div>
+);
+
+const SectionSkeleton = ({ className }: { className?: string }) => (
+  <div className={cn("bg-card rounded-2xl p-6 border border-border", className)}>
+    <Skeleton className="h-6 w-32 mb-4" />
+    <Skeleton className="h-24 w-full" />
+  </div>
+);
 
 const defaultWeeklyReport = {
   cashFlow: 1250000,
@@ -156,23 +173,35 @@ export function BossDashboard() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4 sm:space-y-6 mt-4">
-          <AIWeeklyReport report={weeklyReport} />
+          <React.Suspense fallback={<SectionSkeleton />}>
+            <AIWeeklyReport report={weeklyReport} />
+          </React.Suspense>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-            <RevenueChart />
-            <TeamPerformanceChart />
+            <React.Suspense fallback={<ChartSkeleton />}>
+              <RevenueChart />
+            </React.Suspense>
+            <React.Suspense fallback={<ChartSkeleton />}>
+              <TeamPerformanceChart />
+            </React.Suspense>
           </div>
 
-          <ExceptionQueue
-            pendingApprovals={pendingApprovals}
-            onApprove={handleApprove}
-            onReject={handleReject}
-            isProcessing={updateStatus.isPending}
-          />
+          <React.Suspense fallback={<SectionSkeleton />}>
+            <ExceptionQueue
+              pendingApprovals={pendingApprovals}
+              onApprove={handleApprove}
+              onReject={handleReject}
+              isProcessing={updateStatus.isPending}
+            />
+          </React.Suspense>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <TeamPerformanceHeatmap data={teamHeatmap} />
-            <TopPerformers performers={weeklyReport.topPerformers} />
+            <React.Suspense fallback={<SectionSkeleton />}>
+              <TeamPerformanceHeatmap data={teamHeatmap} />
+            </React.Suspense>
+            <React.Suspense fallback={<SectionSkeleton />}>
+              <TopPerformers performers={weeklyReport.topPerformers} />
+            </React.Suspense>
           </div>
         </TabsContent>
 
