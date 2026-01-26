@@ -33,9 +33,9 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const { profile, role: authRole } = useAuth();
-  
+
   const [user, setUser] = useState<User>({
-    id: profile?.user_id || '1',
+    id: profile?.id || '1',
     name: profile?.name || '用户',
     avatar: profile?.avatar || '',
     role: authRole || 'employee',
@@ -51,7 +51,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (profile) {
       setUser(prev => ({
         ...prev,
-        id: profile.user_id,
+        id: profile.id,
         name: profile.name,
         avatar: profile.avatar || '',
         department: profile.department || '销售部',
