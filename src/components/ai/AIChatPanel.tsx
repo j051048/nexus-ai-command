@@ -45,6 +45,9 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
 
     const formData = new FormData();
     formData.append('files', file);
+    if (user?.id) {
+      formData.append('userId', user.id);
+    }
 
     const toastId = toast.loading('正在上传并解析文档...');
 

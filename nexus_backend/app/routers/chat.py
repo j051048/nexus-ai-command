@@ -152,7 +152,7 @@ TOOLS = [
     }
 ]
 
-async def execute_tool(name: str, args: Dict[str, Any], current_user_id: str) -> str:
+async def execute_tool(name: str, args: Dict[str, Any], current_user_id: str, config: dict = None) -> str:
     """执行具体工具逻辑并返回结果文本"""
     try:
         if name == "approve_request":
@@ -240,7 +240,7 @@ async def execute_tool(name: str, args: Dict[str, Any], current_user_id: str) ->
 
         elif name == "query_knowledge_base":
             query = args.get("query")
-            return await vector_service.search(query)
+            return await vector_service.search(query, config=config)
 
         elif name == "get_projects":
             result = supabase.table("projects").select("id, name, stage").execute()
@@ -346,7 +346,7 @@ async def stream_openai_response(messages: List[dict], config: dict, user_id: st
                     
                     try:
                         args = json.loads(full_tool_call_json) if full_tool_call_json else {}
-                        tool_result = await execute_tool(tool_name, args, user_id)
+                        tool_result = await execute_tool(tool_name, args, user_id, config=config)
                         
                         # 构造继续对话的消息
                         messages.append({

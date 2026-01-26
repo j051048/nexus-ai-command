@@ -10,35 +10,35 @@ class VectorService:
     Transitioned from Mock to Real Implementation (Week 1 Goal).
     """
 
-    def __init__(self):
-        self.provider = "supabase"
-        self.openai_client = None
-        if settings.OPENAI_API_KEY:
-            self.openai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-
-    async def search(self, query: str, limit: int = 3) -> str:
+    async def search(self, query: str, limit: int = 3, config: dict = None) -> str:
         """
         Semantic search in the vector DB.
         Returns a formatted string of results.
         """
-        # Fallback to mock if dependencies are missing
-        if not self.openai_client or not supabase:
-            print("VectorService: Missing OpenAI Key or Supabase client. Falling back to Mock.")
+        # use dynamic config or default settings
+        api_key = (config or {}).get("api_key") or settings.OPENAI_API_KEY
+        base_url = (config or {}).get("base_url") or settings.AI_BASE_URL or "https://api.openai.com/v1"
+        
+        if not api_key:
+            print("VectorService: Missing AI Key.")
             return self._search_mock(query)
 
+        # Initialize client per search to ensure correct proxy/key
+        client = AsyncOpenAI(api_key=api_key, base_url=base_url.rstrip("/") + ("/v1" if "/v1" not in base_url else ""))
+        
         try:
-            return await self._search_supabase(query, limit)
+            return await self._search_supabase(query, limit, client)
         except Exception as e:
             print(f"Vector search failed: {e}")
             return self._search_mock(query)
 
-    async def _search_supabase(self, query: str, limit: int) -> str:
+    async def _search_supabase(self, query: str, limit: int, client: AsyncOpenAI) -> str:
         """
         Implementation for Supabase pgvector search.
         """
         # 1. Convert query to vector
         try:
-            response = await self.openai_client.embeddings.create(
+            response = await client.embeddings.create(
                 input=query,
                 model="text-embedding-3-small"
             )

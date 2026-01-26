@@ -94,6 +94,9 @@ export function DocumentsPage() {
         try {
             const formData = new FormData();
             formData.append('files', file);
+            if (user?.id) {
+                formData.append('userId', user.id);
+            }
 
             // Robust URL Discovery
             let url = '';

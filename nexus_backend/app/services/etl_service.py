@@ -41,10 +41,16 @@ class ETLService:
             data = response.json()
             return data["choices"][0]["message"]["content"]
 
-    async def process_file(self, file: UploadFile) -> dict:
+    async def process_file(self, file: UploadFile, api_key: str = None, base_url: str = None) -> dict:
         filename = file.filename
         content = await file.read()
         text = ""
+        
+        # Use provided config or fall back to system settings
+        active_key = api_key or self.api_key
+        active_url = (base_url or self.base_url).rstrip("/")
+        if "/v1" not in active_url:
+            active_url += "/v1"
 
         try:
             # 1. Physical Extraction
@@ -64,16 +70,15 @@ class ETLService:
 
             # 2. Sequential Processing
             # Step A: Metadata Extraction
-            success, details = await self.extract_metadata_via_ai(text, filename)
+            success, details = await self.extract_metadata_via_ai(text, filename, active_key, active_url)
             
             if success:
                 # Step B: Database Storage
                 try:
                     doc_id = self._save_to_db(filename, details)
                     
-                    # Step C: Async Vectorization (Fire and forget style for metadata success)
-                    # For MVP we run it sync to confirm data integrity
-                    await self._generate_embeddings(text, doc_id, filename)
+                    # Step C: Vectorization
+                    await self._generate_embeddings(text, doc_id, filename, active_key, active_url)
                     
                     return {
                         "filename": filename,
@@ -91,7 +96,7 @@ class ETLService:
             print(f"ETL Panic: {str(e)}")
             return {"filename": filename, "status": "error", "reason": f"系统崩溃: {str(e)}"}
 
-    async def extract_metadata_via_ai(self, text: str, filename: str) -> Tuple[bool, Dict]:
+    async def extract_metadata_via_ai(self, text: str, filename: str, api_key: str, base_url: str) -> Tuple[bool, Dict]:
         preview = text[:4000]
         prompt = f"""
         Extract document metadata as JSON ONLY:
@@ -106,13 +111,23 @@ class ETLService:
         """
         
         payload = {
-            "model": "gemini-3-pro-preview",
+            "model": "gpt-4o-mini",
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.1
         }
 
         try:
-            raw_response = await self._call_ai_raw(payload)
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            }
+            url = f"{base_url}/chat/completions"
+
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(url, headers=headers, json=payload)
+                if response.status_code != 200:
+                    raise Exception(f"AI provider error: {response.status_code}")
+                raw_response = response.json()["choices"][0]["message"]["content"]
             # Robust JSON cleaner
             clean_json = raw_response
             if "```json" in raw_response:
@@ -140,7 +155,7 @@ class ETLService:
             raise Exception("Empty response from database")
         return res.data[0]["id"]
 
-    async def _generate_embeddings(self, text: str, doc_id: str, filename: str):
+    async def _generate_embeddings(self, text: str, doc_id: str, filename: str, api_key: str, base_url: str):
         """
         Generate embeddings using raw fetch for compatibility.
         """
@@ -152,9 +167,9 @@ class ETLService:
                     "input": chunk
                 }
                 # Call embedding endpoint
-                headers = {"Authorization": f"Bearer {self.api_key}"}
+                headers = {"Authorization": f"Bearer {api_key}"}
                 async with httpx.AsyncClient(timeout=30.0) as client:
-                    resp = await client.post(f"{self.base_url}/embeddings", headers=headers, json=payload)
+                    resp = await client.post(f"{base_url}/embeddings", headers=headers, json=payload)
                     if resp.status_code == 200:
                         embedding = resp.json()["data"][0]["embedding"]
                         supabase.table("document_embeddings").insert({
@@ -163,6 +178,8 @@ class ETLService:
                             "embedding": embedding,
                             "metadata": {"source": filename}
                         }).execute()
+                    else:
+                        print(f"Embedding API error: {resp.status_code} {resp.text}")
             except Exception as e:
                 print(f"Embedding failed for chunk: {e}")
 
