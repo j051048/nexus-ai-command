@@ -84,73 +84,68 @@ export function ProjectManagement({ onProjectSelect }: ProjectManagementProps) {
         setIsAiCreating(true);
 
         try {
-            // Here we simulate calling the backend AI agent
-            // In a real app, we would post to /api/chat with tool_choice='create_project'
-            // For now, let's implement a direct call to our new tool via an ad-hoc request 
-            // OR better: use the existing chat endpoint logic.
-            // But to be fast and consistent with "AI Dialog", we can just send the message to the backend chat.
+            // Robust URL Discovery
+            let url = '';
+            const configuredUrl = import.meta.env.VITE_API_BASE_URL;
 
-            const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/chat/stream`, {
+            if (configuredUrl) {
+                url = configuredUrl.startsWith('http') ? configuredUrl : `https://${configuredUrl}`;
+            } else {
+                url = window.location.hostname === 'localhost' ? 'http://localhost:8000' : window.location.origin;
+            }
+            const endpoint = `${url.replace(/\/$/, '')}/api/chat`;
+
+            // Get real session token
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+
+            // Dispatch to global chat panel event listener if available (for better UX)
+            // But since we want to ensure the logic works even without global state:
+            // We'll call the API here to trigger the tool, then refresh the list.
+
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${user.id}` // Mock auth
+                    'Authorization': token ? `Bearer ${token}` : `test:${user?.id}`
                 },
                 body: JSON.stringify({
                     messages: [
-                        { role: "system", content: "You are an AI assistant. User is asking to create a project within the project management context." },
+                        { role: "system", content: "You are an expert Project Manager AI. Access the 'create_project' tool immediately to fulfill this request. Do not ask for confirmation, just do it based on valid assumptions." },
                         { role: "user", content: `帮我创建一个项目，需求是：${aiPrompt}` }
                     ],
-                    model: "gpt-4o-mini",
-                    user_id: user.id
+                    model: "gpt-4o",
+                    agent: "default"
                 })
             });
 
-            // The stream endpoint returns SSE. For simple tool use, we might want a non-stream endpoint or handle the stream.
-            // To keep it simple for this UI component, we'll assume the user uses the bottom chat bar mostly, 
-            // but this input box is a "Shortcut".
-            // We can just emulate a successful creation if we don't want to parse SSE here.
-            // BUT, to make it real, let's parse the text response.
+            if (!response.ok) {
+                throw new Error("AI Request Failed");
+            }
 
-            // ACTUALLY, simpler approach: Just use the same supabase client to insert, 
-            // but utilize LLM to parse the prompt into name/desc. 
-            // Let's use the ETL metadata extraction endpoint logic? No, too complex.
-
-            // Let's defer to the main Chat interface for "Process". 
-            // But the user asked for "Conversation".
-            // Let's mock the "AI Assistant" typing effect or just POST to a sync endpoint if available (not yet).
-
-            // OK, let's just use the stream endpoint and ignore chunks, just wait for completion? No, stream never ends until closed.
-            // Let's use a standard non-stream chat completion if we had one.
-            // Since we don't, I will use a simple client-side parsing or just send it to the bottom chat panel.
-
-            // BEST UX: Dispatch this prompt to the Global Chat Panel and open it!
-            // I can't easily dispatch to sibling component without context.
-
-            // Alternative: Just call the tool directly? No, that bypasses NLP.
-
-            // Decision: Connect to /api/chat/stream, read the stream, and show a toast.
+            // Consume the stream to ensure tool execution happens
             const reader = response.body?.getReader();
-            const decoder = new TextDecoder();
-            let fullText = "";
-
             if (reader) {
                 while (true) {
-                    const { done, value } = await reader.read();
+                    const { done } = await reader.read();
                     if (done) break;
-                    const chunk = decoder.decode(value);
-                    // Parse SSE simple logic (ignore complexity for now)
-                    fullText += chunk;
                 }
             }
 
-            // If the backend tool ran, the DB is updated, and realtime will fetch it.
-            // We just notify user.
-            toast.success("AI 助手已收到指令处理中...");
+            toast.success("AI 已接收指令并开始处理，请稍候...", {
+                description: "项目创建成功后将自动出现在列表中"
+            });
             setAiPrompt("");
 
+            // Wait a bit for DB propagation then refresh
+            setTimeout(() => {
+                fetchProjects();
+                toast.success("项目列表已刷新");
+            }, 3000);
+
         } catch (error) {
-            toast.error("AI 服务暂时不可用");
+            console.error(error);
+            toast.error("AI 服务连接失败，请稍后重试");
         } finally {
             setIsAiCreating(false);
         }
