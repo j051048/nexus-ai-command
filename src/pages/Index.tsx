@@ -67,7 +67,7 @@ function AppContent() {
         ) : <Navigate to="/" />;
       case 'documents':
       case 'knowledge':
-        return <routes.DocumentsPage />;
+        return <routes.DocumentsPage onNavigate={(nav) => setActiveNav(nav)} />;
       case 'settings':
         return <routes.AISettingsPanel />;
       default:

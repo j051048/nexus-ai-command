@@ -18,9 +18,10 @@ interface AICopilotInsightProps {
     context: string;
     insights?: Insight[];
     className?: string;
+    onViewReport?: () => void;
 }
 
-export function AICopilotInsight({ title, context, insights, className }: AICopilotInsightProps) {
+export function AICopilotInsight({ title, context, insights, className, onViewReport }: AICopilotInsightProps) {
     const [isOpen, setIsOpen] = useState(false);
 
     // Default mock insights if none provided
@@ -79,7 +80,12 @@ export function AICopilotInsight({ title, context, insights, className }: AICopi
                     </div>
 
                     <div className="pt-2 border-t border-border">
-                        <Button variant="ghost" size="sm" className="w-full text-xs text-primary h-8 hover:bg-primary/5">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full text-xs text-primary h-8 hover:bg-primary/5"
+                            onClick={onViewReport}
+                        >
                             查看完整 AI 报告
                             <ChevronRight className="w-3 h-3 ml-1" />
                         </Button>

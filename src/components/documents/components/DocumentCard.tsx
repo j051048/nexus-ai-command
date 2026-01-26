@@ -45,6 +45,7 @@ export function DocumentCard({ doc, onClick }: DocumentCardProps) {
                                 ]
                             }
                             className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            onViewReport={onClick}
                         />
                     )}
                 </div>

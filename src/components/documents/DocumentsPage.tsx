@@ -16,7 +16,7 @@ import { DocumentCard } from './components/DocumentCard';
 import { useUser } from '@/contexts/UserContext';
 import { NexusDocument } from '@/types/nexus';
 
-export function DocumentsPage() {
+export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => void }) {
     const { user } = useUser();
     const isBoss = user?.role === 'boss';
 
@@ -367,7 +367,19 @@ export function DocumentsPage() {
                                     <DocumentCard
                                         key={doc.id}
                                         doc={doc}
-                                        onClick={() => { }}
+                                        onClick={() => {
+                                            if ((doc.doc_type === 'bid' || doc.extracted_data?.doc_type === 'bid') && onNavigate) {
+                                                onNavigate('tender-analysis');
+                                                toast.success("已为您打开标书深度分析视图");
+                                            } else {
+                                                // Check for contract or other types
+                                                if (doc.doc_type === 'contract') {
+                                                    toast.info("合同分析模块正在开发中", { description: "Coming Soon: 法律条款风险自动审查" });
+                                                } else {
+                                                    toast.info("该文档详情暂不支持预览", { description: "目前仅开放[投标文件]类型的深度分析报告" });
+                                                }
+                                            }
+                                        }}
                                     />
                                 ))}
                             </div>
