@@ -1,6 +1,13 @@
 from app.services.vector_service import vector_service
+import json
+import httpx
+from fastapi import APIRouter
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
+from typing import List, Optional, Dict, Any
+from app.core.database import supabase
 
-# ... (Previous imports)
+router = APIRouter(prefix="/api", tags=["Chat"])
 
 # --- 工具定义 ---
 TOOLS = [
