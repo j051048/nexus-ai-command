@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface Project {
     id: string;
@@ -29,13 +29,13 @@ export function useProjects() {
 
     const fetchProjects = async () => {
         setLoading(true);
-        const { data, error } = await supabase
-            .from('projects')
+        const { data, error } = await (supabase
+            .from('projects' as any)
             .select('*')
-            .order('updated_at', { ascending: false });
+            .order('updated_at', { ascending: false }) as any);
 
         if (!error && data) {
-            setProjects(data);
+            setProjects(data as Project[]);
         }
         setLoading(false);
     };
@@ -59,12 +59,12 @@ export function useProjectDetail(projectId: string | null) {
             setLoading(true);
 
             const [projectRes, timelineRes] = await Promise.all([
-                supabase.from('projects').select('*').eq('id', projectId).single(),
-                supabase.from('project_timeline').select('*').eq('project_id', projectId).order('occurred_at', { ascending: false })
+                supabase.from('projects' as any).select('*').eq('id', projectId).single() as any,
+                supabase.from('project_timeline' as any).select('*').eq('project_id', projectId).order('occurred_at', { ascending: false }) as any
             ]);
 
-            if (!projectRes.error) setProject(projectRes.data);
-            if (!timelineRes.error) setTimeline(timelineRes.data);
+            if (!projectRes.error) setProject(projectRes.data as Project);
+            if (!timelineRes.error) setTimeline(timelineRes.data as ProjectTimeline[]);
 
             setLoading(false);
         };
