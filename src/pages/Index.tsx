@@ -81,9 +81,7 @@ function AppContent() {
   return (
     <UserProvider>
       <MainLayout activeNav={activeNav} onNavChange={setActiveNav}>
-        <React.Suspense fallback={<PageLoader />}>
-          {renderContent()}
-        </React.Suspense>
+        {renderContent()}
       </MainLayout>
     </UserProvider>
   );

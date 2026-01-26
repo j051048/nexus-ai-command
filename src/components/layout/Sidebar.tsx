@@ -27,8 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { routes } from '@/config/routes';
-import { prefetchRoute } from '@/lib/lazyPreload';
+
 
 interface NavItem {
   icon: React.ReactNode;
@@ -111,18 +110,6 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps) {
                     ? "bg-sidebar-accent text-primary"
                     : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground"
                 )}
-                onMouseEnter={() => {
-                  switch (item.href) {
-                    case 'sales': prefetchRoute(routes.SalesPipeline); break;
-                    case 'approval': prefetchRoute(routes.ApprovalCenter); break;
-                    case 'documents': prefetchRoute(routes.DocumentsPage); break;
-                    case 'rewards': prefetchRoute(routes.RewardsWallet); break;
-                    case 'targets': prefetchRoute(routes.SalesTargetManager); break;
-                    case 'employees': prefetchRoute(routes.EmployeeManagement); break;
-                    case 'exceptions': prefetchRoute(routes.ExceptionsPage); break;
-                    case 'settings': prefetchRoute(routes.AISettingsPanel); break;
-                  }
-                }}
               >
                 {item.icon}
                 <span className="flex-1 text-left">{item.label}</span>
