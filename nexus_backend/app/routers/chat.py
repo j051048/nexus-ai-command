@@ -27,20 +27,29 @@ class ChatRequest(BaseModel):
 # P0 Completed: Tool definitions are now fully dynamic
 TOOLS = get_all_tools_schema()
 
+from functools import lru_cache
+
+# P3 Optimization: LRU Cache to reduce DB hits for RBAC checks
+@lru_cache(maxsize=1000)
+def _get_cached_user_role(user_id: str) -> str:
+    try:
+        user_res = supabase.table("users").select("role").eq("id", user_id).maybe_single().execute()
+        return user_res.data.get("role") if user_res.data else "employee"
+    except:
+        return "employee"
+
 async def execute_tool(name: str, args: Dict[str, Any], current_user_id: str, config: dict = None) -> str:
-    """执行具体工具逻辑并返回结果文本 (Strategy Pattern with RBAC)"""
+    """执行具体工具逻辑并返回结果文本 (Strategy Pattern with RBAC & Caching)"""
     tool_instance = get_tool(name)
     
     if tool_instance:
         try:
             # 1. Security Check: Role Based Access Control
             if tool_instance.required_role != "all":
-                # Fetch user role from DB
-                user_res = supabase.table("users").select("role").eq("id", current_user_id).maybe_single().execute()
-                user_role = user_res.data.get("role") if user_res.data else "employee"
+                # Use cached role lookup
+                user_role = _get_cached_user_role(current_user_id)
                 
                 # Simple check: 'boss' tools require 'boss' role
-                # Expand logic here for more complex hierarchies (e.g. manager)
                 if tool_instance.required_role == "boss" and user_role != "boss":
                     return f"⛔ 权限拒绝: 该操作需要 [Boss/Manager] 权限，您当前的身份是 [{user_role}]。"
 

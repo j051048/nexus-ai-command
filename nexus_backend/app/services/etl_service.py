@@ -104,18 +104,9 @@ class ETLService:
 
     async def extract_metadata_via_ai(self, text: str, filename: str, api_key: str, base_url: str) -> Tuple[bool, Dict]:
         preview = text[:4000]
-        prompt = f"""
-        Extract document metadata as JSON ONLY:
-        - doc_type: [contract, bid, product, proposal, invoice, other]
-        - client_name: string
-        - amount: number
-        - date: YYYY-MM-DD
-        - summary: 1-sentence Chinese summary
-        - compatible_models: [list of compatible device models mentioned, e.g. "ZY-100", "HPLC-2020"]
-        
-        Content:
-        {preview}
-        """
+        # P2: Use centralized prompt
+        from app.core.prompts_registry import TOOL_PROMPTS
+        prompt = TOOL_PROMPTS["etl_metadata"].format(preview=preview)
         
         payload = {
             "model": "gpt-4o-mini",
