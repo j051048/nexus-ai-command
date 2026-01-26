@@ -204,6 +204,7 @@ async def stream_openai_response(messages: List[dict], config: dict, user_id: st
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}"
+        # Do NOT forward Origin header to avoid 403 from Gateway
     }
 
     payload = {
