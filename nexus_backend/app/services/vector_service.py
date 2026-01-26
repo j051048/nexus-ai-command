@@ -50,7 +50,7 @@ class VectorService:
              try:
                  response = await client.embeddings.create(input=query, model="text-embedding-3-small")
                  embedding = response.data[0].embedding
-                 params = {"query_embedding": embedding, "match_threshold": 0.5, "match_count": limit}
+                 params = {"query_embedding": embedding, "match_threshold": 0.4, "match_count": limit}
                  if filters:
                      params["filter"] = filters # Assumes match_documents signature accepts 'filter'
                  return supabase.rpc("match_documents", params).execute().data or []

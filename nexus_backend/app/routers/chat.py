@@ -1,3 +1,6 @@
+import asyncio
+import json
+import httpx
 from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -130,8 +133,18 @@ async def stream_openai_response(messages: List[dict], config: dict, user_id: st
                 args = json.loads(full_tool_call_json) if full_tool_call_json else {}
                 if logger: logger.log_tool_plan(tool_name, args)
                 
-                tool_result = await execute_tool(tool_name, args, user_id, config=config)
-                if logger: logger.log_tool_execution(tool_name, "success", tool_result)
+                # BUG-02 Fix: Specific timeout handling for tool execution
+                try:
+                    tool_result = await asyncio.wait_for(
+                        execute_tool(tool_name, args, user_id, config=config),
+                        timeout=30.0
+                    )
+                except asyncio.TimeoutError:
+                    tool_result = f"Error: 工具 {tool_name} 执行超时 (30s)。请尝试缩小查询范围或稍后重试。"
+                except Exception as e:
+                    tool_result = f"Error: 工具执行出错: {str(e)}"
+
+                if logger: logger.log_tool_execution(tool_name, "success" if "Error" not in tool_result else "failed", tool_result)
 
                 # Append to history for the next iteration
                 messages.append({
@@ -216,8 +229,14 @@ async def chat(request: ChatRequest, x_user_id: Optional[str] = Header(None)):
 
     coref_instruction = "\nIMPORTANT: When using tools like 'query_knowledge_base', you MUST generate a standalone, explicit search query. Do NOT use pronouns. Replace them with specific names from history."
     
+    # BUG-01 Fix: Context Slicing (Sliding Window) 
+    # Keep only the last 10 messages to prevent Token/Context window overflow.
+    # We always keep the System Prompt at index 0.
+    MAX_HISTORY = 10
+    user_messages = request.messages[-MAX_HISTORY:] if len(request.messages) > MAX_HISTORY else request.messages
+    
     formatted_messages = [{"role": "system", "content": system_prompt + coref_instruction}]
-    for msg in request.messages:
+    for msg in user_messages:
         formatted_messages.append({"role": msg.role, "content": msg.content})
 
     return StreamingResponse(
