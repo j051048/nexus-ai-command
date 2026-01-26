@@ -8,6 +8,9 @@ from typing import List, Optional, Dict, Any
 from app.core.database import supabase
 from app.core.prompts import prompts
 
+router = APIRouter(prefix="/api/chat", tags=["Chat"])
+
+
 
 
 class Message(BaseModel):
