@@ -8,17 +8,17 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { useAISettings, useSaveAISettings, useTestAIConnection, DEFAULT_MODELS } from '@/hooks/useAISettings';
 import { toast } from 'sonner';
-import { 
-  Settings, 
-  Key, 
-  Globe, 
-  Bot, 
-  Save, 
-  TestTube2, 
-  AlertCircle, 
-  CheckCircle2, 
+import {
+  Settings,
+  Key,
+  Globe,
+  Bot,
+  Save,
+  TestTube2,
+  AlertCircle,
+  CheckCircle2,
   Loader2,
-  Terminal 
+  Terminal
 } from 'lucide-react';
 
 interface LogEntry {
@@ -32,7 +32,7 @@ export function AISettingsPanel() {
   const saveSettings = useSaveAISettings();
   const testConnection = useTestAIConnection();
 
-  const [baseUrl, setBaseUrl] = useState('https://ai.gateway.lovable.dev/v1/chat/completions');
+  const [baseUrl, setBaseUrl] = useState('https://ai.gateway.zhz-tech.dev/v1/chat/completions');
   const [apiKey, setApiKey] = useState('');
   const [selectedModel, setSelectedModel] = useState('google/gemini-3-pro-preview');
   const [customModel, setCustomModel] = useState('');
@@ -42,9 +42,9 @@ export function AISettingsPanel() {
   // Load saved settings
   useEffect(() => {
     if (settings) {
-      setBaseUrl(settings.base_url || 'https://ai.gateway.lovable.dev/v1/chat/completions');
+      setBaseUrl(settings.base_url || 'https://ai.gateway.zhz-tech.dev/v1/chat/completions');
       setApiKey(settings.api_key || '');
-      
+
       const isCustom = !DEFAULT_MODELS.some(m => m.value === settings.model);
       if (isCustom && settings.model) {
         setSelectedModel('custom');
@@ -82,7 +82,7 @@ export function AISettingsPanel() {
     }
 
     addLog('info', '正在保存配置...');
-    
+
     try {
       await saveSettings.mutateAsync({
         base_url: baseUrl,
@@ -323,10 +323,10 @@ export function AISettingsPanel() {
                           log.type === 'error'
                             ? 'text-destructive'
                             : log.type === 'success'
-                            ? 'text-success'
-                            : log.type === 'warning'
-                            ? 'text-warning'
-                            : 'text-foreground'
+                              ? 'text-success'
+                              : log.type === 'warning'
+                                ? 'text-warning'
+                                : 'text-foreground'
                         }
                       >
                         {log.message}
@@ -349,7 +349,7 @@ export function AISettingsPanel() {
                 默认
               </Badge>
               <div>
-                <p className="text-sm font-medium">Lovable AI Gateway</p>
+                <p className="text-sm font-medium">ZHZ-Tech AI Gateway</p>
                 <p className="text-xs text-muted-foreground">内置 API，无需额外配置</p>
               </div>
             </div>
