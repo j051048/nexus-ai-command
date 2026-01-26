@@ -5,6 +5,7 @@ from app.core.database import supabase
 class ApprovalTool(BaseTool):
     name = "approve_request"
     description = "批准一个待处理的审批申请（报销或采购）"
+    required_role = "boss"  # Only boss/manager can approve
 
     parameters = {
         "type": "object",
@@ -34,6 +35,7 @@ class ApprovalTool(BaseTool):
 class RejectTool(BaseTool):
     name = "reject_request"
     description = "驳回一个待处理的审批申请"
+    required_role = "boss"
 
     parameters = {
         "type": "object",

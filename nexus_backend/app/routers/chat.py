@@ -28,10 +28,23 @@ class ChatRequest(BaseModel):
 TOOLS = get_all_tools_schema()
 
 async def execute_tool(name: str, args: Dict[str, Any], current_user_id: str, config: dict = None) -> str:
-    """执行具体工具逻辑并返回结果文本 (Strategy Pattern)"""
+    """执行具体工具逻辑并返回结果文本 (Strategy Pattern with RBAC)"""
     tool_instance = get_tool(name)
+    
     if tool_instance:
         try:
+            # 1. Security Check: Role Based Access Control
+            if tool_instance.required_role != "all":
+                # Fetch user role from DB
+                user_res = supabase.table("users").select("role").eq("id", current_user_id).maybe_single().execute()
+                user_role = user_res.data.get("role") if user_res.data else "employee"
+                
+                # Simple check: 'boss' tools require 'boss' role
+                # Expand logic here for more complex hierarchies (e.g. manager)
+                if tool_instance.required_role == "boss" and user_role != "boss":
+                    return f"⛔ 权限拒绝: 该操作需要 [Boss/Manager] 权限，您当前的身份是 [{user_role}]。"
+
+            # 2. Execute
             return await tool_instance.run(args, current_user_id, config)
         except Exception as e:
             return f"工具 {name} 执行失败: {str(e)}"

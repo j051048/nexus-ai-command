@@ -23,6 +23,15 @@ class BaseTool(ABC):
         """JSON Schema for the tool parameters"""
         pass
 
+    @property
+    def required_role(self) -> str:
+        """
+        Optional: user role required to execute this tool.
+        Returns 'all' by default, meaning no restriction.
+        Possible values: 'boss', 'manager', 'sales', 'all'
+        """
+        return "all"
+
     @abstractmethod
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
         """
