@@ -56,10 +56,12 @@ async def get_current_user_id(authorization: Optional[str] = Header(None)) -> st
 
         if not payload:
             error_msg = f"身份验签失败: {str(last_error)}" if last_error else "无效的认证令牌 (Invalid token signature)"
+            print(f"Auth Debug: 401 Error - {error_msg}")
             raise HTTPException(status_code=401, detail=error_msg)
 
         user_id = payload.get("sub") or payload.get("id")
         if not user_id:
+            print("Auth Debug: 401 Error - Token missing user identity")
             raise HTTPException(status_code=401, detail="令牌中缺少用户身份标识 (Token missing user identity)")
             
         return user_id
@@ -67,4 +69,5 @@ async def get_current_user_id(authorization: Optional[str] = Header(None)) -> st
     except HTTPException:
         raise
     except Exception as e:
+        print(f"Auth Debug: Unexpected Error - {str(e)}")
         raise HTTPException(status_code=401, detail=f"认证执行异常: {str(e)}")
