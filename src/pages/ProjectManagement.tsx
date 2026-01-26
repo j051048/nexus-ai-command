@@ -20,7 +20,11 @@ interface Project {
     created_at: string;
 }
 
-export function ProjectManagement() {
+interface ProjectManagementProps {
+    onProjectSelect: (id: string) => void;
+}
+
+export function ProjectManagement({ onProjectSelect }: ProjectManagementProps) {
     const { user } = useUser();
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
@@ -214,7 +218,11 @@ export function ProjectManagement() {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {projects.map((project) => (
-                        <Card key={project.id} className="group hover:shadow-lg transition-all border-border/50 hover:border-primary/50 cursor-pointer overflow-hidden relative">
+                        <Card
+                            key={project.id}
+                            onClick={() => onProjectSelect(project.id)}
+                            className="group hover:shadow-lg transition-all border-border/50 hover:border-primary/50 cursor-pointer overflow-hidden relative"
+                        >
                             <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-primary to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                             <CardHeader className="pb-2">
                                 <div className="flex justify-between items-start">
