@@ -21,7 +21,7 @@ import { toast } from 'sonner';
 interface Document {
     id: string;
     name: string;
-    doc_type: 'contract' | 'bid' | 'quote' | 'other';
+    doc_type: 'contract' | 'bid' | 'product' | 'other';
     size: string;
     updated_at: string;
     extracted_data?: {
@@ -41,7 +41,7 @@ export function DocumentsPage() {
     const [uploadProgress, setUploadProgress] = useState(0);
     const [uploadStage, setUploadStage] = useState<'uploading' | 'extracting' | 'indexing'>('uploading');
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeFilter, setActiveFilter] = useState<'all' | 'contract' | 'bid'>('all');
+    const [activeFilter, setActiveFilter] = useState<'all' | 'contract' | 'bid' | 'product'>('all');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Mock Data for MVP Visualization
@@ -61,6 +61,14 @@ export function DocumentsPage() {
             size: '15.1 MB',
             updated_at: '2024-01-24',
             extracted_data: { client_name: '朝阳疾控', amount: 800000 }
+        },
+        {
+            id: '3',
+            name: 'Nexus_AI_中控系统产品白皮书.pdf',
+            doc_type: 'product',
+            size: '5.2 MB',
+            updated_at: '2024-01-26',
+            extracted_data: { client_name: '内部资料' }
         }
     ]);
 
@@ -204,6 +212,7 @@ export function DocumentsPage() {
                                 { id: 'all', label: '全部文档', count: documents.length },
                                 { id: 'contract', label: '销售合同', count: documents.filter(d => d.doc_type === 'contract').length },
                                 { id: 'bid', label: '投标文件', count: documents.filter(d => d.doc_type === 'bid').length },
+                                { id: 'product', label: '产品资料', count: documents.filter(d => d.doc_type === 'product').length },
                             ].map(filter => (
                                 <button
                                     key={filter.id}
@@ -274,7 +283,8 @@ export function DocumentsPage() {
                                             "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
                                             doc.doc_type === 'contract' ? "bg-blue-100 text-blue-600 dark:bg-blue-900/20" :
                                                 doc.doc_type === 'bid' ? "bg-orange-100 text-orange-600 dark:bg-orange-900/20" :
-                                                    "bg-gray-100 text-gray-600 dark:bg-gray-800"
+                                                    doc.doc_type === 'product' ? "bg-purple-100 text-purple-600 dark:bg-purple-900/20" :
+                                                        "bg-gray-100 text-gray-600 dark:bg-gray-800"
                                         )}>
                                             <FileText className="w-5 h-5" />
                                         </div>
@@ -291,9 +301,10 @@ export function DocumentsPage() {
                                             "px-2.5 py-1 rounded-full text-xs font-medium",
                                             doc.doc_type === 'contract' ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" :
                                                 doc.doc_type === 'bid' ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300" :
-                                                    "bg-gray-100 text-gray-700"
+                                                    doc.doc_type === 'product' ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300" :
+                                                        "bg-gray-100 text-gray-700"
                                         )}>
-                                            {doc.doc_type === 'contract' ? '销售合同' : doc.doc_type === 'bid' ? '投标文件' : '其他'}
+                                            {doc.doc_type === 'contract' ? '销售合同' : doc.doc_type === 'bid' ? '投标文件' : doc.doc_type === 'product' ? '产品资料' : '其他'}
                                         </span>
                                     </div>
                                     <div className="col-span-2 font-mono text-sm">
