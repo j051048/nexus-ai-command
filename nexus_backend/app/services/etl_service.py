@@ -142,13 +142,15 @@ class ETLService:
         if not supabase:
             raise Exception("Supabase not initialized")
             
-        # P3 Security: PII Scrubbing
+        # P3 Security: PII Scrubbing (Enhanced for P2 Fix)
         def _scrub_pii(content: str) -> str:
             import re
-            # Mask Mobile Phones (China)
-            content = re.sub(r'1[3-9]\d{9}', '[PHONE_REDACTED]', content)
+            # Mask Mobile Phones (China) - Use \b boundary to avoid matching inside order numbers
+            # Note: \b works for simple word boundaries. For precise Chinese context, lookbehind might be needed, 
+            # but for this MVP, \b + standard pattern is safer than before.
+            content = re.sub(r'(?<!\d)1[3-9]\d{9}(?!\d)', '[PHONE_REDACTED]', content)
             # Mask ID Card (Simple regex)
-            content = re.sub(r'\d{17}[\d|X]', '[ID_REDACTED]', content)
+            content = re.sub(r'(?<!\d)\d{17}[\d|X](?!\d)', '[ID_REDACTED]', content)
             return content
 
         safe_text = _scrub_pii(text)
@@ -167,11 +169,17 @@ class ETLService:
 
     async def _generate_embeddings(self, text: str, doc_id: str, filename: str, api_key: str, base_url: str):
         """
-        P1 Optimization: Generate embeddings in parallel using asyncio.gather.
+        P1 Optimization: Generate embeddings in parallel batches (P1: Fix Memory Overflow)
         """
         import asyncio
-        chunks = list(self._simple_chunk(text)) # Materialize generator
         
+        # Helper to process a single batch of chunks
+        async def _process_batch(batch_chunks):
+            tasks = []
+            for chunk in batch_chunks:
+                tasks.append(_fetch_embedding(chunk))
+            return await asyncio.gather(*tasks)
+
         async def _fetch_embedding(chunk):
             try:
                 payload = {
@@ -196,16 +204,32 @@ class ETLService:
                 print(f"Embedding failed for chunk: {e}")
                 return None
 
-        # Execute parallel requests with a concurrency limit (optional, inherent in gather)
-        results = await asyncio.gather(*[_fetch_embedding(chunk) for chunk in chunks])
+        # Process generator in batches
+        BATCH_SIZE = 50
+        current_batch = []
         
-        # Batch Insert or Sequential Insert
-        valid_records = [r for r in results if r]
-        if valid_records:
-            try:
-                supabase.table("document_embeddings").insert(valid_records).execute()
-            except Exception as e:
-                print(f"Batch db insert failed: {e}")
+        for chunk in self._simple_chunk(text):
+            current_batch.append(chunk)
+
+            if len(current_batch) >= BATCH_SIZE:
+                results = await _process_batch(current_batch)
+                valid_records = [r for r in results if r]
+                if valid_records:
+                    try:
+                        supabase.table("document_embeddings").insert(valid_records).execute()
+                    except Exception as e:
+                        print(f"Batch db insert failed: {e}")
+                current_batch = []
+        
+        # Process remaining
+        if current_batch:
+            results = await _process_batch(current_batch)
+            valid_records = [r for r in results if r]
+            if valid_records:
+                try:
+                    supabase.table("document_embeddings").insert(valid_records).execute()
+                except Exception as e:
+                    print(f"Final batch db insert failed: {e}")
 
     def _simple_chunk(self, text: str, size: int = 500, overlap: int = 50):
         """
@@ -218,6 +242,11 @@ class ETLService:
         while start < text_len:
             end = start + size
             yield text[start:end]
+            
+            # If this chunk reached the end of the text, stop.
+            if end >= text_len:
+                break
+                
             # Move forward by size - overlap to create sliding window
             start += size - overlap
 
