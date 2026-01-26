@@ -36,22 +36,33 @@ async def get_current_user_id(authorization: Optional[str] = Header(None)) -> st
         for secret in secrets_to_try:
             if not secret: continue
             try:
+                # Attempt to decode and verify signature
                 payload = jwt.decode(token, secret, algorithms=[JWT_ALGORITHM])
+                print(f"Auth Debug: Successfully verified with secret ending in ...{secret[-4:] if len(secret)>4 else '****'}")
                 break
             except jwt.InvalidSignatureError as e:
                 last_error = e
+                print(f"Auth Debug: Sig check failed for secret ending in ...{secret[-4:] if len(secret)>4 else '****'}")
                 continue
-            except jwt.ExpiredSignatureError:
+            except jwt.ExpiredSignatureError as e:
+                # If expired, we usually block. 
+                # BUT if we are in UNSECURE mode, we might want to allow it (or user clock skew issues).
+                # Let's verify if we should allow fallback.
+                print("Auth Debug: Token Expired.")
+                if os.getenv("ALLOW_UNSECURE_AUTH") == "true":
+                     last_error = e
+                     continue # Fall through to fallback
                 raise HTTPException(status_code=401, detail="登录已过期 (Token expired)")
         
         # 3. Development Fallback: Decode WITHOUT verification if explicitly allowed
         if not payload and os.getenv("ALLOW_UNSECURE_AUTH") == "true":
             # Extract 'sub' (User ID) without verifying signature
-            # WARNING: ONLY USE THIS FOR DEVELOPMENT/INTEGRATION TESTING
             try:
+                print("Auth Debug: Attempting unverified decode...")
                 payload = jwt.decode(token, options={"verify_signature": False})
-                print(f"⚠️ SECURITY WARNING: Utilizing unverified JWT payload for user_id: {payload.get('sub')}")
-            except:
+                print(f"⚠️ SECURITY WARNING: Using unverified payload. Sub: {payload.get('sub')}")
+            except Exception as e:
+                print(f"Auth Debug: Unverified decode failed: {e}")
                 pass
 
         if not payload:
