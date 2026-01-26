@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-url: str = os.getenv("SUPABASE_URL", "")
+url: str = os.getenv("SUPABASE_URL") or os.getenv("SUPABASE_URI", "")
 key: str = os.getenv("SUPABASE_SERVICE_KEY", "")
 
 if not url or not key:
