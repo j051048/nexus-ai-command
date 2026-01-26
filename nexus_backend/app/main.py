@@ -12,13 +12,10 @@ app = FastAPI(
 )
 
 # CORS Configuration
-origins = [
-    "*", # Allow all for dev convenience. Production should constrain this.
-    "http://localhost:8080",
-    "http://localhost:5173",
-    "https://nexus-ai-command.vercel.app",
-    "https://nexus-ai-command.zeabur.app"
-]
+from app.core.config import settings
+
+# CORS Configuration
+origins = settings.CORS_ORIGINS
 
 @app.get("/api/test-ai")
 async def test_ai_connectivity():

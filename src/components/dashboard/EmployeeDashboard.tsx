@@ -154,8 +154,13 @@ export function EmployeeDashboard() {
       {/* Welcome Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-3">
             战绩中心
+            {!hasRealData && (
+              <span className="text-xs bg-amber-500/10 text-amber-600 px-2.5 py-0.5 rounded-full border border-amber-500/20 font-medium">
+                演示模式
+              </span>
+            )}
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground mt-1">
             早上好，{user.name}！今天也要加油哦 💪
