@@ -11,3 +11,5 @@ python-multipart
 pypdf
 pandas
 openpyxl
+celery[redis]
+arxiv
