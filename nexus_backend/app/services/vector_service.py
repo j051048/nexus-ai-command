@@ -53,15 +53,18 @@ class VectorService:
                  return supabase.rpc("match_documents", params).execute().data or []
              except Exception: return []
 
-        # B. Keyword Search (Lexical) - using simple text search
-        # Note: Requires a 'text_search_index' in DB or we simulate via ILIKE for basic MVP
+        # B. Keyword Search (Lexical) - using Postgres Full Text Search (P1 Optimization)
+        # Note: Requires 'fts' generated column and GIN index (see migration 20240201)
         async def run_keyword_search():
              try:
-                 # Attempt simple ILIKE on content (MVP for Full Text Search)
-                 # Ideally use: supabase.table("document_embeddings").select("*").textSearch("content", query).execute()
-                 # But standard postgres 'ilike' is a safer fallback without specialized indices
+                 # Use 'websearch_to_tsquery' logic via Supabase .textSearch()
+                 # 'plain' config maps to 'common' dictionary usually, or we specify config='simple' if possible
+                 # Supabase-py textSearch syntax: .textSearch('fts', query, config='simple')
+                 return supabase.table("document_embeddings").select("*").textSearch("fts", query, config="simple").limit(limit).execute().data or []
+             except Exception as e: 
+                 # Fallback to ILIKE if FTS fails (e.g. migration not run)
+                 print(f"FTS failed, fallback to ilike: {e}")
                  return supabase.table("document_embeddings").select("*").ilike("content", f"%{query}%").limit(limit).execute().data or []
-             except Exception: return []
 
         # Run Parallel
         vector_res, keyword_res = await asyncio.gather(run_vector_search(), run_keyword_search())

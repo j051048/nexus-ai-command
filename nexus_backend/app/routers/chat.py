@@ -229,13 +229,18 @@ async def chat(request: ChatRequest):
     except:
         system_prompt = raw_prompt
     
-    formatted_messages = [{"role": "system", "content": system_prompt}]
-    for msg in request.messages:
-        formatted_messages.append({"role": msg.role, "content": msg.content})
-
     # Initialize Logger
     from app.core.trace_logger import TraceLogger
     tracer = TraceLogger(user_id=user_id or "anonymous", agent=request.agent or "default")
+
+    # P2: Coreference Resolution via System Prompt
+    # We append a critical instruction to ensure the Agent rewrites queries for tool calls.
+    coref_instruction = "\nIMPORTANT: When using tools like 'query_knowledge_base', you MUST generate a standalone, explicit search query. Do NOT use pronouns like 'it' 'this' or 'that'. Replace them with the specific entity from the conversation history (e.g., change 'how much is it' to 'ZY-100 price')."
+    
+    formatted_messages = [{"role": "system", "content": system_prompt + coref_instruction}]
+    for msg in request.messages:
+        formatted_messages.append({"role": msg.role, "content": msg.content})
+
 
     return StreamingResponse(
         stream_openai_response(formatted_messages, ai_config, user_id, tracer),
