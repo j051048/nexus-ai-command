@@ -92,6 +92,17 @@ TOOLS = [
                 "required": ["user_id", "badge_name"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_company_stats",
+            "description": "获取公司整体统计数据，如员工总人数、部门分布概况等",
+            "parameters": {
+                "type": "object",
+                "properties": {}
+            }
+        }
     }
 ]
 
@@ -150,8 +161,6 @@ async def execute_tool(name: str, args: Dict[str, Any], current_user_id: str) ->
             
             user = user_res.data
             metrics_res = supabase.table("sales_metrics").select("*").eq("user_id", target_id).execute()
-            leads_res = supabase.table("sales_leads").select("stage, count").eq("user_id", target_id).execute()
-            # 这里的 count 是示意逻辑，实际根据 schema
             
             report = f"用户: {user['name']}\n"
             report += f"当前得分: {user['score']} | 排名: {user['rank']} | 总奖金: ¥{user['total_bonus']}\n"
@@ -182,6 +191,26 @@ async def execute_tool(name: str, args: Dict[str, Any], current_user_id: str) ->
             }).execute()
             
             return f"成功为用户 {user_id} 颁发徽章: {badge_name}"
+
+        elif name == "get_company_stats":
+            # Count users
+            count_res = supabase.table("users").select("id", count="exact").execute()
+            total_users = count_res.count if count_res.count is not None else 0
+            
+            # Simple aggregation by department (simulated here as group_by is complex in simple client)
+            # In production we would use an RPC or a view
+            dept_res = supabase.table("users").select("department").execute()
+            depts = {}
+            for u in dept_res.data:
+                d = u.get("department", "未分配") or "未分配"
+                depts[d] = depts.get(d, 0) + 1
+            
+            stats = f"公司总人数: {total_users} 人\n"
+            stats += "部门分布:\n"
+            for d, c in depts.items():
+                stats += f"- {d}: {c} 人\n"
+            
+            return stats
             
         return f"未知工具: {name}"
     except Exception as e:
