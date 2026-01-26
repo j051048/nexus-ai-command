@@ -87,7 +87,7 @@ class ETLService:
             {preview_text}
             """
             response = self.openai_client.chat.completions.create(
-                model="gemini-1.5-flash", 
+                model="gemini-3-pro-preview", 
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
                 response_format={"type": "json_object"}

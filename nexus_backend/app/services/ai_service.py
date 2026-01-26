@@ -20,7 +20,7 @@ class AIService:
         }
         
         payload = {
-            "model": "gemini-1.5-flash", 
+            "model": "gemini-3-pro-preview", 
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt}
