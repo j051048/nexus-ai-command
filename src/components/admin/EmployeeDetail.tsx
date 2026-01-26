@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Mail, Phone, Calendar, Award, BarChart3, FileCheck, Trash2, ArrowRightLeft } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Calendar, Award, BarChart3, FileCheck, Trash2, ArrowRightLeft, CheckCircle2, Plus } from 'lucide-react';
 import { Employee, useEmployeeStats } from '@/hooks/useEmployeeManagement';
 import {
     Dialog,
@@ -18,6 +18,14 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Loader2, AlertTriangle } from 'lucide-react';
+
+// Mock Project Data
+const mockProjects = [
+    { id: 'p1', name: '某高校光谱仪采购', type: '硬件', stage: '需求确认', progress: 30, description: '物理系实验室定制高精度光谱仪，需配合 Research-Grade 镜头。', updatedAt: '2024-03-15' },
+    { id: 'p2', name: 'Nexus OS 私有化部署', type: '私有化', stage: '部署实施', progress: 85, description: '华为松山湖研究所私有云环境部署。', updatedAt: '2024-03-18' },
+    { id: 'p3', name: 'SaaS 标准版续费', type: 'SaaS', stage: '合同签署', progress: 95, description: '深圳某生物科技公司年度续费合同。', updatedAt: '2024-03-10' },
+    { id: 'p4', name: 'AI 质检模块 POC', type: '软件', stage: '技术验证', progress: 60, description: '富士康产线视觉质检 Pilot 项目。', updatedAt: '2024-03-12' },
+];
 
 interface EmployeeDetailProps {
     employee: Employee;
@@ -42,6 +50,15 @@ export function EmployeeDetail({
     const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
     const [showTransferDialog, setShowTransferDialog] = React.useState(false);
     const [transferTargetId, setTransferTargetId] = React.useState<string>('');
+    const [selectedProjects, setSelectedProjects] = React.useState<string[]>([]);
+
+    const toggleProjectSelection = (projectId: string) => {
+        setSelectedProjects(prev =>
+            prev.includes(projectId)
+                ? prev.filter(id => id !== projectId)
+                : [...prev, projectId]
+        );
+    };
 
     const otherEmployees = allEmployees.filter(e => e.user_id !== employee.user_id);
     const isBoss = employee.role === 'boss';
@@ -141,7 +158,81 @@ export function EmployeeDetail({
                 </div>
             </div>
 
-            {/* Delete Dialog */}
+            {/* Projects Section */}
+            <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-foreground">负责项目</h3>
+                    <Button variant="outline" size="sm" onClick={() => setShowTransferDialog(true)} disabled={selectedProjects.length === 0}>
+                        <ArrowRightLeft className="w-4 h-4 mr-2" />
+                        批量移交选定项目 ({selectedProjects.length})
+                    </Button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {mockProjects.map(project => (
+                        <div
+                            key={project.id}
+                            className={cn(
+                                "bg-card border rounded-xl p-5 hover:border-primary/50 transition-all cursor-pointer relative group",
+                                selectedProjects.includes(project.id) ? "border-primary bg-primary/5" : "border-border"
+                            )}
+                            onClick={() => toggleProjectSelection(project.id)}
+                        >
+                            {/* Checkbox for selection */}
+                            <div className={cn(
+                                "absolute top-4 right-4 w-5 h-5 rounded border flex items-center justify-center transition-colors",
+                                selectedProjects.includes(project.id)
+                                    ? "bg-primary border-primary text-primary-foreground"
+                                    : "border-muted-foreground/30 group-hover:border-primary/50"
+                            )}>
+                                {selectedProjects.includes(project.id) && <CheckCircle2 className="w-3.5 h-3.5" />}
+                            </div>
+
+                            <div className="mb-4">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className={cn(
+                                        "px-2 py-0.5 text-[10px] rounded-full font-medium uppercase",
+                                        project.type === 'SaaS' ? "bg-blue-500/10 text-blue-500" :
+                                            project.type === '私有化' ? "bg-purple-500/10 text-purple-500" :
+                                                "bg-orange-500/10 text-orange-500"
+                                    )}>
+                                        {project.type}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">{new Date(project.updatedAt).toLocaleDateString()} 更新</span>
+                                </div>
+                                <h4 className="font-semibold text-foreground">{project.name}</h4>
+                                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{project.description}</p>
+                            </div>
+
+                            {/* Progress Bar */}
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-xs">
+                                    <span className="text-muted-foreground">{project.stage}</span>
+                                    <span className="font-medium text-foreground">{project.progress}%</span>
+                                </div>
+                                <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                                    <div
+                                        className={cn(
+                                            "h-full rounded-full transition-all duration-500",
+                                            project.progress >= 80 ? "bg-success" :
+                                                project.progress >= 50 ? "bg-primary" : "bg-warning"
+                                        )}
+                                        style={{ width: `${project.progress}%` }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+
+                    {/* Add New Project Placeholder */}
+                    <div className="border border-dashed border-border rounded-xl p-5 flex flex-col items-center justify-center text-muted-foreground hover:bg-secondary/50 transition-colors cursor-not-allowed opacity-60">
+                        <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center mb-2">
+                            <Plus className="w-5 h-5" />
+                        </div>
+                        <p className="text-sm font-medium">新建项目 (暂未开放)</p>
+                    </div>
+                </div>
+            </div>
             <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
                 <DialogContent>
                     <DialogHeader>
