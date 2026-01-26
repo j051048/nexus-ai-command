@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from app.routers import performance, incentive, approval, kingdee, chat, documents
 import uvicorn
 import os
@@ -10,6 +10,10 @@ app = FastAPI(
     description="AI-Driven Low-Code Backend for Sales Performance & Governance",
     version="1.0.0"
 )
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return Response(status_code=204)
 
 # CORS Configuration
 from app.core.config import settings
