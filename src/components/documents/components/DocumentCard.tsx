@@ -54,6 +54,10 @@ export function DocumentCard({ doc, onClick }: DocumentCardProps) {
                         {isCompleted && <CheckCircle className="w-3 h-3 text-success fill-success/10" />}
                     </p>
                     <span className="text-[10px] text-muted-foreground opacity-50">•</span>
+                    <p className="text-[10px] text-muted-foreground max-w-[300px] truncate">
+                        {doc.extracted_data?.summary || '文档已入库，AI 索引已完成'}
+                    </p>
+                    <span className="text-[10px] text-muted-foreground opacity-50">•</span>
                     <p className="text-[10px] text-muted-foreground">
                         {new Date(doc.created_at).toLocaleDateString()}
                     </p>
