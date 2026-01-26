@@ -13,14 +13,14 @@ class AIService:
             # Fallback or Mock for local development without key
             return "AI Analysis: (API Key missing) Request looks standard. Proceed with caution."
 
-        url = "https://api.openai.com/v1/chat/completions"
+        url = f"{settings.AI_BASE_URL}/chat/completions" if settings.AI_BASE_URL else "https://api.openai.com/v1/chat/completions"
         headers = {
             "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
             "Content-Type": "application/json"
         }
         
         payload = {
-            "model": "gpt-4-turbo-preview", # Or any other model
+            "model": "gemini-1.5-flash", 
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt}

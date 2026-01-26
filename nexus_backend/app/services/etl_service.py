@@ -15,7 +15,11 @@ class ETLService:
     def __init__(self):
         self.openai_client = None
         if settings.OPENAI_API_KEY:
-            self.openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+            # Using base_url to support Gemini via OpenAI-Compatible proxies (e.g. flydao)
+            self.openai_client = OpenAI(
+                api_key=settings.OPENAI_API_KEY,
+                base_url=settings.AI_BASE_URL
+            )
             
     async def process_file(self, file: UploadFile) -> dict:
         """
@@ -29,14 +33,16 @@ class ETLService:
             if filename.lower().endswith(".pdf"):
                 pdf = PdfReader(io.BytesIO(content))
                 for page in pdf.pages:
-                    text += page.extract_text() + "\n"
+                    extracted_text = page.extract_text()
+                    if extracted_text:
+                        text += extracted_text + "\n"
             elif filename.lower().endswith((".txt", ".md", ".csv", ".json")):
                 text = content.decode("utf-8")
             else:
-                return {"filename": filename, "status": "skipped", "reason": "Unsupported file type"}
+                return {"filename": filename, "status": "skipped", "reason": f"Unsupported file type: {filename}"}
 
             if not text.strip():
-                return {"filename": filename, "status": "error", "reason": "No text extracted"}
+                return {"filename": filename, "status": "error", "reason": "No text extracted from document"}
 
             success, details = await self.process_text_with_extraction(text, filename, len(content))
             
@@ -47,43 +53,49 @@ class ETLService:
                 "chunks_processed": len(text) // 300
             }
         except Exception as e:
-            return {"filename": filename, "status": "error", "reason": str(e)}
+            print(f"ETL Critical Error for {filename}: {str(e)}")
+            return {"filename": filename, "status": "error", "reason": f"Pipeline crash: {str(e)}"}
 
     async def process_text_with_extraction(self, text: str, filename: str, size: int) -> Tuple[bool, Dict[str, Any]]:
         """
         Intelligent Ingestion: 
-        1. Extract metadata with AI
+        1. Extract metadata with AI (using Gemini Flash)
         2. Store in Relational DB
         3. Embed and store in Vector DB
         """
-        if not self.openai_client or not supabase:
-            return False, {"error": "AI client or DB not initialized"}
+        if not self.openai_client:
+            return False, {"error": "AI client not initialized (check API Key)"}
+            
+        if not supabase:
+            return False, {"error": "Database client not initialized (check Supabase settings)"}
 
         # 1. AI Metadata Extraction
-        preview_text = text[:3000] 
+        # Note: Using gemini-1.5-flash which is the standard Flash model name. 
+        # gemini-3-flash-preview currently does not exist in standard APIs.
+        preview_text = text[:4000] 
         extracted_data = {}
         try:
             prompt = f"""
-            Extract metadata from this document (JSON only):
-            - doc_type: (contract, bid, product, proposal, invoice, other)
-            - client_name: (string or null)
-            - amount: (number or null)
-            - date: (YYYY-MM-DD or null)
-            - summary: (1 sentence summary)
+            Extract specific metadata from this document and return ONLY a JSON object:
+            - doc_type: (choose one: contract, bid, product, proposal, invoice, other)
+            - client_name: (official name or null)
+            - amount: (total currency value as number or null)
+            - date: (document date as YYYY-MM-DD or null)
+            - summary: (one sentence descriptive summary in Chinese)
             
             Content:
             {preview_text}
             """
             response = self.openai_client.chat.completions.create(
-                model="gemini-3-flash-preview",
+                model="gemini-1.5-flash", 
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
                 response_format={"type": "json_object"}
             )
             extracted_data = json.loads(response.choices[0].message.content)
         except Exception as e:
-            print(f"Metadata extraction failed: {e}")
-            extracted_data = {"doc_type": "other", "summary": "Extraction failed"}
+            print(f"AI Metadata extraction failed: {str(e)}")
+            extracted_data = {"doc_type": "other", "summary": f"AI Parsing error: {str(e)}"}
 
         # 2. Save to 'documents' table
         doc_record = {
@@ -94,19 +106,20 @@ class ETLService:
         }
         
         try:
-            # We assume the 'documents' table exists
-            res = supabase.table("documents").insert(doc_record).execute()
-            if not res.data:
-                raise Exception("DB Insert produced no data")
-            document_id = res.data[0]['id']
+            insert_res = supabase.table("documents").insert(doc_record).execute()
+            # MiniSupabaseClient (SyncPostgrestClient) returns result with .data or might throw
+            if not insert_res.data or len(insert_res.data) == 0:
+                raise Exception("Database insertion failed to return data")
+            document_id = insert_res.data[0]['id']
         except Exception as e:
-            print(f"Database insertion failed for metadata: {e}")
-            return False, {"error": f"DB Insert failed: {str(e)}"}
+            print(f"Database insertion failed for document metadata: {str(e)}")
+            return False, {"error": f"DB Metadata Insert fail: {str(e)}"}
 
         # 3. Vectorization & Chunk Storage
         chunks = list(self._chunk_text(text))
         for chunk in chunks:
             try:
+                # Still using OpenAI for embeddings as pgvector is configured for 1536 dims usually
                 emb_res = self.openai_client.embeddings.create(input=chunk, model="text-embedding-3-small")
                 embedding = emb_res.data[0].embedding
                 
@@ -117,13 +130,13 @@ class ETLService:
                     "embedding": embedding
                 }).execute()
             except Exception as e:
-                print(f"Chunk embedding failed: {e}")
+                print(f"Chunk embedding/store fail: {str(e)}")
                 
         return True, extracted_data
 
-    def _chunk_text(self, text, chunk_size=300):
-        tokens = text.split()
-        for i in range(0, len(tokens), chunk_size):
-            yield " ".join(tokens[i:i + chunk_size])
+    def _chunk_text(self, text, chunk_size=400):
+        words = text.split()
+        for i in range(0, len(words), chunk_size):
+            yield " ".join(words[i:i + chunk_size])
 
 etl_service = ETLService()

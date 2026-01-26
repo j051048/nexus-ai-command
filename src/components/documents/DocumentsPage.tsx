@@ -96,16 +96,19 @@ export function DocumentsPage() {
                 body: formData,
             });
 
-            if (!response.ok) throw new Error('Upload failed');
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.reason || '上传后解析失败');
+            }
 
             setUploadStage('indexing');
             await new Promise(r => setTimeout(r, 800));
 
             toast.success('上传成功并已完成 AI 知识提取');
             await fetchDocuments();
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            toast.error('处理失败，请重试');
+            toast.error(error.message || '处理失败，请重试');
             setDocuments(prev => prev.map(d => d.id === tempId ? { ...d, status: 'error' } : d));
         } finally {
             setIsUploading(false);
