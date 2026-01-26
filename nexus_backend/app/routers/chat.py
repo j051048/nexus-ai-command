@@ -1,6 +1,7 @@
 import asyncio
 import json
 import httpx
+import time
 from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -25,35 +26,44 @@ class ChatRequest(BaseModel):
 # --- 工具定义 (Strategy Pattern) ---
 TOOLS = get_all_tools_schema()
 
-# Simple manual cache to replace lru_cache for async function
+# Simple manual cache with TTL (10 minutes)
 _role_cache = {}
 
 async def _get_cached_user_role(user_id: str) -> str:
+    now = time.time()
     if user_id in _role_cache:
-        return _role_cache[user_id]
+        role, expiry = _role_cache[user_id]
+        if now < expiry:
+            return role
+            
     try:
         user_res = await supabase.table("users").select("role").eq("id", user_id).maybe_single().execute()
         role = user_res.data.get("role") if user_res.data else "employee"
-        _role_cache[user_id] = role
+        _role_cache[user_id] = (role, now + 600) # cache for 10 minutes
         return role
     except:
         return "employee"
 
 async def execute_tool(name: str, args: Dict[str, Any], current_user_id: str, config: dict = None) -> str:
-    """执行具体工具逻辑并返回结果文本 (Strategy Pattern with RBAC & Caching)"""
+    """执行具体工具逻辑并带重试 (Strategy Pattern with RBAC & Retry)"""
     tool_instance = get_tool(name)
     
     if tool_instance:
-        try:
-            # Security Check: Role Based Access Control
-            if tool_instance.required_role != "all":
-                user_role = await _get_cached_user_role(current_user_id)
-                if tool_instance.required_role == "boss" and user_role != "boss":
-                    return f"⛔ 权限拒绝: 该操作需要 [Boss/Manager] 权限，您当前的身份是 [{user_role}]。"
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                # Security Check: Role Based Access Control
+                if tool_instance.required_role != "all":
+                    user_role = await _get_cached_user_role(current_user_id)
+                    if tool_instance.required_role == "boss" and user_role != "boss":
+                        return f"⛔ 权限拒绝: 该操作需要 [Boss/Manager] 权限，您当前的身份是 [{user_role}]。"
 
-            return await tool_instance.run(args, current_user_id, config)
-        except Exception as e:
-            return f"工具 {name} 执行失败: {str(e)}"
+                return await tool_instance.run(args, current_user_id, config)
+            except Exception as e:
+                if attempt < max_retries:
+                    await asyncio.sleep(0.5 * (attempt + 1)) # Backoff
+                    continue
+                return f"工具 {name} 在 {max_retries+1} 次尝试后执行失败: {str(e)}"
     
     return f"未知工具或工具未注册: {name}"
 
@@ -81,7 +91,7 @@ async def stream_openai_response(messages: List[dict], config: dict, user_id: st
         payload = {
             "model": model,
             "messages": msgs,
-            "tools": TOOLS if len(msgs) < 15 else None, # Heuristic: stop offering tools if conversation too deep
+            "tools": TOOLS if len(msgs) < 20 else None, 
             "tool_choice": "auto",
             "stream": True,
             "temperature": 0.5
@@ -97,11 +107,10 @@ async def stream_openai_response(messages: List[dict], config: dict, user_id: st
 
     # Recursive loop for tool execution
     iteration = 0
-    while iteration < 3: # Limit to 3 hops (P2 Fix)
+    while iteration < 5: # Support deeper chains (TC-02)
         iteration += 1
-        full_tool_call_json = ""
-        tool_name = ""
-        tool_call_id = ""
+        # tool_calls_map: tool_index -> {id: str, name: str, args: str}
+        tool_calls_map = {} 
         has_tool_call = False
         
         async for line in _get_stream(messages):
@@ -119,13 +128,16 @@ async def stream_openai_response(messages: List[dict], config: dict, user_id: st
                 
                 if "tool_calls" in delta:
                     has_tool_call = True
-                    tc = delta["tool_calls"][0]
-                    if tc.get("id"): 
-                        tool_call_id = tc["id"]
-                        if tc.get("function", {}).get("name"):
-                            tool_name = tc["function"]["name"]
-                    if tc.get("function", {}).get("arguments"):
-                        full_tool_call_json += tc["function"]["arguments"]
+                    for tool_call in delta["tool_calls"]:
+                        idx = tool_call.get("index", 0)
+                        if idx not in tool_calls_map:
+                            tool_calls_map[idx] = {"id": "", "name": "", "args": ""}
+                        
+                        if tool_call.get("id"): tool_calls_map[idx]["id"] = tool_call["id"]
+                        if tool_call.get("function", {}).get("name"): 
+                            tool_calls_map[idx]["name"] = tool_call["function"]["name"]
+                        if tool_call.get("function", {}).get("arguments"):
+                            tool_calls_map[idx]["args"] += tool_call["function"]["arguments"]
                     continue
 
                 if not has_tool_call:
@@ -134,41 +146,78 @@ async def stream_openai_response(messages: List[dict], config: dict, user_id: st
 
         if has_tool_call:
             try:
-                args = json.loads(full_tool_call_json) if full_tool_call_json else {}
-                if logger: logger.log_tool_plan(tool_name, args)
+                # 1. Capture Assistant Call in history
+                # This will be added to messages AFTER all tool results are gathered.
                 
-                # BUG-02 Fix: Specific timeout handling for tool execution
-                try:
-                    tool_result = await asyncio.wait_for(
-                        execute_tool(tool_name, args, user_id, config=config),
-                        timeout=30.0
-                    )
-                except asyncio.TimeoutError:
-                    tool_result = f"Error: 工具 {tool_name} 执行超时 (30s)。请尝试缩小查询范围或稍后重试。"
-                except Exception as e:
-                    tool_result = f"Error: 工具执行出错: {str(e)}"
-
-                if logger: logger.log_tool_execution(tool_name, "success" if "Error" not in tool_result else "failed", tool_result)
-
-                # Append to history for the next iteration
-                messages.append({
-                    "role": "assistant", 
-                    "content": None, 
-                    "tool_calls": [{
-                        "id": tool_call_id, 
-                        "type": "function", 
-                        "function": {"name": tool_name, "arguments": full_tool_call_json}
-                    }]
-                })
-                messages.append({
-                    "role": "tool", 
-                    "tool_call_id": tool_call_id, 
-                    "name": tool_name, 
-                    "content": tool_result
-                })
-                # Loop continues to next iteration
+                # 2. Execute tools and gather results
+                tool_results_list = []
+                for idx in sorted(tool_calls_map.keys()):
+                    call = tool_calls_map[idx]
+                    t_name = call["name"]
+                    t_id = call["id"]
+                    try:
+                        t_args = json.loads(call["args"]) if call["args"] else {}
+                    except json.JSONDecodeError:
+                        t_args = {} # Handle malformed JSON arguments
+                        tool_results_list.append({
+                            "tool_call_id": t_id,
+                            "name": t_name,
+                            "content": f"Error: 工具 {t_name} 的参数解析失败: {call['args']}"
+                        })
+                        if logger: logger.log_tool_execution(t_name, "failed", tool_results_list[-1]["content"])
+                        continue
+                    
+                    if logger: logger.log_tool_plan(t_name, t_args)
+                    
+                    try:
+                        tool_result_content = await asyncio.wait_for(
+                            execute_tool(t_name, t_args, user_id, config=config),
+                            timeout=30.0
+                        )
+                        tool_results_list.append({
+                            "tool_call_id": t_id,
+                            "name": t_name,
+                            "content": tool_result_content
+                        })
+                        if logger: logger.log_tool_execution(t_name, "success" if "Error" not in tool_result_content else "failed", tool_result_content)
+                    except asyncio.TimeoutError:
+                        tool_result_content = f"Error: 工具 {t_name} 执行超时。"
+                        tool_results_list.append({
+                            "tool_call_id": t_id,
+                            "name": t_name,
+                            "content": tool_result_content
+                        })
+                        if logger: logger.log_tool_execution(t_name, "failed", tool_result_content)
+                    except Exception as e:
+                        tool_result_content = f"Error: 工具 {t_name} 执行出错: {str(e)}"
+                        tool_results_list.append({
+                            "tool_call_id": t_id,
+                            "name": t_name,
+                            "content": tool_result_content
+                        })
+                        if logger: logger.log_tool_execution(t_name, "failed", tool_result_content)
+                
+                # REFACTORED LOOP for history:
+                # Correct Sequence: [ASSISTANT w/ tool_calls list], [TOOL res 1], [TOOL res 2]...
+                history_assistant = {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {"id": c["id"], "type": "function", "function": {"name": c["name"], "arguments": c["args"]}}
+                        for c in tool_calls_map.values()
+                    ]
+                }
+                messages.append(history_assistant)
+                
+                for res in tool_results_list:
+                    messages.append({
+                        "role": "tool", 
+                        "tool_call_id": res["tool_call_id"], 
+                        "name": res["name"], 
+                        "content": res["content"]
+                    })
             except Exception as e:
-                yield f"data: {json.dumps({'choices': [{'delta': {'content': f' Tool Error: {str(e)}'}}]})}\n\n"
+                yield f"data: {json.dumps({'choices': [{'delta': {'content': f' Tool Orchestration Error: {str(e)}'}}]})}\n\n"
                 break
         else:
             # No more tool calls, we are done

@@ -56,17 +56,23 @@ class ETLService:
         active_key = api_key or self.api_key
 
         try:
+            import asyncio
             # 1. Physical Extraction
-            # ... (keeps existing logic for PDF/DOCX/OCR)
             if filename.lower().endswith(".pdf"):
-                pdf = PdfReader(io.BytesIO(content))
-                for page in pdf.pages:
-                    extracted = page.extract_text()
-                    if extracted:
-                        text += extracted + "\n"
+                # Offload CPU-bound task to thread to avoid blocking the event loop (TC-06)
+                def _parse_pdf():
+                    pdf_text = ""
+                    reader = PdfReader(io.BytesIO(content))
+                    for page in reader.pages:
+                        extracted = page.extract_text()
+                        if extracted:
+                            pdf_text += extracted + "\n"
+                    return pdf_text
+                text = await asyncio.to_thread(_parse_pdf)
             elif filename.lower().endswith((".txt", ".md", ".csv", ".json")):
                 text = content.decode("utf-8")
             elif filename.lower().endswith((".png", ".jpg", ".jpeg")):
+                # OCR is already calling an external AI API (async), so it's fine.
                 import base64
                 base64_image = base64.b64encode(content).decode('utf-8')
                 payload = {
@@ -87,10 +93,12 @@ class ETLService:
                 except Exception as e:
                     return {"filename": filename, "status": "skipped", "reason": f"OCR Failed: {str(e)}"}
             elif filename.lower().endswith((".docx")):
-                try:
+                def _parse_docx():
                     import docx
-                    doc = docx.Document(io.BytesIO(content))
-                    text = "\n".join([para.text for para in doc.paragraphs])
+                    doc_obj = docx.Document(io.BytesIO(content))
+                    return "\n".join([para.text for para in doc_obj.paragraphs])
+                try:
+                    text = await asyncio.to_thread(_parse_docx)
                 except Exception as e:
                     error_str = str(e)
                     if "Bad magic number" in error_str or "File is not a zip file" in error_str:
@@ -131,8 +139,16 @@ class ETLService:
             
         def _scrub_pii(content: str) -> str:
             import re
+            # 1. Phone numbers (China)
             content = re.sub(r'(?<!\d)1[3-9]\d{9}(?!\d)', '[PHONE_REDACTED]', content)
+            # 2. ID Cards (China)
             content = re.sub(r'(?<!\d)\d{17}[\d|X](?!\d)', '[ID_REDACTED]', content)
+            # 3. Emails (Detection and Redaction)
+            content = re.sub(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', '[EMAIL_REDACTED]', content)
+            # 4. Sensitive keys/passwords (Common patterns like password=..., api_key=...)
+            content = re.sub(r'(?i)(password|passwd|secret|api_key|access_key|token)\s*[:=]\s*[^\s\n,]+', r'\1=[SENSITIVE_REDACTED]', content)
+            # 5. Private Keys (RSA/OpenSSH)
+            content = re.sub(r'-----BEGIN [A-Z ]+ PRIVATE KEY-----[\s\S]*?-----END [A-Z ]+ PRIVATE KEY-----', '[PRIVATE_KEY_REDACTED]', content)
             return content
 
         safe_text = _scrub_pii(text)

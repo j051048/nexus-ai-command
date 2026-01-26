@@ -92,20 +92,21 @@ class VectorService:
         top_docs = sorted(fused_docs.values(), key=lambda x: x['score'], reverse=True)[:limit]
 
         if not top_docs:
-            return "知识库中未找到相关信息 (No relevant documents found for your account)."
+            # TC-07: Better empty result handling
+            return f"知识库中未找到与 '{query}' 相关的公开或个人信息。建议您可以尝试更换关键词，或者上传相关文档后再试。"
 
         # 3. Format results
         results = []
         for item in top_docs:
-            content = item.get("content", "")
+            content = item.get("content", "").strip()
             meta = item.get("metadata", {}) or {}
             source = meta.get("source", "未知来源") # etl_service uses 'source'
             
-            # Grounding: Append citation marker
-            citation = f" [引用溯源: {source}]"
-            results.append(f"{content}...{citation} (混合匹配)")
+            # Grounding: Append citation marker (TC-04)
+            citation = f" [资料来源: {source}]"
+            results.append(f"{content}...{citation} (混合匹配权重: {item['score']:.4f})")
 
-        return "检索到以下相关知识:\n" + "\n- ".join(results)
+        return "为您检索到以下相关企业知识:\n\n- " + "\n- ".join(results)
 
     def _rrf_fusion(self, result_sets: List[List[Any]], k: int = 60) -> Dict[any, Dict]:
         """Reciprocal Rank Fusion"""
