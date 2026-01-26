@@ -39,7 +39,11 @@ import {
 
 import { EmployeeDetail } from './EmployeeDetail';
 
-export function EmployeeManagement() {
+interface EmployeeManagementProps {
+  onProjectSelect?: (id: string) => void;
+}
+
+export function EmployeeManagement({ onProjectSelect }: EmployeeManagementProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null); // For dialogs
   const [viewingEmployee, setViewingEmployee] = useState<Employee | null>(null);   // For detail page
@@ -58,6 +62,7 @@ export function EmployeeManagement() {
         employee={viewingEmployee}
         allEmployees={employees || []}
         onBack={() => setViewingEmployee(null)}
+        onProjectSelect={onProjectSelect}
         onDelete={async (id) => {
           try {
             await deleteEmployee.mutateAsync(id);

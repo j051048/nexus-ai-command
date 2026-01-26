@@ -9,38 +9,6 @@ from app.core.database import supabase
 
 router = APIRouter(prefix="/api", tags=["Chat"])
 
-# --- 工具定义 ---
-TOOLS = [
-    # ... (Other tools)
-    {
-        "type": "function",
-        "function": {
-            "name": "query_knowledge_base",
-            "description": "查询企业知识库/向量数据库，获取公司政策、业务流程、文档等非结构化数据",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string", "description": "搜索关键词或问题"}
-                },
-                "required": ["query"]
-            }
-        }
-    }
-]
-
-async def execute_tool(name: str, args: Dict[str, Any], current_user_id: str) -> str:
-    """执行具体工具逻辑并返回结果文本"""
-    try:
-        # ... (Other tool implementations)
-
-        if name == "query_knowledge_base":
-            query = args.get("query")
-            # 调用向量服务查找
-            return await vector_service.search(query)
-            
-        return f"未知工具: {name}"
-    except Exception as e:
-        return f"执行工具时发生错误: {str(e)}"
 
 
 class Message(BaseModel):
@@ -137,6 +105,48 @@ TOOLS = [
                 "properties": {}
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "query_knowledge_base",
+            "description": "查询企业知识库/向量数据库，获取公司政策、业务流程、文档等非结构化数据环境数据",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "搜索关键词或问题"}
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_projects",
+            "description": "获取当前所有进行中的项目列表，用于关联后续的事件记录",
+            "parameters": {
+                "type": "object",
+                "properties": {}
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_project_event",
+            "description": "在指定的项目中创建一个新的进度事件或关键节点（如：请客吃饭、技术突破、签署合同）",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "project_id": {"type": "string", "description": "项目UUID"},
+                    "title": {"type": "string", "description": "事件标题，如：庆功晚宴"},
+                    "content": {"type": "string", "description": "事件详细描述，包括地点、参与人等"},
+                    "event_type": {"type": "string", "enum": ["milestone", "meeting", "dinner", "task"], "description": "事件类型"}
+                },
+                "required": ["project_id", "title", "content", "event_type"]
+            }
+        }
     }
 ]
 
@@ -147,7 +157,6 @@ async def execute_tool(name: str, args: Dict[str, Any], current_user_id: str) ->
             req_id = args.get("request_id")
             result = supabase.table("approval_requests").update({"status": "approved"}).eq("id", req_id).execute()
             if result.data:
-                # 尝试创建通知
                 try:
                     target_user = result.data[0].get("submitted_by")
                     supabase.table("notifications").insert({
@@ -195,56 +204,65 @@ async def execute_tool(name: str, args: Dict[str, Any], current_user_id: str) ->
             
             user = user_res.data
             metrics_res = supabase.table("sales_metrics").select("*").eq("user_id", target_id).execute()
-            
             report = f"用户: {user['name']}\n"
             report += f"当前得分: {user['score']} | 排名: {user['rank']} | 总奖金: ¥{user['total_bonus']}\n"
             report += "关键指标:\n"
             for m in metrics_res.data:
                 report += f"- {m['metric_type']}: {m['value']}\n"
-            
             return report
 
         elif name == "award_badge":
             user_id = args.get("user_id")
             badge_name = args.get("badge_name")
             icon = args.get("icon", "sparkles")
-            
-            # 插入徽章
-            supabase.table("badges").insert({
-                "user_id": user_id,
-                "name": badge_name,
-                "icon": icon
-            }).execute()
-            
-            # 创建通知
+            supabase.table("badges").insert({"user_id": user_id, "name": badge_name, "icon": icon}).execute()
             supabase.table("notifications").insert({
                 "user_id": user_id,
                 "title": "荣获新徽章！",
                 "content": f"老板为你颁发了「{badge_name}」徽章，继续加油！",
                 "type": "success"
             }).execute()
-            
             return f"成功为用户 {user_id} 颁发徽章: {badge_name}"
 
         elif name == "get_company_stats":
-            # Count users
             count_res = supabase.table("users").select("id", count="exact").execute()
             total_users = count_res.count if count_res.count is not None else 0
-            
-            # Simple aggregation by department (simulated here as group_by is complex in simple client)
-            # In production we would use an RPC or a view
             dept_res = supabase.table("users").select("department").execute()
             depts = {}
             for u in dept_res.data:
                 d = u.get("department", "未分配") or "未分配"
                 depts[d] = depts.get(d, 0) + 1
-            
-            stats = f"公司总人数: {total_users} 人\n"
-            stats += "部门分布:\n"
-            for d, c in depts.items():
-                stats += f"- {d}: {c} 人\n"
-            
+            stats = f"公司总人数: {total_users} 人\n分布:\n"
+            for d, c in depts.items(): stats += f"- {d}: {c} 人\n"
             return stats
+
+        elif name == "query_knowledge_base":
+            query = args.get("query")
+            return await vector_service.search(query)
+
+        elif name == "get_projects":
+            result = supabase.table("projects").select("id, name, stage").execute()
+            if not result.data:
+                return "暂无进行中的项目。"
+            items = [f"ID: {p['id']} | 名称: {p['name']} | 阶段: {p['stage']}" for p in result.data]
+            return "项目清单：\n" + "\n".join(items)
+
+        elif name == "create_project_event":
+            project_id = args.get("project_id")
+            title = args.get("title")
+            content = args.get("content")
+            event_type = args.get("event_type")
+            
+            result = supabase.table("project_timeline").insert({
+                "project_id": project_id,
+                "title": title,
+                "content": content,
+                "event_type": event_type
+            }).execute()
+            
+            if result.data:
+                return f"成功在项目中创建了事件: {title}。"
+            return "创建失败，请核对项目 ID 是否正确。"
             
         return f"未知工具: {name}"
     except Exception as e:

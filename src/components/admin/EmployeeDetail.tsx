@@ -2,6 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Mail, Phone, Calendar, Award, BarChart3, FileCheck, Trash2, ArrowRightLeft, CheckCircle2, Plus } from 'lucide-react';
 import { Employee, useEmployeeStats } from '@/hooks/useEmployeeManagement';
+import { useProjects } from '@/hooks/useProjects';
 import {
     Dialog,
     DialogContent,
@@ -19,13 +20,6 @@ import {
 } from '@/components/ui/select';
 import { Loader2, AlertTriangle } from 'lucide-react';
 
-// Mock Project Data
-const mockProjects = [
-    { id: 'p1', name: '某高校光谱仪采购', type: '硬件', stage: '需求确认', progress: 30, description: '物理系实验室定制高精度光谱仪，需配合 Research-Grade 镜头。', updatedAt: '2024-03-15' },
-    { id: 'p2', name: 'Nexus OS 私有化部署', type: '私有化', stage: '部署实施', progress: 85, description: '华为松山湖研究所私有云环境部署。', updatedAt: '2024-03-18' },
-    { id: 'p3', name: 'SaaS 标准版续费', type: 'SaaS', stage: '合同签署', progress: 95, description: '深圳某生物科技公司年度续费合同。', updatedAt: '2024-03-10' },
-    { id: 'p4', name: 'AI 质检模块 POC', type: '软件', stage: '技术验证', progress: 60, description: '富士康产线视觉质检 Pilot 项目。', updatedAt: '2024-03-12' },
-];
 
 interface EmployeeDetailProps {
     employee: Employee;
@@ -34,6 +28,7 @@ interface EmployeeDetailProps {
     onDelete: (id: string) => void;
     onTransfer: (fromId: string, toId: string) => void;
     onTransferAndDelete: (fromId: string, toId: string) => void;
+    onProjectSelect?: (id: string) => void;
     isProcessing: boolean;
 }
 
@@ -44,8 +39,10 @@ export function EmployeeDetail({
     onDelete,
     onTransfer,
     onTransferAndDelete,
+    onProjectSelect,
     isProcessing
 }: EmployeeDetailProps) {
+    const { projects } = useProjects();
     const { data: stats } = useEmployeeStats(employee.user_id);
     const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
     const [showTransferDialog, setShowTransferDialog] = React.useState(false);
@@ -169,22 +166,28 @@ export function EmployeeDetail({
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {mockProjects.map(project => (
+                    {projects.map(project => (
                         <div
                             key={project.id}
                             className={cn(
                                 "bg-card border rounded-xl p-5 hover:border-primary/50 transition-all cursor-pointer relative group",
                                 selectedProjects.includes(project.id) ? "border-primary bg-primary/5" : "border-border"
                             )}
-                            onClick={() => toggleProjectSelection(project.id)}
+                            onClick={() => onProjectSelect?.(project.id)}
                         >
                             {/* Checkbox for selection */}
-                            <div className={cn(
-                                "absolute top-4 right-4 w-5 h-5 rounded border flex items-center justify-center transition-colors",
-                                selectedProjects.includes(project.id)
-                                    ? "bg-primary border-primary text-primary-foreground"
-                                    : "border-muted-foreground/30 group-hover:border-primary/50"
-                            )}>
+                            <div
+                                className={cn(
+                                    "absolute top-4 right-4 w-5 h-5 rounded border flex items-center justify-center transition-colors z-20",
+                                    selectedProjects.includes(project.id)
+                                        ? "bg-primary border-primary text-primary-foreground"
+                                        : "border-muted-foreground/30 group-hover:border-primary/50"
+                                )}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleProjectSelection(project.id);
+                                }}
+                            >
                                 {selectedProjects.includes(project.id) && <CheckCircle2 className="w-3.5 h-3.5" />}
                             </div>
 
@@ -198,7 +201,7 @@ export function EmployeeDetail({
                                     )}>
                                         {project.type}
                                     </span>
-                                    <span className="text-xs text-muted-foreground">{new Date(project.updatedAt).toLocaleDateString()} 更新</span>
+                                    <span className="text-xs text-muted-foreground">{new Date(project.updated_at).toLocaleDateString()} 更新</span>
                                 </div>
                                 <h4 className="font-semibold text-foreground">{project.name}</h4>
                                 <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{project.description}</p>

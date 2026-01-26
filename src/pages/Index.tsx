@@ -12,11 +12,15 @@ import { SalesTargetManager } from '@/components/targets/SalesTargetManager';
 import { EmployeeManagement } from '@/components/admin/EmployeeManagement';
 import { AISettingsPanel } from '@/components/settings/AISettingsPanel';
 
+import { ProjectDetail } from '@/components/projects/ProjectDetail';
+import { Navigate } from 'react-router-dom';
+
 import ExceptionsPage from './ExceptionsPage';
 
 function AppContent() {
   const { role } = useAuth();
   const [activeNav, setActiveNav] = useState(role === 'boss' ? 'boss-dashboard' : 'dashboard');
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
   // Update nav when role changes
   React.useEffect(() => {
@@ -42,7 +46,17 @@ function AppContent() {
       case 'targets':
         return <SalesTargetManager />;
       case 'employees':
-        return <EmployeeManagement />;
+        return <EmployeeManagement onProjectSelect={(id) => {
+          setSelectedProjectId(id);
+          setActiveNav('project-detail');
+        }} />;
+      case 'project-detail':
+        return selectedProjectId ? (
+          <ProjectDetail
+            projectId={selectedProjectId}
+            onBack={() => setActiveNav('employees')}
+          />
+        ) : <Navigate to="/" />;
       case 'knowledge':
         return (
           <div className="flex items-center justify-center h-96">
