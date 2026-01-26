@@ -91,9 +91,15 @@ class ETLService:
 
             elif filename.lower().endswith((".docx")):
                 # P0 Fix: Add DOCX support
-                import docx
-                doc = docx.Document(io.BytesIO(content))
-                text = "\n".join([para.text for para in doc.paragraphs])
+                try:
+                    import docx
+                    doc = docx.Document(io.BytesIO(content))
+                    text = "\n".join([para.text for para in doc.paragraphs])
+                except Exception as e:
+                    error_str = str(e)
+                    if "Bad magic number" in error_str or "File is not a zip file" in error_str:
+                         return {"filename": filename, "status": "error", "reason": "文件格式错误。请确认这是标准的 .docx 文件（OpenXML）。如果是旧版 .doc 文件，请先用 Word 另存为 .docx。"}
+                    return {"filename": filename, "status": "error", "reason": f"DOCX 解析失败: {error_str}"}
             else:
                 return {"filename": filename, "status": "skipped", "reason": "Unsupported format"}
 
