@@ -2,6 +2,7 @@ import asyncio
 import json
 import httpx
 import time
+import os
 from fastapi import APIRouter, Header, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from app.core.auth import get_current_user_id
