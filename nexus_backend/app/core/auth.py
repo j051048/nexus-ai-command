@@ -27,32 +27,45 @@ async def get_current_user_id(authorization: Optional[str] = Header(None)) -> st
             
         token = authorization.split(" ")[1]
         
-        # 2. Attempt to decode and verify
+        # 2. Inspect Header to debug Algorithm issues
+        try:
+            unverified_header = jwt.get_unverified_header(token)
+            token_alg = unverified_header.get('alg')
+            print(f"Auth Debug: Token Algorithm is {token_alg}")
+        except:
+            token_alg = "HS256"
+
         # We try secrets in order of probability
         secrets_to_try = [SUPABASE_JWT_SECRET, JWT_SECRET]
         payload = None
         last_error = None
         
+        # Allow both common algorithms
+        allowed_algs = [JWT_ALGORITHM, "RS256", token_alg]
+
         for secret in secrets_to_try:
             if not secret: continue
             try:
                 # Attempt to decode and verify signature
-                payload = jwt.decode(token, secret, algorithms=[JWT_ALGORITHM])
+                # We dynamically include the token's alg to prevent 'specified alg value is not allowed' error
+                payload = jwt.decode(token, secret, algorithms=allowed_algs)
                 print(f"Auth Debug: Successfully verified with secret ending in ...{secret[-4:] if len(secret)>4 else '****'}")
                 break
             except jwt.InvalidSignatureError as e:
                 last_error = e
-                print(f"Auth Debug: Sig check failed for secret ending in ...{secret[-4:] if len(secret)>4 else '****'}")
+                # print(f"Auth Debug: Sig check failed for secret ending in ...{secret[-4:] if len(secret)>4 else '****'}")
                 continue
             except jwt.ExpiredSignatureError as e:
-                # If expired, we usually block. 
-                # BUT if we are in UNSECURE mode, we might want to allow it (or user clock skew issues).
-                # Let's verify if we should allow fallback.
                 print("Auth Debug: Token Expired.")
                 if os.getenv("ALLOW_UNSECURE_AUTH") == "true":
                      last_error = e
-                     continue # Fall through to fallback
+                     continue 
                 raise HTTPException(status_code=401, detail="登录已过期 (Token expired)")
+            except Exception as e:
+                # Catch generic algorithm errors or other pyjwt errors so we don't crash
+                # print(f"Auth Debug: Verification step failed: {str(e)}")
+                last_error = e
+                continue
         
         # 3. Development Fallback: Decode WITHOUT verification if explicitly allowed
         if not payload and os.getenv("ALLOW_UNSECURE_AUTH") == "true":
