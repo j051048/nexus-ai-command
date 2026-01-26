@@ -1,13 +1,40 @@
-import asyncio
-import json
-import httpx
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
-from app.core.database import supabase
+from app.services.vector_service import vector_service
 
-router = APIRouter(prefix="/api", tags=["Chat"])
+# ... (Previous imports)
+
+# --- 工具定义 ---
+TOOLS = [
+    # ... (Other tools)
+    {
+        "type": "function",
+        "function": {
+            "name": "query_knowledge_base",
+            "description": "查询企业知识库/向量数据库，获取公司政策、业务流程、文档等非结构化数据",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "搜索关键词或问题"}
+                },
+                "required": ["query"]
+            }
+        }
+    }
+]
+
+async def execute_tool(name: str, args: Dict[str, Any], current_user_id: str) -> str:
+    """执行具体工具逻辑并返回结果文本"""
+    try:
+        # ... (Other tool implementations)
+
+        if name == "query_knowledge_base":
+            query = args.get("query")
+            # 调用向量服务查找
+            return await vector_service.search(query)
+            
+        return f"未知工具: {name}"
+    except Exception as e:
+        return f"执行工具时发生错误: {str(e)}"
+
 
 class Message(BaseModel):
     role: str
@@ -354,7 +381,7 @@ async def chat(request: ChatRequest):
     if not ai_config["api_key"]:
         return StreamingResponse(_error_stream("请先在系统设置中配置您的 API Key"), media_type="text/event-stream")
 
-    system_prompt = "You are Nexus AI, a helpful enterprise assistant. You can use tools to perform actions and query data."
+    system_prompt = "You are Nexus AI, a helpful enterprise assistant. You can use tools to perform actions and query data. If the user asks about company policies, processes, or documents, PLEASE use the 'query_knowledge_base' tool first."
     if request.agent == "@销售指挥官":
         system_prompt = "你是销售指挥官。你不仅能分析线索，还能调用绩效评估工具。你可以通过 get_performance_report 来查看员绩效。"
     elif request.agent == "@审批管家":

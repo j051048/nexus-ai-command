@@ -2,7 +2,7 @@
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+**URL**: <https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID>
 
 ## How can I edit this code?
 
@@ -70,4 +70,25 @@ Yes, you can!
 
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## 🧠 Knowledge Base Integration (Vector DB)
+
+This project includes a placeholder interface for a Vector Database to enable AI knowledge retrieval.
+Currently, it uses a Mock implementation for demonstration.
+
+### Future Integration with private Milvus
+
+To connect a real Milvus instance (Private Deployment):
+
+1. **Deploy Milvus**: Ensure you have a running Milvus instance (Docker/K8s).
+2. **Environment Variables**: Add the following to your backend `.env` or Zeabur variables:
+
+    ```bash
+    VECTOR_STORE_PROVIDER=milvus
+    MILVUS_URI=http://your-milvus-host:19530
+    MILVUS_TOKEN=your-token-if-any
+    ```
+
+3. **Install Client**:
+    Add `pymilvus` to `nexus_backend/requirements.txt`.
+4. **Activate Code**:
+    Open `nexus_backend/app/services/vector_service.py` and implement the `_search_milvus` method using the `pymilvus` SDK.
