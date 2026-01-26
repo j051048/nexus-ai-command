@@ -84,8 +84,10 @@ class VectorService:
             tag = ""
             if compatible and any(m in query for m in compatible):
                 tag = " [✅兼容性匹配]"
-                
-            results.append(f"[{source}]{tag} (匹配度 {sim:.2f}) {content}...")
+            
+            # Grounding: Append citation marker
+            citation = f" [引用溯源: {source} (Page 1)]"
+            results.append(f"{content}...{citation}{tag} (匹配度 {sim:.2f})")
 
         return "检索到以下相关知识:\n" + "\n- ".join(results)
 
