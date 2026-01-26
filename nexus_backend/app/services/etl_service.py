@@ -1,110 +1,128 @@
-import io
-import pandas as pd
-from pypdf import PdfReader
+from app.core.database import supabase
+from app.core.config import settings
+from openai import OpenAI
+import json
 from fastapi import UploadFile
-from typing import List, Dict, Any
+import io
+from pypdf import PdfReader
 
 class ETLService:
     """
-    Service for Extracting, Transforming, and Loading (ETL) document data.
-    Designed for the 'Phase 1' data pipeline.
+    Service to ingest documents into the Vector Knowledge Base.
+    Handles text chunking, embedding generation, and storage.
     """
-
-    @staticmethod
-    async def process_file(file: UploadFile) -> Dict[str, Any]:
+    def __init__(self):
+        self.openai_client = None
+        if settings.OPENAI_API_KEY:
+            self.openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+            
+    async def process_file(self, file: UploadFile) -> dict:
         """
-        Main entry point: Detects file type, extracts text, chunks it,
-        and prepares it for vector storage.
+        Extract text from file and ingest.
         """
         filename = file.filename
-        content_type = file.content_type
-        
-        # 1. EXTRACT (提取)
-        text_content = ""
-        metadata = {"filename": filename, "type": content_type}
-        
-        file_bytes = await file.read()
-        file_stream = io.BytesIO(file_bytes)
+        content = await file.read()
+        text = ""
 
-        if filename.endswith(".pdf"):
-            text_content = ETLService._extract_pdf(file_stream)
-        elif filename.endswith(".csv"):
-            text_content = ETLService._extract_csv(file_stream)
-        elif filename.endswith(".xlsx") or filename.endswith(".xls"):
-            text_content = ETLService._extract_excel(file_stream)
-        elif filename.endswith(".txt") or filename.endswith(".md"):
-            text_content = file_bytes.decode("utf-8")
-        else:
-            return {"status": "skipped", "message": f"Unsupported file type: {filename}"}
+        try:
+            if filename.lower().endswith(".pdf"):
+                pdf = PdfReader(io.BytesIO(content))
+                for page in pdf.pages:
+                    text += page.extract_text() + "\n"
+            elif filename.lower().endswith((".txt", ".md", ".csv", ".json")):
+                text = content.decode("utf-8")
+            else:
+                return {"filename": filename, "status": "skipped", "reason": "Unsupported file type"}
 
-        # 2. TRANSFORM (清洗与切分 - Chunking)
-        chunks = ETLService._chunk_text(text_content)
-        
-        # 3. LOAD (加载)
-        # In a real scenario, this is where we call Embedding Model + Milvus Insert.
-        # Since Milvus is deferred, we will return the processed chunks 
-        # so the frontend or log can see them.
-        
-        return {
-            "status": "success_mock_loaded",
-            "filename": filename,
-            "extracted_chars": len(text_content),
-            "chunks_created": len(chunks),
-            "preview_chunk": chunks[0] if chunks else "",
-            "message": "File processed and chunked. Ready for Vector DB ingestion."
+            if not text.strip():
+                return {"filename": filename, "status": "error", "reason": "No text extracted"}
+
+            success = await self.process_text_with_extraction(text, filename, len(content))
+            
+            return {
+                "filename": filename, 
+                "status": "success" if success else "failed",
+                "chunks_processed": len(text) // 300  # Approx,
+            }
+        except Exception as e:
+            return {"filename": filename, "status": "error", "reason": str(e)}
+    async def process_text_with_extraction(self, text: str, filename: str, size: int) -> bool:
+        """
+        Level 3: Intelligent Ingestion (Extract -> Store -> Embed)
+        """
+        if not self.openai_client or not supabase:
+            return False
+
+        # 1. AI Extraction (Information Extraction)
+        # Use a lighter model or truncated text for extraction to save costs
+        preview_text = text[:3000] 
+        extracted_data = {}
+        try:
+            prompt = f"""
+            Extract the following metadata from this document (JSON only):
+            - doc_type: (contract, bid, quote, other)
+            - client_name: (string or null)
+            - amount: (number or null)
+            - date: (YYYY-MM-DD or null)
+            - summary: (1 sentence summary)
+            
+            Document content:
+            {preview_text}
+            """
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                response_format={"type": "json_object"}
+            )
+            extracted_data = json.loads(response.choices[0].message.content)
+        except Exception as e:
+            print(f"Extraction failed: {e}")
+            extracted_data = {"doc_type": "unknown"}
+
+        # 2. Save Document Record
+        doc_record = {
+            "name": filename,
+            "doc_type": extracted_data.get("doc_type", "other"),
+            "extracted_data": extracted_data,
+            "version": 1
         }
-
-    @staticmethod
-    def _extract_pdf(file_stream) -> str:
-        try:
-            reader = PdfReader(file_stream)
-            text = ""
-            for page in reader.pages:
-                text += page.extract_text() + "\n"
-            return text
-        except Exception as e:
-            return f"[Error extracting PDF: {str(e)}]"
-
-    @staticmethod
-    def _extract_csv(file_stream) -> str:
-        try:
-            df = pd.read_csv(file_stream)
-            # Convert to Markdown for better LLM readability
-            return df.to_markdown(index=False)
-        except Exception as e:
-            return f"[Error extracting CSV: {str(e)}]"
-
-    @staticmethod
-    def _extract_excel(file_stream) -> str:
-        try:
-            df = pd.read_excel(file_stream)
-            return df.to_markdown(index=False)
-        except Exception as e:
-            return f"[Error extracting Excel: {str(e)}]"
-
-    @staticmethod
-    def _chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
-        """
-        Simple overlapping sliding window chunking.
-        In production, use LangChain's RecursiveCharacterTextSplitter for smarter splits.
-        """
-        if not text:
-            return []
-            
-        chunks = []
-        start = 0
-        text_len = len(text)
         
-        while start < text_len:
-            end = start + chunk_size
-            chunk = text[start:end]
-            
-            # If we cut a word in half, maybe extend a bit? (Simple implementation skips this)
-            chunks.append(chunk)
-            
-            # Move window, respecting overlap
-            start += (chunk_size - overlap)
-            
-        return chunks
+        try:
+            res = supabase.table("documents").insert(doc_record).execute()
+            if not res.data:
+                raise Exception("Failed to insert document record")
+            document_id = res.data[0]['id']
+        except Exception as e:
+            print(f"DB Insert failed: {e}")
+            return False
+
+        # 3. Embed & Link
+        chunks = self._chunk_text(text)
+        for chunk in chunks:
+            try:
+                emb_res = self.openai_client.embeddings.create(input=chunk, model="text-embedding-3-small")
+                embedding = emb_res.data[0].embedding
+                
+                supabase.table("document_embeddings").insert({
+                    "document_id": document_id,
+                    "content": chunk,
+                    "metadata": {"source": filename},
+                    "embedding": embedding
+                }).execute()
+            except Exception as e:
+                print(f"Chunk error: {e}")
+                
+        return True
+
+    def _chunk_text(self, text, chunk_size=300):
+        """
+        Naive chunking by splitting words. 
+        In production, use langchain.text_splitter.RecursiveCharacterTextSplitter.
+        """
+        tokens = text.split()
+        for i in range(0, len(tokens), chunk_size):
+            yield " ".join(tokens[i:i + chunk_size])
 
 etl_service = ETLService()
+
+

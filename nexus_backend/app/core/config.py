@@ -38,4 +38,7 @@ class Settings:
     
     SCORE_DEAL_POINTS_PER_1000: float = 5.0
 
+    # AI Configuration
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+
 settings = Settings()

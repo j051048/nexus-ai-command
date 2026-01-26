@@ -13,3 +13,4 @@ pandas
 openpyxl
 celery[redis]
 arxiv
+openai

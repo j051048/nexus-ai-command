@@ -11,6 +11,7 @@ import {
   Sparkles,
   AtSign,
   Loader2,
+  Paperclip,
 } from 'lucide-react';
 import { AIMessage } from '@/types/nexus';
 import { toast } from 'sonner';
@@ -56,6 +57,46 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
   const [currentAgent, setCurrentAgent] = useState<string | undefined>();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('files', file);
+
+    const toastId = toast.loading('正在上传并解析文档...');
+
+    try {
+      const response = await fetch(`${getApiUrl().replace('/chat', '')}/documents/upload`, {
+        method: 'POST',
+        // Headers are automatically set for FormData
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Upload failed');
+
+      const result = await response.json();
+      toast.success(`文档 "${file.name}" 已存入知识库 (处理了 ${result.details[0]?.chunks_processed || 0} 个片段)`);
+
+      // Notify AI about the new file
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: `System: 用户上传了新文档 "${file.name}" 到知识库。`,
+        timestamp: new Date(),
+        agent: '@知识助手'
+      }]);
+
+    } catch (error) {
+      console.error(error);
+      toast.error('文档上传失败');
+    } finally {
+      toast.dismiss(toastId);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   useEffect(() => {
     setMessages(user.role === 'boss' ? bossInitialMessages : initialMessages);
@@ -362,6 +403,19 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
                   )}
                 >
                   <AtSign className="w-5 h-5" />
+                </button>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  onChange={handleFileUpload}
+                  accept=".pdf,.txt,.md,.csv,.json"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-2 rounded-lg hover:bg-secondary text-muted-foreground transition-colors"
+                >
+                  <Paperclip className="w-5 h-5" />
                 </button>
                 <div className="flex-1 relative">
                   <input
