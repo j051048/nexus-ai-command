@@ -16,6 +16,7 @@ const SalesTargetManager = React.lazy(() => import('@/components/targets/SalesTa
 const EmployeeManagement = React.lazy(() => import('@/components/admin/EmployeeManagement').then(m => ({ default: m.EmployeeManagement })));
 const AISettingsPanel = React.lazy(() => import('@/components/settings/AISettingsPanel').then(m => ({ default: m.AISettingsPanel })));
 const ProjectDetail = React.lazy(() => import('@/components/projects/ProjectDetail').then(m => ({ default: m.ProjectDetail })));
+const DocumentsPage = React.lazy(() => import('@/components/documents/DocumentsPage').then(m => ({ default: m.DocumentsPage })));
 const ExceptionsPage = React.lazy(() => import('./ExceptionsPage'));
 
 const PageLoader = () => (
@@ -65,6 +66,8 @@ function AppContent() {
             onBack={() => setActiveNav('employees')}
           />
         ) : <Navigate to="/" />;
+      case 'documents':
+        return <DocumentsPage />;
       case 'knowledge':
         return (
           <div className="flex items-center justify-center h-96">

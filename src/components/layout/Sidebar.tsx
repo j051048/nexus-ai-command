@@ -51,6 +51,7 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps) {
     { icon: <TrendingUp size={20} />, label: '销售AI管理', href: 'sales', badge: '5', badgeType: 'primary' },
     { icon: <FileCheck size={20} />, label: '智能审批', href: 'approval' },
     { icon: <BookOpen size={20} />, label: '知识库', href: 'knowledge' },
+    { icon: <FileCheck size={20} />, label: '文档中心', href: 'documents', badge: 'New', badgeType: 'success' },
     { icon: <Gift size={20} />, label: '激励钱包', href: 'rewards', badge: '¥200', badgeType: 'success' },
   ];
 
