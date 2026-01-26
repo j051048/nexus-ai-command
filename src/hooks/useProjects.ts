@@ -1,27 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-
-export interface Project {
-    id: string;
-    user_id: string | null;
-    name: string;
-    type: string;
-    stage: string;
-    progress: number;
-    description: string;
-    created_at: string;
-    updated_at: string;
-}
-
-export interface ProjectTimeline {
-    id: string;
-    project_id: string;
-    title: string;
-    content: string;
-    status: string;
-    event_type: string;
-    occurred_at: string;
-}
+import { Project, ProjectTimeline } from '@/types/nexus';
 
 export function useProjects() {
     const [projects, setProjects] = useState<Project[]>([]);
@@ -35,7 +14,12 @@ export function useProjects() {
             .order('updated_at', { ascending: false }) as any);
 
         if (!error && data) {
-            setProjects(data as Project[]);
+            const mapped = (data as any[]).map(p => ({
+                ...p,
+                stage: p.status, // Map status to stage for UI
+                type: 'Enterprise' // Default type
+            }));
+            setProjects(mapped as Project[]);
         }
         setLoading(false);
     };
@@ -60,11 +44,25 @@ export function useProjectDetail(projectId: string | null) {
 
             const [projectRes, timelineRes] = await Promise.all([
                 supabase.from('projects' as any).select('*').eq('id', projectId).single() as any,
-                supabase.from('project_timeline' as any).select('*').eq('project_id', projectId).order('occurred_at', { ascending: false }) as any
+                supabase.from('project_timeline' as any).select('*').eq('project_id', projectId).order('created_at', { ascending: false }) as any
             ]);
 
-            if (!projectRes.error) setProject(projectRes.data as Project);
-            if (!timelineRes.error) setTimeline(timelineRes.data as ProjectTimeline[]);
+            if (!projectRes.error && projectRes.data) {
+                const p = projectRes.data;
+                setProject({
+                    ...p,
+                    stage: p.status,
+                    type: 'Enterprise'
+                });
+            }
+
+            if (!timelineRes.error && timelineRes.data) {
+                const mappedTimeline = (timelineRes.data as any[]).map(t => ({
+                    ...t,
+                    occurred_at: t.created_at // Map created_at to occurred_at for UI
+                }));
+                setTimeline(mappedTimeline);
+            }
 
             setLoading(false);
         };

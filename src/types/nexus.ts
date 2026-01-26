@@ -101,3 +101,31 @@ export interface NexusDocument {
   created_at: string;
   size?: string;
 }
+
+export interface Project {
+  id: string;
+  owner_id: string;
+  name: string;
+  description: string;
+  status: 'planning' | 'in_progress' | 'completed' | 'on_hold';
+  progress: number;
+  start_date: string;
+  end_date: string;
+  created_at: string;
+  updated_at: string;
+  // UI Helpers
+  stage?: string;
+  type?: string;
+}
+
+export interface ProjectTimeline {
+  id: string;
+  project_id: string;
+  title: string;
+  content: string;
+  event_type: 'milestone' | 'meeting' | 'dinner' | 'task';
+  created_by: string;
+  created_at: string;
+  // UI Helper
+  occurred_at?: string;
+}

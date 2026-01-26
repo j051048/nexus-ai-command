@@ -28,17 +28,18 @@ interface AIChatPanelProps {
   onToggle: () => void;
 }
 
+import { useAIStream } from '@/hooks/useAIStream';
+
 export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
   const { user } = useUser();
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [aiStatus, setAiStatus] = useState<string | undefined>();
   const [showAgents, setShowAgents] = useState(false);
   const [currentAgent, setCurrentAgent] = useState<string | undefined>();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { isTyping: isAiTyping, aiStatus, streamChat } = useAIStream({ userId: user.id });
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -53,9 +54,10 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
     const toastId = toast.loading('正在上传并解析文档...');
 
     try {
-      const response = await fetch(`${getApiUrl().replace('/chat', '')}/documents/upload`, {
+      // Construct upload URL (simplifying based on existing logic)
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://aizhz.zeabur.app';
+      const response = await fetch(`${baseUrl}/api/documents/upload`, {
         method: 'POST',
-        // Headers are automatically set for FormData
         body: formData,
       });
 
@@ -64,7 +66,6 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
       const result = await response.json();
       toast.success(`文档 "${file.name}" 已存入知识库 (处理了 ${result.details[0]?.chunks_processed || 0} 个片段)`);
 
-      // Notify AI about the new file
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
         role: 'assistant',
@@ -107,164 +108,8 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const getApiUrl = () => {
-    let url = import.meta.env.VITE_API_BASE_URL || 'https://aizhz.zeabur.app';
-    if (!url.startsWith('http')) {
-      url = `https://${url}`;
-    }
-    // Remove trailing slash if present to avoid double slashes
-    if (url.endsWith('/')) {
-      url = url.slice(0, -1);
-    }
-    return `${url}/api/chat`;
-  };
-
-  const streamChat = async (userMessage: string) => {
-    // Check for agent mention in message
-    let detectedAgent = currentAgent;
-    for (const agent of agentTags) {
-      if (userMessage.includes(agent.name)) {
-        detectedAgent = agent.name;
-        break;
-      }
-    }
-
-    const chatMessages = messages
-      .filter(m => m.id !== '1') // Skip initial greeting for context
-      .map(m => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-      }));
-
-    chatMessages.push({ role: 'user', content: userMessage });
-
-    abortControllerRef.current = new AbortController();
-
-    try {
-      const response = await fetch(
-        getApiUrl(),
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            // 'Authorization': `Bearer ${token}` // If backend implements auth
-          },
-          body: JSON.stringify({
-            messages: chatMessages,
-            agent: detectedAgent,
-            userId: user.id
-          }),
-          signal: abortControllerRef.current.signal,
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `请求失败: ${response.status}`);
-      }
-
-      if (!response.body) throw new Error('No response body');
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let textBuffer = '';
-      let assistantContent = '';
-
-      // Create assistant message placeholder
-      const assistantMsgId = Date.now().toString();
-      setMessages(prev => [
-        ...prev,
-        {
-          id: assistantMsgId,
-          role: 'assistant',
-          content: '',
-          timestamp: new Date(),
-          agent: detectedAgent,
-        },
-      ]);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        textBuffer += decoder.decode(value, { stream: true });
-
-        let newlineIndex: number;
-        while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex);
-          textBuffer = textBuffer.slice(newlineIndex + 1);
-
-          if (line.endsWith('\r')) line = line.slice(0, -1);
-          if (line.startsWith(':') || line.trim() === '') continue;
-          if (!line.startsWith('data: ')) continue;
-
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === '[DONE]') break;
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-
-            // P2: Custom Status Event Handling (Heuristic)
-            // If the chunk is a status update object (custom protocol)
-            if (parsed.status) {
-              setAiStatus(parsed.status); // Update UI status
-              continue;
-            }
-
-            if (content) {
-              setAiStatus(undefined); // Clear status when generating content
-              assistantContent += content;
-              setMessages(prev =>
-                prev.map(m =>
-                  m.id === assistantMsgId ? { ...m, content: assistantContent } : m
-                )
-              );
-            }
-          } catch {
-            // Incomplete JSON, put back and wait for more
-            textBuffer = line + '\n' + textBuffer;
-            break;
-          }
-        }
-      }
-
-      // Final flush
-      if (textBuffer.trim()) {
-        for (let raw of textBuffer.split('\n')) {
-          if (!raw) continue;
-          if (raw.endsWith('\r')) raw = raw.slice(0, -1);
-          if (raw.startsWith(':') || raw.trim() === '') continue;
-          if (!raw.startsWith('data: ')) continue;
-          const jsonStr = raw.slice(6).trim();
-          if (jsonStr === '[DONE]') continue;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) {
-              assistantContent += content;
-              setMessages(prev =>
-                prev.map(m =>
-                  m.id === assistantMsgId ? { ...m, content: assistantContent } : m
-                )
-              );
-            }
-          } catch {
-            /* ignore */
-          }
-        }
-      }
-    } catch (error) {
-      if ((error as Error).name === 'AbortError') return;
-      console.error('AI chat error:', error);
-      toast.error((error as Error).message || 'AI 回复失败，请重试');
-      // Remove empty assistant message on error
-      setMessages(prev => prev.filter(m => m.content !== ''));
-    }
-  };
-
   const handleSend = async () => {
-    if (!input.trim() || isTyping) return;
+    if (!input.trim() || isAiTyping) return;
 
     const userMessage: AIMessage = {
       id: Date.now().toString(),
@@ -276,10 +121,42 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
     setMessages(prev => [...prev, userMessage]);
     const messageToSend = input;
     setInput('');
-    setIsTyping(true);
 
-    await streamChat(messageToSend);
-    setIsTyping(false);
+    // Detect agent
+    let detectedAgent = currentAgent;
+    for (const agent of agentTags) {
+      if (messageToSend.includes(agent.name)) {
+        detectedAgent = agent.name;
+        break;
+      }
+    }
+
+    try {
+      await streamChat(
+        messageToSend,
+        messages,
+        detectedAgent,
+        (content, assistantMsgId) => {
+          setMessages(prev => {
+            const exists = prev.find(m => m.id === assistantMsgId);
+            if (exists) {
+              return prev.map(m => m.id === assistantMsgId ? { ...m, content } : m);
+            } else {
+              return [...prev, {
+                id: assistantMsgId,
+                role: 'assistant',
+                content,
+                timestamp: new Date(),
+                agent: detectedAgent
+              }];
+            }
+          });
+        }
+      );
+    } catch (e) {
+      // Error already toasted in hook
+      setMessages(prev => prev.filter(m => m.content !== ''));
+    }
   };
 
   const insertAgent = (agentName: string) => {
@@ -331,7 +208,7 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
                     <span className="text-primary animate-pulse">{aiStatus}</span>
                   </>
                 ) : (
-                  isTyping ? 'AI正在输入...' : '输入指令或自然语言对话'
+                  isAiTyping ? 'AI正在输入...' : '输入指令或自然语言对话'
                 )}
               </p>
             </div>
@@ -374,7 +251,7 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
                   </div>
                 </div>
               ))}
-              {isTyping && messages[messages.length - 1]?.content === '' && (
+              {isAiTyping && messages[messages.length - 1]?.content === '' && (
                 <div className="flex gap-3">
                   <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
                     <Bot className="w-4 h-4 text-primary-foreground" />
@@ -442,7 +319,7 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
                     onKeyPress={(e) => e.key === 'Enter' && handleSend()}
                     placeholder="输入指令... 例如：帮我分析张教授商机"
                     className="w-full bg-secondary rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    disabled={isTyping}
+                    disabled={isAiTyping}
                   />
                 </div>
                 <button className="p-2 rounded-lg hover:bg-secondary text-muted-foreground transition-colors">
@@ -450,15 +327,15 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
                 </button>
                 <button
                   onClick={handleSend}
-                  disabled={!input.trim() || isTyping}
+                  disabled={!input.trim() || isAiTyping}
                   className={cn(
                     "p-3 rounded-xl transition-all",
-                    input.trim() && !isTyping
+                    input.trim() && !isAiTyping
                       ? "bg-gradient-primary text-primary-foreground glow-primary"
                       : "bg-secondary text-muted-foreground"
                   )}
                 >
-                  {isTyping ? (
+                  {isAiTyping ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
                     <Send className="w-5 h-5" />

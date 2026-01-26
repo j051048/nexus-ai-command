@@ -106,37 +106,102 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-2 overflow-y-auto">
-        <ul className="space-y-1">
-          {navItems.map((item) => (
-            <li key={item.href}>
-              <button
-                onClick={() => onNavChange(item.href)}
-                className={cn(
-                  "w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all",
-                  activeNav === item.href
-                    ? "bg-sidebar-accent text-primary"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground"
-                )}
-              >
-                {item.icon}
-                <span className="flex-1 text-left">{item.label}</span>
-                {item.badge && (
-                  <span
-                    className={cn(
-                      "px-2 py-0.5 rounded-full text-xs font-semibold",
-                      item.badgeType === 'primary' && "bg-primary/20 text-primary",
-                      item.badgeType === 'success' && "bg-success/20 text-success",
-                      item.badgeType === 'warning' && "bg-warning/20 text-warning"
-                    )}
-                  >
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
+      <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-6">
+        <div>
+          <h3 className="px-4 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">AI 核心指挥</h3>
+          <ul className="space-y-1">
+            {navItems.filter(i => ['dashboard', 'boss-dashboard', 'tender-analysis', 'battlecards', 'sales'].includes(i.href)).map((item) => (
+              <li key={item.href}>
+                <button
+                  onClick={() => onNavChange(item.href)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all",
+                    activeNav === item.href
+                      ? "bg-sidebar-accent text-primary shadow-sm"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground"
+                  )}
+                >
+                  {item.icon}
+                  <span className="flex-1 text-left">{item.label}</span>
+                  {item.badge && (
+                    <span className={cn(
+                      "px-2 py-0.5 rounded-full text-[10px] font-bold",
+                      item.badgeType === 'primary' && "bg-primary/10 text-primary",
+                      item.badgeType === 'success' && "bg-success/10 text-success",
+                      item.badgeType === 'warning' && "bg-warning/10 text-warning"
+                    )}>
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <h3 className="px-4 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">业务与日常</h3>
+          <ul className="space-y-1">
+            {navItems.filter(i => ['projects', 'target-dashboard', 'targets', 'approval', 'exceptions', 'employees'].includes(i.href)).map((item) => (
+              <li key={item.href}>
+                <button
+                  onClick={() => onNavChange(item.href)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all group",
+                    activeNav === item.href
+                      ? "bg-sidebar-accent text-primary shadow-sm"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground"
+                  )}
+                >
+                  <span className="group-hover:scale-110 transition-transform">{item.icon}</span>
+                  <span className="flex-1 text-left">{item.label}</span>
+                  {item.badge && (
+                    <span className={cn(
+                      "px-2 py-0.5 rounded-full text-[10px] font-bold",
+                      item.badgeType === 'primary' && "bg-primary/10 text-primary",
+                      item.badgeType === 'success' && "bg-success/10 text-success",
+                      item.badgeType === 'warning' && "bg-warning/10 text-warning"
+                    )}>
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <h3 className="px-4 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">知识与个人</h3>
+          <ul className="space-y-1">
+            {navItems.filter(i => ['knowledge', 'documents', 'rewards', 'settings'].includes(i.href)).map((item) => (
+              <li key={item.href}>
+                <button
+                  onClick={() => onNavChange(item.href)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all",
+                    activeNav === item.href
+                      ? "bg-sidebar-accent text-primary shadow-sm"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground"
+                  )}
+                >
+                  {item.icon}
+                  <span className="flex-1 text-left">{item.label}</span>
+                  {item.badge && (
+                    <span className={cn(
+                      "px-2 py-0.5 rounded-full text-[10px] font-bold",
+                      item.badgeType === 'primary' && "bg-primary/10 text-primary",
+                      item.badgeType === 'success' && "bg-success/10 text-success",
+                      item.badgeType === 'warning' && "bg-warning/10 text-warning"
+                    )}>
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       </nav>
 
       {/* User Profile with Dropdown */}
