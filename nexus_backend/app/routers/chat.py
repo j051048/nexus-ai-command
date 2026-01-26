@@ -309,7 +309,7 @@ async def stream_openai_response(messages: List[dict], config: dict, user_id: st
                                 tool_call_id = tc["id"]
                                 if tc.get("function", {}).get("name"):
                                     tool_name = tc["function"]["name"]
-                                    yield f"data: {json.dumps({'choices': [{'delta': {'content': f'⚡ AI 正在执行: {tool_name}...'}}]})}\n\n"
+                                    # yield f"data: {json.dumps({'choices': [{'delta': {'content': f'⚡ AI 正在执行: {tool_name}...'}}]})}\n\n"
                             
                             if tc.get("function", {}).get("arguments"):
                                 full_tool_call_json += tc["function"]["arguments"]
@@ -322,8 +322,7 @@ async def stream_openai_response(messages: List[dict], config: dict, user_id: st
                         continue
 
                 if has_tool_call:
-                    content_str = json.dumps({'choices': [{'delta': {'content': '\n\n🛠️ 处理完成，正在生成总结...'}}]})
-                    yield f"data: {content_str}\n\n"
+                    # yield f"data: {json.dumps({'choices': [{'delta': {'content': '\n\n🛠️ 处理完成，正在生成总结...'}}]})}\n\n"
                     
                     try:
                         args = json.loads(full_tool_call_json) if full_tool_call_json else {}
@@ -388,13 +387,22 @@ async def chat(request: ChatRequest):
     if not ai_config["api_key"]:
         return StreamingResponse(_error_stream("请先在系统设置中配置您的 API Key"), media_type="text/event-stream")
 
-    system_prompt = "You are Nexus AI, a helpful enterprise assistant. You can use tools to perform actions and query data. If the user asks about company policies, processes, or documents, PLEASE use the 'query_knowledge_base' tool first."
+    base_system_prompt = (
+        "你是 Nexus AI，企业全域中控大脑。你的核心特质是：极其专业、言简意赅、拒绝废话。\n"
+        "回答原则：\n"
+        "1. 直奔主题：直接回答核心数据或结论，不重复用户的提问，不使用 '好的'、'我明白' 等社交废话。\n"
+        "2. 工具优先：如果需要查询数据，直接调用工具，不要在调用前后解释你的行为。\n"
+        "3. 拒绝 AI 腔调：不要以 '作为一个 AI 助手...' 开头。像一位干练的幕僚长。"
+    )
+
     if request.agent == "@销售指挥官":
-        system_prompt = "你是销售指挥官。你不仅能分析线索，还能调用绩效评估工具。你可以通过 get_performance_report 来查看员绩效。"
+        system_prompt = base_system_prompt + " 你是销售指挥官。专注于商机转化、绩效分析。直接给出建议或数据。"
     elif request.agent == "@审批管家":
-        system_prompt = "你是审批管家。你可以调用 get_pending_approvals 查看异常申请，并根据用户指令使用 approve_request 或 reject_request 进行实时操作。"
+        system_prompt = base_system_prompt + " 你是审批管家。只负责列单、过单或驳回。不要解释审批制度。"
     elif request.agent == "@绩效教练":
-        system_prompt = "你是绩效教练。通过 get_performance_report 分析数据并提供针对性建议。你要根据分数、排名和销售指标给出详细的激励方案。"
+        system_prompt = base_system_prompt + " 你是绩效教练。直接指出绩效痛点，给出行动指令。禁止虚伪的鼓励。"
+    else:
+        system_prompt = base_system_prompt + " 如果用户问公司政策，直接用 query_knowledge_base。"
     
     formatted_messages = [{"role": "system", "content": system_prompt}]
     for msg in request.messages:
