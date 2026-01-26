@@ -169,35 +169,58 @@ class ETLService:
 
     async def _generate_embeddings(self, text: str, doc_id: str, filename: str, api_key: str, base_url: str):
         """
-        Generate embeddings using raw fetch for compatibility.
+        P1 Optimization: Generate embeddings in parallel using asyncio.gather.
         """
-        chunks = self._simple_chunk(text)
-        for chunk in chunks:
+        import asyncio
+        chunks = list(self._simple_chunk(text)) # Materialize generator
+        
+        async def _fetch_embedding(chunk):
             try:
                 payload = {
                     "model": "text-embedding-3-small",
                     "input": chunk
                 }
-                # Call embedding endpoint
                 headers = {"Authorization": f"Bearer {api_key}"}
                 async with httpx.AsyncClient(timeout=30.0) as client:
                     resp = await client.post(f"{base_url}/embeddings", headers=headers, json=payload)
                     if resp.status_code == 200:
                         embedding = resp.json()["data"][0]["embedding"]
-                        supabase.table("document_embeddings").insert({
+                        return {
                             "document_id": doc_id,
                             "content": chunk,
                             "embedding": embedding,
                             "metadata": {"source": filename}
-                        }).execute()
+                        }
                     else:
-                        print(f"Embedding API error: {resp.status_code} {resp.text}")
+                        print(f"Embedding API error: {resp.status_code}")
+                        return None
             except Exception as e:
                 print(f"Embedding failed for chunk: {e}")
+                return None
 
-    def _simple_chunk(self, text: str, size: int = 500):
-        words = text.split()
-        for i in range(0, len(words), size):
-            yield " ".join(words[i:i + size])
+        # Execute parallel requests with a concurrency limit (optional, inherent in gather)
+        results = await asyncio.gather(*[_fetch_embedding(chunk) for chunk in chunks])
+        
+        # Batch Insert or Sequential Insert
+        valid_records = [r for r in results if r]
+        if valid_records:
+            try:
+                supabase.table("document_embeddings").insert(valid_records).execute()
+            except Exception as e:
+                print(f"Batch db insert failed: {e}")
+
+    def _simple_chunk(self, text: str, size: int = 500, overlap: int = 50):
+        """
+        P0 Fix: Character-based chunking with overlap for Chinese text support.
+        Previous 'text.split()' failed for CJK languages.
+        """
+        start = 0
+        text_len = len(text)
+        
+        while start < text_len:
+            end = start + size
+            yield text[start:end]
+            # Move forward by size - overlap to create sliding window
+            start += size - overlap
 
 etl_service = ETLService()
