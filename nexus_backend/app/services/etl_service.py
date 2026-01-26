@@ -145,6 +145,67 @@ class ETLService:
             print(f"ETL Panic: {str(e)}")
             return {"filename": filename, "status": "error", "reason": f"系统崩溃: {str(e)}"}
 
+    async def extract_metadata_via_ai(self, text: str, filename: str, api_key: str, base_url: str) -> Tuple[bool, Dict[str, Any]]:
+        """
+        Uses AI to extract structured metadata (JSON) from raw text.
+        """
+        prompt = f"""
+        You are an expert document analyst. Analyze the following document snippet (first 3000 chars) and extract key metadata in STRICT JSON format.
+        
+        Filename: {filename}
+        Content Snippet:
+        {text[:3000]}...
+
+        Required JSON Structure:
+        {{
+            "doc_type": "contract" | "bid" | "product" | "other",
+            "summary": "One sentence summary of the document",
+            "client_name": "Name of client/company if applicable, else null",
+            "amount": number or null (if contract/bid amount found),
+            "date": "YYYY-MM-DD" or null (if signing/document date found),
+            "tags": ["tag1", "tag2"]
+        }}
+
+        Return ONLY the JSON string. Do not include markdown code blocks.
+        """
+        
+        payload = {
+            "model": "gpt-4o",
+            "messages": [
+                {"role": "system", "content": "You are a precise JSON extractor."},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.1
+        }
+
+        try:
+            # We use the raw call to support both OpenAI and proxy URLs
+            # Note: We create a temporary instance or use internal helper if needed. 
+            # Since _call_ai_raw uses self.api_key/base_url, we need to temporarily override or pass params.
+            # But wait, _call_ai_raw uses self.base_url. Let's make a temp raw call with the provided params.
+            
+            headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(f"{base_url}/chat/completions", headers=headers, json=payload)
+                if response.status_code != 200:
+                    return False, {"error": f"AI extraction failed: {response.text}"}
+                
+                content = response.json()["choices"][0]["message"]["content"]
+                # Clean up markdown if AI adds it
+                content = content.replace("```json", "").replace("```", "").strip()
+                return True, json.loads(content)
+        except Exception as e:
+            print(f"Metadata Extraction Failed: {e}")
+            # Fallback metadata
+            return True, {
+                "doc_type": "other", 
+                "summary": "AI extraction failed, manual review required.",
+                "client_name": None,
+                "amount": 0,
+                "date": None,
+                "tags": ["auto-fallback"]
+            }
+
     async def _save_to_db(self, filename: str, metadata: dict, text: str = "", user_id: str = None, status: str = "ready") -> str:
         if not supabase:
             raise Exception("Supabase not initialized")
