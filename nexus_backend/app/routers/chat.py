@@ -258,7 +258,8 @@ async def stream_openai_response(messages: List[dict], config: dict, user_id: st
                         continue
 
                 if has_tool_call:
-                    yield f"data: {json.dumps({'choices': [{'delta': {'content': '\n\n🛠️ 处理完成，正在生成总结...'}}]})}\n\n"
+                    content_str = json.dumps({'choices': [{'delta': {'content': '\n\n🛠️ 处理完成，正在生成总结...'}}]})
+                    yield f"data: {content_str}\n\n"
                     
                     try:
                         args = json.loads(full_tool_call_json) if full_tool_call_json else {}
