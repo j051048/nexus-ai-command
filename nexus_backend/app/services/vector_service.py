@@ -37,10 +37,11 @@ class VectorService:
             print(f"Vector search failed: {e}")
             return self._search_mock(query)
 
-    async def _search_supabase(self, query: str, limit: int, client: AsyncOpenAI) -> str:
+    async def _search_supabase(self, query: str, limit: int, client: AsyncOpenAI, filters: Dict[str, Any] = None) -> str:
         """
         Implementation for Hybrid Search (Vector + Keyword) with RRF.
         P0 Optimization: Fixes "ID search" failure cases.
+        P2 Optimization: Metadata Filtering.
         """
         import asyncio
         
@@ -50,6 +51,8 @@ class VectorService:
                  response = await client.embeddings.create(input=query, model="text-embedding-3-small")
                  embedding = response.data[0].embedding
                  params = {"query_embedding": embedding, "match_threshold": 0.5, "match_count": limit}
+                 if filters:
+                     params["filter"] = filters # Assumes match_documents signature accepts 'filter'
                  return supabase.rpc("match_documents", params).execute().data or []
              except Exception: return []
 
@@ -58,13 +61,22 @@ class VectorService:
         async def run_keyword_search():
              try:
                  # Use 'websearch_to_tsquery' logic via Supabase .textSearch()
-                 # 'plain' config maps to 'common' dictionary usually, or we specify config='simple' if possible
-                 # Supabase-py textSearch syntax: .textSearch('fts', query, config='simple')
-                 return supabase.table("document_embeddings").select("*").textSearch("fts", query, config="simple").limit(limit).execute().data or []
+                 query_builder = supabase.table("document_embeddings").select("*").textSearch("fts", query, config="simple")
+                 
+                 # Apply Metadata Filters for Keyword Search
+                 if filters:
+                     # Check if filter column exists in document_embeddings directly or inside metadata jsonb
+                     # Assuming 'metadata' column is jsonb
+                     query_builder = query_builder.contains("metadata", filters)
+                 
+                 return query_builder.limit(limit).execute().data or []
              except Exception as e: 
                  # Fallback to ILIKE if FTS fails (e.g. migration not run)
                  print(f"FTS failed, fallback to ilike: {e}")
-                 return supabase.table("document_embeddings").select("*").ilike("content", f"%{query}%").limit(limit).execute().data or []
+                 base = supabase.table("document_embeddings").select("*").ilike("content", f"%{query}%")
+                 if filters:
+                     base = base.contains("metadata", filters)
+                 return base.limit(limit).execute().data or []
 
         # Run Parallel
         vector_res, keyword_res = await asyncio.gather(run_vector_search(), run_keyword_search())

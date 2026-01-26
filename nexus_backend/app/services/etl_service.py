@@ -66,10 +66,28 @@ class ETLService:
             elif filename.lower().endswith((".txt", ".md", ".csv", ".json")):
                 text = content.decode("utf-8")
             elif filename.lower().endswith((".png", ".jpg", ".jpeg")):
-                # V5.0 Multimodal Placeholder: In future, send to GPT-4o-Vision
-                return {"filename": filename, "status": "skipped", "reason": "图片解析功能正在开发中 (Vision API)"}
-            else:
-                return {"filename": filename, "status": "skipped", "reason": "Unsupported format"}
+                # P3 Optimization: Vision API Support
+                import base64
+                base64_image = base64.b64encode(content).decode('utf-8')
+                
+                payload = {
+                    "model": "gpt-4o-mini", # Use cost-effective vision model
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": "Transcribe the text in this image accurately. Preserve layout if possible."},
+                                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
+                            ]
+                        }
+                    ],
+                    "max_tokens": 4000
+                }
+                
+                try:
+                    text = await self._call_ai_raw(payload, endpoint="/chat/completions")
+                except Exception as e:
+                    return {"filename": filename, "status": "skipped", "reason": f"OCR Failed: {str(e)}"}
 
             if not text.strip():
                 return {"filename": filename, "status": "error", "reason": "No text content found"}
