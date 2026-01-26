@@ -33,6 +33,7 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [aiStatus, setAiStatus] = useState<string | undefined>();
   const [showAgents, setShowAgents] = useState(false);
   const [currentAgent, setCurrentAgent] = useState<string | undefined>();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -203,7 +204,16 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
           try {
             const parsed = JSON.parse(jsonStr);
             const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+
+            // P2: Custom Status Event Handling (Heuristic)
+            // If the chunk is a status update object (custom protocol)
+            if (parsed.status) {
+              setAiStatus(parsed.status); // Update UI status
+              continue;
+            }
+
             if (content) {
+              setAiStatus(undefined); // Clear status when generating content
               assistantContent += content;
               setMessages(prev =>
                 prev.map(m =>
@@ -314,8 +324,15 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
                 AI 指挥中心
                 <Sparkles className="w-4 h-4 text-primary" />
               </h3>
-              <p className="text-xs text-muted-foreground">
-                {isTyping ? 'AI正在输入...' : '输入指令或自然语言对话'}
+              <p className="text-xs text-muted-foreground flex items-center gap-2">
+                {aiStatus ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                    <span className="text-primary animate-pulse">{aiStatus}</span>
+                  </>
+                ) : (
+                  isTyping ? 'AI正在输入...' : '输入指令或自然语言对话'
+                )}
               </p>
             </div>
           </div>
