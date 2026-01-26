@@ -12,7 +12,7 @@ def register_tool(tool: BaseTool):
 
 from .approval_tools import ApprovalTool, RejectTool, PendingApprovalsTool
 from .operational_tools import PerformanceReportTool, CompanyStatsTool, KnowledgeBaseTool, AwardBadgeTool
-from .project_tools import ProjectListTool, CreateEventTool
+from .project_tools import ProjectListTool, CreateEventTool, CreateProjectTool
 
 # Registering Tools
 register_tool(TenderAnalysisTool())
@@ -26,6 +26,7 @@ register_tool(KnowledgeBaseTool())
 register_tool(AwardBadgeTool())
 register_tool(ProjectListTool())
 register_tool(CreateEventTool())
+register_tool(CreateProjectTool())
 
 def get_tool(name: str) -> BaseTool:
     return TOOL_REGISTRY.get(name)

@@ -18,6 +18,7 @@ import {
   LogOut,
   ChevronRight,
   User as UserIcon,
+  Briefcase,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -49,6 +50,7 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps) {
 
   const employeeNav: NavItem[] = [
     { icon: <LayoutDashboard size={20} />, label: '战绩中心', href: 'dashboard' },
+    { icon: <Briefcase size={20} />, label: '项目管理', href: 'projects' },
     { icon: <TrendingUp size={20} />, label: '销售AI管理', href: 'sales', badge: '5', badgeType: 'primary' },
     { icon: <FileCheck size={20} />, label: '智能审批', href: 'approval' },
     { icon: <BookOpen size={20} />, label: '知识库', href: 'knowledge' },

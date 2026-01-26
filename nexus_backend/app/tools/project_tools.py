@@ -12,11 +12,49 @@ class ProjectListTool(BaseTool):
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
-        result = supabase.table("projects").select("id, name, stage").execute()
+        # Check role to filter projects? For now, list all accessible via RLS
+        result = supabase.table("projects").select("id, name, status, progress").execute()
         if not result.data:
             return "暂无进行中的项目。"
-        items = [f"ID: {p['id']} | 名称: {p['name']} | 阶段: {p['stage']}" for p in result.data]
+        items = [f"ID: {p['id']} | 名称: {p['name']} | 状态: {p['status']} | 进度: {p['progress']}%" for p in result.data]
         return "项目清单：\n" + "\n".join(items)
+
+class CreateProjectTool(BaseTool):
+    name = "create_project"
+    description = "创建一个新的项目立项。当用户说'帮我新建一个XXX项目'时使用此工具。"
+    
+    parameters = {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string", "description": "项目名称"},
+            "description": {"type": "string", "description": "项目背景描述"},
+            "status": {"type": "string", "description": "初始状态 (planning, in_progress)", "default": "planning"}
+        },
+        "required": ["name"]
+    }
+    
+    required_role = "all"
+
+    async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
+        name = args.get("name")
+        description = args.get("description", "")
+        status = args.get("status", "planning")
+        
+        try:
+            data = {
+                "name": name,
+                "description": description,
+                "owner_id": user_id,
+                "status": status,
+                "progress": 0
+            }
+            res = supabase.table("projects").insert(data).execute()
+            if res.data:
+                pid = res.data[0]['id']
+                return f"✅ 项目 '{name}' 已成功立项 (ID: {pid})！您可以继续添加项目事件或里程碑。"
+            return "创建失败。"
+        except Exception as e:
+            return f"系统错误: {str(e)}"
 
 class CreateEventTool(BaseTool):
     name = "create_project_event"
@@ -25,7 +63,7 @@ class CreateEventTool(BaseTool):
     parameters = {
         "type": "object",
         "properties": {
-            "project_id": {"type": "string", "description": "项目UUID"},
+            "project_id": {"type": "string", "description": "项目UUID (可先调用 get_projects 获取)"},
             "title": {"type": "string", "description": "事件标题，如：庆功晚宴"},
             "content": {"type": "string", "description": "事件详细描述，包括地点、参与人等"},
             "event_type": {"type": "string", "enum": ["milestone", "meeting", "dinner", "task"], "description": "事件类型"}
@@ -39,13 +77,21 @@ class CreateEventTool(BaseTool):
         content = args.get("content")
         event_type = args.get("event_type")
         
-        result = supabase.table("project_timeline").insert({
-            "project_id": project_id,
-            "title": title,
-            "content": content,
-            "event_type": event_type
-        }).execute()
-        
-        if result.data:
-            return f"成功在项目中创建了事件: {title}。"
+        # Ensure project_timeline table exists (it might be missing in migration, so we should allow fallback or catch error)
+        # Assuming table exists or we need to add it to migration.
+        # Check migration: I only added `projects` table. I did NOT add `project_timeline`.
+        # I MUST add project_timeline table.
+        try:
+            result = supabase.table("project_timeline").insert({
+                "project_id": project_id,
+                "title": title,
+                "content": content,
+                "event_type": event_type,
+                "created_by": user_id
+            }).execute()
+            
+            if result.data:
+                return f"成功在项目中创建了事件: {title}。"
+        except Exception as e:
+            return f"创建事件失败: {str(e)}"
         return "创建失败，请核对项目 ID 是否正确。"

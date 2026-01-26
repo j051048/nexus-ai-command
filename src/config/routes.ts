@@ -7,6 +7,7 @@ import { AISettingsPanel } from '@/components/settings/AISettingsPanel';
 import { ProjectDetail } from '@/components/projects/ProjectDetail';
 import { DocumentsPage } from '@/components/documents/DocumentsPage';
 import ExceptionsPage from '@/pages/ExceptionsPage';
+import { ProjectManagement } from '@/pages/ProjectManagement';
 
 export const routes = {
     SalesPipeline,
@@ -18,4 +19,5 @@ export const routes = {
     ProjectDetail,
     DocumentsPage,
     ExceptionsPage,
+    ProjectManagement,
 };
