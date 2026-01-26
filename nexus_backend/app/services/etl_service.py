@@ -89,7 +89,18 @@ class ETLService:
                 except Exception as e:
                     return {"filename": filename, "status": "skipped", "reason": f"OCR Failed: {str(e)}"}
 
+            elif filename.lower().endswith((".docx")):
+                # P0 Fix: Add DOCX support
+                import docx
+                doc = docx.Document(io.BytesIO(content))
+                text = "\n".join([para.text for para in doc.paragraphs])
+            else:
+                return {"filename": filename, "status": "skipped", "reason": "Unsupported format"}
+
             if not text.strip():
+                # Provide better hint for scanned PDFs
+                if filename.lower().endswith(".pdf"):
+                    return {"filename": filename, "status": "error", "reason": "无法提取文本，可能是扫描件 PDF。请尝试截图并作为图片上传。"}
                 return {"filename": filename, "status": "error", "reason": "No text content found"}
 
             # 2. Sequential Processing
