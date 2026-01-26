@@ -7,17 +7,10 @@ import { Loader2 } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 
 // Lazy load main sections
-const EmployeeDashboard = React.lazy(() => import('@/components/dashboard/EmployeeDashboard').then(m => ({ default: m.EmployeeDashboard })));
-const BossDashboard = React.lazy(() => import('@/components/dashboard/BossDashboard').then(m => ({ default: m.BossDashboard })));
-const SalesPipeline = React.lazy(() => import('@/components/sales/SalesPipeline').then(m => ({ default: m.SalesPipeline })));
-const ApprovalCenter = React.lazy(() => import('@/components/approval/ApprovalCenter').then(m => ({ default: m.ApprovalCenter })));
-const RewardsWallet = React.lazy(() => import('@/components/rewards/RewardsWallet').then(m => ({ default: m.RewardsWallet })));
-const SalesTargetManager = React.lazy(() => import('@/components/targets/SalesTargetManager').then(m => ({ default: m.SalesTargetManager })));
-const EmployeeManagement = React.lazy(() => import('@/components/admin/EmployeeManagement').then(m => ({ default: m.EmployeeManagement })));
-const AISettingsPanel = React.lazy(() => import('@/components/settings/AISettingsPanel').then(m => ({ default: m.AISettingsPanel })));
-const ProjectDetail = React.lazy(() => import('@/components/projects/ProjectDetail').then(m => ({ default: m.ProjectDetail })));
-const DocumentsPage = React.lazy(() => import('@/components/documents/DocumentsPage').then(m => ({ default: m.DocumentsPage })));
-const ExceptionsPage = React.lazy(() => import('./ExceptionsPage'));
+// Lazy load main sections
+import { EmployeeDashboard } from '@/components/dashboard/EmployeeDashboard';
+import { BossDashboard } from '@/components/dashboard/BossDashboard';
+import { routes } from '@/config/routes';
 
 const PageLoader = () => (
   <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
@@ -43,31 +36,31 @@ function AppContent() {
       case 'boss-dashboard':
         return <BossDashboard />;
       case 'exceptions':
-        return <ExceptionsPage />;
+        return <routes.ExceptionsPage />;
       case 'team-performance':
         return <BossDashboard />;
       case 'sales':
-        return <SalesPipeline />;
+        return <routes.SalesPipeline />;
       case 'approval':
-        return <ApprovalCenter />;
+        return <routes.ApprovalCenter />;
       case 'rewards':
-        return <RewardsWallet />;
+        return <routes.RewardsWallet />;
       case 'targets':
-        return <SalesTargetManager />;
+        return <routes.SalesTargetManager />;
       case 'employees':
-        return <EmployeeManagement onProjectSelect={(id) => {
+        return <routes.EmployeeManagement onProjectSelect={(id) => {
           setSelectedProjectId(id);
           setActiveNav('project-detail');
         }} />;
       case 'project-detail':
         return selectedProjectId ? (
-          <ProjectDetail
+          <routes.ProjectDetail
             projectId={selectedProjectId}
             onBack={() => setActiveNav('employees')}
           />
         ) : <Navigate to="/" />;
       case 'documents':
-        return <DocumentsPage />;
+        return <routes.DocumentsPage />;
       case 'knowledge':
         return (
           <div className="flex items-center justify-center h-96">
@@ -79,7 +72,7 @@ function AppContent() {
           </div>
         );
       case 'settings':
-        return <AISettingsPanel />;
+        return <routes.AISettingsPanel />;
       default:
         return <EmployeeDashboard />;
     }
