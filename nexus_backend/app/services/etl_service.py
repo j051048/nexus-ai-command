@@ -142,10 +142,17 @@ class ETLService:
         if not supabase:
             raise Exception("Supabase not initialized")
             
-        # P1: Persistence - Save full text context to metadata (for now) or a separate field
-        # Ideally, we should have a 'content' column, but putting it in extracted_data 
-        # is a safe no-migration way to enable "Stateful Context".
-        metadata["full_text_context"] = text[:100000] # Cap at ~100k chars to avoid validation errors
+        # P3 Security: PII Scrubbing
+        def _scrub_pii(content: str) -> str:
+            import re
+            # Mask Mobile Phones (China)
+            content = re.sub(r'1[3-9]\d{9}', '[PHONE_REDACTED]', content)
+            # Mask ID Card (Simple regex)
+            content = re.sub(r'\d{17}[\d|X]', '[ID_REDACTED]', content)
+            return content
+
+        safe_text = _scrub_pii(text)
+        metadata["full_text_context"] = safe_text[:100000] 
 
         record = {
             "name": filename,

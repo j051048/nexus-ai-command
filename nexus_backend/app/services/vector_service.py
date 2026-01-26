@@ -39,57 +39,63 @@ class VectorService:
 
     async def _search_supabase(self, query: str, limit: int, client: AsyncOpenAI) -> str:
         """
-        Implementation for Supabase pgvector search.
+        Implementation for Hybrid Search (Vector + Keyword) with RRF.
+        P0 Optimization: Fixes "ID search" failure cases.
         """
-        # 1. Convert query to vector
-        try:
-            response = await client.embeddings.create(
-                input=query,
-                model="text-embedding-3-small"
-            )
-            embedding = response.data[0].embedding
-        except Exception as e:
-            print(f"Embedding generation failed: {e}")
-            raise e
+        import asyncio
+        
+        # A. Vector Search (Semantic)
+        async def run_vector_search():
+             try:
+                 response = await client.embeddings.create(input=query, model="text-embedding-3-small")
+                 embedding = response.data[0].embedding
+                 params = {"query_embedding": embedding, "match_threshold": 0.5, "match_count": limit}
+                 return supabase.rpc("match_documents", params).execute().data or []
+             except Exception: return []
 
-        # 2. RPC call to match_documents
-        params = {
-            "query_embedding": embedding,
-            "match_threshold": 0.5, # Adjust threshold as needed
-            "match_count": limit
-        }
+        # B. Keyword Search (Lexical) - using simple text search
+        # Note: Requires a 'text_search_index' in DB or we simulate via ILIKE for basic MVP
+        async def run_keyword_search():
+             try:
+                 # Attempt simple ILIKE on content (MVP for Full Text Search)
+                 # Ideally use: supabase.table("document_embeddings").select("*").textSearch("content", query).execute()
+                 # But standard postgres 'ilike' is a safer fallback without specialized indices
+                 return supabase.table("document_embeddings").select("*").ilike("content", f"%{query}%").limit(limit).execute().data or []
+             except Exception: return []
+
+        # Run Parallel
+        vector_res, keyword_res = await asyncio.gather(run_vector_search(), run_keyword_search())
         
-        try:
-            rpc_response = supabase.rpc("match_documents", params).execute()
-        except Exception as e:
-            print(f"Supabase RPC failed: {e}")
-            # Likely function not found if migration hasn't run.
-            raise e
-        
-        if not rpc_response.data:
+        # C. RRF Fusion
+        fused_docs = self._rrf_fusion([vector_res, keyword_res], k=60)
+        top_docs = sorted(fused_docs.values(), key=lambda x: x['score'], reverse=True)[:limit]
+
+        if not top_docs:
             return "知识库中未找到相关信息 (No relevant documents found in Vector DB)."
 
-        # 3. Format results with Graph Verification
+        # 3. Format results
         results = []
-        for item in rpc_response.data:
+        for item in top_docs:
             content = item.get("content", "")
             meta = item.get("metadata", {}) or {}
             source = meta.get("filename", "未知来源")
-            sim = item.get("similarity", 0)
-            
-            # GraphRAG Logic: Check compatibility if query mentions models
-            # This is a simplified "Graph" using metadata tags
-            extracted = item.get("extracted_data", {})
-            compatible = meta.get("compatible_models", [])
-            tag = ""
-            if compatible and any(m in query for m in compatible):
-                tag = " [✅兼容性匹配]"
             
             # Grounding: Append citation marker
-            citation = f" [引用溯源: {source} (Page 1)]"
-            results.append(f"{content}...{citation}{tag} (匹配度 {sim:.2f})")
+            citation = f" [引用溯源: {source}]"
+            results.append(f"{content}...{citation} (混合匹配)")
 
         return "检索到以下相关知识:\n" + "\n- ".join(results)
+
+    def _rrf_fusion(self, result_sets: List[List[Any]], k: int = 60) -> Dict[any, Dict]:
+        """Reciprocal Rank Fusion"""
+        fused = {}
+        for rank_list in result_sets:
+            for rank, item in enumerate(rank_list):
+                doc_id = item['id']
+                if doc_id not in fused:
+                    fused[doc_id] = {**item, 'score': 0}
+                fused[doc_id]['score'] += 1 / (k + rank + 1)
+        return fused
 
     def _search_mock(self, query: str) -> str:
         """

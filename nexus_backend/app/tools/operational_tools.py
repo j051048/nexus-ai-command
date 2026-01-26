@@ -64,7 +64,9 @@ class KnowledgeBaseTool(BaseTool):
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
         query = args.get("query")
-        return await vector_service.search(query, config=config)
+        # P1: Grounding ensured by vector_service.search which now returns citations
+        result = await vector_service.search(query, config=config)
+        return result 
 
 class AwardBadgeTool(BaseTool):
     name = "award_badge"

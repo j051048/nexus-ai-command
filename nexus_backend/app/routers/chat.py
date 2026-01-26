@@ -197,14 +197,26 @@ async def chat(request: ChatRequest):
     if not ai_config["api_key"]:
         return StreamingResponse(_error_stream("请先在系统设置中配置您的 API Key"), media_type="text/event-stream")
 
+    # P2: Use Centralized Registry and Inject Time
+    from app.core.prompts_registry import SYSTEM_PROMPTS
+    import datetime
+    
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
     if request.agent == "@销售指挥官":
-        system_prompt = prompts.SALES_COMMANDER
+        raw_prompt = SYSTEM_PROMPTS["sales_commander"]
     elif request.agent == "@审批管家":
-        system_prompt = prompts.APPROVAL_MANAGER
+        raw_prompt = SYSTEM_PROMPTS["approval_manager"]
     elif request.agent == "@绩效教练":
-        system_prompt = prompts.PERFORMANCE_COACH
+        raw_prompt = SYSTEM_PROMPTS["performance_coach"]
     else:
-        system_prompt = prompts.DEFAULT_FALLBACK
+        raw_prompt = SYSTEM_PROMPTS["default_fallback"]
+    
+    # Safe injection
+    try:
+        system_prompt = raw_prompt.format(current_time=now_str)
+    except:
+        system_prompt = raw_prompt
     
     formatted_messages = [{"role": "system", "content": system_prompt}]
     for msg in request.messages:
