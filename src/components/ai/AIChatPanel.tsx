@@ -19,28 +19,8 @@ import { toast } from 'sonner';
 const agentTags = [
   { id: 'sales', name: '@销售指挥官', color: 'text-primary' },
   { id: 'performance', name: '@绩效教练', color: 'text-success' },
-  { id: 'approval', name: '@审批管家', color: 'text-warning' },
+  { id: 'approval', name: '@企业小助手', color: 'text-warning' },
   { id: 'knowledge', name: '@知识助手', color: 'text-purple-400' },
-];
-
-const initialMessages: AIMessage[] = [
-  {
-    id: '1',
-    role: 'assistant',
-    content: '早上好！我是您的AI指挥官 🚀\n\n今日重点：\n• 张教授商机进入关键阶段，建议上午跟进\n• 您的绩效分已达87分，距离"销售精英"徽章仅差13分\n• 有1条新线索待查看\n\n有什么我可以帮您的？',
-    timestamp: new Date(Date.now() - 1000 * 60 * 5),
-    agent: '@销售指挥官',
-  },
-];
-
-const bossInitialMessages: AIMessage[] = [
-  {
-    id: '1',
-    role: 'assistant',
-    content: '早上好，李总！📊\n\n今日AI摘要：\n• 3条异常审批待您确认（均已超时预警）\n• 本周销售激励已自动发放 ¥12,800\n• 团队整体赢率提升 8.5%\n\n无需其他操作，一切尽在掌控。有什么需要了解的？',
-    timestamp: new Date(Date.now() - 1000 * 60 * 5),
-    agent: '@审批管家',
-  },
 ];
 
 interface AIChatPanelProps {
@@ -99,8 +79,25 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
   };
 
   useEffect(() => {
-    setMessages(user.role === 'boss' ? bossInitialMessages : initialMessages);
-  }, [user.role]);
+    const greeting = user.role === 'boss' ? (
+      {
+        id: '1',
+        role: 'assistant',
+        content: `早上好，${user.name}！📊\n\n今日AI摘要：\n• 3条异常审批待您确认（均已超时预警）\n• 本周销售激励已自动发放 ¥12,800\n• 团队整体赢率提升 8.5%\n\n无需其他操作，一切尽在掌控。有什么需要了解的？`,
+        timestamp: new Date(Date.now() - 1000 * 60 * 5),
+        agent: '@企业小助手',
+      }
+    ) : (
+      {
+        id: '1',
+        role: 'assistant',
+        content: `早上好，${user.name}！我是您的AI指挥官 🚀\n\n今日重点：\n• 张教授商机进入关键阶段，建议上午跟进\n• 您的绩效分已达87分，距离"销售精英"徽章仅差13分\n• 有1条新线索待查看\n\n有什么我可以帮您的？`,
+        timestamp: new Date(Date.now() - 1000 * 60 * 5),
+        agent: '@销售指挥官',
+      }
+    );
+    setMessages([greeting as AIMessage]);
+  }, [user.role, user.name]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
