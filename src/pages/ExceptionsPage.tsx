@@ -1,5 +1,5 @@
 import React from 'react';
-import { BossApprovalView } from '@/components/approval/ApprovalCenter';
+import { BossApprovalView } from '@/components/approval/sections/BossApprovalView';
 import { AlertTriangle } from 'lucide-react';
 
 export default function ExceptionsPage() {
