@@ -8,6 +8,9 @@ import { ProjectDetail } from '@/components/projects/ProjectDetail';
 import { DocumentsPage } from '@/components/documents/DocumentsPage';
 import ExceptionsPage from '@/pages/ExceptionsPage';
 import { ProjectManagement } from '@/pages/ProjectManagement';
+import { TenderAnalysisPage } from '@/pages/TenderAnalysisPage';
+import { BattlecardLibrary } from '@/pages/BattlecardLibrary';
+import { TargetDashboard } from '@/pages/TargetDashboard';
 
 export const routes = {
     SalesPipeline,
@@ -20,4 +23,7 @@ export const routes = {
     DocumentsPage,
     ExceptionsPage,
     ProjectManagement,
+    TenderAnalysisPage,
+    BattlecardLibrary,
+    TargetDashboard,
 };

@@ -47,16 +47,22 @@ function AppContent() {
         return <routes.RewardsWallet />;
       case 'targets':
         return <routes.SalesTargetManager />;
-      case 'employees':
-        return <routes.EmployeeManagement onProjectSelect={(id) => {
+      case 'projects':
+        return <routes.ProjectManagement onProjectSelect={(id) => {
           setSelectedProjectId(id);
           setActiveNav('project-detail');
         }} />;
+      case 'tender-analysis':
+        return <routes.TenderAnalysisPage />;
+      case 'battlecards':
+        return <routes.BattlecardLibrary />;
+      case 'target-dashboard':
+        return <routes.TargetDashboard />;
       case 'project-detail':
         return selectedProjectId ? (
           <routes.ProjectDetail
             projectId={selectedProjectId}
-            onBack={() => setActiveNav('employees')}
+            onBack={() => setActiveNav(role === 'boss' ? 'employees' : 'projects')}
           />
         ) : <Navigate to="/" />;
       case 'documents':
