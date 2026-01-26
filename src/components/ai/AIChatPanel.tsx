@@ -65,6 +65,18 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const getApiUrl = () => {
+    let url = import.meta.env.VITE_API_BASE_URL || 'https://aizhz.zeabur.app';
+    if (!url.startsWith('http')) {
+      url = `https://${url}`;
+    }
+    // Remove trailing slash if present to avoid double slashes
+    if (url.endsWith('/')) {
+      url = url.slice(0, -1);
+    }
+    return `${url}/api/chat`;
+  };
+
   const streamChat = async (userMessage: string) => {
     // Check for agent mention in message
     let detectedAgent = currentAgent;
@@ -88,7 +100,7 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL || 'https://aizhz.zeabur.app'}/api/chat`,
+        getApiUrl(),
         {
           method: 'POST',
           headers: {
