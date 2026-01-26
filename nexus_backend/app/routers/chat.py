@@ -1,7 +1,4 @@
-from app.services.vector_service import vector_service
-import json
-import httpx
-from fastapi import APIRouter
+from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
@@ -20,15 +17,13 @@ class Message(BaseModel):
 class ChatRequest(BaseModel):
     messages: List[Message]
     agent: Optional[str] = None
-    userId: Optional[str] = None
+    userId: Optional[str] = None # Keeping for compatibility but favoring header
 
 # --- 工具定义 (Strategy Pattern) ---
-# P0 Completed: Tool definitions are now fully dynamic
 TOOLS = get_all_tools_schema()
 
 from functools import lru_cache
 
-# P3 Optimization: LRU Cache to reduce DB hits for RBAC checks
 @lru_cache(maxsize=1000)
 def _get_cached_user_role(user_id: str) -> str:
     try:
@@ -43,16 +38,12 @@ async def execute_tool(name: str, args: Dict[str, Any], current_user_id: str, co
     
     if tool_instance:
         try:
-            # 1. Security Check: Role Based Access Control
+            # Security Check: Role Based Access Control
             if tool_instance.required_role != "all":
-                # Use cached role lookup
                 user_role = _get_cached_user_role(current_user_id)
-                
-                # Simple check: 'boss' tools require 'boss' role
                 if tool_instance.required_role == "boss" and user_role != "boss":
                     return f"⛔ 权限拒绝: 该操作需要 [Boss/Manager] 权限，您当前的身份是 [{user_role}]。"
 
-            # 2. Execute
             return await tool_instance.run(args, current_user_id, config)
         except Exception as e:
             return f"工具 {name} 执行失败: {str(e)}"
@@ -61,157 +52,149 @@ async def execute_tool(name: str, args: Dict[str, Any], current_user_id: str, co
 
 async def stream_openai_response(messages: List[dict], config: dict, user_id: str, logger: Any):
     """
-    Stream response from OpenAI with tool use support
+    Stream response from OpenAI with recursive tool use support (P2 Fix)
     """
     api_key = config.get("api_key")
     base_url = config.get("base_url")
     model = config.get("model")
 
-    # URL Normalization: Ensure we have the base endpoint without /chat/completions
     target_url = base_url.split("/chat/completions")[0].rstrip("/")
-    if not target_url.endswith("/v1") and "/v1" not in target_url:
+    if not (target_url.endswith("/v1") or "/v1" in target_url):
         target_url = f"{target_url}/v1"
-    
     chat_endpoint = f"{target_url}/chat/completions"
 
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}",
-        "User-Agent": "PostmanRuntime/7.26.8" # Pretend to be Postman or standard Setup
-    }
-
-    payload = {
-        "model": model,
-        "messages": messages,
-        "tools": TOOLS,
-        "tool_choice": "auto",
-        "stream": True,
-        "temperature": 0.5
     }
 
     if logger: logger.log_start(messages)
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        try:
+    async def _get_stream(msgs):
+        payload = {
+            "model": model,
+            "messages": msgs,
+            "tools": TOOLS if len(msgs) < 15 else None, # Heuristic: stop offering tools if conversation too deep
+            "tool_choice": "auto",
+            "stream": True,
+            "temperature": 0.5
+        }
+        async with httpx.AsyncClient(timeout=60.0) as client:
             async with client.stream("POST", chat_endpoint, headers=headers, json=payload) as response:
                 if response.status_code != 200:
-                    error_content = await response.aread()
-                    yield f"data: {json.dumps({'choices': [{'delta': {'content': f' Error {response.status_code}: {error_content.decode()}'}}]})}\n\n"
+                    err = await response.aread()
+                    yield f"error: {err.decode()}"
                     return
-
-                full_tool_call_json = ""
-                tool_name = ""
-                tool_call_id = ""
-                has_tool_call = False
-
                 async for line in response.aiter_lines():
-                    if not line.startswith("data: "): continue
-                    line_data = line[6:].strip()
-                    if line_data == "[DONE]": break
-                    
-                    try:
-                        parsed = json.loads(line_data)
-                        if not parsed['choices']: continue
-                        delta = parsed['choices'][0]['delta']
-                        
-                        if "tool_calls" in delta:
-                            has_tool_call = True
-                            tc = delta["tool_calls"][0]
-                            if tc.get("id"): 
-                                tool_call_id = tc["id"]
-                                if tc.get("function", {}).get("name"):
-                                    tool_name = tc["function"]["name"]
-                                    yield f"data: {json.dumps({'choices': [{'delta': {'content': f''}}]})}\n\n" # Frontend handles status update via side-channel if needed, but here we keep it clean
-                            
-                            if tc.get("function", {}).get("arguments"):
-                                full_tool_call_json += tc["function"]["arguments"]
-                            continue
+                    yield line
 
-                        if not has_tool_call:
-                            yield f"{line}\n\n"
-                            
-                    except json.JSONDecodeError:
-                        continue
+    # Recursive loop for tool execution
+    iteration = 0
+    while iteration < 3: # Limit to 3 hops (P2 Fix)
+        iteration += 1
+        full_tool_call_json = ""
+        tool_name = ""
+        tool_call_id = ""
+        has_tool_call = False
+        
+        async for line in _get_stream(messages):
+            if line.startswith("error: "):
+                yield f"data: {json.dumps({'choices': [{'delta': {'content': f' Error: {line[7:]}'}}]})}\n\n"
+                return
+            if not line.startswith("data: "): continue
+            line_data = line[6:].strip()
+            if line_data == "[DONE]": break
+            
+            try:
+                parsed = json.loads(line_data)
+                if not parsed['choices']: continue
+                delta = parsed['choices'][0]['delta']
+                
+                if "tool_calls" in delta:
+                    has_tool_call = True
+                    tc = delta["tool_calls"][0]
+                    if tc.get("id"): 
+                        tool_call_id = tc["id"]
+                        if tc.get("function", {}).get("name"):
+                            tool_name = tc["function"]["name"]
+                    if tc.get("function", {}).get("arguments"):
+                        full_tool_call_json += tc["function"]["arguments"]
+                    continue
 
-                if has_tool_call:
-                    # P2 Optimization: We can emit a specific "tool_processing" event here if frontend supports it
-                    try:
-                        args = json.loads(full_tool_call_json) if full_tool_call_json else {}
-                        
-                         # LOGGING: Tool Plan
-                        if logger: logger.log_tool_plan(tool_name, args)
+                if not has_tool_call:
+                    yield f"{line}\n\n"
+            except: continue
 
-                        tool_result = await execute_tool(tool_name, args, user_id, config=config)
-                        
-                        # LOGGING: Tool Execution
-                        if logger: logger.log_tool_execution(tool_name, "success", tool_result)
+        if has_tool_call:
+            try:
+                args = json.loads(full_tool_call_json) if full_tool_call_json else {}
+                if logger: logger.log_tool_plan(tool_name, args)
+                
+                tool_result = await execute_tool(tool_name, args, user_id, config=config)
+                if logger: logger.log_tool_execution(tool_name, "success", tool_result)
 
-                        # 构造继续对话的消息
-                        messages.append({
-                            "role": "assistant", 
-                            "content": None, 
-                            "tool_calls": [{
-                                "id": tool_call_id, 
-                                "type": "function", 
-                                "function": {"name": tool_name, "arguments": full_tool_call_json}
-                            }]
-                        })
-                        messages.append({
-                            "role": "tool", 
-                            "tool_call_id": tool_call_id, 
-                            "name": tool_name, 
-                            "content": tool_result
-                        })
-                        
-                        final_payload = {
-                            "model": model,
-                            "messages": messages,
-                            "stream": True
-                        }
-                        async with client.stream("POST", chat_endpoint, headers=headers, json=final_payload) as final_resp:
-                            async for final_line in final_resp.aiter_lines():
-                                if final_line.startswith("data: "):
-                                    yield f"{final_line}\n\n"
-                    except Exception as e:
-                        if logger: logger.log_error(str(e))
-                        yield f"data: {json.dumps({'choices': [{'delta': {'content': f' AI 决策解析失败: {str(e)}'}}]})}\n\n"
+                # Append to history for the next iteration
+                messages.append({
+                    "role": "assistant", 
+                    "content": None, 
+                    "tool_calls": [{
+                        "id": tool_call_id, 
+                        "type": "function", 
+                        "function": {"name": tool_name, "arguments": full_tool_call_json}
+                    }]
+                })
+                messages.append({
+                    "role": "tool", 
+                    "tool_call_id": tool_call_id, 
+                    "name": tool_name, 
+                    "content": tool_result
+                })
+                # Loop continues to next iteration
+            except Exception as e:
+                yield f"data: {json.dumps({'choices': [{'delta': {'content': f' Tool Error: {str(e)}'}}]})}\n\n"
+                break
+        else:
+            # No more tool calls, we are done
+            break
 
-        except Exception as e:
-            if logger: logger.log_error(str(e))
-            yield f"data: {json.dumps({'choices': [{'delta': {'content': f' Connection Error: {str(e)}'}}]})}\n\n"
-    
     if logger: logger.log_end()
     yield "data: [DONE]\n\n"
 
 
 @router.post("/chat")
-async def chat(request: ChatRequest):
-    user_id = request.userId
+async def chat(request: ChatRequest, x_user_id: Optional[str] = Header(None)):
+    # P0 Security: Validate user existence and prefer header
+    user_id = x_user_id or request.userId
     
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication Required (Missing User ID)")
+    
+    # Verify user exists in DB
+    user_check = supabase.table("users").select("id").eq("id", user_id).maybe_single().execute()
+    if not user_check.data:
+        raise HTTPException(status_code=403, detail="Unauthorized: User does not exist")
+
     ai_config = {
         "base_url": "https://proxy.flydao.top/v1",
         "api_key": "",
         "model": "gpt-4o-mini"
     }
 
-    if user_id:
-        try:
-            response = supabase.table("ai_settings").select("*").eq("user_id", user_id).maybe_single().execute()
-            if response.data:
-                settings = response.data
-                ai_config["base_url"] = settings.get("base_url") or ai_config["base_url"]
-                ai_config["api_key"] = settings.get("api_key") or ""
-                ai_config["model"] = settings.get("model") or ai_config["model"]
-        except Exception as e:
-            print(f"Failed to fetch user settings: {e}")
+    try:
+        response = supabase.table("ai_settings").select("*").eq("user_id", user_id).maybe_single().execute()
+        if response.data:
+            settings = response.data
+            ai_config["base_url"] = settings.get("base_url") or ai_config["base_url"]
+            ai_config["api_key"] = settings.get("api_key") or ""
+            ai_config["model"] = settings.get("model") or ai_config["model"]
+    except Exception as e:
+        print(f"Failed to fetch user settings: {e}")
 
     if not ai_config["api_key"]:
         return StreamingResponse(_error_stream("请先在系统设置中配置您的 API Key"), media_type="text/event-stream")
 
-    # P2: Use Centralized Registry and Inject Time
     from app.core.prompts_registry import SYSTEM_PROMPTS
     import datetime
-    
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     if request.agent == "@销售指挥官":
@@ -223,24 +206,19 @@ async def chat(request: ChatRequest):
     else:
         raw_prompt = SYSTEM_PROMPTS["default_fallback"]
     
-    # Safe injection
     try:
         system_prompt = raw_prompt.format(current_time=now_str)
     except:
         system_prompt = raw_prompt
     
-    # Initialize Logger
     from app.core.trace_logger import TraceLogger
-    tracer = TraceLogger(user_id=user_id or "anonymous", agent=request.agent or "default")
+    tracer = TraceLogger(user_id=user_id, agent=request.agent or "default")
 
-    # P2: Coreference Resolution via System Prompt
-    # We append a critical instruction to ensure the Agent rewrites queries for tool calls.
-    coref_instruction = "\nIMPORTANT: When using tools like 'query_knowledge_base', you MUST generate a standalone, explicit search query. Do NOT use pronouns like 'it' 'this' or 'that'. Replace them with the specific entity from the conversation history (e.g., change 'how much is it' to 'ZY-100 price')."
+    coref_instruction = "\nIMPORTANT: When using tools like 'query_knowledge_base', you MUST generate a standalone, explicit search query. Do NOT use pronouns. Replace them with specific names from history."
     
     formatted_messages = [{"role": "system", "content": system_prompt + coref_instruction}]
     for msg in request.messages:
         formatted_messages.append({"role": msg.role, "content": msg.content})
-
 
     return StreamingResponse(
         stream_openai_response(formatted_messages, ai_config, user_id, tracer),

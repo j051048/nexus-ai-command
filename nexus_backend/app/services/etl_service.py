@@ -138,7 +138,17 @@ class ETLService:
             return {"filename": filename, "status": "error", "reason": f"系统崩溃: {str(e)}"}
 
     async def extract_metadata_via_ai(self, text: str, filename: str, api_key: str, base_url: str) -> Tuple[bool, Dict]:
-        preview = text[:4000]
+        # P1 Fix: Smart Sampling for Long Documents
+        # Combine start, middle and end segments to find metadata (dates, parties, amount)
+        total_len = len(text)
+        if total_len > 12000:
+            start_seg = text[:4000]
+            mid_seg = text[total_len//2-2000 : total_len//2+2000]
+            end_seg = text[-4000:]
+            preview = f"[START]\n{start_seg}\n\n[MIDDLE]\n{mid_seg}\n\n[END]\n{end_seg}"
+        else:
+            preview = text
+            
         # P2: Use centralized prompt
         from app.core.prompts_registry import TOOL_PROMPTS
         prompt = TOOL_PROMPTS["etl_metadata"].format(preview=preview)
