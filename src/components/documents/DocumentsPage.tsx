@@ -123,7 +123,13 @@ export function DocumentsPage() {
             const result = await response.json();
 
             if (!response.ok) {
-                throw new Error(result.reason || result.message || '上传后解析失败');
+                throw new Error(result.reason || result.message || '服务器内部错误');
+            }
+
+            // Check if backend reported an error in processing details
+            const fileInfo = result.details?.[0];
+            if (fileInfo && fileInfo.status === 'error') {
+                throw new Error(fileInfo.reason || 'AI 解析文档失败，请检查后端 API 密钥或代理配置');
             }
 
             setUploadStage('indexing');
@@ -133,7 +139,7 @@ export function DocumentsPage() {
             await fetchDocuments();
         } catch (error: any) {
             console.error(error);
-            toast.error(error.message || '处理故障，AI 服务暂时响应异常');
+            toast.error(error.message || '上传处理异常，请重试');
             setDocuments(prev => prev.map(d => d.id === tempId ? { ...d, status: 'error' } : d));
         } finally {
             setIsUploading(false);

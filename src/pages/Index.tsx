@@ -60,17 +60,8 @@ function AppContent() {
           />
         ) : <Navigate to="/" />;
       case 'documents':
-        return <routes.DocumentsPage />;
       case 'knowledge':
-        return (
-          <div className="flex items-center justify-center h-96">
-            <div className="text-center">
-              <div className="text-6xl mb-4">📚</div>
-              <h2 className="text-xl font-semibold text-foreground">知识库</h2>
-              <p className="text-muted-foreground mt-2">产品参数、竞品对比、技术文档</p>
-            </div>
-          </div>
-        );
+        return <routes.DocumentsPage />;
       case 'settings':
         return <routes.AISettingsPanel />;
       default:
