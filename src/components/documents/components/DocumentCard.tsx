@@ -3,17 +3,10 @@ import { FileText, CheckCircle, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AICopilotInsight } from '@/components/common/AICopilotInsight';
 
-interface Document {
-    id: string;
-    name: string;
-    doc_type: 'contract' | 'proposal' | 'invoice' | 'other';
-    extracted_data?: any;
-    status: 'processing' | 'completed' | 'error';
-    created_at: string;
-}
+import { NexusDocument } from '@/types/nexus';
 
 interface DocumentCardProps {
-    doc: Document;
+    doc: NexusDocument;
     onClick: () => void;
 }
 

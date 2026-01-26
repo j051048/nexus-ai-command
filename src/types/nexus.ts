@@ -86,3 +86,18 @@ export interface WeeklyReport {
   topPerformers: { name: string; score: number; bonus: number }[];
   winRateTrend: number[];
 }
+
+export interface NexusDocument {
+  id: string;
+  name: string;
+  doc_type: 'contract' | 'bid' | 'product' | 'other' | 'proposal' | 'invoice';
+  extracted_data?: {
+    client_name?: string;
+    amount?: number;
+    date?: string;
+    summary?: string;
+  };
+  status: 'processing' | 'completed' | 'error';
+  created_at: string;
+  size?: string;
+}

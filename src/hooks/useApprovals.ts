@@ -154,7 +154,7 @@ export function useSubmitApproval() {
           type: payload.type,
           description: payload.description,
           amount: payload.amount,
-          status: decision as any,
+          status: decision as 'pending' | 'approved' | 'rejected',
           ai_reason: aiReason,
           submitted_at: new Date().toISOString()
         })

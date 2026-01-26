@@ -5,11 +5,12 @@ import json
 from fastapi import UploadFile
 import io
 from pypdf import PdfReader
+from typing import Tuple, Dict, Any
 
 class ETLService:
     """
     Service to ingest documents into the Vector Knowledge Base.
-    Handles text chunking, embedding generation, and storage.
+    Handles text extraction, AI metadata extraction, and vector storage.
     """
     def __init__(self):
         self.openai_client = None
@@ -18,7 +19,7 @@ class ETLService:
             
     async def process_file(self, file: UploadFile) -> dict:
         """
-        Extract text from file and ingest.
+        Extract text from file and execute the ETL pipeline.
         """
         filename = file.filename
         content = await file.read()
@@ -37,36 +38,40 @@ class ETLService:
             if not text.strip():
                 return {"filename": filename, "status": "error", "reason": "No text extracted"}
 
-            success = await self.process_text_with_extraction(text, filename, len(content))
+            success, details = await self.process_text_with_extraction(text, filename, len(content))
             
             return {
                 "filename": filename, 
                 "status": "success" if success else "failed",
-                "chunks_processed": len(text) // 300  # Approx,
+                "extracted_metadata": details,
+                "chunks_processed": len(text) // 300
             }
         except Exception as e:
             return {"filename": filename, "status": "error", "reason": str(e)}
-    async def process_text_with_extraction(self, text: str, filename: str, size: int) -> bool:
+
+    async def process_text_with_extraction(self, text: str, filename: str, size: int) -> Tuple[bool, Dict[str, Any]]:
         """
-        Level 3: Intelligent Ingestion (Extract -> Store -> Embed)
+        Intelligent Ingestion: 
+        1. Extract metadata with AI
+        2. Store in Relational DB
+        3. Embed and store in Vector DB
         """
         if not self.openai_client or not supabase:
-            return False
+            return False, {"error": "AI client or DB not initialized"}
 
-        # 1. AI Extraction (Information Extraction)
-        # Use a lighter model or truncated text for extraction to save costs
+        # 1. AI Metadata Extraction
         preview_text = text[:3000] 
         extracted_data = {}
         try:
             prompt = f"""
-            Extract the following metadata from this document (JSON only):
-            - doc_type: (contract, bid, quote, other)
+            Extract metadata from this document (JSON only):
+            - doc_type: (contract, bid, product, proposal, invoice, other)
             - client_name: (string or null)
             - amount: (number or null)
             - date: (YYYY-MM-DD or null)
             - summary: (1 sentence summary)
             
-            Document content:
+            Content:
             {preview_text}
             """
             response = self.openai_client.chat.completions.create(
@@ -76,10 +81,10 @@ class ETLService:
             )
             extracted_data = json.loads(response.choices[0].message.content)
         except Exception as e:
-            print(f"Extraction failed: {e}")
-            extracted_data = {"doc_type": "unknown"}
+            print(f"Metadata extraction failed: {e}")
+            extracted_data = {"doc_type": "other", "summary": "Extraction failed"}
 
-        # 2. Save Document Record
+        # 2. Save to 'documents' table
         doc_record = {
             "name": filename,
             "doc_type": extracted_data.get("doc_type", "other"),
@@ -88,16 +93,17 @@ class ETLService:
         }
         
         try:
+            # We assume the 'documents' table exists
             res = supabase.table("documents").insert(doc_record).execute()
             if not res.data:
-                raise Exception("Failed to insert document record")
+                raise Exception("DB Insert produced no data")
             document_id = res.data[0]['id']
         except Exception as e:
-            print(f"DB Insert failed: {e}")
-            return False
+            print(f"Database insertion failed for metadata: {e}")
+            return False, {"error": f"DB Insert failed: {str(e)}"}
 
-        # 3. Embed & Link
-        chunks = self._chunk_text(text)
+        # 3. Vectorization & Chunk Storage
+        chunks = list(self._chunk_text(text))
         for chunk in chunks:
             try:
                 emb_res = self.openai_client.embeddings.create(input=chunk, model="text-embedding-3-small")
@@ -110,19 +116,13 @@ class ETLService:
                     "embedding": embedding
                 }).execute()
             except Exception as e:
-                print(f"Chunk error: {e}")
+                print(f"Chunk embedding failed: {e}")
                 
-        return True
+        return True, extracted_data
 
     def _chunk_text(self, text, chunk_size=300):
-        """
-        Naive chunking by splitting words. 
-        In production, use langchain.text_splitter.RecursiveCharacterTextSplitter.
-        """
         tokens = text.split()
         for i in range(0, len(tokens), chunk_size):
             yield " ".join(tokens[i:i + chunk_size])
 
 etl_service = ETLService()
-
-
