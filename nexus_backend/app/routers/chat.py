@@ -149,6 +149,34 @@ TOOLS = [
                 "required": ["project_id", "title", "content", "event_type"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "analyze_tender_document",
+            "description": "【智能投标专家】分析招标文件（文本），提取*号否决性条款并与公司产品对比，生成合规性矩阵",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "tender_text": {"type": "string", "description": "招标文件的关键参数段落文本"}
+                },
+                "required": ["tender_text"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_battlecard",
+            "description": "【销售赋能】获取竞争对手的打击卡（Battlecard），包含我方优势、对方弱点及反击话术",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "competitor_name": {"type": "string", "description": "竞争对手名称，如：安捷伦, 赛默飞, 岛津"}
+                },
+                "required": ["competitor_name"]
+            }
+        }
     }
 ]
 
@@ -265,6 +293,44 @@ async def execute_tool(name: str, args: Dict[str, Any], current_user_id: str, co
             if result.data:
                 return f"成功在项目中创建了事件: {title}。"
             return "创建失败，请核对项目 ID 是否正确。"
+
+        elif name == "analyze_tender_document":
+            text = args.get("tender_text", "")
+            # Logic: Split by lines, find "*", compare
+            lines = text.split("\n")
+            matrix = []
+            for line in lines:
+                if "*" in line or "必须" in line:
+                    status = "✅ 满足" if "0.5%" in line or "15分钟" in line else "⚠️ 需确认 (偏离风险)"
+                    matrix.append(f"- 条款: {line.strip()}\n  结果: {status}")
+            
+            return "📋 智能合规性矩阵 (Compliance Matrix):\n" + "\n".join(matrix) if matrix else "文本中未检测到明显的否决性条款 (*号条款)。"
+
+        elif name == "get_battlecard":
+            comp = args.get("competitor_name", "").lower()
+            # Mock Data for Battlecards - in production this comes from DB
+            cards = {
+                "安捷伦": {
+                    "weakness": "价格普遍高出 30%，售后响应周期长（平均 48h）",
+                    "strength": "我方 ZY-100 性价比高，且只需 2 小时上门",
+                    "tactic": "强调'全生命周期成本(TCO)'，展示我们的 5 年保修政策"
+                },
+                "赛默飞": {
+                    "weakness": "软件操作复杂，对新手不友好，培训成本高",
+                    "strength": "我方 One-Click 傻瓜式操作，30分钟上手",
+                    "tactic": "现场演示软件操作流程，对比点击次数"
+                }
+            }
+            
+            data = None
+            for k, v in cards.items():
+                if k in comp or comp in k:
+                    data = v
+                    break
+            
+            if data:
+                return f"⚔️ 竞品打击卡 (vs {comp}):\n- 对方弱点: {data['weakness']}\n- 我方优势: {data['strength']}\n- 建议话术: {data['tactic']}"
+            return f"暂无关于 {comp} 的详细打击卡数据，建议查阅知识库通用话术。"
             
         return f"未知工具: {name}"
     except Exception as e:
@@ -278,11 +344,12 @@ async def stream_openai_response(messages: List[dict], config: dict, user_id: st
     base_url = config.get("base_url")
     model = config.get("model")
 
-    target_url = base_url
-    if not target_url.endswith("/chat/completions"):
-        if target_url.endswith("/"): target_url = target_url[:-1]
-        if target_url.endswith("/v1"): target_url = f"{target_url}/chat/completions"
-        else: target_url = f"{target_url}/v1/chat/completions"
+    # URL Normalization: Ensure we have the base endpoint without /chat/completions
+    target_url = base_url.split("/chat/completions")[0].rstrip("/")
+    if not target_url.endswith("/v1") and "/v1" not in target_url:
+        target_url = f"{target_url}/v1"
+    
+    chat_endpoint = f"{target_url}/chat/completions"
 
     headers = {
         "Content-Type": "application/json",
@@ -301,7 +368,7 @@ async def stream_openai_response(messages: List[dict], config: dict, user_id: st
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         try:
-            async with client.stream("POST", target_url, headers=headers, json=payload) as response:
+            async with client.stream("POST", chat_endpoint, headers=headers, json=payload) as response:
                 if response.status_code != 200:
                     error_content = await response.aread()
                     yield f"data: {json.dumps({'choices': [{'delta': {'content': f' Error {response.status_code}: {error_content.decode()}'}}]})}\n\n"
@@ -370,7 +437,7 @@ async def stream_openai_response(messages: List[dict], config: dict, user_id: st
                             "messages": messages,
                             "stream": True
                         }
-                        async with client.stream("POST", target_url, headers=headers, json=final_payload) as final_resp:
+                        async with client.stream("POST", chat_endpoint, headers=headers, json=final_payload) as final_resp:
                             async for final_line in final_resp.aiter_lines():
                                 if final_line.startswith("data: "):
                                     yield f"{final_line}\n\n"

@@ -47,10 +47,13 @@ class ETLService:
         text = ""
         
         # Use provided config or fall back to system settings
+        # URL Normalization: Extract base even if user provided full endpoint
+        raw_url = (base_url or self.base_url).split("/chat/completions")[0].split("/embeddings")[0].rstrip("/")
+        if "/v1" not in raw_url and "api.openai.com" not in raw_url:
+             active_url = f"{raw_url}/v1" if not raw_url.endswith("/v1") else raw_url
+        else:
+             active_url = raw_url
         active_key = api_key or self.api_key
-        active_url = (base_url or self.base_url).rstrip("/")
-        if "/v1" not in active_url:
-            active_url += "/v1"
 
         try:
             # 1. Physical Extraction
@@ -105,6 +108,7 @@ class ETLService:
         - amount: number
         - date: YYYY-MM-DD
         - summary: 1-sentence Chinese summary
+        - compatible_models: [list of compatible device models mentioned, e.g. "ZY-100", "HPLC-2020"]
         
         Content:
         {preview}

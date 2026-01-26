@@ -17,7 +17,12 @@ class VectorService:
         """
         # use dynamic config or default settings
         api_key = (config or {}).get("api_key") or settings.OPENAI_API_KEY
-        base_url = (config or {}).get("base_url") or settings.AI_BASE_URL or "https://api.openai.com/v1"
+        
+        # URL Normalization
+        raw_url = (config or {}).get("base_url") or settings.AI_BASE_URL or "https://api.openai.com/v1"
+        base_url = raw_url.split("/chat/completions")[0].split("/embeddings")[0].rstrip("/")
+        if "/v1" not in base_url and "api.openai.com" not in base_url:
+            base_url = f"{base_url}/v1"
         
         if not api_key:
             print("VectorService: Missing AI Key.")
@@ -64,14 +69,23 @@ class VectorService:
         if not rpc_response.data:
             return "知识库中未找到相关信息 (No relevant documents found in Vector DB)."
 
-        # 3. Format results
+        # 3. Format results with Graph Verification
         results = []
         for item in rpc_response.data:
             content = item.get("content", "")
             meta = item.get("metadata", {}) or {}
             source = meta.get("filename", "未知来源")
             sim = item.get("similarity", 0)
-            results.append(f"[{source}] (匹配度 {sim:.2f}) {content}...")
+            
+            # GraphRAG Logic: Check compatibility if query mentions models
+            # This is a simplified "Graph" using metadata tags
+            extracted = item.get("extracted_data", {})
+            compatible = meta.get("compatible_models", [])
+            tag = ""
+            if compatible and any(m in query for m in compatible):
+                tag = " [✅兼容性匹配]"
+                
+            results.append(f"[{source}]{tag} (匹配度 {sim:.2f}) {content}...")
 
         return "检索到以下相关知识:\n" + "\n- ".join(results)
 
