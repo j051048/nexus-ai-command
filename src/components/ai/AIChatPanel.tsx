@@ -88,7 +88,7 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/chat`,
+        `${import.meta.env.VITE_API_BASE_URL || 'https://nexus-ai-command.zeabur.app'}/api/chat`,
         {
           method: 'POST',
           headers: {
