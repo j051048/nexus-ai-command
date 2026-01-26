@@ -238,150 +238,166 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
   };
 
   return (
-    <div
-      className={cn(
-        "fixed bottom-0 left-64 right-80 bg-card border-t border-border transition-all duration-300 z-50",
-        isExpanded ? "h-96" : "h-16"
-      )}
-    >
-      {/* Header */}
-      <div
-        className="h-16 px-6 flex items-center justify-between cursor-pointer hover:bg-card-elevated transition-colors"
-        onClick={onToggle}
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center animate-pulse-glow">
-            <Bot className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-foreground flex items-center gap-2">
-              AI 指挥中心
-              <Sparkles className="w-4 h-4 text-primary" />
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              {isTyping ? 'AI正在输入...' : '输入指令或自然语言对话'}
-            </p>
-          </div>
-        </div>
-        <button className="p-2 rounded-lg hover:bg-secondary transition-colors">
-          {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
-        </button>
-      </div>
-
-      {/* Chat Area */}
+    <>
+      {/* Mobile Backdrop */}
       {isExpanded && (
-        <div className="h-80 flex flex-col">
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={cn(
-                  "flex gap-3",
-                  msg.role === 'user' ? "justify-end" : "justify-start"
-                )}
-              >
-                {msg.role === 'assistant' && (
-                  <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center flex-shrink-0">
-                    <Bot className="w-4 h-4 text-primary-foreground" />
-                  </div>
-                )}
-                <div
-                  className={cn(
-                    "max-w-md rounded-2xl px-4 py-3",
-                    msg.role === 'user'
-                      ? "bg-primary text-primary-foreground rounded-br-md"
-                      : "bg-secondary text-foreground rounded-bl-md"
-                  )}
-                >
-                  {msg.agent && msg.role === 'assistant' && (
-                    <p className="text-xs text-primary font-medium mb-1">{msg.agent}</p>
-                  )}
-                  <p className="text-sm whitespace-pre-line">{msg.content}</p>
-                </div>
-              </div>
-            ))}
-            {isTyping && messages[messages.length - 1]?.content === '' && (
-              <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
-                  <Bot className="w-4 h-4 text-primary-foreground" />
-                </div>
-                <div className="bg-secondary rounded-2xl rounded-bl-md px-4 py-3">
-                  <div className="flex gap-1">
-                    <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
+        <div
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 md:hidden animate-fade-in"
+          onClick={onToggle}
+        />
+      )}
 
-          {/* Input Area */}
-          <div className="px-6 py-4 border-t border-border">
-            {/* Agent Tags */}
-            {showAgents && (
-              <div className="flex gap-2 mb-3 animate-fade-in">
-                {agentTags.map((agent) => (
-                  <button
-                    key={agent.id}
-                    onClick={() => insertAgent(agent.name)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-full text-xs font-medium bg-secondary hover:bg-secondary/80 transition-colors",
-                      agent.color
-                    )}
-                  >
-                    {agent.name}
-                  </button>
-                ))}
-              </div>
-            )}
+      <div
+        className={cn(
+          "fixed bottom-0 bg-card border-t border-border transition-all duration-300 z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]",
+          // Mobile Styles: Full width, rounded top corners when expanded
+          "left-0 right-0",
+          isExpanded ? "h-[85vh] rounded-t-2xl" : "h-16",
 
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowAgents(!showAgents)}
-                className={cn(
-                  "p-2 rounded-lg transition-colors",
-                  showAgents ? "bg-primary text-primary-foreground" : "hover:bg-secondary text-muted-foreground"
-                )}
-              >
-                <AtSign className="w-5 h-5" />
-              </button>
-              <div className="flex-1 relative">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                  placeholder="输入指令... 例如：帮我分析张教授商机"
-                  className="w-full bg-secondary rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  disabled={isTyping}
-                />
-              </div>
-              <button className="p-2 rounded-lg hover:bg-secondary text-muted-foreground transition-colors">
-                <Mic className="w-5 h-5" />
-              </button>
-              <button
-                onClick={handleSend}
-                disabled={!input.trim() || isTyping}
-                className={cn(
-                  "p-3 rounded-xl transition-all",
-                  input.trim() && !isTyping
-                    ? "bg-gradient-primary text-primary-foreground glow-primary"
-                    : "bg-secondary text-muted-foreground"
-                )}
-              >
-                {isTyping ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Send className="w-5 h-5" />
-                )}
-              </button>
+          // Desktop Styles: Respect sidebar and right panel
+          "md:left-64 md:right-80 md:rounded-none",
+          isExpanded ? "md:h-96" : "md:h-16"
+        )}
+      >
+        {/* Header */}
+        <div
+          className="h-16 px-4 md:px-6 flex items-center justify-between cursor-pointer hover:bg-card-elevated transition-colors rounded-t-2xl md:rounded-t-none"
+          onClick={onToggle}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center animate-pulse-glow">
+              <Bot className="w-5 h-5 text-primary-foreground" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground flex items-center gap-2">
+                AI 指挥中心
+                <Sparkles className="w-4 h-4 text-primary" />
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                {isTyping ? 'AI正在输入...' : '输入指令或自然语言对话'}
+              </p>
             </div>
           </div>
+          <button className="p-2 rounded-lg hover:bg-secondary transition-colors">
+            {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+          </button>
         </div>
-      )}
-    </div>
+
+        {/* Chat Area */}
+        {isExpanded && (
+          <div className="h-80 flex flex-col">
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={cn(
+                    "flex gap-3",
+                    msg.role === 'user' ? "justify-end" : "justify-start"
+                  )}
+                >
+                  {msg.role === 'assistant' && (
+                    <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center flex-shrink-0">
+                      <Bot className="w-4 h-4 text-primary-foreground" />
+                    </div>
+                  )}
+                  <div
+                    className={cn(
+                      "max-w-md rounded-2xl px-4 py-3",
+                      msg.role === 'user'
+                        ? "bg-primary text-primary-foreground rounded-br-md"
+                        : "bg-secondary text-foreground rounded-bl-md"
+                    )}
+                  >
+                    {msg.agent && msg.role === 'assistant' && (
+                      <p className="text-xs text-primary font-medium mb-1">{msg.agent}</p>
+                    )}
+                    <p className="text-sm whitespace-pre-line">{msg.content}</p>
+                  </div>
+                </div>
+              ))}
+              {isTyping && messages[messages.length - 1]?.content === '' && (
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
+                    <Bot className="w-4 h-4 text-primary-foreground" />
+                  </div>
+                  <div className="bg-secondary rounded-2xl rounded-bl-md px-4 py-3">
+                    <div className="flex gap-1">
+                      <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input Area */}
+            <div className="px-6 py-4 border-t border-border">
+              {/* Agent Tags */}
+              {showAgents && (
+                <div className="flex gap-2 mb-3 animate-fade-in">
+                  {agentTags.map((agent) => (
+                    <button
+                      key={agent.id}
+                      onClick={() => insertAgent(agent.name)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-full text-xs font-medium bg-secondary hover:bg-secondary/80 transition-colors",
+                        agent.color
+                      )}
+                    >
+                      {agent.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowAgents(!showAgents)}
+                  className={cn(
+                    "p-2 rounded-lg transition-colors",
+                    showAgents ? "bg-primary text-primary-foreground" : "hover:bg-secondary text-muted-foreground"
+                  )}
+                >
+                  <AtSign className="w-5 h-5" />
+                </button>
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                    placeholder="输入指令... 例如：帮我分析张教授商机"
+                    className="w-full bg-secondary rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    disabled={isTyping}
+                  />
+                </div>
+                <button className="p-2 rounded-lg hover:bg-secondary text-muted-foreground transition-colors">
+                  <Mic className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={handleSend}
+                  disabled={!input.trim() || isTyping}
+                  className={cn(
+                    "p-3 rounded-xl transition-all",
+                    input.trim() && !isTyping
+                      ? "bg-gradient-primary text-primary-foreground glow-primary"
+                      : "bg-secondary text-muted-foreground"
+                  )}
+                >
+                  {isTyping ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
