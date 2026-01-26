@@ -240,23 +240,24 @@ async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)
         raise HTTPException(status_code=403, detail="Unauthorized: User identity verified but profile missing in system DB")
 
     ai_config = {
-        "base_url": "https://proxy.flydao.top/v1",
-        "api_key": "",
-        "model": "gpt-4o-mini"
+        "base_url": os.getenv("AI_BASE_URL", "https://proxy.flydao.top/v1"),
+        "api_key": os.getenv("OPENAI_API_KEY", ""),
+        "model": "gpt-4o"
     }
 
     try:
         response = await supabase.table("ai_settings").select("*").eq("user_id", user_id).maybe_single().execute()
         if response.data:
             settings = response.data
-            ai_config["base_url"] = settings.get("base_url") or ai_config["base_url"]
-            ai_config["api_key"] = settings.get("api_key") or ""
-            ai_config["model"] = settings.get("model") or ai_config["model"]
+            # Only override if the user has explicitly set a value
+            if settings.get("base_url"): ai_config["base_url"] = settings.get("base_url")
+            if settings.get("api_key"): ai_config["api_key"] = settings.get("api_key")
+            if settings.get("model"): ai_config["model"] = settings.get("model")
     except Exception as e:
         print(f"Failed to fetch user settings: {e}")
 
     if not ai_config["api_key"]:
-        return StreamingResponse(_error_stream("请先在系统设置中配置您的 API Key"), media_type="text/event-stream")
+        return StreamingResponse(_error_stream("系统未配置 OpenAI API Key，请联系管理员或在设置中添加私有 Key"), media_type="text/event-stream")
 
     from app.core.prompts_registry import SYSTEM_PROMPTS
     import datetime
