@@ -53,7 +53,7 @@ class VectorService:
                      "query_embedding": embedding, 
                      "match_threshold": 0.4, 
                      "match_count": limit,
-                     "p_user_id": user_id # Critical: Security Parameter
+                     # "p_user_id": user_id  <-- Temporarily removed to fix schema mismatch
                  }
                  if filters:
                      params["filter"] = filters
