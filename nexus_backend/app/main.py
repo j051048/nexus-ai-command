@@ -16,8 +16,25 @@ origins = [
     "*", # Allow all for dev convenience. Production should constrain this.
     "http://localhost:8080",
     "http://localhost:5173",
-    "https://nexus-ai-command.vercel.app"
+    "https://nexus-ai-command.vercel.app",
+    "https://nexus-ai-command.zeabur.app"
 ]
+
+@app.get("/api/test-ai")
+async def test_ai_connectivity():
+    """Test connectivity from Backend to AI Gateway"""
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            # Try to reach the proxy root or a public endpoint
+            resp = await client.get("https://proxy.flydao.top")
+            return {
+                "status": "ok", 
+                "gateway_response_code": resp.status_code, 
+                "message": "Successfully reached AI Gateway"
+            }
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
 
 app.add_middleware(
     CORSMiddleware,
