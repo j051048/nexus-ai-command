@@ -37,9 +37,12 @@ import {
   Employee,
 } from '@/hooks/useEmployeeManagement';
 
+import { EmployeeDetail } from './EmployeeDetail';
+
 export function EmployeeManagement() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null); // For dialogs
+  const [viewingEmployee, setViewingEmployee] = useState<Employee | null>(null);   // For detail page
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
   const [transferTargetId, setTransferTargetId] = useState<string>('');
@@ -48,7 +51,47 @@ export function EmployeeManagement() {
   const transferData = useTransferEmployeeData();
   const deleteEmployee = useDeleteEmployee();
 
-  const filteredEmployees = employees?.filter(e => 
+  // If viewing details, show detail component
+  if (viewingEmployee) {
+    return (
+      <EmployeeDetail
+        employee={viewingEmployee}
+        allEmployees={employees || []}
+        onBack={() => setViewingEmployee(null)}
+        onDelete={async (id) => {
+          try {
+            await deleteEmployee.mutateAsync(id);
+            toast.success('员工已删除');
+            setViewingEmployee(null); // Go back to list
+          } catch (error: any) {
+            toast.error('删除失败: ' + error.message);
+          }
+        }}
+        onTransfer={async (fromId, toId) => {
+          try {
+            await transferData.mutateAsync({ fromUserId: fromId, toUserId: toId });
+            toast.success('数据已转移');
+            setViewingEmployee(null);
+          } catch (error: any) {
+            toast.error('转移失败: ' + error.message);
+          }
+        }}
+        onTransferAndDelete={async (fromId, toId) => {
+          try {
+            await transferData.mutateAsync({ fromUserId: fromId, toUserId: toId });
+            await deleteEmployee.mutateAsync(fromId);
+            toast.success('数据已转移且员工已删除');
+            setViewingEmployee(null);
+          } catch (error: any) {
+            toast.error('操作失败: ' + error.message);
+          }
+        }}
+        isProcessing={deleteEmployee.isPending || transferData.isPending}
+      />
+    );
+  }
+
+  const filteredEmployees = employees?.filter(e =>
     e.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     e.department?.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -63,8 +106,9 @@ export function EmployeeManagement() {
       toast.success(`员工 ${selectedEmployee.name} 已删除`);
       setShowDeleteDialog(false);
       setSelectedEmployee(null);
-    } catch (error: any) {
-      toast.error('删除失败: ' + error.message);
+    } catch (error: unknown) {
+      const err = error as Error;
+      toast.error('删除失败: ' + err.message);
     }
   };
 
@@ -76,7 +120,7 @@ export function EmployeeManagement() {
         fromUserId: selectedEmployee.user_id,
         toUserId: transferTargetId,
       });
-      
+
       const targetEmployee = employees?.find(e => e.user_id === transferTargetId);
       toast.success(`数据已从 ${selectedEmployee.name} 转移到 ${targetEmployee?.name}`);
       setShowTransferDialog(false);
@@ -99,7 +143,7 @@ export function EmployeeManagement() {
 
       // Then delete employee
       await deleteEmployee.mutateAsync(selectedEmployee.user_id);
-      
+
       const targetEmployee = employees?.find(e => e.user_id === transferTargetId);
       toast.success(`数据已转移到 ${targetEmployee?.name}，员工 ${selectedEmployee.name} 已删除`);
       setShowTransferDialog(false);
@@ -146,6 +190,7 @@ export function EmployeeManagement() {
               <EmployeeCard
                 key={employee.id}
                 employee={employee}
+                onClick={() => setViewingEmployee(employee)}
                 onDelete={() => {
                   setSelectedEmployee(employee);
                   setShowDeleteDialog(true);
@@ -160,7 +205,7 @@ export function EmployeeManagement() {
         )}
       </div>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation Dialog (List View) */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <DialogContent>
           <DialogHeader>
@@ -186,8 +231,8 @@ export function EmployeeManagement() {
             <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
               取消
             </Button>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={handleDelete}
               disabled={deleteEmployee.isPending}
             >
@@ -198,7 +243,7 @@ export function EmployeeManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* Transfer Dialog */}
+      {/* Transfer Dialog (List View) */}
       <Dialog open={showTransferDialog} onOpenChange={setShowTransferDialog}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -246,7 +291,7 @@ export function EmployeeManagement() {
             <Button variant="outline" onClick={() => setShowTransferDialog(false)}>
               取消
             </Button>
-            <Button 
+            <Button
               variant="outline"
               onClick={handleTransfer}
               disabled={!transferTargetId || transferData.isPending}
@@ -254,7 +299,7 @@ export function EmployeeManagement() {
               {transferData.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
               仅转移数据
             </Button>
-            <Button 
+            <Button
               variant="destructive"
               onClick={handleTransferAndDelete}
               disabled={!transferTargetId || transferData.isPending || deleteEmployee.isPending}
@@ -274,24 +319,29 @@ export function EmployeeManagement() {
 // Employee Card Component
 function EmployeeCard({
   employee,
+  onClick,
   onDelete,
   onTransfer,
 }: {
   employee: Employee;
+  onClick: () => void;
   onDelete: () => void;
   onTransfer: () => void;
 }) {
   const isBoss = employee.role === 'boss';
 
   return (
-    <div className="flex items-center justify-between p-4 rounded-xl bg-secondary/50 hover:bg-secondary transition-colors">
+    <div
+      className="flex items-center justify-between p-4 rounded-xl bg-secondary/50 hover:bg-secondary transition-colors cursor-pointer group"
+      onClick={onClick}
+    >
       <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-bold">
+        <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-bold group-hover:scale-105 transition-transform">
           {employee.name.slice(0, 1)}
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <p className="font-medium text-foreground">{employee.name}</p>
+            <p className="font-medium text-foreground group-hover:text-primary transition-colors">{employee.name}</p>
             <span className={cn(
               "px-2 py-0.5 text-xs rounded-full",
               isBoss ? "bg-gold/20 text-gold" : "bg-primary/20 text-primary"
@@ -306,21 +356,21 @@ function EmployeeCard({
       </div>
 
       {!isBoss && (
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={onTransfer}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 hover:border-primary/50"
           >
             <ArrowRightLeft className="w-4 h-4" />
             数据转移
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             onClick={onDelete}
-            className="flex items-center gap-2 text-destructive hover:text-destructive"
+            className="flex items-center gap-2 text-destructive hover:text-destructive hover:border-destructive/50"
           >
             <UserMinus className="w-4 h-4" />
             删除
