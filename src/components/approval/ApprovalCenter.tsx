@@ -310,7 +310,7 @@ function EmployeeApprovalView() {
 }
 
 // Boss View
-function BossApprovalView() {
+export function BossApprovalView() {
   const [statusFilter, setStatusFilter] = useState('pending');
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');

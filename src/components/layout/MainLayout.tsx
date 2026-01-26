@@ -94,7 +94,7 @@ export function MainLayout({ children, activeNav, onNavChange }: MainLayoutProps
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <ActiveCardStream />
+            <ActiveCardStream onNavChange={onNavChange} />
           </div>
         </div>
       )}
@@ -109,7 +109,7 @@ export function MainLayout({ children, activeNav, onNavChange }: MainLayoutProps
             </h2>
             <p className="text-xs text-muted-foreground mt-1">AI 主动推送</p>
           </div>
-          <ActiveCardStream />
+          <ActiveCardStream onNavChange={onNavChange} />
         </div>
       )}
 

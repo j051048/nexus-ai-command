@@ -12,6 +12,8 @@ import { SalesTargetManager } from '@/components/targets/SalesTargetManager';
 import { EmployeeManagement } from '@/components/admin/EmployeeManagement';
 import { AISettingsPanel } from '@/components/settings/AISettingsPanel';
 
+import ExceptionsPage from './ExceptionsPage';
+
 function AppContent() {
   const { role } = useAuth();
   const [activeNav, setActiveNav] = useState(role === 'boss' ? 'boss-dashboard' : 'dashboard');
@@ -28,7 +30,7 @@ function AppContent() {
       case 'boss-dashboard':
         return <BossDashboard />;
       case 'exceptions':
-        return <BossDashboard />;
+        return <ExceptionsPage />;
       case 'team-performance':
         return <BossDashboard />;
       case 'sales':

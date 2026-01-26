@@ -101,14 +101,18 @@ const priorityStyles = {
   low: 'border-l-4 border-l-muted-foreground',
 };
 
-export function ActiveCardStream() {
+interface ActiveCardStreamProps {
+  onNavChange?: (nav: string) => void;
+}
+
+export function ActiveCardStream({ onNavChange }: ActiveCardStreamProps) {
   const { user } = useUser();
   const [cards, setCards] = useState<ActiveCard[]>([]);
   const [newCardId, setNewCardId] = useState<string | null>(null);
 
   // Real Data Hook
   const { pendingApprovals, updateStatus, isLoading: isLoadingApprovals } = useApprovals();
-  const { toast } = useToast(); // Ensure we have useToast imported
+  const { toast } = useToast();
 
   useEffect(() => {
     // Base Mocks (Keep these to make the UI look alive for non-approval items)
@@ -155,7 +159,8 @@ export function ActiveCardStream() {
     return () => clearTimeout(timer);
   }, [user.role]);
 
-  const handleApprove = async (id: string) => {
+  const handleApprove = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
       await updateStatus.mutateAsync({ id, status: 'approved' });
       toast({ title: "已批准", description: "申请已通过系统审核" });
@@ -164,12 +169,42 @@ export function ActiveCardStream() {
     }
   };
 
-  const handleReject = async (id: string) => {
+  const handleReject = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
       await updateStatus.mutateAsync({ id, status: 'rejected' });
       toast({ title: "已驳回", description: "申请已被拒绝" });
     } catch (e) {
       toast({ variant: "destructive", title: "操作失败", description: "无法完成请求" });
+    }
+  };
+
+  const handleCardClick = (card: ActiveCard) => {
+    if (!onNavChange) return;
+
+    switch (card.type) {
+      case 'alert':
+        onNavChange('approval');
+        break;
+      case 'bonus':
+        onNavChange('rewards');
+        break;
+      case 'lead':
+        onNavChange('sales');
+        break;
+      case 'ranking':
+        onNavChange('dashboard'); // Or boss-dashboard, MainLayout/Sidebar handles user role usually? No, nav keys are fixed.
+        // Wait, for boss 'dashboard' maps to EmployeeDashboard in Index.tsx, 'boss-dashboard' is for boss.
+        // But usually ranking is for employees.
+        // If boss clicks ranking card (team report), it should go to boss-dashboard?
+        // Let's assume generic dashboard for now or 'team-performance' which maps to BossDashboard.
+        onNavChange(user.role === 'boss' ? 'boss-dashboard' : 'dashboard');
+        break;
+      case 'task':
+        onNavChange('sales'); // Tasks usually related to sales
+        break;
+      default:
+        break;
     }
   };
 
@@ -186,8 +221,9 @@ export function ActiveCardStream() {
       {cards.map((card) => (
         <div
           key={card.id}
+          onClick={() => handleCardClick(card)}
           className={cn(
-            "rounded-lg p-4 active-card transition-all duration-300",
+            "rounded-lg p-4 active-card transition-all duration-300 cursor-pointer hover:shadow-md",
             priorityStyles[card.priority],
             newCardId === card.id && "slide-in-right"
           )}
@@ -220,13 +256,13 @@ export function ActiveCardStream() {
           {card.type === 'alert' && (
             <div className="mt-3 flex gap-2 justify-end">
               <button
-                onClick={() => handleReject(card.id)}
+                onClick={(e) => handleReject(card.id, e)}
                 className="px-3 py-1.5 text-xs font-medium rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30 transition-colors"
               >
                 驳回
               </button>
               <button
-                onClick={() => handleApprove(card.id)}
+                onClick={(e) => handleApprove(card.id, e)}
                 className="px-3 py-1.5 text-xs font-medium rounded-md bg-success text-success-foreground hover:bg-success/90 transition-colors"
               >
                 批准
