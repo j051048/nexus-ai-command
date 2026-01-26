@@ -31,7 +31,12 @@ interface Document {
     };
 }
 
+import { useUser } from '@/contexts/UserContext';
+
 export function DocumentsPage() {
+    const { user } = useUser();
+    const isBoss = user?.role === 'boss';
+
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [uploadStage, setUploadStage] = useState<'uploading' | 'extracting' | 'indexing'>('uploading');
@@ -136,9 +141,11 @@ export function DocumentsPage() {
                 <div>
                     <h1 className="text-2xl font-bold flex items-center gap-3">
                         <FolderOpen className="w-8 h-8 text-primary" />
-                        文档管理中心
+                        {isBoss ? '企业知识库管理' : '文档管理中心'}
                     </h1>
-                    <p className="text-muted-foreground mt-1">AI 驱动的智能知识库，自动提取、自动归档</p>
+                    <p className="text-muted-foreground mt-1">
+                        {isBoss ? '上传、维护企业核心知识资产，实时更新 AI 认知' : 'AI 驱动的智能知识库，自动提取、自动归档'}
+                    </p>
                 </div>
                 <div className="flex gap-3">
                     <button className="px-4 py-2 bg-secondary text-foreground rounded-lg hover:bg-secondary/80 transition-colors flex items-center gap-2">

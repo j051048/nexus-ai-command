@@ -61,6 +61,7 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps) {
     { icon: <Crown size={20} />, label: '总控中心', href: 'boss-dashboard' },
     { icon: <AlertTriangle size={20} />, label: '异常待办', href: 'exceptions', badge: '3', badgeType: 'warning' },
     { icon: <TrendingUp size={20} />, label: '目标管理', href: 'targets' },
+    { icon: <BookOpen size={20} />, label: '知识库管理', href: 'documents', badge: 'AI', badgeType: 'primary' },
     { icon: <Users size={20} />, label: '员工管理', href: 'employees' },
     { icon: <FileCheck size={20} />, label: '审批中心', href: 'approval' },
     { icon: <Settings size={20} />, label: '系统设置', href: 'settings' },
