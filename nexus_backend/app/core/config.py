@@ -8,12 +8,13 @@ class Settings:
     # CORS Configuration
     # Default includes local development ports and production domains
     CORS_ORIGINS: List[str] = [
-        "http://localhost:5173",  # Vite Local
-        "http://localhost:8080",  # Backend Local
+        "http://localhost:5173",
+        "http://localhost:8080",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:8080",
-        "https://nexus-ai-command.vercel.app",  # Production Frontend
-        "https://nexus-ai-command.zeabur.app",  # Production Backend
+        "https://nexus-ai-command.vercel.app",
+        "https://nexus-ai-command.zeabur.app",
+        "https://aizhz.zeabur.app",
     ]
     
     # Add extra origins from environment variable (comma separated)

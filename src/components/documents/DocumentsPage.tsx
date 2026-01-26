@@ -95,21 +95,29 @@ export function DocumentsPage() {
             const formData = new FormData();
             formData.append('files', file);
 
-            // Get standard API root
-            let base = import.meta.env.VITE_API_BASE_URL || 'https://aizhz.zeabur.app';
-            if (!base.startsWith('http')) base = `https://${base}`;
-            const url = `${base}/api/documents/upload`;
+            // Robust URL Discovery
+            let url = '';
+            const configuredUrl = import.meta.env.VITE_API_BASE_URL;
 
-            const response = await fetch(url, {
+            if (configuredUrl) {
+                url = configuredUrl.startsWith('http') ? configuredUrl : `https://${configuredUrl}`;
+            } else {
+                // Heuristic: If we are on Zeabur/Vercel and calling /api, maybe it's a relative path?
+                // Or try the default aizhz.zeabur.app
+                url = window.location.hostname === 'localhost' ? 'http://localhost:8000' : window.location.origin;
+            }
+
+            // Append endpoint
+            const endpoint = `${url.replace(/\/$/, '')}/api/documents/upload`;
+            console.log('Attempting upload to:', endpoint);
+
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 body: formData,
                 mode: 'cors',
-                credentials: 'omit', // Standard for public APIs to avoid Preflight issues
             }).catch(err => {
-                if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
-                    throw new Error('网络连接错误：无法连接到后端服务器，请检查基础 URL 配置或跨域限制');
-                }
-                throw err;
+                console.error('Fetch error details:', err);
+                throw new Error(`网络连接异常: 无法触达后端 [${endpoint}]。请确认后端服务已启动且 CORS 已放行。`);
             });
 
             const result = await response.json();
