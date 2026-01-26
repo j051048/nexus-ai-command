@@ -43,4 +43,7 @@ class Settings:
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     AI_BASE_URL: str = os.getenv("AI_BASE_URL", "https://proxy.flydao.top/v1")
 
+    # Observability
+    SENTRY_DSN: str = os.getenv("SENTRY_DSN", "")
+
 settings = Settings()
