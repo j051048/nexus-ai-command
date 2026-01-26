@@ -203,8 +203,8 @@ async def stream_openai_response(messages: List[dict], config: dict, user_id: st
 
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
-        # Do NOT forward Origin header to avoid 403 from Gateway
+        "Authorization": f"Bearer {api_key}",
+        "User-Agent": "PostmanRuntime/7.26.8" # Pretend to be Postman or standard Setup
     }
 
     payload = {
