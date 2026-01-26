@@ -2,8 +2,9 @@ import asyncio
 import json
 import httpx
 import time
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Depends
 from fastapi.responses import StreamingResponse
+from app.core.auth import get_current_user_id
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from app.core.database import supabase
@@ -228,17 +229,15 @@ async def stream_openai_response(messages: List[dict], config: dict, user_id: st
 
 
 @router.post("/chat")
-async def chat(request: ChatRequest, x_user_id: Optional[str] = Header(None)):
-    # P0 Security: Validate user existence and prefer header
-    user_id = x_user_id or request.userId
-    
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Authentication Required (Missing User ID)")
-    
+async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)):
+    """
+    P0 Fix: Identity verification via JWT.
+    Trusting only the user_id resolved by get_current_user_id.
+    """
     # Verify user exists in DB
     user_check = await supabase.table("users").select("id").eq("id", user_id).maybe_single().execute()
     if not user_check.data:
-        raise HTTPException(status_code=403, detail="Unauthorized: User does not exist")
+        raise HTTPException(status_code=403, detail="Unauthorized: User identity verified but profile missing in system DB")
 
     ai_config = {
         "base_url": "https://proxy.flydao.top/v1",

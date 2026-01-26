@@ -114,15 +114,29 @@ class ETLService:
             success, details = await self.extract_metadata_via_ai(text, filename, active_key, active_url)
             
             if success:
+                doc_id = None
                 try:
-                    doc_id = await self._save_to_db(filename, details, text, user_id=user_id)
-                    await self._generate_embeddings(text, doc_id, filename, active_key, active_url)
+                    # TC-P1: Transactional Consistency - Insert with 'processing' status first
+                    doc_id = await self._save_to_db(filename, details, text, user_id=user_id, status="processing")
                     
-                    return {
-                        "filename": filename, "status": "success", "document_id": doc_id, "metadata": details
-                    }
+                    # Generate embeddings
+                    embedding_success = await self._generate_embeddings(text, doc_id, filename, active_key, active_url)
+                    
+                    if embedding_success:
+                        # Finalize status
+                        await supabase.table("documents").update({"status": "ready"}).eq("id", doc_id).execute()
+                        return {
+                            "filename": filename, "status": "success", "document_id": doc_id, "metadata": details
+                        }
+                    else:
+                        # P1: Rollback/Mark failed if embeddings fail
+                        await supabase.table("documents").update({"status": "failed", "error_log": "Embedding generation partially failed"}).eq("id", doc_id).execute()
+                        return {"filename": filename, "status": "partial_success", "reason": "文档已记录，但向量索引失败，搜索可能受限。"}
+                        
                 except Exception as db_err:
                     print(f"DB Error: {db_err}")
+                    if doc_id:
+                        await supabase.table("documents").update({"status": "error", "error_log": str(db_err)}).eq("id", doc_id).execute()
                     return {"filename": filename, "status": "error", "reason": f"数据库写入失败: {str(db_err)}"}
             else:
                 return {"filename": filename, "status": "error", "reason": f"AI 解析失败: {details.get('error')}"}
@@ -131,23 +145,17 @@ class ETLService:
             print(f"ETL Panic: {str(e)}")
             return {"filename": filename, "status": "error", "reason": f"系统崩溃: {str(e)}"}
 
-    # ... (extract_metadata_via_ai logic stays)
-
-    async def _save_to_db(self, filename: str, metadata: dict, text: str = "", user_id: str = None) -> str:
+    async def _save_to_db(self, filename: str, metadata: dict, text: str = "", user_id: str = None, status: str = "ready") -> str:
         if not supabase:
             raise Exception("Supabase not initialized")
             
         def _scrub_pii(content: str) -> str:
             import re
-            # 1. Phone numbers (China)
+            # ... (scubbing logic)
             content = re.sub(r'(?<!\d)1[3-9]\d{9}(?!\d)', '[PHONE_REDACTED]', content)
-            # 2. ID Cards (China)
             content = re.sub(r'(?<!\d)\d{17}[\d|X](?!\d)', '[ID_REDACTED]', content)
-            # 3. Emails (Detection and Redaction)
             content = re.sub(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', '[EMAIL_REDACTED]', content)
-            # 4. Sensitive keys/passwords (Common patterns like password=..., api_key=...)
             content = re.sub(r'(?i)(password|passwd|secret|api_key|access_key|token)\s*[:=]\s*[^\s\n,]+', r'\1=[SENSITIVE_REDACTED]', content)
-            # 5. Private Keys (RSA/OpenSSH)
             content = re.sub(r'-----BEGIN [A-Z ]+ PRIVATE KEY-----[\s\S]*?-----END [A-Z ]+ PRIVATE KEY-----', '[PRIVATE_KEY_REDACTED]', content)
             return content
 
@@ -159,31 +167,25 @@ class ETLService:
             "doc_type": metadata.get("doc_type", "other"),
             "extracted_data": metadata,
             "version": 1,
-            "owner_id": user_id # Preserve ownership
+            "owner_id": user_id,
+            "status": status
         }
         res = await supabase.table("documents").insert(record).execute()
         if not res.data:
             raise Exception("Empty response from database")
         return res.data[0]["id"]
 
-    async def _generate_embeddings(self, text: str, doc_id: str, filename: str, api_key: str, base_url: str):
+    async def _generate_embeddings(self, text: str, doc_id: str, filename: str, api_key: str, base_url: str) -> bool:
         """
-        Medium Fix: Use Batch Embeddings (OpenAI supports array of strings)
-        This reduces the number of API calls significantly.
+        Batch Embeddings with partial success tracking.
         """
-        import asyncio
-        
-        # Batch size for OpenAI embeddings (max usually 2048, but 50-100 is safer for timeout)
         BATCH_SIZE = 50
         current_batch_text = []
+        all_success = True
         
         async def _process_batch(batch_texts):
-            if not batch_texts: return
             try:
-                payload = {
-                    "model": "text-embedding-3-small",
-                    "input": batch_texts # Array of strings
-                }
+                payload = {"model": "text-embedding-3-small", "input": batch_texts}
                 headers = {"Authorization": f"Bearer {api_key}"}
                 async with httpx.AsyncClient(timeout=45.0) as client:
                     resp = await client.post(f"{base_url}/embeddings", headers=headers, json=payload)
@@ -198,39 +200,64 @@ class ETLService:
                                 "metadata": {"source": filename}
                             })
                         await supabase.table("document_embeddings").insert(records).execute()
-                    else:
-                        print(f"Batch Embedding API error: {resp.status_code} - {resp.text}")
-            except Exception as e:
-                print(f"Batch Embedding failed: {e}")
+                        return True
+                    return False
+            except:
+                return False
 
-        # Iterate through chunks and fill batches
-        for chunk in self._simple_chunk(text):
+        for chunk in self._semantic_chunk(text):
             current_batch_text.append(chunk)
             if len(current_batch_text) >= BATCH_SIZE:
-                await _process_batch(current_batch_text)
+                if not await _process_batch(current_batch_text):
+                    all_success = False
                 current_batch_text = []
         
-        # Final flush
         if current_batch_text:
-            await _process_batch(current_batch_text)
-
-    def _simple_chunk(self, text: str, size: int = 500, overlap: int = 50):
-        """
-        P0 Fix: Character-based chunking with overlap for Chinese text support.
-        Previous 'text.split()' failed for CJK languages.
-        """
-        start = 0
-        text_len = len(text)
+            if not await _process_batch(current_batch_text):
+                all_success = False
         
-        while start < text_len:
-            end = start + size
-            yield text[start:end]
-            
-            # If this chunk reached the end of the text, stop.
-            if end >= text_len:
-                break
+        return all_success
+
+    def _semantic_chunk(self, text: str, size: int = 600, overlap: int = 100):
+        """
+        P2 Fix: Improved chunking strategy. 
+        Tries to split by double newlines (paragraphs) first, then falls back 
+        to sliding window if paragraphs are too large.
+        """
+        # 1. Clean up excessive whitespace
+        import re
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        
+        # 2. Initial split by double newlines
+        paragraphs = text.split('\n\n')
+        
+        current_chunk = ""
+        
+        for p in paragraphs:
+            # If paragraph itself is too large, split it by sentences or characters
+            if len(p) > size:
+                # If we have something in current_chunk, yield it
+                if current_chunk:
+                    yield current_chunk
+                    current_chunk = ""
                 
-            # Move forward by size - overlap to create sliding window
-            start += size - overlap
+                # Split large paragraph by sliding window
+                start = 0
+                while start < len(p):
+                    end = start + size
+                    chunk = p[start:end]
+                    yield chunk
+                    start += size - overlap
+            else:
+                # If current_chunk + new paragraph is within limit
+                if len(current_chunk) + len(p) < size:
+                    current_chunk += ("\n\n" if current_chunk else "") + p
+                else:
+                    # Yield current and start new
+                    if current_chunk: yield current_chunk
+                    current_chunk = p
+        
+        if current_chunk:
+            yield current_chunk
 
 etl_service = ETLService()
