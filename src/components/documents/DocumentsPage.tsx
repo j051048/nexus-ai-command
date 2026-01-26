@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { AICopilotInsight } from '@/components/common/AICopilotInsight';
+import { DocumentCard } from './components/DocumentCard';
 
 interface Document {
     id: string;
@@ -204,7 +206,7 @@ export function DocumentsPage() {
             {/* Content Area */}
             <div className="flex-1 flex overflow-hidden">
                 {/* Sidebar Filter */}
-                <div className="w-64 border-r border-border p-6 space-y-6">
+                <div className="w-64 border-r border-border p-6 space-y-6 hidden lg:block">
                     <div>
                         <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 block">直接筛选</label>
                         <div className="space-y-1">
@@ -250,81 +252,38 @@ export function DocumentsPage() {
                     </div>
                 </div>
 
-                {/* List View */}
-                <div className="flex-1 overflow-y-auto bg-stone-50/30 dark:bg-background">
-                    <div className="p-6">
-                        {/* Search Bar */}
-                        <div className="relative mb-6">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <input
-                                type="text"
-                                placeholder="搜索文档名称、客户名或合同金额..."
-                                className="w-full pl-10 pr-4 py-3 rounded-xl border border-input bg-background shadow-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                            />
+                {/* Document List */}
+                <div className="flex-1 overflow-y-auto p-8">
+                    <div className="max-w-4xl mx-auto space-y-4">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="relative flex-1 max-w-md">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <input
+                                    type="text"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    placeholder="搜索文档、客户或关键词..."
+                                    className="w-full bg-secondary/50 border-none rounded-xl pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-primary/20 transition-all"
+                                />
+                            </div>
                         </div>
 
-                        {/* Table Header */}
-                        <div className="grid grid-cols-12 gap-4 px-4 py-3 text-xs font-medium text-muted-foreground border-b border-border">
-                            <div className="col-span-5">文件名 / 客户</div>
-                            <div className="col-span-2">类型</div>
-                            <div className="col-span-2">金额 (¥)</div>
-                            <div className="col-span-2">更新时间</div>
-                            <div className="col-span-1 text-right">操作</div>
-                        </div>
-
-                        {/* Table Body */}
-                        <div className="space-y-2 mt-2">
-                            {filteredDocs.map((doc) => (
-                                <div key={doc.id} className="grid grid-cols-12 gap-4 px-4 py-4 items-center bg-card hover:bg-card-elevated border border-border/50 hover:border-primary/20 rounded-xl transition-all group animate-fade-in cursor-pointer">
-                                    <div className="col-span-5 flex items-center gap-3">
-                                        <div className={cn(
-                                            "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
-                                            doc.doc_type === 'contract' ? "bg-blue-100 text-blue-600 dark:bg-blue-900/20" :
-                                                doc.doc_type === 'bid' ? "bg-orange-100 text-orange-600 dark:bg-orange-900/20" :
-                                                    doc.doc_type === 'product' ? "bg-purple-100 text-purple-600 dark:bg-purple-900/20" :
-                                                        "bg-gray-100 text-gray-600 dark:bg-gray-800"
-                                        )}>
-                                            <FileText className="w-5 h-5" />
-                                        </div>
-                                        <div className="min-w-0">
-                                            <h4 className="font-medium text-sm text-foreground truncate group-hover:text-primary transition-colors">{doc.name}</h4>
-                                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                                {doc.extracted_data?.client_name || '未识别客户'}
-                                                {doc.extracted_data?.client_name && <CheckCircle className="w-3 h-3 text-success" />}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="col-span-2">
-                                        <span className={cn(
-                                            "px-2.5 py-1 rounded-full text-xs font-medium",
-                                            doc.doc_type === 'contract' ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300" :
-                                                doc.doc_type === 'bid' ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300" :
-                                                    doc.doc_type === 'product' ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300" :
-                                                        "bg-gray-100 text-gray-700"
-                                        )}>
-                                            {doc.doc_type === 'contract' ? '销售合同' : doc.doc_type === 'bid' ? '投标文件' : doc.doc_type === 'product' ? '产品资料' : '其他'}
-                                        </span>
-                                    </div>
-                                    <div className="col-span-2 font-mono text-sm">
-                                        {doc.extracted_data?.amount ? `¥${doc.extracted_data.amount.toLocaleString()}` : '-'}
-                                    </div>
-                                    <div className="col-span-2 text-sm text-muted-foreground flex items-center gap-2">
-                                        <Clock className="w-3 h-3" />
-                                        {doc.updated_at}
-                                    </div>
-                                    <div className="col-span-1 flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button className="p-2 hover:bg-secondary rounded-lg text-muted-foreground hover:text-primary">
-                                            <Download className="w-4 h-4" />
-                                        </button>
-                                        <button className="p-2 hover:bg-destructive/10 rounded-lg text-muted-foreground hover:text-destructive">
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                        {filteredDocs.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                                <Search className="w-12 h-12 mb-4 opacity-10" />
+                                <p>未找到匹配的文档</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 gap-3">
+                                {filteredDocs.map((doc) => (
+                                    <DocumentCard
+                                        key={doc.id}
+                                        doc={doc as any}
+                                        onClick={() => { }}
+                                    />
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

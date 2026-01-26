@@ -115,17 +115,37 @@ export function useSubmitApproval() {
     mutationFn: async (payload: { type: string; description: string; amount: number }) => {
       if (!user?.id) throw new Error('未登录');
 
-      // Simple AI logic: auto approve if amount is small
-      const thresholdMap: Record<string, number> = {
-        travel: 3000,
-        purchase: 5000,
-        expense: 500,
-        leave: 3
-      };
+      // Task A: AI Orchestration Layer - Call Backend
+      let decision = 'pending';
+      let aiReason = '正在等待系统分析...';
 
-      const threshold = thresholdMap[payload.type] || 0;
-      const isAutoApproved = payload.amount <= threshold;
-      const status = isAutoApproved ? 'approved' : 'pending';
+      try {
+        let baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://aizhz.zeabur.app';
+        if (!baseUrl.startsWith('http')) baseUrl = `https://${baseUrl}`;
+
+        const response = await fetch(`${baseUrl}/api/approval/process`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requester_id: user.id,
+            type: payload.type,
+            amount: payload.amount,
+            details: payload.description
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          decision = result.decision === 'auto_approved' ? 'approved' : 'pending';
+          aiReason = result.reason;
+        } else {
+          console.warn('AI Orchestration layer unavailable, falling back to manual review');
+          aiReason = 'AI 服务暂时下线，已转入人工审批队列';
+        }
+      } catch (err) {
+        console.error('AI Analysis failed:', err);
+        aiReason = '分析引擎连接失败，已转入人工审批队列';
+      }
 
       const { data, error } = await supabase
         .from('approval_requests')
@@ -134,15 +154,15 @@ export function useSubmitApproval() {
           type: payload.type,
           description: payload.description,
           amount: payload.amount,
-          status: status,
-          ai_reason: isAutoApproved ? '金额在预设阈值内，系统自动通过' : '金额较大，需要人工干预',
+          status: decision as any,
+          ai_reason: aiReason,
           submitted_at: new Date().toISOString()
         })
         .select()
         .single();
 
       if (error) throw error;
-      return { ...data, auto_approved: isAutoApproved };
+      return { ...data, auto_approved: decision === 'approved' };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['approvals'] });
