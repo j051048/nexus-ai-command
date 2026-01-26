@@ -78,7 +78,7 @@ class ETLService:
             if success:
                 # Step B: Database Storage
                 try:
-                    doc_id = self._save_to_db(filename, details)
+                    doc_id = self._save_to_db(filename, details, text)
                     
                     # Step C: Vectorization
                     await self._generate_embeddings(text, doc_id, filename, active_key, active_url)
@@ -144,10 +144,15 @@ class ETLService:
         except Exception as e:
             return False, {"error": str(e)}
 
-    def _save_to_db(self, filename: str, metadata: dict) -> str:
+    def _save_to_db(self, filename: str, metadata: dict, text: str = "") -> str:
         if not supabase:
             raise Exception("Supabase not initialized")
             
+        # P1: Persistence - Save full text context to metadata (for now) or a separate field
+        # Ideally, we should have a 'content' column, but putting it in extracted_data 
+        # is a safe no-migration way to enable "Stateful Context".
+        metadata["full_text_context"] = text[:100000] # Cap at ~100k chars to avoid validation errors
+
         record = {
             "name": filename,
             "doc_type": metadata.get("doc_type", "other"),
