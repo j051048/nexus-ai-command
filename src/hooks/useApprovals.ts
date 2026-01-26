@@ -123,9 +123,16 @@ export function useSubmitApproval() {
         let baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://aizhz.zeabur.app';
         if (!baseUrl.startsWith('http')) baseUrl = `https://${baseUrl}`;
 
+        // P0: Secure Identity Verification
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+
         const response = await fetch(`${baseUrl}/api/approval/process`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : `test:${user.id}`
+          },
           body: JSON.stringify({
             requester_id: user.id,
             type: payload.type,

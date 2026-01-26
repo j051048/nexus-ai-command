@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileSearch, Bot, Loader2, Upload, AlertCircle, CheckCircle2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUser } from "@/contexts/UserContext";
 
@@ -41,8 +42,14 @@ export function TenderAnalysisPage() {
             const formData = new FormData();
             formData.append('files', file);
 
-            const uploadRes = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/documents/upload`, {
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+
+            const uploadRes = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/documents/upload`, {
                 method: 'POST',
+                headers: {
+                    'Authorization': token ? `Bearer ${token}` : `test:${user?.id}`
+                },
                 body: formData
             });
             const uploadData = await uploadRes.json();
