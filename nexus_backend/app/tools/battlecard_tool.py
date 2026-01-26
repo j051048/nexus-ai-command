@@ -26,7 +26,7 @@ class BattlecardTool(BaseTool):
         
         # Reuse the VectorService to get real data from uploaded documents
         # This assumes the user has uploaded competitor analysis docs
-        rag_result = await vector_service.search(query, limit=2, config=config)
+        rag_result = await vector_service.search(query, user_id, limit=2, config=config)
         
         if "No relevant documents" in rag_result or not rag_result:
             # Fallback to a generic template if knowledge base is empty, but warn the user

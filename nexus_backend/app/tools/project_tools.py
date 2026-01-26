@@ -13,7 +13,7 @@ class ProjectListTool(BaseTool):
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
         # Check role to filter projects? For now, list all accessible via RLS
-        result = supabase.table("projects").select("id, name, status, progress").execute()
+        result = await supabase.table("projects").select("id, name, status, progress").execute()
         if not result.data:
             return "暂无进行中的项目。"
         items = [f"ID: {p['id']} | 名称: {p['name']} | 状态: {p['status']} | 进度: {p['progress']}%" for p in result.data]
@@ -48,7 +48,7 @@ class CreateProjectTool(BaseTool):
                 "status": status,
                 "progress": 0
             }
-            res = supabase.table("projects").insert(data).execute()
+            res = await supabase.table("projects").insert(data).execute()
             if res.data:
                 pid = res.data[0]['id']
                 return f"✅ 项目 '{name}' 已成功立项 (ID: {pid})！您可以继续添加项目事件或里程碑。"
@@ -82,7 +82,7 @@ class CreateEventTool(BaseTool):
         # Check migration: I only added `projects` table. I did NOT add `project_timeline`.
         # I MUST add project_timeline table.
         try:
-            result = supabase.table("project_timeline").insert({
+            result = await supabase.table("project_timeline").insert({
                 "project_id": project_id,
                 "title": title,
                 "content": content,

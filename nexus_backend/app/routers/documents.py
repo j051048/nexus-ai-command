@@ -19,7 +19,7 @@ async def upload_documents(
     
     if userId:
         try:
-            user_settings = supabase.table("ai_settings").select("*").eq("user_id", userId).maybe_single().execute()
+            user_settings = await supabase.table("ai_settings").select("*").eq("user_id", userId).maybe_single().execute()
             if user_settings.data:
                 api_key = user_settings.data.get("api_key")
                 base_url = user_settings.data.get("base_url")
@@ -29,7 +29,7 @@ async def upload_documents(
     results = []
     for file in files:
         try:
-            result = await etl_service.process_file(file, api_key=api_key, base_url=base_url)
+            result = await etl_service.process_file(file, api_key=api_key, base_url=base_url, user_id=userId)
             results.append(result)
         except Exception as e:
             results.append({"filename": file.filename, "status": "error", "reason": str(e)})

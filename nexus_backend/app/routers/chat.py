@@ -25,13 +25,17 @@ class ChatRequest(BaseModel):
 # --- 工具定义 (Strategy Pattern) ---
 TOOLS = get_all_tools_schema()
 
-from functools import lru_cache
+# Simple manual cache to replace lru_cache for async function
+_role_cache = {}
 
-@lru_cache(maxsize=1000)
-def _get_cached_user_role(user_id: str) -> str:
+async def _get_cached_user_role(user_id: str) -> str:
+    if user_id in _role_cache:
+        return _role_cache[user_id]
     try:
-        user_res = supabase.table("users").select("role").eq("id", user_id).maybe_single().execute()
-        return user_res.data.get("role") if user_res.data else "employee"
+        user_res = await supabase.table("users").select("role").eq("id", user_id).maybe_single().execute()
+        role = user_res.data.get("role") if user_res.data else "employee"
+        _role_cache[user_id] = role
+        return role
     except:
         return "employee"
 
@@ -43,7 +47,7 @@ async def execute_tool(name: str, args: Dict[str, Any], current_user_id: str, co
         try:
             # Security Check: Role Based Access Control
             if tool_instance.required_role != "all":
-                user_role = _get_cached_user_role(current_user_id)
+                user_role = await _get_cached_user_role(current_user_id)
                 if tool_instance.required_role == "boss" and user_role != "boss":
                     return f"⛔ 权限拒绝: 该操作需要 [Boss/Manager] 权限，您当前的身份是 [{user_role}]。"
 
@@ -183,7 +187,7 @@ async def chat(request: ChatRequest, x_user_id: Optional[str] = Header(None)):
         raise HTTPException(status_code=401, detail="Authentication Required (Missing User ID)")
     
     # Verify user exists in DB
-    user_check = supabase.table("users").select("id").eq("id", user_id).maybe_single().execute()
+    user_check = await supabase.table("users").select("id").eq("id", user_id).maybe_single().execute()
     if not user_check.data:
         raise HTTPException(status_code=403, detail="Unauthorized: User does not exist")
 
@@ -194,7 +198,7 @@ async def chat(request: ChatRequest, x_user_id: Optional[str] = Header(None)):
     }
 
     try:
-        response = supabase.table("ai_settings").select("*").eq("user_id", user_id).maybe_single().execute()
+        response = await supabase.table("ai_settings").select("*").eq("user_id", user_id).maybe_single().execute()
         if response.data:
             settings = response.data
             ai_config["base_url"] = settings.get("base_url") or ai_config["base_url"]

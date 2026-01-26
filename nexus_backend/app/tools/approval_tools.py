@@ -18,11 +18,11 @@ class ApprovalTool(BaseTool):
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
         req_id = args.get("request_id")
-        result = supabase.table("approval_requests").update({"status": "approved"}).eq("id", req_id).execute()
+        result = await supabase.table("approval_requests").update({"status": "approved"}).eq("id", req_id).execute()
         if result.data:
             try:
                 target_user = result.data[0].get("submitted_by")
-                supabase.table("notifications").insert({
+                await supabase.table("notifications").insert({
                     "user_id": target_user,
                     "title": "审批已通过",
                     "content": f"您的审批申请 {req_id} 已被 AI 批准。",
@@ -49,11 +49,11 @@ class RejectTool(BaseTool):
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
         req_id = args.get("request_id")
         reason = args.get("reason", "未说明原因")
-        result = supabase.table("approval_requests").update({"status": "rejected"}).eq("id", req_id).execute()
+        result = await supabase.table("approval_requests").update({"status": "rejected"}).eq("id", req_id).execute()
         if result.data:
             try:
                 target_user = result.data[0].get("submitted_by")
-                supabase.table("notifications").insert({
+                await supabase.table("notifications").insert({
                     "user_id": target_user,
                     "title": "审批已驳回",
                     "content": f"您的审批申请 {req_id} 已被驳回。理由：{reason}",
@@ -73,7 +73,7 @@ class PendingApprovalsTool(BaseTool):
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
-        result = supabase.table("approval_requests").select("*, users:submitted_by(name)").eq("status", "pending").execute()
+        result = await supabase.table("approval_requests").select("*, users:submitted_by(name)").eq("status", "pending").execute()
         if not result.data:
             return "当前没有任何待处理的审批。"
         items = []

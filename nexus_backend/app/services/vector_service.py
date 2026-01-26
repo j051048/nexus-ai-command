@@ -10,7 +10,7 @@ class VectorService:
     Transitioned from Mock to Real Implementation (Week 1 Goal).
     """
 
-    async def search(self, query: str, limit: int = 3, config: dict = None) -> str:
+    async def search(self, query: str, user_id: str, limit: int = 3, config: dict = None) -> str:
         """
         Semantic search in the vector DB.
         Returns a formatted string of results.
@@ -32,51 +32,57 @@ class VectorService:
         client = AsyncOpenAI(api_key=api_key, base_url=base_url.rstrip("/") + ("/v1" if "/v1" not in base_url else ""))
         
         try:
-            return await self._search_supabase(query, limit, client)
+            return await self._search_supabase(query, user_id, limit, client)
         except Exception as e:
             print(f"Vector search failed: {e}")
             return self._search_mock(query)
 
-    async def _search_supabase(self, query: str, limit: int, client: AsyncOpenAI, filters: Dict[str, Any] = None) -> str:
+    async def _search_supabase(self, query: str, user_id: str, limit: int, client: AsyncOpenAI, filters: Dict[str, Any] = None) -> str:
         """
         Implementation for Hybrid Search (Vector + Keyword) with RRF.
-        P0 Optimization: Fixes "ID search" failure cases.
-        P2 Optimization: Metadata Filtering.
+        Supports mandatory user_id isolation.
         """
         import asyncio
         
-        # A. Vector Search (Semantic)
+        # A. Vector Search (Semantic) - Now requires p_user_id
         async def run_vector_search():
              try:
                  response = await client.embeddings.create(input=query, model="text-embedding-3-small")
                  embedding = response.data[0].embedding
-                 params = {"query_embedding": embedding, "match_threshold": 0.4, "match_count": limit}
+                 params = {
+                     "query_embedding": embedding, 
+                     "match_threshold": 0.4, 
+                     "match_count": limit,
+                     "p_user_id": user_id # Critical: Security Parameter
+                 }
                  if filters:
-                     params["filter"] = filters # Assumes match_documents signature accepts 'filter'
-                 return supabase.rpc("match_documents", params).execute().data or []
-             except Exception: return []
+                     params["filter"] = filters
+                 res = await supabase.rpc("match_documents", params).execute()
+                 return res.data or []
+             except Exception as e:
+                 print(f"Vector RPC failed: {e}")
+                 return []
 
-        # B. Keyword Search (Lexical) - using Postgres Full Text Search (P1 Optimization)
-        # Note: Requires 'fts' generated column and GIN index (see migration 20240201)
+        # B. Keyword Search (Lexical) - Filter by owner_id in the documents table
         async def run_keyword_search():
              try:
-                 # Use 'websearch_to_tsquery' logic via Supabase .textSearch()
-                 query_builder = supabase.table("document_embeddings").select("*").textSearch("fts", query, config="simple")
+                 # Use inner join-like filter on documents owner_id
+                 query_builder = supabase.table("document_embeddings").select("*, documents!inner(owner_id)").eq("documents.owner_id", user_id).textSearch("fts", query, config="simple")
                  
                  # Apply Metadata Filters for Keyword Search
                  if filters:
-                     # Check if filter column exists in document_embeddings directly or inside metadata jsonb
-                     # Assuming 'metadata' column is jsonb
                      query_builder = query_builder.contains("metadata", filters)
                  
-                 return query_builder.limit(limit).execute().data or []
+                 res = await query_builder.limit(limit).execute()
+                 return res.data or []
              except Exception as e: 
-                 # Fallback to ILIKE if FTS fails (e.g. migration not run)
+                 # Fallback to ILIKE with relationship filter
                  print(f"FTS failed, fallback to ilike: {e}")
-                 base = supabase.table("document_embeddings").select("*").ilike("content", f"%{query}%")
+                 base = supabase.table("document_embeddings").select("*, documents!inner(owner_id)").eq("documents.owner_id", user_id).ilike("content", f"%{query}%")
                  if filters:
                      base = base.contains("metadata", filters)
-                 return base.limit(limit).execute().data or []
+                 res = await base.limit(limit).execute()
+                 return res.data or []
 
         # Run Parallel
         vector_res, keyword_res = await asyncio.gather(run_vector_search(), run_keyword_search())
@@ -86,14 +92,14 @@ class VectorService:
         top_docs = sorted(fused_docs.values(), key=lambda x: x['score'], reverse=True)[:limit]
 
         if not top_docs:
-            return "知识库中未找到相关信息 (No relevant documents found in Vector DB)."
+            return "知识库中未找到相关信息 (No relevant documents found for your account)."
 
         # 3. Format results
         results = []
         for item in top_docs:
             content = item.get("content", "")
             meta = item.get("metadata", {}) or {}
-            source = meta.get("filename", "未知来源")
+            source = meta.get("source", "未知来源") # etl_service uses 'source'
             
             # Grounding: Append citation marker
             citation = f" [引用溯源: {source}]"

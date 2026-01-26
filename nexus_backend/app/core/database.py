@@ -12,7 +12,7 @@ key: str = os.getenv("SUPABASE_SERVICE_KEY", "")
 # This ensures Core RAG functions (Table Insert / RPC) work without bloat.
 
 try:
-    from postgrest import SyncPostgrestClient
+    from postgrest import AsyncPostgrestClient
     
     class MiniSupabaseClient:
         def __init__(self, url: str, key: str):
@@ -23,7 +23,7 @@ try:
                 "Authorization": f"Bearer {key}",
                 "Content-Type": "application/json"
             }
-            self.client = SyncPostgrestClient(base_url, headers=headers)
+            self.client = AsyncPostgrestClient(base_url, headers=headers)
 
         def table(self, name: str):
             return self.client.from_(name)

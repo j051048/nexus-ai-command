@@ -16,12 +16,12 @@ class PerformanceReportTool(BaseTool):
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
         target_id = args.get("user_id") or user_id
-        user_res = supabase.table("users").select("*").eq("id", target_id).maybe_single().execute()
+        user_res = await supabase.table("users").select("*").eq("id", target_id).maybe_single().execute()
         if not user_res.data:
             return f"找不到 ID 为 {target_id} 的用户绩效数据。"
         
         user = user_res.data
-        metrics_res = supabase.table("sales_metrics").select("*").eq("user_id", target_id).execute()
+        metrics_res = await supabase.table("sales_metrics").select("*").eq("user_id", target_id).execute()
         report = f"用户: {user['name']}\n"
         report += f"当前得分: {user['score']} | 排名: {user['rank']} | 总奖金: ¥{user['total_bonus']}\n"
         report += "关键指标:\n"
@@ -39,9 +39,9 @@ class CompanyStatsTool(BaseTool):
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
-        count_res = supabase.table("users").select("id", count="exact").execute()
+        count_res = await supabase.table("users").select("id", count="exact").execute()
         total_users = count_res.count if count_res.count is not None else 0
-        dept_res = supabase.table("users").select("department").execute()
+        dept_res = await supabase.table("users").select("department").execute()
         depts = {}
         for u in dept_res.data:
             d = u.get("department", "未分配") or "未分配"
@@ -65,7 +65,7 @@ class KnowledgeBaseTool(BaseTool):
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
         query = args.get("query")
         # P1: Grounding ensured by vector_service.search which now returns citations
-        result = await vector_service.search(query, config=config)
+        result = await vector_service.search(query, user_id, config=config)
         return result 
 
 class AwardBadgeTool(BaseTool):
@@ -86,8 +86,8 @@ class AwardBadgeTool(BaseTool):
         target_id = args.get("user_id")
         badge_name = args.get("badge_name")
         icon = args.get("icon", "sparkles")
-        supabase.table("badges").insert({"user_id": target_id, "name": badge_name, "icon": icon}).execute()
-        supabase.table("notifications").insert({
+        await supabase.table("badges").insert({"user_id": target_id, "name": badge_name, "icon": icon}).execute()
+        await supabase.table("notifications").insert({
             "user_id": target_id,
             "title": "荣获新徽章！",
             "content": f"老板为你颁发了「{badge_name}」徽章，继续加油！",

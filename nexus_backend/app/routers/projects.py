@@ -24,9 +24,9 @@ async def get_projects(user_id: str):
         # Check role to decide if we fetch all or just user's
         # BUT supabase-py RLS might not work if we use service_role key globally?
         # The app.core.database usually uses a service_role key for admin tasks.
-        # So we should manually filter unless we have per-request user context client.
+        # So we should manually filter unless we have per-request user context clien    try:
         # Implementation: Check user role.
-        user_res = supabase.table("users").select("role").eq("id", user_id).maybe_single().execute()
+        user_res = await supabase.table("users").select("role").eq("id", user_id).maybe_single().execute()
         role = user_res.data.get("role") if user_res.data else "employee"
         
         query = supabase.table("projects").select("*")
@@ -34,7 +34,7 @@ async def get_projects(user_id: str):
         if role != 'founder':
             query = query.eq("owner_id", user_id)
             
-        res = query.order("created_at", desc=True).execute()
+        res = await query.order("created_at", desc=True).execute()
         return res.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -49,7 +49,7 @@ async def create_project(project: ProjectCreate):
             "status": "planning",
             "progress": 0
         }
-        res = supabase.table("projects").insert(data).execute()
+        res = await supabase.table("projects").insert(data).execute()
         if not res.data:
             raise Exception("Insert failed")
         return res.data[0]
@@ -60,7 +60,7 @@ async def create_project(project: ProjectCreate):
 async def update_project(project_id: str, updates: ProjectUpdate):
     try:
         data = {k: v for k, v in updates.model_dump().items() if v is not None}
-        res = supabase.table("projects").update(data).eq("id", project_id).execute()
+        res = await supabase.table("projects").update(data).eq("id", project_id).execute()
         return res.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
