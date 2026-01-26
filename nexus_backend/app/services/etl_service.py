@@ -1,38 +1,47 @@
-from app.core.database import supabase
-from app.core.config import settings
-from openai import OpenAI
+import httpx
 import json
-from fastapi import UploadFile
 import io
 from pypdf import PdfReader
-from typing import Tuple, Dict, Any
+from fastapi import UploadFile
+from typing import Tuple, Dict, Any, List
+from app.core.database import supabase
+from app.core.config import settings
 
 class ETLService:
     """
-    Service to ingest documents into the Vector Knowledge Base.
-    Handles text extraction, AI metadata extraction (Gemini), and vector storage.
+    Enhanced ETL Service using raw HTTP calls (httpx) to maintain 
+    maximum compatibility with 3rd-party proxies like apiyi.com.
     """
     def __init__(self):
-        self.openai_client = None
-        self._initialize_client()
+        self.api_key = settings.OPENAI_API_KEY
+        # Normalize Base URL: Ensure it ends with /v1
+        base_url = settings.AI_BASE_URL if settings.AI_BASE_URL else "https://api.openai.com/v1"
+        self.base_url = base_url.rstrip("/")
+        
+    async def _call_ai_raw(self, payload: dict, endpoint: str = "/chat/completions") -> str:
+        """
+        Low-level HTTP call to the AI proxy. Bypass SDK limitations.
+        """
+        if not self.api_key:
+            raise Exception("AI API Key is missing in environment variables")
 
-    def _initialize_client(self):
-        if settings.OPENAI_API_KEY:
-            # Ensure base_url is properly formatted (strip trailing slash if present)
-            base_url = settings.AI_BASE_URL if settings.AI_BASE_URL else "https://api.openai.com/v1"
-            if base_url.endswith("/"):
-                base_url = base_url[:-1]
-                
-            self.openai_client = OpenAI(
-                api_key=settings.OPENAI_API_KEY,
-                base_url=base_url
-            )
-            print(f"ETLService: Initialized AI client with base_url: {base_url}")
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        url = f"{self.base_url}{endpoint}"
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(url, headers=headers, json=payload)
+            if response.status_code != 200:
+                error_msg = response.text
+                print(f"AI Provider Error ({response.status_code}): {error_msg}")
+                raise Exception(f"AI provider returned error {response.status_code}")
             
+            data = response.json()
+            return data["choices"][0]["message"]["content"]
+
     async def process_file(self, file: UploadFile) -> dict:
-        """
-        Main entry point for document processing.
-        """
         filename = file.filename
         content = await file.read()
         text = ""
@@ -41,133 +50,125 @@ class ETLService:
             # 1. Physical Extraction
             if filename.lower().endswith(".pdf"):
                 pdf = PdfReader(io.BytesIO(content))
-                for i, page in enumerate(pdf.pages):
-                    page_text = page.extract_text()
-                    if page_text:
-                        text += page_text + "\n"
-                print(f"ETL: Extracted {len(text)} chars from PDF: {filename}")
+                for page in pdf.pages:
+                    extracted = page.extract_text()
+                    if extracted:
+                        text += extracted + "\n"
             elif filename.lower().endswith((".txt", ".md", ".csv", ".json")):
                 text = content.decode("utf-8")
             else:
-                return {"filename": filename, "status": "skipped", "reason": "不支持的文件类型"}
+                return {"filename": filename, "status": "skipped", "reason": "Unsupported format"}
 
             if not text.strip():
-                # Fallback info for UI
-                return {"filename": filename, "status": "error", "reason": "无法从文档中提取文字（可能是扫描件或加密文档）"}
+                return {"filename": filename, "status": "error", "reason": "No text content found"}
 
-            # 2. Logic Pipeline
-            success, details = await self.process_text_with_extraction(text, filename, len(content))
+            # 2. Sequential Processing
+            # Step A: Metadata Extraction
+            success, details = await self.extract_metadata_via_ai(text, filename)
             
-            return {
-                "filename": filename, 
-                "status": "success" if success else "failed",
-                "extracted_metadata": details,
-                "chunks": len(text) // 400
-            }
+            if success:
+                # Step B: Database Storage
+                try:
+                    doc_id = self._save_to_db(filename, details)
+                    
+                    # Step C: Async Vectorization (Fire and forget style for metadata success)
+                    # For MVP we run it sync to confirm data integrity
+                    await self._generate_embeddings(text, doc_id, filename)
+                    
+                    return {
+                        "filename": filename,
+                        "status": "success",
+                        "document_id": doc_id,
+                        "metadata": details
+                    }
+                except Exception as db_err:
+                    print(f"DB Error: {db_err}")
+                    return {"filename": filename, "status": "error", "reason": f"数据库写入失败: {str(db_err)}"}
+            else:
+                return {"filename": filename, "status": "error", "reason": f"AI 解析失败: {details.get('error')}"}
+
         except Exception as e:
-            print(f"ETL CRITICAL ERROR for {filename}: {str(e)}")
-            return {"filename": filename, "status": "error", "reason": f"系统解析异常: {str(e)}"}
+            print(f"ETL Panic: {str(e)}")
+            return {"filename": filename, "status": "error", "reason": f"系统崩溃: {str(e)}"}
 
-    async def process_text_with_extraction(self, text: str, filename: str, size: int) -> Tuple[bool, Dict[str, Any]]:
-        """
-        AI Analysis and DB Storage.
-        """
-        if not self.openai_client:
-            return False, {"error": "未配置 AI 接口"}
-            
-        if not supabase:
-            return False, {"error": "数据库连接失败"}
-
-        # 1. AI Metadata Extraction (Gemini-3-Pro-Preview)
-        # Using a safer way to parse JSON since some proxies/models include markdown
-        preview_text = text[:4000]
-        extracted_data = {
-            "doc_type": "other",
-            "client_name": "未知客户",
-            "amount": 0,
-            "date": None,
-            "summary": "AI 解析中..."
-        }
+    async def extract_metadata_via_ai(self, text: str, filename: str) -> Tuple[bool, Dict]:
+        preview = text[:4000]
+        prompt = f"""
+        Extract document metadata as JSON ONLY:
+        - doc_type: [contract, bid, product, proposal, invoice, other]
+        - client_name: string
+        - amount: number
+        - date: YYYY-MM-DD
+        - summary: 1-sentence Chinese summary
         
-        try:
-            prompt = f"""
-            你是一个企业文档分析专家。请阅读以下文档内容，提取元数据并以 JSON 格式返回。
-            
-            JSON 结构要求：
-            - doc_type: (字符串：contract, bid, product, proposal, invoice, other)
-            - client_name: (字符串：关联的公司或客户名称)
-            - amount: (数字：合同或文档涉及的总金额，若无则为 0)
-            - date: (字符串：文档日期，格式 YYYY-MM-DD，若无则为 null)
-            - summary: (字符串：一句话中文摘要)
-            
-            文档内容：
-            {preview_text}
-            """
-            
-            # Use specific model gemini-3-pro-preview
-            response = self.openai_client.chat.completions.create(
-                model="gemini-3-pro-preview", 
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.1
-                # Note: Not using json_object response_format here to increase compatibility with aggressive proxies
-            )
-            
-            raw_content = response.choices[0].message.content
-            # Cleanup Markdown if present
-            if "```json" in raw_content:
-                raw_content = raw_content.split("```json")[1].split("```")[0].strip()
-            elif "```" in raw_content:
-                raw_content = raw_content.split("```")[1].split("```")[0].strip()
-                
-            extracted_data = json.loads(raw_content)
-            print(f"ETL: AI Extracted metadata for {filename}: {extracted_data.get('doc_type')}")
-        except Exception as e:
-            print(f"ETL: Metadata extraction warn for {filename}: {str(e)}")
-            # We don't fail the whole pipeline just because AI metadata failed
-            extracted_data["summary"] = f"自动解析摘要失败: {str(e)[:50]}"
+        Content:
+        {preview}
+        """
+        
+        payload = {
+            "model": "gemini-3-pro-preview",
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.1
+        }
 
-        # 2. Database Persistence
-        doc_record = {
+        try:
+            raw_response = await self._call_ai_raw(payload)
+            # Robust JSON cleaner
+            clean_json = raw_response
+            if "```json" in raw_response:
+                clean_json = raw_response.split("```json")[1].split("```")[0].strip()
+            elif "```" in raw_response:
+                clean_json = raw_response.split("```")[1].split("```")[0].strip()
+            
+            data = json.loads(clean_json)
+            return True, data
+        except Exception as e:
+            return False, {"error": str(e)}
+
+    def _save_to_db(self, filename: str, metadata: dict) -> str:
+        if not supabase:
+            raise Exception("Supabase not initialized")
+            
+        record = {
             "name": filename,
-            "doc_type": extracted_data.get("doc_type", "other"),
-            "extracted_data": extracted_data,
+            "doc_type": metadata.get("doc_type", "other"),
+            "extracted_data": metadata,
             "version": 1
         }
-        
-        try:
-            # We use documents table
-            res = supabase.table("documents").insert(doc_record).execute()
-            if not res.data:
-                raise Exception("数据库插入请求未返回数据")
-            document_id = res.data[0]['id']
-        except Exception as e:
-            print(f"ETL: DB Insert failed: {str(e)}")
-            return False, {"error": f"数据库写入失败: {str(e)}"}
+        res = supabase.table("documents").insert(record).execute()
+        if not res.data:
+            raise Exception("Empty response from database")
+        return res.data[0]["id"]
 
-        # 3. Vectorization (Optional background task if needed, but doing sync now)
-        try:
-            # Chunking and Embedding
-            word_chunks = list(self._chunk_text(text))
-            for chunk in word_chunks:
-                # We use text-embedding-3-small as standard for pgvector 1536 dims
-                emb_res = self.openai_client.embeddings.create(input=chunk, model="text-embedding-3-small")
-                embedding = emb_res.data[0].embedding
-                
-                supabase.table("document_embeddings").insert({
-                    "document_id": document_id,
-                    "content": chunk,
-                    "metadata": {"source": filename},
-                    "embedding": embedding
-                }).execute()
-        except Exception as e:
-            # Vector indexing failure isn't fatal to the metadata record
-            print(f"ETL: Vector indexing failed for {filename}: {str(e)}")
-                
-        return True, extracted_data
+    async def _generate_embeddings(self, text: str, doc_id: str, filename: str):
+        """
+        Generate embeddings using raw fetch for compatibility.
+        """
+        chunks = self._simple_chunk(text)
+        for chunk in chunks:
+            try:
+                payload = {
+                    "model": "text-embedding-3-small",
+                    "input": chunk
+                }
+                # Call embedding endpoint
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    resp = await client.post(f"{self.base_url}/embeddings", headers=headers, json=payload)
+                    if resp.status_code == 200:
+                        embedding = resp.json()["data"][0]["embedding"]
+                        supabase.table("document_embeddings").insert({
+                            "document_id": doc_id,
+                            "content": chunk,
+                            "embedding": embedding,
+                            "metadata": {"source": filename}
+                        }).execute()
+            except Exception as e:
+                print(f"Embedding failed for chunk: {e}")
 
-    def _chunk_text(self, text, chunk_size=500):
+    def _simple_chunk(self, text: str, size: int = 500):
         words = text.split()
-        for i in range(0, len(words), chunk_size):
-            yield " ".join(words[i:i + chunk_size])
+        for i in range(0, len(words), size):
+            yield " ".join(words[i:i + size])
 
 etl_service = ETLService()

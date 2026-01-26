@@ -7,15 +7,19 @@ class AIService:
     @staticmethod
     async def call_llm(prompt: str, system_prompt: str = "You are a helpful enterprise AI assistant.") -> str:
         """
-        Call OpenAI-compatible LLM
+        Call LLM using raw HTTP calls (httpx) for maximum compatibility with proxy providers.
         """
-        if not settings.OPENAI_API_KEY:
-            # Fallback or Mock for local development without key
-            return "AI Analysis: (API Key missing) Request looks standard. Proceed with caution."
+        api_key = settings.OPENAI_API_KEY
+        if not api_key:
+            return "AI Analysis: (API Key missing) Standard fallback active."
 
-        url = f"{settings.AI_BASE_URL}/chat/completions" if settings.AI_BASE_URL else "https://api.openai.com/v1/chat/completions"
+        # Normalize Base URL
+        base_url = settings.AI_BASE_URL if settings.AI_BASE_URL else "https://api.openai.com/v1"
+        base_url = base_url.rstrip("/")
+        url = f"{base_url}/chat/completions"
+
         headers = {
-            "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
         
@@ -31,43 +35,36 @@ class AIService:
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(url, headers=headers, json=payload, timeout=30.0)
-                response.raise_for_status()
+                if response.status_code != 200:
+                    return f"AI Error ({response.status_code}): {response.text[:200]}"
+                
                 data = response.json()
                 return data['choices'][0]['message']['content']
         except Exception as e:
-            print(f"AI Service Error: {e}")
+            print(f"AI Service HTTP Error: {e}")
             return f"AI Analysis Error: {str(e)}"
 
     @staticmethod
     async def analyze_approval(request_type: str, description: str, amount: float) -> Dict:
         """
-        Specific logic for analyzing approvals using LLM
+        Analyze approvals using LLM.
         """
         system_prompt = """
         You are the 'Project Nexus' Enterprise Architect. 
-        Your task is to analyze employee expenditure and leave requests.
-        
-        Decision categories:
-        - auto_approved: If the request is small, reasonable, and follows standard company efficiency policies.
-        - manual_review_required: If the amount is unusually large, the reason is vague, or there is a potential risk.
-        - rejected: Only if the request clearly violates common sense or company policy (e.g., negative amounts, offensive content).
-        
-        Return your answer ONLY as a JSON string with two keys:
-        - "decision": "auto_approved" | "manual_review_required" | "rejected"
-        - "reasoning": A 1-sentence explanation of your choice in Chinese.
+        Analyze employee expenditure and leave requests.
+        Return ONLY a JSON string with keys: "decision", "reasoning".
         """
         
-        user_prompt = f"Request Type: {request_type}\nDescription: {description}\nAmount: {amount}"
-        
+        user_prompt = f"Type: {request_type}\nDesc: {description}\nAmt: {amount}"
         ai_response = await AIService.call_llm(user_prompt, system_prompt)
         
         try:
-            # Attempt to strip markdown if LLM includes them
-            clean_json = ai_response.strip().replace('```json', '').replace('```', '')
+            clean_json = ai_response.strip()
+            if "```json" in clean_json:
+                clean_json = clean_json.split("```json")[1].split("```")[0].strip()
             return json.loads(clean_json)
         except:
-            # Fallback logic if AI fails to return valid JSON
             return {
                 "decision": "manual_review_required",
-                "reasoning": f"AI Analysis (Fallback): {ai_response[:100]}..."
+                "reasoning": f"AI Parsing failed: {ai_response[:50]}"
             }
