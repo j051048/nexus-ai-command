@@ -6,7 +6,6 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from app.core.database import supabase
-from app.core.prompts import prompts
 from app.tools import get_tool, get_all_tools_schema
 
 router = APIRouter(prefix="/api", tags=["Chat"])
@@ -60,7 +59,7 @@ async def execute_tool(name: str, args: Dict[str, Any], current_user_id: str, co
     
     return f"未知工具或工具未注册: {name}"
 
-async def stream_openai_response(messages: List[dict], config: dict, user_id: str):
+async def stream_openai_response(messages: List[dict], config: dict, user_id: str, logger: Any):
     """
     Stream response from OpenAI with tool use support
     """
@@ -89,6 +88,8 @@ async def stream_openai_response(messages: List[dict], config: dict, user_id: st
         "stream": True,
         "temperature": 0.5
     }
+
+    if logger: logger.log_start(messages)
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         try:
@@ -136,8 +137,15 @@ async def stream_openai_response(messages: List[dict], config: dict, user_id: st
                     # P2 Optimization: We can emit a specific "tool_processing" event here if frontend supports it
                     try:
                         args = json.loads(full_tool_call_json) if full_tool_call_json else {}
+                        
+                         # LOGGING: Tool Plan
+                        if logger: logger.log_tool_plan(tool_name, args)
+
                         tool_result = await execute_tool(tool_name, args, user_id, config=config)
                         
+                        # LOGGING: Tool Execution
+                        if logger: logger.log_tool_execution(tool_name, "success", tool_result)
+
                         # 构造继续对话的消息
                         messages.append({
                             "role": "assistant", 
@@ -165,11 +173,14 @@ async def stream_openai_response(messages: List[dict], config: dict, user_id: st
                                 if final_line.startswith("data: "):
                                     yield f"{final_line}\n\n"
                     except Exception as e:
-                         yield f"data: {json.dumps({'choices': [{'delta': {'content': f' AI 决策解析失败: {str(e)}'}}]})}\n\n"
+                        if logger: logger.log_error(str(e))
+                        yield f"data: {json.dumps({'choices': [{'delta': {'content': f' AI 决策解析失败: {str(e)}'}}]})}\n\n"
 
         except Exception as e:
+            if logger: logger.log_error(str(e))
             yield f"data: {json.dumps({'choices': [{'delta': {'content': f' Connection Error: {str(e)}'}}]})}\n\n"
     
+    if logger: logger.log_end()
     yield "data: [DONE]\n\n"
 
 
@@ -222,8 +233,12 @@ async def chat(request: ChatRequest):
     for msg in request.messages:
         formatted_messages.append({"role": msg.role, "content": msg.content})
 
+    # Initialize Logger
+    from app.core.trace_logger import TraceLogger
+    tracer = TraceLogger(user_id=user_id or "anonymous", agent=request.agent or "default")
+
     return StreamingResponse(
-        stream_openai_response(formatted_messages, ai_config, user_id),
+        stream_openai_response(formatted_messages, ai_config, user_id, tracer),
         media_type="text/event-stream"
     )
 
