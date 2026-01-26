@@ -7,11 +7,9 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from app.core.database import supabase
 from app.core.prompts import prompts
+from app.tools import get_tool, get_all_tools_schema
 
 router = APIRouter(prefix="/api", tags=["Chat"])
-
-
-
 
 class Message(BaseModel):
     role: str
@@ -25,266 +23,21 @@ class ChatRequest(BaseModel):
     agent: Optional[str] = None
     userId: Optional[str] = None
 
-from app.tools import get_tool, get_all_tools_schema
-
-# --- 工具定义 (Legacy + New Strategy) ---
-LEGACY_TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "approve_request",
-            "description": "批准一个待处理的审批申请（报销或采购）",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "request_id": {"type": "string", "description": "审批单的唯一ID"},
-                    "reason": {"type": "string", "description": "批准的原因（可选）"}
-                },
-                "required": ["request_id"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "reject_request",
-            "description": "驳回一个待处理的审批申请",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "request_id": {"type": "string", "description": "审批单的唯一ID"},
-                    "reason": {"type": "string", "description": "驳回的原因（必须说明）"}
-                },
-                "required": ["request_id", "reason"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_pending_approvals",
-            "description": "获取当前所有待处理的异常审批列表",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_performance_report",
-            "description": "获取指定用户的详细绩效报告",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "user_id": {"type": "string", "description": "用户UUID，若为空则获取当前用户"}
-                }
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "award_badge",
-            "description": "为员工颁发荣誉徽章或奖励",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "user_id": {"type": "string", "description": "员工的唯一ID"},
-                    "badge_name": {"type": "string", "description": "徽章名称，如：销售冠军、拼命三郎"},
-                    "icon": {"type": "string", "description": "图标标识，如：trophy, rocket, fire"}
-                },
-                "required": ["user_id", "badge_name"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_company_stats",
-            "description": "获取公司整体统计数据，如员工总人数、部门分布概况等",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "query_knowledge_base",
-            "description": "查询企业知识库/向量数据库，获取公司政策、业务流程、文档等非结构化数据环境数据",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string", "description": "搜索关键词或问题"}
-                },
-                "required": ["query"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_projects",
-            "description": "获取当前所有进行中的项目列表，用于关联后续的事件记录",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "create_project_event",
-            "description": "在指定的项目中创建一个新的进度事件或关键节点（如：请客吃饭、技术突破、签署合同）",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "project_id": {"type": "string", "description": "项目UUID"},
-                    "title": {"type": "string", "description": "事件标题，如：庆功晚宴"},
-                    "content": {"type": "string", "description": "事件详细描述，包括地点、参与人等"},
-                    "event_type": {"type": "string", "enum": ["milestone", "meeting", "dinner", "task"], "description": "事件类型"}
-                },
-                "required": ["project_id", "title", "content", "event_type"]
-            }
-        }
-    }
-]
-
-# Merge logic: Legacy + New Strategy Tools
-TOOLS = LEGACY_TOOLS + get_all_tools_schema()
+# --- 工具定义 (Strategy Pattern) ---
+# P0 Completed: Tool definitions are now fully dynamic
+TOOLS = get_all_tools_schema()
 
 async def execute_tool(name: str, args: Dict[str, Any], current_user_id: str, config: dict = None) -> str:
-    """执行具体工具逻辑并返回结果文本"""
-    # 1. Try to use New Strategy Pattern first
+    """执行具体工具逻辑并返回结果文本 (Strategy Pattern)"""
     tool_instance = get_tool(name)
     if tool_instance:
         try:
             return await tool_instance.run(args, current_user_id, config)
         except Exception as e:
             return f"工具 {name} 执行失败: {str(e)}"
+    
+    return f"未知工具或工具未注册: {name}"
 
-    # 2. Fallback to Legacy Logic
-    try:
-        if name == "approve_request":
-            req_id = args.get("request_id")
-            result = supabase.table("approval_requests").update({"status": "approved"}).eq("id", req_id).execute()
-            if result.data:
-                try:
-                    target_user = result.data[0].get("submitted_by")
-                    supabase.table("notifications").insert({
-                        "user_id": target_user,
-                        "title": "审批已通过",
-                        "content": f"您的审批申请 {req_id} 已被 AI 批准。",
-                        "type": "success"
-                    }).execute()
-                except: pass
-                return f"成功批准审批单 {req_id}。"
-            return "批准失败，可能单据不存在或已由他人处理。"
-            
-        elif name == "reject_request":
-            req_id = args.get("request_id")
-            reason = args.get("reason", "未说明原因")
-            result = supabase.table("approval_requests").update({"status": "rejected"}).eq("id", req_id).execute()
-            if result.data:
-                try:
-                    target_user = result.data[0].get("submitted_by")
-                    supabase.table("notifications").insert({
-                        "user_id": target_user,
-                        "title": "审批已驳回",
-                        "content": f"您的审批申请 {req_id} 已被驳回。理由：{reason}",
-                        "type": "error"
-                    }).execute()
-                except: pass
-                return f"已成功驳回单据 {req_id}，理由：{reason}。"
-            return "驳回失败。"
-
-        elif name == "get_pending_approvals":
-            result = supabase.table("approval_requests").select("*, users:submitted_by(name)").eq("status", "pending").execute()
-            if not result.data:
-                return "当前没有任何待处理的审批。"
-            items = []
-            for item in result.data:
-                user_name = item.get("users", {}).get("name", "未知用户")
-                items.append(f"ID: {item['id']}, 申请人: {user_name}, 类型: {item['type']}, 金额: ¥{item['amount']}, 描述: {item['description']}")
-            return "待处理清单：\n" + "\n".join(items)
-
-        elif name == "get_performance_report":
-            target_id = args.get("user_id") or current_user_id
-            user_res = supabase.table("users").select("*").eq("id", target_id).maybe_single().execute()
-            if not user_res.data:
-                return f"找不到 ID 为 {target_id} 的用户绩效数据。"
-            
-            user = user_res.data
-            metrics_res = supabase.table("sales_metrics").select("*").eq("user_id", target_id).execute()
-            report = f"用户: {user['name']}\n"
-            report += f"当前得分: {user['score']} | 排名: {user['rank']} | 总奖金: ¥{user['total_bonus']}\n"
-            report += "关键指标:\n"
-            for m in metrics_res.data:
-                report += f"- {m['metric_type']}: {m['value']}\n"
-            return report
-
-        elif name == "award_badge":
-            user_id = args.get("user_id")
-            badge_name = args.get("badge_name")
-            icon = args.get("icon", "sparkles")
-            supabase.table("badges").insert({"user_id": user_id, "name": badge_name, "icon": icon}).execute()
-            supabase.table("notifications").insert({
-                "user_id": user_id,
-                "title": "荣获新徽章！",
-                "content": f"老板为你颁发了「{badge_name}」徽章，继续加油！",
-                "type": "success"
-            }).execute()
-            return f"成功为用户 {user_id} 颁发徽章: {badge_name}"
-
-        elif name == "get_company_stats":
-            count_res = supabase.table("users").select("id", count="exact").execute()
-            total_users = count_res.count if count_res.count is not None else 0
-            dept_res = supabase.table("users").select("department").execute()
-            depts = {}
-            for u in dept_res.data:
-                d = u.get("department", "未分配") or "未分配"
-                depts[d] = depts.get(d, 0) + 1
-            stats = f"公司总人数: {total_users} 人\n分布:\n"
-            for d, c in depts.items(): stats += f"- {d}: {c} 人\n"
-            return stats
-
-        elif name == "query_knowledge_base":
-            query = args.get("query")
-            return await vector_service.search(query, config=config)
-
-        elif name == "get_projects":
-            result = supabase.table("projects").select("id, name, stage").execute()
-            if not result.data:
-                return "暂无进行中的项目。"
-            items = [f"ID: {p['id']} | 名称: {p['name']} | 阶段: {p['stage']}" for p in result.data]
-            return "项目清单：\n" + "\n".join(items)
-
-        elif name == "create_project_event":
-            project_id = args.get("project_id")
-            title = args.get("title")
-            content = args.get("content")
-            event_type = args.get("event_type")
-            
-            result = supabase.table("project_timeline").insert({
-                "project_id": project_id,
-                "title": title,
-                "content": content,
-                "event_type": event_type
-            }).execute()
-            
-            if result.data:
-                return f"成功在项目中创建了事件: {title}。"
-            return "创建失败，请核对项目 ID 是否正确。"
-            
-        return f"未知工具: {name}"
-    except Exception as e:
-        return f"执行工具时发生错误: {str(e)}"
-
-# Re-declare stream_openai_response to use new TOOLS variable implicitly
 async def stream_openai_response(messages: List[dict], config: dict, user_id: str):
     """
     Stream response from OpenAI with tool use support
@@ -345,7 +98,7 @@ async def stream_openai_response(messages: List[dict], config: dict, user_id: st
                                 tool_call_id = tc["id"]
                                 if tc.get("function", {}).get("name"):
                                     tool_name = tc["function"]["name"]
-                                    # yield f"data: {json.dumps({'choices': [{'delta': {'content': f'⚡ AI 正在执行: {tool_name}...'}}]})}\n\n"
+                                    yield f"data: {json.dumps({'choices': [{'delta': {'content': f''}}]})}\n\n" # Frontend handles status update via side-channel if needed, but here we keep it clean
                             
                             if tc.get("function", {}).get("arguments"):
                                 full_tool_call_json += tc["function"]["arguments"]
@@ -358,8 +111,7 @@ async def stream_openai_response(messages: List[dict], config: dict, user_id: st
                         continue
 
                 if has_tool_call:
-                    # yield f"data: {json.dumps({'choices': [{'delta': {'content': '\n\n🛠️ 处理完成，正在生成总结...'}}]})}\n\n"
-                    
+                    # P2 Optimization: We can emit a specific "tool_processing" event here if frontend supports it
                     try:
                         args = json.loads(full_tool_call_json) if full_tool_call_json else {}
                         tool_result = await execute_tool(tool_name, args, user_id, config=config)
