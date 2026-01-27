@@ -24,7 +24,8 @@ class ETLService:
         """
         if not self.api_key:
             raise Exception("AI API Key is missing in environment variables")
-
+            
+        # ... logic ...
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
@@ -40,6 +41,31 @@ class ETLService:
             
             data = response.json()
             return data["choices"][0]["message"]["content"]
+            
+    def _scrub_pii(self, content: str) -> str:
+        """
+        Unified PII scrubbing logic. 
+        Enhances privacy protection for sensitive data before DB storage.
+        """
+        import re
+        # 1. Phone Numbers (Simple 11 digits)
+        content = re.sub(r'(?<!\d)1[3-9]\d{9}(?!\d)', '[PHONE_REDACTED]', content)
+        
+        # 2. Chinese ID Card (18 digits or 17+X)
+        # Matches 18-digit ID cards: 6 (Area) + 8 (DOB) + 4 (Suffix)
+        # Mask the DOB part (8 digits) with asterisks
+        content = re.sub(r'(?<!\d)(\d{6})\d{8}(\d{3}[\dXx])(?!\d)', r'\1********\2', content)
+        
+        # 3. Email Addresses
+        content = re.sub(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', '[EMAIL_REDACTED]', content)
+        
+        # 4. API Keys / Secrets (Heuristic)
+        content = re.sub(r'(?i)(password|passwd|secret|api_key|access_key|token)\s*[:=]\s*[^\s\n,]+', r'\1=[SENSITIVE_REDACTED]', content)
+        
+        # 5. Private Keys
+        content = re.sub(r'-----BEGIN [A-Z ]+ PRIVATE KEY-----[\s\S]*?-----END [A-Z ]+ PRIVATE KEY-----', '[PRIVATE_KEY_REDACTED]', content)
+        
+        return content
 
     async def create_initial_record(self, filename: str, user_id: str, status: str = "pending") -> str:
         """Creates a placeholder record in the database."""
@@ -155,14 +181,8 @@ class ETLService:
                     # Save Logic: If doc_id exists, update it. If not, create new (legacy path)
                     if doc_id:
                         # Scrub PII
-                        def _scrub_pii(content: str) -> str:
-                            import re
-                            content = re.sub(r'(?<!\d)1[3-9]\d{9}(?!\d)', '[PHONE_REDACTED]', content)
-                            content = re.sub(r'(?<!\d)\d{17}[\d|X](?!\d)', '[ID_REDACTED]', content)
-                            content = re.sub(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', '[EMAIL_REDACTED]', content)
-                            return content
-
-                        safe_text = _scrub_pii(text)
+                        safe_text = self._scrub_pii(text)
+                        
                         details["full_text_context"] = safe_text[:100000]
                         
                         await supabase.table("documents").update({
@@ -327,17 +347,7 @@ class ETLService:
         if not supabase:
             raise Exception("Supabase not initialized")
             
-        def _scrub_pii(content: str) -> str:
-            import re
-            # ... (scubbing logic)
-            content = re.sub(r'(?<!\d)1[3-9]\d{9}(?!\d)', '[PHONE_REDACTED]', content)
-            content = re.sub(r'(?<!\d)\d{17}[\d|X](?!\d)', '[ID_REDACTED]', content)
-            content = re.sub(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', '[EMAIL_REDACTED]', content)
-            content = re.sub(r'(?i)(password|passwd|secret|api_key|access_key|token)\s*[:=]\s*[^\s\n,]+', r'\1=[SENSITIVE_REDACTED]', content)
-            content = re.sub(r'-----BEGIN [A-Z ]+ PRIVATE KEY-----[\s\S]*?-----END [A-Z ]+ PRIVATE KEY-----', '[PRIVATE_KEY_REDACTED]', content)
-            return content
-
-        safe_text = _scrub_pii(text)
+        safe_text = self._scrub_pii(text)
         metadata["full_text_context"] = safe_text[:100000] 
 
         record = {

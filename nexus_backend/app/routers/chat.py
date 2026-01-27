@@ -98,14 +98,17 @@ async def stream_openai_response(messages: List[dict], config: dict, user_id: st
             "stream": True,
             "temperature": 0.5
         }
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            async with client.stream("POST", chat_endpoint, headers=headers, json=payload) as response:
-                if response.status_code != 200:
-                    err = await response.aread()
-                    yield f"error: {err.decode()}"
-                    return
-                async for line in response.aiter_lines():
-                    yield line
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                async with client.stream("POST", chat_endpoint, headers=headers, json=payload) as response:
+                    if response.status_code != 200:
+                        err = await response.aread()
+                        yield f"error: AI服务响应异常 ({response.status_code}) - {err.decode()[:200]}"
+                        return
+                    async for line in response.aiter_lines():
+                        yield line
+        except Exception as e:
+            yield f"error: 连接AI服务失败 - {str(e)}"
 
     # Recursive loop for tool execution
     iteration = 0
