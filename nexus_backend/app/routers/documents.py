@@ -3,8 +3,40 @@ from app.services.etl_service import etl_service
 from app.core.database import supabase
 from app.core.auth import get_current_user_id
 from typing import List, Optional
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
+
+class BatchDeleteRequest(BaseModel):
+    document_ids: List[str]
+
+@router.post("/batch-delete")
+async def batch_delete_documents(
+    payload: BatchDeleteRequest,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Batch delete documents and their associated embeddings.
+    """
+    if not payload.document_ids:
+        return {"status": "success", "deleted_count": 0}
+
+    try:
+        # 1. Delete Embeddings (Explicit cleanup, though Cascade should usually handle it)
+        # Using Supabase/PostgREST 'in' filter
+        await supabase.table("document_embeddings").delete().in_("document_id", payload.document_ids).execute()
+        
+        # 2. Delete Documents
+        res = await supabase.table("documents").delete().in_("id", payload.document_ids).execute()
+        
+        if not res.data:
+            # If RLS blocks deletion, this might satisfy 
+            pass
+            
+        return {"status": "success", "deleted_count": len(res.data) if res.data else 0}
+    except Exception as e:
+        print(f"Batch Delete Failed: {e}")
+        raise HTTPException(status_code=500, detail=f"删除失败: {str(e)}")
 
 @router.post("/upload")
 async def upload_documents(

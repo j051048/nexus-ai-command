@@ -8,7 +8,8 @@ import {
     Loader2,
     Calendar,
     Currency,
-    Filter
+    Filter,
+    Trash2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -27,6 +28,10 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
     const [uploadStage, setUploadStage] = useState<'uploading' | 'extracting' | 'indexing'>('uploading');
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState<'all' | 'contract' | 'bid' | 'product'>('all');
+
+    // Selection for Batch Delete
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // Smart Filter States
     const [minAmount, setMinAmount] = useState<string>('');
@@ -57,6 +62,7 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
             }));
 
             setDocuments(formattedDocs);
+            setSelectedIds(new Set()); // Clear selection on refresh
         } catch (error: any) {
             console.error('Fetch error:', error);
         } finally {
@@ -67,6 +73,63 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
     useEffect(() => {
         fetchDocuments();
     }, []);
+
+    const toggleSelect = (id: string) => {
+        const newSet = new Set(selectedIds);
+        if (newSet.has(id)) {
+            newSet.delete(id);
+        } else {
+            newSet.add(id);
+        }
+        setSelectedIds(newSet);
+    };
+
+    const handleBatchDelete = async () => {
+        if (selectedIds.size === 0) return;
+
+        if (!confirm(`确定要删除选中的 ${selectedIds.size} 份文档吗？删除后将无法恢复。`)) {
+            return;
+        }
+
+        setIsDeleting(true);
+        try {
+            // Robust URL Discovery
+            let url = '';
+            const configuredUrl = import.meta.env.VITE_API_BASE_URL;
+            if (configuredUrl) {
+                url = configuredUrl.startsWith('http') ? configuredUrl : `https://${configuredUrl}`;
+            } else {
+                url = window.location.hostname === 'localhost' ? 'http://localhost:8000' : window.location.origin;
+            }
+            const endpoint = `${url.replace(/\/$/, '')}/api/documents/batch-delete`;
+
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': token ? `Bearer ${token}` : `test:${user?.id}`
+                },
+                body: JSON.stringify({
+                    document_ids: Array.from(selectedIds)
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('批量删除失败');
+            }
+
+            toast.success(`已删除 ${selectedIds.size} 份文档`);
+            fetchDocuments();
+        } catch (error) {
+            console.error(error);
+            toast.error('删除操作失败，请重试');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
 
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -105,8 +168,6 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
             if (configuredUrl) {
                 url = configuredUrl.startsWith('http') ? configuredUrl : `https://${configuredUrl}`;
             } else {
-                // Heuristic: If we are on Zeabur/Vercel and calling /api, maybe it's a relative path?
-                // Or try the default aizhz.zeabur.app
                 url = window.location.hostname === 'localhost' ? 'http://localhost:8000' : window.location.origin;
             }
 
@@ -198,6 +259,23 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
                     </p>
                 </div>
                 <div className="flex gap-3">
+                    {/* Delete Button for Boss */}
+                    {isBoss && (
+                        <button
+                            onClick={handleBatchDelete}
+                            disabled={isUploading || isDeleting || selectedIds.size === 0}
+                            className={cn(
+                                "px-5 py-2.5 rounded-xl transition-all flex items-center gap-2",
+                                selectedIds.size > 0
+                                    ? "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-lg shadow-destructive/20"
+                                    : "bg-secondary text-muted-foreground cursor-not-allowed opacity-50"
+                            )}
+                        >
+                            {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                            删除选中 ({selectedIds.size})
+                        </button>
+                    )}
+
                     <input
                         type="file"
                         ref={fileInputRef}
@@ -367,6 +445,9 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
                                     <DocumentCard
                                         key={doc.id}
                                         doc={doc}
+                                        showCheckbox={isBoss}
+                                        isSelected={selectedIds.has(doc.id)}
+                                        onToggleSelect={() => toggleSelect(doc.id)}
                                         onClick={() => {
                                             if ((doc.doc_type === 'bid' || doc.extracted_data?.doc_type === 'bid') && onNavigate) {
                                                 onNavigate('tender-analysis');

@@ -2,22 +2,34 @@ import React from 'react';
 import { FileText, CheckCircle, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AICopilotInsight } from '@/components/common/AICopilotInsight';
+import { Checkbox } from "@/components/ui/checkbox";
 
 import { NexusDocument } from '@/types/nexus';
 
 interface DocumentCardProps {
     doc: NexusDocument;
     onClick: () => void;
+    showCheckbox?: boolean;
+    isSelected?: boolean;
+    onToggleSelect?: () => void;
 }
 
-export function DocumentCard({ doc, onClick }: DocumentCardProps) {
+export function DocumentCard({ doc, onClick, showCheckbox, isSelected, onToggleSelect }: DocumentCardProps) {
     const isCompleted = doc.status === 'completed';
     const isError = doc.status === 'error';
 
     return (
         <div
-            onClick={onClick}
-            className="flex items-center gap-4 p-4 rounded-xl bg-secondary/30 border border-border/50 hover:border-primary/50 transition-all cursor-pointer group hover:bg-secondary/50"
+            onClick={(e) => {
+                // Determine if we are clicking specific interactive elements inside
+                // If checkbox is clicked, don't trigger main click
+                // But checkbox handler usually handles stopPropagation
+                onClick();
+            }}
+            className={cn(
+                "flex items-center gap-4 p-4 rounded-xl bg-secondary/30 border transition-all cursor-pointer group hover:bg-secondary/50",
+                isSelected ? "border-primary bg-primary/5" : "border-border/50 hover:border-primary/50"
+            )}
         >
             <div className={cn(
                 "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105",
@@ -80,6 +92,16 @@ export function DocumentCard({ doc, onClick }: DocumentCardProps) {
                     <p className="text-xs font-bold text-foreground mt-1">¥{doc.extracted_data.amount.toLocaleString()}</p>
                 )}
             </div>
+
+            {showCheckbox && (
+                <div onClick={(e) => e.stopPropagation()} className="pl-2 border-l border-border/50 ml-2">
+                    <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => onToggleSelect?.()}
+                        className="data-[state=checked]:bg-destructive data-[state=checked]:border-destructive"
+                    />
+                </div>
+            )}
         </div>
     );
 }
