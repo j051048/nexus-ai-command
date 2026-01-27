@@ -277,6 +277,11 @@ class ETLService:
             "temperature": 0.2
         }
 
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+
         async def call_ai_model(model_name: str, retries=1) -> Tuple[bool, Any]:
             """Helper to call AI with retry logic"""
             payload["model"] = model_name
@@ -299,8 +304,8 @@ class ETLService:
         
         # 2. Fallback to Stable Model if primary fails
         if not success:
-            print("⚠️ Primary model failed. Falling back to Gemini-1.5-Pro...")
-            success, response_json = await call_ai_model("gemini-1.5-pro")
+            print("⚠️ Primary model failed. Falling back to Gemini-2.5-Pro...")
+            success, response_json = await call_ai_model("gemini-2.5-pro")
 
         if not success or not response_json:
             return False, {"error": "All AI models failed to process the document."}
