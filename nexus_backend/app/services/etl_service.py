@@ -1,6 +1,7 @@
 import httpx
 import json
 import io
+import os
 from pypdf import PdfReader
 from fastapi import UploadFile
 from typing import Tuple, Dict, Any, List
@@ -17,6 +18,11 @@ class ETLService:
         # Normalize Base URL: Ensure it ends with /v1
         base_url = settings.AI_BASE_URL if settings.AI_BASE_URL else "https://api.openai.com/v1"
         self.base_url = base_url.rstrip("/")
+        
+        # RAG Configurable Parameters (Optimization 5)
+        # Defaults: Size=600, Overlap=100
+        self.chunk_size = int(os.getenv("RAG_CHUNK_SIZE", 600))
+        self.chunk_overlap = int(os.getenv("RAG_CHUNK_OVERLAP", 100))
         
     async def _call_ai_raw(self, payload: dict, endpoint: str = "/chat/completions") -> str:
         """
@@ -393,7 +399,8 @@ class ETLService:
             except:
                 return False
 
-        for chunk in self._semantic_chunk(text):
+        # Use new dynamic size and overlap
+        for chunk in self._semantic_chunk(text, size=self.chunk_size, overlap=self.chunk_overlap):
             current_batch_text.append(chunk)
             if len(current_batch_text) >= BATCH_SIZE:
                 if not await _process_batch(current_batch_text):

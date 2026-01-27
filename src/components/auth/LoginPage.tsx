@@ -27,9 +27,9 @@ export function LoginPage() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
+
     const { error } = await signIn(email, password);
-    
+
     if (error) {
       toast({
         title: '登录失败',
@@ -48,10 +48,21 @@ export function LoginPage() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Frontend Validation
+    if (password.length < 6) {
+      toast({
+        title: '密码太短',
+        description: '密码长度至少为6位',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setLoading(true);
-    
+
     const { error } = await signUp(email, password, name, selectedRole);
-    
+
     if (error) {
       toast({
         title: '注册失败',
@@ -61,15 +72,31 @@ export function LoginPage() {
     } else {
       toast({
         title: '注册成功',
-        description: '账号已创建，请登录！',
+        description: '正在为您自动登录...',
       });
+
+      // Auto-login after successful registration
+      const { error: signInError } = await signIn(email, password);
+      if (signInError) {
+        toast({
+          title: '自动登录失败',
+          description: '请手动登录',
+          variant: 'destructive',
+        });
+        // Switch to login tab if auto-login fails (user usually expects this)
+        // But since we don't control the Tabs state from here directly without lifting state, 
+        // effectively they will just stay on the form or we can navigate.
+        // For now, let's keep it simple.
+      } else {
+        navigate('/');
+      }
     }
     setLoading(false);
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email.trim()) {
       toast({
         title: '请输入邮箱',
@@ -80,11 +107,11 @@ export function LoginPage() {
     }
 
     setLoading(true);
-    
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     });
-    
+
     if (error) {
       toast({
         title: '发送失败',
@@ -224,6 +251,7 @@ export function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     className="h-11"
+                    data-testid="login-email-input"
                   />
                 </div>
                 <div className="space-y-2">
@@ -245,12 +273,14 @@ export function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     className="h-11"
+                    data-testid="login-password-input"
                   />
                 </div>
                 <Button
                   type="submit"
                   className="w-full h-11"
                   disabled={loading}
+                  data-testid="login-submit-btn"
                 >
                   {loading ? (
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -274,6 +304,7 @@ export function LoginPage() {
                     onChange={(e) => setName(e.target.value)}
                     required
                     className="h-11"
+                    data-testid="register-name-input"
                   />
                 </div>
                 <div className="space-y-2">
@@ -286,6 +317,7 @@ export function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     required
                     className="h-11"
+                    data-testid="register-email-input"
                   />
                 </div>
                 <div className="space-y-2">
@@ -299,9 +331,10 @@ export function LoginPage() {
                     required
                     minLength={6}
                     className="h-11"
+                    data-testid="register-password-input"
                   />
                 </div>
-                
+
                 {/* Role Selection */}
                 <div className="space-y-2">
                   <Label>角色</Label>
@@ -315,6 +348,7 @@ export function LoginPage() {
                           ? "border-primary bg-primary/10"
                           : "border-border hover:border-primary/50"
                       )}
+                      data-testid="role-employee-btn"
                     >
                       <Users className={cn(
                         "w-6 h-6",
@@ -336,6 +370,7 @@ export function LoginPage() {
                           ? "border-primary bg-primary/10"
                           : "border-border hover:border-primary/50"
                       )}
+                      data-testid="role-boss-btn"
                     >
                       <Briefcase className={cn(
                         "w-6 h-6",
@@ -355,6 +390,7 @@ export function LoginPage() {
                   type="submit"
                   className="w-full h-11"
                   disabled={loading}
+                  data-testid="register-submit-btn"
                 >
                   {loading ? (
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
