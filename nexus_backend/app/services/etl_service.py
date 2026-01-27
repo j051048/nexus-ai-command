@@ -219,7 +219,10 @@ class ETLService:
         {text[:3000]}...
 
         # Output Format (输出格式)
-        请严格按照以下 JSON 格式返回 (不要包含 markdown 代码块):
+        请输出两个独立的部分，严禁将 Markdown 报告包含在 JSON 字段中。
+
+        第一部分：元数据 (JSON)
+        [METADATA_JSON]
         {{
             "doc_type": "bid" | "contract" | "other",
             "client_name": "采购方名称",
@@ -227,15 +230,23 @@ class ETLService:
             "date": "YYYY-MM-DD",
             "tags": ["核心标签"],
             "redlines": ["提取模块2中的核心否决项(简练列表)"],
-            "technical_deviations": ["提取模块3/6中的技术风险点(简练列表)"],
-            "full_analysis_markdown": "请在此字段内，严格按照以下Markdown格式生成完整的分析报告（注意转义换行符）：\\n\\n## 模块 1：项目概况与时间表\\n* **项目名称**：...\\n* **采购单位**：...\\n* **关键时间节点**：...\\n\\n## 模块 2：核心资格要求 (Knock-out Criteria)\\n*列出“一票否决”项：*\\n1. **资质证书**：...\\n2. **业绩要求**：...\\n\\n## 模块 3：采购需求与技术重点\\n...\\n\\n## 模块 4：商务条款与付款方式\\n...\\n\\n## 模块 5：评分标准分析\\n...\\n\\n## 模块 6：风险预警与专家建议\\n..."
+            "technical_deviations": ["提取模块3/6中的技术风险点(简练列表)"]
         }}
+        [/METADATA_JSON]
+
+        第二部分：完整分析报告 (Markdown)
+        [ANALYSIS_REPORT]
+        ## 模块 1：项目概况与时间表
+        ...
+        ## 模块 6：风险预警与专家建议
+        ...
+        [/ANALYSIS_REPORT]
         """
         
         payload = {
-            "model": "gemini-3-pro-preview",
+            "model": "gemini-1.5-pro", # Reverted to stable model for reliability
             "messages": [
-                {"role": "system", "content": "You are a senior Tender Analyst. Output strictly in JSON. Language: Simplified Chinese."},
+                {"role": "system", "content": "You are a senior Tender Analyst. Output structured data."},
                 {"role": "user", "content": prompt}
             ],
             "temperature": 0.2
@@ -243,15 +254,40 @@ class ETLService:
 
         try:
             headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.post(f"{base_url}/chat/completions", headers=headers, json=payload)
                 if response.status_code != 200:
+                    print(f"AI Error: {response.status_code} - {response.text}")
                     return False, {"error": f"AI extraction failed: {response.text}"}
                 
                 content = response.json()["choices"][0]["message"]["content"]
-                # Clean up markdown if AI adds it
-                content = content.replace("```json", "").replace("```", "").strip()
-                return True, json.loads(content)
+                
+                # Extract JSON
+                import re
+                json_match = re.search(r'\[METADATA_JSON\](.*?)\[/METADATA_JSON\]', content, re.DOTALL)
+                report_match = re.search(r'\[ANALYSIS_REPORT\](.*?)\[/ANALYSIS_REPORT\]', content, re.DOTALL)
+                
+                metadata = {}
+                if json_match:
+                    try:
+                        metadata = json.loads(json_match.group(1).strip())
+                    except:
+                        print("JSON Parse Failed")
+                
+                if report_match:
+                    metadata["full_analysis_markdown"] = report_match.group(1).strip()
+                elif not json_match:
+                    # Fallback: if no blocks found, try raw JSON parse (if model ignored instructions)
+                    try:
+                        clean_json = content.replace("```json", "").replace("```", "").strip()
+                        metadata = json.loads(clean_json)
+                    except:
+                         pass
+
+                if not metadata:
+                     raise Exception("Failed to parse AI output format")
+
+                return True, metadata
         except Exception as e:
             print(f"Metadata Extraction Failed: {e}")
             # Fallback metadata
