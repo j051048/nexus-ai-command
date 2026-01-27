@@ -244,7 +244,7 @@ class ETLService:
         """
         
         payload = {
-            "model": "gemini-1.5-pro", # Reverted to stable model for reliability
+            "model": "gemini-3-pro-preview",
             "messages": [
                 {"role": "system", "content": "You are a senior Tender Analyst. Output structured data."},
                 {"role": "user", "content": prompt}
