@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUser } from "@/contexts/UserContext";
 import { AICopilotInsight } from '@/components/common/AICopilotInsight';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 export function TenderAnalysisPage() {
     const { user } = useUser();
@@ -127,7 +129,6 @@ export function TenderAnalysisPage() {
             return;
         }
 
-        // Fallback: 兼容旧数据的拼接逻辑
         const redlines = data.redlines?.map((r: string) => `- 🚨 ${r}`).join('\n') || "- 未发现明显否决性条款";
         const deviations = data.technical_deviations?.map((d: string) => `- ⚠️ ${d}`).join('\n') || "- 未发现明显技术偏离";
         const tags = data.tags?.join(', ') || "无标签";
@@ -141,6 +142,59 @@ export function TenderAnalysisPage() {
             `> *注意：此报告由 AI 生成，仅供参考，请以人工复核为准。*`;
 
         setReport(md);
+    };
+
+    const handleExportPDF = async () => {
+        const element = document.getElementById('analysis-report-content');
+        if (!element || !report) return;
+
+        try {
+            toast.dismiss();
+            toast.info("正在生成 PDF，请稍候...", { duration: 2000 });
+
+            const canvas = await html2canvas(element, {
+                scale: 2, // Higher resolution
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff'
+            });
+
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+
+            const imgWidth = canvas.width;
+            const imgHeight = canvas.height;
+
+            // Scale content to fit PDF width (minus margins)
+            const margin = 10;
+            const contentWidth = pdfWidth - (margin * 2);
+            const contentHeight = (imgHeight * contentWidth) / imgWidth;
+
+            let heightLeft = contentHeight;
+            const pageHeight = pdfHeight - (margin * 2);
+
+            // First page
+            pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, contentHeight);
+            heightLeft -= pageHeight;
+
+            // Add more pages if content is long
+            while (heightLeft > 0) {
+                pdf.addPage();
+                // Simulating page break by just rendering negative offset
+                // Note: Ideally we should slice the canvas, but negative offset is the quick hack for jsPDF
+                pdf.addImage(imgData, 'PNG', margin, margin - (contentHeight - heightLeft), contentWidth, contentHeight);
+                heightLeft -= pageHeight;
+            }
+
+            pdf.save(`${file?.name || '标书分析报告'}_analysis.pdf`);
+            toast.success("PDF 已下载");
+
+        } catch (error) {
+            console.error("PDF Export Error:", error);
+            toast.error("PDF 生成失败");
+        }
     };
 
     return (
@@ -216,19 +270,19 @@ export function TenderAnalysisPage() {
                                 <FileText className="w-5 h-5" />
                                 诊断报告
                             </CardTitle>
-                            <Button variant="outline" size="sm" onClick={() => toast.success("报告已导出")}>
+                            <Button variant="outline" size="sm" onClick={handleExportPDF}>
                                 导出 PDF
                             </Button>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent id="analysis-report-content" className="bg-background p-6 rounded-lg border shadow-sm mx-6 mb-6">
                             <AICopilotInsight
                                 title="标书深度分析结论"
-                                context="基于 GPT-4o 的全文扫描与条款比对"
+                                context="基于 Gemini-3 Pro 的全文扫描与条款比对"
                                 insights={[]}
-                                className="border-0 shadow-none bg-transparent p-0"
+                                className="border-0 shadow-none bg-transparent p-0 mb-4"
                             />
-                            <div className="markdown-body prose dark:prose-invert max-w-none mt-4 p-4 bg-background rounded-lg border shadow-sm">
-                                <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
+                            <div className="markdown-body prose dark:prose-invert max-w-none">
+                                <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
                                     {report}
                                 </pre>
                             </div>
