@@ -31,11 +31,11 @@ export function AIWeeklyReport({ report }: AIWeeklyReportProps) {
                     <p className="text-xs sm:text-sm text-muted-foreground">预计本周现金流</p>
                     <div className="flex items-baseline gap-2 flex-wrap">
                         <span className="text-2xl sm:text-3xl font-bold text-foreground mono-number">
-                            ¥{(report.cashFlow / 10000).toFixed(0)}万
+                            ¥{((report.cashFlow || 0) / 10000).toFixed(0)}万
                         </span>
                         <span className="flex items-center text-success text-sm">
                             <TrendingUp className="w-4 h-4" />
-                            {report.cashFlowTrend}%
+                            {report.cashFlowTrend || 0}%
                         </span>
                     </div>
                 </div>

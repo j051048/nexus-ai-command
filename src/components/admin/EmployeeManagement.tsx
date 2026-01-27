@@ -36,6 +36,7 @@ import {
   useEmployeeStats,
   Employee,
 } from '@/hooks/useEmployeeManagement';
+import { useAuth } from '@/components/auth/AuthContext';
 
 import { EmployeeDetail } from './EmployeeDetail';
 
@@ -54,6 +55,7 @@ export function EmployeeManagement({ onProjectSelect }: EmployeeManagementProps)
   const { data: employees, isLoading } = useAllEmployees();
   const transferData = useTransferEmployeeData();
   const deleteEmployee = useDeleteEmployee();
+  const { user } = useAuth();
 
   // If viewing details, show detail component
   if (viewingEmployee) {
@@ -101,10 +103,20 @@ export function EmployeeManagement({ onProjectSelect }: EmployeeManagementProps)
     e.department?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const otherEmployees = employees?.filter(e => e.user_id !== selectedEmployee?.user_id);
+  const otherEmployees = employees?.filter(e =>
+    e.user_id !== selectedEmployee?.user_id &&
+    e.user_id !== user?.id
+  );
 
   const handleDelete = async () => {
     if (!selectedEmployee) return;
+
+    // Safety check: Prevent self-deletion
+    if (user && selectedEmployee.user_id === user.id) {
+      toast.error('操作禁止：无法删除当前登录账号');
+      setShowDeleteDialog(false);
+      return;
+    }
 
     try {
       await deleteEmployee.mutateAsync(selectedEmployee.user_id);
