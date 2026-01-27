@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileSearch, Bot, Loader2, Upload, AlertCircle, CheckCircle2 } from "lucide-react";
+import { ListChecks, Bot, Loader2, Upload, AlertCircle, CheckCircle2, FileText, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUser } from "@/contexts/UserContext";
+import { AICopilotInsight } from '@/components/common/AICopilotInsight';
 
 export function TenderAnalysisPage() {
     const { user } = useUser();
@@ -14,6 +15,8 @@ export function TenderAnalysisPage() {
     const [analyzing, setAnalyzing] = useState(false);
     const [currentStep, setCurrentStep] = useState(0);
     const [report, setReport] = useState<string | null>(null);
+    const [docId, setDocId] = useState<string | null>(null);
+    const [progress, setProgress] = useState(0);
 
     const steps = [
         "上传并建立索引...",
@@ -27,6 +30,8 @@ export function TenderAnalysisPage() {
             setFile(e.target.files[0]);
             setReport(null);
             setCurrentStep(0);
+            setDocId(null);
+            setProgress(0);
         }
     };
 
@@ -34,11 +39,11 @@ export function TenderAnalysisPage() {
         if (!file) return;
         setAnalyzing(true);
         setCurrentStep(0);
+        setProgress(0);
+        setReport(null);
 
         try {
             // Step 1: Upload
-            await new Promise(r => setTimeout(r, 1000));
-            setCurrentStep(1);
             const formData = new FormData();
             formData.append('files', file);
 
@@ -54,29 +59,85 @@ export function TenderAnalysisPage() {
             });
             const uploadData = await uploadRes.json();
 
-            if (uploadData.results && uploadData.results[0].status === 'success') {
-                // Step 2 & 3: AI Logic (Mocking steps for UX)
-                await new Promise(r => setTimeout(r, 1500));
-                setCurrentStep(2);
-                await new Promise(r => setTimeout(r, 2000));
-                setCurrentStep(3);
-                await new Promise(r => setTimeout(r, 1000));
-
-                setReport(`### 📋 标书分析报告 - ${file.name}\n\n#### 🚨 否决性条款 (Redlines)\n- 1.1 必须具备省级以上实验室认证（风险：目前我们资质申请中）。\n- 2.3 必须支持 24 小时本地化到场服务（满足：已有服务点）。\n\n#### 🛠️ 技术偏离建议\n- 建议在附件3中注明我们的 ZY-200 兼容 ZY-100 的所有参数并优于原型号。`);
-                setAnalyzing(false);
-                toast.success("AI 诊断完成");
+            if (uploadData.results && uploadData.results[0].document_id) {
+                setDocId(uploadData.results[0].document_id);
+                toast.info("文档已上传，AI 分析启动...");
+            } else {
+                throw new Error("Upload failed to return document ID");
             }
+
         } catch (error) {
-            toast.error("分析失败，请检查网络");
+            console.error(error);
+            toast.error("上传失败，请检查网络");
             setAnalyzing(false);
         }
+    };
+
+    // Polling for Progress
+    useEffect(() => {
+        if (!docId || !analyzing) return;
+
+        const interval = setInterval(async () => {
+            const { data, error } = await supabase
+                .from('documents')
+                .select('status, progress, stage, extracted_data')
+                .eq('id', docId)
+                .single();
+
+            if (error) {
+                console.error("Polling error:", error);
+                return;
+            }
+
+            if (data) {
+                const prog = data.progress || 0;
+                setProgress(prog);
+
+                // Map Progress to Steps
+                if (prog < 30) setCurrentStep(0);
+                else if (prog < 60) setCurrentStep(1);
+                else if (prog < 90) setCurrentStep(2);
+                else setCurrentStep(3);
+
+                if (data.status === 'ready' || data.status === 'success') {
+                    clearInterval(interval);
+                    generateReport(data.extracted_data);
+                    setAnalyzing(false);
+                    toast.success("AI 诊断完成");
+                } else if (data.status === 'failed' || data.status === 'error') {
+                    clearInterval(interval);
+                    setAnalyzing(false);
+                    toast.error("AI 分析过程中发生错误");
+                }
+            }
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [docId, analyzing]);
+
+    const generateReport = (data: any) => {
+        if (!data) return;
+
+        const redlines = data.redlines?.map((r: string) => `- 🚨 ${r}`).join('\n') || "- 未发现明显否决性条款";
+        const deviations = data.technical_deviations?.map((d: string) => `- ⚠️ ${d}`).join('\n') || "- 未发现明显技术偏离";
+        const tags = data.tags?.join(', ') || "无标签";
+
+        const md = `### 📋 标书分析报告 - ${file?.name}\n\n` +
+            `**文档类型**: ${data.doc_type || '未知'}\n` +
+            `**摘要**: ${data.summary || '无摘要'}\n` +
+            `**标签**: ${tags}\n\n` +
+            `#### 🚨 否决性条款 (Redlines)\n${redlines}\n\n` +
+            `#### 🛠️ 技术偏离建议 (Deviations)\n${deviations}\n\n` +
+            `> *注意：此报告由 AI 生成，仅供参考，请以人工复核为准。*`;
+
+        setReport(md);
     };
 
     return (
         <div className="space-y-6 max-w-5xl mx-auto pb-20">
             <div className="flex flex-col gap-2">
                 <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-                    <FileSearch className="w-8 h-8 text-primary" />
+                    <ListChecks className="w-8 h-8 text-primary" />
                     智能标书审阅
                 </h1>
                 <p className="text-muted-foreground">基于 AI 专家系统，快速识别招标文件中的扣分项与否决项</p>
@@ -99,81 +160,71 @@ export function TenderAnalysisPage() {
                             accept=".pdf,.doc,.docx"
                             onChange={handleFileChange}
                         />
-                        <Button variant="outline" onClick={() => document.getElementById('tender-input')?.click()}>
-                            {file ? "重新上传" : "选择文件"}
+                        <Button variant={file ? "default" : "secondary"} onClick={() => document.getElementById('tender-input')?.click()}>
+                            {file ? "重新选择" : "选择文件"}
                         </Button>
+
                         {file && (
-                            <Button
-                                className="w-full mt-4 bg-primary glow-primary"
-                                onClick={handleStartAnalysis}
-                                disabled={analyzing}
-                            >
+                            <Button className="w-full mt-4" onClick={handleStartAnalysis} disabled={analyzing}>
                                 {analyzing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Bot className="w-4 h-4 mr-2" />}
-                                开始 AI 诊断
+                                {analyzing ? "AI 分析中..." : "开始 AI 诊断"}
                             </Button>
                         )}
                     </CardContent>
                 </Card>
 
-                <Card className="md:col-span-2 min-h-[400px] relative overflow-hidden">
-                    <CardHeader className="border-b bg-muted/30">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <Bot className="w-4 h-4" /> AI 诊断结果
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-6">
-                        {analyzing ? (
-                            <div className="flex flex-col items-center justify-center h-64 gap-6">
-                                <div className="space-y-4 w-full max-w-sm">
-                                    <div className="flex justify-between text-xs font-semibold text-primary">
-                                        <span>AI 诊断进度</span>
-                                        <span>{Math.round(((currentStep + 1) / steps.length) * 100)}%</span>
+                {analyzing && (
+                    <Card className="md:col-span-2">
+                        <CardHeader>
+                            <CardTitle>AI 处理进度 ({progress}%)</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="space-y-4">
+                                {steps.map((step, index) => (
+                                    <div key={index} className="flex items-center gap-3">
+                                        {index < currentStep ? (
+                                            <CheckCircle2 className="w-5 h-5 text-green-500" />
+                                        ) : index === currentStep ? (
+                                            <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                                        ) : (
+                                            <div className="w-5 h-5 rounded-full border-2 border-muted" />
+                                        )}
+                                        <span className={index === currentStep ? "font-medium text-foreground" : "text-muted-foreground"}>
+                                            {step}
+                                        </span>
                                     </div>
-                                    <div className="w-full bg-muted h-2 rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full bg-primary transition-all duration-500 ease-out"
-                                            style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
-                                        />
-                                    </div>
-                                    <ul className="space-y-2">
-                                        {steps.map((step, idx) => (
-                                            <li key={idx} className={`flex items-center gap-2 text-sm transition-opacity ${idx > currentStep ? 'opacity-30' : 'opacity-100'}`}>
-                                                {idx < currentStep ? (
-                                                    <CheckCircle2 className="w-4 h-4 text-success" />
-                                                ) : idx === currentStep ? (
-                                                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                                                ) : (
-                                                    <div className="w-4 h-4 rounded-full border border-muted" />
-                                                )}
-                                                <span className={idx === currentStep ? 'font-bold text-primary' : ''}>{step}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
+                                ))}
                             </div>
-                        ) : report ? (
-                            <div className="prose prose-sm dark:prose-invert max-w-none animate-in fade-in duration-700">
-                                <div className="bg-success/10 border border-success/20 p-4 rounded-xl mb-6 flex items-start gap-3">
-                                    <CheckCircle2 className="w-5 h-5 text-success mt-0.5" />
-                                    <div>
-                                        <h4 className="font-bold text-success mb-1">扫描完成</h4>
-                                        <p className="text-xs text-success/80">发现了 2 处高风险条款，建议重点关注。</p>
-                                    </div>
-                                </div>
-                                <div className="p-6 bg-secondary/20 rounded-2xl border border-border">
-                                    <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
-                                        {report}
-                                    </pre>
-                                </div>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {report && !analyzing && (
+                    <Card className="md:col-span-2 bg-muted/30">
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle className="flex items-center gap-2">
+                                <FileText className="w-5 h-5" />
+                                诊断报告
+                            </CardTitle>
+                            <Button variant="outline" size="sm" onClick={() => toast.success("报告已导出")}>
+                                导出 PDF
+                            </Button>
+                        </CardHeader>
+                        <CardContent>
+                            <AICopilotInsight
+                                title="标书深度分析结论"
+                                context="基于 GPT-4o 的全文扫描与条款比对"
+                                insights={[]}
+                                className="border-0 shadow-none bg-transparent p-0"
+                            />
+                            <div className="markdown-body prose dark:prose-invert max-w-none mt-4 p-4 bg-background rounded-lg border shadow-sm">
+                                <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
+                                    {report}
+                                </pre>
                             </div>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center h-64 text-muted-foreground space-y-4 opacity-50">
-                                <AlertCircle className="w-12 h-12" />
-                                <p>请先在左侧上传招标文档，AI 专家将即刻为您诊断</p>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
         </div>
     );
