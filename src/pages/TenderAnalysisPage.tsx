@@ -19,6 +19,7 @@ export function TenderAnalysisPage() {
     const [report, setReport] = useState<string | null>(null);
     const [docId, setDocId] = useState<string | null>(null);
     const [progress, setProgress] = useState(0);
+    const [analysisStartTime, setAnalysisStartTime] = useState(0);
 
     const steps = [
         "上传并建立索引...",
@@ -43,6 +44,7 @@ export function TenderAnalysisPage() {
         setCurrentStep(0);
         setProgress(0);
         setReport(null);
+        setAnalysisStartTime(Date.now());
 
         try {
             // Step 1: Upload
@@ -112,6 +114,10 @@ export function TenderAnalysisPage() {
                     clearInterval(interval);
                     setAnalyzing(false);
                     toast.error("AI 分析过程中发生错误");
+                } else if (Date.now() - analysisStartTime > 180000) { // 3 minutes timeout
+                    clearInterval(interval);
+                    setAnalyzing(false);
+                    toast.error("AI 分析响应超时，请重试");
                 }
             }
         }, 1000);

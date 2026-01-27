@@ -244,51 +244,72 @@ class ETLService:
         """
         
         payload = {
-            "model": "gemini-3-pro-preview",
-            "messages": [
+             "messages": [
                 {"role": "system", "content": "You are a senior Tender Analyst. Output structured data."},
                 {"role": "user", "content": prompt}
             ],
             "temperature": 0.2
         }
 
+        async def call_ai_model(model_name: str, retries=1) -> Tuple[bool, Any]:
+            """Helper to call AI with retry logic"""
+            payload["model"] = model_name
+            try:
+                print(f"Attempting AI Analysis with model: {model_name}...")
+                async with httpx.AsyncClient(timeout=90.0) as client:
+                    response = await client.post(f"{base_url}/chat/completions", headers=headers, json=payload)
+                    
+                    if response.status_code != 200:
+                        print(f"Model {model_name} failed: {response.status_code} - {response.text}")
+                        return False, None
+                    
+                    return True, response.json()
+            except Exception as e:
+                print(f"Model {model_name} processing error: {str(e)}")
+                return False, None
+
+        # 1. Try Primary Model (Bleeding Edge)
+        success, response_json = await call_ai_model("gemini-3-pro-preview")
+        
+        # 2. Fallback to Stable Model if primary fails
+        if not success:
+            print("⚠️ Primary model failed. Falling back to Gemini-1.5-Pro...")
+            success, response_json = await call_ai_model("gemini-1.5-pro")
+
+        if not success or not response_json:
+            return False, {"error": "All AI models failed to process the document."}
+
         try:
-            headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                response = await client.post(f"{base_url}/chat/completions", headers=headers, json=payload)
-                if response.status_code != 200:
-                    print(f"AI Error: {response.status_code} - {response.text}")
-                    return False, {"error": f"AI extraction failed: {response.text}"}
-                
-                content = response.json()["choices"][0]["message"]["content"]
-                
-                # Extract JSON
-                import re
-                json_match = re.search(r'\[METADATA_JSON\](.*?)\[/METADATA_JSON\]', content, re.DOTALL)
-                report_match = re.search(r'\[ANALYSIS_REPORT\](.*?)\[/ANALYSIS_REPORT\]', content, re.DOTALL)
-                
-                metadata = {}
-                if json_match:
-                    try:
-                        metadata = json.loads(json_match.group(1).strip())
-                    except:
-                        print("JSON Parse Failed")
-                
-                if report_match:
-                    metadata["full_analysis_markdown"] = report_match.group(1).strip()
-                elif not json_match:
-                    # Fallback: if no blocks found, try raw JSON parse (if model ignored instructions)
-                    try:
-                        clean_json = content.replace("```json", "").replace("```", "").strip()
-                        metadata = json.loads(clean_json)
-                    except:
-                         pass
+            content = response_json["choices"][0]["message"]["content"]
+            
+            # Extract JSON
+            import re
+            json_match = re.search(r'\[METADATA_JSON\](.*?)\[/METADATA_JSON\]', content, re.DOTALL)
+            report_match = re.search(r'\[ANALYSIS_REPORT\](.*?)\[/ANALYSIS_REPORT\]', content, re.DOTALL)
+            
+            metadata = {}
+            if json_match:
+                try:
+                    metadata = json.loads(json_match.group(1).strip())
+                except:
+                    print("JSON Parse Failed")
+            
+            if report_match:
+                metadata["full_analysis_markdown"] = report_match.group(1).strip()
+            elif not json_match:
+                # Fallback: if no blocks found, try raw JSON parse (if model ignored instructions)
+                try:
+                    clean_json = content.replace("```json", "").replace("```", "").strip()
+                    metadata = json.loads(clean_json)
+                except:
+                        pass
 
-                if not metadata:
-                     raise Exception("Failed to parse AI output format")
+            if not metadata:
+                    raise Exception("Failed to parse AI output format")
 
-                return True, metadata
+            return True, metadata
         except Exception as e:
+
             print(f"Metadata Extraction Failed: {e}")
             # Fallback metadata
             return True, {
