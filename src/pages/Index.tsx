@@ -70,6 +70,8 @@ function AppContent() {
         return <routes.DocumentsPage onNavigate={(nav) => setActiveNav(nav)} />;
       case 'settings':
         return <routes.AISettingsPanel />;
+      case 'employees':
+        return <routes.EmployeeManagement />;
       default:
         return <EmployeeDashboard />;
     }
