@@ -208,34 +208,39 @@ class ETLService:
         Supports Tender Analysis (Redlines, Deviations) for 'bid' type documents.
         """
         prompt = f"""
-        You are an expert document analyst. Analyze the following document snippet (first 3000 chars) and extract key metadata in STRICT JSON format.
+        你是一位经验丰富的招投标专家。请分析以下招标文件片段（前3000字符），并提取关键元数据和风险点。
         
-        Filename: {filename}
-        Content Snippet:
+        【重要要求】
+        1. **必须完全使用简体中文回复，不要使用英文**。
+        2. **否决性条款 (Redlines)**：请重点关注“投标人资格要求”、“实质性响应条件”或“废标条款”。
+           - ❌ 忽略通用的法律套话（如“具有独立承担民事责任的能力”、“良好的商业信誉”等对正常企业无门槛的条款）。
+           - ✅ **只提取具体的、有门槛的硬性要求**（例如：“必须具备CMMI5级证书”、“注册资金需超过2000万”、“项目经理需具备PMP证书且社保在缴半年以上”、“必须提供原厂授权函”等）。
+        3. **技术偏离风险**：识别任何可能导致扣分或难以满足的特殊技术参数或商务要求。
+        
+        文件名: {filename}
+        文件内容片段:
         {text[:3000]}...
 
-        Required JSON Structure:
+        请严格按照以下 JSON 格式返回 (不要包含 markdown 代码块):
         {{
-            "doc_type": "contract" | "bid" | "product" | "other",
-            "summary": "One sentence summary of the document",
-            "client_name": "Name of client/company if applicable, else null",
-            "amount": number or null (if contract/bid amount found),
-            "date": "YYYY-MM-DD" or null (if signing/document date found),
-            "tags": ["tag1", "tag2"],
-            "redlines": ["List of critical veto/blocking clauses found (only if doc_type is bid/contract)"],
-            "technical_deviations": ["List of potential technical parameter deviations (only if doc_type is bid)"]
+            "doc_type": "bid" | "contract" | "other",
+            "summary": "一句话概括项目核心采购内容（如：某单位采购某设备项目，预算多少）",
+            "client_name": "采购方/甲方名称 (如果找不到则填 null)",
+            "amount": 数字 (预算金额/中标金额) 或 null,
+            "date": "YYYY-MM-DD" (文件日期) 或 null,
+            "tags": ["核心标签1", "核心标签2"],
+            "redlines": ["否决项1", "否决项2"],
+            "technical_deviations": ["风险点1", "风险点2"]
         }}
-
-        Return ONLY the JSON string. Do not include markdown code blocks.
         """
         
         payload = {
-            "model": "gpt-4o",
+            "model": "gemini-3-pro-preview",
             "messages": [
-                {"role": "system", "content": "You are a precise JSON extractor. Focus on identifying risks in tender/contracts."},
+                {"role": "system", "content": "You are a senior Tender Analyst. Output strictly in JSON. Language: Simplified Chinese."},
                 {"role": "user", "content": prompt}
             ],
-            "temperature": 0.1
+            "temperature": 0.2
         }
 
         try:
@@ -254,11 +259,11 @@ class ETLService:
             # Fallback metadata
             return True, {
                 "doc_type": "other", 
-                "summary": "AI extraction failed, manual review required.",
+                "summary": "AI 解析失败，请手动审阅。",
                 "client_name": None,
                 "amount": 0,
                 "date": None,
-                "tags": ["auto-fallback"],
+                "tags": ["解析失败"],
                 "redlines": [],
                 "technical_deviations": []
             }
