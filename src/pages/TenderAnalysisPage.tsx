@@ -78,19 +78,21 @@ export function TenderAnalysisPage() {
         if (!docId || !analyzing) return;
 
         const interval = setInterval(async () => {
-            const { data, error } = await supabase
+            const { data, error } = await (supabase as any)
                 .from('documents')
                 .select('status, progress, stage, extracted_data')
                 .eq('id', docId)
                 .single();
+
+            const doc = data;
 
             if (error) {
                 console.error("Polling error:", error);
                 return;
             }
 
-            if (data) {
-                const prog = data.progress || 0;
+            if (doc) {
+                const prog = doc.progress || 0;
                 setProgress(prog);
 
                 // Map Progress to Steps
@@ -99,12 +101,12 @@ export function TenderAnalysisPage() {
                 else if (prog < 90) setCurrentStep(2);
                 else setCurrentStep(3);
 
-                if (data.status === 'ready' || data.status === 'success') {
+                if (doc.status === 'ready' || doc.status === 'success') {
                     clearInterval(interval);
-                    generateReport(data.extracted_data);
+                    generateReport(doc.extracted_data);
                     setAnalyzing(false);
                     toast.success("AI 诊断完成");
-                } else if (data.status === 'failed' || data.status === 'error') {
+                } else if (doc.status === 'failed' || doc.status === 'error') {
                     clearInterval(interval);
                     setAnalyzing(false);
                     toast.error("AI 分析过程中发生错误");
@@ -113,11 +115,19 @@ export function TenderAnalysisPage() {
         }, 1000);
 
         return () => clearInterval(interval);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [docId, analyzing]);
 
     const generateReport = (data: any) => {
         if (!data) return;
 
+        // 优先使用后端生成的高质量 Markdown 报告
+        if (data.full_analysis_markdown) {
+            setReport(data.full_analysis_markdown);
+            return;
+        }
+
+        // Fallback: 兼容旧数据的拼接逻辑
         const redlines = data.redlines?.map((r: string) => `- 🚨 ${r}`).join('\n') || "- 未发现明显否决性条款";
         const deviations = data.technical_deviations?.map((d: string) => `- ⚠️ ${d}`).join('\n') || "- 未发现明显技术偏离";
         const tags = data.tags?.join(', ') || "无标签";
