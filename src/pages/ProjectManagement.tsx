@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,23 +20,19 @@ interface Project {
     created_at: string;
 }
 
-interface ProjectManagementProps {
-    onProjectSelect: (id: string) => void;
-}
+import { useNavigate } from "react-router-dom";
 
-export function ProjectManagement({ onProjectSelect }: ProjectManagementProps) {
+export function ProjectManagement() {
     const { user } = useUser();
+    const navigate = useNavigate();
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
     const [aiPrompt, setAiPrompt] = useState("");
     const [isAiCreating, setIsAiCreating] = useState(false);
 
-    // Define fetchProjects as a useCallback or inside useEffect
-    // To keep it simple, defining it inside useEffect is safer for dependencies
-    // But we use it in subscription callback. So let's define it using useCallback or just outside.
-    // Actually, we can move it inside and reference it? No.
+    // ... (rest of the logic remains same until card click)
 
-    const fetchProjects = async () => {
+    const fetchProjects = useCallback(async () => {
         try {
             if (!user) return;
             // Use our API or Supabase directly. Let's use Supabase directly for simplicity in this component
@@ -60,7 +56,8 @@ export function ProjectManagement({ onProjectSelect }: ProjectManagementProps) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [user]);
+
 
     useEffect(() => {
         fetchProjects();
@@ -76,7 +73,7 @@ export function ProjectManagement({ onProjectSelect }: ProjectManagementProps) {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [user]); // depend on user object
+    }, [user, fetchProjects]); // depend on user object and fetchProjects function
 
 
     const handleAiCreate = async () => {
@@ -98,10 +95,6 @@ export function ProjectManagement({ onProjectSelect }: ProjectManagementProps) {
             // Get real session token
             const { data: { session } } = await supabase.auth.getSession();
             const token = session?.access_token;
-
-            // Dispatch to global chat panel event listener if available (for better UX)
-            // But since we want to ensure the logic works even without global state:
-            // We'll call the API here to trigger the tool, then refresh the list.
 
             const response = await fetch(endpoint, {
                 method: 'POST',
@@ -215,7 +208,7 @@ export function ProjectManagement({ onProjectSelect }: ProjectManagementProps) {
                     {projects.map((project) => (
                         <Card
                             key={project.id}
-                            onClick={() => onProjectSelect(project.id)}
+                            onClick={() => navigate(`/projects/${project.id}`)}
                             className="group hover:shadow-lg transition-all border-border/50 hover:border-primary/50 cursor-pointer overflow-hidden relative"
                         >
                             <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-primary to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />

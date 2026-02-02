@@ -107,6 +107,8 @@ export function useAllApprovals(statusFilter: string = 'all') {
   });
 }
 
+import { aiClient } from '@/api/aiClient';
+
 export function useSubmitApproval() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -120,38 +122,18 @@ export function useSubmitApproval() {
       let aiReason = '正在等待系统分析...';
 
       try {
-        let baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://aizhz.zeabur.app';
-        if (!baseUrl.startsWith('http')) baseUrl = `https://${baseUrl}`;
-
-        // P0: Secure Identity Verification
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
-
-        const response = await fetch(`${baseUrl}/api/approval/process`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': token ? `Bearer ${token}` : `test:${user.id}`
-          },
-          body: JSON.stringify({
-            requester_id: user.id,
-            type: payload.type,
-            amount: payload.amount,
-            details: payload.description
-          })
+        const result = await aiClient.processApproval({
+          requester_id: user.id,
+          type: payload.type,
+          amount: payload.amount,
+          details: payload.description
         });
 
-        if (response.ok) {
-          const result = await response.json();
-          decision = result.decision === 'auto_approved' ? 'approved' : 'pending';
-          aiReason = result.reason;
-        } else {
-          console.warn('AI Orchestration layer unavailable, falling back to manual review');
-          aiReason = 'AI 服务暂时下线，已转入人工审批队列';
-        }
+        decision = result.decision === 'auto_approved' ? 'approved' : 'pending';
+        aiReason = result.reason;
       } catch (err) {
-        console.error('AI Analysis failed:', err);
-        aiReason = '分析引擎连接失败，已转入人工审批队列';
+        console.warn('AI Orchestration layer unavailable or failed:', err);
+        aiReason = 'AI 服务暂时下线，已转入人工审批队列';
       }
 
       const { data, error } = await supabase

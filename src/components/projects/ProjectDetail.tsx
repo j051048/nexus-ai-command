@@ -16,13 +16,27 @@ import {
 import { cn } from '@/lib/utils';
 import { useProjectDetail, ProjectTimeline } from '@/hooks/useProjects';
 
+import { useNavigate, useParams } from 'react-router-dom';
+
 interface ProjectDetailProps {
-    projectId: string;
-    onBack: () => void;
+    projectId?: string;
+    onBack?: () => void;
 }
 
-export function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
+export function ProjectDetail({ projectId: propId, onBack: propOnBack }: ProjectDetailProps) {
+    const { id: paramId } = useParams();
+    const navigate = useNavigate();
+
+    // Prioritize prop (if embedded) -> param
+    const projectId = propId || paramId || '';
+    const onBack = propOnBack || (() => navigate(-1));
+
     const { project, timeline, loading } = useProjectDetail(projectId);
+
+    // Ensure we have an ID
+    if (!projectId) {
+        return <div>Error: Project ID missing</div>;
+    }
 
     if (loading || !project) {
         return (

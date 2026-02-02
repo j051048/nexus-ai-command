@@ -67,7 +67,7 @@ class VectorService:
         async def run_keyword_search():
              try:
                  # Use inner join-like filter on documents owner_id
-                 query_builder = supabase.table("document_embeddings").select("*, documents!inner(owner_id)").eq("documents.owner_id", user_id).textSearch("fts", query, config="simple")
+                 query_builder = supabase.table("document_embeddings").select("*, documents!inner(owner_id)").eq("documents.owner_id", user_id).text_search("fts", query, config="simple")
                  
                  # Apply Metadata Filters for Keyword Search
                  if filters:

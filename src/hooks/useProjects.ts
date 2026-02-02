@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Project, ProjectTimeline } from '@/types/nexus';
+export type { ProjectTimeline };
 
 export function useProjects() {
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
 
-    const fetchProjects = async () => {
+    const fetchProjects = useCallback(async () => {
         setLoading(true);
         const { data, error } = await (supabase
             .from('projects' as any)
@@ -22,11 +23,11 @@ export function useProjects() {
             setProjects(mapped as Project[]);
         }
         setLoading(false);
-    };
+    }, []);
 
     useEffect(() => {
         fetchProjects();
-    }, []);
+    }, [fetchProjects]);
 
     return { projects, loading, refresh: fetchProjects };
 }

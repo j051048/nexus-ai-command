@@ -5,27 +5,42 @@ import { AIChatPanel } from '../ai/AIChatPanel';
 import { useUser } from '@/contexts/UserContext';
 import { Menu, X } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
-
-interface MainLayoutProps {
-  children: React.ReactNode;
-  activeNav: string;
-  onNavChange: (nav: string) => void;
-}
-
 import { NotificationCenter } from '../common/NotificationCenter';
+import { useLocation } from 'react-router-dom';
 
 interface MainLayoutProps {
   children: React.ReactNode;
-  activeNav: string;
-  onNavChange: (nav: string) => void;
 }
 
-export function MainLayout({ children, activeNav, onNavChange }: MainLayoutProps) {
+export function MainLayout({ children }: MainLayoutProps) {
   const { user } = useUser();
   const [isChatExpanded, setIsChatExpanded] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCardsOpen, setIsCardsOpen] = useState(false);
   const isMobile = useIsMobile();
+  const location = useLocation();
+
+  // Simple mapping for titles based on path
+  const getPageTitle = () => {
+    const path = location.pathname;
+    if (path.includes('boss-dashboard')) return '总控中心';
+    if (path.includes('dashboard')) return '战绩中心';
+    if (path.includes('sales')) return '销售管道';
+    if (path.includes('projects')) return '项目管理';
+    if (path.includes('tender-analysis')) return '标书审阅';
+    if (path.includes('battlecards')) return '竞品库';
+    if (path.includes('target-dashboard')) return '目标看板';
+    if (path.includes('approval')) return '智能审批';
+    if (path.includes('knowledge')) return '知识库';
+    if (path.includes('documents')) return '文档中心';
+    if (path.includes('rewards')) return '激励钱包';
+    if (path.includes('settings')) return '系统设置';
+    if (path.includes('employees')) return '员工管理';
+    if (path.includes('exceptions')) return '异常待办';
+    if (path.includes('targets')) return '目标管理';
+
+    return 'Nexus OS';
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -50,13 +65,13 @@ export function MainLayout({ children, activeNav, onNavChange }: MainLayoutProps
       {isMobile && isSidebarOpen && (
         <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setIsSidebarOpen(false)}>
           <div className="w-64 h-full" onClick={(e) => e.stopPropagation()}>
-            <Sidebar activeNav={activeNav} onNavChange={(nav) => { onNavChange(nav); setIsSidebarOpen(false); }} />
+            <Sidebar onNavClick={() => setIsSidebarOpen(false)} />
           </div>
         </div>
       )}
 
       {/* Desktop Sidebar */}
-      {!isMobile && <Sidebar activeNav={activeNav} onNavChange={onNavChange} />}
+      {!isMobile && <Sidebar />}
 
       {/* Main Content Area */}
       <div className={`${isMobile ? 'pt-14 pb-20' : 'ml-64 mr-80'} min-h-screen flex flex-col transition-all duration-300`}>
@@ -64,10 +79,7 @@ export function MainLayout({ children, activeNav, onNavChange }: MainLayoutProps
         {!isMobile && (
           <header className="h-16 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-30 px-6 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground/80">
-              {/* Contextual Title could go here, for now empty or breadcrumb */}
-              {activeNav === 'dashboard' ? '战绩中心' :
-                activeNav === 'boss-dashboard' ? '总控中心' :
-                  activeNav === 'sales' ? '销售管道' : 'Nexus OS'}
+              {getPageTitle()}
             </h2>
             <div className="flex items-center gap-4">
               {/* Future: Global Search */}
@@ -94,7 +106,7 @@ export function MainLayout({ children, activeNav, onNavChange }: MainLayoutProps
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <ActiveCardStream onNavChange={onNavChange} />
+            <ActiveCardStream />
           </div>
         </div>
       )}
@@ -109,7 +121,7 @@ export function MainLayout({ children, activeNav, onNavChange }: MainLayoutProps
             </h2>
             <p className="text-xs text-muted-foreground mt-1">AI 主动推送</p>
           </div>
-          <ActiveCardStream onNavChange={onNavChange} />
+          <ActiveCardStream />
         </div>
       )}
 

@@ -101,14 +101,13 @@ const priorityStyles = {
   low: 'border-l-4 border-l-muted-foreground',
 };
 
-interface ActiveCardStreamProps {
-  onNavChange?: (nav: string) => void;
-}
+import { useNavigate } from 'react-router-dom';
 
-export function ActiveCardStream({ onNavChange }: ActiveCardStreamProps) {
+export function ActiveCardStream() {
   const { user } = useUser();
   const [cards, setCards] = useState<ActiveCard[]>([]);
   const [newCardId, setNewCardId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   // Real Data Hook
   const { pendingApprovals, updateStatus, isLoading: isLoadingApprovals } = useApprovals();
@@ -180,28 +179,21 @@ export function ActiveCardStream({ onNavChange }: ActiveCardStreamProps) {
   };
 
   const handleCardClick = (card: ActiveCard) => {
-    if (!onNavChange) return;
-
     switch (card.type) {
       case 'alert':
-        onNavChange('approval');
+        navigate('/approval');
         break;
       case 'bonus':
-        onNavChange('rewards');
+        navigate('/rewards');
         break;
       case 'lead':
-        onNavChange('sales');
+        navigate('/sales');
         break;
       case 'ranking':
-        onNavChange('dashboard'); // Or boss-dashboard, MainLayout/Sidebar handles user role usually? No, nav keys are fixed.
-        // Wait, for boss 'dashboard' maps to EmployeeDashboard in Index.tsx, 'boss-dashboard' is for boss.
-        // But usually ranking is for employees.
-        // If boss clicks ranking card (team report), it should go to boss-dashboard?
-        // Let's assume generic dashboard for now or 'team-performance' which maps to BossDashboard.
-        onNavChange(user.role === 'boss' ? 'boss-dashboard' : 'dashboard');
+        navigate(user.role === 'boss' ? '/boss-dashboard' : '/dashboard');
         break;
       case 'task':
-        onNavChange('sales'); // Tasks usually related to sales
+        navigate('/sales'); // Tasks usually related to sales
         break;
       default:
         break;

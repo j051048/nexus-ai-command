@@ -4,6 +4,7 @@ import { useAuth } from '@/components/auth/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { cn } from '@/lib/utils';
+import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
@@ -32,7 +33,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-
 interface NavItem {
   icon: React.ReactNode;
   label: string;
@@ -42,14 +42,21 @@ interface NavItem {
 }
 
 interface SidebarProps {
-  activeNav: string;
-  onNavChange: (nav: string) => void;
+  onNavClick?: () => void; // For mobile close
 }
 
-export function Sidebar({ activeNav, onNavChange }: SidebarProps) {
+export function Sidebar({ onNavClick }: SidebarProps) {
   const { user } = useUser();
   const { signOut } = useAuth();
   const { theme } = useTheme();
+  const location = useLocation();
+
+  // Helper to check if link is active
+  const isActive = (href: string) => {
+    if (href === 'dashboard' && location.pathname === '/dashboard') return true;
+    if (href === 'boss-dashboard' && location.pathname === '/boss-dashboard') return true;
+    return location.pathname.startsWith('/' + href);
+  };
 
   const employeeNav: NavItem[] = [
     { icon: <LayoutDashboard size={20} />, label: '战绩中心', href: 'dashboard' },
@@ -82,6 +89,41 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps) {
     // Redirect is handled by AuthContext/App state change
   };
 
+  const renderNavGroup = (title: string, items: NavItem[]) => (
+    <div>
+      <h3 className="px-4 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">{title}</h3>
+      <ul className="space-y-1">
+        {items.map((item) => (
+          <li key={item.href}>
+            <Link
+              to={`/${item.href}`}
+              onClick={onNavClick}
+              className={cn(
+                "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all group",
+                isActive(item.href)
+                  ? "bg-sidebar-accent text-primary shadow-sm"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground"
+              )}
+            >
+              <span className={cn("transition-transform", !isActive(item.href) && "group-hover:scale-110")}>{item.icon}</span>
+              <span className="flex-1 text-left">{item.label}</span>
+              {item.badge && (
+                <span className={cn(
+                  "px-2 py-0.5 rounded-full text-[10px] font-bold",
+                  item.badgeType === 'primary' && "bg-primary/10 text-primary",
+                  item.badgeType === 'success' && "bg-success/10 text-success",
+                  item.badgeType === 'warning' && "bg-warning/10 text-warning"
+                )}>
+                  {item.badge}
+                </span>
+              )}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
       {/* Logo */}
@@ -107,101 +149,9 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-6">
-        <div>
-          <h3 className="px-4 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">AI 核心指挥</h3>
-          <ul className="space-y-1">
-            {navItems.filter(i => ['dashboard', 'boss-dashboard', 'tender-analysis', 'battlecards', 'sales'].includes(i.href)).map((item) => (
-              <li key={item.href}>
-                <button
-                  onClick={() => onNavChange(item.href)}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all",
-                    activeNav === item.href
-                      ? "bg-sidebar-accent text-primary shadow-sm"
-                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground"
-                  )}
-                >
-                  {item.icon}
-                  <span className="flex-1 text-left">{item.label}</span>
-                  {item.badge && (
-                    <span className={cn(
-                      "px-2 py-0.5 rounded-full text-[10px] font-bold",
-                      item.badgeType === 'primary' && "bg-primary/10 text-primary",
-                      item.badgeType === 'success' && "bg-success/10 text-success",
-                      item.badgeType === 'warning' && "bg-warning/10 text-warning"
-                    )}>
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div>
-          <h3 className="px-4 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">业务与日常</h3>
-          <ul className="space-y-1">
-            {navItems.filter(i => ['projects', 'target-dashboard', 'targets', 'approval', 'exceptions', 'employees'].includes(i.href)).map((item) => (
-              <li key={item.href}>
-                <button
-                  onClick={() => onNavChange(item.href)}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all group",
-                    activeNav === item.href
-                      ? "bg-sidebar-accent text-primary shadow-sm"
-                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground"
-                  )}
-                >
-                  <span className="group-hover:scale-110 transition-transform">{item.icon}</span>
-                  <span className="flex-1 text-left">{item.label}</span>
-                  {item.badge && (
-                    <span className={cn(
-                      "px-2 py-0.5 rounded-full text-[10px] font-bold",
-                      item.badgeType === 'primary' && "bg-primary/10 text-primary",
-                      item.badgeType === 'success' && "bg-success/10 text-success",
-                      item.badgeType === 'warning' && "bg-warning/10 text-warning"
-                    )}>
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div>
-          <h3 className="px-4 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">知识与个人</h3>
-          <ul className="space-y-1">
-            {navItems.filter(i => ['knowledge', 'documents', 'rewards', 'settings'].includes(i.href)).map((item) => (
-              <li key={item.href}>
-                <button
-                  onClick={() => onNavChange(item.href)}
-                  className={cn(
-                    "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all",
-                    activeNav === item.href
-                      ? "bg-sidebar-accent text-primary shadow-sm"
-                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground"
-                  )}
-                >
-                  {item.icon}
-                  <span className="flex-1 text-left">{item.label}</span>
-                  {item.badge && (
-                    <span className={cn(
-                      "px-2 py-0.5 rounded-full text-[10px] font-bold",
-                      item.badgeType === 'primary' && "bg-primary/10 text-primary",
-                      item.badgeType === 'success' && "bg-success/10 text-success",
-                      item.badgeType === 'warning' && "bg-warning/10 text-warning"
-                    )}>
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {renderNavGroup("AI 核心指挥", navItems.filter(i => ['dashboard', 'boss-dashboard', 'tender-analysis', 'battlecards', 'sales'].includes(i.href)))}
+        {renderNavGroup("业务与日常", navItems.filter(i => ['projects', 'target-dashboard', 'targets', 'approval', 'exceptions', 'employees'].includes(i.href)))}
+        {renderNavGroup("知识与个人", navItems.filter(i => ['knowledge', 'documents', 'rewards', 'settings'].includes(i.href)))}
       </nav>
 
       {/* User Profile with Dropdown */}

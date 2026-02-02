@@ -78,16 +78,75 @@ async def root():
 async def boss_dashboard():
     """
     Lightweight endpoint for Boss. 
-    Only shows exceptions and high-level KPIs.
+    Fetches real data from Supabase.
     """
-    return {
-        "pending_approvals": 2, # Mock count
-        "abnormal_expenses": [
-            {"id": "inv_999", "user": "Sales_A", "amount": 25000, "reason": "Expensive client dinner"}
-        ],
-        "top_performers": ["Alice", "Bob"],
-        "system_status": "Healthy"
-    }
+    from app.core.database import supabase
+    
+    if not supabase:
+        return {
+            "error": "Database connection unavailable",
+            "pending_approvals": 0,
+            "abnormal_expenses": [],
+            "top_performers": [],
+            "system_status": "Database Error"
+        }
+
+    try:
+        # 1. Get Pending Approvals Count
+        pending_res = await supabase.table("approval_requests")\
+            .select("count", count="exact")\
+            .eq("status", "pending")\
+            .execute()
+        pending_count = pending_res.count if pending_res.count is not None else 0
+
+        # 2. Get Abnormal Expenses (High amount pending expenses)
+        # Using a simple threshold for now, e.g. > 1000
+        abnormal_res = await supabase.table("approval_requests")\
+            .select("id, description, amount, users:submitted_by(name)")\
+            .eq("status", "pending")\
+            .eq("type", "expense")\
+            .gt("amount", 1000)\
+            .order("amount", desc=True)\
+            .limit(5)\
+            .execute()
+            
+        abnormal_expenses = []
+        for item in abnormal_res.data:
+            user_name = "Unknown"
+            if item.get("users"):
+                user_name = item["users"].get("name", "Unknown")
+            
+            abnormal_expenses.append({
+                "id": item["id"],
+                "user": user_name,
+                "amount": item["amount"],
+                "reason": item.get("description", "No description")
+            })
+
+        # 3. Get Top Performers
+        users_res = await supabase.table("users")\
+            .select("name, score, total_bonus")\
+            .order("score", desc=True)\
+            .limit(3)\
+            .execute()
+            
+        top_performers = [u["name"] for u in users_res.data]
+
+        return {
+            "pending_approvals": pending_count,
+            "abnormal_expenses": abnormal_expenses,
+            "top_performers": top_performers,
+            "system_status": "Healthy"
+        }
+
+    except Exception as e:
+        print(f"Error fetching boss dashboard data: {e}")
+        return {
+            "pending_approvals": 0, 
+            "abnormal_expenses": [],
+            "top_performers": [],
+            "system_status": f"Error: {str(e)}"
+        }
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
