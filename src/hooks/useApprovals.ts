@@ -70,13 +70,19 @@ export function useMyApprovals() {
     queryKey: ['approvals', 'me', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
+      
+      // 查询所有与当前用户相关的审批记录
+      // 包括：直接提交的 + AI代提交的（on_behalf_of）
       const { data, error } = await supabase
         .from('approval_requests')
         .select('*')
-        .eq('submitted_by', user.id)
-        .order('submitted_at', { ascending: false });
+        .or(`submitted_by.eq.${user.id},on_behalf_of.eq.${user.id}`)
+        .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching my approvals:', error);
+        throw error;
+      }
       return data as ApprovalRequest[];
     },
     enabled: !!user?.id,

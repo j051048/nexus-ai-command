@@ -53,17 +53,25 @@ class SubmitApprovalOnBehalfTool(BaseTool):
         if start_date or end_date:
             full_details += f"\n日期：{start_date} 至 {end_date}"
 
-        # 插入审批记录 - 关键：requester_id 是员工ID，不是AI的ID
-        result = await supabase.table("approval_requests").insert({
-            "submitted_by": employee_id,  # 归属于员工
-            "on_behalf_of": employee_id,
-            "submitted_via": "ai_assistant",
-            "type": approval_type,
-            "amount": amount,
-            "description": full_details,
-            "status": "pending",
-            "ai_reason": f"由AI助手豆豆代{actual_employee.get('name', employee_name)}提交"
-        }).execute()
+                # 插入审批记录 - 关键：submitted_by 是员工ID，不是AI的ID
+        try:
+            insert_data = {
+                "submitted_by": employee_id,  # 归属于员工
+                "on_behalf_of": employee_id,
+                "submitted_via": "ai_assistant",
+                "type": approval_type,
+                "amount": amount,
+                "description": full_details,
+                "status": "pending",
+                "ai_reason": f"由AI助手豆豆代{actual_employee.get('name', employee_name)}提交"
+            }
+            print(f"[AI审批] 准备插入数据: {insert_data}")
+            
+            result = await supabase.table("approval_requests").insert(insert_data).execute()
+            print(f"[AI审批] 插入结果: {result}")
+        except Exception as e:
+            print(f"[AI审批] 插入失败: {e}")
+            return f"提交失败：数据库错误 - {str(e)}"
 
         if result.data:
             req_id = result.data[0].get("id")
