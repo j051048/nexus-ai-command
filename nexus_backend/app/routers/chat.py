@@ -269,7 +269,7 @@ async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)
         if response.data:
             settings = response.data
             # Only override if the user has explicitly set a value
-                        if settings.get("base_url"): ai_config["base_url"] = settings.get("base_url")
+            if settings.get("base_url"): ai_config["base_url"] = settings.get("base_url")
             if settings.get("api_key"): ai_config["api_key"] = settings.get("api_key")
             if settings.get("model"): ai_config["model"] = settings.get("model")
     except Exception as e:
