@@ -40,14 +40,30 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                 content: m.content,
             }));
 
-        chatMessages.push({ role: 'user', content: input });
+                chatMessages.push({ role: 'user', content: input });
 
         abortControllerRef.current = new AbortController();
 
         try {
+            // Check network connectivity
+            if (!navigator.onLine) {
+                throw new Error('网络已断开，请检查网络连接');
+            }
+
             // P0: Secure Identity Verification
-            const { data: { session } } = await supabase.auth.getSession();
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            
+            if (sessionError) {
+                console.error('Session error:', sessionError);
+                throw new Error('获取用户会话失败，请重新登录');
+            }
+            
             const token = session?.access_token;
+            
+            if (!token) {
+                console.warn('No auth token available, user may not be logged in');
+                throw new Error('请先登录后再使用 AI 助手');
+            }
 
             const response = await fetch(getApiUrl(), {
                 method: 'POST',
@@ -109,15 +125,29 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                             onUpdate?.(assistantContent, assistantMsgId);
                         }
                     } catch {
-                        textBuffer = line + '\n' + textBuffer;
+                                                textBuffer = line + '\n' + textBuffer;
                         break;
                     }
                 }
             }
         } catch (error) {
             if ((error as Error).name === 'AbortError') return;
-            console.error('AI chat error:', error);
-            toast.error((error as Error).message || 'AI 回复失败，请重试');
+            
+            const err = error as Error;
+            console.error('AI chat error:', err);
+            
+            // Provide more specific error messages
+            let errorMessage = 'AI 回复失败，请重试';
+            
+            if (err.message.includes('Failed to fetch')) {
+                errorMessage = '网络连接失败，请检查网络或稍后重试';
+            } else if (err.message.includes('登录') || err.message.includes('会话')) {
+                errorMessage = err.message;
+            } else if (err.message) {
+                errorMessage = err.message;
+            }
+            
+            toast.error(errorMessage);
             throw error;
         } finally {
             setIsTyping(false);
