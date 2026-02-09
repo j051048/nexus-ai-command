@@ -1,13 +1,24 @@
 import jwt
 import os
-from fastapi import Header, HTTPException
+from fastapi import Header, HTTPException, Request
 from typing import Optional
+
+# P0 Security Fix: Environment detection
+ENV = os.getenv("ENV", "development")
+IS_PRODUCTION = ENV in ("production", "prod")
 
 # Supabase typically uses a project-specific JWT secret. 
 # We prioritize SUPABASE_JWT_SECRET, then JWT_SECRET, then a dev fallback.
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
-JWT_SECRET = os.getenv("JWT_SECRET", "nexus_secret_fallback_do_not_use_in_prod")
+JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = "HS256"
+
+# P0 Security: Validate critical secrets in production
+if IS_PRODUCTION:
+    if not SUPABASE_JWT_SECRET and not JWT_SECRET:
+        raise RuntimeError("CRITICAL: JWT secret must be configured in production")
+    if os.getenv("ALLOW_UNSECURE_AUTH") == "true":
+        raise RuntimeError("CRITICAL: ALLOW_UNSECURE_AUTH cannot be enabled in production")
 
 async def get_current_user_id(authorization: Optional[str] = Header(None)) -> str:
     """
@@ -18,9 +29,16 @@ async def get_current_user_id(authorization: Optional[str] = Header(None)) -> st
         raise HTTPException(status_code=401, detail="缺少身份认证信息 (Missing Authorization Header)")
     
     try:
-        # 1. Handle "test:" prefix for local development without JWT
+        # 1. Handle "test:" prefix for local development WITHOUT JWT
+        # P0 Security Fix: Completely disabled in production
         if authorization.startswith("test:"):
-             return authorization.split(":")[1]
+            if IS_PRODUCTION:
+                raise HTTPException(
+                    status_code=401, 
+                    detail="Test authentication is disabled in production"
+                )
+            print("⚠️ DEV MODE: Using test authentication - NOT FOR PRODUCTION")
+            return authorization.split(":")[1]
              
         if not authorization.startswith("Bearer "):
             raise HTTPException(status_code=401, detail="认证格式错误 (Invalid token format - expected Bearer)")
@@ -67,13 +85,14 @@ async def get_current_user_id(authorization: Optional[str] = Header(None)) -> st
                 last_error = e
                 continue
         
-        # 3. Development Fallback: Decode WITHOUT verification if explicitly allowed
-        if not payload and os.getenv("ALLOW_UNSECURE_AUTH") == "true":
+                # 3. Development Fallback: Decode WITHOUT verification if explicitly allowed
+        # P0 Security Fix: Double-check production environment
+        if not payload and not IS_PRODUCTION and os.getenv("ALLOW_UNSECURE_AUTH") == "true":
             # Extract 'sub' (User ID) without verifying signature
             try:
-                print("Auth Debug: Attempting unverified decode...")
+                print("Auth Debug: Attempting unverified decode (DEV ONLY)...")
                 payload = jwt.decode(token, options={"verify_signature": False})
-                print(f"⚠️ SECURITY WARNING: Using unverified payload. Sub: {payload.get('sub')}")
+                print(f"⚠️ SECURITY WARNING [DEV]: Using unverified payload. Sub: {payload.get('sub')}")
             except Exception as e:
                 print(f"Auth Debug: Unverified decode failed: {e}")
                 pass

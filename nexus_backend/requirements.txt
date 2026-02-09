@@ -16,3 +16,14 @@ arxiv
 openai
 sentry-sdk
 python-docx
+
+# P1 Optimizations
+tiktoken>=0.5.0  # Token counting
+redis>=5.0.0     # Distributed caching (optional)
+
+# Development/Testing
+ruff             # Linting
+black            # Code formatting
+pytest-asyncio   # Async test support
+pytest-cov       # Test coverage
+httpx            # HTTP client for testing

@@ -1,14 +1,46 @@
 from fastapi import FastAPI, Response
-from app.routers import performance, incentive, approval, kingdee, chat, documents, projects
+from app.routers import performance, incentive, approval, kingdee, chat, documents, projects, usage, organization
 import uvicorn
 import os
 
 from fastapi.middleware.cors import CORSMiddleware
+from app.core.rate_limiter import RateLimitMiddleware
 
 app = FastAPI(
     title="Project Nexus Backend",
     description="AI-Driven Low-Code Backend for Sales Performance & Governance",
     version="1.0.0"
+)
+
+# P2: Event Bus lifecycle management
+from app.services.event_bus import event_bus
+from app.services.cache_service import cache_service
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager for startup/shutdown events"""
+    # Startup
+    print("🚀 Starting Nexus Backend...")
+    await cache_service.init()
+    await event_bus.start()
+    print("✅ Event Bus started")
+    
+    yield
+    
+    # Shutdown
+    print("🛑 Shutting down Nexus Backend...")
+    await event_bus.stop()
+    from app.services.audit_logger import audit_logger
+    await audit_logger.force_flush()
+    print("✅ Cleanup complete")
+
+# Re-create app with lifespan
+app = FastAPI(
+    title="Project Nexus Backend",
+    description="AI-Driven Low-Code Backend for Sales Performance & Governance",
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # Sentry Initialization
@@ -53,13 +85,17 @@ async def test_ai_connectivity():
     except Exception as e:
         return {"status": "error", "detail": str(e)}
 
+# P0 Security Fix: Restrict CORS to whitelist
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
 )
+
+# P0 Security Fix: Rate limiting middleware
+app.add_middleware(RateLimitMiddleware)
 
 # Include Routers
 app.include_router(performance.router)
@@ -69,10 +105,21 @@ app.include_router(kingdee.router)
 app.include_router(chat.router)
 app.include_router(documents.router)
 app.include_router(projects.router)
+app.include_router(usage.router)
+app.include_router(organization.router)
 
 @app.get("/")
 async def root():
     return {"message": "Project Nexus Backend is Running", "docs": "/docs"}
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for load balancers and monitoring"""
+    return {
+        "status": "healthy",
+        "version": settings.VERSION,
+        "environment": settings.ENV
+    }
 
 @app.get("/api/dashboard/boss")
 async def boss_dashboard():

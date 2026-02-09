@@ -20,6 +20,7 @@ import {
   Loader2,
   Terminal
 } from 'lucide-react';
+import { UsageStats } from './UsageStats';
 
 interface LogEntry {
   timestamp: Date;
@@ -336,6 +337,37 @@ export function AISettingsPanel() {
                 </div>
               )}
             </ScrollArea>
+          </CardContent>
+        </Card>
+      </div>
+
+            {/* P1: Usage Statistics */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <UsageStats />
+        
+        {/* Quick Tips */}
+        <Card className="border-border">
+          <CardHeader>
+            <CardTitle>使用提示</CardTitle>
+            <CardDescription>优化 AI 使用成本的建议</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 text-success mt-0.5" />
+              <p className="text-sm">使用更简洁的提示词可以减少 token 消耗</p>
+            </div>
+            <div className="flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 text-success mt-0.5" />
+              <p className="text-sm">对于简单任务，可以选择更经济的模型</p>
+            </div>
+            <div className="flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 text-success mt-0.5" />
+              <p className="text-sm">避免在对话中重复发送相同的上下文</p>
+            </div>
+            <div className="flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 text-success mt-0.5" />
+              <p className="text-sm">利用知识库工具减少重复查询</p>
+            </div>
           </CardContent>
         </Card>
       </div>

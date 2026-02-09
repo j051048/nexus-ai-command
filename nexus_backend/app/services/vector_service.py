@@ -1,8 +1,30 @@
 import os
+import re
 from typing import List, Dict, Any
 from app.core.database import supabase
 from app.core.config import settings
 from openai import AsyncOpenAI
+
+
+def escape_like_pattern(value: str) -> str:
+    """P0 Security: Escape special characters in LIKE patterns to prevent SQL injection"""
+    if not value:
+        return value
+    # Escape %, _, and \ which have special meaning in LIKE patterns
+    return value.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+
+
+def sanitize_search_query(query: str, max_length: int = 500) -> str:
+    """P0 Security: Sanitize and validate search query input"""
+    if not query:
+        return ""
+    # Truncate to max length
+    query = query[:max_length]
+    # Remove potential injection patterns
+    query = re.sub(r'[;\-\-\'"\\]', ' ', query)
+    # Normalize whitespace
+    query = ' '.join(query.split())
+    return query.strip()
 
 class VectorService:
     """
@@ -10,11 +32,18 @@ class VectorService:
     Transitioned from Mock to Real Implementation (Week 1 Goal).
     """
 
-    async def search(self, query: str, user_id: str, limit: int = 3, config: dict = None) -> str:
+        async def search(self, query: str, user_id: str, limit: int = 3, config: dict = None) -> str:
         """
         Semantic search in the vector DB.
         Returns a formatted string of results.
         """
+        # P0 Security: Sanitize input query
+        query = sanitize_search_query(query)
+        if not query:
+            return "请提供有效的搜索关键词。"
+        
+        # P0 Security: Validate limit parameter
+        limit = min(max(1, limit), 10)  # Clamp between 1 and 10
         # use dynamic config or default settings
         api_key = (config or {}).get("api_key") or settings.OPENAI_API_KEY
         
@@ -76,9 +105,11 @@ class VectorService:
                  res = await query_builder.limit(limit).execute()
                  return res.data or []
              except Exception as e: 
-                 # Fallback to ILIKE with relationship filter
+                                  # Fallback to ILIKE with relationship filter
+                 # P0 Security: Escape LIKE pattern to prevent injection
                  print(f"FTS failed, fallback to ilike: {e}")
-                 base = supabase.table("document_embeddings").select("*, documents!inner(owner_id)").eq("documents.owner_id", user_id).ilike("content", f"%{query}%")
+                 escaped_query = escape_like_pattern(query)
+                 base = supabase.table("document_embeddings").select("*, documents!inner(owner_id)").eq("documents.owner_id", user_id).ilike("content", f"%{escaped_query}%")
                  if filters:
                      base = base.contains("metadata", filters)
                  res = await base.limit(limit).execute()

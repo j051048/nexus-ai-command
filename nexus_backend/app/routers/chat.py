@@ -10,6 +10,9 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from app.core.database import supabase
 from app.tools import get_tool, get_all_tools_schema
+from app.services.cache_service import cache_service
+from app.services.token_service import token_counter, usage_tracker, validate_request_tokens, record_completion
+from app.services.content_moderation import content_moderator, check_user_input, sanitize_output
 
 router = APIRouter(prefix="/api", tags=["Chat"])
 
@@ -28,22 +31,23 @@ class ChatRequest(BaseModel):
 # --- 工具定义 (Strategy Pattern) ---
 TOOLS = get_all_tools_schema()
 
-# Simple manual cache with TTL (10 minutes)
-_role_cache = {}
-
+# P1 Optimization: Use distributed cache service instead of in-memory cache
 async def _get_cached_user_role(user_id: str) -> str:
-    now = time.time()
-    if user_id in _role_cache:
-        role, expiry = _role_cache[user_id]
-        if now < expiry:
-            return role
-            
+    """Get user role with distributed cache support"""
+    # Try cache first
+    cached_role = await cache_service.get_user_role(user_id)
+    if cached_role:
+        return cached_role
+    
+    # Fetch from database
     try:
         user_res = await supabase.table("users").select("role").eq("id", user_id).maybe_single().execute()
         role = user_res.data.get("role") if user_res.data else "employee"
-        _role_cache[user_id] = (role, now + 600) # cache for 10 minutes
+        # Cache the result
+        await cache_service.set_user_role(user_id, role)
         return role
-    except:
+    except Exception as e:
+        print(f"Error fetching user role: {e}")
         return "employee"
 
 async def execute_tool(name: str, args: Dict[str, Any], current_user_id: str, config: dict = None) -> str:
@@ -236,12 +240,23 @@ async def stream_openai_response(messages: List[dict], config: dict, user_id: st
 async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)):
     """
     P0 Fix: Identity verification via JWT.
-    Trusting only the user_id resolved by get_current_user_id.
+    P1 Enhancement: Token counting, content moderation, and usage tracking.
     """
     # Verify user exists in DB
     user_check = await supabase.table("users").select("id").eq("id", user_id).maybe_single().execute()
     if not user_check.data:
         raise HTTPException(status_code=403, detail="Unauthorized: User identity verified but profile missing in system DB")
+    
+    # P1: Content moderation - check last user message for injection attempts
+    if request.messages:
+        last_user_msg = next((m for m in reversed(request.messages) if m.role == "user"), None)
+        if last_user_msg:
+            is_safe, warning = check_user_input(last_user_msg.content)
+            if not is_safe:
+                return StreamingResponse(
+                    _error_stream(f"⚠️ 安全检查未通过: {warning}"),
+                    media_type="text/event-stream"
+                )
 
     ai_config = {
         "base_url": os.getenv("AI_BASE_URL", "https://proxy.flydao.top/v1"),
@@ -254,7 +269,7 @@ async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)
         if response.data:
             settings = response.data
             # Only override if the user has explicitly set a value
-            if settings.get("base_url"): ai_config["base_url"] = settings.get("base_url")
+                        if settings.get("base_url"): ai_config["base_url"] = settings.get("base_url")
             if settings.get("api_key"): ai_config["api_key"] = settings.get("api_key")
             if settings.get("model"): ai_config["model"] = settings.get("model")
     except Exception as e:
@@ -262,6 +277,19 @@ async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)
 
     if not ai_config["api_key"]:
         return StreamingResponse(_error_stream("系统未配置 OpenAI API Key，请联系管理员或在设置中添加私有 Key"), media_type="text/event-stream")
+    
+    # P1: Token counting and usage limit check
+    messages_for_count = [{"role": m.role, "content": m.content} for m in request.messages]
+    is_allowed, token_count, limit_reason = validate_request_tokens(
+        messages_for_count, 
+        ai_config["model"], 
+        user_id
+    )
+    if not is_allowed:
+        return StreamingResponse(
+            _error_stream(f"⚠️ 使用限制: {limit_reason}。请稍后再试或联系管理员。"),
+            media_type="text/event-stream"
+        )
 
     from app.core.prompts_registry import SYSTEM_PROMPTS
     import datetime
