@@ -262,6 +262,7 @@ class AgentRegistry {
    */
   public findAgentsByCapability(capability: string): AgentConfig[] {
     return this.getAllAgentConfigs().filter(
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       (config) => config.capabilities.includes(capability as any)
     );
   }

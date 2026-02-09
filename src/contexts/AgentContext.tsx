@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * OpenClaw / MoltBot Agent Context
  * 智能体上下文 - 提供全局智能体访问

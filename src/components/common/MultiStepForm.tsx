@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * P1 UX Enhancement: Multi-Step Form Component
  * 多步骤表单组件，支持步骤导航、验证和状态管理

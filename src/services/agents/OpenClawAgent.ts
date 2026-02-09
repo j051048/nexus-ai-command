@@ -69,10 +69,12 @@ export class OpenClawAgent extends BaseAgent {
     role: string;
     content: string;
     name?: string;
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
     tool_calls?: any[];
     tool_call_id?: string;
   }> {
     return messages.map((msg) => {
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       const formatted: any = {
         role: msg.role,
         content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
@@ -117,6 +119,7 @@ export class OpenClawAgent extends BaseAgent {
         ? options.tools.map((name) => this.tools.get(name)).filter(Boolean)
         : this.getTools();
 
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       const requestBody: any = {
         model: this.config.model.name,
         messages: formattedMessages,
@@ -168,6 +171,7 @@ export class OpenClawAgent extends BaseAgent {
 
       // 处理工具调用
       let toolCalls: ToolCall[] | undefined;
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       let toolResults: any[] | undefined;
 
       if (choice.message?.tool_calls) {
@@ -253,6 +257,7 @@ export class OpenClawAgent extends BaseAgent {
         ? options.tools.map((name) => this.tools.get(name)).filter(Boolean)
         : this.getTools();
 
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       const requestBody: any = {
         model: this.config.model.name,
         messages: formattedMessages,
@@ -294,7 +299,7 @@ export class OpenClawAgent extends BaseAgent {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      let toolCallsInProgress: Map<number, Partial<ToolCall>> = new Map();
+      const toolCallsInProgress: Map<number, Partial<ToolCall>> = new Map();
 
       while (true) {
         const { done, value } = await reader.read();
