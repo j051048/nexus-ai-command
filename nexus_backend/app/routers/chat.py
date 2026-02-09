@@ -59,10 +59,23 @@ async def execute_tool(name: str, args: Dict[str, Any], current_user_id: str, co
         for attempt in range(max_retries + 1):
             try:
                 # Security Check: Role Based Access Control
-                if tool_instance.required_role != "all":
+                required_role = tool_instance.required_role
+                
+                if required_role != "all":
                     user_role = await _get_cached_user_role(current_user_id)
-                    if tool_instance.required_role == "boss" and user_role != "boss":
+                    
+                    # Boss-only tools
+                    if required_role == "boss" and user_role not in ["boss", "founder"]:
                         return f"⛔ 权限拒绝: 该操作需要 [Boss/Manager] 权限，您当前的身份是 [{user_role}]。"
+                    
+                    # AI Assistant tools - 允许所有用户通过 AI 调用这些工具
+                    # 工具内部会验证 employee_id 参数
+                    # ai_assistant 角色的工具可以被任何人通过 chat 调用
+                    # 因为这些工具会代表用户执行操作，而不是赋予用户特权
+                    if required_role == "ai_assistant":
+                        # 这些工具的安全性由工具内部逻辑保证
+                        # 例如：submit_approval_on_behalf 会验证 employee_id 并设置正确的 submitted_by
+                        pass  # 允许执行
 
                 return await tool_instance.run(args, current_user_id, config)
             except Exception as e:

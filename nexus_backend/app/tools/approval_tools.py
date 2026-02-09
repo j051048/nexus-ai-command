@@ -7,46 +7,48 @@ AI_ASSISTANT_ID = "00000000-0000-0000-0000-000000000001"
 
 
 class SubmitApprovalOnBehalfTool(BaseTool):
-    """AI助手代员工提交审批申请"""
+    """AI助手代员工提交审批申请 - 自动使用当前登录用户的身份"""
     name = "submit_approval_on_behalf"
-    description = "代表员工提交审批申请（出差、请假、报销等）。提交后审批记录归属于该员工。"
-    required_role = "ai_assistant"  # Only AI assistant can use this
+    description = "代表当前用户提交审批申请（出差、请假、报销等）。无需传入员工ID，系统会自动使用当前登录用户的身份。"
+    required_role = "ai_assistant"  # 允许通过 AI 调用
 
     parameters = {
         "type": "object",
         "properties": {
-            "employee_id": {"type": "string", "description": "员工的用户ID"},
-            "employee_name": {"type": "string", "description": "员工姓名（用于确认）"},
             "type": {
                 "type": "string", 
                 "enum": ["travel", "leave", "expense", "purchase"],
                 "description": "审批类型：travel=出差, leave=请假, expense=报销, purchase=采购"
             },
-            "amount": {"type": "number", "description": "金额（如适用）"},
-            "description": {"type": "string", "description": "详细说明"},
+            "amount": {"type": "number", "description": "金额（如适用，默认0）"},
+            "description": {"type": "string", "description": "详细说明申请事由"},
             "start_date": {"type": "string", "description": "开始日期（如适用）"},
             "end_date": {"type": "string", "description": "结束日期（如适用）"}
         },
-        "required": ["employee_id", "type", "description"]
+        "required": ["type", "description"]
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
-        employee_id = args.get("employee_id")
-        employee_name = args.get("employee_name", "未知员工")
+        # 使用当前登录用户的 ID（从 JWT 解析出来的）
+        employee_id = user_id
         approval_type = args.get("type")
         amount = args.get("amount", 0)
         description = args.get("description")
         start_date = args.get("start_date", "")
         end_date = args.get("end_date", "")
 
+        print(f"[AI审批] 当前用户ID: {user_id}, 申请类型: {approval_type}")
+
         # 验证员工存在
         employee_check = await supabase.table("users").select("id, name, role").eq("id", employee_id).single().execute()
         if not employee_check.data:
-            return f"错误：找不到员工 {employee_name}（ID: {employee_id}）"
+            return f"错误：找不到您的用户信息（ID: {employee_id}）"
         
         actual_employee = employee_check.data
+        employee_name = actual_employee.get("name", "未知")
+        
         if actual_employee.get("role") == "founder":
-            return "错误：无法代老板提交审批申请"
+            return "错误：老板无需通过AI提交审批申请，您可以直接审批"
 
         # 构建详情
         full_details = description
@@ -89,7 +91,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
                 }
             }).execute()
             
-            return f"✅ 已成功为 {actual_employee.get('name', employee_name)} 提交{approval_type}申请（单号：{req_id[:8]}...）。老板会在审批中心看到这个申请，申请人显示为 {actual_employee.get('name')}。"
+            return f"✅ 已成功为您（{employee_name}）提交{approval_type}申请（单号：{req_id[:8]}...）。老板会在审批中心看到这个申请，申请人显示为您的名字。"
         
         return "提交失败，请稍后重试。"
 
