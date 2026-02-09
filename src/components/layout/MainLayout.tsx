@@ -1,12 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Sidebar } from './Sidebar';
+import { MobileSidebar } from './MobileSidebar';
 import { ActiveCardStream } from '../cards/ActiveCardStream';
 import { AIChatPanel } from '../ai/AIChatPanel';
 import { useUser } from '@/contexts/UserContext';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Command } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { NotificationCenter } from '../common/NotificationCenter';
 import { useLocation } from 'react-router-dom';
+import { CommandPalette } from '../common/CommandPalette';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useTheme } from '@/contexts/ThemeContext';
+import { Button } from '@/components/ui/button';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -14,11 +19,41 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
   const { user } = useUser();
+  const { toggleTheme } = useTheme();
   const [isChatExpanded, setIsChatExpanded] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCardsOpen, setIsCardsOpen] = useState(false);
+  const [isCommandOpen, setIsCommandOpen] = useState(false);
   const isMobile = useIsMobile();
   const location = useLocation();
+
+  // 快捷键回调
+  const toggleAIChat = useCallback(() => {
+    setIsChatExpanded(prev => !prev);
+  }, []);
+
+  const openCommandPalette = useCallback(() => {
+    setIsCommandOpen(true);
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
+    setIsSidebarOpen(prev => !prev);
+  }, []);
+
+  // 注册全局快捷键
+  useKeyboardShortcuts({
+    toggleAIChat,
+    openCommandPalette,
+    toggleSidebar,
+    toggleTheme,
+  });
+
+  // AI 聊天回调
+  const handleAIChat = useCallback((message: string) => {
+    setIsChatExpanded(true);
+    // TODO: 将消息发送到 AI 聊天面板
+    console.log('AI Chat:', message);
+  }, []);
 
   // Simple mapping for titles based on path
   const getPageTitle = () => {
@@ -44,14 +79,28 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+            {/* Command Palette - 全局命令面板 */}
+      <CommandPalette
+        open={isCommandOpen}
+        onOpenChange={setIsCommandOpen}
+        onAIChat={handleAIChat}
+      />
+
       {/* Mobile Header */}
       {isMobile && (
-        <div className="fixed top-0 left-0 right-0 h-14 bg-card border-b border-border z-40 flex items-center justify-between px-4">
-          <button onClick={() => setIsSidebarOpen(true)} className="p-2 hover:bg-secondary rounded-lg">
-            <Menu className="w-5 h-5" />
-          </button>
+        <div className="fixed top-0 left-0 right-0 h-14 bg-card/95 backdrop-blur-sm border-b border-border z-40 flex items-center justify-between px-4">
+          <MobileSidebar />
           <span className="font-semibold text-foreground">Project Nexus</span>
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              onClick={() => setIsCommandOpen(true)}
+            >
+              <Command className="w-4 h-4" />
+              <span className="sr-only">命令面板</span>
+            </Button>
             <NotificationCenter />
             <button onClick={() => setIsCardsOpen(true)} className="p-2 hover:bg-secondary rounded-lg relative">
               <span className="w-2 h-2 rounded-full bg-success absolute top-1 right-1 animate-pulse" />
@@ -61,28 +110,31 @@ export function MainLayout({ children }: MainLayoutProps) {
         </div>
       )}
 
-      {/* Mobile Sidebar Overlay */}
-      {isMobile && isSidebarOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setIsSidebarOpen(false)}>
-          <div className="w-64 h-full" onClick={(e) => e.stopPropagation()}>
-            <Sidebar onNavClick={() => setIsSidebarOpen(false)} />
-          </div>
-        </div>
-      )}
-
       {/* Desktop Sidebar */}
       {!isMobile && <Sidebar />}
 
       {/* Main Content Area */}
       <div className={`${isMobile ? 'pt-14 pb-20' : 'ml-64 mr-80'} min-h-screen flex flex-col transition-all duration-300`}>
-        {/* Desktop Header */}
+                {/* Desktop Header */}
         {!isMobile && (
           <header className="h-16 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-30 px-6 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground/80">
               {getPageTitle()}
             </h2>
             <div className="flex items-center gap-4">
-              {/* Future: Global Search */}
+              {/* 命令面板触发按钮 */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="hidden sm:flex items-center gap-2 text-muted-foreground"
+                onClick={() => setIsCommandOpen(true)}
+              >
+                <Command className="w-4 h-4" />
+                <span>搜索命令...</span>
+                <kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground ml-2">
+                  <span className="text-xs">⌘</span>K
+                </kbd>
+              </Button>
               <NotificationCenter />
             </div>
           </header>
