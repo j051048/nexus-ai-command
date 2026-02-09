@@ -4,7 +4,7 @@ import { useAuth } from '@/components/auth/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { cn } from '@/lib/utils';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
@@ -53,6 +53,22 @@ export function Sidebar({ onNavClick }: SidebarProps) {
   const { signOut } = useAuth();
   const { theme } = useTheme();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // 获取角色显示名称
+  const getRoleDisplayName = (role: string) => {
+    switch (role) {
+      case 'boss':
+      case 'founder':
+        return '企业管理员';
+      case 'manager':
+        return '部门经理';
+      case 'sales':
+      case 'employee':
+      default:
+        return '销售精英';
+    }
+  };
 
   // Helper to check if link is active
   const isActive = (href: string) => {
@@ -175,7 +191,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
               <div className="flex-1 min-w-0 text-left">
                 <p className="text-sm font-medium text-foreground truncate">{user.name}</p>
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">{user.department}</p>
+                  <p className="text-xs text-muted-foreground">{getRoleDisplayName(user.role)}</p>
                   <ChevronRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               </div>
@@ -185,7 +201,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">{user.name}</p>
-                <p className="text-xs leading-none text-muted-foreground">{user.role === 'boss' ? '企业管理员' : '销售精英'}</p>
+                <p className="text-xs leading-none text-muted-foreground">{getRoleDisplayName(user.role)}</p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
@@ -198,7 +214,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => console.log("Profile clicked")}>
+            <DropdownMenuItem onClick={() => navigate('/profile')}>
               <UserIcon className="mr-2 h-4 w-4" />
               <span>个人中心</span>
             </DropdownMenuItem>

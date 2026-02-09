@@ -34,6 +34,7 @@ const AnimationShowcase = lazy(() => import("@/pages/AnimationShowcase"));
 const OACenter = lazy(() => import("@/pages/OACenter"));
 const HRCenter = lazy(() => import("@/pages/HRCenter"));
 const FinanceCenter = lazy(() => import("@/pages/FinanceCenter"));
+const ProfileCenter = lazy(() => import("@/pages/ProfileCenter"));
 
 const queryClient = new QueryClient();
 
@@ -109,6 +110,7 @@ const App = () => (
                 <Route path="oa" element={<OACenter />} />
                 <Route path="hr" element={<HRCenter />} />
                 <Route path="finance" element={<FinanceCenter />} />
+                <Route path="profile" element={<ProfileCenter />} />
                 
                 {/* Developer Tools */}
                 <Route path="dev/animations" element={<AnimationShowcase />} />
