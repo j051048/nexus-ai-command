@@ -28,6 +28,7 @@ const TargetDashboard = lazy(() => import("@/pages/TargetDashboard").then(m => (
 const DocumentsPage = lazy(() => import("@/components/documents/DocumentsPage").then(m => ({ default: m.DocumentsPage })));
 const AISettingsPanel = lazy(() => import("@/components/settings/AISettingsPanel").then(m => ({ default: m.AISettingsPanel })));
 const EmployeeManagement = lazy(() => import("@/components/admin/EmployeeManagement").then(m => ({ default: m.EmployeeManagement })));
+const AnimationShowcase = lazy(() => import("@/pages/AnimationShowcase"));
 
 const queryClient = new QueryClient();
 
@@ -98,6 +99,8 @@ const App = () => (
                 <Route path="knowledge" element={<DocumentsPage />} />
                 <Route path="settings" element={<AISettingsPanel />} />
                 <Route path="employees" element={<EmployeeManagement />} />
+                {/* Developer Tools */}
+                <Route path="dev/animations" element={<AnimationShowcase />} />
               </Route>
 
               <Route path="*" element={<NotFound />} />
