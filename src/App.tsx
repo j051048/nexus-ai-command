@@ -30,6 +30,11 @@ const AISettingsPanel = lazy(() => import("@/components/settings/AISettingsPanel
 const EmployeeManagement = lazy(() => import("@/components/admin/EmployeeManagement").then(m => ({ default: m.EmployeeManagement })));
 const AnimationShowcase = lazy(() => import("@/pages/AnimationShowcase"));
 
+// AI-First 企业管理页面
+const OACenter = lazy(() => import("@/pages/OACenter"));
+const HRCenter = lazy(() => import("@/pages/HRCenter"));
+const FinanceCenter = lazy(() => import("@/pages/FinanceCenter"));
+
 const queryClient = new QueryClient();
 
 function LoadingFallback() {
@@ -99,6 +104,12 @@ const App = () => (
                 <Route path="knowledge" element={<DocumentsPage />} />
                 <Route path="settings" element={<AISettingsPanel />} />
                 <Route path="employees" element={<EmployeeManagement />} />
+                
+                {/* AI-First 企业管理页面 */}
+                <Route path="oa" element={<OACenter />} />
+                <Route path="hr" element={<HRCenter />} />
+                <Route path="finance" element={<FinanceCenter />} />
+                
                 {/* Developer Tools */}
                 <Route path="dev/animations" element={<AnimationShowcase />} />
               </Route>
