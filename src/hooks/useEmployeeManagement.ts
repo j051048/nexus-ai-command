@@ -40,7 +40,7 @@ export function useAllEmployees() {
         rank: u.rank || 0,
         total_bonus: u.total_bonus || 0,
         created_at: u.created_at,
-        role: (u.role === 'boss' ? 'boss' : 'employee') as 'boss' | 'employee',
+        role: (u.role === 'founder' || u.role === 'boss' ? 'boss' : 'employee') as 'boss' | 'employee',
       })) as Employee[];
     },
   });
