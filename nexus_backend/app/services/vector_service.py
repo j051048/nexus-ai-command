@@ -32,7 +32,7 @@ class VectorService:
     Transitioned from Mock to Real Implementation (Week 1 Goal).
     """
 
-        async def search(self, query: str, user_id: str, limit: int = 3, config: dict = None) -> str:
+    async def search(self, query: str, user_id: str, limit: int = 3, config: dict = None) -> str:
         """
         Semantic search in the vector DB.
         Returns a formatted string of results.
