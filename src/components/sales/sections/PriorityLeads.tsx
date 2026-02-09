@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { SalesLead } from '@/types/nexus';
 
 interface PriorityLeadsProps {
-    leads: any[]; // The mapped leads for today
+    leads: (SalesLead & { priority: string | number; reason: string })[]; // The mapped leads for today
 }
 
 export function PriorityLeads({ leads }: PriorityLeadsProps) {

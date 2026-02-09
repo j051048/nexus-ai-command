@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { User, Session } from '@supabase/supabase-js';
+import { User, Session, AuthError } from '@supabase/supabase-js';
 
 type AppRole = 'boss' | 'employee';
 
@@ -21,8 +21,8 @@ interface AuthContextType {
   profile: Profile | null;
   role: AppRole | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, name: string, role: AppRole) => Promise<{ error: any }>;
+  signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
+  signUp: (email: string, password: string, name: string, role: AppRole) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -37,9 +37,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchUserData = async (userId: string) => {
     try {
-      // Fetch profile from 'users' table (using 'id' as PK)
       const { data: profileData, error: profileError } = await supabase
-        .from('users')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from('users' as any)
         .select('*')
         .eq('id', userId)
         .maybeSingle();
@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('Error fetching profile:', profileError);
       } else if (profileData) {
         // Map DB fields to Profile interface if needed, or use as is
-        setProfile(profileData as any as Profile);
+        setProfile(profileData as unknown as Profile);
       }
 
       // Fetch role using the database function
@@ -63,8 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         let resolvedRole: AppRole = 'employee';
 
         // 1. Check DB profile directly
-        if (profileData && (profileData as any).role) {
-          const dbRole = (profileData as any).role;
+        if (profileData && (profileData as unknown as Record<string, unknown>).role) {
+          const dbRole = (profileData as unknown as Record<string, unknown>).role;
           resolvedRole = dbRole === 'founder' ? 'boss' : 'employee';
         }
         // 2. Check Auth Metadata (Registration Intent) - Critical Fix

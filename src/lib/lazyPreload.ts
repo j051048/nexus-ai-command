@@ -1,7 +1,7 @@
 import React, { ComponentType, LazyExoticComponent, Suspense } from 'react';
 
 // A factory that returns a Lazy component with an attached "preload" method
-export function lazyWithPreload<T extends ComponentType<any>>(
+export function lazyWithPreload<T extends ComponentType<unknown>>(
     factory: () => Promise<{ default: T }>
 ): LazyExoticComponent<T> & { preload: () => Promise<{ default: T }> } {
     const Component = React.lazy(factory) as LazyExoticComponent<T> & { preload: unknown };
@@ -10,7 +10,7 @@ export function lazyWithPreload<T extends ComponentType<any>>(
 }
 
 // Preload Helper for Sidebar
-export const prefetchRoute = (component: { preload: () => Promise<any> }) => {
+export const prefetchRoute = (component: { preload: () => Promise<unknown> }) => {
     if (component.preload) {
         component.preload();
     }

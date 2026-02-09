@@ -76,8 +76,10 @@ export function SalesTargetManager() {
       setShowDialog(false);
       setFormData(defaultFormData);
       setEditingId(null);
-    } catch (error: any) {
-      toast.error('操作失败: ' + error.message);
+      setEditingId(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '未知错误';
+      toast.error('操作失败: ' + message);
     }
   };
 
@@ -100,8 +102,11 @@ export function SalesTargetManager() {
     try {
       await deleteTarget.mutateAsync(targetId);
       toast.success('目标已删除');
-    } catch (error: any) {
-      toast.error('删除失败: ' + error.message);
+      await deleteTarget.mutateAsync(targetId);
+      toast.success('目标已删除');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '未知错误';
+      toast.error('删除失败: ' + message);
     }
   };
 

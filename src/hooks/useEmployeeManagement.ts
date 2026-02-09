@@ -21,13 +21,15 @@ export function useAllEmployees() {
     queryFn: async () => {
       // Get users from public.users table (which now includes role and profile info)
       const { data: users, error } = await supabase
-        .from('users')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from('users' as any)
         .select('*')
         .order('name', { ascending: true });
 
       if (error) throw error;
 
       // Cast to any to bypass strict type check on 'users' table which might not be fully generated in types yet
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (users as any[] || []).map(u => ({
         id: u.id,
         user_id: u.id,
@@ -57,7 +59,8 @@ export function useTransferEmployeeData() {
       toUserId: string;
     }) => {
       // Use the RPC for atomic transfer
-      const { error } = await supabase.rpc('transfer_employee_data', {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await supabase.rpc('transfer_employee_data' as any, {
         from_user_id: fromUserId,
         to_user_id: toUserId,
       });
@@ -79,7 +82,8 @@ export function useDeleteEmployee() {
   return useMutation({
     mutationFn: async (userId: string) => {
       // Use the RPC for deletion
-      const { error } = await supabase.rpc('delete_employee', {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await supabase.rpc('delete_employee' as any, {
         target_user_id: userId,
       });
 

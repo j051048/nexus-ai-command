@@ -44,15 +44,18 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
     const fetchDocuments = async () => {
         setIsLoading(true);
         try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { data, error } = await (supabase.from('documents' as any) as any)
                 .select('*')
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const formattedDocs: NexusDocument[] = (data || []).map((doc: any) => ({
                 id: doc.id,
                 name: doc.name,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 doc_type: (doc.doc_type as any) || 'other',
                 created_at: doc.created_at,
                 status: 'completed',
@@ -63,7 +66,7 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
 
             setDocuments(formattedDocs);
             setSelectedIds(new Set()); // Clear selection on refresh
-        } catch (error: any) {
+        } catch (error) {
             console.error('Fetch error:', error);
         } finally {
             setIsLoading(false);
@@ -208,9 +211,10 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
 
             toast.success('上传成功并已完成 AI 知识提取');
             await fetchDocuments();
-        } catch (error: any) {
+        } catch (error) {
             console.error(error);
-            toast.error(error.message || '上传处理异常，请重试');
+            const message = error instanceof Error ? error.message : '上传处理异常，请重试';
+            toast.error(message);
             setDocuments(prev => prev.map(d => d.id === tempId ? { ...d, status: 'error' } : d));
         } finally {
             setIsUploading(false);
@@ -332,6 +336,7 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
                             ].map(filter => (
                                 <button
                                     key={filter.id}
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                     onClick={() => setActiveFilter(filter.id as any)}
                                     className={cn(
                                         "w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-all group",
@@ -449,7 +454,7 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
                                         isSelected={selectedIds.has(doc.id)}
                                         onToggleSelect={() => toggleSelect(doc.id)}
                                         onClick={() => {
-                                            if ((doc.doc_type === 'bid' || doc.extracted_data?.doc_type === 'bid') && onNavigate) {
+                                            if ((doc.doc_type === 'bid' || (doc.extracted_data as Record<string, unknown>)?.doc_type === 'bid') && onNavigate) {
                                                 onNavigate('tender-analysis');
                                                 toast.success("已为您打开标书深度分析视图");
                                             } else {

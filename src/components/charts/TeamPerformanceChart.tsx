@@ -95,7 +95,7 @@ export function TeamPerformanceChart() {
           />
           <Tooltip 
             content={<ChartTooltipContent />}
-            formatter={(value: number, name: string, props: any) => [
+            formatter={(value: number, name: string, props: { payload: { bonus: number; calls: number; conversions: number } }) => [
               <div key="tooltip" className="space-y-1">
                 <div>绩效分: {value}</div>
                 <div>奖金: ¥{props.payload.bonus.toLocaleString()}</div>

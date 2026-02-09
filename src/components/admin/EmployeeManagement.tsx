@@ -70,8 +70,9 @@ export function EmployeeManagement({ onProjectSelect }: EmployeeManagementProps)
             await deleteEmployee.mutateAsync(id);
             toast.success('员工已删除');
             setViewingEmployee(null); // Go back to list
-          } catch (error: any) {
-            toast.error('删除失败: ' + error.message);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : '未知错误';
+            toast.error('删除失败: ' + message);
           }
         }}
         onTransfer={async (fromId, toId) => {
@@ -79,8 +80,9 @@ export function EmployeeManagement({ onProjectSelect }: EmployeeManagementProps)
             await transferData.mutateAsync({ fromUserId: fromId, toUserId: toId });
             toast.success('数据已转移');
             setViewingEmployee(null);
-          } catch (error: any) {
-            toast.error('转移失败: ' + error.message);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : '未知错误';
+            toast.error('转移失败: ' + message);
           }
         }}
         onTransferAndDelete={async (fromId, toId) => {
@@ -89,8 +91,9 @@ export function EmployeeManagement({ onProjectSelect }: EmployeeManagementProps)
             await deleteEmployee.mutateAsync(fromId);
             toast.success('数据已转移且员工已删除');
             setViewingEmployee(null);
-          } catch (error: any) {
-            toast.error('操作失败: ' + error.message);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : '未知错误';
+            toast.error('操作失败: ' + message);
           }
         }}
         isProcessing={deleteEmployee.isPending || transferData.isPending}
@@ -143,8 +146,9 @@ export function EmployeeManagement({ onProjectSelect }: EmployeeManagementProps)
       setShowTransferDialog(false);
       setSelectedEmployee(null);
       setTransferTargetId('');
-    } catch (error: any) {
-      toast.error('转移失败: ' + error.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '未知错误';
+      toast.error('转移失败: ' + message);
     }
   };
 
@@ -166,8 +170,9 @@ export function EmployeeManagement({ onProjectSelect }: EmployeeManagementProps)
       setShowTransferDialog(false);
       setSelectedEmployee(null);
       setTransferTargetId('');
-    } catch (error: any) {
-      toast.error('操作失败: ' + error.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '未知错误';
+      toast.error('操作失败: ' + message);
     }
   };
 

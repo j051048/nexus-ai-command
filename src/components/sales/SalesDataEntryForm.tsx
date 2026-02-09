@@ -117,8 +117,9 @@ export function SalesDataEntryForm({ onSuccess }: SalesDataEntryFormProps) {
       toast.success('销售数据已保存！');
       form.reset(defaultValues);
       onSuccess?.();
-    } catch (error: any) {
-      toast.error('保存失败: ' + error.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '未知错误';
+      toast.error('保存失败: ' + message);
     }
   }
 

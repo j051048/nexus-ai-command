@@ -53,16 +53,16 @@ export const aiClient = {
      * Submit an approval request to the AI Orchestration Layer
      */
     async processApproval(data: { requester_id: string; type: string; amount: number; details: string }) {
-        return this.fetch<{ decision: string; reason: string }>('api/approval/process', {
+        return this.fetch('api/approval/process', {
             method: 'POST',
             body: JSON.stringify(data)
-        });
+        }) as Promise<{ decision: string; reason: string }>;
     },
 
     /**
      * Generic chat completion
      */
-    async chat(messages: any[], model: string = 'gpt-4o') {
+    async chat(messages: { role: string; content: string; [key: string]: unknown }[], model: string = 'gpt-4o') {
         // NOTE: This endpoint might return a stream, so generic fetch wrapper might need adjustment for streams.
         // But for simple request/response:
         return this.fetch('api/chat', {

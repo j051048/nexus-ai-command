@@ -10,11 +10,14 @@ export function useProjects() {
     const fetchProjects = useCallback(async () => {
         setLoading(true);
         const { data, error } = await (supabase
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .from('projects' as any)
             .select('*')
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .order('updated_at', { ascending: false }) as any);
 
         if (!error && data) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const mapped = (data as any[]).map(p => ({
                 ...p,
                 stage: p.status, // Map status to stage for UI
@@ -44,7 +47,9 @@ export function useProjectDetail(projectId: string | null) {
             setLoading(true);
 
             const [projectRes, timelineRes] = await Promise.all([
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 supabase.from('projects' as any).select('*').eq('id', projectId).single() as any,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 supabase.from('project_timeline' as any).select('*').eq('project_id', projectId).order('created_at', { ascending: false }) as any
             ]);
 
@@ -58,6 +63,7 @@ export function useProjectDetail(projectId: string | null) {
             }
 
             if (!timelineRes.error && timelineRes.data) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const mappedTimeline = (timelineRes.data as any[]).map(t => ({
                     ...t,
                     occurred_at: t.created_at // Map created_at to occurred_at for UI
