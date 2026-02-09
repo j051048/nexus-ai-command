@@ -982,9 +982,10 @@ export function useMousePosition(options: {
     if (prefersReducedMotion) return;
 
     const element = targetRef?.current || document;
+    const currentTarget = targetRef?.current;
 
     const handleMouseMove = (e: MouseEvent) => {
-      const rect = targetRef?.current?.getBoundingClientRect();
+      const rect = currentTarget?.getBoundingClientRect();
       targetPosition.current = {
         x: rect ? e.clientX - rect.left : e.clientX,
         y: rect ? e.clientY - rect.top : e.clientY,
@@ -1003,17 +1004,17 @@ export function useMousePosition(options: {
     };
 
     element.addEventListener('mousemove', handleMouseMove as EventListener);
-    if (targetRef?.current) {
-      targetRef.current.addEventListener('mouseenter', handleMouseEnter);
-      targetRef.current.addEventListener('mouseleave', handleMouseLeave);
+    if (currentTarget) {
+      currentTarget.addEventListener('mouseenter', handleMouseEnter);
+      currentTarget.addEventListener('mouseleave', handleMouseLeave);
     }
     animationRef.current = requestAnimationFrame(animate);
 
     return () => {
       element.removeEventListener('mousemove', handleMouseMove as EventListener);
-      if (targetRef?.current) {
-        targetRef.current.removeEventListener('mouseenter', handleMouseEnter);
-        targetRef.current.removeEventListener('mouseleave', handleMouseLeave);
+      if (currentTarget) {
+        currentTarget.removeEventListener('mouseenter', handleMouseEnter);
+        currentTarget.removeEventListener('mouseleave', handleMouseLeave);
       }
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
