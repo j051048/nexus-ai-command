@@ -1,9 +1,21 @@
+"""
+P0 Security: Approval Tools with Human Confirmation
+Critical security fix #1: AI cannot directly execute irreversible operations
+All approval/reject operations now require explicit confirmation
+"""
 from .base_tool import BaseTool
 from typing import Dict, Any
+from datetime import datetime
+import logging
 from app.core.database import supabase
+
+logger = logging.getLogger(__name__)
 
 # AI Assistant 固定 UUID
 AI_ASSISTANT_ID = "00000000-0000-0000-0000-000000000001"
+
+# P0 Security Fix #1: Maximum batch size for approvals
+MAX_BATCH_SIZE = 10
 
 
 class SubmitApprovalOnBehalfTool(BaseTool):
@@ -37,7 +49,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
         start_date = args.get("start_date", "")
         end_date = args.get("end_date", "")
 
-        print(f"[AI审批] 当前用户ID: {user_id}, 申请类型: {approval_type}")
+        logger.info(f"[AI审批] 当前用户ID: {user_id}, 申请类型: {approval_type}")
 
         # 验证员工存在
         employee_check = await supabase.table("users").select("id, name, role").eq("id", employee_id).single().execute()
@@ -55,7 +67,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
         if start_date or end_date:
             full_details += f"\n日期：{start_date} 至 {end_date}"
 
-                # 插入审批记录 - 关键：submitted_by 是员工ID，不是AI的ID
+        # 插入审批记录 - 关键：submitted_by 是员工ID，不是AI的ID
         try:
             insert_data = {
                 "submitted_by": employee_id,  # 归属于员工
@@ -67,12 +79,12 @@ class SubmitApprovalOnBehalfTool(BaseTool):
                 "status": "pending",
                 "ai_reason": f"由AI助手豆豆代{actual_employee.get('name', employee_name)}提交"
             }
-            print(f"[AI审批] 准备插入数据: {insert_data}")
+            logger.debug(f"[AI审批] 准备插入数据: {insert_data}")
             
             result = await supabase.table("approval_requests").insert(insert_data).execute()
-            print(f"[AI审批] 插入结果: {result}")
+            logger.debug(f"[AI审批] 插入结果成功")
         except Exception as e:
-            print(f"[AI审批] 插入失败: {e}")
+            logger.exception(f"[AI审批] 插入失败: {e}")
             return f"提交失败：数据库错误 - {str(e)}"
 
         if result.data:
@@ -163,45 +175,133 @@ class GetEmployeeApprovalHistoryTool(BaseTool):
 
 
 class ApprovalTool(BaseTool):
+    """
+    P0 Security Fix #1: Approval with mandatory confirmation
+    
+    This tool now operates in two modes:
+    1. Preview mode (default): Shows what will be approved, requires user confirmation
+    2. Execute mode: Actually performs the approval after user confirms
+    """
     name = "approve_request"
-    description = "批准一个待处理的审批申请（报销或采购）"
+    description = """批准一个待处理的审批申请。
+首次调用时会返回待审批信息的预览，需要用户确认后再次调用并传入 confirm=true 才会真正执行。
+这是一个不可逆操作，需要人工确认。"""
     required_role = "boss"  # Only boss/manager can approve
 
     parameters = {
         "type": "object",
         "properties": {
             "request_id": {"type": "string", "description": "审批单的唯一ID"},
-            "reason": {"type": "string", "description": "批准的原因（可选）"}
+            "reason": {"type": "string", "description": "批准的原因（可选）"},
+            "confirm": {
+                "type": "boolean", 
+                "description": "是否确认执行？首次调用请设为false获取预览，确认后设为true执行"
+            }
         },
         "required": ["request_id"]
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
         req_id = args.get("request_id")
-        result = await supabase.table("approval_requests").update({"status": "approved"}).eq("id", req_id).execute()
+        reason = args.get("reason", "")
+        confirm = args.get("confirm", False)
+        
+        # Step 1: Fetch the request details first
+        fetch_result = await supabase.table("approval_requests")\
+            .select("*, users:submitted_by(name, department)")\
+            .eq("id", req_id)\
+            .single()\
+            .execute()
+        
+        if not fetch_result.data:
+            return f"❌ 找不到审批单 {req_id}，请检查ID是否正确。"
+        
+        request_data = fetch_result.data
+        
+        # P0 Security: Check if already processed (idempotency)
+        if request_data.get("status") != "pending":
+            current_status = request_data.get("status")
+            return f"⚠️ 该审批单已被处理，当前状态为: {current_status}。无法重复操作。"
+        
+        submitter = request_data.get("users", {})
+        submitter_name = submitter.get("name", "未知") if isinstance(submitter, dict) else "未知"
+        
+        # P0 Security Fix #1: Return preview if not confirmed
+        if not confirm:
+            return f"""📋 **审批预览** - 请确认后执行
+
+**申请信息**
+• 单号: {req_id[:8]}...
+• 申请人: {submitter_name}
+• 类型: {request_data.get('type', '未知')}
+• 金额: ¥{request_data.get('amount', 0):,.2f}
+• 说明: {request_data.get('description', '无')[:100]}
+• 提交时间: {request_data.get('created_at', '未知')[:10]}
+
+⚠️ **这是一个不可逆操作**
+如确认批准，请说「确认批准」或重新调用工具并设置 confirm=true"""
+
+        # Step 2: Execute with idempotency check
+        logger.info(f"[P0 Security] User {user_id} confirmed approval of {req_id}")
+        
+        # P0 Security: Use conditional update to prevent race conditions
+        result = await supabase.table("approval_requests").update({
+            "status": "approved",
+            "approved_by": user_id,
+            "approved_at": datetime.now().isoformat(),
+            "approval_comment": reason or "已批准"
+        }).eq("id", req_id).eq("status", "pending").execute()  # Only update if still pending
+        
         if result.data:
+            # Record audit log
+            await supabase.table("audit_logs").insert({
+                "action": "approval_approved",
+                "actor_user_id": user_id,
+                "target_id": req_id,
+                "target_table": "approval_requests",
+                "details_json": {
+                    "amount": request_data.get("amount"),
+                    "type": request_data.get("type"),
+                    "submitter": submitter_name
+                }
+            }).execute()
+            
+            # Send notification
             try:
-                target_user = result.data[0].get("submitted_by")
+                target_user = request_data.get("submitted_by")
                 await supabase.table("notifications").insert({
                     "user_id": target_user,
-                    "title": "审批已通过",
-                    "content": f"您的审批申请 {req_id} 已被 AI 批准。",
+                    "title": "✅ 审批已通过",
+                    "content": f"您的{request_data.get('type', '')}申请（¥{request_data.get('amount', 0)}）已被批准。",
                     "type": "success"
                 }).execute()
-            except: pass
-            return f"成功批准审批单 {req_id}。"
-        return "批准失败，可能单据不存在或已由他人处理。"
+            except Exception as e:
+                logger.warning(f"Failed to send notification: {e}")
+            
+            return f"✅ 已成功批准审批单 {req_id[:8]}...（{submitter_name} 的 {request_data.get('type')} 申请，¥{request_data.get('amount', 0):,.2f}）"
+        
+        return "❌ 批准失败，该单据可能已被他人处理。"
+
 
 class RejectTool(BaseTool):
+    """
+    P0 Security Fix #1: Rejection with mandatory confirmation
+    """
     name = "reject_request"
-    description = "驳回一个待处理的审批申请"
+    description = """驳回一个待处理的审批申请。
+首次调用时会返回待驳回信息的预览，需要用户确认后再次调用并传入 confirm=true 才会真正执行。
+这是一个不可逆操作，需要人工确认。"""
     required_role = "boss"
 
     parameters = {
         "type": "object",
         "properties": {
             "request_id": {"type": "string", "description": "审批单的唯一ID"},
-            "reason": {"type": "string", "description": "驳回的原因（必须说明）"}
+            "reason": {"type": "string", "description": "驳回的原因（必须说明）"},
+            "confirm": {
+                "type": "boolean", 
+                "description": "是否确认执行？首次调用请设为false获取预览，确认后设为true执行"
+            }
         },
         "required": ["request_id", "reason"]
     }
@@ -209,19 +309,86 @@ class RejectTool(BaseTool):
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
         req_id = args.get("request_id")
         reason = args.get("reason", "未说明原因")
-        result = await supabase.table("approval_requests").update({"status": "rejected"}).eq("id", req_id).execute()
+        confirm = args.get("confirm", False)
+        
+        # Step 1: Fetch the request details first
+        fetch_result = await supabase.table("approval_requests")\
+            .select("*, users:submitted_by(name, department)")\
+            .eq("id", req_id)\
+            .single()\
+            .execute()
+        
+        if not fetch_result.data:
+            return f"❌ 找不到审批单 {req_id}，请检查ID是否正确。"
+        
+        request_data = fetch_result.data
+        
+        # P0 Security: Check if already processed (idempotency)
+        if request_data.get("status") != "pending":
+            current_status = request_data.get("status")
+            return f"⚠️ 该审批单已被处理，当前状态为: {current_status}。无法重复操作。"
+        
+        submitter = request_data.get("users", {})
+        submitter_name = submitter.get("name", "未知") if isinstance(submitter, dict) else "未知"
+        
+        # P0 Security Fix #1: Return preview if not confirmed
+        if not confirm:
+            return f"""📋 **驳回预览** - 请确认后执行
+
+**申请信息**
+• 单号: {req_id[:8]}...
+• 申请人: {submitter_name}
+• 类型: {request_data.get('type', '未知')}
+• 金额: ¥{request_data.get('amount', 0):,.2f}
+• 说明: {request_data.get('description', '无')[:100]}
+
+**驳回原因**
+{reason}
+
+⚠️ **这是一个不可逆操作**
+如确认驳回，请说「确认驳回」或重新调用工具并设置 confirm=true"""
+
+        # Step 2: Execute with idempotency check
+        logger.info(f"[P0 Security] User {user_id} confirmed rejection of {req_id}")
+        
+        result = await supabase.table("approval_requests").update({
+            "status": "rejected",
+            "approved_by": user_id,
+            "approved_at": datetime.now().isoformat(),
+            "approval_comment": reason
+        }).eq("id", req_id).eq("status", "pending").execute()  # Only update if still pending
+        
         if result.data:
+            # Record audit log
+            await supabase.table("audit_logs").insert({
+                "action": "approval_rejected",
+                "actor_user_id": user_id,
+                "target_id": req_id,
+                "target_table": "approval_requests",
+                "details_json": {
+                    "amount": request_data.get("amount"),
+                    "type": request_data.get("type"),
+                    "submitter": submitter_name,
+                    "reason": reason
+                }
+            }).execute()
+            
+            # Send notification
             try:
-                target_user = result.data[0].get("submitted_by")
+                target_user = request_data.get("submitted_by")
                 await supabase.table("notifications").insert({
                     "user_id": target_user,
-                    "title": "审批已驳回",
-                    "content": f"您的审批申请 {req_id} 已被驳回。理由：{reason}",
+                    "title": "❌ 审批已驳回",
+                    "content": f"您的{request_data.get('type', '')}申请已被驳回。原因：{reason}",
                     "type": "error"
                 }).execute()
-            except: pass
-            return f"已成功驳回单据 {req_id}，理由：{reason}。"
-        return "驳回失败。"
+            except Exception as e:
+                logger.warning(f"Failed to send notification: {e}")
+            
+            return f"❌ 已驳回审批单 {req_id[:8]}...。驳回原因：{reason}"
+        
+        return "❌ 驳回失败，该单据可能已被他人处理。"
+
 
 class PendingApprovalsTool(BaseTool):
     name = "get_pending_approvals"

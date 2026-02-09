@@ -2,18 +2,35 @@
 领导专属工具集
 实现智能审批、经营洞察、团队管理等高级管理功能
 支持语音/自然语言批量处理
+
+P0 Security Fix #1: All approval operations require explicit confirmation
 """
 from .base_tool import BaseTool
 from typing import Dict, Any, List
 from datetime import datetime, timedelta
+import logging
 from app.core.database import supabase
 from app.services.event_bus import emit, EventType
 
+logger = logging.getLogger(__name__)
+
+# P0 Security: Maximum batch size to prevent mass operations
+MAX_BATCH_SIZE = 10
+
 
 class SmartApprovalTool(BaseTool):
-    """智能审批工具 - 支持批量审批、条件审批、委托审批"""
+    """
+    智能审批工具 - 支持批量审批、条件审批、委托审批
+    
+    P0 Security Fix #1: 
+    - All operations require explicit confirm=true
+    - Batch operations limited to MAX_BATCH_SIZE
+    - Idempotency checks prevent duplicate processing
+    """
     name = "smart_approve"
-    description = "智能审批工具。支持批量审批、按条件审批、委托审批等。当领导说'批了'、'同意'、'全部通过'、'驳回'时调用。"
+    description = """智能审批工具。支持批量审批、按条件审批、委托审批等。
+首次调用返回预览信息，需要确认后设置 confirm=true 才会真正执行。
+这是不可逆操作，需要人工确认。"""
     required_role = "boss"
     
     parameters = {
@@ -45,6 +62,10 @@ class SmartApprovalTool(BaseTool):
             "comment": {
                 "type": "string",
                 "description": "审批意见"
+            },
+            "confirm": {
+                "type": "boolean",
+                "description": "是否确认执行？首次调用请设为false获取预览，确认后设为true执行"
             }
         },
         "required": ["action"]
@@ -57,6 +78,7 @@ class SmartApprovalTool(BaseTool):
         condition = args.get("condition", "")
         delegate_to = args.get("delegate_to", "")
         comment = args.get("comment", "")
+        confirm = args.get("confirm", False)  # P0 Security: Default to preview mode
         
         # 获取待审批列表
         pending_res = await supabase.table("approval_requests")\
@@ -84,46 +106,97 @@ class SmartApprovalTool(BaseTool):
                 try:
                     amount_threshold = float(''.join(filter(str.isdigit, condition)))
                     selected_requests = [r for r in selected_requests if float(r.get("amount", 0)) < amount_threshold]
-                except:
-                    pass
+                except (ValueError, TypeError):
+                    logger.warning(f"Failed to parse amount threshold from condition: {condition}")
             elif "大于" in condition or ">" in condition:
                 try:
                     amount_threshold = float(''.join(filter(str.isdigit, condition)))
                     selected_requests = [r for r in selected_requests if float(r.get("amount", 0)) > amount_threshold]
-                except:
-                    pass
+                except (ValueError, TypeError):
+                    logger.warning(f"Failed to parse amount threshold from condition: {condition}")
         
         if not selected_requests:
             return "❌ 没有符合条件的审批事项"
         
+        # P0 Security: Limit batch size
+        if len(selected_requests) > MAX_BATCH_SIZE:
+            return f"""⚠️ 安全限制：单次批量操作最多处理 {MAX_BATCH_SIZE} 条
+
+当前符合条件的申请有 {len(selected_requests)} 条。
+请使用 request_numbers 参数指定具体序号，或分批处理。"""
+        
+        # Calculate totals for preview
+        total_amount = sum(float(r.get("amount", 0)) for r in selected_requests)
+        
+        # P0 Security Fix #1: Return preview if not confirmed
+        if not confirm:
+            action_name = {"approve": "批准", "reject": "驳回", "delegate": "委托", "batch_approve": "批量批准"}.get(action, action)
+            
+            preview = f"""📋 **{action_name}预览** - 请确认后执行
+
+**将要处理的申请** ({len(selected_requests)} 件，共 ¥{total_amount:,.2f})
+
+"""
+            for i, req in enumerate(selected_requests[:5], 1):
+                user_info = req.get("users", {})
+                user_name = user_info.get("name", "未知") if isinstance(user_info, dict) else "未知"
+                preview += f"{i}. {user_name} - {req.get('type', '未知')} ¥{req.get('amount', 0):,.0f}\n"
+            
+            if len(selected_requests) > 5:
+                preview += f"... 还有 {len(selected_requests) - 5} 条\n"
+            
+            preview += f"""
+⚠️ **这是不可逆操作**
+如确认{action_name}，请说「确认{action_name}」或重新调用工具并设置 confirm=true"""
+            
+            return preview
+        
+        # P0 Security: Log the confirmed action
+        logger.info(f"[P0 Security] User {user_id} confirmed {action} for {len(selected_requests)} requests")
+        
         # 执行操作
         if action == "approve" or action == "batch_approve":
             approved_count = 0
-            total_amount = 0
+            skipped_count = 0
             
             for req in selected_requests:
-                await supabase.table("approval_requests").update({
+                # P0 Security: Idempotency check - only update if still pending
+                result = await supabase.table("approval_requests").update({
                     "status": "approved",
                     "approved_by": user_id,
                     "approved_at": datetime.now().isoformat(),
                     "approval_comment": comment or "已批准"
-                }).eq("id", req["id"]).execute()
+                }).eq("id", req["id"]).eq("status", "pending").execute()
                 
-                # 通知申请人
-                await supabase.table("notifications").insert({
-                    "user_id": req["submitted_by"],
-                    "title": "✅ 您的申请已批准",
-                    "content": f"您提交的{req.get('type', '申请')}（¥{req.get('amount', 0)}）已被批准",
-                    "type": "success"
-                }).execute()
-                
-                approved_count += 1
-                total_amount += float(req.get("amount", 0))
+                if result.data:
+                    # 通知申请人
+                    await supabase.table("notifications").insert({
+                        "user_id": req["submitted_by"],
+                        "title": "✅ 您的申请已批准",
+                        "content": f"您提交的{req.get('type', '申请')}（¥{req.get('amount', 0)}）已被批准",
+                        "type": "success"
+                    }).execute()
+                    approved_count += 1
+                else:
+                    skipped_count += 1
             
-            return f"""✅ 批量审批完成！
+            # Record audit log
+            await supabase.table("audit_logs").insert({
+                "action": "batch_approval",
+                "actor_user_id": user_id,
+                "target_table": "approval_requests",
+                "details_json": {
+                    "approved_count": approved_count,
+                    "skipped_count": skipped_count,
+                    "total_amount": total_amount
+                }
+            }).execute()
+            
+            result_msg = f"""✅ 批量审批完成！
 
 **处理结果**
 - 批准数量: {approved_count} 件
+- 跳过数量: {skipped_count} 件（已被他人处理）
 - 涉及金额: ¥{total_amount:,.2f}
 - 处理时间: {datetime.now().strftime('%H:%M:%S')}
 
@@ -132,30 +205,48 @@ class SmartApprovalTool(BaseTool):
 
 📧 已通知所有申请人
 """
+            return result_msg
         
         elif action == "reject":
             rejected_count = 0
+            skipped_count = 0
+            
             for req in selected_requests:
-                await supabase.table("approval_requests").update({
+                # P0 Security: Idempotency check
+                result = await supabase.table("approval_requests").update({
                     "status": "rejected",
                     "approved_by": user_id,
                     "approved_at": datetime.now().isoformat(),
                     "approval_comment": comment or "已驳回"
-                }).eq("id", req["id"]).execute()
+                }).eq("id", req["id"]).eq("status", "pending").execute()
                 
-                # 通知申请人
-                await supabase.table("notifications").insert({
-                    "user_id": req["submitted_by"],
-                    "title": "❌ 您的申请被驳回",
-                    "content": f"您提交的{req.get('type', '申请')}被驳回。原因: {comment or '未说明'}",
-                    "type": "warning"
-                }).execute()
-                
-                rejected_count += 1
+                if result.data:
+                    await supabase.table("notifications").insert({
+                        "user_id": req["submitted_by"],
+                        "title": "❌ 您的申请被驳回",
+                        "content": f"您提交的{req.get('type', '申请')}被驳回。原因: {comment or '未说明'}",
+                        "type": "warning"
+                    }).execute()
+                    rejected_count += 1
+                else:
+                    skipped_count += 1
+            
+            # Record audit log
+            await supabase.table("audit_logs").insert({
+                "action": "batch_rejection",
+                "actor_user_id": user_id,
+                "target_table": "approval_requests",
+                "details_json": {
+                    "rejected_count": rejected_count,
+                    "skipped_count": skipped_count,
+                    "reason": comment
+                }
+            }).execute()
             
             return f"""❌ 已驳回 {rejected_count} 件申请
 
 驳回原因: {comment or '未说明'}
+跳过数量: {skipped_count} 件（已被他人处理）
 📧 已通知相关申请人
 """
         
@@ -170,11 +261,11 @@ class SmartApprovalTool(BaseTool):
             
             delegate_user = delegate_res.data[0]
             
-            # 更新审批人
+            # 更新审批人 (委托不是不可逆操作，可以重新委托)
             for req in selected_requests:
                 await supabase.table("approval_requests").update({
                     "current_approver": delegate_user["id"]
-                }).eq("id", req["id"]).execute()
+                }).eq("id", req["id"]).eq("status", "pending").execute()
             
             # 通知被委托人
             await supabase.table("notifications").insert({

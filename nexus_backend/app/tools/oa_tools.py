@@ -1,12 +1,19 @@
 """
 OA 办公自动化工具集
 实现请假、会议、任务等办公场景的 AI 自动化
+
+P2 Fixes Applied:
+- Replaced bare except with proper ValueError handling
+- Added structured logging
 """
+import logging
 from .base_tool import BaseTool
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from app.core.database import supabase
 from app.services.event_bus import emit, EventType
+
+logger = logging.getLogger(__name__)
 
 
 class LeaveRequestTool(BaseTool):
@@ -50,14 +57,15 @@ class LeaveRequestTool(BaseTool):
         reason = args.get("reason", "")
         handover_to = args.get("handover_to")
         
-        # 计算请假天数
+        # 计算请假天数 - P2 Fix: Proper exception handling
         try:
             start = datetime.strptime(start_date, "%Y-%m-%d")
             end = datetime.strptime(end_date, "%Y-%m-%d")
             days = (end - start).days + 1
             # 排除周末（简化计算）
             work_days = sum(1 for i in range(days) if (start + timedelta(days=i)).weekday() < 5)
-        except:
+        except ValueError as e:
+            logger.warning(f"Date parsing error: {e}")
             return "❌ 日期格式错误，请使用 YYYY-MM-DD 格式"
         
         # 获取用户信息

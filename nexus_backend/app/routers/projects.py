@@ -1,46 +1,40 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Optional
-from pydantic import BaseModel
 from app.core.database import supabase
+from app.core.auth import get_current_user_id
+from app.models.schemas import ProjectCreate, ProjectUpdate, StandardResponse
+from app.core.errors import api_success, api_error, ErrorCode
 
 router = APIRouter(prefix="/api/projects", tags=["Projects"])
 
-class ProjectCreate(BaseModel):
-    name: str
-    description: Optional[str] = None
-    userId: str # owner_id
-
-class ProjectUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    status: Optional[str] = None
-    progress: Optional[int] = None
-
-@router.get("/{user_id}")
+@router.get("/{user_id}", response_model=StandardResponse)
 async def get_projects(user_id: str):
-    # If user is boss, logic might differ (fetch all), but for now we follow RLS/or query param
-    # Front-end for Employee passes their own ID.
+    """
+    Get projects for a user.
+    Admin/Founder can see all projects (potentially), but standard behavior is RLS or owner check.
+    """
     try:
-        # Check role to decide if we fetch all or just user's
-        # BUT supabase-py RLS might not work if we use service_role key globally?
-        # The app.core.database usually uses a service_role key for admin tasks.
-        # So we should manually filter unless we have per-request user context clien    try:
-        # Implementation: Check user role.
+        # Check user role for permission logic
         user_res = await supabase.table("users").select("role").eq("id", user_id).maybe_single().execute()
         role = user_res.data.get("role") if user_res.data else "employee"
         
         query = supabase.table("projects").select("*")
         
+        # Security Policy: Non-founders only see their own projects
         if role != 'founder':
             query = query.eq("owner_id", user_id)
             
         res = await query.order("created_at", desc=True).execute()
-        return res.data
+        
+        return api_success(data=res.data)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
-@router.post("/")
+@router.post("/", response_model=StandardResponse, status_code=status.HTTP_201_CREATED)
 async def create_project(project: ProjectCreate):
+    """
+    Create a new project.
+    """
     try:
         data = {
             "name": project.name,
@@ -51,16 +45,29 @@ async def create_project(project: ProjectCreate):
         }
         res = await supabase.table("projects").insert(data).execute()
         if not res.data:
-            raise Exception("Insert failed")
-        return res.data[0]
+            raise api_error(ErrorCode.DB_ERROR, "Project creation failed")
+            
+        return api_success(data=res.data[0], message="Project created successfully")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
-@router.patch("/{project_id}")
+@router.patch("/{project_id}", response_model=StandardResponse)
 async def update_project(project_id: str, updates: ProjectUpdate):
+    """
+    Update an existing project.
+    """
     try:
+        # Filter out None values
         data = {k: v for k, v in updates.model_dump().items() if v is not None}
+        
+        if not data:
+            return api_success(message="No updates provided")
+
         res = await supabase.table("projects").update(data).eq("id", project_id).execute()
-        return res.data
+        
+        if not res.data:
+             raise api_error(ErrorCode.NOT_FOUND, f"Project {project_id} not found or update failed")
+
+        return api_success(data=res.data[0], message="Project updated")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

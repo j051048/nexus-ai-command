@@ -7,8 +7,11 @@ import os
 import json
 import time
 import asyncio
+import logging
 from typing import Any, Optional, Dict
 from functools import wraps
+
+logger = logging.getLogger(__name__)
 
 # Try to import redis, fall back to in-memory if unavailable
 try:
@@ -16,7 +19,7 @@ try:
     REDIS_AVAILABLE = True
 except ImportError:
     REDIS_AVAILABLE = False
-    print("⚠️ Redis not installed. Using in-memory cache (not suitable for multi-instance deployment)")
+    logger.warning("Redis not installed. Using in-memory cache (not suitable for multi-instance deployment)")
 
 
 class InMemoryCache:
@@ -105,16 +108,16 @@ class CacheService:
                 )
                 await self._client.ping()
                 self._use_redis = True
-                print("✅ Redis cache connected")
+                logger.info("Redis cache connected")
             except Exception as e:
-                print(f"⚠️ Redis connection failed: {e}. Using in-memory cache.")
+                logger.warning(f"Redis connection failed: {e}. Using in-memory cache.")
                 self._client = InMemoryCache()
                 self._use_redis = False
         else:
             self._client = InMemoryCache()
             self._use_redis = False
             if not redis_url:
-                print("ℹ️ REDIS_URL not configured. Using in-memory cache.")
+                logger.info("REDIS_URL not configured. Using in-memory cache.")
         
         self._initialized = True
     
@@ -134,7 +137,7 @@ class CacheService:
                 except (json.JSONDecodeError, TypeError):
                     return value.decode() if isinstance(value, bytes) else value
         except Exception as e:
-            print(f"Cache get error: {e}")
+            logger.debug(f"Cache get error: {e}")
         return None
     
     async def set(self, key: str, value: Any, ttl: int = None) -> bool:
@@ -151,7 +154,7 @@ class CacheService:
                 await self._client.set(key, value)
             return True
         except Exception as e:
-            print(f"Cache set error: {e}")
+            logger.debug(f"Cache set error: {e}")
             return False
     
     async def delete(self, key: str) -> bool:
@@ -161,7 +164,7 @@ class CacheService:
             await self._client.delete(key)
             return True
         except Exception as e:
-            print(f"Cache delete error: {e}")
+            logger.debug(f"Cache delete error: {e}")
             return False
     
     async def delete_pattern(self, pattern: str) -> int:
@@ -174,7 +177,7 @@ class CacheService:
                     await self._client.delete(key)
                 return len(keys)
         except Exception as e:
-            print(f"Cache delete_pattern error: {e}")
+            logger.debug(f"Cache delete_pattern error: {e}")
         return 0
     
     # ============== Domain-specific methods ==============

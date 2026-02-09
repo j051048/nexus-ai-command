@@ -1,3 +1,4 @@
+import logging
 import httpx
 import json
 import io
@@ -7,6 +8,8 @@ from fastapi import UploadFile
 from typing import Tuple, Dict, Any, List
 from app.core.database import supabase
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 class ETLService:
     """
@@ -42,7 +45,7 @@ class ETLService:
             response = await client.post(url, headers=headers, json=payload)
             if response.status_code != 200:
                 error_msg = response.text
-                print(f"AI Provider Error ({response.status_code}): {error_msg}")
+                logger.error(f"AI Provider Error ({response.status_code}): {error_msg}")
                 raise Exception(f"AI provider returned error {response.status_code}")
             
             data = response.json()
@@ -73,10 +76,37 @@ class ETLService:
         
         return content
 
-    async def create_initial_record(self, filename: str, user_id: str, status: str = "pending") -> str:
-        """Creates a placeholder record in the database."""
+    async def create_initial_record(
+        self, 
+        filename: str, 
+        user_id: str, 
+        status: str = "pending",
+        visibility: str = "organization",  # P0 Security Fix #4
+        department: str = None
+    ) -> str:
+        """
+        Creates a placeholder record in the database.
+        
+        P0 Security Fix #4: Added visibility parameter
+        - 'organization': Visible to all company members (default, for shared knowledge)
+        - 'department': Visible only to same department members
+        - 'private': Visible only to the uploader (personal notes, drafts)
+        """
         if not supabase:
              raise Exception("Supabase not initialized")
+        
+        # Validate visibility
+        if visibility not in ('private', 'department', 'organization'):
+            visibility = 'organization'
+        
+        # If department visibility but no department provided, try to get user's department
+        if visibility == 'department' and not department:
+            try:
+                user_res = await supabase.table("users").select("department").eq("id", user_id).maybe_single().execute()
+                if user_res.data:
+                    department = user_res.data.get("department")
+            except Exception as e:
+                logger.debug(f"Failed to fetch user department: {e}")
         
         record = {
             "name": filename,
@@ -84,6 +114,8 @@ class ETLService:
             "progress": 0,
             "stage": "uploading",
             "owner_id": user_id,
+            "visibility": visibility,     # P0 Security Fix #4
+            "department": department,      # P0 Security Fix #4
         }
         res = await supabase.table("documents").insert(record).execute()
         if not res.data:
@@ -101,7 +133,7 @@ class ETLService:
                 "status": status
             }).eq("id", doc_id).execute()
         except Exception as e:
-            print(f"Failed to update progress for {doc_id}: {e}")
+            logger.error(f"Failed to update progress for {doc_id}: {e}")
 
     async def process_file(self, content: bytes, filename: str, doc_id: str = None, api_key: str = None, base_url: str = None, user_id: str = None) -> dict:
         text = ""
@@ -215,7 +247,7 @@ class ETLService:
                         return {"filename": filename, "status": "partial_success", "reason": "文档已记录，但向量索引失败，搜索可能受限。"}
                         
                 except Exception as db_err:
-                    print(f"DB Error: {db_err}")
+                    logger.error(f"DB Error: {db_err}")
                     if doc_id:
                         await supabase.table("documents").update({"status": "error", "error_log": str(db_err)}).eq("id", doc_id).execute()
                     return {"filename": filename, "status": "error", "reason": f"数据库写入失败: {str(db_err)}"}
@@ -223,7 +255,7 @@ class ETLService:
                 return {"filename": filename, "status": "error", "reason": f"AI 解析失败: {details.get('error')}"}
 
         except Exception as e:
-            print(f"ETL Panic: {str(e)}")
+            logger.error(f"ETL Panic: {str(e)}")
             if doc_id:
                  await self._update_progress(doc_id, 0, "failed", status="error")
             return {"filename": filename, "status": "error", "reason": f"系统崩溃: {str(e)}"}
@@ -286,17 +318,17 @@ class ETLService:
             """Helper to call AI with retry logic"""
             payload["model"] = model_name
             try:
-                print(f"Attempting AI Analysis with model: {model_name}...")
+                logger.info(f"Attempting AI Analysis with model: {model_name}...")
                 async with httpx.AsyncClient(timeout=90.0) as client:
                     response = await client.post(f"{base_url}/chat/completions", headers=headers, json=payload)
                     
                     if response.status_code != 200:
-                        print(f"Model {model_name} failed: {response.status_code} - {response.text}")
+                        logger.warning(f"Model {model_name} failed: {response.status_code} - {response.text}")
                         return False, None
                     
                     return True, response.json()
             except Exception as e:
-                print(f"Model {model_name} processing error: {str(e)}")
+                logger.warning(f"Model {model_name} processing error: {str(e)}")
                 return False, None
 
         # 1. Try Primary Model (Bleeding Edge)
@@ -304,7 +336,7 @@ class ETLService:
         
         # 2. Fallback to Stable Model if primary fails
         if not success:
-            print("⚠️ Primary model failed. Falling back to Gemini-2.5-Pro...")
+            logger.warning("Primary model failed. Falling back to Gemini-2.5-Pro...")
             success, response_json = await call_ai_model("gemini-2.5-pro")
 
         if not success or not response_json:
@@ -322,8 +354,8 @@ class ETLService:
             if json_match:
                 try:
                     metadata = json.loads(json_match.group(1).strip())
-                except:
-                    print("JSON Parse Failed")
+                except json.JSONDecodeError as e:
+                    logger.warning(f"JSON Parse Failed: {e}")
             
             if report_match:
                 metadata["full_analysis_markdown"] = report_match.group(1).strip()
@@ -332,8 +364,8 @@ class ETLService:
                 try:
                     clean_json = content.replace("```json", "").replace("```", "").strip()
                     metadata = json.loads(clean_json)
-                except:
-                        pass
+                except json.JSONDecodeError:
+                    pass  # Fallback parsing also failed
 
             if not metadata:
                     raise Exception("Failed to parse AI output format")
@@ -341,7 +373,7 @@ class ETLService:
             return True, metadata
         except Exception as e:
 
-            print(f"Metadata Extraction Failed: {e}")
+            logger.warning(f"Metadata Extraction Failed: {e}")
             # Fallback metadata
             return True, {
                 "doc_type": "other", 
@@ -354,9 +386,27 @@ class ETLService:
                 "technical_deviations": []
             }
 
-    async def _save_to_db(self, filename: str, metadata: dict, text: str = "", user_id: str = None, status: str = "ready") -> str:
+    async def _save_to_db(
+        self, 
+        filename: str, 
+        metadata: dict, 
+        text: str = "", 
+        user_id: str = None, 
+        status: str = "ready",
+        visibility: str = "organization",  # P0 Security Fix #4
+        department: str = None
+    ) -> str:
+        """
+        Save document to database with visibility control.
+        
+        P0 Security Fix #4: Added visibility parameter for three-tier access control.
+        """
         if not supabase:
             raise Exception("Supabase not initialized")
+        
+        # Validate visibility
+        if visibility not in ('private', 'department', 'organization'):
+            visibility = 'organization'
             
         safe_text = self._scrub_pii(text)
         metadata["full_text_context"] = safe_text[:100000] 
@@ -367,7 +417,9 @@ class ETLService:
             "extracted_data": metadata,
             "version": 1,
             "owner_id": user_id,
-            "status": status
+            "status": status,
+            "visibility": visibility,     # P0 Security Fix #4
+            "department": department,      # P0 Security Fix #4
         }
         res = await supabase.table("documents").insert(record).execute()
         if not res.data:
@@ -401,7 +453,8 @@ class ETLService:
                         await supabase.table("document_embeddings").insert(records).execute()
                         return True
                     return False
-            except:
+            except Exception as e:
+                logger.error(f"Batch embedding failed: {e}")
                 return False
 
         # Use new dynamic size and overlap

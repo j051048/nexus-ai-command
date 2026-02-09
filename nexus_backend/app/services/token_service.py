@@ -4,9 +4,12 @@ Tracks token usage, estimates costs, and enforces usage limits.
 """
 import os
 import time
+import logging
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
+
+logger = logging.getLogger(__name__)
 
 # Try to import tiktoken for accurate counting
 try:
@@ -14,7 +17,7 @@ try:
     TIKTOKEN_AVAILABLE = True
 except ImportError:
     TIKTOKEN_AVAILABLE = False
-    print("⚠️ tiktoken not installed. Using approximate token counting.")
+    logger.warning("tiktoken not installed. Using approximate token counting.")
 
 
 class ModelPricing(Enum):

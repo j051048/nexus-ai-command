@@ -1,5 +1,14 @@
+"""
+P3 Enhancement: Database Connection Module
+
+Provides a lightweight Supabase client wrapper using PostgREST.
+Falls back gracefully when database is not configured.
+"""
 import os
+import logging
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -15,6 +24,10 @@ try:
     from postgrest import AsyncPostgrestClient
     
     class MiniSupabaseClient:
+        """
+        Lightweight async Supabase client wrapper.
+        Uses PostgREST directly for better compatibility.
+        """
         def __init__(self, url: str, key: str):
             # PostgREST expects base URL. Supabase URL usually ends with .co, needing /rest/v1 for PostgREST
             base_url = f"{url}/rest/v1"
@@ -24,22 +37,30 @@ try:
                 "Content-Type": "application/json"
             }
             self.client = AsyncPostgrestClient(base_url, headers=headers)
+            self._url = url  # Store for health checks
 
         def table(self, name: str):
             return self.client.from_(name)
 
         def rpc(self, name: str, params: dict):
             return self.client.rpc(name, params)
+        
+        @property
+        def is_configured(self) -> bool:
+            """Check if client is properly configured"""
+            return bool(self._url)
 
     if not url or not key:
-        print("Warning: SUPABASE_URL or SUPABASE_SERVICE_KEY not set.")
+        logger.warning("SUPABASE_URL or SUPABASE_SERVICE_KEY not set. Database features disabled.")
         supabase = None
     else:
         supabase = MiniSupabaseClient(url, key)
+        logger.info("Database client initialized successfully")
         
 except ImportError as e:
-    print(f"Failed to import postgrest: {e}")
+    logger.error(f"Failed to import postgrest: {e}. Install with: pip install postgrest")
     supabase = None
 except Exception as e:
-    print(f"Failed to initialize Supabase wrapper: {e}")
+    logger.error(f"Failed to initialize Supabase wrapper: {e}")
     supabase = None
+

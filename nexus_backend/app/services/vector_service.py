@@ -73,7 +73,7 @@ class VectorService:
         """
         import asyncio
         
-        # A. Vector Search (Semantic) - Now requires p_user_id
+        # A. Vector Search (Semantic) - P0 Security Fix #4: Restored user_id for visibility control
         async def run_vector_search():
              try:
                  response = await client.embeddings.create(input=query, model="text-embedding-3-small")
@@ -82,7 +82,9 @@ class VectorService:
                      "query_embedding": embedding, 
                      "match_threshold": 0.4, 
                      "match_count": limit,
-                     # "p_user_id": user_id  <-- Temporarily removed to fix schema mismatch
+                     # P0 Security Fix #4: Restored! Uses three-tier visibility model
+                     # (private/department/organization) instead of strict user isolation
+                     "p_user_id": user_id
                  }
                  if filters:
                      params["filter"] = filters
