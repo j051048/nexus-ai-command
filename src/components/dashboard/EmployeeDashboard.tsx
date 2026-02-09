@@ -65,7 +65,7 @@ const defaultPerformanceMetrics = [
 export function EmployeeDashboard() {
   const { user } = useUser();
   const [animatedScore, setAnimatedScore] = useState(0);
-  const [showBonusPopup, setShowBonusPopup] = useState(false);
+
   const [showEntryDialog, setShowEntryDialog] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -137,14 +137,7 @@ export function EmployeeDashboard() {
     return () => clearInterval(timer);
   }, [user.score]);
 
-  // Simulate bonus popup
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowBonusPopup(true);
-      setTimeout(() => setShowBonusPopup(false), 4000);
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, []);
+
 
   const hasRealData = salesMetrics && salesMetrics.length > 0;
   const progressToNextBadge = ((user.score - 80) / 20) * 100;
@@ -259,19 +252,7 @@ export function EmployeeDashboard() {
         </TabsContent>
       </Tabs>
 
-      {/* Bonus Popup */}
-      {showBonusPopup && (
-        <div className="fixed inset-0 flex items-center justify-center z-[100] pointer-events-none p-4">
-          <div className="bg-card border-2 border-success rounded-3xl p-6 sm:p-8 shadow-2xl glow-success bonus-popup max-w-sm w-full">
-            <div className="text-center">
-              <div className="text-5xl sm:text-6xl mb-4">🎉</div>
-              <h3 className="text-xl sm:text-2xl font-bold text-foreground mb-2">即时奖金到账！</h3>
-              <p className="text-3xl sm:text-4xl font-bold text-success mono-number mb-2">+¥200</p>
-              <p className="text-sm text-muted-foreground">通话质量评分达到90+</p>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }

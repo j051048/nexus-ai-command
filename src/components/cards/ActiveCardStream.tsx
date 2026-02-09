@@ -144,8 +144,8 @@ export function ActiveCardStream() {
         const newCard: ActiveCard = {
           id: 'new-' + Date.now(),
           type: 'bonus',
-          title: '⚡ 绩效加分',
-          content: '刚才的通话表现优秀！AI评分 +5 分',
+          title: '🎉 即时奖金到账！',
+          content: '通话质量评分达到90+，触发 ¥200 即时奖金！',
           priority: 'high',
           timestamp: new Date(),
         };
