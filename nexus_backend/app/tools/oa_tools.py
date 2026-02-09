@@ -481,4 +481,3 @@ class WorkHandoverTool(BaseTool):
 
 📧 已通知 {handover_to['name']}，请与对方确认交接细节。
 """
-```
