@@ -28,6 +28,9 @@ export const approvalRequestSchema = z.object({
     submitter_name: z.string().optional().default('未知用户'),
     ai_reason: z.string().nullable().optional(),
     rejection_reason: z.string().nullable().optional(),
+    // 新增：AI代理提交相关字段
+    on_behalf_of: z.string().uuid().nullable().optional(),  // 被代理的员工ID
+    submitted_via: z.enum(['direct', 'ai_assistant', 'api']).default('direct'),  // 提交渠道
 });
 
 export type ApprovalRequestSafe = z.infer<typeof approvalRequestSchema>;

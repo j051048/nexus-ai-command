@@ -351,6 +351,21 @@ function EmployeeCard({
   onTransfer: () => void;
 }) {
   const isBoss = employee.role === 'boss';
+  const isAIAssistant = employee.role === 'ai_assistant';
+  const isSystemUser = isBoss || isAIAssistant;
+
+  // 获取角色显示名称和样式
+  const getRoleBadge = () => {
+    if (isBoss) {
+      return { label: '老板', className: 'bg-gold/20 text-gold' };
+    }
+    if (isAIAssistant) {
+      return { label: 'AI助手', className: 'bg-purple-500/20 text-purple-500' };
+    }
+    return { label: '员工', className: 'bg-primary/20 text-primary' };
+  };
+
+  const roleBadge = getRoleBadge();
 
   return (
     <div
@@ -358,17 +373,17 @@ function EmployeeCard({
       onClick={onClick}
     >
       <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-bold group-hover:scale-105 transition-transform">
-          {employee.name.slice(0, 1)}
+        <div className={cn(
+          "w-12 h-12 rounded-full flex items-center justify-center text-primary-foreground font-bold group-hover:scale-105 transition-transform",
+          isAIAssistant ? "bg-gradient-to-br from-purple-500 to-pink-500" : "bg-gradient-primary"
+        )}>
+          {isAIAssistant ? '🤖' : employee.name.slice(0, 1)}
         </div>
         <div>
           <div className="flex items-center gap-2">
             <p className="font-medium text-foreground group-hover:text-primary transition-colors">{employee.name}</p>
-            <span className={cn(
-              "px-2 py-0.5 text-xs rounded-full",
-              isBoss ? "bg-gold/20 text-gold" : "bg-primary/20 text-primary"
-            )}>
-              {isBoss ? '老板' : '员工'}
+            <span className={cn("px-2 py-0.5 text-xs rounded-full", roleBadge.className)}>
+              {roleBadge.label}
             </span>
           </div>
           <p className="text-sm text-muted-foreground">
@@ -377,7 +392,8 @@ function EmployeeCard({
         </div>
       </div>
 
-      {!isBoss && (
+      {/* 系统用户（老板和AI助手）不显示删除和转移按钮 */}
+      {!isSystemUser && (
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
           <Button
             variant="outline"

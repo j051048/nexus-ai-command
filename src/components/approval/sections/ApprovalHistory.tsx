@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Clock, Loader2, CheckCircle2, XCircle, Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApprovalRequest } from '@/hooks/useApprovals';
 import { AICopilotInsight } from '@/components/common/AICopilotInsight';
@@ -75,9 +75,18 @@ export function ApprovalHistory({
                                             className="opacity-0 group-hover:opacity-100"
                                         />
                                     </div>
-                                    <p className="text-xs text-muted-foreground mt-0.5">
-                                        {new Date(item.created_at).toLocaleString('zh-CN')}
-                                    </p>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                        <p className="text-xs text-muted-foreground">
+                                            {new Date(item.created_at).toLocaleString('zh-CN')}
+                                        </p>
+                                        {/* 显示AI代提交标识 */}
+                                        {(item as unknown as { submitted_via?: string }).submitted_via === 'ai_assistant' && (
+                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-purple-500/10 text-purple-500">
+                                                <Bot className="w-3 h-3" />
+                                                豆豆代提交
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 {item.amount > 0 && (
                                     <p className="text-sm font-bold text-foreground pr-2 font-mono">¥{item.amount.toLocaleString()}</p>

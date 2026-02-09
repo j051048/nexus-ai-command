@@ -1,6 +1,10 @@
 // Project Nexus Type Definitions
 
-export type UserRole = 'boss' | 'employee';
+// 三级权限系统
+// Level 1: boss (founder) - 最高权限，完整管理后台
+// Level 2: ai_assistant - AI助手，可代理员工操作
+// Level 3: employee - 普通员工
+export type UserRole = 'boss' | 'ai_assistant' | 'employee';
 
 export interface User {
   id: string;
@@ -44,6 +48,9 @@ export interface ApprovalRequest {
   submittedBy: User;
   submittedAt: Date;
   aiReason?: string;
+  // 新增：支持AI代理提交
+  onBehalfOf?: string;        // 被代理的员工ID
+  submittedVia?: 'direct' | 'ai_assistant' | 'api';  // 提交渠道
 }
 
 export interface ActiveCard {

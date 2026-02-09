@@ -11,7 +11,7 @@ export interface Employee {
   rank: number;
   total_bonus: number;
   created_at: string;
-  role: 'boss' | 'employee';
+  role: 'boss' | 'ai_assistant' | 'employee';
 }
 
 // Fetch all employees (for boss)
@@ -40,7 +40,8 @@ export function useAllEmployees() {
         rank: u.rank || 0,
         total_bonus: u.total_bonus || 0,
         created_at: u.created_at,
-        role: (u.role === 'founder' || u.role === 'boss' ? 'boss' : 'employee') as 'boss' | 'employee',
+        role: (u.role === 'founder' || u.role === 'boss' ? 'boss' : 
+              u.role === 'ai_assistant' ? 'ai_assistant' : 'employee') as 'boss' | 'ai_assistant' | 'employee',
       })) as Employee[];
     },
   });

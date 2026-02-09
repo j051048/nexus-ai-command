@@ -10,7 +10,14 @@ TOOL_REGISTRY: Dict[str, BaseTool] = {}
 def register_tool(tool: BaseTool):
     TOOL_REGISTRY[tool.name] = tool
 
-from .approval_tools import ApprovalTool, RejectTool, PendingApprovalsTool
+from .approval_tools import (
+    ApprovalTool, 
+    RejectTool, 
+    PendingApprovalsTool,
+    SubmitApprovalOnBehalfTool,
+    GetEmployeeInfoTool,
+    GetEmployeeApprovalHistoryTool
+)
 from .operational_tools import PerformanceReportTool, CompanyStatsTool, KnowledgeBaseTool, AwardBadgeTool
 from .project_tools import ProjectListTool, CreateEventTool, CreateProjectTool
 
@@ -56,6 +63,11 @@ register_tool(BattlecardTool())
 register_tool(ApprovalTool())
 register_tool(RejectTool())
 register_tool(PendingApprovalsTool())
+
+# AI 助手代理工具（二级权限）
+register_tool(SubmitApprovalOnBehalfTool())
+register_tool(GetEmployeeInfoTool())
+register_tool(GetEmployeeApprovalHistoryTool())
 register_tool(PerformanceReportTool())
 register_tool(CompanyStatsTool())
 register_tool(KnowledgeBaseTool())

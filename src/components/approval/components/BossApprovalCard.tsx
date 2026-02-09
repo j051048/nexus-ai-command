@@ -60,6 +60,13 @@ export function BossApprovalCard({
                         </div>
                         <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground flex-wrap">
                             <span>申请人：{approval.submitter_name}</span>
+                            {/* 显示AI代提交标识 */}
+                            {(approval as unknown as { submitted_via?: string }).submitted_via === 'ai_assistant' && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-purple-500/10 text-purple-500 font-medium">
+                                    <Bot className="w-3 h-3" />
+                                    豆豆代提交
+                                </span>
+                            )}
                             <span className="font-medium text-foreground">¥{approval.amount}</span>
                             <span>{new Date(approval.created_at).toLocaleString('zh-CN')}</span>
                         </div>

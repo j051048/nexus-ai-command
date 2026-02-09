@@ -3,7 +3,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 
-type AppRole = 'boss' | 'employee';
+// 三级权限系统
+type AppRole = 'boss' | 'ai_assistant' | 'employee';
 
 interface Profile {
   id: string;

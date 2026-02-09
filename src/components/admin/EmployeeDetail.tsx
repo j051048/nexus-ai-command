@@ -59,6 +59,20 @@ export function EmployeeDetail({
 
     const otherEmployees = allEmployees.filter(e => e.user_id !== employee.user_id);
     const isBoss = employee.role === 'boss';
+    const isAIAssistant = employee.role === 'ai_assistant';
+    const isSystemUser = isBoss || isAIAssistant;
+
+    // 获取角色显示名称和样式
+    const getRoleBadge = () => {
+        if (isBoss) {
+            return { label: '老板', className: 'bg-gold/20 text-gold' };
+        }
+        if (isAIAssistant) {
+            return { label: 'AI助手 (二级权限)', className: 'bg-purple-500/20 text-purple-500' };
+        }
+        return { label: '员工', className: 'bg-primary/20 text-primary' };
+    };
+    const roleBadge = getRoleBadge();
 
     return (
         <div className="space-y-6">
@@ -75,17 +89,17 @@ export function EmployeeDetail({
             {/* Header Info */}
             <div className="bg-card rounded-2xl p-6 border border-border flex items-start justify-between">
                 <div className="flex items-center gap-6">
-                    <div className="w-20 h-20 rounded-full bg-gradient-primary flex items-center justify-center text-3xl text-primary-foreground font-bold shadow-lg">
-                        {employee.name.slice(0, 1)}
+                    <div className={cn(
+                        "w-20 h-20 rounded-full flex items-center justify-center text-3xl text-primary-foreground font-bold shadow-lg",
+                        isAIAssistant ? "bg-gradient-to-br from-purple-500 to-pink-500" : "bg-gradient-primary"
+                    )}>
+                        {isAIAssistant ? '🤖' : employee.name.slice(0, 1)}
                     </div>
                     <div>
                         <div className="flex items-center gap-3 mb-2">
                             <h1 className="text-2xl font-bold text-foreground">{employee.name}</h1>
-                            <span className={cn(
-                                "px-3 py-1 text-xs rounded-full font-medium",
-                                isBoss ? "bg-gold/20 text-gold" : "bg-primary/20 text-primary"
-                            )}>
-                                {isBoss ? '老板' : '员工'}
+                            <span className={cn("px-3 py-1 text-xs rounded-full font-medium", roleBadge.className)}>
+                                {roleBadge.label}
                             </span>
                         </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
