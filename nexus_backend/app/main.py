@@ -6,7 +6,7 @@ import uvicorn
 import os
 import sentry_sdk
 
-from app.routers import performance, incentive, approval, kingdee, chat, documents, projects, usage, organization
+from app.routers import performance, incentive, approval, kingdee, chat, documents, projects, usage, organization, import_data
 from app.core.auth import get_current_user_id
 from app.core.rate_limiter import RateLimitMiddleware
 from app.core.security_middleware import SecurityHeadersMiddleware, RequestIDMiddleware, TenantContextMiddleware
@@ -128,6 +128,7 @@ app.include_router(documents.router)
 app.include_router(projects.router)
 app.include_router(usage.router)
 app.include_router(organization.router)
+app.include_router(import_data.router)
 
 @app.get("/")
 async def root():
