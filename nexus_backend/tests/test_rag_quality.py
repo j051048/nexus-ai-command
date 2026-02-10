@@ -26,8 +26,8 @@ async def test_rag_faithfulness():
         assert "检索到以下相关知识" in response or "知识库中未找到" in response
         
         # 2. Source Attribution Check
-        if "检索到以下相关知识" in response:
-            assert "[资料来源:" in response
+        if "检索到" in response:
+            assert "[来源:" in response
             
     print("✅ RAG Grounding Structure Test Passed")
 

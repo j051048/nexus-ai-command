@@ -19,6 +19,7 @@ from app.services.cache_service import cache_service
 from app.core.prompts_registry import SYSTEM_PROMPTS
 from app.services.token_service import validate_request_tokens, record_completion, token_counter, usage_tracker
 from app.services.content_moderation import check_user_input, sanitize_output, scan_content
+from app.core.trace_logger import TraceLogger
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -72,7 +73,8 @@ class ChatService:
     async def _get_cached_user_role(user_id: str, db_client: Optional[Any] = None) -> str:
         """Helper to get user role (cached)"""
         cached = await cache_service.get_user_role(user_id)
-        if cached: return cached
+        if cached:
+            return cached
         
         try:
             client = db_client or supabase
@@ -247,7 +249,8 @@ class ChatService:
                 
                 if not line.startswith("data: "): continue
                 line_data = line[6:].strip()
-                if line_data == "[DONE]": break
+                if line_data == "[DONE]":
+                    break
                 
                 try:
                     parsed = json.loads(line_data)
@@ -269,7 +272,8 @@ class ChatService:
                             if idx not in tool_calls_map:
                                 tool_calls_map[idx] = {"id": "", "name": "", "args": ""}
                             
-                            if tc.get("id"): tool_calls_map[idx]["id"] = tc["id"]
+                            if tc.get("id"):
+                                tool_calls_map[idx]["id"] = tc["id"]
                             if tc.get("function"):
                                 fn = tc["function"]
                                 if fn.get("name"): tool_calls_map[idx]["name"] = fn["name"]
@@ -369,7 +373,8 @@ class ChatService:
                     yield f"data: {json.dumps({'choices': [{'delta': {'content': chunk}}]})}\n\n"
                     await asyncio.sleep(0.01) # Very fast simulation
                 yield "data: [DONE]\n\n"
-                if tracer: tracer.log_end()
+                if tracer:
+                    tracer.log_end()
                 return
 
         # B. Real LLM Execution
@@ -422,7 +427,7 @@ class ChatService:
                 # Fallback calculation if record_completion wasn't called/failed
                 t_tokens = total_usage_chunk.get("total_tokens", 0) if total_usage_chunk else 0
                 tracer.log_end(total_tokens=t_tokens)
-            except:
+            except Exception:
                 tracer.log_end()
         yield "data: [DONE]\n\n"
 

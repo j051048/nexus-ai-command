@@ -201,10 +201,10 @@ class VectorService:
         
         results = []
         for item in mock_data:
-            if any(k in query for k in item["tags"]) or query in item["content"]:
-                results.append(item["content"])
+            if any(k in query.lower() for k in [t.lower() for t in item["tags"]]) or query.lower() in item["content"].lower():
+                results.append(f"{item['content']} [来源: 模拟数据]")
         
-        return "检索到以下相关知识 (Mock):\n" + "\n- ".join(results) if results else "知识库中未找到相关信息 (Mock)."
+        return "为您检索到以下相关知识 (Mock):\n- " + "\n- ".join(results) if results else "知识库中未找到相关信息 (Mock)."
 
 # Singleton instance
 vector_service = VectorService()

@@ -95,7 +95,7 @@ class SemanticCacheService:
             await supabase.table("semantic_cache")\
                 .update({"hit_count": 5, "last_hit_at": "now()"}) \
                 .eq("id", cache_id).execute()
-        except:
+        except Exception:
              pass
 
 semantic_cache_service = SemanticCacheService()

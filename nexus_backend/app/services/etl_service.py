@@ -77,7 +77,7 @@ class ETLService:
         
         return content
 
-        @staticmethod
+    @staticmethod
     def compute_content_hash(content: bytes) -> str:
         """
         P1 Fix #20: Compute SHA-256 fingerprint of file content for deduplication.
@@ -137,7 +137,7 @@ class ETLService:
             except Exception as e:
                 logger.debug(f"Failed to fetch user department: {e}")
         
-                record = {
+        record = {
             "name": filename,
             "status": "pending",
             "progress": 0,

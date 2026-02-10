@@ -3,7 +3,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 // Registry of components available for Generative UI
 // Registry of components available for Generative UI
-const GEN_UI_COMPONENTS: Record<string, React.ComponentType<Record<string, any>>> = {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const GEN_UI_COMPONENTS: Record<string, React.ComponentType<any>> = {
   BadgePanel: lazy(() => import('../dashboard/employee/BadgePanel').then(m => ({ default: m.BadgePanel }))),
   ApprovalCenter: lazy(() => import('../approval/ApprovalCenter').then(m => ({ default: m.ApprovalCenter }))),
   RewardsWallet: lazy(() => import('../rewards/RewardsWallet').then(m => ({ default: m.RewardsWallet }))), 
