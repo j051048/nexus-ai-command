@@ -229,7 +229,8 @@ class ChatService:
                 
                 # Report Status
                 tool_names = [tool_calls_map[idx]["name"] for idx in tool_indices]
-                yield f"data: {json.dumps({'status': f'正在调用: {', '.join(tool_names)}...'})}\n\n"
+                joined_tool_names = ', '.join(tool_names)
+                yield f"data: {json.dumps({'status': f'正在调用: {joined_tool_names}...'})}\n\n"
 
                 for idx in tool_indices:
                     tc = tool_calls_map[idx]
