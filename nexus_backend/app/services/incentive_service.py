@@ -20,7 +20,7 @@ class IncentiveService:
     @staticmethod
     async def trigger_incentive(trigger: IncentiveTrigger) -> IncentiveResponse:
         try:
-                        bonus_amount = 0.0
+            bonus_amount = 0.0
             reason = ""
             incentive_type = "bonus"
 
