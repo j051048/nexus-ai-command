@@ -34,3 +34,7 @@ nexus_backend/.venv/
 # Playwright
 playwright-report/
 test-results/
+
+# AI Tools
+.claude/
+.agent/

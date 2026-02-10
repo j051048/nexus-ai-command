@@ -1,4 +1,4 @@
-""""""
+"""
 P4 Enhancement: Approval Service
 
 Handles approval workflow logic including:
