@@ -605,7 +605,7 @@ class TeamInsightTool(BaseTool):
     """团队洞察工具"""
     name = "get_team_insight"
     description = "获取团队综合洞察报告，包括人员状态、绩效分布、风险预警等"
-    required_role = "boss"
+    required_role = "manager"
     
     parameters = {
         "type": "object",
@@ -621,8 +621,24 @@ class TeamInsightTool(BaseTool):
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
         client = _get_client(config)
-        # 获取团队数据
-        team_res = await client.table("users").select("*").execute()
+        
+        # F4: Check if user is manager (not boss) - filter to own department only
+        from app.services.chat_service import ChatService
+        user_role = await ChatService._get_cached_user_role(user_id, db_client=client) if hasattr(ChatService, '_get_cached_user_role') else "employee"
+        
+        if user_role == "manager":
+            # Get manager's department
+            dept_res = await client.table("users").select("department").eq("id", user_id).maybe_single().execute()
+            user_dept = dept_res.data.get("department") if dept_res.data else None
+            if user_dept:
+                # Filter team to same department
+                team_res = await client.table("users").select("*").eq("department", user_dept).execute()
+            else:
+                team_res = await client.table("users").select("*").execute()
+        else:
+            # Boss/founder sees all
+            team_res = await client.table("users").select("*").execute()
+        
         team = team_res.data or []
         total_count = len(team)
         
