@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useUser } from '@/contexts/UserContext';
 import { useAuth } from '@/components/auth/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -26,6 +26,8 @@ import {
   Calendar,
   DollarSign,
   Clock,
+  ChevronLeft,
+  Menu,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -35,6 +37,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Button } from '@/components/ui/button';
 
 interface NavItem {
   icon: React.ReactNode;
@@ -54,6 +63,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
   const { theme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   // 获取角色显示名称
   const getRoleDisplayName = (role: string) => {
@@ -115,34 +125,70 @@ export function Sidebar({ onNavClick }: SidebarProps) {
   };
 
   const renderNavGroup = (title: string, items: NavItem[]) => (
-    <div>
-      <h3 className="px-4 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">{title}</h3>
+    <div className={cn("mb-4", isCollapsed ? "px-2" : "px-4")}>
+      {!isCollapsed && (
+        <h3 className="px-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 transition-all duration-300">
+          {title}
+        </h3>
+      )}
       <ul className="space-y-1">
         {items.map((item) => (
           <li key={item.href}>
-            <Link
-              to={`/${item.href}`}
-              onClick={onNavClick}
-              className={cn(
-                "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all group",
-                isActive(item.href)
-                  ? "bg-sidebar-accent text-primary shadow-sm"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground"
-              )}
-            >
-              <span className={cn("transition-transform", !isActive(item.href) && "group-hover:scale-110")}>{item.icon}</span>
-              <span className="flex-1 text-left">{item.label}</span>
-              {item.badge && (
-                <span className={cn(
-                  "px-2 py-0.5 rounded-full text-[10px] font-bold",
-                  item.badgeType === 'primary' && "bg-primary/10 text-primary",
-                  item.badgeType === 'success' && "bg-success/10 text-success",
-                  item.badgeType === 'warning' && "bg-warning/10 text-warning"
-                )}>
-                  {item.badge}
-                </span>
-              )}
-            </Link>
+            <TooltipProvider>
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <Link
+                    to={`/${item.href}`}
+                    onClick={onNavClick}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg text-sm font-medium transition-all group relative",
+                      isCollapsed ? "justify-center p-2" : "px-3 py-2",
+                      isActive(item.href)
+                        ? "bg-sidebar-accent text-primary shadow-sm"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground"
+                    )}
+                  >
+                    <span className={cn("transition-transform duration-200", !isActive(item.href) && "group-hover:scale-110")}>
+                      {item.icon}
+                    </span>
+                    
+                    {!isCollapsed && (
+                      <span className="flex-1 text-left truncate transition-all duration-300 origin-left">
+                        {item.label}
+                      </span>
+                    )}
+
+                    {/* Badge Handling */}
+                    {item.badge && !isCollapsed && (
+                      <span className={cn(
+                        "px-1.5 py-0.5 rounded-full text-[10px] font-bold ml-auto",
+                        item.badgeType === 'primary' && "bg-primary/10 text-primary",
+                        item.badgeType === 'success' && "bg-success/10 text-success",
+                        item.badgeType === 'warning' && "bg-warning/10 text-warning"
+                      )}>
+                        {item.badge}
+                      </span>
+                    )}
+                    
+                    {/* Collapsed Badge Indicator (Dot) */}
+                    {item.badge && isCollapsed && (
+                       <span className={cn(
+                        "absolute top-1 right-1 w-2 h-2 rounded-full border-2 border-background",
+                         item.badgeType === 'primary' && "bg-primary",
+                        item.badgeType === 'success' && "bg-success",
+                        item.badgeType === 'warning' && "bg-warning"
+                       )} />
+                    )}
+                  </Link>
+                </TooltipTrigger>
+                {isCollapsed && (
+                  <TooltipContent side="right" className="font-medium">
+                    {item.label}
+                    {item.badge && <span className="ml-2 text-xs opacity-70">({item.badge})</span>}
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           </li>
         ))}
       </ul>
@@ -150,30 +196,55 @@ export function Sidebar({ onNavClick }: SidebarProps) {
   );
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
+    <aside 
+      className={cn(
+        "bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 ease-in-out h-full z-40 relative group/sidebar",
+        isCollapsed ? "w-[70px]" : "w-64"
+      )}
+    >
+      {/* Collapse Toggle Button */}
+      <Button
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        variant="ghost"
+        size="icon"
+        className="absolute -right-3 top-6 h-6 w-6 rounded-full border bg-background shadow-md hover:bg-accent z-50 hidden md:flex items-center justify-center p-0"
+      >
+        {isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
+      </Button>
+
       {/* Logo */}
-      <div className="flex items-center gap-3 px-6 py-5 border-b border-sidebar-border">
-        <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center glow-primary">
+      <div className={cn(
+        "flex items-center gap-3 py-5 border-b border-sidebar-border transition-all duration-300",
+        isCollapsed ? "justify-center px-0" : "px-6"
+      )}>
+        <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center glow-primary shrink-0 transition-all duration-300 hover:scale-105 cursor-pointer" onClick={() => navigate('/')}>
           <Bot className="w-6 h-6 text-primary-foreground" />
         </div>
-        <div>
-          <h1 className="font-bold text-foreground tracking-tight">Project Nexus</h1>
-          <p className="text-xs text-muted-foreground">AI-Driven OS</p>
-        </div>
+        {!isCollapsed && (
+          <div className="overflow-hidden transition-all duration-300 opacity-100 w-auto">
+            <h1 className="font-bold text-foreground tracking-tight whitespace-nowrap">Project Nexus</h1>
+            <p className="text-xs text-muted-foreground whitespace-nowrap">AI-Driven OS</p>
+          </div>
+        )}
       </div>
 
-      {/* Theme Toggle */}
-      <div className="px-4 py-4">
-        <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/50">
-          <span className="text-xs text-muted-foreground pl-1">
-            {theme === 'dark' ? '夜间模式' : '日间模式'}
-          </span>
+      {/* Theme Toggle (Simplified when collapsed) */}
+      <div className={cn("py-4 transition-all", isCollapsed ? "px-2" : "px-4")}>
+        <div className={cn(
+          "flex items-center rounded-lg bg-secondary/50 transition-all",
+          isCollapsed ? "justify-center p-2" : "justify-between p-2"
+        )}>
+          {!isCollapsed && (
+            <span className="text-xs text-muted-foreground pl-1 whitespace-nowrap overflow-hidden">
+              {theme === 'dark' ? '夜间模式' : '日间模式'}
+            </span>
+          )}
           <ThemeToggle />
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-6">
+      <nav className="flex-1 py-4 overflow-y-auto overflow-x-hidden space-y-2 custom-scrollbar">
         {renderNavGroup("AI 核心指挥", navItems.filter(i => ['dashboard', 'boss-dashboard', 'tender-analysis', 'battlecards', 'sales'].includes(i.href)))}
         {renderNavGroup("业务与日常", navItems.filter(i => ['projects', 'target-dashboard', 'targets', 'approval', 'exceptions', 'employees'].includes(i.href)))}
         {renderNavGroup("OA/HR/财务", navItems.filter(i => ['oa', 'hr', 'finance'].includes(i.href)))}
@@ -181,23 +252,28 @@ export function Sidebar({ onNavClick }: SidebarProps) {
       </nav>
 
       {/* User Profile with Dropdown */}
-      <div className="p-4 border-t border-sidebar-border">
+      <div className="p-4 border-t border-sidebar-border mt-auto">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-sidebar-accent transition-colors outline-none group">
-              <div className="w-10 h-10 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-semibold shrink-0 group-hover:scale-105 transition-transform">
-                {user.avatar ? <img src={user.avatar} alt={user.name} className="w-full h-full rounded-full object-cover" /> : user.name[0]}
+            <button className={cn(
+              "w-full flex items-center gap-3 rounded-lg hover:bg-sidebar-accent transition-colors outline-none group",
+              isCollapsed ? "justify-center p-0" : "p-2"
+            )}>
+              <div className="w-9 h-9 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-semibold shrink-0 group-hover:scale-105 transition-transform overflow-hidden ring-2 ring-background">
+                {user.avatar ? <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" /> : user.name[0]}
               </div>
-              <div className="flex-1 min-w-0 text-left">
-                <p className="text-sm font-medium text-foreground truncate">{user.name}</p>
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">{getRoleDisplayName(user.role)}</p>
-                  <ChevronRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              {!isCollapsed && (
+                <div className="flex-1 min-w-0 text-left transition-all duration-300 opacity-100">
+                  <p className="text-sm font-medium text-foreground truncate">{user.name}</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground truncate max-w-[80px]">{getRoleDisplayName(user.role)}</p>
+                    <ChevronRight className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
                 </div>
-              </div>
+              )}
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent side="right" align="end" className="w-56" sideOffset={8}>
+          <DropdownMenuContent side="right" align={isCollapsed ? "center" : "end"} className="w-56" sideOffset={10}>
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">{user.name}</p>
