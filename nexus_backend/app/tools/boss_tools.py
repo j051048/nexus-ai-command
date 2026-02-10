@@ -233,6 +233,19 @@ class SmartApprovalTool(BaseTool):
                         }).execute()
                     except Exception as e:
                         logger.warning(f"Failed to send approval notification: {e}")
+                    
+                    # Multi-channel notification via notification_service
+                    try:
+                        from app.services.notification_service import notification_service, Notification, NotificationChannel, NotificationPriority
+                        await notification_service.send(Notification(
+                            title="✅ 您的申请已批准",
+                            content=f"您提交的{req.get('type', '申请')}（¥{req.get('amount', 0):,.0f}）已被批准",
+                            target_user_id=req["submitted_by"],
+                            channel=NotificationChannel.IN_APP,
+                            priority=NotificationPriority.NORMAL
+                        ))
+                    except Exception as e:
+                        logger.warning(f"Multi-channel approval notification failed: {e}")
             
             result_msg = f"""✅ 批量审批完成！
 
@@ -280,6 +293,19 @@ class SmartApprovalTool(BaseTool):
                         }).execute()
                     except Exception as e:
                         logger.warning(f"Failed to send rejection notification: {e}")
+                    
+                    # Multi-channel notification via notification_service
+                    try:
+                        from app.services.notification_service import notification_service, Notification, NotificationChannel, NotificationPriority
+                        await notification_service.send(Notification(
+                            title="❌ 您的申请被驳回",
+                            content=f"您提交的{req.get('type', '申请')}（¥{req.get('amount', 0):,.0f}）被驳回。原因: {comment or '未说明'}",
+                            target_user_id=req["submitted_by"],
+                            channel=NotificationChannel.IN_APP,
+                            priority=NotificationPriority.HIGH
+                        ))
+                    except Exception as e:
+                        logger.warning(f"Multi-channel rejection notification failed: {e}")
             
             return f"""❌ 已驳回 {rejected_count} 件申请
 
@@ -733,6 +759,29 @@ class AnnouncementTool(BaseTool):
                 await client.table("notifications").insert(batch).execute()
             except Exception as e:
                 logger.warning(f"Failed to insert notification batch {i//BATCH_SIZE + 1}: {e}")
+        
+        # Multi-channel notification for announcements
+        try:
+            from app.services.notification_service import notification_service, Notification, NotificationChannel, NotificationPriority
+            priority_map = {"normal": NotificationPriority.NORMAL, "important": NotificationPriority.HIGH, "urgent": NotificationPriority.URGENT}
+            notif_priority = priority_map.get(priority, NotificationPriority.NORMAL)
+            
+            # Send to all available external channels (wecom/dingtalk/feishu)
+            for channel in notification_service.get_available_channels():
+                if channel != NotificationChannel.IN_APP:  # Already handled by batch insert
+                    try:
+                        await notification_service.send(Notification(
+                            title=f"{icon} {title}",
+                            content=content,
+                            target_user_id="all",
+                            channel=channel,
+                            priority=notif_priority,
+                            metadata={"announcement": True, "target_scope": target}
+                        ))
+                    except Exception as e:
+                        logger.warning(f"Announcement push to {channel} failed: {e}")
+        except Exception as e:
+            logger.warning(f"Multi-channel announcement push failed: {e}")
         
         target_names = {"all": "全员", "managers": "管理层", "sales": "销售团队"}
         

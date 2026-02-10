@@ -290,6 +290,19 @@ class ApprovalTool(BaseTool):
             except Exception as e:
                 logger.warning(f"Failed to send notification: {e}")
             
+            # Multi-channel notification via notification_service
+            try:
+                from app.services.notification_service import notification_service, Notification, NotificationChannel, NotificationPriority
+                await notification_service.send(Notification(
+                    title="✅ 审批已通过",
+                    content=f"您的{request_data.get('type', '')}申请（¥{request_data.get('amount', 0):,.0f}）已被批准",
+                    target_user_id=request_data.get("submitted_by"),
+                    channel=NotificationChannel.IN_APP,
+                    priority=NotificationPriority.HIGH
+                ))
+            except Exception as e:
+                logger.warning(f"Multi-channel approval notification failed: {e}")
+            
             return f"✅ 已成功批准审批单 {req_id[:8]}...（{submitter_name} 的 {request_data.get('type')} 申请，¥{request_data.get('amount', 0):,.2f}）"
         
         return "❌ 批准失败，该单据可能已被他人处理。"
@@ -399,6 +412,19 @@ class RejectTool(BaseTool):
                 }).execute()
             except Exception as e:
                 logger.warning(f"Failed to send notification: {e}")
+            
+            # Multi-channel notification via notification_service
+            try:
+                from app.services.notification_service import notification_service, Notification, NotificationChannel, NotificationPriority
+                await notification_service.send(Notification(
+                    title="❌ 审批已驳回",
+                    content=f"您的{request_data.get('type', '')}申请已被驳回。原因：{reason}",
+                    target_user_id=request_data.get("submitted_by"),
+                    channel=NotificationChannel.IN_APP,
+                    priority=NotificationPriority.HIGH
+                ))
+            except Exception as e:
+                logger.warning(f"Multi-channel rejection notification failed: {e}")
             
             return f"❌ 已驳回审批单 {req_id[:8]}...。驳回原因：{reason}"
         
