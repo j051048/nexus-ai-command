@@ -99,6 +99,10 @@ class Settings(BaseSettings):
         description="Allowed file upload extensions"
     )
     
+    # RAG Configuration
+    RAG_CHUNK_SIZE: int = Field(default=600, description="Document chunk size for RAG embedding")
+    RAG_CHUNK_OVERLAP: int = Field(default=100, description="Document chunk overlap for RAG embedding")
+    
     # Security
     ALLOW_UNSECURE_AUTH: Optional[str] = Field(default=None, description="Allow unsecure auth (dev only)")
     # P1 Fix #42: Key for encryption

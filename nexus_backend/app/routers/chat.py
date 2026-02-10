@@ -189,3 +189,68 @@ async def archive_session(session_id: str, req: Request, user_id: str = Depends(
     except Exception as e:
         logger.error(f"Failed to archive session: {e}")
         raise HTTPException(status_code=500, detail="Failed to archive session")
+
+@router.get("/search")
+async def search_messages(
+    q: str,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+    limit: int = 20
+):
+    """Search chat messages by keyword"""
+    if not q or len(q) < 2:
+        return {"success": True, "messages": []}
+    
+    client = req.state.db
+    try:
+        # Simple ILIKE search on content
+        response = await client.table("chat_messages") \
+            .select("*") \
+            .eq("user_id", user_id) \
+            .ilike("content", f"%{q}%") \
+            .order("created_at", desc=True) \
+            .limit(min(limit, 50)) \
+            .execute()
+        
+        return {"success": True, "messages": response.data or []}
+    except Exception as e:
+        logger.error(f"Message search failed: {e}")
+        return {"success": True, "messages": []}
+
+@router.post("/sessions/{session_id}/star")
+async def toggle_star_session(
+    session_id: str,
+    req: Request,
+    user_id: str = Depends(get_current_user_id)
+):
+    """Toggle star/pin on a chat session"""
+    client = req.state.db
+    try:
+        # Check if already starred (use a user_preferences or starred_sessions approach)
+        # For simplicity, use a starred_sessions table or a JSON field
+        # Here we'll use the chat_messages metadata approach
+        existing = await client.table("starred_sessions") \
+            .select("id") \
+            .eq("user_id", user_id) \
+            .eq("session_id", session_id) \
+            .maybe_single() \
+            .execute()
+        
+        if existing.data:
+            # Unstar
+            await client.table("starred_sessions") \
+                .delete() \
+                .eq("user_id", user_id) \
+                .eq("session_id", session_id) \
+                .execute()
+            return {"success": True, "starred": False}
+        else:
+            # Star
+            await client.table("starred_sessions") \
+                .insert({"user_id": user_id, "session_id": session_id}) \
+                .execute()
+            return {"success": True, "starred": True}
+    except Exception as e:
+        # If starred_sessions table doesn't exist, log and return gracefully
+        logger.warning(f"Star session failed (table may not exist): {e}")
+        return {"success": False, "message": "标星功能暂不可用"}
