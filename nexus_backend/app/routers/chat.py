@@ -83,9 +83,30 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
     # 5. Prepare Context
     system_prompt = await ChatService.get_system_prompt(request.agent, db_client=client)
     
-    # Standardize Message History (Sliding Window)
+    # Standardize Message History (Sliding Window with Summary)
     MAX_HISTORY = 10
-    recent_messages = request.messages[-MAX_HISTORY:] if len(request.messages) > MAX_HISTORY else request.messages
+    if len(request.messages) > MAX_HISTORY:
+        # Summarize older messages for context retention
+        older_messages = request.messages[:-MAX_HISTORY]
+        recent_messages = request.messages[-MAX_HISTORY:]
+        
+        try:
+            from app.services.summary_service import summary_service
+            summary = await summary_service.summarize_messages(
+                [{"role": m.role, "content": m.content} for m in older_messages],
+                config=ai_config
+            )
+            # Insert summary as first system context
+            if summary:
+                from app.models.schemas import Message
+                recent_messages.insert(0, Message(
+                    role="system",
+                    content=f"[对话历史摘要] {summary}"
+                ))
+        except Exception as e:
+            logger.warning(f"Failed to generate conversation summary: {e}")
+    else:
+        recent_messages = request.messages
     
     final_messages = [{"role": "system", "content": system_prompt}]
     for m in recent_messages:
@@ -124,3 +145,47 @@ async def get_chat_history(session_id: str, req: Request, user_id: str = Depends
     except Exception as e:
         logger.error(f"Failed to fetch chat history: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch history")
+
+@router.get("/sessions")
+async def list_sessions(req: Request, user_id: str = Depends(get_current_user_id)):
+    """List user's chat sessions"""
+    client = req.state.db
+    try:
+        response = await client.table("chat_messages") \
+            .select("session_id, agent, created_at") \
+            .eq("user_id", user_id) \
+            .order("created_at", desc=True) \
+            .execute()
+        
+        # Group by session_id, get latest message per session
+        sessions = {}
+        for msg in (response.data or []):
+            sid = msg.get("session_id", "default")
+            if sid not in sessions:
+                sessions[sid] = {
+                    "session_id": sid,
+                    "agent": msg.get("agent"),
+                    "last_activity": msg.get("created_at"),
+                    "message_count": 0
+                }
+            sessions[sid]["message_count"] += 1
+        
+        return {"success": True, "sessions": list(sessions.values())[:50]}
+    except Exception as e:
+        logger.error(f"Failed to list sessions: {e}")
+        return {"success": True, "sessions": []}
+
+@router.delete("/sessions/{session_id}")
+async def archive_session(session_id: str, req: Request, user_id: str = Depends(get_current_user_id)):
+    """Archive/delete a chat session"""
+    client = req.state.db
+    try:
+        await client.table("chat_messages") \
+            .delete() \
+            .eq("user_id", user_id) \
+            .eq("session_id", session_id) \
+            .execute()
+        return {"success": True, "message": f"Session {session_id} archived"}
+    except Exception as e:
+        logger.error(f"Failed to archive session: {e}")
+        raise HTTPException(status_code=500, detail="Failed to archive session")
