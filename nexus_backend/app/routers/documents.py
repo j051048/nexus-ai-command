@@ -42,6 +42,7 @@ async def upload_documents(
     background_tasks: BackgroundTasks,
     files: List[UploadFile] = File(...),
     visibility: str = Form(default="organization"),
+    category: str = Form(default="other"),
     user_id: str = Depends(get_current_user_id)
 ):
     """
@@ -52,9 +53,12 @@ async def upload_documents(
     base_url = None
     user_department = None
     
-    # 1. Validate visibility parameter
+    # 1. Validate visibility and category parameters
     if visibility not in ('private', 'department', 'organization'):
         visibility = 'organization'
+    
+    if category not in ('regulation', 'manual', 'contract', 'training', 'other'):
+        category = 'other'
     
     if user_id:
         try:

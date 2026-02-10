@@ -115,7 +115,8 @@ class ETLService:
         status: str = "pending",
         visibility: str = "organization",  # P0 Security Fix #4
         department: str = None,
-        content_hash: str = None  # P1 Fix #20
+        content_hash: str = None,  # P1 Fix #20
+        category: str = "other"  # H6: Document Category
     ) -> str:
         """
         Creates a placeholder record in the database.
