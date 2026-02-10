@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 
 // 三级权限系统
-type AppRole = 'boss' | 'ai_assistant' | 'employee';
+type AppRole = 'boss' | 'manager' | 'ai_assistant' | 'employee';
 
 interface Profile {
   id: string;
@@ -68,7 +68,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Only trust the DB profile role (set by admin), not auth metadata
         if (profileData && (profileData as unknown as Record<string, unknown>).role) {
           const dbRole = (profileData as unknown as Record<string, unknown>).role;
-          resolvedRole = dbRole === 'founder' ? 'boss' : 'employee';
+          if (dbRole === 'founder') {
+            resolvedRole = 'boss';
+          } else if (dbRole === 'manager') {
+            resolvedRole = 'manager';
+          } else {
+            resolvedRole = 'employee';
+          }
         }
         // Removed: auth metadata fallback that allowed self-assigned boss role
         setRole(resolvedRole);
