@@ -115,9 +115,39 @@ CREATE POLICY "Org Isolation for Approvals" ON public.approval_requests FOR ALL 
 -- Fix Semantic Cache Policy (which was referencing organization_id)
 -- Note: semantic_cache table had 'org_id text', we should migrate it to use UUID or match
 -- Since it was just created, we can alter it.
-ALTER TABLE public.semantic_cache DROP COLUMN IF EXISTS org_id;
+-- Ensure semantic_cache exists (Idempotency)
+CREATE TABLE IF NOT EXISTS public.semantic_cache (
+    id bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    query_text text NOT NULL,
+    response_text text NOT NULL,
+    embedding vector(1536),
+    user_id uuid REFERENCES auth.users(id),
+    metadata jsonb DEFAULT '{}',
+    hit_count int DEFAULT 1,
+    last_hit_at timestamptz DEFAULT now(),
+    created_at timestamptz DEFAULT now()
+);
+-- Safely handle org_id -> organization_id migration
+DO $$ BEGIN -- Drop old org_id column if it exists
+IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'semantic_cache'
+        AND column_name = 'org_id'
+) THEN
+ALTER TABLE public.semantic_cache DROP COLUMN org_id;
+END IF;
+-- Add new organization_id column if it doesn't exist
+IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'semantic_cache'
+        AND column_name = 'organization_id'
+) THEN
 ALTER TABLE public.semantic_cache
-ADD COLUMN IF NOT EXISTS organization_id uuid REFERENCES public.organizations(id);
+ADD COLUMN organization_id uuid REFERENCES public.organizations(id);
+END IF;
+END $$;
 -- Update Semantic Cache RLS
 DROP POLICY IF EXISTS "semantic_cache_tenant_isolation" ON public.semantic_cache;
 CREATE POLICY "semantic_cache_tenant_isolation" ON public.semantic_cache FOR ALL USING (
