@@ -46,7 +46,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
         "required": ["type", "description"]
     }
 
-        async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
+    async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
         client = _get_client(config)
         # 使用当前登录用户的 ID（从 JWT 解析出来的）
         employee_id = user_id
@@ -96,7 +96,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
 
         if result.data:
             req_id = result.data[0].get("id")
-                        # 记录审计日志
+            # 记录审计日志
             await client.table("audit_logs").insert({
                 "action": "approval_submitted_via_ai",
                 "actor_user_id": AI_ASSISTANT_ID,
@@ -191,7 +191,7 @@ class ApprovalTool(BaseTool):
     1. Preview mode (default): Shows what will be approved, requires user confirmation
     2. Execute mode: Actually performs the approval after user confirms
     """
-        name = "approve_request"
+    name = "approve_request"
     description = """批准一个待处理的审批申请。
 首次调用时会返回待审批信息的预览，需要用户确认后再次调用并传入 confirm=true 才会真正执行。
 这是一个不可逆操作，需要人工确认。"""
@@ -217,7 +217,7 @@ class ApprovalTool(BaseTool):
         reason = args.get("reason", "")
         confirm = args.get("confirm", False)
         
-                client = _get_client(config)
+        client = _get_client(config)
         # Step 1: Fetch the request details first
         fetch_result = await client.table("approval_requests")\
             .select("*, users:submitted_by(name, department)")\
@@ -299,7 +299,7 @@ class RejectTool(BaseTool):
     """
     P0 Security Fix #1: Rejection with mandatory confirmation
     """
-        name = "reject_request"
+    name = "reject_request"
     description = """驳回一个待处理的审批申请。
 首次调用时会返回待驳回信息的预览，需要用户确认后再次调用并传入 confirm=true 才会真正执行。
 这是一个不可逆操作，需要人工确认。"""
@@ -325,7 +325,7 @@ class RejectTool(BaseTool):
         reason = args.get("reason", "未说明原因")
         confirm = args.get("confirm", False)
         
-                client = _get_client(config)
+        client = _get_client(config)
         # Step 1: Fetch the request details first
         fetch_result = await client.table("approval_requests")\
             .select("*, users:submitted_by(name, department)")\

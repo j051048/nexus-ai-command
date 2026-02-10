@@ -20,7 +20,7 @@ class PerformanceReportTool(BaseTool):
         }
     }
 
-        async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
+    async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
         client = _get_client(config)
         target_id = args.get("user_id") or user_id
         user_res = await client.table("users").select("*").eq("id", target_id).maybe_single().execute()
@@ -45,7 +45,7 @@ class CompanyStatsTool(BaseTool):
         "properties": {}
     }
 
-        async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
+    async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
         client = _get_client(config)
         count_res = await client.table("users").select("id", count="exact").execute()
         total_users = count_res.count if count_res.count is not None else 0
@@ -94,7 +94,7 @@ class AwardBadgeTool(BaseTool):
         target_id = args.get("user_id")
         badge_name = args.get("badge_name")
         icon = args.get("icon", "sparkles")
-                client = _get_client(config)
+        client = _get_client(config)
         await client.table("badges").insert({"user_id": target_id, "name": badge_name, "icon": icon}).execute()
         await client.table("notifications").insert({
             "user_id": target_id,

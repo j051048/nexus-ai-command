@@ -71,6 +71,10 @@ class UsageLimits:
     max_tokens_per_day: int = 1000000
     max_cost_per_day_usd: float = 50.0
     max_requests_per_day: int = 1000
+    # P1 Fix #13: Org-wide limits
+    max_tokens_per_org_day: int = 10000000
+    max_cost_per_org_day_usd: float = 500.0
+    max_requests_per_org_day: int = 10000
 
 
 class TokenCounter:
@@ -154,8 +158,12 @@ class UsageTracker:
             max_tokens_per_request=int(os.getenv("MAX_TOKENS_PER_REQUEST", 100000)),
             max_tokens_per_day=int(os.getenv("MAX_TOKENS_PER_DAY", 1000000)),
             max_cost_per_day_usd=float(os.getenv("MAX_COST_PER_DAY_USD", 50.0)),
-            max_requests_per_day=int(os.getenv("MAX_REQUESTS_PER_DAY", 1000))
+            max_requests_per_day=int(os.getenv("MAX_REQUESTS_PER_DAY", 1000)),
+            max_tokens_per_org_day=int(os.getenv("MAX_TOKENS_PER_ORG_DAY", 10000000)),
+            max_cost_per_org_day_usd=float(os.getenv("MAX_COST_PER_ORG_DAY_USD", 500.0))
         )
+        self._org_usage: Dict[str, Dict] = {} # In-memory cache for org totals
+        self._user_to_org: Dict[str, str] = {} # User ID to Org ID cache
     
     def _get_day_key(self) -> str:
         """Get current day key for tracking"""
@@ -175,14 +183,37 @@ class UsageTracker:
         try:
             from app.core.database import supabase
             if supabase:
-                res = await supabase.table("token_usage_daily").select("*") \
-                    .eq("user_id", user_id).eq("usage_date", day_key) \
+                # P1 Fix #13: Load user usage and org ID
+                res = await supabase.table("user_token_usage").select("user_id, org_id, total_tokens, estimated_cost_usd, request_count") \
+                    .eq("user_id", user_id).eq("date", day_key) \
                     .maybe_single().execute()
                 
+                # Also fetch user's org_id to ensure we can track org-wide usage
+                if not res.data or not res.data.get("org_id"):
+                    user_res = await supabase.table("users").select("org_id").eq("id", user_id).maybe_single().execute()
+                    org_id = user_res.data.get("org_id") if user_res.data else None
+                else:
+                    org_id = res.data.get("org_id")
+                
+                if org_id:
+                    self._user_to_org[user_id] = org_id
+                    # Load org totals if not already cached
+                    org_key = f"org:{org_id}:{day_key}"
+                    if org_key not in self._org_usage:
+                        org_res = await supabase.table("user_token_usage").select("total_tokens, estimated_cost_usd, request_count") \
+                            .eq("org_id", org_id).eq("date", day_key).execute()
+                        
+                        org_totals = {"tokens": 0, "cost": 0.0, "requests": 0}
+                        for r in org_res.data or []:
+                            org_totals["tokens"] += r.get("total_tokens", 0)
+                            org_totals["cost"] += float(r.get("estimated_cost_usd", 0.0))
+                            org_totals["requests"] += r.get("request_count", 0)
+                        self._org_usage[org_key] = org_totals
+
                 if res.data:
                     self._usage[cache_key] = {
                         "tokens": res.data.get("total_tokens", 0),
-                        "cost_usd": float(res.data.get("total_cost_usd", 0.0)),
+                        "cost_usd": float(res.data.get("estimated_cost_usd", 0.0)),
                         "requests": res.data.get("request_count", 0),
                         "day": day_key
                     }
@@ -232,6 +263,16 @@ class UsageTracker:
         if usage["cost_usd"] >= self._limits.max_cost_per_day_usd:
             return False, f"Daily cost limit reached (${self._limits.max_cost_per_day_usd})"
         
+        # P1 Fix #13: Org-level checks
+        org_id = self._user_to_org.get(user_id)
+        if org_id:
+            org_usage = self._org_usage.get(f"org:{org_id}:{self._get_day_key()}")
+            if org_usage:
+                if org_usage["tokens"] + estimated_tokens > self._limits.max_tokens_per_org_day:
+                    return False, "Organization daily token limit exceeded"
+                if org_usage["cost"] >= self._limits.max_cost_per_org_day_usd:
+                    return False, "Organization daily cost limit reached"
+        
         return True, ""
     
     async def ensure_loaded(self, user_id: str):
@@ -244,6 +285,15 @@ class UsageTracker:
         user_usage["tokens"] += usage.total_tokens
         user_usage["cost_usd"] += usage.estimated_cost_usd
         user_usage["requests"] += 1
+
+        # P1 Fix #13: Update org aggregate
+        org_id = self._user_to_org.get(user_id)
+        if org_id:
+            org_key = f"org:{org_id}:{self._get_day_key()}"
+            if org_key in self._org_usage:
+                self._org_usage[org_key]["tokens"] += usage.total_tokens
+                self._org_usage[org_key]["cost"] += usage.estimated_cost_usd
+                self._org_usage[org_key]["requests"] += 1
     
     async def persist_usage(self, user_id: str, usage: TokenUsage):
         """
@@ -251,27 +301,17 @@ class UsageTracker:
         Uses upsert for the daily aggregate to handle concurrent writes.
         """
         day_key = self._get_day_key()
+        org_id = self._user_to_org.get(user_id)
         
         try:
             from app.core.database import supabase
             if not supabase:
                 return
             
-            # 1. Insert individual usage record (append-only log)
-            await supabase.table("token_usage_log").insert({
-                "user_id": user_id,
-                "usage_date": day_key,
-                "model": usage.model,
-                "input_tokens": usage.input_tokens,
-                "output_tokens": usage.output_tokens,
-                "total_tokens": usage.total_tokens,
-                "cost_usd": usage.estimated_cost_usd,
-            }).execute()
-            
-            # 2. Upsert daily aggregate (idempotent via ON CONFLICT)
-            current = self._get_user_usage_sync(user_id)
+            # 1. Update daily aggregate (idempotent via RPC with org_id)
             await supabase.rpc("upsert_daily_token_usage", {
                 "p_user_id": user_id,
+                "p_org_id": org_id,
                 "p_date": day_key,
                 "p_tokens": usage.total_tokens,
                 "p_cost": usage.estimated_cost_usd,

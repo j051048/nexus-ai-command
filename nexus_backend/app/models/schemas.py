@@ -138,3 +138,5 @@ class ChatRequest(BaseModel):
     messages: List[Message]
     agent: Optional[str] = None
     userId: Optional[str] = None # Support legacy field
+    system_confirmed: bool = False # P0 Fix #2: Explicit user confirmation from frontend
+    sessionId: Optional[str] = "default"

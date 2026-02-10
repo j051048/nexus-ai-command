@@ -59,8 +59,9 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
         settings_res = await supabase.table("ai_settings").select("*").eq("user_id", user_id).maybe_single().execute()
         if settings_res.data:
             s = settings_res.data
+            from app.services.encryption_service import encryption_service
             if s.get("base_url"): ai_config["base_url"] = s["base_url"]
-            if s.get("key"): ai_config["api_key"] = s["key"] # Assuming 'key' or 'api_key' in DB
+            if s.get("key"): ai_config["api_key"] = encryption_service.decrypt(s["key"])
             if s.get("model"): ai_config["model"] = s["model"]
     except Exception as e:
         logger.warning(f"Settings fetch failed: {e}")
@@ -91,6 +92,30 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
 
     # 6. Stream Response via Service
     return StreamingResponse(
-        ChatService.stream_response(final_messages, ai_config, user_id, tracer),
+        ChatService.stream_response(
+            final_messages, 
+            ai_config, 
+            user_id, 
+            tracer, 
+            system_confirmed=request.system_confirmed,
+            session_id=request.sessionId
+        ),
         media_type="text/event-stream"
     )
+
+@router.get("/history/{session_id}")
+async def get_chat_history(session_id: str, user_id: str = Depends(get_current_user_id)):
+    """Fetch persistent chat history for a session"""
+    try:
+        from app.core.database import supabase
+        response = supabase.table("chat_messages") \
+            .select("*") \
+            .eq("user_id", user_id) \
+            .eq("session_id", session_id) \
+            .order("created_at", desc=False) \
+            .execute()
+        
+        return {"success": True, "messages": response.data}
+    except Exception as e:
+        logger.error(f"Failed to fetch chat history: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch history")

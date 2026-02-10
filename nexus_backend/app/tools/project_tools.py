@@ -18,7 +18,7 @@ class ProjectListTool(BaseTool):
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
-                client = _get_client(config)
+        client = _get_client(config)
         # Check role to filter projects? For now, list all accessible via RLS
         result = await client.table("projects").select("id, name, status, progress").execute()
         if not result.data:

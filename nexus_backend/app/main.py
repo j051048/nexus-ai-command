@@ -8,12 +8,6 @@ import os
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.rate_limiter import RateLimitMiddleware
 
-app = FastAPI(
-    title="Project Nexus Backend",
-    description="AI-Driven Low-Code Backend for Sales Performance & Governance",
-    version="1.0.0"
-)
-
 # P2 Enhancement: Initialize structured logging FIRST
 from app.core.logging_config import setup_logging, get_logger
 setup_logging()
@@ -42,7 +36,6 @@ async def lifespan(app: FastAPI):
     await audit_logger.force_flush()
     logger.info("✅ Cleanup complete")
 
-# Re-create app with lifespan
 app = FastAPI(
     title="Project Nexus Backend",
     description="AI-Driven Low-Code Backend for Sales Performance & Governance",
@@ -57,7 +50,7 @@ from app.core.config import settings
 if settings.SENTRY_DSN:
     sentry_sdk.init(
         dsn=settings.SENTRY_DSN,
-        traces_sample_rate=1.0,
+        traces_sample_rate=0.1,  # P1 Optimization: Don't sample 100% in production
         profiles_sample_rate=1.0,
     )
     logger.info("✅ Sentry Initialized")

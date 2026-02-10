@@ -10,8 +10,8 @@ on:
     branches: [main, develop]
 
 env:
-  NODE_VERSION: '20'
-  PYTHON_VERSION: '3.11'
+  NODE_VERSION: "20"
+  PYTHON_VERSION: "3.11"
 
 jobs:
   # ============== Frontend Jobs ==============
@@ -26,7 +26,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -45,7 +45,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -73,7 +73,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -106,8 +106,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-          cache-dependency-path: 'nexus_backend/requirements.txt'
+          cache: "pip"
+          cache-dependency-path: "nexus_backend/requirements.txt"
 
       - name: Install dependencies
         run: |
@@ -117,11 +117,9 @@ jobs:
 
       - name: Run Ruff (linter)
         run: ruff check app/ --output-format=github
-        continue-on-error: true
 
       - name: Check formatting with Black
         run: black --check app/
-        continue-on-error: true
 
   backend-test:
     name: Backend Tests
@@ -134,7 +132,7 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://placeholder.supabase.co' }}
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY || 'placeholder-key' }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'sk-placeholder' }}
-      ALLOW_UNSECURE_AUTH: 'true'
+      ALLOW_UNSECURE_AUTH: "true"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -143,8 +141,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-          cache-dependency-path: 'nexus_backend/requirements.txt'
+          cache: "pip"
+          cache-dependency-path: "nexus_backend/requirements.txt"
 
       - name: Install dependencies
         run: |
@@ -154,7 +152,6 @@ jobs:
 
       - name: Run tests with coverage
         run: pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing
-        continue-on-error: true
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -175,19 +172,17 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
-        continue-on-error: true
+          scan-type: "fs"
+          scan-ref: "."
+          format: "sarif"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
 
       - name: Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
-          sarif_file: 'trivy-results.sarif'
-        continue-on-error: true
+          sarif_file: "trivy-results.sarif"
 
   dependency-review:
     name: Dependency Review
@@ -201,7 +196,6 @@ jobs:
         uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: high
-        continue-on-error: true
 
   # ============== E2E Tests (Optional) ==============
   e2e-test:
@@ -217,7 +211,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -236,7 +230,6 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
-        continue-on-error: true
 
       - name: Upload E2E test results
         uses: actions/upload-artifact@v4
@@ -258,10 +251,10 @@ jobs:
           echo "Frontend Build: ${{ needs.frontend-build.result }}"
           echo "Backend Test: ${{ needs.backend-test.result }}"
           echo "Security Scan: ${{ needs.security-scan.result }}"
-          
+
           if [[ "${{ needs.frontend-build.result }}" == "failure" ]]; then
             echo "::error::Frontend build failed"
             exit 1
           fi
-          
+
           echo "✅ CI Pipeline completed successfully"

@@ -19,6 +19,8 @@ async def get_departments(user_id: str = Depends(get_current_user_id)):
     Get all departments in the organization.
     """
     departments = await organization_service.get_all_departments()
+    # P1 Fix #12: Filter by user's org if needed, though get_all_departments 
+    # should eventually also take org_id. For now RLS handles it.
     return api_success(data=departments)
 
 
@@ -66,7 +68,19 @@ async def get_organization_stats(user_id: str = Depends(get_current_user_id)):
     """
     Get organization-wide statistics.
     """
-    stats = await organization_service.get_org_stats()
+    # P1 Fix #15: Pass org_id to stats
+    from app.services.chat_service import ChatService
+    user_role = await ChatService._get_cached_user_role(user_id)
+    
+    # Simple way to get org_id (fetch from users table)
+    from app.core.database import supabase
+    user_res = await supabase.table("users").select("org_id").eq("id", user_id).maybe_single().execute()
+    org_id = user_res.data.get("org_id") if user_res.data else None
+    
+    if not org_id:
+        raise api_error(ErrorCode.NOT_FOUND, "Organization not found")
+
+    stats = await organization_service.get_org_stats(org_id)
     if "error" in stats:
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, stats["error"])
     return api_success(data=stats)

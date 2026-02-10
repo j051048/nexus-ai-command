@@ -3,6 +3,7 @@ P2 Optimization: Event Bus / Message Queue Service
 Provides event-driven architecture for async processing.
 Supports in-memory queue with optional Redis/Celery backend.
 """
+import logging
 import asyncio
 import os
 import json
@@ -12,6 +13,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
 import uuid
+
+logger = logging.getLogger(__name__)
 
 
 class EventType(Enum):
@@ -108,7 +111,7 @@ class InMemoryEventBus:
         if event_type not in self._handlers:
             self._handlers[event_type] = []
         self._handlers[event_type].append(handler)
-        print(f"EventBus: Subscribed handler to {event_type}")
+        logger.debug(f"EventBus: Subscribed handler to {event_type}")
     
     def unsubscribe(self, event_type: str, handler: Callable):
         """Unsubscribe a handler from an event type"""
@@ -142,7 +145,7 @@ class InMemoryEventBus:
             try:
                 await handler(event)
             except Exception as e:
-                print(f"EventBus: Handler error for {event.type}: {e}")
+                logger.error(f"EventBus: Handler error for {event.type}: {e}")
     
     async def _process_events(self):
         """Background worker to process events"""
@@ -166,14 +169,14 @@ class InMemoryEventBus:
             except asyncio.TimeoutError:
                 continue
             except Exception as e:
-                print(f"EventBus: Processing error: {e}")
+                logger.error(f"EventBus: Processing error: {e}")
     
     async def _safe_handle(self, handler: Callable, event: Event):
         """Safely execute a handler with error catching"""
         try:
             await handler(event)
         except Exception as e:
-            print(f"EventBus: Handler error for {event.type}: {e}")
+            logger.error(f"EventBus: Handler error for {event.type}: {e}")
     
     async def start(self):
         """Start the event processing worker"""
@@ -181,7 +184,7 @@ class InMemoryEventBus:
             return
         self._running = True
         self._worker_task = asyncio.create_task(self._process_events())
-        print("EventBus: Started")
+        logger.info("EventBus: Started")
     
     async def stop(self):
         """Stop the event processing worker"""
@@ -192,7 +195,7 @@ class InMemoryEventBus:
                 await self._worker_task
             except asyncio.CancelledError:
                 pass
-        print("EventBus: Stopped")
+        logger.info("EventBus: Stopped")
     
     def get_recent_events(self, limit: int = 100, event_type: str = None) -> List[Event]:
         """Get recent events from history"""
@@ -232,7 +235,7 @@ def on(event_type: str):
     Usage:
         @on("approval.submitted")
         async def handle_approval(event: Event):
-            print(f"New approval: {event.payload}")
+            logger.info(f"New approval: {event.payload}")
     """
     def decorator(func):
         event_bus.subscribe(event_type, func)
@@ -246,7 +249,7 @@ def on(event_type: str):
 async def log_all_events(event: Event):
     """Log all events for debugging (can be disabled in production)"""
     if os.getenv("DEBUG_EVENTS") == "true":
-        print(f"[EVENT] {event.type}: {json.dumps(event.payload)[:200]}")
+        logger.debug(f"[EVENT] {event.type}: {json.dumps(event.payload)[:200]}")
 
 
 @on(EventType.BADGE_AWARDED.value)
@@ -266,7 +269,7 @@ async def notify_badge_awarded(event: Event):
                 "type": "success"
             }).execute()
         except Exception as e:
-            print(f"Failed to create badge notification: {e}")
+            logger.error(f"Failed to create badge notification: {e}")
 
 
 @on(EventType.APPROVAL_ESCALATED.value)
@@ -289,7 +292,7 @@ async def notify_approval_escalated(event: Event):
                 "type": "warning"
             }).execute()
     except Exception as e:
-        print(f"Failed to notify boss: {e}")
+        logger.error(f"Failed to notify boss: {e}")
 
 
 @on(EventType.DEAL_WON.value)
@@ -326,6 +329,6 @@ async def calculate_deal_bonus(event: Event):
             "status": "pending"
         }).execute()
         
-        print(f"Deal bonus calculated: ¥{bonus} for user {user_id}")
+        logger.info(f"Deal bonus calculated: ¥{bonus} for user {user_id}")
     except Exception as e:
-        print(f"Failed to calculate deal bonus: {e}")
+        logger.error(f"Failed to calculate deal bonus: {e}")

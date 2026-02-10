@@ -99,6 +99,11 @@ class Settings(BaseSettings):
     
     # Security
     ALLOW_UNSECURE_AUTH: Optional[str] = Field(default=None, description="Allow unsecure auth (dev only)")
+    # P1 Fix #42: Key for encryption
+    ENCRYPTION_KEY: str = Field(
+        default="O-x-L-N_lJv2U7fC0p9j5R8fXp3k6w9zD2M5Y8v3B6G=", 
+        description="Master key for encrypting API keys"
+    )
     
     # Computed properties
     @property

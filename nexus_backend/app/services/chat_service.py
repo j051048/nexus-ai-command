@@ -28,19 +28,40 @@ class ChatService:
 
     @staticmethod
     async def get_system_prompt(agent_name: str) -> str:
-        """Get formatted system prompt for agent"""
+        """Get formatted system prompt for agent (P1 Fix #29: Fetch from DB with local fallback)"""
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         prompt_key = "default_fallback"
-        if agent_name == "@销售指挥官":
+        if agent_name in ["@销售指挥官", "sales_commander"]:
             prompt_key = "sales_commander"
-        elif agent_name == "@审批管家":
+        elif agent_name in ["@审批管家", "approval_manager"]:
             prompt_key = "approval_manager"
-        elif agent_name == "@绩效教练":
+        elif agent_name in ["@绩效教练", "performance_coach"]:
             prompt_key = "performance_coach"
-        
+        elif agent_name in ["@总裁助理", "boss_assistant"]:
+            prompt_key = "boss_assistant"
+            
+        # 1. Try Cache
+        cache_key = f"prompt:{prompt_key}"
+        cached_prompt = await cache_service.get(cache_key)
+        if cached_prompt:
+            try:
+                return cached_prompt.format(current_time=now_str)
+            except Exception:
+                return cached_prompt
+
+        # 2. Try DB
+        try:
+            res = await supabase.table("prompts").select("content").eq("name", prompt_key).maybe_single().execute()
+            if res.data:
+                raw_prompt = res.data["content"]
+                await cache_service.set(cache_key, raw_prompt, ttl=3600)
+                return raw_prompt.format(current_time=now_str)
+        except Exception as e:
+            logger.warning(f"Failed to fetch prompt {prompt_key} from DB: {e}")
+
+        # 3. Fallback to hardcoded registry
         raw_prompt = SYSTEM_PROMPTS.get(prompt_key, SYSTEM_PROMPTS["default_fallback"])
-        
         try:
             return raw_prompt.format(current_time=now_str)
         except Exception:
@@ -61,8 +82,8 @@ class ChatService:
             logger.error(f"Role fetch error: {e}")
             return "employee"
 
-        @staticmethod
-    async def execute_tool(name: str, args: Dict[str, Any], user_id: str, config: Dict = None) -> str:
+    @staticmethod
+    async def execute_tool(name: str, args: Dict[str, Any], user_id: str, config: Dict = None, system_confirmed: bool = False) -> str:
         """Execute tool with RBAC, System-level Confirmation Gate, and Retry"""
         tool = get_tool(name)
         if not tool:
@@ -78,7 +99,8 @@ class ChatService:
         
         # 2. System-level Confirmation Gate (P0 Fix #10)
         # This runs BEFORE the tool's own logic, preventing LLM from bypassing confirm
-        confirmation_msg = tool.check_confirmation(args)
+        # P0 Fix #2: Pass system_confirmed to strict check
+        confirmation_msg = tool.check_confirmation(args, system_confirmed=system_confirmed)
         if confirmation_msg is not None:
             logger.info(f"[HITL Gate] Tool {name} blocked - awaiting user confirmation")
             return confirmation_msg
@@ -100,16 +122,47 @@ class ChatService:
         return "Error: Unknown tool execution failure"
 
     @staticmethod
+    async def save_message(user_id: str, session_id: str, role: str, content: str, agent: str = None, metadata: Dict = None):
+        """Save a message to the database for persistence"""
+        try:
+            from app.core.database import supabase
+            data = {
+                "user_id": user_id,
+                "session_id": session_id,
+                "role": role,
+                "content": content,
+                "agent": agent,
+                "metadata": metadata or {}
+            }
+            supabase.table("chat_messages").insert(data).execute()
+        except Exception as e:
+            logger.error(f"Failed to save chat message: {str(e)}")
+
+    @staticmethod
     async def stream_response(
         messages: List[Dict], 
         config: Dict, 
         user_id: str, 
-        tracer: Any = None
+        tracer: Any = None,
+        system_confirmed: bool = False,
+        session_id: str = "default"
     ) -> AsyncGenerator[str, None]:
         """
         Stream response from OpenAI with recursive tool execution, token tracking, and moderation.
         """
-                api_key = config.get("api_key")
+        # P0 Fix #4: Save the last user message to persistence
+        if messages and messages[-1]["role"] == "user":
+            user_msg = messages[-1]
+            asyncio.create_task(ChatService.save_message(
+                user_id=user_id,
+                session_id=session_id,
+                role="user",
+                content=user_msg["content"],
+                agent=messages[0].get("agent") if messages else None
+            ))
+
+        # 0. Safety Check & Sanitization
+        api_key = config.get("api_key")
         base_url = config.get("base_url", "https://api.openai.com/v1")
         model = config.get("model", "gpt-4o")
 
@@ -245,12 +298,12 @@ class ChatService:
                 tool_tasks = []
                 tool_indices = sorted(tool_calls_map.keys())
                 
-                                # Report Status
+                # Report Status
                 tool_names_list = [tool_calls_map[idx]["name"] for idx in tool_indices]
                 joined_tool_names = ', '.join(tool_names_list)
                 yield f"data: {json.dumps({'status': f'正在调用: {joined_tool_names}...'})}\n\n"
 
-                                for idx in tool_indices:
+                for idx in tool_indices:
                     tc = tool_calls_map[idx]
                     try:
                         args = json.loads(tc["args"]) if tc["args"] else {}
@@ -267,14 +320,14 @@ class ChatService:
                         except jsonschema.ValidationError as ve:
                             logger.warning(f"Tool {tc['name']} args validation failed: {ve.message}")
                             # Don't block — feed error back to LLM so it can self-correct
-                            tool_tasks.append(asyncio.coroutine(lambda msg=f"参数校验失败: {ve.message}": msg)())
+                            tool_tasks.append(asyncio.create_task(asyncio.sleep(0, result=f"参数校验失败: {ve.message}")))
                             if tracer: tracer.log_tool_plan(tc["name"], {"validation_error": ve.message})
                             continue
                         except jsonschema.SchemaError:
                             pass  # Schema itself is invalid, skip validation
                     
                     if tracer: tracer.log_tool_plan(tc["name"], args)
-                    tool_tasks.append(ChatService.execute_tool(tc["name"], args, user_id, config=config))
+                    tool_tasks.append(ChatService.execute_tool(tc["name"], args, user_id, config=config, system_confirmed=system_confirmed))
 
                 results = await asyncio.gather(*tool_tasks)
                 
@@ -292,11 +345,11 @@ class ChatService:
                 # Loop continues to next iteration (AI reflects on tool output)
                 yield f"data: {json.dumps({'status': '正在分析执行结果...'})}\n\n"
             
-                        else:
+            else:
                 # No tool calls in this turn, discussion finished
                 break
         
-                # 3. P1 Optimization: Token Usage Recording & Output Sanitization
+        # 3. P1 Optimization: Token Usage Recording & Output Sanitization
         # This block MUST be outside the for loop to always execute
         try:
             # Output Sanitization - scan for PII/violations in AI output
@@ -307,13 +360,11 @@ class ChatService:
                 sanitized_content = sanitize_output(full_response_content)
                 if sanitized_content != full_response_content:
                     # Emit a correction event so frontend replaces the streamed content
-                    yield f"data: {json.dumps({'sanitized_content': sanitized_content, 'violation_count': len(violations)})}
-
-"
+                    yield f"data: {json.dumps({'sanitized_content': sanitized_content, 'violation_count': len(violations)})}\n\n"
                     logger.info(f"Sanitized {len(violations)} violations from AI output before delivery")
 
             # Use API reported usage if available, else fallback to estimation
-                        if total_usage_chunk:
+            if total_usage_chunk:
                 await record_completion(
                     user_id, 
                     total_usage_chunk.get("prompt_tokens", input_tokens), 
@@ -325,6 +376,16 @@ class ChatService:
                 await record_completion(user_id, input_tokens, output_tokens, model)
         except Exception as e:
             logger.error(f"Post-stream processing error: {e}")
+
+        # Final assistant response summary for token tracking and audit
+        # P0 Fix #4: Save the AI response to persistence
+        asyncio.create_task(ChatService.save_message(
+            user_id=user_id,
+            session_id=session_id,
+            role="assistant",
+            content=full_response_content,
+            agent=messages[0].get("agent") if messages else None
+        ))
 
         if tracer: tracer.log_end()
         yield "data: [DONE]\n\n"

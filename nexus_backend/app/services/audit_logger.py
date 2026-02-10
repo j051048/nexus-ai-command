@@ -68,6 +68,7 @@ class AuditEntry:
     user_agent: Optional[str] = None
     session_id: Optional[str] = None
     request_id: Optional[str] = None
+    org_id: Optional[str] = None
     status: str = "success"  # success, failed, warning
     error_message: Optional[str] = None
     timestamp: float = field(default_factory=time.time)
@@ -76,6 +77,7 @@ class AuditEntry:
         return {
             "action": self.action,
             "actor_user_id": self.actor_user_id,
+            "org_id": self.org_id,
             "target_id": self.target_id,
             "target_table": self.target_table,
             "details_json": self.details,
@@ -104,6 +106,7 @@ class AuditLogger:
         self,
         action: str | AuditAction,
         actor_user_id: Optional[str] = None,
+        org_id: Optional[str] = None,
         target_id: Optional[str] = None,
         target_table: Optional[str] = None,
         details: Dict[str, Any] = None,
@@ -132,6 +135,7 @@ class AuditLogger:
         entry = AuditEntry(
             action=action_str,
             actor_user_id=actor_user_id,
+            org_id=org_id,
             target_id=target_id,
             target_table=target_table,
             details=self._sanitize_details(details or {}),

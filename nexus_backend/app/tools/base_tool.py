@@ -1,5 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ConfirmationRequired(Exception):
@@ -59,24 +62,40 @@ class BaseTool(ABC):
         """
         return "⚠️ 这是一个不可逆操作。请确认后再执行。"
 
-    def check_confirmation(self, args: Dict[str, Any]) -> Optional[str]:
+    def check_confirmation(self, args: Dict[str, Any], system_confirmed: bool = False) -> Optional[str]:
         """
         System-level confirmation gate.
         Called BEFORE run() for irreversible tools.
         Returns None if confirmed, or a preview message string if confirmation needed.
         
-        This prevents the LLM from bypassing confirmation by auto-setting confirm=true.
-        The system checks this BEFORE the tool's own logic runs.
+        P0 Fix #2: This NOW requires system_confirmed=True (from frontend action)
+        and ignores the LLM-generated 'confirm' argument to prevent bypass.
         """
         if not self.is_irreversible:
             return None
         
-        # System-level enforcement: if confirm is not explicitly True, block execution
-        confirm = args.get("confirm", False)
-        if confirm is True:
-            return None  # Confirmed, allow execution
+        # System-level enforcement: if not explicitly confirmed by the system (human click), block
+        if system_confirmed is True:
+            return None  # Confirmed by human, allow execution
         
         return self.confirmation_message
+
+    async def validate(self, args: Dict[str, Any]) -> None:
+        """
+        Validate arguments against the tool's JSON schema parameters.
+        Throws jsonschema.ValidationError if invalid.
+        """
+        if not self.parameters:
+            return
+        
+        import jsonschema
+        try:
+            jsonschema.validate(instance=args, schema=self.parameters)
+        except jsonschema.SchemaError as se:
+            logger.error(f"Invalid schema for tool {self.name}: {se.message}")
+            # Don't fail the user for a developer error, but log it
+        except jsonschema.ValidationError:
+            raise
 
     @abstractmethod
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:

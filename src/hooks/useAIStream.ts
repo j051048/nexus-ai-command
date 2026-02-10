@@ -110,7 +110,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                     const jsonStr = line.slice(6).trim();
                     if (jsonStr === '[DONE]') break;
 
-                                        try {
+                    try {
                         const parsed = JSON.parse(jsonStr);
                         const content = parsed.choices?.[0]?.delta?.content as string | undefined;
 
@@ -132,7 +132,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                             onUpdate?.(assistantContent, assistantMsgId);
                         }
                     } catch {
-                                                textBuffer = line + '\n' + textBuffer;
+                        textBuffer = line + '\n' + textBuffer;
                         break;
                     }
                 }

@@ -269,17 +269,18 @@ class OrganizationService:
             logger.error(f"Error building team hierarchy: {e}")
             return OrgNode(id=manager_id, name="Error", type="user")
     
-    async def get_org_stats(self) -> Dict[str, Any]:
+    async def get_org_stats(self, org_id: str) -> Dict[str, Any]:
         """
-        Get overall organization statistics.
+        Get overall organization statistics for a specific tenant.
         """
         if not supabase:
             return {"error": "Database not connected"}
         
         try:
-            # Total employees
+            # Total employees in org
             users = await supabase.table("users")\
                 .select("id", count="exact")\
+                .eq("org_id", org_id)\
                 .execute()
             total_users = users.count or 0
             
@@ -288,6 +289,7 @@ class OrganizationService:
             for role in ["founder", "manager", "sales", "employee"]:
                 count = await supabase.table("users")\
                     .select("id", count="exact")\
+                    .eq("org_id", org_id)\
                     .eq("role", role)\
                     .execute()
                 role_counts[role] = count.count or 0
@@ -295,6 +297,7 @@ class OrganizationService:
             # By department
             dept_data = await supabase.table("users")\
                 .select("department")\
+                .eq("org_id", org_id)\
                 .execute()
             
             dept_counts = {}
@@ -305,8 +308,7 @@ class OrganizationService:
             return {
                 "total_employees": total_users,
                 "by_role": role_counts,
-                "by_department": dept_counts,
-                "departments_count": len(await self.get_all_departments())
+                "by_department": dept_counts
             }
         except Exception as e:
             logger.error(f"Error fetching org stats: {e}")
