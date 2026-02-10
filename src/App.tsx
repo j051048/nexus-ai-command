@@ -64,6 +64,7 @@ const OACenter = lazy(() => import("@/pages/OACenter"));
 const HRCenter = lazy(() => import("@/pages/HRCenter"));
 const FinanceCenter = lazy(() => import("@/pages/FinanceCenter"));
 const ProfileCenter = lazy(() => import("@/pages/ProfileCenter"));
+const DataImportPage = lazy(() => import("@/pages/DataImportPage"));
 
 const queryClient = new QueryClient();
 
@@ -140,6 +141,7 @@ const App = () => (
                 <Route path="hr" element={<HRCenter />} />
                 <Route path="finance" element={<FinanceCenter />} />
                 <Route path="profile" element={<ProfileCenter />} />
+                <Route path="import" element={<DataImportPage />} />
                 
                 {/* Developer Tools */}
                 <Route path="dev/animations" element={<AnimationShowcase />} />

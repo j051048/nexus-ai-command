@@ -43,6 +43,7 @@ def validate_file(file: UploadFile) -> None:
 async def import_employees(
     request: Request,
     file: UploadFile = File(...),
+    mode: str = "insert",
     user_id: str = Depends(get_current_user_id)
 ):
     """
@@ -51,6 +52,7 @@ async def import_employees(
     - 支持 CSV 和 Excel 格式
     - 自动跳过已存在的邮箱
     - 返回导入结果统计
+    - mode: insert（默认）或 incremental（增量更新）
     """
     validate_file(file)
     
@@ -75,11 +77,12 @@ async def import_employees(
             contents=contents,
             filename=file.filename or "unknown.csv",
             user_id=user_id,
-            db_client=db_client
+            db_client=db_client,
+            mode=mode
         )
         
         logger.info(
-            f"员工导入完成 - 用户: {user_id}, "
+            f"员工导入完成 - 用户: {user_id}, 模式: {mode}, "
             f"成功: {result['success_count']}, "
             f"跳过: {result['skip_count']}, "
             f"失败: {result['error_count']}"
@@ -96,6 +99,7 @@ async def import_employees(
 async def import_customers(
     request: Request,
     file: UploadFile = File(...),
+    mode: str = "insert",
     user_id: str = Depends(get_current_user_id)
 ):
     """
@@ -104,6 +108,7 @@ async def import_customers(
     - 支持 CSV 和 Excel 格式
     - 自动跳过已存在的客户（按名称+公司判断）
     - 返回导入结果统计
+    - mode: insert（默认）或 incremental（增量更新）
     """
     validate_file(file)
     
@@ -128,11 +133,12 @@ async def import_customers(
             contents=contents,
             filename=file.filename or "unknown.csv",
             user_id=user_id,
-            db_client=db_client
+            db_client=db_client,
+            mode=mode
         )
         
         logger.info(
-            f"客户导入完成 - 用户: {user_id}, "
+            f"客户导入完成 - 用户: {user_id}, 模式: {mode}, "
             f"成功: {result['success_count']}, "
             f"跳过: {result['skip_count']}, "
             f"失败: {result['error_count']}"

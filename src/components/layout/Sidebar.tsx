@@ -28,6 +28,7 @@ import {
   Clock,
   ChevronLeft,
   Menu,
+  Upload,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -98,6 +99,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
     { icon: <Calendar size={20} />, label: 'OA办公', href: 'oa' },
     { icon: <Clock size={20} />, label: '人事中心', href: 'hr' },
     { icon: <DollarSign size={20} />, label: '财务中心', href: 'finance' },
+    { icon: <Upload size={20} />, label: '数据导入', href: 'import' },
     { icon: <BookOpen size={20} />, label: '知识库', href: 'knowledge' },
     { icon: <Gift size={20} />, label: '激励钱包', href: 'rewards', badge: '¥200', badgeType: 'success' },
     { icon: <Settings size={20} />, label: 'AI配置中心', href: 'settings' },
@@ -109,6 +111,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
     { icon: <TrendingUp size={20} />, label: '目标管理', href: 'targets' },
     { icon: <BookOpen size={20} />, label: '知识库管理', href: 'documents', badge: 'AI', badgeType: 'primary' },
     { icon: <Users size={20} />, label: '员工管理', href: 'employees' },
+    { icon: <Upload size={20} />, label: '数据导入', href: 'import' },
     { icon: <FileCheck size={20} />, label: '审批中心', href: 'approval' },
     { icon: <Calendar size={20} />, label: 'OA办公', href: 'oa' },
     { icon: <Clock size={20} />, label: '人事中心', href: 'hr' },
@@ -248,7 +251,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
         {renderNavGroup("AI 核心指挥", navItems.filter(i => ['dashboard', 'boss-dashboard', 'tender-analysis', 'battlecards', 'sales'].includes(i.href)))}
         {renderNavGroup("业务与日常", navItems.filter(i => ['projects', 'target-dashboard', 'targets', 'approval', 'exceptions', 'employees'].includes(i.href)))}
         {renderNavGroup("OA/HR/财务", navItems.filter(i => ['oa', 'hr', 'finance'].includes(i.href)))}
-        {renderNavGroup("知识与个人", navItems.filter(i => ['knowledge', 'documents', 'rewards', 'settings'].includes(i.href)))}
+        {renderNavGroup("知识与个人", navItems.filter(i => ['knowledge', 'documents', 'rewards', 'import', 'settings'].includes(i.href)))}
       </nav>
 
       {/* User Profile with Dropdown */}

@@ -301,7 +301,8 @@ class ImportService:
         contents: bytes,
         filename: str,
         user_id: str,
-        db_client: Any
+        db_client: Any,
+        mode: str = "insert"
     ) -> Dict[str, Any]:
         """
         导入员工数据
@@ -311,6 +312,7 @@ class ImportService:
             filename: 文件名
             user_id: 当前操作用户ID
             db_client: 数据库客户端（支持 RLS）
+            mode: 导入模式（insert 或 incremental）
         
         Returns:
             导入结果统计: success_count, skip_count, error_count, errors
@@ -410,10 +412,6 @@ class ImportService:
                     .maybe_single()\
                     .execute()
                 
-                if existing.data:
-                    skip_count += 1
-                    continue
-                
                 # 构建用户数据
                 user_data = {
                     "name": name,
@@ -426,9 +424,29 @@ class ImportService:
                     "total_bonus": 0
                 }
                 
-                # 插入数据库
-                await db_client.table("users").insert(user_data).execute()
-                success_count += 1
+                # 根据 mode 选择 insert 或 upsert
+                if mode == "incremental":
+                    # 增量模式：使用 upsert
+                    if existing.data:
+                        # 更新已有记录
+                        await db_client.table("users")\
+                            .update(user_data)\
+                            .eq("id", existing.data["id"])\
+                            .execute()
+                        success_count += 1
+                    else:
+                        # 新增记录
+                        await db_client.table("users").insert(user_data).execute()
+                        success_count += 1
+                else:
+                    # 默认 insert 模式：跳过已存在的记录
+                    if existing.data:
+                        skip_count += 1
+                        continue
+                    
+                    # 插入数据库
+                    await db_client.table("users").insert(user_data).execute()
+                    success_count += 1
                 
             except Exception as e:
                 logger.error(f"第{idx}行导入失败: {e}")
@@ -452,7 +470,8 @@ class ImportService:
         contents: bytes,
         filename: str,
         user_id: str,
-        db_client: Any
+        db_client: Any,
+        mode: str = "insert"
     ) -> Dict[str, Any]:
         """
         导入客户数据
@@ -462,6 +481,7 @@ class ImportService:
             filename: 文件名
             user_id: 当前操作用户ID
             db_client: 数据库客户端（支持 RLS）
+            mode: 导入模式（insert 或 incremental）
         
         Returns:
             导入结果统计: success_count, skip_count, error_count, errors
@@ -557,10 +577,6 @@ class ImportService:
                 
                 existing = await query.maybe_single().execute()
                 
-                if existing.data:
-                    skip_count += 1
-                    continue
-                
                 # 构建客户数据
                 customer_data = {
                     "name": name,
@@ -573,9 +589,29 @@ class ImportService:
                     "created_by": user_id
                 }
                 
-                # 插入数据库
-                await db_client.table("customers").insert(customer_data).execute()
-                success_count += 1
+                # 根据 mode 选择 insert 或 upsert
+                if mode == "incremental":
+                    # 增量模式：使用 upsert
+                    if existing.data:
+                        # 更新已有记录
+                        await db_client.table("customers")\
+                            .update(customer_data)\
+                            .eq("id", existing.data["id"])\
+                            .execute()
+                        success_count += 1
+                    else:
+                        # 新增记录
+                        await db_client.table("customers").insert(customer_data).execute()
+                        success_count += 1
+                else:
+                    # 默认 insert 模式：跳过已存在的记录
+                    if existing.data:
+                        skip_count += 1
+                        continue
+                    
+                    # 插入数据库
+                    await db_client.table("customers").insert(customer_data).execute()
+                    success_count += 1
                 
             except Exception as e:
                 logger.error(f"第{idx}行导入失败: {e}")
