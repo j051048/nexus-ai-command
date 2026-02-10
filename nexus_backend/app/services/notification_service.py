@@ -203,6 +203,10 @@ class NotificationService:
         self._adapters[channel] = adapter
         logger.info(f"Registered notification adapter: {channel.value}")
     
+    def get_available_channels(self) -> list:
+        """Return list of registered/available notification channels."""
+        return list(self._adapters.keys())
+    
     async def send(self, notification: Notification) -> bool:
         """
         发送单个通知
@@ -364,13 +368,71 @@ class NotificationService:
 # 创建全局通知服务实例
 notification_service = NotificationService()
 
-# 默认注册站内通知适配器
-notification_service.register_adapter(
-    NotificationChannel.IN_APP,
-    InAppNotificationAdapter()
-)
 
-logger.info("Global notification_service initialized with in_app adapter")
+# Auto-register adapters based on configuration
+def _auto_register_adapters():
+    """Automatically register notification adapters based on available configuration."""
+    from app.core.config import settings
+    
+    # Always register in-app adapter
+    notification_service.register_adapter(
+        NotificationChannel.IN_APP, 
+        InAppNotificationAdapter()
+    )
+    
+    # Register email adapter if SMTP configured
+    if settings.SMTP_HOST and settings.SMTP_USER:
+        try:
+            from app.services.notification_adapters.email_adapter import EmailNotificationAdapter
+            notification_service.register_adapter(
+                NotificationChannel.EMAIL,
+                EmailNotificationAdapter()
+            )
+            logger.info("✅ Email notification adapter registered")
+        except Exception as e:
+            logger.warning(f"Failed to register email adapter: {e}")
+    
+    # Register WeChat Work adapter if configured
+    if getattr(settings, 'WECOM_WEBHOOK_URL', None):
+        try:
+            from app.services.notification_adapters.wecom_adapter import WecomNotificationAdapter
+            notification_service.register_adapter(
+                NotificationChannel.WECOM,
+                WecomNotificationAdapter()
+            )
+            logger.info("✅ WeChat Work notification adapter registered")
+        except Exception as e:
+            logger.warning(f"Failed to register wecom adapter: {e}")
+    
+    # Register DingTalk adapter if configured
+    if getattr(settings, 'DINGTALK_WEBHOOK_URL', None):
+        try:
+            from app.services.notification_adapters.dingtalk_adapter import DingtalkNotificationAdapter
+            notification_service.register_adapter(
+                NotificationChannel.DINGTALK,
+                DingtalkNotificationAdapter()
+            )
+            logger.info("✅ DingTalk notification adapter registered")
+        except Exception as e:
+            logger.warning(f"Failed to register dingtalk adapter: {e}")
+    
+    # Register Feishu adapter if configured
+    if getattr(settings, 'FEISHU_WEBHOOK_URL', None):
+        try:
+            from app.services.notification_adapters.feishu_adapter import FeishuNotificationAdapter
+            notification_service.register_adapter(
+                NotificationChannel.FEISHU,
+                FeishuNotificationAdapter()
+            )
+            logger.info("✅ Feishu notification adapter registered")
+        except Exception as e:
+            logger.warning(f"Failed to register feishu adapter: {e}")
+
+
+# Run auto-registration
+_auto_register_adapters()
+
+logger.info("Global notification_service initialized")
 
 
 # ============== Convenience Functions ==============
