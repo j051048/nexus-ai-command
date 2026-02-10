@@ -46,6 +46,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         
         # Permissions policy (restrict browser features)
         "Permissions-Policy": "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
+        
+        # P1 Security: Content Security Policy
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://*.zeabur.app; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co https://*.flydao.top;"
     }
     
     # Paths that may need different caching
@@ -92,3 +95,57 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         response.headers["X-Request-ID"] = request_id
         
         return response
+
+
+class TenantContextMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware to inject tenant context (org_id) into the request.
+    
+    P0 Multi-tenancy:
+    - Extracts User ID from JWT
+    - Injects Scoped Supabase client (activating RLS)
+    - Prevents cross-tenant data leaks
+    """
+    
+    async def dispatch(self, request: Request, call_next) -> Response:
+        from app.core.database import supabase
+        from app.core.auth import get_current_user_id
+        from app.services.cache_service import cache_service
+        
+        # Initialize default state
+        request.state.user_id = None
+        request.state.org_id = None
+        request.state.db = supabase  # Default to global client
+        
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            try:
+                # 1. Authenticate user
+                user_id = await get_current_user_id(auth_header)
+                request.state.user_id = user_id
+                
+                # 2. Get Org ID (with caching)
+                cache_key = f"user:{user_id}:org_id"
+                org_id = await cache_service.get(cache_key)
+                
+                if not org_id:
+                    # Query once from users table
+                    res = await supabase.table("users").select("org_id").eq("id", user_id).maybe_single().execute()
+                    if res.data:
+                        org_id = res.data.get("org_id")
+                        if org_id:
+                            await cache_service.set(cache_key, org_id, ttl=3600)
+                
+                request.state.org_id = org_id
+                
+                # 3. Inject Scoped Client (Activate RLS)
+                # P0 Security Fix: service_key clients bypass RLS. 
+                # Scoped client uses the user's JWT to ensure SQL-level RLS is enforced.
+                token = auth_header.split(" ")[1]
+                request.state.db = supabase.get_scoped_client(token)
+                
+            except Exception as e:
+                # Log but continue - specific routes will handle missing auth
+                logger.debug(f"TenantMiddleware: Auth failed or no org_id: {e}")
+        
+        return await call_next(request)

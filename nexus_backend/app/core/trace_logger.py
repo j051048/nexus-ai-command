@@ -90,8 +90,16 @@ class TraceLogger:
             "error_message": str(error)
         })
 
-    def log_end(self):
+    def log_end(self, total_tokens: int = 0, cost: float = 0.0):
         duration = (datetime.datetime.now() - self.start_time).total_seconds()
         self._emit("end_conversation", {
-            "duration_seconds": round(duration, 3)
+            "duration_seconds": round(duration, 3),
+            "total_tokens": total_tokens,
+            "cost_usd": cost
         })
+        
+        # P1 Optimization: Langfuse Integration (Placeholder)
+        # If LANGFUSE_PUBLIC_KEY is set, we could push this trace to Langfuse here.
+        # import os
+        # if os.getenv("LANGFUSE_PUBLIC_KEY"):
+        #    pass # Async push to langfuse

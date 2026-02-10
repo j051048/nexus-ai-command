@@ -10,13 +10,21 @@ Provides reusable dependency injection functions for:
 import logging
 from typing import Optional, List, Callable
 from functools import wraps
-from fastapi import Depends, HTTPException, Query
+from fastapi import Depends, HTTPException, Query, Request
 
 from app.core.auth import get_current_user_id
+from app.core.database import supabase # Global fallback
 from app.core.pagination import PaginationParams, SortParams, SearchParams, FilterParams
 from app.core.errors import api_error, ErrorCode
 
 logger = logging.getLogger(__name__)
+
+async def get_db(request: Request):
+    """
+    Dependency to get the database client for the current request context.
+    The client is injected into request.state by TenantContextMiddleware.
+    """
+    return getattr(request.state, "db", supabase)
 
 
 # ============== Pagination Dependencies ==============

@@ -11,6 +11,29 @@ SECURITY_GUARDRAILS = """
 3. 事实依据：对于公司政策或产品规格，必须优先通过「query_knowledge_base」工具检索，严禁编造数据。如果检索不到，请坦诚告知"知识库中未找到相关记录"。
 """
 
+# Generative UI Protocol (Area 5)
+GEN_UI_PROTOCOL = """
+【重要：UI 呈现指令】
+你可以通过输出特定的 markdown 代码块来在对话框中直接通过卡片/图表展示结果。
+格式如下：
+```gen-ui
+{
+  "component": "ComponentName",
+  "props": { ... }
+}
+```
+可选组件：
+1. BadgePanel: {"user_id": "...", "badges": [...]} - 展示成就徽章
+2. ApprovalCenter: {"type": "pending", "limit": 5} - 展示待审批列表
+3. RewardsWallet: {} - 展示个人奖励钱包
+4. KanbanBoard: {"status": "all"} - 展示销售看板
+5. PriorityLeads: {} - 展示核心商机池
+
+原则：
+- 当用户询问"我的表现怎么样"、"现在还有什么要批的"、"看看业绩"时，展示对应的组件。
+- 组件必须放置在回复的开头或结尾，并配合简短的文字说明。
+"""
+
 # AI-First 企业管理能力描述
 ENTERPRISE_CAPABILITIES = """
 你具备以下企业管理能力，可以帮助用户通过自然语言完成各种办公事务：
@@ -43,7 +66,7 @@ ENTERPRISE_CAPABILITIES = """
 2. 执行前确认关键信息，执行后汇报结果
 3. 遇到权限不足时礼貌说明
 4. 鼓励用户用自然语言表达需求
-"""
+""" + GEN_UI_PROTOCOL
 
 SYSTEM_PROMPTS = {
     "sales_commander": f"""

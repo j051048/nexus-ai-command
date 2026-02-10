@@ -18,6 +18,7 @@ import {
 import { toast } from 'sonner';
 import { AIMessage } from '@/types/nexus';
 import { getEnterAnimationClass } from '@/lib/animations';
+import { GenUIContainer } from './GenUIContainer';
 
 interface MessageBubbleProps {
   message: AIMessage;
@@ -109,6 +110,18 @@ export function MessageBubble({
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   code({ node, inline, className, children, ...props }: React.ClassAttributes<HTMLElement> & React.HTMLAttributes<HTMLElement> & { inline?: boolean, node?: any }) {
                     const match = /language-(\w+)/.exec(className || '');
+                    
+                    // P1: Generative UI Support
+                    if (match && match[1] === 'gen-ui') {
+                      try {
+                        const config = JSON.parse(String(children));
+                        return <GenUIContainer componentName={config.component} props={config.props} />;
+                      } catch (e) {
+                        console.error("GenUI Parse Error:", e);
+                        return <div className="text-xs text-red-400 p-2 border border-red-900/30 rounded">UI组件渲染失败: {String(children)}</div>;
+                      }
+                    }
+
                     return !inline && match ? (
                       <div className="relative rounded-md overflow-hidden my-2">
                          <div className="flex items-center justify-between px-3 py-1 bg-zinc-900 border-b border-zinc-700">

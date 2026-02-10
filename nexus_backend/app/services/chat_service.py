@@ -27,7 +27,7 @@ class ChatService:
     TOOLS = get_all_tools_schema()
 
     @staticmethod
-    async def get_system_prompt(agent_name: str) -> str:
+    async def get_system_prompt(agent_name: str, db_client: Optional[Any] = None) -> str:
         """Get formatted system prompt for agent (P1 Fix #29: Fetch from DB with local fallback)"""
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
@@ -52,7 +52,8 @@ class ChatService:
 
         # 2. Try DB
         try:
-            res = await supabase.table("prompts").select("content").eq("name", prompt_key).maybe_single().execute()
+            client = db_client or supabase
+            res = await client.table("prompts").select("content").eq("name", prompt_key).maybe_single().execute()
             if res.data:
                 raw_prompt = res.data["content"]
                 await cache_service.set(cache_key, raw_prompt, ttl=3600)
@@ -68,13 +69,14 @@ class ChatService:
             return raw_prompt
 
     @staticmethod
-    async def _get_cached_user_role(user_id: str) -> str:
+    async def _get_cached_user_role(user_id: str, db_client: Optional[Any] = None) -> str:
         """Helper to get user role (cached)"""
         cached = await cache_service.get_user_role(user_id)
         if cached: return cached
         
         try:
-            res = await supabase.table("users").select("role").eq("id", user_id).maybe_single().execute()
+            client = db_client or supabase
+            res = await client.table("users").select("role").eq("id", user_id).maybe_single().execute()
             role = res.data.get("role", "employee") if res.data else "employee"
             await cache_service.set_user_role(user_id, role)
             return role
@@ -83,7 +85,7 @@ class ChatService:
             return "employee"
 
     @staticmethod
-    async def execute_tool(name: str, args: Dict[str, Any], user_id: str, config: Dict = None, system_confirmed: bool = False) -> str:
+    async def execute_tool(name: str, args: Dict[str, Any], user_id: str, config: Dict = None, system_confirmed: bool = False, db_client: Optional[Any] = None) -> str:
         """Execute tool with RBAC, System-level Confirmation Gate, and Retry"""
         tool = get_tool(name)
         if not tool:
@@ -91,7 +93,7 @@ class ChatService:
             
         # 1. RBAC Check
         if tool.required_role not in ["all", "ai_assistant"]:
-            user_role = await ChatService._get_cached_user_role(user_id)
+            user_role = await ChatService._get_cached_user_role(user_id, db_client=db_client)
             if tool.required_role == "boss" and user_role not in ["boss", "founder"]:
                 return f"⛔ Permission Denied: Tool requires [Boss] role. You are [{user_role}]."
             elif tool.required_role == "manager" and user_role not in ["manager", "boss", "founder"]:
@@ -122,10 +124,10 @@ class ChatService:
         return "Error: Unknown tool execution failure"
 
     @staticmethod
-    async def save_message(user_id: str, session_id: str, role: str, content: str, agent: str = None, metadata: Dict = None):
+    async def save_message(user_id: str, session_id: str, role: str, content: str, agent: str = None, metadata: Dict = None, db_client: Optional[Any] = None):
         """Save a message to the database for persistence"""
         try:
-            from app.core.database import supabase
+            client = db_client or supabase
             data = {
                 "user_id": user_id,
                 "session_id": session_id,
@@ -134,7 +136,8 @@ class ChatService:
                 "agent": agent,
                 "metadata": metadata or {}
             }
-            supabase.table("chat_messages").insert(data).execute()
+            # Fixed P1: added await
+            await client.table("chat_messages").insert(data).execute()
         except Exception as e:
             logger.error(f"Failed to save chat message: {str(e)}")
 
@@ -143,13 +146,16 @@ class ChatService:
         messages: List[Dict], 
         config: Dict, 
         user_id: str, 
-        tracer: Any = None,
+        tracer: Optional[TraceLogger] = None,
         system_confirmed: bool = False,
-        session_id: str = "default"
+        session_id: Optional[str] = None,
+        db_client: Optional[Any] = None
     ) -> AsyncGenerator[str, None]:
         """
         Stream response from OpenAI with recursive tool execution, token tracking, and moderation.
         """
+        # Ensure we have a DB client (fallback to global for robustness)
+        client_db = db_client or supabase
         # P0 Fix #4: Save the last user message to persistence
         if messages and messages[-1]["role"] == "user":
             user_msg = messages[-1]
@@ -158,7 +164,8 @@ class ChatService:
                 session_id=session_id,
                 role="user",
                 content=user_msg["content"],
-                agent=messages[0].get("agent") if messages else None
+                agent=messages[0].get("agent") if messages else None,
+                db_client=client_db
             ))
 
         # 0. Safety Check & Sanitization
@@ -327,7 +334,7 @@ class ChatService:
                             pass  # Schema itself is invalid, skip validation
                     
                     if tracer: tracer.log_tool_plan(tc["name"], args)
-                    tool_tasks.append(ChatService.execute_tool(tc["name"], args, user_id, config=config, system_confirmed=system_confirmed))
+                    tool_tasks.append(ChatService.execute_tool(tc["name"], args, user_id, config=config, system_confirmed=system_confirmed, db_client=client_db))
 
                 results = await asyncio.gather(*tool_tasks)
                 
@@ -349,8 +356,25 @@ class ChatService:
                 # No tool calls in this turn, discussion finished
                 break
         
+        # A. Semantic Cache Lookup (P2 Optimization)
+        last_query = messages[-1].get("content") if messages else ""
+        if last_query and user_id:
+            from app.services.semantic_cache import semantic_cache_service
+            cached_res = await semantic_cache_service.get_cache(last_query, user_id)
+            if cached_res:
+                # Simulate streaming for cached response
+                words = cached_res.split(" ")
+                for i, word in enumerate(words):
+                    chunk = word + (" " if i < len(words) - 1 else "")
+                    yield f"data: {json.dumps({'choices': [{'delta': {'content': chunk}}]})}\n\n"
+                    await asyncio.sleep(0.01) # Very fast simulation
+                yield "data: [DONE]\n\n"
+                if tracer: tracer.log_end()
+                return
+
+        # B. Real LLM Execution
         # 3. P1 Optimization: Token Usage Recording & Output Sanitization
-        # This block MUST be outside the for loop to always execute
+        sanitized_content = full_response_content
         try:
             # Output Sanitization - scan for PII/violations in AI output
             is_safe, violations = scan_content(full_response_content)
@@ -378,15 +402,27 @@ class ChatService:
             logger.error(f"Post-stream processing error: {e}")
 
         # Final assistant response summary for token tracking and audit
-        # P0 Fix #4: Save the AI response to persistence
+        # Save finalized assistant message
         asyncio.create_task(ChatService.save_message(
             user_id=user_id,
             session_id=session_id,
             role="assistant",
-            content=full_response_content,
-            agent=messages[0].get("agent") if messages else None
+            content=sanitized_content,
+            agent=messages[0].get("agent") if messages else None,
+            db_client=client_db
         ))
 
-        if tracer: tracer.log_end()
+        # P2: Save to Semantic Cache
+        if last_query and sanitized_content:
+            from app.services.semantic_cache import semantic_cache_service
+            asyncio.create_task(semantic_cache_service.set_cache(last_query, sanitized_content, user_id))
+
+        if tracer:
+            try:
+                # Fallback calculation if record_completion wasn't called/failed
+                t_tokens = total_usage_chunk.get("total_tokens", 0) if total_usage_chunk else 0
+                tracer.log_end(total_tokens=t_tokens)
+            except:
+                tracer.log_end()
         yield "data: [DONE]\n\n"
 

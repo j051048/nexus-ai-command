@@ -114,10 +114,12 @@ app.add_middleware(
 # P0 Security Fix: Rate limiting middleware
 app.add_middleware(RateLimitMiddleware)
 
-# P2 Security: Security headers and request ID tracking
-from app.core.security_middleware import SecurityHeadersMiddleware, RequestIDMiddleware
+# P2 Security: Security headers, Request ID, and Tenant Context
+from app.core.security_middleware import SecurityHeadersMiddleware, RequestIDMiddleware, TenantContextMiddleware
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestIDMiddleware)
+app.add_middleware(TenantContextMiddleware)
+
 
 # Include Routers
 app.include_router(performance.router)
@@ -194,33 +196,33 @@ async def health_check():
     }
 
 @app.get("/api/dashboard/boss")
-async def boss_dashboard(user_id: str = Depends(get_current_user_id)):
+async def boss_dashboard(request: Request, user_id: str = Depends(get_current_user_id)):
     """
     P1 Security Fix #6: Boss dashboard now requires authentication AND boss role.
-    Fetches real data from Supabase for authenticated boss users only.
+    P0 Multi-tenancy: Uses request.state.db for scoped access.
     """
-    from app.core.database import supabase
+    client = request.state.db
     from app.core.errors import api_success, api_error, ErrorCode
     
-    if not supabase:
+    if not client:
         raise api_error(ErrorCode.DB_CONNECTION_ERROR, "Database connection unavailable")
 
     try:
         # P1 Security Fix #6: Verify user has boss role
-        user_res = await supabase.table("users").select("role").eq("id", user_id).single().execute()
+        user_res = await client.table("users").select("role").eq("id", user_id).single().execute()
         
         if not user_res.data or user_res.data.get("role") != "boss":
             raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "仅领导可访问此仪表板")
         
         # 1. Get Pending Approvals Count
-        pending_res = await supabase.table("approval_requests")\
+        pending_res = await client.table("approval_requests")\
             .select("count", count="exact")\
             .eq("status", "pending")\
             .execute()
         pending_count = pending_res.count if pending_res.count is not None else 0
 
         # 2. Get Abnormal Expenses (High amount pending expenses)
-        abnormal_res = await supabase.table("approval_requests")\
+        abnormal_res = await client.table("approval_requests")\
             .select("id, description, amount, users:submitted_by(name)")\
             .eq("status", "pending")\
             .eq("type", "expense")\
@@ -243,7 +245,7 @@ async def boss_dashboard(user_id: str = Depends(get_current_user_id)):
             })
 
         # 3. Get Top Performers
-        users_res = await supabase.table("users")\
+        users_res = await client.table("users")\
             .select("name, score, total_bonus")\
             .order("score", desc=True)\
             .limit(3)\

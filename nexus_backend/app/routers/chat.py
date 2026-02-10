@@ -32,10 +32,11 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
     """
     
     # 1. Identity & Profile Check
-    # Verify user exists in DB and fetch settings
-    user_res = await supabase.table("users").select("id").eq("id", user_id).maybe_single().execute()
+    # P0 Multi-tenancy: Use scoped client from request state
+    client = req.state.db
+    user_res = await client.table("users").select("id").eq("id", user_id).maybe_single().execute()
     if not user_res.data:
-        raise HTTPException(status_code=403, detail="User profile not found")
+        raise HTTPException(status_code=403, detail="User profile not found or access denied")
 
     # 2. Content Moderation
     if request.messages:
@@ -56,7 +57,7 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
         "token": token
     }
     try:
-        settings_res = await supabase.table("ai_settings").select("*").eq("user_id", user_id).maybe_single().execute()
+        settings_res = await client.table("ai_settings").select("*").eq("user_id", user_id).maybe_single().execute()
         if settings_res.data:
             s = settings_res.data
             from app.services.encryption_service import encryption_service
@@ -77,7 +78,7 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
         return StreamingResponse(_error_stream(f"⚠️ 额度超限: {limit_reason}"), media_type="text/event-stream")
 
     # 5. Prepare Context
-    system_prompt = await ChatService.get_system_prompt(request.agent)
+    system_prompt = await ChatService.get_system_prompt(request.agent, db_client=client)
     
     # Standardize Message History (Sliding Window)
     MAX_HISTORY = 10
@@ -98,17 +99,18 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
             user_id, 
             tracer, 
             system_confirmed=request.system_confirmed,
-            session_id=request.sessionId
+            session_id=request.sessionId,
+            db_client=client
         ),
         media_type="text/event-stream"
     )
 
 @router.get("/history/{session_id}")
-async def get_chat_history(session_id: str, user_id: str = Depends(get_current_user_id)):
+async def get_chat_history(session_id: str, req: Request, user_id: str = Depends(get_current_user_id)):
     """Fetch persistent chat history for a session"""
     try:
-        from app.core.database import supabase
-        response = supabase.table("chat_messages") \
+        client = req.state.db
+        response = await client.table("chat_messages") \
             .select("*") \
             .eq("user_id", user_id) \
             .eq("session_id", session_id) \

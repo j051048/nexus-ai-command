@@ -101,7 +101,7 @@ class Settings(BaseSettings):
     ALLOW_UNSECURE_AUTH: Optional[str] = Field(default=None, description="Allow unsecure auth (dev only)")
     # P1 Fix #42: Key for encryption
     ENCRYPTION_KEY: str = Field(
-        default="O-x-L-N_lJv2U7fC0p9j5R8fXp3k6w9zD2M5Y8v3B6G=", 
+        default="", 
         description="Master key for encrypting API keys"
     )
     
@@ -157,6 +157,9 @@ class Settings(BaseSettings):
             
             if self.DEBUG:
                 errors.append("DEBUG mode must be disabled in production")
+            
+            if not self.ENCRYPTION_KEY or self.ENCRYPTION_KEY == "":
+                errors.append("ENCRYPTION_KEY is required in production")
         
         return errors
     
