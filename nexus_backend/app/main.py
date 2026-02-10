@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Response, Depends, HTTPException, Request
+"""from fastapi import FastAPI, Response, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -9,6 +9,7 @@ import sentry_sdk
 from app.routers import performance, incentive, approval, kingdee, chat, documents, projects, usage, organization
 from app.core.auth import get_current_user_id
 from app.core.rate_limiter import RateLimitMiddleware
+from app.core.security_middleware import SecurityHeadersMiddleware, RequestIDMiddleware, TenantContextMiddleware
 from app.core.logging_config import setup_logging, get_logger
 from app.core.config import settings
 from app.services.event_bus import event_bus
@@ -112,7 +113,6 @@ app.add_middleware(
 app.add_middleware(RateLimitMiddleware)
 
 # P2 Security: Security headers, Request ID, and Tenant Context
-from app.core.security_middleware import SecurityHeadersMiddleware, RequestIDMiddleware, TenantContextMiddleware
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(TenantContextMiddleware)

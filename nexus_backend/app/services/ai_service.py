@@ -1,4 +1,4 @@
-"""
+""""""
 AI Service - LLM Integration with proper error handling
 
 P2 Fixes Applied:
@@ -10,7 +10,7 @@ P2 Fixes Applied:
 import json
 import httpx
 import logging
-from typing import Optional, Dict
+from typing import Dict
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)

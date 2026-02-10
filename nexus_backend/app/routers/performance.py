@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter
 from app.models.schemas import PerformanceEvent, StandardResponse
 from app.services.performance_service import PerformanceService
 from app.core.errors import api_success, api_error, ErrorCode
-from typing import Dict, Any
+
 
 router = APIRouter(prefix="/api/performance", tags=["Performance"])
 

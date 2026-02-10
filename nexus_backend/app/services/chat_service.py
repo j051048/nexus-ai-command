@@ -1,4 +1,4 @@
-"""
+"""Chat Service for Nexus AI"""
 # P4 Enhancement: Chat Service (Build Trigger: 20240210-1145)
 
 Handles:
@@ -248,7 +248,8 @@ class ChatService:
                     yield f"data: {json.dumps({'choices': [{'delta': {'content': f' {line}'}}]})}\n\n"
                     return
                 
-                if not line.startswith("data: "): continue
+                if not line.startswith("data: "):
+                    continue
                 line_data = line[6:].strip()
                 if line_data == "[DONE]":
                     break
@@ -335,7 +336,8 @@ class ChatService:
                             logger.warning(f"Tool {tc['name']} args validation failed: {ve.message}")
                             # Don't block — feed error back to LLM so it can self-correct
                             tool_tasks.append(asyncio.create_task(asyncio.sleep(0, result=f"参数校验失败: {ve.message}")))
-                            if tracer: tracer.log_tool_plan(tc["name"], {"validation_error": ve.message})
+                            if tracer:
+                                tracer.log_tool_plan(tc["name"], {"validation_error": ve.message})
                             continue
                         except jsonschema.SchemaError:
                             pass  # Schema itself is invalid, skip validation

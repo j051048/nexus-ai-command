@@ -89,7 +89,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
             logger.debug(f"[AI审批] 准备插入数据: {insert_data}")
             
             result = await client.table("approval_requests").insert(insert_data).execute()
-            logger.debug(f"[AI审批] 插入结果成功")
+            logger.debug("[AI审批] 插入结果成功")
         except Exception as e:
             logger.exception(f"[AI审批] 插入失败: {e}")
             return f"提交失败：数据库错误 - {str(e)}"

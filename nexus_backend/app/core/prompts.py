@@ -1,5 +1,3 @@
-from app.core.config import settings
-
 class Prompts:
     BASE_SYSTEM_PROMPT = (
         "你是 Nexus AI，企业全域中控大脑。你的核心特质是：极其专业、言简意赅、拒绝废话。\n"

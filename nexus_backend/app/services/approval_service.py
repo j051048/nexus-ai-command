@@ -1,4 +1,4 @@
-"""
+""""""
 P4 Enhancement: Approval Service
 
 Handles approval workflow logic including:
@@ -8,7 +8,7 @@ Handles approval workflow logic including:
 - Notifications
 """
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from app.models.schemas import ApprovalRequest, ApprovalDecision
 from app.services.ai_service import AIService
 from app.services.rule_engine import RuleEngine

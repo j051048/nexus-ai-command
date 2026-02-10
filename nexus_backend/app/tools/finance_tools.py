@@ -4,7 +4,7 @@
 """
 from .base_tool import BaseTool
 from typing import Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime
 from app.core.database import supabase
 
 
@@ -107,19 +107,18 @@ class ExpenseClaimTool(BaseTool):
         auto_limit = config_info.get("auto_limit", 300)
         if amount <= auto_limit and compliance_passed:
             approval_status = "approved"
-            approval_level = "auto"
             approval_note = f"金额 ≤¥{auto_limit}，已自动审批"
         elif amount <= 2000:
             approval_status = "pending"
-            approval_level = "manager"
+            _approval_level = "manager"
             approval_note = "需直属领导审批"
         elif amount <= 10000:
             approval_status = "pending"
-            approval_level = "director"
+            _approval_level = "director"
             approval_note = "需部门总监审批"
         else:
             approval_status = "pending"
-            approval_level = "cfo"
+            _approval_level = "cfo"
             approval_note = "需财务总监审批"
         
         # 查找关联项目
@@ -217,8 +216,6 @@ class ExpenseQueryTool(BaseTool):
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
-        query_type = args.get("query_type", "my_claims")
-        
         client = _get_client(config)
         # 查询该用户的报销申请
         claims = await client.table("approval_requests")\
@@ -251,7 +248,7 @@ class ExpenseQueryTool(BaseTool):
             
             result += f"{status_icon} ¥{amount:.2f} - {desc}\n"
         
-        result += f"\n📊 **汇总**\n"
+        result += "\n📊 **汇总**\n"
         result += f"- 待审批: ¥{total_pending:.2f}\n"
         result += f"- 已批准待付款: ¥{total_approved:.2f}\n"
         
@@ -285,8 +282,6 @@ class BudgetQueryTool(BaseTool):
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
         department = args.get("department")
-        project_name = args.get("project_name")
-        
         client = _get_client(config)
         # 获取用户部门
         user_res = await client.table("users").select("department, role").eq("id", user_id).maybe_single().execute()
@@ -362,8 +357,6 @@ class SalaryQueryTool(BaseTool):
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
         month = args.get("month", datetime.now().strftime("%Y-%m"))
-        detail_type = args.get("detail_type", "breakdown")
-        
         client = _get_client(config)
         # 获取用户信息
         user_res = await client.table("users").select("name, role, score, total_bonus").eq("id", user_id).maybe_single().execute()
@@ -444,8 +437,6 @@ class InvoiceOCRTool(BaseTool):
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
-        image_url = args.get("image_url", "")
-        
         # 模拟 OCR 识别结果（实际应调用 OCR 服务）
         # 在实际实现中，这里会调用百度/腾讯/阿里的发票OCR API
         

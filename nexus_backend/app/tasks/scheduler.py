@@ -1,6 +1,5 @@
-from app.core.celery_app import celery_app
+from celery.schedules import crontabfrom app.core.celery_app import celery_app
 from app.services.crawler_service import crawler_service
-import asyncio
 
 @celery_app.task
 def crawl_arxiv_leads():

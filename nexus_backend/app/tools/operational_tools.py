@@ -55,7 +55,8 @@ class CompanyStatsTool(BaseTool):
             d = u.get("department", "未分配") or "未分配"
             depts[d] = depts.get(d, 0) + 1
         stats = f"公司总人数: {total_users} 人\n分布:\n"
-        for d, c in depts.items(): stats += f"- {d}: {c} 人\n"
+        for d, c in depts.items():
+            stats += f"- {d}: {c} 人\n"
         return stats
 
 class KnowledgeBaseTool(BaseTool):

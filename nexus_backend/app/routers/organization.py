@@ -3,7 +3,6 @@ P2 Optimization: Organization Structure API Routes
 Provides endpoints for managing organizational hierarchy and approval chains.
 """
 from fastapi import APIRouter, Depends
-from typing import Optional
 from app.core.auth import get_current_user_id
 from app.services.organization import organization_service
 from app.services.approval_chain import approval_chain_service
@@ -69,9 +68,6 @@ async def get_organization_stats(user_id: str = Depends(get_current_user_id)):
     Get organization-wide statistics.
     """
     # P1 Fix #15: Pass org_id to stats
-    from app.services.chat_service import ChatService
-    user_role = await ChatService._get_cached_user_role(user_id)
-    
     # Simple way to get org_id (fetch from users table)
     from app.core.database import supabase
     user_res = await supabase.table("users").select("org_id").eq("id", user_id).maybe_single().execute()

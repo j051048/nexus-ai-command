@@ -11,7 +11,6 @@ import time
 from typing import Dict, List, Callable, Any, Optional
 from dataclasses import dataclass, field
 from enum import Enum
-from datetime import datetime
 import uuid
 
 logger = logging.getLogger(__name__)
@@ -299,7 +298,6 @@ async def notify_approval_escalated(event: Event):
 async def calculate_deal_bonus(event: Event):
     """Calculate and award bonus when a deal is won"""
     from app.core.database import supabase
-    from app.core.config import settings
     
     if not supabase:
         return

@@ -8,7 +8,7 @@ P2 Fixes Applied:
 """
 import logging
 from .base_tool import BaseTool
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from datetime import datetime, timedelta
 from app.core.database import supabase
 
@@ -272,7 +272,6 @@ class MeetingBookingTool(BaseTool):
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
         title = args.get("title", "会议")
-        datetime_str = args.get("datetime")
         duration = args.get("duration_minutes", 60)
         attendees = args.get("attendees", [])
         room_pref = args.get("room_preference", "medium")
@@ -397,7 +396,7 @@ class TaskAssignmentTool(BaseTool):
             "ai_created": True
         }
         
-        result = await client.table("project_tasks").insert(task_data).execute()
+        await client.table("project_tasks").insert(task_data).execute()
         
         # 通知负责人
         creator_res = await client.table("users").select("name").eq("id", user_id).maybe_single().execute()

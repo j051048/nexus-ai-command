@@ -6,7 +6,7 @@ Separates orchestration logic from the API router.
 """
 import logging
 from datetime import date
-from typing import Dict, Optional, List, Any
+from typing import Dict, Optional, Any
 from app.models.schemas import PerformanceEvent, PerformanceResult
 from app.services.rule_engine import RuleEngine
 from app.core.database import supabase

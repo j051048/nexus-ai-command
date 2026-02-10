@@ -5,7 +5,7 @@ Tracks token usage, estimates costs, and enforces usage limits.
 import os
 import time
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
@@ -257,7 +257,7 @@ class UsageTracker:
         
         # Check daily token limit
         if usage["tokens"] + estimated_tokens > self._limits.max_tokens_per_day:
-            return False, f"Daily token limit would be exceeded"
+            return False, "Daily token limit would be exceeded"
         
         # Check daily cost limit
         if usage["cost_usd"] >= self._limits.max_cost_per_day_usd:

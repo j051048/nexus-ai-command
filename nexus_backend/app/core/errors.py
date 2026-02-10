@@ -8,7 +8,7 @@ Provides:
 """
 import logging
 from enum import Enum
-from typing import Any, Optional, Dict, List, Union
+from typing import Any, Optional, Dict, List
 from fastapi import HTTPException
 from pydantic import BaseModel
 

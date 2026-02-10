@@ -1,8 +1,8 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from app.core.auth import get_current_user_id
-from app.core.database import supabase
+
 from app.models.schemas import ChatRequest
 from app.services.chat_service import ChatService
 from app.services.token_service import validate_request_tokens

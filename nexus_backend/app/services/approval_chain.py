@@ -2,7 +2,6 @@
 P2 Optimization: Multi-level Approval Chain Service
 Supports configurable approval workflows with multiple levels.
 """
-import os
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from enum import Enum

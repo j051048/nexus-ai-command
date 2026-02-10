@@ -1,4 +1,4 @@
-"""
+""""""
 领导专属工具集
 实现智能审批、经营洞察、团队管理等高级管理功能
 支持语音/自然语言批量处理
@@ -7,10 +7,9 @@ P0 Security Fix #1: All approval operations require explicit confirmation
 """
 from .base_tool import BaseTool
 from typing import Dict, Any, List
-from datetime import datetime, timedelta
+from datetime import datetime
 import logging
 from app.core.database import supabase
-from app.services.event_bus import emit, EventType
 
 logger = logging.getLogger(__name__)
 
@@ -313,8 +312,6 @@ class DailyBriefingTool(BaseTool):
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
         client = _get_client(config)
-        briefing_type = args.get("briefing_type", "full")
-        
         # 获取待审批数量
         pending_res = await client.table("approval_requests")\
             .select("*, users:submitted_by(name)")\
@@ -445,8 +442,6 @@ class BusinessDashboardTool(BaseTool):
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
         period = args.get("period", "this_month")
-        focus = args.get("focus", "all")
-        
         period_names = {
             "today": "今日",
             "this_week": "本周",
@@ -532,8 +527,6 @@ class TeamInsightTool(BaseTool):
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
-        insight_type = args.get("insight_type", "performance")
-        
         client = _get_client(config)
         # 获取团队数据
         team_res = await client.table("users").select("*").execute()

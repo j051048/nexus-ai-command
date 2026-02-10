@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, Form, Depends, BackgroundTasks
-from typing import List, Optional
+from typing import List
 from app.services.etl_service import etl_service
 from app.core.database import supabase
 from app.core.auth import get_current_user_id

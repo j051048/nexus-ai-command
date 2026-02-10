@@ -9,7 +9,7 @@ Handles business logic for:
 import logging
 import uuid
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from app.core.database import supabase
 from app.models.schemas import IncentiveTrigger, IncentiveResponse
 from app.core.errors import api_error, ErrorCode
@@ -20,8 +20,7 @@ class IncentiveService:
     @staticmethod
     async def trigger_incentive(trigger: IncentiveTrigger) -> IncentiveResponse:
         try:
-            bonus_amount = 0.0
-            badge = None
+                        bonus_amount = 0.0
             reason = ""
             incentive_type = "bonus"
 

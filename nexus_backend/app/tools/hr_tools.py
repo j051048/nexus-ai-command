@@ -3,8 +3,8 @@ HR 人力资源工具集
 实现考勤、绩效、员工档案等 HR 场景的 AI 自动化
 """
 from .base_tool import BaseTool
-from typing import Dict, Any, List
-from datetime import datetime, timedelta
+from typing import Dict, Any
+from datetime import datetime
 from app.core.database import supabase
 
 
@@ -40,7 +40,6 @@ class AttendanceQueryTool(BaseTool):
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
-        query_type = args.get("query_type", "monthly_summary")
         month = args.get("month", datetime.now().strftime("%Y-%m"))
         employee_name = args.get("employee_name")
         
@@ -117,8 +116,6 @@ class TeamAttendanceTool(BaseTool):
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
-        view_type = args.get("view_type", "overview")
-        
         # 模拟团队数据
         team_stats = {
             "total_members": 12,

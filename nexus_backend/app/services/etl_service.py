@@ -1,12 +1,11 @@
-import logging
+"""import logging
 import httpx
 import json
 import io
 import os
 import hashlib
 from pypdf import PdfReader
-from fastapi import UploadFile
-from typing import Tuple, Dict, Any, List
+from typing import Tuple, Dict, Any
 from app.core.database import supabase
 from app.core.config import settings
 
