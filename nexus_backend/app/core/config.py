@@ -107,6 +107,24 @@ class Settings(BaseSettings):
         description="Master key for encrypting API keys"
     )
     
+    # B2: Notification Channel Configuration
+    # Email (SMTP)
+    SMTP_HOST: Optional[str] = Field(default=None, description="SMTP server hostname")
+    SMTP_PORT: int = Field(default=587, description="SMTP server port (587 for STARTTLS, 465 for SSL)")
+    SMTP_USER: Optional[str] = Field(default=None, description="SMTP username")
+    SMTP_PASSWORD: Optional[str] = Field(default=None, description="SMTP password")
+    SMTP_FROM: Optional[str] = Field(default=None, description="Sender email address")
+    
+    # Wecom (企业微信)
+    WECOM_WEBHOOK_URL: Optional[str] = Field(default=None, description="Wecom group bot webhook URL")
+    
+    # Dingtalk (钉钉)
+    DINGTALK_WEBHOOK_URL: Optional[str] = Field(default=None, description="Dingtalk group bot webhook URL")
+    DINGTALK_SECRET: Optional[str] = Field(default=None, description="Dingtalk webhook secret for signature")
+    
+    # Feishu (飞书)
+    FEISHU_WEBHOOK_URL: Optional[str] = Field(default=None, description="Feishu group bot webhook URL")
+    
     # Computed properties
     @property
     def IS_PRODUCTION(self) -> bool:
