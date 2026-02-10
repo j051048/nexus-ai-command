@@ -1,5 +1,5 @@
-"""Chat Service for Nexus AI"""
-# P4 Enhancement: Chat Service (Build Trigger: 20240210-1145)
+"""Chat Service for Nexus AI
+P4 Enhancement: Chat Service (Build Trigger: 20240210-1145)
 
 Handles:
 - OpenAI API interaction (Streaming)
@@ -209,6 +209,27 @@ class ChatService:
 
         full_response_content = ""
 
+        # A. Semantic Cache Lookup (P0 Fix: Move to before LLM call)
+        last_query = messages[-1].get("content") if messages and messages[-1]["role"] == "user" else ""
+        if last_query and user_id:
+             # Lazy import inside method to avoid circular deps if any, or just keep as is
+            from app.services.semantic_cache import semantic_cache_service
+            # P1 Fix: Use the user's latest message for cache lookup
+            cached_res = await semantic_cache_service.get_cache(last_query, user_id)
+            if cached_res:
+                logger.info(f"Semantic cache hit for user {user_id}")
+                # Simulate streaming for cached response
+                words = cached_res.split(" ")
+                for i, word in enumerate(words):
+                    chunk = word + (" " if i < len(words) - 1 else "")
+                    yield f"data: {json.dumps({'choices': [{'delta': {'content': chunk}}]})}\n\n"
+                    # Very fast simulation but enough to not break frontend parsers
+                    await asyncio.sleep(0.005) 
+                yield "data: [DONE]\n\n"
+                if tracer:
+                    tracer.log_end()
+                return
+
         async def _call_api(msgs):
             payload = {
                 "model": model,
@@ -367,22 +388,6 @@ class ChatService:
                 # No tool calls in this turn, discussion finished
                 break
         
-        # A. Semantic Cache Lookup (P2 Optimization)
-        last_query = messages[-1].get("content") if messages else ""
-        if last_query and user_id:
-            from app.services.semantic_cache import semantic_cache_service
-            cached_res = await semantic_cache_service.get_cache(last_query, user_id)
-            if cached_res:
-                # Simulate streaming for cached response
-                words = cached_res.split(" ")
-                for i, word in enumerate(words):
-                    chunk = word + (" " if i < len(words) - 1 else "")
-                    yield f"data: {json.dumps({'choices': [{'delta': {'content': chunk}}]})}\n\n"
-                    await asyncio.sleep(0.01) # Very fast simulation
-                yield "data: [DONE]\n\n"
-                if tracer:
-                    tracer.log_end()
-                return
 
         # B. Real LLM Execution
         # 3. P1 Optimization: Token Usage Recording & Output Sanitization

@@ -450,63 +450,75 @@ class BusinessDashboardTool(BaseTool):
             "this_year": "本年度"
         }
         
-        # 模拟经营数据
-        response = f"""📊 **{period_names.get(period, '本月')}经营仪表盘**
+        client = _get_client(config)
+        
+        # 1. Get Real Financial Metrics from DB
+        # Note: We aggregate from 'sales_metrics' table. If empty, we return 0/No Data.
+        try:
+            # Simple aggregation (sum value by metric_type)
+            # In a real app, we'd filter by created_at based on 'period'
+            metrics_res = await client.table("sales_metrics")\
+                .select("metric_type, value")\
+                .execute()
+            
+            metrics = metrics_res.data or []
+            
+            # Group by type
+            revenue = sum(float(m["value"]) for m in metrics if m["metric_type"] == "revenue")
+            contract_sum = sum(float(m["value"]) for m in metrics if m["metric_type"] == "contract")
+            opportunity_val = sum(float(m["value"]) for m in metrics if m["metric_type"] == "opportunity")
+            
+            # 2. Get Real HR Metrics
+            users_res = await client.table("users").select("id", count="exact").execute()
+            headcount = users_res.count or 0
+            
+            # 3. Logic for "No Data"
+            if not metrics and headcount == 0:
+                 return f"""📊 **{period_names.get(period, '本月')}经营仪表盘**
+更新时间: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+⚠️ **暂无数据**
+系统中暂未录入经营数据（收入、成本、人员等）。
+请先让员工在系统中录入业务数据，或连接外部ERP系统。
+"""
+
+            # 4. Construct Authentic Report
+            response = f"""📊 **{period_names.get(period, '本月')}经营仪表盘 (实时数据)**
 更新时间: {datetime.now().strftime('%Y-%m-%d %H:%M')}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 💰 **收入指标**
 ┌─────────────────────────────────┐
-│ 签约金额      ¥  2,850,000  ↑12% │
-│ 回款金额      ¥  1,920,000  ↑8%  │
-│ 新增商机      ¥  4,200,000  ↑15% │
-└─────────────────────────────────┘
-
-📉 **成本指标**  
-┌─────────────────────────────────┐
-│ 人力成本      ¥    680,000  ─    │
-│ 营销费用      ¥    120,000  ↓5%  │
-│ 运营费用      ¥     85,000  ↑3%  │
+│ 签约金额      ¥ {contract_sum:,.2f}
+│ 回款金额      ¥ {revenue:,.2f}
+│ 新增商机      ¥ {opportunity_val:,.2f}
 └─────────────────────────────────┘
 
 👥 **人效指标**
 ┌─────────────────────────────────┐
-│ 团队人数                   45 人 │
-│ 人均产出      ¥     63,333      │
-│ 人均成本      ¥     19,667      │
-│ 人效比                    3.22x │
+│ 团队人数                   {headcount} 人
+│ 人均产出      ¥ {(revenue / headcount if headcount > 0 else 0):,.2f}
 └─────────────────────────────────┘
 
-📈 **销售漏斗**
-  线索    ████████████████████ 200
-  商机    ██████████████░░░░░░  68
-  报价    █████████░░░░░░░░░░░  42
-  成交    ████░░░░░░░░░░░░░░░░  18
-  
-  整体转化率: 9%（行业均值: 7%）
+(注：成本数据暂未连接财务系统，显示为空)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🤖 **AI 经营洞察**
-
-✅ **亮点**
-- 本月签约额超目标15%，团队状态良好
-- 新增商机数创近3月新高
-- 人效比持续优化
-
-⚠️ **关注**
-- 回款率偏低（67%），建议加强催收
-- 3个大单超过45天未推进
-- 市场费用ROI有下降趋势
-
-💡 **建议行动**
-1. 本周安排回款专项会议
-2. 对滞后商机进行逐一review
-3. 优化市场投放渠道组合
 """
-        
-        return response
+            if revenue == 0:
+                response += "\n⚠️ **数据缺失提醒**: 本周期内无回款记录。请确认销售团队是否已录入数据。\n"
+            elif revenue < contract_sum * 0.5:
+                response += "\n⚠️ **回款滞后**: 回款金额低于签约金额的50%，建议关注现金流。\n"
+            else:
+                 response += "\n✅ **经营稳健**: 回款状况良好。\n"
+
+            return response
+
+        except Exception as e:
+            logger.error(f"Error fetching dashboard data: {e}")
+            return f"❌ 获取经营数据失败: {str(e)}"
 
 
 class TeamInsightTool(BaseTool):

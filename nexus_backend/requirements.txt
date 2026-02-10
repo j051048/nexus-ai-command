@@ -17,6 +17,12 @@ openai
 sentry-sdk
 python-docx
 
+# P0 Agent Framework
+langgraph>=0.0.10
+langchain-core>=0.1.0
+langchain-openai>=0.0.5
+langfuse>=2.0.0
+
 # P1 Optimizations
 tiktoken>=0.5.0  # Token counting
 redis>=5.0.0     # Distributed caching (optional)

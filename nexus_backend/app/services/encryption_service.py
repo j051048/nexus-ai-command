@@ -21,12 +21,12 @@ class EncryptionService:
     def _get_fernet():
         """Get Fernet instance using master key"""
         if not _FERNET_AVAILABLE:
-            return None
+            raise ImportError("cryptography package is required for secure encryption. Please install with `pip install cryptography`.")
         try:
             return Fernet(settings.ENCRYPTION_KEY.encode())
         except Exception as e:
             logger.error(f"Failed to initialize Fernet: {e}")
-            return None
+            raise ValueError(f"Invalid ENCRYPTION_KEY or Fernet initialization error: {e}")
 
     @staticmethod
     def encrypt(data: str) -> str:
@@ -34,12 +34,9 @@ class EncryptionService:
         if not data:
             return ""
         
+        # P0 Security Fix: Enforce strong encryption, no base64 fallback
         fernet = EncryptionService._get_fernet()
-        if fernet:
-            return fernet.encrypt(data.encode()).decode()
-        
-        # Fallback to base64 if cryptography is missing (better than plain text, but not secure)
-        return "enc:" + base64.b64encode(data.encode()).decode()
+        return fernet.encrypt(data.encode()).decode()
 
     @staticmethod
     def decrypt(encrypted_data: str) -> str:

@@ -48,7 +48,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         "Permissions-Policy": "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
         
         # P1 Security: Content Security Policy
-        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://*.zeabur.app; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co https://*.flydao.top;"
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://*.zeabur.app; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co https://*.flydao.top;",
+        
+        # P0 Security: HSTS (Strict-Transport-Security)
+        "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload"
     }
     
     # Paths that may need different caching
@@ -129,10 +132,10 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
                 org_id = await cache_service.get(cache_key)
                 
                 if not org_id:
-                    # Query once from users table
-                    res = await supabase.table("users").select("org_id").eq("id", user_id).maybe_single().execute()
+                    # Query once from users table - P0 Fix: Use organization_id
+                    res = await supabase.table("users").select("organization_id").eq("id", user_id).maybe_single().execute()
                     if res.data:
-                        org_id = res.data.get("org_id")
+                        org_id = res.data.get("organization_id")
                         if org_id:
                             await cache_service.set(cache_key, org_id, ttl=3600)
                 
