@@ -73,6 +73,7 @@ interface EnhancedAIChatPanelProps {
   onToggle: () => void;
   defaultAgent?: string;
   onSendMessage?: (message: string, response: string) => void;
+  variant?: 'overlay' | 'embedded'; // New prop
 }
 
 // ==================== 常量配置 ====================
@@ -127,6 +128,7 @@ export function EnhancedAIChatPanel({
   onToggle,
   defaultAgent,
   onSendMessage,
+  variant = 'overlay', // Default to overlay
 }: EnhancedAIChatPanelProps) {
   const { user } = useUser();
   const [messages, setMessages] = useState<AIMessage[]>([]);
@@ -326,7 +328,7 @@ export function EnhancedAIChatPanel({
 
   return (
     <>
-      {isExpanded && !isFullscreen && (
+      {variant === 'overlay' && isExpanded && !isFullscreen && (
         <div
           className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 md:hidden"
           onClick={onToggle}
@@ -335,11 +337,11 @@ export function EnhancedAIChatPanel({
 
       <div
         className={cn(
-          'fixed bg-card border-t border-border transition-all duration-300 z-50 shadow-[0_-4px_20px_-1px_rgba(0,0,0,0.1)]',
-          isFullscreen
-            ? 'inset-0 rounded-none'
-            : 'bottom-0 left-0 right-0 md:left-64 md:right-80 rounded-t-2xl md:rounded-none',
-          panelHeightClass
+          'bg-card border-border transition-all duration-300 shadow-xl flex flex-col',
+          variant === 'overlay' ? 'fixed z-50 shadow-[0_-4px_20px_-1px_rgba(0,0,0,0.1)]' : 'relative h-full w-full border-r',
+          variant === 'overlay' && isFullscreen ? 'inset-0 rounded-none' : '',
+          variant === 'overlay' && !isFullscreen ? 'bottom-0 left-0 right-0 md:left-64 md:right-80 rounded-t-2xl md:rounded-none' : '',
+          variant === 'overlay' ? panelHeightClass : 'h-full'
         )}
       >
         {/* Header */}
@@ -385,7 +387,7 @@ export function EnhancedAIChatPanel({
           </div>
 
           <div className="flex items-center gap-1">
-            {isExpanded && (
+            {variant === 'overlay' && isExpanded && (
               <>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -465,10 +467,11 @@ export function EnhancedAIChatPanel({
         </div>
 
         {/* Chat Area */}
-        {isExpanded && (
+        {(isExpanded || variant === 'embedded') && (
           <div className={cn(
-            'flex flex-col',
-            isFullscreen ? 'h-[calc(100vh-4rem)]' : 'h-[calc(85vh-4rem)] md:h-[436px]'
+            'flex flex-col flex-1 min-h-0', // min-h-0 important for flex nesting
+            variant === 'overlay' && isFullscreen ? 'h-[calc(100vh-4rem)]' : '',
+            variant === 'overlay' && !isFullscreen ? 'h-[calc(85vh-4rem)] md:h-[436px]' : ''
           )}>
             {/* Messages */}
             <ScrollArea className="flex-1 px-4 md:px-6">

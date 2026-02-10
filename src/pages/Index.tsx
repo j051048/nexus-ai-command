@@ -1,16 +1,16 @@
 import React from 'react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { UserProvider } from '@/contexts/UserContext';
-import { MainLayout } from '@/components/layout/MainLayout';
+import { ChatFirstLayout } from '@/components/layout/ChatFirstLayout';
 import { Outlet } from 'react-router-dom';
 
 const Index = () => {
   return (
     <ThemeProvider>
       <UserProvider>
-        <MainLayout>
+        <ChatFirstLayout>
           <Outlet />
-        </MainLayout>
+        </ChatFirstLayout>
       </UserProvider>
     </ThemeProvider>
   );
