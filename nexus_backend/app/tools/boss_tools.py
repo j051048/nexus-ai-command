@@ -1,4 +1,4 @@
-""""""
+"""
 领导专属工具集
 实现智能审批、经营洞察、团队管理等高级管理功能
 支持语音/自然语言批量处理
@@ -6,7 +6,7 @@
 P0 Security Fix #1: All approval operations require explicit confirmation
 """
 from .base_tool import BaseTool
-from typing import Dict, Any, List
+from typing import Dict, Any
 from datetime import datetime
 import logging
 from app.core.database import supabase
