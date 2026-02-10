@@ -174,6 +174,129 @@ class ImportService:
         return bool(re.match(pattern, email))
     
     @staticmethod
+    def _validate_phone(phone: str) -> bool:
+        """验证中国手机号格式（1开头11位）"""
+        if not phone:
+            return False
+        pattern = r'^1\d{10}$'
+        return bool(re.match(pattern, phone))
+    
+    @staticmethod
+    def _validate_employee(row: Dict[str, Any], row_num: int) -> Optional[Dict[str, Any]]:
+        """
+        验证员工数据
+        
+        Args:
+            row: 员工数据字典
+            row_num: 行号（用于错误报告）
+        
+        Returns:
+            如果验证失败，返回错误字典；否则返回 None
+        """
+        # 角色值校验
+        role = row.get("role", "").strip()
+        if role and role not in ["employee", "manager", "boss"]:
+            return {
+                "row": row_num,
+                "data": row,
+                "reason": f"角色值无效，只允许 employee/manager/boss，当前值: {role}",
+                "field": "role"
+            }
+        
+        # 手机号格式校验
+        phone = row.get("phone", "").strip()
+        if phone and not ImportService._validate_phone(phone):
+            return {
+                "row": row_num,
+                "data": row,
+                "reason": f"手机号格式无效，应为1开头的11位数字，当前值: {phone}",
+                "field": "phone"
+            }
+        
+        # 部门非空校验
+        department = row.get("department", "").strip()
+        if not department:
+            return {
+                "row": row_num,
+                "data": row,
+                "reason": "部门不能为空",
+                "field": "department"
+            }
+        
+        return None
+    
+    @staticmethod
+    def _validate_customer(row: Dict[str, Any], row_num: int) -> Optional[Dict[str, Any]]:
+        """
+        验证客户数据
+        
+        Args:
+            row: 客户数据字典
+            row_num: 行号（用于错误报告）
+        
+        Returns:
+            如果验证失败，返回错误字典；否则返回 None
+        """
+        # 联系电话格式校验
+        phone = row.get("phone", "").strip()
+        if phone and not ImportService._validate_phone(phone):
+            return {
+                "row": row_num,
+                "data": row,
+                "reason": f"联系电话格式无效，应为1开头的11位数字，当前值: {phone}",
+                "field": "phone"
+            }
+        
+        # 来源字段校验和标准化
+        source = row.get("source", "").strip()
+        allowed_sources = ["推荐", "网络", "电话", "展会", "其他"]
+        if source and source not in allowed_sources:
+            # 不在范围的标为"其他"
+            row["source"] = "其他"
+        
+        return None
+    
+    @staticmethod
+    def _detect_duplicates(rows: List[Dict[str, Any]], key_fields: List[str]) -> List[Dict[str, Any]]:
+        """
+        检测文件内部重复行
+        
+        Args:
+            rows: 数据行列表
+            key_fields: 用于检测重复的关键字段列表
+        
+        Returns:
+            重复行的错误信息列表
+        """
+        seen = {}
+        duplicates = []
+        
+        for idx, row in enumerate(rows, start=2):  # 从第2行开始（第1行是表头）
+            # 构建复合键
+            key_values = []
+            for field in key_fields:
+                value = row.get(field, "").strip()
+                if value:  # 只考虑非空值
+                    key_values.append(value)
+            
+            if not key_values:
+                continue
+            
+            key = tuple(key_values)
+            
+            if key in seen:
+                duplicates.append({
+                    "row": idx,
+                    "data": row,
+                    "reason": f"文件内部重复：与第{seen[key]}行的 {'/'.join(key_fields)} 字段值相同 ({', '.join(key_values)})",
+                    "field": "/".join(key_fields)
+                })
+            else:
+                seen[key] = idx
+        
+        return duplicates
+    
+    @staticmethod
     async def import_employees(
         contents: bytes,
         filename: str,
@@ -200,7 +323,7 @@ class ImportService:
                 "success_count": 0,
                 "skip_count": 0,
                 "error_count": 0,
-                "errors": [f"文件解析失败: {str(e)}"]
+                "errors": [{"row": 0, "data": {}, "reason": f"文件解析失败: {str(e)}", "field": "file"}]
             }
         
         success_count = 0
@@ -222,31 +345,61 @@ class ImportService:
             "phone": "phone"
         }
         
-        for idx, row in enumerate(data, start=2):  # 从第2行开始（第1行是表头）
+        # 标准化所有数据行
+        normalized_data = []
+        for row in data:
+            normalized_row = {}
+            for k, v in row.items():
+                if k in field_map:
+                    normalized_row[field_map[k]] = v
+            normalized_data.append(normalized_row)
+        
+        # C5: 检测文件内部重复（基于邮箱）
+        duplicates = ImportService._detect_duplicates(normalized_data, ["email"])
+        errors.extend(duplicates)
+        error_count += len(duplicates)
+        
+        for idx, row in enumerate(normalized_data, start=2):  # 从第2行开始（第1行是表头）
             try:
-                # 标准化字段名
-                normalized_row = {}
-                for k, v in row.items():
-                    if k in field_map:
-                        normalized_row[field_map[k]] = v
-                
                 # 校验必填字段
-                name = normalized_row.get("name", "").strip()
-                email = normalized_row.get("email", "").strip()
+                name = row.get("name", "").strip()
+                email = row.get("email", "").strip()
                 
                 if not name:
-                    errors.append(f"第{idx}行: 姓名不能为空")
+                    errors.append({
+                        "row": idx,
+                        "data": row,
+                        "reason": "姓名不能为空",
+                        "field": "name"
+                    })
                     error_count += 1
                     continue
                 
                 if not email:
-                    errors.append(f"第{idx}行: 邮箱不能为空")
+                    errors.append({
+                        "row": idx,
+                        "data": row,
+                        "reason": "邮箱不能为空",
+                        "field": "email"
+                    })
                     error_count += 1
                     continue
                 
                 # 校验邮箱格式
                 if not ImportService._validate_email(email):
-                    errors.append(f"第{idx}行: 邮箱格式无效 ({email})")
+                    errors.append({
+                        "row": idx,
+                        "data": row,
+                        "reason": f"邮箱格式无效: {email}",
+                        "field": "email"
+                    })
+                    error_count += 1
+                    continue
+                
+                # C3: 调用 _validate_employee 进行额外校验
+                validation_error = ImportService._validate_employee(row, idx)
+                if validation_error:
+                    errors.append(validation_error)
                     error_count += 1
                     continue
                 
@@ -265,9 +418,9 @@ class ImportService:
                 user_data = {
                     "name": name,
                     "email": email,
-                    "department": normalized_row.get("department", "").strip() or None,
-                    "role": normalized_row.get("role", "user").strip(),
-                    "phone": normalized_row.get("phone", "").strip() or None,
+                    "department": row.get("department", "").strip() or None,
+                    "role": row.get("role", "employee").strip(),  # 默认为 employee
+                    "phone": row.get("phone", "").strip() or None,
                     "password": "Nexus@123",  # 默认密码
                     "score": 0,
                     "total_bonus": 0
@@ -279,7 +432,12 @@ class ImportService:
                 
             except Exception as e:
                 logger.error(f"第{idx}行导入失败: {e}")
-                errors.append(f"第{idx}行: {str(e)}")
+                errors.append({
+                    "row": idx,
+                    "data": row,
+                    "reason": str(e),
+                    "field": "unknown"
+                })
                 error_count += 1
         
         return {
@@ -316,7 +474,7 @@ class ImportService:
                 "success_count": 0,
                 "skip_count": 0,
                 "error_count": 0,
-                "errors": [f"文件解析失败: {str(e)}"]
+                "errors": [{"row": 0, "data": {}, "reason": f"文件解析失败: {str(e)}", "field": "file"}]
             }
         
         success_count = 0
@@ -342,31 +500,56 @@ class ImportService:
             "notes": "notes"
         }
         
-        for idx, row in enumerate(data, start=2):  # 从第2行开始
+        # 标准化所有数据行
+        normalized_data = []
+        for row in data:
+            normalized_row = {}
+            for k, v in row.items():
+                if k in field_map:
+                    normalized_row[field_map[k]] = v
+            normalized_data.append(normalized_row)
+        
+        # C5: 检测文件内部重复（基于客户名称和公司）
+        duplicates = ImportService._detect_duplicates(normalized_data, ["name", "company"])
+        errors.extend(duplicates)
+        error_count += len(duplicates)
+        
+        for idx, row in enumerate(normalized_data, start=2):  # 从第2行开始
             try:
-                # 标准化字段名
-                normalized_row = {}
-                for k, v in row.items():
-                    if k in field_map:
-                        normalized_row[field_map[k]] = v
-                
                 # 校验必填字段
-                name = normalized_row.get("name", "").strip()
+                name = row.get("name", "").strip()
                 
                 if not name:
-                    errors.append(f"第{idx}行: 客户名称不能为空")
+                    errors.append({
+                        "row": idx,
+                        "data": row,
+                        "reason": "客户名称不能为空",
+                        "field": "name"
+                    })
                     error_count += 1
                     continue
                 
                 # 校验邮箱格式（如果提供）
-                email = normalized_row.get("email", "").strip()
+                email = row.get("email", "").strip()
                 if email and not ImportService._validate_email(email):
-                    errors.append(f"第{idx}行: 邮箱格式无效 ({email})")
+                    errors.append({
+                        "row": idx,
+                        "data": row,
+                        "reason": f"邮箱格式无效: {email}",
+                        "field": "email"
+                    })
+                    error_count += 1
+                    continue
+                
+                # C4: 调用 _validate_customer 进行额外校验
+                validation_error = ImportService._validate_customer(row, idx)
+                if validation_error:
+                    errors.append(validation_error)
                     error_count += 1
                     continue
                 
                 # 检查客户是否已存在（按名称 + 公司）
-                company = normalized_row.get("company", "").strip()
+                company = row.get("company", "").strip()
                 query = db_client.table("customers").select("id").eq("name", name)
                 
                 if company:
@@ -381,12 +564,12 @@ class ImportService:
                 # 构建客户数据
                 customer_data = {
                     "name": name,
-                    "contact_person": normalized_row.get("contact_person", "").strip() or None,
-                    "phone": normalized_row.get("phone", "").strip() or None,
+                    "contact_person": row.get("contact_person", "").strip() or None,
+                    "phone": row.get("phone", "").strip() or None,
                     "email": email or None,
                     "company": company or None,
-                    "source": normalized_row.get("source", "").strip() or "批量导入",
-                    "notes": normalized_row.get("notes", "").strip() or None,
+                    "source": row.get("source", "").strip() or "批量导入",
+                    "notes": row.get("notes", "").strip() or None,
                     "created_by": user_id
                 }
                 
@@ -396,7 +579,12 @@ class ImportService:
                 
             except Exception as e:
                 logger.error(f"第{idx}行导入失败: {e}")
-                errors.append(f"第{idx}行: {str(e)}")
+                errors.append({
+                    "row": idx,
+                    "data": row,
+                    "reason": str(e),
+                    "field": "unknown"
+                })
                 error_count += 1
         
         return {
