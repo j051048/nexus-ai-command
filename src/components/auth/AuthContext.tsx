@@ -39,11 +39,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchUserData = async (userId: string) => {
     try {
-      const { data: profileData, error: profileError } = await supabase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .from('users' as any)
+            const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('user_id', userId)
         .maybeSingle();
 
       if (profileError) {
@@ -53,29 +52,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(profileData as unknown as Profile);
       }
 
-      // Fetch role using the database function
-      // Fetch role using the database function
-      const { data: roleData, error: roleError } = await supabase
+            // Fetch role using the database function
+      const { data: roleData } = await supabase
         .rpc('get_user_role', { _user_id: userId });
 
       if (roleData) {
         setRole(roleData as AppRole);
       } else {
-        // Fallback logic if RPC fails or returns null
+        // Fallback: check auth metadata for role
         let resolvedRole: AppRole = 'employee';
-
-        // 1. Check DB profile directly
-        if (profileData && (profileData as unknown as Record<string, unknown>).role) {
-          const dbRole = (profileData as unknown as Record<string, unknown>).role;
-          resolvedRole = dbRole === 'founder' ? 'boss' : 'employee';
-        }
-        // 2. Check Auth Metadata (Registration Intent) - Critical Fix
-        else {
-          const { data: { user: currentUser } } = await supabase.auth.getUser();
-          const metaRole = currentUser?.user_metadata?.role;
-          if (metaRole === 'boss') {
-            resolvedRole = 'boss';
-          }
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        const metaRole = currentUser?.user_metadata?.role;
+        if (metaRole === 'boss') {
+          resolvedRole = 'boss';
         }
         setRole(resolvedRole);
       }
