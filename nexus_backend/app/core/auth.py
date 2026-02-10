@@ -106,7 +106,7 @@ async def get_current_user_id(authorization: Optional[str] = Header(None)) -> st
                         "require": ["sub", "exp"]  # Require these claims
                     }
                 )
-                logger.debug(f"JWT verified successfully")
+                logger.debug("JWT verified successfully")
                 break
             except jwt.InvalidSignatureError as e:
                 last_error = e
@@ -135,7 +135,7 @@ async def get_current_user_id(authorization: Optional[str] = Header(None)) -> st
         # This has been completely removed to prevent signature bypass attacks
         
         if not payload:
-            error_msg = f"身份验签失败 (Authentication failed)"
+            error_msg = "身份验签失败 (Authentication failed)"
             if last_error:
                 logger.warning(f"Auth failure reason: {type(last_error).__name__}: {last_error}")
             raise HTTPException(status_code=401, detail=error_msg)

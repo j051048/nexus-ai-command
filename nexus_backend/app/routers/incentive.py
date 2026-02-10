@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends
-from app.models.schemas import IncentiveTrigger, IncentiveResponse
+from fastapi import APIRouter
+from app.models.schemas import IncentiveTrigger
 from app.services.incentive_service import IncentiveService
 from app.core.errors import api_success, api_error, ErrorCode
 from typing import Dict, Any

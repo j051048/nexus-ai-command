@@ -2,14 +2,6 @@ from .base_tool import BaseTool
 from .tender_tool import TenderAnalysisTool
 from .battlecard_tool import BattlecardTool
 from typing import Dict
-
-# Registry of all available tools
-# P1: Strategy Pattern Registry
-TOOL_REGISTRY: Dict[str, BaseTool] = {}
-
-def register_tool(tool: BaseTool):
-    TOOL_REGISTRY[tool.name] = tool
-
 from .approval_tools import (
     ApprovalTool, 
     RejectTool, 
@@ -20,7 +12,6 @@ from .approval_tools import (
 )
 from .operational_tools import PerformanceReportTool, CompanyStatsTool, KnowledgeBaseTool, AwardBadgeTool
 from .project_tools import ProjectListTool, CreateEventTool, CreateProjectTool
-
 # OA 办公自动化工具
 from .oa_tools import (
     LeaveRequestTool, 
@@ -29,7 +20,6 @@ from .oa_tools import (
     TaskAssignmentTool,
     WorkHandoverTool
 )
-
 # 财务管理工具
 from .finance_tools import (
     ExpenseClaimTool,
@@ -38,7 +28,6 @@ from .finance_tools import (
     SalaryQueryTool,
     InvoiceOCRTool
 )
-
 # HR 人力资源工具
 from .hr_tools import (
     AttendanceQueryTool,
@@ -47,7 +36,6 @@ from .hr_tools import (
     PerformanceReviewTool,
     RecruitmentTool
 )
-
 # 领导专属工具
 from .boss_tools import (
     SmartApprovalTool,
@@ -57,7 +45,12 @@ from .boss_tools import (
     AnnouncementTool
 )
 
-# Registering Tools
+# Registry of all available tools
+# P1: Strategy Pattern Registry
+TOOL_REGISTRY: Dict[str, BaseTool] = {}
+
+def register_tool(tool: BaseTool):
+    TOOL_REGISTRY[tool.name] = tool
 register_tool(TenderAnalysisTool())
 register_tool(BattlecardTool())
 register_tool(ApprovalTool())

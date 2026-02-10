@@ -1,22 +1,32 @@
 from fastapi import FastAPI, Response, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
-from app.routers import performance, incentive, approval, kingdee, chat, documents, projects, usage, organization
-from app.core.auth import get_current_user_id
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 import uvicorn
 import os
+import sentry_sdk
 
-from fastapi.middleware.cors import CORSMiddleware
+from app.routers import performance, incentive, approval, kingdee, chat, documents, projects, usage, organization
+from app.core.auth import get_current_user_id
 from app.core.rate_limiter import RateLimitMiddleware
+from app.core.logging_config import setup_logging, get_logger
+from app.core.config import settings
+from app.services.event_bus import event_bus
+from app.services.cache_service import cache_service
+from app.services.audit_logger import audit_logger
 
 # P2 Enhancement: Initialize structured logging FIRST
-from app.core.logging_config import setup_logging, get_logger
 setup_logging()
 logger = get_logger(__name__)
 
-# P2: Event Bus lifecycle management
-from app.services.event_bus import event_bus
-from app.services.cache_service import cache_service
-from contextlib import asynccontextmanager
+# Sentry Initialization
+if settings.SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        traces_sample_rate=0.1,  # P1 Optimization: Don't sample 100% in production
+        profiles_sample_rate=1.0,
+    )
+    logger.info("✅ Sentry Initialized")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -32,7 +42,6 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("🛑 Shutting down Nexus Backend...")
     await event_bus.stop()
-    from app.services.audit_logger import audit_logger
     await audit_logger.force_flush()
     logger.info("✅ Cleanup complete")
 
@@ -42,18 +51,6 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
-
-# Sentry Initialization
-import sentry_sdk
-from app.core.config import settings
-
-if settings.SENTRY_DSN:
-    sentry_sdk.init(
-        dsn=settings.SENTRY_DSN,
-        traces_sample_rate=0.1,  # P1 Optimization: Don't sample 100% in production
-        profiles_sample_rate=1.0,
-    )
-    logger.info("✅ Sentry Initialized")
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():

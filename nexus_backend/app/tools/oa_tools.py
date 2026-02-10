@@ -8,10 +8,9 @@ P2 Fixes Applied:
 """
 import logging
 from .base_tool import BaseTool
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 from app.core.database import supabase
-from app.services.event_bus import emit, EventType
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +143,7 @@ class LeaveRequestTool(BaseTool):
         if not result.data:
             return "❌ 创建请假申请失败，请稍后重试"
         
-        request_id = result.data[0]["id"]
+        # request_id = result.data[0]["id"]
         
         # 发送通知
         if approval_level != "auto":

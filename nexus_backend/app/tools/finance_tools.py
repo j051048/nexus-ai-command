@@ -3,11 +3,9 @@
 实现报销、预算、薪资查询等财务场景的 AI 自动化
 """
 from .base_tool import BaseTool
-from typing import Dict, Any, List
+from typing import Dict, Any
 from datetime import datetime, timedelta
 from app.core.database import supabase
-from app.services.event_bus import emit, EventType
-from decimal import Decimal
 
 
 def _get_client(config: Dict = None):
@@ -157,7 +155,7 @@ class ExpenseClaimTool(BaseTool):
         if not result.data:
             return "❌ 创建报销申请失败，请稍后重试"
         
-        request_id = result.data[0]["id"]
+        # request_id = result.data[0]["id"]
         
         # 如果需要人工审批，发送通知
         if approval_status == "pending":

@@ -61,9 +61,12 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
         if settings_res.data:
             s = settings_res.data
             from app.services.encryption_service import encryption_service
-            if s.get("base_url"): ai_config["base_url"] = s["base_url"]
-            if s.get("key"): ai_config["api_key"] = encryption_service.decrypt(s["key"])
-            if s.get("model"): ai_config["model"] = s["model"]
+            if s.get("base_url"):
+                ai_config["base_url"] = s["base_url"]
+            if s.get("key"):
+                ai_config["api_key"] = encryption_service.decrypt(s["key"])
+            if s.get("model"):
+                ai_config["model"] = s["model"]
     except Exception as e:
         logger.warning(f"Settings fetch failed: {e}")
 

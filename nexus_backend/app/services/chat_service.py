@@ -204,7 +204,8 @@ class ChatService:
                 yield "data: [DONE]\n\n"
                 return
 
-        if tracer: tracer.log_start(messages)
+        if tracer:
+            tracer.log_start(messages)
 
         full_response_content = ""
 
@@ -276,8 +277,10 @@ class ChatService:
                                 tool_calls_map[idx]["id"] = tc["id"]
                             if tc.get("function"):
                                 fn = tc["function"]
-                                if fn.get("name"): tool_calls_map[idx]["name"] = fn["name"]
-                                if fn.get("arguments"): tool_calls_map[idx]["args"] += fn["arguments"]
+                                if fn.get("name"):
+                                    tool_calls_map[idx]["name"] = fn["name"]
+                                if fn.get("arguments"):
+                                    tool_calls_map[idx]["args"] += fn["arguments"]
                         continue
                     
                     # Stream content to user if NOT a tool call
@@ -337,7 +340,8 @@ class ChatService:
                         except jsonschema.SchemaError:
                             pass  # Schema itself is invalid, skip validation
                     
-                    if tracer: tracer.log_tool_plan(tc["name"], args)
+                    if tracer:
+                        tracer.log_tool_plan(tc["name"], args)
                     tool_tasks.append(ChatService.execute_tool(tc["name"], args, user_id, config=config, system_confirmed=system_confirmed, db_client=client_db))
 
                 results = await asyncio.gather(*tool_tasks)
@@ -351,7 +355,8 @@ class ChatService:
                         "name": tc["name"],
                         "content": str(result)
                     })
-                    if tracer: tracer.log_tool_execution(tc["name"], "completed", str(result))
+                    if tracer:
+                        tracer.log_tool_execution(tc["name"], "completed", str(result))
                 
                 # Loop continues to next iteration (AI reflects on tool output)
                 yield f"data: {json.dumps({'status': '正在分析执行结果...'})}\n\n"

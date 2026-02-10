@@ -16,7 +16,8 @@ def _get_sanitizer():
             from app.services.content_moderation import sanitize_output
             _sanitize_output = sanitize_output
         except ImportError:
-            _sanitize_output = lambda x: x  # Fallback: no-op
+            def _noop(x): return x
+            _sanitize_output = _noop
     return _sanitize_output
 
 

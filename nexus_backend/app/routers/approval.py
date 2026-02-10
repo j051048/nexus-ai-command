@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.models.schemas import ApprovalRequest, ApprovalDecision, StandardResponse
+from app.models.schemas import ApprovalRequest, StandardResponse
 from app.services.approval_service import ApprovalService
 from app.core.errors import api_success, api_error, ErrorCode
 

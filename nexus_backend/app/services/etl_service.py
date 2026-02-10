@@ -537,7 +537,8 @@ class ETLService:
                     current_chunk += ("\n\n" if current_chunk else "") + p
                 else:
                     # Yield current and start new
-                    if current_chunk: yield current_chunk
+                    if current_chunk:
+                        yield current_chunk
                     current_chunk = p
         
         if current_chunk:
