@@ -141,11 +141,15 @@ class TokenCounter:
 class UsageTracker:
     """
     Track and enforce usage limits per user.
-    Uses in-memory storage with daily reset (should use Redis in production).
+    
+    P1 Fix #13: Hybrid approach - in-memory cache for fast limit checks,
+    with async persistence to Supabase for durability across restarts.
+    On startup, loads today's aggregates from DB to restore state.
     """
     
     def __init__(self):
-        self._usage: Dict[str, Dict] = {}
+        self._usage: Dict[str, Dict] = {}  # In-memory cache (fast path)
+        self._db_loaded: Dict[str, bool] = {}  # Track which users have been loaded from DB
         self._limits = UsageLimits(
             max_tokens_per_request=int(os.getenv("MAX_TOKENS_PER_REQUEST", 100000)),
             max_tokens_per_day=int(os.getenv("MAX_TOKENS_PER_DAY", 1000000)),
@@ -157,31 +161,64 @@ class UsageTracker:
         """Get current day key for tracking"""
         return time.strftime("%Y-%m-%d")
     
-    def _get_user_usage(self, user_id: str) -> Dict:
-        """Get or initialize user usage for today"""
+    async def _load_from_db(self, user_id: str) -> Dict:
+        """
+        Load today's aggregate usage from Supabase.
+        Called once per user per process lifetime (lazy init).
+        """
+        day_key = self._get_day_key()
+        cache_key = f"{user_id}:{day_key}"
+        
+        if cache_key in self._db_loaded:
+            return self._usage.get(cache_key, self._make_empty(day_key))
+        
+        try:
+            from app.core.database import supabase
+            if supabase:
+                res = await supabase.table("token_usage_daily").select("*") \
+                    .eq("user_id", user_id).eq("usage_date", day_key) \
+                    .maybe_single().execute()
+                
+                if res.data:
+                    self._usage[cache_key] = {
+                        "tokens": res.data.get("total_tokens", 0),
+                        "cost_usd": float(res.data.get("total_cost_usd", 0.0)),
+                        "requests": res.data.get("request_count", 0),
+                        "day": day_key
+                    }
+                else:
+                    self._usage[cache_key] = self._make_empty(day_key)
+            else:
+                self._usage[cache_key] = self._make_empty(day_key)
+        except Exception as e:
+            logger.warning(f"Failed to load usage from DB for {user_id}: {e}")
+            self._usage[cache_key] = self._usage.get(cache_key, self._make_empty(day_key))
+        
+        self._db_loaded[cache_key] = True
+        return self._usage[cache_key]
+    
+    def _make_empty(self, day_key: str) -> Dict:
+        return {"tokens": 0, "cost_usd": 0.0, "requests": 0, "day": day_key}
+    
+    def _get_user_usage_sync(self, user_id: str) -> Dict:
+        """Sync getter for in-memory cache (used by check_limits)."""
         day_key = self._get_day_key()
         key = f"{user_id}:{day_key}"
-        
         if key not in self._usage:
-            self._usage[key] = {
-                "tokens": 0,
-                "cost_usd": 0.0,
-                "requests": 0,
-                "day": day_key
-            }
-        
+            self._usage[key] = self._make_empty(day_key)
         return self._usage[key]
     
     def check_limits(self, user_id: str, estimated_tokens: int) -> Tuple[bool, str]:
         """
         Check if request is within limits.
+        Uses in-memory cache for speed (DB state loaded on first access).
         Returns (is_allowed, reason_if_blocked)
         """
         # Check per-request limit
         if estimated_tokens > self._limits.max_tokens_per_request:
             return False, f"Request exceeds maximum tokens ({estimated_tokens} > {self._limits.max_tokens_per_request})"
         
-        usage = self._get_user_usage(user_id)
+        usage = self._get_user_usage_sync(user_id)
         
         # Check daily request count
         if usage["requests"] >= self._limits.max_requests_per_day:
@@ -197,16 +234,56 @@ class UsageTracker:
         
         return True, ""
     
+    async def ensure_loaded(self, user_id: str):
+        """Ensure user's daily usage is loaded from DB into memory cache."""
+        await self._load_from_db(user_id)
+    
     def record_usage(self, user_id: str, usage: TokenUsage):
-        """Record token usage for a request"""
-        user_usage = self._get_user_usage(user_id)
+        """Record token usage in memory. Caller should also call persist_usage()."""
+        user_usage = self._get_user_usage_sync(user_id)
         user_usage["tokens"] += usage.total_tokens
         user_usage["cost_usd"] += usage.estimated_cost_usd
         user_usage["requests"] += 1
     
+    async def persist_usage(self, user_id: str, usage: TokenUsage):
+        """
+        P1 Fix #13: Persist individual usage record AND update daily aggregate in Supabase.
+        Uses upsert for the daily aggregate to handle concurrent writes.
+        """
+        day_key = self._get_day_key()
+        
+        try:
+            from app.core.database import supabase
+            if not supabase:
+                return
+            
+            # 1. Insert individual usage record (append-only log)
+            await supabase.table("token_usage_log").insert({
+                "user_id": user_id,
+                "usage_date": day_key,
+                "model": usage.model,
+                "input_tokens": usage.input_tokens,
+                "output_tokens": usage.output_tokens,
+                "total_tokens": usage.total_tokens,
+                "cost_usd": usage.estimated_cost_usd,
+            }).execute()
+            
+            # 2. Upsert daily aggregate (idempotent via ON CONFLICT)
+            current = self._get_user_usage_sync(user_id)
+            await supabase.rpc("upsert_daily_token_usage", {
+                "p_user_id": user_id,
+                "p_date": day_key,
+                "p_tokens": usage.total_tokens,
+                "p_cost": usage.estimated_cost_usd,
+            }).execute()
+            
+        except Exception as e:
+            logger.error(f"Failed to persist usage to DB for {user_id}: {e}")
+            # Non-fatal: in-memory tracking still works for this process
+    
     def get_usage_summary(self, user_id: str) -> Dict:
         """Get usage summary for user"""
-        usage = self._get_user_usage(user_id)
+        usage = self._get_user_usage_sync(user_id)
         return {
             "date": usage["day"],
             "tokens_used": usage["tokens"],
@@ -219,11 +296,15 @@ class UsageTracker:
         }
     
     def cleanup_old_entries(self):
-        """Remove entries from previous days"""
+        """Remove entries from previous days (memory only)"""
         current_day = self._get_day_key()
         keys_to_remove = [k for k in self._usage.keys() if not k.endswith(current_day)]
         for key in keys_to_remove:
             del self._usage[key]
+        # Also reset db_loaded tracker for old days
+        loaded_to_remove = [k for k in self._db_loaded.keys() if not k.endswith(current_day)]
+        for key in loaded_to_remove:
+            del self._db_loaded[key]
 
 
 # Global instances
@@ -241,8 +322,11 @@ def validate_request_tokens(messages: List[Dict], model: str, user_id: str) -> T
     return is_allowed, token_count, reason
 
 
-def record_completion(user_id: str, input_tokens: int, output_tokens: int, model: str) -> TokenUsage:
-    """Record a completed API call"""
+async def record_completion(user_id: str, input_tokens: int, output_tokens: int, model: str) -> TokenUsage:
+    """
+    Record a completed API call.
+    P1 Fix #13: Now async — persists to Supabase in addition to in-memory cache.
+    """
     cost = token_counter.estimate_cost(input_tokens, output_tokens, model)
     usage = TokenUsage(
         input_tokens=input_tokens,
@@ -252,4 +336,6 @@ def record_completion(user_id: str, input_tokens: int, output_tokens: int, model
         model=model
     )
     usage_tracker.record_usage(user_id, usage)
+    # Persist to database (non-blocking, errors are logged but don't fail the request)
+    await usage_tracker.persist_usage(user_id, usage)
     return usage

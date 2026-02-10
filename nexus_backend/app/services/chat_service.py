@@ -17,8 +17,8 @@ import jsonschema
 from app.core.database import supabase
 from app.services.cache_service import cache_service
 from app.core.prompts_registry import SYSTEM_PROMPTS
-from app.services.token_service import validate_request_tokens, record_completion, token_counter
-from app.services.content_moderation import check_user_input, sanitize_output
+from app.services.token_service import validate_request_tokens, record_completion, token_counter, usage_tracker
+from app.services.content_moderation import check_user_input, sanitize_output, scan_content
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -109,9 +109,12 @@ class ChatService:
         """
         Stream response from OpenAI with recursive tool execution, token tracking, and moderation.
         """
-        api_key = config.get("api_key")
+                api_key = config.get("api_key")
         base_url = config.get("base_url", "https://api.openai.com/v1")
         model = config.get("model", "gpt-4o")
+
+        # P1 Fix #13: Load user's daily usage from DB into memory cache on first call
+        await usage_tracker.ensure_loaded(user_id)
 
         if not base_url.endswith("/v1"):
             base_url = f"{base_url.rstrip('/')}/v1"
@@ -293,18 +296,25 @@ class ChatService:
                 # No tool calls in this turn, discussion finished
                 break
         
-        # 3. P1 Optimization: Token Usage Recording & Output Sanitization
+                # 3. P1 Optimization: Token Usage Recording & Output Sanitization
         # This block MUST be outside the for loop to always execute
         try:
             # Output Sanitization - scan for PII/violations in AI output
-            from app.services.content_moderation import scan_content
             is_safe, violations = scan_content(full_response_content)
             if not is_safe:
-                logger.warning(f"Output contained {len(violations)} violations")
+                logger.warning(f"Output contained {len(violations)} violations - sending sanitized correction")
+                # Apply sanitization to replace PII/sensitive content
+                sanitized_content = sanitize_output(full_response_content)
+                if sanitized_content != full_response_content:
+                    # Emit a correction event so frontend replaces the streamed content
+                    yield f"data: {json.dumps({'sanitized_content': sanitized_content, 'violation_count': len(violations)})}
+
+"
+                    logger.info(f"Sanitized {len(violations)} violations from AI output before delivery")
 
             # Use API reported usage if available, else fallback to estimation
-            if total_usage_chunk:
-                record_completion(
+                        if total_usage_chunk:
+                await record_completion(
                     user_id, 
                     total_usage_chunk.get("prompt_tokens", input_tokens), 
                     total_usage_chunk.get("completion_tokens", 0), 
@@ -312,7 +322,7 @@ class ChatService:
                 )
             else:
                 output_tokens = token_counter.count_tokens(full_response_content, model)
-                record_completion(user_id, input_tokens, output_tokens, model)
+                await record_completion(user_id, input_tokens, output_tokens, model)
         except Exception as e:
             logger.error(f"Post-stream processing error: {e}")
 

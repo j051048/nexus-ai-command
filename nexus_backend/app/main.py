@@ -92,7 +92,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     )
 
 # CORS Configuration
-origins = settings.CORS_ORIGINS
+origins = settings.all_cors_origins
 
 @app.get("/api/test-ai")
 async def test_ai_connectivity():
@@ -112,7 +112,7 @@ async def test_ai_connectivity():
 # P0 Security Fix: Restrict CORS to whitelist
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Requested-With", "X-Request-ID"],

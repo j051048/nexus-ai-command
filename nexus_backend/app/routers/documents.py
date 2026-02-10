@@ -70,20 +70,37 @@ async def upload_documents(
         except Exception as e:
             logger.warning(f"Failed to fetch user context for upload: {e}")
 
-    results = []
+        results = []
     processed_count = 0
+    skipped_count = 0
     
     for file in files:
         try:
             content = await file.read()
             filename = file.filename
             
-            # Step 1: Create Initial DB Record
+            # P1 Fix #20: Content hash deduplication
+            content_hash = etl_service.compute_content_hash(content)
+            existing_doc = await etl_service.check_duplicate(content_hash, user_id)
+            
+            if existing_doc:
+                skipped_count += 1
+                results.append({
+                    "filename": filename,
+                    "status": "duplicate",
+                    "existing_document_id": existing_doc["id"],
+                    "existing_document_name": existing_doc.get("name", ""),
+                    "message": f"文件内容与已有文档重复（{existing_doc.get('name', '未知')}），已跳过。"
+                })
+                continue
+            
+            # Step 1: Create Initial DB Record (with content hash)
             doc_id = await etl_service.create_initial_record(
                 filename, 
                 user_id,
                 visibility=visibility,
-                department=user_department
+                department=user_department,
+                content_hash=content_hash
             )
             
             # Step 2: Trigger Background Processing
@@ -110,7 +127,11 @@ async def upload_documents(
             logger.error(f"Upload Setup Failed for {file.filename}: {e}")
             results.append({"filename": file.filename, "status": "error", "reason": str(e)})
             
+        summary = f"Queued {processed_count} files"
+    if skipped_count > 0:
+        summary += f", skipped {skipped_count} duplicates"
+    
     return api_success(
-        data={"summary": f"Queued {processed_count} files", "results": results},
+        data={"summary": summary, "results": results},
         message="Upload received"
     )

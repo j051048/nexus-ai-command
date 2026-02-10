@@ -611,7 +611,7 @@ export function EnhancedAIChatPanel({
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
                     placeholder={
                       currentAgent
                         ? `向 ${currentAgent} 提问...`

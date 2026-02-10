@@ -165,41 +165,36 @@ class SmartApprovalTool(BaseTool):
         
         # 执行操作
         if action == "approve" or action == "batch_approve":
-            approved_count = 0
-            skipped_count = 0
-            
-            for req in selected_requests:
-                # P0 Security: Idempotency check - only update if still pending
-                result = await client.table("approval_requests").update({
-                    "status": "approved",
-                    "approved_by": user_id,
-                    "approved_at": datetime.now().isoformat(),
-                    "approval_comment": comment or "已批准"
-                }).eq("id", req["id"]).eq("status", "pending").execute()
+            # P1 Fix #15: Use transactional RPC for atomic batch update
+            request_ids = [req["id"] for req in selected_requests]
+            try:
+                rpc_result = await client.rpc("batch_update_approvals", {
+                    "p_request_ids": request_ids,
+                    "p_new_status": "approved",
+                    "p_approved_by": user_id,
+                    "p_comment": comment or "已批准"
+                }).execute()
                 
-                if result.data:
-                    # 通知申请人
-                    await client.table("notifications").insert({
-                        "user_id": req["submitted_by"],
-                        "title": "✅ 您的申请已批准",
-                        "content": f"您提交的{req.get('type', '申请')}（¥{req.get('amount', 0)}）已被批准",
-                        "type": "success"
-                    }).execute()
-                    approved_count += 1
-                else:
-                    skipped_count += 1
+                batch_data = rpc_result.data or {}
+                approved_count = batch_data.get("updated_count", 0)
+                skipped_count = batch_data.get("skipped_count", 0)
+                updated_ids = set(batch_data.get("updated_ids", []))
+            except Exception as e:
+                logger.error(f"Batch approval RPC failed: {e}")
+                return f"❌ 批量审批失败，所有操作已回滚。错误: {str(e)}"
             
-            # Record audit log
-            await client.table("audit_logs").insert({
-                "action": "batch_approval",
-                "actor_user_id": user_id,
-                "target_table": "approval_requests",
-                "details_json": {
-                    "approved_count": approved_count,
-                    "skipped_count": skipped_count,
-                    "total_amount": total_amount
-                }
-            }).execute()
+            # Send notifications for successfully approved requests (non-transactional, best-effort)
+            for req in selected_requests:
+                if req["id"] in updated_ids:
+                    try:
+                        await client.table("notifications").insert({
+                            "user_id": req["submitted_by"],
+                            "title": "✅ 您的申请已批准",
+                            "content": f"您提交的{req.get('type', '申请')}（¥{req.get('amount', 0)}）已被批准",
+                            "type": "success"
+                        }).execute()
+                    except Exception as e:
+                        logger.warning(f"Failed to send approval notification: {e}")
             
             result_msg = f"""✅ 批量审批完成！
 
@@ -217,40 +212,36 @@ class SmartApprovalTool(BaseTool):
             return result_msg
         
         elif action == "reject":
-            rejected_count = 0
-            skipped_count = 0
-            
-            for req in selected_requests:
-                # P0 Security: Idempotency check
-                result = await client.table("approval_requests").update({
-                    "status": "rejected",
-                    "approved_by": user_id,
-                    "approved_at": datetime.now().isoformat(),
-                    "approval_comment": comment or "已驳回"
-                }).eq("id", req["id"]).eq("status", "pending").execute()
+            # P1 Fix #15: Use transactional RPC for atomic batch rejection
+            request_ids = [req["id"] for req in selected_requests]
+            try:
+                rpc_result = await client.rpc("batch_update_approvals", {
+                    "p_request_ids": request_ids,
+                    "p_new_status": "rejected",
+                    "p_approved_by": user_id,
+                    "p_comment": comment or "已驳回"
+                }).execute()
                 
-                if result.data:
-                    await client.table("notifications").insert({
-                        "user_id": req["submitted_by"],
-                        "title": "❌ 您的申请被驳回",
-                        "content": f"您提交的{req.get('type', '申请')}被驳回。原因: {comment or '未说明'}",
-                        "type": "warning"
-                    }).execute()
-                    rejected_count += 1
-                else:
-                    skipped_count += 1
+                batch_data = rpc_result.data or {}
+                rejected_count = batch_data.get("updated_count", 0)
+                skipped_count = batch_data.get("skipped_count", 0)
+                updated_ids = set(batch_data.get("updated_ids", []))
+            except Exception as e:
+                logger.error(f"Batch rejection RPC failed: {e}")
+                return f"❌ 批量驳回失败，所有操作已回滚。错误: {str(e)}"
             
-            # Record audit log
-            await client.table("audit_logs").insert({
-                "action": "batch_rejection",
-                "actor_user_id": user_id,
-                "target_table": "approval_requests",
-                "details_json": {
-                    "rejected_count": rejected_count,
-                    "skipped_count": skipped_count,
-                    "reason": comment
-                }
-            }).execute()
+            # Send notifications (best-effort)
+            for req in selected_requests:
+                if req["id"] in updated_ids:
+                    try:
+                        await client.table("notifications").insert({
+                            "user_id": req["submitted_by"],
+                            "title": "❌ 您的申请被驳回",
+                            "content": f"您提交的{req.get('type', '申请')}被驳回。原因: {comment or '未说明'}",
+                            "type": "warning"
+                        }).execute()
+                    except Exception as e:
+                        logger.warning(f"Failed to send rejection notification: {e}")
             
             return f"""❌ 已驳回 {rejected_count} 件申请
 

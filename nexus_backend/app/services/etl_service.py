@@ -3,6 +3,7 @@ import httpx
 import json
 import io
 import os
+import hashlib
 from pypdf import PdfReader
 from fastapi import UploadFile
 from typing import Tuple, Dict, Any, List
@@ -76,13 +77,41 @@ class ETLService:
         
         return content
 
+        @staticmethod
+    def compute_content_hash(content: bytes) -> str:
+        """
+        P1 Fix #20: Compute SHA-256 fingerprint of file content for deduplication.
+        Identical files will produce the same hash regardless of filename.
+        """
+        return hashlib.sha256(content).hexdigest()
+
+    async def check_duplicate(self, content_hash: str, user_id: str) -> dict | None:
+        """
+        P1 Fix #20: Check if a document with the same content hash already exists.
+        Returns the existing document record if found, None otherwise.
+        """
+        if not supabase:
+            return None
+        try:
+            res = await supabase.table("documents").select("id, name, status, created_at") \
+                .eq("content_hash", content_hash) \
+                .eq("owner_id", user_id) \
+                .limit(1) \
+                .execute()
+            if res.data and len(res.data) > 0:
+                return res.data[0]
+        except Exception as e:
+            logger.debug(f"Dedup check failed (non-fatal): {e}")
+        return None
+
     async def create_initial_record(
         self, 
         filename: str, 
         user_id: str, 
         status: str = "pending",
         visibility: str = "organization",  # P0 Security Fix #4
-        department: str = None
+        department: str = None,
+        content_hash: str = None  # P1 Fix #20
     ) -> str:
         """
         Creates a placeholder record in the database.
@@ -108,7 +137,7 @@ class ETLService:
             except Exception as e:
                 logger.debug(f"Failed to fetch user department: {e}")
         
-        record = {
+                record = {
             "name": filename,
             "status": "pending",
             "progress": 0,
@@ -116,6 +145,7 @@ class ETLService:
             "owner_id": user_id,
             "visibility": visibility,     # P0 Security Fix #4
             "department": department,      # P0 Security Fix #4
+            "content_hash": content_hash, # P1 Fix #20: fingerprint for dedup
         }
         res = await supabase.table("documents").insert(record).execute()
         if not res.data:

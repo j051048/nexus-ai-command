@@ -69,7 +69,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': token ? `Bearer ${token}` : `test:${userId}` // Fallback for dev only
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
                     messages: chatMessages,
@@ -110,12 +110,19 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                     const jsonStr = line.slice(6).trim();
                     if (jsonStr === '[DONE]') break;
 
-                    try {
+                                        try {
                         const parsed = JSON.parse(jsonStr);
                         const content = parsed.choices?.[0]?.delta?.content as string | undefined;
 
                         if (parsed.status) {
                             setAiStatus(parsed.status);
+                            continue;
+                        }
+
+                        // Handle sanitized content correction from backend (#12 fix)
+                        if (parsed.sanitized_content) {
+                            assistantContent = parsed.sanitized_content;
+                            onUpdate?.(assistantContent, assistantMsgId);
                             continue;
                         }
 

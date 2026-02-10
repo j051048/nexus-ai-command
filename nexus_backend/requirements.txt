@@ -20,6 +20,8 @@ python-docx
 # P1 Optimizations
 tiktoken>=0.5.0  # Token counting
 redis>=5.0.0     # Distributed caching (optional)
+pydantic-settings>=2.0.0  # P1 Fix #43: Type-safe settings with .env loading
+jsonschema>=4.0.0  # P0 Fix #11: Tool parameter validation
 
 # Development/Testing
 ruff             # Linting

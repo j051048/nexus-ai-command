@@ -1,9 +1,12 @@
 import os
 import re
+import logging
 from typing import List, Dict, Any
 from app.core.database import supabase
 from app.core.config import settings
 from openai import AsyncOpenAI
+
+logger = logging.getLogger(__name__)
 
 
 def escape_like_pattern(value: str) -> str:
@@ -53,17 +56,21 @@ class VectorService:
         if "/v1" not in base_url and "api.openai.com" not in base_url:
             base_url = f"{base_url}/v1"
         
-        if not api_key:
-            print("VectorService: Missing AI Key.")
+                if not api_key:
+            logger.warning("VectorService: Missing AI Key.")
+            if settings.IS_PRODUCTION:
+                return "AI 检索服务暂不可用（API Key 未配置），请联系管理员。"
             return self._search_mock(query)
 
         # Initialize client per search to ensure correct proxy/key
         client = AsyncOpenAI(api_key=api_key, base_url=base_url.rstrip("/") + ("/v1" if "/v1" not in base_url else ""))
         
-        try:
+                try:
             return await self._search_supabase(query, user_id, limit, client)
         except Exception as e:
-            print(f"Vector search failed: {e}")
+            logger.error(f"Vector search failed: {e}")
+            if settings.IS_PRODUCTION:
+                return f"知识库检索失败，请稍后重试。如果问题持续，请联系管理员。（错误: {str(e)[:80]}）"
             return self._search_mock(query)
 
     async def _search_supabase(self, query: str, user_id: str, limit: int, client: AsyncOpenAI, filters: Dict[str, Any] = None) -> str:
@@ -155,6 +162,7 @@ class VectorService:
     def _search_mock(self, query: str) -> str:
         """
         Mock data fallback.
+        WARNING: Only used in development. Production should never reach here.
         """
         mock_data = [
             {"content": "主要销售流程: 线索 -> 初步沟通 -> 需求分析 -> 方案报价 -> 合同签订", "tags": ["流程", "销售"]},
