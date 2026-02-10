@@ -8,6 +8,12 @@ from datetime import datetime, timedelta
 from app.core.database import supabase
 
 
+def _get_client(config: Dict = None):
+    """Get scoped DB client if user token available, else fallback to service client."""
+    token = config.get("token") if config else None
+    return supabase.get_scoped_client(token) if token and supabase else supabase
+
+
 class AttendanceQueryTool(BaseTool):
     """考勤查询工具"""
     name = "query_attendance"
@@ -38,8 +44,9 @@ class AttendanceQueryTool(BaseTool):
         month = args.get("month", datetime.now().strftime("%Y-%m"))
         employee_name = args.get("employee_name")
         
+        client = _get_client(config)
         # 获取用户信息
-        user_res = await supabase.table("users").select("name, role").eq("id", user_id).maybe_single().execute()
+        user_res = await client.table("users").select("name, role").eq("id", user_id).maybe_single().execute()
         if not user_res.data:
             return "❌ 无法获取用户信息"
         
@@ -178,8 +185,9 @@ class EmployeeProfileTool(BaseTool):
         employee_name = args.get("employee_name")
         include_risk = args.get("include_risk_analysis", True)
         
+        client = _get_client(config)
         # 查找员工
-        emp_res = await supabase.table("users").select("*").ilike("name", f"%{employee_name}%").limit(1).execute()
+        emp_res = await client.table("users").select("*").ilike("name", f"%{employee_name}%").limit(1).execute()
         
         if not emp_res.data:
             return f"❌ 未找到名为「{employee_name}」的员工"
@@ -274,8 +282,9 @@ class PerformanceReviewTool(BaseTool):
         action = args.get("action", "view_team")
         
         if action == "view_team":
+            client = _get_client(config)
             # 获取团队绩效概览
-            team_res = await supabase.table("users").select("name, score, rank, total_bonus").order("score", desc=True).limit(10).execute()
+            team_res = await client.table("users").select("name, score, rank, total_bonus").order("score", desc=True).limit(10).execute()
             
             response = """📊 **团队绩效排行榜**
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

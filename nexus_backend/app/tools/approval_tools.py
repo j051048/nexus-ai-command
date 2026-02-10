@@ -11,6 +11,12 @@ from app.core.database import supabase
 
 logger = logging.getLogger(__name__)
 
+
+def _get_client(config: Dict = None):
+    """Get scoped DB client if user token available, else fallback to service client."""
+    token = config.get("token") if config else None
+    return supabase.get_scoped_client(token) if token and supabase else supabase
+
 # AI Assistant 固定 UUID
 AI_ASSISTANT_ID = "00000000-0000-0000-0000-000000000001"
 
@@ -40,7 +46,8 @@ class SubmitApprovalOnBehalfTool(BaseTool):
         "required": ["type", "description"]
     }
 
-    async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
+        async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
+        client = _get_client(config)
         # 使用当前登录用户的 ID（从 JWT 解析出来的）
         employee_id = user_id
         approval_type = args.get("type")
@@ -52,7 +59,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
         logger.info(f"[AI审批] 当前用户ID: {user_id}, 申请类型: {approval_type}")
 
         # 验证员工存在
-        employee_check = await supabase.table("users").select("id, name, role").eq("id", employee_id).single().execute()
+        employee_check = await client.table("users").select("id, name, role").eq("id", employee_id).single().execute()
         if not employee_check.data:
             return f"错误：找不到您的用户信息（ID: {employee_id}）"
         
@@ -81,7 +88,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
             }
             logger.debug(f"[AI审批] 准备插入数据: {insert_data}")
             
-            result = await supabase.table("approval_requests").insert(insert_data).execute()
+            result = await client.table("approval_requests").insert(insert_data).execute()
             logger.debug(f"[AI审批] 插入结果成功")
         except Exception as e:
             logger.exception(f"[AI审批] 插入失败: {e}")
@@ -89,8 +96,8 @@ class SubmitApprovalOnBehalfTool(BaseTool):
 
         if result.data:
             req_id = result.data[0].get("id")
-            # 记录审计日志
-            await supabase.table("audit_logs").insert({
+                        # 记录审计日志
+            await client.table("audit_logs").insert({
                 "action": "approval_submitted_via_ai",
                 "actor_user_id": AI_ASSISTANT_ID,
                 "target_id": req_id,
@@ -124,7 +131,8 @@ class GetEmployeeInfoTool(BaseTool):
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
         name = args.get("employee_name")
-        result = await supabase.table("users").select("id, name, department, role").ilike("name", f"%{name}%").execute()
+        client = _get_client(config)
+        result = await client.table("users").select("id, name, department, role").ilike("name", f"%{name}%").execute()
         
         if not result.data:
             return f"找不到名为 '{name}' 的员工。"
@@ -159,7 +167,8 @@ class GetEmployeeApprovalHistoryTool(BaseTool):
         employee_id = args.get("employee_id")
         limit = args.get("limit", 5)
         
-        result = await supabase.table("approval_requests").select("*").eq("submitted_by", employee_id).order("created_at", desc=True).limit(limit).execute()
+        client = _get_client(config)
+        result = await client.table("approval_requests").select("*").eq("submitted_by", employee_id).order("created_at", desc=True).limit(limit).execute()
         
         if not result.data:
             return "该员工暂无审批记录。"
@@ -182,11 +191,13 @@ class ApprovalTool(BaseTool):
     1. Preview mode (default): Shows what will be approved, requires user confirmation
     2. Execute mode: Actually performs the approval after user confirms
     """
-    name = "approve_request"
+        name = "approve_request"
     description = """批准一个待处理的审批申请。
 首次调用时会返回待审批信息的预览，需要用户确认后再次调用并传入 confirm=true 才会真正执行。
 这是一个不可逆操作，需要人工确认。"""
-    required_role = "boss"  # Only boss/manager can approve
+    required_role = "boss"
+    is_irreversible = True
+    confirmation_message = "⚠️ 审批操作不可逆。请确认后设置 confirm=true 再执行。"
 
     parameters = {
         "type": "object",
@@ -206,8 +217,9 @@ class ApprovalTool(BaseTool):
         reason = args.get("reason", "")
         confirm = args.get("confirm", False)
         
+                client = _get_client(config)
         # Step 1: Fetch the request details first
-        fetch_result = await supabase.table("approval_requests")\
+        fetch_result = await client.table("approval_requests")\
             .select("*, users:submitted_by(name, department)")\
             .eq("id", req_id)\
             .single()\
@@ -245,7 +257,7 @@ class ApprovalTool(BaseTool):
         logger.info(f"[P0 Security] User {user_id} confirmed approval of {req_id}")
         
         # P0 Security: Use conditional update to prevent race conditions
-        result = await supabase.table("approval_requests").update({
+        result = await client.table("approval_requests").update({
             "status": "approved",
             "approved_by": user_id,
             "approved_at": datetime.now().isoformat(),
@@ -254,7 +266,7 @@ class ApprovalTool(BaseTool):
         
         if result.data:
             # Record audit log
-            await supabase.table("audit_logs").insert({
+            await client.table("audit_logs").insert({
                 "action": "approval_approved",
                 "actor_user_id": user_id,
                 "target_id": req_id,
@@ -266,10 +278,10 @@ class ApprovalTool(BaseTool):
                 }
             }).execute()
             
-            # Send notification
+                        # Send notification
             try:
                 target_user = request_data.get("submitted_by")
-                await supabase.table("notifications").insert({
+                await client.table("notifications").insert({
                     "user_id": target_user,
                     "title": "✅ 审批已通过",
                     "content": f"您的{request_data.get('type', '')}申请（¥{request_data.get('amount', 0)}）已被批准。",
@@ -287,11 +299,13 @@ class RejectTool(BaseTool):
     """
     P0 Security Fix #1: Rejection with mandatory confirmation
     """
-    name = "reject_request"
+        name = "reject_request"
     description = """驳回一个待处理的审批申请。
 首次调用时会返回待驳回信息的预览，需要用户确认后再次调用并传入 confirm=true 才会真正执行。
 这是一个不可逆操作，需要人工确认。"""
     required_role = "boss"
+    is_irreversible = True
+    confirmation_message = "⚠️ 驳回操作不可逆。请确认后设置 confirm=true 再执行。"
 
     parameters = {
         "type": "object",
@@ -311,8 +325,9 @@ class RejectTool(BaseTool):
         reason = args.get("reason", "未说明原因")
         confirm = args.get("confirm", False)
         
+                client = _get_client(config)
         # Step 1: Fetch the request details first
-        fetch_result = await supabase.table("approval_requests")\
+        fetch_result = await client.table("approval_requests")\
             .select("*, users:submitted_by(name, department)")\
             .eq("id", req_id)\
             .single()\
@@ -351,7 +366,7 @@ class RejectTool(BaseTool):
         # Step 2: Execute with idempotency check
         logger.info(f"[P0 Security] User {user_id} confirmed rejection of {req_id}")
         
-        result = await supabase.table("approval_requests").update({
+        result = await client.table("approval_requests").update({
             "status": "rejected",
             "approved_by": user_id,
             "approved_at": datetime.now().isoformat(),
@@ -360,7 +375,7 @@ class RejectTool(BaseTool):
         
         if result.data:
             # Record audit log
-            await supabase.table("audit_logs").insert({
+            await client.table("audit_logs").insert({
                 "action": "approval_rejected",
                 "actor_user_id": user_id,
                 "target_id": req_id,
@@ -373,10 +388,10 @@ class RejectTool(BaseTool):
                 }
             }).execute()
             
-            # Send notification
+                        # Send notification
             try:
                 target_user = request_data.get("submitted_by")
-                await supabase.table("notifications").insert({
+                await client.table("notifications").insert({
                     "user_id": target_user,
                     "title": "❌ 审批已驳回",
                     "content": f"您的{request_data.get('type', '')}申请已被驳回。原因：{reason}",
@@ -400,7 +415,8 @@ class PendingApprovalsTool(BaseTool):
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
-        result = await supabase.table("approval_requests").select("*, users:submitted_by(name)").eq("status", "pending").execute()
+        client = _get_client(config)
+        result = await client.table("approval_requests").select("*, users:submitted_by(name)").eq("status", "pending").execute()
         if not result.data:
             return "当前没有任何待处理的审批。"
         items = []

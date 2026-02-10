@@ -2,6 +2,12 @@ from .base_tool import BaseTool
 from typing import Dict, Any
 from app.core.database import supabase
 
+
+def _get_client(config: Dict = None):
+    """Get scoped DB client if user token available, else fallback to service client."""
+    token = config.get("token") if config else None
+    return supabase.get_scoped_client(token) if token and supabase else supabase
+
 class ProjectListTool(BaseTool):
     name = "get_projects"
     description = "获取当前所有进行中的项目列表，用于关联后续的事件记录"
@@ -12,8 +18,9 @@ class ProjectListTool(BaseTool):
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
+                client = _get_client(config)
         # Check role to filter projects? For now, list all accessible via RLS
-        result = await supabase.table("projects").select("id, name, status, progress").execute()
+        result = await client.table("projects").select("id, name, status, progress").execute()
         if not result.data:
             return "暂无进行中的项目。"
         items = [f"ID: {p['id']} | 名称: {p['name']} | 状态: {p['status']} | 进度: {p['progress']}%" for p in result.data]
@@ -48,7 +55,8 @@ class CreateProjectTool(BaseTool):
                 "status": status,
                 "progress": 0
             }
-            res = await supabase.table("projects").insert(data).execute()
+            client = _get_client(config)
+            res = await client.table("projects").insert(data).execute()
             if res.data:
                 pid = res.data[0]['id']
                 return f"✅ 项目 '{name}' 已成功立项 (ID: {pid})！您可以继续添加项目事件或里程碑。"
@@ -82,7 +90,8 @@ class CreateEventTool(BaseTool):
         # Check migration: I only added `projects` table. I did NOT add `project_timeline`.
         # I MUST add project_timeline table.
         try:
-            result = await supabase.table("project_timeline").insert({
+            client = _get_client(config)
+            result = await client.table("project_timeline").insert({
                 "project_id": project_id,
                 "title": title,
                 "content": content,

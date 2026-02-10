@@ -13,6 +13,7 @@ import asyncio
 import httpx
 from typing import List, Dict, Any, AsyncGenerator, Optional
 from app.tools import get_tool, get_all_tools_schema
+import jsonschema
 from app.core.database import supabase
 from app.services.cache_service import cache_service
 from app.core.prompts_registry import SYSTEM_PROMPTS
@@ -60,24 +61,38 @@ class ChatService:
             logger.error(f"Role fetch error: {e}")
             return "employee"
 
-    @staticmethod
+        @staticmethod
     async def execute_tool(name: str, args: Dict[str, Any], user_id: str, config: Dict = None) -> str:
-        """Execute tool with RBAC and Retry"""
+        """Execute tool with RBAC, System-level Confirmation Gate, and Retry"""
         tool = get_tool(name)
         if not tool:
             return f"Error: Tool {name} not found."
             
-        # RBAC Check
-        if tool.required_role != "all":
+        # 1. RBAC Check
+        if tool.required_role not in ["all", "ai_assistant"]:
             user_role = await ChatService._get_cached_user_role(user_id)
             if tool.required_role == "boss" and user_role not in ["boss", "founder"]:
                 return f"⛔ Permission Denied: Tool requires [Boss] role. You are [{user_role}]."
+            elif tool.required_role == "manager" and user_role not in ["manager", "boss", "founder"]:
+                return f"⛔ Permission Denied: Tool requires [Manager] role. You are [{user_role}]."
         
-        # Retry Logic
+        # 2. System-level Confirmation Gate (P0 Fix #10)
+        # This runs BEFORE the tool's own logic, preventing LLM from bypassing confirm
+        confirmation_msg = tool.check_confirmation(args)
+        if confirmation_msg is not None:
+            logger.info(f"[HITL Gate] Tool {name} blocked - awaiting user confirmation")
+            return confirmation_msg
+        
+        # 3. Retry Logic with timeout
         for attempt in range(3):
             try:
-                result = await tool.run(args, user_id, config=config)
+                result = await asyncio.wait_for(
+                    tool.run(args, user_id, config=config),
+                    timeout=30.0  # 30s timeout per tool execution
+                )
                 return result
+            except asyncio.TimeoutError:
+                return f"Error: Tool {name} timed out after 30 seconds."
             except Exception as e:
                 if attempt == 2:
                     return f"Error: Tool {name} failed after 3 attempts: {str(e)}"
@@ -227,17 +242,33 @@ class ChatService:
                 tool_tasks = []
                 tool_indices = sorted(tool_calls_map.keys())
                 
-                # Report Status
-                tool_names = [tool_calls_map[idx]["name"] for idx in tool_indices]
-                joined_tool_names = ', '.join(tool_names)
+                                # Report Status
+                tool_names_list = [tool_calls_map[idx]["name"] for idx in tool_indices]
+                joined_tool_names = ', '.join(tool_names_list)
                 yield f"data: {json.dumps({'status': f'正在调用: {joined_tool_names}...'})}\n\n"
 
-                for idx in tool_indices:
+                                for idx in tool_indices:
                     tc = tool_calls_map[idx]
                     try:
                         args = json.loads(tc["args"]) if tc["args"] else {}
                     except json.JSONDecodeError:
+                        logger.warning(f"Invalid JSON args for tool {tc['name']}: {tc['args'][:100]}")
                         args = {}
+                    
+                    # P0 Fix #11: Validate tool args against JSON Schema before execution
+                    tool_obj = get_tool(tc["name"])
+                    if tool_obj and args:
+                        try:
+                            schema = tool_obj.parameters
+                            jsonschema.validate(instance=args, schema=schema)
+                        except jsonschema.ValidationError as ve:
+                            logger.warning(f"Tool {tc['name']} args validation failed: {ve.message}")
+                            # Don't block — feed error back to LLM so it can self-correct
+                            tool_tasks.append(asyncio.coroutine(lambda msg=f"参数校验失败: {ve.message}": msg)())
+                            if tracer: tracer.log_tool_plan(tc["name"], {"validation_error": ve.message})
+                            continue
+                        except jsonschema.SchemaError:
+                            pass  # Schema itself is invalid, skip validation
                     
                     if tracer: tracer.log_tool_plan(tc["name"], args)
                     tool_tasks.append(ChatService.execute_tool(tc["name"], args, user_id, config=config))
@@ -258,28 +289,21 @@ class ChatService:
                 # Loop continues to next iteration (AI reflects on tool output)
                 yield f"data: {json.dumps({'status': '正在分析执行结果...'})}\n\n"
             
-            else:
+                        else:
                 # No tool calls in this turn, discussion finished
                 break
         
         # 3. P1 Optimization: Token Usage Recording & Output Sanitization
-            # Output Sanitization
-            clean_content, violations = sanitize_output(full_response_content), [] # sanitize_output returns (str, list) if using the tuple version but wait, checks content_moderation.py
-            # Re-checking import: from app.services.content_moderation import check_user_input, sanitize_output
-            # In content_moderation.py: def sanitize_output(content: str) -> str: returns only string.
-            # But the class method sanitize returns (str, violations).
-            # Let's trust the import alias: sanitize_output returns str.
-            
-            # If we need violations, we should use scan_content or call ContentModerator directly.
-            # For logging:
+        # This block MUST be outside the for loop to always execute
+        try:
+            # Output Sanitization - scan for PII/violations in AI output
             from app.services.content_moderation import scan_content
             is_safe, violations = scan_content(full_response_content)
             if not is_safe:
-                logger.warning(f"Output contained violations: {violations}")
+                logger.warning(f"Output contained {len(violations)} violations")
 
             # Use API reported usage if available, else fallback to estimation
             if total_usage_chunk:
-                # Use exact usage from API
                 record_completion(
                     user_id, 
                     total_usage_chunk.get("prompt_tokens", input_tokens), 
@@ -287,9 +311,10 @@ class ChatService:
                     model
                 )
             else:
-                # Fallback estimation
                 output_tokens = token_counter.count_tokens(full_response_content, model)
                 record_completion(user_id, input_tokens, output_tokens, model)
+        except Exception as e:
+            logger.error(f"Post-stream processing error: {e}")
 
         if tracer: tracer.log_end()
         yield "data: [DONE]\n\n"

@@ -10,6 +10,12 @@ from app.services.event_bus import emit, EventType
 from decimal import Decimal
 
 
+def _get_client(config: Dict = None):
+    """Get scoped DB client if user token available, else fallback to service client."""
+    token = config.get("token") if config else None
+    return supabase.get_scoped_client(token) if token and supabase else supabase
+
+
 class ExpenseClaimTool(BaseTool):
     """报销申请工具 - 支持智能识别和自动归类"""
     name = "create_expense_claim"
@@ -50,6 +56,7 @@ class ExpenseClaimTool(BaseTool):
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
+        client = _get_client(config)
         expense_type = args.get("expense_type", "other")
         amount = float(args.get("amount", 0))
         description = args.get("description", "")
@@ -61,7 +68,7 @@ class ExpenseClaimTool(BaseTool):
             return "❌ 报销金额必须大于0"
         
         # 获取用户信息
-        user_res = await supabase.table("users").select("name, department").eq("id", user_id).maybe_single().execute()
+        user_res = await client.table("users").select("name, department").eq("id", user_id).maybe_single().execute()
         if not user_res.data:
             return "❌ 无法获取用户信息"
         
@@ -120,7 +127,7 @@ class ExpenseClaimTool(BaseTool):
         # 查找关联项目
         project_id = None
         if project_name:
-            proj_res = await supabase.table("projects").select("id, name").ilike("name", f"%{project_name}%").limit(1).execute()
+            proj_res = await client.table("projects").select("id, name").ilike("name", f"%{project_name}%").limit(1).execute()
             if proj_res.data:
                 project_id = proj_res.data[0]["id"]
                 project_name = proj_res.data[0]["name"]
@@ -145,7 +152,7 @@ class ExpenseClaimTool(BaseTool):
             }
         }
         
-        result = await supabase.table("approval_requests").insert(expense_data).execute()
+        result = await client.table("approval_requests").insert(expense_data).execute()
         
         if not result.data:
             return "❌ 创建报销申请失败，请稍后重试"
@@ -154,9 +161,9 @@ class ExpenseClaimTool(BaseTool):
         
         # 如果需要人工审批，发送通知
         if approval_status == "pending":
-            approvers = await supabase.table("users").select("id").in_("role", ["manager", "founder"]).execute()
+            approvers = await client.table("users").select("id").in_("role", ["manager", "founder"]).execute()
             for approver in (approvers.data or []):
-                await supabase.table("notifications").insert({
+                await client.table("notifications").insert({
                     "user_id": approver["id"],
                     "title": "💰 新的报销申请",
                     "content": f"{user['name']} 提交了 {config_info['name']} ¥{amount:.2f}",
@@ -214,8 +221,9 @@ class ExpenseQueryTool(BaseTool):
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
         query_type = args.get("query_type", "my_claims")
         
+        client = _get_client(config)
         # 查询该用户的报销申请
-        claims = await supabase.table("approval_requests")\
+        claims = await client.table("approval_requests")\
             .select("*")\
             .eq("submitted_by", user_id)\
             .eq("type", "expense")\
@@ -281,8 +289,9 @@ class BudgetQueryTool(BaseTool):
         department = args.get("department")
         project_name = args.get("project_name")
         
+        client = _get_client(config)
         # 获取用户部门
-        user_res = await supabase.table("users").select("department, role").eq("id", user_id).maybe_single().execute()
+        user_res = await client.table("users").select("department, role").eq("id", user_id).maybe_single().execute()
         if not user_res.data:
             return "❌ 无法获取用户信息"
         
@@ -357,8 +366,9 @@ class SalaryQueryTool(BaseTool):
         month = args.get("month", datetime.now().strftime("%Y-%m"))
         detail_type = args.get("detail_type", "breakdown")
         
+        client = _get_client(config)
         # 获取用户信息
-        user_res = await supabase.table("users").select("name, role, score, total_bonus").eq("id", user_id).maybe_single().execute()
+        user_res = await client.table("users").select("name, role, score, total_bonus").eq("id", user_id).maybe_single().execute()
         if not user_res.data:
             return "❌ 无法获取用户信息"
         

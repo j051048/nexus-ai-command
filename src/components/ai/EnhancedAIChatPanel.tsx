@@ -50,6 +50,7 @@ import { toast } from 'sonner';
 import { useAIStream } from '@/hooks/useAIStream';
 import { PulseDot } from '@/components/common/AnimatedComponents';
 import { MessageBubble } from './MessageBubble';
+import { supabase } from '@/integrations/supabase/client';
 
 
 // ==================== 类型定义 ====================
@@ -188,9 +189,20 @@ export function EnhancedAIChatPanel({
     const toastId = toast.loading('正在上传并解析文档...');
 
     try {
+      // P0 Security Fix: Get auth token for file upload
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        toast.error('请先登录后再上传文档', { id: toastId });
+        return;
+      }
+
       const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://aizhz.zeabur.app';
       const response = await fetch(`${baseUrl}/api/documents/upload`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
         body: formData,
       });
 
@@ -198,7 +210,7 @@ export function EnhancedAIChatPanel({
 
       const result = await response.json();
       toast.success(
-        `文档 "${file.name}" 已存入知识库 (处理了 ${result.details[0]?.chunks_processed || 0} 个片段)`,
+        `文档 "${file.name}" 已存入知识库 (处理了 ${result.data?.results?.[0]?.chunks_processed || result.details?.[0]?.chunks_processed || 0} 个片段)`,
         { id: toastId }
       );
 

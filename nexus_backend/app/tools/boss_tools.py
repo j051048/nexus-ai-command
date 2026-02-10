@@ -14,6 +14,12 @@ from app.services.event_bus import emit, EventType
 
 logger = logging.getLogger(__name__)
 
+
+def _get_client(config: Dict = None):
+    """Get scoped DB client if user token available, else fallback to service client."""
+    token = config.get("token") if config else None
+    return supabase.get_scoped_client(token) if token and supabase else supabase
+
 # P0 Security: Maximum batch size to prevent mass operations
 MAX_BATCH_SIZE = 10
 
@@ -32,6 +38,8 @@ class SmartApprovalTool(BaseTool):
 首次调用返回预览信息，需要确认后设置 confirm=true 才会真正执行。
 这是不可逆操作，需要人工确认。"""
     required_role = "boss"
+    is_irreversible = True
+    confirmation_message = "⚠️ 审批操作不可逆。请确认后设置 confirm=true 再执行。"
     
     parameters = {
         "type": "object",
@@ -72,6 +80,7 @@ class SmartApprovalTool(BaseTool):
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
+        client = _get_client(config)
         action = args.get("action", "approve")
         request_ids = args.get("request_ids", [])
         request_numbers = args.get("request_numbers", [])
@@ -81,7 +90,7 @@ class SmartApprovalTool(BaseTool):
         confirm = args.get("confirm", False)  # P0 Security: Default to preview mode
         
         # 获取待审批列表
-        pending_res = await supabase.table("approval_requests")\
+        pending_res = await client.table("approval_requests")\
             .select("*, users:submitted_by(name, department)")\
             .eq("status", "pending")\
             .order("created_at", desc=True)\
@@ -161,7 +170,7 @@ class SmartApprovalTool(BaseTool):
             
             for req in selected_requests:
                 # P0 Security: Idempotency check - only update if still pending
-                result = await supabase.table("approval_requests").update({
+                result = await client.table("approval_requests").update({
                     "status": "approved",
                     "approved_by": user_id,
                     "approved_at": datetime.now().isoformat(),
@@ -170,7 +179,7 @@ class SmartApprovalTool(BaseTool):
                 
                 if result.data:
                     # 通知申请人
-                    await supabase.table("notifications").insert({
+                    await client.table("notifications").insert({
                         "user_id": req["submitted_by"],
                         "title": "✅ 您的申请已批准",
                         "content": f"您提交的{req.get('type', '申请')}（¥{req.get('amount', 0)}）已被批准",
@@ -181,7 +190,7 @@ class SmartApprovalTool(BaseTool):
                     skipped_count += 1
             
             # Record audit log
-            await supabase.table("audit_logs").insert({
+            await client.table("audit_logs").insert({
                 "action": "batch_approval",
                 "actor_user_id": user_id,
                 "target_table": "approval_requests",
@@ -213,7 +222,7 @@ class SmartApprovalTool(BaseTool):
             
             for req in selected_requests:
                 # P0 Security: Idempotency check
-                result = await supabase.table("approval_requests").update({
+                result = await client.table("approval_requests").update({
                     "status": "rejected",
                     "approved_by": user_id,
                     "approved_at": datetime.now().isoformat(),
@@ -221,7 +230,7 @@ class SmartApprovalTool(BaseTool):
                 }).eq("id", req["id"]).eq("status", "pending").execute()
                 
                 if result.data:
-                    await supabase.table("notifications").insert({
+                    await client.table("notifications").insert({
                         "user_id": req["submitted_by"],
                         "title": "❌ 您的申请被驳回",
                         "content": f"您提交的{req.get('type', '申请')}被驳回。原因: {comment or '未说明'}",
@@ -232,7 +241,7 @@ class SmartApprovalTool(BaseTool):
                     skipped_count += 1
             
             # Record audit log
-            await supabase.table("audit_logs").insert({
+            await client.table("audit_logs").insert({
                 "action": "batch_rejection",
                 "actor_user_id": user_id,
                 "target_table": "approval_requests",
@@ -255,7 +264,7 @@ class SmartApprovalTool(BaseTool):
                 return "❌ 请指定委托人"
             
             # 查找委托人
-            delegate_res = await supabase.table("users").select("id, name").ilike("name", f"%{delegate_to}%").limit(1).execute()
+            delegate_res = await client.table("users").select("id, name").ilike("name", f"%{delegate_to}%").limit(1).execute()
             if not delegate_res.data:
                 return f"❌ 未找到名为「{delegate_to}」的人员"
             
@@ -263,12 +272,12 @@ class SmartApprovalTool(BaseTool):
             
             # 更新审批人 (委托不是不可逆操作，可以重新委托)
             for req in selected_requests:
-                await supabase.table("approval_requests").update({
+                await client.table("approval_requests").update({
                     "current_approver": delegate_user["id"]
                 }).eq("id", req["id"]).eq("status", "pending").execute()
             
             # 通知被委托人
-            await supabase.table("notifications").insert({
+            await client.table("notifications").insert({
                 "user_id": delegate_user["id"],
                 "title": "📋 收到委托审批",
                 "content": f"领导将 {len(selected_requests)} 件审批事项委托给您处理",
@@ -312,10 +321,11 @@ class DailyBriefingTool(BaseTool):
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
+        client = _get_client(config)
         briefing_type = args.get("briefing_type", "full")
         
         # 获取待审批数量
-        pending_res = await supabase.table("approval_requests")\
+        pending_res = await client.table("approval_requests")\
             .select("*, users:submitted_by(name)")\
             .eq("status", "pending")\
             .order("amount", desc=True)\
@@ -329,7 +339,7 @@ class DailyBriefingTool(BaseTool):
         auto_processed = 12
         
         # 获取团队绩效
-        team_res = await supabase.table("users").select("name, score, total_bonus").order("score", desc=True).limit(3).execute()
+        team_res = await client.table("users").select("name, score, total_bonus").order("score", desc=True).limit(3).execute()
         top_performers = team_res.data or []
         
         # 计算总奖金
@@ -533,8 +543,9 @@ class TeamInsightTool(BaseTool):
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
         insight_type = args.get("insight_type", "performance")
         
+        client = _get_client(config)
         # 获取团队数据
-        team_res = await supabase.table("users").select("*").execute()
+        team_res = await client.table("users").select("*").execute()
         team = team_res.data or []
         total_count = len(team)
         
@@ -592,8 +603,10 @@ class TeamInsightTool(BaseTool):
 class AnnouncementTool(BaseTool):
     """公告发布工具"""
     name = "publish_announcement"
-    description = "发布公司公告或通知。领导说'发个通知'、'通知全员'时调用。"
+    description = "发布公司公告或通知。领导说'发个通知'、'通知全员'时调用。需要确认后执行。"
     required_role = "boss"
+    is_irreversible = True
+    confirmation_message = "⚠️ 公告将发送给所有目标用户，发布后不可撤回。请确认后设置 confirm=true 再执行。"
     
     parameters = {
         "type": "object",
@@ -626,13 +639,14 @@ class AnnouncementTool(BaseTool):
         target = args.get("target", "all")
         priority = args.get("priority", "normal")
         
+        client = _get_client(config)
         # 获取目标用户
         if target == "all":
-            users_res = await supabase.table("users").select("id, name").execute()
+            users_res = await client.table("users").select("id, name").execute()
         elif target == "managers":
-            users_res = await supabase.table("users").select("id, name").in_("role", ["manager", "founder"]).execute()
+            users_res = await client.table("users").select("id, name").in_("role", ["manager", "founder"]).execute()
         else:
-            users_res = await supabase.table("users").select("id, name").execute()
+            users_res = await client.table("users").select("id, name").execute()
         
         users = users_res.data or []
         
@@ -641,7 +655,7 @@ class AnnouncementTool(BaseTool):
         icon = priority_icons.get(priority, "📢")
         
         for user in users:
-            await supabase.table("notifications").insert({
+            await client.table("notifications").insert({
                 "user_id": user["id"],
                 "title": f"{icon} {title}",
                 "content": content,

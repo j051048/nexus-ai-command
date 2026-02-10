@@ -1,42 +1,68 @@
 import json
 import uuid
 import datetime
+import logging
 from typing import Any, Dict, List
-from app.services.content_moderation import sanitize_output
+
+logger = logging.getLogger(__name__)
+
+# Lazy import to avoid circular dependency at module level
+_sanitize_output = None
+
+def _get_sanitizer():
+    global _sanitize_output
+    if _sanitize_output is None:
+        try:
+            from app.services.content_moderation import sanitize_output
+            _sanitize_output = sanitize_output
+        except ImportError:
+            _sanitize_output = lambda x: x  # Fallback: no-op
+    return _sanitize_output
+
 
 class TraceLogger:
     """
     Simple Structured JSON Logger for LLM Traces.
-    Outputs NDJSON (Newline Delimited JSON) to stdout for easy collection (e.g. by Datadog, ELK, or simple grep).
+    Outputs NDJSON (Newline Delimited JSON) to stdout for easy collection
+    (e.g. by Datadog, ELK, or simple grep).
     """
     def __init__(self, user_id: str, agent: str):
         self.trace_id = str(uuid.uuid4())
         self.user_id = user_id
         self.agent = agent
         self.start_time = datetime.datetime.now()
-    
+
+    def _sanitize_content(self, content: Any) -> Any:
+        """Sanitize content to remove PII before logging."""
+        sanitize = _get_sanitizer()
         if isinstance(content, dict):
-            # Recursively sanitize dictionary values
-            sanitized_content = {}
+            sanitized = {}
             for k, v in content.items():
                 if isinstance(v, str):
-                    sanitized_content[k] = sanitize_output(v)
+                    sanitized[k] = sanitize(v)
                 else:
-                    sanitized_content[k] = v
-            content = sanitized_content
+                    sanitized[k] = v
+            return sanitized
         elif isinstance(content, str):
-            content = sanitize_output(content)
-            
-        entry = {
-            "trace_id": self.trace_id,
-            "timestamp": datetime.datetime.now().isoformat(),
-            "user_id": self.user_id,
-            "agent": self.agent,
-            "event": event_type,
-            "content": content
-        }
-        # Print JSON to stdout - standard practice for container logs
-        print(f"TRACE_LOG: {json.dumps(entry, ensure_ascii=False)}")
+            return sanitize(content)
+        return content
+
+    def _emit(self, event_type: str, content: Dict[str, Any]):
+        """Emit a structured trace log entry to stdout."""
+        try:
+            safe_content = self._sanitize_content(content)
+            entry = {
+                "trace_id": self.trace_id,
+                "timestamp": datetime.datetime.now().isoformat(),
+                "user_id": self.user_id,
+                "agent": self.agent,
+                "event": event_type,
+                "content": safe_content
+            }
+            # Print JSON to stdout - standard practice for container logs
+            print(f"TRACE_LOG: {json.dumps(entry, ensure_ascii=False)}")
+        except Exception as e:
+            logger.warning(f"TraceLogger emit failed: {e}")
 
     def log_start(self, messages: List[Dict]):
         # Sensitive: Don't log full history if massive, but for MVP log last message

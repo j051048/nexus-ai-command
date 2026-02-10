@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import EnhancedAIChatPanel from '@/components/ai/EnhancedAIChatPanel';
 import { Button } from '@/components/ui/button';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { MobileSidebar } from '@/components/layout/MobileSidebar';
+import { CommandPalette } from '@/components/common/CommandPalette';
 import { PanelRightClose, PanelRightOpen, Menu } from 'lucide-react';
 
 // Interface for props
@@ -15,7 +16,14 @@ interface ChatFirstLayoutProps {
 export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isCanvasOpen, setIsCanvasOpen] = useState(true);
+    const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
     const location = useLocation();
+
+    // Handler for when user triggers AI chat from command palette
+    const handleCommandPaletteAIChat = useCallback((message: string) => {
+        // For now, this is a placeholder — could focus the chat input and prefill
+        console.log('CommandPalette AI Chat:', message);
+    }, []);
 
     // Determine if we should show the Canvas
     // If route is exactly / or /chat, we might just show chat in full screen?
@@ -116,6 +124,12 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                 </div>
 
             </div>
+                    {/* Command Palette (⌘K) */}
+            <CommandPalette
+                open={isCommandPaletteOpen}
+                onOpenChange={setIsCommandPaletteOpen}
+                onAIChat={handleCommandPaletteAIChat}
+            />
         </div>
     );
 };

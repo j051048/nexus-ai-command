@@ -16,6 +16,12 @@ from app.services.event_bus import emit, EventType
 logger = logging.getLogger(__name__)
 
 
+def _get_client(config: Dict = None):
+    """Get scoped DB client if user token available, else fallback to service client."""
+    token = config.get("token") if config else None
+    return supabase.get_scoped_client(token) if token and supabase else supabase
+
+
 class LeaveRequestTool(BaseTool):
     """请假申请工具 - 支持自然语言创建请假"""
     name = "create_leave_request"
@@ -193,11 +199,12 @@ class LeaveQueryTool(BaseTool):
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
+        client = _get_client(config)
         query_type = args.get("query_type", "my_requests")
         
         if query_type == "my_requests":
             # 查询最近的请假申请
-            requests = await supabase.table("oa_leave_requests").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(5).execute()
+            requests = await client.table("oa_leave_requests").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(5).execute()
             
             if not requests.data:
                 return "📋 您最近没有请假记录。"
@@ -215,7 +222,7 @@ class LeaveQueryTool(BaseTool):
         
         elif query_type == "balance":
             # 查询假期余额
-            used_annual = await supabase.table("oa_leave_requests").select("days").eq("user_id", user_id).eq("type", "annual").eq("status", "approved").execute()
+            used_annual = await client.table("oa_leave_requests").select("days").eq("user_id", user_id).eq("type", "annual").eq("status", "approved").execute()
             used_days = sum(float(r.get("days", 0)) for r in (used_annual.data or []))
             
             return f"""🏖️ **您的假期余额**
@@ -275,11 +282,12 @@ class MeetingBookingTool(BaseTool):
         # 实际应使用更复杂的 NLU 来解析自然语言时间
         meeting_time = datetime.now() + timedelta(days=1, hours=3)  # 默认明天下午
         
+        client = _get_client(config)
         # 查找参会人
         attendee_ids = []
         attendee_names = []
         for name in attendees:
-            user_res = await supabase.table("users").select("id, name").ilike("name", f"%{name}%").limit(1).execute()
+            user_res = await client.table("users").select("id, name").ilike("name", f"%{name}%").limit(1).execute()
             if user_res.data:
                 attendee_ids.append(user_res.data[0]["id"])
                 attendee_names.append(user_res.data[0]["name"])
@@ -289,7 +297,7 @@ class MeetingBookingTool(BaseTool):
         
         # 发送会议通知
         for aid in attendee_ids:
-            await supabase.table("notifications").insert({
+            await client.table("notifications").insert({
                 "user_id": aid,
                 "title": f"📅 会议邀请: {title}",
                 "content": f"时间: {meeting_time.strftime('%m月%d日 %H:%M')}\n地点: {room_name}",
@@ -357,8 +365,9 @@ class TaskAssignmentTool(BaseTool):
         priority = args.get("priority", "medium")
         project_name = args.get("project_name")
         
+        client = _get_client(config)
         # 查找负责人
-        assignee_res = await supabase.table("users").select("id, name").ilike("name", f"%{assignee_name}%").limit(1).execute()
+        assignee_res = await client.table("users").select("id, name").ilike("name", f"%{assignee_name}%").limit(1).execute()
         if not assignee_res.data:
             return f"❌ 找不到名为「{assignee_name}」的同事。请确认姓名是否正确。"
         
@@ -367,7 +376,7 @@ class TaskAssignmentTool(BaseTool):
         # 查找项目
         project_id = None
         if project_name:
-            proj_res = await supabase.table("projects").select("id").ilike("name", f"%{project_name}%").limit(1).execute()
+            proj_res = await client.table("projects").select("id").ilike("name", f"%{project_name}%").limit(1).execute()
             if proj_res.data:
                 project_id = proj_res.data[0]["id"]
         
@@ -389,13 +398,13 @@ class TaskAssignmentTool(BaseTool):
             "ai_created": True
         }
         
-        result = await supabase.table("project_tasks").insert(task_data).execute()
+        result = await client.table("project_tasks").insert(task_data).execute()
         
         # 通知负责人
-        creator_res = await supabase.table("users").select("name").eq("id", user_id).maybe_single().execute()
+        creator_res = await client.table("users").select("name").eq("id", user_id).maybe_single().execute()
         creator_name = creator_res.data.get("name", "某人") if creator_res.data else "某人"
         
-        await supabase.table("notifications").insert({
+        await client.table("notifications").insert({
             "user_id": assignee["id"],
             "title": "📌 新任务分配",
             "content": f"{creator_name} 给您分配了任务: {title}\n截止日期: {due_date}",
@@ -448,15 +457,16 @@ class WorkHandoverTool(BaseTool):
         reason = args.get("reason", "临时交接")
         items = args.get("items", [])
         
+        client = _get_client(config)
         # 查找交接人
-        handover_res = await supabase.table("users").select("id, name").ilike("name", f"%{handover_to_name}%").limit(1).execute()
+        handover_res = await client.table("users").select("id, name").ilike("name", f"%{handover_to_name}%").limit(1).execute()
         if not handover_res.data:
             return f"❌ 找不到名为「{handover_to_name}」的同事。"
         
         handover_to = handover_res.data[0]
         
         # 获取当前用户的待办任务
-        tasks_res = await supabase.table("project_tasks").select("id, title, due_date, priority").eq("assignee_id", user_id).in_("status", ["todo", "in_progress"]).execute()
+        tasks_res = await client.table("project_tasks").select("id, title, due_date, priority").eq("assignee_id", user_id).in_("status", ["todo", "in_progress"]).execute()
         
         task_list = tasks_res.data or []
         
@@ -466,14 +476,14 @@ class WorkHandoverTool(BaseTool):
         # 转移任务
         transferred = 0
         for task in task_list:
-            await supabase.table("project_tasks").update({"assignee_id": handover_to["id"]}).eq("id", task["id"]).execute()
+            await client.table("project_tasks").update({"assignee_id": handover_to["id"]}).eq("id", task["id"]).execute()
             transferred += 1
         
         # 通知交接人
-        user_res = await supabase.table("users").select("name").eq("id", user_id).maybe_single().execute()
+        user_res = await client.table("users").select("name").eq("id", user_id).maybe_single().execute()
         user_name = user_res.data.get("name", "同事") if user_res.data else "同事"
         
-        await supabase.table("notifications").insert({
+        await client.table("notifications").insert({
             "user_id": handover_to["id"],
             "title": "📋 工作交接通知",
             "content": f"{user_name} 将 {transferred} 项工作交接给您。\n原因: {reason}",
