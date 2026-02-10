@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
 import { toast } from 'sonner';
+import { NotificationPreferences } from '@/components/settings/NotificationPreferences';
 
 export function ProfileCenter() {
   const { user } = useUser();
@@ -188,7 +189,7 @@ export function ProfileCenter() {
 
       {/* 详细信息标签页 */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="profile" className="gap-2">
             <User className="w-4 h-4" />
             个人信息
@@ -196,6 +197,10 @@ export function ProfileCenter() {
           <TabsTrigger value="achievements" className="gap-2">
             <Award className="w-4 h-4" />
             成就徽章
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="gap-2">
+            <Bell className="w-4 h-4" />
+            通知设置
           </TabsTrigger>
           <TabsTrigger value="security" className="gap-2">
             <Shield className="w-4 h-4" />
@@ -277,6 +282,19 @@ export function ProfileCenter() {
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 通知设置 - B12 新增 */}
+        <TabsContent value="notifications">
+          <Card>
+            <CardHeader>
+              <CardTitle>通知偏好设置</CardTitle>
+              <CardDescription>管理您的通知渠道、免打扰时段和通知类型</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <NotificationPreferences />
             </CardContent>
           </Card>
         </TabsContent>

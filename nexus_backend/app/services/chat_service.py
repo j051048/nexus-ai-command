@@ -20,9 +20,13 @@ from app.core.prompts_registry import SYSTEM_PROMPTS
 from app.services.token_service import validate_request_tokens, record_completion, token_counter, usage_tracker
 from app.services.content_moderation import check_user_input, sanitize_output, scan_content
 from app.core.trace_logger import TraceLogger
+from app.core.config import settings
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+# P1 Fix #12: Make chat history window configurable
+MAX_HISTORY = getattr(settings, 'MAX_CHAT_HISTORY', 10)
 
 class ChatService:
     TOOLS = get_all_tools_schema()
@@ -161,7 +165,7 @@ class ChatService:
         # P0 Fix #4: Save the last user message to persistence
         if messages and messages[-1]["role"] == "user":
             user_msg = messages[-1]
-            asyncio.create_task(ChatService.save_message(
+            task = asyncio.create_task(ChatService.save_message(
                 user_id=user_id,
                 session_id=session_id,
                 role="user",
@@ -169,6 +173,7 @@ class ChatService:
                 agent=messages[0].get("agent") if messages else None,
                 db_client=client_db
             ))
+            task.add_done_callback(lambda t: logger.error(f"Failed to save message: {t.exception()}") if t.exception() else None)
 
         # 0. Safety Check & Sanitization
         api_key = config.get("api_key")
@@ -223,11 +228,16 @@ class ChatService:
                 for i, word in enumerate(words):
                     chunk = word + (" " if i < len(words) - 1 else "")
                     yield f"data: {json.dumps({'choices': [{'delta': {'content': chunk}}]})}\n\n"
-                    # Very fast simulation but enough to not break frontend parsers
                     await asyncio.sleep(0.005) 
+                # Record token usage even for cache hits
+                try:
+                    cache_tokens = token_counter.count_tokens(cached_res, model)
+                    await record_completion(user_id, input_tokens, cache_tokens, model)
+                except Exception as e:
+                    logger.warning(f"Failed to record cache hit tokens: {e}")
                 yield "data: [DONE]\n\n"
                 if tracer:
-                    tracer.log_end()
+                    tracer.log_end(total_tokens=input_tokens)
                 return
 
         async def _call_api(msgs):
@@ -250,6 +260,7 @@ class ChatService:
                         async for line in response.aiter_lines():
                             yield line
             except Exception as e:
+                logger.error(f"LLM API connection failed: {e}")
                 yield f"error: Connection Failed: {str(e)}"
 
         # Main Loop (Recursive Tool Use)
@@ -420,7 +431,7 @@ class ChatService:
 
         # Final assistant response summary for token tracking and audit
         # Save finalized assistant message
-        asyncio.create_task(ChatService.save_message(
+        task = asyncio.create_task(ChatService.save_message(
             user_id=user_id,
             session_id=session_id,
             role="assistant",
@@ -428,6 +439,7 @@ class ChatService:
             agent=messages[0].get("agent") if messages else None,
             db_client=client_db
         ))
+        task.add_done_callback(lambda t: logger.error(f"Failed to save message: {t.exception()}") if t.exception() else None)
 
         # P2: Save to Semantic Cache
         if last_query and sanitized_content:

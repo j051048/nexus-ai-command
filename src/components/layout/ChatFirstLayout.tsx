@@ -1,16 +1,44 @@
 import React, { useState, useCallback } from 'react';
-import { Outlet, Navigate, useLocation } from 'react-router-dom';
+import { Outlet, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import EnhancedAIChatPanel from '@/components/ai/EnhancedAIChatPanel';
 import { Button } from '@/components/ui/button';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { MobileSidebar } from '@/components/layout/MobileSidebar';
 import { CommandPalette } from '@/components/common/CommandPalette';
-import { PanelRightClose, PanelRightOpen, Menu } from 'lucide-react';
+import { PanelRightClose, PanelRightOpen, Menu, LayoutDashboard, MessageSquare, CheckCircle, User } from 'lucide-react';
 
 // Interface for props
 interface ChatFirstLayoutProps {
     children?: React.ReactNode;
+}
+
+// Mobile Bottom Navigation Component
+function MobileBottomNav() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  const tabs = [
+    { path: '/dashboard', icon: LayoutDashboard, label: '首页' },
+    { path: '/sales', icon: MessageSquare, label: '销售' },
+    { path: '/approval', icon: CheckCircle, label: '审批' },
+    { path: '/profile', icon: User, label: '我的' },
+  ];
+  
+  return (
+    <div className="fixed bottom-0 left-0 right-0 bg-background border-t md:hidden z-50">
+      <div className="flex justify-around items-center h-14">
+        {tabs.map(tab => (
+          <button key={tab.path} onClick={() => navigate(tab.path)}
+            className={cn("flex flex-col items-center gap-0.5 text-xs", 
+              location.pathname === tab.path ? "text-primary" : "text-muted-foreground")}>
+            <tab.icon className="h-5 w-5" />
+            <span>{tab.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
@@ -115,7 +143,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                    </div>
 
                    {/* Canvas Content (Scrollable) */}
-                   <div className="flex-1 overflow-auto bg-muted/10 p-4 md:p-6 custom-scrollbar">
+                   <div className="flex-1 overflow-auto bg-muted/10 p-4 md:p-6 custom-scrollbar pb-16 md:pb-6">
                         <div className="max-w-6xl mx-auto min-h-full bg-card rounded-xl border shadow-sm p-4 md:p-8">
                              {children || <Outlet />}
                         </div>
@@ -124,7 +152,11 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                 </div>
 
             </div>
-                    {/* Command Palette (⌘K) */}
+            
+            {/* Mobile Bottom Navigation */}
+            <MobileBottomNav />
+            
+            {/* Command Palette (⌘K) */}
             <CommandPalette
                 open={isCommandPaletteOpen}
                 onOpenChange={setIsCommandPaletteOpen}

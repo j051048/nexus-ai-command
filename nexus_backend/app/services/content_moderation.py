@@ -41,7 +41,7 @@ class ContentModerator:
     PATTERNS: Dict[ViolationType, Tuple[str, str, str]] = {
         # (pattern, severity, replacement_suggestion)
         ViolationType.PII_PHONE: (
-            r'(?<!\d)(1[3-9]\d{9})(?!\d)',
+            r'(?<![0-9a-zA-Z])(1[3-9]\d{9})(?![0-9a-zA-Z])',
             "high",
             "[电话号码已隐藏]"
         ),

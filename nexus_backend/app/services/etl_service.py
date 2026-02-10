@@ -27,8 +27,10 @@ class ETLService:
         
         # RAG Configurable Parameters (Optimization 5)
         # Defaults: Size=600, Overlap=100
-        self.chunk_size = int(os.getenv("RAG_CHUNK_SIZE", 600))
-        self.chunk_overlap = int(os.getenv("RAG_CHUNK_OVERLAP", 100))
+        # Now read from config.py instead of env directly
+        from app.core.config import settings as app_settings
+        self.chunk_size = app_settings.RAG_CHUNK_SIZE
+        self.chunk_overlap = app_settings.RAG_CHUNK_OVERLAP
         
     async def _call_ai_raw(self, payload: dict, endpoint: str = "/chat/completions") -> str:
         """
@@ -113,7 +115,8 @@ class ETLService:
         status: str = "pending",
         visibility: str = "organization",  # P0 Security Fix #4
         department: str = None,
-        content_hash: str = None  # P1 Fix #20
+        content_hash: str = None,  # P1 Fix #20
+        category: str = "other"  # H6: Document Category
     ) -> str:
         """
         Creates a placeholder record in the database.

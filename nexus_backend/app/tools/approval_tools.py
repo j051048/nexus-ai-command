@@ -195,7 +195,7 @@ class ApprovalTool(BaseTool):
     description = """批准一个待处理的审批申请。
 首次调用时会返回待审批信息的预览，需要用户确认后再次调用并传入 confirm=true 才会真正执行。
 这是一个不可逆操作，需要人工确认。"""
-    required_role = "boss"
+    required_role = "manager"
     is_irreversible = True
     confirmation_message = "⚠️ 审批操作不可逆。请确认后设置 confirm=true 再执行。"
 
@@ -218,6 +218,18 @@ class ApprovalTool(BaseTool):
         confirm = args.get("confirm", False)
         
         client = _get_client(config)
+        
+        # Manager approval limit check
+        user_role_res = await client.table("users").select("role").eq("id", user_id).maybe_single().execute()
+        user_role = user_role_res.data.get("role", "employee") if user_role_res.data else "employee"
+        
+        if user_role == "manager":
+            # Check if approval amount exceeds manager limit (5000)
+            MANAGER_APPROVAL_LIMIT = 5000
+            request_res = await client.table("approval_requests").select("amount").eq("id", req_id).maybe_single().execute()
+            if request_res.data and float(request_res.data.get("amount", 0)) > MANAGER_APPROVAL_LIMIT:
+                return f"⛔ 权限不足：部门经理审批上限为 ¥{MANAGER_APPROVAL_LIMIT:,}，该申请金额超出限额，需要更高级别审批。"
+        
         # Step 1: Fetch the request details first
         fetch_result = await client.table("approval_requests")\
             .select("*, users:submitted_by(name, department)")\
@@ -290,6 +302,19 @@ class ApprovalTool(BaseTool):
             except Exception as e:
                 logger.warning(f"Failed to send notification: {e}")
             
+            # Multi-channel notification via notification_service
+            try:
+                from app.services.notification_service import notification_service, Notification, NotificationChannel, NotificationPriority
+                await notification_service.send(Notification(
+                    title="✅ 审批已通过",
+                    content=f"您的{request_data.get('type', '')}申请（¥{request_data.get('amount', 0):,.0f}）已被批准",
+                    target_user_id=request_data.get("submitted_by"),
+                    channel=NotificationChannel.IN_APP,
+                    priority=NotificationPriority.HIGH
+                ))
+            except Exception as e:
+                logger.warning(f"Multi-channel approval notification failed: {e}")
+            
             return f"✅ 已成功批准审批单 {req_id[:8]}...（{submitter_name} 的 {request_data.get('type')} 申请，¥{request_data.get('amount', 0):,.2f}）"
         
         return "❌ 批准失败，该单据可能已被他人处理。"
@@ -303,7 +328,7 @@ class RejectTool(BaseTool):
     description = """驳回一个待处理的审批申请。
 首次调用时会返回待驳回信息的预览，需要用户确认后再次调用并传入 confirm=true 才会真正执行。
 这是一个不可逆操作，需要人工确认。"""
-    required_role = "boss"
+    required_role = "manager"
     is_irreversible = True
     confirmation_message = "⚠️ 驳回操作不可逆。请确认后设置 confirm=true 再执行。"
 
@@ -326,6 +351,18 @@ class RejectTool(BaseTool):
         confirm = args.get("confirm", False)
         
         client = _get_client(config)
+        
+        # Manager approval limit check
+        user_role_res = await client.table("users").select("role").eq("id", user_id).maybe_single().execute()
+        user_role = user_role_res.data.get("role", "employee") if user_role_res.data else "employee"
+        
+        if user_role == "manager":
+            # Check if approval amount exceeds manager limit (5000)
+            MANAGER_APPROVAL_LIMIT = 5000
+            request_res = await client.table("approval_requests").select("amount").eq("id", req_id).maybe_single().execute()
+            if request_res.data and float(request_res.data.get("amount", 0)) > MANAGER_APPROVAL_LIMIT:
+                return f"⛔ 权限不足：部门经理审批上限为 ¥{MANAGER_APPROVAL_LIMIT:,}，该申请金额超出限额，需要更高级别审批。"
+        
         # Step 1: Fetch the request details first
         fetch_result = await client.table("approval_requests")\
             .select("*, users:submitted_by(name, department)")\
@@ -400,6 +437,19 @@ class RejectTool(BaseTool):
             except Exception as e:
                 logger.warning(f"Failed to send notification: {e}")
             
+            # Multi-channel notification via notification_service
+            try:
+                from app.services.notification_service import notification_service, Notification, NotificationChannel, NotificationPriority
+                await notification_service.send(Notification(
+                    title="❌ 审批已驳回",
+                    content=f"您的{request_data.get('type', '')}申请已被驳回。原因：{reason}",
+                    target_user_id=request_data.get("submitted_by"),
+                    channel=NotificationChannel.IN_APP,
+                    priority=NotificationPriority.HIGH
+                ))
+            except Exception as e:
+                logger.warning(f"Multi-channel rejection notification failed: {e}")
+            
             return f"❌ 已驳回审批单 {req_id[:8]}...。驳回原因：{reason}"
         
         return "❌ 驳回失败，该单据可能已被他人处理。"
@@ -411,7 +461,8 @@ class PendingApprovalsTool(BaseTool):
     
     parameters = {
         "type": "object",
-        "properties": {}
+        "properties": {},
+        "required": []
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:

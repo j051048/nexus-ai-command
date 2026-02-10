@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Popover,
     PopoverContent,
@@ -11,10 +11,51 @@ import { useNotifications, Notification } from '@/hooks/useNotifications';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/auth/AuthContext';
 
 export function NotificationCenter() {
-    const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+    const { user } = useAuth();
+    const { notifications, unreadCount: initialUnreadCount, markAsRead, markAllAsRead } = useNotifications();
     const [open, setOpen] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    // 初始化未读数
+    useEffect(() => {
+        setUnreadCount(initialUnreadCount);
+    }, [initialUnreadCount]);
+
+    // 轮询未读通知数 - 每30秒
+    useEffect(() => {
+        if (!user?.id) return;
+
+        const fetchUnreadCount = async () => {
+            try {
+                const { count, error } = await supabase
+                    .from('notifications')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', user.id)
+                    .eq('read', false);
+
+                if (error) {
+                    console.error('Failed to fetch unread count:', error);
+                    return;
+                }
+
+                setUnreadCount(count || 0);
+            } catch (err) {
+                console.error('Error polling unread count:', err);
+            }
+        };
+
+        // 立即执行一次
+        fetchUnreadCount();
+
+        // 设置定时器
+        const interval = setInterval(fetchUnreadCount, 30000); // 30秒
+
+        return () => clearInterval(interval);
+    }, [user?.id]);
 
     const getIcon = (type: Notification['type']) => {
         switch (type) {
@@ -31,9 +72,11 @@ export function NotificationCenter() {
                 <Button variant="ghost" size="icon" className="relative hover:bg-muted rounded-full">
                     <Bell className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" />
                     {unreadCount > 0 && (
-                        <span className="absolute top-2 right-2 flex h-2.5 w-2.5">
+                        <span className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive"></span>
+                            <span className="relative inline-flex items-center justify-center rounded-full h-5 w-5 bg-destructive text-[10px] font-bold text-white">
+                                {unreadCount > 99 ? '99+' : unreadCount}
+                            </span>
                         </span>
                     )}
                 </Button>

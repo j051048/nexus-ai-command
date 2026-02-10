@@ -65,6 +65,9 @@ class SemanticCacheService:
         """
         Store a new query-response pair in the semantic cache.
         """
+        # NOTE: Uses global supabase (service key) intentionally for cache writes.
+        # Cache entries are scoped by user_id/org_id columns and filtered by RPC on read.
+        # Using scoped client here would prevent writing due to RLS insert restrictions.
         if not supabase or not settings.OPENAI_API_KEY or not response_text:
             return
 
@@ -93,12 +96,27 @@ class SemanticCacheService:
             logger.warning(f"Failed to set semantic cache: {e}")
 
     async def _update_hit_count(self, cache_id: int):
-        """Internal helper to increment hit counter"""
+        """Internal helper to increment hit counter via RPC for atomic update"""
         try:
-            await supabase.table("semantic_cache")\
-                .update({"hit_count": 5, "last_hit_at": "now()"}) \
-                .eq("id", cache_id).execute()
-        except Exception:
-             pass
+            # Use RPC for atomic increment; fallback to manual update if RPC not available
+            try:
+                await supabase.rpc("increment_cache_hit", {
+                    "p_cache_id": cache_id
+                }).execute()
+            except Exception:
+                # Fallback: fetch current count and increment
+                from datetime import datetime, timezone
+                res = await supabase.table("semantic_cache")\
+                    .select("hit_count")\
+                    .eq("id", cache_id).maybe_single().execute()
+                current_count = res.data.get("hit_count", 0) if res.data else 0
+                await supabase.table("semantic_cache")\
+                    .update({
+                        "hit_count": current_count + 1,
+                        "last_hit_at": datetime.now(timezone.utc).isoformat()
+                    })\
+                    .eq("id", cache_id).execute()
+        except Exception as e:
+            logger.warning(f"Failed to update cache hit count: {e}")
 
 semantic_cache_service = SemanticCacheService()

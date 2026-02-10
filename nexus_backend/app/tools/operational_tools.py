@@ -17,7 +17,8 @@ class PerformanceReportTool(BaseTool):
         "type": "object",
         "properties": {
             "user_id": {"type": "string", "description": "用户UUID，若为空则获取当前用户"}
-        }
+        },
+        "required": []
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
@@ -42,7 +43,8 @@ class CompanyStatsTool(BaseTool):
     
     parameters = {
         "type": "object",
-        "properties": {}
+        "properties": {},
+        "required": []
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:

@@ -212,7 +212,8 @@ class ExpenseQueryTool(BaseTool):
                 "enum": ["this_month", "last_month", "this_year"],
                 "description": "时间范围"
             }
-        }
+        },
+        "required": []
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
@@ -277,7 +278,8 @@ class BudgetQueryTool(BaseTool):
                 "enum": ["travel", "marketing", "office", "hr", "all"],
                 "description": "预算类别"
             }
-        }
+        },
+        "required": []
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
@@ -352,7 +354,8 @@ class SalaryQueryTool(BaseTool):
                 "enum": ["breakdown", "history", "tax"],
                 "description": "查询类型: breakdown(明细), history(历史), tax(个税)"
             }
-        }
+        },
+        "required": []
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:

@@ -73,6 +73,7 @@ class Settings(BaseSettings):
         default="https://proxy.flydao.top/v1",
         description="Base URL for OpenAI-compatible API"
     )
+    AI_DEFAULT_MODEL: str = Field(default="gpt-4o", description="Default AI model for general tasks")
     
     # Database (read by database.py via os.getenv, declared here for validation)
     SUPABASE_URL: str = Field(default="", description="Supabase project URL")
@@ -92,10 +93,15 @@ class Settings(BaseSettings):
     
     # File upload
     MAX_FILE_SIZE_MB: int = Field(default=50, description="Maximum file upload size in MB")
+    MAX_CHAT_HISTORY: int = Field(default=10, description="Maximum chat message history window size")
     ALLOWED_FILE_TYPES: List[str] = Field(
         default=[".pdf", ".docx", ".txt", ".md", ".csv", ".json", ".png", ".jpg", ".jpeg"],
         description="Allowed file upload extensions"
     )
+    
+    # RAG Configuration
+    RAG_CHUNK_SIZE: int = Field(default=600, description="Document chunk size for RAG embedding")
+    RAG_CHUNK_OVERLAP: int = Field(default=100, description="Document chunk overlap for RAG embedding")
     
     # Security
     ALLOW_UNSECURE_AUTH: Optional[str] = Field(default=None, description="Allow unsecure auth (dev only)")
@@ -104,6 +110,24 @@ class Settings(BaseSettings):
         default="", 
         description="Master key for encrypting API keys"
     )
+    
+    # B2: Notification Channel Configuration
+    # Email (SMTP)
+    SMTP_HOST: Optional[str] = Field(default=None, description="SMTP server hostname")
+    SMTP_PORT: int = Field(default=587, description="SMTP server port (587 for STARTTLS, 465 for SSL)")
+    SMTP_USER: Optional[str] = Field(default=None, description="SMTP username")
+    SMTP_PASSWORD: Optional[str] = Field(default=None, description="SMTP password")
+    SMTP_FROM: Optional[str] = Field(default=None, description="Sender email address")
+    
+    # Wecom (企业微信)
+    WECOM_WEBHOOK_URL: Optional[str] = Field(default=None, description="Wecom group bot webhook URL")
+    
+    # Dingtalk (钉钉)
+    DINGTALK_WEBHOOK_URL: Optional[str] = Field(default=None, description="Dingtalk group bot webhook URL")
+    DINGTALK_SECRET: Optional[str] = Field(default=None, description="Dingtalk webhook secret for signature")
+    
+    # Feishu (飞书)
+    FEISHU_WEBHOOK_URL: Optional[str] = Field(default=None, description="Feishu group bot webhook URL")
     
     # Computed properties
     @property

@@ -28,6 +28,9 @@ import {
   Clock,
   ChevronLeft,
   Menu,
+  Upload,
+  Shield,
+  Building2,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -45,12 +48,15 @@ import {
 } from "@/components/ui/tooltip";
 import { Button } from '@/components/ui/button';
 
+type AppRole = 'boss' | 'manager' | 'ai_assistant' | 'employee';
+
 interface NavItem {
   icon: React.ReactNode;
   label: string;
   href: string;
   badge?: string;
   badgeType?: 'primary' | 'success' | 'warning';
+  roles?: AppRole[]; // undefined = 所有人可见
 }
 
 interface SidebarProps {
@@ -59,7 +65,7 @@ interface SidebarProps {
 
 export function Sidebar({ onNavClick }: SidebarProps) {
   const { user } = useUser();
-  const { signOut } = useAuth();
+  const { role, signOut } = useAuth();
   const { theme } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
@@ -88,36 +94,46 @@ export function Sidebar({ onNavClick }: SidebarProps) {
   };
 
   const employeeNav: NavItem[] = [
-    { icon: <LayoutDashboard size={20} />, label: '战绩中心', href: 'dashboard' },
-    { icon: <Briefcase size={20} />, label: '项目管理', href: 'projects' },
-    { icon: <FileSearch size={20} />, label: '标书审阅', href: 'tender-analysis' },
-    { icon: <Swords size={20} />, label: '竞品库', href: 'battlecards' },
-    { icon: <Target size={20} />, label: '目标看板', href: 'target-dashboard' },
-    { icon: <TrendingUp size={20} />, label: '销售AI管理', href: 'sales', badge: '5', badgeType: 'primary' },
-    { icon: <FileCheck size={20} />, label: '智能审批', href: 'approval' },
-    { icon: <Calendar size={20} />, label: 'OA办公', href: 'oa' },
-    { icon: <Clock size={20} />, label: '人事中心', href: 'hr' },
-    { icon: <DollarSign size={20} />, label: '财务中心', href: 'finance' },
-    { icon: <BookOpen size={20} />, label: '知识库', href: 'knowledge' },
-    { icon: <Gift size={20} />, label: '激励钱包', href: 'rewards', badge: '¥200', badgeType: 'success' },
-    { icon: <Settings size={20} />, label: 'AI配置中心', href: 'settings' },
+    { icon: <LayoutDashboard size={20} />, label: '战绩中心', href: 'dashboard', roles: undefined }, // 所有人
+    { icon: <Briefcase size={20} />, label: '项目管理', href: 'projects', roles: ['employee', 'manager', 'boss'] },
+    { icon: <FileSearch size={20} />, label: '标书审阅', href: 'tender-analysis', roles: ['employee', 'manager', 'boss'] },
+    { icon: <Swords size={20} />, label: '竞品库', href: 'battlecards', roles: undefined },
+    { icon: <Target size={20} />, label: '目标看板', href: 'target-dashboard', roles: undefined },
+    { icon: <TrendingUp size={20} />, label: '销售AI管理', href: 'sales', badge: '5', badgeType: 'primary', roles: ['employee', 'manager', 'boss'] },
+    { icon: <FileCheck size={20} />, label: '智能审批', href: 'approval', roles: ['employee', 'manager', 'boss'] },
+    { icon: <Calendar size={20} />, label: 'OA办公', href: 'oa', roles: undefined },
+    { icon: <Clock size={20} />, label: '人事中心', href: 'hr', roles: ['manager', 'boss'] },
+    { icon: <DollarSign size={20} />, label: '财务中心', href: 'finance', roles: undefined },
+    { icon: <Upload size={20} />, label: '数据导入', href: 'import', roles: ['boss'] },
+    { icon: <BookOpen size={20} />, label: '知识库', href: 'knowledge', roles: undefined },
+    { icon: <Gift size={20} />, label: '激励钱包', href: 'rewards', badge: '¥200', badgeType: 'success', roles: undefined },
+    { icon: <Settings size={20} />, label: 'AI配置中心', href: 'settings', roles: undefined },
   ];
 
   const bossNav: NavItem[] = [
-    { icon: <Crown size={20} />, label: '总控中心', href: 'boss-dashboard' },
-    { icon: <AlertTriangle size={20} />, label: '异常待办', href: 'exceptions', badge: '3', badgeType: 'warning' },
-    { icon: <TrendingUp size={20} />, label: '目标管理', href: 'targets' },
-    { icon: <BookOpen size={20} />, label: '知识库管理', href: 'documents', badge: 'AI', badgeType: 'primary' },
-    { icon: <Users size={20} />, label: '员工管理', href: 'employees' },
-    { icon: <FileCheck size={20} />, label: '审批中心', href: 'approval' },
-    { icon: <Calendar size={20} />, label: 'OA办公', href: 'oa' },
-    { icon: <Clock size={20} />, label: '人事中心', href: 'hr' },
-    { icon: <DollarSign size={20} />, label: '财务中心', href: 'finance' },
-    { icon: <Settings size={20} />, label: '系统设置', href: 'settings' },
+    { icon: <Crown size={20} />, label: '总控中心', href: 'boss-dashboard', roles: ['boss'] },
+    { icon: <AlertTriangle size={20} />, label: '异常待办', href: 'exceptions', badge: '3', badgeType: 'warning', roles: ['boss'] },
+    { icon: <TrendingUp size={20} />, label: '目标管理', href: 'targets', roles: ['boss'] },
+    { icon: <BookOpen size={20} />, label: '知识库管理', href: 'documents', badge: 'AI', badgeType: 'primary', roles: undefined },
+    { icon: <Users size={20} />, label: '员工管理', href: 'employees', roles: ['manager', 'boss'] },
+    { icon: <Shield size={20} />, label: '角色管理', href: 'roles', roles: ['boss'] },
+    { icon: <Building2 size={20} />, label: '部门管理', href: 'departments', roles: ['boss'] },
+    { icon: <Upload size={20} />, label: '数据导入', href: 'import', roles: ['boss'] },
+    { icon: <FileCheck size={20} />, label: '审批中心', href: 'approval', roles: ['employee', 'manager', 'boss'] },
+    { icon: <Calendar size={20} />, label: 'OA办公', href: 'oa', roles: undefined },
+    { icon: <Clock size={20} />, label: '人事中心', href: 'hr', roles: ['manager', 'boss'] },
+    { icon: <DollarSign size={20} />, label: '财务中心', href: 'finance', roles: undefined },
+    { icon: <Settings size={20} />, label: '系统设置', href: 'settings', roles: undefined },
   ];
 
   // Strictly use account role logic
-  const navItems = user.role === 'boss' ? bossNav : employeeNav;
+  const allNavItems = user.role === 'boss' ? bossNav : employeeNav;
+  
+  // Filter menu items based on current user role
+  const currentRole = (role || 'employee') as AppRole;
+  const navItems = allNavItems.filter(item => 
+    !item.roles || item.roles.includes(currentRole)
+  );
 
   const handleLogout = async () => {
     await signOut();
@@ -246,9 +262,9 @@ export function Sidebar({ onNavClick }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 py-4 overflow-y-auto overflow-x-hidden space-y-2 custom-scrollbar">
         {renderNavGroup("AI 核心指挥", navItems.filter(i => ['dashboard', 'boss-dashboard', 'tender-analysis', 'battlecards', 'sales'].includes(i.href)))}
-        {renderNavGroup("业务与日常", navItems.filter(i => ['projects', 'target-dashboard', 'targets', 'approval', 'exceptions', 'employees'].includes(i.href)))}
+        {renderNavGroup("业务与日常", navItems.filter(i => ['projects', 'target-dashboard', 'targets', 'approval', 'exceptions', 'employees', 'roles', 'departments'].includes(i.href)))}
         {renderNavGroup("OA/HR/财务", navItems.filter(i => ['oa', 'hr', 'finance'].includes(i.href)))}
-        {renderNavGroup("知识与个人", navItems.filter(i => ['knowledge', 'documents', 'rewards', 'settings'].includes(i.href)))}
+        {renderNavGroup("知识与个人", navItems.filter(i => ['knowledge', 'documents', 'rewards', 'import', 'settings'].includes(i.href)))}
       </nav>
 
       {/* User Profile with Dropdown */}

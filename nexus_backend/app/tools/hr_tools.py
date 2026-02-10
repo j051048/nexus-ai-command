@@ -36,7 +36,8 @@ class AttendanceQueryTool(BaseTool):
                 "type": "string",
                 "description": "员工姓名（管理者可查询下属）"
             }
-        }
+        },
+        "required": []
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
@@ -112,13 +113,35 @@ class TeamAttendanceTool(BaseTool):
                 "enum": ["overview", "abnormal_alert", "ranking"],
                 "description": "查看类型: overview(总览), abnormal_alert(异常预警), ranking(排名)"
             }
-        }
+        },
+        "required": []
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
+        client = _get_client(config)
+        
+        # F4: Check if user is manager (not boss) - filter to own department only
+        from app.services.chat_service import ChatService
+        user_role = await ChatService._get_cached_user_role(user_id, db_client=client) if hasattr(ChatService, '_get_cached_user_role') else "employee"
+        
+        if user_role == "manager":
+            # Get manager's department
+            dept_res = await client.table("users").select("department").eq("id", user_id).maybe_single().execute()
+            user_dept = dept_res.data.get("department") if dept_res.data else None
+            if user_dept:
+                # Filter team to same department
+                team_res = await client.table("users").select("*").eq("department", user_dept).execute()
+            else:
+                team_res = await client.table("users").select("*").execute()
+        else:
+            # Boss/founder sees all
+            team_res = await client.table("users").select("*").execute()
+        
+        team_members = team_res.data or []
+        
         # 模拟团队数据
         team_stats = {
-            "total_members": 12,
+            "total_members": len(team_members),
             "avg_attendance_rate": 96.5,
             "total_late": 8,
             "total_overtime_hours": 156
@@ -272,7 +295,8 @@ class PerformanceReviewTool(BaseTool):
                 "type": "string",
                 "description": "评语"
             }
-        }
+        },
+        "required": []
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
@@ -346,7 +370,8 @@ class RecruitmentTool(BaseTool):
                 "type": "string",
                 "description": "面试时间"
             }
-        }
+        },
+        "required": []
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:

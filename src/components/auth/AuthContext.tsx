@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 
 // 三级权限系统
-type AppRole = 'boss' | 'ai_assistant' | 'employee';
+type AppRole = 'boss' | 'manager' | 'ai_assistant' | 'employee';
 
 interface Profile {
   id: string;
@@ -59,12 +59,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (roleData) {
         setRole(roleData as AppRole);
       } else {
-        // Fallback: check auth metadata for role
+        // Fallback: default to employee for security
+        // P0 Security Fix: Do NOT trust user_metadata.role as it can be set by the user during signup
         let resolvedRole: AppRole = 'employee';
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
-        const metaRole = currentUser?.user_metadata?.role;
-        if (metaRole === 'boss') {
-          resolvedRole = 'boss';
+
+        // Only trust the DB profile role (set by admin), not auth metadata
+        if (profileData && (profileData as any).role) {
+          const dbRole = (profileData as any).role;
+          if (dbRole === 'founder' || dbRole === 'boss') {
+            resolvedRole = 'boss';
+          } else if (dbRole === 'manager') {
+            resolvedRole = 'manager';
+          }
         }
         setRole(resolvedRole);
       }

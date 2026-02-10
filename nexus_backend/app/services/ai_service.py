@@ -44,7 +44,7 @@ class AIService:
         }
         
         payload = {
-            "model": "gemini-3-pro-preview", 
+            "model": settings.AI_DEFAULT_MODEL if hasattr(settings, 'AI_DEFAULT_MODEL') else "gpt-4o", 
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt}

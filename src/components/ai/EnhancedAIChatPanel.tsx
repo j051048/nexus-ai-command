@@ -139,12 +139,20 @@ export function EnhancedAIChatPanel({
   const [currentAgent, setCurrentAgent] = useState<string | undefined>(defaultAgent);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { isTyping: isAiTyping, aiStatus, streamChat } = useAIStream({ userId: user.id });
+
+  // A5: 移动端检测
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
 
   // 初始化欢迎消息
   useEffect(() => {
@@ -340,9 +348,10 @@ export function EnhancedAIChatPanel({
 
   return (
     <>
-      {variant === 'overlay' && isExpanded && !isFullscreen && (
+      {/* A5: 移动端背景遮罩（仅移动端全屏时显示） */}
+      {isMobile && isExpanded && (
         <div
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 md:hidden"
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 animate-fade-in"
           onClick={onToggle}
         />
       )}
@@ -350,19 +359,23 @@ export function EnhancedAIChatPanel({
       <div
         className={cn(
           'bg-card border-border transition-all duration-300 shadow-xl flex flex-col',
-          variant === 'overlay' ? 'fixed z-50 shadow-[0_-4px_20px_-1px_rgba(0,0,0,0.1)]' : 'relative h-full w-full border-r',
-          variant === 'overlay' && isFullscreen ? 'inset-0 rounded-none' : '',
-          variant === 'overlay' && !isFullscreen ? 'bottom-0 left-0 right-0 md:left-64 md:right-80 rounded-t-2xl md:rounded-none' : '',
-          variant === 'overlay' ? panelHeightClass : 'h-full'
+          // A5: 移动端全屏样式
+          isMobile && isExpanded ? 'fixed inset-0 z-50 bg-background' : '',
+          // 桌面端或移动端未展开时的样式
+          !isMobile && variant === 'overlay' ? 'fixed z-50 shadow-[0_-4px_20px_-1px_rgba(0,0,0,0.1)]' : '',
+          !isMobile && variant === 'embedded' ? 'relative h-full w-full border-r' : '',
+          !isMobile && variant === 'overlay' && isFullscreen ? 'inset-0 rounded-none' : '',
+          !isMobile && variant === 'overlay' && !isFullscreen ? 'bottom-0 left-0 right-0 md:left-64 md:right-80 rounded-t-2xl md:rounded-none' : '',
+          variant === 'overlay' && !isMobile ? panelHeightClass : 'h-full'
         )}
       >
         {/* Header */}
         <div
           className={cn(
             'h-16 px-4 md:px-6 flex items-center justify-between cursor-pointer hover:bg-card-elevated/50 transition-colors',
-            isFullscreen ? 'rounded-none' : 'rounded-t-2xl md:rounded-t-none'
+            isFullscreen || isMobile ? 'rounded-none' : 'rounded-t-2xl md:rounded-t-none'
           )}
-          onClick={!isFullscreen ? onToggle : undefined}
+          onClick={(!isFullscreen && !isMobile) ? onToggle : undefined}
         >
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -399,81 +412,95 @@ export function EnhancedAIChatPanel({
           </div>
 
           <div className="flex items-center gap-1">
-            {variant === 'overlay' && isExpanded && (
-              <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsFullscreen(!isFullscreen);
-                      }}
-                    >
-                      {isFullscreen ? (
-                        <Minimize2 className="w-4 h-4" />
-                      ) : (
-                        <Maximize2 className="w-4 h-4" />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {isFullscreen ? '退出全屏' : '全屏模式'}
-                  </TooltipContent>
-                </Tooltip>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Settings className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={handleClearChat}>
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      清空对话
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Download className="w-4 h-4 mr-2" />
-                      导出对话
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem>
-                      <History className="w-4 h-4 mr-2" />
-                      历史记录
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
-            )}
-
-            {isFullscreen ? (
+            {/* A5: 移动端显示关闭按钮 */}
+            {isMobile && isExpanded ? (
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
-                onClick={() => {
-                  setIsFullscreen(false);
-                  onToggle();
-                }}
+                onClick={onToggle}
               >
                 <X className="w-4 h-4" />
               </Button>
             ) : (
-              <button className="p-2 rounded-lg hover:bg-secondary transition-colors">
-                {isExpanded ? (
-                  <ChevronDown className="w-5 h-5" />
-                ) : (
-                  <ChevronUp className="w-5 h-5" />
+              <>
+                {variant === 'overlay' && isExpanded && (
+                  <>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsFullscreen(!isFullscreen);
+                          }}
+                        >
+                          {isFullscreen ? (
+                            <Minimize2 className="w-4 h-4" />
+                          ) : (
+                            <Maximize2 className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {isFullscreen ? '退出全屏' : '全屏模式'}
+                      </TooltipContent>
+                    </Tooltip>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Settings className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={handleClearChat}>
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          清空对话
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Download className="w-4 h-4 mr-2" />
+                          导出对话
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem>
+                          <History className="w-4 h-4 mr-2" />
+                          历史记录
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </>
                 )}
-              </button>
+
+                {isFullscreen ? (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => {
+                      setIsFullscreen(false);
+                      onToggle();
+                    }}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                ) : (
+                  <button className="p-2 rounded-lg hover:bg-secondary transition-colors">
+                    {isExpanded ? (
+                      <ChevronDown className="w-5 h-5" />
+                    ) : (
+                      <ChevronUp className="w-5 h-5" />
+                    )}
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -539,8 +566,8 @@ export function EnhancedAIChatPanel({
               </div>
             )}
 
-            {/* Input Area */}
-            <div className="px-4 md:px-6 py-4 border-t border-border bg-card">
+            {/* Input Area - A5: 添加安全区适配 */}
+            <div className="px-4 md:px-6 py-4 border-t border-border bg-card sticky bottom-0 pb-[calc(1rem+env(safe-area-inset-bottom))]">
               {/* Agent Tags */}
               {showAgents && (
                 <div className="mb-3 p-2 bg-secondary/50 rounded-lg animate-fade-slide-up">

@@ -22,9 +22,9 @@ export function MobileSidebar({ children }: MobileSidebarProps) {
           variant="ghost" 
           size="icon" 
           className="md:hidden fixed top-4 left-4 z-50 bg-background/80 backdrop-blur-sm border shadow-sm"
+          aria-label="切换菜单"
         >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          <span className="sr-only">切换菜单</span>
+          <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>
       <SheetContent 
