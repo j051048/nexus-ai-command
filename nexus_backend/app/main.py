@@ -148,8 +148,15 @@ async def health_check():
     P2 Enhancement: Added database connectivity check.
     """
     from app.core.database import supabase
+    from app.services.cache_service import cache_service
+    from app.core.config import settings
+    import httpx
     
     db_status = "unknown"
+    cache_status = "unknown"
+    ai_status = "unknown"
+
+    # 1. Database Check
     try:
         if supabase:
             # Quick check - just verify connection
@@ -161,12 +168,35 @@ async def health_check():
         db_status = f"error: {str(e)[:50]}"
         logger.warning(f"Health check DB error: {e}")
     
+    # 2. Redis/Cache Check
+    try:
+        if await cache_service.ping():
+            cache_status = "connected"
+        else:
+            cache_status = "error"
+    except Exception as e:
+        cache_status = f"error: {str(e)[:50]}"
+
+    # 3. AI Connectivity Check
+    try:
+        base_url = settings.AI_BASE_URL or "https://api.openai.com/v1"
+        # Extract domain for ping
+        domain = base_url.split("/v1")[0].split("/chat")[0]
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            # Simple GET request to root or health of AI provider
+            resp = await client.get(domain)
+            ai_status = f"reachable ({resp.status_code})"
+    except Exception as e:
+        ai_status = f"unreachable: {str(e)[:50]}"
+
     return {
-        "status": "healthy" if db_status == "connected" else "degraded",
+        "status": "healthy" if db_status == "connected" and cache_status == "connected" else "degraded",
         "version": settings.VERSION,
         "environment": settings.ENV,
         "checks": {
-            "database": db_status
+            "database": db_status,
+            "cache": cache_status,
+            "ai_gateway": ai_status
         }
     }
 

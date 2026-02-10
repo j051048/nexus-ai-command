@@ -49,7 +49,8 @@ import { AIMessage } from '@/types/nexus';
 import { toast } from 'sonner';
 import { useAIStream } from '@/hooks/useAIStream';
 import { PulseDot } from '@/components/common/AnimatedComponents';
-import { getEnterAnimationClass } from '@/lib/animations';
+import { MessageBubble } from './MessageBubble';
+
 
 // ==================== 类型定义 ====================
 
@@ -116,265 +117,8 @@ const defaultQuickReplies: QuickReply[] = [
 
 // ==================== 子组件 ====================
 
-interface MessageBubbleProps {
-  message: AIMessage;
-  onCopy: (content: string) => void;
-  onRegenerate?: () => void;
-  onFeedback?: (type: 'positive' | 'negative') => void;
-  onDelete?: () => void;
-  isLatest?: boolean;
-  isTyping?: boolean;
-}
+// 移除内部定义的 MessageBubble 组件和接口
 
-function MessageBubble({
-  message,
-  onCopy,
-  onRegenerate,
-  onFeedback,
-  onDelete,
-  isLatest,
-  isTyping,
-}: MessageBubbleProps) {
-  const [copied, setCopied] = useState(false);
-  const [feedback, setFeedback] = useState<'positive' | 'negative' | null>(null);
-  const isUser = message.role === 'user';
-
-  const handleCopy = () => {
-    onCopy(message.content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleFeedback = (type: 'positive' | 'negative') => {
-    setFeedback(type);
-    onFeedback?.(type);
-    toast.success(type === 'positive' ? '感谢您的反馈！' : '我们会继续改进');
-  };
-
-  // 检测并格式化代码块
-  const formatContent = (content: string) => {
-    const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
-    const parts: React.ReactNode[] = [];
-    let lastIndex = 0;
-    let match;
-
-    while ((match = codeBlockRegex.exec(content)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push(
-          <span key={lastIndex}>
-            {content.slice(lastIndex, match.index)}
-          </span>
-        );
-      }
-
-      const language = match[1] || 'text';
-      const code = match[2];
-      parts.push(
-        <div key={match.index} className="my-2 rounded-lg overflow-hidden border border-border">
-          <div className="flex items-center justify-between px-3 py-1.5 bg-muted/50 text-xs">
-            <span className="text-muted-foreground font-mono">{language}</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-xs"
-              onClick={() => {
-                navigator.clipboard.writeText(code);
-                toast.success('代码已复制');
-              }}
-            >
-              <Copy className="w-3 h-3 mr-1" />
-              复制
-            </Button>
-          </div>
-          <pre className="p-3 bg-muted/30 overflow-x-auto text-xs font-mono">
-            <code>{code}</code>
-          </pre>
-        </div>
-      );
-
-      lastIndex = match.index + match[0].length;
-    }
-
-    if (lastIndex < content.length) {
-      parts.push(
-        <span key={lastIndex}>
-          {content.slice(lastIndex)}
-        </span>
-      );
-    }
-
-    return parts.length > 0 ? parts : content;
-  };
-
-  return (
-    <div
-      className={cn(
-        'group flex gap-3 transition-all',
-        isUser ? 'justify-end' : 'justify-start',
-        getEnterAnimationClass('fade', 'fast')
-      )}
-    >
-      {!isUser && (
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center flex-shrink-0 shadow-sm">
-          <Bot className="w-4 h-4 text-primary-foreground" />
-        </div>
-      )}
-
-      <div className={cn('max-w-[85%] md:max-w-md', isUser && 'order-first')}>
-        {message.agent && !isUser && (
-          <div className="flex items-center gap-1.5 mb-1">
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
-              {message.agent}
-            </Badge>
-          </div>
-        )}
-
-        <div
-          className={cn(
-            'rounded-2xl px-4 py-3 relative',
-            isUser
-              ? 'bg-primary text-primary-foreground rounded-br-md'
-              : 'bg-secondary text-foreground rounded-bl-md'
-          )}
-        >
-          <div className="text-sm whitespace-pre-wrap break-words">
-            {isTyping && isLatest && !message.content ? (
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-              </div>
-            ) : (
-              formatContent(message.content)
-            )}
-          </div>
-        </div>
-
-        {!isUser && message.content && (
-          <div className={cn(
-            'flex items-center gap-1 mt-1.5 transition-opacity',
-            'opacity-0 group-hover:opacity-100'
-          )}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0"
-                  onClick={handleCopy}
-                >
-                  {copied ? (
-                    <Check className="w-3.5 h-3.5 text-green-500" />
-                  ) : (
-                    <Copy className="w-3.5 h-3.5" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">复制</TooltipContent>
-            </Tooltip>
-
-            {isLatest && onRegenerate && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0"
-                    onClick={onRegenerate}
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">重新生成</TooltipContent>
-              </Tooltip>
-            )}
-
-            <div className="flex items-center gap-0.5 ml-1">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={cn(
-                      'h-7 w-7 p-0',
-                      feedback === 'positive' && 'text-green-500'
-                    )}
-                    onClick={() => handleFeedback('positive')}
-                    disabled={feedback !== null}
-                  >
-                    <ThumbsUp className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">有帮助</TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={cn(
-                      'h-7 w-7 p-0',
-                      feedback === 'negative' && 'text-red-500'
-                    )}
-                    onClick={() => handleFeedback('negative')}
-                    disabled={feedback !== null}
-                  >
-                    <ThumbsDown className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">需改进</TooltipContent>
-              </Tooltip>
-            </div>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 ml-auto">
-                  <MoreHorizontal className="w-3.5 h-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleCopy}>
-                  <Copy className="w-4 h-4 mr-2" />
-                  复制内容
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => {
-                  const blob = new Blob([message.content], { type: 'text/plain' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = 'ai-response.txt';
-                  a.click();
-                }}>
-                  <Download className="w-4 h-4 mr-2" />
-                  导出文本
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={onDelete}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  删除消息
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
-
-        <p className={cn(
-          'text-[10px] mt-1',
-          isUser ? 'text-right text-primary-foreground/60' : 'text-muted-foreground'
-        )}>
-          {message.timestamp.toLocaleTimeString('zh-CN', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </p>
-      </div>
-    </div>
-  );
-}
 
 // ==================== 主组件 ====================
 
@@ -623,16 +367,19 @@ export function EnhancedAIChatPanel({
                 <Sparkles className="w-4 h-4 text-primary" />
               </h3>
               <p className="text-xs text-muted-foreground flex items-center gap-2">
-                {aiStatus ? (
-                  <>
-                    <Loader2 className="w-3 h-3 animate-spin text-primary" />
-                    <span className="text-primary">{aiStatus}</span>
-                  </>
-                ) : isAiTyping ? (
-                  'AI正在思考...'
-                ) : (
-                  '输入指令或 @ 选择专属助手'
-                )}
+                  <div className="flex items-center gap-2">
+                    {/* Visual Thinking Process */}
+                    {aiStatus ? (
+                      <div className="flex items-center gap-1.5 bg-secondary/80 px-2 py-0.5 rounded-full animate-pulse">
+                         <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                         <span className="text-primary font-medium">{aiStatus}</span>
+                      </div>
+                    ) : isAiTyping ? (
+                      <span className="text-muted-foreground">AI正在思考...</span>
+                    ) : (
+                      '输入指令或 @ 选择专属助手'
+                    )}
+                  </div>
               </p>
             </div>
           </div>
@@ -744,6 +491,14 @@ export function EnhancedAIChatPanel({
                     isTyping={isAiTyping}
                   />
                 ))}
+                
+                {isAiTyping && aiStatus && (
+                   <div className="flex items-center gap-2 px-4 py-2 mb-2 text-xs text-muted-foreground bg-secondary/30 rounded-lg mx-4 animate-pulse w-fit">
+                     <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                     <span className="font-mono">{aiStatus}</span>
+                   </div>
+                )}
+                
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>

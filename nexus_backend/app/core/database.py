@@ -28,16 +28,17 @@ try:
         Lightweight async Supabase client wrapper.
         Uses PostgREST directly for better compatibility.
         """
-        def __init__(self, url: str, key: str):
+        def __init__(self, url: str, key: str, token: str = None):
             # PostgREST expects base URL. Supabase URL usually ends with .co, needing /rest/v1 for PostgREST
             base_url = f"{url}/rest/v1"
             headers = {
                 "apikey": key,
-                "Authorization": f"Bearer {key}",
+                "Authorization": f"Bearer {token or key}",
                 "Content-Type": "application/json"
             }
             self.client = AsyncPostgrestClient(base_url, headers=headers)
             self._url = url  # Store for health checks
+            self._key = key
 
         def table(self, name: str):
             return self.client.from_(name)
@@ -48,7 +49,13 @@ try:
         @property
         def is_configured(self) -> bool:
             """Check if client is properly configured"""
-            return bool(self._url)
+            return bool(self._url) and bool(self.client)
+
+        def get_scoped_client(self, token: str):
+            """
+            Return a new client instance scoped to a specific user token (RLS).
+            """
+            return MiniSupabaseClient(self._url, self._key, token)
 
     if not url or not key:
         logger.warning("SUPABASE_URL or SUPABASE_SERVICE_KEY not set. Database features disabled.")

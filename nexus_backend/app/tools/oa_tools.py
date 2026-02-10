@@ -51,6 +51,9 @@ class LeaveRequestTool(BaseTool):
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
+        token = config.get("token") if config else None
+        client = supabase.get_scoped_client(token) if token else supabase
+
         leave_type = args.get("leave_type", "personal")
         start_date = args.get("start_date")
         end_date = args.get("end_date")
@@ -69,7 +72,7 @@ class LeaveRequestTool(BaseTool):
             return "❌ 日期格式错误，请使用 YYYY-MM-DD 格式"
         
         # 获取用户信息
-        user_res = await supabase.table("users").select("name, department, role").eq("id", user_id).maybe_single().execute()
+        user_res = await client.table("users").select("name, department, role").eq("id", user_id).maybe_single().execute()
         if not user_res.data:
             return "❌ 无法获取用户信息"
         
@@ -78,7 +81,7 @@ class LeaveRequestTool(BaseTool):
         # 查找交接人
         handover_id = None
         if handover_to:
-            handover_res = await supabase.table("users").select("id, name").ilike("name", f"%{handover_to}%").limit(1).execute()
+            handover_res = await client.table("users").select("id, name").ilike("name", f"%{handover_to}%").limit(1).execute()
             if handover_res.data:
                 handover_id = handover_res.data[0]["id"]
         
@@ -86,7 +89,7 @@ class LeaveRequestTool(BaseTool):
         leave_balance_info = ""
         if leave_type == "annual":
             # 简化：假设每人年假10天
-            used_res = await supabase.table("oa_leave_requests").select("days").eq("user_id", user_id).eq("type", "annual").eq("status", "approved").execute()
+            used_res = await client.table("oa_leave_requests").select("days").eq("user_id", user_id).eq("type", "annual").eq("status", "approved").execute()
             used_days = sum(float(r.get("days", 0)) for r in (used_res.data or []))
             remaining = 10 - used_days
             if work_days > remaining:
@@ -130,7 +133,7 @@ class LeaveRequestTool(BaseTool):
             "approval_level": approval_level
         }
         
-        result = await supabase.table("oa_leave_requests").insert(leave_data).execute()
+        result = await client.table("oa_leave_requests").insert(leave_data).execute()
         
         if not result.data:
             return "❌ 创建请假申请失败，请稍后重试"
@@ -140,9 +143,9 @@ class LeaveRequestTool(BaseTool):
         # 发送通知
         if approval_level != "auto":
             # 查找审批人
-            approvers = await supabase.table("users").select("id").in_("role", ["manager", "founder"]).execute()
+            approvers = await client.table("users").select("id").in_("role", ["manager", "founder"]).execute()
             for approver in (approvers.data or []):
-                await supabase.table("notifications").insert({
+                await client.table("notifications").insert({
                     "user_id": approver["id"],
                     "title": "📋 新的请假申请",
                     "content": f"{user['name']} 申请 {type_names.get(leave_type, leave_type)} {work_days}天 ({start_date} ~ {end_date})",

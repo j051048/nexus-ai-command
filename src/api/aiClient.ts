@@ -42,8 +42,25 @@ export const aiClient = {
         });
 
         if (!response.ok) {
-            const errorText = await response.text().catch(() => response.statusText);
-            throw new Error(`API Request Failed (${response.status}): ${errorText}`);
+            let errorMessage = `API Request Failed (${response.status})`;
+            try {
+                const errorData = await response.json();
+                if (errorData.error && errorData.error.message) {
+                    errorMessage = errorData.error.message;
+                } else if (errorData.detail) {
+                    // Handle standard FastAPI errors or Pydantic validation errors
+                    if (typeof errorData.detail === 'string') {
+                        errorMessage = errorData.detail;
+                    } else if (Array.isArray(errorData.detail)) {
+                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                         errorMessage = errorData.detail.map((d: any) => d.msg).join(', ');
+                    }
+                }
+            } catch (e) {
+                const text = await response.text().catch(() => response.statusText);
+                 errorMessage += `: ${text.slice(0, 100)}`;
+            }
+            throw new Error(errorMessage);
         }
 
         return response.json();

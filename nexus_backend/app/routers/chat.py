@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from fastapi.responses import StreamingResponse
 from app.core.auth import get_current_user_id
 from app.core.database import supabase
@@ -19,7 +19,7 @@ async def _error_stream(msg: str):
     yield "data: [DONE]\n\n"
 
 @router.post("/chat")
-async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)):
+async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_current_user_id)):
     """
     Unified Chat Endpoint.
     
@@ -46,10 +46,14 @@ async def chat(request: ChatRequest, user_id: str = Depends(get_current_user_id)
                 return StreamingResponse(_error_stream(f"⚠️ 安全拦截: {warning}"), media_type="text/event-stream")
 
     # 3. Load User AI Settings
+    auth_header = req.headers.get("Authorization")
+    token = auth_header.split(" ")[1] if auth_header and "Bearer" in auth_header else None
+
     ai_config = {
         "base_url": os.getenv("AI_BASE_URL", "https://proxy.flydao.top/v1"),
         "api_key": os.getenv("OPENAI_API_KEY", ""),
-        "model": "gpt-4o"
+        "model": "gpt-4o",
+        "token": token
     }
     try:
         settings_res = await supabase.table("ai_settings").select("*").eq("user_id", user_id).maybe_single().execute()

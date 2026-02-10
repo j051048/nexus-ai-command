@@ -2,6 +2,7 @@ import json
 import uuid
 import datetime
 from typing import Any, Dict, List
+from app.services.content_moderation import sanitize_output
 
 class TraceLogger:
     """
@@ -14,7 +15,18 @@ class TraceLogger:
         self.agent = agent
         self.start_time = datetime.datetime.now()
     
-    def _emit(self, event_type: str, content: Dict[str, Any]):
+        if isinstance(content, dict):
+            # Recursively sanitize dictionary values
+            sanitized_content = {}
+            for k, v in content.items():
+                if isinstance(v, str):
+                    sanitized_content[k] = sanitize_output(v)
+                else:
+                    sanitized_content[k] = v
+            content = sanitized_content
+        elif isinstance(content, str):
+            content = sanitize_output(content)
+            
         entry = {
             "trace_id": self.trace_id,
             "timestamp": datetime.datetime.now().isoformat(),

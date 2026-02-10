@@ -182,6 +182,16 @@ class CacheService:
     
     # ============== Domain-specific methods ==============
     
+    async def ping(self) -> bool:
+        """Health check for cache"""
+        await self._ensure_initialized()
+        try:
+            if self._use_redis:
+                return await self._client.ping()
+            return True # In-memory always healthy
+        except Exception:
+            return False
+
     async def get_user_role(self, user_id: str) -> Optional[str]:
         """Get cached user role"""
         return await self.get(f"role:{user_id}")

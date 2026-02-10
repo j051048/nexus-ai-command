@@ -4,7 +4,7 @@
 // Level 1: boss (founder) - 最高权限，完整管理后台
 // Level 2: ai_assistant - AI助手，可代理员工操作
 // Level 3: employee - 普通员工
-export type UserRole = 'boss' | 'ai_assistant' | 'employee';
+export type UserRole = 'boss' | 'ai_assistant' | 'employee' | 'sales' | 'manager';
 
 export interface User {
   id: string;
