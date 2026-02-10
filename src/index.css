@@ -7,6 +7,33 @@
 /* Project Nexus - AI Enterprise Command Center Design System */
 /* Dark mode: Cyberpunk-inspired | Light mode: Clean SaaS professional */
 
+/* ==================== A8: 移动端触控优化 ==================== */
+
+/* Mobile touch optimizations */
+html {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Safe area padding for notched devices */
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Prevent pull-to-refresh on mobile */
+html, body {
+  overscroll-behavior: none;
+}
+
+/* Smooth scrolling */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ==================== End A8 ==================== */
+
 @layer base {
   :root {
     /* Light Mode - Clean Professional SaaS Style */

@@ -28,11 +28,19 @@ export function BossApprovalView() {
     const [statusFilter, setStatusFilter] = useState('pending');
     const [rejectingId, setRejectingId] = useState<string | null>(null);
     const [rejectReason, setRejectReason] = useState('');
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
     const { data: allApprovals, isLoading } = useAllApprovals(statusFilter);
     const { data: pendingCount } = usePendingApprovalsCount();
     const approveRequest = useApproveRequest();
     const rejectRequest = useRejectRequest();
+
+    // A6: 移动端检测
+    useEffect(() => {
+        const handler = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener('resize', handler);
+        return () => window.removeEventListener('resize', handler);
+    }, []);
 
     const handleApprove = async (requestId: string) => {
         try {
@@ -139,16 +147,81 @@ export function BossApprovalView() {
                                 <p className="text-sm mt-1">目前没有需要您关注的异常申请</p>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 gap-4">
+                            // A6: 移动端卡片视图，桌面端列表视图
+                            <div className={cn(
+                                isMobile ? "space-y-4" : "grid grid-cols-1 gap-4"
+                            )}>
                                 {allApprovals.map((approval) => (
-                                    <BossApprovalCard
-                                        key={approval.id}
-                                        approval={approval}
-                                        onApprove={() => handleApprove(approval.id)}
-                                        onReject={() => setRejectingId(approval.id)}
-                                        isApproving={approveRequest.isPending}
-                                        typeIcon={approvalTypes.find(t => t.id === approval.type)?.icon}
-                                    />
+                                    isMobile ? (
+                                        // A6: 移动端卡片
+                                        <div
+                                            key={approval.id}
+                                            className="bg-card rounded-xl border border-border p-4 space-y-3 shadow-sm"
+                                        >
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground flex-shrink-0">
+                                                    {approvalTypes.find(t => t.id === approval.type)?.icon}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-medium text-foreground text-sm">{approval.description}</p>
+                                                    <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                                                        <span>{approval.submitter_name}</span>
+                                                        <span>•</span>
+                                                        <span className="font-medium text-foreground">¥{approval.amount}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            {approval.ai_reason && (
+                                                <div className="p-2 rounded bg-primary/5 border border-primary/10">
+                                                    <p className="text-xs text-muted-foreground flex items-start gap-1">
+                                                        <CheckCircle2 className="w-3 h-3 text-primary mt-0.5 flex-shrink-0" />
+                                                        <span><span className="font-semibold text-primary">AI:</span> {approval.ai_reason}</span>
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            {/* A6: 移动端批准/驳回按钮 */}
+                                            {approval.status === 'pending' && (
+                                                <div className="flex gap-2 pt-2">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => setRejectingId(approval.id)}
+                                                        className="flex-1 text-destructive hover:text-destructive"
+                                                    >
+                                                        <XCircle className="w-4 h-4 mr-1" />
+                                                        驳回
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={() => handleApprove(approval.id)}
+                                                        disabled={approveRequest.isPending}
+                                                        className="flex-1 bg-success hover:bg-success/90"
+                                                    >
+                                                        {approveRequest.isPending ? (
+                                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                                        ) : (
+                                                            <>
+                                                                <CheckCircle2 className="w-4 h-4 mr-1" />
+                                                                批准
+                                                            </>
+                                                        )}
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        // A6: 桌面端保持原有组件
+                                        <BossApprovalCard
+                                            key={approval.id}
+                                            approval={approval}
+                                            onApprove={() => handleApprove(approval.id)}
+                                            onReject={() => setRejectingId(approval.id)}
+                                            isApproving={approveRequest.isPending}
+                                            typeIcon={approvalTypes.find(t => t.id === approval.type)?.icon}
+                                        />
+                                    )
                                 ))}
                             </div>
                         )}
