@@ -61,22 +61,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (roleData) {
         setRole(roleData as AppRole);
       } else {
-        // Fallback logic if RPC fails or returns null
+        // Fallback: default to employee for security
+        // P0 Security Fix: Do NOT trust user_metadata.role as it can be set by the user during signup
         let resolvedRole: AppRole = 'employee';
 
-        // 1. Check DB profile directly
+        // Only trust the DB profile role (set by admin), not auth metadata
         if (profileData && (profileData as unknown as Record<string, unknown>).role) {
           const dbRole = (profileData as unknown as Record<string, unknown>).role;
           resolvedRole = dbRole === 'founder' ? 'boss' : 'employee';
         }
-        // 2. Check Auth Metadata (Registration Intent) - Critical Fix
-        else {
-          const { data: { user: currentUser } } = await supabase.auth.getUser();
-          const metaRole = currentUser?.user_metadata?.role;
-          if (metaRole === 'boss') {
-            resolvedRole = 'boss';
-          }
-        }
+        // Removed: auth metadata fallback that allowed self-assigned boss role
         setRole(resolvedRole);
       }
     } catch (error) {

@@ -45,21 +45,19 @@ class EncryptionService:
             return ""
         
         if encrypted_data.startswith("enc:"):
-            # Handle fallback base64
+            # Handle legacy base64 encoding
             try:
                 return base64.b64decode(encrypted_data[4:].encode()).decode()
-            except Exception:
-                return encrypted_data
+            except Exception as e:
+                logger.error(f"Legacy base64 decryption failed: {e}")
+                raise ValueError("Failed to decrypt legacy-encoded data")
         
         fernet = EncryptionService._get_fernet()
-        if fernet:
-            try:
-                return fernet.decrypt(encrypted_data.encode()).decode()
-            except Exception as e:
-                logger.error(f"Decryption failed: {e}")
-                return encrypted_data # Return original if decryption fails (might be plain text)
-        
-        return encrypted_data
+        try:
+            return fernet.decrypt(encrypted_data.encode()).decode()
+        except Exception as e:
+            logger.error(f"Fernet decryption failed - data may be corrupted or key mismatch: {e}")
+            raise ValueError("Decryption failed - data corrupted or encryption key mismatch")
 
 # Global instance
 encryption_service = EncryptionService()

@@ -73,6 +73,7 @@ class Settings(BaseSettings):
         default="https://proxy.flydao.top/v1",
         description="Base URL for OpenAI-compatible API"
     )
+    AI_DEFAULT_MODEL: str = Field(default="gpt-4o", description="Default AI model for general tasks")
     
     # Database (read by database.py via os.getenv, declared here for validation)
     SUPABASE_URL: str = Field(default="", description="Supabase project URL")
@@ -92,6 +93,7 @@ class Settings(BaseSettings):
     
     # File upload
     MAX_FILE_SIZE_MB: int = Field(default=50, description="Maximum file upload size in MB")
+    MAX_CHAT_HISTORY: int = Field(default=10, description="Maximum chat message history window size")
     ALLOWED_FILE_TYPES: List[str] = Field(
         default=[".pdf", ".docx", ".txt", ".md", ".csv", ".json", ".png", ".jpg", ".jpeg"],
         description="Allowed file upload extensions"

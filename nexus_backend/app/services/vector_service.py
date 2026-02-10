@@ -102,58 +102,50 @@ class VectorService:
 
         # B. Keyword Search (Lexical) - Respect Three-Tier Visibility Model
         async def run_keyword_search():
-             try:
-                 # We need to fetch the user's department first for cross-department checks
-                 v_dept = None
-                 u_res = await supabase.table("users").select("department").eq("id", user_id).maybe_single().execute()
-                 if u_res.data:
-                     v_dept = u_res.data.get("department")
-
-                 # P0 Security Fix #4: Use OR logical filter for visibility
-                 # organization OR (department=v_dept) OR (owner_id=user_id)
-                 visibility_filter = f"visibility.eq.organization,and(visibility.eq.department,department.eq.{v_dept})"
-                 if user_id:
-                     visibility_filter += f",owner_id.eq.{user_id}"
-                 
-                 # Using the !inner join syntax to filter based on related documents table
-                 # Note: PostgREST OR logic can be complex with joins. 
-                 # Safer implementation: Use match_documents_keyword RPC if available, 
-                 # or fetch with filter.
-                 
-                 query_builder = supabase.table("document_embeddings").select("*, documents!inner(*)").text_search("fts", query, config="simple")
-                 
-                 # Visibility logic via PostgREST horizontal filtering
-                 # (visibility='organization' OR (visibility='department' AND department=D) OR owner_id=U)
-                 # Note: documents!inner(*) allows access to document columns
-                 
-                 # For simplicity and correctness with the complex OR logic + Join, 
-                 # it is better to use a dedicated keyword search RPC that mirrors match_documents logic
-                 # but uses FTS.
-                 
-                 # Fallback to a simpler owner_id filter for now if RPC not ready, 
-                 # but the goal is org-wide. Let's try the complex filter.
-                 
-                 res = await query_builder\
-                    .or_(f"visibility.eq.organization,and(visibility.eq.department,department.eq.{v_dept}),owner_id.eq.{user_id}", foreign_table="documents")\
+            try:
+                # Try RPC-based keyword search first (handles visibility correctly)
+                try:
+                    res = await supabase.rpc("match_documents_keyword", {
+                        "p_query": query,
+                        "p_user_id": user_id,
+                        "p_limit": limit
+                    }).execute()
+                    return res.data or []
+                except Exception as rpc_err:
+                    logger.debug(f"Keyword search RPC not available, falling back: {rpc_err}")
+                
+                # Fallback: simple owner_id filter
+                res = await supabase.table("document_embeddings")\
+                    .select("*, documents!inner(*)")\
+                    .eq("documents.owner_id", user_id)\
                     .limit(limit).execute()
-                 
-                 # Flatten the results to match vector search structure
-                 flattened = []
-                 for item in (res.data or []):
-                     doc_data = item.pop("documents", {})
-                     # Merge document-level visibility/metadata if needed
-                     flattened.append({**item, "doc_metadata": doc_data.get("metadata")})
-                 
-                 return flattened
-             except Exception as e: 
-                 # Fallback to ILIKE if FTS fails
-                 print(f"Keyword search failed: {e}")
-                 # For security and simplicity, fallback results should at least be private
-                 res = await supabase.table("document_embeddings").select("*, documents!inner(*)").eq("documents.owner_id", user_id).limit(limit).execute()
-                 return res.data or []
+                
+                flattened = []
+                for item in (res.data or []):
+                    doc_data = item.pop("documents", {})
+                    flattened.append({**item, "doc_metadata": doc_data.get("metadata")})
+                return flattened
+            except Exception as e:
+                logger.warning(f"Keyword search failed completely: {e}")
+                return []
 
         # Run Parallel
         vector_res, keyword_res = await asyncio.gather(run_vector_search(), run_keyword_search())
+        
+        # Graceful degradation: if one search path failed, use the other directly
+        if not vector_res and keyword_res:
+            logger.info("Vector search returned empty, using keyword results only")
+            top_docs = keyword_res[:limit]
+            # Format and return directly
+            if not top_docs:
+                return f"知识库中未找到与 '{query}' 相关的公开或个人信息。建议您可以尝试更换关键词，或者上传相关文档后再试。"
+            results = []
+            for item in top_docs:
+                content = item.get("content", "").strip()
+                meta = item.get("metadata") or item.get("doc_metadata") or {}
+                source = meta.get("source") or meta.get("file_name") or "公司知识库"
+                results.append(f"{content} [来源: {source}]")
+            return "为您检索到以下相关企业知识 (关键词匹配):\n\n- " + "\n- ".join(results)
         
         # C. RRF Fusion
         fused_docs = self._rrf_fusion([vector_res, keyword_res], k=60)

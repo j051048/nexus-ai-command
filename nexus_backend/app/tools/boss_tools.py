@@ -23,6 +23,45 @@ def _get_client(config: Dict = None):
 MAX_BATCH_SIZE = 10
 
 
+def _parse_amount_from_condition(condition: str) -> float:
+    """
+    解析条件中的金额，支持中文单位（万/千/k/w/K/W）
+    
+    示例:
+    - "5万" -> 50000.0
+    - "3千" -> 3000.0
+    - "10k" -> 10000.0
+    - "2.5W" -> 25000.0
+    - "500" -> 500.0
+    
+    Returns:
+        float: 解析后的金额，解析失败返回 None
+    """
+    import re
+    
+    # 提取数字和可能的单位
+    pattern = r'(\d+(?:\.\d+)?)\s*([万千kKwW]?)'
+    match = re.search(pattern, condition)
+    
+    if not match:
+        return None
+    
+    number_str, unit = match.groups()
+    
+    try:
+        amount = float(number_str)
+        
+        # 单位换算
+        if unit in ['万', 'w', 'W']:
+            amount *= 10000
+        elif unit in ['千', 'k', 'K']:
+            amount *= 1000
+        
+        return amount
+    except (ValueError, TypeError):
+        return None
+
+
 class SmartApprovalTool(BaseTool):
     """
     智能审批工具 - 支持批量审批、条件审批、委托审批
@@ -111,16 +150,16 @@ class SmartApprovalTool(BaseTool):
         # 条件筛选
         if condition:
             if "小于" in condition or "<" in condition:
-                try:
-                    amount_threshold = float(''.join(filter(str.isdigit, condition)))
+                amount_threshold = _parse_amount_from_condition(condition)
+                if amount_threshold is not None:
                     selected_requests = [r for r in selected_requests if float(r.get("amount", 0)) < amount_threshold]
-                except (ValueError, TypeError):
+                else:
                     logger.warning(f"Failed to parse amount threshold from condition: {condition}")
             elif "大于" in condition or ">" in condition:
-                try:
-                    amount_threshold = float(''.join(filter(str.isdigit, condition)))
+                amount_threshold = _parse_amount_from_condition(condition)
+                if amount_threshold is not None:
                     selected_requests = [r for r in selected_requests if float(r.get("amount", 0)) > amount_threshold]
-                except (ValueError, TypeError):
+                else:
                     logger.warning(f"Failed to parse amount threshold from condition: {condition}")
         
         if not selected_requests:
@@ -307,7 +346,8 @@ class DailyBriefingTool(BaseTool):
                 "enum": ["full", "approvals_only", "alerts_only", "performance"],
                 "description": "简报类型: full(完整), approvals_only(仅审批), alerts_only(仅预警), performance(业绩)"
             }
-        }
+        },
+        "required": []
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
@@ -323,8 +363,18 @@ class DailyBriefingTool(BaseTool):
         pending_list = pending_res.data or []
         pending_count = len(pending_list)
         
-        # 获取自动处理的数量（模拟）
-        auto_processed = 12
+        # 获取已自动处理数量（今日已审批的）
+        try:
+            from datetime import datetime, timedelta, timezone
+            today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0).isoformat()
+            auto_res = await client.table("approval_requests")\
+                .select("count", count="exact")\
+                .eq("status", "approved")\
+                .gte("updated_at", today_start)\
+                .execute()
+            auto_processed = auto_res.count or 0
+        except Exception:
+            auto_processed = 0
         
         # 获取团队绩效
         team_res = await client.table("users").select("name, score, total_bonus").order("score", desc=True).limit(3).execute()
@@ -341,10 +391,13 @@ class DailyBriefingTool(BaseTool):
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-✅ **已自动处理** {auto_processed} 件事务
-   - 小额报销 8 件（共 ¥4,200）
-   - 常规请假 3 件
-   - 办公采购 1 件
+"""
+        if auto_processed > 0:
+            response += f"""✅ **今日已处理** {auto_processed} 件事务
+
+"""
+        else:
+            response += """ℹ️ **今日暂无已处理事务**
 
 """
         
@@ -437,7 +490,8 @@ class BusinessDashboardTool(BaseTool):
                 "enum": ["revenue", "cost", "hr", "sales", "all"],
                 "description": "关注重点"
             }
-        }
+        },
+        "required": []
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
@@ -535,7 +589,8 @@ class TeamInsightTool(BaseTool):
                 "enum": ["performance", "risk", "engagement", "growth"],
                 "description": "洞察类型"
             }
-        }
+        },
+        "required": []
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
@@ -545,6 +600,24 @@ class TeamInsightTool(BaseTool):
         team = team_res.data or []
         total_count = len(team)
         
+        if total_count == 0:
+            return f"""👥 **团队洞察报告**
+📅 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+⚠️ **暂无数据** — 系统中暂未录入员工信息。
+"""
+
+        # 基于真实数据计算绩效分布
+        s_level = [u for u in team if float(u.get("score", 0)) >= 95]
+        a_level = [u for u in team if 85 <= float(u.get("score", 0)) < 95]
+        b_level = [u for u in team if 70 <= float(u.get("score", 0)) < 85]
+        c_level = [u for u in team if float(u.get("score", 0)) < 70]
+        
+        def pct(n): return f"{n/total_count*100:.0f}%" if total_count > 0 else "0%"
+        def bar(n, total, width=10):
+            filled = round(n / total * width) if total > 0 else 0
+            return "█" * filled + "░" * (width - filled)
+
         response = f"""👥 **团队洞察报告**
 📅 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M')}
 
@@ -554,43 +627,35 @@ class TeamInsightTool(BaseTool):
 
 📊 **绩效分布**
 
-  S级(95+)  ██░░░░░░░░  12% (5人)  🌟 明星员工
-  A级(85-94) █████░░░░░  45% (20人) ✅ 骨干力量  
-  B级(70-84) ███░░░░░░░  30% (13人) 📈 待提升
-  C级(<70)  █░░░░░░░░░  13% (7人)  ⚠️ 需关注
+  S级(95+)  {bar(len(s_level), total_count)}  {pct(len(s_level))} ({len(s_level)}人)  🌟 明星员工
+  A级(85-94) {bar(len(a_level), total_count)}  {pct(len(a_level))} ({len(a_level)}人) ✅ 骨干力量  
+  B级(70-84) {bar(len(b_level), total_count)}  {pct(len(b_level))} ({len(b_level)}人) 📈 待提升
+  C级(<70)  {bar(len(c_level), total_count)}  {pct(len(c_level))} ({len(c_level)}人)  ⚠️ 需关注
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🔴 **风险预警人员**
-
-1. **张小明** - 风险等级: 高
-   - 本月迟到5次（历史均值1次）
-   - 绩效环比下降25%
-   - 近期频繁请假
-   → 建议: 一对一沟通，了解个人情况
-
-2. **李小红** - 风险等级: 中
-   - 加班时长异常增加（+50%）
-   - 但产出未同步提升
-   → 建议: 检查工作方法，可能需要培训支持
-
+"""
+        # Top performers (real data)
+        sorted_team = sorted(team, key=lambda u: float(u.get("score", 0)), reverse=True)
+        top3 = sorted_team[:3]
+        
+        if top3:
+            response += "\n🌟 **绩效前三**\n\n"
+            medals = ["🥇", "🥈", "🥉"]
+            for i, p in enumerate(top3):
+                response += f"{medals[i]} {p.get('name', '员工')}: {p.get('score', 0)}分\n"
+        
+        # Low performers (real data) — need attention
+        if c_level:
+            response += f"\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n⚠️ **需关注人员** ({len(c_level)}人)\n\n"
+            for u in c_level[:3]:
+                response += f"- **{u.get('name', '员工')}**: 绩效 {u.get('score', 0)} 分\n"
+            if len(c_level) > 3:
+                response += f"  ... 还有 {len(c_level) - 3} 人\n"
+        
+        response += f"""
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🌟 **值得表扬**
-
-- 王晓明: 连续3月绩效S级，建议晋升考察
-- 刘芳: 新人成长最快，可作为培训案例
-- 张明: 大客户突破能力强，建议分享经验
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-💡 **AI 管理建议**
-
-1. **本周重点**: 约谈2位高风险员工
-2. **本月规划**: 启动Q1绩效review
-3. **长期建议**: 考虑增加2个HC应对业务增长
-
-需要我帮您安排与某位员工的谈话吗？
+💡 需要我帮您安排与某位员工的谈话吗？
 """
         
         return response
@@ -646,17 +711,28 @@ class AnnouncementTool(BaseTool):
         
         users = users_res.data or []
         
-        # 发送通知
+        # Batch insert notifications for efficiency
         priority_icons = {"normal": "📢", "important": "⚠️", "urgent": "🚨"}
         icon = priority_icons.get(priority, "📢")
-        
-        for user in users:
-            await client.table("notifications").insert({
+        notification_type = "info" if priority == "normal" else "warning"
+        notifications_batch = [
+            {
                 "user_id": user["id"],
                 "title": f"{icon} {title}",
                 "content": content,
-                "type": "info" if priority == "normal" else "warning"
-            }).execute()
+                "type": notification_type
+            }
+            for user in users
+        ]
+        
+        # Insert in batches of 50 to avoid payload size limits
+        BATCH_SIZE = 50
+        for i in range(0, len(notifications_batch), BATCH_SIZE):
+            batch = notifications_batch[i:i + BATCH_SIZE]
+            try:
+                await client.table("notifications").insert(batch).execute()
+            except Exception as e:
+                logger.warning(f"Failed to insert notification batch {i//BATCH_SIZE + 1}: {e}")
         
         target_names = {"all": "全员", "managers": "管理层", "sales": "销售团队"}
         

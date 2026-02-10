@@ -14,7 +14,8 @@ class ProjectListTool(BaseTool):
 
     parameters = {
         "type": "object",
-        "properties": {}
+        "properties": {},
+        "required": []
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:

@@ -194,7 +194,8 @@ class LeaveQueryTool(BaseTool):
                 "enum": ["my_requests", "balance", "team_schedule"],
                 "description": "查询类型: my_requests(我的申请), balance(假期余额), team_schedule(团队排班)"
             }
-        }
+        },
+        "required": []
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:

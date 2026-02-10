@@ -8,6 +8,35 @@ import { LoginPage } from "@/components/auth/LoginPage";
 import { ResetPasswordPage } from "@/components/auth/ResetPasswordPage";
 import React, { Suspense, lazy } from "react";
 
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode; fallback?: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode; fallback?: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Page load error:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || (
+        <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
+          <p className="text-destructive text-lg">页面加载失败</p>
+          <button className="px-4 py-2 bg-primary text-primary-foreground rounded" onClick={() => window.location.reload()}>
+            刷新页面
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Lazy load pages for better performance
 const DashboardLayout = lazy(() => import("./pages/Index"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -81,7 +110,7 @@ const App = () => (
       <Sonner position="top-right" expand={false} richColors closeButton />
       <BrowserRouter>
         <AuthProvider>
-          <Suspense fallback={<LoadingFallback />}>
+          <ErrorBoundary><Suspense fallback={<LoadingFallback />}>
             <Routes>
               <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -118,7 +147,7 @@ const App = () => (
 
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </Suspense>
+          </Suspense></ErrorBoundary>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

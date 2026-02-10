@@ -36,7 +36,8 @@ class AttendanceQueryTool(BaseTool):
                 "type": "string",
                 "description": "员工姓名（管理者可查询下属）"
             }
-        }
+        },
+        "required": []
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
@@ -112,7 +113,8 @@ class TeamAttendanceTool(BaseTool):
                 "enum": ["overview", "abnormal_alert", "ranking"],
                 "description": "查看类型: overview(总览), abnormal_alert(异常预警), ranking(排名)"
             }
-        }
+        },
+        "required": []
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
@@ -272,7 +274,8 @@ class PerformanceReviewTool(BaseTool):
                 "type": "string",
                 "description": "评语"
             }
-        }
+        },
+        "required": []
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
@@ -346,7 +349,8 @@ class RecruitmentTool(BaseTool):
                 "type": "string",
                 "description": "面试时间"
             }
-        }
+        },
+        "required": []
     }
 
     async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:

@@ -148,6 +148,8 @@ async def health_check():
     cache_status = "unknown"
     ai_status = "unknown"
 
+    # NOTE: Health check intentionally uses global service-key client (not RLS-scoped)
+    # because it runs without user auth context and needs unrestricted DB access to verify connectivity.
     # 1. Database Check
     try:
         if supabase:
