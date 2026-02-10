@@ -29,6 +29,8 @@ import {
   ChevronLeft,
   Menu,
   Upload,
+  Shield,
+  Building2,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -114,6 +116,8 @@ export function Sidebar({ onNavClick }: SidebarProps) {
     { icon: <TrendingUp size={20} />, label: '目标管理', href: 'targets', roles: ['boss'] },
     { icon: <BookOpen size={20} />, label: '知识库管理', href: 'documents', badge: 'AI', badgeType: 'primary', roles: undefined },
     { icon: <Users size={20} />, label: '员工管理', href: 'employees', roles: ['manager', 'boss'] },
+    { icon: <Shield size={20} />, label: '角色管理', href: 'roles', roles: ['boss'] },
+    { icon: <Building2 size={20} />, label: '部门管理', href: 'departments', roles: ['boss'] },
     { icon: <Upload size={20} />, label: '数据导入', href: 'import', roles: ['boss'] },
     { icon: <FileCheck size={20} />, label: '审批中心', href: 'approval', roles: ['employee', 'manager', 'boss'] },
     { icon: <Calendar size={20} />, label: 'OA办公', href: 'oa', roles: undefined },
@@ -258,7 +262,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 py-4 overflow-y-auto overflow-x-hidden space-y-2 custom-scrollbar">
         {renderNavGroup("AI 核心指挥", navItems.filter(i => ['dashboard', 'boss-dashboard', 'tender-analysis', 'battlecards', 'sales'].includes(i.href)))}
-        {renderNavGroup("业务与日常", navItems.filter(i => ['projects', 'target-dashboard', 'targets', 'approval', 'exceptions', 'employees'].includes(i.href)))}
+        {renderNavGroup("业务与日常", navItems.filter(i => ['projects', 'target-dashboard', 'targets', 'approval', 'exceptions', 'employees', 'roles', 'departments'].includes(i.href)))}
         {renderNavGroup("OA/HR/财务", navItems.filter(i => ['oa', 'hr', 'finance'].includes(i.href)))}
         {renderNavGroup("知识与个人", navItems.filter(i => ['knowledge', 'documents', 'rewards', 'import', 'settings'].includes(i.href)))}
       </nav>
