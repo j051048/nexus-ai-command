@@ -1,4 +1,5 @@
-from celery.schedules import crontabfrom app.core.celery_app import celery_app
+from celery.schedules import crontab
+from app.core.celery_app import celery_app
 from app.services.crawler_service import crawler_service
 
 @celery_app.task

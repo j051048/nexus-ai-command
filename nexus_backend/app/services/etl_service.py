@@ -1,4 +1,7 @@
-"""import logging
+"""
+ETL Service - Document processing, extraction, and embedding pipeline
+"""
+import logging
 import httpx
 import json
 import io

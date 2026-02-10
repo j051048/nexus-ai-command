@@ -9,7 +9,6 @@ Handles business logic for:
 import logging
 import uuid
 from datetime import datetime
-from typing import Dict, Any
 from app.core.database import supabase
 from app.models.schemas import IncentiveTrigger, IncentiveResponse
 from app.core.errors import api_error, ErrorCode

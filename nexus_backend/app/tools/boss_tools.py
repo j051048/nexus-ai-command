@@ -6,7 +6,7 @@
 P0 Security Fix #1: All approval operations require explicit confirmation
 """
 from .base_tool import BaseTool
-from typing import Dict, Any
+from typing import Dict, Any, List
 from datetime import datetime
 import logging
 from app.core.database import supabase

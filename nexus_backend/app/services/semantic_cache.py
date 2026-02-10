@@ -1,4 +1,7 @@
-"""import logging
+"""
+Semantic Cache Service - Cache AI responses for similar queries
+"""
+import logging
 from typing import Optional
 from app.core.database import supabase
 from app.core.config import settings
