@@ -183,60 +183,76 @@ async def run_agent_stream(
         "error_recovery_attempted": False,
     }
 
-    # ── 5. Run graph with streaming ──
+    # ── 5. Run graph with granular event streaming (astream_events) ──
     accumulated_state: Dict[str, Any] = dict(initial_state)
     all_thinking_steps: List[ThinkingStep] = []
+    
+    # Track metadata to calculate total usage if node doesn't provide it
+    # Note: thread_id is used for checkpointer persistence
+    config_run = {"configurable": {"thread_id": agent_config.session_id}, "version": "v2"}
 
     try:
-        # Pass thread_id (session_id) for persistence isolation
-        async for event in _agent_graph.stream(
+        async for event in _agent_graph.compiled.astream_events(
             initial_state, 
-            thread_id=agent_config.session_id
+            config=config_run,
+            version="v2"
         ):
+            kind = event.get("event")
+            
+            # A. Continuous Token Streaming (Planning Phase - Task 2)
+            if kind == "on_chat_model_stream":
+                node_name = event.get("metadata", {}).get("langgraph_node")
+                content = event["data"]["chunk"].content
+                if content and node_name == "plan":
+                    # Stream planning tokens as part of the thinking process
+                    yield _sse_content(content)
 
-            # event is a dict like {"node_name": {state_delta}}
-            for node_name, state_delta in event.items():
-                if not isinstance(state_delta, dict):
-                    continue
+            # B. State Updates (when a node completes)
+            elif kind == "on_chain_end":
+                # Check if this is a node completion (LangGraph emits on_chain_end for nodes)
+                # Filter for nodes we care about
+                data = event.get("data", {})
+                output = data.get("output")
+                
+                # In LangGraph v2 astream_events, node outputs come in on_chain_end 
+                # where tags contain 'graph:step:node_name' or similar.
+                # Simplified: we look at data['output'] if it's a dict and update state.
+                if isinstance(output, dict) and any(k in output for k in ("current_phase", "thinking_steps", "messages")):
+                    state_delta = output
+                    
+                    # Merge delta into accumulated state
+                    for key, value in state_delta.items():
+                        if key == "messages" and isinstance(value, list):
+                            existing = accumulated_state.get("messages", [])
+                            accumulated_state["messages"] = existing + value
+                        elif key == "thinking_steps" and isinstance(value, list):
+                            new_steps = value
+                            for step in new_steps:
+                                if isinstance(step, ThinkingStep):
+                                    all_thinking_steps.append(step)
+                                    yield _sse_thinking(step)
+                        elif key == "completed_tool_calls" and isinstance(value, list):
+                            existing = accumulated_state.get("completed_tool_calls", [])
+                            accumulated_state["completed_tool_calls"] = existing + value
+                        else:
+                            accumulated_state[key] = value
 
-                # Merge delta into accumulated state
-                for key, value in state_delta.items():
-                    if key == "messages" and isinstance(value, list):
-                        # Messages use the accumulator pattern (append)
-                        existing = accumulated_state.get("messages", [])
-                        accumulated_state["messages"] = existing + value
-                    elif key == "thinking_steps" and isinstance(value, list):
-                        # Thinking steps also accumulate
-                        existing = accumulated_state.get("thinking_steps", [])
-                        accumulated_state["thinking_steps"] = existing + value
-                    elif key == "completed_tool_calls" and isinstance(value, list):
-                        # Completed tool calls accumulate
-                        existing = accumulated_state.get("completed_tool_calls", [])
-                        accumulated_state["completed_tool_calls"] = existing + value
-                    else:
-                        # Scalar fields: overwrite
-                        accumulated_state[key] = value
-
-                # Emit thinking steps from each node
-                new_steps = state_delta.get("thinking_steps", [])
-                for step in new_steps:
-                    if isinstance(step, ThinkingStep):
-                        all_thinking_steps.append(step)
-                        yield _sse_thinking(step)
-
-                # Emit phase status updates
-                phase = state_delta.get("current_phase")
-                if phase:
-                    status_map = {
-                        AgentPhase.ROUTING: "正在分析意图...",
-                        AgentPhase.PLANNING: "正在规划...",
-                        AgentPhase.EXECUTING: "正在执行工具...",
-                        AgentPhase.REFLECTING: "正在验证结果...",
-                        AgentPhase.RESPONDING: "正在生成回复...",
-                    }
-                    status_text = status_map.get(phase)
-                    if status_text:
-                        yield _sse_status(status_text)
+                    # Emit phase status updates
+                    phase = state_delta.get("current_phase")
+                    if phase:
+                        status_map = {
+                            AgentPhase.ROUTING: "正在分析意图...",
+                            AgentPhase.PLANNING: "正在规划...",
+                            AgentPhase.EXECUTING: "正在执行工具...",
+                            AgentPhase.REFLECTING: "正在验证结果...",
+                            AgentPhase.RESPONDING: "正在生成回复...",
+                        }
+                        status_text = status_map.get(phase)
+                        if status_text:
+                            yield _sse_status(status_text)
+                            
+            # elif kind == "on_custom_event":
+            #    ...
 
     except Exception as e:
         logger.error(f"[Stream] Agent graph execution failed: {e}", exc_info=True)

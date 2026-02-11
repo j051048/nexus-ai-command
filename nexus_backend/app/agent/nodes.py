@@ -23,7 +23,9 @@ from langchain_core.messages import (
     HumanMessage,
     SystemMessage,
     ToolMessage,
+    BaseMessage,
 )
+from langchain_openai import ChatOpenAI
 
 from app.agent.state import (
     AgentConfig,
@@ -45,112 +47,35 @@ _ALL_TOOL_SCHEMAS = get_all_tools_schema()
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
-def _build_openai_client(config: AgentConfig):
-    """Build an httpx-compatible OpenAI async client."""
-    import httpx
-
-    base_url = config.base_url.rstrip("/")
-    if not base_url.endswith("/v1"):
-        base_url = f"{base_url}/v1"
-
-    return {
-        "url": f"{base_url}/chat/completions",
-        "headers": {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {config.api_key}",
-        },
-    }
+def _get_llm(config: AgentConfig, model: Optional[str] = None, streaming: bool = False):
+    """Get a LangChain ChatOpenAI instance with the provided config."""
+    return ChatOpenAI(
+        model=model or config.model,
+        api_key=config.api_key,
+        base_url=config.base_url,
+        temperature=config.temperature,
+        streaming=streaming,
+        timeout=60.0,
+    )
 
 
-async def _call_llm(
-    messages: List[Dict[str, Any]],
-    config: AgentConfig,
-    model: str,
-    tools: Optional[List] = None,
-    temperature: Optional[float] = None,
-) -> Dict[str, Any]:
-    """
-    Non-streaming LLM call via httpx (maximum proxy compatibility).
-
-    Returns the full parsed response dict with:
-      - content: str | None
-      - tool_calls: list | None
-      - usage: dict | None
-    """
-    import httpx
-
-    client_cfg = _build_openai_client(config)
-
-    payload = {
-        "model": model,
-        "messages": messages,
-        "temperature": temperature if temperature is not None else config.temperature,
-    }
-    if tools:
-        payload["tools"] = tools
-        payload["tool_choice"] = "auto"
-
-    try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                client_cfg["url"],
-                headers=client_cfg["headers"],
-                json=payload,
-            )
-            if response.status_code != 200:
-                error_text = response.text[:300]
-                logger.error(f"LLM API error {response.status_code}: {error_text}")
-                return {
-                    "content": f"LLM API Error ({response.status_code}): {error_text}",
-                    "tool_calls": None,
-                    "usage": None,
-                }
-
-            data = response.json()
-            choice = data["choices"][0]["message"]
-
-            return {
-                "content": choice.get("content"),
-                "tool_calls": choice.get("tool_calls"),
-                "usage": data.get("usage"),
-            }
-
-    except httpx.TimeoutException:
-        logger.error("LLM API call timed out")
-        return {"content": "LLM 请求超时，请稍后重试。", "tool_calls": None, "usage": None}
-    except Exception as e:
-        logger.error(f"LLM API call failed: {e}")
-        return {"content": f"LLM 调用失败: {str(e)}", "tool_calls": None, "usage": None}
-
-
-def _messages_to_openai_format(messages) -> List[Dict[str, Any]]:
-    """Convert LangChain BaseMessages to OpenAI API format dicts."""
+def _messages_to_lc_format(messages) -> List[BaseMessage]:
+    """Ensure messages are in LangChain format."""
     result = []
     for msg in messages:
-        if isinstance(msg, SystemMessage):
-            result.append({"role": "system", "content": msg.content})
-        elif isinstance(msg, HumanMessage):
-            result.append({"role": "user", "content": msg.content})
-        elif isinstance(msg, AIMessage):
-            entry = {"role": "assistant", "content": msg.content}
-            if hasattr(msg, "tool_calls") and msg.tool_calls:
-                entry["tool_calls"] = msg.tool_calls
-                if not msg.content:
-                    entry["content"] = None
-            if msg.additional_kwargs.get("tool_calls"):
-                entry["tool_calls"] = msg.additional_kwargs["tool_calls"]
-                if not msg.content:
-                    entry["content"] = None
-            result.append(entry)
-        elif isinstance(msg, ToolMessage):
-            result.append({
-                "role": "tool",
-                "tool_call_id": msg.tool_call_id,
-                "name": msg.name,
-                "content": msg.content,
-            })
-        elif isinstance(msg, dict):
+        if isinstance(msg, BaseMessage):
             result.append(msg)
+        elif isinstance(msg, dict):
+            role = msg.get("role")
+            content = msg.get("content", "")
+            if role == "system":
+                result.append(SystemMessage(content=content))
+            elif role == "user":
+                result.append(HumanMessage(content=content))
+            elif role == "assistant":
+                result.append(AIMessage(content=content, additional_kwargs=msg.get("additional_kwargs", {})))
+            elif role == "tool":
+                result.append(ToolMessage(content=content, tool_call_id=msg.get("tool_call_id", ""), name=msg.get("name", "")))
     return result
 
 
@@ -185,9 +110,11 @@ async def _execute_single_tool(
         record.result = confirmation_msg
         return record
 
-    # 3. Execute with retry
+    # 3. Execute with configurable timeout and retry
     start_time = time.time()
     last_error = None
+    timeout = config.tool_timeout if hasattr(config, "tool_timeout") else 30.0
+    
     for attempt in range(3):
         try:
             result = await asyncio.wait_for(
@@ -200,21 +127,27 @@ async def _execute_single_tool(
                         "model": config.model,
                     },
                 ),
-                timeout=30.0,
+                timeout=timeout,
             )
             record.result = str(result)
             record.status = "success"
             record.duration_ms = int((time.time() - start_time) * 1000)
             return record
         except asyncio.TimeoutError:
+            logger.warning(f"Tool {record.tool_name} timed out after {timeout}s (attempt {attempt+1})")
+            if attempt < 2:
+                await asyncio.sleep(0.5 * (attempt + 1))
+                continue
             record.status = "error"
-            record.result = f"Error: Tool '{record.tool_name}' timed out after 30s."
+            record.result = f"Error: Tool '{record.tool_name}' timed out after {timeout}s."
             record.duration_ms = int((time.time() - start_time) * 1000)
             return record
         except Exception as e:
             last_error = e
+            logger.error(f"Tool {record.tool_name} failed: {e}")
             if attempt < 2:
                 await asyncio.sleep(0.5 * (attempt + 1))
+                continue
 
     record.status = "error"
     record.result = f"Error: Tool '{record.tool_name}' failed after 3 attempts: {str(last_error)}"
@@ -236,38 +169,41 @@ async def plan_node(state: AgentState) -> dict:
     iteration = state.get("iteration", 0)
     rag_context = state.get("rag_context", "")
 
-    # Convert to OpenAI format
-    openai_msgs = _messages_to_openai_format(messages)
+    # Convert to LC format
+    lc_msgs = _messages_to_lc_format(messages)
 
     # ── RAG Injection ──
     # If we have retrieved context, prepend it to the history or inject into system prompt
     if rag_context and iteration == 0:
-        # Check if system prompt is first
-        if openai_msgs and openai_msgs[0]["role"] == "system":
-            openai_msgs[0]["content"] += f"\n\n[检索到的参考知识]:\n{rag_context}"
-        else:
-            openai_msgs.insert(0, {
-                "role": "system",
-                "content": f"你可以参考以下背景知识来回答问题:\n{rag_context}"
-            })
+        found_sys = False
+        for i, m in enumerate(lc_msgs):
+            if isinstance(m, SystemMessage):
+                m.content += f"\n\n[检索到的参考知识]:\n{rag_context}"
+                found_sys = True
+                break
+        if not found_sys:
+            lc_msgs.insert(0, SystemMessage(content=f"你可以参考以下背景知识来回答问题:\n{rag_context}"))
 
     # Decide whether to include tools
     complexity = state.get("complexity", QueryComplexity.MODERATE)
     include_tools = complexity != QueryComplexity.SIMPLE
+
+    # ── Task 1 & 2: LangChain Planning + Streaming ──
+    # Use ChatOpenAI with streaming and bind_tools
+    llm = _get_llm(config, model=model, streaming=True)
+    if include_tools:
+        llm = llm.bind_tools(_ALL_TOOL_SCHEMAS)
 
     thinking_step = ThinkingStep(
         phase=AgentPhase.PLANNING.value,
         content=f"正在分析意图并规划执行路径... (轮次 {iteration + 1})",
     )
 
-    # Call LLM
+    # Call LLM via standard invoke (streaming tokens will be caught by graph callbacks if set)
     try:
-        llm_response = await _call_llm(
-            openai_msgs,
-            config,
-            model=model,
-            tools=_ALL_TOOL_SCHEMAS if include_tools else None,
-        )
+        # We use astream to capture tokens if needed, but for the node return we need the full message
+        # In a real heavy-streaming app, we'd use a callback handler passed via config
+        ai_msg = await llm.ainvoke(lc_msgs)
     except Exception as e:
         logger.error(f"[PlanNode] LLM call failed: {e}")
         return {
@@ -279,37 +215,28 @@ async def plan_node(state: AgentState) -> dict:
             )],
         }
 
-    # Track tokens
-    usage = llm_response.get("usage") or {}
+    # Track usage (LangChain usually provides this in additional_kwargs or response_metadata)
+    usage = ai_msg.response_metadata.get("token_usage", {})
     input_tokens = usage.get("prompt_tokens", 0)
     output_tokens = usage.get("completion_tokens", 0)
 
-    tool_calls_raw = llm_response.get("tool_calls") or []
-    content = llm_response.get("content") or ""
+    tool_calls_raw = ai_msg.tool_calls
+    content = ai_msg.content or ""
 
     # Build pending tool call records
     pending_tools: List[ToolCallRecord] = []
     if tool_calls_raw:
         for tc in tool_calls_raw:
-            fn = tc.get("function", {})
-            try:
-                args = json.loads(fn.get("arguments", "{}"))
-            except json.JSONDecodeError:
-                args = {}
-
             pending_tools.append(ToolCallRecord(
-                tool_name=fn.get("name", "unknown"),
-                tool_args=args,
+                tool_name=tc.get("name", "unknown"),
+                tool_args=tc.get("args", {}),
                 tool_call_id=tc.get("id", ""),
             ))
 
     # Construct the AIMessage to append to history
-    ai_msg_kwargs = {"content": content or ""}
-    if tool_calls_raw:
-        ai_msg_kwargs["additional_kwargs"] = {"tool_calls": tool_calls_raw}
-
+    # LangChain's ai_msg already is a BaseMessage
     result = {
-        "messages": [AIMessage(**ai_msg_kwargs)],
+        "messages": [ai_msg],
         "current_phase": AgentPhase.EXECUTING if pending_tools else AgentPhase.REFLECTING,
         "plan": content or "(执行工具调用)",
         "requires_tools": bool(pending_tools),
@@ -454,32 +381,56 @@ async def reflect_node(state: AgentState) -> dict:
             is_hallucination = True
             hallucination_reason = "复杂查询未调用工具却产出了具体数据"
 
-    # ── LLM-based Reflection (Optional) ──
+    # ── Task 3: Groundedness Check (RAG Comparison) ──
+    grounded_warning = None
+    if rag_context and last_ai_content:
+        prompt = f"""[事实核查任务]
+请比较【参考知识】与【AI回复】，判断回复是否完全基于背景知识，是否存在编造或矛盾。
+
+参考知识:
+{rag_context}
+
+AI回复:
+{last_ai_content}
+
+回复格式为 JSON: {{"is_grounded": bool, "reason": "str", "score": float}} 
+其中 is_grounded 为 false 表示存在幻觉或编造。
+"""
+        try:
+            llm = _get_llm(config, model=config.mini_model)
+            llm_eval = await llm.ainvoke([HumanMessage(content=prompt)])
+            eval_data = json.loads(llm_eval.content)
+            if not eval_data.get("is_grounded"):
+                is_hallucination = True
+                grounded_warning = eval_data.get("reason", "事实偏差")
+                logger.warning(f"[Reflect] Ungrounded response: {grounded_warning}")
+        except Exception as e:
+            logger.debug(f"[ReflectNode] Groundedness check failed: {e}")
+
+    # ── Fallback to LLM-based Reflection if no RAG or secondary check ──
     if config.reflect_use_llm and last_ai_content and not is_hallucination:
-        # Ask LLM if the response is grounded in the conversation history
-        history_text = "\n".join([f"{m.type}: {m.content[:200]}" for m in messages[-5:]])
+        messages_text = "\n".join([f"{m.type}: {m.content[:200]}" for m in messages[-3:]])
         prompt = f"""请评估 AI 的最新回复是否包含编造的信息（幻觉）。
 上下文摘要:
-{history_text}
+{messages_text}
 
 AI 回复:
 {last_ai_content}
 
-回复格式为 JSON: {{"is_hallucination": bool, "reason": "str", "score": float}}
+回复格式为 JSON: {{"is_hallucination": bool, "reason": "str"}}
 """
         try:
-            llm_eval = await _call_llm(
-                [{"role": "user", "content": prompt}],
-                config,
-                model=config.mini_model,
-                temperature=0.0
-            )
-            eval_data = json.loads(llm_eval.get("content", "{}"))
+            llm = _get_llm(config, model=config.mini_model)
+            llm_eval = await llm.ainvoke([HumanMessage(content=prompt)])
+            eval_data = json.loads(llm_eval.content)
             if eval_data.get("is_hallucination"):
                 is_hallucination = True
-                hallucination_reason = eval_data.get("reason", "LLM 评估存在事实偏差")
+                hallucination_reason = eval_data.get("reason", "存在事实偏差")
         except Exception as e:
             logger.debug(f"[ReflectNode] LLM eval failed: {e}")
+
+    if grounded_warning:
+        hallucination_reason = grounded_warning
 
     # ── Content Safety ──
     is_safe, violations = scan_content(last_ai_content)
