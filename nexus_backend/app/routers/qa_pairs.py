@@ -2,7 +2,7 @@
 QA Pairs Router - CRUD for manual Q&A annotation
 """
 from fastapi import APIRouter, Depends, Request
-from typing import Optional, List
+from typing import Optional
 from pydantic import BaseModel
 import logging
 

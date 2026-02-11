@@ -1,6 +1,6 @@
 import re
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from app.core.database import supabase
 from app.core.config import settings
 from openai import AsyncOpenAI

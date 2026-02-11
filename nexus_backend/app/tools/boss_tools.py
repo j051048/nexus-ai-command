@@ -391,7 +391,7 @@ class DailyBriefingTool(BaseTool):
         
         # 获取已自动处理数量（今日已审批的）
         try:
-            from datetime import datetime, timedelta, timezone
+            from datetime import datetime, timezone
             today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0).isoformat()
             auto_res = await client.table("approval_requests")\
                 .select("count", count="exact")\
@@ -694,7 +694,7 @@ class TeamInsightTool(BaseTool):
             if len(c_level) > 3:
                 response += f"  ... 还有 {len(c_level) - 3} 人\n"
         
-        response += f"""
+        response += """
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 💡 需要我帮您安排与某位员工的谈话吗？

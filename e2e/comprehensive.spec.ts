@@ -31,15 +31,15 @@ test.describe('Comprehensive System Test', () => {
         console.log('Registration success toast visible.');
 
         // The optimized flow should automatically redirect to dashboard
-        await expect(page).toHaveURL(/.*\/$/, { timeout: 30000 });
+        await expect(page).toHaveURL(/.*\/dashboard/, { timeout: 30000 });
         console.log('Auto-login successful! Reached dashboard.');
 
         // 5. Verify Dashboard Presence
-        await expect(page.getByText('仪表盘').first()).toBeVisible();
+        await expect(page.getByText('战绩中心').first()).toBeVisible();
 
         // 6. Navigation Check (Optional, just to be sure layout is loaded)
         console.log('Checking sidebar navigation...');
-        await page.getByRole('link', { name: '招标分析' }).click();
+        await page.getByRole('link', { name: '标书审阅' }).click();
         await expect(page).toHaveURL(/.*tender-analysis/);
 
         console.log('Comprehensive test passed');

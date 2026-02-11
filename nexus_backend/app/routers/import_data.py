@@ -2,7 +2,7 @@
 数据导入路由 - 批量导入员工和客户数据
 提供文件上传、模板下载、数据预览等功能
 """
-from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Request
+from fastapi import APIRouter, UploadFile, File, Depends, Request
 from fastapi.responses import PlainTextResponse
 from app.core.auth import get_current_user_id
 from app.core.errors import api_success, api_error, ErrorCode
@@ -63,7 +63,7 @@ async def import_employees(
     if len(contents) > MAX_FILE_SIZE:
         raise api_error(
             ErrorCode.VALIDATION_ERROR,
-            f"文件大小超过限制（最大 10MB）"
+            "文件大小超过限制（最大 10MB）"
         )
     
     # 获取数据库客户端（支持 RLS）
@@ -119,7 +119,7 @@ async def import_customers(
     if len(contents) > MAX_FILE_SIZE:
         raise api_error(
             ErrorCode.VALIDATION_ERROR,
-            f"文件大小超过限制（最大 10MB）"
+            "文件大小超过限制（最大 10MB）"
         )
     
     # 获取数据库客户端（支持 RLS）
@@ -203,7 +203,7 @@ async def preview_import_data(
     if len(contents) > MAX_FILE_SIZE:
         raise api_error(
             ErrorCode.VALIDATION_ERROR,
-            f"文件大小超过限制（最大 10MB）"
+            "文件大小超过限制（最大 10MB）"
         )
     
     try:

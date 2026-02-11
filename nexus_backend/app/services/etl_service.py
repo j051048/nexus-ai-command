@@ -5,7 +5,6 @@ import logging
 import httpx
 import json
 import io
-import os
 import hashlib
 from pypdf import PdfReader
 from typing import Tuple, Dict, Any

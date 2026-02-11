@@ -1,7 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, Form, Depends, BackgroundTasks, Request
 from typing import List
 from app.services.etl_service import etl_service
-from app.core.database import supabase
 from app.core.auth import get_current_user_id
 from app.models.schemas import BatchDeleteRequest, StandardResponse
 from app.core.errors import api_success, api_error, ErrorCode
