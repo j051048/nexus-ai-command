@@ -99,7 +99,7 @@ export function useSalesMetrics(months: number = 7) {
 
 // Fetch sales metrics by date range
 export function useSalesMetricsByRange(startDate: string | null, endDate: string | null) {
-  const { session, role } = useAuth();
+  const { session, role, profile } = useAuth();
 
   return useQuery({
     queryKey: ['sales-metrics-range', session?.user?.id, role, startDate, endDate],
@@ -113,22 +113,28 @@ export function useSalesMetricsByRange(startDate: string | null, endDate: string
         .lte('date', endDate)
         .order('date', { ascending: false });
 
-      // If not boss, only get own metrics
+        // If not boss, only get own metrics
       if (role !== 'boss') {
         query = query.eq('user_id', session.user.id);
+      } else if (profile?.organization_id) {
+        // Boss sees all in org
+        query = query.eq('organization_id', profile.organization_id);
       }
 
       const { data, error } = await query;
       if (error) throw error;
       return data as SalesMetric[];
     },
-    enabled: !!session?.user?.id && !!startDate && !!endDate,
+    enabled: !!session?.user?.id && !!startDate && !!endDate && !!profile?.organization_id,
   });
 }
 
 // Fetch win rate data by week for the last N weeks
 export function useWinRateHistory(weeks: number = 8) {
   const { session } = useAuth();
+  
+  // Note: Win rate history is currently personal. If we want org-wide win rate, need to adjust.
+  // For now leaving as personal.
 
   return useQuery({
     queryKey: ['win-rate-history', session?.user?.id, weeks],
@@ -181,10 +187,10 @@ export function useWinRateHistory(weeks: number = 8) {
 
 // Fetch monthly revenue data
 export function useRevenueData(months: number = 7) {
-  const { session, role } = useAuth();
+  const { session, role, profile } = useAuth();
 
   return useQuery({
-    queryKey: ['revenue-data', session?.user?.id, role, months],
+    queryKey: ['revenue-data', session?.user?.id, role, months, profile?.organization_id],
     queryFn: async () => {
       if (!session?.user?.id) return [];
 
@@ -199,6 +205,8 @@ export function useRevenueData(months: number = 7) {
 
       if (role !== 'boss') {
         query = query.eq('user_id', session.user.id);
+      } else if (profile?.organization_id) {
+        query = query.eq('organization_id', profile.organization_id);
       }
 
       const { data, error } = await query;
@@ -227,24 +235,29 @@ export function useRevenueData(months: number = 7) {
 
 // Fetch team performance data (for boss role)
 export function useTeamPerformance() {
-  const { session, role } = useAuth();
+  const { session, role, profile } = useAuth();
 
   return useQuery({
-    queryKey: ['team-performance', session?.user?.id],
+    queryKey: ['team-performance', session?.user?.id, profile?.organization_id],
     queryFn: async () => {
-      if (!session?.user?.id) return [];
+      if (!session?.user?.id || !profile?.organization_id) return [];
 
       // Get all profiles with their scores and bonuses
+      // Note: profiles table is deprecated, use users join or just users.
+      // But assuming we are using 'users' table which has profile info now.
       const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('user_id, name, score, total_bonus')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from('users' as any)
+        .select('id, name, score, total_bonus')
+        .eq('organization_id', profile.organization_id)
         .order('score', { ascending: false })
         .limit(10);
 
       if (profilesError) throw profilesError;
 
       // Get latest sales metrics for each user
-      const userIds = (profiles || []).map(p => p.user_id);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const userIds = (profiles || []).map((p: any) => p.id);
       
       const { data: metrics, error: metricsError } = await supabase
         .from('sales_metrics')
@@ -265,47 +278,53 @@ export function useTeamPerformance() {
         });
       });
 
-      return (profiles || []).map((p) => {
-        const userMetrics = metricsMap.get(p.user_id) || { calls: 0, conversions: 0 };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (profiles || []).map((p: any) => {
+        const userMetrics = metricsMap.get(p.id) || { calls: 0, conversions: 0 };
         return {
           name: p.name,
           score: p.score || 0,
           bonus: Number(p.total_bonus) || 0,
           calls: userMetrics.calls,
           conversions: userMetrics.conversions,
-          user_id: p.user_id,
+          user_id: p.id,
         } as TeamMemberPerformance;
       });
     },
-    enabled: !!session?.user?.id && role === 'boss',
+    enabled: !!session?.user?.id && role === 'boss' && !!profile?.organization_id,
   });
 }
 
 // Fetch leaderboard data
 export function useLeaderboard(limit: number = 5) {
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
 
   return useQuery({
-    queryKey: ['leaderboard', limit],
+    queryKey: ['leaderboard', limit, profile?.organization_id],
     queryFn: async () => {
+      if (!profile?.organization_id) return [];
+
       const { data, error } = await supabase
-        .from('profiles')
-        .select('user_id, name, score, total_bonus, rank')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from('users' as any)
+        .select('id, name, score, total_bonus, rank')
+        .eq('organization_id', profile.organization_id)
         .order('score', { ascending: false })
         .limit(limit);
 
       if (error) throw error;
 
-      return (data || []).map((p, index) => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (data || []).map((p: any, index: number) => ({
         rank: index + 1,
         name: p.name,
         score: p.score || 0,
         bonus: Number(p.total_bonus) || 0,
         trend: 'stable' as const,
-        isCurrentUser: p.user_id === session?.user?.id,
+        isCurrentUser: p.id === session?.user?.id,
       }));
     },
-    enabled: !!session?.user?.id,
+    enabled: !!session?.user?.id && !!profile?.organization_id,
   });
 }
 

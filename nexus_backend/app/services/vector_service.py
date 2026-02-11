@@ -133,7 +133,7 @@ class VectorService:
     Transitioned from Mock to Real Implementation (Week 1 Goal).
     """
 
-    async def search(self, query: str, user_id: str, limit: int = 3, config: dict = None) -> str:
+    async def search(self, query: str, user_id: str, limit: int = 3, config: dict = None, org_id: str = None) -> str:
         """
         Semantic search in the vector DB.
         Returns a formatted string of results.
@@ -143,9 +143,8 @@ class VectorService:
         if not query:
             return "请提供有效的搜索关键词。"
         
-        # P0 Security: Validate limit parameter
+        # ... validation ...
         limit = min(max(1, limit), 10)  # Clamp between 1 and 10
-        # use dynamic config or default settings
         api_key = (config or {}).get("api_key") or settings.OPENAI_API_KEY
         
         # URL Normalization
@@ -164,14 +163,14 @@ class VectorService:
         client = AsyncOpenAI(api_key=api_key, base_url=base_url.rstrip("/") + ("/v1" if "/v1" not in base_url else ""))
         
         try:
-            return await self._search_supabase(query, user_id, limit, client)
+            return await self._search_supabase(query, user_id, limit, client, org_id=org_id)
         except Exception as e:
             logger.error(f"Vector search failed: {e}")
             if settings.IS_PRODUCTION:
                 return f"知识库检索失败，请稍后重试。如果问题持续，请联系管理员。（错误: {str(e)[:80]}）"
             return self._search_mock(query)
 
-    async def _search_supabase(self, query: str, user_id: str, limit: int, client: AsyncOpenAI, filters: Dict[str, Any] = None) -> str:
+    async def _search_supabase(self, query: str, user_id: str, limit: int, client: AsyncOpenAI, filters: Dict[str, Any] = None, org_id: str = None) -> str:
         """
         Implementation for Hybrid Search (Vector + Keyword) with RRF.
         Supports mandatory user_id isolation.
@@ -189,7 +188,8 @@ class VectorService:
                      "match_count": limit,
                      # P0 Security Fix #4: Restored! Uses three-tier visibility model
                      # (private/department/organization) instead of strict user isolation
-                     "p_user_id": user_id
+                     "p_user_id": user_id,
+                     "p_org_id": org_id
                  }
                  if filters:
                      params["filter"] = filters
@@ -207,7 +207,8 @@ class VectorService:
                     res = await supabase.rpc("match_documents_keyword", {
                         "p_query": query,
                         "p_user_id": user_id,
-                        "p_limit": limit
+                        "p_limit": limit,
+                        "p_org_id": org_id
                     }).execute()
                     return res.data or []
                 except Exception as rpc_err:

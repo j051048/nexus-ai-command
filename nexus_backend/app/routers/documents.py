@@ -14,6 +14,7 @@ router = APIRouter(prefix="/api/documents", tags=["Documents"])
 @router.post("/batch-delete", response_model=StandardResponse)
 async def batch_delete_documents(
     payload: BatchDeleteRequest,
+    req: Request,
     user_id: str = Depends(get_current_user_id)
 ):
     """
@@ -22,12 +23,13 @@ async def batch_delete_documents(
     if not payload.document_ids:
         return api_success(data={"deleted_count": 0})
 
+    client = req.state.db
     try:
         # 1. Delete Embeddings (Explicit cleanup, though Cascade should usually handle it)
-        await supabase.table("document_embeddings").delete().in_("document_id", payload.document_ids).execute()
+        await client.table("document_embeddings").delete().in_("document_id", payload.document_ids).execute()
         
         # 2. Delete Documents
-        res = await supabase.table("documents").delete().in_("id", payload.document_ids).execute()
+        res = await client.table("documents").delete().in_("id", payload.document_ids).execute()
         
         count = len(res.data) if res.data else 0
         logger.info(f"User {user_id} deleted {count} documents.")
@@ -40,6 +42,7 @@ async def batch_delete_documents(
 @router.post("/upload", response_model=StandardResponse)
 async def upload_documents(
     background_tasks: BackgroundTasks,
+    req: Request,
     files: List[UploadFile] = File(...),
     visibility: str = Form(default="organization"),
     category: str = Form(default="other"),
@@ -52,6 +55,7 @@ async def upload_documents(
     api_key = None
     base_url = None
     user_department = None
+    client = req.state.db
     
     # 1. Validate visibility and category parameters
     if visibility not in ('private', 'department', 'organization'):
@@ -63,12 +67,12 @@ async def upload_documents(
     if user_id:
         try:
             # Fetch user settings and department
-            user_settings = await supabase.table("ai_settings").select("*").eq("user_id", user_id).maybe_single().execute()
+            user_settings = await client.table("ai_settings").select("*").eq("user_id", user_id).maybe_single().execute()
             if user_settings.data:
                 api_key = user_settings.data.get("api_key")
                 base_url = user_settings.data.get("base_url")
             
-            user_data = await supabase.table("users").select("department").eq("id", user_id).maybe_single().execute()
+            user_data = await client.table("users").select("department").eq("id", user_id).maybe_single().execute()
             if user_data.data:
                 user_department = user_data.data.get("department")
         except Exception as e:
@@ -143,6 +147,7 @@ async def upload_documents(
 @router.post("/batch-upload", response_model=StandardResponse)
 async def batch_upload_documents(
     background_tasks: BackgroundTasks,
+    req: Request,
     files: List[UploadFile] = File(...),
     visibility: str = Form(default="organization"),
     user_id: str = Depends(get_current_user_id)
@@ -154,15 +159,16 @@ async def batch_upload_documents(
     api_key = None
     base_url = None
     user_department = None
+    client = req.state.db
     
     if user_id:
         try:
-            user_settings = await supabase.table("ai_settings").select("*").eq("user_id", user_id).maybe_single().execute()
+            user_settings = await client.table("ai_settings").select("*").eq("user_id", user_id).maybe_single().execute()
             if user_settings.data:
                 api_key = user_settings.data.get("api_key")
                 base_url = user_settings.data.get("base_url")
             
-            user_data = await supabase.table("users").select("department").eq("id", user_id).maybe_single().execute()
+            user_data = await client.table("users").select("department").eq("id", user_id).maybe_single().execute()
             if user_data.data:
                 user_department = user_data.data.get("department")
         except Exception as e:
@@ -244,19 +250,21 @@ async def batch_upload_documents(
 async def update_document(
     document_id: str,
     background_tasks: BackgroundTasks,
+    req: Request,
     file: UploadFile = File(...),
     user_id: str = Depends(get_current_user_id)
 ):
     """Update an existing document (creates new version, replaces old embeddings)"""
+    client = req.state.db
     
     # 1. Verify document ownership
-    doc_res = await supabase.table("documents").select("*").eq("id", document_id).eq("owner_id", user_id).maybe_single().execute()
+    doc_res = await client.table("documents").select("*").eq("id", document_id).eq("owner_id", user_id).maybe_single().execute()
     if not doc_res.data:
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "文档不存在或无权限")
     
     # 2. Delete old embeddings
     try:
-        await supabase.table("document_embeddings").delete().eq("document_id", document_id).execute()
+        await client.table("document_embeddings").delete().eq("document_id", document_id).execute()
     except Exception as e:
         logger.warning(f"Failed to delete old embeddings: {e}")
     
@@ -265,7 +273,7 @@ async def update_document(
     
     # 4. Update document metadata
     version = (doc_res.data.get("version", 1) or 1) + 1
-    await supabase.table("documents").update({
+    await client.table("documents").update({
         "name": file.filename,
         "file_size": len(content),
         "version": version,
@@ -277,7 +285,7 @@ async def update_document(
     api_key = None
     base_url = None
     try:
-        user_settings = await supabase.table("ai_settings").select("*").eq("user_id", user_id).maybe_single().execute()
+        user_settings = await client.table("ai_settings").select("*").eq("user_id", user_id).maybe_single().execute()
         if user_settings.data:
             api_key = user_settings.data.get("api_key")
             base_url = user_settings.data.get("base_url")

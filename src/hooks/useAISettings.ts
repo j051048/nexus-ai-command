@@ -44,7 +44,7 @@ export function useAISettings() {
 
 export function useSaveAISettings() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   return useMutation({
     mutationFn: async (settings: { base_url: string; api_key: string | null; model: string }) => {
@@ -73,6 +73,7 @@ export function useSaveAISettings() {
           .from('ai_settings')
           .insert({
             user_id: user?.id,
+            organization_id: profile?.organization_id,
             base_url: settings.base_url,
             api_key: settings.api_key,
             model: settings.model,

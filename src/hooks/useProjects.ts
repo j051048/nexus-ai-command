@@ -1,18 +1,24 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/auth/AuthContext';
 import { Project, ProjectTimeline } from '@/types/nexus';
 export type { ProjectTimeline };
 
 export function useProjects() {
+    const { profile } = useAuth();
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
 
     const fetchProjects = useCallback(async () => {
+        if (!profile?.organization_id) return;
+
         setLoading(true);
         const { data, error } = await (supabase
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .from('projects' as any)
             .select('*')
+            // Filter by organization_id
+            .eq('organization_id', profile.organization_id)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             .order('updated_at', { ascending: false }) as any);
 
@@ -26,7 +32,8 @@ export function useProjects() {
             setProjects(mapped as Project[]);
         }
         setLoading(false);
-    }, []);
+        // ...
+    }, [profile?.organization_id]);
 
     useEffect(() => {
         fetchProjects();

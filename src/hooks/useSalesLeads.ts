@@ -5,22 +5,32 @@ import { SalesLead } from '@/types/nexus';
 import { salesLeadSchema } from '@/lib/schemas';
 
 // 定义表名常量以避免 any
-const SALES_LEADS_TABLE = 'sales_leads';
+const SALES_LEADS_TABLE = 'sales_leads' as any;
 
 export function useSalesLeads() {
     const { session } = useAuth();
     const queryClient = useQueryClient();
 
     // 获取所有线索
+    const { profile } = useAuth();
     const { data: leads = [], isLoading } = useQuery({
-        queryKey: ['sales-leads'],
+        queryKey: ['sales-leads', profile?.organization_id],
         queryFn: async () => {
-            if (!session?.user?.id) return [];
+            if (!session?.user?.id || !profile?.organization_id) return [];
 
-            const { data, error } = await supabase
+            let query = supabase
                 .from(SALES_LEADS_TABLE)
-                .select('*')
-                .order('score', { ascending: false });
+                .select('*');
+
+            if (profile?.organization_id) {
+                query = query.eq('organization_id', profile.organization_id);
+            } else {
+                query = query.eq('user_id', session?.user?.id);
+            }
+
+            query = query.order('score', { ascending: false });
+
+            const { data, error } = await query;
 
             if (error) {
                 console.error('Error fetching leads:', error);
@@ -37,7 +47,7 @@ export function useSalesLeads() {
                 return (result.success ? result.data : item) as SalesLead;
             });
         },
-        enabled: !!session?.user?.id,
+        enabled: !!session?.user?.id && !!profile?.organization_id,
     });
 
     // 更新线索阶段

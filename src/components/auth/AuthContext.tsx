@@ -15,6 +15,7 @@ interface Profile {
   score: number;
   rank: number;
   total_bonus: number;
+  organization_id: string;
 }
 
 interface AuthContextType {
@@ -39,10 +40,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchUserData = async (userId: string) => {
     try {
-            const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', userId)
+      // P0 Fix: Use 'users' table instead of 'profiles'
+      // Map id to user_id for backward compatibility
+      // Cast to any because generated types are outdated (missing 'users', has non-existent 'profiles')
+      const { data: profileData, error: profileError } = await supabase
+        .from('users' as any)
+        .select('*, user_id:id')
+        .eq('id', userId)
         .maybeSingle();
 
       if (profileError) {
@@ -52,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(profileData as unknown as Profile);
       }
 
-            // Fetch role using the database function
+      // Fetch role using the database function
       const { data: roleData } = await supabase
         .rpc('get_user_role', { _user_id: userId });
 

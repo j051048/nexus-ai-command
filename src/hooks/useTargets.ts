@@ -33,51 +33,62 @@ export interface TargetProgress {
 
 // Fetch current month/quarter targets
 export function useCurrentTargets() {
+  const { profile } = useAuth();
   const currentMonth = new Date().toISOString().slice(0, 7); // 2026-01
   const currentQuarter = `${new Date().getFullYear()}-Q${Math.ceil((new Date().getMonth() + 1) / 3)}`;
 
   return useQuery({
-    queryKey: ['sales-targets', 'current'],
+    queryKey: ['sales-targets', 'current', profile?.organization_id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('sales_targets')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const query = supabase.from('sales_targets') as any;
+
+      const { data, error } = await query
         .select('*')
+        .eq('organization_id', profile?.organization_id)
         .or(`target_period.eq.${currentMonth},target_period.eq.${currentQuarter}`)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data as SalesTarget[];
     },
+    enabled: !!profile?.organization_id
   });
 }
 
 // Fetch all targets
 export function useAllTargets() {
+  const { profile } = useAuth();
   return useQuery({
-    queryKey: ['sales-targets', 'all'],
+    queryKey: ['sales-targets', 'all', profile?.organization_id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('sales_targets')
         .select('*')
+        .eq('organization_id', profile?.organization_id)
         .order('target_period', { ascending: false });
 
       if (error) throw error;
       return data as SalesTarget[];
     },
+    enabled: !!profile?.organization_id
   });
 }
 
 // Create/update target
 export function useUpsertTarget() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   return useMutation({
     mutationFn: async (target: Omit<SalesTarget, 'id' | 'created_at' | 'updated_at' | 'created_by'>) => {
+      if (!profile?.organization_id) throw new Error("Organization ID missing");
+
       // Check if target already exists for this period
       const { data: existing } = await supabase
         .from('sales_targets')
         .select('id')
+        .eq('organization_id', profile.organization_id)
         .eq('target_period', target.target_period)
         .eq('target_type', target.target_type)
         .maybeSingle();
@@ -105,6 +116,7 @@ export function useUpsertTarget() {
           .insert({
             ...target,
             created_by: user?.id,
+            organization_id: profile.organization_id, // Add org_id
           })
           .select()
           .single();
@@ -140,13 +152,16 @@ export function useDeleteTarget() {
 
 // Get target progress with actual metrics
 export function useTargetProgress(targetPeriod: string, targetType: 'monthly' | 'quarterly') {
+  const { profile } = useAuth();
+
   return useQuery({
-    queryKey: ['target-progress', targetPeriod, targetType],
+    queryKey: ['target-progress', targetPeriod, targetType, profile?.organization_id],
     queryFn: async () => {
       // Get target
       const { data: target, error: targetError } = await supabase
         .from('sales_targets')
         .select('*')
+        .eq('organization_id', profile?.organization_id)
         .eq('target_period', targetPeriod)
         .eq('target_type', targetType)
         .maybeSingle();
@@ -173,9 +188,20 @@ export function useTargetProgress(targetPeriod: string, targetType: 'monthly' | 
       }
 
       // Get actual metrics for the period
-      const { data: metrics, error: metricsError } = await supabase
-        .from('sales_metrics')
-        .select('*')
+      // Note: sales_metrics currently not filtered by org in query, but RLS might limit it.
+      // However, to be safe, we should probably filter by user list in org or add org_id to sales_metrics if possible.
+      // For now, assuming sales_metrics has org_id or RLS handles it. 
+      // Based on useSalesData.ts update, sales_metrics HAS org_id.
+      
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let metricsQuery = supabase.from('sales_metrics') as any;
+      if (profile?.organization_id) {
+         metricsQuery = metricsQuery.select('*').eq('organization_id', profile.organization_id);
+      } else {
+         metricsQuery = metricsQuery.select('*');
+      }
+
+      const { data: metrics, error: metricsError } = await metricsQuery
         .gte('date', startDate)
         .lte('date', endDate);
 
@@ -183,11 +209,11 @@ export function useTargetProgress(targetPeriod: string, targetType: 'monthly' | 
 
       // Calculate totals
       const current = {
-        revenue: metrics?.reduce((sum, m) => sum + (Number(m.revenue) || 0), 0) || 0,
-        leads: metrics?.reduce((sum, m) => sum + (m.leads_count || 0), 0) || 0,
-        conversions: metrics?.reduce((sum, m) => sum + (m.conversions || 0), 0) || 0,
+        revenue: metrics?.reduce((sum: number, m: any) => sum + (Number(m.revenue) || 0), 0) || 0,
+        leads: metrics?.reduce((sum: number, m: any) => sum + (m.leads_count || 0), 0) || 0,
+        conversions: metrics?.reduce((sum: number, m: any) => sum + (m.conversions || 0), 0) || 0,
         win_rate: metrics?.length 
-          ? metrics.reduce((sum, m) => sum + (Number(m.win_rate) || 0), 0) / metrics.length 
+          ? metrics.reduce((sum: number, m: any) => sum + (Number(m.win_rate) || 0), 0) / metrics.length 
           : 0,
       };
 
@@ -205,5 +231,6 @@ export function useTargetProgress(targetPeriod: string, targetType: 'monthly' | 
         progress,
       } as TargetProgress;
     },
+    enabled: !!profile?.organization_id
   });
 }

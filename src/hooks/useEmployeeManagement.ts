@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/auth/AuthContext';
 
 export interface Employee {
   id: string;
@@ -16,14 +17,19 @@ export interface Employee {
 
 // Fetch all employees (for boss)
 export function useAllEmployees() {
+  const { profile } = useAuth(); // Need profile for organization_id
+  
   return useQuery({
-    queryKey: ['employees', 'all'],
+    queryKey: ['employees', 'all', profile?.organization_id],
     queryFn: async () => {
       // Get users from public.users table (which now includes role and profile info)
+      if (!profile?.organization_id) return [];
+
       const { data: users, error } = await supabase
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .from('users' as any)
         .select('*')
+        .eq('organization_id', profile.organization_id)
         .order('name', { ascending: true });
 
       if (error) throw error;
@@ -44,6 +50,7 @@ export function useAllEmployees() {
               u.role === 'ai_assistant' ? 'ai_assistant' : 'employee') as 'boss' | 'ai_assistant' | 'employee',
       })) as Employee[];
     },
+    enabled: !!profile?.organization_id // Only run if we know the org
   });
 }
 
@@ -110,9 +117,10 @@ export function useUpdateEmployee() {
       updates: Partial<Pick<Employee, 'name' | 'department' | 'score' | 'total_bonus'>>;
     }) => {
       const { data, error } = await supabase
-        .from('profiles')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from('users' as any) // Updated to users table
         .update(updates)
-        .eq('user_id', userId)
+        .eq('id', userId) // users table uses 'id'
         .select()
         .single();
 

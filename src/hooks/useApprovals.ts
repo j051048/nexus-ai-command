@@ -7,15 +7,17 @@ import { useEffect } from 'react';
 export type ApprovalRequest = ApprovalRequestSafe;
 
 export function useApprovals() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const queryClient = useQueryClient();
 
   const isBoss = user?.role === 'boss';
 
   // Fetch pending approvals (for Boss)
   const { data: pendingApprovals = [], isLoading } = useQuery({
-    queryKey: ['approvals', 'pending'],
+    queryKey: ['approvals', 'pending', profile?.organization_id],
     queryFn: async () => {
+      if (!profile?.organization_id) return [];
+      
       const { data, error } = await supabase
         .from('approval_requests')
         .select(`
@@ -23,6 +25,7 @@ export function useApprovals() {
           users:submitted_by ( name )
         `)
         .eq('status', 'pending')
+        .eq('organization_id', profile.organization_id)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -39,7 +42,7 @@ export function useApprovals() {
         return (result.success ? result.data : dataToValidate) as ApprovalRequestSafe;
       });
     },
-    enabled: isBoss,
+    enabled: isBoss && !!profile?.organization_id,
   });
 
   const updateStatus = useMutation({
@@ -65,9 +68,9 @@ export function useApprovals() {
 }
 
 export function useMyApprovals() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   return useQuery({
-    queryKey: ['approvals', 'me', user?.id],
+    queryKey: ['approvals', 'me', user?.id, profile?.organization_id],
     queryFn: async () => {
       if (!user?.id) return [];
       
@@ -76,6 +79,7 @@ export function useMyApprovals() {
       const { data, error } = await supabase
         .from('approval_requests')
         .select('*')
+        .eq('organization_id', profile?.organization_id)
         .or(`submitted_by.eq.${user.id},on_behalf_of.eq.${user.id}`)
         .order('created_at', { ascending: false });
 
@@ -85,17 +89,21 @@ export function useMyApprovals() {
       }
       return data as ApprovalRequest[];
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !!profile?.organization_id,
   });
 }
 
 export function useAllApprovals(statusFilter: string = 'all') {
+  const { profile } = useAuth();
   return useQuery({
-    queryKey: ['approvals', 'all', statusFilter],
+    queryKey: ['approvals', 'all', statusFilter, profile?.organization_id],
     queryFn: async () => {
+      if (!profile?.organization_id) return [];
+
       let query = supabase
         .from('approval_requests')
         .select('*, users:submitted_by(name)')
+        .eq('organization_id', profile.organization_id)
         .order('submitted_at', { ascending: false });
 
       if (statusFilter !== 'all') {
@@ -109,19 +117,25 @@ export function useAllApprovals(statusFilter: string = 'all') {
         ...item,
         submitter_name: (item as unknown as { users: { name: string } | null }).users?.name || '未知用户',
       })) as ApprovalRequest[];
+      return (data || []).map((item) => ({
+        ...item,
+        submitter_name: (item as unknown as { users: { name: string } | null }).users?.name || '未知用户',
+      })) as ApprovalRequest[];
     },
+    enabled: !!profile?.organization_id,
   });
 }
 
 import { aiClient } from '@/api/aiClient';
 
 export function useSubmitApproval() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (payload: { type: string; description: string; amount: number }) => {
       if (!user?.id) throw new Error('未登录');
+      if (!profile?.organization_id) throw new Error('缺少组织信息，无法提交申请');
 
       // Task A: AI Orchestration Layer - Call Backend
       let decision = 'pending';
@@ -146,6 +160,7 @@ export function useSubmitApproval() {
         .from('approval_requests')
         .insert({
           submitted_by: user.id,
+          organization_id: profile?.organization_id, // P0 Fix: Force org isolation
           type: payload.type,
           description: payload.description,
           amount: payload.amount,
@@ -225,13 +240,17 @@ export function useApprovalsRealtime() {
 }
 
 export function usePendingApprovalsCount() {
+  const { profile } = useAuth();
   return useQuery({
-    queryKey: ['approvals', 'pending-count'],
+    queryKey: ['approvals', 'pending-count', profile?.organization_id],
     queryFn: async () => {
+      if (!profile?.organization_id) return 0;
+      
       const { count, error } = await supabase
         .from('approval_requests')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending');
+        .eq('status', 'pending')
+        .eq('organization_id', profile.organization_id);
 
       if (error) throw error;
       return count || 0;
