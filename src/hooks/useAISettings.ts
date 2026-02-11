@@ -25,20 +25,28 @@ export const DEFAULT_MODELS = [
 ];
 
 export function useAISettings() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   return useQuery({
-    queryKey: ['ai-settings'],
+    queryKey: ['ai-settings', profile?.organization_id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('ai_settings')
+      if (!user || !profile) return null;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase
+        .from('ai_settings') as any)
         .select('*')
+        .eq('user_id', user.id)
+        .eq('organization_id', profile.organization_id)
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching AI settings:', error);
+        throw new Error(error.message || '获取配置失败');
+      }
       return data as AISettings | null;
     },
-    enabled: !!user,
+    enabled: !!user && !!profile,
   });
 }
 
@@ -48,32 +56,42 @@ export function useSaveAISettings() {
 
   return useMutation({
     mutationFn: async (settings: { base_url: string; api_key: string | null; model: string }) => {
-      // Check if settings exist
-      const { data: existing } = await supabase
-        .from('ai_settings')
+      if (!user || !profile) throw new Error('未登录或无法获取组织信息');
+
+      // Check if settings exist for THIS organization and user
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: existing, error: checkError } = await (supabase
+        .from('ai_settings') as any)
         .select('id')
+        .eq('user_id', user.id)
+        .eq('organization_id', profile.organization_id)
         .maybeSingle();
 
+      if (checkError) throw new Error(checkError.message);
+
       if (existing) {
-        const { data, error } = await supabase
-          .from('ai_settings')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase
+          .from('ai_settings') as any)
           .update({
             base_url: settings.base_url,
             api_key: settings.api_key,
             model: settings.model,
+            updated_at: new Date().toISOString(),
           })
-          .eq('id', existing.id)
+          .eq('id', (existing as any).id)
           .select()
           .single();
 
-        if (error) throw error;
-        return data;
+        if (error) throw new Error(error.message);
+        return data as AISettings;
       } else {
-        const { data, error } = await supabase
-          .from('ai_settings')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase
+          .from('ai_settings') as any)
           .insert({
-            user_id: user?.id,
-            organization_id: profile?.organization_id,
+            user_id: user.id,
+            organization_id: profile.organization_id,
             base_url: settings.base_url,
             api_key: settings.api_key,
             model: settings.model,
@@ -81,8 +99,8 @@ export function useSaveAISettings() {
           .select()
           .single();
 
-        if (error) throw error;
-        return data;
+        if (error) throw new Error(error.message);
+        return data as AISettings;
       }
     },
     onSuccess: () => {
