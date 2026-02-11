@@ -12,14 +12,19 @@ logger = logging.getLogger(__name__)
 _sanitize_output = None
 _langfuse_client = None
 
+
 def _get_sanitizer():
     global _sanitize_output
     if _sanitize_output is None:
         try:
             from app.services.content_moderation import sanitize_output
+
             _sanitize_output = sanitize_output
         except ImportError:
-            def _noop(x): return x
+
+            def _noop(x):
+                return x
+
             _sanitize_output = _noop
     return _sanitize_output
 
@@ -37,10 +42,9 @@ def _get_langfuse():
     if public_key and secret_key:
         try:
             from langfuse import Langfuse
+
             _langfuse_client = Langfuse(
-                public_key=public_key,
-                secret_key=secret_key,
-                host=host
+                public_key=public_key, secret_key=secret_key, host=host
             )
             logger.info("Langfuse client initialized successfully")
         except ImportError:
@@ -62,6 +66,7 @@ class TraceLogger:
     (e.g. by Datadog, ELK, or simple grep).
     Also pushes traces to Langfuse if configured.
     """
+
     def __init__(self, user_id: str, agent: str, session_id: Optional[str] = None):
         self.trace_id = str(uuid.uuid4())
         self.user_id = user_id
@@ -80,7 +85,7 @@ class TraceLogger:
                     name=f"chat_{agent}",
                     user_id=user_id,
                     session_id=session_id,
-                    metadata={"agent": agent}
+                    metadata={"agent": agent},
                 )
             except Exception as e:
                 logger.warning(f"Failed to create Langfuse trace: {e}")
@@ -110,7 +115,7 @@ class TraceLogger:
                 "user_id": self.user_id,
                 "agent": self.agent,
                 "event": event_type,
-                "content": safe_content
+                "content": safe_content,
             }
             # Print JSON to stdout - standard practice for container logs
             print(f"TRACE_LOG: {json.dumps(entry, ensure_ascii=False)}")
@@ -120,56 +125,60 @@ class TraceLogger:
     def log_start(self, messages: List[Dict]):
         # Sensitive: Don't log full history if massive, but for MVP log last message
         last_msg = messages[-1] if messages else {}
-        self._emit("start_conversation", {
-            "last_message_role": last_msg.get("role"),
-            "last_message_content_preview": str(last_msg.get("content"))[:200]
-        })
+        self._emit(
+            "start_conversation",
+            {
+                "last_message_role": last_msg.get("role"),
+                "last_message_content_preview": str(last_msg.get("content"))[:200],
+            },
+        )
 
     def log_tool_plan(self, tool_name: str, args: Dict):
-        self._emit("tool_planned", {
-            "tool_name": tool_name,
-            "arguments": args
-        })
+        self._emit("tool_planned", {"tool_name": tool_name, "arguments": args})
         # Langfuse span for tool planning
         if self._langfuse_trace:
             try:
                 self._langfuse_trace.span(
                     name=f"tool_plan_{tool_name}",
                     input=args,
-                    metadata={"phase": "planning"}
+                    metadata={"phase": "planning"},
                 )
             except Exception as e:
                 logger.debug(f"Langfuse span failed: {e}")
 
     def log_tool_execution(self, tool_name: str, status: str, result_preview: str):
-        self._emit("tool_executed", {
-            "tool_name": tool_name,
-            "status": status,
-            "output_preview": result_preview[:500] # Cap output log size
-        })
+        self._emit(
+            "tool_executed",
+            {
+                "tool_name": tool_name,
+                "status": status,
+                "output_preview": result_preview[:500],  # Cap output log size
+            },
+        )
         # Langfuse span for tool execution
         if self._langfuse_trace:
             try:
                 self._langfuse_trace.span(
                     name=f"tool_exec_{tool_name}",
                     output=result_preview[:500],
-                    metadata={"phase": "execution", "status": status}
+                    metadata={"phase": "execution", "status": status},
                 )
             except Exception as e:
                 logger.debug(f"Langfuse span failed: {e}")
 
     def log_error(self, error: str):
-        self._emit("error", {
-            "error_message": str(error)
-        })
+        self._emit("error", {"error_message": str(error)})
 
     def log_end(self, total_tokens: int = 0, cost: float = 0.0):
         duration = (datetime.datetime.now() - self.start_time).total_seconds()
-        self._emit("end_conversation", {
-            "duration_seconds": round(duration, 3),
-            "total_tokens": total_tokens,
-            "cost_usd": cost
-        })
+        self._emit(
+            "end_conversation",
+            {
+                "duration_seconds": round(duration, 3),
+                "total_tokens": total_tokens,
+                "cost_usd": cost,
+            },
+        )
 
         # Langfuse: Finalize trace with metrics
         if self._langfuse_trace:
@@ -178,8 +187,8 @@ class TraceLogger:
                     output={"total_tokens": total_tokens, "cost_usd": cost},
                     metadata={
                         "duration_seconds": round(duration, 3),
-                        "total_tokens": total_tokens
-                    }
+                        "total_tokens": total_tokens,
+                    },
                 )
                 # Flush Langfuse in background to avoid blocking
                 langfuse = _get_langfuse()
@@ -195,7 +204,9 @@ class TraceLogger:
         except Exception as e:
             logger.debug(f"Langfuse flush failed: {e}")
 
-    def log_generation(self, model: str, input_messages: List[Dict], output: str, usage: Dict = None):
+    def log_generation(
+        self, model: str, input_messages: List[Dict], output: str, usage: Dict = None
+    ):
         """Log a generation event (LLM call) to Langfuse."""
         if self._langfuse_trace:
             try:
@@ -205,7 +216,7 @@ class TraceLogger:
                     input=input_messages[-1] if input_messages else None,
                     output=output[:1000],
                     usage=usage or {},
-                    metadata={"agent": self.agent}
+                    metadata={"agent": self.agent},
                 )
             except Exception as e:
                 logger.debug(f"Langfuse generation failed: {e}")

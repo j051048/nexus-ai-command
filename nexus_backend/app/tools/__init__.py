@@ -3,54 +3,66 @@ from .tender_tool import TenderAnalysisTool
 from .battlecard_tool import BattlecardTool
 from typing import Dict
 from .approval_tools import (
-    ApprovalTool, 
-    RejectTool, 
+    ApprovalTool,
+    RejectTool,
     PendingApprovalsTool,
     SubmitApprovalOnBehalfTool,
     GetEmployeeInfoTool,
-    GetEmployeeApprovalHistoryTool
+    GetEmployeeApprovalHistoryTool,
 )
-from .operational_tools import PerformanceReportTool, CompanyStatsTool, KnowledgeBaseTool, AwardBadgeTool
+from .operational_tools import (
+    PerformanceReportTool,
+    CompanyStatsTool,
+    KnowledgeBaseTool,
+    AwardBadgeTool,
+)
 from .project_tools import ProjectListTool, CreateEventTool, CreateProjectTool
+
 # OA 办公自动化工具
 from .oa_tools import (
-    LeaveRequestTool, 
-    LeaveQueryTool, 
-    MeetingBookingTool, 
+    LeaveRequestTool,
+    LeaveQueryTool,
+    MeetingBookingTool,
     TaskAssignmentTool,
-    WorkHandoverTool
+    WorkHandoverTool,
 )
+
 # 财务管理工具
 from .finance_tools import (
     ExpenseClaimTool,
     ExpenseQueryTool,
     BudgetQueryTool,
     SalaryQueryTool,
-    InvoiceOCRTool
+    InvoiceOCRTool,
 )
+
 # HR 人力资源工具
 from .hr_tools import (
     AttendanceQueryTool,
     TeamAttendanceTool,
     EmployeeProfileTool,
     PerformanceReviewTool,
-    RecruitmentTool
+    RecruitmentTool,
 )
+
 # 领导专属工具
 from .boss_tools import (
     SmartApprovalTool,
     DailyBriefingTool,
     BusinessDashboardTool,
     TeamInsightTool,
-    AnnouncementTool
+    AnnouncementTool,
 )
 
 # Registry of all available tools
 # P1: Strategy Pattern Registry
 TOOL_REGISTRY: Dict[str, BaseTool] = {}
 
+
 def register_tool(tool: BaseTool):
     TOOL_REGISTRY[tool.name] = tool
+
+
 register_tool(TenderAnalysisTool())
 register_tool(BattlecardTool())
 register_tool(ApprovalTool())
@@ -97,19 +109,23 @@ register_tool(BusinessDashboardTool())
 register_tool(TeamInsightTool())
 register_tool(AnnouncementTool())
 
+
 def get_tool(name: str) -> BaseTool:
     return TOOL_REGISTRY.get(name)
+
 
 def get_all_tools_schema():
     """Generates the OpenAI tools schema list dynamically"""
     schemas = []
     for tool in TOOL_REGISTRY.values():
-        schemas.append({
-            "type": "function",
-            "function": {
-                "name": tool.name,
-                "description": tool.description,
-                "parameters": tool.parameters
+        schemas.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": tool.name,
+                    "description": tool.description,
+                    "parameters": tool.parameters,
+                },
             }
-        })
+        )
     return schemas

@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 class ConfirmationRequired(Exception):
     """Raised when a tool requires human confirmation before execution."""
+
     def __init__(self, preview_message: str, tool_name: str, args: Dict[str, Any]):
         self.preview_message = preview_message
         self.tool_name = tool_name
@@ -19,7 +20,7 @@ class BaseTool(ABC):
     Abstract Base Class for all AI Agent Tools.
     Enforces the Strategy Pattern to decouple tool logic from the router.
     """
-    
+
     @property
     @abstractmethod
     def name(self) -> str:
@@ -29,7 +30,7 @@ class BaseTool(ABC):
     @abstractmethod
     def description(self) -> str:
         pass
-        
+
     @property
     @abstractmethod
     def parameters(self) -> Dict[str, Any]:
@@ -62,22 +63,24 @@ class BaseTool(ABC):
         """
         return "⚠️ 这是一个不可逆操作。请确认后再执行。"
 
-    def check_confirmation(self, args: Dict[str, Any], system_confirmed: bool = False) -> Optional[str]:
+    def check_confirmation(
+        self, args: Dict[str, Any], system_confirmed: bool = False
+    ) -> Optional[str]:
         """
         System-level confirmation gate.
         Called BEFORE run() for irreversible tools.
         Returns None if confirmed, or a preview message string if confirmation needed.
-        
+
         P0 Fix #2: This NOW requires system_confirmed=True (from frontend action)
         and ignores the LLM-generated 'confirm' argument to prevent bypass.
         """
         if not self.is_irreversible:
             return None
-        
+
         # System-level enforcement: if not explicitly confirmed by the system (human click), block
         if system_confirmed is True:
             return None  # Confirmed by human, allow execution
-        
+
         return self.confirmation_message
 
     async def validate(self, args: Dict[str, Any]) -> None:
@@ -87,8 +90,9 @@ class BaseTool(ABC):
         """
         if not self.parameters:
             return
-        
+
         import jsonschema
+
         try:
             jsonschema.validate(instance=args, schema=self.parameters)
         except jsonschema.SchemaError as se:
@@ -98,7 +102,9 @@ class BaseTool(ABC):
             raise
 
     @abstractmethod
-    async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
+    async def run(
+        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+    ) -> str:
         """
         Execute the tool logic.
         :param args: Arguments parsed from the LLM's JSON output

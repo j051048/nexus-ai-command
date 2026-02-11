@@ -2,6 +2,7 @@ from .base_tool import BaseTool
 from typing import Dict, Any
 from app.services.vector_service import vector_service
 
+
 class BattlecardTool(BaseTool):
     name = "get_battlecard"
     description = "【销售赋能】获取竞争对手的实时打击卡（基于知识库 RAG）"
@@ -9,25 +10,30 @@ class BattlecardTool(BaseTool):
     parameters = {
         "type": "object",
         "properties": {
-            "competitor_name": {"type": "string", "description": "竞争对手名称，如：安捷伦, 赛默飞"}
+            "competitor_name": {
+                "type": "string",
+                "description": "竞争对手名称，如：安捷伦, 赛默飞",
+            }
         },
-        "required": ["competitor_name"]
+        "required": ["competitor_name"],
     }
 
-    async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
+    async def run(
+        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+    ) -> str:
         comp = args.get("competitor_name", "")
         if not comp:
             return "❌ 请指定竞争对手名称。"
 
         # P2 Implementation: Dynamic RAG instead of Hardcoded Dict
         # We query the Vector DB for info about this competitor
-        
+
         query = f"竞争对手 {comp} 的劣势、弱点以及我们产品的对比优势"
-        
+
         # Reuse the VectorService to get real data from uploaded documents
         # This assumes the user has uploaded competitor analysis docs
         rag_result = await vector_service.search(query, user_id, limit=2, config=config)
-        
+
         if "No relevant documents" in rag_result or not rag_result:
             # Fallback to a generic template if knowledge base is empty, but warn the user
             return f"""
@@ -40,5 +46,5 @@ class BattlecardTool(BaseTool):
             
             *建议上传该对手的分析报告到知识库以获取更精准的 AI 建议。*
             """
-        
+
         return f"⚔️ **{comp} 专属竞品打击卡** (基于知识库):\n\n{rag_result}"

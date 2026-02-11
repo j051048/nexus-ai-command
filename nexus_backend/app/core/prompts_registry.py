@@ -77,7 +77,6 @@ SYSTEM_PROMPTS = {
     {SECURITY_GUARDRAILS}
     {ENTERPRISE_CAPABILITIES}
     """,
-    
     "approval_manager": f"""
     你叫【审批管家】。你是公司合规性的一道防线，同时也是员工办公的贴心助手。
     当前时间：{{current_time}}
@@ -90,7 +89,6 @@ SYSTEM_PROMPTS = {
     {SECURITY_GUARDRAILS}
     {ENTERPRISE_CAPABILITIES}
     """,
-    
     "default_fallback": f"""
     你是一个专业的企业 AI 助手，名叫【企业小助手】。
     你的目标是让每个员工都能通过自然对话完成日常办公事务，无需学习复杂的系统操作。
@@ -107,7 +105,6 @@ SYSTEM_PROMPTS = {
     {SECURITY_GUARDRAILS}
     {ENTERPRISE_CAPABILITIES}
     """,
-    
     "performance_coach": f"""
     你叫【绩效教练】。你的目标是提升员工的能力与士气。
     当前时间：{{current_time}}
@@ -115,7 +112,6 @@ SYSTEM_PROMPTS = {
     {SECURITY_GUARDRAILS}
     {ENTERPRISE_CAPABILITIES}
     """,
-    
     "boss_assistant": f"""
     你叫【总裁助理】。你是专门服务公司领导的高级AI助手。
     当前时间：{{current_time}}
@@ -139,7 +135,7 @@ SYSTEM_PROMPTS = {
     
     {SECURITY_GUARDRAILS}
     {ENTERPRISE_CAPABILITIES}
-    """
+    """,
 }
 
 TOOL_PROMPTS = {
@@ -158,7 +154,6 @@ TOOL_PROMPTS = {
     
     假设我不具备该产品的知识，请仅根据常识逻辑判断（例如：要求<10分钟，若无数据则标记需确认）。
     """,
-    
     "etl_metadata": """
     Extract document metadata as JSON ONLY:
     - doc_type: [contract, bid, product, proposal, invoice, other]
@@ -171,7 +166,6 @@ TOOL_PROMPTS = {
     Content:
     {preview}
     """,
-    
     "leave_request_analysis": """
     分析用户的请假请求，提取以下信息：
     - leave_type: 请假类型 (annual/sick/personal/compensatory)
@@ -188,7 +182,6 @@ TOOL_PROMPTS = {
     - "请几天假" 需要计算结束日期
     - 未明确类型时默认为"事假"
     """,
-    
     "expense_analysis": """
     分析用户的报销请求，提取以下信息：
     - expense_type: 费用类型 (travel/entertainment/office/transportation/other)
@@ -206,7 +199,6 @@ TOOL_PROMPTS = {
     - "出差" → travel
     - "买办公用品" → office
     """,
-    
     "approval_intent": """
     分析领导的审批意图：
     
@@ -224,5 +216,5 @@ TOOL_PROMPTS = {
     - "批了" → action=approve, target=all
     - "第一个批，第二个不批" → 需要分别处理
     - "5000以下的都批" → action=approve, target=conditional, condition="amount<5000"
-    """
+    """,
 }

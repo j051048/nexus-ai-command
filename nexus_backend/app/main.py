@@ -6,10 +6,26 @@ import uvicorn
 import os
 import sentry_sdk
 
-from app.routers import performance, incentive, approval, kingdee, chat, documents, projects, usage, organization, import_data, qa_pairs
+from app.routers import (
+    performance,
+    incentive,
+    approval,
+    kingdee,
+    chat,
+    documents,
+    projects,
+    usage,
+    organization,
+    import_data,
+    qa_pairs,
+)
 from app.core.auth import get_current_user_id
 from app.core.rate_limiter import RateLimitMiddleware
-from app.core.security_middleware import SecurityHeadersMiddleware, RequestIDMiddleware, TenantContextMiddleware
+from app.core.security_middleware import (
+    SecurityHeadersMiddleware,
+    RequestIDMiddleware,
+    TenantContextMiddleware,
+)
 from app.core.logging_config import setup_logging, get_logger
 from app.core.config import settings
 from app.services.event_bus import event_bus
@@ -29,6 +45,7 @@ if settings.SENTRY_DSN:
     )
     logger.info("✅ Sentry Initialized")
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager for startup/shutdown events"""
@@ -37,25 +54,28 @@ async def lifespan(app: FastAPI):
     await cache_service.init()
     await event_bus.start()
     logger.info("✅ Event Bus started")
-    
+
     yield
-    
+
     # Shutdown
     logger.info("🛑 Shutting down Nexus Backend...")
     await event_bus.stop()
     await audit_logger.force_flush()
     logger.info("✅ Cleanup complete")
 
+
 app = FastAPI(
     title="Project Nexus Backend",
     description="AI-Driven Low-Code Backend for Sales Performance & Governance",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
+
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     return Response(status_code=204)
+
 
 # Global Exception Handler for Standardized Error Responses
 @app.exception_handler(HTTPException)
@@ -65,40 +85,37 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     Wraps standard HTTPExceptions into {"success": False, "error": ...}
     """
     error_content = exc.detail
-    
+
     # If detail is already a dict (from api_error), use it directly
     # If it's a string (standard raise HTTPException), wrap it
     if isinstance(error_content, str):
-        error_content = {
-            "code": "HTTP_ERROR",
-            "message": error_content
-        }
-    
+        error_content = {"code": "HTTP_ERROR", "message": error_content}
+
     return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "success": False,
-            "error": error_content
-        }
+        status_code=exc.status_code, content={"success": False, "error": error_content}
     )
+
 
 # CORS Configuration
 origins = settings.all_cors_origins
+
 
 @app.get("/api/test-ai")
 async def test_ai_connectivity():
     """Test connectivity from Backend to AI Gateway"""
     import httpx
+
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get("https://proxy.flydao.top")
             return {
-                "status": "ok", 
-                "gateway_response_code": resp.status_code, 
-                "message": "Successfully reached AI Gateway"
+                "status": "ok",
+                "gateway_response_code": resp.status_code,
+                "message": "Successfully reached AI Gateway",
             }
     except Exception as e:
         return {"status": "error", "detail": str(e)}
+
 
 # P0 Security Fix: Restrict CORS to whitelist
 app.add_middleware(
@@ -131,9 +148,11 @@ app.include_router(organization.router)
 app.include_router(import_data.router)
 app.include_router(qa_pairs.router)
 
+
 @app.get("/")
 async def root():
     return {"message": "Project Nexus Backend is Running", "docs": "/docs"}
+
 
 @app.get("/health")
 async def health_check():
@@ -145,7 +164,7 @@ async def health_check():
     from app.services.cache_service import cache_service
     from app.core.config import settings
     import httpx
-    
+
     db_status = "unknown"
     cache_status = "unknown"
     ai_status = "unknown"
@@ -156,14 +175,16 @@ async def health_check():
     try:
         if supabase:
             # Quick check - just verify connection
-            await supabase.table("users").select("count", count="exact").limit(1).execute()
+            await supabase.table("users").select("count", count="exact").limit(
+                1
+            ).execute()
             db_status = "connected"
         else:
             db_status = "not_configured"
     except Exception as e:
         db_status = f"error: {str(e)[:50]}"
         logger.warning(f"Health check DB error: {e}")
-    
+
     # 2. Redis/Cache Check
     try:
         if await cache_service.ping():
@@ -186,15 +207,20 @@ async def health_check():
         ai_status = f"unreachable: {str(e)[:50]}"
 
     return {
-        "status": "healthy" if db_status == "connected" and cache_status == "connected" else "degraded",
+        "status": (
+            "healthy"
+            if db_status == "connected" and cache_status == "connected"
+            else "degraded"
+        ),
         "version": settings.VERSION,
         "environment": settings.ENV,
         "checks": {
             "database": db_status,
             "cache": cache_status,
-            "ai_gateway": ai_status
-        }
+            "ai_gateway": ai_status,
+        },
     }
+
 
 @app.get("/api/dashboard/boss")
 async def boss_dashboard(request: Request, user_id: str = Depends(get_current_user_id)):
@@ -204,62 +230,80 @@ async def boss_dashboard(request: Request, user_id: str = Depends(get_current_us
     """
     client = request.state.db
     from app.core.errors import api_success, api_error, ErrorCode
-    
+
     if not client:
-        raise api_error(ErrorCode.DB_CONNECTION_ERROR, "Database connection unavailable")
+        raise api_error(
+            ErrorCode.DB_CONNECTION_ERROR, "Database connection unavailable"
+        )
 
     try:
         # P1 Security Fix #6: Verify user has boss role
-        user_res = await client.table("users").select("role").eq("id", user_id).single().execute()
-        
+        user_res = (
+            await client.table("users")
+            .select("role")
+            .eq("id", user_id)
+            .single()
+            .execute()
+        )
+
         if not user_res.data or user_res.data.get("role") != "boss":
             raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "仅领导可访问此仪表板")
-        
+
         # 1. Get Pending Approvals Count
-        pending_res = await client.table("approval_requests")\
-            .select("count", count="exact")\
-            .eq("status", "pending")\
+        pending_res = (
+            await client.table("approval_requests")
+            .select("count", count="exact")
+            .eq("status", "pending")
             .execute()
+        )
         pending_count = pending_res.count if pending_res.count is not None else 0
 
         # 2. Get Abnormal Expenses (High amount pending expenses)
-        abnormal_res = await client.table("approval_requests")\
-            .select("id, description, amount, users:submitted_by(name)")\
-            .eq("status", "pending")\
-            .eq("type", "expense")\
-            .gt("amount", 1000)\
-            .order("amount", desc=True)\
-            .limit(5)\
+        abnormal_res = (
+            await client.table("approval_requests")
+            .select("id, description, amount, users:submitted_by(name)")
+            .eq("status", "pending")
+            .eq("type", "expense")
+            .gt("amount", 1000)
+            .order("amount", desc=True)
+            .limit(5)
             .execute()
-            
+        )
+
         abnormal_expenses = []
         for item in abnormal_res.data:
             user_name = "Unknown"
             if item.get("users"):
                 user_name = item["users"].get("name", "Unknown")
-            
-            abnormal_expenses.append({
-                "id": item["id"],
-                "user": user_name,
-                "amount": item["amount"],
-                "reason": item.get("description", "No description")
-            })
+
+            abnormal_expenses.append(
+                {
+                    "id": item["id"],
+                    "user": user_name,
+                    "amount": item["amount"],
+                    "reason": item.get("description", "No description"),
+                }
+            )
 
         # 3. Get Top Performers
-        users_res = await client.table("users")\
-            .select("name, score, total_bonus")\
-            .order("score", desc=True)\
-            .limit(3)\
+        users_res = (
+            await client.table("users")
+            .select("name, score, total_bonus")
+            .order("score", desc=True)
+            .limit(3)
             .execute()
-            
+        )
+
         top_performers = [u["name"] for u in users_res.data]
 
-        return api_success(data={
-            "pending_approvals": pending_count,
-            "abnormal_expenses": abnormal_expenses,
-            "top_performers": top_performers,
-            "system_status": "Healthy"
-        })
+        return api_success(
+            data={
+                "pending_approvals": pending_count,
+                "abnormal_expenses": abnormal_expenses,
+                "top_performers": top_performers,
+                "system_status": "Healthy",
+            }
+        )
 
     except HTTPException:
         raise  # Re-raise HTTP exceptions (already handled by global handler)
@@ -267,6 +311,7 @@ async def boss_dashboard(request: Request, user_id: str = Depends(get_current_us
         logger.error(f"Error fetching boss dashboard data: {e}")
         # Standardize even fallback errors
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))

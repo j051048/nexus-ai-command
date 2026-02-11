@@ -7,6 +7,7 @@ Handles approval workflow logic including:
 - Database updates
 - Notifications
 """
+
 import logging
 from app.models.schemas import ApprovalRequest, ApprovalDecision
 from app.services.ai_service import AIService
@@ -34,6 +35,7 @@ DECISION_MAP = {
     "manual_review_required": "manual_review_required",
 }
 
+
 class ApprovalService:
     @staticmethod
     async def process_approval(request: ApprovalRequest) -> ApprovalDecision:
@@ -48,33 +50,40 @@ class ApprovalService:
             ai_result = await AIService.analyze_approval(
                 request_type=request.type,
                 description=request.details,
-                amount=request.amount
+                amount=request.amount,
             )
-            
+
             raw_decision = ai_result.get("decision", "manual_review_required")
-            normalized_decision = DECISION_MAP.get(raw_decision, "manual_review_required")
+            normalized_decision = DECISION_MAP.get(
+                raw_decision, "manual_review_required"
+            )
             ai_reason = ai_result.get("reasoning", "需要人工进一步核实详情")
 
             # 2. Rule Engine Guardrails (Optional but recommended)
             # We can use RuleEngine to forcefully reject or require review for large amounts, overriding AI
             rule_decision = RuleEngine.evaluate_approval(request)
-            
+
             final_decision = normalized_decision
             final_reason = ai_reason
-            
+
             # If Rule Engine suggests manual review but AI says auto-approve, trust Rule Engine for safety (amounts)
-            if rule_decision.decision == "manual_review_required" and normalized_decision == "auto_approved":
+            if (
+                rule_decision.decision == "manual_review_required"
+                and normalized_decision == "auto_approved"
+            ):
                 final_decision = "manual_review_required"
                 final_reason = f"Security Rule Override: {rule_decision.reason}. AI Reason: {ai_reason}"
-            
+
             # 3. Construct Result
             return ApprovalDecision(
                 decision=final_decision,
                 reason=final_reason,
                 boss_notification_sent=(final_decision != "auto_approved"),
-                requires_human_review=(final_decision == "manual_review_required")
+                requires_human_review=(final_decision == "manual_review_required"),
             )
 
         except Exception as e:
             logger.error(f"Approval process failed: {e}")
-            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"Approval processing error: {str(e)}")
+            raise api_error(
+                ErrorCode.SYSTEM_INTERNAL_ERROR, f"Approval processing error: {str(e)}"
+            )

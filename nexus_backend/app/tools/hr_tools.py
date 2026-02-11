@@ -2,6 +2,7 @@
 HR 人力资源工具集
 实现考勤、绩效、员工档案等 HR 场景的 AI 自动化
 """
+
 from .base_tool import BaseTool
 from typing import Dict, Any
 from datetime import datetime
@@ -16,54 +17,60 @@ def _get_client(config: Dict = None):
 
 class AttendanceQueryTool(BaseTool):
     """考勤查询工具"""
+
     name = "query_attendance"
     description = "查询员工考勤记录、迟到早退情况、出勤统计等"
     required_role = "all"
-    
+
     parameters = {
         "type": "object",
         "properties": {
             "query_type": {
                 "type": "string",
                 "enum": ["my_record", "monthly_summary", "abnormal"],
-                "description": "查询类型: my_record(我的考勤), monthly_summary(月度汇总), abnormal(异常记录)"
+                "description": "查询类型: my_record(我的考勤), monthly_summary(月度汇总), abnormal(异常记录)",
             },
-            "month": {
-                "type": "string",
-                "description": "查询月份，格式 YYYY-MM"
-            },
+            "month": {"type": "string", "description": "查询月份，格式 YYYY-MM"},
             "employee_name": {
                 "type": "string",
-                "description": "员工姓名（管理者可查询下属）"
-            }
+                "description": "员工姓名（管理者可查询下属）",
+            },
         },
-        "required": []
+        "required": [],
     }
 
-    async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
+    async def run(
+        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+    ) -> str:
         month = args.get("month", datetime.now().strftime("%Y-%m"))
         employee_name = args.get("employee_name")
-        
+
         client = _get_client(config)
         # 获取用户信息
-        user_res = await client.table("users").select("name, role").eq("id", user_id).maybe_single().execute()
+        user_res = (
+            await client.table("users")
+            .select("name, role")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
         if not user_res.data:
             return "❌ 无法获取用户信息"
-        
+
         user = user_res.data
         query_user_name = employee_name or user.get("name", "您")
-        
+
         # 检查权限：非管理者只能查自己
         if employee_name and user.get("role") not in ["manager", "founder", "boss"]:
             return "❌ 您没有权限查询他人的考勤记录"
-        
+
         # 模拟考勤数据（实际应从 hr_attendance 表查询）
         work_days = 22
         actual_days = 21
         late_count = 2
         early_leave_count = 0
         overtime_hours = 12.5
-        
+
         response = f"""📅 **{query_user_name} {month} 考勤汇总**
 
 **出勤统计**
@@ -86,7 +93,7 @@ class AttendanceQueryTool(BaseTool):
 │ 可调休            {overtime_hours/8:>9.1f} 天 │
 └─────────────────────────────┘
 """
-        
+
         if late_count > 0:
             response += f"""
 ⚠️ **迟到明细**
@@ -95,63 +102,82 @@ class AttendanceQueryTool(BaseTool):
 
 💡 温馨提示: 本月迟到{late_count}次，将扣除全勤奖 ¥{late_count * 100}
 """
-        
+
         return response
 
 
 class TeamAttendanceTool(BaseTool):
     """团队考勤管理工具（管理者专用）"""
+
     name = "query_team_attendance"
     description = "查询团队整体考勤情况、异常预警等（管理者专用）"
     required_role = "manager"
-    
+
     parameters = {
         "type": "object",
         "properties": {
             "view_type": {
                 "type": "string",
                 "enum": ["overview", "abnormal_alert", "ranking"],
-                "description": "查看类型: overview(总览), abnormal_alert(异常预警), ranking(排名)"
+                "description": "查看类型: overview(总览), abnormal_alert(异常预警), ranking(排名)",
             }
         },
-        "required": []
+        "required": [],
     }
 
-    async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
+    async def run(
+        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+    ) -> str:
         client = _get_client(config)
-        
+
         # F4: Check if user is manager (not boss) - filter to own department only
         from app.services.chat_service import ChatService
-        user_role = await ChatService._get_cached_user_role(user_id, db_client=client) if hasattr(ChatService, '_get_cached_user_role') else "employee"
-        
+
+        user_role = (
+            await ChatService._get_cached_user_role(user_id, db_client=client)
+            if hasattr(ChatService, "_get_cached_user_role")
+            else "employee"
+        )
+
         if user_role == "manager":
             # Get manager's department
-            dept_res = await client.table("users").select("department").eq("id", user_id).maybe_single().execute()
+            dept_res = (
+                await client.table("users")
+                .select("department")
+                .eq("id", user_id)
+                .maybe_single()
+                .execute()
+            )
             user_dept = dept_res.data.get("department") if dept_res.data else None
             if user_dept:
                 # Filter team to same department
-                team_res = await client.table("users").select("*").eq("department", user_dept).execute()
+                team_res = (
+                    await client.table("users")
+                    .select("*")
+                    .eq("department", user_dept)
+                    .execute()
+                )
             else:
                 team_res = await client.table("users").select("*").execute()
         else:
             # Boss/founder sees all
             team_res = await client.table("users").select("*").execute()
-        
+
         team_members = team_res.data or []
-        
+
         # 模拟团队数据
         team_stats = {
             "total_members": len(team_members),
             "avg_attendance_rate": 96.5,
             "total_late": 8,
-            "total_overtime_hours": 156
+            "total_overtime_hours": 156,
         }
-        
+
         abnormal_members = [
             {"name": "张小明", "late_count": 5, "status": "关注", "trend": "上升"},
             {"name": "李小红", "late_count": 3, "status": "正常", "trend": "稳定"},
         ]
-        
+
         response = f"""👥 **团队考勤总览**
 📅 统计周期: {datetime.now().strftime("%Y年%m月")}
 
@@ -164,61 +190,67 @@ class TeamAttendanceTool(BaseTool):
 └─────────────────────────────┘
 
 """
-        
+
         if abnormal_members:
             response += "⚠️ **需关注成员**\n"
             for member in abnormal_members:
                 alert_icon = "🔴" if member["status"] == "关注" else "🟡"
                 response += f"{alert_icon} {member['name']}: 迟到{member['late_count']}次 (趋势{member['trend']})\n"
-            
+
             response += """
 💡 **AI 建议**:
 - 张小明本月迟到次数明显增加，建议一对一沟通了解情况
 - 整体出勤率良好，团队状态稳定
 """
-        
+
         return response
 
 
 class EmployeeProfileTool(BaseTool):
     """员工画像工具（管理者专用）"""
+
     name = "get_employee_profile"
     description = "获取员工综合画像，包括绩效、考勤、成长轨迹、风险评估等"
     required_role = "manager"
-    
+
     parameters = {
         "type": "object",
         "properties": {
-            "employee_name": {
-                "type": "string",
-                "description": "员工姓名"
-            },
+            "employee_name": {"type": "string", "description": "员工姓名"},
             "include_risk_analysis": {
                 "type": "boolean",
-                "description": "是否包含风险分析"
-            }
+                "description": "是否包含风险分析",
+            },
         },
-        "required": ["employee_name"]
+        "required": ["employee_name"],
     }
 
-    async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
+    async def run(
+        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+    ) -> str:
         employee_name = args.get("employee_name")
         include_risk = args.get("include_risk_analysis", True)
-        
+
         client = _get_client(config)
         # 查找员工
-        emp_res = await client.table("users").select("*").ilike("name", f"%{employee_name}%").limit(1).execute()
-        
+        emp_res = (
+            await client.table("users")
+            .select("*")
+            .ilike("name", f"%{employee_name}%")
+            .limit(1)
+            .execute()
+        )
+
         if not emp_res.data:
             return f"❌ 未找到名为「{employee_name}」的员工"
-        
+
         emp = emp_res.data[0]
-        
+
         # 获取绩效数据
         score = emp.get("score", 85)
         rank = emp.get("rank", 5)
         total_bonus = emp.get("total_bonus", 12000)
-        
+
         response = f"""👤 **{emp.get('name', employee_name)} 员工画像**
 
 **基本信息**
@@ -247,7 +279,7 @@ class EmployeeProfileTool(BaseTool):
 - 12月5日: 获得「销售新星」徽章
 - 11月28日: 完成产品培训认证
 """
-        
+
         if include_risk:
             # AI 风险分析
             response += """
@@ -265,48 +297,48 @@ class EmployeeProfileTool(BaseTool):
    - 建议参与大客户项目锻炼
    - 推荐报名管理培训课程
 """
-        
+
         return response
 
 
 class PerformanceReviewTool(BaseTool):
     """绩效评估工具"""
+
     name = "create_performance_review"
     description = "发起或查看绩效评估"
     required_role = "manager"
-    
+
     parameters = {
         "type": "object",
         "properties": {
             "action": {
                 "type": "string",
                 "enum": ["view_team", "start_review", "submit_rating"],
-                "description": "操作类型"
+                "description": "操作类型",
             },
-            "employee_name": {
-                "type": "string",
-                "description": "员工姓名"
-            },
-            "rating": {
-                "type": "number",
-                "description": "评分 1-5"
-            },
-            "comment": {
-                "type": "string",
-                "description": "评语"
-            }
+            "employee_name": {"type": "string", "description": "员工姓名"},
+            "rating": {"type": "number", "description": "评分 1-5"},
+            "comment": {"type": "string", "description": "评语"},
         },
-        "required": []
+        "required": [],
     }
 
-    async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
+    async def run(
+        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+    ) -> str:
         action = args.get("action", "view_team")
-        
+
         if action == "view_team":
             client = _get_client(config)
             # 获取团队绩效概览
-            team_res = await client.table("users").select("name, score, rank, total_bonus").order("score", desc=True).limit(10).execute()
-            
+            team_res = (
+                await client.table("users")
+                .select("name, score, rank, total_bonus")
+                .order("score", desc=True)
+                .limit(10)
+                .execute()
+            )
+
             response = """📊 **团队绩效排行榜**
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -316,8 +348,10 @@ class PerformanceReviewTool(BaseTool):
                 medal = medals[i] if i < 3 else f"{i+1}."
                 bar_len = int(member.get("score", 0) / 10)
                 bar = "█" * bar_len + "░" * (10 - bar_len)
-                response += f"{medal} {member['name']:<8} {bar} {member.get('score', 0)}分\n"
-            
+                response += (
+                    f"{medal} {member['name']:<8} {bar} {member.get('score', 0)}分\n"
+                )
+
             response += """
 💡 **AI 洞察**:
 - 团队整体绩效较上月提升 5%
@@ -325,12 +359,12 @@ class PerformanceReviewTool(BaseTool):
 - 建议关注排名靠后的2名同学
 """
             return response
-        
+
         elif action == "submit_rating":
             employee_name = args.get("employee_name")
             rating = args.get("rating", 4)
             comment = args.get("comment", "")
-            
+
             return f"""✅ 已提交 {employee_name} 的绩效评分
 
 **评分详情**
@@ -340,56 +374,68 @@ class PerformanceReviewTool(BaseTool):
 
 📧 已通知 {employee_name} 查看评估结果
 """
-        
+
         return "未知操作"
 
 
 class RecruitmentTool(BaseTool):
     """招聘管理工具"""
+
     name = "manage_recruitment"
     description = "管理招聘需求、查看候选人、安排面试等"
     required_role = "manager"
-    
+
     parameters = {
         "type": "object",
         "properties": {
             "action": {
                 "type": "string",
                 "enum": ["create_job", "view_candidates", "schedule_interview"],
-                "description": "操作类型"
+                "description": "操作类型",
             },
-            "job_title": {
-                "type": "string",
-                "description": "职位名称"
-            },
-            "candidate_name": {
-                "type": "string",
-                "description": "候选人姓名"
-            },
-            "interview_time": {
-                "type": "string",
-                "description": "面试时间"
-            }
+            "job_title": {"type": "string", "description": "职位名称"},
+            "candidate_name": {"type": "string", "description": "候选人姓名"},
+            "interview_time": {"type": "string", "description": "面试时间"},
         },
-        "required": []
+        "required": [],
     }
 
-    async def run(self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None) -> str:
+    async def run(
+        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+    ) -> str:
         action = args.get("action", "view_candidates")
-        
+
         if action == "view_candidates":
             # 模拟候选人数据
             candidates = [
-                {"name": "候选人A", "position": "销售经理", "stage": "复试", "score": 4.5, "source": "猎聘"},
-                {"name": "候选人B", "position": "销售专员", "stage": "初筛", "score": 3.8, "source": "BOSS"},
-                {"name": "候选人C", "position": "销售经理", "stage": "offer", "score": 4.8, "source": "内推"},
+                {
+                    "name": "候选人A",
+                    "position": "销售经理",
+                    "stage": "复试",
+                    "score": 4.5,
+                    "source": "猎聘",
+                },
+                {
+                    "name": "候选人B",
+                    "position": "销售专员",
+                    "stage": "初筛",
+                    "score": 3.8,
+                    "source": "BOSS",
+                },
+                {
+                    "name": "候选人C",
+                    "position": "销售经理",
+                    "stage": "offer",
+                    "score": 4.8,
+                    "source": "内推",
+                },
             ]
-            
+
             response = """👥 **候选人管道**
 
 """
             stage_icons = {"初筛": "📋", "复试": "🎯", "offer": "✅", "入职": "🎉"}
-            
+
             for c in candidates:
                 icon = stage_icons.get(c["stage"], "📋")
                 stars = "⭐" * int(c["score"])
@@ -397,17 +443,17 @@ class RecruitmentTool(BaseTool):
    阶段: {c['stage']} | 评分: {stars} | 来源: {c['source']}
 
 """
-            
+
             response += """💡 **AI 建议**:
 - 候选人C综合评分最高，建议尽快发offer
 - 销售经理岗位已有2名合适候选人
 """
             return response
-        
+
         elif action == "schedule_interview":
             candidate = args.get("candidate_name", "候选人")
             interview_time = args.get("interview_time", "明天下午3点")
-            
+
             return f"""✅ 面试已安排
 
 **面试详情**
@@ -419,5 +465,5 @@ class RecruitmentTool(BaseTool):
 📧 已发送面试邀请邮件给候选人
 📅 已添加到您的日程
 """
-        
+
         return "功能开发中"

@@ -6,10 +6,7 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 # Initialize Celery app
 celery_app = Celery(
-    "nexus_tasks",
-    broker=REDIS_URL,
-    backend=REDIS_URL,
-    include=["app.tasks.scheduler"]
+    "nexus_tasks", broker=REDIS_URL, backend=REDIS_URL, include=["app.tasks.scheduler"]
 )
 
 # Configuration
@@ -25,6 +22,6 @@ celery_app.conf.update(
 celery_app.conf.beat_schedule = {
     "daily-arxiv-harvest": {
         "task": "app.tasks.scheduler.crawl_arxiv_leads",
-        "schedule": 86400.0, # Every 24 hours
+        "schedule": 86400.0,  # Every 24 hours
     },
 }
