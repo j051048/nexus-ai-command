@@ -1,11 +1,110 @@
 import re
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from app.core.database import supabase
 from app.core.config import settings
 from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
+
+# Reranker configuration
+RERANK_ENABLED = getattr(settings, 'RERANK_ENABLED', True)
+RERANK_TOP_N = getattr(settings, 'RERANK_TOP_N', 5)
+
+
+def escape_like_pattern(value: str) -> str:
+    """P0 Security: Escape special characters in LIKE patterns to prevent SQL injection"""
+    if not value:
+        return value
+    # Escape %, _, and \ which have special meaning in LIKE patterns
+    return value.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+
+
+def sanitize_search_query(query: str, max_length: int = 500) -> str:
+    """P0 Security: Sanitize and validate search query input"""
+    if not query:
+        return ""
+    # Truncate to max length
+    query = query[:max_length]
+    # Remove potential injection patterns
+    query = re.sub(r'[;\-\-\'"\\]', ' ', query)
+    # Normalize whitespace
+    query = ' '.join(query.split())
+    return query.strip()
+
+
+class VectorService:
+    """
+    Interface for Vector Database operations using Supabase pgvector.
+    Enhanced with Cross-Encoder Reranking for improved precision.
+    """
+
+    async def _rerank_with_llm(
+        self,
+        query: str,
+        documents: List[Dict],
+        client: AsyncOpenAI,
+        top_n: int = 5
+    ) -> List[Dict]:
+        """
+        Use LLM to rerank documents based on relevance to query.
+        This is a lightweight cross-encoder alternative using GPT.
+        """
+        if not documents or len(documents) <= 1:
+            return documents
+
+        try:
+            # Prepare document list for reranking
+            doc_texts = []
+            for i, doc in enumerate(documents[:10]):  # Limit to top 10 for reranking
+                content = doc.get("content", "")[:500]  # Truncate long content
+                doc_texts.append(f"[{i}] {content}")
+
+            prompt = f"""对以下文档按照与查询的相关性进行排序。
+查询: {query}
+
+文档列表:
+{chr(10).join(doc_texts)}
+
+请直接返回排序后的文档编号（用逗号分隔），最相关的排在前面。只返回编号，例如: 2,0,4,1,3"""
+
+            response = await client.chat.completions.create(
+                model="gpt-4o-mini",  # Use fast model for reranking
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=50,
+                temperature=0
+            )
+
+            # Parse response
+            ranking_str = response.choices[0].message.content.strip()
+            # Extract numbers from response
+            indices = []
+            for part in ranking_str.replace(" ", "").split(","):
+                try:
+                    idx = int(part.strip("[]"))
+                    if 0 <= idx < len(documents):
+                        indices.append(idx)
+                except ValueError:
+                    continue
+
+            # Reorder documents based on LLM ranking
+            if indices:
+                reranked = []
+                seen = set()
+                for idx in indices[:top_n]:
+                    if idx not in seen:
+                        reranked.append(documents[idx])
+                        seen.add(idx)
+                # Add any remaining documents not in the ranking
+                for i, doc in enumerate(documents):
+                    if i not in seen and len(reranked) < top_n:
+                        reranked.append(doc)
+                return reranked
+
+        except Exception as e:
+            logger.warning(f"LLM reranking failed, using RRF scores: {e}")
+
+        return documents[:top_n]
 
 
 def escape_like_pattern(value: str) -> str:
@@ -149,7 +248,18 @@ class VectorService:
         
         # C. RRF Fusion
         fused_docs = self._rrf_fusion([vector_res, keyword_res], k=60)
-        top_docs = sorted(fused_docs.values(), key=lambda x: x['score'], reverse=True)[:limit]
+        top_docs_unsorted = sorted(fused_docs.values(), key=lambda x: x['score'], reverse=True)[:limit * 2]
+
+        # D. Reranking (if enabled and enough documents)
+        if RERANK_ENABLED and len(top_docs_unsorted) > 1:
+            try:
+                top_docs = await self._rerank_with_llm(query, top_docs_unsorted, client, top_n=limit)
+                logger.info(f"Reranked {len(top_docs_unsorted)} docs to {len(top_docs)}")
+            except Exception as e:
+                logger.warning(f"Reranking failed: {e}")
+                top_docs = top_docs_unsorted[:limit]
+        else:
+            top_docs = top_docs_unsorted[:limit]
 
         if not top_docs:
             # TC-07: Better empty result handling

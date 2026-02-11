@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { AIMessage } from '@/types/nexus';
+import { AIMessage, ThinkingStep } from '@/types/nexus';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -8,9 +8,17 @@ interface UseAIStreamProps {
     onMessageUpdate?: (messages: AIMessage[]) => void;
 }
 
+interface StreamCallbacks {
+    onUpdate?: (content: string, id: string) => void;
+    onThinkingStep?: (step: ThinkingStep) => void;
+    onThinkingComplete?: (totalSteps: number) => void;
+}
+
 export function useAIStream({ userId }: UseAIStreamProps) {
     const [isTyping, setIsTyping] = useState(false);
     const [aiStatus, setAiStatus] = useState<string | undefined>();
+    const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([]);
+    const [isThinkingComplete, setIsThinkingComplete] = useState(false);
     const abortControllerRef = useRef<AbortController | null>(null);
 
     const getApiUrl = useCallback(() => {
@@ -28,10 +36,17 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         input: string,
         history: AIMessage[],
         agent?: string,
-        onUpdate?: (content: string, id: string) => void
+        callbacks?: StreamCallbacks | ((content: string, id: string) => void)
     ) => {
         setIsTyping(true);
         setAiStatus(undefined);
+        setThinkingSteps([]);
+        setIsThinkingComplete(false);
+
+        // Support both old callback style and new object style
+        const onUpdate = typeof callbacks === 'function' ? callbacks : callbacks?.onUpdate;
+        const onThinkingStep = typeof callbacks === 'object' ? callbacks.onThinkingStep : undefined;
+        const onThinkingComplete = typeof callbacks === 'object' ? callbacks.onThinkingComplete : undefined;
 
         const chatMessages = history
             .filter(m => m.id !== '1') // Skip greeting
@@ -114,6 +129,21 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                         const parsed = JSON.parse(jsonStr);
                         const content = parsed.choices?.[0]?.delta?.content as string | undefined;
 
+                        // Handle thinking step events
+                        if (parsed.thinking_step) {
+                            const step = parsed.thinking_step as ThinkingStep;
+                            setThinkingSteps(prev => [...prev, step]);
+                            onThinkingStep?.(step);
+                            continue;
+                        }
+
+                        // Handle thinking chain completion
+                        if (parsed.thinking_chain_complete) {
+                            setIsThinkingComplete(true);
+                            onThinkingComplete?.(parsed.total_steps || 0);
+                            continue;
+                        }
+
                         if (parsed.status) {
                             setAiStatus(parsed.status);
                             continue;
@@ -171,7 +201,10 @@ export function useAIStream({ userId }: UseAIStreamProps) {
     return {
         isTyping,
         aiStatus,
+        thinkingSteps,
+        isThinkingComplete,
         streamChat,
-        stopStream
+        stopStream,
+        clearThinkingSteps: () => setThinkingSteps([])
     };
 }

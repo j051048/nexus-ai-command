@@ -83,6 +83,31 @@ export interface AIMessage {
   timestamp: Date;
   agent?: string;
   cards?: ActiveCard[];
+  // Agent thinking chain support
+  thinkingSteps?: ThinkingStep[];
+  toolCalls?: ToolCall[];
+  isStreaming?: boolean;
+}
+
+// Agent thinking chain types for AI-first experience
+export interface ThinkingStep {
+  phase: 'planning' | 'executing' | 'reflecting' | 'responding';
+  content: string;
+  tool_name?: string;
+  tool_args?: Record<string, unknown>;
+  tool_result?: string;
+  timestamp: number;
+  duration_ms?: number;
+}
+
+export interface ToolCall {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
+  result?: string;
+  status: 'pending' | 'running' | 'completed' | 'error';
+  startedAt?: number;
+  completedAt?: number;
 }
 
 export interface WeeklyReport {

@@ -1,17 +1,21 @@
 """Chat Service for Nexus AI
-P4 Enhancement: Chat Service (Build Trigger: 20240210-1145)
+P4 Enhancement: Chat Service (Build Trigger: 20250211-0900)
 
 Handles:
 - OpenAI API interaction (Streaming)
-- Recursive tool execution
+- Recursive tool execution with thinking chain visualization
 - Context management
 - Content moderation integration
+- Agent state tracking (Plan → Execute → Reflect cycle)
 """
 import json
 import logging
 import asyncio
 import httpx
+import time
 from typing import List, Dict, Any, AsyncGenerator, Optional
+from dataclasses import dataclass, asdict
+from enum import Enum
 from app.tools import get_tool, get_all_tools_schema
 import jsonschema
 from app.core.database import supabase
@@ -27,6 +31,33 @@ logger = logging.getLogger(__name__)
 
 # P1 Fix #12: Make chat history window configurable
 MAX_HISTORY = getattr(settings, 'MAX_CHAT_HISTORY', 10)
+
+
+class AgentPhase(str, Enum):
+    """Agent execution phases for thinking chain visualization"""
+    PLANNING = "planning"
+    EXECUTING = "executing"
+    REFLECTING = "reflecting"
+    RESPONDING = "responding"
+
+
+@dataclass
+class ThinkingStep:
+    """Represents a single step in the agent's thinking chain"""
+    phase: str
+    content: str
+    tool_name: Optional[str] = None
+    tool_args: Optional[Dict] = None
+    tool_result: Optional[str] = None
+    timestamp: float = None
+    duration_ms: Optional[int] = None
+
+    def __post_init__(self):
+        if self.timestamp is None:
+            self.timestamp = time.time()
+
+    def to_dict(self) -> Dict:
+        return {k: v for k, v in asdict(self).items() if v is not None}
 
 class ChatService:
     TOOLS = get_all_tools_schema()
@@ -263,18 +294,40 @@ class ChatService:
                 logger.error(f"LLM API connection failed: {e}")
                 yield f"error: Connection Failed: {str(e)}"
 
-        # Main Loop (Recursive Tool Use)
+        # Main Loop (Recursive Tool Use) with Thinking Chain Visualization
         max_iterations = 5
+        thinking_steps: List[ThinkingStep] = []
+
+        def emit_thinking_step(step: ThinkingStep):
+            """Helper to emit thinking step via SSE"""
+            return f"data: {json.dumps({'thinking_step': step.to_dict()})}\n\n"
+
         for iteration in range(max_iterations):
-            # Optim: Emit Thinking Status
+            iteration_start = time.time()
+
+            # Phase 1: Planning - Emit thinking status
             if iteration == 0:
+                planning_step = ThinkingStep(
+                    phase=AgentPhase.PLANNING.value,
+                    content="正在分析用户意图，规划执行策略..."
+                )
+                thinking_steps.append(planning_step)
+                yield emit_thinking_step(planning_step)
                 yield f"data: {json.dumps({'status': '正在思考...'})}\n\n"
-            
+            else:
+                # Reflection phase for subsequent iterations
+                reflect_step = ThinkingStep(
+                    phase=AgentPhase.REFLECTING.value,
+                    content=f"正在分析工具执行结果，决定下一步操作... (迭代 {iteration + 1}/{max_iterations})"
+                )
+                thinking_steps.append(reflect_step)
+                yield emit_thinking_step(reflect_step)
+
             tool_calls_map = {}
             has_tool_call = False
-            
+
             total_usage_chunk = None
-            
+
             async for line in _call_api(messages):
                 if line.startswith("error: "):
                     yield f"data: {json.dumps({'choices': [{'delta': {'content': f' {line}'}}]})}\n\n"
@@ -344,10 +397,19 @@ class ChatService:
                 # Execute tools in parallel
                 tool_tasks = []
                 tool_indices = sorted(tool_calls_map.keys())
-                
-                # Report Status
+
+                # Report Status with thinking step
                 tool_names_list = [tool_calls_map[idx]["name"] for idx in tool_indices]
                 joined_tool_names = ', '.join(tool_names_list)
+
+                # Emit executing phase thinking step
+                exec_step = ThinkingStep(
+                    phase=AgentPhase.EXECUTING.value,
+                    content=f"正在执行工具: {joined_tool_names}",
+                    tool_name=joined_tool_names
+                )
+                thinking_steps.append(exec_step)
+                yield emit_thinking_step(exec_step)
                 yield f"data: {json.dumps({'status': f'正在调用: {joined_tool_names}...'})}\n\n"
 
                 for idx in tool_indices:
@@ -379,8 +441,8 @@ class ChatService:
                     tool_tasks.append(ChatService.execute_tool(tc["name"], args, user_id, config=config, system_confirmed=system_confirmed, db_client=client_db))
 
                 results = await asyncio.gather(*tool_tasks)
-                
-                # Add tool results to history
+
+                # Add tool results to history with thinking step tracking
                 for idx, result in zip(tool_indices, results):
                     tc = tool_calls_map[idx]
                     messages.append({
@@ -389,16 +451,45 @@ class ChatService:
                         "name": tc["name"],
                         "content": str(result)
                     })
+
+                    # Emit tool result as thinking step
+                    tool_result_step = ThinkingStep(
+                        phase=AgentPhase.EXECUTING.value,
+                        content=f"工具 {tc['name']} 执行完成",
+                        tool_name=tc["name"],
+                        tool_result=str(result)[:500] if result else None,
+                        duration_ms=int((time.time() - iteration_start) * 1000)
+                    )
+                    thinking_steps.append(tool_result_step)
+                    yield emit_thinking_step(tool_result_step)
+
                     if tracer:
                         tracer.log_tool_execution(tc["name"], "completed", str(result))
-                
-                # Loop continues to next iteration (AI reflects on tool output)
+
+                # Emit reflecting phase
+                reflect_step = ThinkingStep(
+                    phase=AgentPhase.REFLECTING.value,
+                    content="正在分析执行结果..."
+                )
+                thinking_steps.append(reflect_step)
+                yield emit_thinking_step(reflect_step)
                 yield f"data: {json.dumps({'status': '正在分析执行结果...'})}\n\n"
             
             else:
-                # No tool calls in this turn, discussion finished
+                # No tool calls in this turn, emit responding phase
+                if full_response_content:
+                    respond_step = ThinkingStep(
+                        phase=AgentPhase.RESPONDING.value,
+                        content="正在生成最终回复..."
+                    )
+                    thinking_steps.append(respond_step)
+                    yield emit_thinking_step(respond_step)
                 break
-        
+
+
+        # Emit final thinking chain summary
+        if thinking_steps:
+            yield f"data: {json.dumps({'thinking_chain_complete': True, 'total_steps': len(thinking_steps)})}\n\n"
 
         # B. Real LLM Execution
         # 3. P1 Optimization: Token Usage Recording & Output Sanitization

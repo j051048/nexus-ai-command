@@ -3,8 +3,9 @@ import { Sidebar } from './Sidebar';
 import { MobileSidebar } from './MobileSidebar';
 import { ActiveCardStream } from '../cards/ActiveCardStream';
 import { AIChatPanel } from '../ai/AIChatPanel';
+import { CopilotSidebar } from '../ai/CopilotSidebar';
 import { useUser } from '@/contexts/UserContext';
-import { Menu, X, Command } from 'lucide-react';
+import { Menu, X, Command, Sparkles, LayoutGrid } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { NotificationCenter } from '../common/NotificationCenter';
 import { useLocation } from 'react-router-dom';
@@ -12,6 +13,7 @@ import { CommandPalette } from '../common/CommandPalette';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -24,6 +26,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCardsOpen, setIsCardsOpen] = useState(false);
   const [isCommandOpen, setIsCommandOpen] = useState(false);
+  const [rightPanelTab, setRightPanelTab] = useState<'copilot' | 'cards'>('copilot');
   const isMobile = useIsMobile();
   const location = useLocation();
 
@@ -53,6 +56,15 @@ export function MainLayout({ children }: MainLayoutProps) {
     setIsChatExpanded(true);
     // TODO: 将消息发送到 AI 聊天面板
     console.log('AI Chat:', message);
+  }, []);
+
+  // Copilot suggestion action
+  const handleCopilotAction = useCallback((suggestion: any) => {
+    if (suggestion.action?.aiPrompt) {
+      setIsChatExpanded(true);
+      // Could prefill the chat input here
+      console.log('Copilot AI Prompt:', suggestion.action.aiPrompt);
+    }
   }, []);
 
   // Simple mapping for titles based on path
@@ -163,17 +175,39 @@ export function MainLayout({ children }: MainLayoutProps) {
         </div>
       )}
 
-      {/* Desktop Right Panel */}
+      {/* Desktop Right Panel with Tabs */}
       {!isMobile && (
         <div className="fixed right-0 top-0 w-80 h-screen border-l border-border bg-card overflow-hidden flex flex-col">
-          <div className="p-4 border-b border-border">
-            <h2 className="font-semibold text-foreground flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
-              实时动态
-            </h2>
-            <p className="text-xs text-muted-foreground mt-1">AI 主动推送</p>
+          {/* Tab Header */}
+          <div className="p-3 border-b border-border">
+            <Tabs value={rightPanelTab} onValueChange={(v) => setRightPanelTab(v as 'copilot' | 'cards')}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="copilot" className="text-xs gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  AI 助手
+                </TabsTrigger>
+                <TabsTrigger value="cards" className="text-xs gap-1.5">
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  实时动态
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
-          <ActiveCardStream />
+
+          {/* Tab Content */}
+          {rightPanelTab === 'copilot' ? (
+            <CopilotSidebar
+              onSuggestionAction={handleCopilotAction}
+              isExpanded={true}
+            />
+          ) : (
+            <>
+              <div className="px-4 py-2">
+                <p className="text-xs text-muted-foreground">AI 主动推送</p>
+              </div>
+              <ActiveCardStream />
+            </>
+          )}
         </div>
       )}
 

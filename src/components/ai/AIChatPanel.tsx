@@ -12,9 +12,11 @@ import {
   AtSign,
   Loader2,
   Paperclip,
+  Brain,
 } from 'lucide-react';
-import { AIMessage } from '@/types/nexus';
+import { AIMessage, ThinkingStep } from '@/types/nexus';
 import { toast } from 'sonner';
+import { ThinkingChain } from './ThinkingChain';
 
 const agentTags = [
   { id: 'sales', name: '@销售指挥官', color: 'text-primary' },
@@ -36,10 +38,17 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
   const [input, setInput] = useState('');
   const [showAgents, setShowAgents] = useState(false);
   const [currentAgent, setCurrentAgent] = useState<string | undefined>();
+  const [currentThinkingSteps, setCurrentThinkingSteps] = useState<ThinkingStep[]>([]);
+  const [showThinkingChain, setShowThinkingChain] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { isTyping: isAiTyping, aiStatus, streamChat } = useAIStream({ userId: user.id });
+  const { isTyping: isAiTyping, aiStatus, thinkingSteps, isThinkingComplete, streamChat, clearThinkingSteps } = useAIStream({ userId: user.id });
+
+  // Sync thinking steps from hook
+  useEffect(() => {
+    setCurrentThinkingSteps(thinkingSteps);
+  }, [thinkingSteps]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -121,6 +130,8 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
     setMessages(prev => [...prev, userMessage]);
     const messageToSend = input;
     setInput('');
+    clearThinkingSteps();
+    setCurrentThinkingSteps([]);
 
     // Detect agent
     let detectedAgent = currentAgent;
@@ -136,21 +147,30 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
         messageToSend,
         messages,
         detectedAgent,
-        (content, assistantMsgId) => {
-          setMessages(prev => {
-            const exists = prev.find(m => m.id === assistantMsgId);
-            if (exists) {
-              return prev.map(m => m.id === assistantMsgId ? { ...m, content } : m);
-            } else {
-              return [...prev, {
-                id: assistantMsgId,
-                role: 'assistant',
-                content,
-                timestamp: new Date(),
-                agent: detectedAgent
-              }];
-            }
-          });
+        {
+          onUpdate: (content, assistantMsgId) => {
+            setMessages(prev => {
+              const exists = prev.find(m => m.id === assistantMsgId);
+              if (exists) {
+                return prev.map(m => m.id === assistantMsgId ? { ...m, content, thinkingSteps: currentThinkingSteps } : m);
+              } else {
+                return [...prev, {
+                  id: assistantMsgId,
+                  role: 'assistant',
+                  content,
+                  timestamp: new Date(),
+                  agent: detectedAgent,
+                  thinkingSteps: currentThinkingSteps
+                }];
+              }
+            });
+          },
+          onThinkingStep: (step) => {
+            setCurrentThinkingSteps(prev => [...prev, step]);
+          },
+          onThinkingComplete: () => {
+            // Thinking chain is complete
+          }
         }
       );
     } catch (e) {
@@ -224,33 +244,54 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
             {/* Messages */}
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
               {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={cn(
-                    "flex gap-3",
-                    msg.role === 'user' ? "justify-end" : "justify-start"
-                  )}
-                >
-                  {msg.role === 'assistant' && (
-                    <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center flex-shrink-0">
-                      <Bot className="w-4 h-4 text-primary-foreground" />
-                    </div>
-                  )}
+                <div key={msg.id}>
                   <div
                     className={cn(
-                      "max-w-md rounded-2xl px-4 py-3",
-                      msg.role === 'user'
-                        ? "bg-primary text-primary-foreground rounded-br-md"
-                        : "bg-secondary text-foreground rounded-bl-md"
+                      "flex gap-3",
+                      msg.role === 'user' ? "justify-end" : "justify-start"
                     )}
                   >
-                    {msg.agent && msg.role === 'assistant' && (
-                      <p className="text-xs text-primary font-medium mb-1">{msg.agent}</p>
+                    {msg.role === 'assistant' && (
+                      <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center flex-shrink-0">
+                        <Bot className="w-4 h-4 text-primary-foreground" />
+                      </div>
                     )}
-                    <p className="text-sm whitespace-pre-line">{msg.content}</p>
+                    <div
+                      className={cn(
+                        "max-w-md rounded-2xl px-4 py-3",
+                        msg.role === 'user'
+                          ? "bg-primary text-primary-foreground rounded-br-md"
+                          : "bg-secondary text-foreground rounded-bl-md"
+                      )}
+                    >
+                      {msg.agent && msg.role === 'assistant' && (
+                        <p className="text-xs text-primary font-medium mb-1">{msg.agent}</p>
+                      )}
+                      <p className="text-sm whitespace-pre-line">{msg.content}</p>
+                    </div>
                   </div>
+                  {/* Show thinking chain for assistant messages */}
+                  {msg.role === 'assistant' && msg.thinkingSteps && msg.thinkingSteps.length > 0 && showThinkingChain && (
+                    <div className="ml-11 mt-2">
+                      <ThinkingChain
+                        steps={msg.thinkingSteps}
+                        isComplete={true}
+                        isStreaming={false}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
+              {/* Current streaming thinking chain */}
+              {isAiTyping && currentThinkingSteps.length > 0 && showThinkingChain && (
+                <div className="ml-11">
+                  <ThinkingChain
+                    steps={currentThinkingSteps}
+                    isComplete={isThinkingComplete}
+                    isStreaming={!isThinkingComplete}
+                  />
+                </div>
+              )}
               {isAiTyping && messages[messages.length - 1]?.content === '' && (
                 <div className="flex gap-3">
                   <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
