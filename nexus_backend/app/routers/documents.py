@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Form, Depends, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, Form, Depends, BackgroundTasks, Request
 from typing import List
 from app.services.etl_service import etl_service
 from app.core.database import supabase
