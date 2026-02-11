@@ -58,6 +58,7 @@ export interface Database {
           updated_at?: string
           last_active_at?: string | null
         }
+        Relationships: []
       }
       organizations: {
         Row: {
@@ -125,6 +126,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       projects: {
         Row: {
@@ -210,6 +212,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       ai_settings: {
         Row: {
@@ -277,6 +280,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
         }
+        Relationships: []
       }
       departments: {
           Row: {
@@ -303,6 +307,7 @@ export interface Database {
             created_at?: string
             updated_at?: string
           }
+          Relationships: []
       }
       notifications: {
           Row: {
@@ -474,6 +479,12 @@ export interface Database {
           similarity: number
           organization_id: string
         }[]
+      }
+      get_user_role: {
+        Args: {
+          _user_id: string
+        }
+        Returns: 'boss' | 'manager' | 'employee' | 'admin' | null
       }
     }
     Enums: {

@@ -18,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 interface PreviewData {
-  rows: Array<Record<string, any>>;
+  rows: Array<Record<string, unknown>>;
   total: number;
 }
 
@@ -28,7 +28,7 @@ interface ImportResult {
   error_count: number;
   errors?: Array<{
     row: number;
-    data: Record<string, any>;
+    data: Record<string, unknown>;
     reason: string;
     field: string;
   }>;

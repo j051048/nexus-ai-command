@@ -2,6 +2,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthContext';
 
+export interface SalesMetric {
+  id: string;
+  organization_id: string;
+  metric_date: string;
+  revenue: number;
+  leads_count: number;
+  conversion_rate: number;
+  user_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface SalesTarget {
   id: string;
   target_type: 'monthly' | 'quarterly';
@@ -192,36 +204,45 @@ export function useTargetProgress(targetPeriod: string, targetType: 'monthly' | 
       // However, to be safe, we should probably filter by user list in org or add org_id to sales_metrics if possible.
       // For now, assuming sales_metrics has org_id or RLS handles it. 
       // Based on useSalesData.ts update, sales_metrics HAS org_id.
+
+      let metricsQuery = supabase.from('sales_metrics');
       
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let metricsQuery = supabase.from('sales_metrics') as any;
       if (profile?.organization_id) {
          metricsQuery = metricsQuery.select('*').eq('organization_id', profile.organization_id);
       } else {
          metricsQuery = metricsQuery.select('*');
       }
 
-      const { data: metrics, error: metricsError } = await metricsQuery
-        .gte('date', startDate)
-        .lte('date', endDate);
+      const { data: metrics, error: metricsError } = await metricsQuery;
 
       if (metricsError) throw metricsError;
 
+      // Filter by date range manually
+      const rawMetrics = (metrics || []) as unknown as SalesMetric[];
+      const filteredMetrics = rawMetrics.filter((m) => {
+          const date = m.metric_date;
+          return date >= startDate && date <= endDate;
+      });
+
       // Calculate totals
       const current = {
-        revenue: metrics?.reduce((sum: number, m: any) => sum + (Number(m.revenue) || 0), 0) || 0,
-        leads: metrics?.reduce((sum: number, m: any) => sum + (m.leads_count || 0), 0) || 0,
-        conversions: metrics?.reduce((sum: number, m: any) => sum + (m.conversions || 0), 0) || 0,
-        win_rate: metrics?.length 
-          ? metrics.reduce((sum: number, m: any) => sum + (Number(m.win_rate) || 0), 0) / metrics.length 
+        revenue: filteredMetrics.reduce((sum, m) => sum + (Number(m.revenue) || 0), 0),
+        leads: filteredMetrics.reduce((sum, m) => sum + (Number(m.leads_count) || 0), 0),
+        conversions: filteredMetrics.reduce((sum, m) => {
+             const rate = Number(m.conversion_rate) || 0;
+             const leads = Number(m.leads_count) || 0;
+             return sum + Math.round(leads * rate);
+        }, 0),
+        win_rate: filteredMetrics.length 
+          ? filteredMetrics.reduce((sum, m) => sum + (Number(m.conversion_rate) || 0), 0) / filteredMetrics.length 
           : 0,
       };
 
       // Calculate progress percentages
       const progress = {
         revenue: target.revenue_target > 0 ? (current.revenue / Number(target.revenue_target)) * 100 : 0,
-        leads: target.leads_target > 0 ? (current.leads / target.leads_target) * 100 : 0,
-        conversions: target.conversions_target > 0 ? (current.conversions / target.conversions_target) * 100 : 0,
+        leads: target.leads_target > 0 ? (current.leads / Number(target.leads_target)) * 100 : 0,
+        conversions: target.conversions_target > 0 ? (current.conversions / Number(target.conversions_target)) * 100 : 0,
         win_rate: target.win_rate_target > 0 ? (current.win_rate / Number(target.win_rate_target)) * 100 : 0,
       };
 

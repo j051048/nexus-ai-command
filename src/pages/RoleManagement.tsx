@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -50,37 +50,11 @@ export default function RoleManagement() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // 加载用户数据
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  // 过滤用户
-  useEffect(() => {
-    let filtered = users;
-
-    // 按搜索词过滤
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (user) =>
-          user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          user.email.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    // 按部门过滤
-    if (departmentFilter !== 'all') {
-      filtered = filtered.filter((user) => user.department === departmentFilter);
-    }
-
-    setFilteredUsers(filtered);
-  }, [searchTerm, departmentFilter, users]);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('users')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase.from('users') as any)
         .select('id, name, email, department, role')
         .order('name');
 
@@ -104,12 +78,17 @@ export default function RoleManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  // 加载用户数据
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handleRoleChange = async (userId: string, newRole: 'employee' | 'manager' | 'boss') => {
     try {
-      const { error } = await supabase
-        .from('users')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('users') as any)
         .update({ role: newRole })
         .eq('id', userId);
 

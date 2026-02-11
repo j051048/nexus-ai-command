@@ -22,14 +22,12 @@ export function ChatSessionList({ currentSessionId, onSelectSession, onNewSessio
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const { session } = useAuth();
 
-  useEffect(() => {
-    fetchSessions();
-  }, []);
-
-  const fetchSessions = async () => {
+  const fetchSessions = React.useCallback(async () => {
     try {
       const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
       const token = session?.access_token;
+      if (!token) return;
+      
       const res = await fetch(`${baseUrl}/api/sessions`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -38,7 +36,11 @@ export function ChatSessionList({ currentSessionId, onSelectSession, onNewSessio
     } catch (e) {
       console.error('Failed to fetch sessions:', e);
     }
-  };
+  }, [session?.access_token]);
+
+  useEffect(() => {
+    fetchSessions();
+  }, [fetchSessions]);
 
   const deleteSession = async (sessionId: string) => {
     try {

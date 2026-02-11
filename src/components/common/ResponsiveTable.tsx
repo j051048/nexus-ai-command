@@ -14,23 +14,23 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-export interface ResponsiveTableProps {
-  headers: string[];
-  rows: Record<string, any>[];
-  renderCard: (row: Record<string, any>, index: number) => React.ReactNode;
-  renderRow?: (row: Record<string, any>, index: number) => React.ReactNode;
+export interface ResponsiveTableProps<T = Record<string, unknown>> {
+  headers: React.ReactNode[];
+  rows: T[];
+  renderCard: (row: T, index: number) => React.ReactNode;
+  renderRow?: (row: T, index: number) => React.ReactNode;
   className?: string;
-  emptyMessage?: string;
+  emptyMessage?: React.ReactNode;
 }
 
-export function ResponsiveTable({
+export function ResponsiveTable<T>({
   headers,
   rows,
   renderCard,
   renderRow,
   className,
   emptyMessage = '暂无数据',
-}: ResponsiveTableProps) {
+}: ResponsiveTableProps<T>) {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   useEffect(() => {

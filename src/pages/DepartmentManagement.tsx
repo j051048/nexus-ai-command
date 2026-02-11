@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -65,25 +65,21 @@ export default function DepartmentManagement() {
 
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
 
       // 获取所有部门
-      const { data: deptData, error: deptError } = await supabase
-        .from('departments')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: deptData, error: deptError } = await (supabase.from('departments') as any)
         .select('*')
         .order('name');
 
       if (deptError) throw deptError;
 
       // 获取所有经理和用户信息
-      const { data: userData, error: userError } = await supabase
-        .from('users')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: userData, error: userError } = await (supabase.from('users') as any)
         .select('id, name, role, department');
 
       if (userError) throw userError;
@@ -115,7 +111,11 @@ export default function DepartmentManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleOpenDialog = (dept?: DepartmentWithDetails) => {
     if (dept) {
@@ -148,9 +148,10 @@ export default function DepartmentManagement() {
 
     try {
       if (editingDept) {
+
         // 更新部门
-        const { error } = await supabase
-          .from('departments')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase.from('departments') as any)
           .update({
             name: formData.name,
             manager_id: formData.manager_id || null,
@@ -165,7 +166,8 @@ export default function DepartmentManagement() {
         });
       } else {
         // 新建部门
-        const { error } = await supabase.from('departments').insert({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase.from('departments') as any).insert({
           name: formData.name,
           manager_id: formData.manager_id || null,
         });
@@ -194,8 +196,8 @@ export default function DepartmentManagement() {
     if (!departmentToDelete) return;
 
     try {
-      const { error } = await supabase
-        .from('departments')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('departments') as any)
         .delete()
         .eq('id', departmentToDelete);
 

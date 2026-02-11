@@ -40,11 +40,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchUserData = async (userId: string) => {
     try {
-      // P0 Fix: Use 'users' table instead of 'profiles'
+      // Use 'users' table instead of 'profiles'
       // Map id to user_id for backward compatibility
-      // Cast to any because generated types are outdated (missing 'users', has non-existent 'profiles')
-      const { data: profileData, error: profileError } = await supabase
-        .from('users' as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: profileData, error: profileError } = await (supabase.from('users') as any)
         .select('*, user_id:id')
         .eq('id', userId)
         .maybeSingle();
@@ -56,8 +55,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(profileData as unknown as Profile);
       }
 
-      // Fetch role using the database function
-      const { data: roleData } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: roleData } = await (supabase as any)
         .rpc('get_user_role', { _user_id: userId });
 
       if (roleData) {
@@ -68,8 +67,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         let resolvedRole: AppRole = 'employee';
 
         // Only trust the DB profile role (set by admin), not auth metadata
-        if (profileData && (profileData as any).role) {
-          const dbRole = (profileData as any).role;
+        if (profileData && profileData.role) {
+          const dbRole = profileData.role;
           if (dbRole === 'founder' || dbRole === 'boss') {
             resolvedRole = 'boss';
           } else if (dbRole === 'manager') {

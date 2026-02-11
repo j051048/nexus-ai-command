@@ -4,8 +4,8 @@ import { useAuth } from '@/components/auth/AuthContext';
 import { SalesLead } from '@/types/nexus';
 import { salesLeadSchema } from '@/lib/schemas';
 
-// 定义表名常量以避免 any
-const SALES_LEADS_TABLE = 'sales_leads' as any;
+// 定义表名常量
+const SALES_LEADS_TABLE = 'sales_leads';
 
 export function useSalesLeads() {
     const { session } = useAuth();
@@ -18,9 +18,8 @@ export function useSalesLeads() {
         queryFn: async () => {
             if (!session?.user?.id || !profile?.organization_id) return [];
 
-            let query = supabase
-                .from(SALES_LEADS_TABLE)
-                .select('*');
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            let query = (supabase.from(SALES_LEADS_TABLE) as any).select('*');
 
             if (profile?.organization_id) {
                 query = query.eq('organization_id', profile.organization_id);
@@ -53,8 +52,8 @@ export function useSalesLeads() {
     // 更新线索阶段
     const updateLeadStage = useMutation({
         mutationFn: async ({ id, stage }: { id: string; stage: SalesLead['stage'] }) => {
-            const { error } = await supabase
-                .from(SALES_LEADS_TABLE)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { error } = await (supabase.from(SALES_LEADS_TABLE) as any)
                 .update({ stage })
                 .eq('id', id);
 

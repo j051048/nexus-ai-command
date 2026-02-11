@@ -59,7 +59,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   }, []);
 
   // Copilot suggestion action
-  const handleCopilotAction = useCallback((suggestion: any) => {
+  const handleCopilotAction = useCallback((suggestion: { action?: { aiPrompt?: string } }) => {
     if (suggestion.action?.aiPrompt) {
       setIsChatExpanded(true);
       // Could prefill the chat input here
