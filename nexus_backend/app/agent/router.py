@@ -85,12 +85,9 @@ def classify_query(query: str) -> Tuple[QueryComplexity, str]:
 
 # ─── Router Node ─────────────────────────────────────────────────────────────
 
-def route_node(state: AgentState) -> dict:
+async def route_node(state: AgentState) -> dict:
     """
-    LangGraph node: Classify the user's latest message and select a model.
-
-    Reads: messages, config
-    Writes: complexity, selected_model, intent_summary, current_phase, thinking_steps
+    LangGraph node: Classify user intent and pick the optimal model.
     """
     config = state["config"]
     messages = state.get("messages", [])
@@ -106,6 +103,35 @@ def route_node(state: AgentState) -> dict:
             break
 
     complexity, intent_summary = classify_query(last_user_msg)
+    
+    # ── LLM Fallback for ambiguous queries ──
+    if intent_summary == "一般业务查询" and len(last_user_msg) > 10:
+        from app.agent.nodes import _call_llm
+        prompt = f"""请分析以下用户输入的复杂度提示，并将其分类为:
+- simple: 闲聊、简单问候
+- moderate: 单一工具查询、简单指令
+- complex: 多步骤分析、综合报告、长文本处理
+- critical: 涉及审批、金钱、敏感人事操作
+
+用户输入: {last_user_msg}
+
+返回格式示例: {{"complexity": "moderate", "reason": "查询单个项目进度"}}
+"""
+        try:
+            llm_res = await _call_llm(
+                [{"role": "user", "content": prompt}],
+                config,
+                model=config.mini_model,
+                temperature=0.0
+            )
+            import json
+            data = json.loads(llm_res.get("content", "{}"))
+            if data.get("complexity") in [c.value for c in QueryComplexity]:
+                complexity = QueryComplexity(data["complexity"])
+                intent_summary = f"LLM 识别: {data.get('reason', '未知原因')}"
+        except Exception as e:
+            logger.debug(f"[Router] LLM intent classification failed: {e}")
+
     selected_model = config.get_model_for_complexity(complexity)
 
     logger.info(
@@ -125,4 +151,3 @@ def route_node(state: AgentState) -> dict:
         "current_phase": AgentPhase.PLANNING,
         "thinking_steps": [thinking_step],
     }
-"""

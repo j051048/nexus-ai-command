@@ -28,7 +28,7 @@ from app.agent.state import (
     ThinkingStep,
 )
 from app.agent.graph import AgentGraph
-from app.agent.memory import prepare_messages, persist_result
+from app.agent.memory import prepare_initial_state, persist_result
 from app.services.token_service import (
     validate_request_tokens,
     record_completion,
@@ -125,12 +125,16 @@ async def run_agent_stream(
     if tracer:
         tracer.log_start(messages_dicts)
 
-    # ── 3. Prepare messages via Memory Manager ──
+    # ── 3. Prepare initial state via Memory Manager ──
     yield _sse_status("正在思考...")
 
-    lc_messages, cached_response = await prepare_messages(
+    prep_result = await prepare_initial_state(
         messages, system_prompt, agent_config, db_client=db_client,
     )
+    lc_messages = prep_result["messages"]
+    cached_response = prep_result["cached_response"]
+    rag_context = prep_result["rag_context"]
+    rag_sources = prep_result["rag_sources"]
 
     # Fast path: semantic cache hit
     if cached_response is not None:
@@ -174,17 +178,22 @@ async def run_agent_stream(
         "error": None,
         "total_input_tokens": 0,
         "total_output_tokens": 0,
+        "rag_context": rag_context,
+        "rag_sources": rag_sources,
+        "error_recovery_attempted": False,
     }
 
     # ── 5. Run graph with streaming ──
-    # Accumulate state deltas so we always have the full picture at the end.
-    # LangGraph astream() yields {"node_name": state_delta} per node;
-    # we merge each delta into accumulated_state to mirror the graph's internal state.
     accumulated_state: Dict[str, Any] = dict(initial_state)
     all_thinking_steps: List[ThinkingStep] = []
 
     try:
-        async for event in _agent_graph.stream(initial_state):
+        # Pass thread_id (session_id) for persistence isolation
+        async for event in _agent_graph.stream(
+            initial_state, 
+            thread_id=agent_config.session_id
+        ):
+
             # event is a dict like {"node_name": {state_delta}}
             for node_name, state_delta in event.items():
                 if not isinstance(state_delta, dict):

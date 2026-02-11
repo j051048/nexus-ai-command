@@ -84,6 +84,15 @@ class AgentConfig:
     max_iterations: int = 5
     max_tokens_per_day: int = 1_000_000
     temperature: float = 0.5
+    # RAG auto-injection settings
+    enable_rag_inject: bool = True
+    rag_inject_threshold: float = 0.5
+    rag_inject_limit: int = 3
+    # Reflect node settings
+    reflect_use_llm: bool = True
+    # Tool execution settings
+    tool_timeout: int = 30
+    gather_timeout: int = 60
 
     def get_model_for_complexity(self, complexity: QueryComplexity) -> str:
         """Dynamic model routing based on query complexity."""
@@ -128,6 +137,10 @@ class AgentState(TypedDict, total=False):
     needs_replanning: bool                  # Whether to loop back to planning
     confidence_score: float                 # 0.0-1.0 confidence in the answer
 
+    # ── RAG context (auto-injected by memory / rag_inject node) ──
+    rag_context: str                        # Retrieved knowledge base context
+    rag_sources: List[str]                  # Source citations for the RAG context
+
     # ── Final output ──
     final_response: str                     # The text response to send to user
     thinking_steps: List[ThinkingStep]      # For frontend thinking-chain UI
@@ -137,6 +150,7 @@ class AgentState(TypedDict, total=False):
 
     # ── Error handling ──
     error: Optional[str]
+    error_recovery_attempted: bool          # Whether error recovery has been tried
 
     # ── Token tracking ──
     total_input_tokens: int

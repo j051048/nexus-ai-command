@@ -127,12 +127,41 @@ class Settings(BaseSettings):
         description="Allowed file upload extensions",
     )
 
-    # RAG Configuration
+        # RAG Configuration
     RAG_CHUNK_SIZE: int = Field(
         default=600, description="Document chunk size for RAG embedding"
     )
     RAG_CHUNK_OVERLAP: int = Field(
         default=100, description="Document chunk overlap for RAG embedding"
+    )
+
+    # LangGraph Agent Configuration
+    LANGGRAPH_MAX_ITERATIONS: int = Field(
+        default=5, description="Maximum plan-execute-reflect loop iterations"
+    )
+    LANGGRAPH_TOOL_TIMEOUT: int = Field(
+        default=30, description="Timeout in seconds for individual tool execution"
+    )
+    LANGGRAPH_GATHER_TIMEOUT: int = Field(
+        default=60, description="Timeout in seconds for parallel tool gather"
+    )
+    LANGGRAPH_ENABLE_RAG_INJECT: bool = Field(
+        default=True, description="Auto-inject RAG context into agent messages"
+    )
+    LANGGRAPH_RAG_INJECT_THRESHOLD: float = Field(
+        default=0.5, description="Minimum similarity threshold for RAG auto-injection"
+    )
+    LANGGRAPH_RAG_INJECT_LIMIT: int = Field(
+        default=3, description="Max number of RAG chunks to auto-inject"
+    )
+    LANGGRAPH_REFLECT_USE_LLM: bool = Field(
+        default=True, description="Use LLM for grounded hallucination detection in reflect node"
+    )
+    LANGGRAPH_CHECKPOINTER: str = Field(
+        default="memory", description="Checkpointer backend: 'memory' or 'postgres'"
+    )
+    SEMANTIC_CACHE_THRESHOLD: float = Field(
+        default=0.95, description="Similarity threshold for semantic cache hits"
     )
 
     # Security

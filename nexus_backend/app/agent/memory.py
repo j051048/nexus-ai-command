@@ -28,26 +28,36 @@ logger = logging.getLogger(__name__)
 SHORT_TERM_WINDOW = getattr(settings, "MAX_CHAT_HISTORY", 10)
 
 
-async def prepare_messages(
+async def prepare_initial_state(
     raw_messages: List[Dict[str, str]],
     system_prompt: str,
     config: AgentConfig,
     db_client: Optional[Any] = None,
-) -> Tuple[List[BaseMessage], Optional[str]]:
+) -> Dict[str, Any]:
     """
-    Build the initial message list for the agent graph.
+    Build the initial state components for the agent graph.
 
     Steps:
-    1. Check semantic cache → if hit, return ([], cached_response)
-    2. Summarize older messages if history exceeds window
-    3. Convert to LangChain BaseMessage list with system prompt
-    4. Inject RAG context if relevant
+    1. Semantic Cache Lookup
+    2. Summarization (if needed)
+    3. RAG Retrieval (if enabled)
+    4. BaseMessage conversion
 
     Returns:
-        (messages, cached_response)
-        If cached_response is not None, skip the graph entirely.
+        {
+            "messages": List[BaseMessage],
+            "cached_response": Optional[str],
+            "rag_context": str,
+            "rag_sources": List[str]
+        }
     """
     client = db_client or supabase
+    result = {
+        "messages": [],
+        "cached_response": None,
+        "rag_context": "",
+        "rag_sources": []
+    }
 
     # ── 1. Semantic Cache Lookup ──
     last_user_msg = ""
@@ -62,28 +72,51 @@ async def prepare_messages(
             cached = await semantic_cache_service.get_cache(last_user_msg, config.user_id)
             if cached:
                 logger.info(f"[Memory] Semantic cache hit for user {config.user_id}")
-                return [], cached
+                result["cached_response"] = cached
+                return result
         except Exception as e:
             logger.debug(f"[Memory] Semantic cache lookup failed: {e}")
 
-    # ── 2. Sliding Window with Summary ──
+    # ── 2. RAG Retrieval ──
+    if config.enable_rag_inject and last_user_msg:
+        try:
+            from app.services.vector_service import vector_service
+            # Search knowledge base for relevant docs
+            docs = await vector_service.search_documents(
+                query=last_user_msg,
+                org_id=config.org_id,
+                limit=config.rag_inject_limit,
+                min_score=config.rag_inject_threshold,
+                db_client=client
+            )
+            if docs:
+                context_parts = []
+                sources = []
+                for d in docs:
+                    context_parts.append(d.get("content", ""))
+                    sources.append(d.get("metadata", {}).get("source", "知识库"))
+                
+                result["rag_context"] = "\n\n".join(context_parts)
+                result["rag_sources"] = list(set(sources))
+                logger.info(f"[Memory] RAG injected {len(docs)} docs for user {config.user_id}")
+        except Exception as e:
+            logger.warning(f"[Memory] RAG retrieval failed: {e}")
+
+    # ── 3. Sliding Window with Summary ──
     if len(raw_messages) > SHORT_TERM_WINDOW:
         older = raw_messages[:-SHORT_TERM_WINDOW]
         recent = raw_messages[-SHORT_TERM_WINDOW:]
 
         summary = await _summarize_messages(older, config)
         if summary:
-            # Prepend summary as a system context message
             recent.insert(0, {
                 "role": "system",
                 "content": f"[对话历史摘要] {summary}",
             })
         raw_messages = recent
 
-    # ── 3. Convert to LangChain messages ──
+    # ── 4. Convert to LangChain messages ──
     lc_messages: List[BaseMessage] = []
-
-    # System prompt first
     lc_messages.append(SystemMessage(content=system_prompt))
 
     for msg in raw_messages:
@@ -96,9 +129,10 @@ async def prepare_messages(
             lc_messages.append(HumanMessage(content=content))
         elif role == "assistant":
             lc_messages.append(AIMessage(content=content))
-        # Skip tool messages in initial preparation
 
-    return lc_messages, None
+    result["messages"] = lc_messages
+    return result
+
 
 
 async def persist_result(
