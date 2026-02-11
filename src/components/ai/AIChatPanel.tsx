@@ -12,7 +12,6 @@ import {
   AtSign,
   Loader2,
   Paperclip,
-  Brain,
 } from 'lucide-react';
 import { AIMessage, ThinkingStep } from '@/types/nexus';
 import { toast } from 'sonner';

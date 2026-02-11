@@ -55,7 +55,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                 content: m.content,
             }));
 
-                chatMessages.push({ role: 'user', content: input });
+        chatMessages.push({ role: 'user', content: input });
 
         abortControllerRef.current = new AbortController();
 
