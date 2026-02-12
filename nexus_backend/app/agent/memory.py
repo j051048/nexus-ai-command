@@ -6,6 +6,7 @@ Combines:
 2. Long-term: Summary of older messages via LLM compression
 3. Semantic: Vector search for relevant past context
 4. Semantic Cache: Fast-path for repeated / similar queries
+5. Query Transformation: HyDE and Multi-Query for better retrieval
 
 This module is called BEFORE the graph runs to prepare the initial
 message list, and AFTER the graph runs to persist results.
@@ -27,6 +28,143 @@ logger = logging.getLogger(__name__)
 SHORT_TERM_WINDOW = getattr(settings, "MAX_CHAT_HISTORY", 10)
 
 
+class QueryTransformer:
+    """
+    P1 Fix #22: Query Transformation for better RAG retrieval.
+    
+    Implements:
+    1. HyDE (Hypothetical Document Embeddings)
+    2. Multi-Query expansion
+    3. Query rewriting for better semantic matching
+    """
+    
+    def __init__(self, config: AgentConfig):
+        self.config = config
+        self._llm_client = None
+    
+    async def _get_llm(self):
+        """Lazy load LLM client."""
+        if self._llm_client is None:
+            try:
+                from openai import AsyncOpenAI
+                self._llm_client = AsyncOpenAI(
+                    api_key=self.config.api_key,
+                    base_url=self.config.base_url
+                )
+            except Exception as e:
+                logger.warning(f"Failed to init LLM for query transformation: {e}")
+        return self._llm_client
+    
+    async def generate_hyde(self, query: str) -> str:
+        """
+        Generate a hypothetical document that would answer the query.
+        This document is then used for embedding search.
+        """
+        llm = await self._get_llm()
+        if not llm:
+            return query
+        
+        prompt = f"""请生成一段假设性的文档内容，这段文档应该能够回答用户的问题。
+
+用户问题: {query}
+
+要求:
+1. 文档应该包含问题的答案
+2. 使用专业、清晰的语言
+3. 长度约200-300字
+4. 直接输出文档内容，不要解释
+
+假设性文档:"""
+        
+        try:
+            response = await llm.chat.completions.create(
+                model=self.config.mini_model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=300,
+                temperature=0.3
+            )
+            hyde_doc = response.choices[0].message.content.strip()
+            logger.debug(f"[HyDE] Generated hypothetical doc: {hyde_doc[:100]}...")
+            return hyde_doc
+        except Exception as e:
+            logger.warning(f"HyDE generation failed: {e}")
+            return query
+    
+    async def expand_multi_query(self, query: str, num_queries: int = 3) -> List[str]:
+        """
+        Generate multiple related queries for better retrieval coverage.
+        """
+        llm = await self._get_llm()
+        if not llm:
+            return [query]
+        
+        prompt = f"""请根据用户的问题，生成{num_queries}个语义相近但表达方式不同的问题。
+这些问题将用于检索相关知识，以提高检索的全面性。
+
+原问题: {query}
+
+要求:
+1. 保持原问题的核心意图
+2. 使用不同的词汇和表达方式
+3. 覆盖不同的检索角度
+4. 每个问题一行，不要编号
+
+生成的问题:"""
+        
+        try:
+            response = await llm.chat.completions.create(
+                model=self.config.mini_model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=200,
+                temperature=0.5
+            )
+            expanded = response.choices[0].message.content.strip().split('\n')
+            expanded = [q.strip() for q in expanded if q.strip()][:num_queries]
+            
+            # Always include original query
+            all_queries = [query] + expanded
+            logger.debug(f"[MultiQuery] Generated {len(all_queries)} query variants")
+            return all_queries
+        except Exception as e:
+            logger.warning(f"Multi-query expansion failed: {e}")
+            return [query]
+    
+    async def rewrite_query(self, query: str) -> str:
+        """
+        Rewrite query for better semantic matching.
+        """
+        llm = await self._get_llm()
+        if not llm:
+            return query
+        
+        prompt = f"""请将以下问题重写为更适合检索的形式。
+
+原问题: {query}
+
+要求:
+1. 保留核心信息需求
+2. 使用更标准、更清晰的表达
+3. 移除口语化表达
+4. 添加可能的关键词
+5. 直接输出重写后的问题
+
+重写后的问题:"""
+        
+        try:
+            response = await llm.chat.completions.create(
+                model=self.config.mini_model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=100,
+                temperature=0.2
+            )
+            rewritten = response.choices[0].message.content.strip()
+            logger.debug(f"[QueryRewrite] '{query}' -> '{rewritten}'")
+            return rewritten
+        except Exception as e:
+            logger.warning(f"Query rewriting failed: {e}")
+            return query
+
+
 async def prepare_initial_state(
     raw_messages: List[Dict[str, str]],
     system_prompt: str,
@@ -38,9 +176,10 @@ async def prepare_initial_state(
 
     Steps:
     1. Semantic Cache Lookup
-    2. Summarization (if needed)
+    2. Query Transformation (HyDE/Multi-Query)
     3. RAG Retrieval (if enabled)
-    4. BaseMessage conversion
+    4. Summarization (if needed)
+    5. BaseMessage conversion
 
     Returns:
         {
@@ -76,28 +215,87 @@ async def prepare_initial_state(
         except Exception as e:
             logger.debug(f"[Memory] Semantic cache lookup failed: {e}")
 
-    # ── 2. RAG Retrieval ──
+    # ── 2. RAG Retrieval with Query Transformation ──
+    # P1 Fix #22: Add HyDE and Multi-Query for better retrieval
     if config.enable_rag_inject and last_user_msg:
         try:
             from app.services.vector_service import vector_service
-            # Search knowledge base for relevant docs
-            docs = await vector_service.search_documents(
+            
+            # Initialize query transformer
+            transformer = QueryTransformer(config)
+            
+            # Determine transformation strategy based on config
+            use_hyde = getattr(config, 'use_hyde', True)
+            use_multi_query = getattr(config, 'use_multi_query', True)
+            
+            all_docs = []
+            
+            # Strategy 1: HyDE (Hypothetical Document Embeddings)
+            if use_hyde:
+                hyde_doc = await transformer.generate_hyde(last_user_msg)
+                if hyde_doc and hyde_doc != last_user_msg:
+                    docs = await vector_service.search(
+                        query=hyde_doc,
+                        user_id=config.user_id,
+                        limit=config.rag_inject_limit,
+                        org_id=config.org_id,
+                        db=client
+                    )
+                    # Parse docs from string result
+                    if isinstance(docs, str) and "检索到" in docs:
+                        all_docs.append({"content": docs, "source": "HyDE搜索"})
+            
+            # Strategy 2: Multi-Query Expansion
+            if use_multi_query:
+                expanded_queries = await transformer.expand_multi_query(last_user_msg, num_queries=3)
+                for q in expanded_queries:
+                    docs = await vector_service.search(
+                        query=q,
+                        user_id=config.user_id,
+                        limit=config.rag_inject_limit // len(expanded_queries),
+                        org_id=config.org_id,
+                        db=client
+                    )
+                    if isinstance(docs, str) and docs:
+                        all_docs.append({"content": docs, "source": f"查询: {q[:30]}"})
+            
+            # Strategy 3: Original query (always included)
+            original_docs = await vector_service.search(
                 query=last_user_msg,
-                org_id=config.org_id,
+                user_id=config.user_id,
                 limit=config.rag_inject_limit,
-                min_score=config.rag_inject_threshold,
-                db_client=client
+                org_id=config.org_id,
+                db=client
             )
-            if docs:
-                context_parts = []
-                sources = []
-                for d in docs:
-                    context_parts.append(d.get("content", ""))
-                    sources.append(d.get("metadata", {}).get("source", "知识库"))
+            if isinstance(original_docs, str) and original_docs:
+                all_docs.insert(0, {"content": original_docs, "source": "原始查询"})
+            
+            # Deduplicate and merge results
+            if all_docs:
+                seen_content = set()
+                unique_docs = []
+                for doc in all_docs:
+                    content_hash = hash(doc.get("content", "")[:100])
+                    if content_hash not in seen_content:
+                        seen_content.add(content_hash)
+                        unique_docs.append(doc)
                 
-                result["rag_context"] = "\n\n".join(context_parts)
-                result["rag_sources"] = list(set(sources))
-                logger.info(f"[Memory] RAG injected {len(docs)} docs for user {config.user_id}")
+                # Limit total context length
+                max_context = 3000
+                context_parts = []
+                current_length = 0
+                for doc in unique_docs:
+                    content = doc.get("content", "")
+                    if current_length + len(content) <= max_context:
+                        context_parts.append(content)
+                        current_length += len(content)
+                    else:
+                        break
+                
+                result["rag_context"] = "\n\n---\n\n".join(context_parts)
+                result["rag_sources"] = list(set(doc.get("source", "知识库") for doc in unique_docs))
+                logger.info(f"[Memory] RAG injected {len(unique_docs)} docs (HyDE+MultiQuery) for user {config.user_id}")
+                
         except Exception as e:
             logger.warning(f"[Memory] RAG retrieval failed: {e}")
 

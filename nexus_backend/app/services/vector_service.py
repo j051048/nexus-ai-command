@@ -1,6 +1,6 @@
 import re
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from app.core.database import supabase
 from app.core.config import settings
 from openai import AsyncOpenAI
@@ -29,10 +29,22 @@ def sanitize_search_query(query: str, max_length: int = 500) -> str:
     return query.strip()
 
 
+class VectorServiceError(Exception):
+    """Custom exception for VectorService errors"""
+    pass
+
+
+class MissingOrgIdError(VectorServiceError):
+    """Raised when org_id is not provided - P0 Security requirement"""
+    pass
+
+
 class VectorService:
     """
     Interface for Vector Database operations using Supabase pgvector.
     Enhanced with Hybrid Search (Vector + Keyword), RRF Fusion, and Cross-Encoder Reranking.
+
+    P0 Security: org_id is MANDATORY for all search operations to prevent cross-tenant data leakage.
     """
 
     async def _rerank_with_llm(
@@ -99,15 +111,29 @@ class VectorService:
         user_id: str,
         limit: int = 3,
         config: dict = None,
-        org_id: str = None,
+        org_id: str = None,  # P0: This should be required, but kept optional for backward compat
+        require_org_id: bool = True,  # P0: New param to enforce org_id requirement
     ) -> str:
         """
         Semantic search in the vector DB.
         Returns a formatted string of results.
+
+        P0 Security Fix: org_id is now MANDATORY in production.
+        - If require_org_id=True (default), search will fail without org_id
+        - In development mode, a warning is logged but search proceeds
+        - This prevents cross-tenant data leakage
         """
         query = sanitize_search_query(query)
         if not query:
             return "请提供有效的搜索关键词。"
+
+        # P0 Security: Enforce org_id requirement
+        if not org_id:
+            if require_org_id or settings.IS_PRODUCTION:
+                logger.error(f"P0 Security Violation: Vector search called without org_id (user_id={user_id})")
+                return "搜索失败：缺少组织信息。请确保您已正确登录并属于某个组织。"
+            else:
+                logger.warning(f"Vector search called without org_id in development mode (user_id={user_id})")
 
         limit = min(max(1, limit), 10)
         api_key = (config or {}).get("api_key") or settings.OPENAI_API_KEY
@@ -155,7 +181,8 @@ class VectorService:
     ) -> str:
         """
         Implementation for Hybrid Search (Vector + Keyword) with RRF.
-        Supports mandatory user_id isolation.
+
+        P0 Security: All searches are scoped to org_id to prevent cross-tenant leakage.
         """
         import asyncio
 
@@ -170,7 +197,7 @@ class VectorService:
                     "match_threshold": 0.4,
                     "match_count": limit,
                     "p_user_id": user_id,
-                    "p_org_id": org_id,
+                    "p_org_id": org_id,  # P0: Always pass org_id (can be None for backward compat in dev)
                 }
                 if filters:
                     params["filter"] = filters
@@ -189,7 +216,7 @@ class VectorService:
                             "p_query": query,
                             "p_user_id": user_id,
                             "p_limit": limit,
-                            "p_org_id": org_id,
+                            "p_org_id": org_id,  # P0: Always pass org_id
                         },
                     ).execute()
                     return res.data or []
@@ -198,13 +225,17 @@ class VectorService:
                         f"Keyword search RPC not available, falling back: {rpc_err}"
                     )
 
-                res = (
-                    await supabase.table("document_embeddings")
-                    .select("*, documents!inner(*)")
-                    .eq("documents.owner_id", user_id)
-                    .limit(limit)
-                    .execute()
-                )
+                # P0 Security: Fallback query also respects org_id
+                base_query = supabase.table("document_embeddings").select("*, documents!inner(*)")
+
+                # Always filter by user_id for security
+                base_query = base_query.eq("documents.owner_id", user_id)
+
+                # P0: If org_id is provided, add org-level filtering
+                if org_id:
+                    base_query = base_query.eq("documents.organization_id", org_id)
+
+                res = await base_query.limit(limit).execute()
 
                 flattened = []
                 for item in res.data or []:
@@ -316,3 +347,4 @@ class VectorService:
 
 # Singleton instance
 vector_service = VectorService()
+

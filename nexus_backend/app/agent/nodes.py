@@ -352,12 +352,20 @@ async def execute_node(state: AgentState) -> dict:
 
 async def reflect_node(state: AgentState) -> dict:
     """
-    Self-reflection: validate LLM response using heuristics and optional LLM-check.
+    P1 Security Enhancement: Self-reflection with advanced hallucination detection.
+    
+    Detection layers:
+    1. Empty response check
+    2. Keyword-based hallucination detection
+    3. Tool result grounding verification
+    4. LLM-based fact checking
+    5. Numerical data validation
     """
     config: AgentConfig = state["config"]
     messages = state.get("messages", [])
     iteration = state.get("iteration", 0)
     complexity = state.get("complexity", QueryComplexity.MODERATE)
+    completed_tools = state.get("completed_tool_calls", [])
 
     # Extract the last AI message
     last_ai_content = ""
@@ -371,9 +379,9 @@ async def reflect_node(state: AgentState) -> dict:
         content="正在评估回复完整度与事实准确性...",
     )
 
-    # ── Heuristic Check 1: Empty response ──
+    # ── Layer 1: Empty response check ──
     if not last_ai_content.strip() or len(last_ai_content.strip()) < 5:
-        if state.get("completed_tool_calls"):
+        if completed_tools:
             return {
                 "reflection": "回复内容为空，需要整合工具结果重新回答。",
                 "needs_replanning": True if iteration < config.max_iterations else False,
@@ -384,28 +392,40 @@ async def reflect_node(state: AgentState) -> dict:
                 )],
             }
 
-    # ── Heuristic Check 2: Hallucination ──
+    # ── Layer 2: Keyword-based hallucination detection ──
     is_hallucination = False
     hallucination_reason = ""
 
-    if complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL) and not state.get("completed_tool_calls"):
-        hallucination_keywords = ["查询到", "系统显示", "数据显示", "结果是"]
+    if complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL) and not completed_tools:
+        hallucination_keywords = ["查询到", "系统显示", "数据显示", "结果是", "找到", "检索到", "发现"]
         if any(kw in last_ai_content for kw in hallucination_keywords):
-            is_hallucination = True
-            hallucination_reason = "复杂查询未调用工具却产出了具体数据"
+            # Additional check: does it contain specific numbers/data?
+            import re
+            number_pattern = r'\d+(?:\.\d+)?(?:万|千|百|元|个|%|位)?'
+            if re.search(number_pattern, last_ai_content):
+                is_hallucination = True
+                hallucination_reason = "复杂查询未调用工具却产出了具体数据"
 
-    # ── Task 3: Groundedness Check (RAG Comparison) ──
+    # ── Layer 3: Tool result grounding verification ──
+    # P1 Fix: Verify that numerical data in response matches tool results
+    if completed_tools and last_ai_content:
+        grounding_issues = await _verify_tool_grounding(last_ai_content, completed_tools)
+        if grounding_issues:
+            is_hallucination = True
+            hallucination_reason = f"回复数据与工具返回不一致: {grounding_issues}"
+
+    # ── Layer 4: RAG-based groundedness check ──
     grounded_warning = None
     rag_context = state.get("rag_context", "")
-    if rag_context and last_ai_content:
+    if rag_context and last_ai_content and not is_hallucination:
         prompt = f"""[事实核查任务]
 请比较【参考知识】与【AI回复】，判断回复是否完全基于背景知识，是否存在编造或矛盾。
 
 参考知识:
-{rag_context}
+{rag_context[:2000]}
 
 AI回复:
-{last_ai_content}
+{last_ai_content[:1000]}
 
 回复格式为 JSON: {{"is_grounded": bool, "reason": "str", "score": float}} 
 其中 is_grounded 为 false 表示存在幻觉或编造。
@@ -421,17 +441,23 @@ AI回复:
         except Exception as e:
             logger.debug(f"[ReflectNode] Groundedness check failed: {e}")
 
-    # ── Fallback to LLM-based Reflection if no RAG or secondary check ──
+    # ── Layer 5: LLM-based reflection ──
     if config.reflect_use_llm and last_ai_content and not is_hallucination:
         messages_text = "\n".join([f"{m.type}: {m.content[:200]}" for m in messages[-3:]])
         prompt = f"""请评估 AI 的最新回复是否包含编造的信息（幻觉）。
+
+检查要点:
+1. 是否声称有数据但实际未调用工具?
+2. 是否引用了不存在的文档或来源?
+3. 数值是否合理且有依据?
+
 上下文摘要:
 {messages_text}
 
 AI 回复:
 {last_ai_content}
 
-回复格式为 JSON: {{"is_hallucination": bool, "reason": "str"}}
+回复格式为 JSON: {{"is_hallucination": bool, "reason": "str", "confidence": float}}
 """
         try:
             llm = _get_llm(config, model=config.mini_model)
@@ -451,11 +477,14 @@ AI 回复:
     if not is_safe:
         last_ai_content = sanitize_output(last_ai_content)
 
+    # Calculate confidence
     confidence = 0.85
     if is_hallucination:
         confidence = 0.3
-    if state.get("completed_tool_calls"):
+    if completed_tools:
         confidence = 0.95
+    if state.get("needs_replanning"):
+        confidence = min(confidence, 0.6)
 
     needs_replanning = is_hallucination and iteration < config.max_iterations
 
@@ -482,6 +511,40 @@ AI 回复:
         "current_phase": AgentPhase.RESPONDING,
         "thinking_steps": [thinking_step],
     }
+
+
+async def _verify_tool_grounding(ai_response: str, tool_results: list) -> Optional[str]:
+    """
+    P1 Fix: Verify that numerical data in AI response matches tool results.
+    Returns a description of grounding issues, or None if all grounded.
+    """
+    import re
+    
+    issues = []
+    
+    # Extract all numbers from AI response
+    ai_numbers = re.findall(r'\d+(?:\.\d+)?', ai_response)
+    
+    # Get all numbers from tool results
+    tool_numbers = []
+    for tool in tool_results:
+        if tool.result:
+            tool_numbers.extend(re.findall(r'\d+(?:\.\d+)?', str(tool.result)))
+    
+    # Check if AI mentions numbers not in tool results
+    for num in ai_numbers:
+        # Skip small numbers (like "1个", "2次")
+        if float(num) < 10:
+            continue
+        # Check if this number appears in tool results (with some tolerance)
+        found = any(abs(float(num) - float(tn)) < 0.01 for tn in tool_numbers)
+        if not found and len(tool_numbers) > 0:
+            issues.append(f"数值 {num} 未见工具返回")
+    
+    if len(issues) > 3:  # Too many ungrounded numbers
+        return "; ".join(issues[:3])
+    
+    return None
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
