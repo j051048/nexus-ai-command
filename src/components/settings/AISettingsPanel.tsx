@@ -92,10 +92,9 @@ export function AISettingsPanel() {
       });
       addLog('success', '配置保存成功！');
       toast.success('AI 配置已保存');
-    } catch (error: any) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error) {
       console.error('Save failed:', error);
-      const message = error?.message || (typeof error === 'string' ? error : '保存失败');
+      const message = error instanceof Error ? error.message : (typeof error === 'string' ? error : '保存失败');
       addLog('error', `保存失败: ${message}`);
       toast.error('保存失败: ' + message);
     }

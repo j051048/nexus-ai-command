@@ -38,7 +38,7 @@ from typing import Optional
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 
-from app.agent.state import AgentPhase, AgentState, QueryComplexity
+from app.agent.state import AgentState
 from app.agent.nodes import plan_node, execute_node, reflect_node, respond_node, error_node
 from app.agent.router import route_node
 

@@ -12,13 +12,12 @@ message list, and AFTER the graph runs to persist results.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, AIMessage
 
 from app.core.config import settings
 from app.core.database import supabase
-from app.services.cache_service import cache_service
 from app.services.chat_service import ChatService
 from app.agent.state import AgentConfig
 

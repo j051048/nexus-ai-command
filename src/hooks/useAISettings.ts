@@ -33,8 +33,8 @@ export function useAISettings() {
       if (!user || !profile) return null;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase
-        .from('ai_settings') as any)
+      const { data, error } = await (supabase as any)
+        .from('ai_settings')
         .select('*')
         .eq('user_id', user.id)
         .eq('organization_id', profile.organization_id)
@@ -60,8 +60,8 @@ export function useSaveAISettings() {
 
       // Check if settings exist for THIS organization and user
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: existing, error: checkError } = await (supabase
-        .from('ai_settings') as any)
+      const { data: existing, error: checkError } = await (supabase as any)
+        .from('ai_settings')
         .select('id')
         .eq('user_id', user.id)
         .eq('organization_id', profile.organization_id)
@@ -71,15 +71,15 @@ export function useSaveAISettings() {
 
       if (existing) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error } = await (supabase
-          .from('ai_settings') as any)
+        const { data, error } = await (supabase as any)
+          .from('ai_settings')
           .update({
             base_url: settings.base_url,
             api_key: settings.api_key,
             model: settings.model,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', (existing as any).id)
+          .eq('id', existing.id)
           .select()
           .single();
 
@@ -87,8 +87,8 @@ export function useSaveAISettings() {
         return data as AISettings;
       } else {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error } = await (supabase
-          .from('ai_settings') as any)
+        const { data, error } = await (supabase as any)
+          .from('ai_settings')
           .insert({
             user_id: user.id,
             organization_id: profile.organization_id,

@@ -16,7 +16,7 @@ import json
 import time
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from langchain_core.messages import (
     AIMessage,
@@ -35,9 +35,8 @@ from app.agent.state import (
     ThinkingStep,
     ToolCallRecord,
 )
-from app.tools import get_tool, get_all_tools_schema, TOOL_REGISTRY
+from app.tools import get_tool, get_all_tools_schema
 from app.services.content_moderation import scan_content, sanitize_output
-from app.core.trace_logger import TraceLogger
 
 logger = logging.getLogger(__name__)
 
@@ -299,7 +298,6 @@ async def execute_node(state: AgentState) -> dict:
     # Build ToolMessage objects for the message history
     tool_messages = []
     result_steps = []
-    has_critical_error = False
     for record in completed:
         tool_messages.append(
             ToolMessage(
@@ -383,6 +381,7 @@ async def reflect_node(state: AgentState) -> dict:
 
     # ── Task 3: Groundedness Check (RAG Comparison) ──
     grounded_warning = None
+    rag_context = state.get("rag_context", "")
     if rag_context and last_ai_content:
         prompt = f"""[事实核查任务]
 请比较【参考知识】与【AI回复】，判断回复是否完全基于背景知识，是否存在编造或矛盾。
@@ -438,8 +437,10 @@ AI 回复:
         last_ai_content = sanitize_output(last_ai_content)
 
     confidence = 0.85
-    if is_hallucination: confidence = 0.3
-    if state.get("completed_tool_calls"): confidence = 0.95
+    if is_hallucination:
+        confidence = 0.3
+    if state.get("completed_tool_calls"):
+        confidence = 0.95
 
     needs_replanning = is_hallucination and iteration < config.max_iterations
 
@@ -477,7 +478,6 @@ async def respond_node(state: AgentState) -> dict:
     Finalize output and format for UI.
     """
     final_response = state.get("final_response", "")
-    config: AgentConfig = state["config"]
 
     if not final_response:
         for msg in reversed(state.get("messages", [])):

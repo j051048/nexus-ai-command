@@ -18,8 +18,6 @@ import logging
 import time
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
-from langchain_core.messages import HumanMessage
-
 from app.agent.state import (
     AgentConfig,
     AgentPhase,
@@ -138,7 +136,7 @@ async def run_agent_stream(
 
     # Fast path: semantic cache hit
     if cached_response is not None:
-        logger.info(f"[Stream] Semantic cache hit, streaming cached response")
+        logger.info("[Stream] Semantic cache hit, streaming cached response")
         words = cached_response.split(" ")
         for i, word in enumerate(words):
             chunk = word + (" " if i < len(words) - 1 else "")
@@ -343,7 +341,7 @@ def _chunk_text(text: str, chunk_size: int = 4) -> List[str]:
     for char in text:
         current += char
         # Emit at natural boundaries
-        if len(current) >= chunk_size or char in ("\n", "。", "！", "？", ".", "!", "?"):
+        if len(current) >= chunk_size or char in ("\\n", "。", "！", "？", ".", "!", "?"):
             chunks.append(current)
             current = ""
     if current:
