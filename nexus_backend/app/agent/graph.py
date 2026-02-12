@@ -4,24 +4,22 @@ LangGraph State Machine — wires the nodes together with conditional edges.
 Graph topology:
 
     ┌─────────┐
-    │  START   │
-    └────┬─────┘
+    │  START  │
+    └────┬────┘
          │
     ┌────▼─────┐
     │  Router  │  ← classify intent, pick model
     └────┬─────┘
          │
     ┌────▼─────┐    ┌──────────┐
-    │  Plan    │◄───┤ Reflect  │  ← hallucination? loop back
+    │   Plan   │◄───┤  Reflect │  ← hallucination? loop back
     └────┬─────┘    └────▲─────┘
-         │               │
-         ├── has tools? ──┤
-         │   YES          │ NO
-    ┌────▼─────┐          │
-    │ Execute  │──────────┘
-    └──────────┘
-         │
-    (after reflect passes)
+         │                 │
+         ├── has tools? ───┤
+         │      YES        │ NO
+    ┌────▼─────┐           │
+    │ Execute  │───────────┘
+    └──────────┘  (after reflect passes)
          │
     ┌────▼─────┐
     │ Respond  │  ← sanitize, finalize
@@ -36,13 +34,28 @@ import logging
 from typing import Optional
 
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import MemorySaver
-
 from app.agent.state import AgentState
 from app.agent.nodes import plan_node, execute_node, reflect_node, respond_node, error_node
 from app.agent.router import route_node
+from app.agent.checkpointer import get_checkpointer
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Track tool schema version for hot-reload
+_tool_schema_version = 0
+
+
+def get_tool_schema_version() -> int:
+    """Get current tool schema version."""
+    return _tool_schema_version
+
+
+def increment_tool_schema_version():
+    """Increment tool schema version (call when tools are reloaded)."""
+    global _tool_schema_version
+    _tool_schema_version += 1
+    logger.info(f"[Graph] Tool schema version incremented to {_tool_schema_version}")
 
 
 # ─── Conditional Edge Functions ──────────────────────────────────────────────
@@ -112,9 +125,8 @@ def _after_error(state: AgentState) -> str:
 
 def build_agent_graph() -> StateGraph:
     """
-    Construct and compile the LangGraph state machine.
-
-    Returns a compiled StateGraph ready for .invoke() or .astream().
+    Construct the LangGraph state machine.
+    Returns an uncompiled StateGraph.
     """
     graph = StateGraph(AgentState)
 
@@ -169,6 +181,11 @@ class AgentGraph:
     """
     Singleton wrapper around the compiled LangGraph agent.
 
+    Supports:
+    - Lazy compilation with configurable checkpointer
+    - Hot-reload when tools change
+    - Thread-based conversation isolation
+
     Usage:
         agent = AgentGraph()
         result = await agent.run(initial_state, thread_id="...")
@@ -180,31 +197,62 @@ class AgentGraph:
     _instance: Optional["AgentGraph"] = None
     _compiled = None
     _checkpointer = None
+    _compiled_version = 0
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._compiled = None
-            cls._instance._checkpointer = MemorySaver()
+            cls._instance._checkpointer = None
+            cls._instance._compiled_version = 0
         return cls._instance
 
     @property
     def compiled(self):
-        """Lazy-compile the graph on first access."""
-        if self._compiled is None:
-            logger.info("[AgentGraph] Compiling LangGraph state machine with persistence...")
-            graph = build_agent_graph()
-            # Compile with checkpointer for state persistence and HITL
-            self._compiled = graph.compile(checkpointer=self._checkpointer)
-            logger.info("[AgentGraph] ✅ Graph compiled successfully")
+        """
+        Lazy-compile the graph on first access.
+        Auto-recompiles if tool schema version changed.
+        """
+        current_version = get_tool_schema_version()
+
+        if self._compiled is not None and self._compiled_version == current_version:
+            return self._compiled
+
+        if self._checkpointer is None:
+            self._checkpointer = get_checkpointer()
+
+        logger.info(f"[AgentGraph] Compiling LangGraph state machine (version {current_version})...")
+        graph = build_agent_graph()
+
+        # Compile with checkpointer for state persistence and HITL
+        self._compiled = graph.compile(checkpointer=self._checkpointer)
+        self._compiled_version = current_version
+
+        checkpointer_type = type(self._checkpointer).__name__
+        logger.info(f"[AgentGraph] ✅ Graph compiled with {checkpointer_type}")
+
         return self._compiled
+
+    def reload(self):
+        """
+        Force recompilation of the graph.
+        Call this when tools are dynamically added/removed.
+        """
+        self._compiled = None
+        increment_tool_schema_version()
+        logger.info("[AgentGraph] Graph marked for reload on next access")
 
     async def run(self, initial_state: AgentState, thread_id: str = "default") -> AgentState:
         """
         Run the graph to completion and return the final state.
         Suitable for non-streaming use cases (tests, batch jobs).
         """
-        config = {"configurable": {"thread_id": thread_id}}
+        config = {
+            "configurable": {
+                "thread_id": thread_id,
+            },
+            "recursion_limit": settings.LANGGRAPH_MAX_ITERATIONS + 5,
+        }
         return await self.compiled.ainvoke(initial_state, config=config)
 
     async def stream(self, initial_state: AgentState, thread_id: str = "default"):
@@ -212,7 +260,48 @@ class AgentGraph:
         Async generator that yields intermediate state updates.
         Each yielded item is a dict with the node name and state delta.
         """
-        config = {"configurable": {"thread_id": thread_id}}
+        config = {
+            "configurable": {
+                "thread_id": thread_id,
+            },
+            "recursion_limit": settings.LANGGRAPH_MAX_ITERATIONS + 5,
+        }
         async for event in self.compiled.astream(initial_state, config=config):
             yield event
+
+    async def astream_events(self, initial_state: AgentState, thread_id: str = "default", version: str = "v2"):
+        """
+        Async generator for granular events (token streaming, etc.).
+        """
+        config = {
+            "configurable": {
+                "thread_id": thread_id,
+            },
+            "recursion_limit": settings.LANGGRAPH_MAX_ITERATIONS + 5,
+        }
+        async for event in self.compiled.astream_events(initial_state, config=config, version=version):
+            yield event
+
+    async def get_state(self, thread_id: str) -> Optional[AgentState]:
+        """
+        Retrieve the persisted state for a thread.
+        Useful for resuming interrupted conversations.
+        """
+        config = {"configurable": {"thread_id": thread_id}}
+        state_snapshot = await self.compiled.aget_state(config)
+        return state_snapshot.values if state_snapshot else None
+
+    async def update_state(self, thread_id: str, updates: dict):
+        """
+        Update the persisted state for a thread.
+        Useful for human-in-the-loop confirmations.
+        """
+        config = {"configurable": {"thread_id": thread_id}}
+        await self.compiled.aupdate_state(config, updates)
+
+
+# Convenience function to get singleton
+def get_agent_graph() -> AgentGraph:
+    """Get the singleton AgentGraph instance."""
+    return AgentGraph()
 

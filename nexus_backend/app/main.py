@@ -55,6 +55,14 @@ async def lifespan(app: FastAPI):
     await event_bus.start()
     logger.info("✅ Event Bus started")
 
+    # Initialize LangGraph checkpointer (for state persistence)
+    from app.agent.checkpointer import setup_checkpointer
+    try:
+        await setup_checkpointer()
+        logger.info("✅ LangGraph Checkpointer initialized")
+    except Exception as e:
+        logger.warning(f"⚠️ Checkpointer initialization skipped: {e}")
+
     yield
 
     # Shutdown
@@ -316,3 +324,4 @@ async def boss_dashboard(request: Request, user_id: str = Depends(get_current_us
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
     uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)
+

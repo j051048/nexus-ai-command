@@ -280,10 +280,25 @@ async def execute_node(state: AgentState) -> dict:
         tool_name=tool_names,
     )
 
-    # Execute all tools in parallel with timeout handling
+    # Execute all tools in parallel with overall timeout
+    gather_timeout = config.gather_timeout if hasattr(config, "gather_timeout") else 60.0
+    
     try:
         tasks = [_execute_single_tool(record, config) for record in pending]
-        completed: List[ToolCallRecord] = await asyncio.gather(*tasks)
+        completed: List[ToolCallRecord] = await asyncio.wait_for(
+            asyncio.gather(*tasks, return_exceptions=False),
+            timeout=gather_timeout,
+        )
+    except asyncio.TimeoutError:
+        logger.error(f"[ExecuteNode] Tool gather timed out after {gather_timeout}s")
+        return {
+            "error": f"工具执行整体超时 ({gather_timeout}秒)",
+            "current_phase": AgentPhase.ERROR,
+            "thinking_steps": [ThinkingStep(
+                phase=AgentPhase.EXECUTING.value,
+                content=f"⚠️ 工具执行整体超时 ({gather_timeout}秒)",
+            )],
+        }
     except Exception as e:
         logger.error(f"[ExecuteNode] Tool execution fatal error: {e}")
         return {

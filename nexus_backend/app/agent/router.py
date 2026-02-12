@@ -13,11 +13,15 @@ Complexity tiers:
   CRITICAL → approvals, financial mutations         → gpt-4o + HITL gate
 """
 
+import json
 import re
 import logging
 from typing import Tuple
 
+from langchain_core.messages import HumanMessage
+
 from app.agent.state import AgentState, AgentPhase, QueryComplexity, ThinkingStep
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +87,54 @@ def classify_query(query: str) -> Tuple[QueryComplexity, str]:
     return QueryComplexity.MODERATE, "一般业务查询"
 
 
+# ─── LLM-based Intent Classification ────────────────────────────────────────
+
+async def _llm_classify_intent(
+    query: str,
+    config,
+) -> Tuple[QueryComplexity, str]:
+    """
+    Use LLM for ambiguous query classification.
+
+    Falls back to MODERATE if LLM fails.
+    """
+    from langchain_openai import ChatOpenAI
+
+    prompt = f"""请分析以下用户输入的复杂度提示，并将其分类为:
+- simple: 闲聊、简单问候
+- moderate: 单一工具查询、简单指令
+- complex: 多步骤分析、综合报告、长文本处理
+- critical: 涉及审批、金钱、敏感人事操作
+
+用户输入: {query}
+
+返回格式示例: {{"complexity": "moderate", "reason": "查询单个项目进度"}}
+"""
+
+    try:
+        llm = ChatOpenAI(
+                model=config.mini_model,
+            api_key=config.api_key,
+            base_url=config.base_url,
+            temperature=0.0,
+            timeout=10.0,
+    )
+        response = await llm.ainvoke([HumanMessage(content=prompt)])
+        content = response.content or "{}"
+
+        # Extract JSON from response
+        json_match = re.search(r'\{[^}]+\}', content)
+        if json_match:
+            data = json.loads(json_match.group())
+            complexity_str = data.get("complexity", "moderate")
+            if complexity_str in [c.value for c in QueryComplexity]:
+                return QueryComplexity(complexity_str), f"LLM 识别: {data.get('reason', '未知原因')}"
+    except Exception as e:
+        logger.debug(f"[Router] LLM intent classification failed: {e}")
+
+    return QueryComplexity.MODERATE, "一般业务查询 (LLM 分类失败)"
+
+
 # ─── Router Node ─────────────────────────────────────────────────────────────
 
 async def route_node(state: AgentState) -> dict:
@@ -106,31 +158,7 @@ async def route_node(state: AgentState) -> dict:
     
     # ── LLM Fallback for ambiguous queries ──
     if intent_summary == "一般业务查询" and len(last_user_msg) > 10:
-        from app.agent.nodes import _call_llm
-        prompt = f"""请分析以下用户输入的复杂度提示，并将其分类为:
-- simple: 闲聊、简单问候
-- moderate: 单一工具查询、简单指令
-- complex: 多步骤分析、综合报告、长文本处理
-- critical: 涉及审批、金钱、敏感人事操作
-
-用户输入: {last_user_msg}
-
-返回格式示例: {{"complexity": "moderate", "reason": "查询单个项目进度"}}
-"""
-        try:
-            llm_res = await _call_llm(
-                [{"role": "user", "content": prompt}],
-                config,
-                model=config.mini_model,
-                temperature=0.0
-            )
-            import json
-            data = json.loads(llm_res.get("content", "{}"))
-            if data.get("complexity") in [c.value for c in QueryComplexity]:
-                complexity = QueryComplexity(data["complexity"])
-                intent_summary = f"LLM 识别: {data.get('reason', '未知原因')}"
-        except Exception as e:
-            logger.debug(f"[Router] LLM intent classification failed: {e}")
+        complexity, intent_summary = await _llm_classify_intent(last_user_msg, config)
 
     selected_model = config.get_model_for_complexity(complexity)
 

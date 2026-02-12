@@ -25,7 +25,7 @@ from app.agent.state import (
     QueryComplexity,
     ThinkingStep,
 )
-from app.agent.graph import AgentGraph
+from app.agent.graph import get_agent_graph
 from app.agent.memory import prepare_initial_state, persist_result
 from app.services.token_service import (
     validate_request_tokens,
@@ -35,11 +35,12 @@ from app.services.token_service import (
 )
 from app.services.content_moderation import check_user_input
 from app.core.trace_logger import TraceLogger
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Singleton agent graph instance
-_agent_graph = AgentGraph()
+# Use the singleton agent graph instance
+_agent_graph = get_agent_graph()
 
 
 def _sse_data(payload: Any) -> str:
@@ -73,6 +74,7 @@ async def run_agent_stream(
     db_client: Optional[Any] = None,
     agent_name: Optional[str] = None,
     user_role: str = "employee",
+    org_id: Optional[str] = None,
 ) -> AsyncGenerator[str, None]:
     """
     Main entry point: runs the LangGraph agent and streams SSE events.
@@ -82,17 +84,25 @@ async def run_agent_stream(
     """
     start_time = time.time()
 
-    # ── 0. Build AgentConfig ──
+    # ── 0. Build AgentConfig with settings ──
     agent_config = AgentConfig(
         user_id=user_id,
         session_id=session_id or "default",
         agent_name=agent_name or "default",
-        api_key=config.get("api_key", ""),
-        base_url=config.get("base_url", "https://api.openai.com/v1"),
-        model=config.get("model", "gpt-4o"),
+        api_key=config.get("api_key", "") or settings.OPENAI_API_KEY,
+        base_url=config.get("base_url", "https://api.openai.com/v1") or settings.AI_BASE_URL,
+        model=config.get("model", "gpt-4o") or settings.AI_DEFAULT_MODEL,
         mini_model=config.get("mini_model", "gpt-4o-mini"),
         system_confirmed=system_confirmed,
         user_role=user_role,
+        org_id=org_id,
+        max_iterations=settings.LANGGRAPH_MAX_ITERATIONS,
+        tool_timeout=settings.LANGGRAPH_TOOL_TIMEOUT,
+        gather_timeout=settings.LANGGRAPH_GATHER_TIMEOUT,
+        enable_rag_inject=settings.LANGGRAPH_ENABLE_RAG_INJECT,
+        rag_inject_threshold=settings.LANGGRAPH_RAG_INJECT_THRESHOLD,
+        rag_inject_limit=settings.LANGGRAPH_RAG_INJECT_LIMIT,
+        reflect_use_llm=settings.LANGGRAPH_REFLECT_USE_LLM,
     )
 
     # ── 1. Token budget check ──
@@ -185,19 +195,15 @@ async def run_agent_stream(
     accumulated_state: Dict[str, Any] = dict(initial_state)
     all_thinking_steps: List[ThinkingStep] = []
     
-    # Track metadata to calculate total usage if node doesn't provide it
-    # Note: thread_id is used for checkpointer persistence
-    config_run = {"configurable": {"thread_id": agent_config.session_id}, "version": "v2"}
-
     try:
-        async for event in _agent_graph.compiled.astream_events(
+        async for event in _agent_graph.astream_events(
             initial_state, 
-            config=config_run,
-            version="v2"
+            thread_id=agent_config.session_id,
+            version="v2",
         ):
             kind = event.get("event")
             
-            # A. Continuous Token Streaming (Planning Phase - Task 2)
+            # A. Continuous Token Streaming (Planning Phase)
             if kind == "on_chat_model_stream":
                 node_name = event.get("metadata", {}).get("langgraph_node")
                 content = event["data"]["chunk"].content
@@ -207,14 +213,9 @@ async def run_agent_stream(
 
             # B. State Updates (when a node completes)
             elif kind == "on_chain_end":
-                # Check if this is a node completion (LangGraph emits on_chain_end for nodes)
-                # Filter for nodes we care about
                 data = event.get("data", {})
                 output = data.get("output")
                 
-                # In LangGraph v2 astream_events, node outputs come in on_chain_end 
-                # where tags contain 'graph:step:node_name' or similar.
-                # Simplified: we look at data['output'] if it's a dict and update state.
                 if isinstance(output, dict) and any(k in output for k in ("current_phase", "thinking_steps", "messages")):
                     state_delta = output
                     
@@ -249,9 +250,6 @@ async def run_agent_stream(
                         if status_text:
                             yield _sse_status(status_text)
                             
-            # elif kind == "on_custom_event":
-            #    ...
-
     except Exception as e:
         logger.error(f"[Stream] Agent graph execution failed: {e}", exc_info=True)
         yield _sse_content(f"\n\n⚠️ 处理请求时发生错误: {str(e)[:200]}")
@@ -341,9 +339,10 @@ def _chunk_text(text: str, chunk_size: int = 4) -> List[str]:
     for char in text:
         current += char
         # Emit at natural boundaries
-        if len(current) >= chunk_size or char in ("\\n", "。", "！", "？", ".", "!", "?"):
+        if len(current) >= chunk_size or char in ("\n", "。", "！", "？", ".", "!", "?"):
             chunks.append(current)
             current = ""
     if current:
         chunks.append(current)
     return chunks
+
