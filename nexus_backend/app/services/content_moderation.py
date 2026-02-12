@@ -155,7 +155,7 @@ class ContentModerator:
         # "竞品A", "竞品B"
     ]
 
-        def __init__(self, strict_mode: bool = False, enable_llm_detection: bool = True):
+    def __init__(self, strict_mode: bool = False, enable_llm_detection: bool = True):
         self.strict_mode = strict_mode
         self.enable_llm_detection = enable_llm_detection
         self._compiled_patterns = {}
@@ -292,7 +292,7 @@ class ContentModerator:
 
         return sanitized, violations
 
-        def check_input(self, user_input: str) -> Tuple[bool, Optional[str]]:
+    def check_input(self, user_input: str) -> Tuple[bool, Optional[str]]:
         """
         Check user input for injection attempts.
         P0 Security: Enhanced with multi-layer detection.
