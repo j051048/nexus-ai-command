@@ -37,6 +37,7 @@ from app.agent.state import (
 )
 from app.tools import get_tool, get_all_tools_schema
 from app.services.content_moderation import scan_content, sanitize_output
+from app.services.error_recovery_service import llm_circuit_breaker, tool_circuit_breaker
 
 logger = logging.getLogger(__name__)
 
@@ -82,11 +83,17 @@ async def _execute_single_tool(
     record: ToolCallRecord,
     config: AgentConfig,
 ) -> ToolCallRecord:
-    """Execute a single tool with RBAC, confirmation gates, and retry."""
+    """Execute a single tool with RBAC, confirmation gates, circuit breaker, and retry."""
     tool = get_tool(record.tool_name)
     if not tool:
         record.status = "error"
         record.result = f"Error: Tool '{record.tool_name}' not found."
+        return record
+
+    # 0. Circuit Breaker Check
+    if not tool_circuit_breaker.allow_request():
+        record.status = "error"
+        record.result = f"Error: 工具服务断路器已打开，请稍后重试。"
         return record
 
     # 1. RBAC Check
@@ -131,6 +138,7 @@ async def _execute_single_tool(
             record.result = str(result)
             record.status = "success"
             record.duration_ms = int((time.time() - start_time) * 1000)
+            tool_circuit_breaker.record_success()
             return record
         except asyncio.TimeoutError:
             logger.warning(f"Tool {record.tool_name} timed out after {timeout}s (attempt {attempt+1})")
@@ -151,6 +159,7 @@ async def _execute_single_tool(
     record.status = "error"
     record.result = f"Error: Tool '{record.tool_name}' failed after 3 attempts: {str(last_error)}"
     record.duration_ms = int((time.time() - start_time) * 1000)
+    tool_circuit_breaker.record_failure()
     return record
 
 
@@ -200,10 +209,22 @@ async def plan_node(state: AgentState) -> dict:
 
     # Call LLM via standard invoke (streaming tokens will be caught by graph callbacks if set)
     try:
+        # Circuit breaker check for LLM service
+        if not llm_circuit_breaker.allow_request():
+            return {
+                "error": "LLM 服务断路器已打开，请稍后重试。",
+                "current_phase": AgentPhase.ERROR,
+                "thinking_steps": [ThinkingStep(
+                    phase=AgentPhase.PLANNING.value,
+                    content="⚠️ LLM 服务暂时不可用（断路器保护），请稍后再试",
+                )],
+            }
         # We use astream to capture tokens if needed, but for the node return we need the full message
         # In a real heavy-streaming app, we'd use a callback handler passed via config
         ai_msg = await llm.ainvoke(lc_msgs)
+        llm_circuit_breaker.record_success()
     except Exception as e:
+        llm_circuit_breaker.record_failure()
         logger.error(f"[PlanNode] LLM call failed: {e}")
         return {
             "error": f"LLM 规划失败: {str(e)}",

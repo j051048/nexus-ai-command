@@ -1,6 +1,8 @@
 import re
+import hashlib
 import logging
 from typing import List, Dict, Any, Optional
+from datetime import datetime, timedelta
 from app.core.database import supabase
 from app.core.config import settings
 from openai import AsyncOpenAI
@@ -343,6 +345,137 @@ class VectorService:
             if results
             else "知识库中未找到相关信息 (Mock)."
         )
+
+    async def check_staleness(
+        self, org_id: str, staleness_days: int = 30, db=None
+    ) -> List[Dict]:
+        """
+        #25 Knowledge Base Update Strategy: Check which documents have stale embeddings.
+        Returns list of documents whose embeddings are older than staleness_days.
+        """
+        client = db or supabase
+        if not client:
+            return []
+
+        cutoff = (datetime.utcnow() - timedelta(days=staleness_days)).isoformat()
+        try:
+            res = await client.table("documents").select(
+                "id, name, updated_at, last_embedded_at"
+            ).eq("organization_id", org_id).execute()
+
+            stale = []
+            for doc in res.data or []:
+                last_embedded = doc.get("last_embedded_at")
+                updated_at = doc.get("updated_at")
+                if not last_embedded or last_embedded < cutoff:
+                    stale.append({
+                        "document_id": doc["id"],
+                        "name": doc.get("name"),
+                        "updated_at": updated_at,
+                        "last_embedded_at": last_embedded,
+                        "reason": "never_embedded" if not last_embedded else "stale",
+                    })
+                elif updated_at and last_embedded and updated_at > last_embedded:
+                    stale.append({
+                        "document_id": doc["id"],
+                        "name": doc.get("name"),
+                        "updated_at": updated_at,
+                        "last_embedded_at": last_embedded,
+                        "reason": "modified_after_embedding",
+                    })
+            return stale
+        except Exception as e:
+            logger.error(f"Staleness check failed: {e}")
+            return []
+
+    async def incremental_update(
+        self, document_id: str, chunks: List[str], org_id: str, config: dict = None, db=None
+    ) -> Dict:
+        """
+        #25 Knowledge Base Update Strategy: Incrementally update embeddings.
+        Only re-embeds chunks that have changed (by content hash diff).
+        Cleans up orphan chunks that no longer exist.
+        """
+        client = db or supabase
+        if not client:
+            return {"status": "error", "reason": "no_db"}
+
+        api_key = (config or {}).get("api_key") or settings.OPENAI_API_KEY
+        if not api_key:
+            return {"status": "error", "reason": "no_api_key"}
+
+        oai_client = AsyncOpenAI(api_key=api_key)
+        stats = {"inserted": 0, "updated": 0, "deleted": 0, "unchanged": 0}
+
+        try:
+            # 1. Load existing chunks
+            existing_res = await client.table("document_embeddings").select(
+                "id, chunk_index, content_hash"
+            ).eq("document_id", document_id).execute()
+
+            existing_map = {}
+            for row in existing_res.data or []:
+                existing_map[row["chunk_index"]] = {
+                    "id": row["id"],
+                    "content_hash": row.get("content_hash"),
+                }
+
+            # 2. Compute hashes for new chunks
+            new_chunk_hashes = {}
+            for i, chunk in enumerate(chunks):
+                new_chunk_hashes[i] = hashlib.sha256(chunk.encode()).hexdigest()
+
+            # 3. Determine what needs updating
+            to_embed = []
+            for i, chunk in enumerate(chunks):
+                existing = existing_map.get(i)
+                if not existing or existing.get("content_hash") != new_chunk_hashes[i]:
+                    to_embed.append((i, chunk))
+                else:
+                    stats["unchanged"] += 1
+
+            # 4. Embed changed chunks
+            if to_embed:
+                texts = [t[1] for t in to_embed]
+                response = await oai_client.embeddings.create(
+                    input=texts, model="text-embedding-3-small"
+                )
+                for idx, (chunk_index, chunk_text) in enumerate(to_embed):
+                    embedding = response.data[idx].embedding
+                    row_data = {
+                        "document_id": document_id,
+                        "chunk_index": chunk_index,
+                        "content": chunk_text,
+                        "content_hash": new_chunk_hashes[chunk_index],
+                        "embedding": embedding,
+                        "organization_id": org_id,
+                    }
+                    if chunk_index in existing_map:
+                        await client.table("document_embeddings").update(row_data).eq(
+                            "id", existing_map[chunk_index]["id"]
+                        ).execute()
+                        stats["updated"] += 1
+                    else:
+                        await client.table("document_embeddings").insert(row_data).execute()
+                        stats["inserted"] += 1
+
+            # 5. Delete orphan chunks (indices that no longer exist)
+            for old_index, old_data in existing_map.items():
+                if old_index >= len(chunks):
+                    await client.table("document_embeddings").delete().eq(
+                        "id", old_data["id"]
+                    ).execute()
+                    stats["deleted"] += 1
+
+            # 6. Update last_embedded_at on the document
+            await client.table("documents").update({
+                "last_embedded_at": datetime.utcnow().isoformat()
+            }).eq("id", document_id).execute()
+
+            return {"status": "ok", **stats}
+        except Exception as e:
+            logger.error(f"Incremental update failed for {document_id}: {e}")
+            return {"status": "error", "reason": str(e)}
 
 
 # Singleton instance

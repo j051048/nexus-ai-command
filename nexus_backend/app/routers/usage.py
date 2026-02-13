@@ -3,12 +3,14 @@ P1 Optimization: Usage and Model Information Endpoints
 Provides token usage tracking and model pricing information.
 """
 
-from fastapi import APIRouter, Depends
+import logging
+from fastapi import APIRouter, Depends, Request
 from app.core.auth import get_current_user_id
 from app.services.token_service import usage_tracker, MODEL_MAPPING
-from app.core.errors import api_success
+from app.core.errors import api_success, api_error, ErrorCode
 from app.models.schemas import StandardResponse
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/usage", tags=["Usage"])
 
 
@@ -42,15 +44,73 @@ async def get_available_models():
 
 
 @router.get("/history", response_model=StandardResponse)
-async def get_usage_history(user_id: str = Depends(get_current_user_id), days: int = 7):
+async def get_usage_history(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+    days: int = 7,
+):
     """
     Get usage history for the past N days.
-    (Currently returns only current day as persistence is pending)
+    #53: Real DB query replacing stub.
     """
-    # Placeholder for future DB implementation
-    return api_success(
-        data={
+    days = min(max(1, days), 90)
+    client = getattr(req.state, "db", None)
+
+    if not client:
+        return api_success(
+            data={
+                "current_day": usage_tracker.get_usage_summary(user_id),
+                "history": [],
+                "note": "Database unavailable, showing current session only.",
+            }
+        )
+
+    try:
+        res = await client.table("user_token_usage").select(
+            "date, total_tokens, estimated_cost_usd, request_count"
+        ).eq("user_id", user_id).order(
+            "date", desc=True
+        ).limit(days).execute()
+
+        history = []
+        for row in res.data or []:
+            history.append({
+                "date": row.get("date"),
+                "tokens": row.get("total_tokens", 0),
+                "cost_usd": float(row.get("estimated_cost_usd", 0)),
+                "requests": row.get("request_count", 0),
+            })
+
+        return api_success(data={
             "current_day": usage_tracker.get_usage_summary(user_id),
-            "note": "Historical data requires persistent storage integration.",
-        }
-    )
+            "history": history,
+            "period_days": days,
+        })
+    except Exception as e:
+        logger.error(f"Usage history query failed: {e}")
+        return api_success(
+            data={
+                "current_day": usage_tracker.get_usage_summary(user_id),
+                "history": [],
+                "note": "Historical data query failed.",
+            }
+        )
+
+
+@router.get("/cost-report", response_model=StandardResponse)
+async def get_cost_report(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+    days: int = 30,
+):
+    """
+    #30 LLM Cost Attribution: Get cost breakdown by department and project.
+    """
+    org_id = getattr(req.state, "org_id", None) or "default"
+    client = getattr(req.state, "db", None)
+    try:
+        report = await usage_tracker.get_cost_report(org_id, days=days, db=client)
+        return api_success(data=report)
+    except Exception as e:
+        logger.error(f"Cost report failed: {e}")
+        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

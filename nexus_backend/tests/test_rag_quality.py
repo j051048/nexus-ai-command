@@ -18,9 +18,10 @@ async def test_rag_faithfulness():
     ]
     
     user_id = "test_eval_user"
-    
+    org_id = "test_eval_org"
+
     for query in test_queries:
-        response = await vector_service.search(query, user_id)
+        response = await vector_service.search(query, user_id, org_id=org_id)
         
         # 1. Structural Validation
         assert "检索到以下相关知识" in response or "知识库中未找到" in response

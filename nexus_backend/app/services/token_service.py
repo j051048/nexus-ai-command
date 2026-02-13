@@ -6,7 +6,7 @@ Tracks token usage, estimates costs, and enforces usage limits.
 import os
 import time
 import logging
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
@@ -66,6 +66,8 @@ class TokenUsage:
     total_tokens: int
     estimated_cost_usd: float
     model: str
+    department_id: Optional[str] = None
+    project_id: Optional[str] = None
 
 
 @dataclass
@@ -362,6 +364,8 @@ class UsageTracker:
                     "p_date": day_key,
                     "p_tokens": usage.total_tokens,
                     "p_cost": usage.estimated_cost_usd,
+                    "p_department_id": usage.department_id,
+                    "p_project_id": usage.project_id,
                 },
             ).execute()
 
@@ -397,6 +401,84 @@ class UsageTracker:
         ]
         for key in loaded_to_remove:
             del self._db_loaded[key]
+
+    async def get_cost_report(self, org_id: str, days: int = 30, db=None) -> Dict:
+        """
+        #30 LLM Cost Attribution: Aggregate cost by department and project.
+        Returns breakdown for the requested period.
+        """
+        if not db:
+            try:
+                from app.core.database import supabase
+                db = supabase
+            except Exception:
+                pass
+
+        report = {
+            "org_id": org_id,
+            "period_days": days,
+            "by_department": [],
+            "by_project": [],
+            "by_model": [],
+            "total_cost_usd": 0.0,
+            "total_tokens": 0,
+        }
+
+        if not db:
+            return report
+
+        try:
+            res = await db.rpc("get_cost_report", {
+                "p_org_id": org_id,
+                "p_days": days,
+            }).execute()
+
+            if res.data:
+                data = res.data if isinstance(res.data, dict) else (res.data[0] if res.data else {})
+                report.update({
+                    "by_department": data.get("by_department", []),
+                    "by_project": data.get("by_project", []),
+                    "by_model": data.get("by_model", []),
+                    "total_cost_usd": data.get("total_cost_usd", 0.0),
+                    "total_tokens": data.get("total_tokens", 0),
+                })
+        except Exception as e:
+            logger.warning(f"Cost report RPC failed, using fallback: {e}")
+            # Fallback: aggregate from daily usage table
+            try:
+                res = await db.table("user_token_usage").select(
+                    "total_tokens, estimated_cost_usd, department_id, project_id"
+                ).eq("org_id", org_id).execute()
+                dept_map: Dict[str, Dict] = {}
+                proj_map: Dict[str, Dict] = {}
+                total_cost = 0.0
+                total_tokens = 0
+                for row in res.data or []:
+                    cost = float(row.get("estimated_cost_usd", 0))
+                    tokens = row.get("total_tokens", 0)
+                    total_cost += cost
+                    total_tokens += tokens
+
+                    dept = row.get("department_id") or "unassigned"
+                    if dept not in dept_map:
+                        dept_map[dept] = {"department_id": dept, "cost_usd": 0.0, "tokens": 0}
+                    dept_map[dept]["cost_usd"] += cost
+                    dept_map[dept]["tokens"] += tokens
+
+                    proj = row.get("project_id") or "unassigned"
+                    if proj not in proj_map:
+                        proj_map[proj] = {"project_id": proj, "cost_usd": 0.0, "tokens": 0}
+                    proj_map[proj]["cost_usd"] += cost
+                    proj_map[proj]["tokens"] += tokens
+
+                report["by_department"] = sorted(dept_map.values(), key=lambda x: x["cost_usd"], reverse=True)
+                report["by_project"] = sorted(proj_map.values(), key=lambda x: x["cost_usd"], reverse=True)
+                report["total_cost_usd"] = round(total_cost, 4)
+                report["total_tokens"] = total_tokens
+            except Exception as e2:
+                logger.error(f"Cost report fallback failed: {e2}")
+
+        return report
 
 
 # Global instances

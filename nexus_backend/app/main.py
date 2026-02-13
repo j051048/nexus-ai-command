@@ -18,6 +18,11 @@ from app.routers import (
     organization,
     import_data,
     qa_pairs,
+    webhooks,
+    oauth,
+    compliance,
+    billing,
+    profile,
 )
 from app.core.auth import get_current_user_id
 from app.core.rate_limiter import RateLimitMiddleware
@@ -49,27 +54,64 @@ if settings.SENTRY_DSN:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager for startup/shutdown events"""
+    import asyncio
+
     # Startup
-    logger.info("🚀 Starting Nexus Backend...")
+    logger.info("Starting Nexus Backend...")
     await cache_service.init()
     await event_bus.start()
-    logger.info("✅ Event Bus started")
+    logger.info("Event Bus started")
 
     # Initialize LangGraph checkpointer (for state persistence)
     from app.agent.checkpointer import setup_checkpointer
     try:
         await setup_checkpointer()
-        logger.info("✅ LangGraph Checkpointer initialized")
+        logger.info("LangGraph Checkpointer initialized")
     except Exception as e:
-        logger.warning(f"⚠️ Checkpointer initialization skipped: {e}")
+        logger.warning(f"Checkpointer initialization skipped: {e}")
+
+    # Cold start optimization: Initialize connection pools
+    from app.services.connection_pool_service import connection_pool_service
+    try:
+        await connection_pool_service.init_all()
+        logger.info("Connection pools initialized")
+    except Exception as e:
+        logger.warning(f"Connection pool init skipped: {e}")
+
+    # Warm up tiktoken encoders (prevents first-request latency)
+    try:
+        from app.services.token_service import token_counter
+        token_counter.count_tokens("warmup", "gpt-4o")
+        token_counter.count_tokens("warmup", "gpt-4o-mini")
+        logger.info("Token encoders warmed up")
+    except Exception as e:
+        logger.warning(f"Tiktoken warmup skipped: {e}")
+
+    # Start background tenant monitoring (every 5 minutes)
+    async def _tenant_monitor_loop():
+        from app.services.tenant_credit_service import tenant_credit_service
+        from app.core.database import supabase
+        while True:
+            await asyncio.sleep(300)
+            try:
+                await tenant_credit_service.monitor_all_tenants(db=supabase)
+            except Exception as e:
+                logger.error(f"Tenant monitoring error: {e}")
+
+    monitor_task = asyncio.create_task(_tenant_monitor_loop())
 
     yield
 
     # Shutdown
-    logger.info("🛑 Shutting down Nexus Backend...")
+    logger.info("Shutting down Nexus Backend...")
+    monitor_task.cancel()
     await event_bus.stop()
     await audit_logger.force_flush()
-    logger.info("✅ Cleanup complete")
+    try:
+        await connection_pool_service.close()
+    except Exception:
+        pass
+    logger.info("Cleanup complete")
 
 
 app = FastAPI(
@@ -78,6 +120,10 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# OpenTelemetry distributed tracing setup
+from app.core.telemetry import setup_telemetry
+setup_telemetry(app)
 
 
 @app.get("/favicon.ico", include_in_schema=False)
@@ -155,6 +201,11 @@ app.include_router(usage.router)
 app.include_router(organization.router)
 app.include_router(import_data.router)
 app.include_router(qa_pairs.router)
+app.include_router(webhooks.router)
+app.include_router(oauth.router)
+app.include_router(compliance.router)
+app.include_router(billing.router)
+app.include_router(profile.router)
 
 
 @app.get("/")

@@ -298,8 +298,66 @@ class TenantCreditService:
         self._credit_cache[cache_key] = credit
         return credit
 
-    async def _get_tenant_quota(self, org_id: str) -> TenantQuota:
+    async def _get_tenant_quota(self, org_id: str, db=None) -> TenantQuota:
+        """Load per-tenant configurable quotas from DB, with default fallback."""
+        if db:
+            try:
+                res = await db.table("tenant_quotas").select("*").eq(
+                    "org_id", org_id
+                ).maybe_single().execute()
+                if res.data:
+                    return TenantQuota(
+                        monthly_token_limit=res.data.get("monthly_token_limit", 1_000_000),
+                        monthly_api_call_limit=res.data.get("monthly_api_call_limit", 10_000),
+                        daily_token_limit=res.data.get("daily_token_limit", 100_000),
+                        daily_api_call_limit=res.data.get("daily_api_call_limit", 1_000),
+                        rate_limit_per_minute=res.data.get("rate_limit_per_minute", 60),
+                        burst_limit=res.data.get("burst_limit", 10),
+                        storage_limit_mb=res.data.get("storage_limit_mb", 1_000),
+                    )
+            except Exception as e:
+                logger.debug(f"Tenant quota lookup failed for {org_id}: {e}")
         return self.DEFAULT_QUOTAS
+
+    async def monitor_all_tenants(self, db=None):
+        """Background task: proactively check all tenant credit levels and emit alerts."""
+        if not db:
+            return
+        try:
+            res = await db.table("tenant_credits").select(
+                "org_id, credit_type, allocated, used"
+            ).execute()
+            for row in res.data or []:
+                allocated = row.get("allocated", 0)
+                used = row.get("used", 0)
+                if allocated <= 0:
+                    continue
+                usage_pct = (used / allocated) * 100
+
+                if usage_pct >= 95:
+                    logger.critical(
+                        f"Tenant {row['org_id']} {row['credit_type']} at {usage_pct:.0f}%"
+                    )
+                    try:
+                        from app.services.event_bus import emit
+                        await emit(
+                            "system.alert",
+                            {
+                                "org_id": row["org_id"],
+                                "alert_type": "credit_exhaustion",
+                                "credit_type": row["credit_type"],
+                                "usage_percentage": round(usage_pct, 1),
+                                "severity": "critical",
+                            },
+                        )
+                    except Exception:
+                        pass
+                elif usage_pct >= 80:
+                    logger.warning(
+                        f"Tenant {row['org_id']} {row['credit_type']} at {usage_pct:.0f}%"
+                    )
+        except Exception as e:
+            logger.error(f"Tenant monitoring failed: {e}")
 
     async def _persist_credit_usage(self, org_id: str, credit_type: CreditType, amount: int, user_id: str = None, db=None):
         if not db:

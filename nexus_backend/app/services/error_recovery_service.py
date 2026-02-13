@@ -7,6 +7,7 @@ Fixes Issue #7: Missing global error recovery strategy.
 
 import logging
 import asyncio
+import time
 from typing import Dict, Optional, Callable, Any
 from dataclasses import dataclass, field
 from enum import Enum
@@ -366,5 +367,115 @@ class ErrorRecoveryService:
         }
 
 
-# Global instance
-error_recovery_service = ErrorRecoveryService()"
+# ──────────────────────────────────────────────────────────────────────────────
+# Circuit Breaker
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+class CircuitState(Enum):
+    """Circuit breaker states."""
+    CLOSED = "closed"       # Normal operation
+    OPEN = "open"           # Failing, reject fast
+    HALF_OPEN = "half_open" # Testing if service recovered
+
+
+@dataclass
+class CircuitBreakerConfig:
+    """Configuration for circuit breaker behavior."""
+    failure_threshold: int = 5          # Failures before opening
+    recovery_timeout: float = 60.0     # Seconds before trying half-open
+    half_open_max_calls: int = 1       # Probe calls in half-open
+    success_threshold: int = 2         # Successes to close from half-open
+
+
+class CircuitBreaker:
+    """Circuit breaker for protecting external service calls.
+
+    Prevents cascading failures by cutting off calls to a failing service
+    and periodically probing to check recovery.
+
+    States:
+        CLOSED   → Normal. Failures increment counter.
+        OPEN     → Service deemed down. All calls rejected immediately.
+        HALF_OPEN → After recovery_timeout, allow probe calls to test recovery.
+    """
+
+    def __init__(self, name: str, config: CircuitBreakerConfig = None):
+        self.name = name
+        self.config = config or CircuitBreakerConfig()
+        self._state = CircuitState.CLOSED
+        self._failure_count = 0
+        self._success_count = 0
+        self._last_failure_time: float = 0.0
+
+    @property
+    def state(self) -> CircuitState:
+        if self._state == CircuitState.OPEN:
+            if time.time() - self._last_failure_time >= self.config.recovery_timeout:
+                self._state = CircuitState.HALF_OPEN
+                self._success_count = 0
+        return self._state
+
+    def allow_request(self) -> bool:
+        """Check if a request should be allowed through."""
+        current = self.state
+        if current == CircuitState.CLOSED:
+            return True
+        if current == CircuitState.HALF_OPEN:
+            return True  # Allow probe request
+        return False  # OPEN — reject fast
+
+    def record_success(self):
+        """Record a successful call."""
+        if self._state == CircuitState.HALF_OPEN:
+            self._success_count += 1
+            if self._success_count >= self.config.success_threshold:
+                self._state = CircuitState.CLOSED
+                self._failure_count = 0
+                logger.info(f"Circuit breaker '{self.name}' closed (service recovered)")
+        else:
+            self._failure_count = 0
+
+    def record_failure(self):
+        """Record a failed call."""
+        self._failure_count += 1
+        self._last_failure_time = time.time()
+        if self._state == CircuitState.HALF_OPEN:
+            self._state = CircuitState.OPEN
+            logger.warning(f"Circuit breaker '{self.name}' re-opened (probe failed)")
+        elif self._failure_count >= self.config.failure_threshold:
+            self._state = CircuitState.OPEN
+            logger.warning(
+                f"Circuit breaker '{self.name}' opened after "
+                f"{self._failure_count} failures"
+            )
+
+    def get_status(self) -> Dict:
+        """Get circuit breaker status for monitoring."""
+        return {
+            "name": self.name,
+            "state": self.state.value,
+            "failure_count": self._failure_count,
+            "success_count": self._success_count,
+            "config": {
+                "failure_threshold": self.config.failure_threshold,
+                "recovery_timeout": self.config.recovery_timeout,
+            },
+        }
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Global Instances
+# ──────────────────────────────────────────────────────────────────────────────
+
+error_recovery_service = ErrorRecoveryService()
+
+# Circuit breakers for key external services
+llm_circuit_breaker = CircuitBreaker(
+    "llm_service",
+    CircuitBreakerConfig(failure_threshold=3, recovery_timeout=30.0, success_threshold=2),
+)
+tool_circuit_breaker = CircuitBreaker(
+    "tool_service",
+    CircuitBreakerConfig(failure_threshold=5, recovery_timeout=60.0, success_threshold=2),
+)

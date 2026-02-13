@@ -326,6 +326,47 @@ class PromptVersionService:
             log = [l for l in log if l["prompt_key"] == prompt_key]
         return log[-limit:]
 
+    async def record_response_metrics(
+        self,
+        prompt_key: str,
+        user_id: str,
+        response_time_ms: int,
+        token_count: int,
+        user_rating: Optional[float] = None,
+        db=None,
+    ):
+        """
+        #24 Prompt Performance Analysis: Record response quality metrics
+        for the active prompt version or A/B test variant.
+        """
+        # Determine which version was used
+        variant = self.get_ab_test_variant(prompt_key, user_id)
+        version_id = variant.version_id if variant else self._active_versions.get(prompt_key)
+
+        if not version_id:
+            return
+
+        # Record to A/B test if applicable
+        if variant and variant.ab_test_group:
+            self.record_ab_test_metric(variant.ab_test_group, version_id, "response_time_ms", response_time_ms)
+            self.record_ab_test_metric(variant.ab_test_group, version_id, "token_count", token_count)
+            if user_rating is not None:
+                self.record_ab_test_metric(variant.ab_test_group, version_id, "user_rating", user_rating)
+
+        # Persist to DB
+        if db:
+            try:
+                await db.table("prompt_metrics").insert({
+                    "prompt_key": prompt_key,
+                    "version_id": version_id,
+                    "user_id": user_id,
+                    "response_time_ms": response_time_ms,
+                    "token_count": token_count,
+                    "user_rating": user_rating,
+                }).execute()
+            except Exception as e:
+                logger.debug(f"Failed to persist prompt metrics: {e}")
+
     async def persist_to_db(self, db=None):
         """Persist prompt versions to database."""
         if not db:

@@ -173,6 +173,14 @@ class Settings(BaseSettings):
         default="", description="Master key for encrypting API keys"
     )
 
+    # Observability (OpenTelemetry)
+    OTEL_ENABLED: bool = Field(
+        default=False, description="Enable OpenTelemetry distributed tracing"
+    )
+    OTEL_EXPORTER_ENDPOINT: str = Field(
+        default="", description="OTLP exporter gRPC endpoint (e.g. http://localhost:4317)"
+    )
+
     # B2: Notification Channel Configuration
     # Email (SMTP)
     SMTP_HOST: Optional[str] = Field(default=None, description="SMTP server hostname")

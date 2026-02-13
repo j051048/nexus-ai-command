@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nexus-backend
+  namespace: nexus-ai
+  labels:
+    app: nexus-backend
+spec:
+  type: ClusterIP
+  selector:
+    app: nexus-backend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+      protocol: TCP

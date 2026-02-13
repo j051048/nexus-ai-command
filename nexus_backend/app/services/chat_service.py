@@ -77,9 +77,11 @@ class ChatService:
 
     @staticmethod
     async def get_system_prompt(
-        agent_name: str, db_client: Optional[Any] = None
+        agent_name: str, db_client: Optional[Any] = None, user_id: Optional[str] = None
     ) -> str:
-        """Get formatted system prompt for agent (P1 Fix #29: Fetch from DB with local fallback)"""
+        """Get formatted system prompt for agent (P1 Fix #29: Fetch from DB with local fallback)
+        #24: Integrates A/B test variant selection when user_id is provided.
+        """
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         prompt_key = "default_fallback"
@@ -91,6 +93,19 @@ class ChatService:
             prompt_key = "performance_coach"
         elif agent_name in ["@总裁助理", "boss_assistant"]:
             prompt_key = "boss_assistant"
+
+        # 0. Try A/B test variant (if user_id provided)
+        if user_id:
+            try:
+                from app.services.prompt_version_service import prompt_version_service
+                variant = prompt_version_service.get_ab_test_variant(prompt_key, user_id)
+                if variant and variant.content:
+                    try:
+                        return variant.content.format(current_time=now_str)
+                    except Exception:
+                        return variant.content
+            except Exception as e:
+                logger.debug(f"A/B test variant lookup failed: {e}")
 
         # 1. Try Cache
         cache_key = f"prompt:{prompt_key}"

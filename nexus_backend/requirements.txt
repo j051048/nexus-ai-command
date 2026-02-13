@@ -1,21 +1,21 @@
 fastapi==0.109.0
 uvicorn==0.27.0
-supabase
+supabase==2.11.0
 pydantic==2.6.0
 python-dotenv==1.0.1
 requests==2.31.0
 # httpx will be installed automatically by supabase, but let's be explicit for advanced functionality
 # httpx==0.27.0
 # pymilvus==2.3.6  # Uncomment when Milvus is deployed
-python-multipart
-pypdf
-pandas
-openpyxl
-celery[redis]
-arxiv
-openai
-sentry-sdk
-python-docx
+python-multipart==0.0.18
+pypdf==4.2.0
+pandas==2.2.3
+openpyxl==3.1.5
+celery[redis]==5.4.0
+arxiv==2.1.3
+openai==1.58.1
+sentry-sdk==2.19.2
+python-docx==1.1.2
 
 # P0 Agent Framework
 langgraph>=0.0.10
@@ -30,9 +30,15 @@ pydantic-settings>=2.0.0  # P1 Fix #43: Type-safe settings with .env loading
 jsonschema>=4.0.0  # P0 Fix #11: Tool parameter validation
 cryptography>=42.0.0 # P1 Fix #42: Key encryption
 
+# Observability
+opentelemetry-api==1.28.2
+opentelemetry-sdk==1.28.2
+opentelemetry-instrumentation-fastapi==0.49b2
+opentelemetry-exporter-otlp==1.28.2
+
 # Development/Testing
-ruff             # Linting
-black            # Code formatting
-pytest-asyncio   # Async test support
-pytest-cov       # Test coverage
-httpx            # HTTP client for testing
+ruff==0.8.6
+black==24.10.0
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0
+httpx==0.28.1
