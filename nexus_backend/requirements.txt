@@ -33,7 +33,7 @@ cryptography>=42.0.0 # P1 Fix #42: Key encryption
 # Observability
 opentelemetry-api==1.28.2
 opentelemetry-sdk==1.28.2
-opentelemetry-instrumentation-fastapi==0.49b2
+opentelemetry-instrumentation-fastapi==0.60b1
 opentelemetry-exporter-otlp==1.28.2
 
 # Development/Testing
