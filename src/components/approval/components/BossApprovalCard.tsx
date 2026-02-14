@@ -37,7 +37,7 @@ interface BossApprovalCardProps {
 
 function FormDataDisplay({ approval }: { approval: ApprovalRequest }) {
     const extendedApproval = approval as unknown as {
-        form_data?: Record<string, any>;
+        form_data?: Record<string, unknown>;
         form_schema_id?: string;
     };
 

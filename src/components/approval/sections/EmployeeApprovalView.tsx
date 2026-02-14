@@ -16,7 +16,7 @@ export function EmployeeApprovalView() {
     const [input, setInput] = useState('');
     const [amount, setAmount] = useState<number>(0);
     const [selectedType, setSelectedType] = useState<typeof approvalTypes[0] | null>(null);
-    const [formData, setFormData] = useState<Record<string, any>>({});
+    const [formData, setFormData] = useState<Record<string, unknown>>({});
 
     const { data: myApprovals, isLoading } = useMyApprovals();
     const submitApproval = useSubmitApproval();

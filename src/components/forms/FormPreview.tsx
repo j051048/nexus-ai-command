@@ -14,11 +14,11 @@ interface FormPreviewProps {
 // ─── 主组件 ──────────────────────────────────────────────────
 
 export function FormPreview({ fields, formName }: FormPreviewProps) {
-  const [previewValues, setPreviewValues] = useState<Record<string, any>>({});
+  const [previewValues, setPreviewValues] = useState<Record<string, unknown>>({});
 
   // 当字段列表变化时，初始化默认值
   useEffect(() => {
-    const defaults: Record<string, any> = {};
+    const defaults: Record<string, unknown> = {};
     fields.forEach((field) => {
       if (field.default_value !== undefined && field.default_value !== '') {
         defaults[field.key] = field.default_value;
@@ -36,7 +36,7 @@ export function FormPreview({ fields, formName }: FormPreviewProps) {
     });
   }, [fields]);
 
-  const handleChange = (key: string, value: any) => {
+  const handleChange = (key: string, value: unknown) => {
     setPreviewValues((prev) => ({ ...prev, [key]: value }));
   };
 

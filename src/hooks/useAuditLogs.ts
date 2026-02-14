@@ -102,6 +102,7 @@ export function useAuditLogs(filters: AuditFilters) {
     queryKey: ['audit-logs', filters],
     queryFn: async (): Promise<AuditLogEntry[]> => {
       try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let query = (supabase as any).from('audit_logs').select('*').order('created_at', { ascending: false }).limit(200);
 
         if (filters.startDate) {

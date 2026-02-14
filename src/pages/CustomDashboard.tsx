@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { useDashboardConfig, CARD_TYPE_OPTIONS } from '@/hooks/useDashboardConfig';
+import type { CardType } from '@/hooks/useDashboardConfig';
 import { DashboardCard } from '@/components/dashboard/DashboardCard';
 import { AddCardDialog } from '@/components/dashboard/AddCardDialog';
 
@@ -39,7 +40,7 @@ function CustomDashboard() {
   const handleAddCard = useCallback(
     (card: { type: string; title: string; dataSource: string }) => {
       addCard({
-        type: card.type as any,
+        type: card.type as CardType,
         title: card.title,
         dataSource: card.dataSource,
       });

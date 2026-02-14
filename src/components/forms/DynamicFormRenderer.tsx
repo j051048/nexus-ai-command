@@ -16,6 +16,9 @@ import { Upload, X, FileText, AlertCircle } from 'lucide-react';
 
 // ─── 类型定义 ──────────────────────────────────────────────
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type FormValue = any;
+
 export interface FormField {
   key: string;
   label: string;
@@ -35,14 +38,14 @@ export interface FormField {
   max?: number;
   file_types?: string[];
   max_files?: number;
-  default_value?: any;
+  default_value?: FormValue;
   description?: string;
 }
 
 export interface DynamicFormRendererProps {
   fields: FormField[];
-  values: Record<string, any>;
-  onChange: (key: string, value: any) => void;
+  values: Record<string, FormValue>;
+  onChange: (key: string, value: FormValue) => void;
   errors?: Record<string, string>;
   readOnly?: boolean;
   layout?: 'vertical' | 'grid';
@@ -50,7 +53,7 @@ export interface DynamicFormRendererProps {
 
 // ─── 只读值显示 ─────────────────────────────────────────────
 
-function ReadOnlyValue({ field, value }: { field: FormField; value: any }) {
+function ReadOnlyValue({ field, value }: { field: FormField; value: FormValue }) {
   if (value === undefined || value === null || value === '') {
     return <span className="text-muted-foreground text-sm italic">未填写</span>;
   }
@@ -116,8 +119,8 @@ function TextFieldRenderer({
   onChange,
 }: {
   field: FormField;
-  value: any;
-  onChange: (val: any) => void;
+  value: FormValue;
+  onChange: (val: FormValue) => void;
 }) {
   return (
     <Input
@@ -135,8 +138,8 @@ function NumberFieldRenderer({
   onChange,
 }: {
   field: FormField;
-  value: any;
-  onChange: (val: any) => void;
+  value: FormValue;
+  onChange: (val: FormValue) => void;
 }) {
   return (
     <Input
@@ -160,8 +163,8 @@ function DateFieldRenderer({
   onChange,
 }: {
   field: FormField;
-  value: any;
-  onChange: (val: any) => void;
+  value: FormValue;
+  onChange: (val: FormValue) => void;
 }) {
   return (
     <Input
@@ -179,8 +182,8 @@ function DateRangeFieldRenderer({
   onChange,
 }: {
   field: FormField;
-  value: any;
-  onChange: (val: any) => void;
+  value: FormValue;
+  onChange: (val: FormValue) => void;
 }) {
   const rangeValue = value || { start: '', end: '' };
 
@@ -213,8 +216,8 @@ function SelectFieldRenderer({
   onChange,
 }: {
   field: FormField;
-  value: any;
-  onChange: (val: any) => void;
+  value: FormValue;
+  onChange: (val: FormValue) => void;
 }) {
   return (
     <Select value={value || ''} onValueChange={onChange}>
@@ -238,8 +241,8 @@ function MultiselectFieldRenderer({
   onChange,
 }: {
   field: FormField;
-  value: any;
-  onChange: (val: any) => void;
+  value: FormValue;
+  onChange: (val: FormValue) => void;
 }) {
   const selectedValues: string[] = Array.isArray(value) ? value : [];
 
@@ -280,8 +283,8 @@ function FileFieldRenderer({
   onChange,
 }: {
   field: FormField;
-  value: any;
-  onChange: (val: any) => void;
+  value: FormValue;
+  onChange: (val: FormValue) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const files: File[] = Array.isArray(value) ? value : [];
@@ -376,8 +379,8 @@ function TextareaFieldRenderer({
   onChange,
 }: {
   field: FormField;
-  value: any;
-  onChange: (val: any) => void;
+  value: FormValue;
+  onChange: (val: FormValue) => void;
 }) {
   return (
     <Textarea
@@ -397,8 +400,8 @@ function FieldInput({
   onChange,
 }: {
   field: FormField;
-  value: any;
-  onChange: (val: any) => void;
+  value: FormValue;
+  onChange: (val: FormValue) => void;
 }) {
   switch (field.type) {
     case 'text':
