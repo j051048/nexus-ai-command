@@ -152,21 +152,21 @@ class BillingService:
         return await self.create_subscription(org_id, new_plan, db)
 
     async def cancel_subscription(self, org_id: str, db=None) -> bool:
-        """Cancel a subscription."""
+        """Cancel a subscription at period end (not immediately)."""
         sub = self._subscriptions.get(org_id)
         if sub:
-            sub.status = "cancelled"
-            sub.plan = BillingPlan.FREE
+            # P2 Fix: Don't immediately downgrade — mark for cancellation at period end
+            sub.status = "cancel_at_period_end"
 
         if db:
             try:
                 await db.table("subscriptions").update({
-                    "status": "cancelled",
-                    "plan": "free",
+                    "status": "cancel_at_period_end",
                 }).eq("org_id", org_id).execute()
             except Exception as e:
                 logger.warning(f"Failed to cancel subscription in DB: {e}")
 
+        logger.info(f"Subscription marked for cancellation at period end: {org_id}")
         return True
 
     async def handle_payment_webhook(self, event_type: str, data: Dict):
@@ -224,6 +224,54 @@ class BillingService:
             "days": days,
             "_dev_mode": _IS_DEV_MODE,
         }
+
+    async def check_expired_trials(self, db=None):
+        """P2 Fix: Check and downgrade expired trials."""
+        now = datetime.now(timezone.utc)
+        expired = [
+            org_id for org_id, sub in self._subscriptions.items()
+            if sub.status == "trialing"
+            and sub.current_period_end
+            and datetime.fromisoformat(sub.current_period_end) < now
+        ]
+        for org_id in expired:
+            sub = self._subscriptions[org_id]
+            sub.plan = BillingPlan.FREE
+            sub.status = "active"
+            sub.current_period_end = None
+            logger.info(f"Trial expired, downgraded to FREE: {org_id}")
+
+            if db:
+                try:
+                    await db.table("subscriptions").update({
+                        "plan": "free",
+                        "status": "active",
+                        "current_period_end": None,
+                    }).eq("org_id", org_id).execute()
+                except Exception as e:
+                    logger.warning(f"Failed to persist trial expiry for {org_id}: {e}")
+
+        # Also check cancel_at_period_end subscriptions
+        cancelled = [
+            org_id for org_id, sub in self._subscriptions.items()
+            if sub.status == "cancel_at_period_end"
+            and sub.current_period_end
+            and datetime.fromisoformat(sub.current_period_end) < now
+        ]
+        for org_id in cancelled:
+            sub = self._subscriptions[org_id]
+            sub.plan = BillingPlan.FREE
+            sub.status = "cancelled"
+            logger.info(f"Subscription period ended, downgraded to FREE: {org_id}")
+
+            if db:
+                try:
+                    await db.table("subscriptions").update({
+                        "plan": "free",
+                        "status": "cancelled",
+                    }).eq("org_id", org_id).execute()
+                except Exception as e:
+                    logger.warning(f"Failed to persist cancellation for {org_id}: {e}")
 
 
 # Global instance

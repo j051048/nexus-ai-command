@@ -33,7 +33,7 @@ async def get_department(
     """
     department = await organization_service.get_department(department_id)
     if not department:
-        raise api_error(ErrorCode.NOT_FOUND, "Department not found")
+        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "Department not found")
 
     return api_success(data=department)
 
@@ -77,7 +77,7 @@ async def get_organization_stats(user_id: str = Depends(get_current_user_id)):
     org_id = user_res.data.get("org_id") if user_res.data else None
 
     if not org_id:
-        raise api_error(ErrorCode.NOT_FOUND, "Organization not found")
+        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "Organization not found")
 
     stats = await organization_service.get_org_stats(org_id)
     if "error" in stats:

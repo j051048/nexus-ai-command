@@ -3,10 +3,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/components/auth/AuthContext";
+import { EnhancedThemeProvider } from "@/contexts/EnhancedThemeContext";
+import { I18nProvider } from "@/lib/i18n";
 import { LoginPage } from "@/components/auth/LoginPage";
 import { ResetPasswordPage } from "@/components/auth/ResetPasswordPage";
 import React, { Suspense, lazy } from "react";
 import * as Sentry from "@sentry/react";
+import { toast } from "sonner";
 
 // P0 Fix: Initialize Sentry for production error tracking
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
@@ -83,7 +86,19 @@ const FinanceCenter = lazy(() => import("@/pages/FinanceCenter"));
 const ProfileCenter = lazy(() => import("@/pages/ProfileCenter"));
 const DataImportPage = lazy(() => import("@/pages/DataImportPage"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      retry: 2,
+    },
+    mutations: {
+      onError: (error) => {
+        toast.error(error instanceof Error ? error.message : '操作失败，请重试');
+      },
+    },
+  },
+});
 
 function LoadingFallback() {
   return (
@@ -123,6 +138,8 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
+    <I18nProvider>
+    <EnhancedThemeProvider>
     <TooltipProvider>
       <Sonner position="top-right" expand={false} richColors closeButton />
       <BrowserRouter>
@@ -171,6 +188,8 @@ const App = () => (
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
+    </EnhancedThemeProvider>
+    </I18nProvider>
   </QueryClientProvider>
 );
 

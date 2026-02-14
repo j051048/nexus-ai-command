@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Swords, Search, Bot, Zap, ArrowRight, ShieldAlert, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
-import { useUser } from "@/contexts/UserContext";
+
 
 const COMMON_COMPETITORS = [
     { name: "安捷伦 (Agilent)", tag: "进口巨头", strength: "品牌响, 技术底蕴深", weakness: "价格高昂, 维护成本高" },
@@ -15,51 +15,36 @@ const COMMON_COMPETITORS = [
 ];
 
 export function BattlecardLibrary() {
-    const { user } = useUser();
     const [searchTerm, setSearchTerm] = useState("");
     const [analyzing, setAnalyzing] = useState(false);
     const [selectedComp, setSelectedComp] = useState<any>(null);
 
-    const handleSearch = async (name: string) => {
+    const handleSearch = (name: string) => {
         const compName = name || searchTerm;
         if (!compName) return;
 
         setAnalyzing(true);
         setSelectedComp({ name: compName });
 
-        try {
-            // Trigger AI tool in background
-            const response = await fetch(`${import.meta.env.VITE_API_URL || ''}/api/chat/stream`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    messages: [
-                        { role: "user", content: `请帮我生成关于竞品 ${compName} 的分析打击卡。` }
-                    ],
-                    userId: user.id
-                })
-            });
+        // TODO: 接入真实 AI 竞品分析 API（当前为 Mock 演示数据）
+        // 查找本地预置数据或使用默认 mock
+        const preset = COMMON_COMPETITORS.find(c => c.name === compName);
 
-            // Mocked detailed RAG result for UX
-            setTimeout(() => {
-                setSelectedComp({
-                    name: compName,
-                    tag: "实时分析中",
-                    strength: "市场份额占有率高，用户心智成熟",
-                    weakness: "底层架构老化，不支持最新 AI 联合调取",
-                    strategy: [
-                        "强调我们的 10x 云端响应优势",
-                        "对比长期维护合同，我们的年度成本低 30%",
-                        "提供免费的旧系迁移服务"
-                    ]
-                });
-                setAnalyzing(false);
-                toast.success(`已生成 ${compName} 的打击策略`);
-            }, 2000);
-        } catch (error) {
+        setTimeout(() => {
+            setSelectedComp({
+                name: compName,
+                tag: preset?.tag || "AI 分析",
+                strength: preset?.strength || "市场份额占有率高，用户心智成熟",
+                weakness: preset?.weakness || "底层架构老化，不支持最新 AI 联合调取",
+                strategy: [
+                    "强调我们的 10x 云端响应优势",
+                    "对比长期维护合同，我们的年度成本低 30%",
+                    "提供免费的旧系迁移服务",
+                ],
+            });
             setAnalyzing(false);
-            toast.error("AI 专家忙碌中");
-        }
+            toast.success(`已生成 ${compName} 的打击策略（演示数据）`);
+        }, 800);
     };
 
     return (
@@ -68,6 +53,7 @@ export function BattlecardLibrary() {
                 <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
                     <Swords className="w-8 h-8 text-primary" />
                     竞品打击库 (Battlecards)
+                    <Badge variant="secondary" className="text-xs ml-2">演示版</Badge>
                 </h1>
                 <p className="text-muted-foreground">知己知彼，AI 实时输出针对性打击策略与对比话术</p>
             </div>

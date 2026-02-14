@@ -50,7 +50,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
     // Handler for when user triggers AI chat from command palette
     const handleCommandPaletteAIChat = useCallback((message: string) => {
         // For now, this is a placeholder — could focus the chat input and prefill
-        console.log('CommandPalette AI Chat:', message);
+        if (import.meta.env.DEV) console.log('CommandPalette AI Chat:', message);
     }, []);
 
     // Determine if we should show the Canvas

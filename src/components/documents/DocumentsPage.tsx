@@ -44,19 +44,16 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
     const fetchDocuments = async () => {
         setIsLoading(true);
         try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { data, error } = await (supabase.from('documents' as any) as any)
+            const { data, error } = await supabase.from('documents')
                 .select('*')
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const formattedDocs: NexusDocument[] = (data || []).map((doc: any) => ({
+            const formattedDocs: NexusDocument[] = (data || []).map((doc) => ({
                 id: doc.id,
                 name: doc.name,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                doc_type: (doc.doc_type as any) || 'other',
+                doc_type: doc.doc_type || 'other',
                 created_at: doc.created_at,
                 status: 'completed',
                 extracted_data: typeof doc.extracted_data === 'string'
@@ -113,7 +110,7 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': token ? `Bearer ${token}` : `test:${user?.id}`
+                    'Authorization': token ? `Bearer ${token}` : ''
                 },
                 body: JSON.stringify({
                     document_ids: Array.from(selectedIds)
@@ -121,6 +118,10 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
             });
 
             if (!response.ok) {
+                if (!token) {
+                    toast.error('请先登录');
+                    return;
+                }
                 throw new Error('批量删除失败');
             }
 
@@ -176,7 +177,7 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
 
             // Append endpoint
             const endpoint = `${url.replace(/\/$/, '')}/api/documents/upload`;
-            console.log('Attempting upload to:', endpoint);
+            if (import.meta.env.DEV) console.log('Attempting upload to:', endpoint);
 
             // P0: Secure Identity Verification
             const { data: { session } } = await supabase.auth.getSession();
@@ -185,7 +186,7 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
-                    'Authorization': token ? `Bearer ${token}` : `test:${user?.id}`
+                    'Authorization': token ? `Bearer ${token}` : ''
                 },
                 body: formData,
                 mode: 'cors',

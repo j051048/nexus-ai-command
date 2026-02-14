@@ -2,9 +2,15 @@
 # Ignore conflicts
 supabase/
 .env
+.env.*
 __pycache__/
 *.pyc
 .git/
 .gitignore
 README.md
 DEPLOY.md
+tests/
+*.md
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

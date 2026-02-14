@@ -117,8 +117,8 @@ class TraceLogger:
                 "event": event_type,
                 "content": safe_content,
             }
-            # Print JSON to stdout - standard practice for container logs
-            print(f"TRACE_LOG: {json.dumps(entry, ensure_ascii=False)}")
+            # Structured JSON to logger for container log collection
+            logger.info(f"TRACE_LOG: {json.dumps(entry, ensure_ascii=False)}")
         except Exception as e:
             logger.warning(f"TraceLogger emit failed: {e}")
 

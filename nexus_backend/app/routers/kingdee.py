@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from app.models.schemas import KingdeeSyncRequest
 from app.core.auth import get_current_user_id
+from app.core.errors import api_success, api_error, ErrorCode
 import random
 
 router = APIRouter(prefix="/api/kingdee", tags=["Kingdee Mock"])
@@ -14,13 +15,13 @@ _DEV_WARNING = (
 @router.get("/inventory/{item_id}")
 async def get_inventory(item_id: str, user_id: str = Depends(get_current_user_id)):
     """Mock reading inventory from Kingdee ERP"""
-    return {
+    return api_success(data={
         "item_id": item_id,
         "stock_count": random.randint(10, 5000),
         "warehouse": "Shenzhen_HQ",
         "_is_mock": True,
         "_dev_warning": _DEV_WARNING,
-    }
+    })
 
 
 @router.post("/sync/salary")
@@ -28,11 +29,11 @@ async def sync_salary(
     request: KingdeeSyncRequest, user_id: str = Depends(get_current_user_id)
 ):
     """Mock syncing bonus data TO Kingdee Salary Module"""
-    return {
+    return api_success(data={
         "status": "success",
         "synced_records": 15,
         "total_amount": 45000.00,
         "message": "Synced to Kingdee K3 Cloud successfully",
         "_is_mock": True,
         "_dev_warning": _DEV_WARNING,
-    }
+    })

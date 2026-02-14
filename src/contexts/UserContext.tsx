@@ -1,9 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from '@/components/auth/AuthContext';
-import { Badge } from '@/types/nexus';
-
-type UserRole = 'boss' | 'employee';
+import { Badge, UserRole } from '@/types/nexus';
 
 interface User {
   id: string;

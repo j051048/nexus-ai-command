@@ -53,8 +53,7 @@ export default function RoleManagement() {
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase.from('users') as any)
+      const { data, error } = await supabase.from('users')
         .select('id, name, email, department, role')
         .order('name');
 
@@ -87,8 +86,7 @@ export default function RoleManagement() {
 
   const handleRoleChange = async (userId: string, newRole: 'employee' | 'manager' | 'boss') => {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from('users') as any)
+      const { error } = await supabase.from('users')
         .update({ role: newRole })
         .eq('id', userId);
 

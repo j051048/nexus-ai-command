@@ -23,9 +23,9 @@ async def register_client(
         scopes = body.get("scopes", ["read"])
 
         if not name:
-            return api_error(ErrorCode.VALIDATION_ERROR, "client_name is required")
+            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "client_name is required")
         if not redirect_uris:
-            return api_error(ErrorCode.VALIDATION_ERROR, "redirect_uris is required")
+            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "redirect_uris is required")
 
         org_id = getattr(req.state, "org_id", None) or "default"
         result = await oauth_service.register_client(
@@ -60,7 +60,7 @@ async def authorize(
         code_challenge=code_challenge,
     )
     if not auth_code:
-        return api_error(ErrorCode.VALIDATION_ERROR, "Invalid client or redirect URI")
+        return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "Invalid client or redirect URI")
 
     return api_success(data={
         "code": auth_code.code,
@@ -89,7 +89,7 @@ async def exchange_token(req: Request):
                 client_id=body.get("client_id", ""),
             )
         else:
-            return api_error(ErrorCode.VALIDATION_ERROR, "Unsupported grant_type")
+            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "Unsupported grant_type")
 
         if not token:
             return api_error(ErrorCode.AUTH_TOKEN_EXPIRED, "Invalid or expired credentials")

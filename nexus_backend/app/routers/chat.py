@@ -2,6 +2,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from app.core.auth import get_current_user_id
+from app.core.errors import api_success, api_error, ErrorCode
 
 from app.models.schemas import ChatRequest
 from app.services.chat_service import ChatService
@@ -271,10 +272,10 @@ async def get_chat_history(
             .execute()
         )
 
-        return {"success": True, "messages": response.data}
+        return api_success(data={"messages": response.data})
     except Exception as e:
         logger.error(f"Failed to fetch chat history: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch history")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.get("/sessions")
@@ -303,10 +304,10 @@ async def list_sessions(req: Request, user_id: str = Depends(get_current_user_id
                 }
             sessions[sid]["message_count"] += 1
 
-        return {"success": True, "sessions": list(sessions.values())[:50]}
+        return api_success(data={"sessions": list(sessions.values())[:50]})
     except Exception as e:
         logger.error(f"Failed to list sessions: {e}")
-        return {"success": True, "sessions": []}
+        return api_success(data={"sessions": []})
 
 
 @router.delete("/sessions/{session_id}")
@@ -319,10 +320,10 @@ async def archive_session(
         await client.table("chat_messages").delete().eq("user_id", user_id).eq(
             "session_id", session_id
         ).execute()
-        return {"success": True, "message": f"Session {session_id} archived"}
+        return api_success(data={"message": f"Session {session_id} archived"})
     except Exception as e:
         logger.error(f"Failed to archive session: {e}")
-        raise HTTPException(status_code=500, detail="Failed to archive session")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.get("/search")
@@ -331,7 +332,7 @@ async def search_messages(
 ):
     """Search chat messages by keyword"""
     if not q or len(q) < 2:
-        return {"success": True, "messages": []}
+        return api_success(data={"messages": []})
 
     client = req.state.db
     try:
@@ -346,10 +347,10 @@ async def search_messages(
             .execute()
         )
 
-        return {"success": True, "messages": response.data or []}
+        return api_success(data={"messages": response.data or []})
     except Exception as e:
         logger.error(f"Message search failed: {e}")
-        return {"success": True, "messages": []}
+        return api_success(data={"messages": []})
 
 
 @router.post("/sessions/{session_id}/star")
@@ -376,14 +377,14 @@ async def toggle_star_session(
             await client.table("starred_sessions").delete().eq("user_id", user_id).eq(
                 "session_id", session_id
             ).execute()
-            return {"success": True, "starred": False}
+            return api_success(data={"starred": False})
         else:
             # Star
             await client.table("starred_sessions").insert(
                 {"user_id": user_id, "session_id": session_id}
             ).execute()
-            return {"success": True, "starred": True}
+            return api_success(data={"starred": True})
     except Exception as e:
         # If starred_sessions table doesn't exist, log and return gracefully
         logger.warning(f"Star session failed (table may not exist): {e}")
-        return {"success": False, "message": "标星功能暂不可用"}
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "标星功能暂不可用")

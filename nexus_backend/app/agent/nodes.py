@@ -189,6 +189,30 @@ async def plan_node(state: AgentState) -> dict:
     # Convert to LC format
     lc_msgs = _messages_to_lc_format(messages)
 
+    # ── Dynamic System Prompt Injection ──
+    # Inject user_role and available_tools into the system prompt
+    if iteration == 0:
+        extra_lines = []
+        user_role = config.user_role
+        if user_role:
+            extra_lines.append(f"当前用户角色: {user_role}")
+
+        tool_schemas = _get_tool_schemas()
+        if tool_schemas:
+            tool_names = ", ".join(t["function"]["name"] for t in tool_schemas)
+            extra_lines.append(f"可用工具: {tool_names}")
+
+        if extra_lines:
+            injection = "\n".join(extra_lines)
+            injected = False
+            for i, m in enumerate(lc_msgs):
+                if isinstance(m, SystemMessage):
+                    m.content += f"\n\n{injection}"
+                    injected = True
+                    break
+            if not injected:
+                lc_msgs.insert(0, SystemMessage(content=injection))
+
     # ── RAG Injection ──
     # If we have retrieved context, prepend it to the history or inject into system prompt
     if rag_context and iteration == 0:

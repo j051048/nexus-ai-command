@@ -138,16 +138,17 @@ class OrganizationService:
 
         return roots
 
-    async def get_department_members(self, department_id: str) -> List[Dict]:
+    async def get_department_members(self, department_id: str, db=None) -> List[Dict]:
         """
         Get all members of a department.
         """
-        if not supabase:
+        client = db or supabase
+        if not client:
             return []
 
         try:
             result = (
-                await supabase.table("users")
+                await client.table("users")
                 .select("id, name, role, score, rank")
                 .eq("department", department_id)
                 .execute()
@@ -158,51 +159,45 @@ class OrganizationService:
             logger.error(f"Error fetching department members: {e}")
             return []
 
-    async def get_user_reporting_line(self, user_id: str) -> List[Dict]:
+    async def get_user_reporting_line(self, user_id: str, db=None) -> List[Dict]:
         """
         Get the reporting line (chain of managers) for a user.
         Returns list from immediate manager up to CEO.
+        P2 Fix: Accept db parameter for RLS scoping.
         """
-        if not supabase:
+        client = db or supabase
+        if not client:
             return []
 
-        reporting_line = []
-        current_id = user_id
-        visited = set()
-
         try:
+            # P2 Fix: Batch fetch all users with manager_id to walk chain in memory
+            all_users_res = (
+                await client.table("users")
+                .select("id, name, role, department, manager_id")
+                .execute()
+            )
+            all_users = {u["id"]: u for u in (all_users_res.data or [])}
+
+            reporting_line = []
+            current_id = user_id
+            visited = set()
+
             while current_id and current_id not in visited:
                 visited.add(current_id)
-
-                # Get user info
-                user = (
-                    await supabase.table("users")
-                    .select("id, name, role, department, manager_id")
-                    .eq("id", current_id)
-                    .maybe_single()
-                    .execute()
-                )
-
-                if not user.data:
+                user_data = all_users.get(current_id)
+                if not user_data:
                     break
 
-                user_data = user.data
-
-                # Skip the original user
                 if current_id != user_id:
-                    reporting_line.append(
-                        {
-                            "id": user_data["id"],
-                            "name": user_data["name"],
-                            "role": user_data["role"],
-                            "department": user_data.get("department"),
-                        }
-                    )
+                    reporting_line.append({
+                        "id": user_data["id"],
+                        "name": user_data["name"],
+                        "role": user_data["role"],
+                        "department": user_data.get("department"),
+                    })
 
-                # Get next manager
                 manager_id = user_data.get("manager_id")
                 if not manager_id:
-                    # Try to find department manager
                     dept = user_data.get("department")
                     if dept:
                         dept_info = await self.get_department(dept)
@@ -210,7 +205,6 @@ class OrganizationService:
 
                 current_id = manager_id
 
-                # Safety limit
                 if len(reporting_line) > 10:
                     break
 
@@ -219,16 +213,17 @@ class OrganizationService:
             logger.error(f"Error fetching reporting line: {e}")
             return []
 
-    async def get_direct_reports(self, manager_id: str) -> List[Dict]:
+    async def get_direct_reports(self, manager_id: str, db=None) -> List[Dict]:
         """
         Get all users who directly report to a manager.
         """
-        if not supabase:
+        client = db or supabase
+        if not client:
             return []
 
         try:
             result = (
-                await supabase.table("users")
+                await client.table("users")
                 .select("id, name, role, department, score")
                 .eq("manager_id", manager_id)
                 .execute()
@@ -239,89 +234,70 @@ class OrganizationService:
             logger.error(f"Error fetching direct reports: {e}")
             return []
 
-    async def get_team_hierarchy(self, manager_id: str, max_depth: int = 3) -> OrgNode:
+    async def get_team_hierarchy(self, manager_id: str, max_depth: int = 3, db=None) -> OrgNode:
         """
         Get the full team hierarchy under a manager.
+        P2 Fix: Single query, build tree in memory instead of recursive N+1.
         """
-        if not supabase:
+        client = db or supabase
+        if not client:
             return OrgNode(id=manager_id, name="Unknown", type="user")
 
-        async def build_tree(user_id: str, depth: int) -> OrgNode:
-            if depth > max_depth:
-                return None
-
-            user = (
-                await supabase.table("users")
-                .select("id, name, role")
-                .eq("id", user_id)
-                .maybe_single()
+        try:
+            # Single query: fetch all users to build tree in memory
+            all_res = (
+                await client.table("users")
+                .select("id, name, role, manager_id")
                 .execute()
             )
+            all_users = {u["id"]: u for u in (all_res.data or [])}
 
-            if not user.data:
-                return None
+            def build_tree_in_memory(uid: str, depth: int) -> Optional[OrgNode]:
+                if depth > max_depth or uid not in all_users:
+                    return None
+                u = all_users[uid]
+                node = OrgNode(id=u["id"], name=u["name"], type="user", role=u["role"])
+                # Find direct reports from pre-fetched data
+                for candidate in all_users.values():
+                    if candidate.get("manager_id") == uid:
+                        child = build_tree_in_memory(candidate["id"], depth + 1)
+                        if child:
+                            node.children.append(child)
+                return node
 
-            node = OrgNode(
-                id=user.data["id"],
-                name=user.data["name"],
-                type="user",
-                role=user.data["role"],
+            return build_tree_in_memory(manager_id, 0) or OrgNode(
+                id=manager_id, name="Unknown", type="user"
             )
-
-            # Get direct reports
-            reports = await self.get_direct_reports(user_id)
-            for report in reports:
-                child = await build_tree(report["id"], depth + 1)
-                if child:
-                    node.children.append(child)
-
-            return node
-
-        try:
-            return await build_tree(manager_id, 0)
         except Exception as e:
             logger.error(f"Error building team hierarchy: {e}")
             return OrgNode(id=manager_id, name="Error", type="user")
 
-    async def get_org_stats(self, org_id: str) -> Dict[str, Any]:
+    async def get_org_stats(self, org_id: str, db=None) -> Dict[str, Any]:
         """
         Get overall organization statistics for a specific tenant.
+        P2 Fix: Single query instead of 6 sequential queries (N+1 elimination).
         """
-        if not supabase:
+        client = db or supabase
+        if not client:
             return {"error": "Database not connected"}
 
         try:
-            # Total employees in org
-            users = (
-                await supabase.table("users")
-                .select("id", count="exact")
+            # Single query: fetch all users with role and department
+            result = (
+                await client.table("users")
+                .select("id, role, department")
                 .eq("org_id", org_id)
                 .execute()
             )
-            total_users = users.count or 0
+            users = result.data or []
+            total_users = len(users)
 
-            # By role
-            role_counts = {}
-            for role in ["founder", "manager", "sales", "employee"]:
-                count = (
-                    await supabase.table("users")
-                    .select("id", count="exact")
-                    .eq("org_id", org_id)
-                    .eq("role", role)
-                    .execute()
-                )
-                role_counts[role] = count.count or 0
-
-            # By department
-            dept_data = (
-                await supabase.table("users")
-                .select("department")
-                .eq("org_id", org_id)
-                .execute()
-            )
-
-            dept_counts = {}
-            for user in dept_data.data or []:
+            # Group by role in Python
+            role_counts: Dict[str, int] = {}
+            dept_counts: Dict[str, int] = {}
+            for user in users:
+                role = user.get("role") or "employee"
+                role_counts[role] = role_counts.get(role, 0) + 1
                 dept = user.get("department") or "未分配"
                 dept_counts[dept] = dept_counts.get(dept, 0) + 1
 

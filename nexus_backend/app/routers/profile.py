@@ -25,7 +25,7 @@ async def get_profile(
         ).eq("id", user_id).maybe_single().execute()
 
         if not res.data:
-            return api_error(ErrorCode.NOT_FOUND, "User not found")
+            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "User not found")
 
         return api_success(data={"profile": res.data})
     except Exception as e:
@@ -49,7 +49,7 @@ async def update_profile(
         updates = {k: v for k, v in body.items() if k in allowed_fields}
 
         if not updates:
-            return api_error(ErrorCode.VALIDATION_ERROR, "No valid fields to update")
+            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "No valid fields to update")
 
         res = await client.table("users").update(updates).eq(
             "id", user_id
@@ -98,7 +98,7 @@ async def update_ai_settings(
         updates = {k: v for k, v in body.items() if k in allowed_fields}
 
         if not updates:
-            return api_error(ErrorCode.VALIDATION_ERROR, "No valid fields to update")
+            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "No valid fields to update")
 
         updates["user_id"] = user_id
         await client.table("ai_settings").upsert(updates).execute()

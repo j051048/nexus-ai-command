@@ -5,12 +5,15 @@ Provides comprehensive audit trail for all critical operations.
 
 import os
 import time
+import logging
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from fastapi import Request
 from app.core.database import supabase
+
+logger = logging.getLogger(__name__)
 
 
 class AuditAction(Enum):
@@ -247,7 +250,7 @@ class AuditLogger:
             await supabase.table("audit_logs").insert(entries).execute()
             self._buffer.clear()
         except Exception as e:
-            print(f"Audit log flush failed: {e}")
+            logger.error(f"Audit log flush failed: {e}")
             # Keep last 100 entries in buffer if flush fails
             self._buffer = self._buffer[-100:]
 
@@ -310,6 +313,7 @@ class AuditLogger:
         target_table: Optional[str] = None,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
+        org_id: Optional[str] = None,
         limit: int = 100,
     ) -> List[Dict]:
         """Query audit logs with filters"""
@@ -319,6 +323,8 @@ class AuditLogger:
         try:
             query = supabase.table("audit_logs").select("*")
 
+            if org_id:
+                query = query.eq("org_id", org_id)
             if user_id:
                 query = query.eq("actor_user_id", user_id)
             if action:
@@ -335,7 +341,7 @@ class AuditLogger:
             result = await query.execute()
             return result.data or []
         except Exception as e:
-            print(f"Audit log query failed: {e}")
+            logger.error(f"Audit log query failed: {e}")
             return []
 
 

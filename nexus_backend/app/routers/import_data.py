@@ -35,7 +35,7 @@ def validate_file(file: UploadFile) -> None:
 
     if file_ext not in ALLOWED_EXTENSIONS:
         raise api_error(
-            ErrorCode.VALIDATION_ERROR,
+            ErrorCode.VALIDATION_INVALID_INPUT,
             f"不支持的文件类型: {file_ext}，仅支持 .csv, .xlsx, .xls",
         )
 
@@ -62,7 +62,7 @@ async def import_employees(
 
     # 检查文件大小
     if len(contents) > MAX_FILE_SIZE:
-        raise api_error(ErrorCode.VALIDATION_ERROR, "文件大小超过限制（最大 10MB）")
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "文件大小超过限制（最大 10MB）")
 
     # 获取数据库客户端（支持 RLS）
     db_client = request.state.db
@@ -115,7 +115,7 @@ async def import_customers(
 
     # 检查文件大小
     if len(contents) > MAX_FILE_SIZE:
-        raise api_error(ErrorCode.VALIDATION_ERROR, "文件大小超过限制（最大 10MB）")
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "文件大小超过限制（最大 10MB）")
 
     # 获取数据库客户端（支持 RLS）
     db_client = request.state.db
@@ -170,7 +170,7 @@ async def get_import_template(
         )
 
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_ERROR, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
     except Exception as e:
         logger.error(f"获取模板失败: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"获取模板失败: {str(e)}")
@@ -194,7 +194,7 @@ async def preview_import_data(
 
     # 检查文件大小
     if len(contents) > MAX_FILE_SIZE:
-        raise api_error(ErrorCode.VALIDATION_ERROR, "文件大小超过限制（最大 10MB）")
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "文件大小超过限制（最大 10MB）")
 
     try:
         # 预览数据
@@ -205,7 +205,7 @@ async def preview_import_data(
         return api_success(data=preview_data)
 
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_ERROR, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
     except Exception as e:
         logger.error(f"预览数据失败: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"预览失败: {str(e)}")

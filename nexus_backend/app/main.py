@@ -60,6 +60,15 @@ async def lifespan(app: FastAPI):
 
     # Startup
     logger.info("Starting Nexus Backend...")
+
+    from app.core.env_config import env_config
+    env_errors = env_config.validate_all()
+    if env_errors:
+        for err in env_errors:
+            logger.warning(f"Env config: {err}")
+    else:
+        logger.info("Environment configuration validated")
+
     await cache_service.init()
     await event_bus.start()
     logger.info("Event Bus started")
@@ -92,11 +101,14 @@ async def lifespan(app: FastAPI):
     # Start background tenant monitoring (every 5 minutes)
     async def _tenant_monitor_loop():
         from app.services.tenant_credit_service import tenant_credit_service
+        from app.services.billing_service import billing_service
         from app.core.database import supabase
         while True:
             await asyncio.sleep(300)
             try:
                 await tenant_credit_service.monitor_all_tenants(db=supabase)
+                # P2 Fix: Check for expired trials and period-end cancellations
+                await billing_service.check_expired_trials(db=supabase)
             except Exception as e:
                 logger.error(f"Tenant monitoring error: {e}")
 
@@ -264,7 +276,7 @@ async def health_check():
         else:
             db_status = "not_configured"
     except Exception as e:
-        db_status = f"error: {str(e)[:50]}"
+        db_status = "error" if settings.IS_PRODUCTION else f"error: {str(e)[:50]}"
         logger.warning(f"Health check DB error: {e}")
 
     # 2. Redis/Cache Check
@@ -274,7 +286,7 @@ async def health_check():
         else:
             cache_status = "error"
     except Exception as e:
-        cache_status = f"error: {str(e)[:50]}"
+        cache_status = "error" if settings.IS_PRODUCTION else f"error: {str(e)[:50]}"
 
     # 3. AI Connectivity Check
     try:
@@ -286,7 +298,7 @@ async def health_check():
             resp = await client.get(domain)
             ai_status = f"reachable ({resp.status_code})"
     except Exception as e:
-        ai_status = f"unreachable: {str(e)[:50]}"
+        ai_status = "unreachable" if settings.IS_PRODUCTION else f"unreachable: {str(e)[:50]}"
 
     return {
         "status": (

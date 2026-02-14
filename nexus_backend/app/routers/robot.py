@@ -21,6 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id
+from app.core.errors import api_success, api_error, ErrorCode
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +114,7 @@ class DeviceStatusResponse(BaseModel):
 # Endpoints
 # ---------------------------------------------------------------------------
 
-@router.post("/command", response_model=CommandResponse)
+@router.post("/command")
 async def queue_command(
     command: RobotCommand,
     user_id: str = Depends(get_current_user_id),
@@ -134,7 +135,7 @@ async def queue_command(
         user_id,
     )
 
-    return CommandResponse(
+    return api_success(data=CommandResponse(
         command_id=command_id,
         device_id=command.device_id,
         command_type=command.command_type.value,
@@ -142,10 +143,10 @@ async def queue_command(
         queued_at=queued_at,
         _is_stub=True,
         _dev_warning=_DEV_WARNING,
-    )
+    ).model_dump())
 
 
-@router.get("/devices", response_model=DeviceListResponse)
+@router.get("/devices")
 async def list_devices(
     user_id: str = Depends(get_current_user_id),
 ):
@@ -156,15 +157,15 @@ async def list_devices(
     """
     logger.info("[Robot] list_devices called by user=%s (stub)", user_id)
 
-    return DeviceListResponse(
+    return api_success(data=DeviceListResponse(
         devices=[],
         count=0,
         _is_stub=True,
         _dev_warning=_DEV_WARNING,
-    )
+    ).model_dump())
 
 
-@router.get("/status/{device_id}", response_model=DeviceStatusResponse)
+@router.get("/status/{device_id}")
 async def get_device_status(
     device_id: str,
     user_id: str = Depends(get_current_user_id),
@@ -180,7 +181,7 @@ async def get_device_status(
         user_id,
     )
 
-    return DeviceStatusResponse(
+    return api_success(data=DeviceStatusResponse(
         device_id=device_id,
         status="offline",
         last_heartbeat=None,
@@ -188,4 +189,4 @@ async def get_device_status(
         queue_depth=0,
         _is_stub=True,
         _dev_warning=_DEV_WARNING,
-    )
+    ).model_dump())

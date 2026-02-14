@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,7 +36,7 @@ export function ProjectManagement() {
             if (!user) return;
             // Use our API or Supabase directly. Let's use Supabase directly for simplicity in this component
             // matching the migration policies.
-            const query = (supabase as any)
+            const query = supabase
                 .from('projects')
                 .select('*')
                 .order('created_at', { ascending: false });
@@ -49,7 +48,7 @@ export function ProjectManagement() {
             const { data, error } = await query;
 
             if (error) throw error;
-            setProjects(data as any as Project[] || []);
+            setProjects(data as Project[] || []);
         } catch (error) {
             console.error("Error fetching projects:", error);
             toast.error("加载项目失败");
@@ -65,7 +64,12 @@ export function ProjectManagement() {
         // Subscribe to realtime changes
         const channel = supabase
             .channel('projects-changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => {
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'projects',
+                filter: user?.role === 'boss' ? undefined : `owner_id=eq.${user?.id}`,
+            }, () => {
                 fetchProjects();
             })
             .subscribe();
@@ -100,7 +104,7 @@ export function ProjectManagement() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': token ? `Bearer ${token}` : `test:${user?.id}`
+                    'Authorization': token ? `Bearer ${token}` : ''
                 },
                 body: JSON.stringify({
                     messages: [
@@ -130,11 +134,9 @@ export function ProjectManagement() {
             });
             setAiPrompt("");
 
-            // Wait a bit for DB propagation then refresh
-            setTimeout(() => {
-                fetchProjects();
-                toast.success("项目列表已刷新");
-            }, 3000);
+            // Stream consumed — DB write should be complete, refresh immediately
+            await fetchProjects();
+            toast.success("项目列表已刷新");
 
         } catch (error) {
             console.error(error);

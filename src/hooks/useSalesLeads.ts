@@ -18,8 +18,7 @@ export function useSalesLeads() {
         queryFn: async () => {
             if (!session?.user?.id || !profile?.organization_id) return [];
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            let query = (supabase.from(SALES_LEADS_TABLE) as any).select('*');
+            let query = supabase.from('sales_leads').select('*');
 
             if (profile?.organization_id) {
                 query = query.eq('organization_id', profile.organization_id);
@@ -52,8 +51,7 @@ export function useSalesLeads() {
     // 更新线索阶段
     const updateLeadStage = useMutation({
         mutationFn: async ({ id, stage }: { id: string; stage: SalesLead['stage'] }) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { error } = await (supabase.from(SALES_LEADS_TABLE) as any)
+            const { error } = await supabase.from('sales_leads')
                 .update({ stage })
                 .eq('id', id);
 

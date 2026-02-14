@@ -126,8 +126,8 @@ class ContentModerator:
         r"###\s*(INSTRUCTION|SYSTEM|PROMPT)",  # Markdown-style injection
         r"```\s*(system|prompt)",  # Code block injection
         
-        # Base64 encoded patterns (simplified detection)
-        r"[A-Za-z0-9+/]{20,}={0,2}",
+        # Base64 encoded patterns (require >= 40 chars and mandatory padding)
+        r"[A-Za-z0-9+/]{40,}={1,2}",
         
         # Unicode tricks
         r"[\u200b-\u200f\u2028-\u202f\u205f-\u206f]",  # Zero-width and invisible chars
@@ -320,23 +320,37 @@ class ContentModerator:
         return True, None
     
     def _detect_unicode_anomalies(self, text: str) -> bool:
-        """Detect suspicious unicode characters."""
+        """Detect suspicious unicode characters.
+
+        Pure Cyrillic/Greek text is allowed.  Only flag mixed-script attacks
+        where Latin and Cyrillic (or Greek) characters appear inside the
+        same word — a strong homoglyph-attack indicator.
+        """
         # Count zero-width and invisible characters
         invisible_count = sum(1 for c in text if ord(c) in range(0x200b, 0x2070))
         # More than 3 invisible chars is suspicious
         if invisible_count > 3:
             return True
-        
-        # Check for homoglyphs (chars that look like ASCII but aren't)
-        suspicious_ranges = [
-            (0x0400, 0x04FF),  # Cyrillic (can mimic Latin)
-            (0x0370, 0x03FF),  # Greek (can mimic Latin)
-        ]
-        for c in text:
-            for start, end in suspicious_ranges:
-                if start <= ord(c) <= end:
-                    return True
-        
+
+        # Mixed-script detection: flag words that mix Latin with Cyrillic/Greek.
+        # Pure Cyrillic or Greek text is perfectly fine and should NOT be blocked.
+        words = re.findall(r'\w+', text)
+        for word in words:
+            has_latin = False
+            has_cyrillic = False
+            has_greek = False
+            for c in word:
+                cp = ord(c)
+                if (0x0041 <= cp <= 0x005A) or (0x0061 <= cp <= 0x007A):
+                    has_latin = True
+                elif 0x0400 <= cp <= 0x04FF:
+                    has_cyrillic = True
+                elif 0x0370 <= cp <= 0x03FF:
+                    has_greek = True
+            # A single word mixing Latin with Cyrillic or Greek is suspicious
+            if has_latin and (has_cyrillic or has_greek):
+                return True
+
         return False
     
     def _detect_structure_anomalies(self, text: str) -> bool:

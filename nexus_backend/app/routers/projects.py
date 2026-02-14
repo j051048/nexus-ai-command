@@ -78,7 +78,7 @@ async def update_project(project_id: str, updates: ProjectUpdate):
 
         if not res.data:
             raise api_error(
-                ErrorCode.NOT_FOUND, f"Project {project_id} not found or update failed"
+                ErrorCode.RESOURCE_NOT_FOUND, f"Project {project_id} not found or update failed"
             )
 
         return api_success(data=res.data[0], message="Project updated")

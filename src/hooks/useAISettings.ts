@@ -32,8 +32,7 @@ export function useAISettings() {
     queryFn: async () => {
       if (!user || !profile) return null;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('ai_settings')
         .select('*')
         .eq('user_id', user.id)
@@ -59,8 +58,7 @@ export function useSaveAISettings() {
       if (!user || !profile) throw new Error('未登录或无法获取组织信息');
 
       // Check if settings exist for THIS organization and user
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: existing, error: checkError } = await (supabase as any)
+      const { data: existing, error: checkError } = await supabase
         .from('ai_settings')
         .select('id')
         .eq('user_id', user.id)
@@ -70,8 +68,7 @@ export function useSaveAISettings() {
       if (checkError) throw new Error(checkError.message);
 
       if (existing) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error } = await (supabase as any)
+        const { data, error } = await supabase
           .from('ai_settings')
           .update({
             base_url: settings.base_url,
@@ -86,8 +83,7 @@ export function useSaveAISettings() {
         if (error) throw new Error(error.message);
         return data as AISettings;
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error } = await (supabase as any)
+        const { data, error } = await supabase
           .from('ai_settings')
           .insert({
             user_id: user.id,
@@ -128,7 +124,7 @@ export function useTestAIConnection() {
         }
       }
 
-      console.log('Testing connection to:', url);
+      if (import.meta.env.DEV) console.log('Testing connection to:', url);
 
       const response = await fetch(url, {
         method: 'POST',

@@ -8,8 +8,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUser } from "@/contexts/UserContext";
 import { AICopilotInsight } from '@/components/common/AICopilotInsight';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
 
 export function TenderAnalysisPage() {
     const { user } = useUser();
@@ -57,7 +55,7 @@ export function TenderAnalysisPage() {
             const uploadRes = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/documents/upload`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': token ? `Bearer ${token}` : `test:${user?.id}`
+                    'Authorization': token ? `Bearer ${token}` : ''
                 },
                 body: formData
             });
@@ -77,22 +75,29 @@ export function TenderAnalysisPage() {
         }
     };
 
-    // Polling for Progress
+    // Polling for Progress (exponential backoff: 2s → 4s → 8s cap)
     useEffect(() => {
         if (!docId || !analyzing) return;
 
-        const interval = setInterval(async () => {
-            const { data, error } = await (supabase as any)
+        let cancelled = false;
+        let delay = 2000; // initial 2s
+        const MAX_DELAY = 8000;
+
+        const poll = async () => {
+            if (cancelled) return;
+
+            const { data, error } = await supabase
                 .from('documents')
                 .select('status, progress, stage, extracted_data')
                 .eq('id', docId)
                 .single();
 
+            if (cancelled) return;
+
             const doc = data;
 
             if (error) {
                 console.error("Polling error:", error);
-                return;
             }
 
             if (doc) {
@@ -106,23 +111,35 @@ export function TenderAnalysisPage() {
                 else setCurrentStep(3);
 
                 if (doc.status === 'ready' || doc.status === 'success') {
-                    clearInterval(interval);
                     generateReport(doc.extracted_data);
                     setAnalyzing(false);
                     toast.success("AI 诊断完成");
+                    return; // stop polling
                 } else if (doc.status === 'failed' || doc.status === 'error') {
-                    clearInterval(interval);
                     setAnalyzing(false);
                     toast.error("AI 分析过程中发生错误");
+                    return; // stop polling
                 } else if (Date.now() - analysisStartTime > 180000) { // 3 minutes timeout
-                    clearInterval(interval);
                     setAnalyzing(false);
                     toast.error("AI 分析响应超时，请重试");
+                    return; // stop polling
                 }
             }
-        }, 1000);
 
-        return () => clearInterval(interval);
+            // Schedule next poll with exponential backoff
+            delay = Math.min(delay * 2, MAX_DELAY);
+            if (!cancelled) {
+                setTimeout(poll, delay);
+            }
+        };
+
+        // Start first poll after initial delay
+        const timer = setTimeout(poll, delay);
+
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [docId, analyzing]);
 
@@ -157,6 +174,9 @@ export function TenderAnalysisPage() {
         try {
             toast.dismiss();
             toast.info("正在生成 PDF，请稍候...", { duration: 2000 });
+
+            const html2canvas = (await import('html2canvas')).default;
+            const { jsPDF } = await import('jspdf');
 
             const canvas = await html2canvas(element, {
                 scale: 2, // Higher resolution

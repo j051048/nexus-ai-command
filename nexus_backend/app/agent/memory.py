@@ -22,10 +22,91 @@ from app.core.database import supabase
 from app.services.chat_service import ChatService
 from app.agent.state import AgentConfig
 
+from app.services.token_service import token_counter
+
 logger = logging.getLogger(__name__)
 
 # Configurable window size
 SHORT_TERM_WINDOW = getattr(settings, "MAX_CHAT_HISTORY", 10)
+
+# Default context window sizes per model family (in tokens)
+_MODEL_CONTEXT_WINDOWS = {
+    "gpt-4o": 128000,
+    "gpt-4o-mini": 128000,
+    "gpt-4-turbo": 128000,
+    "gpt-3.5-turbo": 16385,
+}
+_DEFAULT_CONTEXT_WINDOW = 128000
+
+
+async def trim_messages_to_window(
+    messages: List[Dict[str, str]],
+    config: AgentConfig,
+    threshold_ratio: float = 0.80,
+) -> List[Dict[str, str]]:
+    """
+    Token window management: when the total token count of *messages* exceeds
+    ``threshold_ratio`` (default 80 %) of the model's context window, the
+    earliest non-system messages are summarised into a single compact summary
+    message, keeping the conversation within budget.
+
+    Steps:
+      1. Count total tokens via ``token_counter``.
+      2. If under threshold → return messages unchanged.
+      3. Otherwise, split into *older* and *recent* halves, summarise the
+         older portion with ``_summarize_messages``, and prepend the summary
+         as a system message.
+
+    Returns:
+        A (potentially shortened) message list that fits within the window.
+    """
+    model = config.model or "gpt-4o"
+    context_window = _MODEL_CONTEXT_WINDOWS.get(model, _DEFAULT_CONTEXT_WINDOW)
+    token_limit = int(context_window * threshold_ratio)
+
+    total_tokens = token_counter.count_messages_tokens(messages, model)
+    if total_tokens <= token_limit:
+        return messages
+
+    logger.info(
+        f"[Memory] Token window exceeded: {total_tokens}/{token_limit} "
+        f"({total_tokens / context_window:.0%} of {context_window}). "
+        f"Compressing early messages."
+    )
+
+    # Separate system messages (index 0 is usually the main system prompt)
+    # and keep at least the last SHORT_TERM_WINDOW messages intact.
+    keep_count = max(SHORT_TERM_WINDOW, 2)
+    if len(messages) <= keep_count:
+        return messages  # Nothing to trim
+
+    older = messages[:-keep_count]
+    recent = messages[-keep_count:]
+
+    # Only summarise non-system older messages
+    non_system_older = [m for m in older if m.get("role") != "system"]
+    system_older = [m for m in older if m.get("role") == "system"]
+
+    summary = await _summarize_messages(non_system_older, config)
+    trimmed: List[Dict[str, str]] = []
+
+    # Preserve original system messages
+    trimmed.extend(system_older)
+
+    if summary:
+        trimmed.append({
+            "role": "system",
+            "content": f"[对话历史摘要 — 早期 {len(non_system_older)} 条消息已压缩] {summary}",
+        })
+
+    trimmed.extend(recent)
+
+    new_tokens = token_counter.count_messages_tokens(trimmed, model)
+    logger.info(
+        f"[Memory] Trimmed from {total_tokens} to {new_tokens} tokens "
+        f"({len(messages)} → {len(trimmed)} messages)"
+    )
+    return trimmed
 
 
 class QueryTransformer:
@@ -223,10 +304,12 @@ async def prepare_initial_state(
             
             # Initialize query transformer
             transformer = QueryTransformer(config)
-            
+
             # Determine transformation strategy based on config
-            use_hyde = getattr(config, 'use_hyde', True)
-            use_multi_query = getattr(config, 'use_multi_query', True)
+            # HyDE is expensive; only enable by default for the knowledge agent
+            is_knowledge_agent = getattr(config, 'agent_name', '') in ('knowledge', 'knowledge_base')
+            use_hyde = getattr(config, 'use_hyde', is_knowledge_agent)
+            use_multi_query = getattr(config, 'use_multi_query', is_knowledge_agent)
             
             all_docs = []
             
@@ -311,6 +394,11 @@ async def prepare_initial_state(
                 "content": f"[对话历史摘要] {summary}",
             })
         raw_messages = recent
+
+    # ── 3b. Token Window Trim ──
+    # After the count-based sliding window, apply a token-budget check so
+    # that the final message list never exceeds 80 % of the model context.
+    raw_messages = await trim_messages_to_window(raw_messages, config)
 
     # ── 4. Convert to LangChain messages ──
     lc_messages: List[BaseMessage] = []

@@ -53,9 +53,10 @@ export function useSalesMetricsRealtime() {
           event: '*',
           schema: 'public',
           table: 'sales_metrics',
+          filter: `user_id=eq.${session.user.id}`,
         },
         (payload) => {
-          console.log('Sales metrics changed:', payload);
+          if (import.meta.env.DEV) console.log('Sales metrics changed:', payload);
           // Invalidate all related queries to refetch fresh data
           queryClient.invalidateQueries({ queryKey: ['sales-metrics'] });
           queryClient.invalidateQueries({ queryKey: ['sales-metrics-range'] });
@@ -246,8 +247,7 @@ export function useTeamPerformance() {
       // Note: profiles table is deprecated, use users join or just users.
       // But assuming we are using 'users' table which has profile info now.
       const { data: profiles, error: profilesError } = await supabase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .from('users' as any)
+        .from('users')
         .select('id, name, score, total_bonus')
         .eq('organization_id', profile.organization_id)
         .order('score', { ascending: false })
@@ -305,8 +305,7 @@ export function useLeaderboard(limit: number = 5) {
       if (!profile?.organization_id) return [];
 
       const { data, error } = await supabase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .from('users' as any)
+        .from('users')
         .select('id, name, score, total_bonus, rank')
         .eq('organization_id', profile.organization_id)
         .order('score', { ascending: false })

@@ -52,8 +52,7 @@ export function useCurrentTargets() {
   return useQuery({
     queryKey: ['sales-targets', 'current', profile?.organization_id],
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const query = supabase.from('sales_targets') as any;
+      const query = supabase.from('sales_targets');
 
       const { data, error } = await query
         .select('*')

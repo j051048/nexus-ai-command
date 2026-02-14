@@ -20,7 +20,7 @@ export function ResetPasswordPage() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         // User clicked the reset link and is now in recovery mode
-        console.log('Password recovery mode active');
+        if (import.meta.env.DEV) console.log('Password recovery mode active');
       }
     });
 

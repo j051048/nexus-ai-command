@@ -526,7 +526,7 @@ export function EnhancedAIChatPanel({
                         : undefined
                     }
                     onFeedback={(type) => {
-                      console.log('Feedback:', type, msg.id);
+                      if (import.meta.env.DEV) console.log('Feedback:', type, msg.id);
                     }}
                     onDelete={() => handleDeleteMessage(msg.id)}
                     isLatest={index === messages.length - 1}

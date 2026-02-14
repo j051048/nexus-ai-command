@@ -23,7 +23,7 @@ async def create_subscription(
         description = body.get("description", "")
 
         if not url:
-            return api_error(ErrorCode.VALIDATION_ERROR, "url is required")
+            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "url is required")
 
         org_id = getattr(req.state, "org_id", None) or "default"
         sub = await webhook_service.register_subscription(
@@ -66,7 +66,7 @@ async def delete_subscription(
         sub_id, db=getattr(req.state, "db", None)
     )
     if not success:
-        return api_error(ErrorCode.NOT_FOUND, "Subscription not found")
+        return api_error(ErrorCode.RESOURCE_NOT_FOUND, "Subscription not found")
     return api_success(data={"deactivated": sub_id})
 
 

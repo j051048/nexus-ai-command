@@ -42,8 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       // Use 'users' table instead of 'profiles'
       // Map id to user_id for backward compatibility
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: profileData, error: profileError } = await (supabase.from('users') as any)
+      const { data: profileData, error: profileError } = await supabase.from('users')
         .select('*, user_id:id')
         .eq('id', userId)
         .maybeSingle();
@@ -55,8 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(profileData as unknown as Profile);
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: roleData } = await (supabase as any)
+      const { data: roleData } = await supabase
         .rpc('get_user_role', { _user_id: userId });
 
       if (roleData) {
@@ -87,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
-        console.log('Auth state changed:', event, newSession?.user?.email);
+        if (import.meta.env.DEV) console.log('Auth state changed:', event);
         setSession(newSession);
         setUser(newSession?.user ?? null);
 

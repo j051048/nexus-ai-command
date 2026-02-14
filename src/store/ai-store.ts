@@ -36,7 +36,7 @@ export const useAIStore = create<AIState>()(
       addMessage: (msg) => set((state) => ({
         messages: [...state.messages, { 
           ...msg, 
-          id: Math.random().toString(36).substring(7),
+          id: crypto.randomUUID(),
           timestamp: Date.now() 
         }]
       })),

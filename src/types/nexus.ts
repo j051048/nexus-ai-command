@@ -1,10 +1,11 @@
 // Project Nexus Type Definitions
 
-// 三级权限系统
-// Level 1: boss (founder) - 最高权限，完整管理后台
-// Level 2: ai_assistant - AI助手，可代理员工操作
-// Level 3: employee - 普通员工
-export type UserRole = 'boss' | 'ai_assistant' | 'employee' | 'sales' | 'manager';
+// 三级权限系统（与数据库 users.role 字段对齐）
+// boss: 最高权限（含 founder），完整管理后台
+// manager: 部门经理
+// admin: 系统管理员
+// employee: 普通员工
+export type UserRole = 'boss' | 'manager' | 'employee' | 'admin';
 
 export interface User {
   id: string;

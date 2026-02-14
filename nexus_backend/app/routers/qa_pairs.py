@@ -112,7 +112,7 @@ async def update_qa_pair(
         )
 
         if not res.data:
-            raise api_error(ErrorCode.NOT_FOUND, "QA pair not found or no permission")
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "QA pair not found or no permission")
 
         return api_success(data=res.data[0], message="QA pair updated successfully")
     except Exception as e:
@@ -137,7 +137,7 @@ async def delete_qa_pair(
         )
 
         if not res.data:
-            raise api_error(ErrorCode.NOT_FOUND, "QA pair not found or no permission")
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "QA pair not found or no permission")
 
         return api_success(message="QA pair deleted successfully")
     except Exception as e:

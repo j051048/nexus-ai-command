@@ -70,16 +70,14 @@ export default function DepartmentManagement() {
       setLoading(true);
 
       // 获取所有部门
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: deptData, error: deptError } = await (supabase.from('departments') as any)
+      const { data: deptData, error: deptError } = await supabase.from('departments')
         .select('*')
         .order('name');
 
       if (deptError) throw deptError;
 
       // 获取所有经理和用户信息
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: userData, error: userError } = await (supabase.from('users') as any)
+      const { data: userData, error: userError } = await supabase.from('users')
         .select('id, name, role, department');
 
       if (userError) throw userError;
@@ -150,8 +148,7 @@ export default function DepartmentManagement() {
       if (editingDept) {
 
         // 更新部门
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase.from('departments') as any)
+        const { error } = await supabase.from('departments')
           .update({
             name: formData.name,
             manager_id: formData.manager_id || null,
@@ -166,8 +163,7 @@ export default function DepartmentManagement() {
         });
       } else {
         // 新建部门
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase.from('departments') as any).insert({
+        const { error } = await supabase.from('departments').insert({
           name: formData.name,
           manager_id: formData.manager_id || null,
         });
@@ -196,8 +192,7 @@ export default function DepartmentManagement() {
     if (!departmentToDelete) return;
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from('departments') as any)
+      const { error } = await supabase.from('departments')
         .delete()
         .eq('id', departmentToDelete);
 

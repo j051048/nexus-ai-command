@@ -55,7 +55,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   const handleAIChat = useCallback((message: string) => {
     setIsChatExpanded(true);
     // TODO: 将消息发送到 AI 聊天面板
-    console.log('AI Chat:', message);
+    if (import.meta.env.DEV) console.log('AI Chat:', message);
   }, []);
 
   // Copilot suggestion action
@@ -63,7 +63,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     if (suggestion.action?.aiPrompt) {
       setIsChatExpanded(true);
       // Could prefill the chat input here
-      console.log('Copilot AI Prompt:', suggestion.action.aiPrompt);
+      if (import.meta.env.DEV) console.log('Copilot AI Prompt:', suggestion.action.aiPrompt);
     }
   }, []);
 

@@ -26,8 +26,7 @@ export function useAllEmployees() {
       if (!profile?.organization_id) return [];
 
       const { data: users, error } = await supabase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .from('users' as any)
+        .from('users')
         .select('*')
         .eq('organization_id', profile.organization_id)
         .order('name', { ascending: true });
@@ -35,8 +34,7 @@ export function useAllEmployees() {
       if (error) throw error;
 
       // Cast to any to bypass strict type check on 'users' table which might not be fully generated in types yet
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (users as any[] || []).map(u => ({
+      return (users || []).map(u => ({
         id: u.id,
         user_id: u.id,
         name: u.name,
@@ -117,8 +115,7 @@ export function useUpdateEmployee() {
       updates: Partial<Pick<Employee, 'name' | 'department' | 'score' | 'total_bonus'>>;
     }) => {
       const { data, error } = await supabase
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .from('users' as any) // Updated to users table
+        .from('users') // Updated to users table
         .update(updates)
         .eq('id', userId) // users table uses 'id'
         .select()

@@ -13,18 +13,15 @@ export function useProjects() {
         if (!profile?.organization_id) return;
 
         setLoading(true);
-        const { data, error } = await (supabase
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .from('projects' as any)
+        const { data, error } = await supabase
+            .from('projects')
             .select('*')
             // Filter by organization_id
             .eq('organization_id', profile.organization_id)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .order('updated_at', { ascending: false }) as any);
+            .order('updated_at', { ascending: false });
 
         if (!error && data) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const mapped = (data as any[]).map(p => ({
+            const mapped = data.map(p => ({
                 ...p,
                 stage: p.status, // Map status to stage for UI
                 type: 'Enterprise' // Default type
@@ -54,10 +51,8 @@ export function useProjectDetail(projectId: string | null) {
             setLoading(true);
 
             const [projectRes, timelineRes] = await Promise.all([
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                supabase.from('projects' as any).select('*').eq('id', projectId).single() as any,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                supabase.from('project_timeline' as any).select('*').eq('project_id', projectId).order('created_at', { ascending: false }) as any
+                supabase.from('projects').select('*').eq('id', projectId).single(),
+                supabase.from('project_timeline').select('*').eq('project_id', projectId).order('created_at', { ascending: false })
             ]);
 
             if (!projectRes.error && projectRes.data) {
@@ -70,8 +65,7 @@ export function useProjectDetail(projectId: string | null) {
             }
 
             if (!timelineRes.error && timelineRes.data) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const mappedTimeline = (timelineRes.data as any[]).map(t => ({
+                const mappedTimeline = timelineRes.data.map(t => ({
                     ...t,
                     occurred_at: t.created_at // Map created_at to occurred_at for UI
                 }));

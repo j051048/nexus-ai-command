@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthContext';
 import { approvalRequestSchema, ApprovalRequestSafe } from '@/lib/schemas';
 import { useEffect } from 'react';
+import { aiClient } from '@/api/aiClient';
 
 export type ApprovalRequest = ApprovalRequestSafe;
 
@@ -117,16 +118,10 @@ export function useAllApprovals(statusFilter: string = 'all') {
         ...item,
         submitter_name: (item as unknown as { users: { name: string } | null }).users?.name || '未知用户',
       })) as ApprovalRequest[];
-      return (data || []).map((item) => ({
-        ...item,
-        submitter_name: (item as unknown as { users: { name: string } | null }).users?.name || '未知用户',
-      })) as ApprovalRequest[];
     },
     enabled: !!profile?.organization_id,
   });
 }
-
-import { aiClient } from '@/api/aiClient';
 
 export function useSubmitApproval() {
   const { user, profile } = useAuth();
@@ -217,16 +212,21 @@ export function useRejectRequest() {
 
 export function useApprovalsRealtime() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !profile?.organization_id) return;
 
     const channel = supabase
       .channel('approvals-realtime')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'approval_requests' },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'approval_requests',
+          filter: `organization_id=eq.${profile.organization_id}`,
+        },
         () => {
           queryClient.invalidateQueries({ queryKey: ['approvals'] });
         }
@@ -236,7 +236,7 @@ export function useApprovalsRealtime() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, queryClient]);
+  }, [user?.id, profile?.organization_id, queryClient]);
 }
 
 export function usePendingApprovalsCount() {

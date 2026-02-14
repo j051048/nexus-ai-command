@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.core.auth import get_current_user_id
+from app.core.errors import api_success, api_error, ErrorCode
 from app.tools import TOOL_REGISTRY, get_tool
 
 logger = logging.getLogger(__name__)
@@ -59,7 +60,7 @@ class MCPExecuteResponse(BaseModel):
 # Endpoints
 # ---------------------------------------------------------------------------
 
-@router.get("/tools", response_model=MCPToolListResponse)
+@router.get("/tools")
 async def list_tools(user_id: str = Depends(get_current_user_id)):
     """List all available tools in MCP format.
 
@@ -81,10 +82,10 @@ async def list_tools(user_id: str = Depends(get_current_user_id)):
         user_id,
         len(tools),
     )
-    return MCPToolListResponse(tools=tools, count=len(tools))
+    return api_success(data=MCPToolListResponse(tools=tools, count=len(tools)).model_dump())
 
 
-@router.post("/tools/{tool_name}/execute", response_model=MCPExecuteResponse)
+@router.post("/tools/{tool_name}/execute")
 async def execute_tool(
     tool_name: str,
     body: MCPExecuteRequest,
@@ -104,9 +105,9 @@ async def execute_tool(
         logger.warning(
             "[MCP] tool_not_found tool=%s user=%s", tool_name, user_id
         )
-        raise HTTPException(
-            status_code=404,
-            detail=f"Tool '{tool_name}' not found in the registry.",
+        raise api_error(
+            ErrorCode.RESOURCE_NOT_FOUND,
+            f"Tool '{tool_name}' not found in the registry.",
         )
 
     # --- Build execution context ---
@@ -141,12 +142,12 @@ async def execute_tool(
             duration_ms,
         )
 
-        return MCPExecuteResponse(
+        return api_success(data=MCPExecuteResponse(
             tool_name=tool_name,
             success=True,
             result=result,
             duration_ms=duration_ms,
-        )
+        ).model_dump())
     except HTTPException:
         raise
     except Exception as exc:
@@ -158,7 +159,7 @@ async def execute_tool(
             duration_ms,
             str(exc),
         )
-        raise HTTPException(
-            status_code=500,
-            detail=f"Tool execution failed: {exc}",
+        raise api_error(
+            ErrorCode.SYSTEM_INTERNAL_ERROR,
+            f"Tool execution failed: {exc}",
         )

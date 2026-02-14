@@ -22,9 +22,14 @@ async def export_audit_logs(
 ):
     """Export audit logs in JSON or CSV format."""
     try:
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            return api_error(ErrorCode.AUTH_PERMISSION_DENIED, "Organization context required")
+
         start_date = datetime.utcnow() - timedelta(days=days)
         logs = await audit_logger.query_logs(
             start_date=start_date,
+            org_id=org_id,
             limit=10000,
         )
 
@@ -56,6 +61,19 @@ async def data_subject_access_request(
     """GDPR Data Subject Access Request — get all data for a user."""
     try:
         client = getattr(req.state, "db", None)
+
+        # P2 Security: DSAR only allowed for self or by admin of same org
+        if target_user_id != user_id:
+            if not client:
+                return api_error(ErrorCode.AUTH_PERMISSION_DENIED, "Database unavailable for permission check")
+            requester = await client.table("users").select("role, org_id").eq("id", user_id).maybe_single().execute()
+            target = await client.table("users").select("org_id").eq("id", target_user_id).maybe_single().execute()
+            req_role = requester.data.get("role") if requester.data else None
+            req_org = requester.data.get("org_id") if requester.data else None
+            tgt_org = target.data.get("org_id") if target.data else None
+            if req_role not in ("admin", "boss") or req_org != tgt_org:
+                return api_error(ErrorCode.AUTH_PERMISSION_DENIED, "DSAR for other users requires admin role in same organization")
+
         report = {"user_id": target_user_id, "export_date": datetime.utcnow().isoformat()}
 
         # Audit logs
