@@ -1,37 +1,35 @@
 -- Function to handle new user signup automatically
 -- This ensures that when a user signs up via Auth, they are also created in the public.users table
 CREATE OR REPLACE FUNCTION public.handle_new_user() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = public AS $$
-DECLARE _role public.user_role;
-_raw_role text;
-BEGIN -- Get role from metadata (sent from frontend)
-_raw_role := new.raw_user_meta_data->>'role';
--- Map frontend roles to DB enum types
--- Frontend sends: 'boss' | 'employee'
--- DB Enum supports: 'founder' | 'sales' | 'employee'
-IF _raw_role = 'boss' THEN _role := 'founder';
-ELSIF _raw_role = 'employee' THEN _role := 'sales';
--- Map employee to sales role by default
-ELSE _role := 'sales';
-END IF;
--- Insert into public.users
+SET search_path = public AS $$ BEGIN
 INSERT INTO public.users (
         id,
         name,
         role,
+        email,
         department,
         created_at,
         updated_at
     )
 VALUES (
         new.id,
-        COALESCE(new.raw_user_meta_data->>'name', 'New User'),
-        _role,
-        'Sales Dept',
-        -- Default department
+        COALESCE(new.raw_user_meta_data->>'name', new.email),
+        CASE
+            WHEN (new.raw_user_meta_data->>'role') = 'boss' THEN 'boss'::public.user_role
+            WHEN (new.raw_user_meta_data->>'role') = 'manager' THEN 'manager'::public.user_role
+            ELSE 'employee'::public.user_role
+        END,
+        new.email,
+        COALESCE(new.raw_user_meta_data->>'department', '销售部'),
         now(),
         now()
     );
+RETURN new;
+EXCEPTION
+WHEN unique_violation THEN RETURN new;
+WHEN others THEN RAISE WARNING 'handle_new_user failed for user %: %',
+new.id,
+SQLERRM;
 RETURN new;
 END;
 $$;

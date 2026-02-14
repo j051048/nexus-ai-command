@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       // Use 'users' table instead of 'profiles'
       // Map id to user_id for backward compatibility
-      const { data: profileData, error: profileError } = await supabase.from('users')
+      const { data: profileData, error: profileError } = await (supabase.from('users') as any)
         .select('*, user_id:id')
         .eq('id', userId)
         .maybeSingle();
@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(profileData as unknown as Profile);
       }
 
-      const { data: roleData } = await supabase
+      const { data: roleData } = await (supabase as any)
         .rpc('get_user_role', { _user_id: userId });
 
       if (roleData) {
@@ -65,8 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         let resolvedRole: AppRole = 'employee';
 
         // Only trust the DB profile role (set by admin), not auth metadata
-        if (profileData && profileData.role) {
-          const dbRole = profileData.role;
+        if (profileData && (profileData as any).role) {
+          const dbRole = (profileData as any).role;
           if (dbRole === 'founder' || dbRole === 'boss') {
             resolvedRole = 'boss';
           } else if (dbRole === 'manager') {
@@ -78,6 +78,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error fetching user data:', error);
       setRole('employee');
+    } finally {
+      // Ensure loading state is turned off regardless of success/fail
+      setLoading(false);
     }
   };
 
@@ -90,15 +93,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(newSession?.user ?? null);
 
         if (newSession?.user) {
-          // Use setTimeout to prevent Supabase deadlock
-          setTimeout(() => {
-            fetchUserData(newSession.user.id);
-          }, 0);
+          // fetchUserData handles its own setLoading(false)
+          fetchUserData(newSession.user.id);
         } else {
           setProfile(null);
           setRole(null);
+          setLoading(false);
         }
-        setLoading(false);
       }
     );
 
@@ -108,8 +109,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(existingSession?.user ?? null);
       if (existingSession?.user) {
         fetchUserData(existingSession.user.id);
+      } else {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => {

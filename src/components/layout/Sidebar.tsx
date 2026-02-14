@@ -126,8 +126,8 @@ export function Sidebar({ onNavClick }: SidebarProps) {
     { icon: <Settings size={20} />, label: '系统设置', href: 'settings', roles: undefined },
   ];
 
-  // Strictly use account role logic
-  const allNavItems = user.role === 'boss' ? bossNav : employeeNav;
+  // Use bossNav if user is manager or boss to ensure they see management links
+  const allNavItems = (user.role === 'boss' || user.role === 'manager') ? bossNav : employeeNav;
   
   // Filter menu items based on current user role
   const currentRole = (role || 'employee') as AppRole;
