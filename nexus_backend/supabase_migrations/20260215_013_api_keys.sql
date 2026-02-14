@@ -59,7 +59,7 @@ CREATE POLICY "api_keys_insert_admin" ON api_keys
     WITH CHECK (
         organization_id IN (
             SELECT organization_id FROM users
-            WHERE id = auth.uid() AND role IN ('admin', 'founder', 'boss')
+            WHERE id = auth.uid() AND role IN ('founder', 'boss')
         )
     );
 
@@ -69,7 +69,7 @@ CREATE POLICY "api_keys_update_admin" ON api_keys
     USING (
         organization_id IN (
             SELECT organization_id FROM users
-            WHERE id = auth.uid() AND role IN ('admin', 'founder', 'boss')
+            WHERE id = auth.uid() AND role IN ('founder', 'boss')
         )
     );
 
@@ -80,7 +80,7 @@ CREATE POLICY "api_usage_logs_select_admin" ON api_usage_logs
         api_key_id IN (
             SELECT ak.id FROM api_keys ak
             INNER JOIN users u ON u.organization_id = ak.organization_id
-            WHERE u.id = auth.uid() AND u.role IN ('admin', 'founder', 'boss')
+            WHERE u.id = auth.uid() AND u.role IN ('founder', 'boss')
         )
     );
 

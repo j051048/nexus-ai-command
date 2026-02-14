@@ -123,13 +123,13 @@ CREATE POLICY im_platform_config_org_isolation
     USING (
         organization_id IN (
             SELECT organization_id FROM users
-            WHERE id = auth.uid() AND role IN ('boss', 'admin')
+            WHERE id = auth.uid() AND role IN ('boss', 'founder')
         )
     )
     WITH CHECK (
         organization_id IN (
             SELECT organization_id FROM users
-            WHERE id = auth.uid() AND role IN ('boss', 'admin')
+            WHERE id = auth.uid() AND role IN ('boss', 'founder')
         )
     );
 

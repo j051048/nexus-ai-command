@@ -48,9 +48,9 @@ CREATE POLICY "training_progress_select_policy"
     USING (
         user_id = auth.uid()
         OR organization_id IN (
-            SELECT organization_id FROM public.profiles
+            SELECT organization_id FROM public.users
             WHERE id = auth.uid()
-              AND role IN ('boss', 'admin')
+              AND role IN ('boss', 'founder')
         )
     );
 

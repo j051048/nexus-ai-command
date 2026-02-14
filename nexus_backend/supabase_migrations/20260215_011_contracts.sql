@@ -83,7 +83,7 @@ CREATE POLICY "contracts_select_policy"
     ON public.contracts FOR SELECT
     USING (
         organization_id IN (
-            SELECT organization_id FROM public.profiles
+            SELECT organization_id FROM public.users
             WHERE id = auth.uid()
         )
     );
@@ -93,7 +93,7 @@ CREATE POLICY "contracts_insert_policy"
     ON public.contracts FOR INSERT
     WITH CHECK (
         organization_id IN (
-            SELECT organization_id FROM public.profiles
+            SELECT organization_id FROM public.users
             WHERE id = auth.uid()
         )
     );
@@ -103,9 +103,9 @@ CREATE POLICY "contracts_update_policy"
     ON public.contracts FOR UPDATE
     USING (
         organization_id IN (
-            SELECT organization_id FROM public.profiles
+            SELECT organization_id FROM public.users
             WHERE id = auth.uid()
-              AND role IN ('boss', 'admin', 'manager')
+              AND role IN ('boss', 'founder', 'manager')
         )
     );
 
@@ -114,9 +114,9 @@ CREATE POLICY "contracts_delete_policy"
     ON public.contracts FOR DELETE
     USING (
         organization_id IN (
-            SELECT organization_id FROM public.profiles
+            SELECT organization_id FROM public.users
             WHERE id = auth.uid()
-              AND role IN ('boss', 'admin')
+              AND role IN ('boss', 'founder')
         )
     );
 
@@ -126,7 +126,7 @@ CREATE POLICY "contract_events_select_policy"
     USING (
         contract_id IN (
             SELECT c.id FROM public.contracts c
-            JOIN public.profiles p ON p.organization_id = c.organization_id
+            JOIN public.users p ON p.organization_id = c.organization_id
             WHERE p.id = auth.uid()
         )
     );
@@ -137,7 +137,7 @@ CREATE POLICY "contract_events_insert_policy"
     WITH CHECK (
         contract_id IN (
             SELECT c.id FROM public.contracts c
-            JOIN public.profiles p ON p.organization_id = c.organization_id
+            JOIN public.users p ON p.organization_id = c.organization_id
             WHERE p.id = auth.uid()
         )
     );

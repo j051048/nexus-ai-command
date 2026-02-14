@@ -56,7 +56,7 @@ CREATE POLICY "backup_records_insert_admin" ON backup_records
     WITH CHECK (
         organization_id IN (
             SELECT organization_id FROM users
-            WHERE id = auth.uid() AND role IN ('admin', 'founder', 'boss')
+            WHERE id = auth.uid() AND role IN ('founder', 'boss')
         )
     );
 
@@ -66,7 +66,7 @@ CREATE POLICY "backup_records_delete_admin" ON backup_records
     USING (
         organization_id IN (
             SELECT organization_id FROM users
-            WHERE id = auth.uid() AND role IN ('admin', 'founder', 'boss')
+            WHERE id = auth.uid() AND role IN ('founder', 'boss')
         )
     );
 
@@ -85,7 +85,7 @@ CREATE POLICY "backup_schedules_all_admin" ON backup_schedules
     USING (
         organization_id IN (
             SELECT organization_id FROM users
-            WHERE id = auth.uid() AND role IN ('admin', 'founder', 'boss')
+            WHERE id = auth.uid() AND role IN ('founder', 'boss')
         )
     );
 

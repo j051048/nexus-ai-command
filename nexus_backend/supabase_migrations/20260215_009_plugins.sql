@@ -42,7 +42,7 @@ CREATE POLICY "installed_plugins_select_policy"
     ON public.installed_plugins FOR SELECT
     USING (
         organization_id IN (
-            SELECT organization_id FROM public.profiles
+            SELECT organization_id FROM public.users
             WHERE id = auth.uid()
         )
     );
@@ -52,9 +52,9 @@ CREATE POLICY "installed_plugins_insert_policy"
     ON public.installed_plugins FOR INSERT
     WITH CHECK (
         organization_id IN (
-            SELECT organization_id FROM public.profiles
+            SELECT organization_id FROM public.users
             WHERE id = auth.uid()
-              AND role IN ('boss', 'admin')
+              AND role IN ('boss', 'founder')
         )
     );
 
@@ -63,9 +63,9 @@ CREATE POLICY "installed_plugins_update_policy"
     ON public.installed_plugins FOR UPDATE
     USING (
         organization_id IN (
-            SELECT organization_id FROM public.profiles
+            SELECT organization_id FROM public.users
             WHERE id = auth.uid()
-              AND role IN ('boss', 'admin')
+              AND role IN ('boss', 'founder')
         )
     );
 
@@ -74,8 +74,8 @@ CREATE POLICY "installed_plugins_delete_policy"
     ON public.installed_plugins FOR DELETE
     USING (
         organization_id IN (
-            SELECT organization_id FROM public.profiles
+            SELECT organization_id FROM public.users
             WHERE id = auth.uid()
-              AND role IN ('boss', 'admin')
+              AND role IN ('boss', 'founder')
         )
     );
