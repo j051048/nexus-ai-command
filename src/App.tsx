@@ -79,12 +79,35 @@ const RoleManagement = lazy(() => import("@/pages/RoleManagement"));
 const DepartmentManagement = lazy(() => import("@/pages/DepartmentManagement"));
 const AnimationShowcase = lazy(() => import("@/pages/AnimationShowcase"));
 
+// 可视化流程设计器
+const WorkflowList = lazy(() => import("@/pages/WorkflowList"));
+const WorkflowDesigner = lazy(() => import("@/pages/WorkflowDesigner"));
+
 // AI-First 企业管理页面
 const OACenter = lazy(() => import("@/pages/OACenter"));
 const HRCenter = lazy(() => import("@/pages/HRCenter"));
 const FinanceCenter = lazy(() => import("@/pages/FinanceCenter"));
 const ProfileCenter = lazy(() => import("@/pages/ProfileCenter"));
 const DataImportPage = lazy(() => import("@/pages/DataImportPage"));
+const FormDesigner = lazy(() => import("@/pages/FormDesigner"));
+
+// P2: 可定制仪表板 + 审计面板
+const CustomDashboard = lazy(() => import("@/pages/CustomDashboard"));
+const AuditPanel = lazy(() => import("@/pages/AuditPanel"));
+
+// P3: 模板市场 + 消息中心 + 报表 + 支付 + CRM
+const WorkflowTemplates = lazy(() => import("@/pages/WorkflowTemplates"));
+const NotificationCenter = lazy(() => import("@/pages/NotificationCenter"));
+const ReportsPage = lazy(() => import("@/pages/ReportsPage"));
+const PaymentPage = lazy(() => import("@/pages/PaymentPage"));
+const CRMPage = lazy(() => import("@/pages/CRMPage"));
+
+// P4: 插件市场 + 培训中心 + 合同管理 + 超管 + API密钥
+const PluginMarketplace = lazy(() => import("@/pages/PluginMarketplace"));
+const TrainingCenter = lazy(() => import("@/pages/TrainingCenter"));
+const ContractManagement = lazy(() => import("@/pages/ContractManagement"));
+const SuperAdminDashboard = lazy(() => import("@/pages/SuperAdminDashboard"));
+const APIKeysPage = lazy(() => import("@/pages/APIKeysPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -170,14 +193,41 @@ const App = () => (
                 <Route path="employees" element={<EmployeeManagement />} />
                 <Route path="roles" element={<RoleManagement />} />
                 <Route path="departments" element={<DepartmentManagement />} />
-                
+
+                {/* 可视化流程设计器 */}
+                <Route path="workflows" element={<WorkflowList />} />
+                <Route path="workflows/new" element={<WorkflowDesigner />} />
+                <Route path="workflows/:id" element={<WorkflowDesigner />} />
+
                 {/* AI-First 企业管理页面 */}
                 <Route path="oa" element={<OACenter />} />
                 <Route path="hr" element={<HRCenter />} />
                 <Route path="finance" element={<FinanceCenter />} />
                 <Route path="profile" element={<ProfileCenter />} />
                 <Route path="import" element={<DataImportPage />} />
-                
+
+                {/* 自定义表单设计器 */}
+                <Route path="form-designer" element={<FormDesigner />} />
+                <Route path="form-designer/:id" element={<FormDesigner />} />
+
+                {/* P2: 可定制仪表板 + 审计 */}
+                <Route path="custom-dashboard" element={<CustomDashboard />} />
+                <Route path="audit" element={<AuditPanel />} />
+
+                {/* P3: 模板市场 + 消息中心 + 报表 + 支付 + CRM */}
+                <Route path="workflow-templates" element={<WorkflowTemplates />} />
+                <Route path="notification-center" element={<NotificationCenter />} />
+                <Route path="reports" element={<ReportsPage />} />
+                <Route path="payments" element={<PaymentPage />} />
+                <Route path="crm" element={<CRMPage />} />
+
+                {/* P4: 插件 + 培训 + 合同 + 超管 + API密钥 */}
+                <Route path="plugins" element={<PluginMarketplace />} />
+                <Route path="training" element={<TrainingCenter />} />
+                <Route path="contracts" element={<ContractManagement />} />
+                <Route path="super-admin" element={<SuperAdminDashboard />} />
+                <Route path="api-keys" element={<APIKeysPage />} />
+
                 {/* Developer Tools */}
                 <Route path="dev/animations" element={<AnimationShowcase />} />
               </Route>

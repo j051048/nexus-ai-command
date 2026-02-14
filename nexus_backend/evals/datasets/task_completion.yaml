@@ -1,0 +1,95 @@
+# 端到端任务完成评估
+# 测试 Agent 是否能完成多步骤复杂任务
+# expected_steps: 预期执行的步骤/工具
+# success_criteria: 成功标准检查关键词
+
+test_cases:
+  - id: tc_001
+    description: "多步任务: 查询+分析+建议"
+    user_message: "分析一下本月的经营数据，找出问题并给出改进建议"
+    expected_steps: ["get_business_dashboard", "analyze_result", "generate_recommendation"]
+    success_criteria:
+      - "mentions_data"
+      - "provides_recommendation"
+    context: {}
+
+  - id: tc_002
+    description: "请假流程: 查余额+提交申请"
+    user_message: "我想下周请两天年假，先看看还有没有额度"
+    expected_steps: ["query_leave_status", "create_leave_request"]
+    success_criteria:
+      - "checks_balance"
+      - "submits_request"
+    context: {}
+
+  - id: tc_003
+    description: "报销流程: 创建+查询状态"
+    user_message: "帮我报销上周的出差费用3500元，顺便看看之前的报销到账没"
+    expected_steps: ["create_expense_claim", "query_expense_status"]
+    success_criteria:
+      - "creates_claim"
+      - "checks_status"
+    context: {}
+
+  - id: tc_004
+    description: "团队管理: 查考勤+发现异常+分配任务"
+    user_message: "看看团队这周的出勤情况，如果有异常帮我安排跟进"
+    expected_steps: ["query_team_attendance", "identify_issues", "assign_task"]
+    success_criteria:
+      - "reviews_attendance"
+      - "handles_exception"
+    context: {}
+
+  - id: tc_005
+    description: "审批决策: 查详情+做出决定"
+    user_message: "看看待审批列表，金额在1000元以下的全部批准"
+    expected_steps: ["get_pending_approvals", "approve_request"]
+    success_criteria:
+      - "lists_approvals"
+      - "executes_approval"
+    context: {}
+
+  - id: tc_006
+    description: "员工画像: 查信息+绩效+考勤"
+    user_message: "帮我全面了解一下李明这个员工，包括他的绩效和出勤"
+    expected_steps: ["get_employee_info", "get_employee_profile", "query_attendance"]
+    success_criteria:
+      - "provides_profile"
+      - "includes_performance"
+    context: {}
+
+  - id: tc_007
+    description: "会议安排: 订会议室+分配任务通知"
+    user_message: "帮我订周五下午3点的会议室，然后通知小王和小李准备季度汇报材料"
+    expected_steps: ["book_meeting", "assign_task"]
+    success_criteria:
+      - "books_room"
+      - "notifies_team"
+    context: {}
+
+  - id: tc_008
+    description: "每日简报: 获取简报+智能审批"
+    user_message: "汇报一下今天的情况，顺便把常规的低风险审批处理一下"
+    expected_steps: ["get_daily_briefing", "smart_approve"]
+    success_criteria:
+      - "provides_briefing"
+      - "processes_approvals"
+    context: {}
+
+  - id: tc_009
+    description: "项目管理: 查项目+创建事件"
+    user_message: "在智慧城市项目里记录一下今天客户确认了技术方案"
+    expected_steps: ["get_projects", "create_project_event"]
+    success_criteria:
+      - "finds_project"
+      - "creates_event"
+    context: {}
+
+  - id: tc_010
+    description: "招聘管理: 查看候选人+安排面试"
+    user_message: "看看前端开发岗位有哪些候选人，挑合适的安排面试"
+    expected_steps: ["manage_recruitment", "schedule_interview"]
+    success_criteria:
+      - "lists_candidates"
+      - "arranges_interview"
+    context: {}

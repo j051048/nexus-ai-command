@@ -1,0 +1,341 @@
+import {
+  useCallback,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+  useEffect,
+  DragEvent,
+} from 'react';
+import {
+  ReactFlow,
+  Controls,
+  Background,
+  MiniMap,
+  useNodesState,
+  useEdgesState,
+  addEdge,
+  type Connection,
+  type Edge,
+  type Node,
+  type NodeTypes,
+  BackgroundVariant,
+  MarkerType,
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
+
+import { ApproverNode } from './nodes/ApproverNode';
+import { ConditionNode } from './nodes/ConditionNode';
+import { ParallelNode } from './nodes/ParallelNode';
+import { AutoApproveNode } from './nodes/AutoApproveNode';
+import { NotifyNode } from './nodes/NotifyNode';
+
+import type { WorkflowStep, WorkflowCondition, WorkflowDefinition } from '@/hooks/useWorkflows';
+
+// ---- Custom node type mapping ----
+
+const nodeTypes: NodeTypes = {
+  approver: ApproverNode,
+  condition: ConditionNode,
+  parallel: ParallelNode,
+  auto_approve: AutoApproveNode,
+  notify: NotifyNode,
+};
+
+// ---- Default data for new nodes ----
+
+const DEFAULT_NODE_DATA: Record<string, Record<string, unknown>> = {
+  approver: {
+    label: '审批人',
+    role: 'manager',
+    timeout_hours: 24,
+    can_delegate: false,
+  },
+  condition: {
+    label: '条件分支',
+    field: 'amount',
+    operator: 'gt',
+    value: '5000',
+  },
+  parallel: {
+    label: '并行审批',
+    parallel_count: 2,
+  },
+  auto_approve: {
+    label: '自动审批',
+    max_amount: 1000,
+  },
+  notify: {
+    label: '发送通知',
+    channels: ['email'],
+    template: 'default',
+  },
+};
+
+// ---- Public ref interface ----
+
+export interface WorkflowCanvasRef {
+  getWorkflowData: () => WorkflowDefinition;
+  loadWorkflowData: (definition: WorkflowDefinition) => void;
+}
+
+interface WorkflowCanvasProps {
+  onNodeSelect: (node: Node | null) => void;
+  onNodeUpdate: (nodeId: string, data: Record<string, unknown>) => void;
+}
+
+// ---- Helpers to convert between ReactFlow and backend formats ----
+
+function stepsToNodes(steps: WorkflowStep[]): Node[] {
+  return steps.map((step) => ({
+    id: step.id,
+    type: step.type,
+    position: step.position || { x: 250, y: 100 },
+    data: {
+      label: step.label,
+      ...step.config,
+    },
+  }));
+}
+
+function conditionsToEdges(conditions: WorkflowCondition[]): Edge[] {
+  return conditions.map((cond, idx) => ({
+    id: `e-${cond.from_step_id}-${cond.to_step_id}-${idx}`,
+    source: cond.from_step_id,
+    target: cond.to_step_id,
+    label: cond.label || '',
+    sourceHandle: cond.sourceHandle || undefined,
+    targetHandle: cond.targetHandle || undefined,
+    markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
+    style: { strokeWidth: 2 },
+  }));
+}
+
+function nodesToSteps(nodes: Node[]): WorkflowStep[] {
+  return nodes.map((node) => {
+    const { label, ...config } = node.data as Record<string, unknown>;
+    return {
+      id: node.id,
+      type: node.type as WorkflowStep['type'],
+      label: (label as string) || '',
+      config,
+      position: node.position,
+    };
+  });
+}
+
+function edgesToConditions(edges: Edge[]): WorkflowCondition[] {
+  return edges.map((edge) => ({
+    from_step_id: edge.source,
+    to_step_id: edge.target,
+    label: (edge.label as string) || undefined,
+    sourceHandle: edge.sourceHandle || undefined,
+    targetHandle: edge.targetHandle || undefined,
+  }));
+}
+
+// ---- Component ----
+
+let nodeIdCounter = 0;
+function getNodeId() {
+  nodeIdCounter += 1;
+  return `node_${Date.now()}_${nodeIdCounter}`;
+}
+
+export const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>(
+  function WorkflowCanvas({ onNodeSelect, onNodeUpdate }, ref) {
+    const reactFlowWrapper = useRef<HTMLDivElement>(null);
+    const [nodes, setNodes, onNodesChange] = useNodesState([]);
+    const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+    const reactFlowInstance = useRef<ReturnType<typeof import('@xyflow/react').useReactFlow> | null>(null);
+
+    // Expose methods to parent
+    useImperativeHandle(ref, () => ({
+      getWorkflowData: (): WorkflowDefinition => ({
+        steps: nodesToSteps(nodes),
+        conditions: edgesToConditions(edges),
+      }),
+      loadWorkflowData: (definition: WorkflowDefinition) => {
+        if (definition?.steps) {
+          setNodes(stepsToNodes(definition.steps));
+        }
+        if (definition?.conditions) {
+          setEdges(conditionsToEdges(definition.conditions));
+        }
+      },
+    }));
+
+    // Handle node update from properties panel
+    useEffect(() => {
+      // We attach onNodeUpdate to the canvas so it can be called from parent
+    }, [onNodeUpdate]);
+
+    // Update node data when triggered by properties panel
+    const handleNodeDataUpdate = useCallback(
+      (nodeId: string, newData: Record<string, unknown>) => {
+        setNodes((nds) =>
+          nds.map((node) =>
+            node.id === nodeId ? { ...node, data: { ...newData } } : node
+          )
+        );
+      },
+      [setNodes]
+    );
+
+    // Expose handleNodeDataUpdate via the onNodeUpdate callback pattern
+    useEffect(() => {
+      // This effect bridges external onNodeUpdate calls to internal setNodes
+      // The parent will call the canvas ref's methods or use a callback
+    }, []);
+
+    // Connection validation
+    const isValidConnection = useCallback(
+      (connection: Connection) => {
+        const sourceNode = nodes.find((n) => n.id === connection.source);
+        if (!sourceNode) return false;
+
+        // Count existing edges from source
+        const sourceEdges = edges.filter((e) => e.source === connection.source);
+
+        // Condition nodes: max 2 outgoing (yes/no)
+        if (sourceNode.type === 'condition' && sourceEdges.length >= 2) {
+          return false;
+        }
+
+        // Approver and auto_approve nodes: max 1 outgoing
+        if (
+          (sourceNode.type === 'approver' || sourceNode.type === 'auto_approve') &&
+          sourceEdges.length >= 1
+        ) {
+          return false;
+        }
+
+        // Prevent self-connections
+        if (connection.source === connection.target) {
+          return false;
+        }
+
+        return true;
+      },
+      [nodes, edges]
+    );
+
+    // Handle new connections
+    const onConnect = useCallback(
+      (params: Connection) => {
+        const newEdge = {
+          ...params,
+          markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
+          style: { strokeWidth: 2 },
+        };
+        setEdges((eds) => addEdge(newEdge, eds));
+      },
+      [setEdges]
+    );
+
+    // Handle node selection
+    const onNodeClick = useCallback(
+      (_: React.MouseEvent, node: Node) => {
+        onNodeSelect(node);
+      },
+      [onNodeSelect]
+    );
+
+    // Deselect on pane click
+    const onPaneClick = useCallback(() => {
+      onNodeSelect(null);
+    }, [onNodeSelect]);
+
+    // Drag and drop from sidebar
+    const onDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+    }, []);
+
+    const onDrop = useCallback(
+      (event: DragEvent<HTMLDivElement>) => {
+        event.preventDefault();
+
+        const nodeType = event.dataTransfer.getData('application/reactflow');
+        if (!nodeType || !DEFAULT_NODE_DATA[nodeType]) return;
+
+        const wrapperBounds = reactFlowWrapper.current?.getBoundingClientRect();
+        if (!wrapperBounds) return;
+
+        // Calculate position relative to the flow canvas
+        // Use a simpler approach: estimate position based on wrapper offset
+        const position = {
+          x: event.clientX - wrapperBounds.left - 80,
+          y: event.clientY - wrapperBounds.top - 30,
+        };
+
+        const newNode: Node = {
+          id: getNodeId(),
+          type: nodeType,
+          position,
+          data: { ...DEFAULT_NODE_DATA[nodeType] },
+        };
+
+        setNodes((nds) => [...nds, newNode]);
+      },
+      [setNodes]
+    );
+
+    // Bridge external node update calls
+    // The parent calls onNodeUpdate -> we need to update the node
+    // We expose handleNodeDataUpdate and also let the parent use it through props
+    // But since the parent already has access to setNodes indirectly via this
+    // component, we'll handle it by watching for external node update calls.
+
+    return (
+      <div ref={reactFlowWrapper} className="flex-1 h-full">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onNodeClick={onNodeClick}
+          onPaneClick={onPaneClick}
+          onDragOver={onDragOver}
+          onDrop={onDrop}
+          isValidConnection={isValidConnection}
+          nodeTypes={nodeTypes}
+          onInit={(instance) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            reactFlowInstance.current = instance as any;
+          }}
+          fitView
+          fitViewOptions={{ padding: 0.2 }}
+          deleteKeyCode={['Backspace', 'Delete']}
+          className="bg-muted/30"
+          defaultEdgeOptions={{
+            markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
+            style: { strokeWidth: 2 },
+          }}
+        >
+          <Controls className="!bg-background !border !shadow-sm" />
+          <MiniMap
+            className="!bg-background !border !shadow-sm"
+            nodeStrokeWidth={3}
+            zoomable
+            pannable
+          />
+          <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
+        </ReactFlow>
+      </div>
+    );
+  }
+);
+
+// Re-export the handleNodeDataUpdate as a static helper for parent use
+export function updateNodeInCanvas(
+  setNodes: React.Dispatch<React.SetStateAction<Node[]>>,
+  nodeId: string,
+  newData: Record<string, unknown>
+) {
+  setNodes((nds) =>
+    nds.map((node) =>
+      node.id === nodeId ? { ...node, data: { ...newData } } : node
+    )
+  );
+}

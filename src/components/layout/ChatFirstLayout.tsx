@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { MobileSidebar } from '@/components/layout/MobileSidebar';
 import { CommandPalette } from '@/components/common/CommandPalette';
+import { InstallPrompt } from '@/components/common/InstallPrompt';
 import { PanelRightClose, PanelRightOpen, Menu, LayoutDashboard, MessageSquare, CheckCircle, User } from 'lucide-react';
 
 // Interface for props
@@ -162,6 +163,9 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                 onOpenChange={setIsCommandPaletteOpen}
                 onAIChat={handleCommandPaletteAIChat}
             />
+
+            {/* PWA Install Prompt */}
+            <InstallPrompt />
         </div>
     );
 };

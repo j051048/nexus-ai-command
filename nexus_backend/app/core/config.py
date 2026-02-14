@@ -191,22 +191,57 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: Optional[str] = Field(default=None, description="SMTP password")
     SMTP_FROM: Optional[str] = Field(default=None, description="Sender email address")
 
-    # Wecom (企业微信)
+    # Wecom (企业微信) - Webhook
     WECOM_WEBHOOK_URL: Optional[str] = Field(
         default=None, description="Wecom group bot webhook URL"
     )
+    # Wecom (企业微信) - 深度集成
+    WECOM_CORP_ID: str = Field(
+        default="", description="企业微信 Corp ID"
+    )
+    WECOM_CORP_SECRET: str = Field(
+        default="", description="企业微信 Corp Secret (应用 Secret)"
+    )
+    WECOM_AGENT_ID: str = Field(
+        default="", description="企业微信 Agent ID (应用 AgentId)"
+    )
 
-    # Dingtalk (钉钉)
+    # Dingtalk (钉钉) - Webhook
     DINGTALK_WEBHOOK_URL: Optional[str] = Field(
         default=None, description="Dingtalk group bot webhook URL"
     )
     DINGTALK_SECRET: Optional[str] = Field(
         default=None, description="Dingtalk webhook secret for signature"
     )
+    # Dingtalk (钉钉) - 深度集成
+    DINGTALK_APP_KEY: str = Field(
+        default="", description="钉钉 App Key"
+    )
+    DINGTALK_APP_SECRET: str = Field(
+        default="", description="钉钉 App Secret"
+    )
+    DINGTALK_AGENT_ID: str = Field(
+        default="", description="钉钉 Agent ID (应用 agentId)"
+    )
 
-    # Feishu (飞书)
+    # Feishu (飞书) - Webhook
     FEISHU_WEBHOOK_URL: Optional[str] = Field(
         default=None, description="Feishu group bot webhook URL"
+    )
+    # Feishu (飞书) - 深度集成
+    FEISHU_APP_ID: str = Field(
+        default="", description="飞书 App ID"
+    )
+    FEISHU_APP_SECRET: str = Field(
+        default="", description="飞书 App Secret"
+    )
+
+    # Web Push VAPID
+    VAPID_PUBLIC_KEY: str = Field(
+        default="", description="VAPID public key for Web Push"
+    )
+    VAPID_PRIVATE_KEY: str = Field(
+        default="", description="VAPID private key for Web Push"
     )
 
     # Computed properties

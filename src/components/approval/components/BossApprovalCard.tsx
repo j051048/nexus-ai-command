@@ -8,6 +8,9 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ApprovalRequest } from '@/hooks/useApprovals';
+import { DynamicFormRenderer } from '@/components/forms/DynamicFormRenderer';
+import { useFormSchema } from '@/hooks/useFormSchemas';
+import type { FormField } from '@/components/forms/DynamicFormRenderer';
 
 const statusConfig = {
     pending: { label: '待处理', color: 'bg-warning/20 text-warning', icon: <CheckCircle2 className="w-4 h-4" /> },
@@ -29,6 +32,41 @@ interface BossApprovalCardProps {
     isApproving: boolean;
     typeIcon?: React.ReactNode;
 }
+
+// ─── 表单数据只读展示组件 ────────────────────────────────────
+
+function FormDataDisplay({ approval }: { approval: ApprovalRequest }) {
+    const extendedApproval = approval as unknown as {
+        form_data?: Record<string, any>;
+        form_schema_id?: string;
+    };
+
+    const { data: schema } = useFormSchema(extendedApproval.form_schema_id || '');
+
+    if (!extendedApproval.form_data || !extendedApproval.form_schema_id) {
+        return null;
+    }
+
+    const fields: FormField[] = schema?.fields || [];
+
+    if (fields.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="mt-3 p-3 rounded-lg bg-secondary/30 border border-border/50">
+            <p className="text-xs font-medium text-muted-foreground mb-2">自定义表单详情</p>
+            <DynamicFormRenderer
+                fields={fields}
+                values={extendedApproval.form_data}
+                onChange={() => {}}
+                readOnly
+            />
+        </div>
+    );
+}
+
+// ─── 主组件 ──────────────────────────────────────────────────
 
 export function BossApprovalCard({
     approval,
@@ -83,6 +121,8 @@ export function BossApprovalCard({
                                 驳回原因：{approval.rejection_reason}
                             </p>
                         )}
+                        {/* 自定义表单数据展示 */}
+                        <FormDataDisplay approval={approval} />
                     </div>
                 </div>
 

@@ -1,13 +1,18 @@
 """
 P2 Optimization: Multi-level Approval Chain Service
 Supports configurable approval workflows with multiple levels.
+Enhanced with DB-backed workflow definitions and timeout escalation.
 """
 
+import logging
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
+from datetime import datetime, timezone, timedelta
 from app.core.database import supabase
 from app.services.event_bus import emit, EventType
+
+logger = logging.getLogger(__name__)
 
 
 class ApprovalLevel(Enum):
@@ -105,11 +110,80 @@ class ApprovalChainService:
     def get_chain_for_type(self, approval_type: str) -> ApprovalChainConfig:
         """
         Get the appropriate approval chain for a given type.
+        Uses in-memory DEFAULT_CHAINS. For DB-backed chains, use load_chain_from_db().
         """
         for chain in self.chains.values():
             if approval_type in chain.applies_to:
                 return chain
         return self.chains["default"]
+
+    async def load_chain_from_db(
+        self, org_id: str, approval_type: str, db=None
+    ) -> Optional[Dict]:
+        """
+        Load the active workflow definition from DB for the given org and approval type.
+        Falls back to DEFAULT_CHAINS if no DB definition is found.
+        """
+        client = db or supabase
+        if not client:
+            logger.warning("No DB client available, falling back to DEFAULT_CHAINS")
+            chain = self.get_chain_for_type(approval_type)
+            return {
+                "name": chain.name,
+                "steps": [
+                    {
+                        "type": "approver",
+                        "level": s.level.value,
+                        "threshold": s.threshold,
+                        "approver_role": s.approver_role,
+                        "timeout_hours": s.timeout_hours,
+                    }
+                    for s in chain.steps
+                ],
+                "applies_to": chain.applies_to,
+                "source": "default",
+            }
+
+        try:
+            result = (
+                await client.table("approval_chains")
+                .select("*")
+                .eq("organization_id", org_id)
+                .eq("is_active", True)
+                .contains("applies_to", [approval_type])
+                .order("is_default", desc=True)
+                .limit(1)
+                .execute()
+            )
+
+            if result.data:
+                chain_data = result.data[0]
+                chain_data["source"] = "database"
+                logger.info(
+                    f"Loaded workflow '{chain_data['name']}' from DB for org={org_id}, type={approval_type}"
+                )
+                return chain_data
+
+        except Exception as e:
+            logger.error(f"Error loading chain from DB: {e}")
+
+        # Fallback to DEFAULT_CHAINS
+        chain = self.get_chain_for_type(approval_type)
+        return {
+            "name": chain.name,
+            "steps": [
+                {
+                    "type": "approver",
+                    "level": s.level.value,
+                    "threshold": s.threshold,
+                    "approver_role": s.approver_role,
+                    "timeout_hours": s.timeout_hours,
+                }
+                for s in chain.steps
+            ],
+            "applies_to": chain.applies_to,
+            "source": "default",
+        }
 
     def determine_approval_level(
         self, approval_type: str, amount: float
@@ -338,6 +412,313 @@ class ApprovalChainService:
             }
             for key, chain in self.chains.items()
         ]
+
+    async def advance_step(
+        self,
+        request_id: str,
+        decision: str,
+        approver_id: str,
+        db=None,
+    ) -> Dict[str, Any]:
+        """
+        Advance an approval request to the next step in the workflow.
+        Records the decision in approval_history and updates current_step / timeout_at.
+
+        Args:
+            request_id: The approval request ID
+            decision: 'approved' or 'rejected'
+            approver_id: The user ID who made the decision
+            db: RLS-scoped DB client
+
+        Returns:
+            Updated approval request data
+        """
+        client = db or supabase
+        if not client:
+            raise ValueError("Database client unavailable")
+
+        # Fetch current request
+        req_result = (
+            await client.table("approval_requests")
+            .select("*")
+            .eq("id", request_id)
+            .maybe_single()
+            .execute()
+        )
+
+        if not req_result.data:
+            raise RuntimeError(f"Approval request {request_id} not found")
+
+        request_data = req_result.data
+        current_step = request_data.get("current_step", 0)
+        history = request_data.get("approval_history", []) or []
+
+        # Record this decision in history
+        history_entry = {
+            "step": current_step,
+            "decision": decision,
+            "approver_id": approver_id,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        history.append(history_entry)
+
+        # If rejected, finalize immediately
+        if decision == "rejected":
+            update_data = {
+                "status": "rejected",
+                "approval_history": history,
+                "timeout_at": None,
+            }
+            result = (
+                await client.table("approval_requests")
+                .update(update_data)
+                .eq("id", request_id)
+                .execute()
+            )
+            logger.info(f"Approval {request_id} rejected by {approver_id} at step {current_step}")
+            return result.data[0] if result.data else update_data
+
+        # If approved, check if there are more steps in the chain
+        chain_id = request_data.get("chain_id")
+        next_step = current_step + 1
+        has_more_steps = False
+
+        if chain_id:
+            # Load the chain definition to check step count
+            chain_result = (
+                await client.table("approval_chains")
+                .select("steps")
+                .eq("id", chain_id)
+                .maybe_single()
+                .execute()
+            )
+            if chain_result.data:
+                chain_steps = chain_result.data.get("steps", [])
+                has_more_steps = next_step < len(chain_steps)
+
+                if has_more_steps:
+                    # Calculate timeout for next step
+                    next_step_def = chain_steps[next_step]
+                    timeout_hours = next_step_def.get("timeout_hours", 48)
+                    timeout_at = (
+                        datetime.now(timezone.utc) + timedelta(hours=timeout_hours)
+                    ).isoformat() if timeout_hours > 0 else None
+
+                    update_data = {
+                        "current_step": next_step,
+                        "approval_level": next_step_def.get("level", next_step_def.get("approver_role", "")),
+                        "approval_history": history,
+                        "timeout_at": timeout_at,
+                    }
+                else:
+                    # All steps completed -> approved
+                    update_data = {
+                        "status": "approved",
+                        "current_step": next_step,
+                        "approval_history": history,
+                        "timeout_at": None,
+                    }
+            else:
+                # Chain not found in DB, mark as approved
+                update_data = {
+                    "status": "approved",
+                    "approval_history": history,
+                    "timeout_at": None,
+                }
+        else:
+            # No chain_id -> single-step approval, mark as approved
+            update_data = {
+                "status": "approved",
+                "approval_history": history,
+                "timeout_at": None,
+            }
+
+        result = (
+            await client.table("approval_requests")
+            .update(update_data)
+            .eq("id", request_id)
+            .execute()
+        )
+
+        logger.info(
+            f"Advanced approval {request_id}: step {current_step} -> {next_step}, "
+            f"decision={decision}, approver={approver_id}"
+        )
+        return result.data[0] if result.data else update_data
+
+    async def evaluate_condition(
+        self,
+        condition_node: Dict,
+        request_data: Dict,
+    ) -> Optional[str]:
+        """
+        Evaluate a condition node against request data.
+        Returns the target node ID for the matching branch, or None if no match.
+
+        Supported operators:
+        - amount_gt: amount greater than value
+        - amount_lt: amount less than value
+        - department_eq: department equals value
+        - role_eq: requester role equals value
+        """
+        branches = condition_node.get("branches", [])
+
+        for branch in branches:
+            operator = branch.get("operator", "")
+            value = branch.get("value")
+            target = branch.get("target")
+
+            if not operator or target is None:
+                continue
+
+            match = False
+
+            if operator == "amount_gt":
+                amount = request_data.get("amount", 0)
+                try:
+                    match = float(amount) > float(value)
+                except (TypeError, ValueError):
+                    match = False
+
+            elif operator == "amount_lt":
+                amount = request_data.get("amount", 0)
+                try:
+                    match = float(amount) < float(value)
+                except (TypeError, ValueError):
+                    match = False
+
+            elif operator == "department_eq":
+                dept = request_data.get("department", "")
+                match = str(dept).lower() == str(value).lower()
+
+            elif operator == "role_eq":
+                role = request_data.get("role", "")
+                match = str(role).lower() == str(value).lower()
+
+            else:
+                logger.warning(f"Unknown condition operator: {operator}")
+                continue
+
+            if match:
+                return target
+
+        # Return default branch if specified
+        default_target = condition_node.get("default_target")
+        return default_target
+
+    async def check_timeout_escalation(self, db=None) -> int:
+        """
+        Scan for approval requests that have timed out and escalate them.
+        Called periodically by the background task.
+
+        Returns:
+            Number of requests escalated
+        """
+        client = db or supabase
+        if not client:
+            return 0
+
+        escalated_count = 0
+
+        try:
+            now = datetime.now(timezone.utc).isoformat()
+
+            # Find all timed-out pending requests
+            result = (
+                await client.table("approval_requests")
+                .select("id, type, current_step, amount, submitted_by, chain_id")
+                .eq("status", "pending")
+                .eq("escalated", False)
+                .lt("timeout_at", now)
+                .limit(50)
+                .execute()
+            )
+
+            if not result.data:
+                return 0
+
+            for req in result.data:
+                try:
+                    request_id = req["id"]
+                    approval_type = req.get("type", "default")
+                    current_step = req.get("current_step", 0)
+                    amount = req.get("amount", 0)
+                    requester_id = req.get("submitted_by", "")
+
+                    # Attempt escalation to next level
+                    esc_result = await self.escalate_to_next_level(
+                        request_id=request_id,
+                        approval_type=approval_type,
+                        current_step=current_step,
+                        amount=float(amount) if amount else 0,
+                        requester_id=requester_id,
+                    )
+
+                    if esc_result.get("success"):
+                        new_step = esc_result.get("new_step", current_step + 1)
+                        # Calculate new timeout for escalated step
+                        timeout_hours = 48  # default escalation timeout
+
+                        # Try to get timeout from chain definition
+                        chain_id = req.get("chain_id")
+                        if chain_id:
+                            try:
+                                chain_result = (
+                                    await client.table("approval_chains")
+                                    .select("steps")
+                                    .eq("id", chain_id)
+                                    .maybe_single()
+                                    .execute()
+                                )
+                                if chain_result.data:
+                                    steps = chain_result.data.get("steps", [])
+                                    if new_step < len(steps):
+                                        timeout_hours = steps[new_step].get("timeout_hours", 48)
+                            except Exception:
+                                pass
+
+                        new_timeout = (
+                            datetime.now(timezone.utc) + timedelta(hours=timeout_hours)
+                        ).isoformat()
+
+                        # Update the request with escalation info
+                        await (
+                            client.table("approval_requests")
+                            .update({
+                                "current_step": new_step,
+                                "approval_level": esc_result.get("approval_level", ""),
+                                "escalated": True,
+                                "timeout_at": new_timeout,
+                            })
+                            .eq("id", request_id)
+                            .execute()
+                        )
+                        escalated_count += 1
+                        logger.info(
+                            f"Escalated approval {request_id} from step {current_step} to {new_step}"
+                        )
+                    else:
+                        # Already at highest level, mark as escalated to prevent re-processing
+                        await (
+                            client.table("approval_requests")
+                            .update({"escalated": True, "timeout_at": None})
+                            .eq("id", request_id)
+                            .execute()
+                        )
+                        logger.warning(
+                            f"Approval {request_id} at highest level, cannot escalate further"
+                        )
+
+                except Exception as e:
+                    logger.error(f"Error escalating request {req.get('id')}: {e}")
+
+        except Exception as e:
+            logger.error(f"Error during timeout escalation scan: {e}")
+
+        if escalated_count > 0:
+            logger.info(f"Timeout escalation: escalated {escalated_count} requests")
+
+        return escalated_count
 
 
 # Global service instance

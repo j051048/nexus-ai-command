@@ -23,9 +23,28 @@ from app.routers import (
     compliance,
     billing,
     profile,
+    workflows,
+    form_schemas,
+    push,
+    permissions,
+    workflow_templates,
+    memories,
+    reports,
+    notifications,
+    payments,
+    data_transfer,
+    plugins,
+    training,
+    contracts,
+    super_admin,
+    crm,
+    api_docs,
+    backups,
+    api_keys,
 )
 from app.routers import mcp as mcp_router
 from app.routers import robot as robot_router
+from app.routers import im_oauth, im_callbacks, im_settings
 from app.core.auth import get_current_user_id
 from app.core.rate_limiter import RateLimitMiddleware
 from app.core.security_middleware import (
@@ -114,11 +133,49 @@ async def lifespan(app: FastAPI):
 
     monitor_task = asyncio.create_task(_tenant_monitor_loop())
 
+    # Start background approval timeout escalation (every 5 minutes)
+    async def _approval_timeout_loop():
+        from app.services.approval_chain import approval_chain_service
+        while True:
+            await asyncio.sleep(300)
+            try:
+                await approval_chain_service.check_timeout_escalation()
+            except Exception as e:
+                logger.error(f"Approval timeout check error: {e}")
+
+    timeout_task = asyncio.create_task(_approval_timeout_loop())
+
+    # Start background IM platform sync (contacts + attendance, every hour)
+    async def _im_sync_loop():
+        from app.services.im_platform.contact_sync_service import contact_sync_service
+        from app.services.im_platform.attendance_sync_service import attendance_sync_service
+        from app.core.database import supabase as sync_db
+        while True:
+            await asyncio.sleep(3600)  # Every hour
+            try:
+                if sync_db:
+                    result = await sync_db.table("im_platform_config").select("*").eq("is_active", True).execute()
+                    for config in (result.data or []):
+                        try:
+                            org_id = config.get("organization_id", "")
+                            platform = config.get("platform", "")
+                            if org_id and platform:
+                                await contact_sync_service.sync_contacts(org_id, platform, db=sync_db)
+                                await attendance_sync_service.sync_attendance(org_id, platform, db=sync_db)
+                        except Exception as e:
+                            logger.error(f"IM sync error for org {config.get('organization_id')}: {e}")
+            except Exception as e:
+                logger.error(f"IM sync loop error: {e}")
+
+    im_sync_task = asyncio.create_task(_im_sync_loop())
+
     yield
 
     # Shutdown
     logger.info("Shutting down Nexus Backend...")
     monitor_task.cancel()
+    timeout_task.cancel()
+    im_sync_task.cancel()
     await event_bus.stop()
     await audit_logger.force_flush()
     try:
@@ -154,6 +211,9 @@ app = FastAPI(
         {"name": "Kingdee Mock", "description": "Mock Kingdee ERP integration (dev only)"},
         {"name": "Webhooks", "description": "Webhook subscription and delivery"},
         {"name": "OAuth", "description": "OAuth 2.0 authorization server"},
+        {"name": "IM OAuth", "description": "IM platform (WeChat Work/DingTalk/Feishu) OAuth SSO"},
+        {"name": "IM Callbacks", "description": "IM platform interactive card callback handlers"},
+        {"name": "IM Settings", "description": "IM platform integration configuration management"},
     ],
 )
 
@@ -208,15 +268,17 @@ async def test_ai_connectivity():
 
 
 # P0 Security Fix: Middleware order matters - last added runs first (outermost).
-# Execution order: RateLimit → SecurityHeaders → RequestID → TenantContext → CORS
+# Execution order: RateLimit → SecurityHeaders → RequestID → APIKey → TenantContext → CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Requested-With", "X-Request-ID"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With", "X-Request-ID", "X-API-Key"],
 )
-app.add_middleware(TenantContextMiddleware)  # 4th: innermost, sets up tenant DB scope
+app.add_middleware(TenantContextMiddleware)  # 5th: innermost, sets up tenant DB scope
+from app.core.api_key_middleware import APIKeyMiddleware
+app.add_middleware(APIKeyMiddleware)          # 4th: API Key auth sets org_id before tenant context
 app.add_middleware(RequestIDMiddleware)       # 3rd: adds request tracing ID
 app.add_middleware(SecurityHeadersMiddleware) # 2nd: security response headers
 app.add_middleware(RateLimitMiddleware)       # 1st: outermost, blocks abuse BEFORE DB queries
@@ -241,6 +303,27 @@ app.include_router(billing.router)
 app.include_router(profile.router)
 app.include_router(mcp_router.router)
 app.include_router(robot_router.router)
+app.include_router(workflows.router)
+app.include_router(form_schemas.router)
+app.include_router(push.router)
+app.include_router(im_oauth.router)
+app.include_router(im_callbacks.router)
+app.include_router(im_settings.router)
+app.include_router(permissions.router)
+app.include_router(workflow_templates.router)
+app.include_router(memories.router)
+app.include_router(reports.router)
+app.include_router(notifications.router)
+app.include_router(payments.router)
+app.include_router(data_transfer.router)
+app.include_router(plugins.router)
+app.include_router(training.router)
+app.include_router(contracts.router)
+app.include_router(super_admin.router)
+app.include_router(crm.router)
+app.include_router(api_docs.router)
+app.include_router(backups.router)
+app.include_router(api_keys.router)
 
 
 @app.get("/")

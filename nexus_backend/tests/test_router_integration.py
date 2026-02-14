@@ -360,10 +360,10 @@ class TestMiddlewareOrder:
         """Verify the complete middleware ordering matches the design doc.
 
         Expected execution order (outermost -> innermost):
-          RateLimit -> SecurityHeaders -> RequestID -> TenantContext -> CORS
+          RateLimit -> SecurityHeaders -> RequestID -> APIKey -> TenantContext -> CORS
         Which in user_middleware (index 0 = outermost) is:
           [0] RateLimit, [1] SecurityHeaders, [2] RequestID,
-          [3] TenantContext, [4] CORS
+          [3] APIKey, [4] TenantContext, [5] CORS
         """
         from app.core.rate_limiter import RateLimitMiddleware
         from app.core.security_middleware import (
@@ -371,6 +371,7 @@ class TestMiddlewareOrder:
             RequestIDMiddleware,
             TenantContextMiddleware,
         )
+        from app.core.api_key_middleware import APIKeyMiddleware
         from starlette.middleware.cors import CORSMiddleware
 
         middleware_classes = [m.cls for m in patched_app.user_middleware]
@@ -378,6 +379,7 @@ class TestMiddlewareOrder:
             RateLimitMiddleware,
             SecurityHeadersMiddleware,
             RequestIDMiddleware,
+            APIKeyMiddleware,
             TenantContextMiddleware,
             CORSMiddleware,
         ]

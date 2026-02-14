@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     CheckCircle2,
     AlertTriangle,
     Sparkles,
     Loader2,
+    XCircle,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -23,6 +25,8 @@ import {
 } from '@/hooks/useApprovals';
 import { BossApprovalCard } from '../components/BossApprovalCard';
 import { approvalTypes } from '../constants';
+import { useFormSchema } from '@/hooks/useFormSchemas';
+import { DynamicFormRenderer } from '@/components/forms/DynamicFormRenderer';
 
 export function BossApprovalView() {
     const [statusFilter, setStatusFilter] = useState('pending');

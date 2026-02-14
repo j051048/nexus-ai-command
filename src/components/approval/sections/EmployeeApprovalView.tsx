@@ -8,45 +8,95 @@ import { toast } from 'sonner';
 import { useMyApprovals, useSubmitApproval } from '@/hooks/useApprovals';
 import { approvalTypes } from '../constants';
 import { ApprovalHistory } from './ApprovalHistory';
+import { useFormSchemaByType } from '@/hooks/useFormSchemas';
+import { DynamicFormRenderer } from '@/components/forms/DynamicFormRenderer';
+import { aiClient } from '@/api/aiClient';
 
 export function EmployeeApprovalView() {
     const [input, setInput] = useState('');
     const [amount, setAmount] = useState<number>(0);
     const [selectedType, setSelectedType] = useState<typeof approvalTypes[0] | null>(null);
+    const [formData, setFormData] = useState<Record<string, any>>({});
 
     const { data: myApprovals, isLoading } = useMyApprovals();
     const submitApproval = useSubmitApproval();
 
+    // 获取当前审批类型的自定义表单 schema
+    const { data: formSchema } = useFormSchemaByType(selectedType?.id || '');
+    const hasCustomForm = !!(formSchema?.fields && formSchema.fields.length > 0);
+
     const handleSubmit = async () => {
-        if (!input.trim() || !selectedType) {
-            toast.error('请选择申请类型并填写说明');
+        if (!selectedType) {
+            toast.error('请选择申请类型');
             return;
         }
 
-        try {
-            const result = await submitApproval.mutateAsync({
-                type: selectedType.id,
-                description: input,
-                amount,
+        if (hasCustomForm) {
+            // 自定义表单提交
+            // 基础必填校验
+            const errors: string[] = [];
+            formSchema!.fields.forEach((field) => {
+                if (field.required) {
+                    const val = formData[field.key];
+                    if (val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0)) {
+                        errors.push(field.label);
+                    }
+                }
             });
-
-            if (result.status === 'approved') {
-                toast.success('已自动审批通过！');
-            } else {
-                toast.success('已提交，等待老板审批');
+            if (errors.length > 0) {
+                toast.error(`请填写必填字段: ${errors.join(', ')}`);
+                return;
             }
 
-            setInput('');
-            setAmount(0);
-            setSelectedType(null);
-        } catch (error: unknown) {
-            const err = error as Error;
-            toast.error('提交失败: ' + err.message);
+            try {
+                await aiClient.fetch('api/approval/submit-with-form', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        type: selectedType.id,
+                        form_schema_id: formSchema!.id,
+                        form_data: formData,
+                    }),
+                });
+                toast.success('已提交，等待审批');
+                setFormData({});
+                setSelectedType(null);
+            } catch (error: unknown) {
+                const err = error as Error;
+                toast.error('提交失败: ' + err.message);
+            }
+        } else {
+            // 原有逻辑
+            if (!input.trim()) {
+                toast.error('请填写申请说明');
+                return;
+            }
+
+            try {
+                const result = await submitApproval.mutateAsync({
+                    type: selectedType.id,
+                    description: input,
+                    amount,
+                });
+
+                if (result.status === 'approved') {
+                    toast.success('已自动审批通过！');
+                } else {
+                    toast.success('已提交，等待老板审批');
+                }
+
+                setInput('');
+                setAmount(0);
+                setSelectedType(null);
+            } catch (error: unknown) {
+                const err = error as Error;
+                toast.error('提交失败: ' + err.message);
+            }
         }
     };
 
     const applyExample = (type: typeof approvalTypes[0]) => {
         setSelectedType(type);
+        setFormData({});
         setInput(type.example);
         const amountMatch = type.example.match(/(\d+)/);
         if (amountMatch) {
@@ -105,30 +155,20 @@ export function EmployeeApprovalView() {
                     ))}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-6 items-end relative">
-                    <div className="sm:col-span-1 space-y-2">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1">金额 (¥)</label>
-                        <Input
-                            type="number"
-                            value={amount}
-                            onChange={(e) => setAmount(Number(e.target.value))}
-                            placeholder="0.00"
-                            className="bg-background/50"
+                {/* 表单区域: 自定义表单 or 默认表单 */}
+                {hasCustomForm ? (
+                    <div className="space-y-4 relative">
+                        <DynamicFormRenderer
+                            fields={formSchema!.fields}
+                            values={formData}
+                            onChange={(key, val) => setFormData(prev => ({ ...prev, [key]: val }))}
+                            layout="vertical"
                         />
-                    </div>
-                    <div className="sm:col-span-3 space-y-2 relative">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1">申请事由</label>
-                        <div className="relative">
-                            <Textarea
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                placeholder="例如：申请下周到深圳分公司举行产品发布会，预算4000元..."
-                                className="min-h-24 resize-none pr-32 bg-background/50"
-                            />
+                        <div className="flex justify-end">
                             <Button
                                 onClick={handleSubmit}
-                                disabled={!input.trim() || !selectedType || submitApproval.isPending}
-                                className="absolute bottom-3 right-3 shadow-lg shadow-primary/20"
+                                disabled={!selectedType || submitApproval.isPending}
+                                className="shadow-lg shadow-primary/20"
                             >
                                 {submitApproval.isPending ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -139,7 +179,43 @@ export function EmployeeApprovalView() {
                             </Button>
                         </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-6 items-end relative">
+                        <div className="sm:col-span-1 space-y-2">
+                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1">金额 (¥)</label>
+                            <Input
+                                type="number"
+                                value={amount}
+                                onChange={(e) => setAmount(Number(e.target.value))}
+                                placeholder="0.00"
+                                className="bg-background/50"
+                            />
+                        </div>
+                        <div className="sm:col-span-3 space-y-2 relative">
+                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1">申请事由</label>
+                            <div className="relative">
+                                <Textarea
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    placeholder="例如：申请下周到深圳分公司举行产品发布会，预算4000元..."
+                                    className="min-h-24 resize-none pr-32 bg-background/50"
+                                />
+                                <Button
+                                    onClick={handleSubmit}
+                                    disabled={!input.trim() || !selectedType || submitApproval.isPending}
+                                    className="absolute bottom-3 right-3 shadow-lg shadow-primary/20"
+                                >
+                                    {submitApproval.isPending ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                        <Send className="w-4 h-4 mr-2" />
+                                    )}
+                                    提交申请
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Stats Quick Cards */}

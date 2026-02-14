@@ -1,0 +1,130 @@
+# 工具选择准确性评估数据集
+# 每个用例测试 Agent 是否选择了正确的工具
+# 工具名称对应 TOOL_REGISTRY 中的实际注册名
+
+test_cases:
+  # ── 审批相关 ──
+  - id: ts_001
+    description: "提交审批应使用审批代提工具"
+    user_message: "我要提交一个5000元的差旅报销审批"
+    expected_tools: ["submit_approval_on_behalf"]
+    context: {}
+
+  - id: ts_002
+    description: "查看待审批列表"
+    user_message: "看看现在有哪些待我审批的申请"
+    expected_tools: ["get_pending_approvals"]
+    context: {}
+
+  - id: ts_003
+    description: "批准审批申请"
+    user_message: "帮我批准张三的报销申请"
+    expected_tools: ["approve_request"]
+    context: {}
+
+  - id: ts_004
+    description: "驳回审批申请"
+    user_message: "驳回这个出差申请，理由是预算超标"
+    expected_tools: ["reject_request"]
+    context: {}
+
+  # ── 财务相关 ──
+  - id: ts_005
+    description: "创建费用报销应使用报销工具"
+    user_message: "帮我报销上周出差的高铁票和酒店费用，一共3200元"
+    expected_tools: ["create_expense_claim"]
+    context: {}
+
+  - id: ts_006
+    description: "查询报销状态"
+    user_message: "我上个月提交的报销到账了没有？"
+    expected_tools: ["query_expense_status"]
+    context: {}
+
+  - id: ts_007
+    description: "查询部门预算"
+    user_message: "我们部门今年的预算还剩多少？"
+    expected_tools: ["query_budget"]
+    context: {}
+
+  - id: ts_008
+    description: "查询薪资明细"
+    user_message: "我这个月工资扣了多少税？"
+    expected_tools: ["query_salary"]
+    context: {}
+
+  # ── OA 办公自动化 ──
+  - id: ts_009
+    description: "请假申请应使用请假工具"
+    user_message: "我下周一到周三请年假"
+    expected_tools: ["create_leave_request"]
+    context: {}
+
+  - id: ts_010
+    description: "查询请假状态和余额"
+    user_message: "我还有几天年假可以用？"
+    expected_tools: ["query_leave_status"]
+    context: {}
+
+  - id: ts_011
+    description: "预订会议室"
+    user_message: "帮我订明天下午2点到4点的大会议室"
+    expected_tools: ["book_meeting"]
+    context: {}
+
+  - id: ts_012
+    description: "分配任务"
+    user_message: "安排小李下周完成产品说明书初稿"
+    expected_tools: ["assign_task"]
+    context: {}
+
+  # ── HR 人力资源 ──
+  - id: ts_013
+    description: "查询考勤记录"
+    user_message: "看看我这个月的出勤情况"
+    expected_tools: ["query_attendance"]
+    context: {}
+
+  - id: ts_014
+    description: "查询团队考勤（管理者）"
+    user_message: "看看我们团队上周有没有人迟到"
+    expected_tools: ["query_team_attendance"]
+    context: {}
+
+  # ── 领导专属工具 ──
+  - id: ts_015
+    description: "获取每日简报"
+    user_message: "今天有什么重要的事需要我处理？"
+    expected_tools: ["get_daily_briefing"]
+    context: {}
+
+  - id: ts_016
+    description: "查看经营指标"
+    user_message: "看看本月的业绩数据和利润情况"
+    expected_tools: ["get_business_dashboard"]
+    context: {}
+
+  # ── 纯对话（不应调用工具） ──
+  - id: ts_017
+    description: "日常问候不应使用工具"
+    user_message: "你好，今天天气怎么样？"
+    expected_tools: []
+    context: {}
+
+  - id: ts_018
+    description: "闲聊不应调用工具"
+    user_message: "你觉得加班文化好不好？"
+    expected_tools: []
+    context: {}
+
+  - id: ts_019
+    description: "感谢语不应调用工具"
+    user_message: "谢谢你的帮助，辛苦了！"
+    expected_tools: []
+    context: {}
+
+  - id: ts_020
+    description: "知识问答不应调用业务工具"
+    user_message: "什么是OKR管理法？"
+    expected_tools: []
+    context: {}

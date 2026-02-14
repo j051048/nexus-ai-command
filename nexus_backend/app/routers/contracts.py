@@ -1,0 +1,171 @@
+"""合同生命周期管理 API 路由"""
+
+import logging
+from fastapi import APIRouter, Request, Depends
+from app.core.auth import get_current_user_id
+from app.core.errors import api_success, api_error, ErrorCode
+from app.services.contract_service import contract_service
+
+logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/api/contracts", tags=["Contracts"])
+
+
+@router.get("")
+async def list_contracts(
+    req: Request,
+    status: str = None,
+    contract_type: str = None,
+    search: str = None,
+    user_id: str = Depends(get_current_user_id),
+):
+    """获取合同列表"""
+    try:
+        org_id = getattr(req.state, "org_id", None) or "default"
+        db = getattr(req.state, "db", None)
+        filters = {}
+        if status:
+            filters["status"] = status
+        if contract_type:
+            filters["contract_type"] = contract_type
+        if search:
+            filters["search"] = search
+        contracts = await contract_service.list_contracts(
+            org_id=org_id, filters=filters if filters else None, db=db
+        )
+        return api_success(data={"contracts": contracts})
+    except Exception as e:
+        logger.error(f"Failed to list contracts: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+@router.post("")
+async def create_contract(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """创建合同"""
+    try:
+        body = await req.json()
+        org_id = getattr(req.state, "org_id", None) or "default"
+        db = getattr(req.state, "db", None)
+        body["created_by"] = user_id
+        result = await contract_service.create_contract(
+            org_id=org_id, data=body, db=db
+        )
+        return api_success(data={"contract": result}, message="合同创建成功")
+    except ValueError as e:
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+    except Exception as e:
+        logger.error(f"Failed to create contract: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+@router.get("/stats")
+async def get_contract_stats(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """获取合同统计"""
+    try:
+        org_id = getattr(req.state, "org_id", None) or "default"
+        db = getattr(req.state, "db", None)
+        stats = await contract_service.get_contract_stats(org_id=org_id, db=db)
+        return api_success(data={"stats": stats})
+    except Exception as e:
+        logger.error(f"Failed to get contract stats: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+@router.get("/expiring")
+async def get_expiring_contracts(
+    req: Request,
+    days: int = 30,
+    user_id: str = Depends(get_current_user_id),
+):
+    """获取即将到期合同"""
+    try:
+        org_id = getattr(req.state, "org_id", None) or "default"
+        db = getattr(req.state, "db", None)
+        contracts = await contract_service.get_expiring_contracts(
+            org_id=org_id, days=days, db=db
+        )
+        return api_success(data={"contracts": contracts})
+    except Exception as e:
+        logger.error(f"Failed to get expiring contracts: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+@router.get("/{contract_id}")
+async def get_contract(
+    contract_id: str,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """获取合同详情"""
+    db = getattr(req.state, "db", None)
+    contract = await contract_service.get_contract(contract_id=contract_id, db=db)
+    if not contract:
+        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "合同不存在")
+    return api_success(data={"contract": contract})
+
+
+@router.put("/{contract_id}")
+async def update_contract(
+    contract_id: str,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """更新合同"""
+    try:
+        body = await req.json()
+        db = getattr(req.state, "db", None)
+        result = await contract_service.update_contract(
+            contract_id=contract_id, data=body, db=db
+        )
+        return api_success(data={"contract": result}, message="合同已更新")
+    except ValueError as e:
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+    except Exception as e:
+        logger.error(f"Failed to update contract: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+@router.get("/{contract_id}/events")
+async def get_contract_events(
+    contract_id: str,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """获取合同事件时间线"""
+    try:
+        db = getattr(req.state, "db", None)
+        events = await contract_service.get_contract_events(
+            contract_id=contract_id, db=db
+        )
+        return api_success(data={"events": events})
+    except Exception as e:
+        logger.error(f"Failed to get contract events: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+@router.post("/{contract_id}/events")
+async def add_contract_event(
+    contract_id: str,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """添加合同事件"""
+    try:
+        body = await req.json()
+        db = getattr(req.state, "db", None)
+        event = await contract_service.add_contract_event(
+            contract_id=contract_id,
+            event_type=body.get("event_type", "created"),
+            description=body.get("description", ""),
+            user_id=user_id,
+            db=db,
+        )
+        return api_success(data={"event": event}, message="事件已添加")
+    except Exception as e:
+        logger.error(f"Failed to add contract event: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

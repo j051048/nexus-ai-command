@@ -43,7 +43,7 @@ class PerformanceResult(BaseModel):
 class ApprovalRequest(BaseModel):
     requester_id: Optional[str] = None  # Can be inferred from token
     request_id: Optional[str] = None
-    type: Literal["purchase", "travel", "event", "expense"]
+    type: Literal["purchase", "travel", "expense", "leave", "event", "activity", "custom"]
     amount: float = Field(..., gt=0, description="Monetary amount involved")
     details: str = Field(..., min_length=5, description="Description of the request")
 
