@@ -12,7 +12,7 @@ pypdf==4.2.0
 pandas==2.2.3
 openpyxl==3.1.5
 celery[redis]==5.4.0
-arxiv==2.1.3
+arxiv==2.4.0
 openai==1.109.1
 sentry-sdk==2.19.2
 python-docx==1.1.2
