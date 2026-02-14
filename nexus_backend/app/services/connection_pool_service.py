@@ -304,4 +304,4 @@ connection_pool_service = ConnectionPoolService(
     db_max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "20")),
     http_pool_size=int(os.getenv("HTTP_POOL_SIZE", "100")),
     redis_pool_size=int(os.getenv("REDIS_POOL_SIZE", "10"))
-)"
+)
