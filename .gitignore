@@ -38,3 +38,9 @@ test-results/
 # AI Tools
 .claude/
 .agent/
+
+# Windows Reserved
+nul
+NUL
+**/nul
+**/NUL
