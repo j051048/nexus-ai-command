@@ -17,18 +17,20 @@ openai==1.58.1
 sentry-sdk==2.19.2
 python-docx==1.1.2
 
-# P0 Agent Framework
-langgraph>=0.0.10
-langchain-core>=0.1.0
-langchain-openai>=0.0.5
-langfuse>=2.0.0
+# P0 Agent Framework (pinned to prevent breaking changes)
+langgraph==1.0.6
+langchain-core==1.2.7
+langchain-openai==1.1.7
 
-# P1 Optimizations
-tiktoken>=0.5.0  # Token counting
-redis>=5.0.0     # Distributed caching (optional)
-pydantic-settings>=2.0.0  # P1 Fix #43: Type-safe settings with .env loading
-jsonschema>=4.0.0  # P0 Fix #11: Tool parameter validation
-cryptography>=42.0.0 # P1 Fix #42: Key encryption
+# P1 Optimizations (pinned)
+tiktoken==0.12.0
+redis==7.1.0
+pydantic-settings==2.12.0
+jsonschema==4.26.0
+cryptography==46.0.3
+
+# P1 Fix: Explicit JWT dependency (previously transitive via supabase)
+PyJWT==2.10.1
 
 # Observability
 opentelemetry-api==1.28.2

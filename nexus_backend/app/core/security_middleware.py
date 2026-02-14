@@ -103,6 +103,9 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
     - Prevents cross-tenant data leaks
     """
 
+    # Paths that never need tenant context (public endpoints)
+    PUBLIC_PATHS = {"/", "/health", "/favicon.ico", "/docs", "/redoc", "/openapi.json", "/api/test-ai"}
+
     async def dispatch(self, request: Request, call_next) -> Response:
         from app.core.database import supabase
         from app.core.auth import get_current_user_id
@@ -111,7 +114,15 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
         # Initialize default state
         request.state.user_id = None
         request.state.org_id = None
-        request.state.db = supabase  # Default to global client
+        request.state.auth_failed = False
+
+        # P0 Security Fix: Do NOT default to global service-key client.
+        # Only public endpoints get the global client; authenticated routes
+        # get a scoped client or None (forcing 401 at the route level).
+        if request.url.path in self.PUBLIC_PATHS:
+            request.state.db = supabase
+        else:
+            request.state.db = None  # Force routes to check auth
 
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
@@ -120,7 +131,7 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
                 user_id = await get_current_user_id(auth_header)
                 request.state.user_id = user_id
 
-                # 2. Get Org ID (with caching)
+                # 2. Get Org ID (with caching, TTL reduced to 5 min)
                 cache_key = f"user:{user_id}:org_id"
                 org_id = await cache_service.get(cache_key)
 
@@ -136,7 +147,7 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
                     if res.data:
                         org_id = res.data.get("organization_id")
                         if org_id:
-                            await cache_service.set(cache_key, org_id, ttl=3600)
+                            await cache_service.set(cache_key, org_id, ttl=300)
 
                 request.state.org_id = org_id
 
@@ -147,7 +158,10 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
                 request.state.db = supabase.get_scoped_client(token)
 
             except Exception as e:
-                # Log but continue - specific routes will handle missing auth
-                logger.debug(f"TenantMiddleware: Auth failed or no org_id: {e}")
+                # P0 Security Fix: Do NOT fallback to global service-key client.
+                # Set db=None so route-level auth checks will reject the request.
+                request.state.db = None
+                request.state.auth_failed = True
+                logger.warning(f"TenantMiddleware: Auth failed, RLS client not created: {e}")
 
         return await call_next(request)

@@ -38,11 +38,18 @@ from app.agent.state import (
 from app.tools import get_tool, get_all_tools_schema
 from app.services.content_moderation import scan_content, sanitize_output
 from app.services.error_recovery_service import llm_circuit_breaker, tool_circuit_breaker
+from app.core.ai_metrics import (
+    record_llm_latency,
+    record_tool_execution,
+    record_hallucination,
+)
 
 logger = logging.getLogger(__name__)
 
-# Tool schemas (computed once at import time)
-_ALL_TOOL_SCHEMAS = get_all_tools_schema()
+# P0 Fix: Tool schemas now fetched dynamically instead of cached at import time
+def _get_tool_schemas():
+    """Get tool schemas dynamically (supports hot-reload of tools/plugins)."""
+    return get_all_tools_schema()
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -138,6 +145,7 @@ async def _execute_single_tool(
             record.result = str(result)
             record.status = "success"
             record.duration_ms = int((time.time() - start_time) * 1000)
+            record_tool_execution(record.tool_name, True, record.duration_ms)
             tool_circuit_breaker.record_success()
             return record
         except asyncio.TimeoutError:
@@ -159,6 +167,7 @@ async def _execute_single_tool(
     record.status = "error"
     record.result = f"Error: Tool '{record.tool_name}' failed after 3 attempts: {str(last_error)}"
     record.duration_ms = int((time.time() - start_time) * 1000)
+    record_tool_execution(record.tool_name, False, record.duration_ms)
     tool_circuit_breaker.record_failure()
     return record
 
@@ -200,7 +209,7 @@ async def plan_node(state: AgentState) -> dict:
     # Use ChatOpenAI with streaming and bind_tools
     llm = _get_llm(config, model=model, streaming=True)
     if include_tools:
-        llm = llm.bind_tools(_ALL_TOOL_SCHEMAS)
+        llm = llm.bind_tools(_get_tool_schemas())
 
     thinking_step = ThinkingStep(
         phase=AgentPhase.PLANNING.value,
@@ -221,7 +230,9 @@ async def plan_node(state: AgentState) -> dict:
             }
         # We use astream to capture tokens if needed, but for the node return we need the full message
         # In a real heavy-streaming app, we'd use a callback handler passed via config
+        _llm_start = time.time()
         ai_msg = await llm.ainvoke(lc_msgs)
+        record_llm_latency(model=model or config.model, duration_ms=(time.time() - _llm_start) * 1000)
         llm_circuit_breaker.record_success()
     except Exception as e:
         llm_circuit_breaker.record_failure()
@@ -503,11 +514,16 @@ AI 回复:
     if is_hallucination:
         confidence = 0.3
     if completed_tools:
-        confidence = 0.95
+        # P1 Fix: Don't override hallucination-reduced confidence
+        confidence = min(confidence, 0.95) if is_hallucination else 0.95
     if state.get("needs_replanning"):
         confidence = min(confidence, 0.6)
 
     needs_replanning = is_hallucination and iteration < config.max_iterations
+
+    # P1 Fix: Record hallucination metrics
+    if is_hallucination:
+        record_hallucination("reflect_node")
 
     if needs_replanning:
         return {
@@ -554,15 +570,19 @@ async def _verify_tool_grounding(ai_response: str, tool_results: list) -> Option
     
     # Check if AI mentions numbers not in tool results
     for num in ai_numbers:
-        # Skip small numbers (like "1个", "2次")
-        if float(num) < 10:
+        # P1 Fix: Only skip trivially small numbers (0, 1)
+        if float(num) < 2:
             continue
-        # Check if this number appears in tool results (with some tolerance)
-        found = any(abs(float(num) - float(tn)) < 0.01 for tn in tool_numbers)
+        # P1 Fix: Use ±5% relative tolerance instead of exact match
+        found = any(
+            abs(float(num) - float(tn)) / max(float(tn), 1.0) < 0.05
+            for tn in tool_numbers
+        )
         if not found and len(tool_numbers) > 0:
             issues.append(f"数值 {num} 未见工具返回")
-    
-    if len(issues) > 3:  # Too many ungrounded numbers
+
+    # P1 Fix: Flag even a single ungrounded number (was >3)
+    if len(issues) >= 1:
         return "; ".join(issues[:3])
     
     return None
@@ -603,28 +623,49 @@ async def respond_node(state: AgentState) -> dict:
 
 async def error_node(state: AgentState) -> dict:
     """
-    Global error handler node. Logs mistakes and tries to recover or exit safely.
+    Global error handler with multi-level recovery.
+
+    P1 Fix: 3-level recovery instead of single boolean flag:
+      Level 0→1: Clear failed tools, ask LLM for alternative approach
+      Level 1→2: Disable tools entirely, ask for best-effort text answer
+      Level 2+:  Give up gracefully with user-facing message
     """
     error_msg = state.get("error", "未知错误")
-    recovered = state.get("error_recovery_attempted", False)
+    recovery_level = state.get("error_recovery_level", 0)
     iteration = state.get("iteration", 0)
 
-    logger.error(f"[ErrorNode] Handling graph error: {error_msg} (recovered={recovered})")
+    logger.error(f"[ErrorNode] Handling error: {error_msg} (level={recovery_level}, iter={iteration})")
 
-    if not recovered and iteration < 3:
-        # Try once to clear pending tools and ask LLM to try a different path
+    if recovery_level == 0 and iteration < 5:
+        # Level 1: Clear failed tools, ask LLM to try alternative approach
         return {
-            "error": None, # Clear error
+            "error": None,
+            "error_recovery_level": 1,
             "error_recovery_attempted": True,
             "pending_tool_calls": [],
             "current_phase": AgentPhase.PLANNING,
-            "messages": [HumanMessage(content=f"[错误恢复] 前序操作失败: {error_msg}。请尝试一个不涉及此错误的替代方案。")],
+            "messages": [HumanMessage(content=f"[错误恢复L1] 前序操作失败: {error_msg}。请尝试一个不涉及此错误的替代方案。")],
             "thinking_steps": [ThinkingStep(
                 phase=AgentPhase.ERROR.value,
-                content=f"正在尝试从错误中恢复: {error_msg}",
+                content=f"恢复L1: 切换方案以避免: {error_msg}",
+            )],
+        }
+    elif recovery_level == 1 and iteration < 5:
+        # Level 2: Disable tools, ask for best-effort text answer
+        return {
+            "error": None,
+            "error_recovery_level": 2,
+            "pending_tool_calls": [],
+            "requires_tools": False,
+            "current_phase": AgentPhase.PLANNING,
+            "messages": [HumanMessage(content=f"[错误恢复L2] 工具调用持续失败。请不使用任何工具，基于已有信息给出最佳回答。如信息不足请如实说明。")],
+            "thinking_steps": [ThinkingStep(
+                phase=AgentPhase.ERROR.value,
+                content=f"恢复L2: 降级为纯文本模式: {error_msg}",
             )],
         }
 
+    # Level 3: Give up gracefully
     return {
         "final_response": f"⚠️ 系统执行过程中遇到了难以恢复的问题: {error_msg}。您可以尝试换一种说法再次提问。",
         "current_phase": AgentPhase.RESPONDING,

@@ -5,6 +5,7 @@ Implements client registration, authorization code grant, token exchange,
 refresh tokens, and token revocation.
 """
 
+import base64
 import hashlib
 import hmac
 import logging
@@ -99,8 +100,9 @@ class OAuthService:
 
     @staticmethod
     def _verify_pkce(code_verifier: str, code_challenge: str) -> bool:
-        """Verify PKCE code_verifier against code_challenge (S256)."""
-        computed = hashlib.sha256(code_verifier.encode()).hexdigest()
+        """Verify PKCE code_verifier against code_challenge (S256 per RFC 7636)."""
+        digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
+        computed = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
         return hmac.compare_digest(computed, code_challenge)
 
     async def register_client(
@@ -237,6 +239,11 @@ class OAuthService:
             "scopes": auth_code.scopes,
         }
 
+        # P1 Fix: Persist tokens to DB for multi-instance deployments
+        await self._persist_token(
+            access_token, refresh_token, client_id, auth_code.user_id, auth_code.scopes
+        )
+
         return token
 
     async def refresh_token(
@@ -269,8 +276,18 @@ class OAuthService:
         )
 
     async def validate_token(self, access_token: str) -> Optional[Dict]:
-        """Validate an access token and return its claims."""
+        """Validate an access token and return its claims.
+
+        P1 Fix: Falls back to DB lookup if token not in memory cache.
+        """
         data = self._tokens.get(access_token)
+
+        # Fallback: check DB if not in memory
+        if not data:
+            data = await self._load_token_from_db(access_token)
+            if data:
+                self._tokens[access_token] = data
+
         if not data:
             return None
         if time.time() > data.get("expires_at", 0):
@@ -287,6 +304,57 @@ class OAuthService:
             del self._refresh_tokens[token]
             return True
         return False
+
+    async def _persist_token(
+        self,
+        access_token: str,
+        refresh_token: str,
+        client_id: str,
+        user_id: str,
+        scopes: list,
+    ):
+        """P1 Fix: Persist OAuth tokens to DB (hashed) for multi-instance support."""
+        try:
+            from app.core.database import supabase
+            if not supabase:
+                return
+            token_hash = hashlib.sha256(access_token.encode()).hexdigest()
+            refresh_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+            await supabase.table("oauth_tokens").upsert({
+                "token_hash": token_hash,
+                "refresh_token_hash": refresh_hash,
+                "client_id": client_id,
+                "user_id": user_id,
+                "scopes": scopes,
+                "expires_at": int(time.time() + 3600),
+            }).execute()
+        except Exception as e:
+            logger.debug(f"OAuth token persistence skipped: {e}")
+
+    async def _load_token_from_db(self, access_token: str) -> Optional[dict]:
+        """P1 Fix: Load token data from DB by hash."""
+        try:
+            from app.core.database import supabase
+            if not supabase:
+                return None
+            token_hash = hashlib.sha256(access_token.encode()).hexdigest()
+            res = (
+                await supabase.table("oauth_tokens")
+                .select("*")
+                .eq("token_hash", token_hash)
+                .maybe_single()
+                .execute()
+            )
+            if res.data:
+                return {
+                    "client_id": res.data.get("client_id"),
+                    "user_id": res.data.get("user_id"),
+                    "scopes": res.data.get("scopes", []),
+                    "expires_at": res.data.get("expires_at", 0),
+                }
+        except Exception as e:
+            logger.debug(f"OAuth token DB lookup skipped: {e}")
+        return None
 
 
 # Global instance

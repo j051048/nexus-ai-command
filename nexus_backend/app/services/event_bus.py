@@ -309,6 +309,93 @@ async def notify_approval_escalated(event: Event):
         logger.error(f"Failed to notify boss: {e}")
 
 
+@on(EventType.SYSTEM_ALERT.value)
+async def handle_system_alert(event: Event):
+    """P0 Fix: Forward system alerts to org admins via notifications table.
+
+    Ensures critical alerts (credit exhaustion, service degradation) are not
+    silently swallowed in memory but delivered to relevant administrators.
+    """
+    from app.core.database import supabase
+
+    if not supabase:
+        return
+
+    org_id = event.payload.get("org_id")
+    alert_type = event.payload.get("alert_type", "unknown")
+    severity = event.payload.get("severity", "warning")
+    usage_pct = event.payload.get("usage_percentage")
+    credit_type = event.payload.get("credit_type", "")
+
+    # Build human-readable message
+    title_map = {
+        "credit_exhaustion": "配额即将耗尽",
+        "service_degradation": "服务降级告警",
+        "rate_limit_breach": "请求频率异常",
+    }
+    title = f"⚠️ {title_map.get(alert_type, '系统告警')}"
+    content = f"告警类型: {alert_type}"
+    if credit_type:
+        content += f", 资源: {credit_type}"
+    if usage_pct is not None:
+        content += f", 使用率: {usage_pct}%"
+
+    notification_type = "error" if severity == "critical" else "warning"
+
+    try:
+        # Find org admins (founders and admins)
+        if org_id:
+            admins = (
+                await supabase.table("users")
+                .select("id")
+                .eq("org_id", org_id)
+                .in_("role", ["founder", "admin"])
+                .execute()
+            )
+        else:
+            admins = (
+                await supabase.table("users")
+                .select("id")
+                .eq("role", "founder")
+                .execute()
+            )
+
+        for admin in admins.data or []:
+            await supabase.table("notifications").insert(
+                {
+                    "user_id": admin["id"],
+                    "title": title,
+                    "content": content,
+                    "type": notification_type,
+                }
+            ).execute()
+
+        logger.info(
+            f"[EventBus] SYSTEM_ALERT dispatched to {len(admins.data or [])} admins: "
+            f"alert_type={alert_type} severity={severity}"
+        )
+    except Exception as e:
+        logger.error(f"Failed to dispatch system alert notification: {e}")
+
+
+@on(EventType.USER_SETTINGS_CHANGED.value)
+async def invalidate_org_cache(event: Event):
+    """P1 Fix: Clear org_id cache when user settings change."""
+    user_id = event.payload.get("user_id") or event.user_id
+    if not user_id:
+        return
+    try:
+        from app.core.security_middleware import TenantContextMiddleware
+        cache = TenantContextMiddleware._org_cache
+        # Remove the user's cached org_id entry
+        keys_to_remove = [k for k in cache if k == user_id]
+        for k in keys_to_remove:
+            del cache[k]
+            logger.info(f"[EventBus] Invalidated org_id cache for user {user_id}")
+    except Exception as e:
+        logger.debug(f"org_id cache invalidation skipped: {e}")
+
+
 @on(EventType.DEAL_WON.value)
 async def calculate_deal_bonus(event: Event):
     """Calculate and award bonus when a deal is won"""

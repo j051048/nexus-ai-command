@@ -24,6 +24,8 @@ from app.routers import (
     billing,
     profile,
 )
+from app.routers import mcp as mcp_router
+from app.routers import robot as robot_router
 from app.core.auth import get_current_user_id
 from app.core.rate_limiter import RateLimitMiddleware
 from app.core.security_middleware import (
@@ -46,7 +48,7 @@ if settings.SENTRY_DSN:
     sentry_sdk.init(
         dsn=settings.SENTRY_DSN,
         traces_sample_rate=0.1,  # P1 Optimization: Don't sample 100% in production
-        profiles_sample_rate=1.0,
+        profiles_sample_rate=0.1,  # P0 Fix: Reduced from 1.0 to avoid production overhead
     )
     logger.info("✅ Sentry Initialized")
 
@@ -116,9 +118,31 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Project Nexus Backend",
-    description="AI-Driven Low-Code Backend for Sales Performance & Governance",
-    version="1.0.0",
+    description=(
+        "AI-Driven Low-Code Backend for Sales Performance & Governance.\n\n"
+        "## Core Capabilities\n"
+        "- **AI Chat**: LangGraph-powered agentic chat with tool calling\n"
+        "- **Knowledge Base**: RAG with hybrid search (vector + keyword + reranking)\n"
+        "- **Approval System**: Multi-level approval workflows with AI escalation\n"
+        "- **Sales Pipeline**: CRM with gamification and performance tracking\n"
+        "- **MCP Server**: Model Context Protocol tool exposure for AI interop\n"
+        "- **Multi-tenant**: Row Level Security with per-org credit quotas\n\n"
+        "## Authentication\n"
+        "All endpoints (except `/health`, `/docs`) require a Bearer JWT token "
+        "obtained via Supabase Auth."
+    ),
+    version="2.0.0",
     lifespan=lifespan,
+    openapi_tags=[
+        {"name": "Chat", "description": "AI chat and conversation management"},
+        {"name": "Documents", "description": "Document upload, RAG, and knowledge base"},
+        {"name": "Billing", "description": "Subscription plans, trials, and payments"},
+        {"name": "MCP Server", "description": "Model Context Protocol tool registry"},
+        {"name": "Robot/RPA", "description": "Robot and RPA device command interface (stub)"},
+        {"name": "Kingdee Mock", "description": "Mock Kingdee ERP integration (dev only)"},
+        {"name": "Webhooks", "description": "Webhook subscription and delivery"},
+        {"name": "OAuth", "description": "OAuth 2.0 authorization server"},
+    ],
 )
 
 # OpenTelemetry distributed tracing setup
@@ -171,7 +195,8 @@ async def test_ai_connectivity():
         return {"status": "error", "detail": str(e)}
 
 
-# P0 Security Fix: Restrict CORS to whitelist
+# P0 Security Fix: Middleware order matters - last added runs first (outermost).
+# Execution order: RateLimit → SecurityHeaders → RequestID → TenantContext → CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -179,14 +204,10 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Requested-With", "X-Request-ID"],
 )
-
-# P0 Security Fix: Rate limiting middleware
-app.add_middleware(RateLimitMiddleware)
-
-# P2 Security: Security headers, Request ID, and Tenant Context
-app.add_middleware(SecurityHeadersMiddleware)
-app.add_middleware(RequestIDMiddleware)
-app.add_middleware(TenantContextMiddleware)
+app.add_middleware(TenantContextMiddleware)  # 4th: innermost, sets up tenant DB scope
+app.add_middleware(RequestIDMiddleware)       # 3rd: adds request tracing ID
+app.add_middleware(SecurityHeadersMiddleware) # 2nd: security response headers
+app.add_middleware(RateLimitMiddleware)       # 1st: outermost, blocks abuse BEFORE DB queries
 
 
 # Include Routers
@@ -206,6 +227,8 @@ app.include_router(oauth.router)
 app.include_router(compliance.router)
 app.include_router(billing.router)
 app.include_router(profile.router)
+app.include_router(mcp_router.router)
+app.include_router(robot_router.router)
 
 
 @app.get("/")

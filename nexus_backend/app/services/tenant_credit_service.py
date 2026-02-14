@@ -6,6 +6,7 @@ Fixes Issues #50, #51: Anti-abuse mechanism and tenant budget control.
 """
 
 import os
+import asyncio
 import time
 import logging
 from typing import Dict, Optional, Tuple
@@ -97,6 +98,13 @@ class TenantCreditService:
         self._credit_cache: Dict[str, TenantCredit] = {}
         self._behavior_tracker: Dict[str, Dict] = {}
         self._ip_tracker: Dict[str, Dict] = {}
+        self._credit_locks: Dict[str, asyncio.Lock] = {}  # P0 Fix: per-org locks
+
+    def _get_lock(self, org_id: str) -> asyncio.Lock:
+        """Get or create a per-org asyncio lock for atomic credit operations."""
+        if org_id not in self._credit_locks:
+            self._credit_locks[org_id] = asyncio.Lock()
+        return self._credit_locks[org_id]
 
     async def check_credit(
         self, org_id: str, credit_type: CreditType, amount: int = 1, db=None
@@ -121,17 +129,18 @@ class TenantCreditService:
     async def consume_credit(
         self, org_id: str, credit_type: CreditType, amount: int, user_id: str = None, db=None
     ) -> Tuple[bool, Optional[str]]:
-        """Consume credits from tenant allocation."""
-        has_credit, error = await self.check_credit(org_id, credit_type, amount, db)
-        if not has_credit:
-            return False, error
+        """Consume credits from tenant allocation (atomic via per-org lock)."""
+        async with self._get_lock(org_id):
+            has_credit, error = await self.check_credit(org_id, credit_type, amount, db)
+            if not has_credit:
+                return False, error
 
-        cache_key = f"{org_id}:{credit_type.value}"
-        if cache_key in self._credit_cache:
-            self._credit_cache[cache_key].used += amount
+            cache_key = f"{org_id}:{credit_type.value}"
+            if cache_key in self._credit_cache:
+                self._credit_cache[cache_key].used += amount
 
-        await self._persist_credit_usage(org_id, credit_type, amount, user_id, db)
-        return True, None
+            await self._persist_credit_usage(org_id, credit_type, amount, user_id, db)
+            return True, None
 
     async def check_rate_limit(self, org_id: str, user_id: str) -> Tuple[bool, Optional[int]]:
         """Check rate limit. Returns (is_allowed, retry_after_seconds)."""

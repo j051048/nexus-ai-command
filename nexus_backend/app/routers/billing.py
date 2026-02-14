@@ -82,3 +82,22 @@ async def billing_webhook(req: Request):
     except Exception as e:
         logger.error(f"Billing webhook error: {e}")
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+@router.post("/trial")
+async def start_trial(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Start a free trial for the organization."""
+    org_id = getattr(req.state, "org_id", None) or "default"
+    try:
+        body = await req.json()
+        days = body.get("days", 14)
+    except Exception:
+        days = 14
+
+    result = await billing_service.start_trial(
+        org_id, days=days, db=getattr(req.state, "db", None)
+    )
+    return api_success(data=result)

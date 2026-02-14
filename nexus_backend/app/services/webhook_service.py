@@ -102,17 +102,44 @@ class WebhookService:
         self._max_deliveries = 10000
 
     def sign_payload(self, payload: str, secret: str) -> str:
-        """Create HMAC-SHA256 signature for a payload."""
-        return hmac.new(
+        """Create HMAC-SHA256 signature for a payload with timestamp (replay-attack resistant)."""
+        ts = str(int(time.time()))
+        signed_content = f"{ts}.{payload}"
+        sig = hmac.new(
             secret.encode("utf-8"),
-            payload.encode("utf-8"),
+            signed_content.encode("utf-8"),
             hashlib.sha256,
         ).hexdigest()
+        return f"t={ts},v1={sig}"
 
-    def verify_signature(self, payload: str, signature: str, secret: str) -> bool:
-        """Verify an incoming webhook signature."""
-        expected = self.sign_payload(payload, secret)
-        return hmac.compare_digest(expected, signature)
+    def verify_signature(
+        self, payload: str, signature: str, secret: str, tolerance: int = 300
+    ) -> bool:
+        """Verify an incoming webhook signature with timestamp validation.
+
+        P0 Fix: Validates that the timestamp is within ±tolerance seconds to
+        prevent replay attacks.
+        """
+        try:
+            parts = dict(p.split("=", 1) for p in signature.split(","))
+            ts = parts.get("t")
+            v1 = parts.get("v1")
+            if not ts or not v1:
+                return False
+            # Timestamp tolerance check (default ±5 minutes)
+            if abs(time.time() - int(ts)) > tolerance:
+                logger.warning("Webhook signature rejected: timestamp out of tolerance")
+                return False
+            signed_content = f"{ts}.{payload}"
+            expected = hmac.new(
+                secret.encode("utf-8"),
+                signed_content.encode("utf-8"),
+                hashlib.sha256,
+            ).hexdigest()
+            return hmac.compare_digest(expected, v1)
+        except Exception as e:
+            logger.warning(f"Webhook signature verification error: {e}")
+            return False
 
     async def register_subscription(
         self,
@@ -222,6 +249,8 @@ class WebhookService:
             ensure_ascii=False,
         )
         signature = self.sign_payload(payload_json, subscription.secret)
+        # Extract timestamp from signed header for the HTTP header
+        sig_parts = dict(p.split("=", 1) for p in signature.split(","))
 
         for attempt in range(delivery.max_attempts):
             delivery.attempts = attempt + 1
@@ -233,6 +262,7 @@ class WebhookService:
                         headers={
                             "Content-Type": "application/json",
                             "X-Webhook-Signature": signature,
+                            "X-Webhook-Timestamp": sig_parts.get("t", ""),
                             "X-Webhook-Event": delivery.event,
                             "X-Webhook-Delivery-Id": delivery.id,
                         },

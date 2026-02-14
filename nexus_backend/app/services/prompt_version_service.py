@@ -294,7 +294,7 @@ class PromptVersionService:
         test = self._ab_tests.get(test_id)
         if not test:
             return {"error": "Test not found"}
-        
+
         return {
             "test_id": test_id,
             "prompt_key": test.prompt_key,
@@ -303,6 +303,121 @@ class PromptVersionService:
             "end_time": test.end_time.isoformat() if test.end_time else None,
             "metrics": test.metrics.get("metrics", {})
         }
+
+    def evaluate_ab_test(self, test_id: str) -> Dict:
+        """P1 Enhancement: Evaluate A/B test with statistical significance.
+
+        Uses chi-squared test to determine if the observed difference between
+        variants is statistically significant.
+
+        Returns:
+            Dict with evaluation results including p-value and recommendation.
+        """
+        test = self._ab_tests.get(test_id)
+        if not test:
+            return {"error": "Test not found"}
+
+        raw_metrics = test.metrics.get("metrics", {})
+        if len(raw_metrics) < 2:
+            return {
+                "test_id": test_id,
+                "status": "insufficient_data",
+                "message": "Need at least 2 variants with metrics",
+            }
+
+        # Collect "user_rating" or "response_time_ms" per variant
+        variant_stats: Dict[str, Dict] = {}
+        for version_id, m in raw_metrics.items():
+            ratings = [r["value"] for r in m.get("user_rating", [])]
+            resp_times = [r["value"] for r in m.get("response_time_ms", [])]
+            n = len(ratings) or len(resp_times)
+            avg_rating = sum(ratings) / len(ratings) if ratings else None
+            avg_time = sum(resp_times) / len(resp_times) if resp_times else None
+            positive = sum(1 for r in ratings if r >= 4.0) if ratings else 0
+            variant_stats[version_id] = {
+                "sample_size": n,
+                "avg_rating": round(avg_rating, 3) if avg_rating is not None else None,
+                "avg_response_time_ms": round(avg_time, 1) if avg_time is not None else None,
+                "positive_count": positive,
+                "total_ratings": len(ratings),
+            }
+
+        # Minimum sample size check
+        min_sample = 30
+        total_samples = sum(v["total_ratings"] for v in variant_stats.values())
+        if total_samples < min_sample * len(variant_stats):
+            return {
+                "test_id": test_id,
+                "status": "insufficient_sample",
+                "message": f"Need at least {min_sample} ratings per variant (have {total_samples} total)",
+                "variants": variant_stats,
+                "min_sample_per_variant": min_sample,
+            }
+
+        # Chi-squared test on positive vs. non-positive ratings
+        try:
+            observed = []
+            for v in variant_stats.values():
+                pos = v["positive_count"]
+                neg = v["total_ratings"] - pos
+                observed.append([pos, neg])
+
+            # Simple chi-squared calculation (no scipy dependency needed)
+            rows = len(observed)
+            cols = 2
+            row_totals = [sum(row) for row in observed]
+            col_totals = [sum(observed[r][c] for r in range(rows)) for c in range(cols)]
+            grand_total = sum(row_totals)
+
+            if grand_total == 0:
+                return {"test_id": test_id, "status": "no_data", "variants": variant_stats}
+
+            chi2 = 0.0
+            for r in range(rows):
+                for c in range(cols):
+                    expected = (row_totals[r] * col_totals[c]) / grand_total
+                    if expected > 0:
+                        chi2 += ((observed[r][c] - expected) ** 2) / expected
+
+            # Approximate p-value from chi2 (df=rows-1) using simple lookup
+            df = rows - 1
+            # Critical values for df=1: 3.84 (p<0.05), 6.63 (p<0.01), 10.83 (p<0.001)
+            if df == 1:
+                if chi2 >= 10.83:
+                    p_value = 0.001
+                elif chi2 >= 6.63:
+                    p_value = 0.01
+                elif chi2 >= 3.84:
+                    p_value = 0.05
+                else:
+                    p_value = 0.5
+            else:
+                # Rough approximation for df>1
+                p_value = 0.05 if chi2 > 2 * df else 0.5
+
+            is_significant = p_value < 0.05
+
+            # Find winner
+            winner = max(variant_stats.items(), key=lambda x: x[1].get("avg_rating") or 0)
+
+            return {
+                "test_id": test_id,
+                "status": "significant" if is_significant else "not_significant",
+                "chi_squared": round(chi2, 4),
+                "p_value_approx": p_value,
+                "is_significant": is_significant,
+                "degrees_of_freedom": df,
+                "winner": winner[0] if is_significant else None,
+                "recommendation": (
+                    f"Activate variant {winner[0]} (avg rating: {winner[1].get('avg_rating')})"
+                    if is_significant
+                    else "Continue test — not yet statistically significant"
+                ),
+                "variants": variant_stats,
+            }
+        except Exception as e:
+            logger.error(f"A/B test evaluation failed: {e}")
+            return {"test_id": test_id, "status": "error", "message": str(e)}
 
     def _log_change(self, action: str, version: PromptVersion, actor: str):
         """Log a prompt change for audit."""

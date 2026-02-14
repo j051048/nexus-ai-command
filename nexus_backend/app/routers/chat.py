@@ -135,11 +135,47 @@ async def chat(
             media_type="text/event-stream",
         )
 
+    # 4b. P0 Fix: Tenant Quota Enforcement
+    org_id = getattr(req.state, 'org_id', None)
+    if org_id:
+        from app.services.tenant_credit_service import tenant_credit_service, CreditType
+        has_credit, credit_error = await tenant_credit_service.check_credit(
+            org_id, CreditType.API_CALLS, 1, db=client
+        )
+        if not has_credit:
+            return StreamingResponse(
+                _error_stream(f"⚠️ 组织配额不足: {credit_error}"),
+                media_type="text/event-stream",
+            )
+
     # 5. Prepare Context
     system_prompt = await ChatService.get_system_prompt(request.agent, db_client=client)
 
     # Trace Logger
     tracer = TraceLogger(user_id=user_id, agent=request.agent or "default")
+
+    # 5b. P1 Fix: Semantic Cache Check — skip LLM if high-similarity hit
+    last_user_msg = next(
+        (m.content for m in reversed(request.messages) if m.role == "user"), None
+    )
+    if last_user_msg:
+        try:
+            from app.services.semantic_cache import semantic_cache_service
+
+            cached = await semantic_cache_service.get_cache(last_user_msg, user_id)
+            if cached:
+                logger.info(f"[Chat] Semantic cache hit for user={user_id}")
+
+                async def _cache_stream(text: str):
+                    import json
+                    yield f"data: {json.dumps({'choices': [{'delta': {'content': text}}]})}\n\n"
+                    yield "data: [DONE]\n\n"
+
+                return StreamingResponse(
+                    _cache_stream(cached), media_type="text/event-stream"
+                )
+        except Exception as e:
+            logger.debug(f"Semantic cache check skipped: {e}")
 
     # 6. Route to LangGraph agent or legacy ChatService
     if USE_LANGGRAPH_AGENT:

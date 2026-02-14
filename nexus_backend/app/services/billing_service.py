@@ -5,11 +5,17 @@ Provides plan catalog, subscription lifecycle, and Stripe integration stub.
 """
 
 import logging
+import os
 from dataclasses import dataclass, field
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+
+# P0 Fix: Detect dev mode when Stripe is not configured
+_STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+_IS_DEV_MODE = not bool(_STRIPE_SECRET_KEY)
 
 
 class BillingPlan(Enum):
@@ -82,7 +88,12 @@ class BillingService:
 
     def get_plan_catalog(self) -> List[Dict]:
         """Get all available plans."""
-        return [p.to_dict() for p in PLAN_CATALOG.values()]
+        plans = [p.to_dict() for p in PLAN_CATALOG.values()]
+        if _IS_DEV_MODE:
+            for p in plans:
+                p["_dev_mode"] = True
+                p["_dev_warning"] = "Stripe not configured. Billing is simulated."
+        return plans
 
     async def get_subscription(self, org_id: str, db=None) -> Subscription:
         """Get an org's current subscription."""
@@ -176,6 +187,43 @@ class BillingService:
             org_id = data.get("metadata", {}).get("org_id")
             if org_id:
                 await self.cancel_subscription(org_id)
+
+    async def start_trial(
+        self, org_id: str, days: int = 14, plan: BillingPlan = BillingPlan.PROFESSIONAL, db=None
+    ) -> Dict:
+        """Start a free trial for an organization.
+
+        P1 Enhancement: Allows new orgs to try paid features before committing.
+        """
+        trial_end = datetime.now(timezone.utc) + timedelta(days=days)
+        sub = Subscription(
+            org_id=org_id,
+            plan=plan,
+            status="trialing",
+            current_period_end=trial_end.isoformat(),
+        )
+        self._subscriptions[org_id] = sub
+
+        if db:
+            try:
+                await db.table("subscriptions").upsert({
+                    "org_id": org_id,
+                    "plan": plan.value,
+                    "status": "trialing",
+                    "current_period_end": trial_end.isoformat(),
+                }).execute()
+            except Exception as e:
+                logger.warning(f"Failed to persist trial subscription: {e}")
+
+        logger.info(f"Trial started: org={org_id} plan={plan.value} ends={trial_end.isoformat()}")
+        return {
+            "org_id": org_id,
+            "plan": plan.value,
+            "status": "trialing",
+            "trial_ends": trial_end.isoformat(),
+            "days": days,
+            "_dev_mode": _IS_DEV_MODE,
+        }
 
 
 # Global instance

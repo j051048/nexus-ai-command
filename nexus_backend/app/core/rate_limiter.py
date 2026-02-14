@@ -136,9 +136,9 @@ class RateLimiter:
             }
 
         except Exception as e:
-            logger.error(f"[RateLimiter] Redis error: {e}, allowing request")
-            # Fail open on Redis errors (allow request)
-            return True, {"remaining": 1, "limit": self.rate, "reset": 60}
+            logger.error(f"[RateLimiter] Redis error: {e}, falling back to in-memory")
+            # P0 Fix: Fail-closed — fallback to in-memory instead of allowing all
+            return self._check_memory(key)
 
     def _check_memory(self, key: str) -> Tuple[bool, dict]:
         """In-memory rate limiting (single instance)"""

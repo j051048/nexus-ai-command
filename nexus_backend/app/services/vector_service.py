@@ -9,6 +9,10 @@ from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
 
+# P1: Embedding Model Versioning — Track model changes to detect stale embeddings
+EMBEDDING_MODEL = "text-embedding-3-small"
+EMBEDDING_MODEL_VERSION = "2024-01"
+
 # Reranker configuration
 RERANK_ENABLED = getattr(settings, "RERANK_ENABLED", True)
 RERANK_TOP_N = getattr(settings, "RERANK_TOP_N", 5)
@@ -191,7 +195,7 @@ class VectorService:
         async def run_vector_search():
             try:
                 response = await client.embeddings.create(
-                    input=query, model="text-embedding-3-small"
+                    input=query, model=EMBEDDING_MODEL
                 )
                 embedding = response.data[0].embedding
                 params = {
@@ -438,7 +442,7 @@ class VectorService:
             if to_embed:
                 texts = [t[1] for t in to_embed]
                 response = await oai_client.embeddings.create(
-                    input=texts, model="text-embedding-3-small"
+                    input=texts, model=EMBEDDING_MODEL
                 )
                 for idx, (chunk_index, chunk_text) in enumerate(to_embed):
                     embedding = response.data[idx].embedding
@@ -449,6 +453,8 @@ class VectorService:
                         "content_hash": new_chunk_hashes[chunk_index],
                         "embedding": embedding,
                         "organization_id": org_id,
+                        "embedding_model": EMBEDDING_MODEL,
+                        "embedding_model_version": EMBEDDING_MODEL_VERSION,
                     }
                     if chunk_index in existing_map:
                         await client.table("document_embeddings").update(row_data).eq(

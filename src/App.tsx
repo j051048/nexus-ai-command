@@ -1,4 +1,3 @@
-import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -7,6 +6,18 @@ import { AuthProvider, useAuth } from "@/components/auth/AuthContext";
 import { LoginPage } from "@/components/auth/LoginPage";
 import { ResetPasswordPage } from "@/components/auth/ResetPasswordPage";
 import React, { Suspense, lazy } from "react";
+import * as Sentry from "@sentry/react";
+
+// P0 Fix: Initialize Sentry for production error tracking
+const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
+if (SENTRY_DSN && import.meta.env.PROD) {
+  Sentry.init({
+    dsn: SENTRY_DSN,
+    integrations: [Sentry.browserTracingIntegration()],
+    tracesSampleRate: 0.2,
+    environment: import.meta.env.MODE,
+  });
+}
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode; fallback?: React.ReactNode },
@@ -21,6 +32,10 @@ class ErrorBoundary extends React.Component<
   }
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('Page load error:', error, errorInfo);
+    // P0 Fix: Report to Sentry in production
+    if (SENTRY_DSN && import.meta.env.PROD) {
+      Sentry.captureException(error, { extra: { componentStack: errorInfo.componentStack } });
+    }
   }
   render() {
     if (this.state.hasError) {
@@ -109,7 +124,6 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
       <Sonner position="top-right" expand={false} richColors closeButton />
       <BrowserRouter>
         <AuthProvider>

@@ -176,7 +176,17 @@ class TeamsConnector(BaseConnector):
 
 
 class ThirdPartyIntegrationService:
-    """Registry and lifecycle manager for third-party integrations."""
+    """Registry and lifecycle manager for third-party integrations.
+
+    NOTE: Only Slack and Teams connectors have real implementations.
+    All other connector types are stubs (CRM, Storage, Analytics, Ticketing)
+    and will return a development warning.
+    """
+
+    _DEV_WARNING = (
+        "This connector is a stub implementation. "
+        "Real integration is not yet available."
+    )
 
     CONNECTOR_REGISTRY: Dict[str, type] = {
         "slack": SlackConnector,
@@ -237,9 +247,19 @@ class ThirdPartyIntegrationService:
             return {"ok": False, "error": "integration_not_active"}
         return await connector.send(action, payload)
 
-    def list_available_connectors(self) -> List[str]:
-        """List all available connector types."""
-        return list(self.CONNECTOR_REGISTRY.keys())
+    def list_available_connectors(self) -> List[Dict]:
+        """List all available connector types with implementation status."""
+        result = []
+        for name in self.CONNECTOR_REGISTRY:
+            result.append({"name": name, "status": "available"})
+        # Stubs for planned connectors
+        for stub_name in ("salesforce", "hubspot", "jira", "notion", "google_drive"):
+            result.append({
+                "name": stub_name,
+                "status": "planned",
+                "_dev_warning": self._DEV_WARNING,
+            })
+        return result
 
     def list_integrations(self, org_id: str = None) -> List[Dict]:
         """List all registered integrations, optionally filtered by org."""

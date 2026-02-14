@@ -407,6 +407,7 @@ class CircuitBreaker:
         self._failure_count = 0
         self._success_count = 0
         self._last_failure_time: float = 0.0
+        self._half_open_calls = 0  # P1 Fix: track probe calls in half-open
 
     @property
     def state(self) -> CircuitState:
@@ -414,6 +415,7 @@ class CircuitBreaker:
             if time.time() - self._last_failure_time >= self.config.recovery_timeout:
                 self._state = CircuitState.HALF_OPEN
                 self._success_count = 0
+                self._half_open_calls = 0  # Reset probe counter
         return self._state
 
     def allow_request(self) -> bool:
@@ -422,7 +424,11 @@ class CircuitBreaker:
         if current == CircuitState.CLOSED:
             return True
         if current == CircuitState.HALF_OPEN:
-            return True  # Allow probe request
+            # P1 Fix: Only allow limited probe requests in half-open state
+            if self._half_open_calls < self.config.half_open_max_calls:
+                self._half_open_calls += 1
+                return True
+            return False  # Reject until probe completes
         return False  # OPEN — reject fast
 
     def record_success(self):
@@ -432,6 +438,7 @@ class CircuitBreaker:
             if self._success_count >= self.config.success_threshold:
                 self._state = CircuitState.CLOSED
                 self._failure_count = 0
+                self._half_open_calls = 0
                 logger.info(f"Circuit breaker '{self.name}' closed (service recovered)")
         else:
             self._failure_count = 0

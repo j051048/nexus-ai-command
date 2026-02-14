@@ -112,7 +112,26 @@ const translations: Record<Locale, Translations> = {
     'ai.assistantAgent': '企业小助手',
     'ai.knowledgeAgent': '知识助手',
 
-    // 审批
+    // AI Chat
+    'ai.sendMessage': '发送消息',
+    'ai.newChat': '新对话',
+    'ai.chatHistory': '历史记录',
+    'ai.clearChat': '清空对话',
+    'ai.copyMessage': '复制消息',
+    'ai.regenerate': '重新生成',
+    'ai.stopGeneration': '停止生成',
+    'ai.uploadFile': '上传文件',
+    'ai.uploadSuccess': '文件上传成功',
+    'ai.uploadFailed': '文件上传失败',
+    'ai.loginRequired': '请先登录',
+    'ai.quotaExceeded': '配额已用尽',
+    'ai.networkError': '网络连接失败，请重试',
+    'ai.safetyBlock': '内容安全拦截',
+    'ai.thinkingProcess': '思考过程',
+    'ai.toolExecution': '工具执行中',
+    'ai.searchingKnowledge': '正在检索知识库',
+
+    // Approval
     'approval.pending': '待审批',
     'approval.approved': '已通过',
     'approval.rejected': '已驳回',
@@ -208,6 +227,25 @@ const translations: Record<Locale, Translations> = {
     'ai.performanceAgent': 'Performance Coach',
     'ai.assistantAgent': 'Enterprise Assistant',
     'ai.knowledgeAgent': 'Knowledge Assistant',
+
+    // AI Chat
+    'ai.sendMessage': 'Send Message',
+    'ai.newChat': 'New Chat',
+    'ai.chatHistory': 'Chat History',
+    'ai.clearChat': 'Clear Chat',
+    'ai.copyMessage': 'Copy Message',
+    'ai.regenerate': 'Regenerate',
+    'ai.stopGeneration': 'Stop',
+    'ai.uploadFile': 'Upload File',
+    'ai.uploadSuccess': 'File uploaded successfully',
+    'ai.uploadFailed': 'File upload failed',
+    'ai.loginRequired': 'Please login first',
+    'ai.quotaExceeded': 'Quota exceeded',
+    'ai.networkError': 'Network error, please retry',
+    'ai.safetyBlock': 'Content safety block',
+    'ai.thinkingProcess': 'Thinking Process',
+    'ai.toolExecution': 'Executing tool',
+    'ai.searchingKnowledge': 'Searching knowledge base',
 
     // Approval
     'approval.pending': 'Pending',

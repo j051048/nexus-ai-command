@@ -62,10 +62,22 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
     const toastId = toast.loading('正在上传并解析文档...');
 
     try {
+      // P0 Security Fix: Attach auth token for file upload
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        toast.error('请先登录后再上传文档');
+        toast.dismiss(toastId);
+        return;
+      }
+
       // Construct upload URL (simplifying based on existing logic)
       const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://aizhz.zeabur.app';
       const response = await fetch(`${baseUrl}/api/documents/upload`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
         body: formData,
       });
 
