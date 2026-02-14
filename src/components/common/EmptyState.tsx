@@ -1,7 +1,14 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Plus, Search, FileX, Inbox, FolderOpen } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
+import {
+  EmptyInboxIllustration,
+  NoSearchResultsIllustration,
+  ErrorIllustration,
+  NoDataIllustration,
+  NoPermissionIllustration,
+} from './EmptyStateIllustrations';
 
 export type EmptyStateType = 'default' | 'search' | 'error' | 'no-data' | 'no-permission';
 
@@ -25,11 +32,11 @@ interface EmptyStateProps {
 }
 
 const defaultIcons: Record<EmptyStateType, React.ReactNode> = {
-  default: <Inbox className="w-12 h-12 text-muted-foreground/50" />,
-  search: <Search className="w-12 h-12 text-muted-foreground/50" />,
-  error: <FileX className="w-12 h-12 text-destructive/50" />,
-  'no-data': <FolderOpen className="w-12 h-12 text-muted-foreground/50" />,
-  'no-permission': <FileX className="w-12 h-12 text-warning/50" />,
+  default: <EmptyInboxIllustration className="w-24 h-24 text-muted-foreground" />,
+  search: <NoSearchResultsIllustration className="w-24 h-24 text-muted-foreground" />,
+  error: <ErrorIllustration className="w-24 h-24 text-destructive" />,
+  'no-data': <NoDataIllustration className="w-24 h-24 text-muted-foreground" />,
+  'no-permission': <NoPermissionIllustration className="w-24 h-24 text-warning" />,
 };
 
 export function EmptyState({
@@ -57,7 +64,7 @@ export function EmptyState({
       <div
         className={cn(
           'rounded-full bg-muted/50 flex items-center justify-center mb-4 transition-transform hover:scale-105',
-          compact ? 'w-16 h-16' : 'w-20 h-20'
+          compact ? 'w-20 h-20' : 'w-28 h-28'
         )}
       >
         {displayIcon}
