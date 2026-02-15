@@ -1,4 +1,30 @@
+"""
+DEPRECATED: This module is superseded by app.core.prompts_registry.
+
+All system prompts, tool prompts, and security guardrails are now managed
+through the PromptRegistry in prompts_registry.py, which provides:
+  - Versioned prompt management (DRAFT -> ACTIVE -> DEPRECATED -> ARCHIVED)
+  - A/B testing with statistical evaluation
+  - Dynamic loading from database with Redis caching
+  - Structured prompt composition with security guardrails
+
+DO NOT add new prompts here. Use prompts_registry.py instead.
+This file is kept temporarily for backward compatibility and will be
+removed in a future release.
+"""
+
+import warnings
+
+warnings.warn(
+    "app.core.prompts is deprecated. Use app.core.prompts_registry instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+
 class Prompts:
+    """DEPRECATED: Use SYSTEM_PROMPTS from app.core.prompts_registry instead."""
+
     BASE_SYSTEM_PROMPT = (
         "你是 Nexus AI，企业全域中控大脑。你的核心特质是：极其专业、言简意赅、拒绝废话。\n"
         "回答原则：\n"

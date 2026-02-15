@@ -44,16 +44,24 @@ import {
   Keyboard,
   Settings,
   Zap,
+  AlertTriangle,
 } from 'lucide-react';
 import { AIMessage } from '@/types/nexus';
 import { toast } from 'sonner';
 import { useAIStream } from '@/hooks/useAIStream';
+import { aiClient } from '@/api/aiClient';
 import { PulseDot } from '@/components/common/AnimatedComponents';
 import { MessageBubble } from './MessageBubble';
 import { supabase } from '@/integrations/supabase/client';
 
 
 // ==================== 类型定义 ====================
+
+interface QuotaAlert {
+  alert_level: 'normal' | 'warning' | 'critical' | 'exhausted';
+  usage_percentage: number;
+  alert_message: string | null;
+}
 
 interface AgentTag {
   id: string;
@@ -147,6 +155,20 @@ export function EnhancedAIChatPanel({
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   const { isTyping: isAiTyping, aiStatus, streamChat } = useAIStream({ userId: user.id });
+
+  // Quota alert state
+  const [quotaAlert, setQuotaAlert] = useState<QuotaAlert | null>(null);
+
+  // Fetch quota alert on mount
+  useEffect(() => {
+    aiClient.fetch<{ data: QuotaAlert }>('api/usage/quota-alert')
+      .then((res) => {
+        if (res.data && res.data.alert_level !== 'normal') {
+          setQuotaAlert(res.data);
+        }
+      })
+      .catch(() => { /* silent — non-critical */ });
+  }, []);
 
   // A5: 移动端检测
   useEffect(() => {
@@ -671,6 +693,23 @@ export function EnhancedAIChatPanel({
             )}
 
             {/* Input Area - A5: 添加安全区适配 */}
+            {quotaAlert && (
+              <div className={cn(
+                'mx-4 md:mx-6 mb-1 px-3 py-2 rounded-lg text-xs flex items-center gap-2',
+                quotaAlert.alert_level === 'exhausted' && 'bg-destructive/10 text-destructive border border-destructive/20',
+                quotaAlert.alert_level === 'critical' && 'bg-orange-500/10 text-orange-600 border border-orange-500/20',
+                quotaAlert.alert_level === 'warning' && 'bg-yellow-500/10 text-yellow-600 border border-yellow-500/20',
+              )}>
+                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                <span className="flex-1">{quotaAlert.alert_message}</span>
+                <button
+                  className="text-muted-foreground hover:text-foreground"
+                  onClick={() => setQuotaAlert(null)}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )}
             <div className="px-4 md:px-6 py-4 border-t border-border bg-card sticky bottom-0 pb-[calc(1rem+env(safe-area-inset-bottom))]">
               {/* Agent Tags */}
               {showAgents && (

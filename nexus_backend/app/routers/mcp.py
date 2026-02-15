@@ -1,19 +1,27 @@
 """
-MCP Server MVP Endpoint.
+MCP Server — Model Context Protocol implementation.
 
-Exposes the internal tool registry via the Model Context Protocol (MCP) format,
-allowing external MCP clients to discover and invoke Nexus tools over HTTP.
+Supports two transport modes:
+  1. HTTP REST (original MVP) — for simple tool discovery and execution
+  2. SSE (Server-Sent Events) — standard MCP transport for real-time bidirectional
+     communication with Claude Desktop, Cursor, and other MCP clients
 
 Endpoints:
-    GET  /api/mcp/tools                  - List all registered tools in MCP schema format
-    POST /api/mcp/tools/{tool_name}/execute - Execute a tool by name with provided arguments
+    GET  /api/mcp/tools                    - List all registered tools (REST)
+    POST /api/mcp/tools/{tool_name}/execute - Execute a tool by name (REST)
+    GET  /api/mcp/sse                      - SSE endpoint for MCP clients
+    POST /api/mcp/messages                 - Receive JSON-RPC messages from MCP clients
 """
 
+import json
 import logging
 import time
-from typing import Any, Dict, List
+import asyncio
+import uuid
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.core.auth import get_current_user_id
@@ -57,7 +65,55 @@ class MCPExecuteResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Endpoints
+# SSE Session Management
+# ---------------------------------------------------------------------------
+
+class MCPSession:
+    """Manages a single MCP SSE session."""
+
+    def __init__(self, session_id: str, user_id: str):
+        self.session_id = session_id
+        self.user_id = user_id
+        self.queue: asyncio.Queue = asyncio.Queue()
+        self.created_at = time.time()
+
+    async def send(self, data: dict):
+        """Queue an SSE event to be sent to the client."""
+        await self.queue.put(data)
+
+    async def send_jsonrpc_response(self, id: Any, result: Any):
+        """Send a JSON-RPC 2.0 response."""
+        await self.send({
+            "jsonrpc": "2.0",
+            "id": id,
+            "result": result,
+        })
+
+    async def send_jsonrpc_error(self, id: Any, code: int, message: str):
+        """Send a JSON-RPC 2.0 error response."""
+        await self.send({
+            "jsonrpc": "2.0",
+            "id": id,
+            "error": {"code": code, "message": message},
+        })
+
+
+# In-memory session store (suitable for single-instance deployment)
+_sessions: Dict[str, MCPSession] = {}
+
+# Server capabilities declaration
+MCP_SERVER_INFO = {
+    "name": "nexus-ai-command",
+    "version": "1.0.0",
+}
+
+MCP_CAPABILITIES = {
+    "tools": {"listChanged": False},
+}
+
+
+# ---------------------------------------------------------------------------
+# REST Endpoints (original MVP)
 # ---------------------------------------------------------------------------
 
 @router.get("/tools")
@@ -163,3 +219,179 @@ async def execute_tool(
             ErrorCode.SYSTEM_INTERNAL_ERROR,
             f"Tool execution failed: {exc}",
         )
+
+
+# ---------------------------------------------------------------------------
+# SSE Transport Endpoints (Standard MCP)
+# ---------------------------------------------------------------------------
+
+@router.get("/sse")
+async def sse_endpoint(request: Request, user_id: str = Depends(get_current_user_id)):
+    """
+    SSE endpoint for MCP clients (Claude Desktop, Cursor, etc.).
+
+    The client connects here and receives server-sent events.
+    Messages from client are sent via POST /api/mcp/messages.
+
+    SSE Protocol:
+      1. Client connects to GET /api/mcp/sse
+      2. Server sends 'endpoint' event with the messages URL
+      3. Client sends JSON-RPC requests to POST /api/mcp/messages
+      4. Server sends JSON-RPC responses back via SSE
+    """
+    session_id = str(uuid.uuid4())
+    session = MCPSession(session_id, user_id)
+    _sessions[session_id] = session
+
+    logger.info("[MCP-SSE] New session=%s user=%s", session_id, user_id)
+
+    async def event_stream():
+        try:
+            # First event: tell client where to send messages
+            messages_url = f"/api/mcp/messages?session_id={session_id}"
+            yield f"event: endpoint\ndata: {messages_url}\n\n"
+
+            # Keep connection alive, forward queued responses
+            while True:
+                try:
+                    # Wait for messages with keepalive ping every 30s
+                    data = await asyncio.wait_for(session.queue.get(), timeout=30.0)
+                    payload = json.dumps(data, ensure_ascii=False)
+                    yield f"event: message\ndata: {payload}\n\n"
+                except asyncio.TimeoutError:
+                    # Send keepalive comment
+                    yield ": keepalive\n\n"
+                except asyncio.CancelledError:
+                    break
+
+                # Check if client disconnected
+                if await request.is_disconnected():
+                    break
+        finally:
+            # Cleanup session
+            _sessions.pop(session_id, None)
+            logger.info("[MCP-SSE] Session closed=%s", session_id)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.post("/messages")
+async def handle_message(
+    request: Request,
+    session_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Receive JSON-RPC 2.0 messages from MCP clients.
+
+    Supported methods:
+      - initialize: Handshake, returns server capabilities
+      - tools/list: List available tools
+      - tools/call: Execute a tool
+      - ping: Keepalive ping
+    """
+    session = _sessions.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found or expired")
+
+    body = await request.json()
+    method = body.get("method", "")
+    params = body.get("params", {})
+    msg_id = body.get("id")
+
+    logger.info(
+        "[MCP-SSE] message session=%s method=%s id=%s",
+        session_id, method, msg_id,
+    )
+
+    try:
+        if method == "initialize":
+            await session.send_jsonrpc_response(msg_id, {
+                "protocolVersion": "2024-11-05",
+                "serverInfo": MCP_SERVER_INFO,
+                "capabilities": MCP_CAPABILITIES,
+            })
+
+        elif method == "notifications/initialized":
+            # Client acknowledges initialization — no response needed
+            pass
+
+        elif method == "ping":
+            await session.send_jsonrpc_response(msg_id, {})
+
+        elif method == "tools/list":
+            tools = []
+            for tool in TOOL_REGISTRY.values():
+                tools.append({
+                    "name": tool.name,
+                    "description": tool.description,
+                    "inputSchema": tool.parameters or {
+                        "type": "object",
+                        "properties": {},
+                    },
+                })
+            await session.send_jsonrpc_response(msg_id, {"tools": tools})
+
+        elif method == "tools/call":
+            tool_name = params.get("name", "")
+            arguments = params.get("arguments", {})
+
+            tool = get_tool(tool_name)
+            if not tool:
+                await session.send_jsonrpc_error(
+                    msg_id, -32602, f"Tool '{tool_name}' not found"
+                )
+                return {"ok": True}
+
+            # Execute tool
+            start = time.perf_counter()
+            try:
+                org_id = getattr(request.state, "org_id", None)
+                result = await tool.run(
+                    args=arguments,
+                    user_id=user_id,
+                    config={"org_id": org_id, "source": "mcp-sse"},
+                )
+                duration_ms = round((time.perf_counter() - start) * 1000, 2)
+
+                await session.send_jsonrpc_response(msg_id, {
+                    "content": [
+                        {"type": "text", "text": str(result)},
+                    ],
+                    "isError": False,
+                    "_meta": {"duration_ms": duration_ms},
+                })
+            except Exception as exc:
+                duration_ms = round((time.perf_counter() - start) * 1000, 2)
+                logger.error(
+                    "[MCP-SSE] tool_error tool=%s error=%s", tool_name, exc
+                )
+                await session.send_jsonrpc_response(msg_id, {
+                    "content": [
+                        {"type": "text", "text": f"Tool error: {str(exc)}"},
+                    ],
+                    "isError": True,
+                    "_meta": {"duration_ms": duration_ms},
+                })
+
+        else:
+            await session.send_jsonrpc_error(
+                msg_id, -32601, f"Method '{method}' not supported"
+            )
+
+    except Exception as exc:
+        logger.exception("[MCP-SSE] handler error: %s", exc)
+        if msg_id is not None:
+            await session.send_jsonrpc_error(
+                msg_id, -32603, f"Internal error: {str(exc)}"
+            )
+
+    return {"ok": True}

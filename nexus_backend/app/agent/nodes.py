@@ -26,6 +26,7 @@ from langchain_core.messages import (
     BaseMessage,
 )
 from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field
 
 from app.agent.state import (
     AgentConfig,
@@ -43,6 +44,23 @@ from app.core.ai_metrics import (
     record_tool_execution,
     record_hallucination,
 )
+
+logger = logging.getLogger(__name__)
+
+
+# ─── Pydantic models for structured LLM output in reflect_node ───────────────
+
+class GroundednessCheck(BaseModel):
+    """RAG groundedness evaluation result."""
+    is_grounded: bool = Field(description="Whether the response is grounded in reference knowledge")
+    reason: str = Field(default="", description="Reason for the evaluation")
+    score: float = Field(default=0.5, ge=0.0, le=1.0, description="Groundedness score 0-1")
+
+class HallucinationCheck(BaseModel):
+    """LLM-based hallucination detection result."""
+    is_hallucination: bool = Field(description="Whether the response contains fabricated information")
+    reason: str = Field(default="", description="Reason for the evaluation")
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0, description="Confidence score 0-1")
 
 logger = logging.getLogger(__name__)
 
@@ -89,12 +107,23 @@ def _messages_to_lc_format(messages) -> List[BaseMessage]:
 async def _execute_single_tool(
     record: ToolCallRecord,
     config: AgentConfig,
+    _idempotency_cache: dict = {},
 ) -> ToolCallRecord:
-    """Execute a single tool with RBAC, confirmation gates, circuit breaker, and retry."""
+    """Execute a single tool with RBAC, confirmation gates, circuit breaker, idempotency, and retry."""
     tool = get_tool(record.tool_name)
     if not tool:
         record.status = "error"
         record.result = f"Error: Tool '{record.tool_name}' not found."
+        return record
+
+    # -1. Idempotency Check: prevent duplicate execution on retry
+    idempotency_key = f"{record.tool_call_id}:{record.tool_name}"
+    if idempotency_key and idempotency_key in _idempotency_cache:
+        cached = _idempotency_cache[idempotency_key]
+        record.status = cached["status"]
+        record.result = cached["result"]
+        record.duration_ms = cached.get("duration_ms", 0)
+        logger.info(f"[Idempotency] Returning cached result for {record.tool_name} (call_id={record.tool_call_id})")
         return record
 
     # 0. Circuit Breaker Check
@@ -147,6 +176,13 @@ async def _execute_single_tool(
             record.duration_ms = int((time.time() - start_time) * 1000)
             record_tool_execution(record.tool_name, True, record.duration_ms)
             tool_circuit_breaker.record_success()
+            # Cache successful result for idempotency
+            if idempotency_key:
+                _idempotency_cache[idempotency_key] = {
+                    "status": record.status,
+                    "result": record.result,
+                    "duration_ms": record.duration_ms,
+                }
             return record
         except asyncio.TimeoutError:
             logger.warning(f"Tool {record.tool_name} timed out after {timeout}s (attempt {attempt+1})")
@@ -482,17 +518,14 @@ async def reflect_node(state: AgentState) -> dict:
 
 AI回复:
 {last_ai_content[:1000]}
-
-回复格式为 JSON: {{"is_grounded": bool, "reason": "str", "score": float}} 
-其中 is_grounded 为 false 表示存在幻觉或编造。
 """
         try:
             llm = _get_llm(config, model=config.mini_model)
-            llm_eval = await llm.ainvoke([HumanMessage(content=prompt)])
-            eval_data = json.loads(llm_eval.content)
-            if not eval_data.get("is_grounded"):
+            structured_llm = llm.with_structured_output(GroundednessCheck)
+            eval_result: GroundednessCheck = await structured_llm.ainvoke([HumanMessage(content=prompt)])
+            if not eval_result.is_grounded:
                 is_hallucination = True
-                grounded_warning = eval_data.get("reason", "事实偏差")
+                grounded_warning = eval_result.reason or "事实偏差"
                 logger.warning(f"[Reflect] Ungrounded response: {grounded_warning}")
         except Exception as e:
             logger.debug(f"[ReflectNode] Groundedness check failed: {e}")
@@ -512,16 +545,14 @@ AI回复:
 
 AI 回复:
 {last_ai_content}
-
-回复格式为 JSON: {{"is_hallucination": bool, "reason": "str", "confidence": float}}
 """
         try:
             llm = _get_llm(config, model=config.mini_model)
-            llm_eval = await llm.ainvoke([HumanMessage(content=prompt)])
-            eval_data = json.loads(llm_eval.content)
-            if eval_data.get("is_hallucination"):
+            structured_llm = llm.with_structured_output(HallucinationCheck)
+            eval_result: HallucinationCheck = await structured_llm.ainvoke([HumanMessage(content=prompt)])
+            if eval_result.is_hallucination:
                 is_hallucination = True
-                hallucination_reason = eval_data.get("reason", "存在事实偏差")
+                hallucination_reason = eval_result.reason or "存在事实偏差"
         except Exception as e:
             logger.debug(f"[ReflectNode] LLM eval failed: {e}")
 
@@ -619,6 +650,7 @@ async def _verify_tool_grounding(ai_response: str, tool_results: list) -> Option
 async def respond_node(state: AgentState) -> dict:
     """
     Finalize output and format for UI.
+    Includes role-based sensitive field masking for security.
     """
     final_response = state.get("final_response", "")
 
@@ -630,6 +662,12 @@ async def respond_node(state: AgentState) -> dict:
 
     # Final moderation filter
     final_response = sanitize_output(final_response)
+
+    # P1 Security: Role-based sensitive field masking
+    # Prevents lower-privilege users from seeing sensitive data
+    # that may have been retrieved by RAG or tool calls
+    config: AgentConfig = state["config"]
+    final_response = _mask_sensitive_fields(final_response, config.user_role)
 
     return {
         "final_response": final_response or "抱歉，系统处理出现异常，请重试。",
@@ -698,3 +736,46 @@ async def error_node(state: AgentState) -> dict:
             content=f"❌ 遇到严重故障，停止执行: {error_msg}",
         )],
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  HELPER: Role-based Sensitive Field Masking
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Sensitive field patterns with role access levels
+# Only roles at or above the specified level can see unmasked values
+import re as _re
+
+_SENSITIVE_FIELD_RULES = [
+    # (pattern, mask_replacement, minimum_role_level)
+    # Role levels: guest=0, employee=1, manager=2, boss=3, founder=4
+    (_re.compile(r'(薪[资酬水]|工资|月薪|年薪|底薪|基本工资)\s*[:：]?\s*[\d,.]+\s*[元万千]?'), '[薪资信息已隐藏]', 3),
+    (_re.compile(r'(提成|奖金|绩效奖|年终奖)\s*[:：]?\s*[\d,.]+\s*[元万千]?'), '[奖金信息已隐藏]', 3),
+    (_re.compile(r'(社保|公积金|五险一金)\s*[:：]?\s*[\d,.]+\s*[元万千]?'), '[社保信息已隐藏]', 3),
+    (_re.compile(r'(合同金额|签约金额|合同价)\s*[:：]?\s*[\d,.]+\s*[元万千]?'), '[合同金额已隐藏]', 2),
+    (_re.compile(r'(成本价|进货价|底价)\s*[:：]?\s*[\d,.]+\s*[元万千]?'), '[成本信息已隐藏]', 2),
+    (_re.compile(r'(利润率|毛利率|净利率)\s*[:：]?\s*[\d,.]+\s*%?'), '[利润信息已隐藏]', 2),
+]
+
+_ROLE_LEVELS = {
+    'guest': 0, 'employee': 1, 'manager': 2, 'boss': 3, 'founder': 4,
+}
+
+
+def _mask_sensitive_fields(content: str, user_role: str) -> str:
+    """
+    P1 Security: Mask sensitive financial/HR fields based on user role.
+
+    Higher-privilege roles see more data. Lower-privilege roles get
+    sensitive fields replaced with '[已隐藏]' placeholders.
+    """
+    if not content or not user_role:
+        return content
+
+    current_level = _ROLE_LEVELS.get(user_role, 1)
+
+    for pattern, replacement, min_level in _SENSITIVE_FIELD_RULES:
+        if current_level < min_level:
+            content = pattern.sub(replacement, content)
+
+    return content

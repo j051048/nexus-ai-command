@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { aiClient } from '@/api/aiClient';
+import { toast } from 'sonner';
 import {
   Bot,
   MessageSquare,
@@ -20,6 +22,8 @@ import {
   Shield,
   Keyboard,
   Search,
+  Database,
+  Loader2,
 } from 'lucide-react';
 
 const STORAGE_KEY = 'nexus_onboarding_completed';
@@ -208,6 +212,7 @@ export function WelcomeTour() {
   const [isVisible, setIsVisible] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     try {
@@ -229,6 +234,19 @@ export function WelcomeTour() {
     }
     setIsVisible(false);
   }, []);
+
+  const generateDemoData = useCallback(async () => {
+    setGenerating(true);
+    try {
+      await aiClient.fetch('api/onboarding/generate-demo-data', { method: 'POST' });
+      toast.success('Demo data generated! Explore the platform with sample data.');
+      complete();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to generate demo data');
+    } finally {
+      setGenerating(false);
+    }
+  }, [complete]);
 
   const goNext = useCallback(() => {
     if (currentStep < steps.length - 1) {
@@ -333,38 +351,62 @@ export function WelcomeTour() {
         </div>
 
         {/* Actions */}
-        <div className="px-6 pb-6 pt-4 flex items-center justify-between">
-          <div>
-            {!isFirst && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={goPrev}
-                className="gap-1 text-muted-foreground"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                上一步
-              </Button>
-            )}
-          </div>
+        <div className="px-6 pb-6 pt-4 flex flex-col gap-3">
+          {isLast && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={generateDemoData}
+              disabled={generating}
+              className="w-full gap-2"
+            >
+              {generating ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  正在生成...
+                </>
+              ) : (
+                <>
+                  <Database className="w-4 h-4" />
+                  一键生成演示数据
+                </>
+              )}
+            </Button>
+          )}
+          <div className="flex items-center justify-between">
+            <div>
+              {!isFirst && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={goPrev}
+                  className="gap-1 text-muted-foreground"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  上一步
+                </Button>
+              )}
+            </div>
 
-          <Button
-            size="sm"
-            onClick={goNext}
-            className="gap-1 min-w-[100px]"
-          >
-            {isLast ? (
-              <>
-                开始使用
-                <Sparkles className="w-4 h-4" />
-              </>
-            ) : (
-              <>
-                下一步
-                <ChevronRight className="w-4 h-4" />
-              </>
-            )}
-          </Button>
+            <Button
+              size="sm"
+              onClick={goNext}
+              disabled={generating}
+              className="gap-1 min-w-[100px]"
+            >
+              {isLast ? (
+                <>
+                  跳过，直接使用
+                  <Sparkles className="w-4 h-4" />
+                </>
+              ) : (
+                <>
+                  下一步
+                  <ChevronRight className="w-4 h-4" />
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

@@ -41,6 +41,7 @@ from app.routers import (
     api_docs,
     backups,
     api_keys,
+    onboarding,
 )
 from app.routers import mcp as mcp_router
 from app.routers import robot as robot_router
@@ -324,6 +325,7 @@ app.include_router(crm.router)
 app.include_router(api_docs.router)
 app.include_router(backups.router)
 app.include_router(api_keys.router)
+app.include_router(onboarding.router)
 
 
 @app.get("/")

@@ -362,9 +362,14 @@ class ETLService:
                             status="processing",
                         )
 
-                    # Generate embeddings
+                    # P0 Security Fix: Scrub PII before generating embeddings
+                    # This prevents sensitive data (phone numbers, ID cards, emails)
+                    # from being vectorized and retrievable via semantic search
+                    safe_text_for_embedding = self._scrub_pii(text)
+
+                    # Generate embeddings with PII-scrubbed text
                     embedding_success = await self._generate_embeddings(
-                        text, doc_id, filename, active_key, active_url
+                        safe_text_for_embedding, doc_id, filename, active_key, active_url
                     )
 
                     if embedding_success:

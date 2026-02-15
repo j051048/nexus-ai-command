@@ -92,6 +92,7 @@ class DataImportService:
         user_id: str,
         column_mapping: Optional[Dict[str, str]] = None,
         db=None,
+        mode: str = "insert",
     ) -> Dict[str, Any]:
         """
         导入 CSV 数据。
@@ -103,6 +104,7 @@ class DataImportService:
             user_id: 操作用户 ID
             column_mapping: 可选的自定义列映射
             db: 数据库客户端
+            mode: "insert"(默认, 跳过已存在) 或 "incremental"(更新已存在)
 
         Returns:
             导入结果统计
@@ -135,6 +137,7 @@ class DataImportService:
 
             success_count = 0
             skip_count = 0
+            update_count = 0
             import_errors = list(validation_errors)  # copy
 
             for idx, row in enumerate(normalized_rows, start=2):
@@ -142,11 +145,13 @@ class DataImportService:
                     continue
 
                 try:
-                    imported = await self._import_single_row(
-                        import_type, row, org_id, user_id, db
+                    result_code = await self._import_single_row(
+                        import_type, row, org_id, user_id, db, mode=mode
                     )
-                    if imported:
+                    if result_code == "inserted":
                         success_count += 1
+                    elif result_code == "updated":
+                        update_count += 1
                     else:
                         skip_count += 1
                 except Exception as e:
@@ -159,6 +164,7 @@ class DataImportService:
 
             return {
                 "success_count": success_count,
+                "update_count": update_count,
                 "skip_count": skip_count,
                 "error_count": len(import_errors),
                 "total_rows": len(normalized_rows),
@@ -515,7 +521,8 @@ class DataImportService:
         org_id: str,
         user_id: str,
         db,
-    ) -> bool:
+        mode: str = "insert",
+    ) -> str:
         """
         导入单行数据到数据库。
 
@@ -525,24 +532,25 @@ class DataImportService:
             org_id: 组织 ID
             user_id: 操作用户 ID
             db: 数据库客户端
+            mode: "insert"(跳过已存在) 或 "incremental"(更新已存在)
 
         Returns:
-            True 如果成功导入，False 如果跳过（已存在）
+            "inserted" 新增, "updated" 更新, "skipped" 跳过
         """
         if import_type == "employees":
-            return await self._import_employee(row, org_id, db)
+            return await self._import_employee(row, org_id, db, mode)
         elif import_type == "customers":
-            return await self._import_customer(row, org_id, user_id, db)
+            return await self._import_customer(row, org_id, user_id, db, mode)
         elif import_type == "attendance":
-            return await self._import_attendance(row, org_id, db)
+            return await self._import_attendance(row, org_id, db, mode)
         elif import_type == "sales":
-            return await self._import_sale(row, org_id, user_id, db)
+            return await self._import_sale(row, org_id, user_id, db, mode)
         else:
             raise ValueError(f"Unknown import type: {import_type}")
 
     async def _import_employee(
-        self, row: Dict[str, str], org_id: str, db
-    ) -> bool:
+        self, row: Dict[str, str], org_id: str, db, mode: str = "insert"
+    ) -> str:
         """导入单条员工记录"""
         email = row.get("email", "").strip()
         existing = await db.table("users").select("id").eq(
@@ -550,7 +558,27 @@ class DataImportService:
         ).maybe_single().execute()
 
         if existing.data:
-            return False  # 跳过
+            if mode == "incremental":
+                # 增量模式：更新已存在记录的非空字段
+                update_data = {}
+                name = row.get("name", "").strip()
+                if name:
+                    update_data["name"] = name
+                dept = row.get("department", "").strip()
+                if dept:
+                    update_data["department"] = dept
+                role = row.get("role", "").strip()
+                if role:
+                    update_data["role"] = role
+                phone = row.get("phone", "").strip()
+                if phone:
+                    update_data["phone"] = phone
+                if update_data:
+                    await db.table("users").update(update_data).eq(
+                        "id", existing.data["id"]
+                    ).execute()
+                    return "updated"
+            return "skipped"
 
         await db.table("users").insert({
             "name": row.get("name", "").strip(),
@@ -563,11 +591,11 @@ class DataImportService:
             "score": 0,
             "total_bonus": 0,
         }).execute()
-        return True
+        return "inserted"
 
     async def _import_customer(
-        self, row: Dict[str, str], org_id: str, user_id: str, db
-    ) -> bool:
+        self, row: Dict[str, str], org_id: str, user_id: str, db, mode: str = "insert"
+    ) -> str:
         """导入单条客户记录"""
         name = row.get("name", "").strip()
         company = row.get("company", "").strip()
@@ -578,7 +606,29 @@ class DataImportService:
         existing = await query.maybe_single().execute()
 
         if existing.data:
-            return False
+            if mode == "incremental":
+                update_data = {}
+                contact = row.get("contact_person", "").strip()
+                if contact:
+                    update_data["contact_person"] = contact
+                phone = row.get("phone", "").strip()
+                if phone:
+                    update_data["phone"] = phone
+                email = row.get("email", "").strip()
+                if email:
+                    update_data["email"] = email
+                source = row.get("source", "").strip()
+                if source:
+                    update_data["source"] = source
+                notes = row.get("notes", "").strip()
+                if notes:
+                    update_data["notes"] = notes
+                if update_data:
+                    await db.table("customers").update(update_data).eq(
+                        "id", existing.data["id"]
+                    ).execute()
+                    return "updated"
+            return "skipped"
 
         await db.table("customers").insert({
             "name": name,
@@ -591,11 +641,11 @@ class DataImportService:
             "created_by": user_id,
             "organization_id": org_id,
         }).execute()
-        return True
+        return "inserted"
 
     async def _import_attendance(
-        self, row: Dict[str, str], org_id: str, db
-    ) -> bool:
+        self, row: Dict[str, str], org_id: str, db, mode: str = "insert"
+    ) -> str:
         """导入单条考勤记录"""
         email = row.get("email", "").strip()
 
@@ -616,7 +666,23 @@ class DataImportService:
         ).eq("date", date_str).maybe_single().execute()
 
         if existing.data:
-            return False
+            if mode == "incremental":
+                update_data = {}
+                check_in = row.get("check_in", "").strip()
+                if check_in:
+                    update_data["check_in"] = check_in
+                check_out = row.get("check_out", "").strip()
+                if check_out:
+                    update_data["check_out"] = check_out
+                notes = row.get("notes", "").strip()
+                if notes:
+                    update_data["notes"] = notes
+                if update_data:
+                    await db.table("attendance_records").update(update_data).eq(
+                        "id", existing.data["id"]
+                    ).execute()
+                    return "updated"
+            return "skipped"
 
         await db.table("attendance_records").insert({
             "user_id": user_id,
@@ -627,11 +693,11 @@ class DataImportService:
             "status": "normal",
             "organization_id": org_id,
         }).execute()
-        return True
+        return "inserted"
 
     async def _import_sale(
-        self, row: Dict[str, str], org_id: str, user_id: str, db
-    ) -> bool:
+        self, row: Dict[str, str], org_id: str, user_id: str, db, mode: str = "insert"
+    ) -> str:
         """导入单条销售记录"""
         customer_name = row.get("customer_name", "").strip()
         amount_str = row.get("amount", "0").strip()
@@ -656,7 +722,7 @@ class DataImportService:
             "notes": row.get("notes", "").strip() or None,
             "organization_id": org_id,
         }).execute()
-        return True
+        return "inserted"
 
     # ============== 工具方法 ==============
 

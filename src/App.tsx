@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/components/auth/AuthContext";
+import { GlobalCommandBar } from "@/components/layout/GlobalCommandBar";
 import { EnhancedThemeProvider } from "@/contexts/EnhancedThemeContext";
 import { I18nProvider } from "@/lib/i18n";
 import { LoginPage } from "@/components/auth/LoginPage";
@@ -169,6 +170,7 @@ const App = () => (
       <Toaster />
       <BrowserRouter>
         <AuthProvider>
+          <GlobalCommandBar />
           <ErrorBoundary><Suspense fallback={<LoadingFallback />}>
             <Routes>
               <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
