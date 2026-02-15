@@ -156,6 +156,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
                   <Link
                     to={`/${item.href}`}
                     onClick={onNavClick}
+                    aria-current={isActive(item.href) ? "page" : undefined}
                     className={cn(
                       "flex items-center gap-3 rounded-lg text-sm font-medium transition-all group relative",
                       isCollapsed ? "justify-center p-2" : "px-3 py-2",
@@ -212,7 +213,8 @@ export function Sidebar({ onNavClick }: SidebarProps) {
   );
 
   return (
-    <aside 
+    <aside
+      aria-label="主导航"
       className={cn(
         "bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 ease-in-out h-full z-40 relative group/sidebar",
         isCollapsed ? "w-[70px]" : "w-64"
@@ -223,6 +225,8 @@ export function Sidebar({ onNavClick }: SidebarProps) {
         onClick={() => setIsCollapsed(!isCollapsed)}
         variant="ghost"
         size="icon"
+        aria-expanded={isCollapsed ? "false" : "true"}
+        aria-label="折叠菜单"
         className="absolute -right-3 top-6 h-6 w-6 rounded-full border bg-background shadow-md hover:bg-accent z-50 hidden md:flex items-center justify-center p-0"
       >
         {isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
@@ -260,7 +264,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-4 overflow-y-auto overflow-x-hidden space-y-2 custom-scrollbar">
+      <nav role="navigation" aria-label="功能菜单" className="flex-1 py-4 overflow-y-auto overflow-x-hidden space-y-2 custom-scrollbar">
         {renderNavGroup("AI 核心指挥", navItems.filter(i => ['dashboard', 'boss-dashboard', 'tender-analysis', 'battlecards', 'sales'].includes(i.href)))}
         {renderNavGroup("业务与日常", navItems.filter(i => ['projects', 'target-dashboard', 'targets', 'approval', 'exceptions', 'employees', 'roles', 'departments'].includes(i.href)))}
         {renderNavGroup("OA/HR/财务", navItems.filter(i => ['oa', 'hr', 'finance'].includes(i.href)))}

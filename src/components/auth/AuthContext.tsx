@@ -1,7 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session, AuthError } from '@supabase/supabase-js';
+import { toast } from 'sonner';
 
 // 三级权限系统
 type AppRole = 'boss' | 'manager' | 'ai_assistant' | 'employee';
@@ -37,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
+  const hadSessionRef = useRef(false);
 
   const fetchUserData = async (userId: string) => {
     try {
@@ -95,9 +97,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(newSession?.user ?? null);
 
         if (newSession?.user) {
+          hadSessionRef.current = true;
           // fetchUserData handles its own setLoading(false)
           fetchUserData(newSession.user.id);
         } else {
+          // Session lost — notify user if they were previously signed in
+          if (hadSessionRef.current && (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED')) {
+            toast.error('登录已过期，请重新登录');
+          }
+          hadSessionRef.current = false;
           setProfile(null);
           setRole(null);
           setLoading(false);
