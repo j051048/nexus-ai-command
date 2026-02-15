@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   CommandDialog,
@@ -37,7 +37,9 @@ import {
   Key,
   UserCog,
   Building2,
+  Loader2,
 } from 'lucide-react';
+import { aiClient } from '@/api/aiClient';
 
 interface CommandItem {
   label: string;
@@ -45,6 +47,12 @@ interface CommandItem {
   icon: React.ComponentType<{ className?: string }>;
   keywords?: string[];
   group: string;
+}
+
+interface CustomerResult {
+  id: string;
+  name: string;
+  company?: string;
 }
 
 const COMMAND_ITEMS: CommandItem[] = [
@@ -101,7 +109,11 @@ const COMMAND_ITEMS: CommandItem[] = [
 
 export function GlobalCommandBar() {
   const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [customerResults, setCustomerResults] = useState<CustomerResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const navigate = useNavigate();
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Listen for Ctrl+K / Cmd+K
   useEffect(() => {
@@ -114,6 +126,48 @@ export function GlobalCommandBar() {
     document.addEventListener('keydown', down);
     return () => document.removeEventListener('keydown', down);
   }, []);
+
+  // Reset search state when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setSearchQuery('');
+      setCustomerResults([]);
+      setIsSearching(false);
+    }
+  }, [open]);
+
+  // Debounced business data search
+  useEffect(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    if (searchQuery.length < 2) {
+      setCustomerResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    setIsSearching(true);
+    debounceTimerRef.current = setTimeout(async () => {
+      try {
+        const data = await aiClient.fetch<CustomerResult[]>(
+          `api/crm/customers?search=${encodeURIComponent(searchQuery)}`
+        );
+        setCustomerResults(Array.isArray(data) ? data : []);
+      } catch {
+        setCustomerResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [searchQuery]);
 
   const handleSelect = useCallback(
     (path: string) => {
@@ -132,9 +186,44 @@ export function GlobalCommandBar() {
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
-      <CommandInput placeholder="搜索功能、页面... (Ctrl+K)" />
+      <CommandInput
+        placeholder="搜索功能、页面、客户... (Ctrl+K)"
+        value={searchQuery}
+        onValueChange={setSearchQuery}
+      />
       <CommandList>
         <CommandEmpty>未找到匹配的功能</CommandEmpty>
+
+        {/* 业务数据搜索结果 */}
+        {(isSearching || customerResults.length > 0) && (
+          <>
+            <CommandGroup heading="搜索结果">
+              {isSearching && (
+                <CommandItem value="__searching__" disabled>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <span className="text-muted-foreground">正在搜索...</span>
+                </CommandItem>
+              )}
+              {customerResults.map((customer) => (
+                <CommandItem
+                  key={`customer-${customer.id}`}
+                  value={`客户 ${customer.name} ${customer.company || ''}`}
+                  onSelect={() => handleSelect('/crm')}
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  <span>{customer.name}</span>
+                  {customer.company && (
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {customer.company}
+                    </span>
+                  )}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+            <CommandSeparator />
+          </>
+        )}
+
         {Object.entries(groups).map(([group, items], idx) => (
           <React.Fragment key={group}>
             {idx > 0 && <CommandSeparator />}

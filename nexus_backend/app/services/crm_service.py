@@ -78,7 +78,8 @@ class CRMService:
                 if res.data:
                     customer = {**customer, **res.data[0]}
             except Exception as e:
-                logger.warning(f"Failed to create customer in DB: {e}")
+                logger.error(f"Failed to create customer in DB: {e}")
+                raise
 
         logger.info(f"Customer created: {customer['name']} in org {org_id}")
         return customer
@@ -106,7 +107,9 @@ class CRMService:
                 if res.data:
                     return res.data[0]
             except Exception as e:
-                logger.warning(f"Failed to update customer: {e}")
+                logger.error(f"Failed to update customer: {e}")
+                raise
+            return {"id": customer_id, **update_data}
 
         return {"id": customer_id, **update_data}
 
@@ -123,10 +126,12 @@ class CRMService:
                 )
                 if res.data:
                     return res.data
+                return None
             except Exception as e:
-                logger.warning(f"Customer query failed: {e}")
+                logger.error(f"Customer query failed: {e}")
+                raise
 
-        # Mock 回退
+        # 无数据库连接时返回 mock
         return self._mock_single_customer(customer_id)
 
     async def list_customers(
@@ -156,12 +161,12 @@ class CRMService:
                     query = query.limit(filters["limit"])
 
                 res = await query.execute()
-                if res.data:
-                    return res.data
+                return res.data or []
             except Exception as e:
-                logger.warning(f"Customer list query failed: {e}")
+                logger.error(f"Customer list query failed: {e}")
+                raise
 
-        # Mock 回退
+        # 无数据库连接时返回 mock
         return self._mock_customer_list(org_id, filters)
 
     async def search_customers(self, org_id: str, query: str, db=None) -> List[Dict]:
@@ -182,9 +187,10 @@ class CRMService:
                 )
                 return res.data or []
             except Exception as e:
-                logger.warning(f"Customer search failed: {e}")
+                logger.error(f"Customer search failed: {e}")
+                raise
 
-        # Mock
+        # 无数据库连接时使用 mock
         all_customers = self._mock_customer_list(org_id)
         return [
             c for c in all_customers
@@ -226,7 +232,8 @@ class CRMService:
                 if res.data:
                     contact = {**contact, **res.data[0]}
             except Exception as e:
-                logger.warning(f"Failed to create contact: {e}")
+                logger.error(f"Failed to create contact: {e}")
+                raise
 
         return contact
 
@@ -243,9 +250,10 @@ class CRMService:
                 )
                 return res.data or []
             except Exception as e:
-                logger.warning(f"Contact list query failed: {e}")
+                logger.error(f"Contact list query failed: {e}")
+                raise
 
-        # Mock
+        # 无数据库连接时返回 mock
         return [
             {
                 "id": str(uuid.uuid4()),
@@ -306,7 +314,8 @@ class CRMService:
                 if res.data:
                     activity = {**activity, **res.data[0]}
             except Exception as e:
-                logger.warning(f"Failed to create activity: {e}")
+                logger.error(f"Failed to create activity: {e}")
+                raise
 
         return activity
 
@@ -326,9 +335,10 @@ class CRMService:
                 )
                 return res.data or []
             except Exception as e:
-                logger.warning(f"Activity timeline query failed: {e}")
+                logger.error(f"Activity timeline query failed: {e}")
+                raise
 
-        # Mock
+        # 无数据库连接时返回 mock
         import random
         activities = []
         types = list(ACTIVITY_TYPES.keys())

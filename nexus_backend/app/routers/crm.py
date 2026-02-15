@@ -1,7 +1,11 @@
 """CRM 客户关系管理 API 端点"""
 
 import logging
+from typing import Optional, List
+
 from fastapi import APIRouter, Request, Depends, Query
+from pydantic import BaseModel, Field, field_validator
+
 from app.core.auth import get_current_user_id
 from app.core.errors import api_success, api_error, api_list, ErrorCode
 from app.services.crm_service import crm_service, CUSTOMER_STAGES, ACTIVITY_TYPES
@@ -9,6 +13,76 @@ from app.services.crm_service import crm_service, CUSTOMER_STAGES, ACTIVITY_TYPE
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/crm", tags=["CRM"])
 
+
+# ---------------------------------------------------------------------------
+# Pydantic request models
+# ---------------------------------------------------------------------------
+
+class CreateCustomerRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200, description="客户名称")
+    company: Optional[str] = Field(None, max_length=200)
+    industry: Optional[str] = Field(None, max_length=100)
+    stage: Optional[str] = Field("lead")
+    source: Optional[str] = Field(None, max_length=100)
+    estimated_value: Optional[float] = Field(None, ge=0)
+    tags: Optional[List[str]] = None
+    metadata: Optional[dict] = None
+
+    @field_validator("stage")
+    @classmethod
+    def validate_stage(cls, v: Optional[str]) -> Optional[str]:
+        valid = {"lead", "prospect", "opportunity", "customer", "churned"}
+        if v and v not in valid:
+            raise ValueError(f"stage must be one of {valid}")
+        return v
+
+
+class UpdateCustomerRequest(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=200)
+    company: Optional[str] = Field(None, max_length=200)
+    industry: Optional[str] = Field(None, max_length=100)
+    stage: Optional[str] = None
+    source: Optional[str] = Field(None, max_length=100)
+    estimated_value: Optional[float] = Field(None, ge=0)
+    assigned_to: Optional[str] = None
+    tags: Optional[List[str]] = None
+    metadata: Optional[dict] = None
+
+    @field_validator("stage")
+    @classmethod
+    def validate_stage(cls, v: Optional[str]) -> Optional[str]:
+        valid = {"lead", "prospect", "opportunity", "customer", "churned"}
+        if v and v not in valid:
+            raise ValueError(f"stage must be one of {valid}")
+        return v
+
+
+class CreateContactRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    title: Optional[str] = Field(None, max_length=100)
+    phone: Optional[str] = Field(None, max_length=50)
+    email: Optional[str] = Field(None, max_length=200)
+    is_primary: Optional[bool] = False
+
+
+class CreateActivityRequest(BaseModel):
+    activity_type: str = Field(..., min_length=1, max_length=50)
+    content: str = Field("", max_length=5000)
+
+    @field_validator("activity_type")
+    @classmethod
+    def validate_type(cls, v: str) -> str:
+        valid = {t["value"] for t in ACTIVITY_TYPES} if ACTIVITY_TYPES else {
+            "call", "email", "meeting", "note", "task"
+        }
+        if v not in valid:
+            raise ValueError(f"activity_type must be one of {valid}")
+        return v
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
 
 @router.get("/customers")
 async def list_customers(
@@ -35,26 +109,26 @@ async def list_customers(
 
         return api_list(items=customers, total=len(customers))
     except Exception as e:
-        logger.error(f"List customers error: {e}")
+        logger.error(f"List customers error: user={user_id} org={getattr(req.state, 'org_id', None)} err={e}")
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.post("/customers")
 async def create_customer(
+    body: CreateCustomerRequest,
     req: Request,
     user_id: str = Depends(get_current_user_id),
 ):
     """创建新客户"""
     try:
-        body = await req.json()
         org_id = getattr(req.state, "org_id", None) or "default"
         db = getattr(req.state, "db", None)
-        customer = await crm_service.create_customer(org_id, body, db=db)
+        customer = await crm_service.create_customer(org_id, body.model_dump(exclude_none=True), db=db)
         return api_success(data={"customer": customer}, message="客户创建成功")
     except ValueError as e:
         return api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
     except Exception as e:
-        logger.error(f"Create customer error: {e}")
+        logger.error(f"Create customer error: user={user_id} err={e}")
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
@@ -72,26 +146,28 @@ async def get_customer(
             return api_error(ErrorCode.RESOURCE_NOT_FOUND, "客户不存在")
         return api_success(data={"customer": customer})
     except Exception as e:
-        logger.error(f"Get customer error: {e}")
+        logger.error(f"Get customer error: id={customer_id} user={user_id} err={e}")
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.put("/customers/{customer_id}")
 async def update_customer(
     customer_id: str,
+    body: UpdateCustomerRequest,
     req: Request,
     user_id: str = Depends(get_current_user_id),
 ):
     """更新客户信息"""
     try:
-        body = await req.json()
         db = getattr(req.state, "db", None)
-        customer = await crm_service.update_customer(customer_id, body, db=db)
+        customer = await crm_service.update_customer(
+            customer_id, body.model_dump(exclude_none=True), db=db
+        )
         return api_success(data={"customer": customer}, message="客户信息已更新")
     except ValueError as e:
         return api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
     except Exception as e:
-        logger.error(f"Update customer error: {e}")
+        logger.error(f"Update customer error: id={customer_id} user={user_id} err={e}")
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
@@ -107,26 +183,26 @@ async def list_contacts(
         contacts = await crm_service.list_contacts(customer_id, db=db)
         return api_list(items=contacts, total=len(contacts))
     except Exception as e:
-        logger.error(f"List contacts error: {e}")
+        logger.error(f"List contacts error: customer={customer_id} user={user_id} err={e}")
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.post("/customers/{customer_id}/contacts")
 async def create_contact(
     customer_id: str,
+    body: CreateContactRequest,
     req: Request,
     user_id: str = Depends(get_current_user_id),
 ):
     """添加联系人"""
     try:
-        body = await req.json()
         db = getattr(req.state, "db", None)
-        contact = await crm_service.create_contact(customer_id, body, db=db)
+        contact = await crm_service.create_contact(customer_id, body.model_dump(), db=db)
         return api_success(data={"contact": contact}, message="联系人已添加")
     except ValueError as e:
         return api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
     except Exception as e:
-        logger.error(f"Create contact error: {e}")
+        logger.error(f"Create contact error: customer={customer_id} user={user_id} err={e}")
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
@@ -143,34 +219,28 @@ async def get_timeline(
         activities = await crm_service.get_activity_timeline(customer_id, limit, db=db)
         return api_list(items=activities, total=len(activities))
     except Exception as e:
-        logger.error(f"Get timeline error: {e}")
+        logger.error(f"Get timeline error: customer={customer_id} user={user_id} err={e}")
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.post("/customers/{customer_id}/activities")
 async def create_activity(
     customer_id: str,
+    body: CreateActivityRequest,
     req: Request,
     user_id: str = Depends(get_current_user_id),
 ):
     """添加活动记录"""
     try:
-        body = await req.json()
-        activity_type = body.get("activity_type")
-        content = body.get("content", "")
-
-        if not activity_type:
-            return api_error(ErrorCode.VALIDATION_MISSING_FIELD, "activity_type 为必填字段")
-
         db = getattr(req.state, "db", None)
         activity = await crm_service.create_activity(
-            customer_id, activity_type, content, user_id, db=db
+            customer_id, body.activity_type, body.content, user_id, db=db
         )
         return api_success(data={"activity": activity}, message="活动记录已添加")
     except ValueError as e:
         return api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
     except Exception as e:
-        logger.error(f"Create activity error: {e}")
+        logger.error(f"Create activity error: customer={customer_id} user={user_id} err={e}")
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
@@ -186,7 +256,7 @@ async def get_customer_stats(
         stats = await crm_service.get_customer_stats(org_id, db=db)
         return api_success(data={"stats": stats})
     except Exception as e:
-        logger.error(f"Customer stats error: {e}")
+        logger.error(f"Customer stats error: user={user_id} err={e}")
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 

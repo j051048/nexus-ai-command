@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { aiClient } from '@/api/aiClient';
+import { toast } from 'sonner';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyData = Record<string, any>;
@@ -91,6 +92,10 @@ export function useCreateCustomer() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['crm-customers'] });
       queryClient.invalidateQueries({ queryKey: ['crm-stats'] });
+      toast.success('客户创建成功');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || '创建客户失败');
     },
   });
 }
@@ -109,6 +114,10 @@ export function useUpdateCustomer() {
       queryClient.invalidateQueries({ queryKey: ['crm-customers'] });
       queryClient.invalidateQueries({ queryKey: ['crm-customer', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['crm-stats'] });
+      toast.success('客户信息已更新');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || '更新客户失败');
     },
   });
 }

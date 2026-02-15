@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { aiClient } from '@/api/aiClient';
+import { toast } from 'sonner';
 import type { FormField } from '@/components/forms/DynamicFormRenderer';
 
 // ─── 类型定义 ──────────────────────────────────────────────
@@ -78,6 +79,10 @@ export function useCreateFormSchema() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['form-schemas'] });
+      toast.success('表单模板创建成功');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || '创建表单模板失败');
     },
   });
 }
@@ -103,6 +108,10 @@ export function useUpdateFormSchema() {
       queryClient.invalidateQueries({
         queryKey: ['form-schemas', variables.id],
       });
+      toast.success('表单模板已更新');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || '更新表单模板失败');
     },
   });
 }
@@ -120,6 +129,10 @@ export function useDeleteFormSchema() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['form-schemas'] });
+      toast.success('表单模板已删除');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || '删除表单模板失败');
     },
   });
 }

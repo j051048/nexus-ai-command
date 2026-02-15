@@ -10,12 +10,18 @@ import time
 import os
 import logging
 from collections import defaultdict
+from functools import wraps
 from typing import Dict, Tuple, Optional
 from fastapi import Request, HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# P0 Security: Trusted proxy count to prevent X-Forwarded-For spoofing
+# Set to 0 to ignore X-Forwarded-For entirely and always use request.client.host
+# Set to N to trust the Nth entry from the right of the X-Forwarded-For list
+TRUSTED_PROXY_COUNT = int(os.getenv("TRUSTED_PROXY_COUNT", "1"))
 
 # Check for Redis availability for distributed rate limiting
 REDIS_URL = os.getenv("REDIS_URL")
@@ -67,12 +73,20 @@ class RateLimiter:
         """Generate rate limit key from user_id or IP"""
         if user_id:
             return f"{self.prefix}:user:{user_id}"
-        # Fallback to IP
-        forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            ip = forwarded.split(",")[0].strip()
-        else:
-            ip = request.client.host if request.client else "unknown"
+        # P0 Security Fix: Prevent X-Forwarded-For spoofing
+        # Only trust X-Forwarded-For if TRUSTED_PROXY_COUNT > 0, and pick the
+        # entry at position -(TRUSTED_PROXY_COUNT) from the right, which is the
+        # IP appended by the outermost trusted proxy (not client-controlled).
+        ip = request.client.host if request.client else "unknown"
+        if TRUSTED_PROXY_COUNT > 0:
+            forwarded = request.headers.get("X-Forwarded-For")
+            if forwarded:
+                parts = [p.strip() for p in forwarded.split(",")]
+                # Use the entry at -(TRUSTED_PROXY_COUNT) from the right.
+                # If there are fewer parts than TRUSTED_PROXY_COUNT, fall back
+                # to the leftmost (first) entry as a safe default.
+                index = max(0, len(parts) - TRUSTED_PROXY_COUNT)
+                ip = parts[index]
         return f"{self.prefix}:ip:{ip}"
 
     async def is_allowed(
@@ -143,6 +157,21 @@ class RateLimiter:
     def _check_memory(self, key: str) -> Tuple[bool, dict]:
         """In-memory rate limiting (single instance)"""
         now = time.time()
+
+        # P0 Fix: Prevent memory leak — evict stale entries when dict grows too large
+        if len(self.last_update) > 10000:
+            stale_cutoff = now - 3600  # 1 hour
+            stale_keys = [
+                k for k, ts in self.last_update.items() if ts < stale_cutoff
+            ]
+            for k in stale_keys:
+                self.tokens.pop(k, None)
+                self.last_update.pop(k, None)
+            if stale_keys:
+                logger.info(
+                    f"[RateLimiter] Evicted {len(stale_keys)} stale entries "
+                    f"(remaining: {len(self.last_update)})"
+                )
 
         # Refill tokens based on time passed
         time_passed = now - self.last_update[key]
@@ -251,6 +280,7 @@ def rate_limit(calls: int = 10, period: int = 60):
     limiter = RateLimiter(rate=calls, burst=min(calls, 5), prefix="ep")
 
     def decorator(func):
+        @wraps(func)
         async def wrapper(request: Request, *args, **kwargs):
             allowed, metadata = await limiter.is_allowed(request)
             if not allowed:

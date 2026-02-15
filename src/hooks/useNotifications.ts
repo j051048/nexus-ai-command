@@ -106,10 +106,38 @@ export function useNotifications() {
         },
     });
 
+    const deleteNotification = useMutation({
+        mutationFn: async (id: string) => {
+            const { error } = await supabase
+                .from('notifications')
+                .delete()
+                .eq('id', id);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        },
+    });
+
+    const deleteNotifications = useMutation({
+        mutationFn: async (ids: string[]) => {
+            const { error } = await supabase
+                .from('notifications')
+                .delete()
+                .in('id', ids);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        },
+    });
+
     return {
         notifications,
         unreadCount,
         markAsRead,
         markAllAsRead,
+        deleteNotification,
+        deleteNotifications,
     };
 }

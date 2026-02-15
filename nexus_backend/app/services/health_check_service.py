@@ -146,14 +146,22 @@ class HealthCheckService:
     async def _check_database(self) -> HealthCheckResult:
         """Check database connectivity."""
         try:
-            # Simplified check - in production, use actual DB client
+            from app.core.database import supabase
+
+            if supabase is None:
+                return HealthCheckResult(
+                    name="database",
+                    status=HealthStatus.DEGRADED,
+                    message="Database client not initialized (missing config or dependency)"
+                )
+
             start = time.time()
-            
-            # Simulate DB ping
-            await asyncio.sleep(0.001)
-            
+
+            # Execute a real lightweight query to verify connectivity
+            await supabase.table("users").select("id").limit(1).execute()
+
             latency = (time.time() - start) * 1000
-            
+
             return HealthCheckResult(
                 name="database",
                 status=HealthStatus.HEALTHY,
@@ -161,34 +169,55 @@ class HealthCheckService:
                 latency_ms=round(latency, 2)
             )
         except Exception as e:
+            latency = (time.time() - start) * 1000 if 'start' in locals() else 0
             return HealthCheckResult(
                 name="database",
                 status=HealthStatus.UNHEALTHY,
-                message=f"Database error: {str(e)}"
+                message=f"Database error: {str(e)}",
+                latency_ms=round(latency, 2)
             )
     
     async def _check_redis(self) -> HealthCheckResult:
         """Check Redis connectivity."""
         try:
-            # Simplified check - in production, use actual Redis client
+            from app.services.cache_service import cache_service
+
             start = time.time()
-            
-            # Simulate Redis ping
-            await asyncio.sleep(0.0005)
-            
+
+            # Ensure cache service is initialized, then ping
+            ping_ok = await cache_service.ping()
+
             latency = (time.time() - start) * 1000
-            
+
+            if not ping_ok:
+                return HealthCheckResult(
+                    name="redis",
+                    status=HealthStatus.DEGRADED,
+                    message="Redis ping failed",
+                    latency_ms=round(latency, 2)
+                )
+
+            # Report whether we're using real Redis or in-memory fallback
+            if cache_service._use_redis:
+                message = "Redis connection OK"
+                status = HealthStatus.HEALTHY
+            else:
+                message = "Using in-memory cache fallback (Redis not configured or unavailable)"
+                status = HealthStatus.DEGRADED
+
             return HealthCheckResult(
                 name="redis",
-                status=HealthStatus.HEALTHY,
-                message="Redis connection OK",
+                status=status,
+                message=message,
                 latency_ms=round(latency, 2)
             )
         except Exception as e:
+            latency = (time.time() - start) * 1000 if 'start' in locals() else 0
             return HealthCheckResult(
                 name="redis",
                 status=HealthStatus.UNHEALTHY,
-                message=f"Redis error: {str(e)}"
+                message=f"Redis error: {str(e)}",
+                latency_ms=round(latency, 2)
             )
     
     async def run_check(self, name: str, check_func: Callable) -> HealthCheckResult:
@@ -412,19 +441,45 @@ class HealthCheckService:
     async def _check_supabase(self) -> HealthCheckResult:
         """Check Supabase connectivity."""
         url = os.getenv("SUPABASE_URL")
-        
+
         if not url:
             return HealthCheckResult(
                 name="supabase",
                 status=HealthStatus.DEGRADED,
                 message="SUPABASE_URL not configured"
             )
-        
-        return HealthCheckResult(
-            name="supabase",
-            status=HealthStatus.HEALTHY,
-            message="Supabase configured"
-        )
+
+        try:
+            from app.core.database import supabase
+
+            if supabase is None:
+                return HealthCheckResult(
+                    name="supabase",
+                    status=HealthStatus.DEGRADED,
+                    message="Supabase client not initialized (missing key or dependency)"
+                )
+
+            start = time.time()
+
+            # Execute a real query to verify Supabase connectivity
+            await supabase.table("users").select("id").limit(1).execute()
+
+            latency = (time.time() - start) * 1000
+
+            return HealthCheckResult(
+                name="supabase",
+                status=HealthStatus.HEALTHY,
+                message="Supabase connection OK",
+                latency_ms=round(latency, 2)
+            )
+        except Exception as e:
+            latency = (time.time() - start) * 1000 if 'start' in locals() else 0
+            return HealthCheckResult(
+                name="supabase",
+                status=HealthStatus.UNHEALTHY,
+                message=f"Supabase error: {str(e)}",
+                latency_ms=round(latency, 2)
+            )
 
 
 # Global instance

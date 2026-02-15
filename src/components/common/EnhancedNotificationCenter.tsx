@@ -335,7 +335,7 @@ export function EnhancedNotificationCenter({
   className,
   onNotificationClick,
 }: EnhancedNotificationCenterProps) {
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification, deleteNotifications } = useNotifications();
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<NotificationCategory>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -403,10 +403,17 @@ export function EnhancedNotificationCenter({
   }, [selectedIds, markAsRead]);
 
   const handleBatchDelete = useCallback(() => {
-    // 实际实现中这里应该调用删除 API
-    toast.success(`已删除 ${selectedIds.size} 条通知`);
-    setSelectedIds(new Set());
-  }, [selectedIds]);
+    const ids = Array.from(selectedIds);
+    deleteNotifications.mutate(ids, {
+      onSuccess: () => {
+        toast.success(`已删除 ${ids.length} 条通知`);
+        setSelectedIds(new Set());
+      },
+      onError: () => {
+        toast.error('批量删除失败，请重试');
+      },
+    });
+  }, [selectedIds, deleteNotifications]);
 
   const handleRead = useCallback(
     (id: string) => {
@@ -416,9 +423,15 @@ export function EnhancedNotificationCenter({
   );
 
   const handleDelete = useCallback((id: string) => {
-    // 实际实现中这里应该调用删除 API
-    toast.success('通知已删除');
-  }, []);
+    deleteNotification.mutate(id, {
+      onSuccess: () => {
+        toast.success('通知已删除');
+      },
+      onError: () => {
+        toast.error('删除失败，请重试');
+      },
+    });
+  }, [deleteNotification]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

@@ -5,11 +5,14 @@ import {
     Sparkles,
     Loader2,
     XCircle,
+    CheckSquare,
+    X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -33,6 +36,8 @@ export function BossApprovalView() {
     const [rejectingId, setRejectingId] = useState<string | null>(null);
     const [rejectReason, setRejectReason] = useState('');
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [isBatchProcessing, setIsBatchProcessing] = useState(false);
 
     const { data: allApprovals, isLoading } = useAllApprovals(statusFilter);
     const { data: pendingCount } = usePendingApprovalsCount();
@@ -45,6 +50,46 @@ export function BossApprovalView() {
         window.addEventListener('resize', handler);
         return () => window.removeEventListener('resize', handler);
     }, []);
+
+    // 当筛选条件变化时清空选择
+    useEffect(() => {
+        setSelectedIds(new Set());
+    }, [statusFilter]);
+
+    // 待处理项目列表（用于批量操作）
+    const pendingApprovals = allApprovals?.filter(a => a.status === 'pending') || [];
+
+    // 全选/取消全选
+    const handleSelectAll = (checked: boolean) => {
+        if (checked) {
+            const allPendingIds = new Set(pendingApprovals.map(a => a.id));
+            setSelectedIds(allPendingIds);
+        } else {
+            setSelectedIds(new Set());
+        }
+    };
+
+    // 单选切换
+    const handleToggleSelect = (id: string) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+            return next;
+        });
+    };
+
+    // 取消选择
+    const handleClearSelection = () => {
+        setSelectedIds(new Set());
+    };
+
+    // 是否全选
+    const isAllSelected = pendingApprovals.length > 0 && pendingApprovals.every(a => selectedIds.has(a.id));
+    const isSomeSelected = selectedIds.size > 0;
 
     const handleApprove = async (requestId: string) => {
         try {
@@ -70,6 +115,58 @@ export function BossApprovalView() {
         } catch (error: unknown) {
             const err = error as Error;
             toast.error('操作失败: ' + err.message);
+        }
+    };
+
+    // 批量通过
+    const handleBatchApprove = async () => {
+        if (selectedIds.size === 0) return;
+        setIsBatchProcessing(true);
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const id of selectedIds) {
+            try {
+                await approveRequest.mutateAsync(id);
+                successCount++;
+            } catch {
+                failCount++;
+            }
+        }
+
+        setIsBatchProcessing(false);
+        setSelectedIds(new Set());
+
+        if (failCount === 0) {
+            toast.success(`已批量通过 ${successCount} 项申请`);
+        } else {
+            toast.warning(`批量操作完成：${successCount} 项通过，${failCount} 项失败`);
+        }
+    };
+
+    // 批量驳回
+    const handleBatchReject = async () => {
+        if (selectedIds.size === 0) return;
+        setIsBatchProcessing(true);
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const id of selectedIds) {
+            try {
+                await rejectRequest.mutateAsync({ requestId: id, reason: '批量驳回' });
+                successCount++;
+            } catch {
+                failCount++;
+            }
+        }
+
+        setIsBatchProcessing(false);
+        setSelectedIds(new Set());
+
+        if (failCount === 0) {
+            toast.success(`已批量驳回 ${successCount} 项申请`);
+        } else {
+            toast.warning(`批量操作完成：${successCount} 项驳回，${failCount} 项失败`);
         }
     };
 
@@ -133,6 +230,23 @@ export function BossApprovalView() {
                         <TabsTrigger value="rejected" className="px-6">已驳回</TabsTrigger>
                         <TabsTrigger value="all" className="px-6">全纪录</TabsTrigger>
                     </TabsList>
+
+                    {/* 全选 checkbox — 仅在待处理 tab 且有数据时显示 */}
+                    {statusFilter === 'pending' && pendingApprovals.length > 0 && (
+                        <div className="flex items-center gap-2">
+                            <Checkbox
+                                id="select-all-approvals"
+                                checked={isAllSelected}
+                                onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                            />
+                            <label
+                                htmlFor="select-all-approvals"
+                                className="text-sm font-medium text-muted-foreground cursor-pointer select-none"
+                            >
+                                全选
+                            </label>
+                        </div>
+                    )}
                 </div>
 
                 <TabsContent value={statusFilter} className="mt-0 focus-visible:outline-none focus-visible:ring-0">
@@ -163,6 +277,14 @@ export function BossApprovalView() {
                                             className="bg-card rounded-xl border border-border p-4 space-y-3 shadow-sm"
                                         >
                                             <div className="flex items-start gap-3">
+                                                {/* 批量选择 checkbox */}
+                                                {approval.status === 'pending' && (
+                                                    <Checkbox
+                                                        checked={selectedIds.has(approval.id)}
+                                                        onCheckedChange={() => handleToggleSelect(approval.id)}
+                                                        className="mt-1 flex-shrink-0"
+                                                    />
+                                                )}
                                                 <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground flex-shrink-0">
                                                     {approvalTypes.find(t => t.id === approval.type)?.icon}
                                                 </div>
@@ -216,15 +338,25 @@ export function BossApprovalView() {
                                             )}
                                         </div>
                                     ) : (
-                                        // A6: 桌面端保持原有组件
-                                        <BossApprovalCard
-                                            key={approval.id}
-                                            approval={approval}
-                                            onApprove={() => handleApprove(approval.id)}
-                                            onReject={() => setRejectingId(approval.id)}
-                                            isApproving={approveRequest.isPending}
-                                            typeIcon={approvalTypes.find(t => t.id === approval.type)?.icon}
-                                        />
+                                        // A6: 桌面端保持原有组件，增加 checkbox
+                                        <div key={approval.id} className="flex items-start gap-3">
+                                            {approval.status === 'pending' && (
+                                                <Checkbox
+                                                    checked={selectedIds.has(approval.id)}
+                                                    onCheckedChange={() => handleToggleSelect(approval.id)}
+                                                    className="mt-5 flex-shrink-0"
+                                                />
+                                            )}
+                                            <div className="flex-1">
+                                                <BossApprovalCard
+                                                    approval={approval}
+                                                    onApprove={() => handleApprove(approval.id)}
+                                                    onReject={() => setRejectingId(approval.id)}
+                                                    isApproving={approveRequest.isPending}
+                                                    typeIcon={approvalTypes.find(t => t.id === approval.type)?.icon}
+                                                />
+                                            </div>
+                                        </div>
                                     )
                                 ))}
                             </div>
@@ -232,6 +364,54 @@ export function BossApprovalView() {
                     </div>
                 </TabsContent>
             </Tabs>
+
+            {/* Floating Batch Action Bar */}
+            {isSomeSelected && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-6 py-3 rounded-2xl bg-card border border-border shadow-2xl backdrop-blur-sm">
+                    <CheckSquare className="w-5 h-5 text-primary" />
+                    <span className="text-sm font-medium text-foreground whitespace-nowrap">
+                        已选择 <span className="text-primary font-bold">{selectedIds.size}</span> 项
+                    </span>
+                    <div className="w-px h-6 bg-border mx-1" />
+                    <Button
+                        size="sm"
+                        onClick={handleBatchApprove}
+                        disabled={isBatchProcessing}
+                        className="bg-success hover:bg-success/90 gap-1"
+                    >
+                        {isBatchProcessing ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <CheckCircle2 className="w-4 h-4" />
+                        )}
+                        批量通过
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={handleBatchReject}
+                        disabled={isBatchProcessing}
+                        className="gap-1"
+                    >
+                        {isBatchProcessing ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <XCircle className="w-4 h-4" />
+                        )}
+                        批量驳回
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleClearSelection}
+                        disabled={isBatchProcessing}
+                        className="gap-1 text-muted-foreground"
+                    >
+                        <X className="w-4 h-4" />
+                        取消选择
+                    </Button>
+                </div>
+            )}
 
             {/* Reject Reason Dialog */}
             <Dialog open={!!rejectingId} onOpenChange={() => setRejectingId(null)}>

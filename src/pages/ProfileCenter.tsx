@@ -33,11 +33,55 @@ import {
 import { useUser } from '@/contexts/UserContext';
 import { toast } from 'sonner';
 import { NotificationPreferences } from '@/components/settings/NotificationPreferences';
+import { supabase } from '@/integrations/supabase/client';
 
 export function ProfileCenter() {
   const { user } = useUser();
   const [activeTab, setActiveTab] = useState('profile');
   const [isEditing, setIsEditing] = useState(false);
+
+  // 密码修改状态
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+
+  const handleUpdatePassword = async () => {
+    // 验证
+    if (!currentPassword) {
+      toast.error('请输入当前密码');
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error('新密码至少需要6个字符');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('两次输入的新密码不一致');
+      return;
+    }
+    if (currentPassword === newPassword) {
+      toast.error('新密码不能与当前密码相同');
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) {
+        toast.error(`密码更新失败: ${error.message}`);
+      } else {
+        toast.success('密码更新成功');
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+      }
+    } catch (err) {
+      toast.error('密码更新失败，请稍后重试');
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
 
   // 模拟用户详细信息
   const userDetails = {
@@ -316,18 +360,35 @@ export function ProfileCenter() {
                 <div className="grid md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>当前密码</Label>
-                    <Input type="password" placeholder="请输入当前密码" />
+                    <Input
+                      type="password"
+                      placeholder="请输入当前密码"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>新密码</Label>
-                    <Input type="password" placeholder="请输入新密码" />
+                    <Input
+                      type="password"
+                      placeholder="请输入新密码（至少6位）"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>确认新密码</Label>
-                    <Input type="password" placeholder="请再次输入新密码" />
+                    <Input
+                      type="password"
+                      placeholder="请再次输入新密码"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                    />
                   </div>
                 </div>
-                <Button>更新密码</Button>
+                <Button onClick={handleUpdatePassword} disabled={isUpdatingPassword}>
+                  {isUpdatingPassword ? '更新中...' : '更新密码'}
+                </Button>
               </div>
 
               <Separator />

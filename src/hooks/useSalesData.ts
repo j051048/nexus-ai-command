@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthContext';
 import { format, subDays, startOfWeek, subWeeks } from 'date-fns';
 import { useEffect } from 'react';
+import { toast } from 'sonner';
 
 export interface SalesMetric {
   id: string;
@@ -369,6 +370,10 @@ export function useSaveSalesMetric() {
       queryClient.invalidateQueries({ queryKey: ['revenue-data'] });
       queryClient.invalidateQueries({ queryKey: ['team-performance'] });
       queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
+      toast.success('销售数据已保存');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || '保存销售数据失败');
     },
   });
 }
@@ -399,6 +404,9 @@ export function useUpdateProfile() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
       queryClient.invalidateQueries({ queryKey: ['team-performance'] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || '更新个人信息失败');
     },
   });
 }
@@ -440,6 +448,10 @@ export function useSeedDemoData() {
       queryClient.invalidateQueries({ queryKey: ['sales-metrics-range'] });
       queryClient.invalidateQueries({ queryKey: ['win-rate-history'] });
       queryClient.invalidateQueries({ queryKey: ['revenue-data'] });
+      toast.success('演示数据已生成');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || '生成演示数据失败');
     },
   });
 }

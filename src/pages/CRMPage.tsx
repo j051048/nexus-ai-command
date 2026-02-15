@@ -46,6 +46,8 @@ import {
 import { useCustomers, useCustomerTimeline, useCustomerContacts, useCreateCustomer, useCustomerStats, useUpdateCustomer } from '@/hooks/useCRM';
 import type { Customer, CustomerActivity, CustomerContact } from '@/hooks/useCRM';
 import { toast } from 'sonner';
+import { DataExport } from '@/components/common/DataExport';
+import type { ExportColumn } from '@/components/common/DataExport';
 
 // 阶段配置
 const STAGES: Record<string, { name: string; color: string; bg: string }> = {
@@ -55,6 +57,16 @@ const STAGES: Record<string, { name: string; color: string; bg: string }> = {
   customer: { name: '成交', color: 'text-green-600', bg: 'bg-green-100 dark:bg-green-900/30' },
   churned: { name: '流失', color: 'text-red-600', bg: 'bg-red-100 dark:bg-red-900/30' },
 };
+
+// 导出列配置
+const CRM_EXPORT_COLUMNS: ExportColumn[] = [
+  { key: 'name', label: '客户名称' },
+  { key: 'company', label: '公司' },
+  { key: 'industry', label: '行业' },
+  { key: 'stage', label: '阶段', formatter: (value) => STAGES[value as string]?.name || String(value ?? '') },
+  { key: 'estimated_value', label: '预估金额', formatter: (value) => value ? `\u00A5${Number(value).toLocaleString()}` : '' },
+  { key: 'source', label: '来源' },
+];
 
 const ACTIVITY_ICONS: Record<string, React.ReactNode> = {
   call: <Phone className="w-4 h-4" />,
@@ -182,34 +194,34 @@ function ListView({
   return (
     <div className="space-y-2">
       {/* 表头 */}
-      <div className="grid grid-cols-12 gap-2 px-4 py-2 text-xs font-medium text-muted-foreground">
-        <div className="col-span-3">客户名称</div>
-        <div className="col-span-2">公司</div>
-        <div className="col-span-1">行业</div>
-        <div className="col-span-1">阶段</div>
-        <div className="col-span-2">预估金额</div>
-        <div className="col-span-2">来源</div>
-        <div className="col-span-1">操作</div>
+      <div className="grid grid-cols-3 md:grid-cols-7 lg:grid-cols-12 gap-2 px-4 py-2 text-xs font-medium text-muted-foreground">
+        <div className="col-span-1 md:col-span-2 lg:col-span-3">客户名称</div>
+        <div className="hidden md:block md:col-span-1 lg:col-span-2">公司</div>
+        <div className="hidden md:block md:col-span-1 lg:col-span-1">行业</div>
+        <div className="col-span-1 md:col-span-1 lg:col-span-1">阶段</div>
+        <div className="hidden md:block md:col-span-1 lg:col-span-2">预估金额</div>
+        <div className="hidden lg:block lg:col-span-2">来源</div>
+        <div className="col-span-1 md:col-span-1 lg:col-span-1">操作</div>
       </div>
       {customers.map(c => {
         const stage = STAGES[c.stage] || STAGES.lead;
         return (
           <div
             key={c.id}
-            className="grid grid-cols-12 gap-2 px-4 py-3 rounded-lg border items-center hover:bg-muted/50 cursor-pointer transition"
+            className="grid grid-cols-3 md:grid-cols-7 lg:grid-cols-12 gap-2 px-4 py-3 rounded-lg border items-center hover:bg-muted/50 cursor-pointer transition"
             onClick={() => onSelect(c)}
           >
-            <div className="col-span-3 font-medium truncate">{c.name}</div>
-            <div className="col-span-2 text-sm text-muted-foreground truncate">{c.company}</div>
-            <div className="col-span-1 text-sm text-muted-foreground">{c.industry}</div>
-            <div className="col-span-1">
+            <div className="col-span-1 md:col-span-2 lg:col-span-3 font-medium truncate">{c.name}</div>
+            <div className="hidden md:block md:col-span-1 lg:col-span-2 text-sm text-muted-foreground truncate">{c.company}</div>
+            <div className="hidden md:block md:col-span-1 lg:col-span-1 text-sm text-muted-foreground">{c.industry}</div>
+            <div className="col-span-1 md:col-span-1 lg:col-span-1">
               <Badge className={cn('text-xs', stage.color, stage.bg)}>{stage.name}</Badge>
             </div>
-            <div className="col-span-2 text-sm font-medium">
+            <div className="hidden md:block md:col-span-1 lg:col-span-2 text-sm font-medium">
               {c.estimated_value > 0 ? `\u00A5${Number(c.estimated_value).toLocaleString()}` : '-'}
             </div>
-            <div className="col-span-2 text-sm text-muted-foreground">{c.source || '-'}</div>
-            <div className="col-span-1">
+            <div className="hidden lg:block lg:col-span-2 text-sm text-muted-foreground">{c.source || '-'}</div>
+            <div className="col-span-1 md:col-span-1 lg:col-span-1">
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
             </div>
           </div>
@@ -540,6 +552,13 @@ function CRMPage() {
             列表
           </Button>
         </div>
+        <DataExport
+          data={customers as unknown as Record<string, unknown>[]}
+          columns={CRM_EXPORT_COLUMNS}
+          filename="crm_customers"
+          title="导出客户数据"
+          description="选择导出格式和列配置"
+        />
       </div>
 
       {/* 客户视图 */}

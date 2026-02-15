@@ -451,7 +451,14 @@ class ApprovalChainService:
 
         request_data = req_result.data
         current_step = request_data.get("current_step", 0)
+        current_status = request_data.get("status", "pending")
         history = request_data.get("approval_history", []) or []
+
+        # Optimistic lock: reject if already processed
+        if current_status != "pending":
+            raise RuntimeError(
+                f"Approval {request_id} already {current_status}, cannot advance"
+            )
 
         # Record this decision in history
         history_entry = {
@@ -473,10 +480,14 @@ class ApprovalChainService:
                 await client.table("approval_requests")
                 .update(update_data)
                 .eq("id", request_id)
+                .eq("current_step", current_step)
+                .eq("status", "pending")
                 .execute()
             )
+            if not result.data:
+                raise RuntimeError(f"Approval {request_id} was modified concurrently, please retry")
             logger.info(f"Approval {request_id} rejected by {approver_id} at step {current_step}")
-            return result.data[0] if result.data else update_data
+            return result.data[0]
 
         # If approved, check if there are more steps in the chain
         chain_id = request_data.get("chain_id")
@@ -537,14 +548,19 @@ class ApprovalChainService:
             await client.table("approval_requests")
             .update(update_data)
             .eq("id", request_id)
+            .eq("current_step", current_step)
+            .eq("status", "pending")
             .execute()
         )
+
+        if not result.data:
+            raise RuntimeError(f"Approval {request_id} was modified concurrently, please retry")
 
         logger.info(
             f"Advanced approval {request_id}: step {current_step} -> {next_step}, "
             f"decision={decision}, approver={approver_id}"
         )
-        return result.data[0] if result.data else update_data
+        return result.data[0]
 
     async def evaluate_condition(
         self,

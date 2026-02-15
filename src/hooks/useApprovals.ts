@@ -4,6 +4,7 @@ import { useAuth } from '@/components/auth/AuthContext';
 import { approvalRequestSchema, ApprovalRequestSafe } from '@/lib/schemas';
 import { useEffect } from 'react';
 import { aiClient } from '@/api/aiClient';
+import { toast } from 'sonner';
 
 export type ApprovalRequest = ApprovalRequestSafe;
 
@@ -31,7 +32,7 @@ export function useApprovals() {
 
       if (error) {
         console.error('Error fetching approvals:', error);
-        return [];
+        throw new Error('获取审批列表失败，请刷新重试');
       }
 
       return (data || []).map((item) => {
@@ -58,6 +59,9 @@ export function useApprovals() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['approvals'] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || '审批操作失败，请重试');
     },
   });
 

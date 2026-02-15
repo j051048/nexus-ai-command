@@ -4,24 +4,38 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://aizhz.zeabur.
 
 interface RequestOptions extends RequestInit {
     requireAuth?: boolean;
+    _retried?: boolean; // internal flag to prevent infinite retry
+}
+
+async function getAuthToken(): Promise<string | null> {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token ?? null;
+}
+
+async function refreshAndGetToken(): Promise<string | null> {
+    const { data: { session }, error } = await supabase.auth.refreshSession();
+    if (error || !session) {
+        // Refresh failed — session is dead, force sign out
+        await supabase.auth.signOut();
+        window.location.href = '/login';
+        return null;
+    }
+    return session.access_token;
+}
+
+function buildUrl(endpoint: string): string {
+    let url = API_BASE_URL;
+    if (!url.startsWith('http')) {
+        url = url.includes('localhost') ? `http://${url}` : `https://${url}`;
+    }
+    const cleanBase = url.replace(/\/$/, '');
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+    return `${cleanBase}/${cleanEndpoint}`;
 }
 
 export const aiClient = {
     async fetch<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-        let url = API_BASE_URL;
-        if (!url.startsWith('http')) {
-            // If it looks like localhost but no protocol
-            if (url.includes('localhost')) {
-                url = `http://${url}`;
-            } else {
-                url = `https://${url}`;
-            }
-        }
-
-        // Ensure no double slash
-        const cleanBase = url.replace(/\/$/, '');
-        const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-        const fullUrl = `${cleanBase}/${cleanEndpoint}`;
+        const fullUrl = buildUrl(endpoint);
 
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
@@ -29,8 +43,7 @@ export const aiClient = {
         };
 
         if (options.requireAuth !== false) {
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
+            const token = await getAuthToken();
             if (token) {
                 headers['Authorization'] = `Bearer ${token}`;
             }
@@ -41,6 +54,23 @@ export const aiClient = {
             headers,
         });
 
+        // Handle 401: try refresh token once then retry
+        if (response.status === 401 && !options._retried && options.requireAuth !== false) {
+            const newToken = await refreshAndGetToken();
+            if (newToken) {
+                return this.fetch<T>(endpoint, {
+                    ...options,
+                    _retried: true,
+                    headers: {
+                        ...(options.headers as Record<string, string>),
+                        'Authorization': `Bearer ${newToken}`,
+                    },
+                });
+            }
+            // refreshAndGetToken already redirected to /login
+            throw new Error('会话已过期，请重新登录');
+        }
+
         if (!response.ok) {
             let errorMessage = `API Request Failed (${response.status})`;
             try {
@@ -48,7 +78,6 @@ export const aiClient = {
                 if (errorData.error && errorData.error.message) {
                     errorMessage = errorData.error.message;
                 } else if (errorData.detail) {
-                    // Handle standard FastAPI errors or Pydantic validation errors
                     if (typeof errorData.detail === 'string') {
                         errorMessage = errorData.detail;
                     } else if (Array.isArray(errorData.detail)) {
@@ -56,7 +85,7 @@ export const aiClient = {
                          errorMessage = errorData.detail.map((d: any) => d.msg).join(', ');
                     }
                 }
-            } catch (e) {
+            } catch {
                 const text = await response.text().catch(() => response.statusText);
                  errorMessage += `: ${text.slice(0, 100)}`;
             }
@@ -80,8 +109,6 @@ export const aiClient = {
      * Generic chat completion
      */
     async chat(messages: { role: string; content: string; [key: string]: unknown }[], model: string = 'gpt-4o') {
-        // NOTE: This endpoint might return a stream, so generic fetch wrapper might need adjustment for streams.
-        // But for simple request/response:
         return this.fetch('api/chat', {
             method: 'POST',
             body: JSON.stringify({ messages, model })
