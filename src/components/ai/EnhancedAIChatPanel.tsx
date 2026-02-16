@@ -486,8 +486,9 @@ export function EnhancedAIChatPanel({
       <div
         className={cn(
           'bg-card border-border transition-all duration-300 shadow-xl flex flex-col',
-          // A5: 移动端全屏样式
-          isMobile && isExpanded ? 'fixed inset-0 z-50 bg-background' : '',
+          // A5: 移动端全屏样式 — embedded 模式下不使用 fixed，让父容器控制高度
+          isMobile && isExpanded && variant !== 'embedded' ? 'fixed inset-0 z-50 bg-background' : '',
+          isMobile && variant === 'embedded' ? 'relative h-full w-full bg-background' : '',
           // 桌面端或移动端未展开时的样式
           !isMobile && variant === 'overlay' ? 'fixed z-50 shadow-[0_-4px_20px_-1px_rgba(0,0,0,0.1)]' : '',
           !isMobile && variant === 'embedded' ? 'relative h-full w-full border-r' : '',
@@ -715,7 +716,11 @@ export function EnhancedAIChatPanel({
                 </button>
               </div>
             )}
-            <div className="px-4 md:px-6 py-4 border-t border-border bg-card sticky bottom-0 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+            <div className={cn(
+              "px-4 md:px-6 py-3 border-t border-border bg-card sticky bottom-0",
+              // embedded 模式下父容器已处理底部避让，不需要额外 safe-area padding
+              variant === 'embedded' ? 'pb-3' : 'pb-[calc(1rem+env(safe-area-inset-bottom))]'
+            )}>
               {/* Agent Tags */}
               {showAgents && (
                 <div className="mb-3 p-2 bg-secondary/50 rounded-lg animate-fade-slide-up">

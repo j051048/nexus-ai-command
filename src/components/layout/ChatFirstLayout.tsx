@@ -88,12 +88,10 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
     // Auto-open canvas if we are on a page route
     React.useEffect(() => {
         if (isPageRoute) {
-            // 桌面端自动打开 Canvas；移动端仅在用户主动导航时打开
-            if (!isMobile) {
-                setIsCanvasOpen(true);
-            }
+            // 所有端（桌面+移动）导航到页面路由时自动打开 Canvas
+            setIsCanvasOpen(true);
         } else if (isMobile) {
-            // 移动端回到首页时关闭 Canvas，显示 AI 对话
+            // 移动端回到首页(/)或/chat时关闭 Canvas，显示 AI 对话
             setIsCanvasOpen(false);
         }
     }, [location.pathname, isPageRoute, isMobile]);
@@ -117,7 +115,9 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
 
                 {/* A. Chat Area - The "OS" */}
                 <div className={cn(
-                    "flex flex-col transition-all duration-300 ease-in-out h-full relative z-10",
+                    "flex flex-col transition-all duration-300 ease-in-out relative z-10",
+                    // 移动端：减去底部导航栏高度，防止输入框被遮挡
+                    isMobile ? "h-[calc(100%-3.5rem-env(safe-area-inset-bottom))]" : "h-full",
                     isCanvasOpen ? "w-full md:w-[45%] lg:w-[40%]" : "w-full"
                 )}>
                     <EnhancedAIChatPanel
