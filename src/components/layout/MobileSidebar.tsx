@@ -1,43 +1,20 @@
-import React, { useState } from 'react';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
-import { Menu, X } from 'lucide-react';
-import { Sidebar } from './Sidebar';
+/**
+ * @deprecated 此组件已被 MobileWorkbenchPage + MobileTabBar 替代。
+ * 移动端导航功能已迁移到 MobileLayout 架构。
+ * 将在后续版本中删除。
+ */
+
+import React from 'react';
 
 interface MobileSidebarProps {
   children?: React.ReactNode;
 }
 
 export function MobileSidebar({ children }: MobileSidebarProps) {
-  const [open, setOpen] = useState(false);
-
-  const handleNavClick = () => {
-    setOpen(false);
-  };
-
-  return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="md:hidden fixed top-4 left-4 z-50 bg-background/80 backdrop-blur-sm border shadow-sm"
-          aria-label="切换菜单"
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
-      </SheetTrigger>
-      <SheetContent 
-        side="left" 
-        className="p-0 w-64 border-r-0"
-        onInteractOutside={() => setOpen(false)}
-      >
-        <div className="h-full overflow-hidden">
-          <Sidebar onNavClick={handleNavClick} />
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
+  if (import.meta.env.DEV) {
+    console.warn('[MobileSidebar] 已废弃，功能已迁移到 MobileLayout 体系');
+  }
+  return null;
 }
 
 export default MobileSidebar;

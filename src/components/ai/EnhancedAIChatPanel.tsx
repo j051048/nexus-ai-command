@@ -83,7 +83,9 @@ interface EnhancedAIChatPanelProps {
   onToggle: () => void;
   defaultAgent?: string;
   onSendMessage?: (message: string, response: string) => void;
-  variant?: 'overlay' | 'embedded'; // New prop
+  variant?: 'overlay' | 'embedded';
+  /** compact 模式：隐藏 header 中多余按钮，适用于移动端半屏面板 */
+  compact?: boolean;
 }
 
 // ==================== 常量配置 ====================
@@ -139,6 +141,7 @@ export function EnhancedAIChatPanel({
   defaultAgent,
   onSendMessage,
   variant = 'overlay', // Default to overlay
+  compact = false,
 }: EnhancedAIChatPanelProps) {
   const { user } = useUser();
   const [messages, setMessages] = useState<AIMessage[]>([]);
@@ -497,7 +500,8 @@ export function EnhancedAIChatPanel({
           variant === 'overlay' && !isMobile ? panelHeightClass : 'h-full'
         )}
       >
-        {/* Header */}
+        {/* Header — compact 模式下隐藏 */}
+        {!compact && (
         <div
           className={cn(
             'h-16 px-4 md:px-6 flex items-center justify-between cursor-pointer hover:bg-card-elevated/50 transition-colors',
@@ -636,6 +640,7 @@ export function EnhancedAIChatPanel({
             )}
           </div>
         </div>
+        )}
 
         {/* Chat Area */}
         {(isExpanded || variant === 'embedded') && (
