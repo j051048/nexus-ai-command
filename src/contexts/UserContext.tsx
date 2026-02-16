@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { Badge, UserRole } from '@/types/nexus';
 
@@ -68,26 +68,28 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, [authRole]);
 
-  const setRole = (role: UserRole) => {
+  const setRole = useCallback((role: UserRole) => {
     setUser(prev => ({ ...prev, role }));
-  };
+  }, []);
 
-  const addBonus = (amount: number) => {
+  const addBonus = useCallback((amount: number) => {
     setUser(prev => ({
       ...prev,
       totalBonus: prev.totalBonus + amount,
     }));
-  };
+  }, []);
 
-  const updateScore = (delta: number) => {
+  const updateScore = useCallback((delta: number) => {
     setUser(prev => ({
       ...prev,
       score: Math.min(100, Math.max(0, prev.score + delta)),
     }));
-  };
+  }, []);
+
+  const value = useMemo(() => ({ user, setRole, addBonus, updateScore }), [user, setRole, addBonus, updateScore]);
 
   return (
-    <UserContext.Provider value={{ user, setRole, addBonus, updateScore }}>
+    <UserContext.Provider value={value}>
       {children}
     </UserContext.Provider>
   );

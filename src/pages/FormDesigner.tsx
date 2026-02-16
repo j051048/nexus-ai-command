@@ -164,7 +164,7 @@ function FormDesigner() {
             <ArrowLeft className="w-4 h-4" />
             返回
           </Button>
-          <h1 className="text-xl font-bold text-foreground">
+          <h1 className="text-2xl font-bold text-foreground">
             {isEditing ? '编辑表单' : '创建表单'}
           </h1>
         </div>

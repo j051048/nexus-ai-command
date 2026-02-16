@@ -247,7 +247,7 @@ function AuditPanel() {
   }, [logs]);
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-20">
+    <div className="space-y-6 max-w-[1400px] mx-auto pb-20">
       {/* 页面标题 */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex flex-col gap-1">
@@ -432,7 +432,7 @@ function AuditPanel() {
                 }}
                 formatter={(value: number) => [`${value} 次`, '操作次数']}
               />
-              <Bar dataKey="count" fill="#6366f1" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="count" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>

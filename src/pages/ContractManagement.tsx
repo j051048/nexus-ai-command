@@ -385,7 +385,7 @@ export function ContractManagement() {
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-6 space-y-6 max-w-[1400px] mx-auto">
       {/* 页面标题 */}
       <div className="flex items-center justify-between">
         <div>
@@ -566,12 +566,12 @@ export function ContractManagement() {
                 <SheetDescription>{selectedContract.contract_number}</SheetDescription>
               </SheetHeader>
 
-              <ScrollArea className="mt-6 h-[calc(100vh-120px)]">
+              <ScrollArea className="mt-6 h-[calc(100dvh-120px)]">
                 <div className="space-y-6 pr-4">
                   {/* 基本信息 */}
                   <div className="space-y-3">
                     <h4 className="text-sm font-semibold">基本信息</h4>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <p className="text-xs text-muted-foreground">客户</p>
                         <p className="text-sm font-medium">{selectedContract.customer_name || '--'}</p>
@@ -660,7 +660,7 @@ export function ContractManagement() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>客户名称</Label>
                 <Input
@@ -679,7 +679,7 @@ export function ContractManagement() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>合同类型</Label>
                 <Select
@@ -707,7 +707,7 @@ export function ContractManagement() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>开始日期</Label>
                 <Input

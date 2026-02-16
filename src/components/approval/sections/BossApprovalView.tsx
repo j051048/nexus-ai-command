@@ -415,7 +415,7 @@ export function BossApprovalView() {
 
             {/* Reject Reason Dialog */}
             <Dialog open={!!rejectingId} onOpenChange={() => setRejectingId(null)}>
-                <DialogContent className="max-w-md">
+                <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle>填写驳回建议</DialogTitle>
                     </DialogHeader>

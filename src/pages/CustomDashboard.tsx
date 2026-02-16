@@ -82,7 +82,7 @@ function CustomDashboard() {
   const editingCard = editingCardId ? config.cards.find((c) => c.id === editingCardId) : null;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-20">
+    <div className="space-y-6 max-w-[1400px] mx-auto pb-20">
       {/* 页面标题 */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex flex-col gap-1">

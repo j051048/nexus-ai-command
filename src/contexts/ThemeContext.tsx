@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode } from 'react';
+import { useEnhancedTheme } from './EnhancedThemeContext';
 
 type Theme = 'dark' | 'light';
 
@@ -12,36 +13,16 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('nexus-theme');
-      return (saved as Theme) || 'dark';
-    }
-    return 'dark';
-  });
+  const { resolvedMode, toggleMode, setMode } = useEnhancedTheme();
 
-  useEffect(() => {
-    const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-      root.classList.remove('light');
-    } else {
-      root.classList.add('light');
-      root.classList.remove('dark');
-    }
-    localStorage.setItem('nexus-theme', theme);
-  }, [theme]);
-
-  const toggleTheme = () => {
-    setThemeState(prev => prev === 'dark' ? 'light' : 'dark');
-  };
-
-  const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
+  const value: ThemeContextType = {
+    theme: resolvedMode,
+    toggleTheme: toggleMode,
+    setTheme: (theme: Theme) => setMode(theme),
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

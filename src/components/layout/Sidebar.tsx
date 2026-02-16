@@ -31,6 +31,14 @@ import {
   Upload,
   Shield,
   Building2,
+  Contact,
+  FileSignature,
+  BarChart3,
+  CreditCard,
+  Puzzle,
+  GraduationCap,
+  ClipboardList,
+  Key,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -100,30 +108,46 @@ export function Sidebar({ onNavClick }: SidebarProps) {
     { icon: <Swords size={20} />, label: '竞品库', href: 'battlecards', roles: undefined },
     { icon: <Target size={20} />, label: '目标看板', href: 'target-dashboard', roles: undefined },
     { icon: <TrendingUp size={20} />, label: '销售AI管理', href: 'sales', badge: '5', badgeType: 'primary', roles: ['employee', 'manager', 'boss'] },
+    { icon: <Contact size={20} />, label: 'CRM管理', href: 'crm', roles: ['employee', 'manager', 'boss'] },
     { icon: <FileCheck size={20} />, label: '智能审批', href: 'approval', roles: ['employee', 'manager', 'boss'] },
+    { icon: <FileSignature size={20} />, label: '合同管理', href: 'contracts', roles: ['manager', 'boss'] },
+    { icon: <BarChart3 size={20} />, label: '数据报表', href: 'reports', roles: undefined },
     { icon: <Calendar size={20} />, label: 'OA办公', href: 'oa', roles: undefined },
     { icon: <Clock size={20} />, label: '人事中心', href: 'hr', roles: ['manager', 'boss'] },
     { icon: <DollarSign size={20} />, label: '财务中心', href: 'finance', roles: undefined },
     { icon: <Upload size={20} />, label: '数据导入', href: 'import', roles: ['boss'] },
     { icon: <BookOpen size={20} />, label: '知识库', href: 'knowledge', roles: undefined },
+    { icon: <GraduationCap size={20} />, label: '培训中心', href: 'training', roles: undefined },
     { icon: <Gift size={20} />, label: '激励钱包', href: 'rewards', badge: '¥200', badgeType: 'success', roles: undefined },
     { icon: <Settings size={20} />, label: 'AI配置中心', href: 'settings', roles: undefined },
+    { icon: <CreditCard size={20} />, label: '订阅支付', href: 'payments', roles: ['boss'] },
+    { icon: <Puzzle size={20} />, label: '插件市场', href: 'plugins', roles: ['boss'] },
+    { icon: <ClipboardList size={20} />, label: '审计日志', href: 'audit', roles: ['boss'] },
+    { icon: <Key size={20} />, label: 'API密钥', href: 'api-keys', roles: ['boss'] },
   ];
 
   const bossNav: NavItem[] = [
     { icon: <Crown size={20} />, label: '总控中心', href: 'boss-dashboard', roles: ['boss'] },
     { icon: <AlertTriangle size={20} />, label: '异常待办', href: 'exceptions', badge: '3', badgeType: 'warning', roles: ['boss'] },
     { icon: <TrendingUp size={20} />, label: '目标管理', href: 'targets', roles: ['boss'] },
+    { icon: <Contact size={20} />, label: 'CRM管理', href: 'crm', roles: ['employee', 'manager', 'boss'] },
     { icon: <BookOpen size={20} />, label: '知识库管理', href: 'documents', badge: 'AI', badgeType: 'primary', roles: undefined },
     { icon: <Users size={20} />, label: '员工管理', href: 'employees', roles: ['manager', 'boss'] },
     { icon: <Shield size={20} />, label: '角色管理', href: 'roles', roles: ['boss'] },
     { icon: <Building2 size={20} />, label: '部门管理', href: 'departments', roles: ['boss'] },
     { icon: <Upload size={20} />, label: '数据导入', href: 'import', roles: ['boss'] },
     { icon: <FileCheck size={20} />, label: '审批中心', href: 'approval', roles: ['employee', 'manager', 'boss'] },
+    { icon: <FileSignature size={20} />, label: '合同管理', href: 'contracts', roles: ['manager', 'boss'] },
+    { icon: <BarChart3 size={20} />, label: '数据报表', href: 'reports', roles: undefined },
     { icon: <Calendar size={20} />, label: 'OA办公', href: 'oa', roles: undefined },
     { icon: <Clock size={20} />, label: '人事中心', href: 'hr', roles: ['manager', 'boss'] },
     { icon: <DollarSign size={20} />, label: '财务中心', href: 'finance', roles: undefined },
+    { icon: <GraduationCap size={20} />, label: '培训中心', href: 'training', roles: undefined },
     { icon: <Settings size={20} />, label: '系统设置', href: 'settings', roles: undefined },
+    { icon: <CreditCard size={20} />, label: '订阅支付', href: 'payments', roles: ['boss'] },
+    { icon: <Puzzle size={20} />, label: '插件市场', href: 'plugins', roles: ['boss'] },
+    { icon: <ClipboardList size={20} />, label: '审计日志', href: 'audit', roles: ['boss'] },
+    { icon: <Key size={20} />, label: 'API密钥', href: 'api-keys', roles: ['boss'] },
   ];
 
   // Use bossNav if user is manager or boss to ensure they see management links
@@ -265,10 +289,11 @@ export function Sidebar({ onNavClick }: SidebarProps) {
 
       {/* Navigation */}
       <nav role="navigation" aria-label="功能菜单" className="flex-1 py-4 overflow-y-auto overflow-x-hidden space-y-2 custom-scrollbar">
-        {renderNavGroup("AI 核心指挥", navItems.filter(i => ['dashboard', 'boss-dashboard', 'tender-analysis', 'battlecards', 'sales'].includes(i.href)))}
-        {renderNavGroup("业务与日常", navItems.filter(i => ['projects', 'target-dashboard', 'targets', 'approval', 'exceptions', 'employees', 'roles', 'departments'].includes(i.href)))}
+        {renderNavGroup("AI 核心指挥", navItems.filter(i => ['dashboard', 'boss-dashboard', 'tender-analysis', 'battlecards', 'sales', 'crm'].includes(i.href)))}
+        {renderNavGroup("业务与日常", navItems.filter(i => ['projects', 'target-dashboard', 'targets', 'approval', 'exceptions', 'employees', 'roles', 'departments', 'contracts', 'reports'].includes(i.href)))}
         {renderNavGroup("OA/HR/财务", navItems.filter(i => ['oa', 'hr', 'finance'].includes(i.href)))}
-        {renderNavGroup("知识与个人", navItems.filter(i => ['knowledge', 'documents', 'rewards', 'import', 'settings'].includes(i.href)))}
+        {renderNavGroup("知识与个人", navItems.filter(i => ['knowledge', 'documents', 'rewards', 'import', 'settings', 'training'].includes(i.href)))}
+        {renderNavGroup("系统管理", navItems.filter(i => ['audit', 'plugins', 'api-keys', 'payments'].includes(i.href)))}
       </nav>
 
       {/* User Profile with Dropdown */}

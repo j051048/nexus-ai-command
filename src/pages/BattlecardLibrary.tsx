@@ -48,9 +48,9 @@ export function BattlecardLibrary() {
     };
 
     return (
-        <div className="space-y-6 max-w-7xl mx-auto pb-20">
+        <div className="space-y-6 max-w-[1400px] mx-auto pb-20">
             <div className="flex flex-col gap-2">
-                <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+                <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
                     <Swords className="w-8 h-8 text-primary" />
                     竞品打击库 (Battlecards)
                     <Badge variant="secondary" className="text-xs ml-2">演示版</Badge>

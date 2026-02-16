@@ -339,6 +339,7 @@ function WidgetCard({
                 size="icon"
                 variant="ghost"
                 className="h-6 w-6"
+                data-compact
                 onClick={() => {
                   const newIndex = Math.max(0, currentSizeIndex - 1);
                   onSizeChange?.(sizes[newIndex]);
@@ -354,6 +355,7 @@ function WidgetCard({
                 size="icon"
                 variant="ghost"
                 className="h-6 w-6"
+                data-compact
                 onClick={() => {
                   const newIndex = Math.min(sizes.length - 1, currentSizeIndex + 1);
                   onSizeChange?.(sizes[newIndex]);
@@ -571,7 +573,7 @@ export function DashboardCustomizer({
               </TabsList>
             </div>
 
-            <ScrollArea className="h-[calc(100vh-16rem)] px-6">
+            <ScrollArea className="h-[calc(100dvh-16rem)] px-6">
               <TabsContent value="widgets" className="mt-0 space-y-2">
                 {widgetInstances.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">

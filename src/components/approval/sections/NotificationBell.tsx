@@ -31,7 +31,7 @@ export function NotificationBell() {
             </Button>
 
             <Dialog open={showNotifications} onOpenChange={setShowNotifications}>
-                <DialogContent className="max-w-md">
+                <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle>通知中心</DialogTitle>
                     </DialogHeader>

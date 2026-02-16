@@ -189,6 +189,7 @@ export function MessageBubble({
                   variant="ghost"
                   size="sm"
                   className="h-6 w-6 p-0"
+                  data-compact
                   onClick={handleCopy}
                 >
                   {copied ? (
@@ -208,6 +209,7 @@ export function MessageBubble({
                     variant="ghost"
                     size="sm"
                     className="h-6 w-6 p-0"
+                    data-compact
                     onClick={onRegenerate}
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
@@ -227,6 +229,7 @@ export function MessageBubble({
                       'h-6 w-6 p-0',
                       feedback === 'positive' && 'text-green-500'
                     )}
+                    data-compact
                     onClick={() => handleFeedback('positive')}
                     disabled={feedback !== null}
                   >
@@ -245,6 +248,7 @@ export function MessageBubble({
                       'h-6 w-6 p-0',
                       feedback === 'negative' && 'text-red-500'
                     )}
+                    data-compact
                     onClick={() => handleFeedback('negative')}
                     disabled={feedback !== null}
                   >
@@ -257,7 +261,7 @@ export function MessageBubble({
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 ml-auto">
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 ml-auto" data-compact>
                   <MoreHorizontal className="w-3.5 h-3.5" />
                 </Button>
               </DropdownMenuTrigger>

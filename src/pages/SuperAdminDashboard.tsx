@@ -235,7 +235,7 @@ function SuperAdminDashboard() {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-20">
+    <div className="space-y-6 max-w-[1400px] mx-auto pb-20">
       {/* 标题 */}
       <div className="flex items-center gap-3">
         <ShieldCheck className="w-7 h-7 text-primary" />
@@ -477,7 +477,7 @@ function SuperAdminDashboard() {
 
           {selectedOrg && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div>
                   <p className="text-muted-foreground">名称</p>
                   <p className="font-medium">{selectedOrg.name}</p>

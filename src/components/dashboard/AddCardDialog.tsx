@@ -85,7 +85,7 @@ export function AddCardDialog({ open, onOpenChange, onAdd }: AddCardDialogProps)
             <RadioGroup
               value={type}
               onValueChange={(val) => setType(val as CardType)}
-              className="grid grid-cols-2 gap-2"
+              className="grid grid-cols-1 sm:grid-cols-2 gap-2"
             >
               {CARD_TYPE_OPTIONS.map((opt) => (
                 <Label

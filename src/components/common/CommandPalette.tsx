@@ -56,7 +56,7 @@ export function CommandPalette({ open, onOpenChange, onAIChat }: CommandPaletteP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden p-0 shadow-2xl xs:max-w-[500px]">
+      <DialogContent className="overflow-hidden p-0 shadow-2xl sm:max-w-[500px]">
         <Command className="flex h-full w-full flex-col overflow-hidden rounded-md bg-popover text-popover-foreground">
           <div className="flex items-center border-b px-3" cmdk-input-wrapper="">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />

@@ -226,7 +226,7 @@ export function TenderAnalysisPage() {
     return (
         <div className="space-y-6 max-w-5xl mx-auto pb-20">
             <div className="flex flex-col gap-2">
-                <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+                <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
                     <ListChecks className="w-8 h-8 text-primary" />
                     智能标书审阅
                 </h1>

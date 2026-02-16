@@ -116,7 +116,7 @@ export default function RoleManagement() {
       <div className="flex items-center gap-3">
         <Shield className="w-8 h-8 text-primary" />
         <div>
-          <h1 className="text-3xl font-bold">角色管理</h1>
+          <h1 className="text-2xl font-bold">角色管理</h1>
           <p className="text-muted-foreground">管理员工的系统角色与权限</p>
         </div>
       </div>

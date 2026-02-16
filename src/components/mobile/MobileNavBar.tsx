@@ -23,8 +23,8 @@ interface MobileNavBarProps {
 const NAV_TABS: NavTab[] = [
   { id: 'home', label: '首页', icon: Home, path: '/' },
   { id: 'approval', label: '审批', icon: CheckSquare, path: '/approval' },
-  { id: 'chat', label: '对话', icon: MessageCircle, path: '/ai-chat' },
-  { id: 'notifications', label: '通知', icon: Bell, path: '/notifications' },
+  { id: 'chat', label: '对话', icon: MessageCircle, path: '/' },
+  { id: 'notifications', label: '通知', icon: Bell, path: '/notification-center' },
   { id: 'profile', label: '我的', icon: User, path: '/profile' },
 ];
 

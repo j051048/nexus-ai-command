@@ -28,6 +28,7 @@ import {
   AtSign,
   Loader2,
   Paperclip,
+  Plus,
   Copy,
   Check,
   RotateCcw,
@@ -467,8 +468,8 @@ export function EnhancedAIChatPanel({
   }, [isRecording]);
 
   const panelHeightClass = useMemo(() => {
-    if (isFullscreen) return 'h-screen';
-    if (isExpanded) return 'h-[85vh] md:h-[500px]';
+    if (isFullscreen) return 'h-[100dvh]';
+    if (isExpanded) return 'h-[85dvh] md:h-[500px]';
     return 'h-16';
   }, [isExpanded, isFullscreen]);
 
@@ -519,7 +520,7 @@ export function EnhancedAIChatPanel({
                 AI 指挥中心
                 <Sparkles className="w-4 h-4 text-primary" />
               </h3>
-              <p className="text-xs text-muted-foreground flex items-center gap-2">
+              <div className="text-xs text-muted-foreground flex items-center gap-2">
                   <div className="flex items-center gap-2">
                     {/* Visual Thinking Process */}
                     {aiStatus ? (
@@ -533,7 +534,7 @@ export function EnhancedAIChatPanel({
                       '输入指令或 @ 选择专属助手'
                     )}
                   </div>
-              </p>
+              </div>
             </div>
           </div>
 
@@ -544,6 +545,7 @@ export function EnhancedAIChatPanel({
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
+                data-compact
                 onClick={onToggle}
               >
                 <X className="w-4 h-4" />
@@ -558,6 +560,7 @@ export function EnhancedAIChatPanel({
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
+                          data-compact
                           onClick={(e) => {
                             e.stopPropagation();
                             setIsFullscreen(!isFullscreen);
@@ -581,6 +584,7 @@ export function EnhancedAIChatPanel({
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
+                          data-compact
                           onClick={(e) => e.stopPropagation()}
                         >
                           <Settings className="w-4 h-4" />
@@ -610,6 +614,7 @@ export function EnhancedAIChatPanel({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8"
+                    data-compact
                     onClick={() => {
                       setIsFullscreen(false);
                       onToggle();
@@ -635,8 +640,8 @@ export function EnhancedAIChatPanel({
         {(isExpanded || variant === 'embedded') && (
           <div className={cn(
             'flex flex-col flex-1 min-h-0', // min-h-0 important for flex nesting
-            variant === 'overlay' && isFullscreen ? 'h-[calc(100vh-4rem)]' : '',
-            variant === 'overlay' && !isFullscreen ? 'h-[calc(85vh-4rem)] md:h-[436px]' : ''
+            variant === 'overlay' && isFullscreen ? 'h-[calc(100dvh-4rem)]' : '',
+            variant === 'overlay' && !isFullscreen ? 'h-[calc(85dvh-4rem)] md:h-[436px]' : ''
           )}>
             {/* Messages */}
             <ScrollArea className="flex-1 px-4 md:px-6">
@@ -740,20 +745,60 @@ export function EnhancedAIChatPanel({
               )}
 
               <div className="flex items-center gap-2">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant={showAgents ? 'default' : 'ghost'}
-                      size="icon"
-                      className="h-10 w-10 flex-shrink-0"
-                      onClick={() => setShowAgents(!showAgents)}
-                    >
-                      <AtSign className="w-5 h-5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>选择AI助手</TooltipContent>
-                </Tooltip>
+                {/* Mobile-only: collapsed + menu for @agent, attachment, mic */}
+                <div className="flex sm:hidden">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-10 w-10 flex-shrink-0" data-compact>
+                        <Plus className="w-5 h-5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem onClick={() => setShowAgents(!showAgents)}>
+                        <AtSign className="w-4 h-4 mr-2" /> 选择AI助手
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                        <Paperclip className="w-4 h-4 mr-2" /> 上传文档
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={toggleRecording}>
+                        <Mic className="w-4 h-4 mr-2" /> 语音输入
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
 
+                {/* Desktop-only: @agent and attachment buttons */}
+                <div className="hidden sm:flex items-center gap-2">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant={showAgents ? 'default' : 'ghost'}
+                        size="icon"
+                        className="h-10 w-10 flex-shrink-0"
+                        onClick={() => setShowAgents(!showAgents)}
+                      >
+                        <AtSign className="w-5 h-5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>选择AI助手</TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 flex-shrink-0"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Paperclip className="w-5 h-5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>上传文档</TooltipContent>
+                  </Tooltip>
+                </div>
+
+                {/* Hidden file input (shared by mobile and desktop) */}
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -761,19 +806,6 @@ export function EnhancedAIChatPanel({
                   onChange={handleFileUpload}
                   accept=".pdf,.txt,.md,.csv,.json,.docx"
                 />
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-10 w-10 flex-shrink-0"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <Paperclip className="w-5 h-5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>上传文档</TooltipContent>
-                </Tooltip>
 
                 <div className="flex-1 relative">
                   <input
@@ -806,31 +838,34 @@ export function EnhancedAIChatPanel({
                   )}
                 </div>
 
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant={isRecording ? 'destructive' : 'ghost'}
-                      size="icon"
-                      className={cn(
-                        'h-10 w-10 flex-shrink-0 relative',
-                        isRecording && 'animate-pulse'
-                      )}
-                      onClick={toggleRecording}
-                    >
-                      {isRecording && (
-                        <span className="absolute inset-0 rounded-md bg-red-500/20 animate-ping" />
-                      )}
-                      {isRecording ? (
-                        <MicOff className="w-5 h-5 relative z-10" />
-                      ) : (
-                        <Mic className="w-5 h-5" />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {isRecording ? '停止录音' : '语音输入'}
-                  </TooltipContent>
-                </Tooltip>
+                {/* Desktop-only: mic button */}
+                <div className="hidden sm:block">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant={isRecording ? 'destructive' : 'ghost'}
+                        size="icon"
+                        className={cn(
+                          'h-10 w-10 flex-shrink-0 relative',
+                          isRecording && 'animate-pulse'
+                        )}
+                        onClick={toggleRecording}
+                      >
+                        {isRecording && (
+                          <span className="absolute inset-0 rounded-md bg-red-500/20 animate-ping" />
+                        )}
+                        {isRecording ? (
+                          <MicOff className="w-5 h-5 relative z-10" />
+                        ) : (
+                          <Mic className="w-5 h-5" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {isRecording ? '停止录音' : '语音输入'}
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
 
                 <Button
                   size="icon"

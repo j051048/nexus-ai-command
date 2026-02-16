@@ -250,7 +250,7 @@ function APIKeysPage() {
             </p>
           </div>
           <Button variant="outline" size="sm" asChild>
-            <a href="/docs" target="_blank" rel="noopener noreferrer">
+            <a href="#" onClick={(e) => { e.preventDefault(); toast.info('API 文档功能即将上线'); }} rel="noopener noreferrer">
               查看文档
             </a>
           </Button>
@@ -374,7 +374,7 @@ function APIKeysPage() {
 
             <div className="space-y-2">
               <Label>权限范围</Label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {SCOPE_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}

@@ -20,9 +20,11 @@ import {
   Legend,
 } from 'recharts';
 
+import { CHART_COLORS } from '@/lib/chartColors';
+
 // ─── Mock 数据 ──────────────────────────────────────────────
 
-const COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#818cf8', '#4f46e5'];
+const COLORS = CHART_COLORS;
 
 const BAR_DATA = [
   { name: '1月', value: 4200 },
@@ -114,7 +116,7 @@ function BarChartContent() {
             borderRadius: '8px',
           }}
         />
-        <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -159,8 +161,8 @@ function LineChartContent() {
           }}
         />
         <Legend />
-        <Line type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={2} name="本期" dot={false} />
-        <Line type="monotone" dataKey="prev" stroke="#a78bfa" strokeWidth={2} strokeDasharray="5 5" name="上期" dot={false} />
+        <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} name="本期" dot={false} />
+        <Line type="monotone" dataKey="prev" stroke="hsl(var(--primary) / 0.5)" strokeWidth={2} strokeDasharray="5 5" name="上期" dot={false} />
       </LineChart>
     </ResponsiveContainer>
   );
@@ -247,10 +249,10 @@ export function DashboardCard({ config, isEditing, onRemove, onEdit }: Dashboard
     >
       {isEditing && (
         <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(config.id)}>
+          <Button variant="ghost" size="icon" className="h-7 w-7" data-compact onClick={() => onEdit(config.id)}>
             <Settings className="w-3.5 h-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => onRemove(config.id)}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" data-compact onClick={() => onRemove(config.id)}>
             <X className="w-3.5 h-3.5" />
           </Button>
         </div>

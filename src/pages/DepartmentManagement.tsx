@@ -227,7 +227,7 @@ export default function DepartmentManagement() {
         <div className="flex items-center gap-3">
           <Building2 className="w-8 h-8 text-primary" />
           <div>
-            <h1 className="text-3xl font-bold">部门管理</h1>
+            <h1 className="text-2xl font-bold">部门管理</h1>
             <p className="text-muted-foreground">管理公司部门和部门经理</p>
           </div>
         </div>

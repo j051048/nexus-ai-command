@@ -17,11 +17,13 @@ import {
   Pencil,
   Check,
   Loader2,
+  Monitor,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { WorkflowCanvas, type WorkflowCanvasRef } from '@/components/workflow/WorkflowCanvas';
 import { WorkflowSidebar } from '@/components/workflow/WorkflowSidebar';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { WorkflowProperties } from '@/components/workflow/WorkflowProperties';
 import {
   useWorkflow,
@@ -44,6 +46,26 @@ export function WorkflowDesigner() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const isNew = !id || id === 'new';
+  const isMobile = useIsMobile();
+
+  // 移动端降级：流程设计器需要桌面端操作
+  if (isMobile) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+        <Monitor className="w-16 h-16 text-muted-foreground/40 mb-4" />
+        <h2 className="text-lg font-semibold mb-2">流程设计器</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          流程设计需要在桌面端操作，移动端暂不支持画布拖拽编辑。
+        </p>
+        <p className="text-xs text-muted-foreground mb-6">
+          请使用电脑浏览器访问以获得完整体验。
+        </p>
+        <Button variant="outline" onClick={() => navigate('/workflows')}>
+          查看流程列表
+        </Button>
+      </div>
+    );
+  }
 
   // State
   const [workflowName, setWorkflowName] = useState('新建流程');
@@ -160,7 +182,7 @@ export function WorkflowDesigner() {
 
   if (!isNew && isLoadingWorkflow) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+      <div className="flex items-center justify-center h-[calc(100dvh-200px)]">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
@@ -168,7 +190,7 @@ export function WorkflowDesigner() {
 
   return (
     <ReactFlowProvider>
-      <div className="flex flex-col h-[calc(100vh-120px)]">
+      <div className="flex flex-col h-[calc(100dvh-120px)]">
         {/* 顶部工具栏 */}
         <div className="flex items-center justify-between px-4 py-3 border-b bg-background">
           <div className="flex items-center gap-3">

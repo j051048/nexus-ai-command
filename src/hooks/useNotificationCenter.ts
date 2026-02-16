@@ -98,7 +98,7 @@ export function useNotificationCenter(options?: {
       );
       return result.data ?? [];
     },
-    refetchInterval: 30_000, // Refetch every 30 seconds
+    refetchInterval: 60_000, // Refetch every 60 seconds
   });
 }
 
@@ -114,7 +114,7 @@ export function useUnreadCount() {
       );
       return result.data?.unread_count ?? 0;
     },
-    refetchInterval: 15_000, // Refetch every 15 seconds
+    refetchInterval: 30_000, // Refetch every 30 seconds
   });
 }
 

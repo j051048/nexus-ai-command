@@ -411,7 +411,7 @@ export function DataExport<T extends Record<string, unknown>>({
             <RadioGroup
               value={selectedFormat}
               onValueChange={(value) => setSelectedFormat(value as ExportFormat)}
-              className="grid grid-cols-2 gap-3"
+              className="grid grid-cols-1 sm:grid-cols-2 gap-3"
             >
               {formats.map((format) => (
                 <div key={format}>

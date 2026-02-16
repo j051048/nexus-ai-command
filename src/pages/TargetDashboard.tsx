@@ -27,10 +27,10 @@ export function TargetDashboard() {
     const { user } = useUser();
 
     return (
-        <div className="space-y-8 max-w-7xl mx-auto pb-20">
+        <div className="space-y-8 max-w-[1400px] mx-auto pb-20">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex flex-col gap-2">
-                    <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+                    <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
                         <Target className="w-8 h-8 text-primary" />
                         个人目标看板
                     </h1>

@@ -10,6 +10,7 @@ import { InstallPrompt } from '@/components/common/InstallPrompt';
 import { WelcomeTour } from '@/components/common/WelcomeTour';
 import { NotificationCenter } from '@/components/common/NotificationCenter';
 import MobileNavBar from '@/components/mobile/MobileNavBar';
+import MobileHeader from '@/components/mobile/MobileHeader';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { PanelRightClose, PanelRightOpen, ArrowLeft } from 'lucide-react';
 
@@ -56,11 +57,11 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
     // Map current pathname to MobileNavBar active tab id
     const getActiveTab = useCallback(() => {
         const path = location.pathname;
-        if (path === '/' || path.includes('dashboard')) return 'home';
         if (path.includes('approval')) return 'approval';
-        if (path.includes('ai-chat') || path.includes('chat')) return 'chat';
-        if (path.includes('notifications')) return 'notifications';
+        if (path.includes('notification-center')) return 'notifications';
         if (path.includes('profile')) return 'profile';
+        if (!isCanvasOpen && (path === '/' || path === '/chat')) return 'chat';
+        if (path === '/' || path.includes('dashboard')) return 'home';
         return 'home';
     }, [location.pathname]);
 
@@ -95,7 +96,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
     }, [location.pathname, isPageRoute]);
 
     return (
-        <div className="flex h-screen w-full bg-background overflow-hidden">
+        <div className="flex h-[100dvh] w-full bg-background overflow-hidden">
             {/* 1. Navigation Sidebar (Collapsed/Icon-only by default for 'App' feel?)
                 Retain existing Sidebar for now but maybe make it collapsible
             */}
@@ -142,37 +143,53 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                 <div className={cn(
                     "bg-background/95 backdrop-blur-sm transition-all duration-300 ease-in-out border-l shadow-2xl overflow-hidden flex flex-col",
                     // Desktop: Relative width
-                    // Mobile: Absolute overlay?
+                    // Mobile: Absolute overlay with bottom spacing for MobileNavBar
                     isCanvasOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 w-0",
-                    "absolute inset-0 md:static md:inset-auto", // Mobile overlay
+                    "absolute top-0 left-0 right-0 md:static md:inset-auto",
+                    isMobile ? "bottom-[calc(3.5rem+env(safe-area-inset-bottom))]" : "bottom-0",
                      isCanvasOpen ? "w-full md:w-[55%] lg:w-[60%]" : "w-0"
                 )}>
 
                    {/* Canvas Header/Controls */}
-                   <div className="h-12 border-b flex items-center justify-between px-4 bg-card/50">
+                   <div className="h-12 border-b flex items-center justify-between px-3 md:px-4 bg-card/50">
                         <div className="flex items-center gap-2">
                             {/* Mobile: show back arrow to close canvas */}
                             {isMobile && (
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-8 w-8 p-0"
+                                    className="h-10 w-10 p-0 touch-manipulation"
+                                    data-compact
                                     onClick={() => setIsCanvasOpen(false)}
+                                    aria-label="返回对话"
                                 >
-                                    <ArrowLeft className="w-4 h-4" />
+                                    <ArrowLeft className="w-5 h-5" />
                                 </Button>
                             )}
-                            <span className="text-sm font-medium text-foreground">
+                            <span className="text-sm font-medium text-foreground truncate">
                                 {getPageTitle()}
                             </span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
+                            {isMobile && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-10 w-10 p-0 touch-manipulation"
+                                    data-compact
+                                    onClick={() => setIsCommandPaletteOpen(true)}
+                                    aria-label="搜索"
+                                >
+                                    <PanelRightOpen className="w-4 h-4" />
+                                </Button>
+                            )}
                             <NotificationCenter />
                             {!isMobile && (
                                 <Button
                                     variant="ghost"
                                     size="sm"
                                     className="h-8 w-8 p-0"
+                                    data-compact
                                     onClick={() => setIsCanvasOpen(false)}
                                 >
                                     <PanelRightClose className="w-4 h-4" />
@@ -182,10 +199,8 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                    </div>
 
                    {/* Canvas Content (Scrollable) */}
-                   <div className="flex-1 overflow-auto bg-muted/10 p-4 md:p-6 custom-scrollbar pb-16 md:pb-6">
-                        <div className="max-w-6xl mx-auto min-h-full bg-card rounded-xl border shadow-sm p-4 md:p-8">
-                             {children || <Outlet />}
-                        </div>
+                   <div className="flex-1 overflow-auto p-2 md:p-4 custom-scrollbar pb-16 md:pb-4">
+                        {children || <Outlet />}
                    </div>
 
                 </div>
@@ -196,7 +211,13 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
             {isMobile && (
                 <MobileNavBar
                     activeTab={getActiveTab()}
-                    onTabChange={(_tabId, path) => navigate(path)}
+                    onTabChange={(_tabId, path) => {
+                        if (_tabId === 'chat') {
+                            setIsCanvasOpen(false);
+                        } else {
+                            navigate(path);
+                        }
+                    }}
                 />
             )}
 

@@ -277,6 +277,7 @@ export function FormFieldEditor({
             }}
             disabled={index === 0}
             className="h-7 w-7 p-0"
+            data-compact
           >
             <ArrowUp className="w-3.5 h-3.5" />
           </Button>
@@ -290,6 +291,7 @@ export function FormFieldEditor({
             }}
             disabled={index === total - 1}
             className="h-7 w-7 p-0"
+            data-compact
           >
             <ArrowDown className="w-3.5 h-3.5" />
           </Button>
@@ -302,6 +304,7 @@ export function FormFieldEditor({
               onDelete();
             }}
             className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+            data-compact
           >
             <Trash2 className="w-3.5 h-3.5" />
           </Button>

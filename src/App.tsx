@@ -116,6 +116,7 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes
       retry: 2,
+      refetchOnWindowFocus: false,
     },
     mutations: {
       onError: (error) => {
@@ -234,6 +235,9 @@ const App = () => (
 
                 {/* Developer Tools */}
                 <Route path="dev/animations" element={<AnimationShowcase />} />
+
+                {/* 404 for authenticated users */}
+                <Route path="*" element={<NotFound />} />
               </Route>
 
               <Route path="*" element={<NotFound />} />

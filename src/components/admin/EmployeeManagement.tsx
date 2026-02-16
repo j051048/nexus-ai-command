@@ -267,7 +267,7 @@ export function EmployeeManagement({ onProjectSelect }: EmployeeManagementProps)
 
       {/* Transfer Dialog (List View) */}
       <Dialog open={showTransferDialog} onOpenChange={setShowTransferDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ArrowRightLeft className="w-5 h-5 text-primary" />

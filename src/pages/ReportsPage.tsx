@@ -41,6 +41,7 @@ import {
 } from 'recharts';
 import { useSalesReport, useApprovalReport, usePerformanceReport, useUsageReport } from '@/hooks/useReports';
 import { toast } from 'sonner';
+import { chartColors, CHART_COLORS } from '@/lib/chartColors';
 
 // 时间范围预设
 const TIME_PRESETS = [
@@ -51,7 +52,7 @@ const TIME_PRESETS = [
 ];
 
 // 图表颜色
-const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+const COLORS = [...CHART_COLORS.slice(0, 4), chartColors.success, chartColors.warning];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyData = Record<string, any>;
@@ -130,8 +131,8 @@ function SalesTab({ dateRange }: { dateRange: { preset: string } }) {
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="revenue" name="销售额" stroke="#22c55e" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="conversions" name="成交数" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="revenue" name="销售额" stroke={chartColors.success} strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="conversions" name="成交数" stroke={chartColors.info} strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -149,7 +150,7 @@ function SalesTab({ dateRange }: { dateRange: { preset: string } }) {
                 <XAxis dataKey="period" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
-                <Bar dataKey="conversion_rate" name="转化率%" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="conversion_rate" name="转化率%" fill={chartColors.warning} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -204,7 +205,7 @@ function ApprovalsTab({ dateRange }: { dateRange: { preset: string } }) {
                   outerRadius={100}
                   dataKey="value"
                 >
-                  {['#22c55e', '#ef4444', '#f59e0b'].map((color, index) => (
+                  {[chartColors.success, chartColors.danger, chartColors.warning].map((color, index) => (
                     <Cell key={index} fill={color} />
                   ))}
                 </Pie>
@@ -225,7 +226,7 @@ function ApprovalsTab({ dateRange }: { dateRange: { preset: string } }) {
                 <XAxis type="number" tick={{ fontSize: 12 }} />
                 <YAxis dataKey="name" type="category" tick={{ fontSize: 12 }} width={60} />
                 <Tooltip />
-                <Bar dataKey="value" name="数量" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="value" name="数量" fill={chartColors.info} radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -267,8 +268,8 @@ function PerformanceTab({ dateRange }: { dateRange: { preset: string } }) {
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip />
               <Legend />
-              <Bar dataKey="score" name="绩效分" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="completion_rate" name="完成率%" fill="#22c55e" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="score" name="绩效分" fill={chartColors.info} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="completion_rate" name="完成率%" fill={chartColors.success} radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
@@ -340,7 +341,7 @@ function UsageTab({ dateRange }: { dateRange: { preset: string } }) {
                 <XAxis type="number" tick={{ fontSize: 12 }} />
                 <YAxis dataKey="feature" type="category" tick={{ fontSize: 12 }} width={80} />
                 <Tooltip />
-                <Bar dataKey="count" name="使用次数" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="count" name="使用次数" fill="hsl(var(--primary) / 0.7)" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

@@ -15,7 +15,7 @@ export function ApprovalCenter() {
   useNotificationsRealtime();
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-2 duration-500">
+    <div className="max-w-[1400px] mx-auto space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-2 duration-500">
       {/* Header with Title and Global Actions */}
       <div className="flex items-center justify-between">
         <div className="flex-1">

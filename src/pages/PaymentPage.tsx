@@ -433,7 +433,7 @@ function PaymentPage() {
                 placeholder="公司电话（选填）"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>开户银行</Label>
                 <Input

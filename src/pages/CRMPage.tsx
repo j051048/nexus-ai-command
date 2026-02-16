@@ -4,6 +4,8 @@
  */
 
 import React, { useState, useMemo } from 'react';
+import { useDebounce } from '@/hooks/useDebounce';
+import { NoDataYet, NoSearchResults } from '@/components/common/EmptyState';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -417,7 +419,7 @@ function CreateCustomerDialog({
             <Label>客户名称 *</Label>
             <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="项目或客户名称" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>公司</Label>
               <Input value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} placeholder="公司名称" />
@@ -427,7 +429,7 @@ function CreateCustomerDialog({
               <Input value={form.industry} onChange={e => setForm({ ...form, industry: e.target.value })} placeholder="行业领域" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>阶段</Label>
               <Select value={form.stage} onValueChange={v => setForm({ ...form, stage: v })}>
@@ -473,6 +475,7 @@ function CreateCustomerDialog({
 function CRMPage() {
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 300);
   const [stageFilter, setStageFilter] = useState('all');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -481,9 +484,9 @@ function CRMPage() {
   const filters = useMemo(() => {
     const f: Record<string, string> = {};
     if (stageFilter !== 'all') f.stage = stageFilter;
-    if (searchQuery) f.search = searchQuery;
+    if (debouncedSearch) f.search = debouncedSearch;
     return f;
-  }, [stageFilter, searchQuery]);
+  }, [stageFilter, debouncedSearch]);
 
   const { data: customersData, isLoading } = useCustomers(filters);
   const customers = (customersData || []) as Customer[];
@@ -573,11 +576,11 @@ function CRMPage() {
           ))}
         </div>
       ) : customers.length === 0 ? (
-        <div className="text-center py-16">
-          <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium">暂无客户</h3>
-          <p className="text-muted-foreground mt-1">点击上方"新建客户"按钮添加第一个客户</p>
-        </div>
+        debouncedSearch ? (
+          <NoSearchResults query={searchQuery} onClear={() => setSearchQuery('')} />
+        ) : (
+          <NoDataYet resourceName="客户" onAdd={() => setCreateOpen(true)} />
+        )
       ) : viewMode === 'kanban' ? (
         <KanbanView customers={customers} onSelect={handleSelectCustomer} />
       ) : (

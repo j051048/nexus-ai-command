@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { toast } from 'sonner';
@@ -129,15 +129,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     return { error };
-  };
+  }, []);
 
-  const signUp = async (email: string, password: string, name: string, selectedRole: AppRole) => {
+  const signUp = useCallback(async (email: string, password: string, name: string, selectedRole: AppRole) => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -150,27 +150,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     });
     return { error };
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
     setProfile(null);
     setRole(null);
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    user,
+    session,
+    profile,
+    role,
+    loading,
+    signIn,
+    signUp,
+    signOut,
+  }), [user, session, profile, role, loading, signIn, signUp, signOut]);
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      session,
-      profile,
-      role,
-      loading,
-      signIn,
-      signUp,
-      signOut,
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
