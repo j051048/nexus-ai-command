@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useUser } from '@/contexts/UserContext';
 import {
   TrendingUp,
@@ -23,6 +23,10 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { PullToRefreshIndicator } from '@/components/common/PullToRefreshIndicator';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Lazy load heavy components
 const SalesChart = React.lazy(() => import('@/components/charts').then(m => ({ default: m.SalesChart })));
@@ -65,6 +69,20 @@ const defaultPerformanceMetrics = [
 export function EmployeeDashboard() {
   const { user } = useUser();
   const [animatedScore, setAnimatedScore] = useState(0);
+  const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
+
+  // 下拉刷新
+  const handleRefresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['sales-metrics'] });
+    await queryClient.invalidateQueries({ queryKey: ['leaderboard'] });
+    toast.success('数据已刷新');
+  }, [queryClient]);
+
+  const { isRefreshing, pullDistance, containerRef, handlers } = usePullToRefresh({
+    onRefresh: handleRefresh,
+    enabled: isMobile,
+  });
 
   const [showEntryDialog, setShowEntryDialog] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
@@ -143,7 +161,16 @@ export function EmployeeDashboard() {
   const progressToNextBadge = ((user.score - 80) / 20) * 100;
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div
+      ref={containerRef}
+      {...handlers}
+      className="space-y-4 sm:space-y-6"
+    >
+      {/* Pull to Refresh Indicator (mobile only) */}
+      {isMobile && (
+        <PullToRefreshIndicator pullDistance={pullDistance} isRefreshing={isRefreshing} />
+      )}
+
       {/* Welcome Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>

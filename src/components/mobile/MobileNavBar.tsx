@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Home, CheckSquare, MessageCircle, Bell, User } from 'lucide-react';
+import { Home, LayoutGrid, MessageCircle, Bell, User, Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /** 底部导航栏 Tab 定义 */
@@ -9,6 +9,7 @@ interface NavTab {
   icon: React.ElementType;
   path: string;
   badge?: number;
+  isCenter?: boolean;
 }
 
 interface MobileNavBarProps {
@@ -21,17 +22,17 @@ interface MobileNavBarProps {
 }
 
 const NAV_TABS: NavTab[] = [
-  { id: 'home', label: '首页', icon: Home, path: '/' },
-  { id: 'approval', label: '审批', icon: CheckSquare, path: '/approval' },
-  { id: 'chat', label: '对话', icon: MessageCircle, path: '/' },
-  { id: 'notifications', label: '通知', icon: Bell, path: '/notification-center' },
+  { id: 'home', label: '首页', icon: Home, path: '/dashboard' },
+  { id: 'workbench', label: '工作台', icon: LayoutGrid, path: '/approval' },
+  { id: 'chat', label: 'AI', icon: Bot, path: '/', isCenter: true },
+  { id: 'notifications', label: '消息', icon: Bell, path: '/notification-center' },
   { id: 'profile', label: '我的', icon: User, path: '/profile' },
 ];
 
 /**
  * 移动端底部导航栏
+ * 5-tab 结构：首页 | 工作台 | AI(中心突出) | 消息 | 我的
  * 仅在 md (768px) 以下屏幕显示
- * 使用 fixed bottom 定位 + safe-area-inset 适配
  */
 export default function MobileNavBar({
   activeTab: controlledTab,
@@ -60,6 +61,42 @@ export default function MobileNavBar({
           const isActive = activeTab === tab.id;
           const Icon = tab.icon;
           const showBadge = tab.id === 'notifications' && unreadCount > 0;
+
+          // AI 中心按钮 — 突出样式
+          if (tab.isCenter) {
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabClick(tab)}
+                className={cn(
+                  'flex flex-col items-center justify-center',
+                  'w-full h-full min-w-[44px] min-h-[44px]',
+                  'transition-all duration-200',
+                  'active:scale-95 touch-manipulation',
+                  '-mt-3' // 向上突出
+                )}
+                aria-label={tab.label}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                <div
+                  className={cn(
+                    'w-11 h-11 rounded-full flex items-center justify-center shadow-lg transition-all',
+                    isActive
+                      ? 'bg-primary text-primary-foreground scale-105 shadow-primary/30'
+                      : 'bg-primary/90 text-primary-foreground hover:bg-primary'
+                  )}
+                >
+                  <Icon className="w-5 h-5" />
+                </div>
+                <span className={cn(
+                  'text-[10px] leading-tight mt-0.5',
+                  isActive ? 'text-primary font-medium' : 'text-muted-foreground'
+                )}>
+                  {tab.label}
+                </span>
+              </button>
+            );
+          }
 
           return (
             <button

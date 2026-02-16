@@ -24,6 +24,11 @@
 
 /* 移动端全局调整 */
 @media (max-width: 767px) {
+  /* 移动端字号基准调大: 14px → 15px */
+  html {
+    font-size: 15px;
+  }
+
   /* 确保主要可点击元素的最小触摸区域为 44x44px (Apple HIG) */
   /* 使用 data-compact 属性排除紧凑型内联按钮 */
   button:not([data-compact]),
@@ -106,6 +111,17 @@
     max-width: 100vw;
     max-height: 100dvh;
     border-radius: 0;
+  }
+
+  /* 移动端消息气泡字号优化 */
+  .prose-sm {
+    font-size: 0.9375rem; /* 15px instead of 14px */
+    line-height: 1.625;
+  }
+
+  /* 移动端卡片间距统一 8px 倍数 */
+  .mobile-card-spacing > * + * {
+    margin-top: 8px;
   }
 }
 

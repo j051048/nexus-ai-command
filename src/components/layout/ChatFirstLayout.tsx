@@ -12,7 +12,7 @@ import { NotificationCenter } from '@/components/common/NotificationCenter';
 import MobileNavBar from '@/components/mobile/MobileNavBar';
 import MobileHeader from '@/components/mobile/MobileHeader';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { PanelRightClose, PanelRightOpen, ArrowLeft } from 'lucide-react';
+import { PanelRightClose, PanelRightOpen, ArrowLeft, Bot } from 'lucide-react';
 
 // Interface for props
 interface ChatFirstLayoutProps {
@@ -57,10 +57,11 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
     // Map current pathname to MobileNavBar active tab id
     const getActiveTab = useCallback(() => {
         const path = location.pathname;
-        if (path.includes('approval')) return 'approval';
         if (path.includes('notification-center')) return 'notifications';
         if (path.includes('profile')) return 'profile';
         if (!isCanvasOpen && (path === '/' || path === '/chat')) return 'chat';
+        // 工作台: 审批、异常、销售、CRM、合同、工作流等业务页面
+        if (path.includes('approval') || path.includes('exceptions') || path.includes('sales') || path.includes('crm') || path.includes('contracts') || path.includes('workflows')) return 'workbench';
         if (path === '/' || path.includes('dashboard')) return 'home';
         return 'home';
     }, [location.pathname]);
@@ -87,13 +88,15 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
     // Auto-open canvas if we are on a page route
     React.useEffect(() => {
         if (isPageRoute) {
-            setIsCanvasOpen(true);
-        } else {
-             // Optional: Close canvas if going back to root? Or keep it?
-             // Let's keep it open if user wants, but maybe default to closed on root
-             // setIsCanvasOpen(false);
+            // 桌面端自动打开 Canvas；移动端仅在用户主动导航时打开
+            if (!isMobile) {
+                setIsCanvasOpen(true);
+            }
+        } else if (isMobile) {
+            // 移动端回到首页时关闭 Canvas，显示 AI 对话
+            setIsCanvasOpen(false);
         }
-    }, [location.pathname, isPageRoute]);
+    }, [location.pathname, isPageRoute, isMobile]);
 
     return (
         <div className="flex h-[100dvh] w-full bg-background overflow-hidden">
@@ -199,8 +202,20 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                    </div>
 
                    {/* Canvas Content (Scrollable) */}
-                   <div className="flex-1 overflow-auto p-2 md:p-4 custom-scrollbar pb-16 md:pb-4">
+                   <div className="flex-1 overflow-auto p-2 md:p-4 custom-scrollbar pb-16 md:pb-4 relative">
                         {children || <Outlet />}
+
+                        {/* Mobile: AI Floating Action Button */}
+                        {isMobile && isCanvasOpen && (
+                            <Button
+                                size="icon"
+                                className="fixed bottom-20 right-4 z-40 w-12 h-12 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-105 transition-all"
+                                onClick={() => setIsCanvasOpen(false)}
+                                aria-label="打开AI对话"
+                            >
+                                <Bot className="w-5 h-5" />
+                            </Button>
+                        )}
                    </div>
 
                 </div>
@@ -216,6 +231,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                             setIsCanvasOpen(false);
                         } else {
                             navigate(path);
+                            setIsCanvasOpen(true);
                         }
                     }}
                 />
