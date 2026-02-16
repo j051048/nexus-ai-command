@@ -478,8 +478,8 @@ export function EnhancedAIChatPanel({
 
   return (
     <>
-      {/* A5: 移动端背景遮罩（仅移动端全屏时显示） */}
-      {isMobile && isExpanded && (
+      {/* A5: 移动端背景遮罩（仅 overlay 模式下移动端全屏时显示，embedded 模式由父容器管理遮罩） */}
+      {isMobile && isExpanded && variant !== 'embedded' && (
         <div
           className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 animate-fade-in"
           onClick={onToggle}
