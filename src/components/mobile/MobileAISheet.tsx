@@ -109,7 +109,7 @@ export default function MobileAISheet({
       {isVisible && (
         <div
           className={cn(
-            'fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] transition-opacity duration-300',
+            'fixed inset-0 bg-black/20 z-[60] transition-opacity duration-300',
             isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
           )}
           onClick={handleClose}
