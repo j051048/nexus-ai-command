@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { useAISettings, useSaveAISettings, useTestAIConnection, DEFAULT_MODELS } from '@/hooks/useAISettings';
+import { useAuth } from '@/components/auth/AuthContext';
 import { toast } from 'sonner';
 import {
   Settings,
@@ -32,6 +33,7 @@ export function AISettingsPanel() {
   const { data: settings, isLoading } = useAISettings();
   const saveSettings = useSaveAISettings();
   const testConnection = useTestAIConnection();
+  const { profile, loading: authLoading } = useAuth();
 
   const [baseUrl, setBaseUrl] = useState('https://ai.gateway.zhz-tech.dev/v1/chat/completions');
   const [apiKey, setApiKey] = useState('');
@@ -153,7 +155,7 @@ export function AISettingsPanel() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || authLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -258,7 +260,7 @@ export function AISettingsPanel() {
             <div className="flex gap-3 pt-4">
               <Button
                 onClick={handleSave}
-                disabled={saveSettings.isPending}
+                disabled={saveSettings.isPending || !profile}
                 className="flex-1"
               >
                 {saveSettings.isPending ? (
@@ -282,6 +284,11 @@ export function AISettingsPanel() {
                 测试连接
               </Button>
             </div>
+            {!profile && (
+              <p className="text-xs text-destructive mt-2">
+                无法获取用户组织信息，请尝试退出后重新登录
+              </p>
+            )}
           </CardContent>
         </Card>
 

@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthContext';
 
@@ -23,6 +24,19 @@ export const DEFAULT_MODELS = [
   { value: 'google/gemini-3-pro-preview', label: 'Gemini 3 Pro Preview (实验性)' },
   { value: 'custom', label: '自定义模型...' },
 ];
+
+/**
+ * 始终持有最新 auth 值的 ref，解决 mutation 闭包捕获旧快照的问题。
+ * 当 profile 异步加载完成后，ref 会自动更新，mutation 可以拿到最新值。
+ */
+function useAuthRef() {
+  const auth = useAuth();
+  const ref = useRef(auth);
+  useEffect(() => {
+    ref.current = auth;
+  }, [auth]);
+  return ref;
+}
 
 export function useAISettings() {
   const { user, profile } = useAuth();
@@ -51,10 +65,11 @@ export function useAISettings() {
 
 export function useSaveAISettings() {
   const queryClient = useQueryClient();
-  const { user, profile } = useAuth();
+  const authRef = useAuthRef();
 
   return useMutation({
     mutationFn: async (settings: { base_url: string; api_key: string | null; model: string }) => {
+      const { user, profile } = authRef.current;
       if (!user || !profile) throw new Error('未登录或无法获取组织信息');
 
       // Check if settings exist for THIS organization and user
