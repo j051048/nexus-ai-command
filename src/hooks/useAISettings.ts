@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthContext';
 
@@ -24,19 +23,6 @@ export const DEFAULT_MODELS = [
   { value: 'google/gemini-3-pro-preview', label: 'Gemini 3 Pro Preview (实验性)' },
   { value: 'custom', label: '自定义模型...' },
 ];
-
-/**
- * 始终持有最新 auth 值的 ref，解决 mutation 闭包捕获旧快照的问题。
- * 当 profile 异步加载完成后，ref 会自动更新，mutation 可以拿到最新值。
- */
-function useAuthRef() {
-  const auth = useAuth();
-  const ref = useRef(auth);
-  useEffect(() => {
-    ref.current = auth;
-  }, [auth]);
-  return ref;
-}
 
 export function useAISettings() {
   const { user, profile } = useAuth();
@@ -65,19 +51,32 @@ export function useAISettings() {
 
 export function useSaveAISettings() {
   const queryClient = useQueryClient();
-  const authRef = useAuthRef();
 
   return useMutation({
     mutationFn: async (settings: { base_url: string; api_key: string | null; model: string }) => {
-      const { user, profile } = authRef.current;
-      if (!user || !profile) throw new Error('未登录或无法获取组织信息');
+      // 直接从 Supabase 实时获取当前会话，不依赖 React 状态/闭包
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) throw new Error('未登录，请重新登录');
+
+      const userId = session.user.id;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: profileData, error: profileError } = await (supabase.from('users') as any)
+        .select('organization_id')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (profileError) throw new Error('获取用户信息失败: ' + profileError.message);
+      if (!profileData?.organization_id) throw new Error('用户组织信息缺失，请联系管理员');
+
+      const organizationId = profileData.organization_id as string;
 
       // Check if settings exist for THIS organization and user
       const { data: existing, error: checkError } = await supabase
         .from('ai_settings')
         .select('id')
-        .eq('user_id', user.id)
-        .eq('organization_id', profile.organization_id)
+        .eq('user_id', userId)
+        .eq('organization_id', organizationId)
         .maybeSingle();
 
       if (checkError) throw new Error(checkError.message);
@@ -101,8 +100,8 @@ export function useSaveAISettings() {
         const { data, error } = await supabase
           .from('ai_settings')
           .insert({
-            user_id: user.id,
-            organization_id: profile.organization_id,
+            user_id: userId,
+            organization_id: organizationId,
             base_url: settings.base_url,
             api_key: settings.api_key,
             model: settings.model,
