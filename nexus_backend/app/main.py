@@ -269,20 +269,24 @@ async def test_ai_connectivity():
 
 
 # P0 Security Fix: Middleware order matters - last added runs first (outermost).
-# Execution order: RateLimit → SecurityHeaders → RequestID → APIKey → TenantContext → CORS
+# Execution order (outermost → innermost):
+#   CORS → RateLimit → SecurityHeaders → RequestID → APIKey → TenantContext
+#
+# CORS MUST be outermost so browser preflight (OPTIONS) is handled immediately
+# before any auth/rate-limit middleware rejects the request.
+app.add_middleware(TenantContextMiddleware)  # 6th: innermost, sets up tenant DB scope
+from app.core.api_key_middleware import APIKeyMiddleware
+app.add_middleware(APIKeyMiddleware)          # 5th: API Key auth sets org_id before tenant context
+app.add_middleware(RequestIDMiddleware)       # 4th: adds request tracing ID
+app.add_middleware(SecurityHeadersMiddleware) # 3rd: security response headers
+app.add_middleware(RateLimitMiddleware)       # 2nd: blocks abuse BEFORE DB queries
 app.add_middleware(
-    CORSMiddleware,
+    CORSMiddleware,                          # 1st: outermost — handles OPTIONS preflight immediately
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Requested-With", "X-Request-ID", "X-API-Key"],
 )
-app.add_middleware(TenantContextMiddleware)  # 5th: innermost, sets up tenant DB scope
-from app.core.api_key_middleware import APIKeyMiddleware
-app.add_middleware(APIKeyMiddleware)          # 4th: API Key auth sets org_id before tenant context
-app.add_middleware(RequestIDMiddleware)       # 3rd: adds request tracing ID
-app.add_middleware(SecurityHeadersMiddleware) # 2nd: security response headers
-app.add_middleware(RateLimitMiddleware)       # 1st: outermost, blocks abuse BEFORE DB queries
 
 
 # Include Routers

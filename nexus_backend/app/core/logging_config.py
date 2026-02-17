@@ -59,6 +59,19 @@ def setup_logging(
         logging.WARNING if IS_PRODUCTION else logging.INFO
     )
 
+    # P0 Security: Prevent HTTP/2 libraries from leaking sensitive headers
+    # (Authorization, apikey) in DEBUG logs
+    logging.getLogger("hpack").setLevel(logging.WARNING)
+    logging.getLogger("h2").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("asyncio").setLevel(logging.WARNING)
+
+    # Supabase / PostgREST client noise
+    logging.getLogger("supabase").setLevel(logging.WARNING)
+    logging.getLogger("postgrest").setLevel(logging.WARNING)
+    logging.getLogger("gotrue").setLevel(logging.WARNING)
+    logging.getLogger("realtime").setLevel(logging.WARNING)
+
     # Ensure our app loggers use the configured level
     logging.getLogger("app").setLevel(log_level)
 
