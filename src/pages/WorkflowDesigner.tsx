@@ -48,25 +48,6 @@ export function WorkflowDesigner() {
   const isNew = !id || id === 'new';
   const isMobile = useIsMobile();
 
-  // 移动端降级：流程设计器需要桌面端操作
-  if (isMobile) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-        <Monitor className="w-16 h-16 text-muted-foreground/40 mb-4" />
-        <h2 className="text-lg font-semibold mb-2">流程设计器</h2>
-        <p className="text-sm text-muted-foreground mb-4">
-          流程设计需要在桌面端操作，移动端暂不支持画布拖拽编辑。
-        </p>
-        <p className="text-xs text-muted-foreground mb-6">
-          请使用电脑浏览器访问以获得完整体验。
-        </p>
-        <Button variant="outline" onClick={() => navigate('/workflows')}>
-          查看流程列表
-        </Button>
-      </div>
-    );
-  }
-
   // State
   const [workflowName, setWorkflowName] = useState('新建流程');
   const [description, setDescription] = useState('');
@@ -179,6 +160,25 @@ export function WorkflowDesigner() {
     updateMutation,
     navigate,
   ]);
+
+  // 移动端降级：流程设计器需要桌面端操作（放在所有 hooks 之后，遵守 Rules of Hooks）
+  if (isMobile) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+        <Monitor className="w-16 h-16 text-muted-foreground/40 mb-4" />
+        <h2 className="text-lg font-semibold mb-2">流程设计器</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          流程设计需要在桌面端操作，移动端暂不支持画布拖拽编辑。
+        </p>
+        <p className="text-xs text-muted-foreground mb-6">
+          请使用电脑浏览器访问以获得完整体验。
+        </p>
+        <Button variant="outline" onClick={() => navigate('/workflows')}>
+          查看流程列表
+        </Button>
+      </div>
+    );
+  }
 
   if (!isNew && isLoadingWorkflow) {
     return (
