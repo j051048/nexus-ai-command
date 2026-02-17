@@ -28,6 +28,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signUp: (email: string, password: string, name: string, role: AppRole) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -160,6 +161,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRole(null);
   }, []);
 
+  const refreshProfile = useCallback(async () => {
+    const currentUser = user;
+    if (currentUser) {
+      await fetchUserData(currentUser.id);
+    }
+  }, [user]);
+
   const value = useMemo(() => ({
     user,
     session,
@@ -169,7 +177,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signIn,
     signUp,
     signOut,
-  }), [user, session, profile, role, loading, signIn, signUp, signOut]);
+    refreshProfile,
+  }), [user, session, profile, role, loading, signIn, signUp, signOut, refreshProfile]);
 
   return (
     <AuthContext.Provider value={value}>

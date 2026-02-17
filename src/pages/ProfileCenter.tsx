@@ -3,7 +3,7 @@
  * 展示和管理个人信息、账户设置等
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,16 +29,29 @@ import {
   Clock,
   Save,
   CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
+import { useAuth } from '@/components/auth/AuthContext';
 import { toast } from 'sonner';
 import { NotificationPreferences } from '@/components/settings/NotificationPreferences';
 import { supabase } from '@/integrations/supabase/client';
 
 export function ProfileCenter() {
   const { user } = useUser();
+  const { refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [isEditing, setIsEditing] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // 受控表单状态
+  const [editName, setEditName] = useState(user.name || '');
+  const [editPhone, setEditPhone] = useState('');
+
+  // 当 user 数据变化时同步表单
+  useEffect(() => {
+    setEditName(user.name || '');
+  }, [user.name]);
 
   // 密码修改状态
   const [currentPassword, setCurrentPassword] = useState('');
@@ -111,9 +124,46 @@ export function ProfileCenter() {
     performanceScore: user.score || 87,
   };
 
-  const handleSaveProfile = () => {
-    toast.success('个人信息保存成功');
-    setIsEditing(false);
+  const handleSaveProfile = async () => {
+    if (!editName.trim()) {
+      toast.error('姓名不能为空');
+      return;
+    }
+
+    setIsSavingProfile(true);
+    try {
+      // 直接从 Supabase 获取当前会话，避免 React 闭包问题
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        toast.error('未登录，请重新登录');
+        return;
+      }
+
+      const userId = session.user.id;
+
+      // 直接更新 users 表中的 name 字段
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('users') as any)
+        .update({ name: editName.trim() })
+        .eq('id', userId);
+
+      if (error) {
+        console.error('Profile save error:', error);
+        toast.error('保存失败: ' + error.message);
+        return;
+      }
+
+      // 刷新 AuthContext 中的 profile，使侧边栏等全局组件也更新
+      await refreshProfile();
+
+      toast.success('个人信息保存成功');
+      setIsEditing(false);
+    } catch (err) {
+      console.error('Profile save exception:', err);
+      toast.error('保存失败，请稍后重试');
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   const getRoleDisplayName = (role: string) => {
@@ -263,9 +313,13 @@ export function ProfileCenter() {
                 </div>
                 {isEditing ? (
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setIsEditing(false)}>取消</Button>
-                    <Button onClick={handleSaveProfile} className="gap-2">
-                      <Save className="w-4 h-4" />
+                    <Button variant="outline" onClick={() => { setIsEditing(false); setEditName(user.name || ''); }}>取消</Button>
+                    <Button onClick={handleSaveProfile} disabled={isSavingProfile} className="gap-2">
+                      {isSavingProfile ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4" />
+                      )}
                       保存
                     </Button>
                   </div>
@@ -278,7 +332,12 @@ export function ProfileCenter() {
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label>姓名</Label>
-                  <Input defaultValue={user.name} disabled={!isEditing} />
+                  <Input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    disabled={!isEditing}
+                    placeholder="请输入姓名"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>工号</Label>
