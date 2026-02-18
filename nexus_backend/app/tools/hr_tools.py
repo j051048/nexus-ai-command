@@ -58,52 +58,12 @@ class AttendanceQueryTool(BaseTool):
             return "❌ 无法获取用户信息"
 
         user = user_res.data
-        query_user_name = employee_name or user.get("name", "您")
 
         # 检查权限：非管理者只能查自己
         if employee_name and user.get("role") not in ["manager", "founder", "boss"]:
             return "❌ 您没有权限查询他人的考勤记录"
 
-        # 模拟考勤数据（实际应从 hr_attendance 表查询）
-        work_days = 22
-        actual_days = 21
-        late_count = 2
-        early_leave_count = 0
-        overtime_hours = 12.5
-
-        response = f"""📅 **{query_user_name} {month} 考勤汇总**
-
-**出勤统计**
-┌─────────────────────────────┐
-│ 应出勤天数        {work_days:>10} 天 │
-│ 实际出勤          {actual_days:>10} 天 │
-│ 出勤率            {actual_days/work_days*100:>9.1f}% │
-└─────────────────────────────┘
-
-**异常记录**
-┌─────────────────────────────┐
-│ 迟到              {late_count:>10} 次 │
-│ 早退              {early_leave_count:>10} 次 │
-│ 请假              {work_days - actual_days:>10} 天 │
-└─────────────────────────────┘
-
-**加班统计**
-┌─────────────────────────────┐
-│ 加班时长          {overtime_hours:>9.1f} 小时 │
-│ 可调休            {overtime_hours/8:>9.1f} 天 │
-└─────────────────────────────┘
-"""
-
-        if late_count > 0:
-            response += f"""
-⚠️ **迟到明细**
-- 12月3日 09:15 (迟到15分钟)
-- 12月15日 09:08 (迟到8分钟)
-
-💡 温馨提示: 本月迟到{late_count}次，将扣除全勤奖 ¥{late_count * 100}
-"""
-
-        return response
+        return "📅 考勤查询功能暂未开通。\n\n考勤系统正在建设中，接入后将支持出勤统计、异常记录等查询。"
 
 
 class TeamAttendanceTool(BaseTool):
@@ -139,71 +99,10 @@ class TeamAttendanceTool(BaseTool):
             else "employee"
         )
 
-        if user_role == "manager":
-            # Get manager's department
-            dept_res = (
-                await client.table("users")
-                .select("department")
-                .eq("id", user_id)
-                .maybe_single()
-                .execute()
-            )
-            user_dept = dept_res.data.get("department") if dept_res.data else None
-            if user_dept:
-                # Filter team to same department
-                team_res = (
-                    await client.table("users")
-                    .select("*")
-                    .eq("department", user_dept)
-                    .execute()
-                )
-            else:
-                team_res = await client.table("users").select("*").execute()
-        else:
-            # Boss/founder sees all
-            team_res = await client.table("users").select("*").execute()
+        if user_role not in ["manager", "founder", "boss"]:
+            return "❌ 您没有权限查看团队考勤"
 
-        team_members = team_res.data or []
-
-        # 模拟团队数据
-        team_stats = {
-            "total_members": len(team_members),
-            "avg_attendance_rate": 96.5,
-            "total_late": 8,
-            "total_overtime_hours": 156,
-        }
-
-        abnormal_members = [
-            {"name": "张小明", "late_count": 5, "status": "关注", "trend": "上升"},
-            {"name": "李小红", "late_count": 3, "status": "正常", "trend": "稳定"},
-        ]
-
-        response = f"""👥 **团队考勤总览**
-📅 统计周期: {datetime.now().strftime("%Y年%m月")}
-
-**整体情况**
-┌─────────────────────────────┐
-│ 团队人数          {team_stats['total_members']:>10} 人 │
-│ 平均出勤率        {team_stats['avg_attendance_rate']:>9.1f}% │
-│ 本月迟到总计      {team_stats['total_late']:>10} 次 │
-│ 加班总时长        {team_stats['total_overtime_hours']:>9} 小时 │
-└─────────────────────────────┘
-
-"""
-
-        if abnormal_members:
-            response += "⚠️ **需关注成员**\n"
-            for member in abnormal_members:
-                alert_icon = "🔴" if member["status"] == "关注" else "🟡"
-                response += f"{alert_icon} {member['name']}: 迟到{member['late_count']}次 (趋势{member['trend']})\n"
-
-            response += """
-💡 **AI 建议**:
-- 张小明本月迟到次数明显增加，建议一对一沟通了解情况
-- 整体出勤率良好，团队状态稳定
-"""
-
-        return response
+        return "👥 团队考勤管理功能暂未开通。\n\n考勤系统接入后将支持团队出勤分析、异常提醒等功能。"
 
 
 class EmployeeProfileTool(BaseTool):
@@ -406,49 +305,7 @@ class RecruitmentTool(BaseTool):
         action = args.get("action", "view_candidates")
 
         if action == "view_candidates":
-            # 模拟候选人数据
-            candidates = [
-                {
-                    "name": "候选人A",
-                    "position": "销售经理",
-                    "stage": "复试",
-                    "score": 4.5,
-                    "source": "猎聘",
-                },
-                {
-                    "name": "候选人B",
-                    "position": "销售专员",
-                    "stage": "初筛",
-                    "score": 3.8,
-                    "source": "BOSS",
-                },
-                {
-                    "name": "候选人C",
-                    "position": "销售经理",
-                    "stage": "offer",
-                    "score": 4.8,
-                    "source": "内推",
-                },
-            ]
-
-            response = """👥 **候选人管道**
-
-"""
-            stage_icons = {"初筛": "📋", "复试": "🎯", "offer": "✅", "入职": "🎉"}
-
-            for c in candidates:
-                icon = stage_icons.get(c["stage"], "📋")
-                stars = "⭐" * int(c["score"])
-                response += f"""{icon} **{c['name']}** - {c['position']}
-   阶段: {c['stage']} | 评分: {stars} | 来源: {c['source']}
-
-"""
-
-            response += """💡 **AI 建议**:
-- 候选人C综合评分最高，建议尽快发offer
-- 销售经理岗位已有2名合适候选人
-"""
-            return response
+            return "👥 招聘管理功能暂未开通。\n\n该功能正在建设中，接入后将支持候选人管理、面试安排等。"
 
         elif action == "schedule_interview":
             candidate = args.get("candidate_name", "候选人")

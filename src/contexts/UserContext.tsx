@@ -22,11 +22,7 @@ interface UserContextType {
   updateScore: (delta: number) => void;
 }
 
-const defaultBadges: Badge[] = [
-  { id: '1', name: '学术猎手', icon: '🎯', description: '成功转化3位教授客户', tier: 'gold', unlockedAt: new Date() },
-  { id: '2', name: '话术大师', icon: '💬', description: 'AI通话评分连续5次90+', tier: 'silver', unlockedAt: new Date() },
-  { id: '3', name: '速战速决', icon: '⚡', description: '平均响应时间<2小时', tier: 'bronze', unlockedAt: new Date() },
-];
+const defaultBadges: Badge[] = [];
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
@@ -39,9 +35,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     avatar: profile?.avatar || '',
     role: authRole || 'employee',
     department: profile?.department || '销售部',
-    score: profile?.score || 87,
-    rank: profile?.rank || 3,
-    totalBonus: Number(profile?.total_bonus) || 4850,
+    score: profile?.score ?? 0,
+    rank: profile?.rank ?? 0,
+    totalBonus: Number(profile?.total_bonus) || 0,
     badges: defaultBadges,
   });
 
@@ -54,9 +50,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
         name: profile.name,
         avatar: profile.avatar || '',
         department: profile.department || '销售部',
-        score: profile.score || 87,
-        rank: profile.rank || 3,
-        totalBonus: Number(profile.total_bonus) || 4850,
+        score: profile.score ?? 0,
+        rank: profile.rank ?? 0,
+        totalBonus: Number(profile.total_bonus) || 0,
       }));
     }
   }, [profile]);

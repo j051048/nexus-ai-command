@@ -7,7 +7,7 @@
 
 import logging
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from collections import defaultdict
 
@@ -131,8 +131,8 @@ class CRMService:
                 logger.error(f"Customer query failed: {e}")
                 raise
 
-        # 无数据库连接时返回 mock
-        return self._mock_single_customer(customer_id)
+        # 无数据库连接时返回 None
+        return None
 
     async def list_customers(
         self, org_id: str, filters: Optional[Dict] = None, db=None
@@ -166,8 +166,8 @@ class CRMService:
                 logger.error(f"Customer list query failed: {e}")
                 raise
 
-        # 无数据库连接时返回 mock
-        return self._mock_customer_list(org_id, filters)
+        # 无数据库连接时返回空列表
+        return []
 
     async def search_customers(self, org_id: str, query: str, db=None) -> List[Dict]:
         """搜索客户（按名称或公司名）"""
@@ -190,12 +190,8 @@ class CRMService:
                 logger.error(f"Customer search failed: {e}")
                 raise
 
-        # 无数据库连接时使用 mock
-        all_customers = self._mock_customer_list(org_id)
-        return [
-            c for c in all_customers
-            if query.lower() in (c.get("name", "") + c.get("company", "")).lower()
-        ]
+        # 无数据库连接时返回空列表
+        return []
 
     # ─── 联系人管理 ─────────────────────────────────────────
 
@@ -253,27 +249,8 @@ class CRMService:
                 logger.error(f"Contact list query failed: {e}")
                 raise
 
-        # 无数据库连接时返回 mock
-        return [
-            {
-                "id": str(uuid.uuid4()),
-                "customer_id": customer_id,
-                "name": "张经理",
-                "title": "采购部经理",
-                "phone": "138****1234",
-                "email": "zhang@example.com",
-                "is_primary": True,
-            },
-            {
-                "id": str(uuid.uuid4()),
-                "customer_id": customer_id,
-                "name": "李工",
-                "title": "技术部工程师",
-                "phone": "139****5678",
-                "email": "li@example.com",
-                "is_primary": False,
-            },
-        ]
+        # 无数据库连接时返回空列表
+        return []
 
     # ─── 活动时间线 ─────────────────────────────────────────
 
@@ -338,30 +315,8 @@ class CRMService:
                 logger.error(f"Activity timeline query failed: {e}")
                 raise
 
-        # 无数据库连接时返回 mock
-        import random
-        activities = []
-        types = list(ACTIVITY_TYPES.keys())
-        contents = {
-            "call": ["跟进项目进度", "确认需求细节", "讨论报价方案"],
-            "email": ["发送产品资料", "确认合同条款", "发送技术方案"],
-            "meeting": ["项目需求评审会", "技术方案讨论", "商务谈判"],
-            "note": ["客户对价格敏感", "需要定制化方案", "决策周期较长"],
-            "deal_update": ["预估金额更新", "阶段推进至商机", "合同签署完成"],
-        }
-        for i in range(min(limit, 8)):
-            act_type = random.choice(types)
-            activities.append({
-                "id": str(uuid.uuid4()),
-                "customer_id": customer_id,
-                "user_id": "mock-user",
-                "activity_type": act_type,
-                "content": random.choice(contents[act_type]),
-                "created_at": (
-                    datetime.now(timezone.utc) - timedelta(days=random.randint(0, 30))
-                ).isoformat(),
-            })
-        return sorted(activities, key=lambda x: x["created_at"], reverse=True)
+        # 无数据库连接时返回空列表
+        return []
 
     # ─── 客户统计 ──────────────────────────────────────────
 
@@ -406,75 +361,6 @@ class CRMService:
             "total_estimated_value": round(total_value, 2),
             "churned": stage_counts.get("churned", 0),
             "stage_distribution": stage_distribution,
-        }
-
-    # ─── Mock 数据 ─────────────────────────────────────────
-
-    @staticmethod
-    def _mock_customer_list(org_id: str, filters: Optional[Dict] = None) -> List[Dict]:
-        """生成模拟客户数据"""
-        import random
-        filters = filters or {}
-
-        mock_customers = [
-            {"name": "华为云项目", "company": "华为技术有限公司", "industry": "科技", "stage": "customer", "value": 500000},
-            {"name": "阿里健康", "company": "阿里巴巴集团", "industry": "医疗", "stage": "opportunity", "value": 300000},
-            {"name": "中建三局智能化", "company": "中国建筑第三工程局", "industry": "建筑", "stage": "prospect", "value": 800000},
-            {"name": "平安银行数字化", "company": "平安银行", "industry": "金融", "stage": "opportunity", "value": 1200000},
-            {"name": "比亚迪供应链", "company": "比亚迪股份有限公司", "industry": "制造", "stage": "lead", "value": 250000},
-            {"name": "字节跳动内部工具", "company": "北京字节跳动科技有限公司", "industry": "科技", "stage": "customer", "value": 450000},
-            {"name": "万科物业管理", "company": "万科企业股份有限公司", "industry": "地产", "stage": "lead", "value": 180000},
-            {"name": "中国移动AI客服", "company": "中国移动通信集团", "industry": "通信", "stage": "prospect", "value": 900000},
-            {"name": "美的智能工厂", "company": "美的集团股份有限公司", "industry": "制造", "stage": "churned", "value": 350000},
-            {"name": "海尔智家平台", "company": "海尔智家股份有限公司", "industry": "制造", "stage": "opportunity", "value": 420000},
-        ]
-
-        customers = []
-        for i, mc in enumerate(mock_customers):
-            customer = {
-                "id": f"mock-customer-{i}",
-                "organization_id": org_id,
-                "name": mc["name"],
-                "company": mc["company"],
-                "industry": mc["industry"],
-                "stage": mc["stage"],
-                "source": random.choice(["网站", "转介绍", "展会", "cold_call"]),
-                "estimated_value": mc["value"],
-                "assigned_to": None,
-                "tags": [],
-                "metadata": {},
-                "created_at": (
-                    datetime.now(timezone.utc) - timedelta(days=random.randint(5, 90))
-                ).isoformat(),
-                "updated_at": (
-                    datetime.now(timezone.utc) - timedelta(days=random.randint(0, 10))
-                ).isoformat(),
-            }
-            customers.append(customer)
-
-        # 应用筛选
-        if filters.get("stage"):
-            customers = [c for c in customers if c["stage"] == filters["stage"]]
-
-        return customers
-
-    @staticmethod
-    def _mock_single_customer(customer_id: str) -> Dict:
-        """生成单个模拟客户"""
-        return {
-            "id": customer_id,
-            "organization_id": "default",
-            "name": "示例客户",
-            "company": "示例科技有限公司",
-            "industry": "科技",
-            "stage": "opportunity",
-            "source": "网站",
-            "estimated_value": 100000,
-            "assigned_to": None,
-            "tags": ["重点客户"],
-            "metadata": {},
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
     @staticmethod

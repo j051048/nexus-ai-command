@@ -15,76 +15,6 @@ import { ActiveCard } from '@/types/nexus';
 import { useApprovals } from '@/hooks/useApprovals';
 import { useToast } from '@/hooks/use-toast';
 
-const mockEmployeeCards: ActiveCard[] = [
-  {
-    id: '1',
-    type: 'bonus',
-    title: '🎉 即时奖金到账！',
-    content: '恭喜！成功推进"北大物理系"商机至技术验证阶段，触发 ¥300 即时奖金！',
-    priority: 'high',
-    timestamp: new Date(),
-  },
-  {
-    id: '2',
-    type: 'lead',
-    title: '📍 高优线索推荐',
-    content: '张教授（清华化学系）对光谱仪表现出强烈兴趣，建议今日跟进',
-    priority: 'high',
-    timestamp: new Date(Date.now() - 1000 * 60 * 5),
-  },
-  {
-    id: '3',
-    type: 'script',
-    title: '💡 话术建议',
-    content: '检测到客户提到"预算有限"，建议回复：我们可以提供灵活的分期方案...',
-    priority: 'medium',
-    timestamp: new Date(Date.now() - 1000 * 60 * 15),
-  },
-  {
-    id: '4',
-    type: 'ranking',
-    title: '🏆 排行榜更新',
-    content: '您已升至本周销售榜第3名！距离第2名还差 150 分',
-    priority: 'medium',
-    timestamp: new Date(Date.now() - 1000 * 60 * 30),
-  },
-  {
-    id: '5',
-    type: 'task',
-    title: '⏰ 跟进提醒',
-    content: '李教授的报价已发送3天，建议今日电话确认',
-    priority: 'low',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60),
-  },
-];
-
-const mockBossCards: ActiveCard[] = [
-  {
-    id: '1',
-    type: 'alert',
-    title: '⚠️ 超预算审批',
-    content: '采购单#2024-089 超出预算限额10%，需您确认',
-    priority: 'urgent',
-    timestamp: new Date(),
-  },
-  {
-    id: '2',
-    type: 'ranking',
-    title: '📊 团队周报生成',
-    content: 'AI已生成本周销售团队绩效报告，点击查看详情',
-    priority: 'high',
-    timestamp: new Date(Date.now() - 1000 * 60 * 30),
-  },
-  {
-    id: '3',
-    type: 'bonus',
-    title: '💰 激励发放通知',
-    content: '本周自动发放即时奖金 ¥8,500，共触发12次激励事件',
-    priority: 'medium',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60),
-  },
-];
-
 const cardIcons = {
   lead: <Target className="w-4 h-4" />,
   bonus: <Gift className="w-4 h-4" />,
@@ -114,11 +44,6 @@ export function ActiveCardStream() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Base Mocks (Keep these to make the UI look alive for non-approval items)
-    const baseMocks = user.role === 'boss'
-      ? mockBossCards.filter(c => c.type !== 'alert') // Remove mock alerts, use real ones
-      : mockEmployeeCards;
-
     // Convert Real Approvals to Cards
     const approvalCards: ActiveCard[] = pendingApprovals.map(req => ({
       id: req.id,
@@ -129,34 +54,13 @@ export function ActiveCardStream() {
       timestamp: new Date(req.created_at),
     }));
 
-    // Combine and Sort
-    const allCards = [...approvalCards, ...baseMocks].sort((a, b) =>
+    // Sort by time
+    const allCards = [...approvalCards].sort((a, b) =>
       b.timestamp.getTime() - a.timestamp.getTime()
     );
 
     setCards(allCards);
   }, [user.role, pendingApprovals]);
-
-  // Simulate new card arriving (Only for employees for now, or non-critical updates)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (user.role === 'employee') {
-        const newCard: ActiveCard = {
-          id: 'new-' + Date.now(),
-          type: 'bonus',
-          title: '🎉 即时奖金到账！',
-          content: '通话质量评分达到90+，触发 ¥200 即时奖金！',
-          priority: 'high',
-          timestamp: new Date(),
-        };
-        setCards(prev => [newCard, ...prev]);
-        setNewCardId(newCard.id);
-        setTimeout(() => setNewCardId(null), 1000);
-      }
-    }, 5000);
-
-    return () => clearTimeout(timer);
-  }, [user.role]);
 
   const handleApprove = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -210,6 +114,9 @@ export function ActiveCardStream() {
 
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      {cards.length === 0 && (
+        <div className="text-center py-8 text-sm text-muted-foreground">暂无消息</div>
+      )}
       {cards.map((card) => (
         <div
           key={card.id}

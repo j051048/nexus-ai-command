@@ -51,20 +51,9 @@ const SectionSkeleton = ({ className }: { className?: string }) => (
   </div>
 );
 
-const mockRankings = [
-  { rank: 1, name: '王晓明', score: 95, bonus: 8200, trend: 'up' as const, isCurrentUser: false },
-  { rank: 2, name: '刘芳', score: 91, bonus: 6800, trend: 'up' as const, isCurrentUser: false },
-  { rank: 3, name: '张明', score: 87, bonus: 4850, trend: 'up' as const, isCurrentUser: true },
-  { rank: 4, name: '陈伟', score: 82, bonus: 3600, trend: 'down' as const, isCurrentUser: false },
-  { rank: 5, name: '李娜', score: 78, bonus: 2900, trend: 'stable' as const, isCurrentUser: false },
-];
+const mockRankings: { rank: number; name: string; score: number; bonus: number; trend: 'up' | 'down' | 'stable'; isCurrentUser: boolean }[] = [];
 
-const defaultPerformanceMetrics = [
-  { name: '跟进及时率', value: 92, target: 90, unit: '%', status: 'good' as const },
-  { name: '通话质量分', value: 85, target: 80, unit: '', status: 'good' as const },
-  { name: '赢率贡献', value: 23, target: 25, unit: '%', status: 'warning' as const },
-  { name: '线索转化', value: 18, target: 15, unit: '%', status: 'excellent' as const },
-];
+const defaultPerformanceMetrics: { name: string; value: number; target: number; unit: string; status: 'good' | 'warning' | 'excellent' }[] = [];
 
 export function EmployeeDashboard() {
   const { user } = useUser();

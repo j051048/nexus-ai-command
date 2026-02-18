@@ -11,14 +11,13 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import {
   User,
   Mail,
   Phone,
-  Building2,
   Shield,
   Bell,
   Lock,
@@ -26,7 +25,6 @@ import {
   Award,
   TrendingUp,
   Calendar,
-  Clock,
   Save,
   CheckCircle2,
   Loader2,
@@ -39,7 +37,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export function ProfileCenter() {
   const { user } = useUser();
-  const { refreshProfile } = useAuth();
+  const { session, refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [isEditing, setIsEditing] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -96,32 +94,24 @@ export function ProfileCenter() {
     }
   };
 
-  // 模拟用户详细信息
   const userDetails = {
-    email: 'yufei@company.com',
-    phone: '138****8888',
-    joinDate: '2023-06-15',
-    department: user.department || '销售部',
-    position: '销售专员',
-    employeeId: 'EMP20230615',
+    email: session?.user?.email || '—',
+    phone: '—',
+    joinDate: '—',
+    department: user.department || '—',
+    position: '—',
+    employeeId: '—',
   };
 
-  // 模拟成就徽章
-  const achievements = [
-    { name: '销售新星', icon: '⭐', date: '2024-12-15', description: '首次完成月度目标' },
-    { name: '全勤标兵', icon: '🏆', date: '2024-11-30', description: '连续3个月全勤' },
-    { name: '客户之友', icon: '🤝', date: '2024-10-20', description: '客户满意度达到95%' },
-    { name: '知识达人', icon: '📚', date: '2024-09-10', description: '完成10次知识分享' },
-  ];
+  const achievements: { name: string; icon: string; date: string; description: string }[] = [];
 
-  // 模拟统计数据
   const stats = {
-    totalProjects: 12,
-    completedProjects: 8,
-    totalSales: 1250000,
-    thisMonthSales: 320000,
-    attendanceRate: 96.5,
-    performanceScore: user.score || 87,
+    totalProjects: 0,
+    completedProjects: 0,
+    totalSales: 0,
+    thisMonthSales: 0,
+    attendanceRate: 0,
+    performanceScore: user.score || 0,
   };
 
   const handleSaveProfile = async () => {
@@ -236,10 +226,12 @@ export function ProfileCenter() {
             <div className="text-center p-4 bg-primary/5 rounded-xl">
               <div className="text-3xl font-bold text-primary">{stats.performanceScore}</div>
               <p className="text-sm text-muted-foreground">绩效得分</p>
-              <div className="flex items-center justify-center gap-1 mt-1 text-xs text-green-500">
-                <TrendingUp className="w-3 h-3" />
-                较上月 +5
-              </div>
+              {stats.performanceScore > 0 && (
+                <div className="flex items-center justify-center gap-1 mt-1 text-xs text-green-500">
+                  <TrendingUp className="w-3 h-3" />
+                  趋势
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
@@ -372,19 +364,26 @@ export function ProfileCenter() {
               <CardDescription>您获得的所有荣誉徽章</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid md:grid-cols-2 gap-4">
-                {achievements.map((achievement, index) => (
-                  <div key={index} className="flex items-center gap-4 p-4 rounded-lg border">
-                    <div className="text-4xl">{achievement.icon}</div>
-                    <div className="flex-1">
-                      <h4 className="font-medium">{achievement.name}</h4>
-                      <p className="text-sm text-muted-foreground">{achievement.description}</p>
-                      <p className="text-xs text-muted-foreground mt-1">获得时间: {achievement.date}</p>
+              {achievements.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <p className="text-muted-foreground">暂无成就徽章</p>
+                  <p className="text-xs text-muted-foreground mt-1">完成目标任务后将自动获得徽章</p>
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-4">
+                  {achievements.map((achievement, index) => (
+                    <div key={index} className="flex items-center gap-4 p-4 rounded-lg border">
+                      <div className="text-4xl">{achievement.icon}</div>
+                      <div className="flex-1">
+                        <h4 className="font-medium">{achievement.name}</h4>
+                        <p className="text-sm text-muted-foreground">{achievement.description}</p>
+                        <p className="text-xs text-muted-foreground mt-1">获得时间: {achievement.date}</p>
+                      </div>
+                      <CheckCircle2 className="w-5 h-5 text-green-500" />
                     </div>
-                    <CheckCircle2 className="w-5 h-5 text-green-500" />
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

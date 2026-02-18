@@ -38,27 +38,14 @@ const SectionSkeleton = ({ className }: { className?: string }) => (
 );
 
 const defaultWeeklyReport = {
-  cashFlow: 1250000,
-  cashFlowTrend: 12.5,
-  salesRisks: [
-    '张教授商机超过30天未推进',
-    '李博士报价已过期7天',
-  ],
-  totalIncentives: 28500,
-  topPerformers: [
-    { name: '王晓明', score: 95, bonus: 8200 },
-    { name: '刘芳', score: 91, bonus: 6800 },
-    { name: '张明', score: 87, bonus: 4850 },
-  ],
+  cashFlow: 0,
+  cashFlowTrend: 0,
+  salesRisks: [] as string[],
+  totalIncentives: 0,
+  topPerformers: [] as { name: string; score: number; bonus: number }[],
 };
 
-const teamHeatmap = [
-  { name: '王晓明', mon: 95, tue: 88, wed: 92, thu: 90, fri: 95 },
-  { name: '刘芳', mon: 85, tue: 91, wed: 88, thu: 92, fri: 89 },
-  { name: '张明', mon: 80, tue: 85, wed: 87, thu: 88, fri: 90 },
-  { name: '陈伟', mon: 75, tue: 78, wed: 82, thu: 80, fri: 78 },
-  { name: '李娜', mon: 70, tue: 75, wed: 78, thu: 76, fri: 80 },
-];
+const teamHeatmap: { name: string; mon: number; tue: number; wed: number; thu: number; fri: number }[] = [];
 
 export function BossDashboard() {
   const [activeTab, setActiveTab] = useState('overview');

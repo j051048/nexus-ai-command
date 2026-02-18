@@ -26,55 +26,29 @@ import { CHART_COLORS } from '@/lib/chartColors';
 
 const COLORS = CHART_COLORS;
 
-const BAR_DATA = [
-  { name: '1月', value: 4200 },
-  { name: '2月', value: 3800 },
-  { name: '3月', value: 5100 },
-  { name: '4月', value: 4600 },
-  { name: '5月', value: 5800 },
-  { name: '6月', value: 6200 },
-];
+const BAR_DATA: { name: string; value: number }[] = [];
 
-const PIE_DATA = [
-  { name: '已通过', value: 45 },
-  { name: '待审批', value: 12 },
-  { name: '已拒绝', value: 8 },
-  { name: '已撤回', value: 5 },
-];
+const PIE_DATA: { name: string; value: number }[] = [];
 
-const LINE_DATA = [
-  { name: '周一', value: 120, prev: 100 },
-  { name: '周二', value: 132, prev: 110 },
-  { name: '周三', value: 101, prev: 125 },
-  { name: '周四', value: 134, prev: 115 },
-  { name: '周五', value: 190, prev: 140 },
-  { name: '周六', value: 230, prev: 160 },
-  { name: '周日', value: 210, prev: 180 },
-];
+const LINE_DATA: { name: string; value: number; prev: number }[] = [];
 
-const LEADERBOARD_DATA = [
-  { rank: 1, name: '张三', value: '¥128,000' },
-  { rank: 2, name: '李四', value: '¥115,200' },
-  { rank: 3, name: '王五', value: '¥98,500' },
-  { rank: 4, name: '赵六', value: '¥87,300' },
-  { rank: 5, name: '钱七', value: '¥76,100' },
-];
+const LEADERBOARD_DATA: { rank: number; name: string; value: string }[] = [];
 
 const KPI_MAP: Record<string, { value: string; change: number; unit: string }> = {
-  sales: { value: '¥1,280,000', change: 12.5, unit: '元' },
-  approval: { value: '23', change: -8.3, unit: '件' },
-  project: { value: '12', change: 20, unit: '个' },
-  hr: { value: '156', change: 3.2, unit: '人' },
-  finance: { value: '¥3,450,000', change: 8.7, unit: '元' },
-  performance: { value: '87.5', change: 5.1, unit: '分' },
+  sales: { value: '—', change: 0, unit: '元' },
+  approval: { value: '—', change: 0, unit: '件' },
+  project: { value: '—', change: 0, unit: '个' },
+  hr: { value: '—', change: 0, unit: '人' },
+  finance: { value: '—', change: 0, unit: '元' },
+  performance: { value: '—', change: 0, unit: '分' },
 };
 
 const APPROVAL_STATS = {
-  total: 70,
-  approved: 45,
-  pending: 12,
-  rejected: 8,
-  withdrawn: 5,
+  total: 0,
+  approved: 0,
+  pending: 0,
+  rejected: 0,
+  withdrawn: 0,
 };
 
 // ─── 子渲染组件 ──────────────────────────────────────────────
@@ -103,6 +77,10 @@ function KPIContent({ dataSource }: { dataSource: string }) {
 }
 
 function BarChartContent() {
+  if (BAR_DATA.length === 0) {
+    return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">暂无数据</div>;
+  }
+
   return (
     <ResponsiveContainer width="100%" height={200}>
       <BarChart data={BAR_DATA}>
@@ -123,6 +101,10 @@ function BarChartContent() {
 }
 
 function PieChartContent() {
+  if (PIE_DATA.length === 0) {
+    return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">暂无数据</div>;
+  }
+
   return (
     <ResponsiveContainer width="100%" height={200}>
       <PieChart>
@@ -147,6 +129,10 @@ function PieChartContent() {
 }
 
 function LineChartContent() {
+  if (LINE_DATA.length === 0) {
+    return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">暂无数据</div>;
+  }
+
   return (
     <ResponsiveContainer width="100%" height={200}>
       <LineChart data={LINE_DATA}>
@@ -192,6 +178,10 @@ function ApprovalStatsContent() {
 }
 
 function LeaderboardContent() {
+  if (LEADERBOARD_DATA.length === 0) {
+    return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">暂无数据</div>;
+  }
+
   return (
     <div className="space-y-2">
       {LEADERBOARD_DATA.map((item) => (

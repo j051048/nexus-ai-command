@@ -335,50 +335,7 @@ class BudgetQueryTool(BaseTool):
         if not user_res.data:
             return "❌ 无法获取用户信息"
 
-        user_dept = department or user_res.data.get("department", "未知部门")
-
-        # 模拟预算数据（实际应从 finance_budgets 表查询）
-        current_month = datetime.now().month
-
-        budget_data = {
-            "department": user_dept,
-            "period": f"2024年{current_month}月",
-            "categories": [
-                {"name": "差旅费", "budget": 50000, "used": 32500, "percentage": 65},
-                {"name": "招待费", "budget": 30000, "used": 18000, "percentage": 60},
-                {"name": "办公费", "budget": 20000, "used": 15500, "percentage": 77.5},
-                {"name": "培训费", "budget": 15000, "used": 8000, "percentage": 53.3},
-            ],
-            "total_budget": 115000,
-            "total_used": 74000,
-        }
-
-        response = f"""📊 **{user_dept} 预算使用情况**
-📅 统计周期: {budget_data['period']}
-
-"""
-
-        for cat in budget_data["categories"]:
-            bar_filled = int(cat["percentage"] / 10)
-            bar_empty = 10 - bar_filled
-            bar = "█" * bar_filled + "░" * bar_empty
-
-            warning = " ⚠️" if cat["percentage"] > 80 else ""
-
-            response += f"**{cat['name']}**{warning}\n"
-            response += f"  {bar} {cat['percentage']:.1f}%\n"
-            response += f"  ¥{cat['used']:,.0f} / ¥{cat['budget']:,.0f}\n\n"
-
-        total_pct = (budget_data["total_used"] / budget_data["total_budget"]) * 100
-        response += f"""━━━━━━━━━━━━━━━━
-**合计**: ¥{budget_data['total_used']:,.0f} / ¥{budget_data['total_budget']:,.0f} ({total_pct:.1f}%)
-
-💡 **AI 建议**:
-- 办公费使用已超77%，建议控制后续采购
-- 本月剩余预算 ¥{budget_data['total_budget'] - budget_data['total_used']:,.0f}
-"""
-
-        return response
+        return "📊 暂无预算数据。\n\n💡 预算管理功能正在建设中，请联系管理员配置部门预算。"
 
 
 class SalaryQueryTool(BaseTool):
@@ -407,68 +364,7 @@ class SalaryQueryTool(BaseTool):
     async def run(
         self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
     ) -> str:
-        month = args.get("month", datetime.now().strftime("%Y-%m"))
-        client = _get_client(config)
-        # 获取用户信息
-        user_res = (
-            await client.table("users")
-            .select("name, role, score, total_bonus")
-            .eq("id", user_id)
-            .maybe_single()
-            .execute()
-        )
-        if not user_res.data:
-            return "❌ 无法获取用户信息"
-
-        user = user_res.data
-
-        # 模拟薪资数据（实际应从 hr_salary 表查询）
-        base_salary = 15000
-        performance_bonus = float(user.get("total_bonus", 0)) or 3200
-        attendance_bonus = 500
-        meal_allowance = 500
-
-        # 扣除项
-        social_insurance = 1890
-        housing_fund = 2400
-        tax = 892
-
-        gross = base_salary + performance_bonus + attendance_bonus + meal_allowance
-        deductions = social_insurance + housing_fund + tax
-        net = gross - deductions
-
-        response = f"""💰 **{month} 薪资明细**
-
-**📈 收入项**
-┌─────────────────────────────┐
-│ 基本工资        ¥{base_salary:>10,.2f} │
-│ 绩效奖金        ¥{performance_bonus:>10,.2f} │
-│ 全勤奖          ¥{attendance_bonus:>10,.2f} │
-│ 餐补            ¥{meal_allowance:>10,.2f} │
-├─────────────────────────────┤
-│ 应发合计        ¥{gross:>10,.2f} │
-└─────────────────────────────┘
-
-**📉 扣除项**
-┌─────────────────────────────┐
-│ 社保个人部分    ¥{social_insurance:>10,.2f} │
-│ 公积金个人部分  ¥{housing_fund:>10,.2f} │
-│ 个人所得税      ¥{tax:>10,.2f} │
-├─────────────────────────────┤
-│ 扣除合计        ¥{deductions:>10,.2f} │
-└─────────────────────────────┘
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-**实发工资: ¥{net:,.2f}**
-
-📅 预计到账日期: {month}-10
-🏦 到账银行: 工商银行 (尾号6688)
-
-💡 绩效说明: 您当前绩效分 {user.get('score', 85)} 分，
-   本月绩效系数 {performance_bonus/3000:.2f}
-"""
-
-        return response
+        return "💰 薪资查询功能暂未开通。\n\n该功能需要对接 HR 薪资系统，目前正在建设中。如有疑问请联系人事部门。"
 
 
 class InvoiceOCRTool(BaseTool):
@@ -494,41 +390,4 @@ class InvoiceOCRTool(BaseTool):
     async def run(
         self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
     ) -> str:
-        # 模拟 OCR 识别结果（实际应调用 OCR 服务）
-        # 在实际实现中，这里会调用百度/腾讯/阿里的发票OCR API
-
-        ocr_result = {
-            "invoice_code": "044001900111",
-            "invoice_number": "25847632",
-            "invoice_date": "2024-12-15",
-            "amount": 786.00,
-            "tax_amount": 45.89,
-            "total_amount": 831.89,
-            "seller": "杭州外婆家餐饮有限公司",
-            "invoice_type": "增值税普通发票",
-            "verified": True,
-        }
-
-        response = f"""🧾 **发票识别结果**
-
-✅ 发票验真: 通过
-
-**基本信息**
-- 发票代码: {ocr_result['invoice_code']}
-- 发票号码: {ocr_result['invoice_number']}
-- 开票日期: {ocr_result['invoice_date']}
-- 发票类型: {ocr_result['invoice_type']}
-
-**金额信息**
-- 不含税金额: ¥{ocr_result['amount']:.2f}
-- 税额: ¥{ocr_result['tax_amount']:.2f}
-- 价税合计: ¥{ocr_result['total_amount']:.2f}
-
-**销售方**
-- {ocr_result['seller']}
-
-💡 是否基于此发票创建报销申请？
-   您可以说: "帮我报销这张发票"
-"""
-
-        return response
+        return "🧾 发票识别功能暂未开通。\n\n该功能需要对接 OCR 服务，目前正在建设中。请手动填写发票信息。"

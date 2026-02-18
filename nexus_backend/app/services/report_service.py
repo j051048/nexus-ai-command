@@ -102,9 +102,9 @@ class ReportService:
             except Exception as e:
                 logger.warning(f"Sales report query failed: {e}")
 
-        # 如果没有数据库数据，生成 mock
+        # 如果没有数据库数据，使用空列表
         if not records:
-            records = self._mock_sales_data(start_date, end_date)
+            records = []
 
         grouped = _group_by_period(records, "date", group_by)
 
@@ -171,9 +171,8 @@ class ReportService:
             except Exception as e:
                 logger.warning(f"Approval report query failed: {e}")
 
-        # 无数据时返回 mock
         if not records:
-            records = self._mock_approval_data()
+            records = []
 
         total = len(records)
         approved = sum(1 for r in records if r.get("status") == "approved")
@@ -234,7 +233,7 @@ class ReportService:
                 logger.warning(f"Performance report query failed: {e}")
 
         if not users:
-            users = self._mock_performance_data()
+            users = []
 
         total_score = sum(float(u.get("score", 0) or 0) for u in users)
         avg_score = round(total_score / max(1, len(users)), 1)
@@ -286,9 +285,9 @@ class ReportService:
             except Exception as e:
                 logger.warning(f"Usage report query failed: {e}")
 
-        # 无数据时 mock
+        # 无数据时使用空列表
         if not chat_records:
-            chat_records = self._mock_usage_data()
+            chat_records = []
 
         total_chats = len(chat_records)
         total_tokens = sum(int(r.get("token_count", 0) or 0) for r in chat_records)
@@ -349,87 +348,7 @@ class ReportService:
             },
         }
 
-    # ─── Mock 数据生成 ──────────────────────────────────────
-
-    @staticmethod
-    def _mock_sales_data(start_date: str, end_date: str) -> List[Dict]:
-        """生成模拟销售数据"""
-        import random
-        data = []
-        try:
-            start = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
-            end = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
-        except (ValueError, AttributeError):
-            start = datetime.now(timezone.utc) - timedelta(days=30)
-            end = datetime.now(timezone.utc)
-
-        current = start
-        while current <= end:
-            leads = random.randint(3, 15)
-            conversions = random.randint(0, min(leads, 5))
-            data.append({
-                "date": current.strftime("%Y-%m-%d"),
-                "revenue": round(random.uniform(5000, 80000), 2),
-                "conversions": conversions,
-                "leads_count": leads,
-                "win_rate": round(conversions / max(1, leads) * 100, 1),
-            })
-            current += timedelta(days=1)
-        return data
-
-    @staticmethod
-    def _mock_approval_data() -> List[Dict]:
-        """生成模拟审批数据"""
-        import random
-        statuses = ["approved", "rejected", "pending"]
-        types = ["expense", "leave", "purchase", "travel"]
-        data = []
-        for i in range(30):
-            status = random.choice(statuses)
-            data.append({
-                "id": f"mock-{i}",
-                "status": status,
-                "type": random.choice(types),
-                "amount": round(random.uniform(100, 10000), 2),
-                "ai_reason": "AI 自动分析" if status == "approved" and random.random() > 0.5 else None,
-                "submitted_at": (
-                    datetime.now(timezone.utc) - timedelta(days=random.randint(0, 30))
-                ).isoformat(),
-            })
-        return data
-
-    @staticmethod
-    def _mock_performance_data() -> List[Dict]:
-        """生成模拟绩效数据"""
-        import random
-        names = ["张伟", "李娜", "王强", "刘洋", "陈敏", "杨帆", "赵磊", "孙静"]
-        return [
-            {
-                "id": f"mock-user-{i}",
-                "name": name,
-                "score": round(random.uniform(50, 98), 1),
-                "total_bonus": round(random.uniform(1000, 15000), 2),
-                "rank": i + 1,
-            }
-            for i, name in enumerate(names)
-        ]
-
-    @staticmethod
-    def _mock_usage_data() -> List[Dict]:
-        """生成模拟使用数据"""
-        import random
-        models = ["gpt-4o", "gpt-4o-mini", "deepseek-chat"]
-        data = []
-        for i in range(50):
-            data.append({
-                "id": f"mock-chat-{i}",
-                "created_at": (
-                    datetime.now(timezone.utc) - timedelta(days=random.randint(0, 30))
-                ).isoformat(),
-                "model": random.choice(models),
-                "token_count": random.randint(200, 5000),
-            })
-        return data
+    # ─── 辅助方法 ──────────────────────────────────────────
 
     @staticmethod
     def _calc_processing_hours(record: Dict) -> float:

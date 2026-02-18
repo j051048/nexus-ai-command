@@ -290,10 +290,9 @@ class PaymentService:
             except Exception as e:
                 logger.warning(f"Order list query failed: {e}")
 
-        # 如果无数据返回 mock
+        # 如果无数据返回空列表
         if not orders:
-            orders = self._mock_orders(org_id)
-            total = len(orders)
+            return {"orders": [], "total": 0, "page": page, "page_size": page_size}
 
         return {"orders": orders, "total": total, "page": page, "page_size": page_size}
 
@@ -353,39 +352,6 @@ class PaymentService:
             "amount": plan_info.get("monthly", "根据订阅计划"),
             "note": "请在转账备注中填写参考号(reference)，以便我们快速确认您的付款。",
         }
-
-    # ─── Mock 数据 ─────────────────────────────────────────
-
-    @staticmethod
-    def _mock_orders(org_id: str) -> List[Dict]:
-        """生成模拟订单数据"""
-        import random
-        orders = []
-        statuses = ["pending", "paid", "cancelled"]
-        methods = ["bank_transfer", "wechat_pay", "alipay"]
-        plans = list(PLAN_PRICING.keys())
-
-        for i in range(5):
-            plan = random.choice(plans)
-            method = random.choice(methods)
-            status = random.choice(statuses)
-            pricing = PLAN_PRICING[plan]
-            orders.append({
-                "id": str(uuid.uuid4()),
-                "organization_id": org_id,
-                "order_no": _generate_order_no(),
-                "plan_id": plan,
-                "plan_name": pricing["name"],
-                "payment_method": method,
-                "amount": pricing["monthly"],
-                "currency": "CNY",
-                "status": status,
-                "invoice_status": "none",
-                "created_at": (
-                    datetime.now(timezone.utc) - __import__("datetime").timedelta(days=random.randint(1, 60))
-                ).isoformat(),
-            })
-        return orders
 
 
 # Global instance
