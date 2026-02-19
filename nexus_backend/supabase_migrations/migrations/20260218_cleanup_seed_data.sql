@@ -1,7 +1,7 @@
 -- ============================================
 -- Beta 测试准备：清理种子假数据
 -- 日期: 2026-02-18
--- 说明: 删除开发阶段插入的假用户、假线索、假审批、假激励数据
+-- 说明: 删除开发阶段插入的假用户、假线索、假审批数据
 --       保留系统初始化数据(会议室、部门、审批链)
 -- ============================================
 
@@ -15,7 +15,7 @@ WHERE id IN (
 
 -- 2. 显式清理可能残留的关联数据
 DELETE FROM public.sales_leads
-WHERE owner_id IN (
+WHERE user_id IN (
     'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12',
     'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13'
 );
@@ -26,16 +26,14 @@ WHERE submitted_by IN (
     'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13'
 );
 
-DELETE FROM public.incentives
-WHERE user_id IN (
-    'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12',
-    'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13'
-);
+-- 3. 清理 2024 年假预算数据（表可能不存在则跳过）
+DO $$ BEGIN
+  DELETE FROM public.finance_budgets WHERE year = 2024;
+EXCEPTION WHEN undefined_table THEN NULL;
+END $$;
 
--- 3. 清理 2024 年假预算数据
-DELETE FROM public.finance_budgets
-WHERE year = 2024;
-
--- 4. 清理无组织归属的 sales_metrics
-DELETE FROM public.sales_metrics
-WHERE organization_id IS NULL;
+-- 4. 清理无组织归属的 sales_metrics（表可能不存在则跳过）
+DO $$ BEGIN
+  DELETE FROM public.sales_metrics WHERE organization_id IS NULL;
+EXCEPTION WHEN undefined_table THEN NULL;
+END $$;
