@@ -110,8 +110,11 @@ async def chat(
 
             if s.get("base_url"):
                 ai_config["base_url"] = s["base_url"]
-            if s.get("key"):
-                ai_config["api_key"] = encryption_service.decrypt(s["key"])
+            if s.get("api_key"):
+                try:
+                    ai_config["api_key"] = encryption_service.decrypt(s["api_key"])
+                except Exception:
+                    ai_config["api_key"] = s["api_key"]
             if s.get("model"):
                 ai_config["model"] = s["model"]
     except Exception as e:
