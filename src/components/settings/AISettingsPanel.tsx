@@ -35,7 +35,7 @@ export function AISettingsPanel() {
   const testConnection = useTestAIConnection();
   const { profile, loading: authLoading } = useAuth();
 
-  const [baseUrl, setBaseUrl] = useState('https://ai.gateway.zhz-tech.dev/v1/chat/completions');
+  const [baseUrl, setBaseUrl] = useState('https://api.apiyi.com/v1');
   const [apiKey, setApiKey] = useState('');
   const [selectedModel, setSelectedModel] = useState('google/gemini-3-pro-preview');
   const [customModel, setCustomModel] = useState('');
@@ -45,7 +45,7 @@ export function AISettingsPanel() {
   // Load saved settings
   useEffect(() => {
     if (settings) {
-      setBaseUrl(settings.base_url || 'https://ai.gateway.zhz-tech.dev/v1/chat/completions');
+      setBaseUrl(settings.base_url || 'https://api.apiyi.com/v1');
       setApiKey(settings.api_key || '');
 
       const isCustom = !DEFAULT_MODELS.some(m => m.value === settings.model);
@@ -196,12 +196,12 @@ export function AISettingsPanel() {
               </Label>
               <Input
                 id="base-url"
-                placeholder="https://api.openai.com/v1/chat/completions"
+                placeholder="https://api.apiyi.com/v1"
                 value={baseUrl}
                 onChange={(e) => setBaseUrl(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                OpenAI 兼容的 API 端点地址
+                OpenAI 兼容的 API 地址（如 https://api.apiyi.com/v1），系统会自动拼接 /chat/completions
               </p>
             </div>
 

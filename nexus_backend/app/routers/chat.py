@@ -109,7 +109,14 @@ async def chat(
             from app.services.encryption_service import encryption_service
 
             if s.get("base_url"):
-                ai_config["base_url"] = s["base_url"]
+                user_base_url = s["base_url"].rstrip("/")
+                # Users often save the full endpoint URL from the test panel
+                # (e.g. https://api.apiyi.com/v1/chat/completions), but OpenAI
+                # SDK / LangChain expects the base URL without /chat/completions
+                # since they append that path automatically.
+                if user_base_url.endswith("/chat/completions"):
+                    user_base_url = user_base_url[: -len("/chat/completions")]
+                ai_config["base_url"] = user_base_url
             if s.get("api_key"):
                 try:
                     ai_config["api_key"] = encryption_service.decrypt(s["api_key"])
