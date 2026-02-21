@@ -55,7 +55,10 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
                 name: doc.name,
                 doc_type: doc.doc_type || 'other',
                 created_at: doc.created_at,
-                status: 'completed',
+                status: doc.status === 'ready' ? 'completed'
+                    : doc.status === 'pending' || doc.status === 'processing' ? 'processing'
+                    : doc.status === 'failed' || doc.status === 'error' ? 'error'
+                    : 'completed',
                 extracted_data: typeof doc.extracted_data === 'string'
                     ? JSON.parse(doc.extracted_data)
                     : (doc.extracted_data || {})
@@ -202,9 +205,10 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
             }
 
             // Check if backend reported an error in processing details
-            const fileInfo = result.details?.[0];
-            if (fileInfo && fileInfo.status === 'error') {
-                throw new Error(fileInfo.reason || 'AI 解析文档失败，请检查后端 API 密钥或代理配置');
+            // Backend returns: { success, data: { summary, results: [...] } }
+            const fileInfo = result.data?.results?.[0] || result.details?.[0];
+            if (fileInfo && (fileInfo.status === 'error' || fileInfo.status === 'skipped')) {
+                throw new Error(fileInfo.reason || fileInfo.message || 'AI 解析文档失败，请检查后端 API 密钥或代理配置');
             }
 
             setUploadStage('indexing');
