@@ -322,7 +322,6 @@ async def prepare_initial_state(
                         user_id=config.user_id,
                         limit=config.rag_inject_limit,
                         org_id=config.org_id,
-                        db=client
                     )
                     # Parse docs from string result
                     if isinstance(docs, str) and "检索到" in docs:
@@ -337,7 +336,6 @@ async def prepare_initial_state(
                         user_id=config.user_id,
                         limit=config.rag_inject_limit // len(expanded_queries),
                         org_id=config.org_id,
-                        db=client
                     )
                     if isinstance(docs, str) and docs:
                         all_docs.append({"content": docs, "source": f"查询: {q[:30]}"})
@@ -348,7 +346,6 @@ async def prepare_initial_state(
                 user_id=config.user_id,
                 limit=config.rag_inject_limit,
                 org_id=config.org_id,
-                db=client
             )
             if isinstance(original_docs, str) and original_docs:
                 all_docs.insert(0, {"content": original_docs, "source": "原始查询"})
