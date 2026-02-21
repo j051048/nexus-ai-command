@@ -507,9 +507,17 @@ async def reflect_node(state: AgentState) -> dict:
             hallucination_reason = f"回复数据与工具返回不一致: {grounding_issues}"
 
     # ── Layer 4: RAG-based groundedness check ──
+    # IMPORTANT: Skip this check when tools were called and returned real data.
+    # Tool results are authoritative data sources — they should NOT be
+    # second-guessed by RAG context (which may show "搜索失败" or stale data).
     grounded_warning = None
     rag_context = state.get("rag_context", "")
-    if rag_context and last_ai_content and not is_hallucination:
+    has_successful_tools = any(
+        getattr(t, "status", None) == "success" for t in completed_tools
+    )
+    rag_search_failed = not rag_context or "搜索失败" in rag_context or "缺少" in rag_context or len(rag_context.strip()) < 20
+
+    if rag_context and last_ai_content and not is_hallucination and not has_successful_tools and not rag_search_failed:
         prompt = f"""[事实核查任务]
 请比较【参考知识】与【AI回复】，判断回复是否完全基于背景知识，是否存在编造或矛盾。
 
@@ -529,9 +537,12 @@ AI回复:
                 logger.warning(f"[Reflect] Ungrounded response: {grounded_warning}")
         except Exception as e:
             logger.debug(f"[ReflectNode] Groundedness check failed: {e}")
+    elif has_successful_tools and rag_context:
+        logger.info(f"[Reflect] Layer 4 skipped: tools returned authoritative data, RAG groundedness check not needed")
 
     # ── Layer 5: LLM-based reflection ──
-    if config.reflect_use_llm and last_ai_content and not is_hallucination:
+    # Skip LLM reflection if tools returned real data — tool results are ground truth.
+    if config.reflect_use_llm and last_ai_content and not is_hallucination and not has_successful_tools:
         messages_text = "\n".join([f"{m.type}: {m.content[:200]}" for m in messages[-3:]])
         prompt = f"""请评估 AI 的最新回复是否包含编造的信息（幻觉）。
 
@@ -609,37 +620,45 @@ async def _verify_tool_grounding(ai_response: str, tool_results: list) -> Option
     """
     P1 Fix: Verify that numerical data in AI response matches tool results.
     Returns a description of grounding issues, or None if all grounded.
+
+    Uses relaxed matching to avoid false positives:
+    - Skips small numbers (< 10) which are commonly used in formatting
+    - Uses ±10% relative tolerance for number comparison
+    - Requires at least 3 ungrounded numbers to trigger (avoids noise from dates, IDs, etc.)
     """
     import re
-    
+
     issues = []
-    
+
     # Extract all numbers from AI response
     ai_numbers = re.findall(r'\d+(?:\.\d+)?', ai_response)
-    
+
     # Get all numbers from tool results
     tool_numbers = []
     for tool in tool_results:
         if tool.result:
             tool_numbers.extend(re.findall(r'\d+(?:\.\d+)?', str(tool.result)))
-    
+
+    if not tool_numbers:
+        return None  # No tool numbers to compare against
+
     # Check if AI mentions numbers not in tool results
     for num in ai_numbers:
-        # P1 Fix: Only skip trivially small numbers (0, 1)
-        if float(num) < 2:
+        # Skip small numbers — commonly used in formatting, list indices, etc.
+        if float(num) < 10:
             continue
-        # P1 Fix: Use ±5% relative tolerance instead of exact match
+        # Use ±10% relative tolerance for comparison
         found = any(
-            abs(float(num) - float(tn)) / max(float(tn), 1.0) < 0.05
+            abs(float(num) - float(tn)) / max(float(tn), 1.0) < 0.10
             for tn in tool_numbers
         )
-        if not found and len(tool_numbers) > 0:
+        if not found:
             issues.append(f"数值 {num} 未见工具返回")
 
-    # P1 Fix: Flag even a single ungrounded number (was >3)
-    if len(issues) >= 1:
+    # Require at least 3 ungrounded numbers to flag (avoids noise from dates, IDs, etc.)
+    if len(issues) >= 3:
         return "; ".join(issues[:3])
-    
+
     return None
 
 
