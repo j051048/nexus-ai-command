@@ -11,6 +11,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
 
 
+def _is_postgrest_204(e: Exception) -> bool:
+    """Check if exception is a PostgREST 204 No Content (success, no body)."""
+    return hasattr(e, "code") and str(getattr(e, "code", "")) == "204"
+
+
+def _is_jwt_expired(e: Exception) -> bool:
+    """Check if exception is a PostgREST JWT expired error."""
+    msg = str(e)
+    return "JWT expired" in msg or "PGRST303" in msg
+
+
 @router.post("/batch-delete", response_model=StandardResponse)
 async def batch_delete_documents(
     payload: BatchDeleteRequest,
@@ -25,24 +36,37 @@ async def batch_delete_documents(
 
     client = req.state.db
     try:
-        # 1. Delete Embeddings (Explicit cleanup, though Cascade should usually handle it)
-        await client.table("document_embeddings").delete().in_(
-            "document_id", payload.document_ids
-        ).execute()
+        # 1. Delete Embeddings
+        try:
+            await client.table("document_embeddings").delete().in_(
+                "document_id", payload.document_ids
+            ).execute()
+        except Exception as e:
+            if not _is_postgrest_204(e):
+                logger.warning(f"Delete embeddings error (non-fatal): {e}")
 
         # 2. Delete Documents
-        res = (
-            await client.table("documents")
-            .delete()
-            .in_("id", payload.document_ids)
-            .execute()
-        )
+        count = 0
+        try:
+            res = (
+                await client.table("documents")
+                .delete()
+                .in_("id", payload.document_ids)
+                .execute()
+            )
+            count = len(res.data) if res and res.data else 0
+        except Exception as e:
+            if _is_postgrest_204(e):
+                count = len(payload.document_ids)
+            else:
+                raise
 
-        count = len(res.data) if res.data else 0
         logger.info(f"User {user_id} deleted {count} documents.")
-
         return api_success(data={"deleted_count": count})
+
     except Exception as e:
+        if _is_jwt_expired(e):
+            raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "登录已过期，请刷新页面后重试")
         logger.error(f"Batch Delete Failed for user {user_id}: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"删除失败: {str(e)}")
 
@@ -336,7 +360,8 @@ async def update_document(
             "document_id", document_id
         ).execute()
     except Exception as e:
-        logger.warning(f"Failed to delete old embeddings: {e}")
+        if not _is_postgrest_204(e):
+            logger.warning(f"Failed to delete old embeddings: {e}")
 
     # 3. Read new content
     content = await file.read()

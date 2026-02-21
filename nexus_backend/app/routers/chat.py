@@ -332,6 +332,9 @@ async def archive_session(
         ).execute()
         return api_success(data={"message": f"Session {session_id} archived"})
     except Exception as e:
+        # PostgREST 204 = success with no content body
+        if hasattr(e, "code") and str(getattr(e, "code", "")) == "204":
+            return api_success(data={"message": f"Session {session_id} archived"})
         logger.error(f"Failed to archive session: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
@@ -384,9 +387,13 @@ async def toggle_star_session(
 
         if existing.data:
             # Unstar
-            await client.table("starred_sessions").delete().eq("user_id", user_id).eq(
-                "session_id", session_id
-            ).execute()
+            try:
+                await client.table("starred_sessions").delete().eq("user_id", user_id).eq(
+                    "session_id", session_id
+                ).execute()
+            except Exception as del_e:
+                if not (hasattr(del_e, "code") and str(getattr(del_e, "code", "")) == "204"):
+                    raise
             return api_success(data={"starred": False})
         else:
             # Star

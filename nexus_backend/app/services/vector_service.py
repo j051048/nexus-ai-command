@@ -468,9 +468,13 @@ class VectorService:
             # 5. Delete orphan chunks (indices that no longer exist)
             for old_index, old_data in existing_map.items():
                 if old_index >= len(chunks):
-                    await client.table("document_embeddings").delete().eq(
-                        "id", old_data["id"]
-                    ).execute()
+                    try:
+                        await client.table("document_embeddings").delete().eq(
+                            "id", old_data["id"]
+                        ).execute()
+                    except Exception as del_e:
+                        if not (hasattr(del_e, "code") and str(getattr(del_e, "code", "")) == "204"):
+                            raise
                     stats["deleted"] += 1
 
             # 6. Update last_embedded_at on the document
