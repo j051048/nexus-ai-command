@@ -2,6 +2,8 @@ import { useState, useRef, useCallback } from 'react';
 import { AIMessage, ThinkingStep } from '@/types/nexus';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { buildSystemPrompt, type UserProfile } from '@/services/agentPrompts';
+import { fetchBusinessContext } from '@/services/businessContext';
 
 interface UseAIStreamProps {
     userId: string;
@@ -21,7 +23,8 @@ export function useAIStream({ userId }: UseAIStreamProps) {
     const [isThinkingComplete, setIsThinkingComplete] = useState(false);
     const abortControllerRef = useRef<AbortController | null>(null);
 
-    const getApiUrl = useCallback(() => {
+    /** Tier 1 primary: Zeabur backend directly */
+    const getBackendUrl = useCallback(() => {
         let url = import.meta.env.VITE_API_BASE_URL || 'https://aizhz.zeabur.app';
         if (!url.startsWith('http')) {
             url = `https://${url}`;
@@ -32,54 +35,176 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         return `${url}/api/chat`;
     }, []);
 
+    /** Tier 1 fallback: Supabase Edge Function proxy → Zeabur backend */
+    const getEdgeFunctionUrl = useCallback(() => {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://hztpazmuejgbtixihcgj.supabase.co';
+        return `${supabaseUrl}/functions/v1/ai-chat`;
+    }, []);
+
     /**
-     * Fallback: stream directly from AI provider when backend is unavailable.
-     * Reads AI settings (base_url, api_key, model) from Supabase and calls
-     * the OpenAI-compatible endpoint directly from the browser.
+     * Parse an SSE stream from the backend (or proxy).
+     * Handles thinking steps, status events, sanitized content, and content deltas.
      */
-    const attemptDirectStream = async (
+    const parseBackendStream = async (
+        response: Response,
+        onUpdate?: (content: string, id: string) => void,
+        onThinkingStep?: (step: ThinkingStep) => void,
+        onThinkingComplete?: (totalSteps: number) => void,
+    ): Promise<void> => {
+        if (!response.body) throw new Error('No response body');
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let textBuffer = '';
+        let assistantContent = '';
+        const assistantMsgId = Date.now().toString();
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            textBuffer += decoder.decode(value, { stream: true });
+
+            let newlineIndex: number;
+            while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
+                let line = textBuffer.slice(0, newlineIndex);
+                textBuffer = textBuffer.slice(newlineIndex + 1);
+
+                if (line.endsWith('\r')) line = line.slice(0, -1);
+                if (line.startsWith(':') || line.trim() === '') continue;
+                if (!line.startsWith('data: ')) continue;
+
+                const jsonStr = line.slice(6).trim();
+                if (jsonStr === '[DONE]') break;
+
+                try {
+                    const parsed = JSON.parse(jsonStr);
+                    const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+
+                    // Handle thinking step events
+                    if (parsed.thinking_step) {
+                        const step = parsed.thinking_step as ThinkingStep;
+                        setThinkingSteps(prev => [...prev, step]);
+                        onThinkingStep?.(step);
+                        continue;
+                    }
+
+                    // Handle thinking chain completion
+                    if (parsed.thinking_chain_complete) {
+                        setIsThinkingComplete(true);
+                        onThinkingComplete?.(parsed.total_steps || 0);
+                        continue;
+                    }
+
+                    if (parsed.status) {
+                        setAiStatus(parsed.status);
+                        continue;
+                    }
+
+                    // Handle sanitized content correction from backend
+                    if (parsed.sanitized_content) {
+                        assistantContent = parsed.sanitized_content;
+                        onUpdate?.(assistantContent, assistantMsgId);
+                        continue;
+                    }
+
+                    if (content) {
+                        setAiStatus(undefined);
+                        assistantContent += content;
+                        onUpdate?.(assistantContent, assistantMsgId);
+                    }
+                } catch {
+                    textBuffer = line + '\n' + textBuffer;
+                    break;
+                }
+            }
+        }
+    };
+
+    /**
+     * Tier 2: Enhanced direct stream with business context.
+     * Fetches user profile + business data from Supabase, builds a rich system
+     * prompt, then streams from the AI provider directly.
+     */
+    const attemptEnhancedDirectStream = async (
         chatMessages: Array<{ role: string; content: string }>,
         signal: AbortSignal,
         onUpdate?: (content: string, id: string) => void,
+        agent?: string,
     ): Promise<boolean> => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return false;
 
-        // Get user's organization_id for correct settings lookup
-        const { data: profileData } = await supabase
-            .from('users')
-            .select('organization_id')
-            .eq('id', user.id)
-            .maybeSingle();
+        // Fetch user profile + AI settings in parallel
+        const [profileResult, settingsResult] = await Promise.all([
+            supabase
+                .from('users')
+                .select('organization_id, full_name, role, department, job_title')
+                .eq('id', user.id)
+                .maybeSingle(),
+            (() => {
+                // Need org_id for settings lookup — do a chained query
+                return supabase
+                    .from('users')
+                    .select('organization_id')
+                    .eq('id', user.id)
+                    .maybeSingle()
+                    .then(({ data: profile }) => {
+                        let query = supabase
+                            .from('ai_settings')
+                            .select('base_url, api_key, model')
+                            .eq('user_id', user.id);
+                        if (profile?.organization_id) {
+                            query = query.eq('organization_id', profile.organization_id);
+                        }
+                        return query.maybeSingle();
+                    });
+            })(),
+        ]);
 
-        const orgFilter = profileData?.organization_id;
-
-        // Load AI settings from Supabase
-        let query = supabase
-            .from('ai_settings')
-            .select('base_url, api_key, model')
-            .eq('user_id', user.id);
-
-        if (orgFilter) {
-            query = query.eq('organization_id', orgFilter);
-        }
-
-        const { data: aiSettings } = await query.maybeSingle();
+        const profile = profileResult.data;
+        const aiSettings = settingsResult.data;
 
         if (!aiSettings?.api_key || !aiSettings?.base_url) {
             throw new Error('请先在设置中心配置 AI API Key 和 Base URL');
         }
 
+        // Build user profile for prompt
+        const userProfile: UserProfile = {
+            fullName: profile?.full_name || '未知用户',
+            role: profile?.role || 'employee',
+            department: profile?.department || undefined,
+            jobTitle: profile?.job_title || undefined,
+        };
+
+        // Fetch business context from Supabase
+        setAiStatus('正在加载业务数据...');
+        const businessContext = await fetchBusinessContext(
+            agent,
+            user.id,
+            userProfile.role,
+        );
+
+        // Build the full system prompt with persona + user context + business data
+        const systemPrompt = buildSystemPrompt(agent, userProfile, businessContext);
+
+        // Prepend system message to chat
+        const messagesWithContext: Array<{ role: string; content: string }> = [
+            { role: 'system', content: systemPrompt },
+            ...chatMessages,
+        ];
+
         // Build the chat/completions endpoint URL
         let url = aiSettings.base_url.replace(/\/$/, '');
         if (url.endsWith('/chat/completions')) {
-            // Already a full endpoint, use as-is
+            // Already a full endpoint
         } else if (url.endsWith('/v1')) {
             url += '/chat/completions';
         } else {
             url += '/v1/chat/completions';
         }
 
+        setAiStatus('正在连接 AI 服务...');
         const response = await fetch(url, {
             method: 'POST',
             headers: {
@@ -88,7 +213,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
             },
             body: JSON.stringify({
                 model: aiSettings.model || 'gpt-4o',
-                messages: chatMessages,
+                messages: messagesWithContext,
                 stream: true,
             }),
             signal,
@@ -101,7 +226,8 @@ export function useAIStream({ userId }: UseAIStreamProps) {
 
         if (!response.body) return false;
 
-        toast.info('后端暂不可用，已切换到直连模式');
+        setAiStatus(undefined);
+        toast.info('已切换到增强直连模式（含业务数据）');
 
         // Parse OpenAI-compatible SSE stream
         const reader = response.body.getReader();
@@ -192,139 +318,105 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                 throw new Error('请先登录后再使用 AI 助手');
             }
 
-            // Try backend first; fall back to direct AI provider if unreachable
-            let backendFailed = false;
+            // ── 3-Tier Fallback Architecture ──
+            // Tier 1a: Try Zeabur backend directly
+            // Tier 1b: Try Supabase Edge Function proxy → Zeabur backend
+            // Tier 2:  Enhanced direct mode (browser → AI provider with business context)
 
+            let tier1Succeeded = false;
+
+            // ── Tier 1a: Direct backend ──
             try {
-                const response = await fetch(getApiUrl(), {
+                setAiStatus('正在连接后端服务...');
+                const response = await fetch(getBackendUrl(), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
+                        'Authorization': `Bearer ${token}`,
                     },
                     body: JSON.stringify({
                         messages: chatMessages,
                         agent: agent,
-                        userId: userId
+                        userId: userId,
                     }),
                     signal: abortControllerRef.current.signal,
                 });
 
-                if (!response.ok) {
-                    // Backend returned server error — try direct mode
-                    if (response.status >= 500) {
-                        console.warn(`Backend returned ${response.status}, switching to direct mode`);
-                        backendFailed = true;
-                    } else {
-                        const errorData = await response.json().catch(() => ({}));
-                        throw new Error(errorData.error || `请求失败: ${response.status}`);
-                    }
-                }
-
-                if (!backendFailed) {
-                    if (!response.body) throw new Error('No response body');
-
-                    const reader = response.body.getReader();
-                    const decoder = new TextDecoder();
-                    let textBuffer = '';
-                    let assistantContent = '';
-                    const assistantMsgId = Date.now().toString();
-
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-
-                        textBuffer += decoder.decode(value, { stream: true });
-
-                        let newlineIndex: number;
-                        while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
-                            let line = textBuffer.slice(0, newlineIndex);
-                            textBuffer = textBuffer.slice(newlineIndex + 1);
-
-                            if (line.endsWith('\r')) line = line.slice(0, -1);
-                            if (line.startsWith(':') || line.trim() === '') continue;
-                            if (!line.startsWith('data: ')) continue;
-
-                            const jsonStr = line.slice(6).trim();
-                            if (jsonStr === '[DONE]') break;
-
-                            try {
-                                const parsed = JSON.parse(jsonStr);
-                                const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-
-                                // Handle thinking step events
-                                if (parsed.thinking_step) {
-                                    const step = parsed.thinking_step as ThinkingStep;
-                                    setThinkingSteps(prev => [...prev, step]);
-                                    onThinkingStep?.(step);
-                                    continue;
-                                }
-
-                                // Handle thinking chain completion
-                                if (parsed.thinking_chain_complete) {
-                                    setIsThinkingComplete(true);
-                                    onThinkingComplete?.(parsed.total_steps || 0);
-                                    continue;
-                                }
-
-                                if (parsed.status) {
-                                    setAiStatus(parsed.status);
-                                    continue;
-                                }
-
-                                // Handle sanitized content correction from backend (#12 fix)
-                                if (parsed.sanitized_content) {
-                                    assistantContent = parsed.sanitized_content;
-                                    onUpdate?.(assistantContent, assistantMsgId);
-                                    continue;
-                                }
-
-                                if (content) {
-                                    setAiStatus(undefined);
-                                    assistantContent += content;
-                                    onUpdate?.(assistantContent, assistantMsgId);
-                                }
-                            } catch {
-                                textBuffer = line + '\n' + textBuffer;
-                                break;
-                            }
-                        }
-                    }
-                    return; // Backend stream succeeded
-                }
-            } catch (backendErr) {
-                if ((backendErr as Error).name === 'AbortError') throw backendErr;
-                const msg = (backendErr as Error).message || '';
-                if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('network')) {
-                    console.warn('Backend unreachable, switching to direct mode:', msg);
-                    backendFailed = true;
+                if (response.ok) {
+                    setAiStatus(undefined);
+                    await parseBackendStream(response, onUpdate, onThinkingStep, onThinkingComplete);
+                    tier1Succeeded = true;
+                } else if (response.status >= 500) {
+                    console.warn(`Backend returned ${response.status}, trying Edge Function proxy...`);
                 } else {
-                    throw backendErr; // Non-network error, propagate
+                    // 4xx errors are real errors, don't fallback
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `请求失败: ${response.status}`);
                 }
+            } catch (err) {
+                if ((err as Error).name === 'AbortError') throw err;
+                const msg = (err as Error).message || '';
+                const isNetworkError = msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('network');
+                if (!isNetworkError && !msg.includes('500')) {
+                    throw err; // Non-network error, propagate
+                }
+                console.warn('Tier 1a (direct backend) failed:', msg);
             }
 
-            // Fallback: direct stream to AI provider
-            if (backendFailed) {
-                setAiStatus('正在切换到直连模式...');
-                const success = await attemptDirectStream(
-                    chatMessages,
-                    abortControllerRef.current.signal,
-                    onUpdate,
-                );
-                if (success) return;
-                throw new Error('直连 AI 服务也失败了，请检查设置中心的 API 配置');
+            if (tier1Succeeded) return;
+
+            // ── Tier 1b: Supabase Edge Function proxy ──
+            try {
+                setAiStatus('正在通过代理连接...');
+                const response = await fetch(getEdgeFunctionUrl(), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        messages: chatMessages,
+                        agent: agent,
+                        userId: userId,
+                    }),
+                    signal: abortControllerRef.current.signal,
+                });
+
+                if (response.ok) {
+                    setAiStatus(undefined);
+                    await parseBackendStream(response, onUpdate, onThinkingStep, onThinkingComplete);
+                    tier1Succeeded = true;
+                } else {
+                    console.warn(`Edge Function proxy returned ${response.status}, falling back to enhanced direct mode...`);
+                }
+            } catch (err) {
+                if ((err as Error).name === 'AbortError') throw err;
+                console.warn('Tier 1b (Edge Function proxy) failed:', (err as Error).message);
             }
+
+            if (tier1Succeeded) return;
+
+            // ── Tier 2: Enhanced direct mode with business context ──
+            setAiStatus('正在切换到增强直连模式...');
+            const success = await attemptEnhancedDirectStream(
+                chatMessages,
+                abortControllerRef.current.signal,
+                onUpdate,
+                agent,
+            );
+            if (success) return;
+
+            throw new Error('所有连接模式均失败，请检查设置中心的 AI 配置');
         } catch (error) {
             if ((error as Error).name === 'AbortError') return;
 
             const err = error as Error;
             console.error('AI chat error:', err);
 
-            // Provide more specific error messages
             let errorMessage = 'AI 回复失败，请重试';
 
             if (err.message.includes('Failed to fetch')) {
-                errorMessage = '网络连接失败，后端和直连模式均不可用。请检查设置中心的 AI 配置或联系管理员。';
+                errorMessage = '网络连接失败，所有连接模式均不可用。请检查设置中心的 AI 配置或联系管理员。';
             } else if (err.message.includes('登录') || err.message.includes('会话')) {
                 errorMessage = err.message;
             } else if (err.message) {

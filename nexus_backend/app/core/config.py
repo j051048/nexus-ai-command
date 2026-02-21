@@ -51,6 +51,7 @@ class Settings(BaseSettings):
             "https://nexus-ai-command.vercel.app",
             "https://nexus-ai-command.zeabur.app",
             "https://aizhz.zeabur.app",
+            "https://aizk.flydao.top",
         ],
         description="Allowed CORS origins",
     )
