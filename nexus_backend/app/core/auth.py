@@ -108,10 +108,12 @@ async def get_current_user_id(authorization: Optional[str] = Header(None)) -> st
                     token,
                     signing_key.key,
                     algorithms=["ES256", "RS256"],
+                    audience="authenticated",
                     options={
                         "verify_signature": True,
                         "verify_exp": True,
                         "verify_iat": True,
+                        "verify_aud": True,
                         "require": ["sub", "exp"],
                     },
                 )
