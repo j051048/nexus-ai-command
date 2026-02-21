@@ -64,6 +64,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
                     request.state.api_key_id = key_info["key_id"]
                     request.state.api_key_auth = True
                     request.state.org_id = key_info["organization_id"]
+                    request.state.user_id = key_info.get("created_by")
 
                     # 使用全局 client（API Key 访问不走 RLS）
                     from app.core.database import supabase

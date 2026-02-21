@@ -11,7 +11,7 @@ import jwt
 from jwt import PyJWKClient
 import os
 import logging
-from fastapi import Header, HTTPException
+from fastapi import Header, HTTPException, Request
 from typing import Optional
 
 # Use structured logging instead of print
@@ -52,11 +52,12 @@ if IS_PRODUCTION:
         raise RuntimeError("CRITICAL: JWT secret or JWKS URL must be configured in production")
 
 
-async def get_current_user_id(authorization: Optional[str] = Header(None)) -> str:
+async def get_current_user_id(request: Request = None, authorization: Optional[str] = Header(None)) -> str:
     """
     P0 Security: Authenticate user via JWT with strict security controls.
 
     Verification strategy (in order):
+    0. API Key auth — if middleware already authenticated via sk-xxx key
     1. JWKS (ES256/RS256) — fetch public key from Supabase JWKS endpoint
     2. HS256 with SUPABASE_JWT_SECRET / JWT_SECRET — traditional shared secret
 
@@ -65,6 +66,12 @@ async def get_current_user_id(authorization: Optional[str] = Header(None)) -> st
     - No signature bypass in any environment
     - Removed test: prefix authentication
     """
+    # Check if API Key middleware already authenticated this request
+    if request and hasattr(request, "state") and getattr(request.state, "api_key_auth", False):
+        user_id = getattr(request.state, "user_id", None)
+        if user_id:
+            return user_id
+
     if not authorization:
         raise HTTPException(
             status_code=401, detail="缺少身份认证信息 (Missing Authorization Header)"

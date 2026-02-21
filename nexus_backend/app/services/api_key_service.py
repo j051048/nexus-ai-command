@@ -181,6 +181,7 @@ class APIKeyService:
                 "organization_id": key_data.get("organization_id"),
                 "name": key_data.get("name"),
                 "scopes": key_data.get("scopes", []),
+                "created_by": key_data.get("created_by"),
             }
 
         except Exception as e:

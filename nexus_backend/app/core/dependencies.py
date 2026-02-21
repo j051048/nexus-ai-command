@@ -179,7 +179,7 @@ async def get_optional_user_id(authorization: Optional[str] = None) -> Optional[
         # Reuse the existing auth mechanism
         from app.core.auth import get_current_user_id
 
-        return await get_current_user_id(authorization)
+        return await get_current_user_id(authorization=authorization)
     except HTTPException:
         return None
 

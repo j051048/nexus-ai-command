@@ -111,6 +111,10 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
         from app.core.auth import get_current_user_id
         from app.services.cache_service import cache_service
 
+        # If API Key middleware already authenticated, skip JWT flow
+        if getattr(request.state, "api_key_auth", False):
+            return await call_next(request)
+
         # Initialize default state
         request.state.user_id = None
         request.state.org_id = None
@@ -128,7 +132,7 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
         if auth_header and auth_header.startswith("Bearer "):
             try:
                 # 1. Authenticate user
-                user_id = await get_current_user_id(auth_header)
+                user_id = await get_current_user_id(request=request, authorization=auth_header)
                 request.state.user_id = user_id
 
                 # 2. Get Org ID (with caching, TTL reduced to 5 min)
