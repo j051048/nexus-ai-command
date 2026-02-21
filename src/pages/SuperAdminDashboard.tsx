@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Select,
   SelectContent,
@@ -83,10 +84,11 @@ interface AuditLog {
 
 // ============== API Helpers ==============
 
-const API_BASE = '/api/admin';
+const API_BASE = `${import.meta.env.VITE_API_BASE_URL || 'https://aizhz.zeabur.app'}/api/admin`;
 
 async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = localStorage.getItem('auth_token') || '';
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token || '';
   const res = await fetch(`${API_BASE}${path}`, {
     headers: {
       'Content-Type': 'application/json',
