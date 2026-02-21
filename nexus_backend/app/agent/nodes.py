@@ -167,6 +167,7 @@ async def _execute_single_tool(
                         "api_key": config.api_key,
                         "base_url": config.base_url,
                         "model": config.model,
+                        "org_id": config.org_id,
                     },
                 ),
                 timeout=timeout,

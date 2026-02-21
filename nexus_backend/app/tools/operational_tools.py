@@ -94,8 +94,9 @@ class KnowledgeBaseTool(BaseTool):
         self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
     ) -> str:
         query = args.get("query")
+        org_id = config.get("org_id") if config else None
         # P1: Grounding ensured by vector_service.search which now returns citations
-        result = await vector_service.search(query, user_id, config=config)
+        result = await vector_service.search(query, user_id, config=config, org_id=org_id)
         return result
 
 

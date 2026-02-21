@@ -83,7 +83,7 @@ class SemanticCacheService:
                 .execute()
             )
 
-            if hash_res.data:
+            if hash_res and hash_res.data:
                 logger.info(
                     f"Semantic Cache Hash-Hit: query='{query[:30]}...'"
                 )
@@ -153,7 +153,7 @@ class SemanticCacheService:
                 .maybe_single()
                 .execute()
             )
-            org_id = u_res.data.get("organization_id") if u_res.data else None
+            org_id = u_res.data.get("organization_id") if u_res and u_res.data else None
 
             # 3. Insert into cache (with deterministic hash for exact-match)
             await supabase.table("semantic_cache").insert(

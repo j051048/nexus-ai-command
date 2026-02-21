@@ -213,6 +213,7 @@ async def chat(
                 db_client=client,
                 agent_name=request.agent,
                 user_role=user_role,
+                org_id=org_id,
             ),
             media_type="text/event-stream",
         )

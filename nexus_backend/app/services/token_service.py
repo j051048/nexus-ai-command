@@ -208,15 +208,19 @@ class UsageTracker:
                 )
 
                 # Also fetch user's org_id to ensure we can track org-wide usage
-                if not res.data or not res.data.get("org_id"):
+                if not res or not res.data or not res.data.get("org_id"):
                     user_res = (
                         await supabase.table("users")
-                        .select("org_id")
+                        .select("organization_id")
                         .eq("id", user_id)
                         .maybe_single()
                         .execute()
                     )
-                    org_id = user_res.data.get("org_id") if user_res.data else None
+                    org_id = (
+                        user_res.data.get("organization_id")
+                        if user_res and user_res.data
+                        else None
+                    )
                 else:
                     org_id = res.data.get("org_id")
 
@@ -242,7 +246,7 @@ class UsageTracker:
                             org_totals["requests"] += r.get("request_count", 0)
                         self._org_usage[org_key] = org_totals
 
-                if res.data:
+                if res and res.data:
                     self._usage[cache_key] = {
                         "tokens": res.data.get("total_tokens", 0),
                         "cost_usd": float(res.data.get("estimated_cost_usd", 0.0)),

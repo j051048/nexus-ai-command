@@ -48,7 +48,7 @@ async def create_project(project: ProjectCreate):
             "name": project.name,
             "description": project.description,
             "owner_id": project.userId,
-            "status": "planning",
+            "stage": "planning",
             "progress": 0,
         }
         res = await supabase.table("projects").insert(data).execute()

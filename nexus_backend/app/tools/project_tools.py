@@ -22,13 +22,13 @@ class ProjectListTool(BaseTool):
         # Check role to filter projects? For now, list all accessible via RLS
         result = (
             await client.table("projects")
-            .select("id, name, status, progress")
+            .select("id, name, stage, progress")
             .execute()
         )
         if not result.data:
             return "暂无进行中的项目。"
         items = [
-            f"ID: {p['id']} | 名称: {p['name']} | 状态: {p['status']} | 进度: {p['progress']}%"
+            f"ID: {p['id']} | 名称: {p['name']} | 状态: {p['stage']} | 进度: {p['progress']}%"
             for p in result.data
         ]
         return "项目清单：\n" + "\n".join(items)
@@ -66,7 +66,7 @@ class CreateProjectTool(BaseTool):
                 "name": name,
                 "description": description,
                 "owner_id": user_id,
-                "status": status,
+                "stage": status,
                 "progress": 0,
             }
             client = _get_client(config)
