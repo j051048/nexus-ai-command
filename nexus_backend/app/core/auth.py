@@ -27,7 +27,7 @@ JWT_SECRET = os.getenv("JWT_SECRET")
 
 # P0 Security Fix #2: Only allow known, safe algorithms - NO dynamic algorithm from token
 # This prevents algorithm confusion attacks (e.g., alg: none)
-ALLOWED_ALGORITHMS = ["HS256", "RS256"]
+ALLOWED_ALGORITHMS = ["HS256", "RS256", "ES256"]
 
 # P0 Security: Validate critical secrets in production
 if IS_PRODUCTION:
