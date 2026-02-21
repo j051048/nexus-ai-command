@@ -4,9 +4,11 @@ Critical security fixes applied:
 - Fix #2: Remove algorithm confusion attack vector (no dynamic token_alg)
 - Fix #3: Remove ALLOW_UNSECURE_AUTH bypass completely
 - Fix #8: Remove test: prefix authentication in all environments
+- Fix: Support ES256 JWTs via Supabase JWKS endpoint
 """
 
 import jwt
+from jwt import PyJWKClient
 import os
 import logging
 from fastapi import Header, HTTPException
@@ -25,19 +27,38 @@ IS_TEST = ENV == "test"
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
 JWT_SECRET = os.getenv("JWT_SECRET")
 
+# Supabase URL for JWKS endpoint (ES256 public key auto-discovery)
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+
 # P0 Security Fix #2: Only allow known, safe algorithms - NO dynamic algorithm from token
 # This prevents algorithm confusion attacks (e.g., alg: none)
 ALLOWED_ALGORITHMS = ["HS256", "RS256", "ES256"]
 
+# Initialize JWKS client for ES256 verification.
+# Supabase publishes its signing public key at /.well-known/jwks.json
+# PyJWKClient caches the key automatically (lifespan=300s by default).
+_jwks_client: Optional[PyJWKClient] = None
+if SUPABASE_URL:
+    try:
+        jwks_url = f"{SUPABASE_URL.rstrip('/')}/auth/v1/.well-known/jwks.json"
+        _jwks_client = PyJWKClient(jwks_url, cache_keys=True, lifespan=600)
+        logger.info(f"JWKS client initialized: {jwks_url}")
+    except Exception as e:
+        logger.warning(f"Failed to initialize JWKS client: {e}")
+
 # P0 Security: Validate critical secrets in production
 if IS_PRODUCTION:
-    if not SUPABASE_JWT_SECRET and not JWT_SECRET:
-        raise RuntimeError("CRITICAL: JWT secret must be configured in production")
+    if not SUPABASE_JWT_SECRET and not JWT_SECRET and not _jwks_client:
+        raise RuntimeError("CRITICAL: JWT secret or JWKS URL must be configured in production")
 
 
 async def get_current_user_id(authorization: Optional[str] = Header(None)) -> str:
     """
     P0 Security: Authenticate user via JWT with strict security controls.
+
+    Verification strategy (in order):
+    1. JWKS (ES256/RS256) — fetch public key from Supabase JWKS endpoint
+    2. HS256 with SUPABASE_JWT_SECRET / JWT_SECRET — traditional shared secret
 
     Security measures:
     - Fixed algorithm whitelist (no dynamic algorithms from token)
@@ -51,7 +72,6 @@ async def get_current_user_id(authorization: Optional[str] = Header(None)) -> st
 
     try:
         # P0 Security Fix #8: Remove test: prefix authentication entirely
-        # This was a security hole that allowed arbitrary user impersonation
         if authorization.startswith("test:"):
             logger.warning("Blocked attempt to use deprecated test: authentication")
             raise HTTPException(
@@ -67,71 +87,78 @@ async def get_current_user_id(authorization: Optional[str] = Header(None)) -> st
 
         token = authorization.split(" ")[1]
 
-        # P0 Security Fix #2: Do NOT read algorithm from token header
-        # This prevents algorithm confusion attacks where attacker sets alg: none
-        # We only log what the token claims, but DO NOT use it for verification
+        # Read token header to determine algorithm
+        claimed_alg = None
         try:
             unverified_header = jwt.get_unverified_header(token)
             claimed_alg = unverified_header.get("alg")
             if claimed_alg not in ALLOWED_ALGORITHMS:
                 logger.warning(f"Token claims unsupported algorithm: {claimed_alg}")
-                # We still proceed with our fixed algorithm list
         except Exception:
-            pass  # Don't fail on header parsing, just proceed with verification
-
-        # Try secrets in order of probability
-        secrets_to_try = [s for s in [SUPABASE_JWT_SECRET, JWT_SECRET] if s]
-
-        if not secrets_to_try:
-            logger.error("No JWT secrets configured")
-            raise HTTPException(
-                status_code=500, detail="服务器配置错误 (Server configuration error)"
-            )
+            pass
 
         payload = None
         last_error = None
 
-        for secret in secrets_to_try:
+        # Strategy 1: Try JWKS (for ES256/RS256 tokens from Supabase)
+        if _jwks_client and claimed_alg in ("ES256", "RS256"):
             try:
-                # P0 Security Fix #2: Use FIXED algorithm list, never dynamic
+                signing_key = _jwks_client.get_signing_key_from_jwt(token)
                 payload = jwt.decode(
                     token,
-                    secret,
-                    algorithms=ALLOWED_ALGORITHMS,
+                    signing_key.key,
+                    algorithms=["ES256", "RS256"],
                     options={
-                        "verify_signature": True,  # Always verify
-                        "verify_exp": True,  # Check expiration
-                        "verify_iat": True,  # Check issued at
-                        "require": ["sub", "exp"],  # Require these claims
+                        "verify_signature": True,
+                        "verify_exp": True,
+                        "verify_iat": True,
+                        "require": ["sub", "exp"],
                     },
                 )
-                logger.debug("JWT verified successfully")
-                break
-            except jwt.InvalidSignatureError as e:
-                last_error = e
-                continue
+                logger.debug(f"JWT verified via JWKS ({claimed_alg})")
             except jwt.ExpiredSignatureError:
-                # P0 Security Fix #3: No bypass for expired tokens
                 raise HTTPException(
                     status_code=401,
                     detail="登录已过期，请重新登录 (Token expired, please login again)",
                 )
-            except jwt.InvalidAlgorithmError as e:
-                # This catches attempts to use unsupported algorithms
-                logger.warning(f"Invalid algorithm attempted: {e}")
-                last_error = e
-                continue
-            except jwt.MissingRequiredClaimError as e:
-                logger.warning(f"Token missing required claim: {e}")
-                last_error = e
-                continue
             except Exception as e:
                 last_error = e
-                continue
+                logger.debug(f"JWKS verification failed: {e}")
 
-        # P0 Security Fix #3: REMOVED - No unverified decode fallback
-        # The old code had: if not payload and ALLOW_UNSECURE_AUTH: jwt.decode(..., verify_signature=False)
-        # This has been completely removed to prevent signature bypass attacks
+        # Strategy 2: Try shared secrets (for HS256 tokens)
+        if not payload:
+            secrets_to_try = [s for s in [SUPABASE_JWT_SECRET, JWT_SECRET] if s]
+
+            for secret in secrets_to_try:
+                try:
+                    payload = jwt.decode(
+                        token,
+                        secret,
+                        algorithms=["HS256"],
+                        options={
+                            "verify_signature": True,
+                            "verify_exp": True,
+                            "verify_iat": True,
+                            "require": ["sub", "exp"],
+                        },
+                    )
+                    logger.debug("JWT verified via shared secret (HS256)")
+                    break
+                except jwt.InvalidSignatureError as e:
+                    last_error = e
+                    continue
+                except jwt.ExpiredSignatureError:
+                    raise HTTPException(
+                        status_code=401,
+                        detail="登录已过期，请重新登录 (Token expired, please login again)",
+                    )
+                except jwt.MissingRequiredClaimError as e:
+                    logger.warning(f"Token missing required claim: {e}")
+                    last_error = e
+                    continue
+                except Exception as e:
+                    last_error = e
+                    continue
 
         if not payload:
             error_msg = "身份验签失败 (Authentication failed)"
