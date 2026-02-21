@@ -132,7 +132,6 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://placeholder.supabase.co' }}
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY || 'placeholder-key' }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'sk-placeholder' }}
-      ALLOW_UNSECURE_AUTH: "true"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

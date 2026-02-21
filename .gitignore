@@ -40,6 +40,14 @@ __pycache__/
 nexus_backend/.venv/
 
 
+# Debug/test artifacts
+debug_*.cjs
+debug_*.py
+test_*.log
+*_output.txt
+pytest_errors*.txt
+pytest_output*.txt
+
 # Playwright
 playwright-report/
 test-results/

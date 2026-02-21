@@ -1,12 +1,32 @@
 import { test, expect } from "@playwright/test";
 
+/**
+ * NOTE: This test requires Supabase to accept signups from the test email domain.
+ * Options to make this test pass:
+ * 1. Disable "Enable email confirmations" in Supabase Dashboard > Auth > Settings
+ * 2. Use a local Supabase instance via `supabase start` (no email domain validation)
+ * 3. Use a real, resolvable email domain for test accounts
+ * 4. Mock the Supabase Auth endpoint in the test
+ *
+ * Currently @nexus-ai.com is used but may be rejected by Supabase if the domain
+ * cannot be resolved (error: email_address_invalid).
+ */
 test.describe("Comprehensive System Test", () => {
-  const testEmail = `test_${Math.floor(Math.random() * 100000)}@example.com`;
+  const testEmail = `test_${Math.floor(Math.random() * 100000)}@nexus-ai.com`;
   const testName = "Test User";
   const testPass = "Password123!";
 
   test("User Registration with Auto-Login and Navigation", async ({ page }) => {
     console.log("Starting comprehensive test (Optimized Flow)...");
+    
+    page.on('response', async res => {
+      if (res.url().includes('supabase')) {
+        console.log(`[NETWORK] ${res.url()} ${res.status()}`);
+        try {
+          console.log(await res.json());
+        } catch (e) {}
+      }
+    });
 
     await page.goto("/login");
     console.log("Visited /login");

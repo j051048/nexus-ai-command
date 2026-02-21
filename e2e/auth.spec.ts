@@ -6,7 +6,6 @@ test.describe('Authentication Flow', () => {
     });
 
     test('should display login page correctly', async ({ page }) => {
-        // The title was changed to ZHZ-Tech App based on requirements
         await expect(page.locator('h1')).toContainText('Project Nexus');
         await expect(page.locator('#login-email')).toBeVisible();
         await expect(page.locator('#login-password')).toBeVisible();

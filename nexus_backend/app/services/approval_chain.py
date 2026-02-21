@@ -224,7 +224,7 @@ class ApprovalChainService:
 
             return result.data or []
         except Exception as e:
-            print(f"Error fetching approvers: {e}")
+            logger.error(f"Error fetching approvers: {e}")
             return []
 
     async def get_direct_manager(self, user_id: str) -> Optional[Dict]:
@@ -275,7 +275,7 @@ class ApprovalChainService:
 
             return founder.data[0] if founder.data else None
         except Exception as e:
-            print(f"Error fetching manager: {e}")
+            logger.error(f"Error fetching manager: {e}")
             return None
 
     async def process_approval_request(

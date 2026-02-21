@@ -1,8 +1,9 @@
+import logging
 import arxiv
 from typing import List, Dict, Any
 from app.core.database import supabase
 
-# import datetime
+logger = logging.getLogger(__name__)
 
 
 class CrawlerService:
@@ -18,7 +19,7 @@ class CrawlerService:
         """
         Crawl arXiv for latest papers in the domain.
         """
-        print(f"🕷️ [Scholar-Hunter] Starting crawl for query: {query}")
+        logger.info(f"[Scholar-Hunter] Starting crawl for query: {query}")
 
         search = arxiv.Search(
             query=query,
@@ -38,7 +39,7 @@ class CrawlerService:
             }
             results.append(paper_info)
 
-        print(f"✅ [Scholar-Hunter] Found {len(results)} papers.")
+        logger.info(f"[Scholar-Hunter] Found {len(results)} papers.")
         return results
 
     @staticmethod
@@ -51,7 +52,7 @@ class CrawlerService:
         match_score = 0.92
 
         if match_score > 0.85:
-            print(f"🔥 High potential lead found: {paper['title']}")
+            logger.info(f"High potential lead found: {paper['title']}")
 
             # 2. Insert into DB (notifications table)
             try:
@@ -60,16 +61,16 @@ class CrawlerService:
                 await supabase.table("notifications").insert(
                     {
                         "user_id": "nexus-user-1",  # Demo ID or fetch dynamic
-                        "title": "🎓 学术获客",
+                        "title": "学术获客",
                         "content": content,
                         "type": "lead",  # Custom type for frontend mapping
                         "is_read": False,
                     }
                 ).execute()
-                print("🚀 Pushed to Frontend via Supabase.")
+                logger.info("Pushed lead to Frontend via Supabase.")
 
             except Exception as e:
-                print(f"Failed to push lead: {e}")
+                logger.error(f"Failed to push lead: {e}")
 
 
 crawler_service = CrawlerService()

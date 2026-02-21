@@ -9,6 +9,7 @@ Benefits:
 """
 
 import sys
+import logging
 from typing import List, Optional
 
 try:
@@ -165,9 +166,6 @@ class Settings(BaseSettings):
     )
 
     # Security
-    ALLOW_UNSECURE_AUTH: Optional[str] = Field(
-        default=None, description="Allow unsecure auth (dev only)"
-    )
     # P1 Fix #42: Key for encryption
     ENCRYPTION_KEY: str = Field(
         default="", description="Master key for encrypting API keys"
@@ -297,9 +295,6 @@ class Settings(BaseSettings):
                     "JWT secret (SUPABASE_JWT_SECRET or JWT_SECRET) is required in production"
                 )
 
-            if self.ALLOW_UNSECURE_AUTH == "true":
-                errors.append("ALLOW_UNSECURE_AUTH must be disabled in production")
-
             if self.DEBUG:
                 errors.append("DEBUG mode must be disabled in production")
 
@@ -319,11 +314,12 @@ class Settings(BaseSettings):
 settings = Settings()
 
 # Validate configuration on startup
+_logger = logging.getLogger(__name__)
 _config_errors = settings.validate_production_config()
 if _config_errors:
     for error in _config_errors:
-        print(f"❌ CONFIG ERROR: {error}")
+        _logger.critical(f"CONFIG ERROR: {error}")
     if settings.IS_PRODUCTION:
         sys.exit(1)  # Fail fast in production
     else:
-        print("⚠️ Running in development mode with configuration warnings")
+        _logger.warning("Running in development mode with configuration warnings")
