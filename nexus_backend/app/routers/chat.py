@@ -97,13 +97,12 @@ async def chat(
         "token": token,
     }
     try:
-        settings_res = (
-            await client.table("ai_settings")
-            .select("*")
-            .eq("user_id", user_id)
-            .maybe_single()
-            .execute()
-        )
+        # Query AI settings with organization_id to match frontend save logic
+        org_id = getattr(req.state, 'org_id', None)
+        settings_query = client.table("ai_settings").select("*").eq("user_id", user_id)
+        if org_id:
+            settings_query = settings_query.eq("organization_id", org_id)
+        settings_res = await settings_query.maybe_single().execute()
         if settings_res.data:
             s = settings_res.data
             from app.services.encryption_service import encryption_service
