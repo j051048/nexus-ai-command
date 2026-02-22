@@ -29,7 +29,7 @@ import { AddCardDialog } from '@/components/dashboard/AddCardDialog';
 // ─── 页面组件 ──────────────────────────────────────────────
 
 function CustomDashboard() {
-  const { config, addCard, removeCard, updateCard, resetConfig } = useDashboardConfig();
+  const { config, addCard, removeCard, updateCard, resetConfig, isSaving } = useDashboardConfig();
   const [isEditing, setIsEditing] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
@@ -141,7 +141,7 @@ function CustomDashboard() {
             <Badge variant="secondary" className="mx-1 text-xs">
               x
             </Badge>
-            删除卡片。布局将自动保存到本地。
+            删除卡片。布局将自动保存。{isSaving && <Badge variant="outline" className="ml-1 text-xs">保存中...</Badge>}
           </span>
         </div>
       )}

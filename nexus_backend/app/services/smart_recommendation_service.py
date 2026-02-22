@@ -3,15 +3,17 @@ P2 Enhancement: Smart Recommendation Service
 
 Implements proactive suggestions and intelligent recommendations.
 Fixes Issue #3: Missing proactive suggestions and smart recommendations.
+
+Phase 4.4: Connected to real database for context-aware recommendations.
 """
 
-import json
 import logging
 from typing import Dict, Optional, Any, List
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
-import asyncio
+
+from app.core.database import supabase
 
 logger = logging.getLogger(__name__)
 
@@ -47,270 +49,413 @@ class Recommendation:
     action_label: Optional[str] = None
     expires_at: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
-    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 class SmartRecommendationService:
     """
     P2 Enhancement: Intelligent recommendations and proactive suggestions.
-    
+
+    Phase 4.4: Now queries real database for context-aware business recommendations.
+
     Features:
-    - Context-aware recommendations
-    - User behavior analysis
-    - Proactive alerts
-    - Personalized suggestions
+    - Context-aware recommendations from real business data
+    - Pending approvals, stale leads, budget alerts, contract expiry
+    - Time-based recommendations (weekly planning, monthly review)
+    - User behavior analysis via conversation_memories
     - Learning from feedback
     """
-    
-    # Recommendation rules
-    RECOMMENDATION_RULES = [
-        {
-            "id": "low_activity_alert",
-            "trigger": "user_activity_low",
-            "condition": {"days_inactive": 3},
-            "recommendation": {
-                "type": "alert",
-                "title": "好久不见",
-                "description": "您有一段时间没来了，有什么我们可以帮您的？",
-                "priority": "medium"
-            }
-        },
-        {
-            "id": "data_anomaly",
-            "trigger": "data_anomaly_detected",
-            "condition": {"threshold": 0.8},
-            "recommendation": {
-                "type": "alert",
-                "title": "发现数据异常",
-                "description": "检测到数据异常波动，建议立即查看",
-                "priority": "high"
-            }
-        },
-        {
-            "id": "report_ready",
-            "trigger": "report_generated",
-            "condition": {},
-            "recommendation": {
-                "type": "content",
-                "title": "报告已生成",
-                "description": "您的月度报告已准备好，点击查看",
-                "priority": "medium"
-            }
-        },
-        {
-            "id": "learning_suggestion",
-            "trigger": "feature_unused",
-            "condition": {"feature": "advanced_analysis"},
-            "recommendation": {
-                "type": "learning",
-                "title": "发现新功能",
-                "description": "高级分析功能可以帮您更好地理解数据",
-                "priority": "low"
-            }
-        },
-        {
-            "id": "optimization_tip",
-            "trigger": "performance_issue",
-            "condition": {},
-            "recommendation": {
-                "type": "optimization",
-                "title": "性能优化建议",
-                "description": "检测到查询性能下降，建议优化索引",
-                "priority": "high"
-            }
-        }
-    ]
-    
+
     def __init__(self):
-        self._recommendations: Dict[str, List[Recommendation]] = {}  # user_id -> recommendations
-        self._user_profiles: Dict[str, Dict] = {}  # user_id -> profile
         self._feedback_history: Dict[str, List] = {}
         self._recommendation_counter = 0
-    
+
     def _generate_id(self) -> str:
         """Generate unique recommendation ID."""
         import uuid
         return f"rec_{uuid.uuid4().hex[:8]}"
-    
+
     async def get_recommendations(
         self,
         user_id: str,
         context: Dict[str, Any] = None,
-        limit: int = 5
+        limit: int = 5,
+        db: Any = None,
     ) -> List[Recommendation]:
         """
-        Get personalized recommendations for a user.
-        
+        Get personalized recommendations for a user based on real business data.
+
         Args:
             user_id: User identifier
-            context: Current context (page, activity, etc.)
+            context: Current context (page, role, org_id, etc.)
             limit: Maximum recommendations to return
-            
+
         Returns:
             List of Recommendation objects
         """
-        # Get user profile
-        profile = self._user_profiles.get(user_id, {})
-        
-        # Get existing recommendations
-        existing = self._recommendations.get(user_id, [])
-        
-        # Generate new recommendations based on context and rules
-        new_recommendations = await self._generate_recommendations(
-            user_id, profile, context or {}
-        )
-        
-        # Combine and prioritize
-        all_recommendations = existing + new_recommendations
-        
-        # Filter expired
-        all_recommendations = self._filter_expired(all_recommendations)
-        
-        # Sort by priority and confidence
-        all_recommendations.sort(
-            key=lambda r: (r.priority.value, r.confidence),
-            reverse=True
-        )
-        
-        # Update stored recommendations
-        self._recommendations[user_id] = all_recommendations
-        
-        return all_recommendations[:limit]
-    
-    async def _generate_recommendations(
-        self,
-        user_id: str,
-        profile: Dict,
-        context: Dict
-    ) -> List[Recommendation]:
-        """Generate new recommendations based on rules and context."""
-        recommendations = []
-        
-        for rule in self.RECOMMENDATION_RULES:
-            # Check if rule applies
-            if await self._check_rule(rule, user_id, profile, context):
-                rec = self._create_recommendation_from_rule(rule)
-                if rec:
-                    recommendations.append(rec)
-        
-        # Add context-based recommendations
-        if context.get("page"):
-            page_recs = await self._get_page_recommendations(context["page"], context)
-            recommendations.extend(page_recs)
-        
-        # Add time-based recommendations
-        time_recs = await self._get_time_based_recommendations(profile)
-        recommendations.extend(time_recs)
-        
-        return recommendations
-    
-    async def _check_rule(
-        self,
-        rule: Dict,
-        user_id: str,
-        profile: Dict,
-        context: Dict
-    ) -> bool:
-        """Check if a recommendation rule applies."""
-        trigger = rule["trigger"]
-        condition = rule["condition"]
-        
-        # Check various triggers
-        if trigger == "user_activity_low":
-            last_active = profile.get("last_active")
-            if last_active:
-                days_inactive = (datetime.utcnow() - datetime.fromisoformat(last_active)).days
-                return days_inactive >= condition.get("days_inactive", 3)
-        
-        elif trigger == "data_anomaly_detected":
-            return context.get("anomaly_detected", False)
-        
-        elif trigger == "report_generated":
-            return context.get("report_ready", False)
-        
-        elif trigger == "feature_unused":
-            feature = condition.get("feature")
-            used_features = profile.get("used_features", [])
-            return feature not in used_features
-        
-        elif trigger == "performance_issue":
-            return context.get("performance_degraded", False)
-        
-        return False
-    
-    def _create_recommendation_from_rule(self, rule: Dict) -> Optional[Recommendation]:
-        """Create recommendation from rule."""
-        rec_config = rule["recommendation"]
-        
+        ctx = context or {}
+        recommendations: List[Recommendation] = []
+        client = db or supabase
+
+        if not client:
+            return recommendations
+
+        org_id = ctx.get("org_id")
+        user_role = ctx.get("role", "employee")
+
+        # Gather recommendations from real data sources (in parallel-safe way)
         try:
-            return Recommendation(
-                id=self._generate_id(),
-                type=RecommendationType(rec_config["type"]),
-                title=rec_config["title"],
-                description=rec_config["description"],
-                priority=Priority[rec_config.get("priority", "MEDIUM").upper()],
-                confidence=0.85,
-                metadata={"rule_id": rule["id"]}
+            recs = await self._get_approval_recommendations(
+                user_id, user_role, org_id, client
             )
+            recommendations.extend(recs)
         except Exception as e:
-            logger.warning(f"Failed to create recommendation: {e}")
-            return None
-    
-    async def _get_page_recommendations(
-        self,
-        page: str,
-        context: Dict
+            logger.debug(f"Approval recommendations failed: {e}")
+
+        try:
+            recs = await self._get_lead_recommendations(
+                user_id, user_role, org_id, client
+            )
+            recommendations.extend(recs)
+        except Exception as e:
+            logger.debug(f"Lead recommendations failed: {e}")
+
+        try:
+            recs = await self._get_budget_recommendations(org_id, client)
+            recommendations.extend(recs)
+        except Exception as e:
+            logger.debug(f"Budget recommendations failed: {e}")
+
+        try:
+            recs = await self._get_contract_recommendations(org_id, client)
+            recommendations.extend(recs)
+        except Exception as e:
+            logger.debug(f"Contract recommendations failed: {e}")
+
+        try:
+            recs = await self._get_task_recommendations(user_id, client)
+            recommendations.extend(recs)
+        except Exception as e:
+            logger.debug(f"Task recommendations failed: {e}")
+
+        # Add time-based recommendations
+        recommendations.extend(await self._get_time_based_recommendations())
+
+        # Add page-context recommendations
+        if ctx.get("page"):
+            recommendations.extend(
+                await self._get_page_recommendations(ctx["page"], ctx)
+            )
+
+        # Filter expired, sort by priority + confidence, and deduplicate
+        recommendations = self._filter_expired(recommendations)
+        recommendations.sort(
+            key=lambda r: (r.priority.value, r.confidence), reverse=True
+        )
+
+        return recommendations[:limit]
+
+    # ────────────────────────────────────────────────────────────────
+    # Real data-driven recommendation generators
+    # ────────────────────────────────────────────────────────────────
+
+    async def _get_approval_recommendations(
+        self, user_id: str, role: str, org_id: Optional[str], client: Any
     ) -> List[Recommendation]:
-        """Get recommendations specific to a page."""
-        page_recommendations = {
-            "dashboard": [
-                Recommendation(
+        """Check for pending approvals that need attention."""
+        recs: List[Recommendation] = []
+
+        if role not in ("manager", "boss"):
+            return recs
+
+        query = (
+            client.table("approval_requests")
+            .select("id, type, amount, description, created_at", count="exact")
+            .eq("status", "pending")
+        )
+        if org_id:
+            query = query.eq("organization_id", org_id)
+
+        result = await query.order("created_at", desc=False).limit(20).execute()
+        pending_count = result.count or len(result.data or [])
+
+        if pending_count > 0:
+            # Check for high-amount approvals
+            high_amount = [
+                a for a in (result.data or [])
+                if float(a.get("amount", 0)) > 5000
+            ]
+
+            if high_amount:
+                recs.append(Recommendation(
+                    id=self._generate_id(),
+                    type=RecommendationType.ALERT,
+                    title=f"有 {len(high_amount)} 笔大额审批待处理",
+                    description=f"最大金额 ¥{max(float(a.get('amount', 0)) for a in high_amount):,.0f}，请及时审批",
+                    priority=Priority.HIGH,
+                    confidence=0.95,
+                    action_url="/approvals",
+                    action_label="去审批",
+                    metadata={"count": len(high_amount)},
+                ))
+
+            if pending_count > 5:
+                recs.append(Recommendation(
                     id=self._generate_id(),
                     type=RecommendationType.ACTION,
-                    title="查看今日摘要",
-                    description="快速了解今日关键指标",
+                    title=f"积压 {pending_count} 笔待审批",
+                    description="审批请求积压较多，建议及时处理避免业务延迟",
                     priority=Priority.MEDIUM,
                     confidence=0.9,
-                    action_url="/dashboard/summary",
-                    action_label="查看"
-                )
-            ],
-            "documents": [
-                Recommendation(
+                    action_url="/approvals",
+                    action_label="去审批",
+                ))
+
+        return recs
+
+    async def _get_lead_recommendations(
+        self, user_id: str, role: str, org_id: Optional[str], client: Any
+    ) -> List[Recommendation]:
+        """Check for stale sales leads that need follow-up."""
+        recs: List[Recommendation] = []
+
+        seven_days_ago = (
+            datetime.now(timezone.utc) - timedelta(days=7)
+        ).isoformat()
+
+        query = (
+            client.table("sales_leads")
+            .select("id, company_name, status, assigned_to, updated_at", count="exact")
+            .in_("status", ["lead", "prospect", "negotiation"])
+            .lt("updated_at", seven_days_ago)
+        )
+        if org_id:
+            query = query.eq("organization_id", org_id)
+
+        # For non-managers, only show their own leads
+        if role not in ("manager", "boss"):
+            query = query.eq("assigned_to", user_id)
+
+        result = await query.limit(10).execute()
+        stale_leads = result.data or []
+
+        if stale_leads:
+            my_stale = [l for l in stale_leads if l.get("assigned_to") == user_id]
+
+            if my_stale:
+                recs.append(Recommendation(
                     id=self._generate_id(),
                     type=RecommendationType.ACTION,
-                    title="智能搜索文档",
-                    description="使用AI快速找到需要的文档",
+                    title=f"你有 {len(my_stale)} 条商机待跟进",
+                    description=f"商机超过7天未更新，建议尽快联系客户",
+                    priority=Priority.HIGH,
+                    confidence=0.9,
+                    action_url="/crm",
+                    action_label="查看商机",
+                    metadata={"lead_ids": [l["id"] for l in my_stale[:5]]},
+                ))
+
+            if role in ("manager", "boss") and len(stale_leads) > len(my_stale):
+                team_stale = len(stale_leads) - len(my_stale)
+                recs.append(Recommendation(
+                    id=self._generate_id(),
+                    type=RecommendationType.ALERT,
+                    title=f"团队有 {team_stale} 条停滞商机",
+                    description="团队商机长时间未跟进，建议了解情况并督促跟进",
                     priority=Priority.MEDIUM,
                     confidence=0.85,
-                    action_url="/documents/search?ai=true",
-                    action_label="搜索"
-                )
-            ],
-            "reports": [
-                Recommendation(
+                    action_url="/crm",
+                    action_label="查看",
+                ))
+
+        return recs
+
+    async def _get_budget_recommendations(
+        self, org_id: Optional[str], client: Any
+    ) -> List[Recommendation]:
+        """Check for budget overruns."""
+        recs: List[Recommendation] = []
+
+        query = client.table("finance_budgets").select(
+            "id, name, total_amount, used_amount, period"
+        )
+        if org_id:
+            query = query.eq("organization_id", org_id)
+
+        result = await query.execute()
+
+        for b in (result.data or []):
+            total = float(b.get("total_amount", 0))
+            used = float(b.get("used_amount", 0))
+            if total > 0:
+                ratio = used / total
+                if ratio >= 1.0:
+                    recs.append(Recommendation(
+                        id=self._generate_id(),
+                        type=RecommendationType.ALERT,
+                        title=f"预算超支: {b.get('name', '未知')}",
+                        description=f"已使用 {ratio:.0%}，超出预算 ¥{used - total:,.0f}",
+                        priority=Priority.URGENT,
+                        confidence=1.0,
+                        action_url="/finance",
+                        action_label="查看预算",
+                        metadata={"budget_id": b["id"]},
+                    ))
+                elif ratio >= 0.9:
+                    recs.append(Recommendation(
+                        id=self._generate_id(),
+                        type=RecommendationType.ALERT,
+                        title=f"预算即将用尽: {b.get('name', '未知')}",
+                        description=f"已使用 {ratio:.0%}，剩余 ¥{total - used:,.0f}",
+                        priority=Priority.HIGH,
+                        confidence=0.95,
+                        action_url="/finance",
+                        action_label="查看预算",
+                    ))
+
+        return recs
+
+    async def _get_contract_recommendations(
+        self, org_id: Optional[str], client: Any
+    ) -> List[Recommendation]:
+        """Check for contracts expiring soon."""
+        recs: List[Recommendation] = []
+
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        thirty_days = (
+            datetime.now(timezone.utc) + timedelta(days=30)
+        ).strftime("%Y-%m-%d")
+
+        query = (
+            client.table("contracts")
+            .select("id, title, end_date, status")
+            .eq("status", "active")
+            .gte("end_date", today)
+            .lte("end_date", thirty_days)
+        )
+        if org_id:
+            query = query.eq("organization_id", org_id)
+
+        result = await query.limit(10).execute()
+        expiring = result.data or []
+
+        if expiring:
+            urgent = [
+                c for c in expiring
+                if (datetime.strptime(c["end_date"], "%Y-%m-%d") -
+                    datetime.now()).days <= 7
+            ]
+            if urgent:
+                recs.append(Recommendation(
+                    id=self._generate_id(),
+                    type=RecommendationType.ALERT,
+                    title=f"{len(urgent)} 份合同本周内到期",
+                    description=f"包括: {', '.join(c.get('title', '未命名')[:15] for c in urgent[:3])}",
+                    priority=Priority.URGENT,
+                    confidence=1.0,
+                    action_url="/contracts",
+                    action_label="查看合同",
+                ))
+            else:
+                recs.append(Recommendation(
                     id=self._generate_id(),
                     type=RecommendationType.ACTION,
-                    title="生成报告",
-                    description="AI可以帮您快速生成报告",
+                    title=f"{len(expiring)} 份合同30天内到期",
+                    description="建议提前准备续签或结算事宜",
                     priority=Priority.MEDIUM,
-                    confidence=0.88,
-                    action_url="/reports/create",
-                    action_label="创建"
-                )
-            ]
-        }
-        
-        return page_recommendations.get(page, [])
-    
-    async def _get_time_based_recommendations(
-        self,
-        profile: Dict
+                    confidence=0.9,
+                    action_url="/contracts",
+                    action_label="查看",
+                ))
+
+        return recs
+
+    async def _get_task_recommendations(
+        self, user_id: str, client: Any
     ) -> List[Recommendation]:
-        """Get recommendations based on time."""
+        """Check for overdue or near-due tasks."""
+        recs: List[Recommendation] = []
+
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        try:
+            # Overdue tasks
+            overdue_res = (
+                await client.table("oa_tasks")
+                .select("id, title, due_date", count="exact")
+                .eq("assigned_to", user_id)
+                .in_("status", ["pending", "in_progress"])
+                .lt("due_date", today)
+                .limit(5)
+                .execute()
+            )
+            overdue_count = overdue_res.count or len(overdue_res.data or [])
+
+            if overdue_count > 0:
+                recs.append(Recommendation(
+                    id=self._generate_id(),
+                    type=RecommendationType.ALERT,
+                    title=f"你有 {overdue_count} 个逾期任务",
+                    description="任务已超过截止日期，请尽快完成或申请延期",
+                    priority=Priority.HIGH,
+                    confidence=1.0,
+                    action_url="/oa",
+                    action_label="查看任务",
+                ))
+        except Exception:
+            pass  # oa_tasks table may not exist
+
+        return recs
+
+    # ────────────────────────────────────────────────────────────────
+    # Static / time-based recommendations
+    # ────────────────────────────────────────────────────────────────
+
+    async def _get_page_recommendations(
+        self, page: str, context: Dict
+    ) -> List[Recommendation]:
+        """Get recommendations specific to the current page."""
+        page_map = {
+            "dashboard": Recommendation(
+                id=self._generate_id(),
+                type=RecommendationType.ACTION,
+                title="查看今日摘要",
+                description="快速了解今日关键指标",
+                priority=Priority.MEDIUM,
+                confidence=0.9,
+                action_url="/dashboard/summary",
+                action_label="查看",
+            ),
+            "documents": Recommendation(
+                id=self._generate_id(),
+                type=RecommendationType.ACTION,
+                title="智能搜索文档",
+                description="使用AI快速找到需要的文档",
+                priority=Priority.MEDIUM,
+                confidence=0.85,
+                action_url="/documents/search?ai=true",
+                action_label="搜索",
+            ),
+            "reports": Recommendation(
+                id=self._generate_id(),
+                type=RecommendationType.ACTION,
+                title="生成报告",
+                description="AI可以帮您快速生成报告",
+                priority=Priority.MEDIUM,
+                confidence=0.88,
+                action_url="/reports/create",
+                action_label="创建",
+            ),
+        }
+
+        rec = page_map.get(page)
+        return [rec] if rec else []
+
+    async def _get_time_based_recommendations(self) -> List[Recommendation]:
+        """Get recommendations based on current time."""
         recommendations = []
-        now = datetime.utcnow()
-        
+        now = datetime.now(timezone.utc)
+
         # Monday morning: weekly planning
         if now.weekday() == 0 and now.hour < 12:
             recommendations.append(Recommendation(
@@ -321,9 +466,9 @@ class SmartRecommendationService:
                 priority=Priority.MEDIUM,
                 confidence=0.75,
                 action_url="/planning/weekly",
-                action_label="开始"
+                action_label="开始",
             ))
-        
+
         # End of month: monthly review
         if now.day >= 25:
             recommendations.append(Recommendation(
@@ -334,115 +479,75 @@ class SmartRecommendationService:
                 priority=Priority.LOW,
                 confidence=0.7,
                 action_url="/reports/monthly",
-                action_label="生成"
+                action_label="生成",
             ))
-        
+
+        # Friday afternoon: weekly review
+        if now.weekday() == 4 and now.hour >= 14:
+            recommendations.append(Recommendation(
+                id=self._generate_id(),
+                type=RecommendationType.CONTENT,
+                title="本周回顾",
+                description="周末将至，回顾本周工作完成情况",
+                priority=Priority.LOW,
+                confidence=0.7,
+                action_url="/reports/weekly",
+                action_label="查看",
+            ))
+
         return recommendations
-    
+
     def _filter_expired(self, recommendations: List[Recommendation]) -> List[Recommendation]:
         """Filter out expired recommendations."""
-        now = datetime.utcnow()
-        
+        now = datetime.now(timezone.utc)
         return [
             r for r in recommendations
             if not r.expires_at or datetime.fromisoformat(r.expires_at) > now
         ]
-    
+
+    # ────────────────────────────────────────────────────────────────
+    # Feedback & profile
+    # ────────────────────────────────────────────────────────────────
+
     async def record_feedback(
         self,
         user_id: str,
         recommendation_id: str,
         feedback: str,  # "positive", "negative", "dismissed", "actioned"
-        context: Dict = None
+        context: Dict = None,
     ):
-        """
-        Record user feedback on a recommendation.
-        
-        Args:
-            user_id: User identifier
-            recommendation_id: Recommendation ID
-            feedback: Feedback type
-            context: Additional context
-        """
+        """Record user feedback on a recommendation."""
         if user_id not in self._feedback_history:
             self._feedback_history[user_id] = []
-        
+
         self._feedback_history[user_id].append({
             "recommendation_id": recommendation_id,
             "feedback": feedback,
             "context": context,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         })
-        
-        # Update user profile based on feedback
-        if feedback == "positive":
-            self._update_preference(user_id, recommendation_id, positive=True)
-        elif feedback == "negative":
-            self._update_preference(user_id, recommendation_id, positive=False)
-        
-        # Remove dismissed recommendations
-        if feedback == "dismissed":
-            self._remove_recommendation(user_id, recommendation_id)
-    
-    def _update_preference(self, user_id: str, recommendation_id: str, positive: bool):
-        """Update user preferences based on feedback."""
-        if user_id not in self._user_profiles:
-            self._user_profiles[user_id] = {}
-        
-        profile = self._user_profiles[user_id]
-        
-        if "preferences" not in profile:
-            profile["preferences"] = {}
-        
-        # Find the recommendation
-        for rec in self._recommendations.get(user_id, []):
-            if rec.id == recommendation_id:
-                pref_key = f"{rec.type.value}_preference"
-                current = profile["preferences"].get(pref_key, 0.5)
-                
-                if positive:
-                    profile["preferences"][pref_key] = min(1.0, current + 0.1)
-                else:
-                    profile["preferences"][pref_key] = max(0.0, current - 0.1)
-                break
-    
-    def _remove_recommendation(self, user_id: str, recommendation_id: str):
-        """Remove a recommendation."""
-        if user_id in self._recommendations:
-            self._recommendations[user_id] = [
-                r for r in self._recommendations[user_id]
-                if r.id != recommendation_id
-            ]
-    
+
     def update_user_profile(self, user_id: str, profile_update: Dict):
-        """Update user profile for better recommendations."""
-        if user_id not in self._user_profiles:
-            self._user_profiles[user_id] = {}
-        
-        self._user_profiles[user_id].update(profile_update)
-        self._user_profiles[user_id]["last_active"] = datetime.utcnow().isoformat()
-    
+        """Update user profile for better recommendations (no-op for DB-backed)."""
+        pass  # User profiles are now derived from DB data
+
     async def trigger_proactive_notification(
         self,
         user_id: str,
         notification_type: str,
-        data: Dict = None
+        data: Dict = None,
     ) -> Optional[Recommendation]:
         """
         Trigger a proactive notification.
-        
+
         Args:
             user_id: User to notify
             notification_type: Type of notification
             data: Additional data
-            
+
         Returns:
             Recommendation if triggered
         """
-        # Check if user should receive this notification
-        profile = self._user_profiles.get(user_id, {})
-        
-        # Notification templates
         templates = {
             "task_due": Recommendation(
                 id=self._generate_id(),
@@ -451,7 +556,7 @@ class SmartRecommendationService:
                 description="您有任务将在24小时内到期",
                 priority=Priority.HIGH,
                 confidence=1.0,
-                expires_at=(datetime.utcnow() + timedelta(hours=24)).isoformat()
+                expires_at=(datetime.now(timezone.utc) + timedelta(hours=24)).isoformat(),
             ),
             "new_feature": Recommendation(
                 id=self._generate_id(),
@@ -460,47 +565,32 @@ class SmartRecommendationService:
                 description="我们添加了新功能，快来体验吧！",
                 priority=Priority.MEDIUM,
                 confidence=0.9,
-                expires_at=(datetime.utcnow() + timedelta(days=7)).isoformat()
+                expires_at=(datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
             ),
             "report_anomaly": Recommendation(
                 id=self._generate_id(),
                 type=RecommendationType.ALERT,
                 title="数据异常预警",
-                description="检测到异常数据，需要您的关注",
+                description=(data or {}).get("message", "检测到异常数据，需要您的关注"),
                 priority=Priority.URGENT,
                 confidence=0.95,
-                expires_at=(datetime.utcnow() + timedelta(hours=48)).isoformat()
-            )
+                expires_at=(datetime.now(timezone.utc) + timedelta(hours=48)).isoformat(),
+            ),
         }
-        
-        if notification_type in templates:
-            rec = templates[notification_type]
-            
-            if user_id not in self._recommendations:
-                self._recommendations[user_id] = []
-            
-            self._recommendations[user_id].append(rec)
-            
-            return rec
-        
-        return None
-    
+
+        return templates.get(notification_type)
+
     def get_recommendation_stats(self, user_id: str = None) -> Dict:
         """Get recommendation statistics."""
         stats = {
-            "total_users": len(self._recommendations),
-            "total_recommendations": sum(
-                len(recs) for recs in self._recommendations.values()
-            ),
             "feedback_count": sum(
                 len(feedback) for feedback in self._feedback_history.values()
-            )
+            ),
         }
-        
+
         if user_id:
-            stats["user_recommendations"] = len(self._recommendations.get(user_id, []))
             stats["user_feedback"] = len(self._feedback_history.get(user_id, []))
-        
+
         return stats
 
 

@@ -379,6 +379,26 @@ async def prepare_initial_state(
         except Exception as e:
             logger.warning(f"[Memory] RAG retrieval failed: {e}")
 
+    # ── 2b. Long-term Memory Injection ──
+    # Load user preferences and explicit memories from conversation_memory_service
+    if config.user_id and last_user_msg:
+        try:
+            from app.services.conversation_memory_service import conversation_memory_service
+            memory_context = await conversation_memory_service.build_memory_context(
+                user_id=config.user_id,
+                current_query=last_user_msg,
+                db=client,
+            )
+            if memory_context:
+                # Inject as the first system-level context message
+                raw_messages.insert(0, {
+                    "role": "system",
+                    "content": memory_context,
+                })
+                logger.info(f"[Memory] Injected long-term memory context for user {config.user_id}")
+        except Exception as e:
+            logger.debug(f"[Memory] Long-term memory injection skipped: {e}")
+
     # ── 3. Sliding Window with Summary ──
     if len(raw_messages) > SHORT_TERM_WINDOW:
         older = raw_messages[:-SHORT_TERM_WINDOW]
@@ -465,6 +485,29 @@ async def persist_result(
             )
         except Exception as e:
             logger.debug(f"[Memory] Failed to update semantic cache: {e}")
+
+    # Extract and persist long-term memories from conversation
+    if user_message:
+        try:
+            from app.services.conversation_memory_service import conversation_memory_service
+            messages_for_extraction = [
+                {"role": "user", "content": user_message},
+            ]
+            if assistant_response:
+                messages_for_extraction.append(
+                    {"role": "assistant", "content": assistant_response}
+                )
+            extracted = await conversation_memory_service.extract_preferences(
+                user_id=user_id,
+                messages=messages_for_extraction,
+                db=client,
+            )
+            if extracted:
+                logger.info(
+                    f"[Memory] Extracted {len(extracted)} long-term memories for user {user_id}"
+                )
+        except Exception as e:
+            logger.debug(f"[Memory] Memory extraction skipped: {e}")
 
 
 async def load_session_history(

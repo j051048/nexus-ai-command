@@ -59,6 +59,9 @@ from .boss_tools import (
 # 合同分析工具
 from .contract_tools import ContractAnalysisTool
 
+# 战略分析工具 (Phase 4)
+from .strategy_tools import DataAttributionTool, StrategySimulationTool
+
 # Registry of all available tools
 # P1: Strategy Pattern Registry
 TOOL_REGISTRY: Dict[str, BaseTool] = {}
@@ -119,6 +122,10 @@ register_tool(CustomerProfileTool())
 
 # 注册合同分析工具
 register_tool(ContractAnalysisTool())
+
+# 注册战略分析工具 (Phase 4)
+register_tool(DataAttributionTool())
+register_tool(StrategySimulationTool())
 
 
 def get_tool(name: str) -> BaseTool:

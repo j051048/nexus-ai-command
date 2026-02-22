@@ -1,4 +1,7 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/auth/AuthContext';
 
 // ─── 类型定义 ──────────────────────────────────────────────
 
@@ -50,41 +53,114 @@ const DEFAULT_CONFIG: DashboardConfig = {
 
 const STORAGE_KEY = 'nexus-custom-dashboard-config';
 
-// ─── useLocalStorage ──────────────────────────────────────
+// ─── localStorage helpers (fast cache) ──────────────────────
 
-function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((prev: T) => T)) => void] {
-  const [storedValue, setStoredValue] = useState<T>(() => {
-    try {
-      const item = localStorage.getItem(key);
-      return item ? (JSON.parse(item) as T) : initialValue;
-    } catch {
-      return initialValue;
-    }
-  });
+function readLocalConfig(): DashboardConfig {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as DashboardConfig) : DEFAULT_CONFIG;
+  } catch {
+    return DEFAULT_CONFIG;
+  }
+}
 
-  const setValue = useCallback(
-    (value: T | ((prev: T) => T)) => {
-      setStoredValue((prev) => {
-        const nextValue = typeof value === 'function' ? (value as (prev: T) => T)(prev) : value;
-        try {
-          localStorage.setItem(key, JSON.stringify(nextValue));
-        } catch {
-          // ignore quota errors
-        }
-        return nextValue;
-      });
-    },
-    [key],
-  );
-
-  return [storedValue, setValue];
+function writeLocalConfig(config: DashboardConfig) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+  } catch {
+    // ignore quota errors
+  }
 }
 
 // ─── Hook ──────────────────────────────────────────────────
 
 export function useDashboardConfig() {
-  const [config, setConfig] = useLocalStorage<DashboardConfig>(STORAGE_KEY, DEFAULT_CONFIG);
+  const { user, profile } = useAuth();
+  const userId = user?.id;
+  const orgId = profile?.organization_id;
+  const queryClient = useQueryClient();
 
+  // Local state initialised from localStorage for instant render
+  const [config, setConfigLocal] = useState<DashboardConfig>(readLocalConfig);
+
+  // Debounce ref for saving to DB
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Fetch from Supabase ──────────────────────────────────
+  const { data: dbConfig } = useQuery({
+    queryKey: ['dashboard-config', userId],
+    queryFn: async () => {
+      const { data } = await (supabase.from('dashboard_configs') as any)
+        .select('id, config_json')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (data?.config_json) {
+        return data.config_json as DashboardConfig;
+      }
+      return null;
+    },
+    enabled: !!userId,
+    staleTime: 60_000,
+  });
+
+  // Reconcile: when DB config arrives, use it (DB is source of truth)
+  useEffect(() => {
+    if (dbConfig) {
+      setConfigLocal(dbConfig);
+      writeLocalConfig(dbConfig);
+    }
+  }, [dbConfig]);
+
+  // ── Save mutation ────────────────────────────────────────
+  const saveMutation = useMutation({
+    mutationFn: async (newConfig: DashboardConfig) => {
+      if (!userId) return;
+
+      await (supabase.from('dashboard_configs') as any).upsert(
+        {
+          user_id: userId,
+          organization_id: orgId || null,
+          config_json: newConfig,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' },
+      );
+    },
+    onError: (err) => {
+      // Non-critical — localStorage is the fallback
+      console.warn('Dashboard config save to DB failed:', err);
+    },
+  });
+
+  // ── Debounced persist ────────────────────────────────────
+  const persistConfig = useCallback(
+    (newConfig: DashboardConfig) => {
+      // Immediately write to localStorage
+      writeLocalConfig(newConfig);
+
+      // Debounce the DB save (500ms)
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        saveMutation.mutate(newConfig);
+      }, 500);
+    },
+    [saveMutation],
+  );
+
+  // Wrapper that updates local state + triggers persistence
+  const setConfig = useCallback(
+    (value: DashboardConfig | ((prev: DashboardConfig) => DashboardConfig)) => {
+      setConfigLocal((prev) => {
+        const next = typeof value === 'function' ? value(prev) : value;
+        persistConfig(next);
+        return next;
+      });
+    },
+    [persistConfig],
+  );
+
+  // ── CRUD helpers ─────────────────────────────────────────
   const addCard = useCallback(
     (card: Omit<DashboardCardConfig, 'id'>) => {
       const id = `card-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -120,6 +196,13 @@ export function useDashboardConfig() {
     setConfig(DEFAULT_CONFIG);
   }, [setConfig]);
 
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, []);
+
   return {
     config,
     setConfig,
@@ -127,5 +210,6 @@ export function useDashboardConfig() {
     removeCard,
     updateCard,
     resetConfig,
+    isSaving: saveMutation.isPending,
   };
 }
