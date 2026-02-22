@@ -202,11 +202,10 @@ class VectorService:
                     "query_embedding": embedding,
                     "match_threshold": 0.4,
                     "match_count": limit,
+                    "filter": filters or {},
                     "p_user_id": user_id,
-                    "p_org_id": org_id,  # P0: Always pass org_id (can be None for backward compat in dev)
+                    "p_org_id": org_id,
                 }
-                if filters:
-                    params["filter"] = filters
                 res = await supabase.rpc("match_documents", params).execute()
                 return res.data or []
             except Exception as e:

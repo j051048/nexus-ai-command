@@ -65,8 +65,8 @@ class EncryptionService:
         try:
             return fernet.decrypt(encrypted_data.encode()).decode()
         except Exception as e:
-            logger.error(
-                f"Fernet decryption failed - data may be corrupted or key mismatch: {e}"
+            logger.debug(
+                f"Fernet decryption failed (will try raw fallback): {e}"
             )
             raise ValueError(
                 "Decryption failed - data corrupted or encryption key mismatch"

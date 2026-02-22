@@ -285,7 +285,7 @@ class TenantCreditService:
         if db:
             try:
                 res = await db.table("tenant_credits").select("*").eq("org_id", org_id).eq("credit_type", credit_type.value).maybe_single().execute()
-                if res.data:
+                if res and res.data:
                     credit = TenantCredit(
                         org_id=org_id, credit_type=credit_type,
                         allocated=res.data.get("allocated", 0),
@@ -314,7 +314,7 @@ class TenantCreditService:
                 res = await db.table("tenant_quotas").select("*").eq(
                     "org_id", org_id
                 ).maybe_single().execute()
-                if res.data:
+                if res and res.data:
                     return TenantQuota(
                         monthly_token_limit=res.data.get("monthly_token_limit", 1_000_000),
                         monthly_api_call_limit=res.data.get("monthly_api_call_limit", 10_000),

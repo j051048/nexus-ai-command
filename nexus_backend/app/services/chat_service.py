@@ -126,7 +126,7 @@ class ChatService:
                 .maybe_single()
                 .execute()
             )
-            if res.data:
+            if res and res.data:
                 raw_prompt = res.data["content"]
                 await cache_service.set(cache_key, raw_prompt, ttl=3600)
                 return raw_prompt.format(current_time=now_str)
