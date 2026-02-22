@@ -180,13 +180,20 @@ export function ProfileCenter() {
 
       // 直接更新 users 表中的 name 字段
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from('users') as any)
+      const { data: updated, error } = await (supabase.from('users') as any)
         .update({ name: editName.trim() })
-        .eq('id', userId);
+        .eq('id', userId)
+        .select('id')
+        .single();
 
       if (error) {
         console.error('Profile save error:', error);
         toast.error('保存失败: ' + error.message);
+        return;
+      }
+
+      if (!updated) {
+        toast.error('保存失败：未能更新记录，请联系管理员检查权限配置');
         return;
       }
 

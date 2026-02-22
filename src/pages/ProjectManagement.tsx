@@ -17,7 +17,7 @@ interface Project {
     stage: 'planning' | 'in_progress' | 'completed' | 'on_hold';
     progress: number;
     created_at: string;
-    user_id: string;
+    owner_id: string;
 }
 
 import { useNavigate } from "react-router-dom";
@@ -42,8 +42,8 @@ export function ProjectManagement() {
                 .select('*')
                 .order('created_at', { ascending: false });
 
-            if (user.role !== 'boss') {
-                query.eq('user_id', user.id);
+            if (user.role !== 'boss' && user.role !== 'founder') {
+                query.eq('owner_id', user.id);
             }
 
             const { data, error } = await query;

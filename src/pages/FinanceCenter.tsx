@@ -33,6 +33,8 @@ import {
   Plus,
   Loader2,
   Wallet,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { useMyApprovals, useSubmitApproval } from '@/hooks/useApprovals';
@@ -87,6 +89,7 @@ export function FinanceCenter() {
 
   // --- New expense dialog ---
   const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
+  const [expenseFilter, setExpenseFilter] = useState('all');
   const [expenseForm, setExpenseForm] = useState({
     type: 'expense',
     description: '',
@@ -96,12 +99,23 @@ export function FinanceCenter() {
 
   // --- New budget dialog ---
   const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
+  const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
   const [budgetForm, setBudgetForm] = useState({
     name: '',
     total_amount: 0,
     period: new Date().toISOString().slice(0, 7),
   });
   const [budgetSubmitting, setBudgetSubmitting] = useState(false);
+
+  // --- New invoice dialog ---
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [invoiceForm, setInvoiceForm] = useState({
+    invoice_number: '',
+    amount: 0,
+    due_date: '',
+    status: 'draft',
+  });
+  const [invoiceSubmitting, setInvoiceSubmitting] = useState(false);
 
   const handleSubmitExpense = async () => {
     if (!expenseForm.description.trim()) {
@@ -144,22 +158,89 @@ export function FinanceCenter() {
     }
     setBudgetSubmitting(true);
     try {
-      const { error } = await (supabase.from('finance_budgets') as any).insert({
-        name: budgetForm.name,
-        total_amount: budgetForm.total_amount,
-        used_amount: 0,
-        period: budgetForm.period,
-        organization_id: profile?.organization_id,
-      });
-      if (error) throw error;
-      toast.success('预算创建成功');
+      if (editingBudgetId) {
+        const { error } = await (supabase.from('finance_budgets') as any)
+          .update({
+            name: budgetForm.name,
+            total_amount: budgetForm.total_amount,
+            period: budgetForm.period,
+          })
+          .eq('id', editingBudgetId);
+        if (error) throw error;
+        toast.success('预算更新成功');
+      } else {
+        const { error } = await (supabase.from('finance_budgets') as any).insert({
+          name: budgetForm.name,
+          total_amount: budgetForm.total_amount,
+          used_amount: 0,
+          period: budgetForm.period,
+          organization_id: profile?.organization_id,
+        });
+        if (error) throw error;
+        toast.success('预算创建成功');
+      }
       setBudgetDialogOpen(false);
+      setEditingBudgetId(null);
       setBudgetForm({ name: '', total_amount: 0, period: new Date().toISOString().slice(0, 7) });
       fetchBudgets();
     } catch (error: any) {
-      toast.error(error?.message || '创建预算失败');
+      toast.error(error?.message || '操作失败');
     } finally {
       setBudgetSubmitting(false);
+    }
+  };
+
+  const handleEditBudget = (budget: FinanceBudget) => {
+    setEditingBudgetId(budget.id);
+    setBudgetForm({
+      name: budget.name,
+      total_amount: budget.total_amount,
+      period: budget.period,
+    });
+    setBudgetDialogOpen(true);
+  };
+
+  const handleDeleteBudget = async (budgetId: string) => {
+    if (!window.confirm('确认删除此预算？删除后不可恢复。')) return;
+    try {
+      const { error } = await (supabase.from('finance_budgets') as any)
+        .delete()
+        .eq('id', budgetId);
+      if (error) throw error;
+      toast.success('预算已删除');
+      fetchBudgets();
+    } catch (error: any) {
+      toast.error(error?.message || '删除失败');
+    }
+  };
+
+  const handleSubmitInvoice = async () => {
+    if (!invoiceForm.invoice_number.trim()) {
+      toast.error('请填写发票号');
+      return;
+    }
+    if (invoiceForm.amount <= 0) {
+      toast.error('请输入有效金额');
+      return;
+    }
+    setInvoiceSubmitting(true);
+    try {
+      const { error } = await (supabase.from('finance_invoices') as any).insert({
+        invoice_number: invoiceForm.invoice_number,
+        amount: invoiceForm.amount,
+        due_date: invoiceForm.due_date || null,
+        status: invoiceForm.status,
+        organization_id: profile?.organization_id,
+      });
+      if (error) throw error;
+      toast.success('发票创建成功');
+      setInvoiceDialogOpen(false);
+      setInvoiceForm({ invoice_number: '', amount: 0, due_date: '', status: 'draft' });
+      fetchInvoices();
+    } catch (error: any) {
+      toast.error(error?.message || '创建失败');
+    } finally {
+      setInvoiceSubmitting(false);
     }
   };
 
@@ -324,6 +405,25 @@ export function FinanceCenter() {
             </Card>
           </div>
 
+          {/* 报销筛选 */}
+          <div className="flex gap-2">
+            {[
+              { value: 'all', label: '全部' },
+              { value: 'pending', label: '待审批' },
+              { value: 'approved', label: '已通过' },
+              { value: 'rejected', label: '已拒绝' },
+            ].map((f) => (
+              <Button
+                key={f.value}
+                variant={expenseFilter === f.value ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setExpenseFilter(f.value)}
+              >
+                {f.label}
+              </Button>
+            ))}
+          </div>
+
           {/* 报销记录 */}
           <Card>
             <CardHeader>
@@ -335,7 +435,11 @@ export function FinanceCenter() {
                 <div className="flex justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : expenseRecords.length === 0 ? (
+              ) : (() => {
+                const filtered = expenseFilter === 'all'
+                  ? expenseRecords
+                  : expenseRecords.filter((a) => a.status === expenseFilter);
+                return filtered.length === 0 ? (
                 <div className="text-center py-12">
                   <Wallet className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">暂无报销记录</p>
@@ -350,7 +454,7 @@ export function FinanceCenter() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {expenseRecords.map((record) => (
+                  {filtered.map((record) => (
                     <div
                       key={record.id}
                       className="flex items-center justify-between p-3 rounded-lg border"
@@ -373,13 +477,20 @@ export function FinanceCenter() {
                     </div>
                   ))}
                 </div>
-              )}
+              );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* 发票管理 */}
         <TabsContent value="invoice" className="space-y-4">
+          <div className="flex justify-end">
+            <Button onClick={() => setInvoiceDialogOpen(true)} className="gap-2">
+              <Plus className="w-4 h-4" />
+              新建发票
+            </Button>
+          </div>
           <Card>
             <CardHeader>
               <CardTitle>发票列表</CardTitle>
@@ -452,8 +563,30 @@ export function FinanceCenter() {
                 return (
                   <Card key={budget.id}>
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-base">{budget.name}</CardTitle>
-                      <CardDescription>{budget.period}</CardDescription>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-base">{budget.name}</CardTitle>
+                          <CardDescription>{budget.period}</CardDescription>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-primary"
+                            onClick={() => handleEditBudget(budget)}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-red-500"
+                            onClick={() => handleDeleteBudget(budget.id)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
@@ -554,10 +687,13 @@ export function FinanceCenter() {
       </Dialog>
 
       {/* 新建预算 Dialog */}
-      <Dialog open={budgetDialogOpen} onOpenChange={setBudgetDialogOpen}>
+      <Dialog open={budgetDialogOpen} onOpenChange={(open) => {
+        setBudgetDialogOpen(open);
+        if (!open) setEditingBudgetId(null);
+      }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>新建预算</DialogTitle>
+            <DialogTitle>{editingBudgetId ? '编辑预算' : '新建预算'}</DialogTitle>
             <DialogDescription>设置部门或项目预算额度</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -591,7 +727,67 @@ export function FinanceCenter() {
             <Button variant="outline" onClick={() => setBudgetDialogOpen(false)}>取消</Button>
             <Button onClick={handleSubmitBudget} disabled={budgetSubmitting}>
               {budgetSubmitting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              创建预算
+              {editingBudgetId ? '更新预算' : '创建预算'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 新建发票 Dialog */}
+      <Dialog open={invoiceDialogOpen} onOpenChange={setInvoiceDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>新建发票</DialogTitle>
+            <DialogDescription>创建发票记录</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>发票号</Label>
+              <Input
+                placeholder="例如：INV-2026-001"
+                value={invoiceForm.invoice_number}
+                onChange={(e) => setInvoiceForm({ ...invoiceForm, invoice_number: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>金额 (元)</Label>
+              <Input
+                type="number"
+                placeholder="0.00"
+                value={invoiceForm.amount || ''}
+                onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: Number(e.target.value) })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>到期日</Label>
+                <Input
+                  type="date"
+                  value={invoiceForm.due_date}
+                  onChange={(e) => setInvoiceForm({ ...invoiceForm, due_date: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>状态</Label>
+                <Select
+                  value={invoiceForm.status}
+                  onValueChange={(v) => setInvoiceForm({ ...invoiceForm, status: v })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="draft">草稿</SelectItem>
+                    <SelectItem value="pending">待付款</SelectItem>
+                    <SelectItem value="paid">已付款</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInvoiceDialogOpen(false)}>取消</Button>
+            <Button onClick={handleSubmitInvoice} disabled={invoiceSubmitting}>
+              {invoiceSubmitting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              创建发票
             </Button>
           </DialogFooter>
         </DialogContent>

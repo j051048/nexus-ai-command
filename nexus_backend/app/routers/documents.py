@@ -111,7 +111,7 @@ async def upload_documents(
     if visibility not in ("private", "department", "organization"):
         visibility = "organization"
 
-    if category not in ("regulation", "manual", "contract", "training", "other"):
+    if category not in ("regulation", "manual", "contract", "training", "product", "bid", "proposal", "invoice", "other"):
         category = "other"
 
     if user_id:

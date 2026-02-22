@@ -103,7 +103,7 @@ class KingdeeSyncResult(BaseModel):
 
 
 class DocumentMetadata(BaseModel):
-    doc_type: Literal["bid", "contract", "other"]
+    doc_type: Literal["bid", "contract", "product", "proposal", "invoice", "other"]
     client_name: Optional[str] = None
     amount: Optional[float] = None
     date: Optional[str] = None

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Target, Plus, Trash2, Loader2, TrendingUp, Users, DollarSign, BarChart3 } from 'lucide-react';
+import { Target, Plus, Trash2, Pencil, Loader2, TrendingUp, Users, DollarSign, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +35,29 @@ import { toast } from 'sonner';
 
 const currentMonth = new Date().toISOString().slice(0, 7);
 const currentQuarter = `${new Date().getFullYear()}-Q${Math.ceil((new Date().getMonth() + 1) / 3)}`;
+
+// Generate period options: last 6 months + next 3 months, and last 4 quarters + next 2 quarters
+function generatePeriodOptions(type: 'monthly' | 'quarterly') {
+  const options: string[] = [];
+  const now = new Date();
+  if (type === 'monthly') {
+    for (let offset = -6; offset <= 3; offset++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+      options.push(d.toISOString().slice(0, 7));
+    }
+  } else {
+    const currentYear = now.getFullYear();
+    const currentQ = Math.ceil((now.getMonth() + 1) / 3);
+    for (let offset = -4; offset <= 2; offset++) {
+      let q = currentQ + offset;
+      let y = currentYear;
+      while (q <= 0) { q += 4; y--; }
+      while (q > 4) { q -= 4; y++; }
+      options.push(`${y}-Q${q}`);
+    }
+  }
+  return options;
+}
 
 function ProgressCard({
   label,
@@ -140,39 +163,65 @@ function CurrentProgress({ period, type }: { period: string; type: 'monthly' | '
   );
 }
 
+const emptyForm = {
+  target_type: 'monthly' as 'monthly' | 'quarterly',
+  target_period: currentMonth,
+  revenue_target: 0,
+  leads_target: 0,
+  conversions_target: 0,
+  win_rate_target: 0,
+};
+
 export function TargetDashboard() {
   const { data: allTargets = [], isLoading } = useAllTargets();
   const upsertTarget = useUpsertTarget();
   const deleteTarget = useDeleteTarget();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({
-    target_type: 'monthly' as 'monthly' | 'quarterly',
-    target_period: currentMonth,
-    revenue_target: 0,
-    leads_target: 0,
-    conversions_target: 0,
-    win_rate_target: 0,
-  });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState({ ...emptyForm });
+
+  const handleOpenCreate = () => {
+    setEditingId(null);
+    setForm({ ...emptyForm });
+    setDialogOpen(true);
+  };
+
+  const handleOpenEdit = (t: SalesTarget) => {
+    setEditingId(t.id);
+    setForm({
+      target_type: t.target_type as 'monthly' | 'quarterly',
+      target_period: t.target_period,
+      revenue_target: Number(t.revenue_target),
+      leads_target: Number(t.leads_target),
+      conversions_target: Number(t.conversions_target),
+      win_rate_target: Number(t.win_rate_target),
+    });
+    setDialogOpen(true);
+  };
 
   const handleSubmit = async () => {
+    // Validate win_rate_target
+    if (form.win_rate_target < 0 || form.win_rate_target > 1) {
+      toast.error('赢率目标必须在 0~1 之间');
+      return;
+    }
+    if (form.revenue_target < 0 || form.leads_target < 0 || form.conversions_target < 0) {
+      toast.error('目标数值不能为负数');
+      return;
+    }
     try {
       await upsertTarget.mutateAsync(form);
-      toast.success('目标已保存');
+      toast.success(editingId ? '目标已更新' : '目标已保存');
       setDialogOpen(false);
-      setForm({
-        target_type: 'monthly',
-        target_period: currentMonth,
-        revenue_target: 0,
-        leads_target: 0,
-        conversions_target: 0,
-        win_rate_target: 0,
-      });
+      setEditingId(null);
+      setForm({ ...emptyForm });
     } catch {
       toast.error('保存失败');
     }
   };
 
   const handleDelete = async (id: string) => {
+    if (!window.confirm('确认要删除这个目标吗？删除后不可恢复。')) return;
     try {
       await deleteTarget.mutateAsync(id);
       toast.success('目标已删除');
@@ -180,6 +229,8 @@ export function TargetDashboard() {
       toast.error('删除失败');
     }
   };
+
+  const periodOptions = generatePeriodOptions(form.target_type);
 
   return (
     <div className="space-y-6">
@@ -191,7 +242,7 @@ export function TargetDashboard() {
             <p className="text-muted-foreground">设定和追踪您的销售目标</p>
           </div>
         </div>
-        <Button className="gap-2" onClick={() => setDialogOpen(true)}>
+        <Button className="gap-2" onClick={handleOpenCreate}>
           <Plus className="w-4 h-4" />
           设定目标
         </Button>
@@ -237,14 +288,24 @@ export function TargetDashboard() {
                       转化: {t.conversions_target}
                     </span>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground hover:text-red-500"
-                    onClick={() => handleDelete(t.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-muted-foreground hover:text-primary"
+                      onClick={() => handleOpenEdit(t)}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-muted-foreground hover:text-red-500"
+                      onClick={() => handleDelete(t.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -256,7 +317,7 @@ export function TargetDashboard() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>设定销售目标</DialogTitle>
+            <DialogTitle>{editingId ? '编辑销售目标' : '设定销售目标'}</DialogTitle>
             <DialogDescription>设置月度或季度销售目标</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -265,7 +326,11 @@ export function TargetDashboard() {
                 <Label>目标类型</Label>
                 <Select
                   value={form.target_type}
-                  onValueChange={(v) => setForm({ ...form, target_type: v as 'monthly' | 'quarterly' })}
+                  onValueChange={(v) => {
+                    const newType = v as 'monthly' | 'quarterly';
+                    const newPeriod = newType === 'monthly' ? currentMonth : currentQuarter;
+                    setForm({ ...form, target_type: newType, target_period: newPeriod });
+                  }}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -276,11 +341,17 @@ export function TargetDashboard() {
               </div>
               <div className="space-y-2">
                 <Label>目标期间</Label>
-                <Input
+                <Select
                   value={form.target_period}
-                  onChange={(e) => setForm({ ...form, target_period: e.target.value })}
-                  placeholder={form.target_type === 'monthly' ? '2026-02' : '2026-Q1'}
-                />
+                  onValueChange={(v) => setForm({ ...form, target_period: v })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {periodOptions.map((p) => (
+                      <SelectItem key={p} value={p}>{p}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -288,6 +359,7 @@ export function TargetDashboard() {
                 <Label>营收目标 (元)</Label>
                 <Input
                   type="number"
+                  min={0}
                   value={form.revenue_target || ''}
                   onChange={(e) => setForm({ ...form, revenue_target: Number(e.target.value) })}
                 />
@@ -296,6 +368,7 @@ export function TargetDashboard() {
                 <Label>线索目标 (个)</Label>
                 <Input
                   type="number"
+                  min={0}
                   value={form.leads_target || ''}
                   onChange={(e) => setForm({ ...form, leads_target: Number(e.target.value) })}
                 />
@@ -306,15 +379,19 @@ export function TargetDashboard() {
                 <Label>转化目标 (个)</Label>
                 <Input
                   type="number"
+                  min={0}
                   value={form.conversions_target || ''}
                   onChange={(e) => setForm({ ...form, conversions_target: Number(e.target.value) })}
                 />
               </div>
               <div className="space-y-2">
-                <Label>赢率目标 (0-1)</Label>
+                <Label>赢率目标</Label>
                 <Input
                   type="number"
-                  step="0.01"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  placeholder="0~1 之间，如 0.35"
                   value={form.win_rate_target || ''}
                   onChange={(e) => setForm({ ...form, win_rate_target: Number(e.target.value) })}
                 />
@@ -325,7 +402,7 @@ export function TargetDashboard() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>取消</Button>
             <Button onClick={handleSubmit} disabled={upsertTarget.isPending}>
               {upsertTarget.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              保存目标
+              {editingId ? '更新目标' : '保存目标'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -437,14 +437,31 @@ class ETLService:
         Uses AI to extract structured metadata (JSON) from raw text.
         Supports Tender Analysis (Redlines, Deviations) for 'bid' type documents.
         """
+        # Filename-based pre-classification hint for AI
+        import re as _re
+        _fn_lower = filename.lower()
+        _filename_hint = "other"
+        _FILENAME_KEYWORDS = {
+            "product": ["彩页", "产品资料", "产品手册", "产品说明", "规格书", "datasheet", "brochure", "产品目录", "catalog"],
+            "contract": ["合同", "协议", "contract"],
+            "bid": ["标书", "招标", "投标", "bid", "tender"],
+            "proposal": ["方案", "proposal"],
+            "invoice": ["发票", "invoice"],
+        }
+        for _dtype, _keywords in _FILENAME_KEYWORDS.items():
+            if any(kw in _fn_lower for kw in _keywords):
+                _filename_hint = _dtype
+                break
+
         prompt = f"""
         # Role (角色设定)
         你是一位拥有 20 年经验的资深招投标专家 (Senior Bid Manager) 和项目经理。你擅长快速阅读复杂的招标文件，精准捕捉关键信息，分析潜在风险，并制定高胜率的投标策略。
 
         # Task (任务)
-        请分析以下招标文件内容（全文上下文），按 **6 个核心模块** 进行结构化提取和分析。
+        请分析以下文件内容（全文上下文），按 **6 个核心模块** 进行结构化提取和分析。
 
         文件名: {filename}
+        文件名预分类提示: {_filename_hint}（仅供参考，请根据实际内容判断）
         文件内容片段:
         {text}
 
@@ -454,8 +471,8 @@ class ETLService:
         第一部分：元数据 (JSON)
         [METADATA_JSON]
         {{
-            "doc_type": "bid" | "contract" | "other",
-            "client_name": "采购方名称",
+            "doc_type": "bid" | "contract" | "product" | "proposal" | "invoice" | "other",
+            "client_name": "采购方/客户名称",
             "amount": 预算金额(数字)或null,
             "date": "YYYY-MM-DD",
             "tags": ["核心标签"],
@@ -463,6 +480,14 @@ class ETLService:
             "technical_deviations": ["提取模块3/6中的技术风险点(简练列表)"]
         }}
         [/METADATA_JSON]
+
+        doc_type 分类说明：
+        - "bid": 招标文件、投标书、标书
+        - "contract": 合同、协议
+        - "product": 产品资料、产品彩页、产品手册、规格书、产品说明书、产品目录
+        - "proposal": 解决方案、项目方案、技术方案
+        - "invoice": 发票、账单
+        - "other": 其他无法归类的文件
 
         第二部分：完整分析报告 (Markdown)
         [ANALYSIS_REPORT]

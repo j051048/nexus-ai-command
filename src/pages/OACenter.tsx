@@ -277,6 +277,48 @@ export function OACenter() {
     fetchTasks();
   }, [fetchLeaves, fetchMeetings, fetchTasks]);
 
+  const handleCancelLeave = async (leaveId: string) => {
+    if (!window.confirm('确认要撤回这条请假申请吗？')) return;
+    try {
+      const { error } = await (supabase.from('oa_leave_requests') as any)
+        .update({ status: 'cancelled' })
+        .eq('id', leaveId);
+      if (error) throw error;
+      toast.success('请假申请已撤回');
+      fetchLeaves();
+    } catch (error: any) {
+      toast.error(error?.message || '撤回失败');
+    }
+  };
+
+  const handleCancelMeeting = async (meetingId: string) => {
+    if (!window.confirm('确认要取消这场会议吗？')) return;
+    try {
+      const { error } = await (supabase.from('oa_meeting_bookings') as any)
+        .update({ status: 'cancelled' })
+        .eq('id', meetingId);
+      if (error) throw error;
+      toast.success('会议已取消');
+      fetchMeetings();
+    } catch (error: any) {
+      toast.error(error?.message || '取消失败');
+    }
+  };
+
+  const handleChangeTaskStatus = async (taskId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('oa_tasks')
+        .update({ status: newStatus } as any)
+        .eq('id', taskId);
+      if (error) throw error;
+      toast.success('任务状态已更新');
+      fetchTasks();
+    } catch (error: any) {
+      toast.error(error?.message || '更新失败');
+    }
+  };
+
   const filteredTasks = taskFilter === 'all' ? tasks : tasks.filter((t) => t.status === taskFilter);
 
   // --- Helpers ---
@@ -452,7 +494,19 @@ export function OACenter() {
                           )}
                         </div>
                       </div>
-                      <div className="shrink-0">{getStatusBadge(leave.status)}</div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {leave.status === 'pending' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-500 hover:text-red-600 h-7 px-2"
+                            onClick={() => handleCancelLeave(leave.id)}
+                          >
+                            撤回
+                          </Button>
+                        )}
+                        {getStatusBadge(leave.status)}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -509,7 +563,19 @@ export function OACenter() {
                           </p>
                         </div>
                       </div>
-                      <div className="shrink-0">{getStatusBadge(meeting.status)}</div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {meeting.status === 'confirmed' && meeting.organizer_id === user?.id && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-500 hover:text-red-600 h-7 px-2"
+                            onClick={() => handleCancelMeeting(meeting.id)}
+                          >
+                            取消
+                          </Button>
+                        )}
+                        {getStatusBadge(meeting.status)}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -587,7 +653,19 @@ export function OACenter() {
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {getPriorityBadge(task.priority)}
-                        {getStatusBadge(task.status)}
+                        <Select
+                          value={task.status}
+                          onValueChange={(v) => handleChangeTaskStatus(task.id, v)}
+                        >
+                          <SelectTrigger className="w-[100px] h-7 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">待办</SelectItem>
+                            <SelectItem value="in_progress">进行中</SelectItem>
+                            <SelectItem value="completed">已完成</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                   ))}
