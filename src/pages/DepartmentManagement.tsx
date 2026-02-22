@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useUser } from '@/contexts/UserContext';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,6 +51,7 @@ interface DepartmentWithDetails extends Department {
 }
 
 export default function DepartmentManagement() {
+  const { user } = useUser();
   const [departments, setDepartments] = useState<DepartmentWithDetails[]>([]);
   const [managers, setManagers] = useState<Manager[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,6 +59,7 @@ export default function DepartmentManagement() {
   const [editingDept, setEditingDept] = useState<DepartmentWithDetails | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [departmentToDelete, setDepartmentToDelete] = useState<string | null>(null);
+  const [orgId, setOrgId] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -78,13 +81,21 @@ export default function DepartmentManagement() {
 
       // 获取所有经理和用户信息
       const { data: userData, error: userError } = await supabase.from('users')
-        .select('id, name, role, department');
+        .select('id, name, role, department, organization_id');
 
       if (userError) throw userError;
 
       // 筛选经理
       const managerList = userData?.filter((u) => u.role === 'manager' || u.role === 'boss') || [];
       setManagers(managerList);
+
+      // 获取当前用户的 organization_id
+      if (user?.id) {
+        const currentUser = userData?.find((u) => u.id === user.id);
+        if (currentUser && (currentUser as any).organization_id) {
+          setOrgId((currentUser as any).organization_id);
+        }
+      }
 
       // 为每个部门附加经理名称和成员数量
       const deptsWithDetails: DepartmentWithDetails[] = (deptData || []).map((dept) => {
@@ -148,10 +159,11 @@ export default function DepartmentManagement() {
       if (editingDept) {
 
         // 更新部门
+        const managerId = formData.manager_id && formData.manager_id !== '__none__' ? formData.manager_id : null;
         const { error } = await supabase.from('departments')
           .update({
             name: formData.name,
-            manager_id: formData.manager_id || null,
+            manager_id: managerId,
           })
           .eq('id', editingDept.id);
 
@@ -163,10 +175,12 @@ export default function DepartmentManagement() {
         });
       } else {
         // 新建部门
+        const managerId = formData.manager_id && formData.manager_id !== '__none__' ? formData.manager_id : null;
         const { error } = await supabase.from('departments').insert({
           name: formData.name,
-          manager_id: formData.manager_id || null,
-        });
+          manager_id: managerId,
+          organization_id: orgId,
+        } as any);
 
         if (error) throw error;
 
@@ -328,7 +342,7 @@ export default function DepartmentManagement() {
                   <SelectValue placeholder="选择部门经理" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">未指定</SelectItem>
+                  <SelectItem value="__none__">未指定</SelectItem>
                   {managers.map((mgr) => (
                     <SelectItem key={mgr.id} value={mgr.id}>
                       {mgr.name}
