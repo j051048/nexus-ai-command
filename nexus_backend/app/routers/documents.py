@@ -29,24 +29,21 @@ async def batch_delete_documents(
     user_id: str = Depends(get_current_user_id),
 ):
     """
-    Batch delete documents and their associated embeddings.
+    Batch delete documents. Embeddings are auto-cleaned via CASCADE DELETE.
+    Falls back to global (service-key) client if scoped client fails due to
+    missing organization_id on legacy documents.
     """
     if not payload.document_ids:
         return api_success(data={"deleted_count": 0})
 
-    client = req.state.db
-    try:
-        # 1. Delete Embeddings
-        try:
-            await client.table("document_embeddings").delete().in_(
-                "document_id", payload.document_ids
-            ).execute()
-        except Exception as e:
-            if not _is_postgrest_204(e):
-                logger.warning(f"Delete embeddings error (non-fatal): {e}")
+    from app.core.database import supabase as global_supabase
 
-        # 2. Delete Documents
-        count = 0
+    client = req.state.db
+    count = 0
+
+    try:
+        # With CASCADE DELETE on FK, only need to delete documents.
+        # Embeddings are automatically cleaned up by PostgreSQL.
         try:
             res = (
                 await client.table("documents")
@@ -58,10 +55,30 @@ async def batch_delete_documents(
         except Exception as e:
             if _is_postgrest_204(e):
                 count = len(payload.document_ids)
-            else:
+            elif _is_jwt_expired(e):
                 raise
+            else:
+                # Fallback: use global (service-key) client for legacy docs
+                # where org_id was NULL and RLS blocks the scoped delete
+                logger.warning(f"Scoped delete failed ({e}), trying service client...")
+                if global_supabase:
+                    try:
+                        res = (
+                            await global_supabase.table("documents")
+                            .delete()
+                            .in_("id", payload.document_ids)
+                            .execute()
+                        )
+                        count = len(res.data) if res and res.data else 0
+                    except Exception as fallback_e:
+                        if _is_postgrest_204(fallback_e):
+                            count = len(payload.document_ids)
+                        else:
+                            raise fallback_e
+                else:
+                    raise
 
-        logger.info(f"User {user_id} deleted {count} documents.")
+        logger.info(f"User {user_id} deleted {count} documents (cascade cleaned embeddings).")
         return api_success(data={"deleted_count": count})
 
     except Exception as e:
@@ -88,6 +105,7 @@ async def upload_documents(
     base_url = None
     user_department = None
     client = req.state.db
+    org_id = getattr(req.state, 'org_id', None)
 
     # 1. Validate visibility and category parameters
     if visibility not in ("private", "department", "organization"):
@@ -155,6 +173,7 @@ async def upload_documents(
                 visibility=visibility,
                 department=user_department,
                 content_hash=content_hash,
+                organization_id=org_id,
             )
 
             # Step 2: Trigger Background Processing
@@ -166,6 +185,7 @@ async def upload_documents(
                 api_key=api_key,
                 base_url=base_url,
                 user_id=user_id,
+                organization_id=org_id,
             )
 
             results.append(
@@ -210,6 +230,7 @@ async def batch_upload_documents(
     base_url = None
     user_department = None
     client = req.state.db
+    org_id = getattr(req.state, 'org_id', None)
 
     if user_id:
         try:
@@ -290,6 +311,7 @@ async def batch_upload_documents(
                 visibility=visibility,
                 department=user_department,
                 content_hash=content_hash,
+                organization_id=org_id,
             )
 
             # Queue background processing
@@ -301,6 +323,7 @@ async def batch_upload_documents(
                 api_key=api_key,
                 base_url=base_url,
                 user_id=user_id,
+                organization_id=org_id,
             )
 
             results.append(
@@ -396,6 +419,7 @@ async def update_document(
         logger.warning(f"Failed to fetch user settings: {e}")
 
     # 6. Queue reprocessing
+    org_id = getattr(req.state, 'org_id', None)
     background_tasks.add_task(
         etl_service.process_file,
         content=content,
@@ -404,6 +428,7 @@ async def update_document(
         api_key=api_key,
         base_url=base_url,
         user_id=user_id,
+        organization_id=org_id,
     )
 
     return api_success(

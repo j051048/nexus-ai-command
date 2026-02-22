@@ -125,14 +125,31 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
                     toast.error('请先登录');
                     return;
                 }
-                throw new Error('批量删除失败');
+                const errorBody = await response.json().catch(() => ({}));
+                throw new Error(errorBody.message || '批量删除失败');
             }
 
-            toast.success(`已删除 ${selectedIds.size} 份文档`);
-            fetchDocuments();
+            // Parse actual deleted count from backend
+            const result = await response.json().catch(() => null);
+            const deletedCount = result?.data?.deleted_count ?? selectedIds.size;
+
+            // Optimistic UI: immediately remove deleted docs
+            setDocuments(prev => prev.filter(d => !selectedIds.has(d.id)));
+            setSelectedIds(new Set());
+
+            if (deletedCount === 0) {
+                toast.warning('删除请求已发送，但未能删除文档，请刷新页面重试');
+            } else {
+                toast.success(`已删除 ${deletedCount} 份文档`);
+            }
+
+            // Sync with server truth
+            await fetchDocuments();
         } catch (error) {
             console.error(error);
             toast.error('删除操作失败，请重试');
+            // Refresh to restore correct state on error
+            await fetchDocuments();
         } finally {
             setIsDeleting(false);
         }

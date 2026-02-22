@@ -144,6 +144,7 @@ class ETLService:
         department: str = None,
         content_hash: str = None,  # P1 Fix #20
         category: str = "other",  # H6: Document Category
+        organization_id: str = None,  # RAG Fix: org isolation
     ) -> str:
         """
         Creates a placeholder record in the database.
@@ -184,6 +185,7 @@ class ETLService:
             "visibility": visibility,  # P0 Security Fix #4
             "department": department,  # P0 Security Fix #4
             "content_hash": content_hash,  # P1 Fix #20: fingerprint for dedup
+            "organization_id": organization_id,  # RAG Fix: org isolation
         }
         res = await supabase.table("documents").insert(record).execute()
         if not res.data:
@@ -211,6 +213,7 @@ class ETLService:
         api_key: str = None,
         base_url: str = None,
         user_id: str = None,
+        organization_id: str = None,  # RAG Fix: org isolation
     ) -> dict:
         text = ""
 
@@ -360,6 +363,7 @@ class ETLService:
                             text,
                             user_id=user_id,
                             status="processing",
+                            organization_id=organization_id,
                         )
 
                     # P0 Security Fix: Scrub PII before generating embeddings
@@ -369,7 +373,8 @@ class ETLService:
 
                     # Generate embeddings with PII-scrubbed text
                     embedding_success = await self._generate_embeddings(
-                        safe_text_for_embedding, doc_id, filename, active_key, active_url
+                        safe_text_for_embedding, doc_id, filename, active_key, active_url,
+                        organization_id=organization_id,
                     )
 
                     if embedding_success:
@@ -576,6 +581,7 @@ class ETLService:
         status: str = "ready",
         visibility: str = "organization",  # P0 Security Fix #4
         department: str = None,
+        organization_id: str = None,  # RAG Fix: org isolation
     ) -> str:
         """
         Save document to database with visibility control.
@@ -601,6 +607,7 @@ class ETLService:
             "status": status,
             "visibility": visibility,  # P0 Security Fix #4
             "department": department,  # P0 Security Fix #4
+            "organization_id": organization_id,  # RAG Fix: org isolation
         }
         res = await supabase.table("documents").insert(record).execute()
         if not res.data:
@@ -608,7 +615,8 @@ class ETLService:
         return res.data[0]["id"]
 
     async def _generate_embeddings(
-        self, text: str, doc_id: str, filename: str, api_key: str, base_url: str
+        self, text: str, doc_id: str, filename: str, api_key: str, base_url: str,
+        organization_id: str = None,
     ) -> bool:
         """
         Batch Embeddings with partial success tracking.
@@ -635,6 +643,7 @@ class ETLService:
                                     "content": batch_texts[i],
                                     "embedding": item["embedding"],
                                     "metadata": {"source": filename},
+                                    "organization_id": organization_id,
                                 }
                             )
                         await supabase.table("document_embeddings").insert(
