@@ -1,15 +1,16 @@
 import logging
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from app.core.auth import get_current_user_id
-from app.core.errors import api_success, api_error, ErrorCode
 
+from app.core.auth import get_current_user_id
+from app.core.errors import ErrorCode, api_error, api_success
+from app.core.trace_logger import TraceLogger
 from app.models.schemas import ChatRequest
 from app.services.chat_service import ChatService
-from app.services.token_service import validate_request_tokens
 from app.services.content_moderation import check_user_input
-from app.core.trace_logger import TraceLogger
-import os
+from app.services.token_service import validate_request_tokens
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["Chat"])
@@ -22,14 +23,14 @@ USE_LANGGRAPH_AGENT = os.getenv("USE_LANGGRAPH_AGENT", "true").lower() in ("true
 
 def _infer_mini_model(model: str) -> str:
     """Infer the lightweight model variant for simple queries."""
-    _MINI_MAP = {
+    _mini_map = {
         "gpt-4o": "gpt-4o-mini",
         "gpt-4": "gpt-4o-mini",
         "gpt-4-turbo": "gpt-4o-mini",
         "gpt-3.5-turbo": "gpt-3.5-turbo",
         "gpt-4o-mini": "gpt-4o-mini",
     }
-    return _MINI_MAP.get(model, f"{model}-mini" if "mini" not in model else model)
+    return _mini_map.get(model, f"{model}-mini" if "mini" not in model else model)
 
 
 async def _error_stream(msg: str):
@@ -148,7 +149,7 @@ async def chat(
     # 4b. P0 Fix: Tenant Quota Enforcement
     org_id = getattr(req.state, 'org_id', None)
     if org_id:
-        from app.services.tenant_credit_service import tenant_credit_service, CreditType
+        from app.services.tenant_credit_service import CreditType, tenant_credit_service
         has_credit, credit_error = await tenant_credit_service.check_credit(
             org_id, CreditType.API_CALLS, 1, db=client
         )
@@ -225,10 +226,10 @@ async def chat(
             f"agent={request.agent}"
         )
 
-        MAX_HISTORY = 10
-        if len(request.messages) > MAX_HISTORY:
-            older_messages = request.messages[:-MAX_HISTORY]
-            recent_messages = request.messages[-MAX_HISTORY:]
+        max_history = 10
+        if len(request.messages) > max_history:
+            older_messages = request.messages[:-max_history]
+            recent_messages = request.messages[-max_history:]
 
             try:
                 from app.services.summary_service import summary_service

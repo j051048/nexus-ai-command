@@ -16,8 +16,11 @@ import asyncio
 import json
 import logging
 import time
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from collections.abc import AsyncGenerator
+from typing import Any
 
+from app.agent.graph import get_agent_graph
+from app.agent.memory import persist_result, prepare_initial_state
 from app.agent.state import (
     AgentConfig,
     AgentPhase,
@@ -25,17 +28,15 @@ from app.agent.state import (
     QueryComplexity,
     ThinkingStep,
 )
-from app.agent.graph import get_agent_graph
-from app.agent.memory import prepare_initial_state, persist_result
+from app.core.config import settings
+from app.core.trace_logger import TraceLogger
+from app.services.content_moderation import check_user_input
 from app.services.token_service import (
-    validate_request_tokens,
     record_completion,
     token_counter,
     usage_tracker,
+    validate_request_tokens,
 )
-from app.services.content_moderation import check_user_input
-from app.core.trace_logger import TraceLogger
-from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -64,17 +65,17 @@ def _sse_status(status: str) -> str:
 
 
 async def run_agent_stream(
-    messages: List[Dict],
-    config: Dict,
+    messages: list[dict],
+    config: dict,
     user_id: str,
     system_prompt: str,
-    tracer: Optional[TraceLogger] = None,
+    tracer: TraceLogger | None = None,
     system_confirmed: bool = False,
-    session_id: Optional[str] = None,
-    db_client: Optional[Any] = None,
-    agent_name: Optional[str] = None,
+    session_id: str | None = None,
+    db_client: Any | None = None,
+    agent_name: str | None = None,
     user_role: str = "employee",
-    org_id: Optional[str] = None,
+    org_id: str | None = None,
 ) -> AsyncGenerator[str, None]:
     """
     Main entry point: runs the LangGraph agent and streams SSE events.
@@ -192,17 +193,17 @@ async def run_agent_stream(
     }
 
     # ── 5. Run graph with granular event streaming (astream_events) ──
-    accumulated_state: Dict[str, Any] = dict(initial_state)
-    all_thinking_steps: List[ThinkingStep] = []
-    
+    accumulated_state: dict[str, Any] = dict(initial_state)
+    all_thinking_steps: list[ThinkingStep] = []
+
     try:
         async for event in _agent_graph.astream_events(
-            initial_state, 
+            initial_state,
             thread_id=agent_config.session_id,
             version="v2",
         ):
             kind = event.get("event")
-            
+
             # A. Continuous Token Streaming (Planning Phase)
             if kind == "on_chat_model_stream":
                 node_name = event.get("metadata", {}).get("langgraph_node")
@@ -215,10 +216,10 @@ async def run_agent_stream(
             elif kind == "on_chain_end":
                 data = event.get("data", {})
                 output = data.get("output")
-                
+
                 if isinstance(output, dict) and any(k in output for k in ("current_phase", "thinking_steps", "messages")):
                     state_delta = output
-                    
+
                     # Merge delta into accumulated state
                     for key, value in state_delta.items():
                         if key == "messages" and isinstance(value, list):
@@ -249,7 +250,7 @@ async def run_agent_stream(
                         status_text = status_map.get(phase)
                         if status_text:
                             yield _sse_status(status_text)
-                            
+
     except Exception as e:
         logger.error(f"[Stream] Agent graph execution failed: {e}", exc_info=True)
         yield _sse_content(f"\n\n⚠️ 处理请求时发生错误: {str(e)[:200]}")
@@ -326,7 +327,7 @@ async def run_agent_stream(
     yield "data: [DONE]\n\n"
 
 
-def _chunk_text(text: str, chunk_size: int = 4) -> List[str]:
+def _chunk_text(text: str, chunk_size: int = 4) -> list[str]:
     """
     Split text into small chunks for smooth streaming.
     Respects word/character boundaries for Chinese and English.

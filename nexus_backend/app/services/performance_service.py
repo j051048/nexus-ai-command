@@ -7,11 +7,12 @@ Separates orchestration logic from the API router.
 
 import logging
 from datetime import date
-from typing import Dict, Optional, Any
+from typing import Any
+
+from app.core.database import supabase
+from app.core.errors import ErrorCode, api_error
 from app.models.schemas import PerformanceEvent, PerformanceResult
 from app.services.rule_engine import RuleEngine
-from app.core.database import supabase
-from app.core.errors import api_error, ErrorCode
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ class PerformanceService:
             )
 
     @staticmethod
-    async def _get_daily_stats(user_id: str, date_str: str) -> Optional[Dict[str, Any]]:
+    async def _get_daily_stats(user_id: str, date_str: str) -> dict[str, Any] | None:
         """Fetch daily stats from Supabase"""
         if not supabase:
             return None

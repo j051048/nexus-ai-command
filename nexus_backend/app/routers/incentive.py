@@ -1,13 +1,15 @@
+from typing import Any
+
 from fastapi import APIRouter
+
+from app.core.errors import ErrorCode, api_error, api_success
 from app.models.schemas import IncentiveTrigger
 from app.services.incentive_service import IncentiveService
-from app.core.errors import api_success, api_error, ErrorCode
-from typing import Dict, Any
 
 router = APIRouter(prefix="/api/incentive", tags=["Incentive"])
 
 
-@router.post("/trigger", response_model=Dict[str, Any])
+@router.post("/trigger", response_model=dict[str, Any])
 async def trigger_incentive(trigger: IncentiveTrigger):
     """
     Event-driven incentive generation API.

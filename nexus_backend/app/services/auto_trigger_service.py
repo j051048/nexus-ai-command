@@ -5,13 +5,13 @@ Implements automatic AI feature triggering without manual activation.
 Fixes Issue #4: Users need to manually trigger AI features.
 """
 
-import json
-import logging
 import asyncio
-from typing import Dict, Optional, Any, List, Callable
+import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -41,13 +41,13 @@ class AutoTrigger:
     trigger_id: str
     name: str
     trigger_type: TriggerType
-    condition: Dict[str, Any]
+    condition: dict[str, Any]
     action: TriggerAction
-    action_params: Dict[str, Any] = field(default_factory=dict)
+    action_params: dict[str, Any] = field(default_factory=dict)
     enabled: bool = True
     cooldown_seconds: int = 3600  # Minimum time between triggers
     priority: int = 1
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -57,13 +57,13 @@ class TriggerEvent:
     triggered_at: str
     action: TriggerAction
     result: str
-    context: Dict[str, Any] = field(default_factory=dict)
+    context: dict[str, Any] = field(default_factory=dict)
 
 
 class AutoTriggerService:
     """
     P2 Enhancement: Automatic AI feature triggering.
-    
+
     Features:
     - Time-based triggers
     - Event-based triggers
@@ -72,7 +72,7 @@ class AutoTriggerService:
     - Context-based triggers
     - Smart scheduling
     """
-    
+
     # Default triggers
     DEFAULT_TRIGGERS = [
         {
@@ -124,21 +124,21 @@ class AutoTriggerService:
             "action_params": {"type": "help", "message": "需要帮助配置吗？"}
         }
     ]
-    
+
     def __init__(self):
-        self._triggers: Dict[str, AutoTrigger] = {}
-        self._action_handlers: Dict[TriggerAction, Callable] = {}
-        self._trigger_history: List[TriggerEvent] = []
-        self._last_triggered: Dict[str, datetime] = {}
+        self._triggers: dict[str, AutoTrigger] = {}
+        self._action_handlers: dict[TriggerAction, Callable] = {}
+        self._trigger_history: list[TriggerEvent] = []
+        self._last_triggered: dict[str, datetime] = {}
         self._running = False
         self._scheduler_task = None
-        
+
         # Register default triggers
         self._register_default_triggers()
-        
+
         # Register default action handlers
         self._register_default_handlers()
-    
+
     def _register_default_triggers(self):
         """Register default triggers."""
         for trigger_config in self.DEFAULT_TRIGGERS:
@@ -151,7 +151,7 @@ class AutoTriggerService:
                 action_params=trigger_config.get("action_params", {})
             )
             self._triggers[trigger.trigger_id] = trigger
-    
+
     def _register_default_handlers(self):
         """Register default action handlers."""
         self.register_handler(TriggerAction.START_ANALYSIS, self._handle_start_analysis)
@@ -160,29 +160,29 @@ class AutoTriggerService:
         self.register_handler(TriggerAction.UPDATE_DASHBOARD, self._handle_update_dashboard)
         self.register_handler(TriggerAction.PROCESS_DATA, self._handle_process_data)
         self.register_handler(TriggerAction.SCHEDULE_TASK, self._handle_schedule_task)
-    
+
     def register_handler(self, action: TriggerAction, handler: Callable):
         """Register an action handler."""
         self._action_handlers[action] = handler
-    
+
     def register_trigger(self, trigger: AutoTrigger):
         """Register a custom trigger."""
         self._triggers[trigger.trigger_id] = trigger
-    
+
     def unregister_trigger(self, trigger_id: str):
         """Unregister a trigger."""
         if trigger_id in self._triggers:
             del self._triggers[trigger_id]
-    
+
     async def start(self):
         """Start the auto-trigger service."""
         if self._running:
             return
-        
+
         self._running = True
         self._scheduler_task = asyncio.create_task(self._scheduler_loop())
         logger.info("Auto-trigger service started")
-    
+
     async def stop(self):
         """Stop the auto-trigger service."""
         self._running = False
@@ -190,127 +190,122 @@ class AutoTriggerService:
             self._scheduler_task.cancel()
             self._scheduler_task = None
         logger.info("Auto-trigger service stopped")
-    
+
     async def _scheduler_loop(self):
         """Main scheduler loop for time-based triggers."""
         while self._running:
             try:
                 now = datetime.utcnow()
-                
+
                 # Check time-based triggers
-                for trigger_id, trigger in self._triggers.items():
+                for _trigger_id, trigger in self._triggers.items():
                     if trigger.trigger_type == TriggerType.TIME_BASED and trigger.enabled:
                         await self._check_time_trigger(trigger, now)
-                
+
                 # Sleep for 1 minute before next check
                 await asyncio.sleep(60)
-            
+
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.error(f"Scheduler error: {e}")
                 await asyncio.sleep(60)
-    
+
     async def _check_time_trigger(self, trigger: AutoTrigger, now: datetime):
         """Check if a time-based trigger should fire."""
         condition = trigger.condition
-        
+
         # Check hour and minute
         if condition.get("hour") == now.hour and condition.get("minute") == now.minute:
             # Check day of week if specified
-            if "day_of_week" in condition:
-                if condition["day_of_week"] != now.weekday():
-                    return
-            
+            if "day_of_week" in condition and condition["day_of_week"] != now.weekday():
+                return
+
             await self._execute_trigger(trigger)
-    
-    async def process_event(self, event_type: str, event_data: Dict):
+
+    async def process_event(self, event_type: str, event_data: dict):
         """
         Process an external event for event-based triggers.
-        
+
         Args:
             event_type: Type of event
             event_data: Event data
         """
-        for trigger_id, trigger in self._triggers.items():
+        for _trigger_id, trigger in self._triggers.items():
             if trigger.trigger_type == TriggerType.EVENT_BASED and trigger.enabled:
                 condition = trigger.condition
-                
+
                 if condition.get("event") == event_type:
                     await self._execute_trigger(trigger, event_data)
-    
-    async def check_data_trigger(self, data: Dict[str, Any]):
+
+    async def check_data_trigger(self, data: dict[str, Any]):
         """
         Check data-based triggers against current data.
-        
+
         Args:
             data: Current data state
         """
-        for trigger_id, trigger in self._triggers.items():
+        for _trigger_id, trigger in self._triggers.items():
             if trigger.trigger_type == TriggerType.DATA_BASED and trigger.enabled:
                 condition = trigger.condition
-                
+
                 metric = condition.get("metric")
                 threshold = condition.get("threshold")
                 operator = condition.get("operator", ">")
-                
+
                 if metric and metric in data:
                     value = data[metric]
-                    
+
                     should_trigger = False
-                    if operator == ">" and value > threshold:
+                    if operator == ">" and value > threshold or operator == "<" and value < threshold or operator == "==" and value == threshold:
                         should_trigger = True
-                    elif operator == "<" and value < threshold:
-                        should_trigger = True
-                    elif operator == "==" and value == threshold:
-                        should_trigger = True
-                    
+
                     if should_trigger:
                         await self._execute_trigger(trigger, {"metric": metric, "value": value})
-    
-    async def check_behavior_trigger(self, user_id: str, behavior_data: Dict):
+
+    async def check_behavior_trigger(self, user_id: str, behavior_data: dict):
         """
         Check behavior-based triggers.
-        
+
         Args:
             user_id: User identifier
             behavior_data: User behavior data
         """
-        for trigger_id, trigger in self._triggers.items():
+        for _trigger_id, trigger in self._triggers.items():
             if trigger.trigger_type == TriggerType.BEHAVIOR_BASED and trigger.enabled:
                 condition = trigger.condition
-                
+
                 # Check idle time
                 if "idle_seconds" in condition:
                     idle_seconds = behavior_data.get("idle_seconds", 0)
                     if idle_seconds >= condition["idle_seconds"]:
                         await self._execute_trigger(trigger, {"user_id": user_id})
-                
+
                 # Check interaction count
                 if "interaction_count" in condition:
                     count = behavior_data.get("interaction_count", 0)
                     if count >= condition["interaction_count"]:
                         await self._execute_trigger(trigger, {"user_id": user_id})
-    
-    async def check_context_trigger(self, user_id: str, context: Dict):
+
+    async def check_context_trigger(self, user_id: str, context: dict):
         """
         Check context-based triggers.
-        
+
         Args:
             user_id: User identifier
             context: Current context
         """
-        for trigger_id, trigger in self._triggers.items():
+        for _trigger_id, trigger in self._triggers.items():
             if trigger.trigger_type == TriggerType.CONTEXT_BASED and trigger.enabled:
                 condition = trigger.condition
-                
+
                 # Check page context
                 if "page" in condition and context.get("page") == condition["page"]:
                     time_on_page = context.get("time_on_page", 0)
                     if time_on_page >= condition.get("time_on_page", 0):
                         await self._execute_trigger(trigger, {"user_id": user_id, "page": context["page"]})
-    
-    async def _execute_trigger(self, trigger: AutoTrigger, context: Dict = None):
+
+    async def _execute_trigger(self, trigger: AutoTrigger, context: dict = None):
         """Execute a trigger's action."""
         # Check cooldown
         if trigger.trigger_id in self._last_triggered:
@@ -319,22 +314,22 @@ class AutoTriggerService:
             if elapsed < trigger.cooldown_seconds:
                 logger.debug(f"Trigger {trigger.trigger_id} on cooldown")
                 return
-        
+
         # Get handler
         handler = self._action_handlers.get(trigger.action)
         if not handler:
             logger.warning(f"No handler for action: {trigger.action}")
             return
-        
+
         try:
             # Execute handler
             params = {**trigger.action_params, "context": context}
-            
+
             if asyncio.iscoroutinefunction(handler):
                 result = await handler(params)
             else:
                 result = handler(params)
-            
+
             # Record trigger
             self._last_triggered[trigger.trigger_id] = datetime.utcnow()
             self._trigger_history.append(TriggerEvent(
@@ -344,15 +339,15 @@ class AutoTriggerService:
                 result=str(result),
                 context=context or {}
             ))
-            
+
             logger.info(f"Executed trigger {trigger.trigger_id}: {trigger.action.value}")
-        
+
         except Exception as e:
             logger.error(f"Trigger execution failed: {e}")
-    
+
     # Default action handlers
 
-    async def _handle_start_analysis(self, params: Dict) -> Dict:
+    async def _handle_start_analysis(self, params: dict) -> dict:
         """Handle start analysis action."""
         analysis_type = params.get("type", "general")
         logger.info(f"Auto-starting analysis: {analysis_type}")
@@ -363,7 +358,7 @@ class AutoTriggerService:
             user_id = context.get("user_id") if context else None
             if user_id:
                 await send_notification(
-                    title=f"AI 分析已启动",
+                    title="AI 分析已启动",
                     content=f"自动触发 {analysis_type} 类型的分析任务",
                     target_user_id=user_id,
                 )
@@ -376,7 +371,7 @@ class AutoTriggerService:
             "message": "分析已自动启动"
         }
 
-    async def _handle_generate_report(self, params: Dict) -> Dict:
+    async def _handle_generate_report(self, params: dict) -> dict:
         """Handle generate report action."""
         report_type = params.get("report_type", "daily")
         logger.info(f"Auto-generating report: {report_type}")
@@ -387,7 +382,7 @@ class AutoTriggerService:
             user_id = context.get("user_id") if context else None
             if user_id:
                 await send_notification(
-                    title=f"工作报告已生成",
+                    title="工作报告已生成",
                     content=f"已自动生成 {report_type} 报告，请在 AI 聊天中查看",
                     target_user_id=user_id,
                 )
@@ -399,8 +394,8 @@ class AutoTriggerService:
             "report_type": report_type,
             "message": f"{report_type}报告已生成"
         }
-    
-    async def _handle_send_notification(self, params: Dict) -> Dict:
+
+    async def _handle_send_notification(self, params: dict) -> dict:
         """Handle send notification action."""
         notification_type = params.get("type", "info")
         message = params.get("message", "您有新的通知")
@@ -424,41 +419,41 @@ class AutoTriggerService:
             "type": notification_type,
             "message": message
         }
-    
-    async def _handle_update_dashboard(self, params: Dict) -> Dict:
+
+    async def _handle_update_dashboard(self, params: dict) -> dict:
         """Handle update dashboard action."""
         logger.info("Auto-updating dashboard")
-        
+
         return {
             "status": "updated",
             "message": "仪表盘已更新"
         }
-    
-    async def _handle_process_data(self, params: Dict) -> Dict:
+
+    async def _handle_process_data(self, params: dict) -> dict:
         """Handle process data action."""
         auto_analyze = params.get("auto_analyze", False)
-        
+
         logger.info(f"Auto-processing data, analyze={auto_analyze}")
-        
+
         return {
             "status": "processed",
             "auto_analyze": auto_analyze,
             "message": "数据已处理"
         }
-    
-    async def _handle_schedule_task(self, params: Dict) -> Dict:
+
+    async def _handle_schedule_task(self, params: dict) -> dict:
         """Handle schedule task action."""
         task_type = params.get("task_type", "general")
-        
+
         logger.info(f"Auto-scheduling task: {task_type}")
-        
+
         return {
             "status": "scheduled",
             "task_type": task_type,
             "message": "任务已调度"
         }
-    
-    def get_trigger_status(self) -> Dict:
+
+    def get_trigger_status(self) -> dict:
         """Get status of all triggers."""
         return {
             "running": self._running,
@@ -473,14 +468,14 @@ class AutoTriggerService:
                 for e in self._trigger_history[-10:]
             ]
         }
-    
-    def get_triggers(self, trigger_type: TriggerType = None) -> List[Dict]:
+
+    def get_triggers(self, trigger_type: TriggerType = None) -> list[dict]:
         """Get all triggers, optionally filtered by type."""
         triggers = list(self._triggers.values())
-        
+
         if trigger_type:
             triggers = [t for t in triggers if t.trigger_type == trigger_type]
-        
+
         return [
             {
                 "trigger_id": t.trigger_id,

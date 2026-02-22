@@ -5,13 +5,13 @@ Implements AI capabilities integration into core business processes.
 Fixes Issue #2: AI capabilities not fully integrated into core business flows.
 """
 
-import json
+import asyncio
 import logging
-from typing import Dict, Optional, Any, List, Callable
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-import asyncio
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ class AIWorkflowAction:
     description: str
     stage: WorkflowStage
     integration_point: IntegrationPoint
-    trigger_conditions: List[str] = field(default_factory=list)
+    trigger_conditions: list[str] = field(default_factory=list)
     auto_execute: bool = False
     priority: int = 1
     handler: str = ""  # Handler function name
@@ -54,16 +54,16 @@ class WorkflowContext:
     workflow_id: str
     workflow_type: str
     current_stage: WorkflowStage
-    data: Dict[str, Any] = field(default_factory=dict)
-    ai_suggestions: List[Dict] = field(default_factory=list)
+    data: dict[str, Any] = field(default_factory=dict)
+    ai_suggestions: list[dict] = field(default_factory=list)
     user_id: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class AIWorkflowIntegrationService:
     """
     P2 Enhancement: AI integration into business processes.
-    
+
     Features:
     - Automatic AI insertion in workflows
     - Context-aware AI actions
@@ -71,7 +71,7 @@ class AIWorkflowIntegrationService:
     - Intelligent suggestions
     - Workflow optimization
     """
-    
+
     # Default workflow definitions
     WORKFLOW_DEFINITIONS = {
         "data_analysis": {
@@ -196,15 +196,15 @@ class AIWorkflowIntegrationService:
             ]
         }
     }
-    
+
     def __init__(self):
-        self._workflows: Dict[str, WorkflowContext] = {}
-        self._action_handlers: Dict[str, Callable] = {}
-        self._workflow_definitions: Dict[str, Dict] = dict(self.WORKFLOW_DEFINITIONS)
-        
+        self._workflows: dict[str, WorkflowContext] = {}
+        self._action_handlers: dict[str, Callable] = {}
+        self._workflow_definitions: dict[str, dict] = dict(self.WORKFLOW_DEFINITIONS)
+
         # Register default handlers
         self._register_default_handlers()
-    
+
     def _register_default_handlers(self):
         """Register default AI action handlers."""
         self.register_handler("suggest_data_sources", self._suggest_data_sources)
@@ -220,41 +220,41 @@ class AIWorkflowIntegrationService:
         self.register_handler("categorize_task", self._categorize_task)
         self.register_handler("prioritize_tasks", self._prioritize_tasks)
         self.register_handler("progress_tracking", self._progress_tracking)
-    
+
     def register_handler(self, action_name: str, handler: Callable):
         """Register an AI action handler."""
         self._action_handlers[action_name] = handler
-    
-    def register_workflow(self, workflow_type: str, definition: Dict):
+
+    def register_workflow(self, workflow_type: str, definition: dict):
         """Register a workflow definition."""
         self._workflow_definitions[workflow_type] = definition
-    
+
     async def start_workflow(
         self,
         workflow_id: str,
         workflow_type: str,
         user_id: str = "",
-        initial_data: Dict = None
+        initial_data: dict = None
     ) -> WorkflowContext:
         """
         Start a new workflow with AI integration.
-        
+
         Args:
             workflow_id: Unique workflow identifier
             workflow_type: Type of workflow
             user_id: User starting the workflow
             initial_data: Initial workflow data
-            
+
         Returns:
             WorkflowContext for the new workflow
         """
         definition = self._workflow_definitions.get(workflow_type)
         if not definition:
             raise ValueError(f"Unknown workflow type: {workflow_type}")
-        
+
         stages = definition["stages"]
         initial_stage = stages[0] if stages else WorkflowStage.DATA_COLLECTION
-        
+
         context = WorkflowContext(
             workflow_id=workflow_id,
             workflow_type=workflow_type,
@@ -262,56 +262,56 @@ class AIWorkflowIntegrationService:
             data=initial_data or {},
             user_id=user_id
         )
-        
+
         self._workflows[workflow_id] = context
-        
+
         # Execute initial AI actions
         await self._execute_stage_ai_actions(context, IntegrationPoint.BEFORE_STAGE)
-        
+
         logger.info(f"Started workflow {workflow_id} of type {workflow_type}")
         return context
-    
+
     async def advance_stage(
         self,
         workflow_id: str,
-        new_data: Dict = None
-    ) -> Optional[WorkflowContext]:
+        new_data: dict = None
+    ) -> WorkflowContext | None:
         """
         Advance workflow to next stage.
-        
+
         Args:
             workflow_id: Workflow identifier
             new_data: Additional data for the stage
-            
+
         Returns:
             Updated WorkflowContext
         """
         context = self._workflows.get(workflow_id)
         if not context:
             return None
-        
+
         definition = self._workflow_definitions.get(context.workflow_type)
         if not definition:
             return None
-        
+
         stages = definition["stages"]
         current_idx = stages.index(context.current_stage)
-        
+
         # Execute after-stage actions
         await self._execute_stage_ai_actions(context, IntegrationPoint.AFTER_STAGE)
-        
+
         # Advance to next stage
         if current_idx < len(stages) - 1:
             context.current_stage = stages[current_idx + 1]
-            
+
             if new_data:
                 context.data.update(new_data)
-            
+
             # Execute before-stage actions for new stage
             await self._execute_stage_ai_actions(context, IntegrationPoint.BEFORE_STAGE)
-        
+
         return context
-    
+
     async def _execute_stage_ai_actions(
         self,
         context: WorkflowContext,
@@ -321,42 +321,41 @@ class AIWorkflowIntegrationService:
         definition = self._workflow_definitions.get(context.workflow_type)
         if not definition:
             return
-        
+
         for action_config in definition.get("ai_actions", []):
-            if action_config["stage"] == context.current_stage.value:
-                if action_config["point"] == integration_point.value:
-                    action_name = action_config["action"]
-                    auto_execute = action_config.get("auto", False)
-                    
-                    # Execute or queue suggestion
-                    if auto_execute:
-                        await self._execute_action(context, action_name)
-                    else:
-                        await self._queue_suggestion(context, action_name)
-    
+            if action_config["stage"] == context.current_stage.value and action_config["point"] == integration_point.value:
+                action_name = action_config["action"]
+                auto_execute = action_config.get("auto", False)
+
+                # Execute or queue suggestion
+                if auto_execute:
+                    await self._execute_action(context, action_name)
+                else:
+                    await self._queue_suggestion(context, action_name)
+
     async def _execute_action(self, context: WorkflowContext, action_name: str):
         """Execute an AI action."""
         handler = self._action_handlers.get(action_name)
         if not handler:
             logger.warning(f"No handler for action: {action_name}")
             return
-        
+
         try:
             if asyncio.iscoroutinefunction(handler):
                 result = await handler(context)
             else:
                 result = handler(context)
-            
+
             if result:
                 context.ai_suggestions.append({
                     "action": action_name,
                     "result": result,
                     "timestamp": datetime.utcnow().isoformat()
                 })
-        
+
         except Exception as e:
             logger.error(f"AI action {action_name} failed: {e}")
-    
+
     async def _queue_suggestion(self, context: WorkflowContext, action_name: str):
         """Queue an AI suggestion for user approval."""
         context.ai_suggestions.append({
@@ -365,43 +364,43 @@ class AIWorkflowIntegrationService:
             "message": f"AI建议: 执行 {action_name}",
             "timestamp": datetime.utcnow().isoformat()
         })
-    
-    async def get_ai_suggestions(self, workflow_id: str) -> List[Dict]:
+
+    async def get_ai_suggestions(self, workflow_id: str) -> list[dict]:
         """Get pending AI suggestions for a workflow."""
         context = self._workflows.get(workflow_id)
         if not context:
             return []
-        
+
         return [
             s for s in context.ai_suggestions
             if s.get("status") == "pending_approval"
         ]
-    
+
     async def approve_suggestion(
         self,
         workflow_id: str,
         action_name: str
-    ) -> Dict:
+    ) -> dict:
         """Approve and execute a pending suggestion."""
         context = self._workflows.get(workflow_id)
         if not context:
             return {"success": False, "error": "Workflow not found"}
-        
+
         await self._execute_action(context, action_name)
-        
+
         return {
             "success": True,
             "action": action_name,
             "workflow_id": workflow_id
         }
-    
-    def get_workflow(self, workflow_id: str) -> Optional[WorkflowContext]:
+
+    def get_workflow(self, workflow_id: str) -> WorkflowContext | None:
         """Get workflow context."""
         return self._workflows.get(workflow_id)
-    
+
     # Default AI action handlers
-    
-    async def _suggest_data_sources(self, context: WorkflowContext) -> Dict:
+
+    async def _suggest_data_sources(self, context: WorkflowContext) -> dict:
         """Suggest relevant data sources."""
         return {
             "suggestions": [
@@ -411,8 +410,8 @@ class AIWorkflowIntegrationService:
             ],
             "confidence": 0.85
         }
-    
-    async def _analyze_patterns(self, context: WorkflowContext) -> Dict:
+
+    async def _analyze_patterns(self, context: WorkflowContext) -> dict:
         """Analyze patterns in data."""
         return {
             "patterns": [
@@ -421,8 +420,8 @@ class AIWorkflowIntegrationService:
             ],
             "insights": "建议关注周末销售表现"
         }
-    
-    async def _recommend_actions(self, context: WorkflowContext) -> Dict:
+
+    async def _recommend_actions(self, context: WorkflowContext) -> dict:
         """Recommend next actions."""
         return {
             "recommendations": [
@@ -430,8 +429,8 @@ class AIWorkflowIntegrationService:
                 {"action": "加强周末促销", "priority": "medium"}
             ]
         }
-    
-    async def _auto_extract_metrics(self, context: WorkflowContext) -> Dict:
+
+    async def _auto_extract_metrics(self, context: WorkflowContext) -> dict:
         """Auto extract key metrics."""
         return {
             "metrics": {
@@ -441,8 +440,8 @@ class AIWorkflowIntegrationService:
             },
             "status": "metrics_extracted"
         }
-    
-    async def _generate_insights(self, context: WorkflowContext) -> Dict:
+
+    async def _generate_insights(self, context: WorkflowContext) -> dict:
         """Generate insights from data."""
         return {
             "insights": [
@@ -450,32 +449,32 @@ class AIWorkflowIntegrationService:
                 "新用户转化率提升至12%"
             ]
         }
-    
-    async def _quality_check(self, context: WorkflowContext) -> Dict:
+
+    async def _quality_check(self, context: WorkflowContext) -> dict:
         """Perform quality check."""
         return {
             "passed": True,
             "issues": [],
             "score": 95
         }
-    
-    async def _understand_intent(self, context: WorkflowContext) -> Dict:
+
+    async def _understand_intent(self, context: WorkflowContext) -> dict:
         """Understand user intent."""
         return {
             "intent": "query",
             "confidence": 0.92,
             "entities": []
         }
-    
-    async def _sentiment_analysis(self, context: WorkflowContext) -> Dict:
+
+    async def _sentiment_analysis(self, context: WorkflowContext) -> dict:
         """Analyze sentiment."""
         return {
             "sentiment": "neutral",
             "score": 0.0,
             "confidence": 0.88
         }
-    
-    async def _suggest_response(self, context: WorkflowContext) -> Dict:
+
+    async def _suggest_response(self, context: WorkflowContext) -> dict:
         """Suggest response."""
         return {
             "suggestions": [
@@ -483,30 +482,30 @@ class AIWorkflowIntegrationService:
                 "我已经记录了您的问题"
             ]
         }
-    
-    async def _validate_response(self, context: WorkflowContext) -> Dict:
+
+    async def _validate_response(self, context: WorkflowContext) -> dict:
         """Validate response before sending."""
         return {
             "valid": True,
             "issues": []
         }
-    
-    async def _categorize_task(self, context: WorkflowContext) -> Dict:
+
+    async def _categorize_task(self, context: WorkflowContext) -> dict:
         """Categorize task automatically."""
         return {
             "category": "general",
             "priority": "medium",
             "estimated_effort": "2 hours"
         }
-    
-    async def _prioritize_tasks(self, context: WorkflowContext) -> Dict:
+
+    async def _prioritize_tasks(self, context: WorkflowContext) -> dict:
         """Prioritize tasks."""
         return {
             "priority_order": [],
             "reasoning": "Based on deadlines and dependencies"
         }
-    
-    async def _progress_tracking(self, context: WorkflowContext) -> Dict:
+
+    async def _progress_tracking(self, context: WorkflowContext) -> dict:
         """Track progress."""
         return {
             "progress": 0,

@@ -12,8 +12,9 @@ Item 7: ABAC Permission Service
 
 import logging
 import time
-from typing import Dict, List, Optional, Any, Set
 from dataclasses import dataclass, field
+from typing import Any
+
 from app.core.database import supabase
 
 logger = logging.getLogger(__name__)
@@ -26,8 +27,8 @@ logger = logging.getLogger(__name__)
 class PermissionRule:
     """权限规则定义"""
     permission: str
-    roles: List[str]
-    conditions: List[str] = field(default_factory=list)
+    roles: list[str]
+    conditions: list[str] = field(default_factory=list)
     description: str = ""
 
 
@@ -35,10 +36,10 @@ class PermissionRule:
 class PermissionContext:
     """权限评估上下文"""
     user_id: str
-    user_role: Optional[str] = None
-    user_department: Optional[str] = None
-    org_id: Optional[str] = None
-    resource: Optional[Dict[str, Any]] = None
+    user_role: str | None = None
+    user_department: str | None = None
+    org_id: str | None = None
+    resource: dict[str, Any] | None = None
 
 
 @dataclass
@@ -47,7 +48,7 @@ class PermissionResult:
     granted: bool
     permission: str
     reason: str = ""
-    evaluated_conditions: List[Dict[str, Any]] = field(default_factory=list)
+    evaluated_conditions: list[dict[str, Any]] = field(default_factory=list)
 
 
 # ============== 权限缓存 ==============
@@ -57,12 +58,12 @@ class PermissionCache:
     """简单的内存缓存，用于减少权限查询的数据库访问"""
 
     def __init__(self, ttl_seconds: int = 300):
-        self._cache: Dict[str, Any] = {}
-        self._timestamps: Dict[str, float] = {}
+        self._cache: dict[str, Any] = {}
+        self._timestamps: dict[str, float] = {}
         self._ttl = ttl_seconds
         self._max_entries = 500
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """获取缓存值，如果过期则返回 None"""
         if key not in self._cache:
             return None
@@ -126,7 +127,7 @@ class PermissionService:
     }
 
     # 权限规则定义
-    PERMISSION_RULES: Dict[str, Dict[str, Any]] = {
+    PERMISSION_RULES: dict[str, dict[str, Any]] = {
         # 审批相关
         "approval.create": {
             "roles": ["employee", "manager", "boss", "founder"],
@@ -312,7 +313,7 @@ class PermissionService:
         self,
         user_id: str,
         permission: str,
-        resource: Optional[Dict[str, Any]] = None,
+        resource: dict[str, Any] | None = None,
         db=None,
     ) -> bool:
         """
@@ -348,10 +349,8 @@ class PermissionService:
             user_role = user_info.get("role", "employee")
 
             # 1. 检查角色是否在允许列表中
-            if user_role not in rule["roles"]:
-                # 检查角色层级 - 更高级别的角色自动拥有低级别权限
-                if not self._role_has_hierarchy_access(user_role, rule["roles"]):
-                    return False
+            if user_role not in rule["roles"] and not self._role_has_hierarchy_access(user_role, rule["roles"]):
+                return False
 
             # 2. 如果有条件约束，评估条件
             conditions = rule.get("conditions", [])
@@ -378,7 +377,7 @@ class PermissionService:
         self,
         user_id: str,
         permission: str,
-        resource: Optional[Dict[str, Any]] = None,
+        resource: dict[str, Any] | None = None,
         db=None,
     ) -> PermissionResult:
         """
@@ -469,7 +468,7 @@ class PermissionService:
 
     async def get_user_permissions(
         self, user_id: str, db=None
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         获取用户所有权限列表。
 
@@ -513,7 +512,7 @@ class PermissionService:
             logger.error(f"Get user permissions error: {e}")
             return []
 
-    def get_all_permissions(self) -> List[Dict[str, Any]]:
+    def get_all_permissions(self) -> list[dict[str, Any]]:
         """
         获取所有权限规则定义（不依赖数据库）。
 
@@ -530,7 +529,7 @@ class PermissionService:
             for perm_key, rule in self.PERMISSION_RULES.items()
         ]
 
-    def get_role_permissions(self, role: str) -> List[str]:
+    def get_role_permissions(self, role: str) -> list[str]:
         """
         获取指定角色拥有的所有权限标识。
 
@@ -554,8 +553,8 @@ class PermissionService:
         self,
         condition: str,
         user_id: str,
-        user_info: Dict[str, Any],
-        resource: Dict[str, Any],
+        user_info: dict[str, Any],
+        resource: dict[str, Any],
         db,
     ) -> bool:
         """
@@ -589,7 +588,7 @@ class PermissionService:
             return False
 
     async def _check_is_owner(
-        self, user_id: str, resource: Dict[str, Any], db
+        self, user_id: str, resource: dict[str, Any], db
     ) -> bool:
         """检查用户是否是资源的所有者"""
         # 先从 resource 字典直接获取
@@ -626,8 +625,8 @@ class PermissionService:
     async def _check_same_department(
         self,
         user_id: str,
-        user_info: Dict[str, Any],
-        resource: Dict[str, Any],
+        user_info: dict[str, Any],
+        resource: dict[str, Any],
         db,
     ) -> bool:
         """检查用户与目标是否属于同一部门"""
@@ -653,7 +652,7 @@ class PermissionService:
         return False
 
     async def _check_is_approver(
-        self, user_id: str, resource: Dict[str, Any], db
+        self, user_id: str, resource: dict[str, Any], db
     ) -> bool:
         """检查用户是否是某审批请求的审批人"""
         approval_id = resource.get("id") or resource.get("approval_id")
@@ -684,7 +683,7 @@ class PermissionService:
 
     # ============== 内部工具 ==============
 
-    async def _get_user_info(self, user_id: str, db) -> Optional[Dict[str, Any]]:
+    async def _get_user_info(self, user_id: str, db) -> dict[str, Any] | None:
         """获取用户信息（带缓存）"""
         cache_key = f"user:{user_id}:info"
         cached = self._cache.get(cache_key)
@@ -704,7 +703,7 @@ class PermissionService:
 
         return None
 
-    def _role_has_hierarchy_access(self, user_role: str, allowed_roles: List[str]) -> bool:
+    def _role_has_hierarchy_access(self, user_role: str, allowed_roles: list[str]) -> bool:
         """
         检查用户角色是否通过层级继承拥有权限。
         高层级角色自动拥有低层级角色的权限。

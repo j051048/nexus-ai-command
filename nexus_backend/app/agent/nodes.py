@@ -12,18 +12,16 @@ Nodes:
   respond_node  → Formats final response and emits thinking chain
 """
 
-import json
-import time
 import asyncio
 import logging
-from typing import List, Optional
+import time
 
 from langchain_core.messages import (
     AIMessage,
+    BaseMessage,
     HumanMessage,
     SystemMessage,
     ToolMessage,
-    BaseMessage,
 )
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
@@ -36,14 +34,14 @@ from app.agent.state import (
     ThinkingStep,
     ToolCallRecord,
 )
-from app.tools import get_tool, get_all_tools_schema
-from app.services.content_moderation import scan_content, sanitize_output
-from app.services.error_recovery_service import llm_circuit_breaker, tool_circuit_breaker
 from app.core.ai_metrics import (
+    record_hallucination,
     record_llm_latency,
     record_tool_execution,
-    record_hallucination,
 )
+from app.services.content_moderation import sanitize_output, scan_content
+from app.services.error_recovery_service import llm_circuit_breaker, tool_circuit_breaker
+from app.tools import get_all_tools_schema, get_tool
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +70,7 @@ def _get_tool_schemas():
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
-def _get_llm(config: AgentConfig, model: Optional[str] = None, streaming: bool = False):
+def _get_llm(config: AgentConfig, model: str | None = None, streaming: bool = False):
     """Get a LangChain ChatOpenAI instance with the provided config."""
     return ChatOpenAI(
         model=model or config.model,
@@ -84,7 +82,7 @@ def _get_llm(config: AgentConfig, model: Optional[str] = None, streaming: bool =
     )
 
 
-def _messages_to_lc_format(messages) -> List[BaseMessage]:
+def _messages_to_lc_format(messages) -> list[BaseMessage]:
     """Ensure messages are in LangChain format."""
     result = []
     for msg in messages:
@@ -107,10 +105,12 @@ def _messages_to_lc_format(messages) -> List[BaseMessage]:
 async def _execute_single_tool(
     record: ToolCallRecord,
     config: AgentConfig,
-    _idempotency_cache: dict = {},
+    _idempotency_cache: dict = None,
 ) -> ToolCallRecord:
     """Execute a single tool with RBAC, confirmation gates, circuit breaker, idempotency, and retry."""
     # Evict old cache entries to prevent unbounded memory growth
+    if _idempotency_cache is None:
+        _idempotency_cache = {}
     if len(_idempotency_cache) > 500:
         # Remove oldest half
         keys = list(_idempotency_cache.keys())
@@ -136,7 +136,7 @@ async def _execute_single_tool(
     # 0. Circuit Breaker Check
     if not tool_circuit_breaker.allow_request():
         record.status = "error"
-        record.result = f"Error: 工具服务断路器已打开，请稍后重试。"
+        record.result = "Error: 工具服务断路器已打开，请稍后重试。"
         return record
 
     # 1. RBAC Check
@@ -163,7 +163,7 @@ async def _execute_single_tool(
     start_time = time.time()
     last_error = None
     timeout = config.tool_timeout if hasattr(config, "tool_timeout") else 30.0
-    
+
     for attempt in range(3):
         try:
             result = await asyncio.wait_for(
@@ -192,7 +192,7 @@ async def _execute_single_tool(
                     "duration_ms": record.duration_ms,
                 }
             return record
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(f"Tool {record.tool_name} timed out after {timeout}s (attempt {attempt+1})")
             if attempt < 2:
                 await asyncio.sleep(0.5 * (attempt + 1))
@@ -249,7 +249,7 @@ async def plan_node(state: AgentState) -> dict:
         if extra_lines:
             injection = "\n".join(extra_lines)
             injected = False
-            for i, m in enumerate(lc_msgs):
+            for _i, m in enumerate(lc_msgs):
                 if isinstance(m, SystemMessage):
                     m.content += f"\n\n{injection}"
                     injected = True
@@ -261,7 +261,7 @@ async def plan_node(state: AgentState) -> dict:
     # If we have retrieved context, prepend it to the history or inject into system prompt
     if rag_context and iteration == 0:
         found_sys = False
-        for i, m in enumerate(lc_msgs):
+        for _i, m in enumerate(lc_msgs):
             if isinstance(m, SystemMessage):
                 m.content += f"\n\n[检索到的参考知识]:\n{rag_context}"
                 found_sys = True
@@ -323,7 +323,7 @@ async def plan_node(state: AgentState) -> dict:
     content = ai_msg.content or ""
 
     # Build pending tool call records
-    pending_tools: List[ToolCallRecord] = []
+    pending_tools: list[ToolCallRecord] = []
     if tool_calls_raw:
         for tc in tool_calls_raw:
             pending_tools.append(ToolCallRecord(
@@ -382,14 +382,14 @@ async def execute_node(state: AgentState) -> dict:
 
     # Execute all tools in parallel with overall timeout
     gather_timeout = config.gather_timeout if hasattr(config, "gather_timeout") else 60.0
-    
+
     try:
         tasks = [_execute_single_tool(record, config) for record in pending]
-        completed: List[ToolCallRecord] = await asyncio.wait_for(
+        completed: list[ToolCallRecord] = await asyncio.wait_for(
             asyncio.gather(*tasks, return_exceptions=False),
             timeout=gather_timeout,
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.error(f"[ExecuteNode] Tool gather timed out after {gather_timeout}s")
         return {
             "error": f"工具执行整体超时 ({gather_timeout}秒)",
@@ -424,7 +424,7 @@ async def execute_node(state: AgentState) -> dict:
         if record.status == "error":
             logger.warning(f"[ExecuteNode] Tool {record.tool_name} failed: {record.result}")
             # Non-fatal errors are passed to LLM, but we log them
-        
+
         result_steps.append(ThinkingStep(
             phase=AgentPhase.EXECUTING.value,
             content=f"工具 [{record.tool_name}] 执行完毕 ({record.status})",
@@ -453,7 +453,7 @@ async def execute_node(state: AgentState) -> dict:
 async def reflect_node(state: AgentState) -> dict:
     """
     P1 Security Enhancement: Self-reflection with advanced hallucination detection.
-    
+
     Detection layers:
     1. Empty response check
     2. Keyword-based hallucination detection
@@ -480,17 +480,16 @@ async def reflect_node(state: AgentState) -> dict:
     )
 
     # ── Layer 1: Empty response check ──
-    if not last_ai_content.strip() or len(last_ai_content.strip()) < 5:
-        if completed_tools:
-            return {
-                "reflection": "回复内容为空，需要整合工具结果重新回答。",
-                "needs_replanning": True if iteration < config.max_iterations else False,
-                "current_phase": AgentPhase.PLANNING if iteration < config.max_iterations else AgentPhase.RESPONDING,
-                "thinking_steps": [ThinkingStep(
-                    phase=AgentPhase.REFLECTING.value,
-                    content="检测到未正常生成回复，触发重试路径",
-                )],
-            }
+    if (not last_ai_content.strip() or len(last_ai_content.strip()) < 5) and completed_tools:
+        return {
+            "reflection": "回复内容为空，需要整合工具结果重新回答。",
+            "needs_replanning": iteration < config.max_iterations,
+            "current_phase": AgentPhase.PLANNING if iteration < config.max_iterations else AgentPhase.RESPONDING,
+            "thinking_steps": [ThinkingStep(
+                phase=AgentPhase.REFLECTING.value,
+                content="检测到未正常生成回复，触发重试路径",
+            )],
+        }
 
     # ── Layer 2: Keyword-based hallucination detection ──
     is_hallucination = False
@@ -546,7 +545,7 @@ AI回复:
         except Exception as e:
             logger.debug(f"[ReflectNode] Groundedness check failed: {e}")
     elif has_successful_tools and rag_context:
-        logger.info(f"[Reflect] Layer 4 skipped: tools returned authoritative data, RAG groundedness check not needed")
+        logger.info("[Reflect] Layer 4 skipped: tools returned authoritative data, RAG groundedness check not needed")
 
     # ── Layer 5: LLM-based reflection ──
     # Skip LLM reflection if tools returned real data — tool results are ground truth.
@@ -624,7 +623,7 @@ AI 回复:
     }
 
 
-async def _verify_tool_grounding(ai_response: str, tool_results: list) -> Optional[str]:
+async def _verify_tool_grounding(ai_response: str, tool_results: list) -> str | None:
     """
     P1 Fix: Verify that numerical data in AI response matches tool results.
     Returns a description of grounding issues, or None if all grounded.
@@ -747,7 +746,7 @@ async def error_node(state: AgentState) -> dict:
             "pending_tool_calls": [],
             "requires_tools": False,
             "current_phase": AgentPhase.PLANNING,
-            "messages": [HumanMessage(content=f"[错误恢复L2] 工具调用持续失败。请不使用任何工具，基于已有信息给出最佳回答。如信息不足请如实说明。")],
+            "messages": [HumanMessage(content="[错误恢复L2] 工具调用持续失败。请不使用任何工具，基于已有信息给出最佳回答。如信息不足请如实说明。")],
             "thinking_steps": [ThinkingStep(
                 phase=AgentPhase.ERROR.value,
                 content=f"恢复L2: 降级为纯文本模式: {error_msg}",
@@ -771,7 +770,7 @@ async def error_node(state: AgentState) -> dict:
 
 # Sensitive field patterns with role access levels
 # Only roles at or above the specified level can see unmasked values
-import re as _re
+import re as _re  # noqa: E402
 
 _SENSITIVE_FIELD_RULES = [
     # (pattern, mask_replacement, minimum_role_level)

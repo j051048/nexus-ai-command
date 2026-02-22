@@ -8,14 +8,14 @@ Phase 4.6: Enhanced with configurable vision model, context-aware prompts,
 image URL passthrough, and improved document parsing.
 """
 
-import os
-import logging
 import base64
 import hashlib
-from typing import Dict, Optional, Any, List, Tuple
+import logging
+import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -47,11 +47,11 @@ class MultimodalInput:
     """Multimodal input data."""
     input_type: InputType
     content: Any
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    file_path: Optional[str] = None
-    file_name: Optional[str] = None
-    file_size: Optional[int] = None
-    mime_type: Optional[str] = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    file_path: str | None = None
+    file_name: str | None = None
+    file_size: int | None = None
+    mime_type: str | None = None
     created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
 
 
@@ -59,11 +59,11 @@ class MultimodalInput:
 class ProcessedInput:
     """Processed multimodal input ready for LLM."""
     text_content: str = ""
-    image_urls: List[str] = field(default_factory=list)
-    image_descriptions: List[str] = field(default_factory=list)
-    file_contents: List[Dict[str, Any]] = field(default_factory=list)
-    voice_transcript: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    image_urls: list[str] = field(default_factory=list)
+    image_descriptions: list[str] = field(default_factory=list)
+    file_contents: list[dict[str, Any]] = field(default_factory=list)
+    voice_transcript: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class MultimodalService:
@@ -104,6 +104,7 @@ class MultimodalService:
         if self._openai_client is None:
             try:
                 from openai import AsyncOpenAI
+
                 from app.core.config import settings
 
                 self._openai_client = AsyncOpenAI(
@@ -114,7 +115,7 @@ class MultimodalService:
                 logger.warning(f"Failed to init OpenAI client for multimodal: {e}")
         return self._openai_client
 
-    def _get_vision_model(self, config: Optional[Dict] = None) -> str:
+    def _get_vision_model(self, config: dict | None = None) -> str:
         """Get the vision-capable model name from config or settings."""
         if config and config.get("vision_model"):
             return config["vision_model"]
@@ -127,7 +128,7 @@ class MultimodalService:
     async def process_input(
         self,
         input_data: MultimodalInput,
-        config: Optional[Dict] = None,
+        config: dict | None = None,
     ) -> ProcessedInput:
         """
         Process multimodal input into LLM-ready format.
@@ -163,13 +164,13 @@ class MultimodalService:
         return result
 
     async def _process_image(
-        self, input_data: MultimodalInput, config: Optional[Dict] = None
-    ) -> Dict:
+        self, input_data: MultimodalInput, config: dict | None = None
+    ) -> dict:
         """Process image input — supports base64, bytes, and URL."""
-        result: Dict[str, Any] = {"urls": [], "description": ""}
+        result: dict[str, Any] = {"urls": [], "description": ""}
 
-        image_bytes: Optional[bytes] = None
-        image_url: Optional[str] = None
+        image_bytes: bytes | None = None
+        image_url: str | None = None
 
         # Detect input format
         if isinstance(input_data.content, str):
@@ -190,7 +191,7 @@ class MultimodalService:
 
         # Generate hash for deduplication if we have bytes
         if image_bytes:
-            image_hash = hashlib.md5(image_bytes).hexdigest()
+            hashlib.md5(image_bytes).hexdigest()
             # Create data URI for vision API
             image_url = f"data:image/jpeg;base64,{base64.b64encode(image_bytes).decode()}"
 
@@ -209,7 +210,7 @@ class MultimodalService:
         return result
 
     async def _analyze_image_with_llm(
-        self, image_url: str, config: Optional[Dict] = None
+        self, image_url: str, config: dict | None = None
     ) -> str:
         """Analyze image content using vision model with context-aware prompts."""
         client = self._get_openai_client()
@@ -259,7 +260,7 @@ class MultimodalService:
             logger.error(f"Vision analysis failed: {e}")
             return "[图片内容无法解析]"
 
-    async def _process_voice(self, input_data: MultimodalInput) -> Dict:
+    async def _process_voice(self, input_data: MultimodalInput) -> dict:
         """Process voice input."""
         result = {"transcript": ""}
 
@@ -311,9 +312,9 @@ class MultimodalService:
             logger.error(f"Transcription failed: {e}")
             return "[语音转写失败]"
 
-    async def _process_file(self, input_data: MultimodalInput) -> Dict:
+    async def _process_file(self, input_data: MultimodalInput) -> dict:
         """Process file input."""
-        result: Dict[str, Any] = {"content": "", "metadata": {}}
+        result: dict[str, Any] = {"content": "", "metadata": {}}
 
         mime_type = input_data.mime_type or "application/octet-stream"
         file_name = input_data.file_name or "unknown"
@@ -379,6 +380,7 @@ class MultimodalService:
         # Try PyPDF2
         try:
             import io
+
             from PyPDF2 import PdfReader
 
             reader = PdfReader(io.BytesIO(pdf_bytes))
@@ -402,7 +404,7 @@ class MultimodalService:
             logger.warning(f"PDF extraction failed: {e}")
             return "[PDF文档 — 解析失败]"
 
-    def validate_file(self, file_size: int, mime_type: str) -> Tuple[bool, str]:
+    def validate_file(self, file_size: int, mime_type: str) -> tuple[bool, str]:
         """
         Validate file size and type.
 
@@ -421,7 +423,7 @@ class MultimodalService:
 
         return True, ""
 
-    def format_for_llm(self, processed: ProcessedInput) -> List[Dict]:
+    def format_for_llm(self, processed: ProcessedInput) -> list[dict]:
         """
         Format processed input for LLM API.
 

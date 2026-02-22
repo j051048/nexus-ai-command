@@ -1,10 +1,12 @@
-from .base_tool import BaseTool
-from typing import Dict, Any
 from datetime import datetime, timedelta
+from typing import Any
+
 from app.core.database import supabase
 
+from .base_tool import BaseTool
 
-def _get_client(config: Dict = None):
+
+def _get_client(config: dict = None):
     """Get scoped DB client if user token available, else fallback to service client."""
     token = config.get("token") if config else None
     return supabase.get_scoped_client(token) if token and supabase else supabase
@@ -17,7 +19,7 @@ class ProjectListTool(BaseTool):
     parameters = {"type": "object", "properties": {}, "required": []}
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         client = _get_client(config)
         # Check role to filter projects? For now, list all accessible via RLS
@@ -56,7 +58,7 @@ class CreateProjectTool(BaseTool):
     required_role = "all"
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         name = args.get("name")
         description = args.get("description", "")
@@ -111,7 +113,7 @@ class CreateEventTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         project_id = args.get("project_id")
         title = args.get("title")
@@ -164,7 +166,7 @@ class WeeklyReportTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         from app.services.ai_service import AIService
 

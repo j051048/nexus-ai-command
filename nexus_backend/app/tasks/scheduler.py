@@ -37,8 +37,8 @@ def push_daily_briefing():
     """
     async def _run():
         from app.core.database import supabase
-        from app.tools.boss_tools import DailyBriefingTool
         from app.services.notification_service import send_notification
+        from app.tools.boss_tools import DailyBriefingTool
 
         if not supabase:
             logger.warning("DB not available, skipping daily briefing")
@@ -179,7 +179,7 @@ def check_contract_expiry():
     """
     async def _run():
         from app.core.database import supabase
-        from app.services.notification_service import send_notification, NotificationPriority
+        from app.services.notification_service import NotificationPriority, send_notification
 
         if not supabase:
             return "skipped: no db"

@@ -6,8 +6,8 @@ preference settings, and quiet hours support.
 """
 
 import logging
-from typing import Dict, List, Optional, Any
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
 
 from app.core.database import supabase
 
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 VALID_NOTIFICATION_TYPES = {"info", "success", "warning", "error", "approval", "system"}
 
 # Default notification preferences
-DEFAULT_PREFERENCES: Dict[str, Any] = {
+DEFAULT_PREFERENCES: dict[str, Any] = {
     "email_enabled": True,
     "push_enabled": True,
     "im_enabled": True,
@@ -41,19 +41,19 @@ class NotificationCenterService:
         self,
         user_id: str,
         title: str,
-        body: Optional[str] = None,
-        type: str = "info",
-        action_url: Optional[str] = None,
-        org_id: Optional[str] = None,
+        body: str | None = None,
+        type: str = "info",  # noqa: A002
+        action_url: str | None = None,
+        org_id: str | None = None,
         db: Any = None,
-    ) -> Dict:
+    ) -> dict:
         """创建站内通知"""
         client = db or supabase
         if not client:
             raise RuntimeError("数据库连接不可用")
 
         if type not in VALID_NOTIFICATION_TYPES:
-            type = "info"
+            type = "info"  # noqa: A001
 
         data = {
             "user_id": user_id,
@@ -62,7 +62,7 @@ class NotificationCenterService:
             "type": type,
             "action_url": action_url,
             "is_read": False,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         }
 
         if org_id:
@@ -81,11 +81,11 @@ class NotificationCenterService:
         self,
         user_id: str,
         unread_only: bool = False,
-        type_filter: Optional[str] = None,
+        type_filter: str | None = None,
         limit: int = 50,
         offset: int = 0,
         db: Any = None,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """获取通知列表"""
         client = db or supabase
         if not client:
@@ -115,7 +115,7 @@ class NotificationCenterService:
     async def mark_read(
         self,
         user_id: str,
-        notification_ids: List[str],
+        notification_ids: list[str],
         db: Any = None,
     ) -> int:
         """标记指定通知为已读"""
@@ -195,7 +195,7 @@ class NotificationCenterService:
         self,
         user_id: str,
         db: Any = None,
-    ) -> Dict:
+    ) -> dict:
         """获取通知偏好设置"""
         client = db or supabase
         if not client:
@@ -222,9 +222,9 @@ class NotificationCenterService:
     async def update_preferences(
         self,
         user_id: str,
-        preferences: Dict[str, Any],
+        preferences: dict[str, Any],
         db: Any = None,
-    ) -> Dict:
+    ) -> dict:
         """更新通知偏好设置（upsert）"""
         client = db or supabase
         if not client:
@@ -237,7 +237,7 @@ class NotificationCenterService:
         }
         sanitized = {k: v for k, v in preferences.items() if k in allowed_keys}
         sanitized["user_id"] = user_id
-        sanitized["updated_at"] = datetime.now(timezone.utc).isoformat()
+        sanitized["updated_at"] = datetime.now(UTC).isoformat()
 
         # Check if preferences exist
         existing = (
@@ -276,12 +276,12 @@ class NotificationCenterService:
 
     async def notify_users(
         self,
-        user_ids: List[str],
+        user_ids: list[str],
         title: str,
-        body: Optional[str] = None,
-        type: str = "info",
-        action_url: Optional[str] = None,
-        org_id: Optional[str] = None,
+        body: str | None = None,
+        type: str = "info",  # noqa: A002
+        action_url: str | None = None,
+        org_id: str | None = None,
         db: Any = None,
     ) -> int:
         """批量创建通知（给多个用户）"""
@@ -289,10 +289,10 @@ class NotificationCenterService:
         if not client or not user_ids:
             return 0
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         rows = []
         for uid in user_ids:
-            row: Dict[str, Any] = {
+            row: dict[str, Any] = {
                 "user_id": uid,
                 "title": title,
                 "body": body or "",

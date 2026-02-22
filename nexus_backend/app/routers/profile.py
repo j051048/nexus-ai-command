@@ -1,9 +1,11 @@
 """User profile and self-service API endpoints."""
 
 import logging
-from fastapi import APIRouter, Request, Depends
+
+from fastapi import APIRouter, Depends, Request
+
 from app.core.auth import get_current_user_id
-from app.core.errors import api_success, api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error, api_success
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/profile", tags=["Profile"])
@@ -51,7 +53,7 @@ async def update_profile(
         if not updates:
             return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "No valid fields to update")
 
-        res = await client.table("users").update(updates).eq(
+        await client.table("users").update(updates).eq(
             "id", user_id
         ).execute()
 
@@ -116,7 +118,7 @@ async def update_security_settings(
 ):
     """Update security settings (notification preferences, etc.)."""
     try:
-        body = await req.json()
+        await req.json()
         return api_success(data={
             "updated": True,
             "note": "Security settings updated. Password changes require Supabase Auth.",

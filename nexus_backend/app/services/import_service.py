@@ -5,9 +5,9 @@
 
 import csv
 import io
-import re
-from typing import List, Dict, Any, Optional
 import logging
+import re
+from typing import Any
 
 # Try to import openpyxl, but don't fail if not available
 try:
@@ -24,7 +24,7 @@ class ImportService:
     """数据导入服务类，处理 CSV 和 Excel 文件的解析和导入"""
 
     @staticmethod
-    def _parse_file(contents: bytes, filename: str) -> List[Dict[str, Any]]:
+    def _parse_file(contents: bytes, filename: str) -> list[dict[str, Any]]:
         """
         解析上传的文件内容（CSV 或 Excel）
 
@@ -48,7 +48,7 @@ class ImportService:
             raise ValueError(f"不支持的文件格式: {file_ext}")
 
     @staticmethod
-    def _parse_csv(contents: bytes) -> List[Dict[str, Any]]:
+    def _parse_csv(contents: bytes) -> list[dict[str, Any]]:
         """
         解析 CSV 文件，自动检测编码（utf-8 或 gbk）
 
@@ -81,7 +81,7 @@ class ImportService:
         return data
 
     @staticmethod
-    def _parse_excel(contents: bytes, file_ext: str) -> List[Dict[str, Any]]:
+    def _parse_excel(contents: bytes, file_ext: str) -> list[dict[str, Any]]:
         """
         解析 Excel 文件
 
@@ -128,7 +128,7 @@ class ImportService:
             raise ValueError(f"Excel 文件解析失败: {str(e)}")
 
     @staticmethod
-    async def preview(contents: bytes, filename: str) -> Dict[str, Any]:
+    async def preview(contents: bytes, filename: str) -> dict[str, Any]:
         """
         预览导入数据（返回前10行和总行数）
 
@@ -186,8 +186,8 @@ class ImportService:
 
     @staticmethod
     def _validate_employee(
-        row: Dict[str, Any], row_num: int
-    ) -> Optional[Dict[str, Any]]:
+        row: dict[str, Any], row_num: int
+    ) -> dict[str, Any] | None:
         """
         验证员工数据
 
@@ -232,8 +232,8 @@ class ImportService:
 
     @staticmethod
     def _validate_customer(
-        row: Dict[str, Any], row_num: int
-    ) -> Optional[Dict[str, Any]]:
+        row: dict[str, Any], row_num: int
+    ) -> dict[str, Any] | None:
         """
         验证客户数据
 
@@ -265,8 +265,8 @@ class ImportService:
 
     @staticmethod
     def _detect_duplicates(
-        rows: List[Dict[str, Any]], key_fields: List[str]
-    ) -> List[Dict[str, Any]]:
+        rows: list[dict[str, Any]], key_fields: list[str]
+    ) -> list[dict[str, Any]]:
         """
         检测文件内部重复行
 
@@ -314,7 +314,7 @@ class ImportService:
         user_id: str,
         db_client: Any,
         mode: str = "insert",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         导入员工数据
 
@@ -496,7 +496,7 @@ class ImportService:
         user_id: str,
         db_client: Any,
         mode: str = "insert",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         导入客户数据
 

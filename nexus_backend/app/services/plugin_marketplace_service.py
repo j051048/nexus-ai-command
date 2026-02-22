@@ -9,8 +9,8 @@
 """
 
 import logging
-from typing import Dict, List, Optional, Any
 from datetime import datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ class PluginMarketplaceService:
     """插件市场服务"""
 
     # 内置插件注册表
-    BUILTIN_PLUGINS: List[Dict[str, Any]] = [
+    BUILTIN_PLUGINS: list[dict[str, Any]] = [
         {
             "id": "plugin_kingdee",
             "name": "金蝶 ERP 集成",
@@ -193,17 +193,17 @@ class PluginMarketplaceService:
     ]
 
     # 插件ID到插件的映射 (缓存)
-    _plugin_map: Dict[str, Dict] = {}
+    _plugin_map: dict[str, dict] = {}
 
     def __init__(self):
         self._plugin_map = {p["id"]: p for p in self.BUILTIN_PLUGINS}
 
     async def list_plugins(
         self,
-        org_id: Optional[str] = None,
-        category: Optional[str] = None,
+        org_id: str | None = None,
+        category: str | None = None,
         db: Any = None,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """列出所有可用插件，附带安装状态"""
         plugins = list(self.BUILTIN_PLUGINS)
 
@@ -230,7 +230,7 @@ class PluginMarketplaceService:
 
         return plugins
 
-    async def get_plugin(self, plugin_id: str) -> Optional[Dict]:
+    async def get_plugin(self, plugin_id: str) -> dict | None:
         """获取单个插件详情"""
         return self._plugin_map.get(plugin_id)
 
@@ -238,9 +238,9 @@ class PluginMarketplaceService:
         self,
         org_id: str,
         plugin_id: str,
-        config: Optional[Dict] = None,
+        config: dict | None = None,
         db: Any = None,
-    ) -> Dict:
+    ) -> dict:
         """安装插件到组织"""
         plugin = self._plugin_map.get(plugin_id)
         if not plugin:
@@ -255,7 +255,7 @@ class PluginMarketplaceService:
 
         if db:
             try:
-                result = db.table("installed_plugins").upsert(
+                db.table("installed_plugins").upsert(
                     {
                         "organization_id": org_id,
                         "plugin_id": plugin_id,
@@ -294,8 +294,8 @@ class PluginMarketplaceService:
         return True
 
     async def update_plugin_config(
-        self, org_id: str, plugin_id: str, config: Dict, db: Any = None
-    ) -> Dict:
+        self, org_id: str, plugin_id: str, config: dict, db: Any = None
+    ) -> dict:
         """更新插件配置"""
         plugin = self._plugin_map.get(plugin_id)
         if not plugin:
@@ -320,7 +320,7 @@ class PluginMarketplaceService:
 
     async def get_installed_plugins(
         self, org_id: str, db: Any = None
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """获取组织已安装的插件列表"""
         installed = []
 

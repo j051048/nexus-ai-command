@@ -3,13 +3,15 @@
 AI 分析合同文档，提取关键条款、识别风险点、生成摘要
 """
 
-from .base_tool import BaseTool
-from typing import Dict, Any
+from typing import Any
+
 from app.core.database import supabase
 from app.services.ai_service import AIService
 
+from .base_tool import BaseTool
 
-def _get_client(config: Dict = None):
+
+def _get_client(config: dict = None):
     """Get scoped DB client if user token available, else fallback to service client."""
     token = config.get("token") if config else None
     return supabase.get_scoped_client(token) if token and supabase else supabase
@@ -43,7 +45,7 @@ class ContractAnalysisTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         contract_id = args.get("contract_id")
         contract_text = args.get("contract_text", "")

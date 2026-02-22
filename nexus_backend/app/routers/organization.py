@@ -4,11 +4,12 @@ Provides endpoints for managing organizational hierarchy and approval chains.
 """
 
 from fastapi import APIRouter, Depends
+
 from app.core.auth import get_current_user_id
-from app.services.organization import organization_service
-from app.services.approval_chain import approval_chain_service
+from app.core.errors import ErrorCode, api_error, api_success
 from app.models.schemas import StandardResponse
-from app.core.errors import api_success, api_error, ErrorCode
+from app.services.approval_chain import approval_chain_service
+from app.services.organization import organization_service
 
 router = APIRouter(prefix="/api/organization", tags=["Organization"])
 

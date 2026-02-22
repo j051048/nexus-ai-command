@@ -5,8 +5,9 @@ Onboarding API — demo data generation for new organizations.
 import logging
 
 from fastapi import APIRouter, Depends, Request
+
 from app.core.auth import get_current_user_id
-from app.core.errors import api_success, api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error, api_success
 from app.services.demo_data_service import generate_demo_data
 
 logger = logging.getLogger(__name__)

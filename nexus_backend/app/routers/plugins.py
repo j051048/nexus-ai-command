@@ -1,9 +1,11 @@
 """插件市场 API 路由"""
 
 import logging
-from fastapi import APIRouter, Request, Depends
+
+from fastapi import APIRouter, Depends, Request
+
 from app.core.auth import get_current_user_id
-from app.core.errors import api_success, api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error, api_success
 from app.services.plugin_marketplace_service import plugin_marketplace_service
 
 logger = logging.getLogger(__name__)

@@ -10,7 +10,7 @@ API 文档增强配置 - 自定义 Swagger UI 和 OpenAPI 元数据。
 """
 
 import logging
-from typing import Dict, Any, List
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ SWAGGER_UI_CONFIG = {
 
 # ==================== API 分组描述 ====================
 
-API_TAGS_METADATA: List[Dict[str, Any]] = [
+API_TAGS_METADATA: list[dict[str, Any]] = [
     {
         "name": "Chat",
         "description": (
@@ -388,7 +388,7 @@ DATA_IMPORT_VALIDATE_EXAMPLE = {
 
 API_VERSION = "2.0.0"
 
-API_CHANGELOG: List[Dict[str, Any]] = [
+API_CHANGELOG: list[dict[str, Any]] = [
     {
         "version": "2.0.0",
         "date": "2025-01-15",
@@ -462,7 +462,7 @@ def get_enhanced_openapi_description() -> str:
     )
 
 
-def get_endpoint_stats(app) -> Dict[str, Any]:
+def get_endpoint_stats(app) -> dict[str, Any]:
     """获取 API 端点统计信息"""
     stats = {
         "total_routes": 0,
@@ -483,7 +483,7 @@ def get_endpoint_stats(app) -> Dict[str, Any]:
     return stats
 
 
-def get_all_examples() -> Dict[str, Any]:
+def get_all_examples() -> dict[str, Any]:
     """获取所有 API 示例"""
     return {
         "approval_request": APPROVAL_REQUEST_EXAMPLE,

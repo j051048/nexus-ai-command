@@ -4,16 +4,18 @@ Critical security fix #1: AI cannot directly execute irreversible operations
 All approval/reject operations now require explicit confirmation
 """
 
-from .base_tool import BaseTool
-from typing import Dict, Any
-from datetime import datetime
 import logging
+from datetime import datetime
+from typing import Any
+
 from app.core.database import supabase
+
+from .base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
 
 
-def _get_client(config: Dict = None):
+def _get_client(config: dict = None):
     """Get scoped DB client if user token available, else fallback to service client."""
     token = config.get("token") if config else None
     return supabase.get_scoped_client(token) if token and supabase else supabase
@@ -50,7 +52,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         client = _get_client(config)
         # 使用当前登录用户的 ID（从 JWT 解析出来的）
@@ -144,7 +146,7 @@ class GetEmployeeInfoTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         name = args.get("employee_name")
         client = _get_client(config)
@@ -188,7 +190,7 @@ class GetEmployeeApprovalHistoryTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         employee_id = args.get("employee_id")
         limit = args.get("limit", 5)
@@ -247,7 +249,7 @@ class ApprovalTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         req_id = args.get("request_id")
         reason = args.get("reason", "")
@@ -271,7 +273,7 @@ class ApprovalTool(BaseTool):
 
         if user_role == "manager":
             # Check if approval amount exceeds manager limit (5000)
-            MANAGER_APPROVAL_LIMIT = 5000
+            manager_approval_limit = 5000
             request_res = (
                 await client.table("approval_requests")
                 .select("amount")
@@ -281,9 +283,9 @@ class ApprovalTool(BaseTool):
             )
             if (
                 request_res.data
-                and float(request_res.data.get("amount", 0)) > MANAGER_APPROVAL_LIMIT
+                and float(request_res.data.get("amount", 0)) > manager_approval_limit
             ):
-                return f"⛔ 权限不足：部门经理审批上限为 ¥{MANAGER_APPROVAL_LIMIT:,}，该申请金额超出限额，需要更高级别审批。"
+                return f"⛔ 权限不足：部门经理审批上限为 ¥{manager_approval_limit:,}，该申请金额超出限额，需要更高级别审批。"
 
         # Step 1: Fetch the request details first
         fetch_result = (
@@ -376,10 +378,10 @@ class ApprovalTool(BaseTool):
             # Multi-channel notification via notification_service
             try:
                 from app.services.notification_service import (
-                    notification_service,
                     Notification,
                     NotificationChannel,
                     NotificationPriority,
+                    notification_service,
                 )
 
                 await notification_service.send(
@@ -426,7 +428,7 @@ class RejectTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         req_id = args.get("request_id")
         reason = args.get("reason", "未说明原因")
@@ -450,7 +452,7 @@ class RejectTool(BaseTool):
 
         if user_role == "manager":
             # Check if approval amount exceeds manager limit (5000)
-            MANAGER_APPROVAL_LIMIT = 5000
+            manager_approval_limit = 5000
             request_res = (
                 await client.table("approval_requests")
                 .select("amount")
@@ -460,9 +462,9 @@ class RejectTool(BaseTool):
             )
             if (
                 request_res.data
-                and float(request_res.data.get("amount", 0)) > MANAGER_APPROVAL_LIMIT
+                and float(request_res.data.get("amount", 0)) > manager_approval_limit
             ):
-                return f"⛔ 权限不足：部门经理审批上限为 ¥{MANAGER_APPROVAL_LIMIT:,}，该申请金额超出限额，需要更高级别审批。"
+                return f"⛔ 权限不足：部门经理审批上限为 ¥{manager_approval_limit:,}，该申请金额超出限额，需要更高级别审批。"
 
         # Step 1: Fetch the request details first
         fetch_result = (
@@ -557,10 +559,10 @@ class RejectTool(BaseTool):
             # Multi-channel notification via notification_service
             try:
                 from app.services.notification_service import (
-                    notification_service,
                     Notification,
                     NotificationChannel,
                     NotificationPriority,
+                    notification_service,
                 )
 
                 await notification_service.send(
@@ -587,7 +589,7 @@ class PendingApprovalsTool(BaseTool):
     parameters = {"type": "object", "properties": {}, "required": []}
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         client = _get_client(config)
         result = (

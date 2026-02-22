@@ -7,12 +7,12 @@ Critical security fixes applied:
 - Fix: Support ES256 JWTs via Supabase JWKS endpoint
 """
 
-import jwt
-from jwt import PyJWKClient
-import os
 import logging
+import os
+
+import jwt
 from fastapi import Header, HTTPException, Request
-from typing import Optional
+from jwt import PyJWKClient
 
 # Use structured logging instead of print
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ ALLOWED_ALGORITHMS = ["HS256", "RS256", "ES256"]
 # Initialize JWKS client for ES256 verification.
 # Supabase publishes its signing public key at /.well-known/jwks.json
 # PyJWKClient caches the key automatically (lifespan=300s by default).
-_jwks_client: Optional[PyJWKClient] = None
+_jwks_client: PyJWKClient | None = None
 if SUPABASE_URL:
     try:
         jwks_url = f"{SUPABASE_URL.rstrip('/')}/auth/v1/.well-known/jwks.json"
@@ -47,12 +47,11 @@ if SUPABASE_URL:
         logger.warning(f"Failed to initialize JWKS client: {e}")
 
 # P0 Security: Validate critical secrets in production
-if IS_PRODUCTION:
-    if not SUPABASE_JWT_SECRET and not JWT_SECRET and not _jwks_client:
-        raise RuntimeError("CRITICAL: JWT secret or JWKS URL must be configured in production")
+if IS_PRODUCTION and not SUPABASE_JWT_SECRET and not JWT_SECRET and not _jwks_client:
+    raise RuntimeError("CRITICAL: JWT secret or JWKS URL must be configured in production")
 
 
-async def get_current_user_id(request: Request = None, authorization: Optional[str] = Header(None)) -> str:
+async def get_current_user_id(request: Request = None, authorization: str | None = Header(None)) -> str:
     """
     P0 Security: Authenticate user via JWT with strict security controls.
 

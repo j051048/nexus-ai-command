@@ -3,13 +3,15 @@
 实现报销、预算、薪资查询等财务场景的 AI 自动化
 """
 
-from .base_tool import BaseTool
-from typing import Dict, Any
 from datetime import datetime
+from typing import Any
+
 from app.core.database import supabase
 
+from .base_tool import BaseTool
 
-def _get_client(config: Dict = None):
+
+def _get_client(config: dict = None):
     """Get scoped DB client if user token available, else fallback to service client."""
     token = config.get("token") if config else None
     return supabase.get_scoped_client(token) if token and supabase else supabase
@@ -57,7 +59,7 @@ class ExpenseClaimTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         client = _get_client(config)
         expense_type = args.get("expense_type", "other")
@@ -116,11 +118,10 @@ class ExpenseClaimTool(BaseTool):
                     compliance_passed = False
 
         # 差旅费检查
-        if expense_type == "travel":
-            if amount > config_info.get("daily_limit", 1500):
-                compliance_issues.append(
-                    f"⚠️ 单日差旅费 ¥{amount:.0f} 超过标准 ¥{config_info['daily_limit']}"
-                )
+        if expense_type == "travel" and amount > config_info.get("daily_limit", 1500):
+            compliance_issues.append(
+                f"⚠️ 单日差旅费 ¥{amount:.0f} 超过标准 ¥{config_info['daily_limit']}"
+            )
 
         # 确定审批级别
         auto_limit = config_info.get("auto_limit", 300)
@@ -250,7 +251,7 @@ class ExpenseQueryTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         client = _get_client(config)
         # 查询该用户的报销申请
@@ -320,9 +321,9 @@ class BudgetQueryTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
-        department = args.get("department")
+        args.get("department")
         client = _get_client(config)
         # 获取用户部门
         user_res = (
@@ -362,7 +363,7 @@ class SalaryQueryTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         month = args.get("month", datetime.now().strftime("%Y-%m"))
         client = _get_client(config)
@@ -410,7 +411,7 @@ class InvoiceOCRTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         image_url = args.get("image_url", "")
         invoice_type = args.get("invoice_type", "auto")

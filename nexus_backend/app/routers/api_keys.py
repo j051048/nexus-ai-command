@@ -5,13 +5,12 @@ API Key 管理路由
 """
 
 import logging
-from typing import Optional, List
-from pydantic import BaseModel
-from fastapi import APIRouter, Request, Depends, Query
 
-from app.core.auth import get_current_user_id
+from fastapi import APIRouter, Depends, Query, Request
+from pydantic import BaseModel
+
 from app.core.dependencies import require_role
-from app.core.errors import api_success, api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error, api_success
 from app.services.api_key_service import api_key_service
 
 logger = logging.getLogger(__name__)
@@ -27,7 +26,7 @@ require_key_admin = require_role(["admin", "founder", "boss"])
 
 class CreateKeyRequest(BaseModel):
     name: str
-    scopes: List[str] = ["read"]
+    scopes: list[str] = ["read"]
     expires_days: int = 365
 
 
@@ -113,8 +112,8 @@ async def revoke_api_key(
 async def get_api_key_usage(
     key_id: str,
     request: Request,
-    date_from: Optional[str] = Query(default=None),
-    date_to: Optional[str] = Query(default=None),
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
     user_id: str = Depends(require_key_admin),
 ):
     """获取 API Key 使用统计"""

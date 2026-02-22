@@ -5,13 +5,12 @@ Implements comprehensive data masking and anonymization.
 Fixes Issue #11: Missing data masking API.
 """
 
-import re
-import json
-import logging
 import hashlib
-from typing import Dict, List, Optional, Any, Tuple
+import logging
+import re
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +53,7 @@ class MaskingRule:
 class DataMaskingService:
     """
     P2 Enhancement: Comprehensive data masking service.
-    
+
     Features:
     - Multiple masking strategies
     - Configurable rules per data type
@@ -63,7 +62,7 @@ class DataMaskingService:
     - Batch processing
     - API-ready endpoints
     """
-    
+
     # Default masking patterns
     DEFAULT_PATTERNS = {
         DataType.PHONE: r'1[3-9]\d{9}',
@@ -74,14 +73,14 @@ class DataMaskingService:
         DataType.API_KEY: r'sk-[a-zA-Z0-9]{20,}|api[_-]?key[_-]?[a-zA-Z0-9]{16,}',
         DataType.CREDIT_CARD: r'\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}',
     }
-    
+
     def __init__(self, secret_key: str = "default-secret-key"):
         self.secret_key = secret_key
-        self._token_map: Dict[str, str] = {}  # token -> original
-        self._reverse_map: Dict[str, str] = {}  # original -> token
-        self._rules: Dict[DataType, MaskingRule] = self._init_default_rules()
-    
-    def _init_default_rules(self) -> Dict[DataType, MaskingRule]:
+        self._token_map: dict[str, str] = {}  # token -> original
+        self._reverse_map: dict[str, str] = {}  # original -> token
+        self._rules: dict[DataType, MaskingRule] = self._init_default_rules()
+
+    def _init_default_rules(self) -> dict[DataType, MaskingRule]:
         """Initialize default masking rules."""
         return {
             DataType.PHONE: MaskingRule(
@@ -127,70 +126,70 @@ class DataMaskingService:
                 replacement="****"
             ),
         }
-    
+
     def set_rule(self, data_type: DataType, rule: MaskingRule):
         """Set a custom masking rule."""
         self._rules[data_type] = rule
-    
-    def mask(self, text: str, data_types: List[DataType] = None) -> str:
+
+    def mask(self, text: str, data_types: list[DataType] = None) -> str:
         """
         Mask sensitive data in text.
-        
+
         Args:
             text: Input text to mask
             data_types: Specific data types to mask (None = all)
-            
+
         Returns:
             Text with sensitive data masked
         """
         if not text:
             return text
-        
+
         types_to_mask = data_types or list(self._rules.keys())
         result = text
-        
+
         for data_type in types_to_mask:
             if data_type not in self._rules:
                 continue
-            
+
             rule = self._rules[data_type]
             result = self._apply_masking(result, rule)
-        
+
         return result
-    
+
     def _apply_masking(self, text: str, rule: MaskingRule) -> str:
         """Apply masking rule to text."""
         pattern = re.compile(rule.pattern)
-        
+
         def replace(match):
             original = match.group()
-            
+
             if rule.masking_level == MaskingLevel.FULL:
                 return "*" * len(original)
-            
+
             elif rule.masking_level == MaskingLevel.PARTIAL:
                 return self._partial_mask(original, rule.data_type)
-            
+
             elif rule.masking_level == MaskingLevel.HASH:
                 return self._hash_mask(original)
-            
+
             elif rule.masking_level == MaskingLevel.TOKENIZE:
                 return self._tokenize(original)
-            
+
             elif rule.masking_level == MaskingLevel.REDACT:
                 return rule.replacement
-            
+
             return original
-        
+
         return pattern.sub(replace, text)
-    
+
     def _partial_mask(self, value: str, data_type: DataType) -> str:
         """Apply partial masking to preserve some format."""
         if data_type == DataType.PHONE:
             # 138****1234
             if len(value) == 11:
                 return value[:3] + "****" + value[7:]
-        
+
         elif data_type == DataType.EMAIL:
             # a***@example.com
             parts = value.split('@')
@@ -198,74 +197,74 @@ class DataMaskingService:
                 name = parts[0]
                 if len(name) > 1:
                     return name[0] + "***@" + parts[1]
-        
+
         elif data_type == DataType.ID_CARD:
             # 110***********1234
             if len(value) >= 15:
                 return value[:3] + "***********" + value[-4:]
-        
+
         elif data_type == DataType.BANK_CARD:
             # 6222****1234
             if len(value) >= 8:
                 return value[:4] + "****" + value[-4:]
-        
+
         elif data_type == DataType.IP_ADDRESS:
             # 192.168.*.*
             parts = value.split('.')
             if len(parts) == 4:
                 return f"{parts[0]}.{parts[1]}.*.*"
-        
+
         elif data_type == DataType.CREDIT_CARD:
             # ****-****-****-1234
             digits = re.sub(r'[\s-]', '', value)
             if len(digits) >= 4:
                 return "****-****-****-" + digits[-4:]
-        
+
         # Default: show first and last char
         if len(value) > 2:
             return value[0] + "*" * (len(value) - 2) + value[-1]
-        
+
         return "*" * len(value)
-    
+
     def _hash_mask(self, value: str) -> str:
         """Replace with hash."""
         hash_val = hashlib.sha256((value + self.secret_key).encode()).hexdigest()[:8]
         return f"[HASH:{hash_val}]"
-    
+
     def _tokenize(self, value: str) -> str:
         """Replace with reversible token."""
         if value in self._reverse_map:
             return self._reverse_map[value]
-        
+
         # Generate token
         token = f"[TOKEN:{hashlib.md5((value + self.secret_key).encode()).hexdigest()[:8]}]"
-        
+
         self._token_map[token] = value
         self._reverse_map[value] = token
-        
+
         return token
-    
-    def detokenize(self, token: str) -> Optional[str]:
+
+    def detokenize(self, token: str) -> str | None:
         """Recover original value from token."""
         return self._token_map.get(token)
-    
+
     def mask_dict(
         self,
-        data: Dict[str, Any],
-        field_rules: Dict[str, DataType] = None
-    ) -> Dict[str, Any]:
+        data: dict[str, Any],
+        field_rules: dict[str, DataType] = None
+    ) -> dict[str, Any]:
         """
         Mask sensitive fields in a dictionary.
-        
+
         Args:
             data: Dictionary to mask
             field_rules: Mapping of field names to data types
-            
+
         Returns:
             Dictionary with masked values
         """
         result = {}
-        
+
         for key, value in data.items():
             if isinstance(value, str):
                 # Check if this field has a specific rule
@@ -289,18 +288,18 @@ class DataMaskingService:
                 ]
             else:
                 result[key] = value
-        
+
         return result
-    
-    def detect_sensitive_data(self, text: str) -> List[Dict[str, Any]]:
+
+    def detect_sensitive_data(self, text: str) -> list[dict[str, Any]]:
         """
         Detect all sensitive data in text.
-        
+
         Returns:
             List of detected sensitive data with type and position
         """
         detections = []
-        
+
         for data_type, pattern in self.DEFAULT_PATTERNS.items():
             for match in re.finditer(pattern, text):
                 detections.append({
@@ -309,18 +308,18 @@ class DataMaskingService:
                     "start": match.start(),
                     "end": match.end()
                 })
-        
+
         return detections
-    
-    def get_masking_stats(self, text: str) -> Dict[str, int]:
+
+    def get_masking_stats(self, text: str) -> dict[str, int]:
         """Get statistics on sensitive data in text."""
         detections = self.detect_sensitive_data(text)
-        
+
         stats = {}
         for detection in detections:
             data_type = detection["type"]
             stats[data_type] = stats.get(data_type, 0) + 1
-        
+
         return stats
 
 
@@ -329,7 +328,7 @@ data_masking_service = DataMaskingService()
 
 
 # Convenience functions for API
-def mask_text(text: str, data_types: List[str] = None) -> str:
+def mask_text(text: str, data_types: list[str] = None) -> str:
     """API function to mask text."""
     if data_types:
         types = [DataType(t) for t in data_types if t in [d.value for d in DataType]]
@@ -337,7 +336,7 @@ def mask_text(text: str, data_types: List[str] = None) -> str:
     return data_masking_service.mask(text)
 
 
-def mask_data(data: Dict, field_rules: Dict[str, str] = None) -> Dict:
+def mask_data(data: dict, field_rules: dict[str, str] = None) -> dict:
     """API function to mask dictionary."""
     rules = None
     if field_rules:
@@ -345,6 +344,6 @@ def mask_data(data: Dict, field_rules: Dict[str, str] = None) -> Dict:
     return data_masking_service.mask_dict(data, rules)
 
 
-def detect_sensitive(text: str) -> List[Dict]:
+def detect_sensitive(text: str) -> list[dict]:
     """API function to detect sensitive data."""
     return data_masking_service.detect_sensitive_data(text)

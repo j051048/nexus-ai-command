@@ -328,6 +328,7 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>
 );
 
 // Re-export the handleNodeDataUpdate as a static helper for parent use
+// eslint-disable-next-line react-refresh/only-export-components
 export function updateNodeInCanvas(
   setNodes: React.Dispatch<React.SetStateAction<Node[]>>,
   nodeId: string,

@@ -7,9 +7,8 @@
 
 import logging
 import uuid
-from datetime import datetime, timezone
-from typing import Dict, List, Optional
 from collections import defaultdict
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +35,7 @@ class CRMService:
 
     # ─── 客户 CRUD ─────────────────────────────────────────
 
-    async def create_customer(self, org_id: str, data: Dict, db=None) -> Dict:
+    async def create_customer(self, org_id: str, data: dict, db=None) -> dict:
         """创建客户"""
         customer = {
             "id": str(uuid.uuid4()),
@@ -50,8 +49,8 @@ class CRMService:
             "assigned_to": data.get("assigned_to"),
             "tags": data.get("tags", []),
             "metadata": data.get("metadata", {}),
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
         }
 
         if not customer["name"]:
@@ -84,14 +83,14 @@ class CRMService:
         logger.info(f"Customer created: {customer['name']} in org {org_id}")
         return customer
 
-    async def update_customer(self, customer_id: str, data: Dict, db=None) -> Dict:
+    async def update_customer(self, customer_id: str, data: dict, db=None) -> dict:
         """更新客户信息"""
         allowed_fields = [
             "name", "company", "industry", "stage", "source",
             "estimated_value", "assigned_to", "tags", "metadata",
         ]
         update_data = {k: v for k, v in data.items() if k in allowed_fields}
-        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        update_data["updated_at"] = datetime.now(UTC).isoformat()
 
         if "stage" in update_data and update_data["stage"] not in CUSTOMER_STAGES:
             raise ValueError(f"无效的客户阶段: {update_data['stage']}")
@@ -113,7 +112,7 @@ class CRMService:
 
         return {"id": customer_id, **update_data}
 
-    async def get_customer(self, customer_id: str, db=None) -> Optional[Dict]:
+    async def get_customer(self, customer_id: str, db=None) -> dict | None:
         """获取客户详情"""
         if db:
             try:
@@ -135,8 +134,8 @@ class CRMService:
         return None
 
     async def list_customers(
-        self, org_id: str, filters: Optional[Dict] = None, db=None
-    ) -> List[Dict]:
+        self, org_id: str, filters: dict | None = None, db=None
+    ) -> list[dict]:
         """列出组织的所有客户，支持筛选"""
         filters = filters or {}
 
@@ -169,7 +168,7 @@ class CRMService:
         # 无数据库连接时返回空列表
         return []
 
-    async def search_customers(self, org_id: str, query: str, db=None) -> List[Dict]:
+    async def search_customers(self, org_id: str, query: str, db=None) -> list[dict]:
         """搜索客户（按名称或公司名）"""
         if not query or len(query.strip()) < 1:
             return []
@@ -195,7 +194,7 @@ class CRMService:
 
     # ─── 联系人管理 ─────────────────────────────────────────
 
-    async def create_contact(self, customer_id: str, data: Dict, db=None) -> Dict:
+    async def create_contact(self, customer_id: str, data: dict, db=None) -> dict:
         """创建联系人"""
         contact = {
             "id": str(uuid.uuid4()),
@@ -205,7 +204,7 @@ class CRMService:
             "phone": data.get("phone", ""),
             "email": data.get("email", ""),
             "is_primary": data.get("is_primary", False),
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         }
 
         if not contact["name"]:
@@ -233,7 +232,7 @@ class CRMService:
 
         return contact
 
-    async def list_contacts(self, customer_id: str, db=None) -> List[Dict]:
+    async def list_contacts(self, customer_id: str, db=None) -> list[dict]:
         """获取客户的联系人列表"""
         if db:
             try:
@@ -261,7 +260,7 @@ class CRMService:
         content: str,
         user_id: str,
         db=None,
-    ) -> Dict:
+    ) -> dict:
         """创建客户活动记录"""
         if activity_type not in ACTIVITY_TYPES:
             raise ValueError(f"无效的活动类型: {activity_type}")
@@ -273,7 +272,7 @@ class CRMService:
             "activity_type": activity_type,
             "content": content,
             "metadata": {},
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         }
 
         if db:
@@ -298,7 +297,7 @@ class CRMService:
 
     async def get_activity_timeline(
         self, customer_id: str, limit: int = 20, db=None
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """获取客户的活动时间线"""
         if db:
             try:
@@ -320,7 +319,7 @@ class CRMService:
 
     # ─── 客户统计 ──────────────────────────────────────────
 
-    async def get_customer_stats(self, org_id: str, db=None) -> Dict:
+    async def get_customer_stats(self, org_id: str, db=None) -> dict:
         """客户统计: 总数、各阶段分布、新增、转化率"""
         customers = await self.list_customers(org_id, db=db)
 
@@ -330,7 +329,7 @@ class CRMService:
             stage_counts[c.get("stage", "lead")] += 1
 
         # 计算本月新增
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         new_this_month = sum(
             1 for c in customers
@@ -369,7 +368,7 @@ class CRMService:
         try:
             return datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
         except (ValueError, AttributeError):
-            return datetime.min.replace(tzinfo=timezone.utc)
+            return datetime.min.replace(tzinfo=UTC)
 
 
 # Global instance

@@ -10,13 +10,13 @@
 """
 
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Any
 
 from app.core.database import supabase
 from app.services.im_platform.base_client import IMPlatformClient
-from app.services.im_platform.wecom_client import WecomClient
 from app.services.im_platform.dingtalk_client import DingtalkClient
 from app.services.im_platform.feishu_client import FeishuClient
+from app.services.im_platform.wecom_client import WecomClient
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class ContactSyncService:
 
     async def sync_contacts(
         self, org_id: str, platform: str, db=None
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         从指定 IM 平台同步通讯录到 Nexus。
 
@@ -106,7 +106,7 @@ class ContactSyncService:
 
     async def _get_client(
         self, org_id: str, platform: str, db=None
-    ) -> Optional[IMPlatformClient]:
+    ) -> IMPlatformClient | None:
         """
         从 im_platform_config 表获取配置并创建平台客户端。
 
@@ -153,8 +153,8 @@ class ContactSyncService:
 
     @staticmethod
     def _create_client(
-        platform: str, config: Dict[str, Any]
-    ) -> Optional[IMPlatformClient]:
+        platform: str, config: dict[str, Any]
+    ) -> IMPlatformClient | None:
         """
         根据平台和配置创建客户端实例。
 
@@ -188,7 +188,7 @@ class ContactSyncService:
 
     async def _sync_departments(
         self, client: IMPlatformClient, org_id: str, db
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """
         同步部门列表，返回平台部门 ID -> Nexus 部门 ID 映射。
 
@@ -259,9 +259,9 @@ class ContactSyncService:
         client: IMPlatformClient,
         org_id: str,
         platform: str,
-        dept_mapping: Dict[str, str],
+        dept_mapping: dict[str, str],
         db,
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         """
         同步用户列表。
 
@@ -283,7 +283,7 @@ class ContactSyncService:
         stats = {"total": 0, "created": 0, "updated": 0}
         processed_users = set()  # 去重（用户可能在多个部门）
 
-        for platform_dept_id, nexus_dept_id in dept_mapping.items():
+        for platform_dept_id, _nexus_dept_id in dept_mapping.items():
             try:
                 users = await client.get_department_users(platform_dept_id)
             except Exception as e:
@@ -360,7 +360,7 @@ class ContactSyncService:
     @staticmethod
     async def _find_nexus_user_by_mobile(
         mobile: str, org_id: str, db
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         通过手机号在 Nexus users 表中查找用户。
 

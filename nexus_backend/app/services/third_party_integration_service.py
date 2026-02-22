@@ -9,7 +9,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Any
+from typing import Any
 
 import httpx
 
@@ -40,11 +40,11 @@ class IntegrationConfig:
     org_id: str
     type: IntegrationType
     name: str
-    credentials: Dict[str, str] = field(default_factory=dict)
-    settings: Dict[str, Any] = field(default_factory=dict)
+    credentials: dict[str, str] = field(default_factory=dict)
+    settings: dict[str, Any] = field(default_factory=dict)
     status: IntegrationStatus = IntegrationStatus.INACTIVE
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "integration_id": self.integration_id,
             "org_id": self.org_id,
@@ -74,7 +74,7 @@ class BaseConnector(ABC):
         ...
 
     @abstractmethod
-    async def send(self, action: str, payload: Dict) -> Dict:
+    async def send(self, action: str, payload: dict) -> dict:
         """Send a message/action to the external service."""
         ...
 
@@ -83,7 +83,7 @@ class SlackConnector(BaseConnector):
     """Slack integration connector."""
 
     def __init__(self):
-        self._token: Optional[str] = None
+        self._token: str | None = None
         self._base_url = "https://slack.com/api"
 
     async def connect(self, config: IntegrationConfig) -> bool:
@@ -111,7 +111,7 @@ class SlackConnector(BaseConnector):
             logger.warning(f"Slack health check failed: {e}")
             return False
 
-    async def send(self, action: str, payload: Dict) -> Dict:
+    async def send(self, action: str, payload: dict) -> dict:
         if not self._token:
             return {"ok": False, "error": "not_connected"}
 
@@ -137,7 +137,7 @@ class TeamsConnector(BaseConnector):
     """Microsoft Teams integration connector."""
 
     def __init__(self):
-        self._webhook_url: Optional[str] = None
+        self._webhook_url: str | None = None
 
     async def connect(self, config: IntegrationConfig) -> bool:
         self._webhook_url = config.credentials.get("webhook_url")
@@ -149,7 +149,7 @@ class TeamsConnector(BaseConnector):
     async def health_check(self) -> bool:
         return bool(self._webhook_url)
 
-    async def send(self, action: str, payload: Dict) -> Dict:
+    async def send(self, action: str, payload: dict) -> dict:
         if not self._webhook_url:
             return {"ok": False, "error": "not_connected"}
 
@@ -188,14 +188,14 @@ class ThirdPartyIntegrationService:
         "Real integration is not yet available."
     )
 
-    CONNECTOR_REGISTRY: Dict[str, type] = {
+    CONNECTOR_REGISTRY: dict[str, type] = {
         "slack": SlackConnector,
         "teams": TeamsConnector,
     }
 
     def __init__(self):
-        self._active_connections: Dict[str, BaseConnector] = {}
-        self._configs: Dict[str, IntegrationConfig] = {}
+        self._active_connections: dict[str, BaseConnector] = {}
+        self._configs: dict[str, IntegrationConfig] = {}
 
     async def register(self, config: IntegrationConfig, db=None) -> bool:
         """Register a new integration configuration."""
@@ -239,15 +239,15 @@ class ThirdPartyIntegrationService:
             config.status = IntegrationStatus.INACTIVE
 
     async def send(
-        self, integration_id: str, action: str, payload: Dict
-    ) -> Dict:
+        self, integration_id: str, action: str, payload: dict
+    ) -> dict:
         """Send a message via an active integration."""
         connector = self._active_connections.get(integration_id)
         if not connector:
             return {"ok": False, "error": "integration_not_active"}
         return await connector.send(action, payload)
 
-    def list_available_connectors(self) -> List[Dict]:
+    def list_available_connectors(self) -> list[dict]:
         """List all available connector types with implementation status."""
         result = []
         for name in self.CONNECTOR_REGISTRY:
@@ -261,7 +261,7 @@ class ThirdPartyIntegrationService:
             })
         return result
 
-    def list_integrations(self, org_id: str = None) -> List[Dict]:
+    def list_integrations(self, org_id: str = None) -> list[dict]:
         """List all registered integrations, optionally filtered by org."""
         results = []
         for config in self._configs.values():

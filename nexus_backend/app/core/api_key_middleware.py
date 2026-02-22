@@ -6,8 +6,10 @@ API Key 认证中间件
 如果没有则降级到 JWT 认证（由 TenantContextMiddleware 处理）。
 """
 
+import contextlib
 import logging
 import time
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -80,7 +82,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
                     # 记录使用日志（异步，不阻塞响应）
                     elapsed_ms = int((time.time() - start_time) * 1000)
-                    try:
+                    with contextlib.suppress(Exception):
                         await api_key_service.log_api_usage(
                             key_id=key_info["key_id"],
                             endpoint=request.url.path,
@@ -88,8 +90,6 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
                             status_code=response.status_code,
                             response_time_ms=elapsed_ms,
                         )
-                    except Exception:
-                        pass  # 日志记录失败不影响响应
 
                     return response
                 else:

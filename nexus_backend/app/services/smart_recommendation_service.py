@@ -8,10 +8,10 @@ Phase 4.4: Connected to real database for context-aware recommendations.
 """
 
 import logging
-from typing import Dict, Optional, Any, List
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from enum import Enum
+from typing import Any
 
 from app.core.database import supabase
 
@@ -45,11 +45,11 @@ class Recommendation:
     description: str
     priority: Priority
     confidence: float
-    action_url: Optional[str] = None
-    action_label: Optional[str] = None
-    expires_at: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    action_url: str | None = None
+    action_label: str | None = None
+    expires_at: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 class SmartRecommendationService:
@@ -67,7 +67,7 @@ class SmartRecommendationService:
     """
 
     def __init__(self):
-        self._feedback_history: Dict[str, List] = {}
+        self._feedback_history: dict[str, list] = {}
         self._recommendation_counter = 0
 
     def _generate_id(self) -> str:
@@ -78,10 +78,10 @@ class SmartRecommendationService:
     async def get_recommendations(
         self,
         user_id: str,
-        context: Dict[str, Any] = None,
+        context: dict[str, Any] = None,
         limit: int = 5,
         db: Any = None,
-    ) -> List[Recommendation]:
+    ) -> list[Recommendation]:
         """
         Get personalized recommendations for a user based on real business data.
 
@@ -94,7 +94,7 @@ class SmartRecommendationService:
             List of Recommendation objects
         """
         ctx = context or {}
-        recommendations: List[Recommendation] = []
+        recommendations: list[Recommendation] = []
         client = db or supabase
 
         if not client:
@@ -160,10 +160,10 @@ class SmartRecommendationService:
     # ────────────────────────────────────────────────────────────────
 
     async def _get_approval_recommendations(
-        self, user_id: str, role: str, org_id: Optional[str], client: Any
-    ) -> List[Recommendation]:
+        self, user_id: str, role: str, org_id: str | None, client: Any
+    ) -> list[Recommendation]:
         """Check for pending approvals that need attention."""
-        recs: List[Recommendation] = []
+        recs: list[Recommendation] = []
 
         if role not in ("manager", "boss"):
             return recs
@@ -214,13 +214,13 @@ class SmartRecommendationService:
         return recs
 
     async def _get_lead_recommendations(
-        self, user_id: str, role: str, org_id: Optional[str], client: Any
-    ) -> List[Recommendation]:
+        self, user_id: str, role: str, org_id: str | None, client: Any
+    ) -> list[Recommendation]:
         """Check for stale sales leads that need follow-up."""
-        recs: List[Recommendation] = []
+        recs: list[Recommendation] = []
 
         seven_days_ago = (
-            datetime.now(timezone.utc) - timedelta(days=7)
+            datetime.now(UTC) - timedelta(days=7)
         ).isoformat()
 
         query = (
@@ -240,19 +240,19 @@ class SmartRecommendationService:
         stale_leads = result.data or []
 
         if stale_leads:
-            my_stale = [l for l in stale_leads if l.get("assigned_to") == user_id]
+            my_stale = [lead for lead in stale_leads if lead.get("assigned_to") == user_id]
 
             if my_stale:
                 recs.append(Recommendation(
                     id=self._generate_id(),
                     type=RecommendationType.ACTION,
                     title=f"你有 {len(my_stale)} 条商机待跟进",
-                    description=f"商机超过7天未更新，建议尽快联系客户",
+                    description="商机超过7天未更新，建议尽快联系客户",
                     priority=Priority.HIGH,
                     confidence=0.9,
                     action_url="/crm",
                     action_label="查看商机",
-                    metadata={"lead_ids": [l["id"] for l in my_stale[:5]]},
+                    metadata={"lead_ids": [lead["id"] for lead in my_stale[:5]]},
                 ))
 
             if role in ("manager", "boss") and len(stale_leads) > len(my_stale):
@@ -271,10 +271,10 @@ class SmartRecommendationService:
         return recs
 
     async def _get_budget_recommendations(
-        self, org_id: Optional[str], client: Any
-    ) -> List[Recommendation]:
+        self, org_id: str | None, client: Any
+    ) -> list[Recommendation]:
         """Check for budget overruns."""
-        recs: List[Recommendation] = []
+        recs: list[Recommendation] = []
 
         query = client.table("finance_budgets").select(
             "id, name, total_amount, used_amount, period"
@@ -316,14 +316,14 @@ class SmartRecommendationService:
         return recs
 
     async def _get_contract_recommendations(
-        self, org_id: Optional[str], client: Any
-    ) -> List[Recommendation]:
+        self, org_id: str | None, client: Any
+    ) -> list[Recommendation]:
         """Check for contracts expiring soon."""
-        recs: List[Recommendation] = []
+        recs: list[Recommendation] = []
 
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(UTC).strftime("%Y-%m-%d")
         thirty_days = (
-            datetime.now(timezone.utc) + timedelta(days=30)
+            datetime.now(UTC) + timedelta(days=30)
         ).strftime("%Y-%m-%d")
 
         query = (
@@ -372,11 +372,11 @@ class SmartRecommendationService:
 
     async def _get_task_recommendations(
         self, user_id: str, client: Any
-    ) -> List[Recommendation]:
+    ) -> list[Recommendation]:
         """Check for overdue or near-due tasks."""
-        recs: List[Recommendation] = []
+        recs: list[Recommendation] = []
 
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.now(UTC).strftime("%Y-%m-%d")
 
         try:
             # Overdue tasks
@@ -412,8 +412,8 @@ class SmartRecommendationService:
     # ────────────────────────────────────────────────────────────────
 
     async def _get_page_recommendations(
-        self, page: str, context: Dict
-    ) -> List[Recommendation]:
+        self, page: str, context: dict
+    ) -> list[Recommendation]:
         """Get recommendations specific to the current page."""
         page_map = {
             "dashboard": Recommendation(
@@ -451,10 +451,10 @@ class SmartRecommendationService:
         rec = page_map.get(page)
         return [rec] if rec else []
 
-    async def _get_time_based_recommendations(self) -> List[Recommendation]:
+    async def _get_time_based_recommendations(self) -> list[Recommendation]:
         """Get recommendations based on current time."""
         recommendations = []
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Monday morning: weekly planning
         if now.weekday() == 0 and now.hour < 12:
@@ -497,9 +497,9 @@ class SmartRecommendationService:
 
         return recommendations
 
-    def _filter_expired(self, recommendations: List[Recommendation]) -> List[Recommendation]:
+    def _filter_expired(self, recommendations: list[Recommendation]) -> list[Recommendation]:
         """Filter out expired recommendations."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return [
             r for r in recommendations
             if not r.expires_at or datetime.fromisoformat(r.expires_at) > now
@@ -514,7 +514,7 @@ class SmartRecommendationService:
         user_id: str,
         recommendation_id: str,
         feedback: str,  # "positive", "negative", "dismissed", "actioned"
-        context: Dict = None,
+        context: dict = None,
     ):
         """Record user feedback on a recommendation."""
         if user_id not in self._feedback_history:
@@ -524,10 +524,10 @@ class SmartRecommendationService:
             "recommendation_id": recommendation_id,
             "feedback": feedback,
             "context": context,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         })
 
-    def update_user_profile(self, user_id: str, profile_update: Dict):
+    def update_user_profile(self, user_id: str, profile_update: dict):
         """Update user profile for better recommendations (no-op for DB-backed)."""
         pass  # User profiles are now derived from DB data
 
@@ -535,8 +535,8 @@ class SmartRecommendationService:
         self,
         user_id: str,
         notification_type: str,
-        data: Dict = None,
-    ) -> Optional[Recommendation]:
+        data: dict = None,
+    ) -> Recommendation | None:
         """
         Trigger a proactive notification.
 
@@ -556,7 +556,7 @@ class SmartRecommendationService:
                 description="您有任务将在24小时内到期",
                 priority=Priority.HIGH,
                 confidence=1.0,
-                expires_at=(datetime.now(timezone.utc) + timedelta(hours=24)).isoformat(),
+                expires_at=(datetime.now(UTC) + timedelta(hours=24)).isoformat(),
             ),
             "new_feature": Recommendation(
                 id=self._generate_id(),
@@ -565,7 +565,7 @@ class SmartRecommendationService:
                 description="我们添加了新功能，快来体验吧！",
                 priority=Priority.MEDIUM,
                 confidence=0.9,
-                expires_at=(datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
+                expires_at=(datetime.now(UTC) + timedelta(days=7)).isoformat(),
             ),
             "report_anomaly": Recommendation(
                 id=self._generate_id(),
@@ -574,13 +574,13 @@ class SmartRecommendationService:
                 description=(data or {}).get("message", "检测到异常数据，需要您的关注"),
                 priority=Priority.URGENT,
                 confidence=0.95,
-                expires_at=(datetime.now(timezone.utc) + timedelta(hours=48)).isoformat(),
+                expires_at=(datetime.now(UTC) + timedelta(hours=48)).isoformat(),
             ),
         }
 
         return templates.get(notification_type)
 
-    def get_recommendation_stats(self, user_id: str = None) -> Dict:
+    def get_recommendation_stats(self, user_id: str = None) -> dict:
         """Get recommendation statistics."""
         stats = {
             "feedback_count": sum(

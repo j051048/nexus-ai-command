@@ -8,9 +8,8 @@ Provides validation functions for common input types to prevent:
 - XSS attempts
 """
 
-import re
 import logging
-from typing import Optional, Tuple, List
+import re
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -48,7 +47,7 @@ class InputValidator:
     def __init__(self):
         self._injection_regex = [re.compile(p) for p in self.INJECTION_PATTERNS]
 
-    def validate_uuid(self, value: str) -> Tuple[bool, Optional[str]]:
+    def validate_uuid(self, value: str) -> tuple[bool, str | None]:
         """
         Validate a UUID string.
 
@@ -66,7 +65,7 @@ class InputValidator:
 
         return True, None
 
-    def validate_email(self, value: str) -> Tuple[bool, Optional[str]]:
+    def validate_email(self, value: str) -> tuple[bool, str | None]:
         """
         Validate an email address.
 
@@ -85,8 +84,8 @@ class InputValidator:
         return True, None
 
     def validate_date(
-        self, value: str, format: str = "%Y-%m-%d"
-    ) -> Tuple[bool, Optional[str]]:
+        self, value: str, format: str = "%Y-%m-%d"  # noqa: A002
+    ) -> tuple[bool, str | None]:
         """
         Validate a date string.
 
@@ -108,7 +107,7 @@ class InputValidator:
 
     def validate_amount(
         self, value: float, min_value: float = 0, max_value: float = 1000000000
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """
         Validate a monetary amount.
 
@@ -128,7 +127,7 @@ class InputValidator:
 
         return True, None
 
-    def check_injection(self, value: str) -> Tuple[bool, Optional[str]]:
+    def check_injection(self, value: str) -> tuple[bool, str | None]:
         """
         Check if a string contains potential injection patterns.
 
@@ -168,10 +167,7 @@ class InputValidator:
         if len(sanitized) > 255:
             # Keep extension if present
             parts = sanitized.rsplit(".", 1)
-            if len(parts) == 2 and len(parts[1]) <= 10:
-                sanitized = parts[0][:240] + "." + parts[1]
-            else:
-                sanitized = sanitized[:255]
+            sanitized = parts[0][:240] + "." + parts[1] if len(parts) == 2 and len(parts[1]) <= 10 else sanitized[:255]
 
         return sanitized or "unnamed"
 
@@ -181,7 +177,7 @@ class InputValidator:
         field_name: str = "Field",
         min_length: int = 0,
         max_length: int = 10000,
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """
         Validate string length constraints.
 
@@ -208,11 +204,11 @@ class InputValidator:
 
     def validate_list(
         self,
-        value: List,
+        value: list,
         field_name: str = "List",
         min_items: int = 0,
         max_items: int = 100,
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """
         Validate list constraints.
 

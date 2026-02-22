@@ -13,7 +13,7 @@ IM 平台客户端抽象基类
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Any
+from typing import Any
 
 import httpx
 
@@ -31,9 +31,9 @@ class IMPlatformClient(ABC):
 
     def __init__(self, platform_name: str):
         self.platform_name = platform_name
-        self._access_token: Optional[str] = None
+        self._access_token: str | None = None
         self._token_expires_at: float = 0
-        self._http_client: Optional[httpx.AsyncClient] = None
+        self._http_client: httpx.AsyncClient | None = None
 
     async def _get_http_client(self) -> httpx.AsyncClient:
         """获取或创建 HTTP 客户端（复用连接池）"""
@@ -77,7 +77,7 @@ class IMPlatformClient(ABC):
             raise
 
     @abstractmethod
-    async def _fetch_access_token(self) -> Dict[str, Any]:
+    async def _fetch_access_token(self) -> dict[str, Any]:
         """
         子类实现: 从平台 API 获取 access_token。
 
@@ -89,7 +89,7 @@ class IMPlatformClient(ABC):
     # ── Contact / Directory ───────────────────────────────────────
 
     @abstractmethod
-    async def get_departments(self) -> List[Dict]:
+    async def get_departments(self) -> list[dict]:
         """
         获取部门列表。
 
@@ -99,7 +99,7 @@ class IMPlatformClient(ABC):
         ...
 
     @abstractmethod
-    async def get_department_users(self, department_id: str) -> List[Dict]:
+    async def get_department_users(self, department_id: str) -> list[dict]:
         """
         获取部门下的用户列表。
 
@@ -115,8 +115,8 @@ class IMPlatformClient(ABC):
 
     @abstractmethod
     async def get_attendance_records(
-        self, user_ids: List[str], start_date: str, end_date: str
-    ) -> List[Dict]:
+        self, user_ids: list[str], start_date: str, end_date: str
+    ) -> list[dict]:
         """
         获取考勤打卡数据。
 
@@ -147,7 +147,7 @@ class IMPlatformClient(ABC):
         ...
 
     @abstractmethod
-    async def send_interactive_card(self, user_id: str, card: Dict) -> bool:
+    async def send_interactive_card(self, user_id: str, card: dict) -> bool:
         """
         发送互动消息卡片（含按钮，如审批通知）。
 
@@ -177,7 +177,7 @@ class IMPlatformClient(ABC):
         ...
 
     @abstractmethod
-    async def get_user_by_auth_code(self, code: str) -> Dict:
+    async def get_user_by_auth_code(self, code: str) -> dict:
         """
         通过 OAuth 授权码获取用户信息。
 
@@ -193,7 +193,7 @@ class IMPlatformClient(ABC):
 
     async def _api_request(
         self, method: str, url: str, **kwargs
-    ) -> Dict:
+    ) -> dict:
         """
         带 token 的 API 请求封装。
 

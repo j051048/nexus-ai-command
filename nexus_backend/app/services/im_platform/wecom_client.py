@@ -13,7 +13,7 @@
 
 import logging
 from datetime import datetime
-from typing import Dict, List, Any
+from typing import Any
 from urllib.parse import quote
 
 from app.services.im_platform.base_client import IMPlatformClient
@@ -49,7 +49,7 @@ class WecomClient(IMPlatformClient):
 
     # ── Token ─────────────────────────────────────────────────────
 
-    async def _fetch_access_token(self) -> Dict[str, Any]:
+    async def _fetch_access_token(self) -> dict[str, Any]:
         """
         获取企微 access_token。
         GET https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=xxx&corpsecret=xxx
@@ -80,7 +80,7 @@ class WecomClient(IMPlatformClient):
 
     # ── Contact / Directory ───────────────────────────────────────
 
-    async def get_departments(self) -> List[Dict]:
+    async def get_departments(self) -> list[dict]:
         """
         获取企业部门列表。
         GET /department/list
@@ -106,7 +106,7 @@ class WecomClient(IMPlatformClient):
             logger.error(f"[wecom] Failed to get departments: {e}")
             return []
 
-    async def get_department_users(self, department_id: str) -> List[Dict]:
+    async def get_department_users(self, department_id: str) -> list[dict]:
         """
         获取部门下的用户详细列表。
         GET /user/list?department_id=xxx
@@ -147,8 +147,8 @@ class WecomClient(IMPlatformClient):
     # ── Attendance ────────────────────────────────────────────────
 
     async def get_attendance_records(
-        self, user_ids: List[str], start_date: str, end_date: str
-    ) -> List[Dict]:
+        self, user_ids: list[str], start_date: str, end_date: str
+    ) -> list[dict]:
         """
         获取考勤打卡数据。
         POST /checkin/getcheckindata
@@ -235,7 +235,7 @@ class WecomClient(IMPlatformClient):
             logger.error(f"[wecom] Failed to send text message to {user_id}: {e}")
             return False
 
-    async def send_interactive_card(self, user_id: str, card: Dict) -> bool:
+    async def send_interactive_card(self, user_id: str, card: dict) -> bool:
         """
         发送互动模板卡片消息（支持审批通知含批准/拒绝按钮）。
         POST /message/send 使用 msgtype="template_card"
@@ -299,7 +299,7 @@ class WecomClient(IMPlatformClient):
             f"#wechat_redirect"
         )
 
-    async def get_user_by_auth_code(self, code: str) -> Dict:
+    async def get_user_by_auth_code(self, code: str) -> dict:
         """
         通过 OAuth code 获取用户身份信息。
         GET /auth/getuserinfo?code=xxx
@@ -328,7 +328,7 @@ class WecomClient(IMPlatformClient):
     # ── Card Callback Update ──────────────────────────────────────
 
     async def update_template_card(
-        self, user_id: str, response_code: str, card: Dict
+        self, user_id: str, response_code: str, card: dict
     ) -> bool:
         """
         更新模板卡片内容（用户点击按钮后更新卡片状态）。

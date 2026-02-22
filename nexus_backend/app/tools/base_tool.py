@@ -1,14 +1,14 @@
-from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
 import logging
+from abc import ABC, abstractmethod
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-class ConfirmationRequired(Exception):
+class ConfirmationRequired(Exception):  # noqa: N818
     """Raised when a tool requires human confirmation before execution."""
 
-    def __init__(self, preview_message: str, tool_name: str, args: Dict[str, Any]):
+    def __init__(self, preview_message: str, tool_name: str, args: dict[str, Any]):
         self.preview_message = preview_message
         self.tool_name = tool_name
         self.args = args
@@ -33,7 +33,7 @@ class BaseTool(ABC):
 
     @property
     @abstractmethod
-    def parameters(self) -> Dict[str, Any]:
+    def parameters(self) -> dict[str, Any]:
         """JSON Schema for the tool parameters"""
         pass
 
@@ -64,8 +64,8 @@ class BaseTool(ABC):
         return "⚠️ 这是一个不可逆操作。请确认后再执行。"
 
     def check_confirmation(
-        self, args: Dict[str, Any], system_confirmed: bool = False
-    ) -> Optional[str]:
+        self, args: dict[str, Any], system_confirmed: bool = False
+    ) -> str | None:
         """
         System-level confirmation gate.
         Called BEFORE run() for irreversible tools.
@@ -83,7 +83,7 @@ class BaseTool(ABC):
 
         return self.confirmation_message
 
-    async def validate(self, args: Dict[str, Any]) -> None:
+    async def validate(self, args: dict[str, Any]) -> None:
         """
         Validate arguments against the tool's JSON schema parameters.
         Throws jsonschema.ValidationError if invalid.
@@ -103,7 +103,7 @@ class BaseTool(ABC):
 
     @abstractmethod
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         """
         Execute the tool logic.

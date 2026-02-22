@@ -14,14 +14,12 @@ Complexity tiers:
 """
 
 import json
-import re
 import logging
-from typing import Tuple
+import re
 
 from langchain_core.messages import HumanMessage
 
-from app.agent.state import AgentState, AgentPhase, QueryComplexity, ThinkingStep
-from app.core.config import settings
+from app.agent.state import AgentPhase, AgentState, QueryComplexity, ThinkingStep
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +50,7 @@ _MODERATE_KEYWORDS = {
 }
 
 
-def classify_query(query: str) -> Tuple[QueryComplexity, str]:
+def classify_query(query: str) -> tuple[QueryComplexity, str]:
     """
     Fast heuristic classification of user intent.
 
@@ -92,7 +90,7 @@ def classify_query(query: str) -> Tuple[QueryComplexity, str]:
 async def _llm_classify_intent(
     query: str,
     config,
-) -> Tuple[QueryComplexity, str]:
+) -> tuple[QueryComplexity, str]:
     """
     Use LLM for ambiguous query classification.
 
@@ -155,7 +153,7 @@ async def route_node(state: AgentState) -> dict:
             break
 
     complexity, intent_summary = classify_query(last_user_msg)
-    
+
     # ── LLM Fallback for ambiguous queries ──
     if intent_summary == "一般业务查询" and len(last_user_msg) > 10:
         complexity, intent_summary = await _llm_classify_intent(last_user_msg, config)

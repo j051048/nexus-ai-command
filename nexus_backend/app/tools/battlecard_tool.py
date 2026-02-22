@@ -1,6 +1,8 @@
-from .base_tool import BaseTool
-from typing import Dict, Any
+from typing import Any
+
 from app.services.vector_service import vector_service
+
+from .base_tool import BaseTool
 
 
 class BattlecardTool(BaseTool):
@@ -19,7 +21,7 @@ class BattlecardTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         comp = args.get("competitor_name", "")
         if not comp:
@@ -38,12 +40,12 @@ class BattlecardTool(BaseTool):
             # Fallback to a generic template if knowledge base is empty, but warn the user
             return f"""
             ℹ️ 知识库中暂未找到关于 **{comp}** 的详细文档。
-            
+
             ⚔️ **通用竞品打击策略建议 (Template)**:
             1. **性价比**: 强调我们的 TCO (全生命周期成本) 更低。
             2. **服务**: 突出我们 24 小时内的本地化响应速度。
             3. **定制化**: 询问客户是否有特殊需求，{comp} 作为大厂可能难以配合定制。
-            
+
             *建议上传该对手的分析报告到知识库以获取更精准的 AI 建议。*
             """
 

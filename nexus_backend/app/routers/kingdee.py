@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+
 from app.core.auth import get_current_user_id
 
 router = APIRouter(prefix="/api/kingdee", tags=["Kingdee Mock"])

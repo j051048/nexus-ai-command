@@ -14,12 +14,12 @@ B2: Wecom (企业微信) Notification Adapter
 """
 
 import logging
-from typing import Optional, Dict, Any
+from typing import Any
 
 import httpx
 
-from app.services.notification_service import BaseNotificationAdapter, Notification
 from app.core.config import settings
+from app.services.notification_service import BaseNotificationAdapter, Notification
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class WecomNotificationAdapter(BaseNotificationAdapter):
 
     def __init__(self):
         """初始化企业微信适配器"""
-        self.webhook_url: Optional[str] = getattr(settings, "WECOM_WEBHOOK_URL", None)
+        self.webhook_url: str | None = getattr(settings, "WECOM_WEBHOOK_URL", None)
 
         if not self.webhook_url:
             logger.warning(
@@ -127,7 +127,7 @@ class WecomNotificationAdapter(BaseNotificationAdapter):
             )
             return False
 
-    def _build_payload(self, notification: Notification) -> Dict[str, Any]:
+    def _build_payload(self, notification: Notification) -> dict[str, Any]:
         """
         构建企业微信消息载荷
 
@@ -152,7 +152,7 @@ class WecomNotificationAdapter(BaseNotificationAdapter):
             # 默认使用 markdown
             return self._build_markdown_payload(notification)
 
-    def _build_text_payload(self, notification: Notification) -> Dict[str, Any]:
+    def _build_text_payload(self, notification: Notification) -> dict[str, Any]:
         """
         构建文本消息载荷
 
@@ -176,7 +176,7 @@ class WecomNotificationAdapter(BaseNotificationAdapter):
 
         return payload
 
-    def _build_markdown_payload(self, notification: Notification) -> Dict[str, Any]:
+    def _build_markdown_payload(self, notification: Notification) -> dict[str, Any]:
         """
         构建 markdown 消息载荷
 
@@ -191,7 +191,7 @@ class WecomNotificationAdapter(BaseNotificationAdapter):
 
         return {"msgtype": "markdown", "markdown": {"content": markdown_content}}
 
-    def _build_image_payload(self, notification: Notification) -> Dict[str, Any]:
+    def _build_image_payload(self, notification: Notification) -> dict[str, Any]:
         """
         构建图片消息载荷
 
@@ -218,7 +218,7 @@ class WecomNotificationAdapter(BaseNotificationAdapter):
 
         return {"msgtype": "image", "image": image_data}
 
-    def _build_news_payload(self, notification: Notification) -> Dict[str, Any]:
+    def _build_news_payload(self, notification: Notification) -> dict[str, Any]:
         """
         构建图文消息载荷
 

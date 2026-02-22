@@ -8,17 +8,17 @@ Provides event-driven webhook delivery to external consumers with:
 - Event bus integration for automatic forwarding
 """
 
-import hmac
+import asyncio
 import hashlib
+import hmac
 import json
 import logging
 import time
 import uuid
-import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Any
+from typing import Any
 
 import httpx
 
@@ -45,7 +45,7 @@ class WebhookSubscription:
     id: str
     org_id: str
     url: str
-    events: List[str]
+    events: list[str]
     secret: str
     is_active: bool = True
     created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
@@ -53,7 +53,7 @@ class WebhookSubscription:
     max_failures: int = 10
     description: str = ""
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "id": self.id,
             "org_id": self.org_id,
@@ -72,16 +72,16 @@ class WebhookDelivery:
     id: str
     subscription_id: str
     event: str
-    payload: Dict[str, Any]
+    payload: dict[str, Any]
     status: str = "pending"  # pending, success, failed
     attempts: int = 0
     max_attempts: int = 3
-    response_code: Optional[int] = None
-    response_body: Optional[str] = None
-    next_retry_at: Optional[float] = None
+    response_code: int | None = None
+    response_body: str | None = None
+    next_retry_at: float | None = None
     created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "id": self.id,
             "subscription_id": self.subscription_id,
@@ -97,8 +97,8 @@ class WebhookService:
     """Webhook subscription management and delivery."""
 
     def __init__(self):
-        self._subscriptions: Dict[str, WebhookSubscription] = {}
-        self._deliveries: List[WebhookDelivery] = []
+        self._subscriptions: dict[str, WebhookSubscription] = {}
+        self._deliveries: list[WebhookDelivery] = []
         self._max_deliveries = 10000
 
     def sign_payload(self, payload: str, secret: str) -> str:
@@ -145,7 +145,7 @@ class WebhookService:
         self,
         org_id: str,
         url: str,
-        events: List[str],
+        events: list[str],
         secret: str = None,
         description: str = "",
         db=None,
@@ -185,7 +185,7 @@ class WebhookService:
         logger.info(f"Webhook subscription registered: {sub_id} for {url}")
         return sub
 
-    async def list_subscriptions(self, org_id: str, db=None) -> List[Dict]:
+    async def list_subscriptions(self, org_id: str, db=None) -> list[dict]:
         """List all subscriptions for an org."""
         results = [
             sub.to_dict()
@@ -211,7 +211,7 @@ class WebhookService:
 
         return True
 
-    async def deliver(self, event: str, payload: Dict, org_id: str):
+    async def deliver(self, event: str, payload: dict, org_id: str):
         """Find matching subscriptions and queue deliveries."""
         matching = [
             sub
@@ -301,7 +301,7 @@ class WebhookService:
 
     def get_recent_deliveries(
         self, org_id: str = None, limit: int = 50
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """Get recent webhook deliveries."""
         deliveries = self._deliveries
         if org_id:

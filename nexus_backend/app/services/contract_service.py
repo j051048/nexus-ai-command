@@ -9,8 +9,8 @@
 """
 
 import logging
-from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +50,8 @@ class ContractService:
     }
 
     async def create_contract(
-        self, org_id: str, data: Dict, db: Any = None
-    ) -> Dict:
+        self, org_id: str, data: dict, db: Any = None
+    ) -> dict:
         """创建新合同"""
         contract = {
             "organization_id": org_id,
@@ -90,8 +90,8 @@ class ContractService:
         return {**contract, "id": "mock-id", "created_at": datetime.utcnow().isoformat()}
 
     async def update_contract(
-        self, contract_id: str, data: Dict, db: Any = None
-    ) -> Dict:
+        self, contract_id: str, data: dict, db: Any = None
+    ) -> dict:
         """更新合同"""
         update_data = {
             k: v
@@ -135,7 +135,7 @@ class ContractService:
 
     async def get_contract(
         self, contract_id: str, db: Any = None
-    ) -> Optional[Dict]:
+    ) -> dict | None:
         """获取合同详情"""
         if db:
             try:
@@ -155,9 +155,9 @@ class ContractService:
     async def list_contracts(
         self,
         org_id: str,
-        filters: Optional[Dict] = None,
+        filters: dict | None = None,
         db: Any = None,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """列出组织的合同"""
         if db:
             try:
@@ -185,7 +185,7 @@ class ContractService:
 
     async def get_expiring_contracts(
         self, org_id: str, days: int = 30, db: Any = None
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """获取即将到期的合同"""
         if db:
             try:
@@ -209,9 +209,9 @@ class ContractService:
 
     async def get_contract_stats(
         self, org_id: str, db: Any = None
-    ) -> Dict:
+    ) -> dict:
         """合同统计"""
-        stats: Dict[str, Any] = {
+        stats: dict[str, Any] = {
             "total": 0,
             "total_amount": 0,
             "by_status": {},
@@ -259,9 +259,9 @@ class ContractService:
         contract_id: str,
         event_type: str,
         description: str,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         db: Any = None,
-    ) -> Dict:
+    ) -> dict:
         """添加合同事件"""
         event = {
             "contract_id": contract_id,
@@ -283,7 +283,7 @@ class ContractService:
 
     async def get_contract_events(
         self, contract_id: str, db: Any = None
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """获取合同事件时间线"""
         if db:
             try:

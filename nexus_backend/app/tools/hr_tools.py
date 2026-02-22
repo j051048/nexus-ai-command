@@ -3,13 +3,16 @@ HR 人力资源工具集
 实现考勤、绩效、员工档案等 HR 场景的 AI 自动化
 """
 
-from .base_tool import BaseTool
-from typing import Dict, Any
+import contextlib
 from datetime import datetime
+from typing import Any
+
 from app.core.database import supabase
 
+from .base_tool import BaseTool
 
-def _get_client(config: Dict = None):
+
+def _get_client(config: dict = None):
     """Get scoped DB client if user token available, else fallback to service client."""
     token = config.get("token") if config else None
     return supabase.get_scoped_client(token) if token and supabase else supabase
@@ -40,9 +43,9 @@ class AttendanceQueryTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
-        month = args.get("month", datetime.now().strftime("%Y-%m"))
+        args.get("month", datetime.now().strftime("%Y-%m"))
         employee_name = args.get("employee_name")
 
         client = _get_client(config)
@@ -86,7 +89,7 @@ class TeamAttendanceTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         client = _get_client(config)
 
@@ -125,7 +128,7 @@ class EmployeeProfileTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         employee_name = args.get("employee_name")
         include_risk = args.get("include_risk_analysis", True)
@@ -267,7 +270,7 @@ class PerformanceReviewTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         action = args.get("action", "view_team")
 
@@ -340,7 +343,7 @@ class PerformanceReviewTool(BaseTool):
                 return f"❌ 绩效评分更新失败: {str(e)}"
 
             # Try to record in performance_reviews table
-            try:
+            with contextlib.suppress(Exception):
                 await client.table("performance_reviews").insert({
                     "user_id": emp_id,
                     "reviewer_id": user_id,
@@ -349,8 +352,6 @@ class PerformanceReviewTool(BaseTool):
                     "comment": comment,
                     "review_period": datetime.now().strftime("%Y-%m"),
                 }).execute()
-            except Exception:
-                pass  # Table may not exist yet
 
             return f"""✅ 已提交 {emp.get('name', employee_name)} 的绩效评分
 
@@ -390,7 +391,7 @@ class RecruitmentTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         action = args.get("action", "view_candidates")
 

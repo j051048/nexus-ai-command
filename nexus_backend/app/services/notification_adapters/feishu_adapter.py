@@ -14,12 +14,12 @@ B2: Feishu (飞书) Notification Adapter
 """
 
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Any
 
 import httpx
 
-from app.services.notification_service import BaseNotificationAdapter, Notification
 from app.core.config import settings
+from app.services.notification_service import BaseNotificationAdapter, Notification
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class FeishuNotificationAdapter(BaseNotificationAdapter):
 
     def __init__(self):
         """初始化飞书适配器"""
-        self.webhook_url: Optional[str] = getattr(settings, "FEISHU_WEBHOOK_URL", None)
+        self.webhook_url: str | None = getattr(settings, "FEISHU_WEBHOOK_URL", None)
 
         if not self.webhook_url:
             logger.warning(
@@ -127,7 +127,7 @@ class FeishuNotificationAdapter(BaseNotificationAdapter):
             )
             return False
 
-    def _build_payload(self, notification: Notification) -> Dict[str, Any]:
+    def _build_payload(self, notification: Notification) -> dict[str, Any]:
         """
         构建飞书消息载荷
 
@@ -150,7 +150,7 @@ class FeishuNotificationAdapter(BaseNotificationAdapter):
             # 默认使用 interactive
             return self._build_interactive_payload(notification)
 
-    def _build_text_payload(self, notification: Notification) -> Dict[str, Any]:
+    def _build_text_payload(self, notification: Notification) -> dict[str, Any]:
         """
         构建文本消息载荷
 
@@ -169,7 +169,7 @@ class FeishuNotificationAdapter(BaseNotificationAdapter):
 
         return {"msg_type": "text", "content": {"text": content}}
 
-    def _build_post_payload(self, notification: Notification) -> Dict[str, Any]:
+    def _build_post_payload(self, notification: Notification) -> dict[str, Any]:
         """
         构建富文本消息载荷
 
@@ -205,7 +205,7 @@ class FeishuNotificationAdapter(BaseNotificationAdapter):
             },
         }
 
-    def _build_interactive_payload(self, notification: Notification) -> Dict[str, Any]:
+    def _build_interactive_payload(self, notification: Notification) -> dict[str, Any]:
         """
         构建交互式卡片消息载荷
 
@@ -298,7 +298,7 @@ class FeishuNotificationAdapter(BaseNotificationAdapter):
 
         return ""
 
-    def _build_at_list(self, notification: Notification) -> List[Dict[str, Any]]:
+    def _build_at_list(self, notification: Notification) -> list[dict[str, Any]]:
         """
         构建 @列表（用于富文本消息）
 

@@ -9,14 +9,15 @@ Provides reusable dependency injection functions for:
 """
 
 import logging
-from typing import Optional, List, Callable
+from collections.abc import Callable
 from functools import wraps
+
 from fastapi import Depends, HTTPException, Query, Request
 
 from app.core.auth import get_current_user_id
 from app.core.database import supabase  # Global fallback
-from app.core.pagination import PaginationParams, SortParams, SearchParams, FilterParams
-from app.core.errors import api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error
+from app.core.pagination import FilterParams, PaginationParams, SearchParams, SortParams
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ def get_pagination(
 
 
 def get_sorting(
-    sort_by: Optional[str] = Query(default=None, description="Field to sort by"),
+    sort_by: str | None = Query(default=None, description="Field to sort by"),
     sort_order: str = Query(
         default="desc", regex="^(asc|desc)$", description="Sort order"
     ),
@@ -59,7 +60,7 @@ def get_sorting(
 
 
 def get_search(
-    q: Optional[str] = Query(default=None, max_length=200, description="Search query")
+    q: str | None = Query(default=None, max_length=200, description="Search query")
 ) -> SearchParams:
     """Search dependency"""
     return SearchParams(q=q)
@@ -68,12 +69,12 @@ def get_search(
 def get_filters(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
-    sort_by: Optional[str] = Query(default=None),
+    sort_by: str | None = Query(default=None),
     sort_order: str = Query(default="desc", regex="^(asc|desc)$"),
-    q: Optional[str] = Query(default=None, max_length=200),
-    start_date: Optional[str] = Query(default=None),
-    end_date: Optional[str] = Query(default=None),
-    status: Optional[str] = Query(default=None),
+    q: str | None = Query(default=None, max_length=200),
+    start_date: str | None = Query(default=None),
+    end_date: str | None = Query(default=None),
+    status: str | None = Query(default=None),
 ) -> FilterParams:
     """
     Combined filter dependency for list endpoints.
@@ -98,7 +99,7 @@ def get_filters(
 # ============== Role-Based Access Control ==============
 
 
-async def _get_user_role(user_id: str) -> Optional[str]:
+async def _get_user_role(user_id: str) -> str | None:
     """Helper to fetch user role from database"""
     from app.core.database import supabase
     from app.services.cache_service import cache_service
@@ -128,7 +129,7 @@ async def _get_user_role(user_id: str) -> Optional[str]:
     return "employee"
 
 
-def require_role(allowed_roles: List[str]):
+def require_role(allowed_roles: list[str]):
     """
     Dependency factory for role-based access control.
 
@@ -166,7 +167,7 @@ def require_manager(user_id: str = Depends(get_current_user_id)) -> str:
 # ============== Optional Auth ==============
 
 
-async def get_optional_user_id(authorization: Optional[str] = None) -> Optional[str]:
+async def get_optional_user_id(authorization: str | None = None) -> str | None:
     """
     Optional authentication - returns user_id if authenticated, None otherwise.
 

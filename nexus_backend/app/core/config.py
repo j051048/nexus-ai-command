@@ -8,9 +8,8 @@ Benefits:
 - Validation errors on startup (fail fast)
 """
 
-import sys
 import logging
-from typing import List, Optional
+import sys
 
 try:
     from pydantic_settings import BaseSettings
@@ -42,7 +41,7 @@ class Settings(BaseSettings):
     DEBUG: bool = Field(default=False, description="Enable debug mode")
 
     # CORS Configuration
-    CORS_ORIGINS: List[str] = Field(
+    CORS_ORIGINS: list[str] = Field(
         default=[
             "http://localhost:5173",
             "http://localhost:8080",
@@ -55,7 +54,7 @@ class Settings(BaseSettings):
         ],
         description="Allowed CORS origins",
     )
-    ADDITIONAL_ALLOWED_ORIGINS: Optional[str] = Field(
+    ADDITIONAL_ALLOWED_ORIGINS: str | None = Field(
         default=None, description="Comma-separated additional CORS origins"
     )
 
@@ -88,15 +87,15 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_KEY: str = Field(
         default="", description="Supabase service role key"
     )
-    SUPABASE_JWT_SECRET: Optional[str] = Field(
+    SUPABASE_JWT_SECRET: str | None = Field(
         default=None, description="JWT secret for token verification"
     )
-    JWT_SECRET: Optional[str] = Field(
+    JWT_SECRET: str | None = Field(
         default=None, description="Alternative JWT secret key"
     )
 
     # Redis
-    REDIS_URL: Optional[str] = Field(default=None, description="Redis connection URL")
+    REDIS_URL: str | None = Field(default=None, description="Redis connection URL")
 
     # Observability
     SENTRY_DSN: str = Field(default="", description="Sentry DSN for error tracking")
@@ -114,7 +113,7 @@ class Settings(BaseSettings):
     MAX_CHAT_HISTORY: int = Field(
         default=10, description="Maximum chat message history window size"
     )
-    ALLOWED_FILE_TYPES: List[str] = Field(
+    ALLOWED_FILE_TYPES: list[str] = Field(
         default=[
             ".pdf",
             ".docx",
@@ -182,16 +181,16 @@ class Settings(BaseSettings):
 
     # B2: Notification Channel Configuration
     # Email (SMTP)
-    SMTP_HOST: Optional[str] = Field(default=None, description="SMTP server hostname")
+    SMTP_HOST: str | None = Field(default=None, description="SMTP server hostname")
     SMTP_PORT: int = Field(
         default=587, description="SMTP server port (587 for STARTTLS, 465 for SSL)"
     )
-    SMTP_USER: Optional[str] = Field(default=None, description="SMTP username")
-    SMTP_PASSWORD: Optional[str] = Field(default=None, description="SMTP password")
-    SMTP_FROM: Optional[str] = Field(default=None, description="Sender email address")
+    SMTP_USER: str | None = Field(default=None, description="SMTP username")
+    SMTP_PASSWORD: str | None = Field(default=None, description="SMTP password")
+    SMTP_FROM: str | None = Field(default=None, description="Sender email address")
 
     # Wecom (企业微信) - Webhook
-    WECOM_WEBHOOK_URL: Optional[str] = Field(
+    WECOM_WEBHOOK_URL: str | None = Field(
         default=None, description="Wecom group bot webhook URL"
     )
     # Wecom (企业微信) - 深度集成
@@ -206,10 +205,10 @@ class Settings(BaseSettings):
     )
 
     # Dingtalk (钉钉) - Webhook
-    DINGTALK_WEBHOOK_URL: Optional[str] = Field(
+    DINGTALK_WEBHOOK_URL: str | None = Field(
         default=None, description="Dingtalk group bot webhook URL"
     )
-    DINGTALK_SECRET: Optional[str] = Field(
+    DINGTALK_SECRET: str | None = Field(
         default=None, description="Dingtalk webhook secret for signature"
     )
     # Dingtalk (钉钉) - 深度集成
@@ -224,7 +223,7 @@ class Settings(BaseSettings):
     )
 
     # Feishu (飞书) - Webhook
-    FEISHU_WEBHOOK_URL: Optional[str] = Field(
+    FEISHU_WEBHOOK_URL: str | None = Field(
         default=None, description="Feishu group bot webhook URL"
     )
     # Feishu (飞书) - 深度集成
@@ -245,11 +244,11 @@ class Settings(BaseSettings):
 
     # Computed properties
     @property
-    def IS_PRODUCTION(self) -> bool:
+    def IS_PRODUCTION(self) -> bool:  # noqa: N802
         return self.ENV in ("production", "prod")
 
     @property
-    def all_cors_origins(self) -> List[str]:
+    def all_cors_origins(self) -> list[str]:
         """Get all CORS origins including additional ones from env"""
         origins = list(self.CORS_ORIGINS)
         if self.ADDITIONAL_ALLOWED_ORIGINS:
@@ -277,7 +276,7 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
 
-    def validate_production_config(self) -> List[str]:
+    def validate_production_config(self) -> list[str]:
         """Validate critical configuration for production"""
         errors = []
 

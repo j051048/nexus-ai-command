@@ -13,8 +13,7 @@
 """
 
 import logging
-from datetime import datetime
-from typing import Dict, List, Any, Optional
+from typing import Any
 from urllib.parse import quote
 
 import httpx
@@ -54,7 +53,7 @@ class DingtalkClient(IMPlatformClient):
 
     # ── Token ─────────────────────────────────────────────────────
 
-    async def _fetch_access_token(self) -> Dict[str, Any]:
+    async def _fetch_access_token(self) -> dict[str, Any]:
         """
         获取钉钉 access_token。
         POST https://api.dingtalk.com/v1.0/oauth2/accessToken
@@ -89,7 +88,7 @@ class DingtalkClient(IMPlatformClient):
 
     # ── API 请求覆盖 ─────────────────────────────────────────────
 
-    async def _api_request(self, method: str, url: str, **kwargs) -> Dict:
+    async def _api_request(self, method: str, url: str, **kwargs) -> dict:
         """
         覆盖基类: 钉钉旧版 API 用 query param, 新版 API 用 header。
 
@@ -152,7 +151,7 @@ class DingtalkClient(IMPlatformClient):
 
     # ── Contact / Directory ───────────────────────────────────────
 
-    async def get_departments(self) -> List[Dict]:
+    async def get_departments(self) -> list[dict]:
         """
         获取部门列表。
         POST /topapi/v2/department/listsub
@@ -194,7 +193,7 @@ class DingtalkClient(IMPlatformClient):
 
         return all_departments
 
-    async def get_department_users(self, department_id: str) -> List[Dict]:
+    async def get_department_users(self, department_id: str) -> list[dict]:
         """
         获取部门下的用户列表。
         POST /topapi/v2/user/list
@@ -248,8 +247,8 @@ class DingtalkClient(IMPlatformClient):
     # ── Attendance ────────────────────────────────────────────────
 
     async def get_attendance_records(
-        self, user_ids: List[str], start_date: str, end_date: str
-    ) -> List[Dict]:
+        self, user_ids: list[str], start_date: str, end_date: str
+    ) -> list[dict]:
         """
         获取考勤记录。
         POST /attendance/list
@@ -344,7 +343,7 @@ class DingtalkClient(IMPlatformClient):
             )
             return False
 
-    async def send_interactive_card(self, user_id: str, card: Dict) -> bool:
+    async def send_interactive_card(self, user_id: str, card: dict) -> bool:
         """
         发送互动卡片（ActionCard）工作通知。
         POST /topapi/message/corpconversation/asyncsend_v2
@@ -405,7 +404,7 @@ class DingtalkClient(IMPlatformClient):
             f"&prompt=consent"
         )
 
-    async def get_user_by_auth_code(self, code: str) -> Dict:
+    async def get_user_by_auth_code(self, code: str) -> dict:
         """
         通过 OAuth code 获取用户信息。
 
@@ -470,7 +469,7 @@ class DingtalkClient(IMPlatformClient):
                     userid = uid_data.get("result", {}).get("userid", "")
                 except Exception:
                     logger.warning(
-                        f"[dingtalk] Could not resolve userid from unionId"
+                        "[dingtalk] Could not resolve userid from unionId"
                     )
 
             result = {

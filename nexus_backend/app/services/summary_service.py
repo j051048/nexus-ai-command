@@ -4,8 +4,9 @@ Compresses long conversation history into concise summaries to manage context wi
 """
 
 import logging
+
 import httpx
-from typing import List, Dict
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -15,7 +16,7 @@ class SummaryService:
     """Compresses conversation history into summaries when context grows too long."""
 
     @staticmethod
-    async def summarize_messages(messages: List[Dict], config: Dict = None) -> str:
+    async def summarize_messages(messages: list[dict], config: dict = None) -> str:
         """
         Summarize a list of messages into a concise summary.
 
@@ -89,7 +90,7 @@ class SummaryService:
             return SummaryService._simple_summary(messages)
 
     @staticmethod
-    def _simple_summary(messages: List[Dict]) -> str:
+    def _simple_summary(messages: list[dict]) -> str:
         """Fallback: extract last few user messages as summary."""
         user_msgs = [
             m.get("content", "")[:100]

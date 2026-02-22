@@ -6,11 +6,13 @@ and form data validation for the approval workflow.
 """
 
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from fastapi import APIRouter, Request, Depends, HTTPException
+
 from app.core.auth import get_current_user_id
-from app.core.errors import api_success, api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error, api_success
 from app.services.form_schema_service import form_schema_service
 
 logger = logging.getLogger(__name__)
@@ -24,22 +26,22 @@ router = APIRouter(prefix="/api/form-schemas", tags=["Form Schemas"])
 class FormSchemaCreate(BaseModel):
     approval_type: str
     name: str
-    description: Optional[str] = None
-    fields: List[Dict[str, Any]]
-    layout: Optional[Dict] = None
+    description: str | None = None
+    fields: list[dict[str, Any]]
+    layout: dict | None = None
 
 
 class FormSchemaUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    fields: Optional[List[Dict[str, Any]]] = None
-    layout: Optional[Dict] = None
-    is_active: Optional[bool] = None
+    name: str | None = None
+    description: str | None = None
+    fields: list[dict[str, Any]] | None = None
+    layout: dict | None = None
+    is_active: bool | None = None
 
 
 class FormDataValidateRequest(BaseModel):
     schema_id: str
-    form_data: Dict[str, Any]
+    form_data: dict[str, Any]
 
 
 # ============== Endpoints ==============

@@ -10,9 +10,10 @@ Handles business logic for:
 import logging
 import uuid
 from datetime import datetime
+
 from app.core.database import supabase
-from app.models.schemas import IncentiveTrigger, IncentiveResponse
-from app.core.errors import api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error
+from app.models.schemas import IncentiveResponse, IncentiveTrigger
 
 logger = logging.getLogger(__name__)
 

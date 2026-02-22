@@ -1,14 +1,13 @@
 """CRM 客户关系管理 API 端点"""
 
 import logging
-from typing import Optional, List
 
-from fastapi import APIRouter, Request, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field, field_validator
 
 from app.core.auth import get_current_user_id
-from app.core.errors import api_success, api_error, api_list, ErrorCode
-from app.services.crm_service import crm_service, CUSTOMER_STAGES, ACTIVITY_TYPES
+from app.core.errors import ErrorCode, api_error, api_list, api_success
+from app.services.crm_service import ACTIVITY_TYPES, CUSTOMER_STAGES, crm_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/crm", tags=["CRM"])
@@ -20,17 +19,17 @@ router = APIRouter(prefix="/api/crm", tags=["CRM"])
 
 class CreateCustomerRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=200, description="客户名称")
-    company: Optional[str] = Field(None, max_length=200)
-    industry: Optional[str] = Field(None, max_length=100)
-    stage: Optional[str] = Field("lead")
-    source: Optional[str] = Field(None, max_length=100)
-    estimated_value: Optional[float] = Field(None, ge=0)
-    tags: Optional[List[str]] = None
-    metadata: Optional[dict] = None
+    company: str | None = Field(None, max_length=200)
+    industry: str | None = Field(None, max_length=100)
+    stage: str | None = Field("lead")
+    source: str | None = Field(None, max_length=100)
+    estimated_value: float | None = Field(None, ge=0)
+    tags: list[str] | None = None
+    metadata: dict | None = None
 
     @field_validator("stage")
     @classmethod
-    def validate_stage(cls, v: Optional[str]) -> Optional[str]:
+    def validate_stage(cls, v: str | None) -> str | None:
         valid = {"lead", "prospect", "opportunity", "customer", "churned"}
         if v and v not in valid:
             raise ValueError(f"stage must be one of {valid}")
@@ -38,19 +37,19 @@ class CreateCustomerRequest(BaseModel):
 
 
 class UpdateCustomerRequest(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=200)
-    company: Optional[str] = Field(None, max_length=200)
-    industry: Optional[str] = Field(None, max_length=100)
-    stage: Optional[str] = None
-    source: Optional[str] = Field(None, max_length=100)
-    estimated_value: Optional[float] = Field(None, ge=0)
-    assigned_to: Optional[str] = None
-    tags: Optional[List[str]] = None
-    metadata: Optional[dict] = None
+    name: str | None = Field(None, min_length=1, max_length=200)
+    company: str | None = Field(None, max_length=200)
+    industry: str | None = Field(None, max_length=100)
+    stage: str | None = None
+    source: str | None = Field(None, max_length=100)
+    estimated_value: float | None = Field(None, ge=0)
+    assigned_to: str | None = None
+    tags: list[str] | None = None
+    metadata: dict | None = None
 
     @field_validator("stage")
     @classmethod
-    def validate_stage(cls, v: Optional[str]) -> Optional[str]:
+    def validate_stage(cls, v: str | None) -> str | None:
         valid = {"lead", "prospect", "opportunity", "customer", "churned"}
         if v and v not in valid:
             raise ValueError(f"stage must be one of {valid}")
@@ -59,10 +58,10 @@ class UpdateCustomerRequest(BaseModel):
 
 class CreateContactRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
-    title: Optional[str] = Field(None, max_length=100)
-    phone: Optional[str] = Field(None, max_length=50)
-    email: Optional[str] = Field(None, max_length=200)
-    is_primary: Optional[bool] = False
+    title: str | None = Field(None, max_length=100)
+    phone: str | None = Field(None, max_length=50)
+    email: str | None = Field(None, max_length=200)
+    is_primary: bool | None = False
 
 
 class CreateActivityRequest(BaseModel):

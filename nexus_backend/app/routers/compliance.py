@@ -1,12 +1,13 @@
 """Compliance and audit API endpoints (GDPR, DSAR, audit export)."""
 
 import logging
-import json
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Request, Depends
+
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import PlainTextResponse
+
 from app.core.auth import get_current_user_id
-from app.core.errors import api_success, api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error, api_success
 from app.services.audit_logger import audit_logger
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ router = APIRouter(prefix="/api/compliance", tags=["Compliance"])
 async def export_audit_logs(
     req: Request,
     user_id: str = Depends(get_current_user_id),
-    format: str = "json",
+    format: str = "json",  # noqa: A002
     days: int = 30,
 ):
     """Export audit logs in JSON or CSV format."""

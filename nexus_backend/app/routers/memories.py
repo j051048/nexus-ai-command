@@ -5,11 +5,11 @@ Endpoints for managing user long-term AI conversation memories.
 """
 
 import logging
-from typing import Optional
-from fastapi import APIRouter, Request, Depends
+
+from fastapi import APIRouter, Depends, Request
 
 from app.core.auth import get_current_user_id
-from app.core.errors import api_success, api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error, api_success
 from app.services.conversation_memory_service import conversation_memory_service
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api/memories", tags=["Conversation Memories"])
 @router.get("")
 async def get_memories(
     request: Request,
-    category: Optional[str] = None,
+    category: str | None = None,
     limit: int = 20,
     user_id: str = Depends(get_current_user_id),
 ):
@@ -45,7 +45,7 @@ async def get_memories(
 @router.delete("")
 async def clear_memories(
     request: Request,
-    category: Optional[str] = None,
+    category: str | None = None,
     user_id: str = Depends(get_current_user_id),
 ):
     """清除当前用户记忆（可按分类）"""

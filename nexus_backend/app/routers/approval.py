@@ -1,13 +1,15 @@
 import logging
-from typing import Dict, Any
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from fastapi import APIRouter, Request, Depends, HTTPException
-from app.models.schemas import ApprovalRequest, StandardResponse
-from app.services.approval_service import ApprovalService
-from app.services.approval_chain import approval_chain_service
-from app.services.form_schema_service import form_schema_service
+
 from app.core.auth import get_current_user_id
-from app.core.errors import api_success, api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error, api_success
+from app.models.schemas import ApprovalRequest, StandardResponse
+from app.services.approval_chain import approval_chain_service
+from app.services.approval_service import ApprovalService
+from app.services.form_schema_service import form_schema_service
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +23,7 @@ class SubmitWithFormRequest(BaseModel):
     type: str  # 审批类型
     amount: float
     details: str
-    form_data: Dict[str, Any] = {}
+    form_data: dict[str, Any] = {}
 
 
 # ============== Endpoints ==============

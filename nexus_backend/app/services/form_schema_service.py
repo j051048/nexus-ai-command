@@ -13,7 +13,8 @@ Features:
 
 import logging
 import re
-from typing import Dict, Any, Optional, List
+from typing import Any
+
 from app.core.database import supabase
 
 logger = logging.getLogger(__name__)
@@ -44,12 +45,12 @@ class FormSchemaService:
         org_id: str,
         approval_type: str,
         name: str,
-        fields: List[Dict[str, Any]],
-        description: Optional[str] = None,
-        layout: Optional[Dict] = None,
-        created_by: Optional[str] = None,
+        fields: list[dict[str, Any]],
+        description: str | None = None,
+        layout: dict | None = None,
+        created_by: str | None = None,
         db=None,
-    ) -> Dict:
+    ) -> dict:
         """
         Create a new form schema for an approval type within an organization.
 
@@ -104,8 +105,8 @@ class FormSchemaService:
         return created
 
     async def update_schema(
-        self, schema_id: str, updates: Dict[str, Any], db=None
-    ) -> Dict:
+        self, schema_id: str, updates: dict[str, Any], db=None
+    ) -> dict:
         """
         Update an existing form schema.
 
@@ -172,7 +173,7 @@ class FormSchemaService:
             logger.warning(f"Form schema not found for deletion: {schema_id}")
         return deleted
 
-    async def get_schema(self, schema_id: str, db=None) -> Optional[Dict]:
+    async def get_schema(self, schema_id: str, db=None) -> dict | None:
         """
         Get a single form schema by ID.
         """
@@ -186,7 +187,7 @@ class FormSchemaService:
 
         return result.data
 
-    async def list_schemas(self, org_id: str, db=None) -> List[Dict]:
+    async def list_schemas(self, org_id: str, db=None) -> list[dict]:
         """
         List all form schemas for an organization.
 
@@ -206,7 +207,7 @@ class FormSchemaService:
 
     async def get_schema_for_type(
         self, org_id: str, approval_type: str, db=None
-    ) -> Optional[Dict]:
+    ) -> dict | None:
         """
         Get the active form schema for a specific approval type within an organization.
         """
@@ -223,8 +224,8 @@ class FormSchemaService:
         return result.data
 
     def validate_form_data(
-        self, schema_fields: List[Dict], form_data: Dict
-    ) -> List[str]:
+        self, schema_fields: list[dict], form_data: dict
+    ) -> list[str]:
         """
         Validate user-submitted form data against the schema definition.
 
@@ -365,7 +366,7 @@ class FormSchemaService:
 
         return errors
 
-    def validate_schema_definition(self, fields: List[Dict]) -> List[str]:
+    def validate_schema_definition(self, fields: list[dict]) -> list[str]:
         """
         Validate the form schema definition itself.
 

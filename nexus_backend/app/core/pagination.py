@@ -5,9 +5,10 @@ Provides standardized pagination for list endpoints.
 """
 
 import logging
-from typing import Optional, TypeVar, Generic, List, Any, Dict
-from pydantic import BaseModel, Field, field_validator
 from dataclasses import dataclass
+from typing import Any, Generic, TypeVar
+
+from pydantic import BaseModel, Field, field_validator
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ class SortParams(BaseModel):
     Standard sorting parameters.
     """
 
-    sort_by: Optional[str] = Field(default=None, description="Field to sort by")
+    sort_by: str | None = Field(default=None, description="Field to sort by")
     sort_order: str = Field(
         default="desc", pattern="^(asc|desc)$", description="Sort order"
     )
@@ -59,7 +60,7 @@ class SearchParams(BaseModel):
     Standard search parameters.
     """
 
-    q: Optional[str] = Field(default=None, max_length=200, description="Search query")
+    q: str | None = Field(default=None, max_length=200, description="Search query")
 
     @property
     def has_query(self) -> bool:
@@ -84,7 +85,7 @@ class PaginatedResult(Generic[T]):
         )
     """
 
-    items: List[T]
+    items: list[T]
     total: int
     page: int
     page_size: int
@@ -105,7 +106,7 @@ class PaginatedResult(Generic[T]):
     def has_prev(self) -> bool:
         return self.page > 1
 
-    def to_response(self) -> Dict[str, Any]:
+    def to_response(self) -> dict[str, Any]:
         """Convert to standard API response format"""
         return {
             "success": True,
@@ -126,12 +127,12 @@ class DateRangeParams(BaseModel):
     Standard date range parameters.
     """
 
-    start_date: Optional[str] = Field(
+    start_date: str | None = Field(
         default=None,
         pattern=r"^\d{4}-\d{2}-\d{2}$",
         description="Start date (YYYY-MM-DD)",
     )
-    end_date: Optional[str] = Field(
+    end_date: str | None = Field(
         default=None,
         pattern=r"^\d{4}-\d{2}-\d{2}$",
         description="End date (YYYY-MM-DD)",
@@ -152,18 +153,18 @@ class FilterParams(BaseModel):
     page_size: int = Field(default=20, ge=1, le=100)
 
     # Sorting
-    sort_by: Optional[str] = None
+    sort_by: str | None = None
     sort_order: str = Field(default="desc", pattern="^(asc|desc)$")
 
     # Search
-    q: Optional[str] = Field(default=None, max_length=200)
+    q: str | None = Field(default=None, max_length=200)
 
     # Date range
-    start_date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
-    end_date: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    start_date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    end_date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
 
     # Status filter
-    status: Optional[str] = None
+    status: str | None = None
 
     @property
     def offset(self) -> int:
@@ -184,7 +185,7 @@ def apply_pagination(query: Any, params: PaginationParams) -> Any:
     return query.range(start, end)
 
 
-def apply_sorting(query: Any, params: SortParams, allowed_fields: List[str]) -> Any:
+def apply_sorting(query: Any, params: SortParams, allowed_fields: list[str]) -> Any:
     """
     Apply sorting to a Supabase query with field validation.
 

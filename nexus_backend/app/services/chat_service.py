@@ -9,33 +9,36 @@ Handles:
 - Agent state tracking (Plan → Execute → Reflect cycle)
 """
 
+import asyncio
 import json
 import logging
-import asyncio
-import httpx
 import time
-from typing import List, Dict, Any, AsyncGenerator, Optional
-from dataclasses import dataclass, asdict
-from enum import Enum
-from app.tools import get_tool, get_all_tools_schema
+from collections.abc import AsyncGenerator
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from enum import StrEnum
+from typing import Any
+
+import httpx
 import jsonschema
+
+from app.core.config import settings
 from app.core.database import supabase
-from app.services.cache_service import cache_service
 from app.core.prompts_registry import SYSTEM_PROMPTS
-from app.services.token_service import (
-    validate_request_tokens,
-    record_completion,
-    token_counter,
-    usage_tracker,
-)
+from app.core.trace_logger import TraceLogger
+from app.services.cache_service import cache_service
 from app.services.content_moderation import (
     check_user_input,
     sanitize_output,
     scan_content,
 )
-from app.core.trace_logger import TraceLogger
-from app.core.config import settings
-from datetime import datetime
+from app.services.token_service import (
+    record_completion,
+    token_counter,
+    usage_tracker,
+    validate_request_tokens,
+)
+from app.tools import get_all_tools_schema, get_tool
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +46,7 @@ logger = logging.getLogger(__name__)
 MAX_HISTORY = getattr(settings, "MAX_CHAT_HISTORY", 10)
 
 
-class AgentPhase(str, Enum):
+class AgentPhase(StrEnum):
     """Agent execution phases for thinking chain visualization"""
 
     PLANNING = "planning"
@@ -58,17 +61,17 @@ class ThinkingStep:
 
     phase: str
     content: str
-    tool_name: Optional[str] = None
-    tool_args: Optional[Dict] = None
-    tool_result: Optional[str] = None
+    tool_name: str | None = None
+    tool_args: dict | None = None
+    tool_result: str | None = None
     timestamp: float = None
-    duration_ms: Optional[int] = None
+    duration_ms: int | None = None
 
     def __post_init__(self):
         if self.timestamp is None:
             self.timestamp = time.time()
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {k: v for k, v in asdict(self).items() if v is not None}
 
 
@@ -77,7 +80,7 @@ class ChatService:
 
     @staticmethod
     async def get_system_prompt(
-        agent_name: str, db_client: Optional[Any] = None, user_id: Optional[str] = None
+        agent_name: str, db_client: Any | None = None, user_id: str | None = None
     ) -> str:
         """Get formatted system prompt for agent (P1 Fix #29: Fetch from DB with local fallback)
         #24: Integrates A/B test variant selection when user_id is provided.
@@ -142,7 +145,7 @@ class ChatService:
 
     @staticmethod
     async def _get_cached_user_role(
-        user_id: str, db_client: Optional[Any] = None
+        user_id: str, db_client: Any | None = None
     ) -> str:
         """Helper to get user role (cached)"""
         cached = await cache_service.get_user_role(user_id)
@@ -168,11 +171,11 @@ class ChatService:
     @staticmethod
     async def execute_tool(
         name: str,
-        args: Dict[str, Any],
+        args: dict[str, Any],
         user_id: str,
-        config: Dict = None,
+        config: dict = None,
         system_confirmed: bool = False,
-        db_client: Optional[Any] = None,
+        db_client: Any | None = None,
     ) -> str:
         """Execute tool with RBAC, System-level Confirmation Gate, and Retry"""
         tool = get_tool(name)
@@ -211,7 +214,7 @@ class ChatService:
                     timeout=30.0,  # 30s timeout per tool execution
                 )
                 return result
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 return f"Error: Tool {name} timed out after 30 seconds."
             except Exception as e:
                 if attempt == 2:
@@ -226,8 +229,8 @@ class ChatService:
         role: str,
         content: str,
         agent: str = None,
-        metadata: Dict = None,
-        db_client: Optional[Any] = None,
+        metadata: dict = None,
+        db_client: Any | None = None,
     ):
         """Save a message to the database for persistence"""
         try:
@@ -247,13 +250,13 @@ class ChatService:
 
     @staticmethod
     async def stream_response(
-        messages: List[Dict],
-        config: Dict,
+        messages: list[dict],
+        config: dict,
         user_id: str,
-        tracer: Optional[TraceLogger] = None,
+        tracer: TraceLogger | None = None,
         system_confirmed: bool = False,
-        session_id: Optional[str] = None,
-        db_client: Optional[Any] = None,
+        session_id: str | None = None,
+        db_client: Any | None = None,
     ) -> AsyncGenerator[str, None]:
         """
         Stream response from OpenAI with recursive tool execution, token tracking, and moderation.
@@ -364,23 +367,22 @@ class ChatService:
                 "stream_options": {"include_usage": True},
             }
             try:
-                async with httpx.AsyncClient(timeout=60.0) as client:
-                    async with client.stream(
-                        "POST", chat_endpoint, headers=headers, json=payload
-                    ) as response:
-                        if response.status_code != 200:
-                            err = await response.aread()
-                            yield f"error: AI Service Error ({response.status_code}): {err.decode()[:200]}"
-                            return
-                        async for line in response.aiter_lines():
-                            yield line
+                async with httpx.AsyncClient(timeout=60.0) as client, client.stream(
+                    "POST", chat_endpoint, headers=headers, json=payload
+                ) as response:
+                    if response.status_code != 200:
+                        err = await response.aread()
+                        yield f"error: AI Service Error ({response.status_code}): {err.decode()[:200]}"
+                        return
+                    async for line in response.aiter_lines():
+                        yield line
             except Exception as e:
                 logger.error(f"LLM API connection failed: {e}")
                 yield f"error: Connection Failed: {str(e)}"
 
         # Main Loop (Recursive Tool Use) with Thinking Chain Visualization
         max_iterations = 5
-        thinking_steps: List[ThinkingStep] = []
+        thinking_steps: list[ThinkingStep] = []
 
         def emit_thinking_step(step: ThinkingStep):
             """Helper to emit thinking step via SSE"""
@@ -557,7 +559,7 @@ class ChatService:
                 results = await asyncio.gather(*tool_tasks)
 
                 # Add tool results to history with thinking step tracking
-                for idx, result in zip(tool_indices, results):
+                for idx, result in zip(tool_indices, results, strict=False):
                     tc = tool_calls_map[idx]
                     messages.append(
                         {

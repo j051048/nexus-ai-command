@@ -6,11 +6,12 @@ Tracks user preferences, explicit memories, and usage patterns
 using a rule-based extraction engine (no LLM calls).
 """
 
+import contextlib
 import logging
 import re
 import uuid
-from typing import Dict, List, Optional, Any
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
 
 from app.core.database import supabase
 
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 # ─── Preference extraction patterns ──────────────────────────
 
-PREFERENCE_PATTERNS: List[Dict[str, Any]] = [
+PREFERENCE_PATTERNS: list[dict[str, Any]] = [
     # "我喜欢..." / "我偏好..." / "我倾向..."
     {
         "pattern": re.compile(r"我(?:喜欢|偏好|倾向于?|习惯)(.{2,50})"),
@@ -61,7 +62,7 @@ PREFERENCE_PATTERNS: List[Dict[str, Any]] = [
 ]
 
 # Tool/action usage patterns for tracking
-TOOL_USAGE_KEYWORDS: Dict[str, str] = {
+TOOL_USAGE_KEYWORDS: dict[str, str] = {
     "审批": "approval",
     "报销": "expense",
     "请假": "leave",
@@ -86,17 +87,17 @@ class ConversationMemoryService:
         key: str,
         value: str,
         category: str = "preference",
-        metadata: Optional[Dict] = None,
+        metadata: dict | None = None,
         importance: float = 0.5,
-        org_id: Optional[str] = None,
+        org_id: str | None = None,
         db: Any = None,
-    ) -> Dict:
+    ) -> dict:
         """保存用户记忆条目（upsert by user_id + key）"""
         client = db or supabase
         if not client:
             raise RuntimeError("数据库连接不可用")
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
 
         # Check if key already exists for this user
         existing = (
@@ -152,10 +153,10 @@ class ConversationMemoryService:
     async def get_memories(
         self,
         user_id: str,
-        category: Optional[str] = None,
+        category: str | None = None,
         limit: int = 20,
         db: Any = None,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """获取用户记忆列表"""
         client = db or supabase
         if not client:
@@ -186,7 +187,7 @@ class ConversationMemoryService:
         query: str,
         limit: int = 5,
         db: Any = None,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """搜索相关记忆（基于关键字匹配）"""
         client = db or supabase
         if not client:
@@ -194,7 +195,7 @@ class ConversationMemoryService:
 
         # Simple keyword-based search using ilike on key and value
         # For production, consider using pg_trgm or full-text search
-        memories: List[Dict] = []
+        memories: list[dict] = []
 
         try:
             # Search in key field
@@ -227,9 +228,9 @@ class ConversationMemoryService:
             logger.warning(f"Memory search failed: {e}")
 
         # Update access counts for returned memories
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         for mem in memories[:limit]:
-            try:
+            with contextlib.suppress(Exception):
                 await (
                     client.table("conversation_memories")
                     .update({
@@ -239,8 +240,6 @@ class ConversationMemoryService:
                     .eq("id", mem["id"])
                     .execute()
                 )
-            except Exception:
-                pass  # Non-critical, don't fail the search
 
         return memories[:limit]
 
@@ -271,7 +270,7 @@ class ConversationMemoryService:
     async def clear_memories(
         self,
         user_id: str,
-        category: Optional[str] = None,
+        category: str | None = None,
         db: Any = None,
     ) -> int:
         """清除记忆（可按分类清除）"""
@@ -302,10 +301,10 @@ class ConversationMemoryService:
     async def extract_preferences(
         self,
         user_id: str,
-        messages: List[Dict[str, str]],
-        org_id: Optional[str] = None,
+        messages: list[dict[str, str]],
+        org_id: str | None = None,
         db: Any = None,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         从对话中自动提取用户偏好。
 
@@ -315,7 +314,7 @@ class ConversationMemoryService:
         - "记住..." → explicit_memory
         - 常用工具/操作 → usage_pattern
         """
-        extracted: List[Dict] = []
+        extracted: list[dict] = []
 
         for msg in messages:
             role = msg.get("role", "")
@@ -356,7 +355,7 @@ class ConversationMemoryService:
                         extracted.append(entry)
 
         # Save all extracted memories
-        saved: List[Dict] = []
+        saved: list[dict] = []
         for entry in extracted:
             try:
                 result = await self.save_memory(
@@ -395,7 +394,7 @@ class ConversationMemoryService:
         2. 搜索与当前查询相关的记忆
         3. 格式化为上下文字符串
         """
-        context_parts: List[str] = []
+        context_parts: list[str] = []
 
         # 1) High-importance preferences (top 5)
         preferences = await self.get_memories(

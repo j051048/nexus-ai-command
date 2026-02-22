@@ -6,9 +6,8 @@ Supports different log levels for development and production.
 """
 
 import logging
-import sys
 import os
-from typing import Optional
+import sys
 
 # Determine environment
 IS_PRODUCTION = os.getenv("ENV", "development") in ("production", "prod")
@@ -16,7 +15,7 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO" if IS_PRODUCTION else "DEBUG")
 
 
 def setup_logging(
-    level: Optional[str] = None, format_string: Optional[str] = None
+    level: str | None = None, format_string: str | None = None
 ) -> None:
     """
     Configure logging for the entire application.
@@ -113,7 +112,7 @@ class SecurityLogger:
         """Log successful authentication"""
         self.logger.info(f"AUTH_SUCCESS user_id={user_id} method={method}")
 
-    def auth_failure(self, reason: str, ip: Optional[str] = None):
+    def auth_failure(self, reason: str, ip: str | None = None):
         """Log failed authentication attempt"""
         self.logger.warning(f"AUTH_FAILURE reason={reason} ip={ip}")
 
@@ -127,7 +126,7 @@ class SecurityLogger:
         """Log rate limit hit"""
         self.logger.warning(f"RATE_LIMITED identifier={identifier} endpoint={endpoint}")
 
-    def suspicious_activity(self, user_id: Optional[str], activity: str, details: str):
+    def suspicious_activity(self, user_id: str | None, activity: str, details: str):
         """Log suspicious activity for investigation"""
         self.logger.error(
             f"SUSPICIOUS_ACTIVITY user_id={user_id} activity={activity} details={details}"

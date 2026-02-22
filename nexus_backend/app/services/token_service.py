@@ -3,10 +3,9 @@ P1 Optimization: Token Counting and Cost Control Service
 Tracks token usage, estimates costs, and enforces usage limits.
 """
 
+import logging
 import os
 import time
-import logging
-from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
@@ -66,8 +65,8 @@ class TokenUsage:
     total_tokens: int
     estimated_cost_usd: float
     model: str
-    department_id: Optional[str] = None
-    project_id: Optional[str] = None
+    department_id: str | None = None
+    project_id: str | None = None
 
 
 @dataclass
@@ -90,7 +89,7 @@ class TokenCounter:
     """
 
     def __init__(self):
-        self._encoders: Dict[str, any] = {}
+        self._encoders: dict[str, any] = {}
 
     def _get_encoder(self, model: str):
         """Get or create encoder for model"""
@@ -121,7 +120,7 @@ class TokenCounter:
         other_chars = len(text) - chinese_chars
         return int(chinese_chars / 1.5 + other_chars / 4)
 
-    def count_messages_tokens(self, messages: List[Dict], model: str = "gpt-4o") -> int:
+    def count_messages_tokens(self, messages: list[dict], model: str = "gpt-4o") -> int:
         """Count tokens in a list of messages"""
         total = 0
         for msg in messages:
@@ -159,8 +158,8 @@ class UsageTracker:
     """
 
     def __init__(self):
-        self._usage: Dict[str, Dict] = {}  # In-memory cache (fast path)
-        self._db_loaded: Dict[str, bool] = (
+        self._usage: dict[str, dict] = {}  # In-memory cache (fast path)
+        self._db_loaded: dict[str, bool] = (
             {}
         )  # Track which users have been loaded from DB
         self._limits = UsageLimits(
@@ -173,14 +172,14 @@ class UsageTracker:
                 os.getenv("MAX_COST_PER_ORG_DAY_USD", 500.0)
             ),
         )
-        self._org_usage: Dict[str, Dict] = {}  # In-memory cache for org totals
-        self._user_to_org: Dict[str, str] = {}  # User ID to Org ID cache
+        self._org_usage: dict[str, dict] = {}  # In-memory cache for org totals
+        self._user_to_org: dict[str, str] = {}  # User ID to Org ID cache
 
     def _get_day_key(self) -> str:
         """Get current day key for tracking"""
         return time.strftime("%Y-%m-%d")
 
-    async def _load_from_db(self, user_id: str) -> Dict:
+    async def _load_from_db(self, user_id: str) -> dict:
         """
         Load today's aggregate usage from Supabase.
         Called once per user per process lifetime (lazy init).
@@ -266,10 +265,10 @@ class UsageTracker:
         self._db_loaded[cache_key] = True
         return self._usage[cache_key]
 
-    def _make_empty(self, day_key: str) -> Dict:
+    def _make_empty(self, day_key: str) -> dict:
         return {"tokens": 0, "cost_usd": 0.0, "requests": 0, "day": day_key}
 
-    def _get_user_usage_sync(self, user_id: str) -> Dict:
+    def _get_user_usage_sync(self, user_id: str) -> dict:
         """Sync getter for in-memory cache (used by check_limits)."""
         day_key = self._get_day_key()
         key = f"{user_id}:{day_key}"
@@ -277,7 +276,7 @@ class UsageTracker:
             self._usage[key] = self._make_empty(day_key)
         return self._usage[key]
 
-    def check_limits(self, user_id: str, estimated_tokens: int) -> Tuple[bool, str]:
+    def check_limits(self, user_id: str, estimated_tokens: int) -> tuple[bool, str]:
         """
         Check if request is within limits.
         Uses in-memory cache for speed (DB state loaded on first access).
@@ -377,7 +376,7 @@ class UsageTracker:
             logger.error(f"Failed to persist usage to DB for {user_id}: {e}")
             # Non-fatal: in-memory tracking still works for this process
 
-    def get_usage_summary(self, user_id: str) -> Dict:
+    def get_usage_summary(self, user_id: str) -> dict:
         """Get usage summary for user"""
         usage = self._get_user_usage_sync(user_id)
         return {
@@ -396,17 +395,17 @@ class UsageTracker:
     def cleanup_old_entries(self):
         """Remove entries from previous days (memory only)"""
         current_day = self._get_day_key()
-        keys_to_remove = [k for k in self._usage.keys() if not k.endswith(current_day)]
+        keys_to_remove = [k for k in self._usage if not k.endswith(current_day)]
         for key in keys_to_remove:
             del self._usage[key]
         # Also reset db_loaded tracker for old days
         loaded_to_remove = [
-            k for k in self._db_loaded.keys() if not k.endswith(current_day)
+            k for k in self._db_loaded if not k.endswith(current_day)
         ]
         for key in loaded_to_remove:
             del self._db_loaded[key]
 
-    async def get_cost_report(self, org_id: str, days: int = 30, db=None) -> Dict:
+    async def get_cost_report(self, org_id: str, days: int = 30, db=None) -> dict:
         """
         #30 LLM Cost Attribution: Aggregate cost by department and project.
         Returns breakdown for the requested period.
@@ -453,8 +452,8 @@ class UsageTracker:
                 res = await db.table("user_token_usage").select(
                     "total_tokens, estimated_cost_usd, department_id, project_id"
                 ).eq("org_id", org_id).execute()
-                dept_map: Dict[str, Dict] = {}
-                proj_map: Dict[str, Dict] = {}
+                dept_map: dict[str, dict] = {}
+                proj_map: dict[str, dict] = {}
                 total_cost = 0.0
                 total_tokens = 0
                 for row in res.data or []:
@@ -491,8 +490,8 @@ usage_tracker = UsageTracker()
 
 
 def validate_request_tokens(
-    messages: List[Dict], model: str, user_id: str
-) -> Tuple[bool, int, str]:
+    messages: list[dict], model: str, user_id: str
+) -> tuple[bool, int, str]:
     """
     Validate that a request is within token/usage limits.
     Returns (is_valid, token_count, error_message)

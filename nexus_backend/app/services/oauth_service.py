@@ -14,7 +14,6 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -33,13 +32,13 @@ class OAuthClient:
     client_secret_hash: str
     client_name: str
     org_id: str
-    redirect_uris: List[str]
-    allowed_scopes: List[str]
-    grant_types: List[str] = field(default_factory=lambda: ["authorization_code"])
+    redirect_uris: list[str]
+    allowed_scopes: list[str]
+    grant_types: list[str] = field(default_factory=lambda: ["authorization_code"])
     is_active: bool = True
     created_at: str = ""
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "client_id": self.client_id,
             "client_name": self.client_name,
@@ -58,9 +57,9 @@ class AuthorizationCode:
     client_id: str
     user_id: str
     redirect_uri: str
-    scopes: List[str]
+    scopes: list[str]
     expires_at: float
-    code_challenge: Optional[str] = None  # PKCE
+    code_challenge: str | None = None  # PKCE
     code_challenge_method: str = "S256"
 
 
@@ -70,10 +69,10 @@ class OAuthToken:
     access_token: str
     token_type: str = "Bearer"
     expires_in: int = 3600
-    refresh_token: Optional[str] = None
+    refresh_token: str | None = None
     scope: str = ""
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         result = {
             "access_token": self.access_token,
             "token_type": self.token_type,
@@ -89,10 +88,10 @@ class OAuthService:
     """OAuth 2.0 authorization server implementation."""
 
     def __init__(self):
-        self._clients: Dict[str, OAuthClient] = {}
-        self._auth_codes: Dict[str, AuthorizationCode] = {}
-        self._tokens: Dict[str, Dict] = {}  # access_token -> token metadata
-        self._refresh_tokens: Dict[str, Dict] = {}  # refresh_token -> metadata
+        self._clients: dict[str, OAuthClient] = {}
+        self._auth_codes: dict[str, AuthorizationCode] = {}
+        self._tokens: dict[str, dict] = {}  # access_token -> token metadata
+        self._refresh_tokens: dict[str, dict] = {}  # refresh_token -> metadata
 
     @staticmethod
     def _hash_secret(secret: str) -> str:
@@ -109,10 +108,10 @@ class OAuthService:
         self,
         name: str,
         org_id: str,
-        redirect_uris: List[str],
-        scopes: List[str],
+        redirect_uris: list[str],
+        scopes: list[str],
         db=None,
-    ) -> Dict:
+    ) -> dict:
         """Register a new OAuth client and return credentials."""
         client_id = f"nexus_{uuid.uuid4().hex[:16]}"
         client_secret = f"nxs_{secrets.token_urlsafe(32)}"
@@ -151,10 +150,10 @@ class OAuthService:
         self,
         client_id: str,
         redirect_uri: str,
-        scopes: List[str],
+        scopes: list[str],
         user_id: str,
         code_challenge: str = None,
-    ) -> Optional[AuthorizationCode]:
+    ) -> AuthorizationCode | None:
         """Generate an authorization code for the code grant flow."""
         client = self._clients.get(client_id)
         if not client or not client.is_active:
@@ -188,7 +187,7 @@ class OAuthService:
         client_secret: str,
         redirect_uri: str,
         code_verifier: str = None,
-    ) -> Optional[OAuthToken]:
+    ) -> OAuthToken | None:
         """Exchange an authorization code for tokens."""
         auth_code = self._auth_codes.pop(code, None)
         if not auth_code:
@@ -248,7 +247,7 @@ class OAuthService:
 
     async def refresh_token(
         self, refresh_tok: str, client_id: str
-    ) -> Optional[OAuthToken]:
+    ) -> OAuthToken | None:
         """Refresh an expired access token."""
         rt_data = self._refresh_tokens.get(refresh_tok)
         if not rt_data or rt_data["client_id"] != client_id:
@@ -275,7 +274,7 @@ class OAuthService:
             scope=" ".join(rt_data["scopes"]),
         )
 
-    async def validate_token(self, access_token: str) -> Optional[Dict]:
+    async def validate_token(self, access_token: str) -> dict | None:
         """Validate an access token and return its claims.
 
         P1 Fix: Falls back to DB lookup if token not in memory cache.
@@ -331,7 +330,7 @@ class OAuthService:
         except Exception as e:
             logger.debug(f"OAuth token persistence skipped: {e}")
 
-    async def _load_token_from_db(self, access_token: str) -> Optional[dict]:
+    async def _load_token_from_db(self, access_token: str) -> dict | None:
         """P1 Fix: Load token data from DB by hash."""
         try:
             from app.core.database import supabase

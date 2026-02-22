@@ -2,13 +2,13 @@
 QA Pairs Router - CRUD for manual Q&A annotation
 """
 
-from fastapi import APIRouter, Depends, Request
-from typing import Optional
-from pydantic import BaseModel
 import logging
 
+from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel
+
 from app.core.auth import get_current_user_id
-from app.core.errors import api_success, api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error, api_success
 from app.models.schemas import StandardResponse
 
 logger = logging.getLogger(__name__)
@@ -20,20 +20,20 @@ router = APIRouter(prefix="/api/qa-pairs", tags=["QA Pairs"])
 class QAPairCreate(BaseModel):
     question: str
     answer: str
-    category: Optional[str] = None
+    category: str | None = None
 
 
 class QAPairUpdate(BaseModel):
-    question: Optional[str] = None
-    answer: Optional[str] = None
-    category: Optional[str] = None
+    question: str | None = None
+    answer: str | None = None
+    category: str | None = None
 
 
 @router.get("", response_model=StandardResponse)
 async def list_qa_pairs(
     req: Request,
     user_id: str = Depends(get_current_user_id),
-    category: Optional[str] = None,
+    category: str | None = None,
     limit: int = 100,
 ):
     """List all QA pairs for current user"""

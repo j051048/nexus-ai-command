@@ -3,8 +3,9 @@ P1 Fix #42: Encryption Service
 Provides secure encryption/decryption for sensitive data like API keys.
 """
 
-import logging
 import base64
+import logging
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)

@@ -9,9 +9,10 @@ P2 Fixes Applied:
 """
 
 import json
-import httpx
 import logging
-from typing import Dict
+
+import httpx
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -101,14 +102,14 @@ class AIService:
     @staticmethod
     async def analyze_approval(
         request_type: str, description: str, amount: float
-    ) -> Dict:
+    ) -> dict:
         """
         Analyze approvals using LLM.
 
         P2 Fix: Improved JSON parsing with proper error handling.
         """
         system_prompt = """
-        You are the 'Project Nexus' Enterprise Architect. 
+        You are the 'Project Nexus' Enterprise Architect.
         Analyze employee expenditure and leave requests.
         Return ONLY a JSON string with keys: "decision", "reasoning".
         """

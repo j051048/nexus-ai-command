@@ -16,8 +16,8 @@ Tables populated:
 
 import logging
 import uuid
-from datetime import datetime, timedelta, date
-from typing import Dict, Any, List, Optional
+from datetime import date, datetime, timedelta
+from typing import Any
 
 from app.core.database import supabase
 
@@ -39,7 +39,7 @@ async def _demo_data_exists(db, org_id: str) -> bool:
     return bool(result.data)
 
 
-async def cleanup_demo_data(org_id: str) -> Dict[str, int]:
+async def cleanup_demo_data(org_id: str) -> dict[str, int]:
     """
     Remove all demo data for a given organization.
 
@@ -54,7 +54,7 @@ async def cleanup_demo_data(org_id: str) -> Dict[str, int]:
         raise RuntimeError("Database not configured")
 
     db = supabase
-    deleted: Dict[str, int] = {}
+    deleted: dict[str, int] = {}
 
     # Fetch demo employee IDs first – needed for dependent tables
     emp_result = await db.table("users") \
@@ -173,7 +173,7 @@ _DEMO_CONTRACTS = [
 ]
 
 
-async def generate_demo_data(user_id: str, org_id: str) -> Dict[str, Any]:
+async def generate_demo_data(user_id: str, org_id: str) -> dict[str, Any]:
     """
     Generate a full set of demo data for an organization.
 
@@ -201,7 +201,7 @@ async def generate_demo_data(user_id: str, org_id: str) -> Dict[str, Any]:
 
     now = datetime.utcnow()
     today = date.today()
-    summary: Dict[str, int] = {}
+    summary: dict[str, int] = {}
     current_step: str = ""
 
     try:
@@ -209,7 +209,7 @@ async def generate_demo_data(user_id: str, org_id: str) -> Dict[str, Any]:
         # 1. Employees
         # ------------------------------------------------------------------
         current_step = "employees"
-        employee_ids: List[str] = []
+        employee_ids: list[str] = []
         for emp in _DEMO_EMPLOYEES:
             eid = str(uuid.uuid4())
             employee_ids.append(eid)
@@ -234,7 +234,7 @@ async def generate_demo_data(user_id: str, org_id: str) -> Dict[str, Any]:
         # 2. Customers (CRM)
         # ------------------------------------------------------------------
         current_step = "customers"
-        customer_ids: List[str] = []
+        customer_ids: list[str] = []
         for idx, cust in enumerate(_DEMO_CUSTOMERS):
             cid = str(uuid.uuid4())
             customer_ids.append(cid)
@@ -350,7 +350,7 @@ async def generate_demo_data(user_id: str, org_id: str) -> Dict[str, Any]:
         # 7. Attendance Records (last 7 days for all employees) – batch insert
         # ------------------------------------------------------------------
         current_step = "attendance_records"
-        attendance_batch: List[Dict[str, Any]] = []
+        attendance_batch: list[dict[str, Any]] = []
         for emp_id in employee_ids:
             for day_offset in range(7):
                 d = today - timedelta(days=day_offset)

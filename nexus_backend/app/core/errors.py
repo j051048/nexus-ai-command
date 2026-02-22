@@ -8,15 +8,16 @@ Provides:
 """
 
 import logging
-from enum import Enum
-from typing import Any, Optional, Dict, List
+from enum import StrEnum
+from typing import Any
+
 from fastapi import HTTPException
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
 
-class ErrorCode(str, Enum):
+class ErrorCode(StrEnum):
     """
     Standardized error codes for API responses.
 
@@ -71,7 +72,7 @@ class ErrorCode(str, Enum):
 
 
 # Error code to HTTP status mapping
-ERROR_STATUS_MAP: Dict[ErrorCode, int] = {
+ERROR_STATUS_MAP: dict[ErrorCode, int] = {
     # 400 Bad Request
     ErrorCode.VALIDATION_INVALID_INPUT: 400,
     ErrorCode.VALIDATION_MISSING_FIELD: 400,
@@ -106,7 +107,7 @@ ERROR_STATUS_MAP: Dict[ErrorCode, int] = {
 }
 
 # Error messages (Chinese)
-ERROR_MESSAGES: Dict[ErrorCode, str] = {
+ERROR_MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.AUTH_TOKEN_MISSING: "请先登录",
     ErrorCode.AUTH_TOKEN_INVALID: "登录凭证无效",
     ErrorCode.AUTH_TOKEN_EXPIRED: "登录已过期，请重新登录",
@@ -138,7 +139,7 @@ class APIError(BaseModel):
     """Standard API error response format"""
 
     success: bool = False
-    error: Dict[str, Any]
+    error: dict[str, Any]
 
 
 class APISuccess(BaseModel):
@@ -146,13 +147,13 @@ class APISuccess(BaseModel):
 
     success: bool = True
     data: Any
-    meta: Optional[Dict[str, Any]] = None
+    meta: dict[str, Any] | None = None
 
 
 def api_error(
     code: ErrorCode,
-    message: Optional[str] = None,
-    details: Optional[Dict[str, Any]] = None,
+    message: str | None = None,
+    details: dict[str, Any] | None = None,
     log_error: bool = True,
 ) -> HTTPException:
     """
@@ -191,8 +192,8 @@ def api_error(
 
 
 def api_success(
-    data: Any, message: Optional[str] = None, meta: Optional[Dict[str, Any]] = None
-) -> Dict[str, Any]:
+    data: Any, message: str | None = None, meta: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """
     Create a standardized success response.
 
@@ -220,11 +221,11 @@ def api_success(
 
 
 def api_list(
-    items: List[Any],
-    total: Optional[int] = None,
-    page: Optional[int] = None,
-    page_size: Optional[int] = None,
-) -> Dict[str, Any]:
+    items: list[Any],
+    total: int | None = None,
+    page: int | None = None,
+    page_size: int | None = None,
+) -> dict[str, Any]:
     """
     Create a standardized list response with pagination info.
 

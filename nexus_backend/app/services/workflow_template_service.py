@@ -7,8 +7,8 @@ Allows organizations to quickly create approval workflows from pre-defined templ
 
 import logging
 import uuid
-from typing import Dict, List, Optional, Any
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
 
 from app.core.database import supabase
 
@@ -20,7 +20,7 @@ class WorkflowTemplateService:
 
     # ─── 预置模板（内置，不存数据库）────────────────────────────────
 
-    BUILTIN_TEMPLATES: List[Dict[str, Any]] = [
+    BUILTIN_TEMPLATES: list[dict[str, Any]] = [
         {
             "id": "tpl_expense",
             "name": "费用报销标准流程",
@@ -205,7 +205,7 @@ class WorkflowTemplateService:
     ]
 
     # 分类元数据
-    CATEGORIES: Dict[str, Dict[str, str]] = {
+    CATEGORIES: dict[str, dict[str, str]] = {
         "finance": {"label": "财务", "color": "blue"},
         "procurement": {"label": "采购", "color": "green"},
         "hr": {"label": "人事", "color": "purple"},
@@ -218,12 +218,12 @@ class WorkflowTemplateService:
 
     async def list_templates(
         self,
-        category: Optional[str] = None,
-        org_id: Optional[str] = None,
+        category: str | None = None,
+        org_id: str | None = None,
         db: Any = None,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """列出所有模板（内置 + 组织共享）"""
-        templates: List[Dict] = []
+        templates: list[dict] = []
 
         # 1) 内置模板
         for tpl in self.BUILTIN_TEMPLATES:
@@ -254,7 +254,7 @@ class WorkflowTemplateService:
 
         return templates
 
-    async def get_template(self, template_id: str, db: Any = None) -> Optional[Dict]:
+    async def get_template(self, template_id: str, db: Any = None) -> dict | None:
         """获取模板详情"""
         # 先搜索内置模板
         for tpl in self.BUILTIN_TEMPLATES:
@@ -286,10 +286,10 @@ class WorkflowTemplateService:
         self,
         template_id: str,
         org_id: str,
-        name: Optional[str] = None,
-        created_by: Optional[str] = None,
+        name: str | None = None,
+        created_by: str | None = None,
         db: Any = None,
-    ) -> Dict:
+    ) -> dict:
         """从模板创建工作流实例"""
         template = await self.get_template(template_id, db=db)
         if not template:
@@ -342,9 +342,9 @@ class WorkflowTemplateService:
         self,
         workflow_id: str,
         org_id: str,
-        shared_by: Optional[str] = None,
+        shared_by: str | None = None,
         db: Any = None,
-    ) -> Dict:
+    ) -> dict:
         """将现有工作流分享为组织模板"""
         client = db or supabase
         if not client:
@@ -378,7 +378,7 @@ class WorkflowTemplateService:
             "usage_count": 0,
             "shared_by": shared_by,
             "source_workflow_id": workflow_id,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         }
 
         insert_result = (
@@ -401,7 +401,7 @@ class WorkflowTemplateService:
         )
         return shared
 
-    def get_categories(self) -> Dict[str, Dict[str, str]]:
+    def get_categories(self) -> dict[str, dict[str, str]]:
         """获取模板分类元数据"""
         return self.CATEGORIES
 

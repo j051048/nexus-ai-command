@@ -1,10 +1,10 @@
-import json
-import uuid
+import asyncio
 import datetime
+import json
 import logging
 import os
-import asyncio
-from typing import Any, Dict, List, Optional
+import uuid
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -67,13 +67,13 @@ class TraceLogger:
     Also pushes traces to Langfuse if configured.
     """
 
-    def __init__(self, user_id: str, agent: str, session_id: Optional[str] = None):
+    def __init__(self, user_id: str, agent: str, session_id: str | None = None):
         self.trace_id = str(uuid.uuid4())
         self.user_id = user_id
         self.agent = agent
         self.session_id = session_id
         self.start_time = datetime.datetime.now()
-        self._spans: List[Dict] = []
+        self._spans: list[dict] = []
         self._langfuse_trace = None
 
         # Initialize Langfuse trace if available
@@ -105,7 +105,7 @@ class TraceLogger:
             return sanitize(content)
         return content
 
-    def _emit(self, event_type: str, content: Dict[str, Any]):
+    def _emit(self, event_type: str, content: dict[str, Any]):
         """Emit a structured trace log entry to stdout."""
         try:
             safe_content = self._sanitize_content(content)
@@ -122,7 +122,7 @@ class TraceLogger:
         except Exception as e:
             logger.warning(f"TraceLogger emit failed: {e}")
 
-    def log_start(self, messages: List[Dict]):
+    def log_start(self, messages: list[dict]):
         # Sensitive: Don't log full history if massive, but for MVP log last message
         last_msg = messages[-1] if messages else {}
         self._emit(
@@ -133,7 +133,7 @@ class TraceLogger:
             },
         )
 
-    def log_tool_plan(self, tool_name: str, args: Dict):
+    def log_tool_plan(self, tool_name: str, args: dict):
         self._emit("tool_planned", {"tool_name": tool_name, "arguments": args})
         # Langfuse span for tool planning
         if self._langfuse_trace:
@@ -205,7 +205,7 @@ class TraceLogger:
             logger.debug(f"Langfuse flush failed: {e}")
 
     def log_generation(
-        self, model: str, input_messages: List[Dict], output: str, usage: Dict = None
+        self, model: str, input_messages: list[dict], output: str, usage: dict = None
     ):
         """Log a generation event (LLM call) to Langfuse."""
         if self._langfuse_trace:

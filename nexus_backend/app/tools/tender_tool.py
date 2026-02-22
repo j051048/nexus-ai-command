@@ -1,7 +1,10 @@
-from .base_tool import BaseTool
-from typing import Dict, Any
-from app.core.prompts_registry import TOOL_PROMPTS
+from typing import Any
+
 import httpx
+
+from app.core.prompts_registry import TOOL_PROMPTS
+
+from .base_tool import BaseTool
 
 
 class TenderAnalysisTool(BaseTool):
@@ -22,7 +25,7 @@ class TenderAnalysisTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         text = args.get("tender_text", "")
         if not text:

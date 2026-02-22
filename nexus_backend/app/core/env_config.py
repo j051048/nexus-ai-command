@@ -5,11 +5,12 @@ Provides validation and documentation for environment variables.
 Ensures all required configuration is present before startup.
 """
 
-import os
 import logging
-from typing import Optional, List, Dict, Any, Callable
+import os
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ class EnvVar:
     default: Any = None
     description: str = ""
     production_only: bool = False
-    validate: Optional[Callable[[Any], bool]] = None
+    validate: Callable[[Any], bool] | None = None
 
 
 class EnvironmentConfig:
@@ -53,7 +54,7 @@ class EnvironmentConfig:
     """
 
     # Define all environment variables
-    VARIABLES: List[EnvVar] = [
+    VARIABLES: list[EnvVar] = [
         # Database
         EnvVar(
             name="SUPABASE_URL",
@@ -143,7 +144,7 @@ class EnvironmentConfig:
     ]
 
     def __init__(self):
-        self._cache: Dict[str, Any] = {}
+        self._cache: dict[str, Any] = {}
         self._is_production = os.getenv("ENV", "development") in ("production", "prod")
 
     def get(self, name: str, default: Any = None) -> Any:
@@ -167,10 +168,7 @@ class EnvironmentConfig:
         raw_value = os.getenv(name)
 
         if raw_value is None:
-            if var_def and var_def.default is not None:
-                value = var_def.default
-            else:
-                value = default
+            value = var_def.default if var_def and var_def.default is not None else default
         else:
             value = self._parse_value(
                 raw_value, var_def.env_type if var_def else EnvType.STRING
@@ -199,7 +197,7 @@ class EnvironmentConfig:
         else:  # STRING, URL, SECRET
             return raw
 
-    def validate_all(self) -> List[str]:
+    def validate_all(self) -> list[str]:
         """
         Validate all required environment variables.
 

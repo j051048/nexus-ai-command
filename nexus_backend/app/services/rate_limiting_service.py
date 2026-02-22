@@ -5,10 +5,10 @@ Provides configurable rate limits based on user/org subscription tiers,
 complementing the global RateLimitMiddleware in core/rate_limiter.py.
 """
 
+import contextlib
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class TierLimits:
     export_per_minute: int = 5
 
 
-DEFAULT_TIER_LIMITS: Dict[RateTier, TierLimits] = {
+DEFAULT_TIER_LIMITS: dict[RateTier, TierLimits] = {
     RateTier.FREE: TierLimits(
         chat_per_minute=5,
         upload_per_minute=2,
@@ -81,7 +81,7 @@ class RateLimitingService:
     """
 
     def __init__(self):
-        self._tier_cache: Dict[str, RateTier] = {}
+        self._tier_cache: dict[str, RateTier] = {}
         self._event_log: list = []
 
     async def get_user_tier(self, user_id: str, db=None) -> RateTier:
@@ -100,10 +100,8 @@ class RateLimitingService:
                     .execute()
                 )
                 if res.data and res.data.get("tier"):
-                    try:
+                    with contextlib.suppress(ValueError):
                         tier = RateTier(res.data["tier"])
-                    except ValueError:
-                        pass
             except Exception as e:
                 logger.debug(f"Tier lookup failed for {user_id}: {e}")
 
@@ -135,7 +133,7 @@ class RateLimitingService:
         if len(self._event_log) > 10000:
             self._event_log = self._event_log[-5000:]
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """Get rate limiting statistics."""
         total = len(self._event_log)
         blocked = sum(1 for e in self._event_log if not e.allowed)

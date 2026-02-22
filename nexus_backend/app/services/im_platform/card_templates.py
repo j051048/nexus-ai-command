@@ -8,7 +8,6 @@ IM 平台互动消息卡片模板
 """
 
 import logging
-from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +20,7 @@ def approval_notification_card(
     requester_name: str,
     description: str,
     callback_url: str,
-) -> Dict:
+) -> dict:
     """
     生成审批通知卡片（含批准/拒绝按钮）。
 
@@ -66,8 +65,8 @@ def general_notification_card(
     platform: str,
     title: str,
     content: str,
-    url: Optional[str] = None,
-) -> Dict:
+    url: str | None = None,
+) -> dict:
     """
     生成通用通知卡片。
 
@@ -101,7 +100,7 @@ def _wecom_approval_card(
     requester_name: str,
     description: str,
     callback_url: str,
-) -> Dict:
+) -> dict:
     """
     企微审批通知卡片 - button_interaction 类型。
 
@@ -147,8 +146,8 @@ def _wecom_approval_card(
 
 
 def _wecom_general_card(
-    title: str, content: str, url: Optional[str] = None
-) -> Dict:
+    title: str, content: str, url: str | None = None
+) -> dict:
     """企微通用通知卡片 - text_notice 类型"""
     card = {
         "card_type": "text_notice",
@@ -176,7 +175,7 @@ def _dingtalk_approval_card(
     requester_name: str,
     description: str,
     callback_url: str,
-) -> Dict:
+) -> dict:
     """
     钉钉审批通知 ActionCard - 独立跳转（多按钮）。
 
@@ -212,8 +211,8 @@ def _dingtalk_approval_card(
 
 
 def _dingtalk_general_card(
-    title: str, content: str, url: Optional[str] = None
-) -> Dict:
+    title: str, content: str, url: str | None = None
+) -> dict:
     """钉钉通用通知 ActionCard - 整体跳转"""
     card = {
         "title": title,
@@ -236,7 +235,7 @@ def _feishu_approval_card(
     requester_name: str,
     description: str,
     callback_url: str,
-) -> Dict:
+) -> dict:
     """
     飞书审批通知互动卡片（Interactive Message Card）。
 
@@ -320,8 +319,8 @@ def _feishu_approval_card(
 
 
 def _feishu_general_card(
-    title: str, content: str, url: Optional[str] = None
-) -> Dict:
+    title: str, content: str, url: str | None = None
+) -> dict:
     """飞书通用通知卡片"""
     elements = [
         {

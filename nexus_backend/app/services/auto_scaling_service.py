@@ -5,14 +5,13 @@ Implements automatic scaling strategies for cost optimization.
 Fixes Issue #39: Missing auto-scaling strategy.
 """
 
-import os
-import logging
 import asyncio
-from typing import Dict, Optional, Any, List
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from enum import Enum
+import logging
 import time
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +51,7 @@ class ScalingDecision:
     current_size: int
     target_size: int
     reason: str
-    metrics: Dict[str, float]
+    metrics: dict[str, float]
     timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
 
 
@@ -72,7 +71,7 @@ class ScalingConfig:
 class AutoScalingService:
     """
     P2 Enhancement: Automatic scaling for cost optimization.
-    
+
     Features:
     - Metric-based scaling decisions
     - Configurable thresholds per resource
@@ -81,7 +80,7 @@ class AutoScalingService:
     - Predictive scaling based on trends
     - Integration with monitoring
     """
-    
+
     DEFAULT_CONFIGS = {
         ResourceType.WORKERS: ScalingConfig(
             resource_type=ResourceType.WORKERS,
@@ -116,48 +115,48 @@ class AutoScalingService:
             cooldown_seconds=300
         ),
     }
-    
+
     def __init__(self):
-        self.configs: Dict[ResourceType, ScalingConfig] = dict(self.DEFAULT_CONFIGS)
-        self.current_sizes: Dict[ResourceType, int] = {
+        self.configs: dict[ResourceType, ScalingConfig] = dict(self.DEFAULT_CONFIGS)
+        self.current_sizes: dict[ResourceType, int] = {
             rt: config.min_size for rt, config in self.configs.items()
         }
-        self._last_scaling: Dict[ResourceType, float] = {}
-        self._metrics_history: Dict[ResourceType, List[ScalingMetric]] = {}
-        self._scaling_history: List[ScalingDecision] = []
+        self._last_scaling: dict[ResourceType, float] = {}
+        self._metrics_history: dict[ResourceType, list[ScalingMetric]] = {}
+        self._scaling_history: list[ScalingDecision] = []
         self._running = False
         self._task = None
-        
+
     def configure(self, resource_type: ResourceType, config: ScalingConfig):
         """Update scaling configuration."""
         self.configs[resource_type] = config
         if resource_type not in self.current_sizes:
             self.current_sizes[resource_type] = config.min_size
-    
+
     def set_current_size(self, resource_type: ResourceType, size: int):
         """Set current size of a resource."""
         config = self.configs.get(resource_type)
         if config:
             self.current_sizes[resource_type] = max(config.min_size, min(config.max_size, size))
-    
+
     def record_metric(self, metric: ScalingMetric):
         """Record a metric for scaling decisions."""
         # Map metric name to resource type
         resource_type = self._map_metric_to_resource(metric.name)
         if not resource_type:
             return
-        
+
         if resource_type not in self._metrics_history:
             self._metrics_history[resource_type] = []
-        
+
         self._metrics_history[resource_type].append(metric)
-        
+
         # Keep history manageable
         max_history = 100
         if len(self._metrics_history[resource_type]) > max_history:
             self._metrics_history[resource_type] = self._metrics_history[resource_type][-max_history:]
-    
-    def _map_metric_to_resource(self, metric_name: str) -> Optional[ResourceType]:
+
+    def _map_metric_to_resource(self, metric_name: str) -> ResourceType | None:
         """Map metric name to resource type."""
         mapping = {
             "worker_utilization": ResourceType.WORKERS,
@@ -170,11 +169,11 @@ class AutoScalingService:
             "cache_size": ResourceType.CACHE_SIZE,
         }
         return mapping.get(metric_name)
-    
+
     def evaluate_scaling(self, resource_type: ResourceType) -> ScalingDecision:
         """
         Evaluate if scaling is needed for a resource.
-        
+
         Returns a ScalingDecision with the recommended action.
         """
         config = self.configs.get(resource_type)
@@ -187,10 +186,10 @@ class AutoScalingService:
                 reason="Resource not configured",
                 metrics={}
             )
-        
+
         current_size = self.current_sizes.get(resource_type, config.min_size)
         metrics = self._metrics_history.get(resource_type, [])
-        
+
         # Check cooldown
         last_scale = self._last_scaling.get(resource_type, 0)
         if time.time() - last_scale < config.cooldown_seconds:
@@ -202,7 +201,7 @@ class AutoScalingService:
                 reason=f"Cooldown period active ({config.cooldown_seconds}s)",
                 metrics=self._get_latest_metrics(metrics)
             )
-        
+
         # Calculate average utilization
         if not metrics:
             return ScalingDecision(
@@ -213,11 +212,11 @@ class AutoScalingService:
                 reason="No metrics available",
                 metrics={}
             )
-        
+
         # Use recent metrics (last 5)
         recent_metrics = metrics[-5:]
         avg_utilization = sum(m.current_value for m in recent_metrics) / len(recent_metrics)
-        
+
         # Make scaling decision
         if avg_utilization >= config.scale_up_threshold:
             # Scale up
@@ -231,7 +230,7 @@ class AutoScalingService:
                     reason=f"Utilization {avg_utilization:.1%} >= threshold {config.scale_up_threshold:.1%}",
                     metrics=self._get_latest_metrics(metrics)
                 )
-        
+
         elif avg_utilization <= config.scale_down_threshold:
             # Scale down
             new_size = max(current_size - config.scale_down_step, config.min_size)
@@ -244,7 +243,7 @@ class AutoScalingService:
                     reason=f"Utilization {avg_utilization:.1%} <= threshold {config.scale_down_threshold:.1%}",
                     metrics=self._get_latest_metrics(metrics)
                 )
-        
+
         return ScalingDecision(
             action=ScalingAction.NO_ACTION,
             resource_type=resource_type,
@@ -253,13 +252,13 @@ class AutoScalingService:
             reason="Within optimal range",
             metrics=self._get_latest_metrics(metrics)
         )
-    
-    def _get_latest_metrics(self, metrics: List[ScalingMetric]) -> Dict[str, float]:
+
+    def _get_latest_metrics(self, metrics: list[ScalingMetric]) -> dict[str, float]:
         """Get latest metric values."""
         if not metrics:
             return {}
         return {m.name: m.current_value for m in metrics[-5:]}
-    
+
     async def apply_scaling(self, decision: ScalingDecision) -> bool:
         """
         Apply a scaling decision.
@@ -267,31 +266,31 @@ class AutoScalingService:
         """
         if decision.action == ScalingAction.NO_ACTION:
             return False
-        
+
         resource_type = decision.resource_type
-        
+
         # Update current size
         self.current_sizes[resource_type] = decision.target_size
         self._last_scaling[resource_type] = time.time()
-        
+
         # Record in history
         self._scaling_history.append(decision)
         if len(self._scaling_history) > 100:
             self._scaling_history = self._scaling_history[-50:]
-        
+
         logger.info(
             f"Scaling {decision.action.value}: {resource_type.value} "
             f"{decision.current_size} -> {decision.target_size} ({decision.reason})"
         )
-        
+
         return True
-    
+
     async def start_monitoring(self, interval: int = 30):
         """Start periodic scaling evaluation."""
         self._running = True
         self._task = asyncio.create_task(self._monitoring_loop(interval))
         logger.info(f"Auto-scaling monitoring started (interval={interval}s)")
-    
+
     async def stop_monitoring(self):
         """Stop periodic scaling evaluation."""
         self._running = False
@@ -299,7 +298,7 @@ class AutoScalingService:
             self._task.cancel()
             self._task = None
         logger.info("Auto-scaling monitoring stopped")
-    
+
     async def _monitoring_loop(self, interval: int):
         """Periodic monitoring loop."""
         while self._running:
@@ -309,16 +308,16 @@ class AutoScalingService:
                     decision = self.evaluate_scaling(resource_type)
                     if decision.action != ScalingAction.NO_ACTION:
                         await self.apply_scaling(decision)
-                
+
                 await asyncio.sleep(interval)
-                
+
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.error(f"Scaling monitoring error: {e}")
                 await asyncio.sleep(interval)
-    
-    def get_status(self) -> Dict[str, Any]:
+
+    def get_status(self) -> dict[str, Any]:
         """Get current scaling status."""
         return {
             "running": self._running,
@@ -348,17 +347,17 @@ class AutoScalingService:
                 for d in self._scaling_history[-10:]
             ]
         }
-    
-    def get_cost_savings(self) -> Dict[str, Any]:
+
+    def get_cost_savings(self) -> dict[str, Any]:
         """Estimate cost savings from scaling."""
         # Calculate potential savings from scaling down
         savings = 0.0
-        for resource_type, decision in [(rt, self.evaluate_scaling(rt)) for rt in self.configs]:
+        for _resource_type, decision in [(rt, self.evaluate_scaling(rt)) for rt in self.configs]:
             if decision.action == ScalingAction.SCALE_DOWN:
                 # Estimate savings (simplified)
                 reduction = decision.current_size - decision.target_size
                 savings += reduction * 0.1  # $0.10 per unit per hour (example)
-        
+
         return {
             "estimated_hourly_savings": round(savings, 4),
             "scale_down_opportunities": [

@@ -7,9 +7,8 @@ Provides plan catalog, subscription lifecycle, and Stripe integration stub.
 import logging
 import os
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
-from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +34,9 @@ class PlanDetails:
     token_limit: int
     api_call_limit: int
     storage_mb: int
-    features: List[str] = field(default_factory=list)
+    features: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "plan": self.plan.value,
             "name": self.name,
@@ -49,7 +48,7 @@ class PlanDetails:
         }
 
 
-PLAN_CATALOG: Dict[BillingPlan, PlanDetails] = {
+PLAN_CATALOG: dict[BillingPlan, PlanDetails] = {
     BillingPlan.FREE: PlanDetails(
         BillingPlan.FREE, "Free", 0, 50_000, 500, 100,
         ["basic_chat", "3_documents"],
@@ -75,18 +74,18 @@ class Subscription:
     org_id: str
     plan: BillingPlan
     status: str = "active"  # active, past_due, cancelled, trialing
-    stripe_customer_id: Optional[str] = None
-    stripe_subscription_id: Optional[str] = None
-    current_period_end: Optional[str] = None
+    stripe_customer_id: str | None = None
+    stripe_subscription_id: str | None = None
+    current_period_end: str | None = None
 
 
 class BillingService:
     """Subscription and billing management."""
 
     def __init__(self):
-        self._subscriptions: Dict[str, Subscription] = {}
+        self._subscriptions: dict[str, Subscription] = {}
 
-    def get_plan_catalog(self) -> List[Dict]:
+    def get_plan_catalog(self) -> list[dict]:
         """Get all available plans."""
         plans = [p.to_dict() for p in PLAN_CATALOG.values()]
         if _IS_DEV_MODE:
@@ -169,7 +168,7 @@ class BillingService:
         logger.info(f"Subscription marked for cancellation at period end: {org_id}")
         return True
 
-    async def handle_payment_webhook(self, event_type: str, data: Dict):
+    async def handle_payment_webhook(self, event_type: str, data: dict):
         """Handle payment provider webhook events."""
         logger.info(f"Billing webhook received: {event_type}")
 
@@ -190,12 +189,12 @@ class BillingService:
 
     async def start_trial(
         self, org_id: str, days: int = 14, plan: BillingPlan = BillingPlan.PROFESSIONAL, db=None
-    ) -> Dict:
+    ) -> dict:
         """Start a free trial for an organization.
 
         P1 Enhancement: Allows new orgs to try paid features before committing.
         """
-        trial_end = datetime.now(timezone.utc) + timedelta(days=days)
+        trial_end = datetime.now(UTC) + timedelta(days=days)
         sub = Subscription(
             org_id=org_id,
             plan=plan,
@@ -227,7 +226,7 @@ class BillingService:
 
     async def check_expired_trials(self, db=None):
         """P2 Fix: Check and downgrade expired trials."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expired = [
             org_id for org_id, sub in self._subscriptions.items()
             if sub.status == "trialing"

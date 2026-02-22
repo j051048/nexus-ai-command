@@ -7,13 +7,12 @@
 """
 
 import logging
-from typing import Optional
-from pydantic import BaseModel
-from fastapi import APIRouter, Depends, Query
 
-from app.core.auth import get_current_user_id
+from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
+
 from app.core.dependencies import require_role
-from app.core.errors import api_success, api_list, api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error, api_list, api_success
 from app.services.super_admin_service import super_admin_service
 
 logger = logging.getLogger(__name__)
@@ -38,8 +37,8 @@ class SuspendRequest(BaseModel):
 async def list_organizations(
     page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
-    search: Optional[str] = Query(default=None, max_length=200),
-    status: Optional[str] = Query(default=None),
+    search: str | None = Query(default=None, max_length=200),
+    status: str | None = Query(default=None),
     user_id: str = Depends(require_super_admin),
 ):
     """列出所有组织（支持搜索和状态筛选）"""
@@ -141,11 +140,11 @@ async def get_system_health(
 
 @router.get("/audit-logs")
 async def list_audit_logs(
-    action: Optional[str] = Query(default=None),
-    user_id_filter: Optional[str] = Query(default=None, alias="filter_user_id"),
-    org_id: Optional[str] = Query(default=None),
-    date_from: Optional[str] = Query(default=None),
-    date_to: Optional[str] = Query(default=None),
+    action: str | None = Query(default=None),
+    user_id_filter: str | None = Query(default=None, alias="filter_user_id"),
+    org_id: str | None = Query(default=None),
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     user_id: str = Depends(require_super_admin),

@@ -10,9 +10,9 @@ IM 平台深度集成模块
 """
 
 from .base_client import IMPlatformClient
-from .wecom_client import WecomClient
 from .dingtalk_client import DingtalkClient
 from .feishu_client import FeishuClient
+from .wecom_client import WecomClient
 
 __all__ = [
     "IMPlatformClient",

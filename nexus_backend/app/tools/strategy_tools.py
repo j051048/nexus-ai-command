@@ -4,14 +4,16 @@ Phase 4 战略分析工具集
 4.2 复杂战略指令推演大脑（What-if 沙盘模拟）
 """
 
-from .base_tool import BaseTool
-from typing import Dict, Any
 from datetime import datetime, timedelta
+from typing import Any
+
 from app.core.database import supabase
 from app.services.ai_service import AIService
 
+from .base_tool import BaseTool
 
-def _get_client(config: Dict = None):
+
+def _get_client(config: dict = None):
     """Get scoped DB client if user token available, else fallback to service client."""
     token = config.get("token") if config else None
     return supabase.get_scoped_client(token) if token and supabase else supabase
@@ -45,9 +47,9 @@ class DataAttributionTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
-        metric = args.get("metric", "all")
+        args.get("metric", "all")
         period = args.get("period", "month")
         client = _get_client(config)
 
@@ -58,24 +60,23 @@ class DataAttributionTool(BaseTool):
         if period == "week":
             current_start = (now - timedelta(days=now.weekday())).strftime("%Y-%m-%d")
             prev_start = (now - timedelta(days=now.weekday() + 7)).strftime("%Y-%m-%d")
-            prev_end = (now - timedelta(days=now.weekday() + 1)).strftime("%Y-%m-%d")
+            (now - timedelta(days=now.weekday() + 1)).strftime("%Y-%m-%d")
             period_name = "本周"
         elif period == "quarter":
             q = (now.month - 1) // 3
             current_start = f"{now.year}-{q * 3 + 1:02d}-01"
             if q == 0:
                 prev_start = f"{now.year - 1}-10-01"
-                prev_end = f"{now.year - 1}-12-31"
+                f"{now.year - 1}-12-31"
             else:
                 prev_start = f"{now.year}-{(q - 1) * 3 + 1:02d}-01"
-                prev_end = f"{now.year}-{q * 3:02d}-28"
+                f"{now.year}-{q * 3:02d}-28"
             period_name = "本季度"
         else:
             current_start = now.strftime("%Y-%m-01")
             prev_month = now.month - 1 if now.month > 1 else 12
             prev_year = now.year if now.month > 1 else now.year - 1
             prev_start = f"{prev_year}-{prev_month:02d}-01"
-            prev_end = f"{prev_year}-{prev_month:02d}-28"
             period_name = "本月"
 
         # 收集各维度数据
@@ -122,8 +123,8 @@ class DataAttributionTool(BaseTool):
             )
             if leads_res.data:
                 status_counts = {}
-                for l in leads_res.data:
-                    s = l.get("status", "unknown")
+                for lead in leads_res.data:
+                    s = lead.get("status", "unknown")
                     status_counts[s] = status_counts.get(s, 0) + 1
                 data_context.append(f"商机分布: {status_counts}")
         except Exception:
@@ -237,7 +238,7 @@ class StrategySimulationTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         scenario = args.get("scenario", "")
         focus = args.get("focus", "comprehensive")
@@ -324,9 +325,9 @@ class StrategySimulationTool(BaseTool):
             )
             if leads_res.data:
                 pipeline = {}
-                for l in leads_res.data:
-                    s = l.get("status", "unknown")
-                    pipeline[s] = pipeline.get(s, 0) + float(l.get("estimated_value", 0))
+                for lead in leads_res.data:
+                    s = lead.get("status", "unknown")
+                    pipeline[s] = pipeline.get(s, 0) + float(lead.get("estimated_value", 0))
                 baseline_data.append(f"销售漏斗: {pipeline}")
         except Exception:
             pass

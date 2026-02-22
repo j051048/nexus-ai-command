@@ -4,18 +4,19 @@ API 文档增强端点 - 提供增强版 OpenAPI spec 和端点信息。
 """
 
 import logging
-from fastapi import APIRouter, Depends, Request
-from app.core.auth import get_current_user_id
-from app.core.errors import api_success, api_error, ErrorCode
+
+from fastapi import APIRouter, Request
+
 from app.core.api_docs import (
+    API_CHANGELOG,
     API_TAGS_METADATA,
     API_VERSION,
-    API_CHANGELOG,
     SWAGGER_UI_CONFIG,
-    get_enhanced_openapi_description,
-    get_endpoint_stats,
     get_all_examples,
+    get_endpoint_stats,
+    get_enhanced_openapi_description,
 )
+from app.core.errors import ErrorCode, api_error, api_success
 
 logger = logging.getLogger(__name__)
 

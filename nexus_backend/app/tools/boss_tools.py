@@ -6,17 +6,19 @@
 P0 Security Fix #1: All approval operations require explicit confirmation
 """
 
-from .base_tool import BaseTool
-from typing import Dict, Any, List
-from datetime import datetime, timedelta, timezone
 import logging
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
 from app.core.database import supabase
 from app.services.ai_service import AIService
+
+from .base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
 
 
-def _get_client(config: Dict = None):
+def _get_client(config: dict = None):
     """Get scoped DB client if user token available, else fallback to service client."""
     token = config.get("token") if config else None
     return supabase.get_scoped_client(token) if token and supabase else supabase
@@ -122,7 +124,7 @@ class SmartApprovalTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         client = _get_client(config)
         action = args.get("action", "approve")
@@ -277,10 +279,10 @@ class SmartApprovalTool(BaseTool):
                     # Multi-channel notification via notification_service
                     try:
                         from app.services.notification_service import (
-                            notification_service,
                             Notification,
                             NotificationChannel,
                             NotificationPriority,
+                            notification_service,
                         )
 
                         await notification_service.send(
@@ -352,10 +354,10 @@ class SmartApprovalTool(BaseTool):
                     # Multi-channel notification via notification_service
                     try:
                         from app.services.notification_service import (
-                            notification_service,
                             Notification,
                             NotificationChannel,
                             NotificationPriority,
+                            notification_service,
                         )
 
                         await notification_service.send(
@@ -420,10 +422,10 @@ class SmartApprovalTool(BaseTool):
 
         return "未知操作"
 
-    def _format_request_list(self, requests: List[Dict]) -> str:
+    def _format_request_list(self, requests: list[dict]) -> str:
         result = ""
         type_icons = {"expense": "💰", "leave": "🏖️", "purchase": "🛒", "travel": "✈️"}
-        for i, req in enumerate(requests, 1):
+        for _i, req in enumerate(requests, 1):
             icon = type_icons.get(req.get("type"), "📋")
             user_name = (
                 req.get("users", {}).get("name", "未知")
@@ -455,7 +457,7 @@ class DailyBriefingTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         client = _get_client(config)
         # 获取待审批数量
@@ -473,10 +475,10 @@ class DailyBriefingTool(BaseTool):
 
         # 获取已自动处理数量（今日已审批的）
         try:
-            from datetime import datetime, timezone
+            from datetime import datetime
 
             today_start = (
-                datetime.now(timezone.utc)
+                datetime.now(UTC)
                 .replace(hour=0, minute=0, second=0)
                 .isoformat()
             )
@@ -704,7 +706,7 @@ class BusinessDashboardTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         period = args.get("period", "this_month")
         period_names = {
@@ -818,7 +820,7 @@ class TeamInsightTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         client = _get_client(config)
 
@@ -888,7 +890,7 @@ class TeamInsightTool(BaseTool):
 📊 **绩效分布**
 
   S级(95+)  {bar(len(s_level), total_count)}  {pct(len(s_level))} ({len(s_level)}人)  🌟 明星员工
-  A级(85-94) {bar(len(a_level), total_count)}  {pct(len(a_level))} ({len(a_level)}人) ✅ 骨干力量  
+  A级(85-94) {bar(len(a_level), total_count)}  {pct(len(a_level))} ({len(a_level)}人) ✅ 骨干力量
   B级(70-84) {bar(len(b_level), total_count)}  {pct(len(b_level))} ({len(b_level)}人) 📈 待提升
   C级(<70)  {bar(len(c_level), total_count)}  {pct(len(c_level))} ({len(c_level)}人)  ⚠️ 需关注
 
@@ -956,7 +958,7 @@ class AnnouncementTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         title = args.get("title")
         content = args.get("content")
@@ -994,23 +996,23 @@ class AnnouncementTool(BaseTool):
         ]
 
         # Insert in batches of 50 to avoid payload size limits
-        BATCH_SIZE = 50
-        for i in range(0, len(notifications_batch), BATCH_SIZE):
-            batch = notifications_batch[i : i + BATCH_SIZE]
+        batch_size = 50
+        for i in range(0, len(notifications_batch), batch_size):
+            batch = notifications_batch[i : i + batch_size]
             try:
                 await client.table("notifications").insert(batch).execute()
             except Exception as e:
                 logger.warning(
-                    f"Failed to insert notification batch {i//BATCH_SIZE + 1}: {e}"
+                    f"Failed to insert notification batch {i//batch_size + 1}: {e}"
                 )
 
         # Multi-channel notification for announcements
         try:
             from app.services.notification_service import (
-                notification_service,
                 Notification,
                 NotificationChannel,
                 NotificationPriority,
+                notification_service,
             )
 
             priority_map = {
@@ -1075,7 +1077,7 @@ class CustomerProfileTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         name = args["customer_name"]
         client = _get_client(config)
@@ -1101,7 +1103,7 @@ class CustomerProfileTool(BaseTool):
                 f"来源: {lead.get('source', '未知')}, 最后更新: {lead.get('updated_at', '')[:10]}"
             )
 
-        prompt = f"客户数据:\n" + "\n".join(leads_summary) + "\n\n请生成客户画像，包括：客户标签、合作偏好、风险评估、推荐跟进策略。"
+        prompt = "客户数据:\n" + "\n".join(leads_summary) + "\n\n请生成客户画像，包括：客户标签、合作偏好、风险评估、推荐跟进策略。"
         system = "你是资深CRM分析师，基于客户交互历史生成精准画像。用中文回复，格式清晰。"
 
         try:

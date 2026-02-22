@@ -8,10 +8,10 @@ B2: Notification Channel Adapters
 - FeishuNotificationAdapter: 飞书群机器人 Webhook
 """
 
-from .email_adapter import EmailNotificationAdapter
-from .wecom_adapter import WecomNotificationAdapter
 from .dingtalk_adapter import DingtalkNotificationAdapter
+from .email_adapter import EmailNotificationAdapter
 from .feishu_adapter import FeishuNotificationAdapter
+from .wecom_adapter import WecomNotificationAdapter
 
 __all__ = [
     "EmailNotificationAdapter",

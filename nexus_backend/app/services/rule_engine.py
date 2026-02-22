@@ -1,6 +1,6 @@
-from app.models.schemas import ApprovalRequest, ApprovalDecision, PerformanceEvent
-from typing import Dict
+
 from app.core.config import settings
+from app.models.schemas import ApprovalDecision, ApprovalRequest, PerformanceEvent
 
 
 class RuleEngine:
@@ -11,7 +11,7 @@ class RuleEngine:
 
     @staticmethod
     def calculate_performance_score(
-        event: PerformanceEvent, current_daily_stats: Dict
+        event: PerformanceEvent, current_daily_stats: dict
     ) -> float:
         """
         Calculate score delta based on event and current stats.

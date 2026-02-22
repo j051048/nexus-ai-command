@@ -9,6 +9,7 @@ Adds security headers to all responses to prevent common web vulnerabilities:
 """
 
 import logging
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
@@ -107,8 +108,8 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
     PUBLIC_PATHS = {"/", "/health", "/favicon.ico", "/docs", "/redoc", "/openapi.json", "/api/test-ai"}
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        from app.core.database import supabase
         from app.core.auth import get_current_user_id
+        from app.core.database import supabase
         from app.services.cache_service import cache_service
 
         # If API Key middleware already authenticated, skip JWT flow

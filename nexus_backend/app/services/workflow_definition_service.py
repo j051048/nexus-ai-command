@@ -5,8 +5,8 @@ Supports node types: approver, condition, parallel, auto_approve, notify.
 """
 
 import logging
-from typing import Dict, List, Optional, Any
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
 
 from app.core.database import supabase
 
@@ -31,13 +31,13 @@ class WorkflowDefinitionService:
         self,
         org_id: str,
         name: str,
-        applies_to: List[str],
-        steps: List[Dict],
-        conditions: Optional[List[Dict]] = None,
-        canvas_layout: Optional[Dict] = None,
-        created_by: Optional[str] = None,
+        applies_to: list[str],
+        steps: list[dict],
+        conditions: list[dict] | None = None,
+        canvas_layout: dict | None = None,
+        created_by: str | None = None,
         db=None,
-    ) -> Dict:
+    ) -> dict:
         """Create a new workflow definition."""
         client = db or supabase
         if not client:
@@ -76,9 +76,9 @@ class WorkflowDefinitionService:
     async def update_workflow(
         self,
         workflow_id: str,
-        updates: Dict[str, Any],
+        updates: dict[str, Any],
         db=None,
-    ) -> Dict:
+    ) -> dict:
         """Update an existing workflow definition."""
         client = db or supabase
         if not client:
@@ -107,7 +107,7 @@ class WorkflowDefinitionService:
         for field in ("id", "organization_id", "created_at", "created_by"):
             updates.pop(field, None)
 
-        updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+        updates["updated_at"] = datetime.now(UTC).isoformat()
 
         result = (
             await client.table("approval_chains")
@@ -148,7 +148,7 @@ class WorkflowDefinitionService:
         self,
         workflow_id: str,
         db=None,
-    ) -> Optional[Dict]:
+    ) -> dict | None:
         """Get a single workflow definition by ID."""
         client = db or supabase
         if not client:
@@ -168,7 +168,7 @@ class WorkflowDefinitionService:
         self,
         org_id: str,
         db=None,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """List all workflow definitions for an organization."""
         client = db or supabase
         if not client:
@@ -189,7 +189,7 @@ class WorkflowDefinitionService:
         org_id: str,
         approval_type: str,
         db=None,
-    ) -> Optional[Dict]:
+    ) -> dict | None:
         """
         Get the active workflow for a specific approval type within an organization.
         Prioritizes the default workflow, otherwise returns the first active match.
@@ -218,7 +218,7 @@ class WorkflowDefinitionService:
         self,
         workflow_id: str,
         db=None,
-    ) -> Dict:
+    ) -> dict:
         """Toggle the is_active status of a workflow."""
         client = db or supabase
         if not client:
@@ -247,7 +247,7 @@ class WorkflowDefinitionService:
         workflow_id: str,
         org_id: str,
         db=None,
-    ) -> Dict:
+    ) -> dict:
         """
         Set a workflow as the default for its organization.
         Unsets any previously default workflow in the same org.
@@ -281,9 +281,9 @@ class WorkflowDefinitionService:
 
     def validate_workflow_definition(
         self,
-        steps: List[Dict],
-        conditions: Optional[List[Dict]] = None,
-    ) -> List[str]:
+        steps: list[dict],
+        conditions: list[dict] | None = None,
+    ) -> list[str]:
         """
         Validate a workflow definition structure.
         Returns a list of error messages (empty if valid).
@@ -296,7 +296,7 @@ class WorkflowDefinitionService:
         - No cycles in the workflow graph
         - Start and end nodes are properly defined
         """
-        errors: List[str] = []
+        errors: list[str] = []
 
         if not steps or not isinstance(steps, list):
             errors.append("Workflow must contain at least one step")
@@ -304,7 +304,7 @@ class WorkflowDefinitionService:
 
         # Build node ID set and adjacency for cycle detection
         node_ids = set()
-        adjacency: Dict[str, List[str]] = {}
+        adjacency: dict[str, list[str]] = {}
         has_approver = False
         has_start = False
         has_end = False
@@ -397,10 +397,9 @@ class WorkflowDefinitionService:
             return False
 
         for node_id in node_ids:
-            if node_id not in visited:
-                if _has_cycle(node_id):
-                    errors.append("Workflow contains a cycle (circular dependency)")
-                    break
+            if node_id not in visited and _has_cycle(node_id):
+                errors.append("Workflow contains a cycle (circular dependency)")
+                break
 
         return errors
 

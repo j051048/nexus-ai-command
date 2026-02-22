@@ -8,15 +8,17 @@ P2 Fixes Applied:
 """
 
 import logging
-from .base_tool import BaseTool
-from typing import Dict, Any
 from datetime import datetime, timedelta
+from typing import Any
+
 from app.core.database import supabase
+
+from .base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
 
 
-def _get_client(config: Dict = None):
+def _get_client(config: dict = None):
     """Get scoped DB client if user token available, else fallback to service client."""
     token = config.get("token") if config else None
     return supabase.get_scoped_client(token) if token and supabase else supabase
@@ -59,7 +61,7 @@ class LeaveRequestTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         token = config.get("token") if config else None
         client = supabase.get_scoped_client(token) if token else supabase
@@ -235,7 +237,7 @@ class LeaveQueryTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         client = _get_client(config)
         query_type = args.get("query_type", "my_requests")
@@ -329,7 +331,7 @@ class MeetingBookingTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         title = args.get("title", "会议")
         duration = args.get("duration_minutes", 60)
@@ -414,7 +416,7 @@ class TaskAssignmentTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         title = args.get("title")
         description = args.get("description", "")
@@ -531,7 +533,7 @@ class WorkHandoverTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         handover_to_name = args.get("handover_to")
         reason = args.get("reason", "临时交接")
@@ -624,9 +626,10 @@ class OnboardingChecklistTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         import json as _json
+
         from app.services.ai_service import AIService
 
         job_title = args.get("job_title", "")

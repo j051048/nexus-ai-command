@@ -13,15 +13,15 @@ Endpoints:
 
 import logging
 import uuid
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id
-from app.core.errors import api_success, api_error, ErrorCode
+from app.core.errors import api_success
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ _DEV_WARNING = "Robot/RPA interface is in development. No real device connection
 # Enums
 # ---------------------------------------------------------------------------
 
-class CommandType(str, Enum):
+class CommandType(StrEnum):
     """Supported robot command types."""
     MOVE = "move"
     CLICK = "click"
@@ -44,7 +44,7 @@ class CommandType(str, Enum):
     CUSTOM = "custom"
 
 
-class CommandPriority(str, Enum):
+class CommandPriority(StrEnum):
     """Priority levels for queued commands."""
     LOW = "low"
     NORMAL = "normal"
@@ -60,7 +60,7 @@ class RobotCommand(BaseModel):
     """A command to be executed by a robot device."""
     device_id: str = Field(..., description="Target device identifier")
     command_type: CommandType = Field(..., description="Type of command to execute")
-    parameters: Dict[str, Any] = Field(
+    parameters: dict[str, Any] = Field(
         default_factory=dict,
         description="Command-specific parameters",
     )
@@ -76,8 +76,8 @@ class DeviceInfo(BaseModel):
     name: str
     status: str
     device_type: str
-    last_seen: Optional[str] = None
-    capabilities: List[str] = []
+    last_seen: str | None = None
+    capabilities: list[str] = []
 
 
 class CommandResponse(BaseModel):
@@ -93,7 +93,7 @@ class CommandResponse(BaseModel):
 
 class DeviceListResponse(BaseModel):
     """Response for listing registered devices."""
-    devices: List[DeviceInfo]
+    devices: list[DeviceInfo]
     count: int
     _is_stub: bool = True
     _dev_warning: str = _DEV_WARNING
@@ -103,8 +103,8 @@ class DeviceStatusResponse(BaseModel):
     """Response for a device status query."""
     device_id: str
     status: str
-    last_heartbeat: Optional[str] = None
-    current_task: Optional[str] = None
+    last_heartbeat: str | None = None
+    current_task: str | None = None
     queue_depth: int = 0
     _is_stub: bool = True
     _dev_warning: str = _DEV_WARNING
@@ -125,7 +125,7 @@ async def queue_command(
     tracking ID but no real device communication takes place.
     """
     command_id = str(uuid.uuid4())
-    queued_at = datetime.now(timezone.utc).isoformat()
+    queued_at = datetime.now(UTC).isoformat()
 
     logger.info(
         "[Robot] command_queued command_id=%s device=%s type=%s user=%s (stub)",

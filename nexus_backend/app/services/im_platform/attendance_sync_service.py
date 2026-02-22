@@ -9,8 +9,8 @@
 """
 
 import logging
-from datetime import datetime, date, timezone
-from typing import Dict, List, Optional, Any
+from datetime import UTC, date, datetime
+from typing import Any
 
 from app.core.database import supabase
 from app.services.im_platform.contact_sync_service import ContactSyncService
@@ -34,7 +34,7 @@ class AttendanceSyncService:
         platform: str,
         sync_date: str = None,
         db=None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         同步考勤数据。
 
@@ -130,7 +130,7 @@ class AttendanceSyncService:
                         "status": record.get("status", "normal"),
                         "location": record.get("location", ""),
                         "raw_data": record.get("raw"),
-                        "synced_at": datetime.now(timezone.utc).isoformat(),
+                        "synced_at": datetime.now(UTC).isoformat(),
                     }
 
                     # Upsert by unique constraint
@@ -170,7 +170,7 @@ class AttendanceSyncService:
 
     async def _get_user_mappings(
         self, org_id: str, platform: str, db
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         获取组织在指定平台上的所有用户映射。
 
@@ -193,8 +193,8 @@ class AttendanceSyncService:
             return []
 
     async def _normalize_attendance(
-        self, platform: str, raw_records: List[Dict]
-    ) -> List[Dict]:
+        self, platform: str, raw_records: list[dict]
+    ) -> list[dict]:
         """
         将不同平台的考勤数据标准化为统一格式。
 
@@ -211,7 +211,7 @@ class AttendanceSyncService:
         normalized = []
 
         # 按用户分组打卡记录（一天可能有多条记录: 上班/下班）
-        user_records: Dict[str, List[Dict]] = {}
+        user_records: dict[str, list[dict]] = {}
         for record in raw_records:
             uid = record.get("userid", "")
             if uid not in user_records:
@@ -241,20 +241,15 @@ class AttendanceSyncService:
 
     @staticmethod
     def _normalize_wecom(
-        uid: str, records: List[Dict], entry: Dict
-    ) -> Dict:
+        uid: str, records: list[dict], entry: dict
+    ) -> dict:
         """企微考勤数据标准化"""
         for record in records:
             checkin_type = record.get("checkin_type", "")
             checkin_time = record.get("checkin_time", 0)
             exception_type = record.get("exception_type", "")
 
-            if checkin_time:
-                time_str = datetime.fromtimestamp(
-                    checkin_time, tz=timezone.utc
-                ).isoformat()
-            else:
-                time_str = None
+            time_str = datetime.fromtimestamp(checkin_time, tz=UTC).isoformat() if checkin_time else None
 
             # 企微: checkin_type 区分上班/下班
             if "上班" in checkin_type or checkin_type == "":
@@ -277,8 +272,8 @@ class AttendanceSyncService:
 
     @staticmethod
     def _normalize_dingtalk(
-        uid: str, records: List[Dict], entry: Dict
-    ) -> Dict:
+        uid: str, records: list[dict], entry: dict
+    ) -> dict:
         """钉钉考勤数据标准化"""
         for record in records:
             check_type = record.get("checkin_type", "")
@@ -288,7 +283,7 @@ class AttendanceSyncService:
             if checkin_time:
                 if isinstance(checkin_time, (int, float)):
                     time_str = datetime.fromtimestamp(
-                        checkin_time / 1000, tz=timezone.utc
+                        checkin_time / 1000, tz=UTC
                     ).isoformat()
                 else:
                     time_str = str(checkin_time)
@@ -314,8 +309,8 @@ class AttendanceSyncService:
 
     @staticmethod
     def _normalize_feishu(
-        uid: str, records: List[Dict], entry: Dict
-    ) -> Dict:
+        uid: str, records: list[dict], entry: dict
+    ) -> dict:
         """飞书考勤数据标准化"""
         for record in records:
             check_type = record.get("checkin_type", "")

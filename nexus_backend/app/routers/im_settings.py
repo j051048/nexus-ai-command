@@ -11,17 +11,18 @@ IM 平台管理设置 API
 """
 
 import logging
-from fastapi import APIRouter, Request, Depends
+
+from fastapi import APIRouter, Depends, Request
 
 from app.core.auth import get_current_user_id
 from app.core.database import supabase
-from app.core.errors import api_success, api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error, api_success
+from app.services.im_platform.attendance_sync_service import (
+    attendance_sync_service,
+)
 from app.services.im_platform.contact_sync_service import (
     ContactSyncService,
     contact_sync_service,
-)
-from app.services.im_platform.attendance_sync_service import (
-    attendance_sync_service,
 )
 
 logger = logging.getLogger(__name__)
@@ -131,7 +132,7 @@ async def upsert_im_config(
             "is_active": is_active,
         }
 
-        result = await db.table("im_platform_config").upsert(
+        await db.table("im_platform_config").upsert(
             data,
             on_conflict="organization_id,platform",
         ).execute()
@@ -355,10 +356,9 @@ async def trigger_attendance_sync(
 
 def _get_required_fields(platform: str) -> list:
     """获取平台必需的配置字段列表"""
-    if platform == "wecom":
-        return ["corp_id", "corp_secret"]
-    elif platform == "dingtalk":
-        return ["app_key", "app_secret"]
-    elif platform == "feishu":
-        return ["app_id", "app_secret"]
-    return []
+    platform_fields = {
+        "wecom": ["corp_id", "corp_secret"],
+        "dingtalk": ["app_key", "app_secret"],
+        "feishu": ["app_id", "app_secret"],
+    }
+    return platform_fields.get(platform, [])

@@ -1,6 +1,8 @@
 import logging
+from typing import Any
+
 import arxiv
-from typing import List, Dict, Any
+
 from app.core.database import supabase
 
 logger = logging.getLogger(__name__)
@@ -15,7 +17,7 @@ class CrawlerService:
     @staticmethod
     def crawl_arxiv(
         query: str = "spectroscopy", max_results: int = 5
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Crawl arXiv for latest papers in the domain.
         """
@@ -43,7 +45,7 @@ class CrawlerService:
         return results
 
     @staticmethod
-    async def analyze_and_push_lead(paper: Dict[str, Any]):
+    async def analyze_and_push_lead(paper: dict[str, Any]):
         """
         Mock vector match and push to Supabase.
         In production, this would use vector_service to match SKU.

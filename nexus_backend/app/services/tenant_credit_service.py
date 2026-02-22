@@ -5,11 +5,9 @@ Implements organization-level credit/quota system and abuse prevention.
 Fixes Issues #50, #51: Anti-abuse mechanism and tenant budget control.
 """
 
-import os
 import asyncio
-import time
 import logging
-from typing import Dict, Optional, Tuple
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -94,11 +92,11 @@ class TenantCreditService:
     DEFAULT_QUOTAS = TenantQuota()
 
     def __init__(self):
-        self._rate_limit_cache: Dict[str, list] = {}
-        self._credit_cache: Dict[str, TenantCredit] = {}
-        self._behavior_tracker: Dict[str, Dict] = {}
-        self._ip_tracker: Dict[str, Dict] = {}
-        self._credit_locks: Dict[str, asyncio.Lock] = {}  # P0 Fix: per-org locks
+        self._rate_limit_cache: dict[str, list] = {}
+        self._credit_cache: dict[str, TenantCredit] = {}
+        self._behavior_tracker: dict[str, dict] = {}
+        self._ip_tracker: dict[str, dict] = {}
+        self._credit_locks: dict[str, asyncio.Lock] = {}  # P0 Fix: per-org locks
 
     def _get_lock(self, org_id: str) -> asyncio.Lock:
         """Get or create a per-org asyncio lock for atomic credit operations."""
@@ -108,7 +106,7 @@ class TenantCreditService:
 
     async def check_credit(
         self, org_id: str, credit_type: CreditType, amount: int = 1, db=None
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """Check if tenant has sufficient credits."""
         if not org_id:
             return False, "Organization ID is required"
@@ -128,7 +126,7 @@ class TenantCreditService:
 
     async def consume_credit(
         self, org_id: str, credit_type: CreditType, amount: int, user_id: str = None, db=None
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """Consume credits from tenant allocation (atomic via per-org lock)."""
         async with self._get_lock(org_id):
             has_credit, error = await self.check_credit(org_id, credit_type, amount, db)
@@ -142,7 +140,7 @@ class TenantCreditService:
             await self._persist_credit_usage(org_id, credit_type, amount, user_id, db)
             return True, None
 
-    async def check_rate_limit(self, org_id: str, user_id: str) -> Tuple[bool, Optional[int]]:
+    async def check_rate_limit(self, org_id: str, user_id: str) -> tuple[bool, int | None]:
         """Check rate limit. Returns (is_allowed, retry_after_seconds)."""
         quota = await self._get_tenant_quota(org_id)
         current_minute = int(time.time() / 60)
@@ -192,7 +190,7 @@ class TenantCreditService:
 
         # Check bot-like patterns
         if len(recent_requests) >= 5:
-            intervals = [recent_requests[i] - recent_requests[i-1] 
+            intervals = [recent_requests[i] - recent_requests[i-1]
                         for i in range(1, min(6, len(recent_requests)))]
             avg_interval = sum(intervals) / len(intervals) if intervals else 1
             if avg_interval < 0.5:
@@ -255,7 +253,7 @@ class TenantCreditService:
             "blocked_until": now + 300 if len(recent_failures) > 10 else 0
         }
 
-    async def get_usage_stats(self, org_id: str, db=None) -> Dict:
+    async def get_usage_stats(self, org_id: str, db=None) -> dict:
         """Get usage statistics for a tenant."""
         token_credit = await self._get_credit_status(org_id, CreditType.TOKENS, db)
         api_credit = await self._get_credit_status(org_id, CreditType.API_CALLS, db)

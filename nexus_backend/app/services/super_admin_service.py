@@ -7,8 +7,7 @@
 
 import logging
 import os
-from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +26,8 @@ class SuperAdminService:
     # ============== 组织管理 ==============
 
     async def list_organizations(
-        self, page: int = 1, limit: int = 20, search: Optional[str] = None, status: Optional[str] = None
-    ) -> Dict:
+        self, page: int = 1, limit: int = 20, search: str | None = None, status: str | None = None
+    ) -> dict:
         """
         列出所有组织
 
@@ -79,7 +78,7 @@ class SuperAdminService:
             logger.error(f"获取组织列表失败: {e}")
             raise
 
-    async def get_organization_detail(self, org_id: str) -> Dict:
+    async def get_organization_detail(self, org_id: str) -> dict:
         """
         组织详情（含用户数、订阅状态、用量）
 
@@ -118,7 +117,7 @@ class SuperAdminService:
             # 获取近30天 AI 调用量
             from datetime import timedelta
 
-            thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+            thirty_days_ago = (datetime.now(UTC) - timedelta(days=30)).isoformat()
             usage_result = await (
                 client.table("ai_usage_logs")
                 .select("id", count="exact")
@@ -157,7 +156,7 @@ class SuperAdminService:
                 .update({
                     "status": "suspended",
                     "suspended_reason": reason,
-                    "suspended_at": datetime.now(timezone.utc).isoformat(),
+                    "suspended_at": datetime.now(UTC).isoformat(),
                 })
                 .eq("id", org_id)
                 .execute()
@@ -207,7 +206,7 @@ class SuperAdminService:
 
     # ============== 平台统计 ==============
 
-    async def get_platform_stats(self) -> Dict:
+    async def get_platform_stats(self) -> dict:
         """
         平台级统计
 
@@ -228,7 +227,7 @@ class SuperAdminService:
             # MAU（30天内有活动的用户数）
             from datetime import timedelta
 
-            thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+            thirty_days_ago = (datetime.now(UTC) - timedelta(days=30)).isoformat()
             mau_result = await (
                 client.table("users")
                 .select("id", count="exact")
@@ -261,7 +260,7 @@ class SuperAdminService:
                 "total_users": total_users,
                 "monthly_active_users": mau,
                 "total_ai_calls_30d": total_ai_calls,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:
@@ -270,7 +269,7 @@ class SuperAdminService:
 
     # ============== 系统健康检查 ==============
 
-    async def get_system_health(self) -> Dict:
+    async def get_system_health(self) -> dict:
         """
         系统健康检查: DB、缓存、AI 服务、队列
 
@@ -280,13 +279,13 @@ class SuperAdminService:
         health = {
             "overall": "healthy",
             "services": {},
-            "checked_at": datetime.now(timezone.utc).isoformat(),
+            "checked_at": datetime.now(UTC).isoformat(),
         }
 
         # 数据库健康检查
         try:
             client = self._get_global_client()
-            result = await client.table("organizations").select("id").limit(1).execute()
+            await client.table("organizations").select("id").limit(1).execute()
             health["services"]["database"] = {
                 "status": "healthy",
                 "latency_ms": None,
@@ -341,7 +340,7 @@ class SuperAdminService:
             }
 
         # 如果任何关键服务不健康，整体状态降级
-        for name, svc in health["services"].items():
+        for _name, svc in health["services"].items():
             if svc.get("status") == "unhealthy":
                 health["overall"] = "unhealthy"
                 break
@@ -355,10 +354,10 @@ class SuperAdminService:
 
     async def list_audit_logs_global(
         self,
-        filters: Optional[Dict] = None,
+        filters: dict | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         全局审计日志
 

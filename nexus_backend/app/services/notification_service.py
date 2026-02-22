@@ -14,18 +14,18 @@ B1: Unified Notification Service
 
 import logging
 import uuid
-from datetime import datetime
-from typing import Dict, Any, List, Optional
-from dataclasses import dataclass, field
-from enum import Enum
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum, StrEnum
+from typing import Any
 
 from app.core.database import supabase
 
 logger = logging.getLogger(__name__)
 
 
-class NotificationChannel(str, Enum):
+class NotificationChannel(StrEnum):
     """通知渠道枚举"""
 
     IN_APP = "in_app"
@@ -35,7 +35,7 @@ class NotificationChannel(str, Enum):
     FEISHU = "feishu"
 
 
-class NotificationPriority(str, Enum):
+class NotificationPriority(StrEnum):
     """通知优先级枚举"""
 
     LOW = "low"
@@ -65,11 +65,11 @@ class Notification:
     target_user_id: str
     channel: NotificationChannel
     priority: NotificationPriority = NotificationPriority.NORMAL
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     notification_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     created_at: datetime = field(default_factory=datetime.now)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为字典格式"""
         return {
             "notification_id": self.notification_id,
@@ -201,7 +201,7 @@ class NotificationService:
 
     def __init__(self):
         """初始化通知服务"""
-        self._adapters: Dict[NotificationChannel, BaseNotificationAdapter] = {}
+        self._adapters: dict[NotificationChannel, BaseNotificationAdapter] = {}
         logger.info("NotificationService initialized")
 
     def register_adapter(
@@ -256,8 +256,8 @@ class NotificationService:
             return False
 
     async def send_multi(
-        self, notification: Notification, channels: List[NotificationChannel]
-    ) -> Dict[NotificationChannel, bool]:
+        self, notification: Notification, channels: list[NotificationChannel]
+    ) -> dict[NotificationChannel, bool]:
         """
         多渠道同时发送通知
 
@@ -304,10 +304,10 @@ class NotificationService:
         title: str,
         content: str,
         role: str,
-        channels: List[NotificationChannel],
+        channels: list[NotificationChannel],
         priority: NotificationPriority = NotificationPriority.NORMAL,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Dict[NotificationChannel, bool]]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, dict[NotificationChannel, bool]]:
         """
         按角色群发通知
 
@@ -467,7 +467,7 @@ async def send_notification(
     target_user_id: str,
     channel: NotificationChannel = NotificationChannel.IN_APP,
     priority: NotificationPriority = NotificationPriority.NORMAL,
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> bool:
     """
     便捷函数：发送单个通知
@@ -498,10 +498,10 @@ async def send_multi_channel(
     title: str,
     content: str,
     target_user_id: str,
-    channels: List[NotificationChannel],
+    channels: list[NotificationChannel],
     priority: NotificationPriority = NotificationPriority.NORMAL,
-    metadata: Optional[Dict[str, Any]] = None,
-) -> Dict[NotificationChannel, bool]:
+    metadata: dict[str, Any] | None = None,
+) -> dict[NotificationChannel, bool]:
     """
     便捷函数：多渠道发送通知
 

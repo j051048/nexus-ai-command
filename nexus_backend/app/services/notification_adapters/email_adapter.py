@@ -12,14 +12,13 @@ B2: Email Notification Adapter
 """
 
 import logging
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import Optional
+from email.mime.text import MIMEText
 
 import aiosmtplib
 
-from app.services.notification_service import BaseNotificationAdapter, Notification
 from app.core.config import settings
+from app.services.notification_service import BaseNotificationAdapter, Notification
 
 logger = logging.getLogger(__name__)
 
@@ -45,11 +44,11 @@ class EmailNotificationAdapter(BaseNotificationAdapter):
 
     def __init__(self):
         """初始化邮件适配器"""
-        self.smtp_host: Optional[str] = getattr(settings, "SMTP_HOST", None)
+        self.smtp_host: str | None = getattr(settings, "SMTP_HOST", None)
         self.smtp_port: int = getattr(settings, "SMTP_PORT", 587)
-        self.smtp_user: Optional[str] = getattr(settings, "SMTP_USER", None)
-        self.smtp_password: Optional[str] = getattr(settings, "SMTP_PASSWORD", None)
-        self.smtp_from: Optional[str] = getattr(settings, "SMTP_FROM", None)
+        self.smtp_user: str | None = getattr(settings, "SMTP_USER", None)
+        self.smtp_password: str | None = getattr(settings, "SMTP_PASSWORD", None)
+        self.smtp_from: str | None = getattr(settings, "SMTP_FROM", None)
 
         # 检查配置完整性
         self._config_complete = all(

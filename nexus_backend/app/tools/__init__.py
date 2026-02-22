@@ -1,70 +1,69 @@
-from .base_tool import BaseTool
-from .tender_tool import TenderAnalysisTool
-from .battlecard_tool import BattlecardTool
-from typing import Dict
 from .approval_tools import (
     ApprovalTool,
-    RejectTool,
-    PendingApprovalsTool,
-    SubmitApprovalOnBehalfTool,
-    GetEmployeeInfoTool,
     GetEmployeeApprovalHistoryTool,
+    GetEmployeeInfoTool,
+    PendingApprovalsTool,
+    RejectTool,
+    SubmitApprovalOnBehalfTool,
 )
-from .operational_tools import (
-    PerformanceReportTool,
-    CompanyStatsTool,
-    KnowledgeBaseTool,
-    AwardBadgeTool,
-)
-from .project_tools import ProjectListTool, CreateEventTool, CreateProjectTool, WeeklyReportTool
-
-# OA 办公自动化工具
-from .oa_tools import (
-    LeaveRequestTool,
-    LeaveQueryTool,
-    MeetingBookingTool,
-    TaskAssignmentTool,
-    WorkHandoverTool,
-    OnboardingChecklistTool,
-)
-
-# 财务管理工具
-from .finance_tools import (
-    ExpenseClaimTool,
-    ExpenseQueryTool,
-    BudgetQueryTool,
-    SalaryQueryTool,
-    InvoiceOCRTool,
-)
-
-# HR 人力资源工具
-from .hr_tools import (
-    AttendanceQueryTool,
-    TeamAttendanceTool,
-    EmployeeProfileTool,
-    PerformanceReviewTool,
-    RecruitmentTool,
-)
+from .base_tool import BaseTool
+from .battlecard_tool import BattlecardTool
 
 # 领导专属工具
 from .boss_tools import (
-    SmartApprovalTool,
-    DailyBriefingTool,
-    BusinessDashboardTool,
-    TeamInsightTool,
     AnnouncementTool,
+    BusinessDashboardTool,
     CustomerProfileTool,
+    DailyBriefingTool,
+    SmartApprovalTool,
+    TeamInsightTool,
 )
 
 # 合同分析工具
 from .contract_tools import ContractAnalysisTool
 
+# 财务管理工具
+from .finance_tools import (
+    BudgetQueryTool,
+    ExpenseClaimTool,
+    ExpenseQueryTool,
+    InvoiceOCRTool,
+    SalaryQueryTool,
+)
+
+# HR 人力资源工具
+from .hr_tools import (
+    AttendanceQueryTool,
+    EmployeeProfileTool,
+    PerformanceReviewTool,
+    RecruitmentTool,
+    TeamAttendanceTool,
+)
+
+# OA 办公自动化工具
+from .oa_tools import (
+    LeaveQueryTool,
+    LeaveRequestTool,
+    MeetingBookingTool,
+    OnboardingChecklistTool,
+    TaskAssignmentTool,
+    WorkHandoverTool,
+)
+from .operational_tools import (
+    AwardBadgeTool,
+    CompanyStatsTool,
+    KnowledgeBaseTool,
+    PerformanceReportTool,
+)
+from .project_tools import CreateEventTool, CreateProjectTool, ProjectListTool, WeeklyReportTool
+
 # 战略分析工具 (Phase 4)
 from .strategy_tools import DataAttributionTool, StrategySimulationTool
+from .tender_tool import TenderAnalysisTool
 
 # Registry of all available tools
 # P1: Strategy Pattern Registry
-TOOL_REGISTRY: Dict[str, BaseTool] = {}
+TOOL_REGISTRY: dict[str, BaseTool] = {}
 
 
 def register_tool(tool: BaseTool):

@@ -4,12 +4,14 @@ Item 8: Data Transfer Router
 """
 
 import logging
-from typing import Optional, Dict, Any
-from pydantic import BaseModel, Field
-from fastapi import APIRouter, Request, Depends, UploadFile, File
+from typing import Any
+
+from fastapi import APIRouter, Depends, File, Request, UploadFile
 from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel, Field
+
 from app.core.auth import get_current_user_id
-from app.core.errors import api_success, api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error, api_success
 from app.services.data_export_service import data_export_service
 from app.services.data_import_service import data_import_service
 
@@ -26,16 +28,16 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 class ExportRequest(BaseModel):
     """导出请求体"""
-    filters: Optional[Dict[str, Any]] = Field(None, description="过滤条件")
-    date_from: Optional[str] = Field(None, description="开始日期 (YYYY-MM-DD)")
-    date_to: Optional[str] = Field(None, description="结束日期 (YYYY-MM-DD)")
+    filters: dict[str, Any] | None = Field(None, description="过滤条件")
+    date_from: str | None = Field(None, description="开始日期 (YYYY-MM-DD)")
+    date_to: str | None = Field(None, description="结束日期 (YYYY-MM-DD)")
 
 
 class ImportValidateRequest(BaseModel):
     """导入预验证请求体"""
     import_type: str = Field(..., description="导入类型")
     csv_content: str = Field(..., description="CSV 字符串内容")
-    column_mapping: Optional[Dict[str, str]] = Field(
+    column_mapping: dict[str, str] | None = Field(
         None, description="自定义列映射 (原列名 -> 标准列名)"
     )
 

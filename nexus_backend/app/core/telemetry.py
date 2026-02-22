@@ -2,6 +2,7 @@
 
 import logging
 import time
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -19,12 +20,12 @@ def setup_telemetry(app):
         return
 
     try:
-        from opentelemetry import trace, metrics
-        from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        from opentelemetry import metrics, trace
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
         from opentelemetry.sdk.metrics import MeterProvider
         from opentelemetry.sdk.resources import Resource
-        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
         resource = Resource.create({
             "service.name": "nexus-backend",

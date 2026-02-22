@@ -5,15 +5,11 @@ Implements comprehensive agent execution tracing for debugging and monitoring.
 Fixes Issues #26, #27: Agent trajectory tracking and real-time monitoring.
 """
 
-import os
-import time
-import json
 import logging
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, field, asdict
+import time
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import Enum
-import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -43,15 +39,15 @@ class TraceStep:
     step_id: str
     node_type: str
     timestamp: float
-    input_data: Dict = field(default_factory=dict)
-    output_data: Dict = field(default_factory=dict)
-    duration_ms: Optional[int] = None
+    input_data: dict = field(default_factory=dict)
+    output_data: dict = field(default_factory=dict)
+    duration_ms: int | None = None
     status: str = "running"
-    error: Optional[str] = None
+    error: str | None = None
     tokens_used: int = 0
-    tool_calls: List[Dict] = field(default_factory=list)
+    tool_calls: list[dict] = field(default_factory=list)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return asdict(self)
 
 
@@ -61,20 +57,20 @@ class AgentTrace:
     trace_id: str
     thread_id: str
     user_id: str
-    org_id: Optional[str]
+    org_id: str | None
     query: str
     status: TraceStatus
     start_time: float
-    end_time: Optional[float] = None
-    total_duration_ms: Optional[int] = None
+    end_time: float | None = None
+    total_duration_ms: int | None = None
     total_tokens: int = 0
     total_cost_usd: float = 0.0
-    steps: List[TraceStep] = field(default_factory=list)
-    final_response: Optional[str] = None
-    metadata: Dict = field(default_factory=dict)
-    tags: List[str] = field(default_factory=list)
+    steps: list[TraceStep] = field(default_factory=list)
+    final_response: str | None = None
+    metadata: dict = field(default_factory=dict)
+    tags: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "trace_id": self.trace_id,
             "thread_id": self.thread_id,
@@ -100,13 +96,13 @@ class MetricPoint:
     timestamp: float
     metric_name: str
     value: float
-    labels: Dict[str, str] = field(default_factory=dict)
+    labels: dict[str, str] = field(default_factory=dict)
 
 
 class AgentTraceService:
     """
     P0 Observability: Comprehensive agent tracing and metrics.
-    
+
     Features:
     - Real-time trace collection
     - Step-by-step execution recording
@@ -116,9 +112,9 @@ class AgentTraceService:
     """
 
     def __init__(self):
-        self._active_traces: Dict[str, AgentTrace] = {}
-        self._completed_traces: Dict[str, AgentTrace] = {}
-        self._metrics_buffer: List[MetricPoint] = []
+        self._active_traces: dict[str, AgentTrace] = {}
+        self._completed_traces: dict[str, AgentTrace] = {}
+        self._metrics_buffer: list[MetricPoint] = []
         self._max_completed_traces = 1000
 
     def start_trace(
@@ -128,7 +124,7 @@ class AgentTraceService:
         user_id: str,
         query: str,
         org_id: str = None,
-        metadata: Dict = None
+        metadata: dict = None
     ) -> AgentTrace:
         """Start a new trace."""
         trace = AgentTrace(
@@ -151,13 +147,13 @@ class AgentTraceService:
         trace_id: str,
         step_id: str,
         node_type: str,
-        input_data: Dict = None,
-        output_data: Dict = None,
+        input_data: dict = None,
+        output_data: dict = None,
         status: str = "completed",
         error: str = None,
         tokens_used: int = 0,
-        tool_calls: List[Dict] = None
-    ) -> Optional[TraceStep]:
+        tool_calls: list[dict] = None
+    ) -> TraceStep | None:
         """Add a step to an active trace."""
         trace = self._active_traces.get(trace_id)
         if not trace:
@@ -199,7 +195,7 @@ class AgentTraceService:
         status: TraceStatus,
         final_response: str = None,
         error: str = None
-    ) -> Optional[AgentTrace]:
+    ) -> AgentTrace | None:
         """End a trace and move to completed."""
         trace = self._active_traces.pop(trace_id, None)
         if not trace:
@@ -229,18 +225,18 @@ class AgentTraceService:
         logger.info(f"Trace ended: {trace_id}, status={status.value}, duration={trace.total_duration_ms}ms")
         return trace
 
-    def get_trace(self, trace_id: str) -> Optional[AgentTrace]:
+    def get_trace(self, trace_id: str) -> AgentTrace | None:
         """Get a trace by ID."""
         return self._active_traces.get(trace_id) or self._completed_traces.get(trace_id)
 
-    def get_thread_traces(self, thread_id: str) -> List[AgentTrace]:
+    def get_thread_traces(self, thread_id: str) -> list[AgentTrace]:
         """Get all traces for a thread."""
         return [
             t for t in list(self._active_traces.values()) + list(self._completed_traces.values())
             if t.thread_id == thread_id
         ]
 
-    def replay_trace(self, trace_id: str) -> Dict:
+    def replay_trace(self, trace_id: str) -> dict:
         """Get trace data for replay/debugging."""
         trace = self.get_trace(trace_id)
         if not trace:
@@ -262,7 +258,7 @@ class AgentTraceService:
             ]
         }
 
-    def get_metrics(self, metric_name: str = None, since: float = None) -> List[Dict]:
+    def get_metrics(self, metric_name: str = None, since: float = None) -> list[dict]:
         """Get collected metrics."""
         metrics = self._metrics_buffer
         if metric_name:
@@ -271,10 +267,10 @@ class AgentTraceService:
             metrics = [m for m in metrics if m.timestamp >= since]
         return [{"timestamp": m.timestamp, "name": m.metric_name, "value": m.value, "labels": m.labels} for m in metrics]
 
-    def get_stats(self, org_id: str = None, user_id: str = None) -> Dict:
+    def get_stats(self, org_id: str = None, user_id: str = None) -> dict:
         """Get aggregate statistics."""
         traces = list(self._completed_traces.values())
-        
+
         if org_id:
             traces = [t for t in traces if t.org_id == org_id]
         if user_id:
@@ -286,7 +282,7 @@ class AgentTraceService:
         total_tokens = sum(t.total_tokens for t in traces)
         total_cost = sum(t.total_cost_usd for t in traces)
         durations = [t.total_duration_ms for t in traces if t.total_duration_ms]
-        
+
         return {
             "total_traces": len(traces),
             "total_tokens": total_tokens,
@@ -326,7 +322,7 @@ class AgentTraceService:
         except Exception as e:
             logger.error(f"Failed to persist trace: {e}")
 
-    def _record_metric(self, metric_name: str, value: float, labels: Dict = None):
+    def _record_metric(self, metric_name: str, value: float, labels: dict = None):
         """Record a metric point."""
         self._metrics_buffer.append(MetricPoint(
             timestamp=time.time(),

@@ -5,12 +5,12 @@ Endpoints for managing in-app notifications and notification preferences.
 """
 
 import logging
-from typing import Optional, List
+
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, Request, Depends
 
 from app.core.auth import get_current_user_id
-from app.core.errors import api_success, api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error, api_success
 from app.services.notification_center_service import notification_center_service
 
 logger = logging.getLogger(__name__)
@@ -20,22 +20,22 @@ router = APIRouter(prefix="/api/notifications", tags=["Notification Center"])
 # ─── Request Models ──────────────────────────────────────────
 
 class MarkReadBody(BaseModel):
-    notification_ids: List[str] = Field(
+    notification_ids: list[str] = Field(
         ..., min_length=1, description="要标记已读的通知 ID 列表"
     )
 
 
 class UpdatePreferencesBody(BaseModel):
-    email_enabled: Optional[bool] = None
-    push_enabled: Optional[bool] = None
-    im_enabled: Optional[bool] = None
-    quiet_hours_start: Optional[str] = Field(
+    email_enabled: bool | None = None
+    push_enabled: bool | None = None
+    im_enabled: bool | None = None
+    quiet_hours_start: str | None = Field(
         None, description="免打扰开始时间 (HH:MM)"
     )
-    quiet_hours_end: Optional[str] = Field(
+    quiet_hours_end: str | None = Field(
         None, description="免打扰结束时间 (HH:MM)"
     )
-    categories: Optional[dict] = Field(
+    categories: dict | None = Field(
         None, description="分类通知开关 {approval: bool, system: bool, ...}"
     )
 
@@ -47,7 +47,7 @@ class UpdatePreferencesBody(BaseModel):
 async def get_notifications(
     request: Request,
     unread_only: bool = False,
-    type: Optional[str] = None,
+    type: str | None = None,  # noqa: A002
     limit: int = 50,
     offset: int = 0,
     user_id: str = Depends(get_current_user_id),

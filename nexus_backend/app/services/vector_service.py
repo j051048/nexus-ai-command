@@ -1,11 +1,13 @@
-import re
 import hashlib
 import logging
-from typing import List, Dict, Any, Optional
+import re
 from datetime import datetime, timedelta
-from app.core.database import supabase
-from app.core.config import settings
+from typing import Any
+
 from openai import AsyncOpenAI
+
+from app.core.config import settings
+from app.core.database import supabase
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +56,8 @@ class VectorService:
     """
 
     async def _rerank_with_llm(
-        self, query: str, documents: List[Dict], client: AsyncOpenAI, top_n: int = 5
-    ) -> List[Dict]:
+        self, query: str, documents: list[dict], client: AsyncOpenAI, top_n: int = 5
+    ) -> list[dict]:
         """
         Use LLM to rerank documents based on relevance to query.
         This is a lightweight cross-encoder alternative using GPT.
@@ -182,7 +184,7 @@ class VectorService:
         user_id: str,
         limit: int,
         client: AsyncOpenAI,
-        filters: Dict[str, Any] = None,
+        filters: dict[str, Any] = None,
         org_id: str = None,
     ) -> str:
         """
@@ -304,7 +306,7 @@ class VectorService:
 
         return "为您检索到以下相关企业知识:\n\n- " + "\n- ".join(results)
 
-    def _rrf_fusion(self, result_sets: List[List[Any]], k: int = 60) -> Dict[any, Dict]:
+    def _rrf_fusion(self, result_sets: list[list[Any]], k: int = 60) -> dict[any, dict]:
         """Reciprocal Rank Fusion"""
         fused = {}
         for rank_list in result_sets:
@@ -351,7 +353,7 @@ class VectorService:
 
     async def check_staleness(
         self, org_id: str, staleness_days: int = 30, db=None
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         #25 Knowledge Base Update Strategy: Check which documents have stale embeddings.
         Returns list of documents whose embeddings are older than staleness_days.
@@ -392,8 +394,8 @@ class VectorService:
             return []
 
     async def incremental_update(
-        self, document_id: str, chunks: List[str], org_id: str, config: dict = None, db=None
-    ) -> Dict:
+        self, document_id: str, chunks: list[str], org_id: str, config: dict = None, db=None
+    ) -> dict:
         """
         #25 Knowledge Base Update Strategy: Incrementally update embeddings.
         Only re-embeds chunks that have changed (by content hash diff).

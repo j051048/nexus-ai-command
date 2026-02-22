@@ -12,9 +12,9 @@
 注意：飞书 API 通过 Header "Authorization: Bearer {token}" 传 token。
 """
 
-import logging
 import json as json_module
-from typing import Dict, List, Any, Optional
+import logging
+from typing import Any
 from urllib.parse import quote
 
 import httpx
@@ -50,7 +50,7 @@ class FeishuClient(IMPlatformClient):
 
     # ── Token ─────────────────────────────────────────────────────
 
-    async def _fetch_access_token(self) -> Dict[str, Any]:
+    async def _fetch_access_token(self) -> dict[str, Any]:
         """
         获取飞书 tenant_access_token。
         POST https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal
@@ -86,7 +86,7 @@ class FeishuClient(IMPlatformClient):
 
     # ── API 请求覆盖 ─────────────────────────────────────────────
 
-    async def _api_request(self, method: str, url: str, **kwargs) -> Dict:
+    async def _api_request(self, method: str, url: str, **kwargs) -> dict:
         """
         覆盖基类: 飞书通过 Header "Authorization: Bearer {token}" 传 token。
         飞书响应格式: {"code": 0, "msg": "success", "data": {...}}
@@ -126,7 +126,7 @@ class FeishuClient(IMPlatformClient):
 
     # ── Contact / Directory ───────────────────────────────────────
 
-    async def get_departments(self) -> List[Dict]:
+    async def get_departments(self) -> list[dict]:
         """
         获取部门列表。
         GET /contact/v3/departments
@@ -171,7 +171,7 @@ class FeishuClient(IMPlatformClient):
 
         return all_departments
 
-    async def get_department_users(self, department_id: str) -> List[Dict]:
+    async def get_department_users(self, department_id: str) -> list[dict]:
         """
         获取部门下的用户列表。
         GET /contact/v3/users?department_id=xxx
@@ -227,8 +227,8 @@ class FeishuClient(IMPlatformClient):
     # ── Attendance ────────────────────────────────────────────────
 
     async def get_attendance_records(
-        self, user_ids: List[str], start_date: str, end_date: str
-    ) -> List[Dict]:
+        self, user_ids: list[str], start_date: str, end_date: str
+    ) -> list[dict]:
         """
         获取考勤打卡数据。
         POST /attendance/v1/user_tasks/query
@@ -322,7 +322,7 @@ class FeishuClient(IMPlatformClient):
             )
             return False
 
-    async def send_interactive_card(self, user_id: str, card: Dict) -> bool:
+    async def send_interactive_card(self, user_id: str, card: dict) -> bool:
         """
         发送互动消息卡片（Interactive Card）。
         POST /im/v1/messages?receive_id_type=user_id
@@ -376,7 +376,7 @@ class FeishuClient(IMPlatformClient):
             f"&state={state or 'nexus'}"
         )
 
-    async def get_user_by_auth_code(self, code: str) -> Dict:
+    async def get_user_by_auth_code(self, code: str) -> dict:
         """
         通过 OAuth code 获取用户信息。
 

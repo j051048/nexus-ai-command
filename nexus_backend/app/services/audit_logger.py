@@ -3,14 +3,16 @@ P2 Optimization: Enhanced Audit Logging Service
 Provides comprehensive audit trail for all critical operations.
 """
 
+import logging
 import os
 import time
-import logging
-from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from typing import Any
+
 from fastapi import Request
+
 from app.core.database import supabase
 
 logger = logging.getLogger(__name__)
@@ -65,20 +67,20 @@ class AuditEntry:
     """Represents a single audit log entry"""
 
     action: str
-    actor_user_id: Optional[str] = None
-    target_id: Optional[str] = None
-    target_table: Optional[str] = None
-    details: Dict[str, Any] = field(default_factory=dict)
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
-    session_id: Optional[str] = None
-    request_id: Optional[str] = None
-    org_id: Optional[str] = None
+    actor_user_id: str | None = None
+    target_id: str | None = None
+    target_table: str | None = None
+    details: dict[str, Any] = field(default_factory=dict)
+    ip_address: str | None = None
+    user_agent: str | None = None
+    session_id: str | None = None
+    request_id: str | None = None
+    org_id: str | None = None
     status: str = "success"  # success, failed, warning
-    error_message: Optional[str] = None
+    error_message: str | None = None
     timestamp: float = field(default_factory=time.time)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "action": self.action,
             "actor_user_id": self.actor_user_id,
@@ -103,21 +105,21 @@ class AuditLogger:
     """
 
     def __init__(self):
-        self._buffer: List[AuditEntry] = []
+        self._buffer: list[AuditEntry] = []
         self._buffer_size = int(os.getenv("AUDIT_BUFFER_SIZE", "10"))
         self._enabled = os.getenv("AUDIT_LOGGING_ENABLED", "true").lower() == "true"
 
     async def log(
         self,
         action: str | AuditAction,
-        actor_user_id: Optional[str] = None,
-        org_id: Optional[str] = None,
-        target_id: Optional[str] = None,
-        target_table: Optional[str] = None,
-        details: Dict[str, Any] = None,
-        request: Optional[Request] = None,
+        actor_user_id: str | None = None,
+        org_id: str | None = None,
+        target_id: str | None = None,
+        target_table: str | None = None,
+        details: dict[str, Any] = None,
+        request: Request | None = None,
         status: str = "success",
-        error_message: Optional[str] = None,
+        error_message: str | None = None,
     ):
         """
         Log an audit entry.
@@ -167,7 +169,7 @@ class AuditLogger:
         user_id: str,
         success: bool,
         request: Request = None,
-        details: Dict = None,
+        details: dict = None,
     ):
         """Convenience method for auth-related logging"""
         await self.log(
@@ -271,7 +273,7 @@ class AuditLogger:
 
         return request.client.host if request.client else "unknown"
 
-    def _sanitize_details(self, details: Dict) -> Dict:
+    def _sanitize_details(self, details: dict) -> dict:
         """
         Sanitize details to remove sensitive information.
         Never log passwords, tokens, or full credit card numbers.
@@ -308,14 +310,14 @@ class AuditLogger:
 
     async def query_logs(
         self,
-        user_id: Optional[str] = None,
-        action: Optional[str] = None,
-        target_table: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-        org_id: Optional[str] = None,
+        user_id: str | None = None,
+        action: str | None = None,
+        target_table: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+        org_id: str | None = None,
         limit: int = 100,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """Query audit logs with filters"""
         if not supabase:
             return []
@@ -354,7 +356,7 @@ async def audit(
     action: str | AuditAction,
     user_id: str = None,
     target_id: str = None,
-    details: Dict = None,
+    details: dict = None,
     **kwargs,
 ):
     """Convenience function for logging audit entries"""

@@ -7,8 +7,9 @@ Item 8: Data Export Service
 import csv
 import io
 import logging
-from typing import Dict, List, Any, Optional
-from datetime import datetime, date
+from datetime import date, datetime
+from typing import Any
+
 from app.core.database import supabase
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ class DataExportService:
     """
 
     # 导出类型 -> 导出配置映射
-    EXPORT_CONFIGS: Dict[str, Dict[str, Any]] = {
+    EXPORT_CONFIGS: dict[str, dict[str, Any]] = {
         "approvals": {
             "table": "approval_requests",
             "columns": [
@@ -92,7 +93,7 @@ class DataExportService:
     }
 
     # 导入模板定义
-    IMPORT_TEMPLATES: Dict[str, Dict[str, Any]] = {
+    IMPORT_TEMPLATES: dict[str, dict[str, Any]] = {
         "employees": {
             "headers": ["姓名", "邮箱", "部门", "角色", "手机号"],
             "sample_rows": [
@@ -134,8 +135,8 @@ class DataExportService:
     async def export_to_csv(
         self,
         export_type: str,
-        filters: Optional[Dict[str, Any]] = None,
-        org_id: Optional[str] = None,
+        filters: dict[str, Any] | None = None,
+        org_id: str | None = None,
         db=None,
     ) -> str:
         """
@@ -199,7 +200,7 @@ class DataExportService:
     async def export_approvals(
         self,
         org_id: str,
-        filters: Optional[Dict[str, Any]] = None,
+        filters: dict[str, Any] | None = None,
         db=None,
     ) -> str:
         """
@@ -272,7 +273,7 @@ class DataExportService:
     async def export_attendance(
         self,
         org_id: str,
-        date_range: Optional[Dict[str, str]] = None,
+        date_range: dict[str, str] | None = None,
         db=None,
     ) -> str:
         """
@@ -340,7 +341,7 @@ class DataExportService:
     async def export_sales_data(
         self,
         org_id: str,
-        filters: Optional[Dict[str, Any]] = None,
+        filters: dict[str, Any] | None = None,
         db=None,
     ) -> str:
         """
@@ -445,7 +446,7 @@ class DataExportService:
 
         return output.getvalue()
 
-    def get_available_templates(self) -> List[Dict[str, Any]]:
+    def get_available_templates(self) -> list[dict[str, Any]]:
         """
         获取所有可用的导入模板信息。
 
@@ -462,7 +463,7 @@ class DataExportService:
             for key, tmpl in self.IMPORT_TEMPLATES.items()
         ]
 
-    def get_available_exports(self) -> List[Dict[str, Any]]:
+    def get_available_exports(self) -> list[dict[str, Any]]:
         """
         获取所有可用的导出类型信息。
 
@@ -482,9 +483,9 @@ class DataExportService:
 
     def _generate_csv(
         self,
-        headers: List[str],
-        columns: List[str],
-        rows: List[Dict[str, Any]],
+        headers: list[str],
+        columns: list[str],
+        rows: list[dict[str, Any]],
     ) -> str:
         """
         生成 CSV 字符串。
@@ -525,7 +526,7 @@ class DataExportService:
 
         return output.getvalue()
 
-    def _apply_filters(self, query, filters: Dict[str, Any]):
+    def _apply_filters(self, query, filters: dict[str, Any]):
         """
         对查询应用通用过滤条件。
 

@@ -4,11 +4,12 @@ Semantic Cache Service - Cache AI responses for similar queries
 
 import hashlib
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Optional
-from app.core.database import supabase
-from app.core.config import settings
+from datetime import UTC, datetime, timedelta
+
 from openai import AsyncOpenAI
+
+from app.core.config import settings
+from app.core.database import supabase
 
 logger = logging.getLogger(__name__)
 
@@ -50,10 +51,10 @@ class SemanticCacheService:
 
     def _ttl_cutoff(self) -> str:
         """Return an ISO-8601 timestamp for the TTL boundary."""
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=self.ttl_hours)
+        cutoff = datetime.now(UTC) - timedelta(hours=self.ttl_hours)
         return cutoff.isoformat()
 
-    async def get_cache(self, query: str, user_id: str) -> Optional[str]:
+    async def get_cache(self, query: str, user_id: str) -> str | None:
         """
         Check if a similar query exists in the cache.
 

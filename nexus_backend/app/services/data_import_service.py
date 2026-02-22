@@ -11,9 +11,10 @@ Item 8: Data Import Service (Enhanced)
 
 import csv
 import io
-import re
 import logging
-from typing import Dict, List, Any, Optional, Tuple
+import re
+from typing import Any
+
 from app.core.database import supabase
 
 logger = logging.getLogger(__name__)
@@ -37,7 +38,7 @@ class DataImportService:
     """
 
     # 列映射表（中文 -> 英文）
-    COLUMN_MAPPINGS: Dict[str, Dict[str, str]] = {
+    COLUMN_MAPPINGS: dict[str, dict[str, str]] = {
         "employees": {
             "姓名": "name", "name": "name",
             "邮箱": "email", "email": "email",
@@ -72,7 +73,7 @@ class DataImportService:
     }
 
     # 必填字段
-    REQUIRED_FIELDS: Dict[str, List[str]] = {
+    REQUIRED_FIELDS: dict[str, list[str]] = {
         "employees": ["name", "email"],
         "customers": ["name"],
         "attendance": ["email", "date", "check_in"],
@@ -90,10 +91,10 @@ class DataImportService:
         csv_content: str,
         org_id: str,
         user_id: str,
-        column_mapping: Optional[Dict[str, str]] = None,
+        column_mapping: dict[str, str] | None = None,
         db=None,
         mode: str = "insert",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         导入 CSV 数据。
 
@@ -179,8 +180,8 @@ class DataImportService:
         self,
         import_type: str,
         csv_content: str,
-        column_mapping: Optional[Dict[str, str]] = None,
-    ) -> Dict[str, Any]:
+        column_mapping: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
         """
         预验证导入数据（不写入数据库）。
 
@@ -244,7 +245,7 @@ class DataImportService:
                 "errors": [{"row": 0, "field": "file", "reason": str(e)}],
             }
 
-    def get_import_templates(self) -> List[Dict[str, Any]]:
+    def get_import_templates(self) -> list[dict[str, Any]]:
         """
         获取可用的导入模板列表。
 
@@ -262,7 +263,7 @@ class DataImportService:
 
     # ============== CSV 解析 ==============
 
-    def _parse_csv_content(self, csv_content: str) -> List[Dict[str, str]]:
+    def _parse_csv_content(self, csv_content: str) -> list[dict[str, str]]:
         """
         解析 CSV 字符串内容。
 
@@ -295,9 +296,9 @@ class DataImportService:
 
     def _normalize_rows(
         self,
-        rows: List[Dict[str, str]],
-        mapping: Dict[str, str],
-    ) -> List[Dict[str, str]]:
+        rows: list[dict[str, str]],
+        mapping: dict[str, str],
+    ) -> list[dict[str, str]]:
         """
         使用列映射标准化数据行。
 
@@ -320,8 +321,8 @@ class DataImportService:
     # ============== 验证 ==============
 
     def _validate_rows(
-        self, import_type: str, rows: List[Dict[str, str]]
-    ) -> List[Dict[str, Any]]:
+        self, import_type: str, rows: list[dict[str, str]]
+    ) -> list[dict[str, Any]]:
         """
         验证所有数据行。
 
@@ -334,7 +335,7 @@ class DataImportService:
         """
         errors = []
         required = self.REQUIRED_FIELDS.get(import_type, [])
-        seen_keys: Dict[str, int] = {}  # 重复检测
+        seen_keys: dict[str, int] = {}  # 重复检测
 
         for idx, row in enumerate(rows, start=2):
             # 必填字段检查
@@ -360,8 +361,8 @@ class DataImportService:
         return errors
 
     def _validate_by_type(
-        self, import_type: str, row: Dict[str, str], row_num: int
-    ) -> List[Dict[str, Any]]:
+        self, import_type: str, row: dict[str, str], row_num: int
+    ) -> list[dict[str, Any]]:
         """按导入类型执行特定验证"""
         errors = []
 
@@ -377,8 +378,8 @@ class DataImportService:
         return errors
 
     def _validate_employee_row(
-        self, row: Dict[str, str], row_num: int
-    ) -> List[Dict[str, Any]]:
+        self, row: dict[str, str], row_num: int
+    ) -> list[dict[str, Any]]:
         """验证员工数据行"""
         errors = []
         email = row.get("email", "").strip()
@@ -406,8 +407,8 @@ class DataImportService:
         return errors
 
     def _validate_customer_row(
-        self, row: Dict[str, str], row_num: int
-    ) -> List[Dict[str, Any]]:
+        self, row: dict[str, str], row_num: int
+    ) -> list[dict[str, Any]]:
         """验证客户数据行"""
         errors = []
         email = row.get("email", "").strip()
@@ -427,8 +428,8 @@ class DataImportService:
         return errors
 
     def _validate_attendance_row(
-        self, row: Dict[str, str], row_num: int
-    ) -> List[Dict[str, Any]]:
+        self, row: dict[str, str], row_num: int
+    ) -> list[dict[str, Any]]:
         """验证考勤数据行"""
         errors = []
         date_str = row.get("date", "").strip()
@@ -449,8 +450,8 @@ class DataImportService:
         return errors
 
     def _validate_sales_row(
-        self, row: Dict[str, str], row_num: int
-    ) -> List[Dict[str, Any]]:
+        self, row: dict[str, str], row_num: int
+    ) -> list[dict[str, Any]]:
         """验证销售数据行"""
         errors = []
         amount = row.get("amount", "").strip()
@@ -476,10 +477,10 @@ class DataImportService:
     def _check_duplicate(
         self,
         import_type: str,
-        row: Dict[str, str],
+        row: dict[str, str],
         row_num: int,
-        seen: Dict[str, int],
-    ) -> Optional[Dict[str, Any]]:
+        seen: dict[str, int],
+    ) -> dict[str, Any] | None:
         """检查文件内部重复"""
         if import_type == "employees":
             key = row.get("email", "").strip().lower()
@@ -517,7 +518,7 @@ class DataImportService:
     async def _import_single_row(
         self,
         import_type: str,
-        row: Dict[str, str],
+        row: dict[str, str],
         org_id: str,
         user_id: str,
         db,
@@ -549,7 +550,7 @@ class DataImportService:
             raise ValueError(f"Unknown import type: {import_type}")
 
     async def _import_employee(
-        self, row: Dict[str, str], org_id: str, db, mode: str = "insert"
+        self, row: dict[str, str], org_id: str, db, mode: str = "insert"
     ) -> str:
         """导入单条员工记录"""
         email = row.get("email", "").strip()
@@ -594,7 +595,7 @@ class DataImportService:
         return "inserted"
 
     async def _import_customer(
-        self, row: Dict[str, str], org_id: str, user_id: str, db, mode: str = "insert"
+        self, row: dict[str, str], org_id: str, user_id: str, db, mode: str = "insert"
     ) -> str:
         """导入单条客户记录"""
         name = row.get("name", "").strip()
@@ -644,7 +645,7 @@ class DataImportService:
         return "inserted"
 
     async def _import_attendance(
-        self, row: Dict[str, str], org_id: str, db, mode: str = "insert"
+        self, row: dict[str, str], org_id: str, db, mode: str = "insert"
     ) -> str:
         """导入单条考勤记录"""
         email = row.get("email", "").strip()
@@ -696,7 +697,7 @@ class DataImportService:
         return "inserted"
 
     async def _import_sale(
-        self, row: Dict[str, str], org_id: str, user_id: str, db, mode: str = "insert"
+        self, row: dict[str, str], org_id: str, user_id: str, db, mode: str = "insert"
     ) -> str:
         """导入单条销售记录"""
         customer_name = row.get("customer_name", "").strip()
@@ -743,7 +744,7 @@ class DataImportService:
         return bool(re.match(r"^\d{2}:\d{2}$", time_str))
 
     @staticmethod
-    def _error_result(message: str) -> Dict[str, Any]:
+    def _error_result(message: str) -> dict[str, Any]:
         return {
             "success_count": 0,
             "skip_count": 0,

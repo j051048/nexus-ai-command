@@ -17,8 +17,6 @@ Usage::
 """
 
 import logging
-import re
-from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +24,7 @@ logger = logging.getLogger(__name__)
 # Capability map -- keywords that each specialist agent "owns"
 # ---------------------------------------------------------------------------
 
-AGENT_CAPABILITIES: Dict[str, List[str]] = {
+AGENT_CAPABILITIES: dict[str, list[str]] = {
     "sales": [
         "sales", "deal", "pipeline", "revenue", "customer",
         "forecast", "opportunity", "lead", "quote",
@@ -46,7 +44,7 @@ AGENT_CAPABILITIES: Dict[str, List[str]] = {
 }
 
 
-def _score_agent(query_lower: str, keywords: List[str]) -> int:
+def _score_agent(query_lower: str, keywords: list[str]) -> int:
     """Return the number of keyword hits for a given agent.
 
     Args:
@@ -59,7 +57,7 @@ def _score_agent(query_lower: str, keywords: List[str]) -> int:
     return sum(1 for kw in keywords if kw.lower() in query_lower)
 
 
-def suggest_delegation(query: str, current_agent: str) -> Optional[str]:
+def suggest_delegation(query: str, current_agent: str) -> str | None:
     """Suggest another agent if the query is outside the current agent's scope.
 
     The function scores every registered agent by counting keyword matches.
@@ -76,14 +74,14 @@ def suggest_delegation(query: str, current_agent: str) -> Optional[str]:
     """
     query_lower = query.lower()
 
-    scores: Dict[str, int] = {}
+    scores: dict[str, int] = {}
     for agent_name, keywords in AGENT_CAPABILITIES.items():
         scores[agent_name] = _score_agent(query_lower, keywords)
 
     current_score = scores.get(current_agent, 0)
 
     # Find the best scoring agent (excluding the current one)
-    best_agent: Optional[str] = None
+    best_agent: str | None = None
     best_score = 0
     for agent_name, score in scores.items():
         if agent_name == current_agent:

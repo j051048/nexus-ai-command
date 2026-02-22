@@ -5,8 +5,9 @@ Provides a lightweight Supabase client wrapper using PostgREST.
 Falls back gracefully when database is not configured.
 """
 
-import os
 import logging
+import os
+
 from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)

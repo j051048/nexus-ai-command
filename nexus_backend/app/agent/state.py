@@ -7,17 +7,17 @@ Every node reads from and writes to this state dict.
 
 from __future__ import annotations
 
-import time
-from dataclasses import dataclass, field, asdict
-from enum import Enum
-from typing import Any, Dict, List, Optional, TypedDict, Annotated
-from langchain_core.messages import BaseMessage
 import operator
+import time
+from dataclasses import asdict, dataclass, field
+from enum import StrEnum
+from typing import Annotated, Any, TypedDict
 
+from langchain_core.messages import BaseMessage
 
 # ─── Enums ───────────────────────────────────────────────────────────────────
 
-class AgentPhase(str, Enum):
+class AgentPhase(StrEnum):
     """Tracks which node the agent is currently in."""
     ROUTING = "routing"
     PLANNING = "planning"
@@ -28,7 +28,7 @@ class AgentPhase(str, Enum):
     ERROR = "error"
 
 
-class QueryComplexity(str, Enum):
+class QueryComplexity(StrEnum):
     """Result of the intent router — drives model selection."""
     SIMPLE = "simple"          # Greeting, FAQ → gpt-4o-mini
     MODERATE = "moderate"      # Single-tool lookup → gpt-4o-mini
@@ -43,13 +43,13 @@ class ThinkingStep:
     """Represents a single step in the agent's thinking chain for UI display."""
     phase: str
     content: str
-    tool_name: Optional[str] = None
-    tool_args: Optional[Dict[str, Any]] = None
-    tool_result: Optional[str] = None
+    tool_name: str | None = None
+    tool_args: dict[str, Any] | None = None
+    tool_result: str | None = None
     timestamp: float = field(default_factory=time.time)
-    duration_ms: Optional[int] = None
+    duration_ms: int | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {k: v for k, v in asdict(self).items() if v is not None}
 
 
@@ -59,11 +59,11 @@ class ThinkingStep:
 class ToolCallRecord:
     """Structured record of a single tool invocation and its result."""
     tool_name: str
-    tool_args: Dict[str, Any]
+    tool_args: dict[str, Any]
     tool_call_id: str
-    result: Optional[str] = None
+    result: str | None = None
     status: str = "pending"  # pending | success | error | blocked
-    duration_ms: Optional[int] = None
+    duration_ms: int | None = None
 
 
 # ─── Agent Configuration (immutable per-request) ────────────────────────────
@@ -79,7 +79,7 @@ class AgentConfig:
     model: str = "gpt-4o"
     mini_model: str = "gpt-4o-mini"
     system_confirmed: bool = False
-    org_id: Optional[str] = None
+    org_id: str | None = None
     user_role: str = "employee"
     max_iterations: int = 5
     max_tokens_per_day: int = 1_000_000
@@ -112,7 +112,7 @@ class AgentState(TypedDict, total=False):
     """
 
     # ── Core message history (LangChain BaseMessage list) ──
-    messages: Annotated[List[BaseMessage], operator.add]
+    messages: Annotated[list[BaseMessage], operator.add]
 
     # ── Phase tracking ──
     current_phase: AgentPhase
@@ -128,8 +128,8 @@ class AgentState(TypedDict, total=False):
     requires_tools: bool                    # Whether the plan involves tool calls
 
     # ── Tool execution ──
-    pending_tool_calls: List[ToolCallRecord]
-    completed_tool_calls: List[ToolCallRecord]
+    pending_tool_calls: list[ToolCallRecord]
+    completed_tool_calls: list[ToolCallRecord]
 
     # ── Reflection ──
     reflection: str                         # Self-critique from reflection node
@@ -139,17 +139,17 @@ class AgentState(TypedDict, total=False):
 
     # ── RAG context (auto-injected by memory / rag_inject node) ──
     rag_context: str                        # Retrieved knowledge base context
-    rag_sources: List[str]                  # Source citations for the RAG context
+    rag_sources: list[str]                  # Source citations for the RAG context
 
     # ── Final output ──
     final_response: str                     # The text response to send to user
-    thinking_steps: List[ThinkingStep]      # For frontend thinking-chain UI
+    thinking_steps: list[ThinkingStep]      # For frontend thinking-chain UI
 
     # ── Configuration (immutable, set once at start) ──
     config: AgentConfig
 
     # ── Error handling ──
-    error: Optional[str]
+    error: str | None
     error_recovery_attempted: bool          # Whether error recovery has been tried
 
     # ── Token tracking ──

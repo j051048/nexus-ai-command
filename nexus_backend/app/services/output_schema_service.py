@@ -5,12 +5,12 @@ Implements Pydantic-based schema validation for LLM outputs.
 Fixes Issue #6: Missing structured output schema validation.
 """
 
-import json
 import logging
-from typing import Dict, List, Optional, Any, Type, get_type_hints
-from pydantic import BaseModel, ValidationError, Field, validator
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel, Field, ValidationError, validator
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +26,9 @@ class ValidationSeverity(Enum):
 class ValidationResult:
     """Result of schema validation."""
     is_valid: bool
-    errors: List[Dict[str, Any]]
-    warnings: List[Dict[str, Any]]
-    corrected_data: Optional[Dict[str, Any]] = None
+    errors: list[dict[str, Any]]
+    warnings: list[dict[str, Any]]
+    corrected_data: dict[str, Any] | None = None
 
 
 # Common Schemas for Tool Parameters
@@ -36,7 +36,7 @@ class ValidationResult:
 class SearchQuerySchema(BaseModel):
     """Schema for search query parameters."""
     query: str = Field(..., min_length=1, max_length=500)
-    filters: Optional[Dict[str, Any]] = None
+    filters: dict[str, Any] | None = None
     limit: int = Field(default=10, ge=1, le=100)
     offset: int = Field(default=0, ge=0)
 
@@ -45,9 +45,9 @@ class DateRangeSchema(BaseModel):
     """Schema for date range parameters."""
     start_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
     end_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
-    
+
     @validator('end_date')
-    def end_after_start(cls, v, values):
+    def end_after_start(self, v, values):
         if 'start_date' in values and v < values['start_date']:
             raise ValueError('end_date must be after start_date')
         return v
@@ -89,20 +89,20 @@ class StatusUpdateSchema(BaseModel):
     """Schema for status update operations."""
     entity_id: str = Field(..., min_length=1)
     new_status: str = Field(..., min_length=1)
-    reason: Optional[str] = Field(None, max_length=500)
+    reason: str | None = Field(None, max_length=500)
 
 
 class BulkOperationSchema(BaseModel):
     """Schema for bulk operations."""
-    entity_ids: List[str] = Field(..., min_items=1, max_items=100)
+    entity_ids: list[str] = Field(..., min_items=1, max_items=100)
     operation: str = Field(..., min_length=1)
-    parameters: Optional[Dict[str, Any]] = None
+    parameters: dict[str, Any] | None = None
 
 
 class OutputSchemaService:
     """
     P1 Enhancement: Structured output validation service.
-    
+
     Features:
     - Pydantic schema validation
     - Automatic type coercion
@@ -111,7 +111,7 @@ class OutputSchemaService:
     """
 
     def __init__(self):
-        self._schemas: Dict[str, Type[BaseModel]] = {}
+        self._schemas: dict[str, type[BaseModel]] = {}
         self._register_default_schemas()
 
     def _register_default_schemas(self):
@@ -129,14 +129,14 @@ class OutputSchemaService:
             "bulk_operation": BulkOperationSchema,
         }
 
-    def register_schema(self, name: str, schema: Type[BaseModel]):
+    def register_schema(self, name: str, schema: type[BaseModel]):
         """Register a custom schema."""
         self._schemas[name] = schema
         logger.info(f"Registered schema: {name}")
 
     def validate(
         self,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         schema_name: str
     ) -> ValidationResult:
         """Validate data against a named schema."""
@@ -152,8 +152,8 @@ class OutputSchemaService:
 
     def validate_against_schema(
         self,
-        data: Dict[str, Any],
-        schema: Type[BaseModel]
+        data: dict[str, Any],
+        schema: type[BaseModel]
     ) -> ValidationResult:
         """Validate data against a Pydantic schema."""
         errors = []
@@ -164,14 +164,14 @@ class OutputSchemaService:
             # Attempt to parse and validate
             validated = schema(**data)
             corrected_data = validated.dict()
-            
+
             return ValidationResult(
                 is_valid=True,
                 errors=[],
                 warnings=[],
                 corrected_data=corrected_data
             )
-            
+
         except ValidationError as e:
             # Parse validation errors
             for error in e.errors():
@@ -181,10 +181,10 @@ class OutputSchemaService:
                     "type": error["type"],
                     "input": str(error["input"])[:100]
                 })
-            
+
             # Try to correct common issues
             corrected_data = self._attempt_correction(data, schema, errors)
-            
+
         except Exception as e:
             errors.append({
                 "field": "unknown",
@@ -201,17 +201,17 @@ class OutputSchemaService:
 
     def _attempt_correction(
         self,
-        data: Dict[str, Any],
-        schema: Type[BaseModel],
-        errors: List[Dict]
-    ) -> Optional[Dict[str, Any]]:
+        data: dict[str, Any],
+        schema: type[BaseModel],
+        errors: list[dict]
+    ) -> dict[str, Any] | None:
         """Attempt to correct common validation errors."""
         corrected = data.copy()
-        
+
         for error in errors:
             field = error.get("field", "")
             error_type = error.get("type", "")
-            
+
             # Type coercion
             if error_type == "type_error.integer":
                 try:
@@ -219,19 +219,19 @@ class OutputSchemaService:
                         corrected[field] = int(float(corrected[field]))
                 except (ValueError, TypeError):
                     pass
-            
+
             elif error_type == "type_error.float":
                 try:
                     if field in corrected:
                         corrected[field] = float(corrected[field])
                 except (ValueError, TypeError):
                     pass
-            
+
             elif error_type == "type_error.bool":
                 if field in corrected:
                     val = str(corrected[field]).lower()
                     corrected[field] = val in ("true", "1", "yes", "on")
-            
+
             # Missing required field - try to set default
             elif error_type == "value_error.missing":
                 try:
@@ -255,8 +255,8 @@ class OutputSchemaService:
     async def validate_llm_tool_params(
         self,
         tool_name: str,
-        params: Dict[str, Any],
-        tool_schemas: Dict[str, Type[BaseModel]] = None
+        params: dict[str, Any],
+        tool_schemas: dict[str, type[BaseModel]] = None
     ) -> ValidationResult:
         """
         Validate tool parameters from LLM output.
@@ -264,16 +264,16 @@ class OutputSchemaService:
         """
         if tool_schemas and tool_name in tool_schemas:
             return self.validate_against_schema(params, tool_schemas[tool_name])
-        
+
         # Try to infer schema from tool name
         schema_name = self._infer_schema_from_tool(tool_name)
         if schema_name:
             return self.validate(params, schema_name)
-        
+
         # No schema available - do basic validation
         return self._basic_validation(params)
 
-    def _infer_schema_from_tool(self, tool_name: str) -> Optional[str]:
+    def _infer_schema_from_tool(self, tool_name: str) -> str | None:
         """Infer validation schema from tool name."""
         tool_schema_map = {
             "search": "search_query",
@@ -287,17 +287,17 @@ class OutputSchemaService:
             "send_sms": "phone",
             "get_report": "date_range",
         }
-        
+
         for key, schema in tool_schema_map.items():
             if key in tool_name.lower():
                 return schema
-        
+
         return None
 
-    def _basic_validation(self, params: Dict[str, Any]) -> ValidationResult:
+    def _basic_validation(self, params: dict[str, Any]) -> ValidationResult:
         """Perform basic validation when no schema is available."""
         warnings = []
-        
+
         # Check for empty strings
         for key, value in params.items():
             if isinstance(value, str) and not value.strip():
@@ -306,7 +306,7 @@ class OutputSchemaService:
                     "message": "Empty string value",
                     "type": "warning"
                 })
-        
+
         # Check for None values
         for key, value in params.items():
             if value is None:
@@ -315,7 +315,7 @@ class OutputSchemaService:
                     "message": "None value",
                     "type": "warning"
                 })
-        
+
         return ValidationResult(
             is_valid=True,
             errors=[],
@@ -323,15 +323,15 @@ class OutputSchemaService:
             corrected_data=params
         )
 
-    def get_schema_json(self, schema_name: str) -> Optional[Dict]:
+    def get_schema_json(self, schema_name: str) -> dict | None:
         """Get JSON schema definition for documentation."""
         schema = self._schemas.get(schema_name)
         if not schema:
             return None
-        
+
         return schema.schema()
 
-    def list_schemas(self) -> List[str]:
+    def list_schemas(self) -> list[str]:
         """List all registered schema names."""
         return list(self._schemas.keys())
 

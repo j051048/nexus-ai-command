@@ -5,10 +5,9 @@
 备份数据以 JSON 格式存储在 backup_records 表中。
 """
 
-import logging
 import json
-from datetime import datetime, timezone, timedelta
-from typing import Dict, List, Optional
+import logging
+from datetime import UTC, datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -28,11 +27,11 @@ class BackupService:
     async def create_backup(
         self,
         org_id: str,
-        tables: Optional[List[str]] = None,
-        created_by: Optional[str] = None,
+        tables: list[str] | None = None,
+        created_by: str | None = None,
         backup_type: str = "manual",
         db=None,
-    ) -> Dict:
+    ) -> dict:
         """
         创建组织数据备份
 
@@ -73,7 +72,7 @@ class BackupService:
                     backup_data[table_name] = {"error": str(e), "rows": []}
 
             # 设置过期时间（默认30天）
-            expires_at = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+            expires_at = (datetime.now(UTC) + timedelta(days=30)).isoformat()
 
             # 写入备份记录
             record = {
@@ -115,7 +114,7 @@ class BackupService:
             logger.error(f"创建备份失败: {e}")
             raise
 
-    async def list_backups(self, org_id: str, db=None) -> List[Dict]:
+    async def list_backups(self, org_id: str, db=None) -> list[dict]:
         """
         列出组织的备份记录
 
@@ -144,7 +143,7 @@ class BackupService:
             logger.error(f"列出备份记录失败: {e}")
             raise
 
-    async def get_backup(self, backup_id: str, db=None) -> Optional[Dict]:
+    async def get_backup(self, backup_id: str, db=None) -> dict | None:
         """
         获取备份详情
 
@@ -194,7 +193,7 @@ class BackupService:
             logger.error(f"获取备份详情失败: {e}")
             raise
 
-    async def restore_preview(self, backup_id: str, db=None) -> Dict:
+    async def restore_preview(self, backup_id: str, db=None) -> dict:
         """
         恢复预览: 显示将恢复的数据统计，不实际执行
 
@@ -250,9 +249,9 @@ class BackupService:
     async def restore_backup(
         self,
         backup_id: str,
-        tables: Optional[List[str]] = None,
+        tables: list[str] | None = None,
         db=None,
-    ) -> Dict:
+    ) -> dict:
         """
         恢复数据
 
@@ -326,7 +325,7 @@ class BackupService:
                 "backup_id": backup_id,
                 "organization_id": org_id,
                 "tables_restored": restore_results,
-                "restored_at": datetime.now(timezone.utc).isoformat(),
+                "restored_at": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:
@@ -334,8 +333,8 @@ class BackupService:
             raise
 
     async def schedule_auto_backup(
-        self, org_id: str, frequency: str = "daily", tables: Optional[List[str]] = None, db=None
-    ) -> Dict:
+        self, org_id: str, frequency: str = "daily", tables: list[str] | None = None, db=None
+    ) -> dict:
         """
         设置自动备份计划
 
@@ -354,7 +353,7 @@ class BackupService:
         tables_list = tables or DEFAULT_BACKUP_TABLES
 
         # 计算下次备份时间
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if frequency == "daily":
             next_backup = now + timedelta(days=1)
         elif frequency == "weekly":
@@ -404,7 +403,7 @@ class BackupService:
         if not db:
             raise RuntimeError("数据库连接不可用")
 
-        cutoff = (datetime.now(timezone.utc) - timedelta(days=keep_days)).isoformat()
+        cutoff = (datetime.now(UTC) - timedelta(days=keep_days)).isoformat()
 
         try:
             result = await (

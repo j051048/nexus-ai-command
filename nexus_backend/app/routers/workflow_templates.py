@@ -5,12 +5,12 @@ Endpoints for browsing, previewing, and creating workflows from templates.
 """
 
 import logging
-from typing import Optional
+
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, Request, Depends
 
 from app.core.auth import get_current_user_id
-from app.core.errors import api_success, api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error, api_success
 from app.services.workflow_template_service import workflow_template_service
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/workflow-templates", tags=["Workflow Templates"]
 # ─── Request Models ──────────────────────────────────────────
 
 class CreateFromTemplateBody(BaseModel):
-    name: Optional[str] = Field(None, max_length=200, description="自定义工作流名称")
+    name: str | None = Field(None, max_length=200, description="自定义工作流名称")
 
 
 # ─── Endpoints ───────────────────────────────────────────────
@@ -29,7 +29,7 @@ class CreateFromTemplateBody(BaseModel):
 @router.get("")
 async def list_templates(
     request: Request,
-    category: Optional[str] = None,
+    category: str | None = None,
     user_id: str = Depends(get_current_user_id),
 ):
     """列出所有可用模板（内置 + 组织共享）"""

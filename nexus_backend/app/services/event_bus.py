@@ -4,15 +4,17 @@ Provides event-driven architecture for async processing.
 Supports in-memory queue with optional Redis/Celery backend.
 """
 
-import logging
 import asyncio
-import os
+import contextlib
 import json
+import logging
+import os
 import time
-from typing import Dict, List, Callable, Any, Optional
+import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-import uuid
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +65,12 @@ class Event:
 
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     type: str = ""
-    payload: Dict[str, Any] = field(default_factory=dict)
-    user_id: Optional[str] = None
+    payload: dict[str, Any] = field(default_factory=dict)
+    user_id: str | None = None
     timestamp: float = field(default_factory=time.time)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "id": self.id,
             "type": self.type,
@@ -79,7 +81,7 @@ class Event:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict) -> "Event":
+    def from_dict(cls, data: dict) -> "Event":
         return cls(**data)
 
 
@@ -98,11 +100,11 @@ class InMemoryEventBus:
     """
 
     def __init__(self):
-        self._handlers: Dict[str, List[Callable]] = {}
+        self._handlers: dict[str, list[Callable]] = {}
         self._queue: asyncio.Queue = asyncio.Queue()
         self._running = False
-        self._worker_task: Optional[asyncio.Task] = None
-        self._event_history: List[Event] = []
+        self._worker_task: asyncio.Task | None = None
+        self._event_history: list[Event] = []
         self._max_history = 1000
 
     def subscribe(self, event_type: str, handler: Callable):
@@ -168,7 +170,7 @@ class InMemoryEventBus:
                     )
 
                 self._queue.task_done()
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
             except Exception as e:
                 logger.error(f"EventBus: Processing error: {e}")
@@ -193,15 +195,13 @@ class InMemoryEventBus:
         self._running = False
         if self._worker_task:
             self._worker_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._worker_task
-            except asyncio.CancelledError:
-                pass
         logger.info("EventBus: Stopped")
 
     def get_recent_events(
         self, limit: int = 100, event_type: str = None
-    ) -> List[Event]:
+    ) -> list[Event]:
         """Get recent events from history"""
         events = self._event_history
         if event_type:
@@ -216,7 +216,7 @@ event_bus = InMemoryEventBus()
 # ============== Convenience Functions ==============
 
 
-async def emit(event_type: str, payload: Dict = None, user_id: str = None, **kwargs):
+async def emit(event_type: str, payload: dict = None, user_id: str = None, **kwargs):
     """
     Convenience function to emit an event.
 

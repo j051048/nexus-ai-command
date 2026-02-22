@@ -20,10 +20,12 @@ Usage:
 """
 
 import logging
-from typing import Optional, Dict, Any
-from fastapi import Request, Depends
+from typing import Any
+
+from fastapi import Depends, Request
+
 from app.core.auth import get_current_user_id
-from app.core.errors import api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error
 from app.services.permission_service import permission_service
 
 logger = logging.getLogger(__name__)
@@ -120,7 +122,7 @@ def require_permission_with_resource(permission: str):
 async def check_permission_in_route(
     user_id: str,
     permission: str,
-    resource: Optional[Dict[str, Any]] = None,
+    resource: dict[str, Any] | None = None,
     db=None,
 ) -> bool:
     """

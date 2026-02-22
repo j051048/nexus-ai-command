@@ -6,14 +6,15 @@ P1 Security Fix #5: Support Redis for distributed deployments
 P1 Security Fix #7: Removed verify_signature=False vulnerability
 """
 
-import time
-import os
 import logging
+import os
+import time
 from collections import defaultdict
 from functools import wraps
-from typing import Dict, Tuple, Optional
-from fastapi import Request, HTTPException
+
+from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -59,8 +60,8 @@ class RateLimiter:
         self.prefix = prefix
 
         # In-memory fallback (single instance only)
-        self.tokens: Dict[str, float] = defaultdict(lambda: float(burst))
-        self.last_update: Dict[str, float] = defaultdict(time.time)
+        self.tokens: dict[str, float] = defaultdict(lambda: float(burst))
+        self.last_update: dict[str, float] = defaultdict(time.time)
 
         # Production warning
         if settings.ENV == "production" and not redis_client:
@@ -69,7 +70,7 @@ class RateLimiter:
                 "Set REDIS_URL for proper distributed rate limiting."
             )
 
-    def _get_key(self, request: Request, user_id: Optional[str] = None) -> str:
+    def _get_key(self, request: Request, user_id: str | None = None) -> str:
         """Generate rate limit key from user_id or IP"""
         if user_id:
             return f"{self.prefix}:user:{user_id}"
@@ -90,8 +91,8 @@ class RateLimiter:
         return f"{self.prefix}:ip:{ip}"
 
     async def is_allowed(
-        self, request: Request, user_id: Optional[str] = None
-    ) -> Tuple[bool, dict]:
+        self, request: Request, user_id: str | None = None
+    ) -> tuple[bool, dict]:
         """
         Check if request is allowed under rate limit.
         Returns (is_allowed, metadata)
@@ -104,7 +105,7 @@ class RateLimiter:
         else:
             return self._check_memory(key)
 
-    async def _check_redis(self, key: str) -> Tuple[bool, dict]:
+    async def _check_redis(self, key: str) -> tuple[bool, dict]:
         """Redis-backed rate limiting (distributed)"""
         try:
             now = time.time()
@@ -154,7 +155,7 @@ class RateLimiter:
             # P0 Fix: Fail-closed — fallback to in-memory instead of allowing all
             return self._check_memory(key)
 
-    def _check_memory(self, key: str) -> Tuple[bool, dict]:
+    def _check_memory(self, key: str) -> tuple[bool, dict]:
         """In-memory rate limiting (single instance)"""
         now = time.time()
 
@@ -196,7 +197,7 @@ class RateLimiter:
             "retry_after": int((1 - self.tokens[key]) * 60 / self.rate),
         }
 
-    def reset(self, request: Request, user_id: Optional[str] = None):
+    def reset(self, request: Request, user_id: str | None = None):
         """Reset rate limit for a key (useful for testing)"""
         key = self._get_key(request, user_id)
         self.tokens[key] = float(self.burst)

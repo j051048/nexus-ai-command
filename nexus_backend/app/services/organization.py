@@ -4,9 +4,11 @@ Manages departments, teams, and organizational hierarchy.
 """
 
 from __future__ import annotations
+
 import logging
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
+from typing import Any
+
 from app.core.database import supabase
 from app.services.cache_service import cache_service
 
@@ -19,12 +21,12 @@ class Department:
 
     id: str
     name: str
-    parent_id: Optional[str] = None
-    manager_id: Optional[str] = None
+    parent_id: str | None = None
+    manager_id: str | None = None
     budget_annual: float = 0.0
     employee_count: int = 0
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "id": self.id,
             "name": self.name,
@@ -42,12 +44,12 @@ class OrgNode:
     id: str
     name: str
     type: str  # 'department' or 'user'
-    role: Optional[str] = None
-    parent_id: Optional[str] = None
-    children: List["OrgNode"] = field(default_factory=list)
-    metadata: Dict = field(default_factory=dict)
+    role: str | None = None
+    parent_id: str | None = None
+    children: list[OrgNode] = field(default_factory=list)
+    metadata: dict = field(default_factory=dict)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "id": self.id,
             "name": self.name,
@@ -77,7 +79,7 @@ class OrganizationService:
         {"id": "operations", "name": "运营部", "parent_id": None},
     ]
 
-    async def get_all_departments(self) -> List[Dict]:
+    async def get_all_departments(self) -> list[dict]:
         """
         Get all departments from database or return defaults.
         """
@@ -101,21 +103,21 @@ class OrganizationService:
             logger.error(f"Error fetching departments: {e}")
             return self.DEFAULT_DEPARTMENTS
 
-    async def get_department(self, department_id: str) -> Optional[Dict]:
+    async def get_department(self, department_id: str) -> dict | None:
         """
         Get a specific department by ID.
         """
         departments = await self.get_all_departments()
         return next((d for d in departments if d["id"] == department_id), None)
 
-    async def get_department_tree(self) -> List[OrgNode]:
+    async def get_department_tree(self) -> list[OrgNode]:
         """
         Build a hierarchical tree of departments.
         """
         departments = await self.get_all_departments()
 
         # Build lookup
-        nodes: Dict[str, OrgNode] = {}
+        nodes: dict[str, OrgNode] = {}
         for dept in departments:
             nodes[dept["id"]] = OrgNode(
                 id=dept["id"],
@@ -138,7 +140,7 @@ class OrganizationService:
 
         return roots
 
-    async def get_department_members(self, department_id: str, db=None) -> List[Dict]:
+    async def get_department_members(self, department_id: str, db=None) -> list[dict]:
         """
         Get all members of a department.
         """
@@ -159,7 +161,7 @@ class OrganizationService:
             logger.error(f"Error fetching department members: {e}")
             return []
 
-    async def get_user_reporting_line(self, user_id: str, db=None) -> List[Dict]:
+    async def get_user_reporting_line(self, user_id: str, db=None) -> list[dict]:
         """
         Get the reporting line (chain of managers) for a user.
         Returns list from immediate manager up to CEO.
@@ -213,7 +215,7 @@ class OrganizationService:
             logger.error(f"Error fetching reporting line: {e}")
             return []
 
-    async def get_direct_reports(self, manager_id: str, db=None) -> List[Dict]:
+    async def get_direct_reports(self, manager_id: str, db=None) -> list[dict]:
         """
         Get all users who directly report to a manager.
         """
@@ -252,7 +254,7 @@ class OrganizationService:
             )
             all_users = {u["id"]: u for u in (all_res.data or [])}
 
-            def build_tree_in_memory(uid: str, depth: int) -> Optional[OrgNode]:
+            def build_tree_in_memory(uid: str, depth: int) -> OrgNode | None:
                 if depth > max_depth or uid not in all_users:
                     return None
                 u = all_users[uid]
@@ -272,7 +274,7 @@ class OrganizationService:
             logger.error(f"Error building team hierarchy: {e}")
             return OrgNode(id=manager_id, name="Error", type="user")
 
-    async def get_org_stats(self, org_id: str, db=None) -> Dict[str, Any]:
+    async def get_org_stats(self, org_id: str, db=None) -> dict[str, Any]:
         """
         Get overall organization statistics for a specific tenant.
         P2 Fix: Single query instead of 6 sequential queries (N+1 elimination).
@@ -293,8 +295,8 @@ class OrganizationService:
             total_users = len(users)
 
             # Group by role in Python
-            role_counts: Dict[str, int] = {}
-            dept_counts: Dict[str, int] = {}
+            role_counts: dict[str, int] = {}
+            dept_counts: dict[str, int] = {}
             for user in users:
                 role = user.get("role") or "employee"
                 role_counts[role] = role_counts.get(role, 0) + 1
@@ -311,7 +313,7 @@ class OrganizationService:
             return {"error": str(e)}
 
     async def update_user_department(
-        self, user_id: str, new_department: str, new_manager_id: Optional[str] = None
+        self, user_id: str, new_department: str, new_manager_id: str | None = None
     ) -> bool:
         """
         Update a user's department and optionally their manager.

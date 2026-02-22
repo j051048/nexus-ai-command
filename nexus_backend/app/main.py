@@ -1,63 +1,66 @@
-from fastapi import FastAPI, Response, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
-import uvicorn
 import os
-import sentry_sdk
+from contextlib import asynccontextmanager, suppress
 
+import sentry_sdk
+import uvicorn
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app.core.auth import get_current_user_id
+from app.core.config import settings
+from app.core.logging_config import get_logger, setup_logging
+from app.core.rate_limiter import RateLimitMiddleware
+from app.core.security_middleware import (
+    RequestIDMiddleware,
+    SecurityHeadersMiddleware,
+    TenantContextMiddleware,
+)
 from app.routers import (
-    performance,
-    incentive,
-    approval,
-    kingdee,
-    chat,
-    documents,
-    projects,
-    usage,
-    organization,
-    import_data,
-    qa_pairs,
-    webhooks,
-    oauth,
-    compliance,
-    billing,
-    profile,
-    workflows,
-    form_schemas,
-    push,
-    permissions,
-    workflow_templates,
-    memories,
-    reports,
-    notifications,
-    payments,
-    data_transfer,
-    plugins,
-    training,
-    contracts,
-    super_admin,
-    crm,
     api_docs,
-    backups,
     api_keys,
+    approval,
+    backups,
+    billing,
+    chat,
+    compliance,
+    contracts,
+    crm,
+    data_transfer,
+    documents,
+    form_schemas,
+    im_callbacks,
+    im_oauth,
+    im_settings,
+    import_data,
+    incentive,
+    kingdee,
+    memories,
+    notifications,
+    oauth,
     onboarding,
+    organization,
+    payments,
+    performance,
+    permissions,
+    plugins,
+    profile,
+    projects,
+    push,
+    qa_pairs,
+    reports,
+    super_admin,
+    training,
+    usage,
+    webhooks,
+    workflow_templates,
+    workflows,
 )
 from app.routers import mcp as mcp_router
 from app.routers import robot as robot_router
-from app.routers import im_oauth, im_callbacks, im_settings
-from app.core.auth import get_current_user_id
-from app.core.rate_limiter import RateLimitMiddleware
-from app.core.security_middleware import (
-    SecurityHeadersMiddleware,
-    RequestIDMiddleware,
-    TenantContextMiddleware,
-)
-from app.core.logging_config import setup_logging, get_logger
-from app.core.config import settings
-from app.services.event_bus import event_bus
-from app.services.cache_service import cache_service
 from app.services.audit_logger import audit_logger
+from app.services.cache_service import cache_service
+from app.services.event_bus import event_bus
 
 # P2 Enhancement: Initialize structured logging FIRST
 setup_logging()
@@ -120,9 +123,9 @@ async def lifespan(app: FastAPI):
 
     # Start background tenant monitoring (every 5 minutes)
     async def _tenant_monitor_loop():
-        from app.services.tenant_credit_service import tenant_credit_service
-        from app.services.billing_service import billing_service
         from app.core.database import supabase
+        from app.services.billing_service import billing_service
+        from app.services.tenant_credit_service import tenant_credit_service
         while True:
             await asyncio.sleep(300)
             try:
@@ -148,9 +151,9 @@ async def lifespan(app: FastAPI):
 
     # Start background IM platform sync (contacts + attendance, every hour)
     async def _im_sync_loop():
-        from app.services.im_platform.contact_sync_service import contact_sync_service
-        from app.services.im_platform.attendance_sync_service import attendance_sync_service
         from app.core.database import supabase as sync_db
+        from app.services.im_platform.attendance_sync_service import attendance_sync_service
+        from app.services.im_platform.contact_sync_service import contact_sync_service
         while True:
             await asyncio.sleep(3600)  # Every hour
             try:
@@ -185,16 +188,12 @@ async def lifespan(app: FastAPI):
     monitor_task.cancel()
     timeout_task.cancel()
     im_sync_task.cancel()
-    try:
+    with suppress(Exception):
         await auto_trigger_service.stop()
-    except Exception:
-        pass
     await event_bus.stop()
     await audit_logger.force_flush()
-    try:
+    with suppress(Exception):
         await connection_pool_service.close()
-    except Exception:
-        pass
     logger.info("Cleanup complete")
 
 
@@ -231,7 +230,8 @@ app = FastAPI(
 )
 
 # OpenTelemetry distributed tracing setup
-from app.core.telemetry import setup_telemetry
+from app.core.telemetry import setup_telemetry  # noqa: E402
+
 setup_telemetry(app)
 
 
@@ -287,7 +287,8 @@ async def test_ai_connectivity(user_id: str = Depends(get_current_user_id)):
 # CORS MUST be outermost so browser preflight (OPTIONS) is handled immediately
 # before any auth/rate-limit middleware rejects the request.
 app.add_middleware(TenantContextMiddleware)  # 6th: innermost, sets up tenant DB scope
-from app.core.api_key_middleware import APIKeyMiddleware
+from app.core.api_key_middleware import APIKeyMiddleware  # noqa: E402
+
 app.add_middleware(APIKeyMiddleware)          # 5th: API Key auth sets org_id before tenant context
 app.add_middleware(RequestIDMiddleware)       # 4th: adds request tracing ID
 app.add_middleware(SecurityHeadersMiddleware) # 3rd: security response headers
@@ -355,10 +356,11 @@ async def health_check():
     Health check endpoint for load balancers and monitoring.
     P2 Enhancement: Added database connectivity check.
     """
+    import httpx
+
+    from app.core.config import settings
     from app.core.database import supabase
     from app.services.cache_service import cache_service
-    from app.core.config import settings
-    import httpx
 
     db_status = "unknown"
     cache_status = "unknown"
@@ -382,10 +384,7 @@ async def health_check():
 
     # 2. Redis/Cache Check
     try:
-        if await cache_service.ping():
-            cache_status = "connected"
-        else:
-            cache_status = "error"
+        cache_status = "connected" if await cache_service.ping() else "error"
     except Exception as e:
         cache_status = "error" if settings.IS_PRODUCTION else f"error: {str(e)[:50]}"
 
@@ -424,7 +423,7 @@ async def boss_dashboard(request: Request, user_id: str = Depends(get_current_us
     P0 Multi-tenancy: Uses request.state.db for scoped access.
     """
     client = request.state.db
-    from app.core.errors import api_success, api_error, ErrorCode
+    from app.core.errors import ErrorCode, api_error, api_success
 
     if not client:
         raise api_error(

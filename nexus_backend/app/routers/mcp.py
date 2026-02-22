@@ -13,19 +13,19 @@ Endpoints:
     POST /api/mcp/messages                 - Receive JSON-RPC messages from MCP clients
 """
 
+import asyncio
 import json
 import logging
 import time
-import asyncio
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.core.auth import get_current_user_id
-from app.core.errors import api_success, api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error, api_success
 from app.tools import TOOL_REGISTRY, get_tool
 
 logger = logging.getLogger(__name__)
@@ -41,18 +41,18 @@ class MCPToolSchema(BaseModel):
     """MCP-compatible tool descriptor."""
     name: str
     description: str
-    inputSchema: Dict[str, Any]
+    inputSchema: dict[str, Any]  # noqa: N815
 
 
 class MCPToolListResponse(BaseModel):
     """Response for the tool listing endpoint."""
-    tools: List[MCPToolSchema]
+    tools: list[MCPToolSchema]
     count: int
 
 
 class MCPExecuteRequest(BaseModel):
     """Request body for tool execution."""
-    arguments: Dict[str, Any] = {}
+    arguments: dict[str, Any] = {}
 
 
 class MCPExecuteResponse(BaseModel):
@@ -81,7 +81,7 @@ class MCPSession:
         """Queue an SSE event to be sent to the client."""
         await self.queue.put(data)
 
-    async def send_jsonrpc_response(self, id: Any, result: Any):
+    async def send_jsonrpc_response(self, id: Any, result: Any):  # noqa: A002
         """Send a JSON-RPC 2.0 response."""
         await self.send({
             "jsonrpc": "2.0",
@@ -89,7 +89,7 @@ class MCPSession:
             "result": result,
         })
 
-    async def send_jsonrpc_error(self, id: Any, code: int, message: str):
+    async def send_jsonrpc_error(self, id: Any, code: int, message: str):  # noqa: A002
         """Send a JSON-RPC 2.0 error response."""
         await self.send({
             "jsonrpc": "2.0",
@@ -99,7 +99,7 @@ class MCPSession:
 
 
 # In-memory session store (suitable for single-instance deployment)
-_sessions: Dict[str, MCPSession] = {}
+_sessions: dict[str, MCPSession] = {}
 
 # Server capabilities declaration
 MCP_SERVER_INFO = {
@@ -123,7 +123,7 @@ async def list_tools(user_id: str = Depends(get_current_user_id)):
     Returns each tool's name, description and JSON-Schema input definition so
     that MCP clients can build dynamic UIs or route calls automatically.
     """
-    tools: List[MCPToolSchema] = []
+    tools: list[MCPToolSchema] = []
     for tool in TOOL_REGISTRY.values():
         tools.append(
             MCPToolSchema(
@@ -168,7 +168,7 @@ async def execute_tool(
 
     # --- Build execution context ---
     org_id = getattr(request.state, "org_id", None)
-    config: Dict[str, Any] = {
+    config: dict[str, Any] = {
         "org_id": org_id,
         "source": "mcp",
     }
@@ -258,7 +258,7 @@ async def sse_endpoint(request: Request, user_id: str = Depends(get_current_user
                     data = await asyncio.wait_for(session.queue.get(), timeout=30.0)
                     payload = json.dumps(data, ensure_ascii=False)
                     yield f"event: message\ndata: {payload}\n\n"
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Send keepalive comment
                     yield ": keepalive\n\n"
                 except asyncio.CancelledError:

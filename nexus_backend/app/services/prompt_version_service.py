@@ -10,14 +10,12 @@ Implements version management for AI prompts with:
 Fixes Issue #21: Prompt template version control and A/B testing.
 """
 
-import os
-import json
-import logging
 import hashlib
-from typing import Dict, List, Optional, Any
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -42,12 +40,12 @@ class PromptVersion:
     created_at: datetime
     updated_at: datetime
     change_description: str = ""
-    tags: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    ab_test_group: Optional[str] = None
+    tags: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    ab_test_group: str | None = None
     ab_test_weight: float = 1.0
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "version_id": self.version_id,
             "prompt_key": self.prompt_key,
@@ -70,17 +68,17 @@ class ABTestConfig:
     """A/B test configuration for prompts."""
     test_id: str
     prompt_key: str
-    variants: Dict[str, float]  # version_id -> weight
+    variants: dict[str, float]  # version_id -> weight
     start_time: datetime
-    end_time: Optional[datetime]
+    end_time: datetime | None
     created_by: str
-    metrics: Dict[str, Any] = field(default_factory=dict)
+    metrics: dict[str, Any] = field(default_factory=dict)
 
 
 class PromptVersionService:
     """
     P1 Enhancement: Prompt version control and A/B testing.
-    
+
     Features:
     - Version history with diff tracking
     - A/B testing with weighted distribution
@@ -90,32 +88,32 @@ class PromptVersionService:
     """
 
     def __init__(self):
-        self._versions: Dict[str, List[PromptVersion]] = {}  # prompt_key -> versions
-        self._active_versions: Dict[str, str] = {}  # prompt_key -> active version_id
-        self._ab_tests: Dict[str, ABTestConfig] = {}
-        self._version_cache: Dict[str, PromptVersion] = {}  # version_id -> version
-        self._change_log: List[Dict] = []
-        
+        self._versions: dict[str, list[PromptVersion]] = {}  # prompt_key -> versions
+        self._active_versions: dict[str, str] = {}  # prompt_key -> active version_id
+        self._ab_tests: dict[str, ABTestConfig] = {}
+        self._version_cache: dict[str, PromptVersion] = {}  # version_id -> version
+        self._change_log: list[dict] = []
+
     def create_version(
         self,
         prompt_key: str,
         content: str,
         created_by: str,
         change_description: str = "",
-        tags: List[str] = None,
-        metadata: Dict = None,
+        tags: list[str] = None,
+        metadata: dict = None,
         status: PromptStatus = PromptStatus.DRAFT
     ) -> PromptVersion:
         """Create a new version of a prompt."""
         # Get next version number
         existing = self._versions.get(prompt_key, [])
         next_version = max([v.version_number for v in existing], default=0) + 1
-        
+
         # Generate version ID
         version_id = hashlib.md5(
             f"{prompt_key}:{next_version}:{datetime.now().isoformat()}".encode()
         ).hexdigest()[:12]
-        
+
         version = PromptVersion(
             version_id=version_id,
             prompt_key=prompt_key,
@@ -129,26 +127,26 @@ class PromptVersionService:
             tags=tags or [],
             metadata=metadata or {}
         )
-        
+
         # Store
         if prompt_key not in self._versions:
             self._versions[prompt_key] = []
         self._versions[prompt_key].append(version)
         self._version_cache[version_id] = version
-        
+
         # Log change
         self._log_change("create", version, created_by)
-        
+
         logger.info(f"Created prompt version: {prompt_key} v{next_version} ({version_id})")
         return version
 
-    def activate_version(self, version_id: str, activated_by: str) -> Optional[PromptVersion]:
+    def activate_version(self, version_id: str, activated_by: str) -> PromptVersion | None:
         """Activate a specific version of a prompt."""
         version = self._version_cache.get(version_id)
         if not version:
             logger.warning(f"Version not found: {version_id}")
             return None
-        
+
         # Deactivate current active version
         prompt_key = version.prompt_key
         if prompt_key in self._active_versions:
@@ -156,44 +154,44 @@ class PromptVersionService:
             old_version = self._version_cache.get(old_active_id)
             if old_version:
                 old_version.status = PromptStatus.DEPRECATED
-        
+
         # Activate new version
         version.status = PromptStatus.ACTIVE
         self._active_versions[prompt_key] = version_id
-        
+
         # Log change
         self._log_change("activate", version, activated_by)
-        
+
         logger.info(f"Activated prompt version: {prompt_key} v{version.version_number}")
         return version
 
-    def rollback(self, prompt_key: str, rollback_by: str) -> Optional[PromptVersion]:
+    def rollback(self, prompt_key: str, rollback_by: str) -> PromptVersion | None:
         """Rollback to previous version."""
         versions = self._versions.get(prompt_key, [])
         if len(versions) < 2:
             logger.warning(f"Cannot rollback: not enough versions for {prompt_key}")
             return None
-        
+
         # Find the previous active version
         sorted_versions = sorted(versions, key=lambda v: v.version_number, reverse=True)
         for v in sorted_versions[1:]:  # Skip current
             if v.status in (PromptStatus.DEPRECATED, PromptStatus.ACTIVE):
                 return self.activate_version(v.version_id, rollback_by)
-        
+
         return None
 
-    def get_active_version(self, prompt_key: str) -> Optional[PromptVersion]:
+    def get_active_version(self, prompt_key: str) -> PromptVersion | None:
         """Get the currently active version of a prompt."""
         version_id = self._active_versions.get(prompt_key)
         if version_id:
             return self._version_cache.get(version_id)
         return None
 
-    def get_version(self, version_id: str) -> Optional[PromptVersion]:
+    def get_version(self, version_id: str) -> PromptVersion | None:
         """Get a specific version by ID."""
         return self._version_cache.get(version_id)
 
-    def get_version_history(self, prompt_key: str, limit: int = 10) -> List[PromptVersion]:
+    def get_version_history(self, prompt_key: str, limit: int = 10) -> list[PromptVersion]:
         """Get version history for a prompt."""
         versions = self._versions.get(prompt_key, [])
         return sorted(versions, key=lambda v: v.version_number, reverse=True)[:limit]
@@ -201,7 +199,7 @@ class PromptVersionService:
     def create_ab_test(
         self,
         prompt_key: str,
-        variants: Dict[str, float],
+        variants: dict[str, float],
         created_by: str,
         duration_hours: int = 24 * 7
     ) -> ABTestConfig:
@@ -209,11 +207,11 @@ class PromptVersionService:
         test_id = hashlib.md5(
             f"{prompt_key}:{datetime.now().isoformat()}".encode()
         ).hexdigest()[:12]
-        
+
         # Normalize weights
         total_weight = sum(variants.values())
         normalized = {k: v / total_weight for k, v in variants.items()}
-        
+
         ab_test = ABTestConfig(
             test_id=test_id,
             prompt_key=prompt_key,
@@ -222,20 +220,20 @@ class PromptVersionService:
             end_time=datetime.now() + __import__("datetime").timedelta(hours=duration_hours),
             created_by=created_by
         )
-        
+
         self._ab_tests[test_id] = ab_test
-        
+
         # Mark versions as part of A/B test
         for version_id in variants:
             version = self._version_cache.get(version_id)
             if version:
                 version.ab_test_group = test_id
                 version.ab_test_weight = normalized[version_id]
-        
+
         logger.info(f"Created A/B test: {test_id} for {prompt_key}")
         return ab_test
 
-    def get_ab_test_variant(self, prompt_key: str, user_id: str) -> Optional[PromptVersion]:
+    def get_ab_test_variant(self, prompt_key: str, user_id: str) -> PromptVersion | None:
         """Get the appropriate variant for a user based on A/B test."""
         # Find active A/B test for this prompt
         active_tests = [
@@ -243,15 +241,15 @@ class PromptVersionService:
             if t.prompt_key == prompt_key
             and t.end_time and t.end_time > datetime.now()
         ]
-        
+
         if not active_tests:
             return self.get_active_version(prompt_key)
-        
+
         # Use deterministic assignment based on user_id
         test = active_tests[0]
         user_hash = int(hashlib.md5(f"{test.test_id}:{user_id}".encode()).hexdigest()[:8], 16)
         selection = (user_hash % 10000) / 10000
-        
+
         # Select variant
         cumulative = 0.0
         selected_version_id = None
@@ -260,7 +258,7 @@ class PromptVersionService:
             if selection <= cumulative:
                 selected_version_id = version_id
                 break
-        
+
         if selected_version_id:
             return self._version_cache.get(selected_version_id)
         return self.get_active_version(prompt_key)
@@ -276,20 +274,20 @@ class PromptVersionService:
         test = self._ab_tests.get(test_id)
         if not test:
             return
-        
+
         if "metrics" not in test.metrics:
             test.metrics["metrics"] = {}
         if version_id not in test.metrics["metrics"]:
             test.metrics["metrics"][version_id] = {}
         if metric_name not in test.metrics["metrics"][version_id]:
             test.metrics["metrics"][version_id][metric_name] = []
-        
+
         test.metrics["metrics"][version_id][metric_name].append({
             "value": value,
             "timestamp": datetime.now().isoformat()
         })
 
-    def get_ab_test_results(self, test_id: str) -> Dict:
+    def get_ab_test_results(self, test_id: str) -> dict:
         """Get A/B test results summary."""
         test = self._ab_tests.get(test_id)
         if not test:
@@ -304,7 +302,7 @@ class PromptVersionService:
             "metrics": test.metrics.get("metrics", {})
         }
 
-    def evaluate_ab_test(self, test_id: str) -> Dict:
+    def evaluate_ab_test(self, test_id: str) -> dict:
         """P1 Enhancement: Evaluate A/B test with statistical significance.
 
         Uses chi-squared test to determine if the observed difference between
@@ -326,7 +324,7 @@ class PromptVersionService:
             }
 
         # Collect "user_rating" or "response_time_ms" per variant
-        variant_stats: Dict[str, Dict] = {}
+        variant_stats: dict[str, dict] = {}
         for version_id, m in raw_metrics.items():
             ratings = [r["value"] for r in m.get("user_rating", [])]
             resp_times = [r["value"] for r in m.get("response_time_ms", [])]
@@ -429,16 +427,16 @@ class PromptVersionService:
             "actor": actor,
             "timestamp": datetime.now().isoformat()
         })
-        
+
         # Keep log manageable
         if len(self._change_log) > 1000:
             self._change_log = self._change_log[-500:]
 
-    def get_change_log(self, prompt_key: str = None, limit: int = 100) -> List[Dict]:
+    def get_change_log(self, prompt_key: str = None, limit: int = 100) -> list[dict]:
         """Get change log for audit."""
         log = self._change_log
         if prompt_key:
-            log = [l for l in log if l["prompt_key"] == prompt_key]
+            log = [entry for entry in log if entry["prompt_key"] == prompt_key]
         return log[-limit:]
 
     async def record_response_metrics(
@@ -447,7 +445,7 @@ class PromptVersionService:
         user_id: str,
         response_time_ms: int,
         token_count: int,
-        user_rating: Optional[float] = None,
+        user_rating: float | None = None,
         db=None,
     ):
         """
@@ -486,9 +484,9 @@ class PromptVersionService:
         """Persist prompt versions to database."""
         if not db:
             return
-        
+
         try:
-            for prompt_key, versions in self._versions.items():
+            for _prompt_key, versions in self._versions.items():
                 for version in versions:
                     await db.table("prompt_versions").upsert({
                         "version_id": version.version_id,
@@ -508,7 +506,7 @@ class PromptVersionService:
         """Load prompt versions from database."""
         if not db:
             return
-        
+
         try:
             res = await db.table("prompt_versions").select("*").execute()
             for row in res.data or []:
@@ -525,15 +523,15 @@ class PromptVersionService:
                     tags=row.get("tags", []),
                     metadata=row.get("metadata", {})
                 )
-                
+
                 if version.prompt_key not in self._versions:
                     self._versions[version.prompt_key] = []
                 self._versions[version.prompt_key].append(version)
                 self._version_cache[version.version_id] = version
-                
+
                 if version.status == PromptStatus.ACTIVE:
                     self._active_versions[version.prompt_key] = version.version_id
-            
+
             logger.info(f"Loaded {len(self._version_cache)} prompt versions from database")
         except Exception as e:
             logger.error(f"Failed to load prompt versions: {e}")

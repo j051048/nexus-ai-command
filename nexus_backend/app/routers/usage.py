@@ -4,20 +4,18 @@ Provides token usage tracking and model pricing information.
 """
 
 import logging
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
 from app.core.auth import get_current_user_id
-from app.services.token_service import (
-    usage_tracker,
-    token_counter,
-    MODEL_MAPPING,
-    ModelPricing,
-)
-from app.core.errors import api_success, api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error, api_success
 from app.models.schemas import StandardResponse
+from app.services.token_service import (
+    MODEL_MAPPING,
+    token_counter,
+    usage_tracker,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/usage", tags=["Usage"])
@@ -131,7 +129,7 @@ async def get_cost_report(
 
 class EstimateRequest(BaseModel):
     """Request body for token estimation."""
-    messages: List[dict]
+    messages: list[dict]
     model: str = "gpt-4o"
     expected_output_ratio: float = 1.5  # Estimated output/input token ratio
 
@@ -251,7 +249,7 @@ async def get_quota_alert(
     })
 
 
-def _get_alert_message(level: str, pct: float) -> Optional[str]:
+def _get_alert_message(level: str, pct: float) -> str | None:
     """Generate a user-facing alert message based on quota level."""
     if level == "exhausted":
         return "本月额度已用尽，请联系管理员升级套餐或等待下月重置。"

@@ -7,11 +7,11 @@ Fixes Issue #18: No clear AI state indicator during thinking.
 
 import asyncio
 import logging
-from typing import Dict, Optional, Any, List
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-import time
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -39,13 +39,13 @@ class StatusIndicator:
     icon: str = "🤖"
     timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
     duration_ms: int = 0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class AIStatusService:
     """
     P2 Enhancement: Clear AI state indicators.
-    
+
     Features:
     - Real-time status updates
     - Progress tracking
@@ -53,7 +53,7 @@ class AIStatusService:
     - State history
     - WebSocket/SSE integration ready
     """
-    
+
     # State configurations
     STATE_CONFIGS = {
         AIState.IDLE: {
@@ -102,7 +102,7 @@ class AIStatusService:
             "color": "green"
         }
     }
-    
+
     # Thinking messages for variety
     THINKING_MESSAGES = [
         "正在思考...",
@@ -111,18 +111,18 @@ class AIStatusService:
         "查阅相关知识...",
         "构思最佳回复...",
     ]
-    
+
     def __init__(self):
-        self._current_states: Dict[str, StatusIndicator] = {}  # session_id -> status
-        self._state_history: Dict[str, List[StatusIndicator]] = {}  # session_id -> history
-        self._state_timers: Dict[str, float] = {}  # session_id -> start_time
-        self._progress_callbacks: List[callable] = []
+        self._current_states: dict[str, StatusIndicator] = {}  # session_id -> status
+        self._state_history: dict[str, list[StatusIndicator]] = {}  # session_id -> history
+        self._state_timers: dict[str, float] = {}  # session_id -> start_time
+        self._progress_callbacks: list[callable] = []
         self._max_history = 50
-    
+
     def register_progress_callback(self, callback: callable):
         """Register a callback for status updates."""
         self._progress_callbacks.append(callback)
-    
+
     async def set_state(
         self,
         session_id: str,
@@ -130,11 +130,11 @@ class AIStatusService:
         message: str = None,
         sub_message: str = "",
         progress: float = None,
-        metadata: Dict = None
+        metadata: dict = None
     ) -> StatusIndicator:
         """
         Set AI state for a session.
-        
+
         Args:
             session_id: Session identifier
             state: New AI state
@@ -142,17 +142,17 @@ class AIStatusService:
             sub_message: Additional detail message
             progress: Progress percentage (0.0 to 1.0)
             metadata: Additional metadata
-            
+
         Returns:
             StatusIndicator object
         """
         config = self.STATE_CONFIGS.get(state, {})
-        
+
         # Calculate duration
         duration_ms = 0
         if session_id in self._state_timers:
             duration_ms = int((time.time() - self._state_timers[session_id]) * 1000)
-        
+
         # Create indicator
         indicator = StatusIndicator(
             state=state,
@@ -163,29 +163,29 @@ class AIStatusService:
             duration_ms=duration_ms,
             metadata=metadata or {}
         )
-        
+
         # Store state
         self._current_states[session_id] = indicator
-        
+
         # Add to history
         if session_id not in self._state_history:
             self._state_history[session_id] = []
         self._state_history[session_id].append(indicator)
-        
+
         # Trim history
         if len(self._state_history[session_id]) > self._max_history:
             self._state_history[session_id] = self._state_history[session_id][-self._max_history:]
-        
+
         # Start timer for new processing states
         if state in [AIState.THINKING, AIState.ANALYZING, AIState.GENERATING, AIState.SEARCHING]:
             self._state_timers[session_id] = time.time()
-        
+
         # Notify callbacks
         await self._notify_callbacks(session_id, indicator)
-        
+
         logger.debug(f"AI State [{session_id}]: {state.value} - {indicator.message}")
         return indicator
-    
+
     def _get_default_progress(self, state: AIState) -> float:
         """Get default progress for a state."""
         progress_map = {
@@ -200,27 +200,27 @@ class AIStatusService:
             AIState.COMPLETED: 1.0
         }
         return progress_map.get(state, 0.0)
-    
+
     async def update_progress(
         self,
         session_id: str,
         progress: float,
         message: str = None
-    ) -> Optional[StatusIndicator]:
+    ) -> StatusIndicator | None:
         """Update progress for current state."""
         if session_id not in self._current_states:
             return None
-        
+
         current = self._current_states[session_id]
-        
+
         # Update progress
         current.progress = min(1.0, max(0.0, progress))
         if message:
             current.sub_message = message
-        
+
         await self._notify_callbacks(session_id, current)
         return current
-    
+
     async def _notify_callbacks(self, session_id: str, indicator: StatusIndicator):
         """Notify all registered callbacks."""
         for callback in self._progress_callbacks:
@@ -231,55 +231,55 @@ class AIStatusService:
                     callback(session_id, indicator)
             except Exception as e:
                 logger.error(f"Status callback error: {e}")
-    
-    def get_state(self, session_id: str) -> Optional[StatusIndicator]:
+
+    def get_state(self, session_id: str) -> StatusIndicator | None:
         """Get current state for a session."""
         return self._current_states.get(session_id)
-    
-    def get_history(self, session_id: str, limit: int = 10) -> List[StatusIndicator]:
+
+    def get_history(self, session_id: str, limit: int = 10) -> list[StatusIndicator]:
         """Get state history for a session."""
         history = self._state_history.get(session_id, [])
         return history[-limit:]
-    
-    def get_all_active(self) -> Dict[str, StatusIndicator]:
+
+    def get_all_active(self) -> dict[str, StatusIndicator]:
         """Get all active states."""
         return {
             sid: indicator
             for sid, indicator in self._current_states.items()
             if indicator.state not in [AIState.IDLE, AIState.COMPLETED, AIState.ERROR]
         }
-    
-    def get_estimated_remaining(self, session_id: str) -> Optional[int]:
+
+    def get_estimated_remaining(self, session_id: str) -> int | None:
         """
         Estimate remaining time in ms based on progress.
         Returns None if cannot estimate.
         """
         if session_id not in self._current_states:
             return None
-        
+
         indicator = self._current_states[session_id]
-        
+
         if indicator.progress <= 0.1 or indicator.state not in [AIState.GENERATING, AIState.THINKING]:
             return None
-        
+
         # Calculate elapsed time
         if session_id not in self._state_timers:
             return None
-        
+
         elapsed_ms = (time.time() - self._state_timers[session_id]) * 1000
-        
+
         # Estimate remaining based on progress
         if indicator.progress > 0:
             total_estimated = elapsed_ms / indicator.progress
             remaining = total_estimated - elapsed_ms
             return int(max(0, remaining))
-        
+
         return None
-    
-    def to_dict(self, indicator: StatusIndicator) -> Dict:
+
+    def to_dict(self, indicator: StatusIndicator) -> dict:
         """Convert indicator to dict for API response."""
         config = self.STATE_CONFIGS.get(indicator.state, {})
-        
+
         return {
             "state": indicator.state.value,
             "message": indicator.message,
@@ -292,11 +292,11 @@ class AIStatusService:
             "estimatedRemainingMs": None,  # Will be filled if available
             "metadata": indicator.metadata
         }
-    
+
     async def create_thinking_animation(self, session_id: str) -> 'ThinkingAnimation':
         """Create an animated thinking indicator."""
         return ThinkingAnimation(self, session_id)
-    
+
     def clear_state(self, session_id: str):
         """Clear state for a session."""
         if session_id in self._current_states:
@@ -309,18 +309,18 @@ class ThinkingAnimation:
     """
     Context manager for animated thinking indicator.
     """
-    
+
     def __init__(self, status_service: AIStatusService, session_id: str):
         self.status_service = status_service
         self.session_id = session_id
         self._task = None
         self._running = False
-    
-    async def start(self, steps: List[str] = None):
+
+    async def start(self, steps: list[str] = None):
         """Start thinking animation with steps."""
         self._running = True
         steps = steps or AIStatusService.THINKING_MESSAGES
-        
+
         async def animate():
             idx = 0
             while self._running:
@@ -331,22 +331,22 @@ class ThinkingAnimation:
                 )
                 idx += 1
                 await asyncio.sleep(2)
-        
+
         self._task = asyncio.create_task(animate())
-    
+
     async def stop(self, final_state: AIState = AIState.COMPLETED):
         """Stop animation and set final state."""
         self._running = False
         if self._task:
             self._task.cancel()
             self._task = None
-        
+
         await self.status_service.set_state(self.session_id, final_state)
-    
+
     async def __aenter__(self):
         await self.start()
         return self
-    
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         final_state = AIState.ERROR if exc_type else AIState.COMPLETED
         await self.stop(final_state)

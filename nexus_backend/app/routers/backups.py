@@ -5,13 +5,12 @@
 """
 
 import logging
-from typing import Optional, List
-from pydantic import BaseModel
-from fastapi import APIRouter, Request, Depends, Query
 
-from app.core.auth import get_current_user_id
+from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel
+
 from app.core.dependencies import require_role
-from app.core.errors import api_success, api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error, api_success
 from app.services.backup_service import backup_service
 
 logger = logging.getLogger(__name__)
@@ -26,16 +25,16 @@ require_backup_admin = require_role(["admin", "founder", "boss"])
 
 
 class CreateBackupRequest(BaseModel):
-    tables: Optional[List[str]] = None
+    tables: list[str] | None = None
 
 
 class RestoreRequest(BaseModel):
-    tables: Optional[List[str]] = None
+    tables: list[str] | None = None
 
 
 class ScheduleRequest(BaseModel):
     frequency: str = "daily"
-    tables: Optional[List[str]] = None
+    tables: list[str] | None = None
 
 
 # ============== Endpoints ==============

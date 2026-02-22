@@ -4,15 +4,15 @@ Visual workflow designer endpoints for managing approval chains.
 """
 
 import logging
-from typing import Optional, List
+
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, Request, Depends
 
 from app.core.auth import get_current_user_id
-from app.core.errors import api_success, api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error, api_success
 from app.services.workflow_definition_service import (
-    workflow_definition_service,
     VALID_APPROVAL_TYPES,
+    workflow_definition_service,
 )
 
 logger = logging.getLogger(__name__)
@@ -24,20 +24,20 @@ router = APIRouter(prefix="/api/workflows", tags=["Workflows"])
 
 class WorkflowCreateBody(BaseModel):
     name: str = Field(..., min_length=1, max_length=200, description="Workflow name")
-    description: Optional[str] = Field(None, max_length=1000)
-    applies_to: List[str] = Field(..., min_length=1, description="Approval types this workflow handles")
-    steps: List[dict] = Field(..., min_length=1, description="Workflow step definitions (JSONB)")
-    conditions: Optional[List[dict]] = Field(None, description="Condition branch rules")
-    canvas_layout: Optional[dict] = Field(None, description="Frontend canvas layout data")
+    description: str | None = Field(None, max_length=1000)
+    applies_to: list[str] = Field(..., min_length=1, description="Approval types this workflow handles")
+    steps: list[dict] = Field(..., min_length=1, description="Workflow step definitions (JSONB)")
+    conditions: list[dict] | None = Field(None, description="Condition branch rules")
+    canvas_layout: dict | None = Field(None, description="Frontend canvas layout data")
 
 
 class WorkflowUpdateBody(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=200)
-    description: Optional[str] = Field(None, max_length=1000)
-    applies_to: Optional[List[str]] = None
-    steps: Optional[List[dict]] = None
-    conditions: Optional[List[dict]] = None
-    canvas_layout: Optional[dict] = None
+    name: str | None = Field(None, min_length=1, max_length=200)
+    description: str | None = Field(None, max_length=1000)
+    applies_to: list[str] | None = None
+    steps: list[dict] | None = None
+    conditions: list[dict] | None = None
+    canvas_layout: dict | None = None
 
 
 # --- Endpoints ---

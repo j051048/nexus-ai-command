@@ -4,9 +4,11 @@ ABAC 权限管理 API 端点。
 """
 
 import logging
-from fastapi import APIRouter, Request, Depends
+
+from fastapi import APIRouter, Depends, Request
+
 from app.core.auth import get_current_user_id
-from app.core.errors import api_success, api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error, api_success
 from app.services.permission_service import permission_service
 
 logger = logging.getLogger(__name__)

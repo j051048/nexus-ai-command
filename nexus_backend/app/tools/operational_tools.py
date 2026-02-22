@@ -1,10 +1,12 @@
-from .base_tool import BaseTool
-from typing import Dict, Any
+from typing import Any
+
 from app.core.database import supabase
 from app.services.vector_service import vector_service
 
+from .base_tool import BaseTool
 
-def _get_client(config: Dict = None):
+
+def _get_client(config: dict = None):
     """Get scoped DB client if user token available, else fallback to service client."""
     token = config.get("token") if config else None
     return supabase.get_scoped_client(token) if token and supabase else supabase
@@ -26,7 +28,7 @@ class PerformanceReportTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         client = _get_client(config)
         target_id = args.get("user_id") or user_id
@@ -71,7 +73,7 @@ class CompanyStatsTool(BaseTool):
     parameters = {"type": "object", "properties": {}, "required": []}
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         client = _get_client(config)
         count_res = await client.table("users").select("id", count="exact").execute()
@@ -100,7 +102,7 @@ class KnowledgeBaseTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         query = args.get("query")
         org_id = config.get("org_id") if config else None
@@ -130,7 +132,7 @@ class AwardBadgeTool(BaseTool):
     }
 
     async def run(
-        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
         target_id = args.get("user_id")
         badge_name = args.get("badge_name")

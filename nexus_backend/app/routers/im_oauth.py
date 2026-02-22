@@ -9,15 +9,16 @@ IM 平台 OAuth 回调端点
 """
 
 import logging
-from fastapi import APIRouter, Request, HTTPException
+
+from fastapi import APIRouter, HTTPException, Request
 
 from app.core.config import settings
 from app.core.database import supabase
-from app.core.errors import api_success, api_error, ErrorCode
-from app.services.im_platform.wecom_client import WecomClient
+from app.core.errors import ErrorCode, api_error, api_success
+from app.services.im_platform.contact_sync_service import ContactSyncService
 from app.services.im_platform.dingtalk_client import DingtalkClient
 from app.services.im_platform.feishu_client import FeishuClient
-from app.services.im_platform.contact_sync_service import ContactSyncService
+from app.services.im_platform.wecom_client import WecomClient
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/im-auth", tags=["IM OAuth"])

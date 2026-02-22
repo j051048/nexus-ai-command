@@ -5,12 +5,13 @@ Enhanced with DB-backed workflow definitions and timeout escalation.
 """
 
 import logging
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from enum import Enum
-from datetime import datetime, timezone, timedelta
+from typing import Any
+
 from app.core.database import supabase
-from app.services.event_bus import emit, EventType
+from app.services.event_bus import EventType, emit
 
 logger = logging.getLogger(__name__)
 
@@ -43,12 +44,12 @@ class ApprovalChainConfig:
 
     name: str
     description: str
-    steps: List[ApprovalStep]
-    applies_to: List[str]  # List of approval types this chain handles
+    steps: list[ApprovalStep]
+    applies_to: list[str]  # List of approval types this chain handles
 
 
 # Default approval chains
-DEFAULT_CHAINS: Dict[str, ApprovalChainConfig] = {
+DEFAULT_CHAINS: dict[str, ApprovalChainConfig] = {
     "expense": ApprovalChainConfig(
         name="费用报销审批链",
         description="适用于差旅、招待等费用报销",
@@ -119,7 +120,7 @@ class ApprovalChainService:
 
     async def load_chain_from_db(
         self, org_id: str, approval_type: str, db=None
-    ) -> Optional[Dict]:
+    ) -> dict | None:
         """
         Load the active workflow definition from DB for the given org and approval type.
         Falls back to DEFAULT_CHAINS if no DB definition is found.
@@ -203,7 +204,7 @@ class ApprovalChainService:
 
     async def get_approvers_for_step(
         self, step: ApprovalStep, requester_id: str
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         Get list of users who can approve at the given step.
         """
@@ -227,7 +228,7 @@ class ApprovalChainService:
             logger.error(f"Error fetching approvers: {e}")
             return []
 
-    async def get_direct_manager(self, user_id: str) -> Optional[Dict]:
+    async def get_direct_manager(self, user_id: str) -> dict | None:
         """
         Get the direct manager of a user.
         """
@@ -285,7 +286,7 @@ class ApprovalChainService:
         amount: float,
         requester_id: str,
         description: str = "",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Process a new approval request through the chain.
         Returns the initial status and required approvers.
@@ -356,7 +357,7 @@ class ApprovalChainService:
         current_step: int,
         amount: float,
         requester_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Escalate an approval request to the next level.
         """
@@ -390,7 +391,7 @@ class ApprovalChainService:
             "approvers": approvers,
         }
 
-    def get_all_chains(self) -> List[Dict]:
+    def get_all_chains(self) -> list[dict]:
         """
         Get all configured approval chains.
         """
@@ -419,7 +420,7 @@ class ApprovalChainService:
         decision: str,
         approver_id: str,
         db=None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Advance an approval request to the next step in the workflow.
         Records the decision in approval_history and updates current_step / timeout_at.
@@ -465,7 +466,7 @@ class ApprovalChainService:
             "step": current_step,
             "decision": decision,
             "approver_id": approver_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
         history.append(history_entry)
 
@@ -512,7 +513,7 @@ class ApprovalChainService:
                     next_step_def = chain_steps[next_step]
                     timeout_hours = next_step_def.get("timeout_hours", 48)
                     timeout_at = (
-                        datetime.now(timezone.utc) + timedelta(hours=timeout_hours)
+                        datetime.now(UTC) + timedelta(hours=timeout_hours)
                     ).isoformat() if timeout_hours > 0 else None
 
                     update_data = {
@@ -564,9 +565,9 @@ class ApprovalChainService:
 
     async def evaluate_condition(
         self,
-        condition_node: Dict,
-        request_data: Dict,
-    ) -> Optional[str]:
+        condition_node: dict,
+        request_data: dict,
+    ) -> str | None:
         """
         Evaluate a condition node against request data.
         Returns the target node ID for the matching branch, or None if no match.
@@ -637,7 +638,7 @@ class ApprovalChainService:
         escalated_count = 0
 
         try:
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(UTC).isoformat()
 
             # Find all timed-out pending requests
             result = (
@@ -694,7 +695,7 @@ class ApprovalChainService:
                                 pass
 
                         new_timeout = (
-                            datetime.now(timezone.utc) + timedelta(hours=timeout_hours)
+                            datetime.now(UTC) + timedelta(hours=timeout_hours)
                         ).isoformat()
 
                         # Update the request with escalation info

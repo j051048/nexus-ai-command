@@ -7,9 +7,10 @@ agent pipeline, data export, and custom tool registration.
 
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Any, Callable, Awaitable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +42,11 @@ class PluginMetadata:
     version: str
     description: str
     author: str
-    extension_points: List[ExtensionPoint]
+    extension_points: list[ExtensionPoint]
     status: PluginStatus = PluginStatus.REGISTERED
-    config: Dict[str, Any] = field(default_factory=dict)
+    config: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "plugin_id": self.plugin_id,
             "name": self.name,
@@ -66,7 +67,7 @@ class BasePlugin(ABC):
         ...
 
     @abstractmethod
-    async def initialize(self, config: Dict) -> bool:
+    async def initialize(self, config: dict) -> bool:
         """Initialize the plugin with configuration."""
         ...
 
@@ -77,16 +78,16 @@ class BasePlugin(ABC):
 
 
 # Type alias for hook handlers
-HookHandler = Callable[[Dict], Awaitable[Dict]]
+HookHandler = Callable[[dict], Awaitable[dict]]
 
 
 class PluginSystemService:
     """Plugin registry, lifecycle management, and hook execution."""
 
     def __init__(self):
-        self._plugins: Dict[str, BasePlugin] = {}
-        self._metadata: Dict[str, PluginMetadata] = {}
-        self._hooks: Dict[ExtensionPoint, List[HookHandler]] = {
+        self._plugins: dict[str, BasePlugin] = {}
+        self._metadata: dict[str, PluginMetadata] = {}
+        self._hooks: dict[ExtensionPoint, list[HookHandler]] = {
             ep: [] for ep in ExtensionPoint
         }
 
@@ -103,7 +104,7 @@ class PluginSystemService:
         logger.info(f"Plugin registered: {metadata.name} v{metadata.version}")
         return True
 
-    async def activate(self, plugin_id: str, config: Dict = None) -> bool:
+    async def activate(self, plugin_id: str, config: dict = None) -> bool:
         """Activate a registered plugin."""
         plugin = self._plugins.get(plugin_id)
         metadata = self._metadata.get(plugin_id)
@@ -151,8 +152,8 @@ class PluginSystemService:
         self._hooks[point].append(handler)
 
     async def run_hooks(
-        self, point: ExtensionPoint, context: Dict
-    ) -> Dict:
+        self, point: ExtensionPoint, context: dict
+    ) -> dict:
         """Execute all hooks at an extension point, passing context through."""
         for handler in self._hooks[point]:
             try:
@@ -163,11 +164,11 @@ class PluginSystemService:
                 logger.warning(f"Hook error at {point.value}: {e}")
         return context
 
-    def list_plugins(self) -> List[Dict]:
+    def list_plugins(self) -> list[dict]:
         """List all registered plugins with their status."""
         return [m.to_dict() for m in self._metadata.values()]
 
-    def get_plugin_status(self, plugin_id: str) -> Optional[Dict]:
+    def get_plugin_status(self, plugin_id: str) -> dict | None:
         """Get status of a specific plugin."""
         metadata = self._metadata.get(plugin_id)
         return metadata.to_dict() if metadata else None

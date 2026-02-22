@@ -14,18 +14,18 @@ B2: Dingtalk (钉钉) Notification Adapter
 官方文档：https://open.dingtalk.com/document/robots/custom-robot-access
 """
 
+import base64
+import hashlib
+import hmac
 import logging
 import time
-import hmac
-import hashlib
-import base64
+from typing import Any
 from urllib.parse import quote_plus
-from typing import Optional, Dict, Any
 
 import httpx
 
-from app.services.notification_service import BaseNotificationAdapter, Notification
 from app.core.config import settings
+from app.services.notification_service import BaseNotificationAdapter, Notification
 
 logger = logging.getLogger(__name__)
 
@@ -55,10 +55,10 @@ class DingtalkNotificationAdapter(BaseNotificationAdapter):
 
     def __init__(self):
         """初始化钉钉适配器"""
-        self.webhook_url: Optional[str] = getattr(
+        self.webhook_url: str | None = getattr(
             settings, "DINGTALK_WEBHOOK_URL", None
         )
-        self.secret: Optional[str] = getattr(settings, "DINGTALK_SECRET", None)
+        self.secret: str | None = getattr(settings, "DINGTALK_SECRET", None)
 
         if not self.webhook_url:
             logger.warning(
@@ -186,7 +186,7 @@ class DingtalkNotificationAdapter(BaseNotificationAdapter):
 
         return signed_url
 
-    def _build_payload(self, notification: Notification) -> Dict[str, Any]:
+    def _build_payload(self, notification: Notification) -> dict[str, Any]:
         """
         构建钉钉消息载荷
 
@@ -211,7 +211,7 @@ class DingtalkNotificationAdapter(BaseNotificationAdapter):
             # 默认使用 markdown
             return self._build_markdown_payload(notification)
 
-    def _build_text_payload(self, notification: Notification) -> Dict[str, Any]:
+    def _build_text_payload(self, notification: Notification) -> dict[str, Any]:
         """
         构建文本消息载荷
 
@@ -231,7 +231,7 @@ class DingtalkNotificationAdapter(BaseNotificationAdapter):
 
         return payload
 
-    def _build_link_payload(self, notification: Notification) -> Dict[str, Any]:
+    def _build_link_payload(self, notification: Notification) -> dict[str, Any]:
         """
         构建链接消息载荷
 
@@ -252,7 +252,7 @@ class DingtalkNotificationAdapter(BaseNotificationAdapter):
             },
         }
 
-    def _build_markdown_payload(self, notification: Notification) -> Dict[str, Any]:
+    def _build_markdown_payload(self, notification: Notification) -> dict[str, Any]:
         """
         构建 markdown 消息载荷
 
@@ -271,7 +271,7 @@ class DingtalkNotificationAdapter(BaseNotificationAdapter):
             "at": self._build_at_info(notification),
         }
 
-    def _build_action_card_payload(self, notification: Notification) -> Dict[str, Any]:
+    def _build_action_card_payload(self, notification: Notification) -> dict[str, Any]:
         """
         构建 ActionCard 消息载荷
 
@@ -304,7 +304,7 @@ class DingtalkNotificationAdapter(BaseNotificationAdapter):
 
         return {"msgtype": "actionCard", "actionCard": action_card}
 
-    def _build_at_info(self, notification: Notification) -> Dict[str, Any]:
+    def _build_at_info(self, notification: Notification) -> dict[str, Any]:
         """
         构建 @信息
 

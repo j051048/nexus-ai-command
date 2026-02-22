@@ -5,15 +5,14 @@ Implements centralized structured logging with JSON format.
 Fixes Issue #28: Missing structured logging.
 """
 
-import os
 import json
 import logging
+import os
 import sys
-from typing import Dict, Any, Optional
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from dataclasses import dataclass, field, asdict
 from enum import Enum
-import traceback
+from typing import Any
 
 
 class LogLevel(Enum):
@@ -33,26 +32,26 @@ class StructuredLogEntry:
     message: str
     service: str
     component: str
-    trace_id: Optional[str] = None
-    user_id: Optional[str] = None
-    org_id: Optional[str] = None
-    request_id: Optional[str] = None
-    duration_ms: Optional[int] = None
-    error_type: Optional[str] = None
-    error_stack: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
+    trace_id: str | None = None
+    user_id: str | None = None
+    org_id: str | None = None
+    request_id: str | None = None
+    duration_ms: int | None = None
+    error_type: str | None = None
+    error_stack: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
     def to_json(self) -> str:
         return json.dumps(asdict(self), ensure_ascii=False)
 
 
 class StructuredFormatter(logging.Formatter):
     """Custom formatter for structured JSON logs."""
-    
+
     def __init__(self, service_name: str = "nexus-ai"):
         super().__init__()
         self.service_name = service_name
-    
+
     def format(self, record: logging.LogRecord) -> str:
         # Base log entry
         entry = {
@@ -64,29 +63,29 @@ class StructuredFormatter(logging.Formatter):
             "file": record.filename,
             "line": record.lineno,
         }
-        
+
         # Add extra fields if present
         extra_fields = [
             "trace_id", "user_id", "org_id", "request_id",
             "duration_ms", "error_type", "error_stack", "metadata"
         ]
-        
-        for field in extra_fields:
-            if hasattr(record, field):
-                entry[field] = getattr(record, field)
-        
+
+        for field_name in extra_fields:
+            if hasattr(record, field_name):
+                entry[field_name] = getattr(record, field_name)
+
         # Add exception info if present
         if record.exc_info:
             entry["error_type"] = record.exc_info[0].__name__ if record.exc_info[0] else None
             entry["error_stack"] = self.formatException(record.exc_info)
-        
+
         return json.dumps(entry, ensure_ascii=False)
 
 
 class StructuredLogger:
     """
     P2 Enhancement: Structured logging with JSON output.
-    
+
     Features:
     - JSON formatted logs
     - Trace ID correlation
@@ -95,7 +94,7 @@ class StructuredLogger:
     - Error tracking with stack traces
     - Configurable output (stdout/file)
     """
-    
+
     def __init__(
         self,
         service_name: str = "nexus-ai",
@@ -106,44 +105,44 @@ class StructuredLogger:
         self.log_level = getattr(logging, log_level.upper(), logging.INFO)
         self.output_format = output_format
         self._logger = self._setup_logger()
-        
+
         # Context storage for request tracking
-        self._context: Dict[str, Any] = {}
-    
+        self._context: dict[str, Any] = {}
+
     def _setup_logger(self) -> logging.Logger:
         """Setup logger with structured formatter."""
         logger = logging.getLogger(self.service_name)
         logger.setLevel(self.log_level)
-        
+
         # Remove existing handlers
         logger.handlers = []
-        
+
         # Console handler
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(self.log_level)
-        
+
         if self.output_format == "json":
             console_handler.setFormatter(StructuredFormatter(self.service_name))
         else:
             console_handler.setFormatter(logging.Formatter(
                 '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
             ))
-        
+
         logger.addHandler(console_handler)
         return logger
-    
+
     def set_context(self, **kwargs):
         """Set context fields for subsequent logs."""
         self._context.update(kwargs)
-    
+
     def clear_context(self):
         """Clear context fields."""
         self._context = {}
-    
+
     def _log(self, level: LogLevel, message: str, **kwargs):
         """Internal log method with context."""
         extra = {**self._context, **kwargs}
-        
+
         # Map log level
         level_map = {
             LogLevel.DEBUG: logging.DEBUG,
@@ -152,33 +151,33 @@ class StructuredLogger:
             LogLevel.ERROR: logging.ERROR,
             LogLevel.CRITICAL: logging.CRITICAL,
         }
-        
+
         self._logger.log(level_map[level], message, extra=extra)
-    
+
     def debug(self, message: str, **kwargs):
         """Log debug message."""
         self._log(LogLevel.DEBUG, message, **kwargs)
-    
+
     def info(self, message: str, **kwargs):
         """Log info message."""
         self._log(LogLevel.INFO, message, **kwargs)
-    
+
     def warning(self, message: str, **kwargs):
         """Log warning message."""
         self._log(LogLevel.WARNING, message, **kwargs)
-    
+
     def error(self, message: str, error: Exception = None, **kwargs):
         """Log error message with optional exception."""
         if error:
             kwargs["error_type"] = type(error).__name__
         self._log(LogLevel.ERROR, message, **kwargs, exc_info=error is not None)
-    
+
     def critical(self, message: str, error: Exception = None, **kwargs):
         """Log critical message."""
         if error:
             kwargs["error_type"] = type(error).__name__
         self._log(LogLevel.CRITICAL, message, **kwargs, exc_info=error is not None)
-    
+
     def log_request(
         self,
         method: str,
@@ -202,7 +201,7 @@ class StructuredLogger:
             request_id=request_id,
             duration_ms=duration_ms
         )
-    
+
     def log_llm_call(
         self,
         model: str,
@@ -225,7 +224,7 @@ class StructuredLogger:
             user_id=user_id,
             duration_ms=duration_ms
         )
-    
+
     def log_tool_call(
         self,
         tool_name: str,
@@ -249,14 +248,14 @@ class StructuredLogger:
             user_id=user_id,
             duration_ms=duration_ms
         )
-    
+
     def log_agent_step(
         self,
         trace_id: str,
         step_name: str,
         status: str,
         duration_ms: int = None,
-        metadata: Dict = None
+        metadata: dict = None
     ):
         """Log agent execution step."""
         self.info(
@@ -265,14 +264,14 @@ class StructuredLogger:
             duration_ms=duration_ms,
             metadata=metadata or {}
         )
-    
+
     def log_security_event(
         self,
         event_type: str,
         severity: str,
         user_id: str = None,
         ip_address: str = None,
-        details: Dict = None
+        details: dict = None
     ):
         """Log security-related event."""
         level = LogLevel.WARNING if severity == "high" else LogLevel.INFO

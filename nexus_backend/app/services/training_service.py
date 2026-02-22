@@ -9,8 +9,8 @@ AI 培训助手服务
 """
 
 import logging
-from typing import Dict, List, Optional, Any
 from datetime import datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ class TrainingService:
     """AI 培训助手服务"""
 
     # 预置培训课程
-    COURSES: List[Dict[str, Any]] = [
+    COURSES: list[dict[str, Any]] = [
         {
             "id": "onboarding",
             "title": "新员工入职指南",
@@ -296,8 +296,8 @@ class TrainingService:
     ]
 
     # 课程ID映射 (缓存)
-    _course_map: Dict[str, Dict] = {}
-    _module_map: Dict[str, Dict[str, Dict]] = {}
+    _course_map: dict[str, dict] = {}
+    _module_map: dict[str, dict[str, dict]] = {}
 
     def __init__(self):
         for course in self.COURSES:
@@ -306,7 +306,7 @@ class TrainingService:
             for module in course.get("modules", []):
                 self._module_map[course["id"]][module["id"]] = module
 
-    async def list_courses(self) -> List[Dict]:
+    async def list_courses(self) -> list[dict]:
         """列出所有课程（不含详细模块内容）"""
         result = []
         for course in self.COURSES:
@@ -328,18 +328,18 @@ class TrainingService:
             )
         return result
 
-    async def get_course(self, course_id: str) -> Optional[Dict]:
+    async def get_course(self, course_id: str) -> dict | None:
         """获取课程完整详情"""
         return self._course_map.get(course_id)
 
     async def get_user_progress(
         self,
         user_id: str,
-        course_id: Optional[str] = None,
+        course_id: str | None = None,
         db: Any = None,
-    ) -> Dict:
+    ) -> dict:
         """获取用户学习进度"""
-        progress: Dict[str, Any] = {"courses": {}}
+        progress: dict[str, Any] = {"courses": {}}
 
         if db:
             try:
@@ -385,11 +385,11 @@ class TrainingService:
         course_id: str,
         module_id: str,
         completed: bool = True,
-        score: Optional[float] = None,
+        score: float | None = None,
         db: Any = None,
-    ) -> Dict:
+    ) -> dict:
         """更新用户学习进度"""
-        data: Dict[str, Any] = {
+        data: dict[str, Any] = {
             "user_id": user_id,
             "course_id": course_id,
             "module_id": module_id,
@@ -416,7 +416,7 @@ class TrainingService:
 
     async def get_quiz_questions(
         self, course_id: str, module_id: str
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """获取测验题目（不含答案）"""
         module = self._module_map.get(course_id, {}).get(module_id)
         if not module:
@@ -438,9 +438,9 @@ class TrainingService:
         user_id: str,
         course_id: str,
         module_id: str,
-        answers: Dict[str, int],
+        answers: dict[str, int],
         db: Any = None,
-    ) -> Dict:
+    ) -> dict:
         """提交测验答案并计算成绩"""
         module = self._module_map.get(course_id, {}).get(module_id)
         if not module:

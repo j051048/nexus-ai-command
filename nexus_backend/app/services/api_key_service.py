@@ -5,11 +5,11 @@
 API Key 使用 sk-xxx 格式，仅在创建时返回完整 key，之后仅存储 SHA-256 hash。
 """
 
+import contextlib
 import hashlib
 import logging
 import secrets
-from datetime import datetime, timezone, timedelta
-from typing import Dict, List, Optional
+from datetime import UTC, datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -42,11 +42,11 @@ class APIKeyService:
         self,
         org_id: str,
         name: str,
-        scopes: List[str],
+        scopes: list[str],
         expires_days: int = 365,
-        created_by: Optional[str] = None,
+        created_by: str | None = None,
         db=None,
-    ) -> Dict:
+    ) -> dict:
         """
         创建 API Key（返回完整 key 仅此一次）
 
@@ -70,7 +70,7 @@ class APIKeyService:
         key_prefix = self._get_prefix(full_key)
 
         # 计算过期时间
-        expires_at = (datetime.now(timezone.utc) + timedelta(days=expires_days)).isoformat()
+        expires_at = (datetime.now(UTC) + timedelta(days=expires_days)).isoformat()
 
         try:
             record = {
@@ -107,8 +107,8 @@ class APIKeyService:
             raise
 
     async def validate_api_key(
-        self, key_string: str, required_scope: Optional[str] = None, db=None
-    ) -> Optional[Dict]:
+        self, key_string: str, required_scope: str | None = None, db=None
+    ) -> dict | None:
         """
         验证 API Key 并返回关联信息
 
@@ -148,7 +148,7 @@ class APIKeyService:
             expires_at = key_data.get("expires_at")
             if expires_at:
                 expiry = datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
-                if expiry < datetime.now(timezone.utc):
+                if expiry < datetime.now(UTC):
                     logger.warning(f"API Key 已过期: prefix={key_data.get('key_prefix')}")
                     return None
 
@@ -163,18 +163,16 @@ class APIKeyService:
                     return None
 
             # 更新最后使用时间和使用次数
-            try:
+            with contextlib.suppress(Exception):
                 await (
                     db.table("api_keys")
                     .update({
-                        "last_used_at": datetime.now(timezone.utc).isoformat(),
+                        "last_used_at": datetime.now(UTC).isoformat(),
                         "usage_count": key_data.get("usage_count", 0) + 1,
                     })
                     .eq("id", key_data["id"])
                     .execute()
                 )
-            except Exception:
-                pass  # 更新使用记录失败不影响验证
 
             return {
                 "key_id": key_data["id"],
@@ -188,7 +186,7 @@ class APIKeyService:
             logger.error(f"验证 API Key 失败: {e}")
             return None
 
-    async def list_api_keys(self, org_id: str, db=None) -> List[Dict]:
+    async def list_api_keys(self, org_id: str, db=None) -> list[dict]:
         """
         列出组织的 API Keys（不返回完整 key）
 
@@ -252,8 +250,8 @@ class APIKeyService:
             raise
 
     async def get_api_usage(
-        self, key_id: str, date_range: Optional[Dict] = None, db=None
-    ) -> Dict:
+        self, key_id: str, date_range: dict | None = None, db=None
+    ) -> dict:
         """
         获取 API Key 使用统计
 
@@ -299,9 +297,9 @@ class APIKeyService:
 
             # 计算统计
             total_calls = len(logs)
-            success_calls = sum(1 for l in logs if 200 <= (l.get("status_code") or 0) < 400)
+            success_calls = sum(1 for log_entry in logs if 200 <= (log_entry.get("status_code") or 0) < 400)
             avg_response_time = (
-                sum(l.get("response_time_ms", 0) for l in logs) / total_calls
+                sum(log_entry.get("response_time_ms", 0) for log_entry in logs) / total_calls
                 if total_calls > 0
                 else 0
             )

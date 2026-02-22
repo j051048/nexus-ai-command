@@ -6,16 +6,15 @@
 """
 
 import logging
-from datetime import datetime, timezone, timedelta
-from typing import Dict, List, Optional
 from collections import defaultdict
+from datetime import UTC, datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
 
-def _parse_date_range(date_range: Optional[Dict] = None) -> tuple:
+def _parse_date_range(date_range: dict | None = None) -> tuple:
     """解析日期范围参数，返回 (start_date, end_date) ISO 字符串"""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     if not date_range:
         # 默认最近 30 天
         start = now - timedelta(days=30)
@@ -45,7 +44,7 @@ def _parse_date_range(date_range: Optional[Dict] = None) -> tuple:
     return start.isoformat(), now.isoformat()
 
 
-def _group_by_period(records: List[Dict], date_field: str, group_by: str = "day") -> List[Dict]:
+def _group_by_period(records: list[dict], date_field: str, group_by: str = "day") -> list[dict]:
     """将记录按日/周/月分组"""
     grouped = defaultdict(list)
     for rec in records:
@@ -78,8 +77,8 @@ class ReportService:
     # ─── 销售报表 ──────────────────────────────────────────
 
     async def get_sales_report(
-        self, org_id: str, date_range: Optional[Dict] = None, group_by: str = "day", db=None
-    ) -> Dict:
+        self, org_id: str, date_range: dict | None = None, group_by: str = "day", db=None
+    ) -> dict:
         """
         销售报表: 按日/周/月汇总销售额、成交数、转化率。
         从 sales_metrics 表查询数据并聚合。
@@ -151,8 +150,8 @@ class ReportService:
     # ─── 审批报表 ──────────────────────────────────────────
 
     async def get_approval_report(
-        self, org_id: str, date_range: Optional[Dict] = None, db=None
-    ) -> Dict:
+        self, org_id: str, date_range: dict | None = None, db=None
+    ) -> dict:
         """审批报表: 审批数量、平均处理时间、自动审批率、驳回率"""
         start_date, end_date = _parse_date_range(date_range)
 
@@ -212,8 +211,8 @@ class ReportService:
     # ─── 绩效报表 ──────────────────────────────────────────
 
     async def get_performance_report(
-        self, org_id: str, date_range: Optional[Dict] = None, db=None
-    ) -> Dict:
+        self, org_id: str, date_range: dict | None = None, db=None
+    ) -> dict:
         """绩效报表: 团队积分、个人排名、目标完成率"""
         start_date, end_date = _parse_date_range(date_range)
 
@@ -265,8 +264,8 @@ class ReportService:
     # ─── 使用报表 ──────────────────────────────────────────
 
     async def get_usage_report(
-        self, org_id: str, date_range: Optional[Dict] = None, db=None
-    ) -> Dict:
+        self, org_id: str, date_range: dict | None = None, db=None
+    ) -> dict:
         """使用报表: AI 对话量、Token 消耗、功能使用频率"""
         start_date, end_date = _parse_date_range(date_range)
 
@@ -320,7 +319,7 @@ class ReportService:
 
     # ─── 概览统计 ──────────────────────────────────────────
 
-    async def get_overview_stats(self, org_id: str, db=None) -> Dict:
+    async def get_overview_stats(self, org_id: str, db=None) -> dict:
         """概览统计: 关键 KPI 汇总，综合各个维度的核心指标"""
         # 获取各维度最近 30 天的数据
         date_range = {"preset": "month"}
@@ -351,7 +350,7 @@ class ReportService:
     # ─── 辅助方法 ──────────────────────────────────────────
 
     @staticmethod
-    def _calc_processing_hours(record: Dict) -> float:
+    def _calc_processing_hours(record: dict) -> float:
         """计算审批处理时间（小时）"""
         try:
             submitted = record.get("submitted_at", "")

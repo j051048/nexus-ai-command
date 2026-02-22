@@ -13,15 +13,14 @@ message list, and AFTER the graph runs to persist results.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, AIMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
+from app.agent.state import AgentConfig
 from app.core.config import settings
 from app.core.database import supabase
 from app.services.chat_service import ChatService
-from app.agent.state import AgentConfig
-
 from app.services.token_service import token_counter
 
 logger = logging.getLogger(__name__)
@@ -40,10 +39,10 @@ _DEFAULT_CONTEXT_WINDOW = 128000
 
 
 async def trim_messages_to_window(
-    messages: List[Dict[str, str]],
+    messages: list[dict[str, str]],
     config: AgentConfig,
     threshold_ratio: float = 0.80,
-) -> List[Dict[str, str]]:
+) -> list[dict[str, str]]:
     """
     Token window management: when the total token count of *messages* exceeds
     ``threshold_ratio`` (default 80 %) of the model's context window, the
@@ -88,7 +87,7 @@ async def trim_messages_to_window(
     system_older = [m for m in older if m.get("role") == "system"]
 
     summary = await _summarize_messages(non_system_older, config)
-    trimmed: List[Dict[str, str]] = []
+    trimmed: list[dict[str, str]] = []
 
     # Preserve original system messages
     trimmed.extend(system_older)
@@ -112,17 +111,17 @@ async def trim_messages_to_window(
 class QueryTransformer:
     """
     P1 Fix #22: Query Transformation for better RAG retrieval.
-    
+
     Implements:
     1. HyDE (Hypothetical Document Embeddings)
     2. Multi-Query expansion
     3. Query rewriting for better semantic matching
     """
-    
+
     def __init__(self, config: AgentConfig):
         self.config = config
         self._llm_client = None
-    
+
     async def _get_llm(self):
         """Lazy load LLM client."""
         if self._llm_client is None:
@@ -135,7 +134,7 @@ class QueryTransformer:
             except Exception as e:
                 logger.warning(f"Failed to init LLM for query transformation: {e}")
         return self._llm_client
-    
+
     async def generate_hyde(self, query: str) -> str:
         """
         Generate a hypothetical document that would answer the query.
@@ -144,7 +143,7 @@ class QueryTransformer:
         llm = await self._get_llm()
         if not llm:
             return query
-        
+
         prompt = f"""请生成一段假设性的文档内容，这段文档应该能够回答用户的问题。
 
 用户问题: {query}
@@ -156,7 +155,7 @@ class QueryTransformer:
 4. 直接输出文档内容，不要解释
 
 假设性文档:"""
-        
+
         try:
             response = await llm.chat.completions.create(
                 model=self.config.mini_model,
@@ -170,15 +169,15 @@ class QueryTransformer:
         except Exception as e:
             logger.warning(f"HyDE generation failed: {e}")
             return query
-    
-    async def expand_multi_query(self, query: str, num_queries: int = 3) -> List[str]:
+
+    async def expand_multi_query(self, query: str, num_queries: int = 3) -> list[str]:
         """
         Generate multiple related queries for better retrieval coverage.
         """
         llm = await self._get_llm()
         if not llm:
             return [query]
-        
+
         prompt = f"""请根据用户的问题，生成{num_queries}个语义相近但表达方式不同的问题。
 这些问题将用于检索相关知识，以提高检索的全面性。
 
@@ -191,7 +190,7 @@ class QueryTransformer:
 4. 每个问题一行，不要编号
 
 生成的问题:"""
-        
+
         try:
             response = await llm.chat.completions.create(
                 model=self.config.mini_model,
@@ -201,7 +200,7 @@ class QueryTransformer:
             )
             expanded = response.choices[0].message.content.strip().split('\n')
             expanded = [q.strip() for q in expanded if q.strip()][:num_queries]
-            
+
             # Always include original query
             all_queries = [query] + expanded
             logger.debug(f"[MultiQuery] Generated {len(all_queries)} query variants")
@@ -209,7 +208,7 @@ class QueryTransformer:
         except Exception as e:
             logger.warning(f"Multi-query expansion failed: {e}")
             return [query]
-    
+
     async def rewrite_query(self, query: str) -> str:
         """
         Rewrite query for better semantic matching.
@@ -217,7 +216,7 @@ class QueryTransformer:
         llm = await self._get_llm()
         if not llm:
             return query
-        
+
         prompt = f"""请将以下问题重写为更适合检索的形式。
 
 原问题: {query}
@@ -230,7 +229,7 @@ class QueryTransformer:
 5. 直接输出重写后的问题
 
 重写后的问题:"""
-        
+
         try:
             response = await llm.chat.completions.create(
                 model=self.config.mini_model,
@@ -247,11 +246,11 @@ class QueryTransformer:
 
 
 async def prepare_initial_state(
-    raw_messages: List[Dict[str, str]],
+    raw_messages: list[dict[str, str]],
     system_prompt: str,
     config: AgentConfig,
-    db_client: Optional[Any] = None,
-) -> Dict[str, Any]:
+    db_client: Any | None = None,
+) -> dict[str, Any]:
     """
     Build the initial state components for the agent graph.
 
@@ -301,7 +300,7 @@ async def prepare_initial_state(
     if config.enable_rag_inject and last_user_msg:
         try:
             from app.services.vector_service import vector_service
-            
+
             # Initialize query transformer
             transformer = QueryTransformer(config)
 
@@ -310,9 +309,9 @@ async def prepare_initial_state(
             is_knowledge_agent = getattr(config, 'agent_name', '') in ('knowledge', 'knowledge_base')
             use_hyde = getattr(config, 'use_hyde', is_knowledge_agent)
             use_multi_query = getattr(config, 'use_multi_query', is_knowledge_agent)
-            
+
             all_docs = []
-            
+
             # Strategy 1: HyDE (Hypothetical Document Embeddings)
             if use_hyde:
                 hyde_doc = await transformer.generate_hyde(last_user_msg)
@@ -326,7 +325,7 @@ async def prepare_initial_state(
                     # Parse docs from string result
                     if isinstance(docs, str) and "检索到" in docs:
                         all_docs.append({"content": docs, "source": "HyDE搜索"})
-            
+
             # Strategy 2: Multi-Query Expansion
             if use_multi_query:
                 expanded_queries = await transformer.expand_multi_query(last_user_msg, num_queries=3)
@@ -339,7 +338,7 @@ async def prepare_initial_state(
                     )
                     if isinstance(docs, str) and docs:
                         all_docs.append({"content": docs, "source": f"查询: {q[:30]}"})
-            
+
             # Strategy 3: Original query (always included)
             original_docs = await vector_service.search(
                 query=last_user_msg,
@@ -349,7 +348,7 @@ async def prepare_initial_state(
             )
             if isinstance(original_docs, str) and original_docs:
                 all_docs.insert(0, {"content": original_docs, "source": "原始查询"})
-            
+
             # Deduplicate and merge results
             if all_docs:
                 seen_content = set()
@@ -359,7 +358,7 @@ async def prepare_initial_state(
                     if content_hash not in seen_content:
                         seen_content.add(content_hash)
                         unique_docs.append(doc)
-                
+
                 # Limit total context length
                 max_context = 3000
                 context_parts = []
@@ -371,11 +370,11 @@ async def prepare_initial_state(
                         current_length += len(content)
                     else:
                         break
-                
+
                 result["rag_context"] = "\n\n---\n\n".join(context_parts)
                 result["rag_sources"] = list(set(doc.get("source", "知识库") for doc in unique_docs))
                 logger.info(f"[Memory] RAG injected {len(unique_docs)} docs (HyDE+MultiQuery) for user {config.user_id}")
-                
+
         except Exception as e:
             logger.warning(f"[Memory] RAG retrieval failed: {e}")
 
@@ -418,7 +417,7 @@ async def prepare_initial_state(
     raw_messages = await trim_messages_to_window(raw_messages, config)
 
     # ── 4. Convert to LangChain messages ──
-    lc_messages: List[BaseMessage] = []
+    lc_messages: list[BaseMessage] = []
     lc_messages.append(SystemMessage(content=system_prompt))
 
     for msg in raw_messages:
@@ -442,9 +441,9 @@ async def persist_result(
     session_id: str,
     user_message: str,
     assistant_response: str,
-    agent_name: Optional[str] = None,
-    metadata: Optional[Dict] = None,
-    db_client: Optional[Any] = None,
+    agent_name: str | None = None,
+    metadata: dict | None = None,
+    db_client: Any | None = None,
 ):
     """
     Post-graph: persist messages and update caches.
@@ -514,8 +513,8 @@ async def load_session_history(
     user_id: str,
     session_id: str,
     limit: int = SHORT_TERM_WINDOW,
-    db_client: Optional[Any] = None,
-) -> List[Dict[str, str]]:
+    db_client: Any | None = None,
+) -> list[dict[str, str]]:
     """
     Load recent chat history from the database for a session.
     Returns list of {"role": ..., "content": ...} dicts.
@@ -543,9 +542,9 @@ async def load_session_history(
 # ─── Internal Helpers ────────────────────────────────────────────────────────
 
 async def _summarize_messages(
-    messages: List[Dict[str, str]],
+    messages: list[dict[str, str]],
     config: AgentConfig,
-) -> Optional[str]:
+) -> str | None:
     """
     Use the LLM to compress older messages into a summary.
     Falls back to simple truncation if the LLM call fails.

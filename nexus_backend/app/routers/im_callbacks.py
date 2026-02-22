@@ -13,13 +13,13 @@ IM 平台卡片回调处理
 import hashlib
 import hmac
 import logging
-from typing import Dict, Any
+from typing import Any
 
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from app.core.config import settings
 from app.core.database import supabase
-from app.core.errors import api_success, api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error, api_success
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/im-callback", tags=["IM Callbacks"])
@@ -83,7 +83,7 @@ def _verify_feishu_signature(
 
 async def _parse_callback_data(
     platform: str, request: Request
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     解析不同平台的回调数据格式，提取审批 ID 和用户决定。
 

@@ -33,11 +33,12 @@ Graph topology:
 import logging
 from typing import Optional
 
-from langgraph.graph import StateGraph, END
-from app.agent.state import AgentState
-from app.agent.nodes import plan_node, execute_node, reflect_node, respond_node, error_node
-from app.agent.router import route_node
+from langgraph.graph import END, StateGraph
+
 from app.agent.checkpointer import get_checkpointer
+from app.agent.nodes import error_node, execute_node, plan_node, reflect_node, respond_node
+from app.agent.router import route_node
+from app.agent.state import AgentState
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -282,7 +283,7 @@ class AgentGraph:
         async for event in self.compiled.astream_events(initial_state, config=config, version=version):
             yield event
 
-    async def get_state(self, thread_id: str) -> Optional[AgentState]:
+    async def get_state(self, thread_id: str) -> AgentState | None:
         """
         Retrieve the persisted state for a thread.
         Useful for resuming interrupted conversations.

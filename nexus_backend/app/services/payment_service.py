@@ -8,8 +8,7 @@
 import logging
 import os
 import uuid
-from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +24,7 @@ _IS_MOCK = not bool(_WECHAT_APP_ID and _WECHAT_MCH_ID)
 
 def _generate_order_no() -> str:
     """生成唯一订单号: NX + 日期 + 随机串"""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return f"NX{now.strftime('%Y%m%d%H%M%S')}{uuid.uuid4().hex[:8].upper()}"
 
 
@@ -47,7 +46,7 @@ class PaymentService:
     }
 
     def __init__(self):
-        self._orders_cache: Dict[str, Dict] = {}
+        self._orders_cache: dict[str, dict] = {}
 
     # ─── 创建订单 ──────────────────────────────────────────
 
@@ -58,7 +57,7 @@ class PaymentService:
         payment_method: str,
         amount: float,
         db=None,
-    ) -> Dict:
+    ) -> dict:
         """创建支付订单"""
         if payment_method not in self.PAYMENT_METHODS:
             raise ValueError(f"不支持的支付方式: {payment_method}")
@@ -78,8 +77,8 @@ class PaymentService:
             "status": "pending",
             "invoice_status": "none",
             "metadata": {},
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
         }
 
         # 持久化到数据库
@@ -124,7 +123,7 @@ class PaymentService:
 
     async def create_wechat_payment(
         self, order_id: str, amount: float, description: str
-    ) -> Dict:
+    ) -> dict:
         """
         创建微信支付（返回支付二维码 URL）。
         预留接口，当前返回 mock。真实环境需要对接微信支付 V3 API。
@@ -163,7 +162,7 @@ class PaymentService:
 
     async def create_alipay_payment(
         self, order_id: str, amount: float, description: str
-    ) -> Dict:
+    ) -> dict:
         """
         创建支付宝支付（返回支付页面 URL）。
         预留接口，当前返回 mock。真实环境需要对接支付宝开放平台 API。
@@ -201,8 +200,8 @@ class PaymentService:
     # ─── 支付回调 ──────────────────────────────────────────
 
     async def handle_payment_callback(
-        self, platform: str, callback_data: Dict, db=None
-    ) -> Dict:
+        self, platform: str, callback_data: dict, db=None
+    ) -> dict:
         """处理支付回调（微信/支付宝）"""
         logger.info(f"Payment callback from {platform}: {callback_data}")
 
@@ -223,7 +222,7 @@ class PaymentService:
             # 更新订单状态
             if order_no in self._orders_cache:
                 self._orders_cache[order_no]["status"] = "paid"
-                self._orders_cache[order_no]["paid_at"] = datetime.now(timezone.utc).isoformat()
+                self._orders_cache[order_no]["paid_at"] = datetime.now(UTC).isoformat()
 
             if db:
                 try:
@@ -231,7 +230,7 @@ class PaymentService:
                         db.table("payment_orders")
                         .update({
                             "status": "paid",
-                            "paid_at": datetime.now(timezone.utc).isoformat(),
+                            "paid_at": datetime.now(UTC).isoformat(),
                         })
                         .eq("order_no", order_no)
                         .execute()
@@ -246,7 +245,7 @@ class PaymentService:
 
     # ─── 订单查询 ──────────────────────────────────────────
 
-    async def get_order_status(self, order_id: str, db=None) -> Dict:
+    async def get_order_status(self, order_id: str, db=None) -> dict:
         """查询订单状态"""
         # 先查缓存
         if order_id in self._orders_cache:
@@ -269,7 +268,7 @@ class PaymentService:
 
         return {"error": "订单不存在", "order_id": order_id}
 
-    async def list_orders(self, org_id: str, page: int = 1, page_size: int = 20, db=None) -> Dict:
+    async def list_orders(self, org_id: str, page: int = 1, page_size: int = 20, db=None) -> dict:
         """获取组织的订单列表"""
         orders = []
         total = 0
@@ -299,8 +298,8 @@ class PaymentService:
     # ─── 发票申请 ──────────────────────────────────────────
 
     async def generate_invoice_request(
-        self, order_id: str, invoice_info: Dict, db=None
-    ) -> Dict:
+        self, order_id: str, invoice_info: dict, db=None
+    ) -> dict:
         """生成增值税发票申请"""
         required_fields = ["company_name", "tax_number"]
         for field in required_fields:
@@ -311,7 +310,7 @@ class PaymentService:
             "order_id": order_id,
             "invoice_info": invoice_info,
             "status": "requested",
-            "requested_at": datetime.now(timezone.utc).isoformat(),
+            "requested_at": datetime.now(UTC).isoformat(),
         }
 
         if db:
@@ -339,7 +338,7 @@ class PaymentService:
 
     # ─── 对公转账信息 ─────────────────────────────────────
 
-    async def get_bank_transfer_info(self, org_id: str, plan_id: str) -> Dict:
+    async def get_bank_transfer_info(self, org_id: str, plan_id: str) -> dict:
         """获取对公转账信息"""
         plan_info = PLAN_PRICING.get(plan_id, {})
         return {
