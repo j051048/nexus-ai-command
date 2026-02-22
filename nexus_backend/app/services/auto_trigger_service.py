@@ -351,27 +351,51 @@ class AutoTriggerService:
             logger.error(f"Trigger execution failed: {e}")
     
     # Default action handlers
-    
+
     async def _handle_start_analysis(self, params: Dict) -> Dict:
         """Handle start analysis action."""
         analysis_type = params.get("type", "general")
-        
-        # In production, trigger actual analysis
         logger.info(f"Auto-starting analysis: {analysis_type}")
-        
+
+        try:
+            from app.services.notification_service import notification_service, NotificationChannel
+            context = params.get("context", {})
+            user_id = context.get("user_id") if context else None
+            if user_id:
+                await notification_service.send(
+                    user_id=user_id,
+                    title=f"AI 分析已启动",
+                    content=f"自动触发 {analysis_type} 类型的分析任务",
+                    channel=NotificationChannel.IN_APP,
+                )
+        except Exception as e:
+            logger.error(f"Analysis notification failed: {e}")
+
         return {
             "status": "started",
             "analysis_type": analysis_type,
             "message": "分析已自动启动"
         }
-    
+
     async def _handle_generate_report(self, params: Dict) -> Dict:
         """Handle generate report action."""
         report_type = params.get("report_type", "daily")
-        
-        # In production, generate actual report
         logger.info(f"Auto-generating report: {report_type}")
-        
+
+        try:
+            from app.services.notification_service import notification_service, NotificationChannel
+            context = params.get("context", {})
+            user_id = context.get("user_id") if context else None
+            if user_id:
+                await notification_service.send(
+                    user_id=user_id,
+                    title=f"工作报告已生成",
+                    content=f"已自动生成 {report_type} 报告，请在 AI 聊天中查看",
+                    channel=NotificationChannel.IN_APP,
+                )
+        except Exception as e:
+            logger.error(f"Report notification failed: {e}")
+
         return {
             "status": "generated",
             "report_type": report_type,
@@ -382,9 +406,22 @@ class AutoTriggerService:
         """Handle send notification action."""
         notification_type = params.get("type", "info")
         message = params.get("message", "您有新的通知")
-        
         logger.info(f"Sending notification: {notification_type} - {message}")
-        
+
+        try:
+            from app.services.notification_service import notification_service, NotificationChannel
+            context = params.get("context", {})
+            user_id = context.get("user_id") if context else None
+            if user_id:
+                await notification_service.send(
+                    user_id=user_id,
+                    title="系统通知",
+                    content=message,
+                    channel=NotificationChannel.IN_APP,
+                )
+        except Exception as e:
+            logger.error(f"Notification send failed: {e}")
+
         return {
             "status": "sent",
             "type": notification_type,

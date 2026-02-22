@@ -170,6 +170,14 @@ async def lifespan(app: FastAPI):
 
     im_sync_task = asyncio.create_task(_im_sync_loop())
 
+    # Start auto-trigger service (3.2 主动监控)
+    from app.services.auto_trigger_service import auto_trigger_service
+    try:
+        await auto_trigger_service.start()
+        logger.info("Auto-trigger service started")
+    except Exception as e:
+        logger.warning(f"Auto-trigger service start skipped: {e}")
+
     yield
 
     # Shutdown
@@ -177,6 +185,10 @@ async def lifespan(app: FastAPI):
     monitor_task.cancel()
     timeout_task.cancel()
     im_sync_task.cancel()
+    try:
+        await auto_trigger_service.stop()
+    except Exception:
+        pass
     await event_bus.stop()
     await audit_logger.force_flush()
     try:
