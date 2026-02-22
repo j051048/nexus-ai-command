@@ -405,4 +405,4 @@ class ModelAuditService:
 
 
 # Global instance
-model_audit_service = ModelAuditService()"
+model_audit_service = ModelAuditService()

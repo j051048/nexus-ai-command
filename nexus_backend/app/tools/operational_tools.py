@@ -41,17 +41,26 @@ class PerformanceReportTool(BaseTool):
             return f"找不到 ID 为 {target_id} 的用户绩效数据。"
 
         user = user_res.data
-        metrics_res = (
-            await client.table("sales_metrics")
-            .select("*")
-            .eq("user_id", target_id)
-            .execute()
-        )
-        report = f"用户: {user['name']}\n"
-        report += f"当前得分: {user['score']} | 排名: {user['rank']} | 总奖金: ¥{user['total_bonus']}\n"
-        report += "关键指标:\n"
-        for m in metrics_res.data:
-            report += f"- {m['metric_type']}: {m['value']}\n"
+        try:
+            metrics_res = (
+                await client.table("sales_metrics")
+                .select("*")
+                .eq("user_id", target_id)
+                .order("date", desc=True)
+                .limit(30)
+                .execute()
+            )
+        except Exception:
+            metrics_res = type("R", (), {"data": []})()
+
+        report = f"用户: {user.get('name', '未知')}\n"
+        report += f"当前得分: {user.get('score', 0)} | 排名: {user.get('rank', 0)} | 总奖金: ¥{user.get('total_bonus', 0)}\n"
+        if metrics_res.data:
+            total_revenue = sum(float(m.get("revenue", 0)) for m in metrics_res.data)
+            total_leads = sum(int(m.get("leads_count", 0)) for m in metrics_res.data)
+            report += f"近期营收合计: ¥{total_revenue:,.0f} | 线索合计: {total_leads}\n"
+        else:
+            report += "暂无销售指标数据\n"
         return report
 
 

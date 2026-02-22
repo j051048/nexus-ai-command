@@ -28,7 +28,7 @@ class SubmitWithFormRequest(BaseModel):
 
 
 @router.post("/process", response_model=StandardResponse)
-async def process_approval(request: ApprovalRequest):
+async def process_approval(request: ApprovalRequest, user_id: str = Depends(get_current_user_id)):
     """
     Process approval request via AI analysis and intelligent rule enforcement.
 

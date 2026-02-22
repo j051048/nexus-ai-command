@@ -144,58 +144,102 @@ class EmployeeProfileTool(BaseTool):
             return f"❌ 未找到名为「{employee_name}」的员工"
 
         emp = emp_res.data[0]
+        emp_id = emp.get("id", "")
 
-        # 获取绩效数据
-        score = emp.get("score", 85)
-        rank = emp.get("rank", 5)
-        total_bonus = emp.get("total_bonus", 12000)
+        # 获取绩效数据 (from users table)
+        score = emp.get("score", 0)
+        rank = emp.get("rank", 0)
+        total_bonus = emp.get("total_bonus", 0)
+
+        # 获取考勤统计
+        attendance_info = "暂无考勤数据"
+        try:
+            att_res = (
+                await client.table("hr_attendance")
+                .select("status", count="exact")
+                .eq("user_id", emp_id)
+                .execute()
+            )
+            if att_res.data:
+                total_days = len(att_res.data)
+                normal_days = sum(1 for a in att_res.data if a.get("status") in ("present", "normal"))
+                late_days = sum(1 for a in att_res.data if a.get("status") == "late")
+                absent_days = sum(1 for a in att_res.data if a.get("status") == "absent")
+                rate = round(normal_days / max(total_days, 1) * 100, 1)
+                attendance_info = f"出勤率 {rate}% (正常{normal_days}天, 迟到{late_days}天, 缺勤{absent_days}天)"
+        except Exception:
+            pass
+
+        # 获取销售业绩 (if sales role)
+        sales_info = ""
+        try:
+            sales_res = (
+                await client.table("sales_metrics")
+                .select("revenue, leads_count")
+                .eq("user_id", emp_id)
+                .execute()
+            )
+            if sales_res.data:
+                total_rev = sum(float(s.get("revenue", 0)) for s in sales_res.data)
+                total_leads = sum(int(s.get("leads_count", 0)) for s in sales_res.data)
+                sales_info = f"\n**销售业绩**\n- 累计营收: ¥{total_rev:,.0f}\n- 累计线索: {total_leads}条"
+        except Exception:
+            pass
+
+        # 获取近期任务
+        tasks_info = ""
+        try:
+            tasks_res = (
+                await client.table("oa_tasks")
+                .select("title, status, priority")
+                .eq("assigned_to", emp_id)
+                .order("created_at", desc=True)
+                .limit(5)
+                .execute()
+            )
+            if tasks_res.data:
+                task_lines = []
+                for t in tasks_res.data:
+                    status_icon = "✅" if t.get("status") == "completed" else "🔄"
+                    task_lines.append(f"  {status_icon} {t.get('title', '未命名')} [{t.get('priority', 'medium')}]")
+                tasks_info = "\n**近期任务**\n" + "\n".join(task_lines)
+        except Exception:
+            pass
 
         response = f"""👤 **{emp.get('name', employee_name)} 员工画像**
 
 **基本信息**
-┌─────────────────────────────┐
-│ 部门          {emp.get('department', '未分配'):>14} │
-│ 职级          {emp.get('role', '员工'):>14} │
-│ 入职时间      {emp.get('created_at', '2023-01')[:10]:>14} │
-└─────────────────────────────┘
+- 部门: {emp.get('department', '未分配')}
+- 职级: {emp.get('role', '员工')}
+- 入职时间: {emp.get('created_at', '未知')[:10]}
 
 **绩效表现**
-┌─────────────────────────────┐
-│ 当前绩效分    {score:>14} 分 │
-│ 团队排名      {rank:>14} 名 │
-│ 累计奖金      ¥{total_bonus:>12,.0f} │
-└─────────────────────────────┘
+- 当前绩效分: {score} 分
+- 团队排名: 第 {rank} 名
+- 累计奖金: ¥{total_bonus:,.0f}
 
-**能力雷达图**
-  销售能力: ████████░░ 80%
-  沟通能力: █████████░ 90%
-  执行力:   ███████░░░ 70%
-  学习能力: ████████░░ 80%
-  团队协作: █████████░ 90%
-
-**近期动态**
-- 12月10日: 成功签约「华为云项目」¥50万
-- 12月5日: 获得「销售新星」徽章
-- 11月28日: 完成产品培训认证
+**考勤情况**
+- {attendance_info}
+{sales_info}
+{tasks_info}
 """
 
         if include_risk:
-            # AI 风险分析
-            response += """
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            try:
+                from app.services.ai_service import AIService
 
-🤖 **AI 风险分析**
-
-📊 离职风险: 低 (15%)
-   - 绩效稳定在团队前30%
-   - 近期无异常请假
-   - 加班时长正常
-
-📈 成长建议:
-   - 可考虑培养为团队骨干
-   - 建议参与大客户项目锻炼
-   - 推荐报名管理培训课程
-"""
+                risk_prompt = (
+                    f"基于以下员工数据，给出简短的风险分析和成长建议（3-4句话）：\n"
+                    f"绩效分: {score}, 排名: {rank}, 考勤: {attendance_info}, "
+                    f"角色: {emp.get('role', '员工')}"
+                )
+                risk_analysis = await AIService.call_llm(
+                    risk_prompt,
+                    "你是HR分析专家。基于数据给出客观分析，不要编造数据。中文回复。"
+                )
+                response += f"\n🤖 **AI 风险分析**\n{risk_analysis}\n"
+            except Exception:
+                response += "\n🤖 AI 风险分析暂不可用\n"
 
         return response
 
@@ -264,14 +308,58 @@ class PerformanceReviewTool(BaseTool):
             rating = args.get("rating", 4)
             comment = args.get("comment", "")
 
-            return f"""✅ 已提交 {employee_name} 的绩效评分
+            if not employee_name:
+                return "❌ 请提供员工姓名"
+
+            client = _get_client(config)
+
+            # Find the employee
+            emp_res = (
+                await client.table("users")
+                .select("id, name, score")
+                .ilike("name", f"%{employee_name}%")
+                .limit(1)
+                .execute()
+            )
+
+            if not emp_res.data:
+                return f"❌ 未找到名为「{employee_name}」的员工"
+
+            emp = emp_res.data[0]
+            emp_id = emp.get("id")
+
+            # Convert 1-5 star rating to score (0-100)
+            new_score = int(rating * 20)
+
+            # Update user score in DB
+            try:
+                await client.table("users").update(
+                    {"score": new_score}
+                ).eq("id", emp_id).execute()
+            except Exception as e:
+                return f"❌ 绩效评分更新失败: {str(e)}"
+
+            # Try to record in performance_reviews table
+            try:
+                await client.table("performance_reviews").insert({
+                    "user_id": emp_id,
+                    "reviewer_id": user_id,
+                    "rating": rating,
+                    "score": new_score,
+                    "comment": comment,
+                    "review_period": datetime.now().strftime("%Y-%m"),
+                }).execute()
+            except Exception:
+                pass  # Table may not exist yet
+
+            return f"""✅ 已提交 {emp.get('name', employee_name)} 的绩效评分
 
 **评分详情**
-- 综合评分: {rating}/5 星
+- 综合评分: {rating}/5 星 (分数: {new_score})
 - 评语: {comment or '无'}
 - 提交时间: {datetime.now().strftime('%Y-%m-%d %H:%M')}
 
-📧 已通知 {employee_name} 查看评估结果
+📧 评分已写入系统
 """
 
         return "未知操作"

@@ -248,7 +248,7 @@ function ProjectSubtasks({ projectId }: { projectId: string }) {
         queryFn: async () => {
             const { data, error } = await (supabase.from('oa_tasks') as any)
                 .select('id, title, status, priority, assignee_id, created_at')
-                .or(`metadata->>project_id.eq.${projectId},title.ilike.[${projectId.slice(0, 8)}]%`)
+                .eq('metadata->>project_id', projectId)
                 .order('created_at', { ascending: false })
                 .limit(20);
 

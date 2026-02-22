@@ -5,7 +5,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -20,18 +20,13 @@ import {
   FileText,
   Plus,
   Search,
-  Filter,
   Clock,
   AlertTriangle,
   CheckCircle2,
   XCircle,
   DollarSign,
-  Calendar,
-  TrendingUp,
-  Eye,
   Edit,
   Loader2,
-  ArrowUpDown,
   RefreshCw,
   Pen,
   FileCheck,
@@ -39,6 +34,7 @@ import {
   RotateCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useContracts, useContractDetail, useCreateContract, type Contract, type ContractEvent } from '@/hooks/useContracts';
 
 // 合同类型
 const CONTRACT_TYPES: Record<string, string> = {
@@ -71,152 +67,6 @@ const EVENT_TYPES: Record<string, { label: string; icon: React.ElementType; colo
   terminated: { label: '终止', icon: Ban, color: 'text-gray-500' },
 };
 
-interface ContractEvent {
-  id: string;
-  contract_id: string;
-  event_type: string;
-  description: string;
-  user_id?: string;
-  created_at: string;
-}
-
-interface Contract {
-  id: string;
-  title: string;
-  customer_name?: string;
-  contract_number: string;
-  contract_type: string;
-  status: string;
-  amount: number | null;
-  currency: string;
-  start_date: string;
-  end_date: string;
-  tags: string[];
-  created_at: string;
-  updated_at: string;
-  events: ContractEvent[];
-}
-
-// 模拟合同数据
-const MOCK_CONTRACTS: Contract[] = [
-  {
-    id: '1',
-    title: '华为云 SaaS 服务合同',
-    customer_name: '华为技术有限公司',
-    contract_number: 'CT-2026-001',
-    contract_type: 'sales',
-    status: 'active',
-    amount: 580000,
-    currency: 'CNY',
-    start_date: '2026-01-01',
-    end_date: '2026-12-31',
-    tags: ['大客户', '年度合同'],
-    created_at: '2025-12-15T10:00:00Z',
-    updated_at: '2026-01-05T09:00:00Z',
-    events: [
-      { id: 'e1', contract_id: '1', event_type: 'created', description: '合同创建', created_at: '2025-12-15T10:00:00Z' },
-      { id: 'e2', contract_id: '1', event_type: 'submitted', description: '提交法务审核', created_at: '2025-12-18T14:00:00Z' },
-      { id: 'e3', contract_id: '1', event_type: 'approved', description: '法务审核通过', created_at: '2025-12-22T11:00:00Z' },
-      { id: 'e4', contract_id: '1', event_type: 'signed', description: '双方签署合同', created_at: '2026-01-02T16:00:00Z' },
-    ],
-  },
-  {
-    id: '2',
-    title: '腾讯数据安全保密协议',
-    customer_name: '深圳市腾讯计算机系统有限公司',
-    contract_number: 'CT-2026-002',
-    contract_type: 'nda',
-    status: 'active',
-    amount: null,
-    currency: 'CNY',
-    start_date: '2026-02-01',
-    end_date: '2027-01-31',
-    tags: ['保密协议'],
-    created_at: '2026-01-20T08:00:00Z',
-    updated_at: '2026-02-01T09:00:00Z',
-    events: [
-      { id: 'e5', contract_id: '2', event_type: 'created', description: '保密协议创建', created_at: '2026-01-20T08:00:00Z' },
-      { id: 'e6', contract_id: '2', event_type: 'signed', description: '双方签署', created_at: '2026-02-01T09:00:00Z' },
-    ],
-  },
-  {
-    id: '3',
-    title: '阿里巴巴年度采购合同',
-    customer_name: '阿里巴巴集团',
-    contract_number: 'CT-2026-003',
-    contract_type: 'purchase',
-    status: 'pending_review',
-    amount: 320000,
-    currency: 'CNY',
-    start_date: '2026-03-01',
-    end_date: '2027-02-28',
-    tags: ['采购'],
-    created_at: '2026-02-10T10:00:00Z',
-    updated_at: '2026-02-10T10:00:00Z',
-    events: [
-      { id: 'e7', contract_id: '3', event_type: 'created', description: '合同创建', created_at: '2026-02-10T10:00:00Z' },
-      { id: 'e8', contract_id: '3', event_type: 'submitted', description: '提交审核', created_at: '2026-02-12T09:00:00Z' },
-    ],
-  },
-  {
-    id: '4',
-    title: '字节跳动技术咨询服务',
-    customer_name: '北京字节跳动科技有限公司',
-    contract_number: 'CT-2025-045',
-    contract_type: 'service',
-    status: 'active',
-    amount: 150000,
-    currency: 'CNY',
-    start_date: '2025-09-01',
-    end_date: '2026-02-28',
-    tags: ['即将到期'],
-    created_at: '2025-08-20T10:00:00Z',
-    updated_at: '2025-09-01T09:00:00Z',
-    events: [
-      { id: 'e9', contract_id: '4', event_type: 'created', description: '合同创建', created_at: '2025-08-20T10:00:00Z' },
-      { id: 'e10', contract_id: '4', event_type: 'signed', description: '签署', created_at: '2025-09-01T09:00:00Z' },
-    ],
-  },
-  {
-    id: '5',
-    title: '小米智能硬件合同',
-    customer_name: '小米科技有限责任公司',
-    contract_number: 'CT-2025-030',
-    contract_type: 'sales',
-    status: 'expired',
-    amount: 420000,
-    currency: 'CNY',
-    start_date: '2025-01-01',
-    end_date: '2025-12-31',
-    tags: ['已过期'],
-    created_at: '2024-12-10T10:00:00Z',
-    updated_at: '2026-01-01T00:00:00Z',
-    events: [
-      { id: 'e11', contract_id: '5', event_type: 'created', description: '合同创建', created_at: '2024-12-10T10:00:00Z' },
-      { id: 'e12', contract_id: '5', event_type: 'signed', description: '签署生效', created_at: '2025-01-01T09:00:00Z' },
-      { id: 'e13', contract_id: '5', event_type: 'expired', description: '合同到期', created_at: '2026-01-01T00:00:00Z' },
-    ],
-  },
-  {
-    id: '6',
-    title: '美团合作框架协议',
-    customer_name: '北京三快科技有限公司',
-    contract_number: 'CT-2026-004',
-    contract_type: 'other',
-    status: 'draft',
-    amount: 200000,
-    currency: 'CNY',
-    start_date: '',
-    end_date: '',
-    tags: ['草稿'],
-    created_at: '2026-02-13T10:00:00Z',
-    updated_at: '2026-02-13T10:00:00Z',
-    events: [
-      { id: 'e14', contract_id: '6', event_type: 'created', description: '草稿创建', created_at: '2026-02-13T10:00:00Z' },
-    ],
-  },
-];
-
 // 格式化金额
 function formatAmount(amount: number | null, currency: string = 'CNY') {
   if (amount === null || amount === undefined) return '--';
@@ -237,10 +87,9 @@ function daysUntil(dateStr: string) {
 }
 
 export function ContractManagement() {
-  const [contracts, setContracts] = useState<Contract[]>(MOCK_CONTRACTS);
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
-  const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
+  const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -253,16 +102,29 @@ export function ContractManagement() {
     end_date: '',
   });
 
-  // 筛选合同
+  // Real data from Supabase
+  const { data: allContracts = [], isLoading, error } = useContracts();
+  const createMutation = useCreateContract();
+
+  // Events for selected contract
+  const { data: selectedEvents = [] } = useContractDetail(selectedContractId);
+
+  // Find the selected contract object
+  const selectedContract = useMemo(
+    () => allContracts.find(c => c.id === selectedContractId) || null,
+    [allContracts, selectedContractId]
+  );
+
+  // Filter contracts client-side (search + status + expiring)
   const filteredContracts = useMemo(() => {
-    return contracts.filter((c) => {
+    return allContracts.filter((c) => {
       const matchStatus = statusFilter === 'all' || statusFilter === 'expiring'
         ? true
         : c.status === statusFilter;
       const matchSearch = !search
         || c.title.toLowerCase().includes(search.toLowerCase())
-        || c.customer_name?.toLowerCase().includes(search.toLowerCase())
-        || c.contract_number.toLowerCase().includes(search.toLowerCase());
+        || (c.customer_name || '').toLowerCase().includes(search.toLowerCase())
+        || (c.contract_number || '').toLowerCase().includes(search.toLowerCase());
 
       if (statusFilter === 'expiring') {
         const days = daysUntil(c.end_date);
@@ -271,88 +133,81 @@ export function ContractManagement() {
 
       return matchStatus && matchSearch;
     });
-  }, [contracts, statusFilter, search]);
+  }, [allContracts, statusFilter, search]);
 
   // 统计数据
   const stats = useMemo(() => {
-    const total = contracts.length;
-    const totalAmount = contracts.reduce((acc, c) => acc + (c.amount || 0), 0);
-    const active = contracts.filter((c) => c.status === 'active').length;
-    const expiring = contracts.filter((c) => {
+    const total = allContracts.length;
+    const totalAmount = allContracts.reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
+    const active = allContracts.filter((c) => c.status === 'active').length;
+    const expiring = allContracts.filter((c) => {
       const days = daysUntil(c.end_date);
       return c.status === 'active' && days !== null && days >= 0 && days <= 30;
     }).length;
     return { total, totalAmount, active, expiring };
-  }, [contracts]);
+  }, [allContracts]);
 
   // 打开详情
   const openDetail = (contract: Contract) => {
-    setSelectedContract(contract);
+    setSelectedContractId(contract.id);
     setDetailOpen(true);
   };
 
   // 创建合同
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!formData.title) {
       toast.error('请填写合同标题');
       return;
     }
 
-    const newContract: Contract = {
-      id: `new-${Date.now()}`,
-      title: formData.title,
-      customer_name: formData.customer_name,
-      contract_number: formData.contract_number || `CT-2026-${(contracts.length + 1).toString().padStart(3, '0')}`,
-      contract_type: formData.contract_type,
-      status: 'draft',
-      amount: formData.amount ? parseFloat(formData.amount) : null,
-      currency: 'CNY',
-      start_date: formData.start_date,
-      end_date: formData.end_date,
-      tags: [],
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      events: [
-        {
-          id: `evt-${Date.now()}`,
-          contract_id: `new-${Date.now()}`,
-          event_type: 'created',
-          description: '合同创建',
-          created_at: new Date().toISOString(),
-        },
-      ],
-    };
+    try {
+      await createMutation.mutateAsync({
+        title: formData.title,
+        customer_name: formData.customer_name || undefined,
+        contract_number: formData.contract_number || undefined,
+        contract_type: formData.contract_type,
+        amount: formData.amount ? parseFloat(formData.amount) : null,
+        start_date: formData.start_date || undefined,
+        end_date: formData.end_date || undefined,
+      });
 
-    setContracts((prev) => [newContract, ...prev]);
-    setCreateDialogOpen(false);
-    setFormData({
-      title: '',
-      customer_name: '',
-      contract_number: '',
-      contract_type: 'sales',
-      amount: '',
-      start_date: '',
-      end_date: '',
-    });
-    toast.success('合同创建成功');
+      setCreateDialogOpen(false);
+      setFormData({
+        title: '',
+        customer_name: '',
+        contract_number: '',
+        contract_type: 'sales',
+        amount: '',
+        start_date: '',
+        end_date: '',
+      });
+      toast.success('合同创建成功');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '创建失败';
+      toast.error(`合同创建失败: ${message}`);
+    }
   };
 
   // 状态标签数量
   const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: contracts.length };
-    contracts.forEach((c) => {
+    const counts: Record<string, number> = { all: allContracts.length };
+    allContracts.forEach((c) => {
       counts[c.status] = (counts[c.status] || 0) + 1;
     });
-    counts.expiring = contracts.filter((c) => {
+    counts.expiring = allContracts.filter((c) => {
       const days = daysUntil(c.end_date);
       return c.status === 'active' && days !== null && days >= 0 && days <= 30;
     }).length;
     return counts;
-  }, [contracts]);
+  }, [allContracts]);
 
   // 时间线渲染
   const renderTimeline = (events: ContractEvent[]) => {
     const sorted = [...events].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    if (sorted.length === 0) {
+      return <p className="text-sm text-muted-foreground">暂无事件记录</p>;
+    }
 
     return (
       <div className="space-y-4">
@@ -384,6 +239,14 @@ export function ContractManagement() {
     );
   };
 
+  if (error) {
+    return (
+      <div className="p-6 text-center">
+        <p className="text-destructive">加载合同数据失败: {(error as Error).message}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-6 max-w-[1400px] mx-auto">
       {/* 页面标题 */}
@@ -409,7 +272,7 @@ export function ContractManagement() {
               <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{stats.total}</p>
+              <p className="text-2xl font-bold">{isLoading ? '-' : stats.total}</p>
               <p className="text-xs text-muted-foreground">合同总数</p>
             </div>
           </CardContent>
@@ -420,7 +283,7 @@ export function ContractManagement() {
               <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{formatAmount(stats.totalAmount)}</p>
+              <p className="text-2xl font-bold">{isLoading ? '-' : formatAmount(stats.totalAmount)}</p>
               <p className="text-xs text-muted-foreground">合同总额</p>
             </div>
           </CardContent>
@@ -431,7 +294,7 @@ export function ContractManagement() {
               <CheckCircle2 className="h-5 w-5 text-purple-600 dark:text-purple-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{stats.active}</p>
+              <p className="text-2xl font-bold">{isLoading ? '-' : stats.active}</p>
               <p className="text-xs text-muted-foreground">生效中</p>
             </div>
           </CardContent>
@@ -442,7 +305,7 @@ export function ContractManagement() {
               <AlertTriangle className="h-5 w-5 text-orange-600 dark:text-orange-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{stats.expiring}</p>
+              <p className="text-2xl font-bold">{isLoading ? '-' : stats.expiring}</p>
               <p className="text-xs text-muted-foreground">即将到期 (30天内)</p>
             </div>
           </CardContent>
@@ -477,7 +340,12 @@ export function ContractManagement() {
       </Tabs>
 
       {/* 合同列表 */}
-      {filteredContracts.length === 0 ? (
+      {isLoading ? (
+        <div className="text-center py-16">
+          <Loader2 className="h-8 w-8 mx-auto animate-spin text-muted-foreground" />
+          <p className="text-muted-foreground mt-2">加载中...</p>
+        </div>
+      ) : filteredContracts.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
           <p>没有找到匹配的合同</p>
@@ -521,7 +389,7 @@ export function ContractManagement() {
                       </div>
                       <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground flex-wrap">
                         {contract.customer_name && <span>{contract.customer_name}</span>}
-                        <span>{contract.contract_number}</span>
+                        {contract.contract_number && <span>{contract.contract_number}</span>}
                         <span>{CONTRACT_TYPES[contract.contract_type] || contract.contract_type}</span>
                       </div>
                     </div>
@@ -529,7 +397,7 @@ export function ContractManagement() {
                     {/* 右侧金额和日期 */}
                     <div className="text-right shrink-0">
                       <p className="font-bold text-sm">
-                        {contract.amount !== null ? formatAmount(contract.amount) : '--'}
+                        {contract.amount !== null ? formatAmount(Number(contract.amount)) : '--'}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {contract.start_date && contract.end_date
@@ -540,7 +408,7 @@ export function ContractManagement() {
                   </div>
 
                   {/* 标签 */}
-                  {contract.tags.length > 0 && (
+                  {contract.tags && contract.tags.length > 0 && (
                     <div className="flex gap-1.5 mt-2 ml-12">
                       {contract.tags.map((tag) => (
                         <Badge key={tag} variant="secondary" className="text-[10px]">
@@ -557,13 +425,13 @@ export function ContractManagement() {
       )}
 
       {/* 合同详情侧边栏 */}
-      <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
+      <Sheet open={detailOpen} onOpenChange={(open) => { setDetailOpen(open); if (!open) setSelectedContractId(null); }}>
         <SheetContent className="sm:max-w-lg">
           {selectedContract && (
             <>
               <SheetHeader>
                 <SheetTitle className="text-lg">{selectedContract.title}</SheetTitle>
-                <SheetDescription>{selectedContract.contract_number}</SheetDescription>
+                <SheetDescription>{selectedContract.contract_number || '无编号'}</SheetDescription>
               </SheetHeader>
 
               <ScrollArea className="mt-6 h-[calc(100dvh-120px)]">
@@ -591,7 +459,7 @@ export function ContractManagement() {
                       <div>
                         <p className="text-xs text-muted-foreground">金额</p>
                         <p className="text-sm font-bold text-primary">
-                          {formatAmount(selectedContract.amount, selectedContract.currency)}
+                          {formatAmount(Number(selectedContract.amount), selectedContract.currency)}
                         </p>
                       </div>
                       <div>
@@ -628,7 +496,7 @@ export function ContractManagement() {
                   {/* 事件时间线 */}
                   <div className="space-y-3">
                     <h4 className="text-sm font-semibold">合同时间线</h4>
-                    {renderTimeline(selectedContract.events)}
+                    {renderTimeline(selectedEvents)}
                   </div>
                 </div>
               </ScrollArea>
@@ -731,7 +599,8 @@ export function ContractManagement() {
             <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
               取消
             </Button>
-            <Button onClick={handleCreate}>
+            <Button onClick={handleCreate} disabled={createMutation.isPending}>
+              {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               创建合同
             </Button>
           </DialogFooter>

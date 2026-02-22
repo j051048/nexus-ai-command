@@ -181,6 +181,7 @@ export function useRecruitmentList() {
     queryFn: async () => {
       const { data, error } = await (supabase.from('hr_job_positions') as any)
         .select('*')
+        .eq('organization_id', profile?.organization_id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;

@@ -302,4 +302,4 @@ def get_logger(component: str = None) -> StructuredLogger:
     """Get structured logger instance."""
     if component:
         structured_logger.set_context(component=component)
-    return structured_logger"
+    return structured_logger

@@ -358,15 +358,14 @@ class AutoTriggerService:
         logger.info(f"Auto-starting analysis: {analysis_type}")
 
         try:
-            from app.services.notification_service import notification_service, NotificationChannel
+            from app.services.notification_service import send_notification
             context = params.get("context", {})
             user_id = context.get("user_id") if context else None
             if user_id:
-                await notification_service.send(
-                    user_id=user_id,
+                await send_notification(
                     title=f"AI 分析已启动",
                     content=f"自动触发 {analysis_type} 类型的分析任务",
-                    channel=NotificationChannel.IN_APP,
+                    target_user_id=user_id,
                 )
         except Exception as e:
             logger.error(f"Analysis notification failed: {e}")
@@ -383,15 +382,14 @@ class AutoTriggerService:
         logger.info(f"Auto-generating report: {report_type}")
 
         try:
-            from app.services.notification_service import notification_service, NotificationChannel
+            from app.services.notification_service import send_notification
             context = params.get("context", {})
             user_id = context.get("user_id") if context else None
             if user_id:
-                await notification_service.send(
-                    user_id=user_id,
+                await send_notification(
                     title=f"工作报告已生成",
                     content=f"已自动生成 {report_type} 报告，请在 AI 聊天中查看",
-                    channel=NotificationChannel.IN_APP,
+                    target_user_id=user_id,
                 )
         except Exception as e:
             logger.error(f"Report notification failed: {e}")
@@ -409,15 +407,14 @@ class AutoTriggerService:
         logger.info(f"Sending notification: {notification_type} - {message}")
 
         try:
-            from app.services.notification_service import notification_service, NotificationChannel
+            from app.services.notification_service import send_notification
             context = params.get("context", {})
             user_id = context.get("user_id") if context else None
             if user_id:
-                await notification_service.send(
-                    user_id=user_id,
+                await send_notification(
                     title="系统通知",
                     content=message,
-                    channel=NotificationChannel.IN_APP,
+                    target_user_id=user_id,
                 )
         except Exception as e:
             logger.error(f"Notification send failed: {e}")

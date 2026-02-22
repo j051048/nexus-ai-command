@@ -264,7 +264,7 @@ origins = settings.all_cors_origins
 
 
 @app.get("/api/test-ai")
-async def test_ai_connectivity():
+async def test_ai_connectivity(user_id: str = Depends(get_current_user_id)):
     """Test connectivity from Backend to AI Gateway"""
     import httpx
 

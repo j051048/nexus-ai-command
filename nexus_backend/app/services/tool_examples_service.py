@@ -368,4 +368,4 @@ tool_examples_service = ToolExamplesService()
 # Convenience function
 def get_tool_examples(tool_name: str, limit: int = 2) -> str:
     """Get formatted examples for a tool."""
-    return tool_examples_service.format_for_prompt(tool_name, max_examples=limit)"
+    return tool_examples_service.format_for_prompt(tool_name, max_examples=limit)

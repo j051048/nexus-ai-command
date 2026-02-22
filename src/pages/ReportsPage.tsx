@@ -377,8 +377,43 @@ function ReportsPage() {
 
   const handleExport = () => {
     toast.success('正在生成报表导出文件...');
-    // TODO: 实现真实导出逻辑
-    setTimeout(() => toast.success('报表导出完成'), 1500);
+
+    // Collect visible data from the active tab and export as CSV
+    try {
+      const headers = ['指标', '数值'];
+      const rows: string[][] = [];
+
+      // Get stats from the page elements
+      const statElements = document.querySelectorAll('[data-export]');
+      statElements.forEach(el => {
+        const label = el.getAttribute('data-export-label') || '';
+        const value = el.textContent || '';
+        if (label) rows.push([label, value]);
+      });
+
+      // If no data-export elements, fallback to a simple summary
+      if (rows.length === 0) {
+        rows.push(['报表类型', activeTab]);
+        rows.push(['时间范围', timePreset]);
+        rows.push(['导出时间', new Date().toLocaleString('zh-CN')]);
+      }
+
+      const csvContent = [headers, ...rows]
+        .map(row => row.map(cell => `"${cell}"`).join(','))
+        .join('\n');
+
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `报表_${activeTab}_${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      toast.success('报表导出完成');
+    } catch {
+      toast.error('导出失败，请稍后重试');
+    }
   };
 
   return (

@@ -110,6 +110,13 @@ async def _execute_single_tool(
     _idempotency_cache: dict = {},
 ) -> ToolCallRecord:
     """Execute a single tool with RBAC, confirmation gates, circuit breaker, idempotency, and retry."""
+    # Evict old cache entries to prevent unbounded memory growth
+    if len(_idempotency_cache) > 500:
+        # Remove oldest half
+        keys = list(_idempotency_cache.keys())
+        for k in keys[:250]:
+            del _idempotency_cache[k]
+
     tool = get_tool(record.tool_name)
     if not tool:
         record.status = "error"

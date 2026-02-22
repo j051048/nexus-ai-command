@@ -29,6 +29,7 @@ import {
   CheckCircle2,
   Loader2,
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { useUser } from '@/contexts/UserContext';
 import { useAuth } from '@/components/auth/AuthContext';
 import { toast } from 'sonner';
@@ -105,14 +106,60 @@ export function ProfileCenter() {
 
   const achievements: { name: string; icon: string; date: string; description: string }[] = [];
 
-  const stats = {
-    totalProjects: 0,
-    completedProjects: 0,
-    totalSales: 0,
-    thisMonthSales: 0,
-    attendanceRate: 0,
-    performanceScore: user.score || 0,
-  };
+  // Fetch real stats from DB
+  const { data: stats } = useQuery({
+    queryKey: ['profile-stats', session?.user?.id],
+    queryFn: async () => {
+      const userId = session?.user?.id;
+      if (!userId) return { totalProjects: 0, completedProjects: 0, totalSales: 0, thisMonthSales: 0, attendanceRate: 0, performanceScore: user.score || 0 };
+
+      let totalProjects = 0;
+      let totalSales = 0;
+      let attendanceRate = 0;
+
+      // Projects: count oa_tasks assigned to this user
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { count } = await (supabase.from('oa_tasks') as any)
+          .select('id', { count: 'exact', head: true })
+          .eq('assigned_to', userId);
+        totalProjects = count || 0;
+      } catch { /* table may not exist */ }
+
+      // Sales: sum revenue from sales_metrics for this user
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: metrics } = await (supabase.from('sales_metrics') as any)
+          .select('revenue')
+          .eq('user_id', userId);
+        totalSales = (metrics || []).reduce((sum: number, m: { revenue: number }) => sum + (Number(m.revenue) || 0), 0);
+      } catch { /* table may not exist */ }
+
+      // Attendance: calculate rate from hr_attendance for current month
+      try {
+        const monthStart = new Date().toISOString().slice(0, 7) + '-01';
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: records } = await (supabase.from('hr_attendance') as any)
+          .select('status')
+          .eq('user_id', userId)
+          .gte('date', monthStart);
+        const total = (records || []).length;
+        const present = (records || []).filter((r: { status: string }) => r.status === 'present' || r.status === 'normal').length;
+        attendanceRate = total > 0 ? Math.round((present / total) * 100) : 0;
+      } catch { /* table may not exist */ }
+
+      return {
+        totalProjects,
+        completedProjects: 0,
+        totalSales,
+        thisMonthSales: 0,
+        attendanceRate,
+        performanceScore: user.score || 0,
+      };
+    },
+    enabled: !!session?.user?.id,
+    initialData: { totalProjects: 0, completedProjects: 0, totalSales: 0, thisMonthSales: 0, attendanceRate: 0, performanceScore: user.score || 0 },
+  });
 
   const handleSaveProfile = async () => {
     if (!editName.trim()) {

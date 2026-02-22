@@ -33,20 +33,20 @@ def crawl_arxiv_leads():
 def push_daily_briefing():
     """
     3.1 每日晨报推送
-    每天早8点推送给所有 manager/boss 角色用户
+    每天早8点推送给所有 manager/founder 角色用户
     """
     async def _run():
         from app.core.database import supabase
         from app.tools.boss_tools import DailyBriefingTool
-        from app.services.notification_service import notification_service, NotificationChannel
+        from app.services.notification_service import send_notification
 
         if not supabase:
             logger.warning("DB not available, skipping daily briefing")
             return "skipped: no db"
 
-        # 查询所有 manager/boss 用户
+        # 查询所有管理层用户 (founder = boss, manager = 管理者)
         result = await supabase.table("users").select("id, role").in_(
-            "role", ["manager", "boss", "admin"]
+            "role", ["manager", "founder"]
         ).execute()
         users = result.data or []
 
@@ -55,11 +55,10 @@ def push_daily_briefing():
         for u in users:
             try:
                 briefing = await tool.run({}, u["id"], config={})
-                await notification_service.send(
-                    user_id=u["id"],
+                await send_notification(
                     title="每日晨报",
                     content=briefing[:500],
-                    channel=NotificationChannel.IN_APP,
+                    target_user_id=u["id"],
                 )
                 sent += 1
             except Exception as e:
@@ -79,7 +78,7 @@ def mine_sales_leads():
     async def _run():
         from app.core.database import supabase
         from app.services.ai_service import AIService
-        from app.services.notification_service import notification_service, NotificationChannel
+        from app.services.notification_service import send_notification
 
         if not supabase:
             return "skipped: no db"
@@ -103,11 +102,10 @@ def mine_sales_leads():
                     "你是销售顾问。这个线索已经超过7天未跟进，请给出简短的跟进建议（1-2句话）。"
                 )
                 if lead.get("assigned_to"):
-                    await notification_service.send(
-                        user_id=lead["assigned_to"],
+                    await send_notification(
                         title=f"线索跟进提醒: {lead['company_name']}",
                         content=suggestion[:300],
-                        channel=NotificationChannel.IN_APP,
+                        target_user_id=lead["assigned_to"],
                     )
                 processed += 1
             except Exception as e:
@@ -127,7 +125,7 @@ def monitor_competitors():
     async def _run():
         from app.core.database import supabase
         from app.services.ai_service import AIService
-        from app.services.notification_service import notification_service, NotificationChannel
+        from app.services.notification_service import send_notification
 
         if not supabase:
             return "skipped: no db"
@@ -159,11 +157,10 @@ def monitor_competitors():
             # 通知所有相关用户
             user_ids = list(set(a.get("user_id") for a in analyses if a.get("user_id")))
             for uid in user_ids[:10]:
-                await notification_service.send(
-                    user_id=uid,
+                await send_notification(
                     title="竞品动态周报",
                     content=analysis[:500],
-                    channel=NotificationChannel.IN_APP,
+                    target_user_id=uid,
                 )
 
             return f"Competitor analysis sent to {len(user_ids)} users"
@@ -182,7 +179,7 @@ def check_contract_expiry():
     """
     async def _run():
         from app.core.database import supabase
-        from app.services.notification_service import notification_service, NotificationChannel
+        from app.services.notification_service import send_notification, NotificationPriority
 
         if not supabase:
             return "skipped: no db"
@@ -209,11 +206,11 @@ def check_contract_expiry():
             try:
                 if contract.get("user_id"):
                     days_left = (datetime.strptime(contract["end_date"], "%Y-%m-%d") - datetime.now()).days
-                    await notification_service.send(
-                        user_id=contract["user_id"],
+                    await send_notification(
                         title=f"合同到期预警: {contract.get('title', '未命名')}",
                         content=f"合同将在 {days_left} 天后到期 ({contract['end_date']})，请及时处理续签或结算。",
-                        channel=NotificationChannel.IN_APP,
+                        target_user_id=contract["user_id"],
+                        priority=NotificationPriority.HIGH,
                     )
                     notified += 1
             except Exception as e:

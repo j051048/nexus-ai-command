@@ -84,14 +84,14 @@ class DataAttributionTool(BaseTool):
             current_metrics = (
                 await client.table("sales_metrics")
                 .select("*")
-                .gte("metric_date", current_start)
+                .gte("date", current_start)
                 .execute()
             )
             prev_metrics = (
                 await client.table("sales_metrics")
                 .select("*")
-                .gte("metric_date", prev_start)
-                .lt("metric_date", current_start)
+                .gte("date", prev_start)
+                .lt("date", current_start)
                 .execute()
             )
 
@@ -253,8 +253,8 @@ class StrategySimulationTool(BaseTool):
         try:
             metrics_res = (
                 await client.table("sales_metrics")
-                .select("revenue, leads_count, conversion_rate")
-                .order("metric_date", desc=True)
+                .select("revenue, leads_count, win_rate")
+                .order("date", desc=True)
                 .limit(30)
                 .execute()
             )
@@ -262,7 +262,7 @@ class StrategySimulationTool(BaseTool):
                 recent = metrics_res.data
                 total_revenue = sum(float(m.get("revenue", 0)) for m in recent)
                 avg_leads = sum(int(m.get("leads_count", 0)) for m in recent) / max(len(recent), 1)
-                avg_conv = sum(float(m.get("conversion_rate", 0)) for m in recent) / max(len(recent), 1)
+                avg_conv = sum(float(m.get("win_rate", 0)) for m in recent) / max(len(recent), 1)
                 baseline_data.append(
                     f"近期营收合计: ¥{total_revenue:,.0f}, "
                     f"日均线索: {avg_leads:.1f}, 平均转化率: {avg_conv:.1%}"

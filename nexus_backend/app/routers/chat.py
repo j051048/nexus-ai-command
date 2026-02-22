@@ -298,6 +298,7 @@ async def list_sessions(req: Request, user_id: str = Depends(get_current_user_id
             .select("session_id, agent, created_at")
             .eq("user_id", user_id)
             .order("created_at", desc=True)
+            .limit(500)
             .execute()
         )
 

@@ -5,13 +5,13 @@ import { useAuth } from '@/components/auth/AuthContext';
 export interface SalesMetric {
   id: string;
   organization_id: string;
-  metric_date: string;
+  date: string;
   revenue: number;
   leads_count: number;
-  conversion_rate: number;
+  conversions: number;
+  win_rate: number;
   user_id: string | null;
   created_at: string;
-  updated_at: string;
 }
 
 export interface SalesTarget {
@@ -219,21 +219,17 @@ export function useTargetProgress(targetPeriod: string, targetType: 'monthly' | 
       // Filter by date range manually
       const rawMetrics = (metrics || []) as unknown as SalesMetric[];
       const filteredMetrics = rawMetrics.filter((m) => {
-          const date = m.metric_date;
-          return date >= startDate && date <= endDate;
+          const d = m.date;
+          return d >= startDate && d <= endDate;
       });
 
       // Calculate totals
       const current = {
         revenue: filteredMetrics.reduce((sum, m) => sum + (Number(m.revenue) || 0), 0),
         leads: filteredMetrics.reduce((sum, m) => sum + (Number(m.leads_count) || 0), 0),
-        conversions: filteredMetrics.reduce((sum, m) => {
-             const rate = Number(m.conversion_rate) || 0;
-             const leads = Number(m.leads_count) || 0;
-             return sum + Math.round(leads * rate);
-        }, 0),
-        win_rate: filteredMetrics.length 
-          ? filteredMetrics.reduce((sum, m) => sum + (Number(m.conversion_rate) || 0), 0) / filteredMetrics.length 
+        conversions: filteredMetrics.reduce((sum, m) => sum + (Number(m.conversions) || 0), 0),
+        win_rate: filteredMetrics.length
+          ? filteredMetrics.reduce((sum, m) => sum + (Number(m.win_rate) || 0), 0) / filteredMetrics.length
           : 0,
       };
 

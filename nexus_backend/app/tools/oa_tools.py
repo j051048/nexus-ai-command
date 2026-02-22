@@ -468,7 +468,7 @@ class TaskAssignmentTool(BaseTool):
             "ai_created": True,
         }
 
-        await client.table("project_tasks").insert(task_data).execute()
+        await client.table("oa_tasks").insert(task_data).execute()
 
         # 通知负责人
         creator_res = (
@@ -553,7 +553,7 @@ class WorkHandoverTool(BaseTool):
 
         # 获取当前用户的待办任务
         tasks_res = (
-            await client.table("project_tasks")
+            await client.table("oa_tasks")
             .select("id, title, due_date, priority")
             .eq("assignee_id", user_id)
             .in_("status", ["todo", "in_progress"])
@@ -568,7 +568,7 @@ class WorkHandoverTool(BaseTool):
         # 转移任务
         transferred = 0
         for task in task_list:
-            await client.table("project_tasks").update(
+            await client.table("oa_tasks").update(
                 {"assignee_id": handover_to["id"]}
             ).eq("id", task["id"]).execute()
             transferred += 1

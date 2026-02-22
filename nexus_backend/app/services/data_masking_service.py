@@ -347,4 +347,4 @@ def mask_data(data: Dict, field_rules: Dict[str, str] = None) -> Dict:
 
 def detect_sensitive(text: str) -> List[Dict]:
     """API function to detect sensitive data."""
-    return data_masking_service.detect_sensitive_data(text)"
+    return data_masking_service.detect_sensitive_data(text)
