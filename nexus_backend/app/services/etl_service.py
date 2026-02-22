@@ -2,15 +2,17 @@
 ETL Service - Document processing, extraction, and embedding pipeline
 """
 
-import logging
-import httpx
-import json
-import io
 import hashlib
+import io
+import json
+import logging
+from typing import Any
+
+import httpx
 from pypdf import PdfReader
-from typing import Tuple, Dict, Any
-from app.core.database import supabase
+
 from app.core.config import settings
+from app.core.database import supabase
 
 logger = logging.getLogger(__name__)
 
@@ -288,7 +290,7 @@ class ETLService:
                         "status": "skipped",
                         "reason": f"OCR Failed: {str(e)}",
                     }
-            elif filename.lower().endswith((".docx")):
+            elif filename.lower().endswith(".docx"):
 
                 def _parse_docx():
                     import docx
@@ -432,23 +434,22 @@ class ETLService:
 
     async def extract_metadata_via_ai(
         self, text: str, filename: str, api_key: str, base_url: str
-    ) -> Tuple[bool, Dict[str, Any]]:
+    ) -> tuple[bool, dict[str, Any]]:
         """
         Uses AI to extract structured metadata (JSON) from raw text.
         Supports Tender Analysis (Redlines, Deviations) for 'bid' type documents.
         """
         # Filename-based pre-classification hint for AI
-        import re as _re
         _fn_lower = filename.lower()
         _filename_hint = "other"
-        _FILENAME_KEYWORDS = {
+        _filename_keywords = {
             "product": ["彩页", "产品资料", "产品手册", "产品说明", "规格书", "datasheet", "brochure", "产品目录", "catalog"],
             "contract": ["合同", "协议", "contract"],
             "bid": ["标书", "招标", "投标", "bid", "tender"],
             "proposal": ["方案", "proposal"],
             "invoice": ["发票", "invoice"],
         }
-        for _dtype, _keywords in _FILENAME_KEYWORDS.items():
+        for _dtype, _keywords in _filename_keywords.items():
             if any(kw in _fn_lower for kw in _keywords):
                 _filename_hint = _dtype
                 break
@@ -514,7 +515,7 @@ class ETLService:
             "Content-Type": "application/json",
         }
 
-        async def call_ai_model(model_name: str, retries=1) -> Tuple[bool, Any]:
+        async def call_ai_model(model_name: str, retries=1) -> tuple[bool, Any]:
             """Helper to call AI with retry logic"""
             payload["model"] = model_name
             try:
@@ -646,7 +647,7 @@ class ETLService:
         """
         Batch Embeddings with partial success tracking.
         """
-        BATCH_SIZE = 50
+        batch_size = 50
         current_batch_text = []
         all_success = True
 
@@ -685,14 +686,13 @@ class ETLService:
             text, size=self.chunk_size, overlap=self.chunk_overlap
         ):
             current_batch_text.append(chunk)
-            if len(current_batch_text) >= BATCH_SIZE:
+            if len(current_batch_text) >= batch_size:
                 if not await _process_batch(current_batch_text):
                     all_success = False
                 current_batch_text = []
 
-        if current_batch_text:
-            if not await _process_batch(current_batch_text):
-                all_success = False
+        if current_batch_text and not await _process_batch(current_batch_text):
+            all_success = False
 
         return all_success
 

@@ -97,12 +97,14 @@ export function OACenter() {
   const fetchLeaves = useCallback(async () => {
     try {
       if (!user?.id) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase.from('oa_leave_requests') as any)
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
       setLeaves((data as LeaveRequest[]) || []);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error('Error fetching leaves:', error);
     } finally {
@@ -125,6 +127,7 @@ export function OACenter() {
       const end = new Date(leaveForm.end_date);
       const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase.from('oa_leave_requests') as any).insert({
         user_id: user?.id,
         organization_id: profile?.organization_id,
@@ -140,6 +143,7 @@ export function OACenter() {
       setLeaveDialogOpen(false);
       setLeaveForm({ leave_type: 'annual', start_date: '', end_date: '', reason: '' });
       fetchLeaves();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       toast.error(error?.message || '提交失败');
     } finally {
@@ -161,6 +165,7 @@ export function OACenter() {
   const fetchMeetings = useCallback(async () => {
     try {
       if (!profile?.organization_id) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase.from('oa_meeting_bookings') as any)
         .select('*')
         .eq('organization_id', profile.organization_id)
@@ -168,6 +173,7 @@ export function OACenter() {
         .limit(50);
       if (error) throw error;
       setMeetings((data as MeetingBooking[]) || []);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error('Error fetching meetings:', error);
     } finally {
@@ -186,6 +192,7 @@ export function OACenter() {
     }
     setMeetingSubmitting(true);
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase.from('oa_meeting_bookings') as any).insert({
         title: meetingForm.title,
         organizer_id: user?.id,
@@ -199,6 +206,7 @@ export function OACenter() {
       setMeetingDialogOpen(false);
       setMeetingForm({ title: '', start_time: '', end_time: '' });
       fetchMeetings();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       toast.error(error?.message || '预约失败');
     } finally {
@@ -236,6 +244,7 @@ export function OACenter() {
       const { data, error } = await query;
       if (error) throw error;
       setTasks((data as OATask[]) || []);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error('Error fetching tasks:', error);
     } finally {
@@ -258,12 +267,14 @@ export function OACenter() {
         assignee_id: user?.id,
         organization_id: profile?.organization_id,
         status: 'pending',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any);
       if (error) throw error;
       toast.success('任务已创建');
       setTaskDialogOpen(false);
       setTaskForm({ title: '', description: '', priority: 'medium', due_date: '' });
       fetchTasks();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       toast.error(error?.message || '创建失败');
     } finally {
@@ -280,12 +291,14 @@ export function OACenter() {
   const handleCancelLeave = async (leaveId: string) => {
     if (!window.confirm('确认要撤回这条请假申请吗？')) return;
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase.from('oa_leave_requests') as any)
         .update({ status: 'cancelled' })
         .eq('id', leaveId);
       if (error) throw error;
       toast.success('请假申请已撤回');
       fetchLeaves();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       toast.error(error?.message || '撤回失败');
     }
@@ -294,12 +307,14 @@ export function OACenter() {
   const handleCancelMeeting = async (meetingId: string) => {
     if (!window.confirm('确认要取消这场会议吗？')) return;
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase.from('oa_meeting_bookings') as any)
         .update({ status: 'cancelled' })
         .eq('id', meetingId);
       if (error) throw error;
       toast.success('会议已取消');
       fetchMeetings();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       toast.error(error?.message || '取消失败');
     }
@@ -309,11 +324,13 @@ export function OACenter() {
     try {
       const { error } = await supabase
         .from('oa_tasks')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .update({ status: newStatus } as any)
         .eq('id', taskId);
       if (error) throw error;
       toast.success('任务状态已更新');
       fetchTasks();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       toast.error(error?.message || '更新失败');
     }

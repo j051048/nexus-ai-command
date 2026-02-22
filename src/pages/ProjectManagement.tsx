@@ -50,6 +50,7 @@ export function ProjectManagement() {
 
             if (error) throw error;
             setProjects(data as Project[] || []);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
             console.error("Error fetching projects:", error);
             toast.error(error?.message || "加载项目失败");

@@ -22,6 +22,7 @@ export function useExceptions() {
 
       // 1. 预算超支 (used > 90% of total)
       try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: budgets } = await (supabase.from('finance_budgets') as any)
           .select('id, name, total_amount, used_amount, period')
           .eq('organization_id', orgId);
@@ -48,6 +49,7 @@ export function useExceptions() {
       // 2. 停滞商机 (30天+ 未更新)
       try {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: leads } = await (supabase.from('sales_leads') as any)
           .select('id, company_name, status, updated_at, assigned_to')
           .eq('organization_id', orgId)
@@ -74,6 +76,7 @@ export function useExceptions() {
       try {
         const today = new Date().toISOString().slice(0, 10);
         const thirtyDaysLater = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: contracts } = await (supabase.from('contracts') as any)
           .select('id, title, end_date, status')
           .eq('organization_id', orgId)

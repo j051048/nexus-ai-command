@@ -24,7 +24,7 @@ test.describe("Comprehensive System Test", () => {
         console.log(`[NETWORK] ${res.url()} ${res.status()}`);
         try {
           console.log(await res.json());
-        } catch (e) {}
+        } catch (e) { /* intentionally empty */ }
       }
     });
 

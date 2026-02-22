@@ -92,7 +92,9 @@ export default function DepartmentManagement() {
       // 获取当前用户的 organization_id
       if (user?.id) {
         const currentUser = userData?.find((u) => u.id === user.id);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if (currentUser && (currentUser as any).organization_id) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           setOrgId((currentUser as any).organization_id);
         }
       }
@@ -120,7 +122,7 @@ export default function DepartmentManagement() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, user?.id]);
 
   useEffect(() => {
     fetchData();
@@ -180,6 +182,7 @@ export default function DepartmentManagement() {
           name: formData.name,
           manager_id: managerId,
           organization_id: orgId,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any);
 
         if (error) throw error;

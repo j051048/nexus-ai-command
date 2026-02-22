@@ -99,6 +99,7 @@ export function useAttendanceRecords(month?: string) {
       const lastDay = new Date(y, m, 0).getDate();
       const endDate = `${targetMonth}-${String(lastDay).padStart(2, '0')}`;
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase.from('hr_attendance') as any)
         .select('*')
         .eq('user_id', user?.id)
@@ -137,6 +138,7 @@ export function useSalaryRecords(period?: string) {
   return useQuery({
     queryKey: ['hr-salary', user?.id, targetPeriod],
     queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase.from('hr_salary_records') as any)
         .select('*')
         .eq('user_id', user?.id)
@@ -156,6 +158,7 @@ export function usePerformanceData(period?: string) {
   return useQuery({
     queryKey: ['hr-performance', user?.id, period],
     queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let query = (supabase.from('hr_performance_reviews') as any)
         .select('*')
         .eq('user_id', user?.id)
@@ -179,6 +182,7 @@ export function useRecruitmentList() {
   return useQuery({
     queryKey: ['hr-positions', profile?.organization_id],
     queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase.from('hr_job_positions') as any)
         .select('*')
         .eq('organization_id', profile?.organization_id)
@@ -195,6 +199,7 @@ export function useCandidates(positionId: string | null) {
   return useQuery({
     queryKey: ['hr-candidates', positionId],
     queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase.from('hr_candidates') as any)
         .select('*')
         .eq('position_id', positionId)

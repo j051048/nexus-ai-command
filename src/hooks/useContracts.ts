@@ -74,7 +74,7 @@ export function useContracts(filters?: { status?: string; search?: string }) {
       const contracts = (data || []) as Contract[];
       const customerIds = [...new Set(contracts.map(c => c.customer_id).filter(Boolean))];
 
-      let customerMap: Record<string, string> = {};
+      const customerMap: Record<string, string> = {};
       if (customerIds.length > 0) {
         const { data: customers } = await customersTable()
           .select('id, name')

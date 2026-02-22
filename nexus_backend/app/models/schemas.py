@@ -5,18 +5,19 @@ Centralized location for all API request/response models.
 Ensures strong typing and validation across the application.
 """
 
-from pydantic import BaseModel, Field, field_validator
-from typing import Optional, Dict, Literal, List, Any
-from datetime import datetime
 import uuid
+from datetime import datetime
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field, field_validator
 
 # --- Common Models ---
 
 
 class StandardResponse(BaseModel):
     success: bool
-    message: Optional[str] = None
-    data: Optional[Any] = None
+    message: str | None = None
+    data: Any | None = None
 
 
 # --- Sales Performance Models ---
@@ -25,7 +26,7 @@ class StandardResponse(BaseModel):
 class PerformanceEvent(BaseModel):
     user_id: str = Field(..., description="ID of the user performing the action")
     event_type: Literal["call_finished", "email_sent", "lead_updated", "deal_won"]
-    data: Dict = Field(
+    data: dict = Field(
         ..., description="Context data: duration, sentiment_score, deal_value etc"
     )
     timestamp: datetime = Field(default_factory=datetime.now)
@@ -34,15 +35,15 @@ class PerformanceEvent(BaseModel):
 class PerformanceResult(BaseModel):
     score_delta: float
     new_daily_score: float
-    triggered_incentives: List[str] = []
+    triggered_incentives: list[str] = []
 
 
 # --- Approval Models ---
 
 
 class ApprovalRequest(BaseModel):
-    requester_id: Optional[str] = None  # Can be inferred from token
-    request_id: Optional[str] = None
+    requester_id: str | None = None  # Can be inferred from token
+    request_id: str | None = None
     type: Literal["purchase", "travel", "expense", "leave", "event", "activity", "custom"]
     amount: float = Field(..., gt=0, description="Monetary amount involved")
     details: str = Field(..., min_length=5, description="Description of the request")
@@ -60,7 +61,7 @@ class ApprovalDecision(BaseModel):
     reason: str
     boss_notification_sent: bool
     requires_human_review: bool = False
-    suggested_reviewer_role: Optional[str] = None
+    suggested_reviewer_role: str | None = None
 
 
 # --- Incentive Models ---
@@ -71,7 +72,7 @@ class IncentiveTrigger(BaseModel):
     trigger_type: Literal[
         "daily_target_hit", "deal_closed", "rank_top_3", "manual_bonus"
     ]
-    context: Dict = Field(default_factory=dict)
+    context: dict = Field(default_factory=dict)
 
 
 class IncentiveResponse(BaseModel):
@@ -88,7 +89,7 @@ class IncentiveResponse(BaseModel):
 
 class KingdeeSyncRequest(BaseModel):
     sync_type: Literal["inventory", "salary", "purchase"]
-    period: Optional[str] = None
+    period: str | None = None
     force_sync: bool = False
 
 
@@ -96,7 +97,7 @@ class KingdeeSyncResult(BaseModel):
     sync_id: str
     status: Literal["success", "failed", "partial"]
     records_processed: int
-    errors: List[str] = []
+    errors: list[str] = []
 
 
 # --- Document Models ---
@@ -104,16 +105,16 @@ class KingdeeSyncResult(BaseModel):
 
 class DocumentMetadata(BaseModel):
     doc_type: Literal["bid", "contract", "product", "proposal", "invoice", "other"]
-    client_name: Optional[str] = None
-    amount: Optional[float] = None
-    date: Optional[str] = None
-    tags: List[str] = []
-    redlines: List[str] = []
-    technical_deviations: List[str] = []
+    client_name: str | None = None
+    amount: float | None = None
+    date: str | None = None
+    tags: list[str] = []
+    redlines: list[str] = []
+    technical_deviations: list[str] = []
 
 
 class BatchDeleteRequest(BaseModel):
-    document_ids: List[str]
+    document_ids: list[str]
 
 
 # --- Project Models ---
@@ -121,18 +122,18 @@ class BatchDeleteRequest(BaseModel):
 
 class ProjectBase(BaseModel):
     name: str
-    description: Optional[str] = None
+    description: str | None = None
 
 
 class ProjectCreate(ProjectBase):
-    userId: str  # owner_id, maybe inferred from token but kept for compatibility
+    userId: str  # noqa: N815  # owner_id, maybe inferred from token but kept for compatibility
 
 
 class ProjectUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    status: Optional[str] = None
-    progress: Optional[int] = None
+    name: str | None = None
+    description: str | None = None
+    status: str | None = None
+    progress: int | None = None
 
 
 class Project(ProjectBase):
@@ -141,7 +142,7 @@ class Project(ProjectBase):
     status: str
     progress: int
     created_at: datetime
-    updated_at: Optional[datetime] = None
+    updated_at: datetime | None = None
 
 
 # --- Chat Models ---
@@ -150,16 +151,16 @@ class Project(ProjectBase):
 class Message(BaseModel):
     role: str
     content: str
-    id: Optional[str] = None
-    timestamp: Optional[str] = None
-    agent: Optional[str] = None
+    id: str | None = None
+    timestamp: str | None = None
+    agent: str | None = None
 
 
 class ChatRequest(BaseModel):
-    messages: List[Message]
-    agent: Optional[str] = None
-    userId: Optional[str] = None  # Support legacy field
+    messages: list[Message]
+    agent: str | None = None
+    userId: str | None = None  # noqa: N815  # Support legacy field
     system_confirmed: bool = (
         False  # P0 Fix #2: Explicit user confirmation from frontend
     )
-    sessionId: Optional[str] = "default"
+    sessionId: str | None = "default"  # noqa: N815

@@ -1,10 +1,11 @@
-from fastapi import APIRouter, UploadFile, File, Form, Depends, BackgroundTasks, Request
-from typing import List
-from app.services.etl_service import etl_service
-from app.core.auth import get_current_user_id
-from app.models.schemas import BatchDeleteRequest, StandardResponse
-from app.core.errors import api_success, api_error, ErrorCode
 import logging
+
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Request, UploadFile
+
+from app.core.auth import get_current_user_id
+from app.core.errors import ErrorCode, api_error, api_success
+from app.models.schemas import BatchDeleteRequest, StandardResponse
+from app.services.etl_service import etl_service
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ async def batch_delete_documents(
 async def upload_documents(
     background_tasks: BackgroundTasks,
     req: Request,
-    files: List[UploadFile] = File(...),
+    files: list[UploadFile] = File(...),
     visibility: str = Form(default="organization"),
     category: str = Form(default="other"),
     user_id: str = Depends(get_current_user_id),
@@ -218,7 +219,7 @@ async def upload_documents(
 async def batch_upload_documents(
     background_tasks: BackgroundTasks,
     req: Request,
-    files: List[UploadFile] = File(...),
+    files: list[UploadFile] = File(...),
     visibility: str = Form(default="organization"),
     user_id: str = Depends(get_current_user_id),
 ):
