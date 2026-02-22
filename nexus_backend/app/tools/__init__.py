@@ -16,7 +16,7 @@ from .operational_tools import (
     KnowledgeBaseTool,
     AwardBadgeTool,
 )
-from .project_tools import ProjectListTool, CreateEventTool, CreateProjectTool
+from .project_tools import ProjectListTool, CreateEventTool, CreateProjectTool, WeeklyReportTool
 
 # OA 办公自动化工具
 from .oa_tools import (
@@ -25,6 +25,7 @@ from .oa_tools import (
     MeetingBookingTool,
     TaskAssignmentTool,
     WorkHandoverTool,
+    OnboardingChecklistTool,
 )
 
 # 财务管理工具
@@ -52,7 +53,11 @@ from .boss_tools import (
     BusinessDashboardTool,
     TeamInsightTool,
     AnnouncementTool,
+    CustomerProfileTool,
 )
+
+# 合同分析工具
+from .contract_tools import ContractAnalysisTool
 
 # Registry of all available tools
 # P1: Strategy Pattern Registry
@@ -80,6 +85,7 @@ register_tool(AwardBadgeTool())
 register_tool(ProjectListTool())
 register_tool(CreateEventTool())
 register_tool(CreateProjectTool())
+register_tool(WeeklyReportTool())
 
 # 注册 OA 工具
 register_tool(LeaveRequestTool())
@@ -87,6 +93,7 @@ register_tool(LeaveQueryTool())
 register_tool(MeetingBookingTool())
 register_tool(TaskAssignmentTool())
 register_tool(WorkHandoverTool())
+register_tool(OnboardingChecklistTool())
 
 # 注册财务工具
 register_tool(ExpenseClaimTool())
@@ -108,6 +115,10 @@ register_tool(DailyBriefingTool())
 register_tool(BusinessDashboardTool())
 register_tool(TeamInsightTool())
 register_tool(AnnouncementTool())
+register_tool(CustomerProfileTool())
+
+# 注册合同分析工具
+register_tool(ContractAnalysisTool())
 
 
 def get_tool(name: str) -> BaseTool:

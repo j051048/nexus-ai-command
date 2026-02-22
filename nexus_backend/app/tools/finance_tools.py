@@ -364,7 +364,29 @@ class SalaryQueryTool(BaseTool):
     async def run(
         self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
     ) -> str:
-        return "💰 薪资查询功能暂未开通。\n\n该功能需要对接 HR 薪资系统，目前正在建设中。如有疑问请联系人事部门。"
+        month = args.get("month", datetime.now().strftime("%Y-%m"))
+        client = _get_client(config)
+        try:
+            result = (
+                await client.table("hr_salary_records")
+                .select("*")
+                .eq("user_id", user_id)
+                .eq("period", month)
+                .maybe_single()
+                .execute()
+            )
+            if result.data:
+                d = result.data
+                return f"""💰 {month} 薪资明细:
+
+- 基本工资: ¥{d.get('base_salary', 0):,.2f}
+- 绩效奖金: ¥{d.get('bonus', 0):,.2f}
+- 扣除合计: ¥{d.get('deductions', 0):,.2f}
+- 实发工资: ¥{d.get('net_salary', 0):,.2f}
+- 发放状态: {d.get('status', '未知')}"""
+            return f"💰 未找到 {month} 的薪资记录。请联系人事部门确认。"
+        except Exception:
+            return "💰 薪资数据表尚未配置。请联系管理员设置薪资模块。"
 
 
 class InvoiceOCRTool(BaseTool):
@@ -390,4 +412,22 @@ class InvoiceOCRTool(BaseTool):
     async def run(
         self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
     ) -> str:
-        return "🧾 发票识别功能暂未开通。\n\n该功能需要对接 OCR 服务，目前正在建设中。请手动填写发票信息。"
+        image_url = args.get("image_url", "")
+        invoice_type = args.get("invoice_type", "auto")
+
+        if not image_url:
+            return "❌ 请提供发票图片URL。"
+
+        try:
+            from app.services.ai_service import AIService
+
+            type_hint = f"（提示类型: {invoice_type}）" if invoice_type != "auto" else ""
+            result = await AIService.call_llm(
+                f"请识别以下发票信息，提取结构化数据：\n图片URL: {image_url}\n{type_hint}",
+                "你是发票OCR识别专家。请从发票中提取以下字段并以中文列表格式返回：\n"
+                "- 发票号码\n- 开票日期\n- 金额（不含税）\n- 税额\n- 价税合计\n"
+                "- 开票单位\n- 发票类型\n如果无法识别某字段，标注'未识别'。"
+            )
+            return f"🧾 发票识别结果:\n\n{result}"
+        except Exception as e:
+            return f"🧾 发票识别失败: {str(e)}\n\n请手动填写发票信息。"

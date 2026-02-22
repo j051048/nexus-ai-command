@@ -1,5 +1,6 @@
 from .base_tool import BaseTool
 from typing import Dict, Any
+from datetime import datetime, timedelta
 from app.core.database import supabase
 
 
@@ -141,3 +142,99 @@ class CreateEventTool(BaseTool):
         except Exception as e:
             return f"创建事件失败: {str(e)}"
         return "创建失败，请核对项目 ID 是否正确。"
+
+
+class WeeklyReportTool(BaseTool):
+    """AI 周报/日报自动起草"""
+
+    name = "generate_weekly_report"
+    description = "自动生成本周工作周报或日报，汇总项目进度、完成任务和下周计划。当用户说'帮我写周报'、'生成日报'时调用。"
+    required_role = "all"
+
+    parameters = {
+        "type": "object",
+        "properties": {
+            "report_type": {
+                "type": "string",
+                "enum": ["daily", "weekly"],
+                "description": "报告类型：日报或周报",
+            }
+        },
+        "required": [],
+    }
+
+    async def run(
+        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+    ) -> str:
+        from app.services.ai_service import AIService
+
+        report_type = args.get("report_type", "weekly")
+        client = _get_client(config)
+        now = datetime.now()
+
+        if report_type == "daily":
+            period_start = now.strftime('%Y-%m-%dT00:00:00')
+            report_type_name = "日报"
+        else:
+            period_start = (now - timedelta(days=now.weekday())).strftime('%Y-%m-%dT00:00:00')
+            report_type_name = "周报"
+
+        # 聚合任务数据
+        tasks_data = []
+        try:
+            tasks_res = (
+                await client.table("oa_tasks")
+                .select("title, status, priority")
+                .eq("assignee_id", user_id)
+                .gte("updated_at", period_start)
+                .execute()
+            )
+            tasks_data = tasks_res.data or []
+        except Exception:
+            pass
+
+        # 聚合项目事件
+        events_data = []
+        try:
+            events_res = (
+                await client.table("project_timeline")
+                .select("title, event_type, content")
+                .gte("created_at", period_start)
+                .limit(20)
+                .execute()
+            )
+            events_data = events_res.data or []
+        except Exception:
+            pass
+
+        # 查询用户项目
+        projects_data = []
+        try:
+            proj_res = (
+                await client.table("projects")
+                .select("name, stage, progress")
+                .eq("user_id", user_id)
+                .execute()
+            )
+            projects_data = proj_res.data or []
+        except Exception:
+            pass
+
+        prompt = (
+            f"请根据以下工作数据生成{report_type_name}:\n\n"
+            f"任务完成情况: {tasks_data}\n"
+            f"项目事件: {events_data}\n"
+            f"负责项目: {projects_data}\n"
+            f"日期范围: {period_start[:10]} 至 {now.strftime('%Y-%m-%d')}"
+        )
+        system = (
+            "你是专业的工作报告撰写助手。用简洁的中文生成工作报告，包含：\n"
+            "1. 本期完成的工作\n2. 进行中的工作\n3. 下期计划\n"
+            "如果数据为空，根据常见工作场景生成一个合理的模板框架让用户填写。"
+        )
+
+        try:
+            report = await AIService.call_llm(prompt, system)
+            return f"📝 AI 生成的{report_type_name}:\n\n{report}"
+        except Exception as e:
+            return f"📝 {report_type_name}生成失败: {str(e)}"

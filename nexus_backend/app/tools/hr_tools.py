@@ -289,12 +289,14 @@ class RecruitmentTool(BaseTool):
         "properties": {
             "action": {
                 "type": "string",
-                "enum": ["create_job", "view_candidates", "schedule_interview"],
+                "enum": ["create_job", "view_candidates", "schedule_interview", "parse_resume"],
                 "description": "操作类型",
             },
             "job_title": {"type": "string", "description": "职位名称"},
             "candidate_name": {"type": "string", "description": "候选人姓名"},
             "interview_time": {"type": "string", "description": "面试时间"},
+            "resume_text": {"type": "string", "description": "简历文本内容（parse_resume时必填）"},
+            "job_requirements": {"type": "string", "description": "岗位要求（parse_resume时可选）"},
         },
         "required": [],
     }
@@ -322,5 +324,32 @@ class RecruitmentTool(BaseTool):
 📧 已发送面试邀请邮件给候选人
 📅 已添加到您的日程
 """
+
+        elif action == "parse_resume":
+            resume_text = args.get("resume_text", "")
+            job_req = args.get("job_requirements", "")
+
+            if not resume_text:
+                return "❌ 请提供简历文本内容。"
+
+            try:
+                from app.services.ai_service import AIService
+
+                prompt = f"简历内容:\n{resume_text}"
+                if job_req:
+                    prompt += f"\n\n岗位要求:\n{job_req}"
+
+                analysis = await AIService.call_llm(
+                    prompt,
+                    "你是HR招聘专家。请分析简历并给出：\n"
+                    "1) 结构化信息提取（姓名、学历、工作年限、核心技能）\n"
+                    "2) 匹配度评分(0-100)\n"
+                    "3) 优势与不足\n"
+                    "4) 建议面试问题（2-3个）\n"
+                    "用中文回复，格式清晰。"
+                )
+                return f"📋 AI 简历分析:\n\n{analysis}"
+            except Exception as e:
+                return f"📋 简历分析失败: {str(e)}"
 
         return "功能开发中"

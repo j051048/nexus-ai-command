@@ -8,9 +8,10 @@ P0 Security Fix #1: All approval operations require explicit confirmation
 
 from .base_tool import BaseTool
 from typing import Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import logging
 from app.core.database import supabase
+from app.services.ai_service import AIService
 
 logger = logging.getLogger(__name__)
 
@@ -540,7 +541,16 @@ class DailyBriefingTool(BaseTool):
                 req_type = req.get("type", "申请")
 
                 # AI 建议
-                if amount < 5000:
+                if amount > 5000 and i <= 2:
+                    try:
+                        suggestion = await AIService.call_llm(
+                            f"审批请求: {req.get('description', req_type)}, 金额: ¥{amount:,.2f}, 申请人: {user_name}",
+                            "你是企业财务审核专家。简短给出审批建议（1句话），以emoji开头。"
+                        )
+                        suggestion = f"🤖 {suggestion}"
+                    except Exception:
+                        suggestion = "⚠️ 建议详细审核（金额较大）" if amount > 20000 else "✅ 建议批准"
+                elif amount < 5000:
                     suggestion = "✅ 建议批准（金额合理）"
                 elif amount > 20000:
                     suggestion = "⚠️ 建议详细审核（金额较大）"
@@ -567,14 +577,43 @@ class DailyBriefingTool(BaseTool):
 
 """
 
-        # 添加经营数据
+        # 添加经营数据 - 查询真实数据
+        week_start = (now - timedelta(days=now.weekday())).strftime('%Y-%m-%dT00:00:00')
+
+        # 查询本周新增商机
+        try:
+            leads_res = (
+                await client.table("sales_leads")
+                .select("*", count="exact")
+                .gte("created_at", week_start)
+                .execute()
+            )
+            new_leads = leads_res.count or len(leads_res.data or [])
+        except Exception:
+            new_leads = 0
+
+        # 查询本周成交
+        try:
+            won_res = (
+                await client.table("sales_leads")
+                .select("amount")
+                .eq("status", "won")
+                .gte("updated_at", week_start)
+                .execute()
+            )
+            won_count = len(won_res.data or [])
+            won_amount = sum(float(d.get("amount", 0)) for d in (won_res.data or []))
+        except Exception:
+            won_count = 0
+            won_amount = 0
+
         response += f"""━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📊 **经营快报**
 
 **本周业绩**
-- 新增商机: 12 个（+20%）
-- 成交订单: 3 个（¥125万）
+- 新增商机: {new_leads} 个
+- 成交订单: {won_count} 个（¥{won_amount:,.0f}）
 - 团队激励: ¥{total_bonus:,.0f}
 
 **Top 3 员工**
@@ -584,10 +623,47 @@ class DailyBriefingTool(BaseTool):
         for i, p in enumerate(top_performers):
             response += f"{medals[i]} {p.get('name', '员工')}: {p.get('score', 0)}分\n"
 
+        # 查询真实风险预警
+        risk_alerts = []
+        try:
+            thirty_days_ago = (now - timedelta(days=30)).strftime('%Y-%m-%dT00:00:00')
+            stale_res = (
+                await client.table("sales_leads")
+                .select("company_name, updated_at")
+                .lt("updated_at", thirty_days_ago)
+                .in_("status", ["negotiation", "contacted"])
+                .limit(3)
+                .execute()
+            )
+            for lead in (stale_res.data or []):
+                updated = datetime.fromisoformat(lead["updated_at"][:19])
+                days_stale = (now - updated).days
+                risk_alerts.append(f"- {lead['company_name']}：{days_stale}天未推进，建议跟进")
+        except Exception:
+            pass
+
+        try:
+            expiring_res = (
+                await client.table("contracts")
+                .select("title, end_date")
+                .gte("end_date", now.strftime('%Y-%m-%d'))
+                .lte("end_date", (now + timedelta(days=7)).strftime('%Y-%m-%d'))
+                .limit(3)
+                .execute()
+            )
+            for c in (expiring_res.data or []):
+                days_left = (datetime.strptime(c["end_date"][:10], "%Y-%m-%d") - now).days
+                risk_alerts.append(f"- {c['title']}：合同即将到期（剩{days_left}天）")
+        except Exception:
+            pass
+
+        if risk_alerts:
+            response += "\n**⚠️ 风险预警**\n"
+            response += "\n".join(risk_alerts)
+        else:
+            response += "\n✅ **当前无风险预警**"
+
         response += """
-**⚠️ 风险预警**
-- 张教授商机：30天未推进，建议今日跟进
-- 华为项目：报价即将过期（剩3天）
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -978,3 +1054,58 @@ class AnnouncementTool(BaseTool):
 📧 已推送给 {len(users)} 名员工
 📊 您可以稍后问我「公告阅读情况」查看已读统计
 """
+
+
+class CustomerProfileTool(BaseTool):
+    """AI 客户画像自动生成"""
+
+    name = "generate_customer_profile"
+    description = "根据CRM数据自动生成客户画像分析，包括标签、偏好和跟进建议。当用户说'分析客户'、'客户画像'时调用。"
+    required_role = "all"
+
+    parameters = {
+        "type": "object",
+        "properties": {
+            "customer_name": {
+                "type": "string",
+                "description": "客户/公司名称",
+            }
+        },
+        "required": ["customer_name"],
+    }
+
+    async def run(
+        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+    ) -> str:
+        name = args["customer_name"]
+        client = _get_client(config)
+
+        try:
+            leads = (
+                await client.table("sales_leads")
+                .select("*")
+                .ilike("company_name", f"%{name}%")
+                .execute()
+            )
+        except Exception as e:
+            return f"❌ 查询客户数据失败: {str(e)}"
+
+        if not leads.data:
+            return f"未找到与 '{name}' 相关的客户记录。请确认客户名称是否正确。"
+
+        leads_summary = []
+        for lead in leads.data:
+            leads_summary.append(
+                f"- 公司: {lead.get('company_name')}, 联系人: {lead.get('contact_name', '未知')}, "
+                f"状态: {lead.get('status', '未知')}, 金额: ¥{lead.get('amount', 0):,.0f}, "
+                f"来源: {lead.get('source', '未知')}, 最后更新: {lead.get('updated_at', '')[:10]}"
+            )
+
+        prompt = f"客户数据:\n" + "\n".join(leads_summary) + "\n\n请生成客户画像，包括：客户标签、合作偏好、风险评估、推荐跟进策略。"
+        system = "你是资深CRM分析师，基于客户交互历史生成精准画像。用中文回复，格式清晰。"
+
+        try:
+            profile = await AIService.call_llm(prompt, system)
+            return f"👤 {name} 客户画像:\n\n{profile}"
+        except Exception as e:
+            return f"👤 客户画像生成失败: {str(e)}"

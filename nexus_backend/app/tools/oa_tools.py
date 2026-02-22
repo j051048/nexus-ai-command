@@ -604,3 +604,96 @@ class WorkHandoverTool(BaseTool):
 
 📧 已通知 {handover_to['name']}，请与对方确认交接细节。
 """
+
+
+class OnboardingChecklistTool(BaseTool):
+    """AI 自动生成入职清单"""
+
+    name = "generate_onboarding_checklist"
+    description = "根据岗位类型自动生成新员工入职清单，并创建对应任务。当用户说'入职清单'、'新员工入职'时调用。"
+    required_role = "manager"
+
+    parameters = {
+        "type": "object",
+        "properties": {
+            "job_title": {"type": "string", "description": "岗位名称"},
+            "department": {"type": "string", "description": "部门"},
+            "employee_name": {"type": "string", "description": "新员工姓名"},
+        },
+        "required": ["job_title"],
+    }
+
+    async def run(
+        self, args: Dict[str, Any], user_id: str, config: Dict[str, Any] = None
+    ) -> str:
+        import json as _json
+        from app.services.ai_service import AIService
+
+        job_title = args.get("job_title", "")
+        department = args.get("department", "")
+        employee_name = args.get("employee_name", "新员工")
+        client = _get_client(config)
+
+        prompt = f"岗位: {job_title}, 部门: {department or '未指定'}, 员工: {employee_name}"
+        system = (
+            "你是HR入职专家。生成入职清单，包含入职前准备、第一天、第一周、第一个月的待办事项。\n"
+            "严格以JSON数组格式返回，每个元素包含 title, description, priority (high/medium/low) 三个字段。\n"
+            "只返回JSON数组，不要其他文字。生成8-12个事项。"
+        )
+
+        try:
+            checklist_text = await AIService.call_llm(prompt, system)
+
+            # 清理 LLM 返回的 JSON
+            clean = checklist_text.strip()
+            if "```json" in clean:
+                clean = clean.split("```json")[1].split("```")[0].strip()
+            elif "```" in clean:
+                clean = clean.split("```")[1].split("```")[0].strip()
+
+            items = _json.loads(clean)
+            if not isinstance(items, list):
+                return f"📋 AI 生成的入职清单:\n\n{checklist_text}"
+
+            # 获取组织ID
+            org_id = config.get("org_id") if config else None
+
+            # 批量创建任务
+            created = 0
+            for item in items[:15]:
+                try:
+                    task_data = {
+                        "title": f"[入职-{employee_name}] {item.get('title', '')}",
+                        "description": item.get("description", ""),
+                        "priority": item.get("priority", "medium"),
+                        "status": "pending",
+                        "created_by": user_id,
+                    }
+                    if org_id:
+                        task_data["organization_id"] = org_id
+                    await client.table("oa_tasks").insert(task_data).execute()
+                    created += 1
+                except Exception:
+                    continue
+
+            # 生成可读清单
+            checklist_display = ""
+            for i, item in enumerate(items, 1):
+                priority_icon = {"high": "🔴", "medium": "🟡", "low": "🟢"}.get(
+                    item.get("priority", "medium"), "🟡"
+                )
+                checklist_display += f"{i}. {priority_icon} {item.get('title', '')}\n"
+                if item.get("description"):
+                    checklist_display += f"   {item['description']}\n"
+
+            return f"""✅ 已为 {employee_name} ({job_title}) 生成 {created} 项入职任务
+
+📋 **入职清单**
+
+{checklist_display}
+📌 所有任务已创建到任务管理系统中。"""
+
+        except _json.JSONDecodeError:
+            return f"📋 AI 生成的入职清单:\n\n{checklist_text}"
+        except Exception as e:
+            return f"❌ 入职清单生成失败: {str(e)}"
