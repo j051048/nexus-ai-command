@@ -1,16 +1,512 @@
-import { FeatureComingSoon } from '@/components/common/FeatureComingSoon';
+import { useState, useEffect, useCallback } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Progress } from '@/components/ui/progress';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Receipt,
+  FileText,
+  PiggyBank,
+  DollarSign,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Plus,
+  Loader2,
+  Wallet,
+} from 'lucide-react';
+import { useAuth } from '@/components/auth/AuthContext';
+import { useMyApprovals, useSubmitApproval } from '@/hooks/useApprovals';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+// Local interface for finance_budgets (not in types.ts)
+interface FinanceBudget {
+  id: string;
+  organization_id: string;
+  department_id?: string;
+  project_id?: string;
+  name: string;
+  total_amount: number;
+  used_amount: number;
+  period: string;
+  created_at: string;
+}
+
+// Local interface for finance_invoices rows
+interface FinanceInvoice {
+  id: string;
+  organization_id: string;
+  invoice_number: string;
+  amount: number;
+  status: string;
+  due_date: string | null;
+  customer_id: string | null;
+  created_at: string;
+}
 
 export function FinanceCenter() {
+  const { user, profile } = useAuth();
+  const [activeTab, setActiveTab] = useState('expense');
+
+  // --- Expense tab (reuse existing hooks) ---
+  const { data: myApprovals, isLoading: expenseLoading } = useMyApprovals();
+  const submitApproval = useSubmitApproval();
+
+  const expenseRecords = (myApprovals || []).filter(
+    (a) => a.type === 'expense' || a.type === 'travel' || a.type === 'purchase'
+  );
+
+  const expenseStats = {
+    totalAmount: expenseRecords
+      .filter((a) => a.status === 'approved')
+      .reduce((sum, a) => sum + (a.amount || 0), 0),
+    pending: expenseRecords.filter((a) => a.status === 'pending').length,
+    rejected: expenseRecords.filter((a) => a.status === 'rejected').length,
+    total: expenseRecords.length,
+  };
+
+  // --- New expense dialog ---
+  const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
+  const [expenseForm, setExpenseForm] = useState({
+    type: 'expense',
+    description: '',
+    amount: 0,
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmitExpense = async () => {
+    if (!expenseForm.description.trim()) {
+      toast.error('请填写报销说明');
+      return;
+    }
+    if (expenseForm.amount <= 0) {
+      toast.error('请输入有效金额');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const result = await submitApproval.mutateAsync({
+        type: expenseForm.type,
+        description: expenseForm.description,
+        amount: expenseForm.amount,
+      });
+      if (result.status === 'approved') {
+        toast.success('金额较小，已自动审批通过');
+      } else {
+        toast.success('报销申请已提交，等待审批');
+      }
+      setExpenseDialogOpen(false);
+      setExpenseForm({ type: 'expense', description: '', amount: 0 });
+    } catch (error: any) {
+      toast.error(error?.message || '提交失败');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // --- Invoice tab ---
+  const [invoices, setInvoices] = useState<FinanceInvoice[]>([]);
+  const [invoiceLoading, setInvoiceLoading] = useState(true);
+
+  const fetchInvoices = useCallback(async () => {
+    try {
+      if (!profile?.organization_id) return;
+      const { data, error } = await supabase
+        .from('finance_invoices')
+        .select('*')
+        .eq('organization_id', profile.organization_id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setInvoices((data as FinanceInvoice[]) || []);
+    } catch (error: any) {
+      console.error('Error fetching invoices:', error);
+    } finally {
+      setInvoiceLoading(false);
+    }
+  }, [profile?.organization_id]);
+
+  // --- Budget tab ---
+  const [budgets, setBudgets] = useState<FinanceBudget[]>([]);
+  const [budgetLoading, setBudgetLoading] = useState(true);
+
+  const fetchBudgets = useCallback(async () => {
+    try {
+      if (!profile?.organization_id) return;
+      const { data, error } = await (supabase.from('finance_budgets') as any)
+        .select('*')
+        .eq('organization_id', profile.organization_id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setBudgets((data as FinanceBudget[]) || []);
+    } catch (error: any) {
+      console.error('Error fetching budgets:', error);
+    } finally {
+      setBudgetLoading(false);
+    }
+  }, [profile?.organization_id]);
+
+  useEffect(() => {
+    fetchInvoices();
+    fetchBudgets();
+  }, [fetchInvoices, fetchBudgets]);
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return <Badge className="bg-green-500/10 text-green-600 border-green-200">已通过</Badge>;
+      case 'rejected':
+        return <Badge className="bg-red-500/10 text-red-600 border-red-200">已拒绝</Badge>;
+      case 'pending':
+        return <Badge className="bg-yellow-500/10 text-yellow-600 border-yellow-200">待审批</Badge>;
+      case 'paid':
+        return <Badge className="bg-green-500/10 text-green-600 border-green-200">已付款</Badge>;
+      case 'overdue':
+        return <Badge className="bg-red-500/10 text-red-600 border-red-200">已逾期</Badge>;
+      case 'draft':
+        return <Badge className="bg-gray-500/10 text-gray-600 border-gray-200">草稿</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const getExpenseTypeLabel = (type: string) => {
+    switch (type) {
+      case 'expense': return '日常报销';
+      case 'travel': return '差旅报销';
+      case 'purchase': return '采购申请';
+      default: return type;
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">财务中心</h1>
-        <p className="text-muted-foreground">管理报销申请和查看预算</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">财务中心</h1>
+          <p className="text-muted-foreground">管理报销申请、发票和预算</p>
+        </div>
+        <Button onClick={() => setExpenseDialogOpen(true)} className="gap-2">
+          <Plus className="w-4 h-4" />
+          新建报销
+        </Button>
       </div>
-      <FeatureComingSoon
-        title="财务中心"
-        description="报销管理、预算概览等财务功能正在建设中，敬请期待"
-      />
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="expense" className="gap-2">
+            <Receipt className="w-4 h-4" />
+            报销管理
+          </TabsTrigger>
+          <TabsTrigger value="invoice" className="gap-2">
+            <FileText className="w-4 h-4" />
+            发票管理
+          </TabsTrigger>
+          <TabsTrigger value="budget" className="gap-2">
+            <PiggyBank className="w-4 h-4" />
+            预算概览
+          </TabsTrigger>
+        </TabsList>
+
+        {/* 报销管理 */}
+        <TabsContent value="expense" className="space-y-4">
+          {/* 统计卡片 */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">已报销金额</p>
+                    <p className="text-2xl font-bold">{expenseStats.totalAmount.toLocaleString()}</p>
+                  </div>
+                  <div className="p-3 rounded-full bg-green-500/10">
+                    <DollarSign className="w-6 h-6 text-green-500" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">待审批</p>
+                    <p className="text-2xl font-bold text-yellow-500">{expenseStats.pending}</p>
+                  </div>
+                  <div className="p-3 rounded-full bg-yellow-500/10">
+                    <Clock className="w-6 h-6 text-yellow-500" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">已拒绝</p>
+                    <p className="text-2xl font-bold text-red-500">{expenseStats.rejected}</p>
+                  </div>
+                  <div className="p-3 rounded-full bg-red-500/10">
+                    <XCircle className="w-6 h-6 text-red-500" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">总申请数</p>
+                    <p className="text-2xl font-bold">{expenseStats.total}</p>
+                  </div>
+                  <div className="p-3 rounded-full bg-blue-500/10">
+                    <Receipt className="w-6 h-6 text-blue-500" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 报销记录 */}
+          <Card>
+            <CardHeader>
+              <CardTitle>报销记录</CardTitle>
+              <CardDescription>您的报销申请历史</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {expenseLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : expenseRecords.length === 0 ? (
+                <div className="text-center py-12">
+                  <Wallet className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">暂无报销记录</p>
+                  <Button
+                    variant="outline"
+                    className="mt-4"
+                    onClick={() => setExpenseDialogOpen(true)}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    提交第一笔报销
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {expenseRecords.map((record) => (
+                    <div
+                      key={record.id}
+                      className="flex items-center justify-between p-3 rounded-lg border"
+                    >
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div className="text-sm">
+                          <p className="font-medium truncate">{record.description || '无描述'}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {getExpenseTypeLabel(record.type)} &middot;{' '}
+                            {new Date(record.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 shrink-0">
+                        <span className="font-medium">
+                          {record.amount != null ? `¥${record.amount.toLocaleString()}` : '-'}
+                        </span>
+                        {getStatusBadge(record.status)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 发票管理 */}
+        <TabsContent value="invoice" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>发票列表</CardTitle>
+              <CardDescription>组织内的发票记录</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {invoiceLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : invoices.length === 0 ? (
+                <div className="text-center py-12">
+                  <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">暂无发票记录</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {invoices.map((inv) => (
+                    <div
+                      key={inv.id}
+                      className="flex items-center justify-between p-3 rounded-lg border"
+                    >
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div className="text-sm">
+                          <p className="font-medium">{inv.invoice_number}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(inv.created_at).toLocaleDateString()}
+                            {inv.due_date && ` | 到期: ${new Date(inv.due_date).toLocaleDateString()}`}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 shrink-0">
+                        <span className="font-medium">¥{inv.amount.toLocaleString()}</span>
+                        {getStatusBadge(inv.status)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 预算概览 */}
+        <TabsContent value="budget" className="space-y-4">
+          {budgetLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : budgets.length === 0 ? (
+            <div className="text-center py-12 bg-muted/10 rounded-xl border border-dashed">
+              <PiggyBank className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium">暂无预算数据</h3>
+              <p className="text-muted-foreground mt-1">预算信息将由管理员配置后显示</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {budgets.map((budget) => {
+                const usedPercent =
+                  budget.total_amount > 0
+                    ? Math.round((budget.used_amount / budget.total_amount) * 100)
+                    : 0;
+                const remaining = budget.total_amount - budget.used_amount;
+                return (
+                  <Card key={budget.id}>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">{budget.name}</CardTitle>
+                      <CardDescription>{budget.period}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">总预算</span>
+                          <span className="font-medium">¥{budget.total_amount.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">已使用</span>
+                          <span className="font-medium text-orange-500">
+                            ¥{budget.used_amount.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">剩余</span>
+                          <span
+                            className={`font-medium ${remaining < 0 ? 'text-red-500' : 'text-green-500'}`}
+                          >
+                            ¥{remaining.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>使用率</span>
+                            <span>{usedPercent}%</span>
+                          </div>
+                          <Progress
+                            value={Math.min(usedPercent, 100)}
+                            className={`h-2 ${usedPercent > 90 ? '[&>div]:bg-red-500' : usedPercent > 70 ? '[&>div]:bg-yellow-500' : ''}`}
+                          />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* 新建报销 Dialog */}
+      <Dialog open={expenseDialogOpen} onOpenChange={setExpenseDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>新建报销申请</DialogTitle>
+            <DialogDescription>填写报销信息，提交后进入审批流程</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>报销类型</Label>
+              <Select
+                value={expenseForm.type}
+                onValueChange={(v) => setExpenseForm({ ...expenseForm, type: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="expense">日常报销</SelectItem>
+                  <SelectItem value="travel">差旅报销</SelectItem>
+                  <SelectItem value="purchase">采购申请</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>金额 (元)</Label>
+              <Input
+                type="number"
+                placeholder="0.00"
+                value={expenseForm.amount || ''}
+                onChange={(e) =>
+                  setExpenseForm({ ...expenseForm, amount: Number(e.target.value) })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>报销说明</Label>
+              <Textarea
+                placeholder="请描述报销事由..."
+                value={expenseForm.description}
+                onChange={(e) =>
+                  setExpenseForm({ ...expenseForm, description: e.target.value })
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExpenseDialogOpen(false)}>
+              取消
+            </Button>
+            <Button onClick={handleSubmitExpense} disabled={submitting}>
+              {submitting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              提交报销
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
