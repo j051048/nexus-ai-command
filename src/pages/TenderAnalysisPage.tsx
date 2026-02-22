@@ -45,32 +45,76 @@ export function TenderAnalysisPage() {
         setAnalysisStartTime(Date.now());
 
         try {
-            // Step 1: Upload
+            // Step 1: Upload with robust URL discovery (same as DocumentsPage)
             const formData = new FormData();
             formData.append('files', file);
+            if (user?.id) {
+                formData.append('userId', user.id);
+            }
+
+            // Robust URL Discovery
+            let url = '';
+            const configuredUrl = import.meta.env.VITE_API_BASE_URL;
+            if (configuredUrl) {
+                url = configuredUrl.startsWith('http') ? configuredUrl : `https://${configuredUrl}`;
+            } else {
+                url = window.location.hostname === 'localhost' ? 'http://localhost:8000' : window.location.origin;
+            }
+            const endpoint = `${url.replace(/\/$/, '')}/api/documents/upload`;
 
             const { data: { session } } = await supabase.auth.getSession();
             const token = session?.access_token;
 
-            const uploadRes = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/documents/upload`, {
+            if (!token) {
+                toast.error('请先登录');
+                setAnalyzing(false);
+                return;
+            }
+
+            const uploadRes = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
-                    'Authorization': token ? `Bearer ${token}` : ''
+                    'Authorization': `Bearer ${token}`
                 },
-                body: formData
+                body: formData,
+                mode: 'cors',
+            }).catch(err => {
+                console.error('Fetch error details:', err);
+                throw new Error(`网络连接异常: 无法触达后端 [${endpoint}]。请确认后端服务已启动。`);
             });
+
+            if (!uploadRes.ok) {
+                const errorBody = await uploadRes.json().catch(() => ({}));
+                throw new Error(errorBody.message || errorBody.reason || `上传失败 (HTTP ${uploadRes.status})`);
+            }
+
             const uploadData = await uploadRes.json();
 
-            if (uploadData.results && uploadData.results[0].document_id) {
-                setDocId(uploadData.results[0].document_id);
+            // Backend returns StandardResponse: { success, data: { results: [...] } }
+            const results = uploadData.data?.results || uploadData.results;
+            const firstResult = results?.[0];
+
+            if (firstResult?.status === 'error') {
+                throw new Error(firstResult.reason || firstResult.message || 'AI 解析文档失败');
+            }
+
+            if (firstResult?.status === 'duplicate') {
+                toast.warning(firstResult.message || '文件内容与已有文档重复');
+                setAnalyzing(false);
+                return;
+            }
+
+            if (firstResult?.document_id) {
+                setDocId(firstResult.document_id);
                 toast.info("文档已上传，AI 分析启动...");
             } else {
-                throw new Error("Upload failed to return document ID");
+                throw new Error("上传返回异常，未获取到文档 ID");
             }
 
         } catch (error) {
             console.error(error);
-            toast.error("上传失败，请检查网络");
+            const message = error instanceof Error ? error.message : '上传处理异常，请重试';
+            toast.error(message);
             setAnalyzing(false);
         }
     };
