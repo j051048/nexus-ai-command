@@ -32,6 +32,7 @@ import {
   XCircle,
   CalendarOff,
   ClipboardList,
+  FileText,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -341,7 +342,7 @@ export function OACenter() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="leave" className="gap-2">
             <CalendarDays className="w-4 h-4" />
             请假管理
@@ -353,6 +354,10 @@ export function OACenter() {
           <TabsTrigger value="task" className="gap-2">
             <ListTodo className="w-4 h-4" />
             任务管理
+          </TabsTrigger>
+          <TabsTrigger value="report" className="gap-2">
+            <FileText className="w-4 h-4" />
+            工作报告
           </TabsTrigger>
         </TabsList>
 
@@ -588,6 +593,35 @@ export function OACenter() {
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* 工作报告 */}
+        <TabsContent value="report" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>AI 工作报告</CardTitle>
+              <CardDescription>自动聚合本周工作数据，AI 帮您撰写周报/日报</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8 space-y-4">
+                <FileText className="w-12 h-12 text-muted-foreground mx-auto" />
+                <p className="text-muted-foreground">
+                  在 AI 聊天面板中输入 <span className="font-medium text-primary">"帮我写周报"</span> 或 <span className="font-medium text-primary">"生成日报"</span>，
+                  AI 将自动汇总您的任务完成情况、项目进度，生成专业的工作报告。
+                </p>
+                <div className="flex justify-center gap-3">
+                  <Button variant="outline" size="sm" onClick={() => toast.info('请在右侧 AI 聊天面板输入"帮我写日报"')}>
+                    <FileText className="w-4 h-4 mr-2" />
+                    AI 生成日报
+                  </Button>
+                  <Button size="sm" onClick={() => toast.info('请在右侧 AI 聊天面板输入"帮我写周报"')}>
+                    <FileText className="w-4 h-4 mr-2" />
+                    AI 生成周报
+                  </Button>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

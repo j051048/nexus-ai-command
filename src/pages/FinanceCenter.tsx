@@ -94,6 +94,15 @@ export function FinanceCenter() {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  // --- New budget dialog ---
+  const [budgetDialogOpen, setBudgetDialogOpen] = useState(false);
+  const [budgetForm, setBudgetForm] = useState({
+    name: '',
+    total_amount: 0,
+    period: new Date().toISOString().slice(0, 7),
+  });
+  const [budgetSubmitting, setBudgetSubmitting] = useState(false);
+
   const handleSubmitExpense = async () => {
     if (!expenseForm.description.trim()) {
       toast.error('请填写报销说明');
@@ -121,6 +130,36 @@ export function FinanceCenter() {
       toast.error(error?.message || '提交失败');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSubmitBudget = async () => {
+    if (!budgetForm.name.trim()) {
+      toast.error('请填写预算名称');
+      return;
+    }
+    if (budgetForm.total_amount <= 0) {
+      toast.error('请输入有效金额');
+      return;
+    }
+    setBudgetSubmitting(true);
+    try {
+      const { error } = await (supabase.from('finance_budgets') as any).insert({
+        name: budgetForm.name,
+        total_amount: budgetForm.total_amount,
+        used_amount: 0,
+        period: budgetForm.period,
+        organization_id: profile?.organization_id,
+      });
+      if (error) throw error;
+      toast.success('预算创建成功');
+      setBudgetDialogOpen(false);
+      setBudgetForm({ name: '', total_amount: 0, period: new Date().toISOString().slice(0, 7) });
+      fetchBudgets();
+    } catch (error: any) {
+      toast.error(error?.message || '创建预算失败');
+    } finally {
+      setBudgetSubmitting(false);
     }
   };
 
@@ -386,6 +425,12 @@ export function FinanceCenter() {
 
         {/* 预算概览 */}
         <TabsContent value="budget" className="space-y-4">
+          <div className="flex justify-end">
+            <Button size="sm" className="gap-2" onClick={() => setBudgetDialogOpen(true)}>
+              <Plus className="w-4 h-4" />
+              新建预算
+            </Button>
+          </div>
           {budgetLoading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -503,6 +548,50 @@ export function FinanceCenter() {
             <Button onClick={handleSubmitExpense} disabled={submitting}>
               {submitting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
               提交报销
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 新建预算 Dialog */}
+      <Dialog open={budgetDialogOpen} onOpenChange={setBudgetDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>新建预算</DialogTitle>
+            <DialogDescription>设置部门或项目预算额度</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>预算名称</Label>
+              <Input
+                placeholder="例如：市场部Q1预算"
+                value={budgetForm.name}
+                onChange={(e) => setBudgetForm({ ...budgetForm, name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>总金额 (元)</Label>
+              <Input
+                type="number"
+                placeholder="0.00"
+                value={budgetForm.total_amount || ''}
+                onChange={(e) => setBudgetForm({ ...budgetForm, total_amount: Number(e.target.value) })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>预算期间</Label>
+              <Input
+                type="month"
+                value={budgetForm.period}
+                onChange={(e) => setBudgetForm({ ...budgetForm, period: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBudgetDialogOpen(false)}>取消</Button>
+            <Button onClick={handleSubmitBudget} disabled={budgetSubmitting}>
+              {budgetSubmitting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              创建预算
             </Button>
           </DialogFooter>
         </DialogContent>

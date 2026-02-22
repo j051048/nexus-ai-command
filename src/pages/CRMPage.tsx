@@ -156,6 +156,15 @@ function KanbanView({
   onSelect: (c: Customer) => void;
 }) {
   const columns = ['lead', 'prospect', 'opportunity', 'customer'];
+  const updateMutation = useUpdateCustomer();
+
+  const advanceStage = (e: React.MouseEvent, customer: Customer) => {
+    e.stopPropagation();
+    const idx = columns.indexOf(customer.stage);
+    if (idx >= 0 && idx < columns.length - 1) {
+      updateMutation.mutate({ id: customer.id, data: { stage: columns[idx + 1] } });
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -169,9 +178,24 @@ function KanbanView({
               <Badge variant="outline" className="text-xs">{stageCustomers.length}</Badge>
             </div>
             <div className="space-y-2 min-h-[200px]">
-              {stageCustomers.map(c => (
-                <CustomerCard key={c.id} customer={c} onClick={() => onSelect(c)} />
-              ))}
+              {stageCustomers.map(c => {
+                const canAdvance = columns.indexOf(c.stage) < columns.length - 1;
+                return (
+                  <div key={c.id} className="relative">
+                    <CustomerCard customer={c} onClick={() => onSelect(c)} />
+                    {canAdvance && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="absolute bottom-1 right-1 h-6 px-2 text-xs gap-1 opacity-60 hover:opacity-100"
+                        onClick={(e) => advanceStage(e, c)}
+                      >
+                        推进 <ChevronRight className="w-3 h-3" />
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
               {stageCustomers.length === 0 && (
                 <div className="text-center py-8 text-sm text-muted-foreground border border-dashed rounded-lg">
                   暂无客户
@@ -245,10 +269,15 @@ function CustomerDetailSheet({
 }) {
   const { data: timeline = [], isLoading: timelineLoading } = useCustomerTimeline(customer?.id || null);
   const { data: contacts = [], isLoading: contactsLoading } = useCustomerContacts(customer?.id || null);
+  const updateMutation = useUpdateCustomer();
 
   if (!customer) return null;
 
   const stage = STAGES[customer.stage] || STAGES.lead;
+
+  const handleStageChange = (newStage: string) => {
+    updateMutation.mutate({ id: customer.id, data: { stage: newStage } });
+  };
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
@@ -264,7 +293,16 @@ function CustomerDetailSheet({
         {/* 基本信息 */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <Badge className={cn('text-sm', stage.color, stage.bg)}>{stage.name}</Badge>
+            <Select value={customer.stage} onValueChange={handleStageChange}>
+              <SelectTrigger className="w-[130px]">
+                <Badge className={cn('text-sm', stage.color, stage.bg)}>{stage.name}</Badge>
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(STAGES).map(([key, val]) => (
+                  <SelectItem key={key} value={key}>{val.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {customer.estimated_value > 0 && (
               <span className="text-lg font-bold">{'\u00A5'}{Number(customer.estimated_value).toLocaleString()}</span>
             )}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
     ArrowLeft,
     Calendar,
@@ -11,10 +12,14 @@ import {
     Utensils,
     ChevronRight,
     Zap,
-    MoreVertical
+    MoreVertical,
+    ListTodo,
+    Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useProjectDetail, ProjectTimeline } from '@/hooks/useProjects';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -205,8 +210,94 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
                             </div>
                         </div>
                     </div>
+
+                    {/* Subtask List */}
+                    <ProjectSubtasks projectId={projectId} />
                 </div>
             </div>
+        </div>
+    );
+}
+
+/* ────────────────── Project Subtasks ────────────────── */
+interface OATask {
+    id: string;
+    title: string;
+    status: string;
+    priority: string;
+    assignee_id: string | null;
+    created_at: string;
+}
+
+const taskStatusConfig: Record<string, { label: string; color: string }> = {
+    pending: { label: '待处理', color: 'text-yellow-500 bg-yellow-500/10' },
+    in_progress: { label: '进行中', color: 'text-blue-500 bg-blue-500/10' },
+    completed: { label: '已完成', color: 'text-green-500 bg-green-500/10' },
+    cancelled: { label: '已取消', color: 'text-gray-500 bg-gray-500/10' },
+};
+
+const priorityConfig: Record<string, { label: string; color: string }> = {
+    high: { label: '高', color: 'text-red-500' },
+    medium: { label: '中', color: 'text-yellow-500' },
+    low: { label: '低', color: 'text-green-500' },
+};
+
+function ProjectSubtasks({ projectId }: { projectId: string }) {
+    const { data: tasks = [], isLoading } = useQuery({
+        queryKey: ['project-subtasks', projectId],
+        queryFn: async () => {
+            const { data, error } = await (supabase.from('oa_tasks') as any)
+                .select('id, title, status, priority, assignee_id, created_at')
+                .or(`metadata->>project_id.eq.${projectId},title.ilike.[${projectId.slice(0, 8)}]%`)
+                .order('created_at', { ascending: false })
+                .limit(20);
+
+            if (error) throw error;
+            return (data || []) as OATask[];
+        },
+        enabled: !!projectId,
+    });
+
+    return (
+        <div className="bg-card rounded-2xl p-6 border border-border shadow-sm mt-6">
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                    <ListTodo className="w-5 h-5" />
+                    关联任务
+                </h3>
+                <Badge variant="outline">{tasks.length} 项</Badge>
+            </div>
+
+            {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                </div>
+            ) : tasks.length === 0 ? (
+                <div className="text-center py-8 text-sm text-muted-foreground border border-dashed rounded-lg">
+                    暂无关联任务，可通过 AI 助手创建项目任务
+                </div>
+            ) : (
+                <div className="space-y-2">
+                    {tasks.map(task => {
+                        const status = taskStatusConfig[task.status] || taskStatusConfig.pending;
+                        const priority = priorityConfig[task.priority] || priorityConfig.medium;
+                        return (
+                            <div key={task.id} className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors">
+                                <div className="flex items-center gap-3">
+                                    <CheckCircle2 className={cn('w-4 h-4', task.status === 'completed' ? 'text-green-500' : 'text-muted-foreground')} />
+                                    <span className={cn('text-sm font-medium', task.status === 'completed' && 'line-through text-muted-foreground')}>
+                                        {task.title}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={cn('text-xs', priority.color)}>{priority.label}</span>
+                                    <Badge className={cn('text-xs', status.color)}>{status.label}</Badge>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }
