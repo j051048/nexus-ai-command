@@ -28,7 +28,7 @@ class ProjectListTool(BaseTool):
         if not result.data:
             return "暂无进行中的项目。"
         items = [
-            f"ID: {p['id']} | 名称: {p['name']} | 状态: {p['stage']} | 进度: {p['progress']}%"
+            f"ID: {p['id']} | 名称: {p['name']} | 状态: {p.get('stage', '未知')} | 进度: {p.get('progress', 0)}%"
             for p in result.data
         ]
         return "项目清单：\n" + "\n".join(items)
@@ -65,10 +65,15 @@ class CreateProjectTool(BaseTool):
             data = {
                 "name": name,
                 "description": description,
-                "owner_id": user_id,
+                "user_id": user_id,
                 "stage": status,
                 "progress": 0,
             }
+            # Include organization_id for RLS org isolation
+            org_id = config.get("org_id") if config else None
+            if org_id:
+                data["organization_id"] = org_id
+
             client = _get_client(config)
             res = await client.table("projects").insert(data).execute()
             if res.data:
@@ -126,7 +131,6 @@ class CreateEventTool(BaseTool):
                         "title": title,
                         "content": content,
                         "event_type": event_type,
-                        "created_by": user_id,
                     }
                 )
                 .execute()

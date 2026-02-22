@@ -28,8 +28,8 @@ async def get_projects(user_id: str):
         query = supabase.table("projects").select("*")
 
         # Security Policy: Non-founders only see their own projects
-        if role != "founder":
-            query = query.eq("owner_id", user_id)
+        if role not in ("founder", "boss"):
+            query = query.eq("user_id", user_id)
 
         res = await query.order("created_at", desc=True).execute()
 
@@ -47,7 +47,7 @@ async def create_project(project: ProjectCreate):
         data = {
             "name": project.name,
             "description": project.description,
-            "owner_id": project.userId,
+            "user_id": project.userId,
             "stage": "planning",
             "progress": 0,
         }

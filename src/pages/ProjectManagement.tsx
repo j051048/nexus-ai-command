@@ -14,9 +14,10 @@ interface Project {
     id: string;
     name: string;
     description: string;
-    status: 'planning' | 'in_progress' | 'completed' | 'on_hold';
+    stage: 'planning' | 'in_progress' | 'completed' | 'on_hold';
     progress: number;
     created_at: string;
+    user_id: string;
 }
 
 import { useNavigate } from "react-router-dom";
@@ -42,16 +43,16 @@ export function ProjectManagement() {
                 .order('created_at', { ascending: false });
 
             if (user.role !== 'boss') {
-                query.eq('owner_id', user.id);
+                query.eq('user_id', user.id);
             }
 
             const { data, error } = await query;
 
             if (error) throw error;
             setProjects(data as Project[] || []);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error fetching projects:", error);
-            toast.error("加载项目失败");
+            toast.error(error?.message || "加载项目失败");
         } finally {
             setLoading(false);
         }
@@ -68,7 +69,7 @@ export function ProjectManagement() {
                 event: '*',
                 schema: 'public',
                 table: 'projects',
-                filter: user?.role === 'boss' ? undefined : `owner_id=eq.${user?.id}`,
+                filter: user?.role === 'boss' ? undefined : `user_id=eq.${user?.id}`,
             }, () => {
                 fetchProjects();
             })
@@ -146,8 +147,8 @@ export function ProjectManagement() {
         }
     };
 
-    const getStatusBadge = (status: string) => {
-        switch (status) {
+    const getStatusBadge = (stage: string) => {
+        switch (stage) {
             case 'in_progress': return <Badge variant="default" className="bg-blue-500">进行中</Badge>;
             case 'completed': return <Badge variant="default" className="bg-green-500">已完成</Badge>;
             case 'on_hold': return <Badge variant="secondary">已暂停</Badge>;
@@ -224,7 +225,7 @@ export function ProjectManagement() {
                                             <Calendar className="w-3 h-3" /> {new Date(project.created_at).toLocaleDateString()}
                                         </span>
                                     </div>
-                                    {getStatusBadge(project.status)}
+                                    {getStatusBadge(project.stage)}
                                 </div>
                             </CardHeader>
                             <CardContent>
