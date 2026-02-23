@@ -77,7 +77,6 @@ const TargetDashboard = lazy(() => import("@/pages/TargetDashboard").then(m => (
 const DocumentsPage = lazy(() => import("@/components/documents/DocumentsPage").then(m => ({ default: m.DocumentsPage })));
 const AISettingsPanel = lazy(() => import("@/components/settings/AISettingsPanel").then(m => ({ default: m.AISettingsPanel })));
 const EmployeeManagement = lazy(() => import("@/components/admin/EmployeeManagement").then(m => ({ default: m.EmployeeManagement })));
-const RoleManagement = lazy(() => import("@/pages/RoleManagement"));
 const DepartmentManagement = lazy(() => import("@/pages/DepartmentManagement"));
 const AnimationShowcase = lazy(() => import("@/pages/AnimationShowcase"));
 
@@ -196,7 +195,6 @@ const App = () => (
                 <Route path="knowledge" element={<DocumentsPage />} />
                 <Route path="settings" element={<AISettingsPanel />} />
                 <Route path="employees" element={<EmployeeManagement />} />
-                <Route path="roles" element={<RoleManagement />} />
                 <Route path="departments" element={<DepartmentManagement />} />
 
                 {/* 可视化流程设计器 */}

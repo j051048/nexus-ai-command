@@ -14,7 +14,7 @@ export interface Employee {
   rank: number;
   total_bonus: number;
   created_at: string;
-  role: 'boss' | 'ai_assistant' | 'employee';
+  role: 'boss' | 'ai_assistant' | 'manager' | 'employee';
 }
 
 // Fetch all employees (for boss)
@@ -49,7 +49,8 @@ export function useAllEmployees() {
         total_bonus: u.total_bonus || 0,
         created_at: u.created_at,
         role: (u.role === 'founder' || u.role === 'boss' ? 'boss' :
-              u.role === 'ai_assistant' ? 'ai_assistant' : 'employee') as 'boss' | 'ai_assistant' | 'employee',
+              u.role === 'ai_assistant' ? 'ai_assistant' :
+              u.role === 'manager' ? 'manager' : 'employee') as Employee['role'],
       })) as Employee[];
     },
     enabled: !!profile?.organization_id // Only run if we know the org
@@ -106,7 +107,7 @@ export function useDeleteEmployee() {
   });
 }
 
-// Update employee profile
+// Update employee profile (via admin_update_user RPC to bypass RLS)
 export function useUpdateEmployee() {
   const queryClient = useQueryClient();
 
@@ -116,14 +117,16 @@ export function useUpdateEmployee() {
       updates
     }: {
       userId: string;
-      updates: Partial<Pick<Employee, 'name' | 'department' | 'job_title' | 'employee_number' | 'score' | 'total_bonus'>>;
+      updates: Partial<Pick<Employee, 'name' | 'department' | 'job_title' | 'employee_number' | 'score' | 'total_bonus' | 'role'>>;
     }) => {
-      const { data, error } = await supabase
-        .from('users') // Updated to users table
-        .update(updates)
-        .eq('id', userId) // users table uses 'id'
-        .select()
-        .single();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await supabase.rpc('admin_update_user' as any, {
+        target_user_id: userId,
+        new_role: updates.role ?? null,
+        new_department: updates.department ?? null,
+        new_job_title: updates.job_title ?? null,
+        new_employee_number: updates.employee_number ?? null,
+      });
 
       if (error) throw error;
       return data;
@@ -164,5 +167,20 @@ export function useEmployeeStats(userId: string) {
       };
     },
     enabled: !!userId,
+  });
+}
+
+// Fetch departments list for dropdown
+export function useDepartments() {
+  return useQuery({
+    queryKey: ['departments'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('departments')
+        .select('id, name')
+        .order('name', { ascending: true });
+      if (error) throw error;
+      return (data || []) as { id: string; name: string }[];
+    },
   });
 }

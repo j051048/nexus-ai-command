@@ -36,6 +36,7 @@ import {
   useDeleteEmployee,
   useUpdateEmployee,
   useEmployeeStats,
+  useDepartments,
   Employee,
 } from '@/hooks/useEmployeeManagement';
 import { useAuth } from '@/components/auth/AuthContext';
@@ -58,9 +59,11 @@ export function EmployeeManagement({ onProjectSelect }: EmployeeManagementProps)
     employee_number: '',
     department: '',
     job_title: '',
+    role: '' as string,
   });
 
   const { data: employees, isLoading } = useAllEmployees();
+  const { data: departments } = useDepartments();
   const transferData = useTransferEmployeeData();
   const deleteEmployee = useDeleteEmployee();
   const updateEmployee = useUpdateEmployee();
@@ -197,6 +200,7 @@ export function EmployeeManagement({ onProjectSelect }: EmployeeManagementProps)
           employee_number: editForm.employee_number || null,
           department: editForm.department || null,
           job_title: editForm.job_title || null,
+          role: (editForm.role || undefined) as Employee['role'] | undefined,
         },
       });
       toast.success(`员工 ${selectedEmployee.name} 信息已更新`);
@@ -212,8 +216,8 @@ export function EmployeeManagement({ onProjectSelect }: EmployeeManagementProps)
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-xl font-bold text-foreground">员工管理</h2>
-        <p className="text-sm text-muted-foreground mt-1">管理团队成员，处理离职员工数据交接</p>
+        <h2 className="text-xl font-bold text-foreground">团队管理</h2>
+        <p className="text-sm text-muted-foreground mt-1">管理团队成员角色、部门和信息，处理离职员工数据交接</p>
       </div>
 
       {/* Search */}
@@ -252,6 +256,7 @@ export function EmployeeManagement({ onProjectSelect }: EmployeeManagementProps)
                     employee_number: employee.employee_number || '',
                     department: employee.department || '',
                     job_title: employee.job_title || '',
+                    role: employee.role || '',
                   });
                   setShowEditDialog(true);
                 }}
@@ -386,25 +391,52 @@ export function EmployeeManagement({ onProjectSelect }: EmployeeManagementProps)
               编辑员工信息
             </DialogTitle>
             <DialogDescription>
-              修改 <strong>{selectedEmployee?.name}</strong> 的工号、部门和职务
+              修改 <strong>{selectedEmployee?.name}</strong> 的角色、部门、工号和职务
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">角色</label>
+              <Select
+                value={editForm.role}
+                onValueChange={(value) => setEditForm(prev => ({ ...prev, role: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="选择角色" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="employee">员工</SelectItem>
+                  <SelectItem value="manager">经理</SelectItem>
+                  <SelectItem value="boss">老板</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">部门</label>
+              <Select
+                value={editForm.department}
+                onValueChange={(value) => setEditForm(prev => ({ ...prev, department: value === '__none__' ? '' : value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="选择部门" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">未分配</SelectItem>
+                  {departments?.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.name}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">工号</label>
               <Input
                 placeholder="请输入工号，如 EMP001"
                 value={editForm.employee_number}
                 onChange={(e) => setEditForm(prev => ({ ...prev, employee_number: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">部门</label>
-              <Input
-                placeholder="请输入部门名称"
-                value={editForm.department}
-                onChange={(e) => setEditForm(prev => ({ ...prev, department: e.target.value }))}
               />
             </div>
             <div className="space-y-2">
@@ -453,6 +485,7 @@ function EmployeeCard({
 }) {
   const isBoss = employee.role === 'boss';
   const isAIAssistant = employee.role === 'ai_assistant';
+  const isManager = employee.role === 'manager';
   const isSystemUser = isBoss || isAIAssistant;
 
   // 获取角色显示名称和样式
@@ -462,6 +495,9 @@ function EmployeeCard({
     }
     if (isAIAssistant) {
       return { label: 'AI助手', className: 'bg-purple-500/20 text-purple-500' };
+    }
+    if (isManager) {
+      return { label: '经理', className: 'bg-blue-500/20 text-blue-500' };
     }
     return { label: '员工', className: 'bg-primary/20 text-primary' };
   };

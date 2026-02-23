@@ -2,7 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Mail, Phone, Calendar, Award, BarChart3, FileCheck, Trash2, ArrowRightLeft, CheckCircle2, Plus, Pencil } from 'lucide-react';
-import { Employee, useEmployeeStats, useUpdateEmployee } from '@/hooks/useEmployeeManagement';
+import { Employee, useEmployeeStats, useUpdateEmployee, useDepartments } from '@/hooks/useEmployeeManagement';
 import { useProjects } from '@/hooks/useProjects';
 import {
     Dialog,
@@ -47,6 +47,7 @@ export function EmployeeDetail({
 }: EmployeeDetailProps) {
     const { projects } = useProjects();
     const { data: stats } = useEmployeeStats(employee.user_id);
+    const { data: departments } = useDepartments();
     const { role: authRole } = useAuth();
     const updateEmployee = useUpdateEmployee();
     const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
@@ -58,6 +59,7 @@ export function EmployeeDetail({
         employee_number: employee.employee_number || '',
         department: employee.department || '',
         job_title: employee.job_title || '',
+        role: employee.role || '' as string,
     });
 
     const isBossUser = authRole === 'boss';
@@ -83,6 +85,7 @@ export function EmployeeDetail({
                     employee_number: editForm.employee_number || null,
                     department: editForm.department || null,
                     job_title: editForm.job_title || null,
+                    role: (editForm.role || undefined) as Employee['role'] | undefined,
                 },
             });
             toast.success('员工信息已更新');
@@ -100,6 +103,9 @@ export function EmployeeDetail({
         }
         if (isAIAssistant) {
             return { label: 'AI助手 (二级权限)', className: 'bg-purple-500/20 text-purple-500' };
+        }
+        if (employee.role === 'manager') {
+            return { label: '经理', className: 'bg-blue-500/20 text-blue-500' };
         }
         return { label: '员工', className: 'bg-primary/20 text-primary' };
     };
@@ -163,6 +169,7 @@ export function EmployeeDetail({
                                 employee_number: employee.employee_number || '',
                                 department: employee.department || '',
                                 job_title: employee.job_title || '',
+                                role: employee.role || '',
                             });
                             setShowEditDialog(true);
                         }}>
@@ -410,25 +417,52 @@ export function EmployeeDetail({
                             编辑员工信息
                         </DialogTitle>
                         <DialogDescription>
-                            修改 <strong>{employee.name}</strong> 的工号、部门和职务
+                            修改 <strong>{employee.name}</strong> 的角色、部门、工号和职务
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-4 mt-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground">角色</label>
+                            <Select
+                                value={editForm.role}
+                                onValueChange={(value) => setEditForm(prev => ({ ...prev, role: value }))}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="选择角色" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="employee">员工</SelectItem>
+                                    <SelectItem value="manager">经理</SelectItem>
+                                    <SelectItem value="boss">老板</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground">部门</label>
+                            <Select
+                                value={editForm.department}
+                                onValueChange={(value) => setEditForm(prev => ({ ...prev, department: value === '__none__' ? '' : value }))}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="选择部门" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__none__">未分配</SelectItem>
+                                    {departments?.map((dept) => (
+                                        <SelectItem key={dept.id} value={dept.name}>
+                                            {dept.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-foreground">工号</label>
                             <Input
                                 placeholder="请输入工号，如 EMP001"
                                 value={editForm.employee_number}
                                 onChange={(e) => setEditForm(prev => ({ ...prev, employee_number: e.target.value }))}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-foreground">部门</label>
-                            <Input
-                                placeholder="请输入部门名称"
-                                value={editForm.department}
-                                onChange={(e) => setEditForm(prev => ({ ...prev, department: e.target.value }))}
                             />
                         </div>
                         <div className="space-y-2">
