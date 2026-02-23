@@ -29,9 +29,7 @@ class ContactSyncService:
     建立平台用户 ID 与 Nexus 用户 ID 的映射关系。
     """
 
-    async def sync_contacts(
-        self, org_id: str, platform: str, db=None
-    ) -> dict[str, Any]:
+    async def sync_contacts(self, org_id: str, platform: str, db=None) -> dict[str, Any]:
         """
         从指定 IM 平台同步通讯录到 Nexus。
 
@@ -63,27 +61,17 @@ class ContactSyncService:
         try:
             client = await self._get_client(org_id, platform, db)
             if not client:
-                stats["errors"].append(
-                    f"Failed to create {platform} client for org {org_id}"
-                )
+                stats["errors"].append(f"Failed to create {platform} client for org {org_id}")
                 return stats
 
             # 1. 同步部门
-            logger.info(
-                f"[ContactSync] Starting department sync for org={org_id}, "
-                f"platform={platform}"
-            )
+            logger.info(f"[ContactSync] Starting department sync for org={org_id}, " f"platform={platform}")
             dept_mapping = await self._sync_departments(client, org_id, db)
             stats["departments_synced"] = len(dept_mapping)
 
             # 2. 同步用户
-            logger.info(
-                f"[ContactSync] Starting user sync for org={org_id}, "
-                f"platform={platform}"
-            )
-            user_stats = await self._sync_users(
-                client, org_id, platform, dept_mapping, db
-            )
+            logger.info(f"[ContactSync] Starting user sync for org={org_id}, " f"platform={platform}")
+            user_stats = await self._sync_users(client, org_id, platform, dept_mapping, db)
             stats["users_synced"] = user_stats.get("total", 0)
             stats["users_created"] = user_stats.get("created", 0)
             stats["users_updated"] = user_stats.get("updated", 0)
@@ -104,9 +92,7 @@ class ContactSyncService:
 
         return stats
 
-    async def _get_client(
-        self, org_id: str, platform: str, db=None
-    ) -> IMPlatformClient | None:
+    async def _get_client(self, org_id: str, platform: str, db=None) -> IMPlatformClient | None:
         """
         从 im_platform_config 表获取配置并创建平台客户端。
 
@@ -135,26 +121,18 @@ class ContactSyncService:
             )
 
             if not result.data:
-                logger.warning(
-                    f"[ContactSync] No active config found for "
-                    f"org={org_id}, platform={platform}"
-                )
+                logger.warning(f"[ContactSync] No active config found for " f"org={org_id}, platform={platform}")
                 return None
 
             config = result.data.get("config", {})
             return self._create_client(platform, config)
 
         except Exception as e:
-            logger.error(
-                f"[ContactSync] Failed to get config for "
-                f"org={org_id}, platform={platform}: {e}"
-            )
+            logger.error(f"[ContactSync] Failed to get config for " f"org={org_id}, platform={platform}: {e}")
             return None
 
     @staticmethod
-    def _create_client(
-        platform: str, config: dict[str, Any]
-    ) -> IMPlatformClient | None:
+    def _create_client(platform: str, config: dict[str, Any]) -> IMPlatformClient | None:
         """
         根据平台和配置创建客户端实例。
 
@@ -186,9 +164,7 @@ class ContactSyncService:
             logger.error(f"[ContactSync] Unknown platform: {platform}")
             return None
 
-    async def _sync_departments(
-        self, client: IMPlatformClient, org_id: str, db
-    ) -> dict[str, str]:
+    async def _sync_departments(self, client: IMPlatformClient, org_id: str, db) -> dict[str, str]:
         """
         同步部门列表，返回平台部门 ID -> Nexus 部门 ID 映射。
 
@@ -208,10 +184,7 @@ class ContactSyncService:
         mapping = {}
         try:
             departments = await client.get_departments()
-            logger.info(
-                f"[ContactSync] Fetched {len(departments)} departments "
-                f"from {client.platform_name}"
-            )
+            logger.info(f"[ContactSync] Fetched {len(departments)} departments " f"from {client.platform_name}")
 
             for dept in departments:
                 platform_dept_id = dept.get("id", "")
@@ -232,10 +205,14 @@ class ContactSyncService:
                         "source": client.platform_name,
                     }
 
-                    result = await db.table("departments").upsert(
-                        dept_data,
-                        on_conflict="organization_id,external_id",
-                    ).execute()
+                    result = (
+                        await db.table("departments")
+                        .upsert(
+                            dept_data,
+                            on_conflict="organization_id,external_id",
+                        )
+                        .execute()
+                    )
 
                     if result.data:
                         nexus_dept_id = result.data[0].get("id", "")
@@ -243,8 +220,7 @@ class ContactSyncService:
 
                 except Exception as e:
                     logger.warning(
-                        f"[ContactSync] Failed to upsert department "
-                        f"{dept_name} ({platform_dept_id}): {e}"
+                        f"[ContactSync] Failed to upsert department " f"{dept_name} ({platform_dept_id}): {e}"
                     )
                     # 即使某个部门失败，继续处理其他部门
                     continue
@@ -287,10 +263,7 @@ class ContactSyncService:
             try:
                 users = await client.get_department_users(platform_dept_id)
             except Exception as e:
-                logger.warning(
-                    f"[ContactSync] Failed to get users for dept "
-                    f"{platform_dept_id}: {e}"
-                )
+                logger.warning(f"[ContactSync] Failed to get users for dept " f"{platform_dept_id}: {e}")
                 continue
 
             for user in users:
@@ -324,9 +297,7 @@ class ContactSyncService:
                         stats["updated"] += 1
                     else:
                         # 尝试通过手机号找到 Nexus 用户
-                        nexus_user_id = await self._find_nexus_user_by_mobile(
-                            user.get("mobile", ""), org_id, db
-                        )
+                        nexus_user_id = await self._find_nexus_user_by_mobile(user.get("mobile", ""), org_id, db)
 
                         if nexus_user_id:
                             # 创建映射
@@ -349,18 +320,13 @@ class ContactSyncService:
                             )
 
                 except Exception as e:
-                    logger.warning(
-                        f"[ContactSync] Failed to sync user "
-                        f"{platform_user_id}: {e}"
-                    )
+                    logger.warning(f"[ContactSync] Failed to sync user " f"{platform_user_id}: {e}")
                     continue
 
         return stats
 
     @staticmethod
-    async def _find_nexus_user_by_mobile(
-        mobile: str, org_id: str, db
-    ) -> str | None:
+    async def _find_nexus_user_by_mobile(mobile: str, org_id: str, db) -> str | None:
         """
         通过手机号在 Nexus users 表中查找用户。
 

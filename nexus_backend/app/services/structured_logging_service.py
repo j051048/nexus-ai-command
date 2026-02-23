@@ -17,6 +17,7 @@ from typing import Any
 
 class LogLevel(Enum):
     """Log levels."""
+
     DEBUG = "debug"
     INFO = "info"
     WARNING = "warning"
@@ -27,6 +28,7 @@ class LogLevel(Enum):
 @dataclass
 class StructuredLogEntry:
     """Structured log entry."""
+
     timestamp: str
     level: str
     message: str
@@ -66,8 +68,14 @@ class StructuredFormatter(logging.Formatter):
 
         # Add extra fields if present
         extra_fields = [
-            "trace_id", "user_id", "org_id", "request_id",
-            "duration_ms", "error_type", "error_stack", "metadata"
+            "trace_id",
+            "user_id",
+            "org_id",
+            "request_id",
+            "duration_ms",
+            "error_type",
+            "error_stack",
+            "metadata",
         ]
 
         for field_name in extra_fields:
@@ -95,12 +103,7 @@ class StructuredLogger:
     - Configurable output (stdout/file)
     """
 
-    def __init__(
-        self,
-        service_name: str = "nexus-ai",
-        log_level: str = "INFO",
-        output_format: str = "json"
-    ):
+    def __init__(self, service_name: str = "nexus-ai", log_level: str = "INFO", output_format: str = "json"):
         self.service_name = service_name
         self.log_level = getattr(logging, log_level.upper(), logging.INFO)
         self.output_format = output_format
@@ -124,9 +127,7 @@ class StructuredLogger:
         if self.output_format == "json":
             console_handler.setFormatter(StructuredFormatter(self.service_name))
         else:
-            console_handler.setFormatter(logging.Formatter(
-                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-            ))
+            console_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
 
         logger.addHandler(console_handler)
         return logger
@@ -186,7 +187,7 @@ class StructuredLogger:
         duration_ms: int,
         user_id: str = None,
         org_id: str = None,
-        request_id: str = None
+        request_id: str = None,
     ):
         """Log HTTP request."""
         self.info(
@@ -199,7 +200,7 @@ class StructuredLogger:
             user_id=user_id,
             org_id=org_id,
             request_id=request_id,
-            duration_ms=duration_ms
+            duration_ms=duration_ms,
         )
 
     def log_llm_call(
@@ -209,7 +210,7 @@ class StructuredLogger:
         completion_tokens: int,
         duration_ms: int,
         trace_id: str = None,
-        user_id: str = None
+        user_id: str = None,
     ):
         """Log LLM API call."""
         self.info(
@@ -222,7 +223,7 @@ class StructuredLogger:
             },
             trace_id=trace_id,
             user_id=user_id,
-            duration_ms=duration_ms
+            duration_ms=duration_ms,
         )
 
     def log_tool_call(
@@ -232,46 +233,29 @@ class StructuredLogger:
         duration_ms: int,
         trace_id: str = None,
         user_id: str = None,
-        error: str = None
+        error: str = None,
     ):
         """Log tool execution."""
         level = LogLevel.INFO if status == "success" else LogLevel.WARNING
         self._log(
             level,
             f"Tool {tool_name}: {status}",
-            metadata={
-                "tool_name": tool_name,
-                "tool_status": status,
-                "tool_error": error
-            },
+            metadata={"tool_name": tool_name, "tool_status": status, "tool_error": error},
             trace_id=trace_id,
             user_id=user_id,
-            duration_ms=duration_ms
+            duration_ms=duration_ms,
         )
 
     def log_agent_step(
-        self,
-        trace_id: str,
-        step_name: str,
-        status: str,
-        duration_ms: int = None,
-        metadata: dict = None
+        self, trace_id: str, step_name: str, status: str, duration_ms: int = None, metadata: dict = None
     ):
         """Log agent execution step."""
         self.info(
-            f"Agent step: {step_name} - {status}",
-            trace_id=trace_id,
-            duration_ms=duration_ms,
-            metadata=metadata or {}
+            f"Agent step: {step_name} - {status}", trace_id=trace_id, duration_ms=duration_ms, metadata=metadata or {}
         )
 
     def log_security_event(
-        self,
-        event_type: str,
-        severity: str,
-        user_id: str = None,
-        ip_address: str = None,
-        details: dict = None
+        self, event_type: str, severity: str, user_id: str = None, ip_address: str = None, details: dict = None
     ):
         """Log security-related event."""
         level = LogLevel.WARNING if severity == "high" else LogLevel.INFO
@@ -283,9 +267,9 @@ class StructuredLogger:
                 "event_type": event_type,
                 "severity": severity,
                 "ip_address": ip_address,
-                "details": details
+                "details": details,
             },
-            user_id=user_id
+            user_id=user_id,
         )
 
 
@@ -293,7 +277,7 @@ class StructuredLogger:
 structured_logger = StructuredLogger(
     service_name=os.getenv("SERVICE_NAME", "nexus-ai"),
     log_level=os.getenv("LOG_LEVEL", "INFO"),
-    output_format=os.getenv("LOG_FORMAT", "json")
+    output_format=os.getenv("LOG_FORMAT", "json"),
 )
 
 

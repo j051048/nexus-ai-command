@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 class PromptStatus(Enum):
     """Status of a prompt version."""
+
     DRAFT = "draft"
     ACTIVE = "active"
     DEPRECATED = "deprecated"
@@ -31,6 +32,7 @@ class PromptStatus(Enum):
 @dataclass
 class PromptVersion:
     """A single version of a prompt template."""
+
     version_id: str
     prompt_key: str
     content: str
@@ -66,6 +68,7 @@ class PromptVersion:
 @dataclass
 class ABTestConfig:
     """A/B test configuration for prompts."""
+
     test_id: str
     prompt_key: str
     variants: dict[str, float]  # version_id -> weight
@@ -102,7 +105,7 @@ class PromptVersionService:
         change_description: str = "",
         tags: list[str] = None,
         metadata: dict = None,
-        status: PromptStatus = PromptStatus.DRAFT
+        status: PromptStatus = PromptStatus.DRAFT,
     ) -> PromptVersion:
         """Create a new version of a prompt."""
         # Get next version number
@@ -110,9 +113,7 @@ class PromptVersionService:
         next_version = max([v.version_number for v in existing], default=0) + 1
 
         # Generate version ID
-        version_id = hashlib.md5(
-            f"{prompt_key}:{next_version}:{datetime.now().isoformat()}".encode()
-        ).hexdigest()[:12]
+        version_id = hashlib.md5(f"{prompt_key}:{next_version}:{datetime.now().isoformat()}".encode()).hexdigest()[:12]
 
         version = PromptVersion(
             version_id=version_id,
@@ -125,7 +126,7 @@ class PromptVersionService:
             updated_at=datetime.now(),
             change_description=change_description,
             tags=tags or [],
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
         # Store
@@ -197,16 +198,10 @@ class PromptVersionService:
         return sorted(versions, key=lambda v: v.version_number, reverse=True)[:limit]
 
     def create_ab_test(
-        self,
-        prompt_key: str,
-        variants: dict[str, float],
-        created_by: str,
-        duration_hours: int = 24 * 7
+        self, prompt_key: str, variants: dict[str, float], created_by: str, duration_hours: int = 24 * 7
     ) -> ABTestConfig:
         """Create an A/B test for prompt variants."""
-        test_id = hashlib.md5(
-            f"{prompt_key}:{datetime.now().isoformat()}".encode()
-        ).hexdigest()[:12]
+        test_id = hashlib.md5(f"{prompt_key}:{datetime.now().isoformat()}".encode()).hexdigest()[:12]
 
         # Normalize weights
         total_weight = sum(variants.values())
@@ -218,7 +213,7 @@ class PromptVersionService:
             variants=normalized,
             start_time=datetime.now(),
             end_time=datetime.now() + __import__("datetime").timedelta(hours=duration_hours),
-            created_by=created_by
+            created_by=created_by,
         )
 
         self._ab_tests[test_id] = ab_test
@@ -237,9 +232,9 @@ class PromptVersionService:
         """Get the appropriate variant for a user based on A/B test."""
         # Find active A/B test for this prompt
         active_tests = [
-            t for t in self._ab_tests.values()
-            if t.prompt_key == prompt_key
-            and t.end_time and t.end_time > datetime.now()
+            t
+            for t in self._ab_tests.values()
+            if t.prompt_key == prompt_key and t.end_time and t.end_time > datetime.now()
         ]
 
         if not active_tests:
@@ -263,13 +258,7 @@ class PromptVersionService:
             return self._version_cache.get(selected_version_id)
         return self.get_active_version(prompt_key)
 
-    def record_ab_test_metric(
-        self,
-        test_id: str,
-        version_id: str,
-        metric_name: str,
-        value: float
-    ):
+    def record_ab_test_metric(self, test_id: str, version_id: str, metric_name: str, value: float):
         """Record a metric for A/B test analysis."""
         test = self._ab_tests.get(test_id)
         if not test:
@@ -282,10 +271,9 @@ class PromptVersionService:
         if metric_name not in test.metrics["metrics"][version_id]:
             test.metrics["metrics"][version_id][metric_name] = []
 
-        test.metrics["metrics"][version_id][metric_name].append({
-            "value": value,
-            "timestamp": datetime.now().isoformat()
-        })
+        test.metrics["metrics"][version_id][metric_name].append(
+            {"value": value, "timestamp": datetime.now().isoformat()}
+        )
 
     def get_ab_test_results(self, test_id: str) -> dict:
         """Get A/B test results summary."""
@@ -299,7 +287,7 @@ class PromptVersionService:
             "variants": test.variants,
             "start_time": test.start_time.isoformat(),
             "end_time": test.end_time.isoformat() if test.end_time else None,
-            "metrics": test.metrics.get("metrics", {})
+            "metrics": test.metrics.get("metrics", {}),
         }
 
     def evaluate_ab_test(self, test_id: str) -> dict:
@@ -419,14 +407,16 @@ class PromptVersionService:
 
     def _log_change(self, action: str, version: PromptVersion, actor: str):
         """Log a prompt change for audit."""
-        self._change_log.append({
-            "action": action,
-            "prompt_key": version.prompt_key,
-            "version_id": version.version_id,
-            "version_number": version.version_number,
-            "actor": actor,
-            "timestamp": datetime.now().isoformat()
-        })
+        self._change_log.append(
+            {
+                "action": action,
+                "prompt_key": version.prompt_key,
+                "version_id": version.version_id,
+                "version_number": version.version_number,
+                "actor": actor,
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
         # Keep log manageable
         if len(self._change_log) > 1000:
@@ -469,14 +459,16 @@ class PromptVersionService:
         # Persist to DB
         if db:
             try:
-                await db.table("prompt_metrics").insert({
-                    "prompt_key": prompt_key,
-                    "version_id": version_id,
-                    "user_id": user_id,
-                    "response_time_ms": response_time_ms,
-                    "token_count": token_count,
-                    "user_rating": user_rating,
-                }).execute()
+                await db.table("prompt_metrics").insert(
+                    {
+                        "prompt_key": prompt_key,
+                        "version_id": version_id,
+                        "user_id": user_id,
+                        "response_time_ms": response_time_ms,
+                        "token_count": token_count,
+                        "user_rating": user_rating,
+                    }
+                ).execute()
             except Exception as e:
                 logger.debug(f"Failed to persist prompt metrics: {e}")
 
@@ -488,17 +480,19 @@ class PromptVersionService:
         try:
             for _prompt_key, versions in self._versions.items():
                 for version in versions:
-                    await db.table("prompt_versions").upsert({
-                        "version_id": version.version_id,
-                        "prompt_key": version.prompt_key,
-                        "content": version.content,
-                        "version_number": version.version_number,
-                        "status": version.status.value,
-                        "created_by": version.created_by,
-                        "change_description": version.change_description,
-                        "tags": version.tags,
-                        "metadata": version.metadata
-                    }).execute()
+                    await db.table("prompt_versions").upsert(
+                        {
+                            "version_id": version.version_id,
+                            "prompt_key": version.prompt_key,
+                            "content": version.content,
+                            "version_number": version.version_number,
+                            "status": version.status.value,
+                            "created_by": version.created_by,
+                            "change_description": version.change_description,
+                            "tags": version.tags,
+                            "metadata": version.metadata,
+                        }
+                    ).execute()
         except Exception as e:
             logger.error(f"Failed to persist prompt versions: {e}")
 
@@ -521,7 +515,7 @@ class PromptVersionService:
                     updated_at=datetime.fromisoformat(row["updated_at"]),
                     change_description=row.get("change_description", ""),
                     tags=row.get("tags", []),
-                    metadata=row.get("metadata", {})
+                    metadata=row.get("metadata", {}),
                 )
 
                 if version.prompt_key not in self._versions:

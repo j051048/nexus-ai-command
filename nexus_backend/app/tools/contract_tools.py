@@ -21,7 +21,9 @@ class ContractAnalysisTool(BaseTool):
     """AI 合同条款分析工具"""
 
     name = "analyze_contract"
-    description = "AI分析合同文档，提取关键条款、识别风险点、生成摘要。当用户说'分析合同'、'合同风险'、'合同摘要'时调用。"
+    description = (
+        "AI分析合同文档，提取关键条款、识别风险点、生成摘要。当用户说'分析合同'、'合同风险'、'合同摘要'时调用。"
+    )
     required_role = "manager"
 
     parameters = {
@@ -44,9 +46,7 @@ class ContractAnalysisTool(BaseTool):
         "required": [],
     }
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         contract_id = args.get("contract_id")
         contract_text = args.get("contract_text", "")
         focus = args.get("focus", "full")
@@ -55,13 +55,7 @@ class ContractAnalysisTool(BaseTool):
         # 如果提供了 contract_id，从数据库获取合同信息
         if contract_id and not contract_text:
             try:
-                res = (
-                    await client.table("contracts")
-                    .select("*")
-                    .eq("id", contract_id)
-                    .maybe_single()
-                    .execute()
-                )
+                res = await client.table("contracts").select("*").eq("id", contract_id).maybe_single().execute()
                 if res.data:
                     contract = res.data
                     contract_text = (

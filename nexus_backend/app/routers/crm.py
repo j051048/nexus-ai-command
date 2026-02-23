@@ -17,6 +17,7 @@ router = APIRouter(prefix="/api/crm", tags=["CRM"])
 # Pydantic request models
 # ---------------------------------------------------------------------------
 
+
 class CreateCustomerRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=200, description="客户名称")
     company: str | None = Field(None, max_length=200)
@@ -71,9 +72,7 @@ class CreateActivityRequest(BaseModel):
     @field_validator("activity_type")
     @classmethod
     def validate_type(cls, v: str) -> str:
-        valid = {t["value"] for t in ACTIVITY_TYPES} if ACTIVITY_TYPES else {
-            "call", "email", "meeting", "note", "task"
-        }
+        valid = {t["value"] for t in ACTIVITY_TYPES} if ACTIVITY_TYPES else {"call", "email", "meeting", "note", "task"}
         if v not in valid:
             raise ValueError(f"activity_type must be one of {valid}")
         return v
@@ -82,6 +81,7 @@ class CreateActivityRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.get("/customers")
 async def list_customers(
@@ -159,9 +159,7 @@ async def update_customer(
     """更新客户信息"""
     try:
         db = getattr(req.state, "db", None)
-        customer = await crm_service.update_customer(
-            customer_id, body.model_dump(exclude_none=True), db=db
-        )
+        customer = await crm_service.update_customer(customer_id, body.model_dump(exclude_none=True), db=db)
         return api_success(data={"customer": customer}, message="客户信息已更新")
     except ValueError as e:
         return api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
@@ -232,9 +230,7 @@ async def create_activity(
     """添加活动记录"""
     try:
         db = getattr(req.state, "db", None)
-        activity = await crm_service.create_activity(
-            customer_id, body.activity_type, body.content, user_id, db=db
-        )
+        activity = await crm_service.create_activity(customer_id, body.activity_type, body.content, user_id, db=db)
         return api_success(data={"activity": activity}, message="活动记录已添加")
     except ValueError as e:
         return api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))

@@ -43,9 +43,7 @@ def _get_langfuse():
         try:
             from langfuse import Langfuse
 
-            _langfuse_client = Langfuse(
-                public_key=public_key, secret_key=secret_key, host=host
-            )
+            _langfuse_client = Langfuse(public_key=public_key, secret_key=secret_key, host=host)
             logger.info("Langfuse client initialized successfully")
         except ImportError:
             logger.warning("Langfuse package not installed. Run: pip install langfuse")
@@ -204,9 +202,7 @@ class TraceLogger:
         except Exception as e:
             logger.debug(f"Langfuse flush failed: {e}")
 
-    def log_generation(
-        self, model: str, input_messages: list[dict], output: str, usage: dict = None
-    ):
+    def log_generation(self, model: str, input_messages: list[dict], output: str, usage: dict = None):
         """Log a generation event (LLM call) to Langfuse."""
         if self._langfuse_trace:
             try:

@@ -85,9 +85,7 @@ class ChatService:
     TOOLS = get_all_tools_schema()
 
     @staticmethod
-    async def get_system_prompt(
-        agent_name: str, db_client: Any | None = None, user_id: str | None = None
-    ) -> str:
+    async def get_system_prompt(agent_name: str, db_client: Any | None = None, user_id: str | None = None) -> str:
         """Get formatted system prompt for agent (P1 Fix #29: Fetch from DB with local fallback)
         #24: Integrates A/B test variant selection when user_id is provided.
         """
@@ -107,6 +105,7 @@ class ChatService:
         if user_id:
             try:
                 from app.services.prompt_version_service import prompt_version_service
+
                 variant = prompt_version_service.get_ab_test_variant(prompt_key, user_id)
                 if variant and variant.content:
                     try:
@@ -128,13 +127,7 @@ class ChatService:
         # 2. Try DB
         try:
             client = db_client or supabase
-            res = (
-                await client.table("prompts")
-                .select("content")
-                .eq("name", prompt_key)
-                .maybe_single()
-                .execute()
-            )
+            res = await client.table("prompts").select("content").eq("name", prompt_key).maybe_single().execute()
             if res and res.data:
                 raw_prompt = res.data["content"]
                 await cache_service.set(cache_key, raw_prompt, ttl=3600)
@@ -150,9 +143,7 @@ class ChatService:
             return raw_prompt
 
     @staticmethod
-    async def _get_cached_user_role(
-        user_id: str, db_client: Any | None = None
-    ) -> str:
+    async def _get_cached_user_role(user_id: str, db_client: Any | None = None) -> str:
         """Helper to get user role (cached)"""
         cached = await cache_service.get_user_role(user_id)
         if cached:
@@ -160,13 +151,7 @@ class ChatService:
 
         try:
             client = db_client or supabase
-            res = (
-                await client.table("users")
-                .select("role")
-                .eq("id", user_id)
-                .maybe_single()
-                .execute()
-            )
+            res = await client.table("users").select("role").eq("id", user_id).maybe_single().execute()
             role = res.data.get("role", "employee") if res.data else "employee"
             await cache_service.set_user_role(user_id, role)
             return role
@@ -190,9 +175,7 @@ class ChatService:
 
         # 1. RBAC Check
         if tool.required_role not in ["all", "ai_assistant"]:
-            user_role = await ChatService._get_cached_user_role(
-                user_id, db_client=db_client
-            )
+            user_role = await ChatService._get_cached_user_role(user_id, db_client=db_client)
             if tool.required_role == "boss" and user_role not in ["boss", "founder"]:
                 return f"⛔ Permission Denied: Tool requires [Boss] role. You are [{user_role}]."
             elif tool.required_role == "manager" and user_role not in [
@@ -205,9 +188,7 @@ class ChatService:
         # 2. System-level Confirmation Gate (P0 Fix #10)
         # This runs BEFORE the tool's own logic, preventing LLM from bypassing confirm
         # P0 Fix #2: Pass system_confirmed to strict check
-        confirmation_msg = tool.check_confirmation(
-            args, system_confirmed=system_confirmed
-        )
+        confirmation_msg = tool.check_confirmation(args, system_confirmed=system_confirmed)
         if confirmation_msg is not None:
             logger.info(f"[HITL Gate] Tool {name} blocked - awaiting user confirmation")
             return confirmation_msg
@@ -283,11 +264,7 @@ class ChatService:
                 )
             )
             task.add_done_callback(
-                lambda t: (
-                    logger.error(f"Failed to save message: {t.exception()}")
-                    if t.exception()
-                    else None
-                )
+                lambda t: (logger.error(f"Failed to save message: {t.exception()}") if t.exception() else None)
             )
 
         # 0. Safety Check & Sanitization
@@ -309,9 +286,7 @@ class ChatService:
 
         # 1. P1 Optimization: Token & Cost Limit Check
         # Check limits BEFORE making the API call to save costs
-        is_allowed, input_tokens, reason = validate_request_tokens(
-            messages, model, user_id
-        )
+        is_allowed, input_tokens, reason = validate_request_tokens(messages, model, user_id)
         if not is_allowed:
             yield f"data: {_json({'choices': [{'delta': {'content': f'⛔ 请求被拒绝 (超出限制): {reason}'}}]})}\n\n"
             yield "data: [DONE]\n\n"
@@ -332,11 +307,7 @@ class ChatService:
         full_response_content = ""
 
         # A. Semantic Cache Lookup (P0 Fix: Move to before LLM call)
-        last_query = (
-            messages[-1].get("content")
-            if messages and messages[-1]["role"] == "user"
-            else ""
-        )
+        last_query = messages[-1].get("content") if messages and messages[-1]["role"] == "user" else ""
         if last_query and user_id:
             # Lazy import inside method to avoid circular deps if any, or just keep as is
             from app.services.semantic_cache import semantic_cache_service
@@ -373,9 +344,10 @@ class ChatService:
                 "stream_options": {"include_usage": True},
             }
             try:
-                async with httpx.AsyncClient(timeout=60.0) as client, client.stream(
-                    "POST", chat_endpoint, headers=headers, json=payload
-                ) as response:
+                async with (
+                    httpx.AsyncClient(timeout=60.0) as client,
+                    client.stream("POST", chat_endpoint, headers=headers, json=payload) as response,
+                ):
                     if response.status_code != 200:
                         err = await response.aread()
                         yield f"error: AI Service Error ({response.status_code}): {err.decode()[:200]}"
@@ -518,9 +490,7 @@ class ChatService:
                     try:
                         args = json.loads(tc["args"]) if tc["args"] else {}
                     except json.JSONDecodeError:
-                        logger.warning(
-                            f"Invalid JSON args for tool {tc['name']}: {tc['args'][:100]}"
-                        )
+                        logger.warning(f"Invalid JSON args for tool {tc['name']}: {tc['args'][:100]}")
                         args = {}
 
                     # P0 Fix #11: Validate tool args against JSON Schema before execution
@@ -530,21 +500,13 @@ class ChatService:
                             schema = tool_obj.parameters
                             jsonschema.validate(instance=args, schema=schema)
                         except jsonschema.ValidationError as ve:
-                            logger.warning(
-                                f"Tool {tc['name']} args validation failed: {ve.message}"
-                            )
+                            logger.warning(f"Tool {tc['name']} args validation failed: {ve.message}")
                             # Don't block — feed error back to LLM so it can self-correct
                             tool_tasks.append(
-                                asyncio.create_task(
-                                    asyncio.sleep(
-                                        0, result=f"参数校验失败: {ve.message}"
-                                    )
-                                )
+                                asyncio.create_task(asyncio.sleep(0, result=f"参数校验失败: {ve.message}"))
                             )
                             if tracer:
-                                tracer.log_tool_plan(
-                                    tc["name"], {"validation_error": ve.message}
-                                )
+                                tracer.log_tool_plan(tc["name"], {"validation_error": ve.message})
                             continue
                         except jsonschema.SchemaError:
                             pass  # Schema itself is invalid, skip validation
@@ -591,9 +553,7 @@ class ChatService:
                         tracer.log_tool_execution(tc["name"], "completed", str(result))
 
                 # Emit reflecting phase
-                reflect_step = ThinkingStep(
-                    phase=AgentPhase.REFLECTING.value, content="正在分析执行结果..."
-                )
+                reflect_step = ThinkingStep(phase=AgentPhase.REFLECTING.value, content="正在分析执行结果...")
                 thinking_steps.append(reflect_step)
                 yield emit_thinking_step(reflect_step)
                 yield f"data: {_json({'status': '正在分析执行结果...'})}\n\n"
@@ -601,9 +561,7 @@ class ChatService:
             else:
                 # No tool calls in this turn, emit responding phase
                 if full_response_content:
-                    respond_step = ThinkingStep(
-                        phase=AgentPhase.RESPONDING.value, content="正在生成最终回复..."
-                    )
+                    respond_step = ThinkingStep(phase=AgentPhase.RESPONDING.value, content="正在生成最终回复...")
                     thinking_steps.append(respond_step)
                     yield emit_thinking_step(respond_step)
                 break
@@ -619,17 +577,13 @@ class ChatService:
             # Output Sanitization - scan for PII/violations in AI output
             is_safe, violations = scan_content(full_response_content)
             if not is_safe:
-                logger.warning(
-                    f"Output contained {len(violations)} violations - sending sanitized correction"
-                )
+                logger.warning(f"Output contained {len(violations)} violations - sending sanitized correction")
                 # Apply sanitization to replace PII/sensitive content
                 sanitized_content = sanitize_output(full_response_content)
                 if sanitized_content != full_response_content:
                     # Emit a correction event so frontend replaces the streamed content
                     yield f"data: {_json({'sanitized_content': sanitized_content, 'violation_count': len(violations)})}\n\n"
-                    logger.info(
-                        f"Sanitized {len(violations)} violations from AI output before delivery"
-                    )
+                    logger.info(f"Sanitized {len(violations)} violations from AI output before delivery")
 
             # Use API reported usage if available, else fallback to estimation
             if total_usage_chunk:
@@ -658,27 +612,19 @@ class ChatService:
             )
         )
         task.add_done_callback(
-            lambda t: (
-                logger.error(f"Failed to save message: {t.exception()}")
-                if t.exception()
-                else None
-            )
+            lambda t: (logger.error(f"Failed to save message: {t.exception()}") if t.exception() else None)
         )
 
         # P2: Save to Semantic Cache
         if last_query and sanitized_content:
             from app.services.semantic_cache import semantic_cache_service
 
-            asyncio.create_task(
-                semantic_cache_service.set_cache(last_query, sanitized_content, user_id)
-            )
+            asyncio.create_task(semantic_cache_service.set_cache(last_query, sanitized_content, user_id))
 
         if tracer:
             try:
                 # Fallback calculation if record_completion wasn't called/failed
-                t_tokens = (
-                    total_usage_chunk.get("total_tokens", 0) if total_usage_chunk else 0
-                )
+                t_tokens = total_usage_chunk.get("total_tokens", 0) if total_usage_chunk else 0
                 tracer.log_end(total_tokens=t_tokens)
             except Exception:
                 tracer.log_end()

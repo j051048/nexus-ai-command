@@ -86,8 +86,15 @@ class CRMService:
     async def update_customer(self, customer_id: str, data: dict, db=None) -> dict:
         """更新客户信息"""
         allowed_fields = [
-            "name", "company", "industry", "stage", "source",
-            "estimated_value", "assigned_to", "tags", "metadata",
+            "name",
+            "company",
+            "industry",
+            "stage",
+            "source",
+            "estimated_value",
+            "assigned_to",
+            "tags",
+            "metadata",
         ]
         update_data = {k: v for k, v in data.items() if k in allowed_fields}
         update_data["updated_at"] = datetime.now(UTC).isoformat()
@@ -97,12 +104,7 @@ class CRMService:
 
         if db:
             try:
-                res = (
-                    await db.table("customers")
-                    .update(update_data)
-                    .eq("id", customer_id)
-                    .execute()
-                )
+                res = await db.table("customers").update(update_data).eq("id", customer_id).execute()
                 if res.data:
                     return res.data[0]
             except Exception as e:
@@ -116,13 +118,7 @@ class CRMService:
         """获取客户详情"""
         if db:
             try:
-                res = (
-                    await db.table("customers")
-                    .select("*")
-                    .eq("id", customer_id)
-                    .maybe_single()
-                    .execute()
-                )
+                res = await db.table("customers").select("*").eq("id", customer_id).maybe_single().execute()
                 if res.data:
                     return res.data
                 return None
@@ -133,19 +129,13 @@ class CRMService:
         # 无数据库连接时返回 None
         return None
 
-    async def list_customers(
-        self, org_id: str, filters: dict | None = None, db=None
-    ) -> list[dict]:
+    async def list_customers(self, org_id: str, filters: dict | None = None, db=None) -> list[dict]:
         """列出组织的所有客户，支持筛选"""
         filters = filters or {}
 
         if db:
             try:
-                query = (
-                    db.table("customers")
-                    .select("*")
-                    .eq("organization_id", org_id)
-                )
+                query = db.table("customers").select("*").eq("organization_id", org_id)
 
                 if filters.get("stage"):
                     query = query.eq("stage", filters["stage"])
@@ -214,14 +204,16 @@ class CRMService:
             try:
                 res = (
                     await db.table("customer_contacts")
-                    .insert({
-                        "customer_id": customer_id,
-                        "name": contact["name"],
-                        "title": contact["title"],
-                        "phone": contact["phone"],
-                        "email": contact["email"],
-                        "is_primary": contact["is_primary"],
-                    })
+                    .insert(
+                        {
+                            "customer_id": customer_id,
+                            "name": contact["name"],
+                            "title": contact["title"],
+                            "phone": contact["phone"],
+                            "email": contact["email"],
+                            "is_primary": contact["is_primary"],
+                        }
+                    )
                     .execute()
                 )
                 if res.data:
@@ -279,12 +271,14 @@ class CRMService:
             try:
                 res = (
                     await db.table("customer_activities")
-                    .insert({
-                        "customer_id": customer_id,
-                        "user_id": user_id,
-                        "activity_type": activity_type,
-                        "content": content,
-                    })
+                    .insert(
+                        {
+                            "customer_id": customer_id,
+                            "user_id": user_id,
+                            "activity_type": activity_type,
+                            "content": content,
+                        }
+                    )
                     .execute()
                 )
                 if res.data:
@@ -295,9 +289,7 @@ class CRMService:
 
         return activity
 
-    async def get_activity_timeline(
-        self, customer_id: str, limit: int = 20, db=None
-    ) -> list[dict]:
+    async def get_activity_timeline(self, customer_id: str, limit: int = 20, db=None) -> list[dict]:
         """获取客户的活动时间线"""
         if db:
             try:
@@ -331,27 +323,24 @@ class CRMService:
         # 计算本月新增
         now = datetime.now(UTC)
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        new_this_month = sum(
-            1 for c in customers
-            if self._parse_datetime(c.get("created_at", "")) >= month_start
-        )
+        new_this_month = sum(1 for c in customers if self._parse_datetime(c.get("created_at", "")) >= month_start)
 
         # 转化率: customer / (total - churned)
         active_total = total - stage_counts.get("churned", 0)
-        conversion_rate = round(
-            stage_counts.get("customer", 0) / max(1, active_total) * 100, 1
-        )
+        conversion_rate = round(stage_counts.get("customer", 0) / max(1, active_total) * 100, 1)
 
         total_value = sum(float(c.get("estimated_value", 0) or 0) for c in customers)
 
         stage_distribution = []
         for stage_key, stage_info in CUSTOMER_STAGES.items():
-            stage_distribution.append({
-                "stage": stage_key,
-                "name": stage_info["name"],
-                "count": stage_counts.get(stage_key, 0),
-                "color": stage_info["color"],
-            })
+            stage_distribution.append(
+                {
+                    "stage": stage_key,
+                    "name": stage_info["name"],
+                    "count": stage_counts.get(stage_key, 0),
+                    "color": stage_info["color"],
+                }
+            )
 
         return {
             "total_customers": total,

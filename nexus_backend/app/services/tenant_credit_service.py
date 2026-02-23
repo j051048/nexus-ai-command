@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 class CreditType(Enum):
     """Types of credits available"""
+
     TOKENS = "tokens"
     API_CALLS = "api_calls"
     STORAGE_MB = "storage_mb"
@@ -24,6 +25,7 @@ class CreditType(Enum):
 
 class AlertLevel(Enum):
     """Alert levels for credit usage"""
+
     NORMAL = "normal"
     WARNING = "warning"
     CRITICAL = "critical"
@@ -33,6 +35,7 @@ class AlertLevel(Enum):
 @dataclass
 class TenantCredit:
     """Credit allocation for a tenant"""
+
     org_id: str
     credit_type: CreditType
     allocated: int
@@ -66,6 +69,7 @@ class TenantCredit:
 @dataclass
 class AbuseDetectionResult:
     """Result of abuse detection check"""
+
     is_suspicious: bool
     risk_score: float
     reasons: list = field(default_factory=list)
@@ -75,6 +79,7 @@ class AbuseDetectionResult:
 @dataclass
 class TenantQuota:
     """Default quota configuration for tenants"""
+
     monthly_token_limit: int = 1_000_000
     monthly_api_call_limit: int = 10_000
     daily_token_limit: int = 100_000
@@ -190,8 +195,7 @@ class TenantCreditService:
 
         # Check bot-like patterns
         if len(recent_requests) >= 5:
-            intervals = [recent_requests[i] - recent_requests[i-1]
-                        for i in range(1, min(6, len(recent_requests)))]
+            intervals = [recent_requests[i] - recent_requests[i - 1] for i in range(1, min(6, len(recent_requests)))]
             avg_interval = sum(intervals) / len(intervals) if intervals else 1
             if avg_interval < 0.5:
                 risk_factors.append("Bot-like rapid-fire pattern")
@@ -224,7 +228,7 @@ class TenantCreditService:
             **user_behavior,
             "recent_requests": (recent_requests + [now])[-100:],
             "last_action": action,
-            "last_action_time": now
+            "last_action_time": now,
         }
 
         is_suspicious = risk_score >= 0.3
@@ -235,7 +239,7 @@ class TenantCreditService:
             is_suspicious=is_suspicious,
             risk_score=min(risk_score, 1.0),
             reasons=risk_factors,
-            recommended_action=recommended_action
+            recommended_action=recommended_action,
         )
 
     async def record_failed_attempt(self, ip_address: str, action: str = "unknown"):
@@ -250,7 +254,7 @@ class TenantCreditService:
             **ip_data,
             "failure_times": recent_failures,
             "failed_attempts": len(recent_failures),
-            "blocked_until": now + 300 if len(recent_failures) > 10 else 0
+            "blocked_until": now + 300 if len(recent_failures) > 10 else 0,
         }
 
     async def get_usage_stats(self, org_id: str, db=None) -> dict:
@@ -263,15 +267,15 @@ class TenantCreditService:
                 "used": token_credit.used,
                 "remaining": token_credit.remaining,
                 "usage_percentage": token_credit.usage_percentage,
-                "alert_level": token_credit.alert_level.value
+                "alert_level": token_credit.alert_level.value,
             },
             "api_calls": {
                 "allocated": api_credit.allocated,
                 "used": api_credit.used,
                 "remaining": api_credit.remaining,
                 "usage_percentage": api_credit.usage_percentage,
-                "alert_level": api_credit.alert_level.value
-            }
+                "alert_level": api_credit.alert_level.value,
+            },
         }
 
     async def _get_credit_status(self, org_id: str, credit_type: CreditType, db=None) -> TenantCredit:
@@ -282,13 +286,21 @@ class TenantCreditService:
 
         if db:
             try:
-                res = await db.table("tenant_credits").select("*").eq("org_id", org_id).eq("credit_type", credit_type.value).maybe_single().execute()
+                res = (
+                    await db.table("tenant_credits")
+                    .select("*")
+                    .eq("org_id", org_id)
+                    .eq("credit_type", credit_type.value)
+                    .maybe_single()
+                    .execute()
+                )
                 if res and res.data:
                     credit = TenantCredit(
-                        org_id=org_id, credit_type=credit_type,
+                        org_id=org_id,
+                        credit_type=credit_type,
                         allocated=res.data.get("allocated", 0),
                         used=res.data.get("used", 0),
-                        reserved=res.data.get("reserved", 0)
+                        reserved=res.data.get("reserved", 0),
                     )
                     self._credit_cache[cache_key] = credit
                     return credit
@@ -299,7 +311,7 @@ class TenantCreditService:
         defaults = {
             CreditType.TOKENS: quota.monthly_token_limit,
             CreditType.API_CALLS: quota.monthly_api_call_limit,
-            CreditType.STORAGE_MB: quota.storage_limit_mb
+            CreditType.STORAGE_MB: quota.storage_limit_mb,
         }
         credit = TenantCredit(org_id=org_id, credit_type=credit_type, allocated=defaults.get(credit_type, 0), used=0)
         self._credit_cache[cache_key] = credit
@@ -309,9 +321,7 @@ class TenantCreditService:
         """Load per-tenant configurable quotas from DB, with default fallback."""
         if db:
             try:
-                res = await db.table("tenant_quotas").select("*").eq(
-                    "org_id", org_id
-                ).maybe_single().execute()
+                res = await db.table("tenant_quotas").select("*").eq("org_id", org_id).maybe_single().execute()
                 if res and res.data:
                     return TenantQuota(
                         monthly_token_limit=res.data.get("monthly_token_limit", 1_000_000),
@@ -331,9 +341,7 @@ class TenantCreditService:
         if not db:
             return
         try:
-            res = await db.table("tenant_credits").select(
-                "org_id, credit_type, allocated, used"
-            ).execute()
+            res = await db.table("tenant_credits").select("org_id, credit_type, allocated, used").execute()
             for row in res.data or []:
                 allocated = row.get("allocated", 0)
                 used = row.get("used", 0)
@@ -342,11 +350,10 @@ class TenantCreditService:
                 usage_pct = (used / allocated) * 100
 
                 if usage_pct >= 95:
-                    logger.critical(
-                        f"Tenant {row['org_id']} {row['credit_type']} at {usage_pct:.0f}%"
-                    )
+                    logger.critical(f"Tenant {row['org_id']} {row['credit_type']} at {usage_pct:.0f}%")
                     try:
                         from app.services.event_bus import emit
+
                         await emit(
                             "system.alert",
                             {
@@ -360,20 +367,20 @@ class TenantCreditService:
                     except Exception:
                         pass
                 elif usage_pct >= 80:
-                    logger.warning(
-                        f"Tenant {row['org_id']} {row['credit_type']} at {usage_pct:.0f}%"
-                    )
+                    logger.warning(f"Tenant {row['org_id']} {row['credit_type']} at {usage_pct:.0f}%")
         except Exception as e:
             logger.error(f"Tenant monitoring failed: {e}")
 
-    async def _persist_credit_usage(self, org_id: str, credit_type: CreditType, amount: int, user_id: str = None, db=None):
+    async def _persist_credit_usage(
+        self, org_id: str, credit_type: CreditType, amount: int, user_id: str = None, db=None
+    ):
         if not db:
             return
         try:
-            await db.rpc("consume_tenant_credit", {
-                "p_org_id": org_id, "p_credit_type": credit_type.value,
-                "p_amount": amount, "p_user_id": user_id
-            }).execute()
+            await db.rpc(
+                "consume_tenant_credit",
+                {"p_org_id": org_id, "p_credit_type": credit_type.value, "p_amount": amount, "p_user_id": user_id},
+            ).execute()
         except Exception as e:
             logger.error(f"Failed to persist: {e}")
 

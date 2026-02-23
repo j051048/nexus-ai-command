@@ -17,8 +17,10 @@ from langchain_core.messages import BaseMessage
 
 # ─── Enums ───────────────────────────────────────────────────────────────────
 
+
 class AgentPhase(StrEnum):
     """Tracks which node the agent is currently in."""
+
     ROUTING = "routing"
     PLANNING = "planning"
     EXECUTING = "executing"
@@ -30,17 +32,20 @@ class AgentPhase(StrEnum):
 
 class QueryComplexity(StrEnum):
     """Result of the intent router — drives model selection."""
-    SIMPLE = "simple"          # Greeting, FAQ → gpt-4o-mini
-    MODERATE = "moderate"      # Single-tool lookup → gpt-4o-mini
-    COMPLEX = "complex"        # Multi-tool, analysis → gpt-4o
-    CRITICAL = "critical"      # Approvals, financial ops → gpt-4o + confirmation
+
+    SIMPLE = "simple"  # Greeting, FAQ → gpt-4o-mini
+    MODERATE = "moderate"  # Single-tool lookup → gpt-4o-mini
+    COMPLEX = "complex"  # Multi-tool, analysis → gpt-4o
+    CRITICAL = "critical"  # Approvals, financial ops → gpt-4o + confirmation
 
 
 # ─── Thinking Step (for frontend visualization) ─────────────────────────────
 
+
 @dataclass
 class ThinkingStep:
     """Represents a single step in the agent's thinking chain for UI display."""
+
     phase: str
     content: str
     tool_name: str | None = None
@@ -55,9 +60,11 @@ class ThinkingStep:
 
 # ─── Tool Call Record ────────────────────────────────────────────────────────
 
+
 @dataclass
 class ToolCallRecord:
     """Structured record of a single tool invocation and its result."""
+
     tool_name: str
     tool_args: dict[str, Any]
     tool_call_id: str
@@ -68,9 +75,11 @@ class ToolCallRecord:
 
 # ─── Agent Configuration (immutable per-request) ────────────────────────────
 
+
 @dataclass
 class AgentConfig:
     """Per-request configuration injected at graph invocation time."""
+
     user_id: str
     session_id: str = "default"
     agent_name: str = "default"
@@ -103,6 +112,7 @@ class AgentConfig:
 
 # ─── Core Agent State (TypedDict for LangGraph) ─────────────────────────────
 
+
 class AgentState(TypedDict, total=False):
     """
     The state that flows through every node of the LangGraph.
@@ -116,41 +126,41 @@ class AgentState(TypedDict, total=False):
 
     # ── Phase tracking ──
     current_phase: AgentPhase
-    iteration: int                          # Current loop iteration (0-based)
+    iteration: int  # Current loop iteration (0-based)
 
     # ── Router output ──
     complexity: QueryComplexity
-    selected_model: str                     # Model chosen for this turn
-    intent_summary: str                     # One-line description of user intent
+    selected_model: str  # Model chosen for this turn
+    intent_summary: str  # One-line description of user intent
 
     # ── Plan ──
-    plan: str                               # Natural language plan from planning node
-    requires_tools: bool                    # Whether the plan involves tool calls
+    plan: str  # Natural language plan from planning node
+    requires_tools: bool  # Whether the plan involves tool calls
 
     # ── Tool execution ──
     pending_tool_calls: list[ToolCallRecord]
     completed_tool_calls: list[ToolCallRecord]
 
     # ── Reflection ──
-    reflection: str                         # Self-critique from reflection node
-    is_hallucination: bool                  # Hallucination detector flag
-    needs_replanning: bool                  # Whether to loop back to planning
-    confidence_score: float                 # 0.0-1.0 confidence in the answer
+    reflection: str  # Self-critique from reflection node
+    is_hallucination: bool  # Hallucination detector flag
+    needs_replanning: bool  # Whether to loop back to planning
+    confidence_score: float  # 0.0-1.0 confidence in the answer
 
     # ── RAG context (auto-injected by memory / rag_inject node) ──
-    rag_context: str                        # Retrieved knowledge base context
-    rag_sources: list[str]                  # Source citations for the RAG context
+    rag_context: str  # Retrieved knowledge base context
+    rag_sources: list[str]  # Source citations for the RAG context
 
     # ── Final output ──
-    final_response: str                     # The text response to send to user
-    thinking_steps: list[ThinkingStep]      # For frontend thinking-chain UI
+    final_response: str  # The text response to send to user
+    thinking_steps: list[ThinkingStep]  # For frontend thinking-chain UI
 
     # ── Configuration (immutable, set once at start) ──
     config: AgentConfig
 
     # ── Error handling ──
     error: str | None
-    error_recovery_attempted: bool          # Whether error recovery has been tried
+    error_recovery_attempted: bool  # Whether error recovery has been tried
 
     # ── Token tracking ──
     total_input_tokens: int

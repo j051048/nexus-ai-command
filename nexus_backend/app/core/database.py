@@ -75,18 +75,14 @@ try:
             return client
 
     if not url or not key:
-        logger.warning(
-            "SUPABASE_URL or SUPABASE_SERVICE_KEY not set. Database features disabled."
-        )
+        logger.warning("SUPABASE_URL or SUPABASE_SERVICE_KEY not set. Database features disabled.")
         supabase = None
     else:
         supabase = MiniSupabaseClient(url, key)
         logger.info("Database client initialized successfully")
 
 except ImportError as e:
-    logger.error(
-        f"Failed to import postgrest: {e}. Install with: pip install postgrest"
-    )
+    logger.error(f"Failed to import postgrest: {e}. Install with: pip install postgrest")
     supabase = None
 except Exception as e:
     logger.error(f"Failed to initialize Supabase wrapper: {e}")

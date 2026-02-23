@@ -40,35 +40,58 @@ class DataImportService:
     # 列映射表（中文 -> 英文）
     COLUMN_MAPPINGS: dict[str, dict[str, str]] = {
         "employees": {
-            "姓名": "name", "name": "name",
-            "邮箱": "email", "email": "email",
-            "部门": "department", "department": "department",
-            "角色": "role", "role": "role",
-            "手机号": "phone", "phone": "phone",
+            "姓名": "name",
+            "name": "name",
+            "邮箱": "email",
+            "email": "email",
+            "部门": "department",
+            "department": "department",
+            "角色": "role",
+            "role": "role",
+            "手机号": "phone",
+            "phone": "phone",
         },
         "customers": {
-            "客户名称": "name", "name": "name",
-            "联系人": "contact_person", "contact_person": "contact_person",
-            "联系电话": "phone", "phone": "phone",
-            "邮箱": "email", "email": "email",
-            "公司": "company", "company": "company",
-            "来源": "source", "source": "source",
-            "备注": "notes", "notes": "notes",
+            "客户名称": "name",
+            "name": "name",
+            "联系人": "contact_person",
+            "contact_person": "contact_person",
+            "联系电话": "phone",
+            "phone": "phone",
+            "邮箱": "email",
+            "email": "email",
+            "公司": "company",
+            "company": "company",
+            "来源": "source",
+            "source": "source",
+            "备注": "notes",
+            "notes": "notes",
         },
         "attendance": {
-            "员工邮箱": "email", "email": "email",
-            "日期": "date", "date": "date",
-            "签到时间": "check_in", "check_in": "check_in",
-            "签退时间": "check_out", "check_out": "check_out",
-            "备注": "notes", "notes": "notes",
+            "员工邮箱": "email",
+            "email": "email",
+            "日期": "date",
+            "date": "date",
+            "签到时间": "check_in",
+            "check_in": "check_in",
+            "签退时间": "check_out",
+            "check_out": "check_out",
+            "备注": "notes",
+            "notes": "notes",
         },
         "sales": {
-            "客户名称": "customer_name", "customer_name": "customer_name",
-            "金额": "amount", "amount": "amount",
-            "产品": "product", "product": "product",
-            "销售代表邮箱": "sales_rep_email", "sales_rep_email": "sales_rep_email",
-            "状态": "status", "status": "status",
-            "备注": "notes", "notes": "notes",
+            "客户名称": "customer_name",
+            "customer_name": "customer_name",
+            "金额": "amount",
+            "amount": "amount",
+            "产品": "product",
+            "product": "product",
+            "销售代表邮箱": "sales_rep_email",
+            "sales_rep_email": "sales_rep_email",
+            "状态": "status",
+            "status": "status",
+            "备注": "notes",
+            "notes": "notes",
         },
     }
 
@@ -116,8 +139,7 @@ class DataImportService:
 
         if import_type not in self.COLUMN_MAPPINGS:
             return self._error_result(
-                f"不支持的导入类型: {import_type}，"
-                f"可选: {', '.join(self.COLUMN_MAPPINGS.keys())}"
+                f"不支持的导入类型: {import_type}，" f"可选: {', '.join(self.COLUMN_MAPPINGS.keys())}"
             )
 
         try:
@@ -146,9 +168,7 @@ class DataImportService:
                     continue
 
                 try:
-                    result_code = await self._import_single_row(
-                        import_type, row, org_id, user_id, db, mode=mode
-                    )
+                    result_code = await self._import_single_row(import_type, row, org_id, user_id, db, mode=mode)
                     if result_code == "inserted":
                         success_count += 1
                     elif result_code == "updated":
@@ -156,12 +176,14 @@ class DataImportService:
                     else:
                         skip_count += 1
                 except Exception as e:
-                    import_errors.append({
-                        "row": idx,
-                        "field": "unknown",
-                        "reason": str(e),
-                        "data": row,
-                    })
+                    import_errors.append(
+                        {
+                            "row": idx,
+                            "field": "unknown",
+                            "reason": str(e),
+                            "data": row,
+                        }
+                    )
 
             return {
                 "success_count": success_count,
@@ -198,11 +220,13 @@ class DataImportService:
                 "valid": False,
                 "total_rows": 0,
                 "error_count": 1,
-                "errors": [{
-                    "row": 0,
-                    "field": "import_type",
-                    "reason": f"不支持的导入类型: {import_type}",
-                }],
+                "errors": [
+                    {
+                        "row": 0,
+                        "field": "import_type",
+                        "reason": f"不支持的导入类型: {import_type}",
+                    }
+                ],
             }
 
         try:
@@ -274,7 +298,7 @@ class DataImportService:
             解析后的数据行列表
         """
         # 移除 BOM
-        if csv_content.startswith('\ufeff'):
+        if csv_content.startswith("\ufeff"):
             csv_content = csv_content[1:]
 
         text_io = io.StringIO(csv_content)
@@ -285,11 +309,7 @@ class DataImportService:
             # 过滤完全空行
             if any(v and v.strip() for v in row.values()):
                 # 清理值
-                cleaned = {
-                    k.strip(): (v.strip() if v else "")
-                    for k, v in row.items()
-                    if k  # 忽略空列名
-                }
+                cleaned = {k.strip(): (v.strip() if v else "") for k, v in row.items() if k}  # 忽略空列名
                 data.append(cleaned)
 
         return data
@@ -320,9 +340,7 @@ class DataImportService:
 
     # ============== 验证 ==============
 
-    def _validate_rows(
-        self, import_type: str, rows: list[dict[str, str]]
-    ) -> list[dict[str, Any]]:
+    def _validate_rows(self, import_type: str, rows: list[dict[str, str]]) -> list[dict[str, Any]]:
         """
         验证所有数据行。
 
@@ -342,12 +360,14 @@ class DataImportService:
             for field_name in required:
                 value = row.get(field_name, "").strip()
                 if not value:
-                    errors.append({
-                        "row": idx,
-                        "field": field_name,
-                        "reason": f"必填字段 {field_name} 为空",
-                        "data": row,
-                    })
+                    errors.append(
+                        {
+                            "row": idx,
+                            "field": field_name,
+                            "reason": f"必填字段 {field_name} 为空",
+                            "data": row,
+                        }
+                    )
 
             # 类型特定验证
             type_errors = self._validate_by_type(import_type, row, idx)
@@ -360,9 +380,7 @@ class DataImportService:
 
         return errors
 
-    def _validate_by_type(
-        self, import_type: str, row: dict[str, str], row_num: int
-    ) -> list[dict[str, Any]]:
+    def _validate_by_type(self, import_type: str, row: dict[str, str], row_num: int) -> list[dict[str, Any]]:
         """按导入类型执行特定验证"""
         errors = []
 
@@ -377,81 +395,100 @@ class DataImportService:
 
         return errors
 
-    def _validate_employee_row(
-        self, row: dict[str, str], row_num: int
-    ) -> list[dict[str, Any]]:
+    def _validate_employee_row(self, row: dict[str, str], row_num: int) -> list[dict[str, Any]]:
         """验证员工数据行"""
         errors = []
         email = row.get("email", "").strip()
         if email and not self._is_valid_email(email):
-            errors.append({
-                "row": row_num, "field": "email",
-                "reason": f"邮箱格式无效: {email}", "data": row,
-            })
+            errors.append(
+                {
+                    "row": row_num,
+                    "field": "email",
+                    "reason": f"邮箱格式无效: {email}",
+                    "data": row,
+                }
+            )
 
         role = row.get("role", "").strip()
         if role and role not in self.VALID_ROLES:
-            errors.append({
-                "row": row_num, "field": "role",
-                "reason": f"角色无效: {role}，可选: {', '.join(self.VALID_ROLES)}",
-                "data": row,
-            })
+            errors.append(
+                {
+                    "row": row_num,
+                    "field": "role",
+                    "reason": f"角色无效: {role}，可选: {', '.join(self.VALID_ROLES)}",
+                    "data": row,
+                }
+            )
 
         phone = row.get("phone", "").strip()
         if phone and not self._is_valid_phone(phone):
-            errors.append({
-                "row": row_num, "field": "phone",
-                "reason": f"手机号格式无效: {phone}", "data": row,
-            })
+            errors.append(
+                {
+                    "row": row_num,
+                    "field": "phone",
+                    "reason": f"手机号格式无效: {phone}",
+                    "data": row,
+                }
+            )
 
         return errors
 
-    def _validate_customer_row(
-        self, row: dict[str, str], row_num: int
-    ) -> list[dict[str, Any]]:
+    def _validate_customer_row(self, row: dict[str, str], row_num: int) -> list[dict[str, Any]]:
         """验证客户数据行"""
         errors = []
         email = row.get("email", "").strip()
         if email and not self._is_valid_email(email):
-            errors.append({
-                "row": row_num, "field": "email",
-                "reason": f"邮箱格式无效: {email}", "data": row,
-            })
+            errors.append(
+                {
+                    "row": row_num,
+                    "field": "email",
+                    "reason": f"邮箱格式无效: {email}",
+                    "data": row,
+                }
+            )
 
         phone = row.get("phone", "").strip()
         if phone and not self._is_valid_phone(phone):
-            errors.append({
-                "row": row_num, "field": "phone",
-                "reason": f"联系电话格式无效: {phone}", "data": row,
-            })
+            errors.append(
+                {
+                    "row": row_num,
+                    "field": "phone",
+                    "reason": f"联系电话格式无效: {phone}",
+                    "data": row,
+                }
+            )
 
         return errors
 
-    def _validate_attendance_row(
-        self, row: dict[str, str], row_num: int
-    ) -> list[dict[str, Any]]:
+    def _validate_attendance_row(self, row: dict[str, str], row_num: int) -> list[dict[str, Any]]:
         """验证考勤数据行"""
         errors = []
         date_str = row.get("date", "").strip()
         if date_str and not self._is_valid_date(date_str):
-            errors.append({
-                "row": row_num, "field": "date",
-                "reason": f"日期格式无效: {date_str}，应为 YYYY-MM-DD", "data": row,
-            })
+            errors.append(
+                {
+                    "row": row_num,
+                    "field": "date",
+                    "reason": f"日期格式无效: {date_str}，应为 YYYY-MM-DD",
+                    "data": row,
+                }
+            )
 
         for time_field in ["check_in", "check_out"]:
             time_str = row.get(time_field, "").strip()
             if time_str and not self._is_valid_time(time_str):
-                errors.append({
-                    "row": row_num, "field": time_field,
-                    "reason": f"时间格式无效: {time_str}，应为 HH:MM", "data": row,
-                })
+                errors.append(
+                    {
+                        "row": row_num,
+                        "field": time_field,
+                        "reason": f"时间格式无效: {time_str}，应为 HH:MM",
+                        "data": row,
+                    }
+                )
 
         return errors
 
-    def _validate_sales_row(
-        self, row: dict[str, str], row_num: int
-    ) -> list[dict[str, Any]]:
+    def _validate_sales_row(self, row: dict[str, str], row_num: int) -> list[dict[str, Any]]:
         """验证销售数据行"""
         errors = []
         amount = row.get("amount", "").strip()
@@ -459,18 +496,25 @@ class DataImportService:
             try:
                 float(amount)
             except ValueError:
-                errors.append({
-                    "row": row_num, "field": "amount",
-                    "reason": f"金额必须为数字: {amount}", "data": row,
-                })
+                errors.append(
+                    {
+                        "row": row_num,
+                        "field": "amount",
+                        "reason": f"金额必须为数字: {amount}",
+                        "data": row,
+                    }
+                )
 
         status = row.get("status", "").strip()
         if status and status not in self.VALID_SALES_STATUS:
-            errors.append({
-                "row": row_num, "field": "status",
-                "reason": f"状态无效: {status}，可选: {', '.join(self.VALID_SALES_STATUS)}",
-                "data": row,
-            })
+            errors.append(
+                {
+                    "row": row_num,
+                    "field": "status",
+                    "reason": f"状态无效: {status}，可选: {', '.join(self.VALID_SALES_STATUS)}",
+                    "data": row,
+                }
+            )
 
         return errors
 
@@ -549,14 +593,10 @@ class DataImportService:
         else:
             raise ValueError(f"Unknown import type: {import_type}")
 
-    async def _import_employee(
-        self, row: dict[str, str], org_id: str, db, mode: str = "insert"
-    ) -> str:
+    async def _import_employee(self, row: dict[str, str], org_id: str, db, mode: str = "insert") -> str:
         """导入单条员工记录"""
         email = row.get("email", "").strip()
-        existing = await db.table("users").select("id").eq(
-            "email", email
-        ).maybe_single().execute()
+        existing = await db.table("users").select("id").eq("email", email).maybe_single().execute()
 
         if existing.data:
             if mode == "incremental":
@@ -575,28 +615,26 @@ class DataImportService:
                 if phone:
                     update_data["phone"] = phone
                 if update_data:
-                    await db.table("users").update(update_data).eq(
-                        "id", existing.data["id"]
-                    ).execute()
+                    await db.table("users").update(update_data).eq("id", existing.data["id"]).execute()
                     return "updated"
             return "skipped"
 
-        await db.table("users").insert({
-            "name": row.get("name", "").strip(),
-            "email": email,
-            "department": row.get("department", "").strip() or None,
-            "role": row.get("role", "employee").strip(),
-            "phone": row.get("phone", "").strip() or None,
-            "organization_id": org_id,
-            "password": "Nexus@123",
-            "score": 0,
-            "total_bonus": 0,
-        }).execute()
+        await db.table("users").insert(
+            {
+                "name": row.get("name", "").strip(),
+                "email": email,
+                "department": row.get("department", "").strip() or None,
+                "role": row.get("role", "employee").strip(),
+                "phone": row.get("phone", "").strip() or None,
+                "organization_id": org_id,
+                "password": "Nexus@123",
+                "score": 0,
+                "total_bonus": 0,
+            }
+        ).execute()
         return "inserted"
 
-    async def _import_customer(
-        self, row: dict[str, str], org_id: str, user_id: str, db, mode: str = "insert"
-    ) -> str:
+    async def _import_customer(self, row: dict[str, str], org_id: str, user_id: str, db, mode: str = "insert") -> str:
         """导入单条客户记录"""
         name = row.get("name", "").strip()
         company = row.get("company", "").strip()
@@ -625,35 +663,31 @@ class DataImportService:
                 if notes:
                     update_data["notes"] = notes
                 if update_data:
-                    await db.table("customers").update(update_data).eq(
-                        "id", existing.data["id"]
-                    ).execute()
+                    await db.table("customers").update(update_data).eq("id", existing.data["id"]).execute()
                     return "updated"
             return "skipped"
 
-        await db.table("customers").insert({
-            "name": name,
-            "contact_person": row.get("contact_person", "").strip() or None,
-            "phone": row.get("phone", "").strip() or None,
-            "email": row.get("email", "").strip() or None,
-            "company": company or None,
-            "source": row.get("source", "批量导入").strip(),
-            "notes": row.get("notes", "").strip() or None,
-            "created_by": user_id,
-            "organization_id": org_id,
-        }).execute()
+        await db.table("customers").insert(
+            {
+                "name": name,
+                "contact_person": row.get("contact_person", "").strip() or None,
+                "phone": row.get("phone", "").strip() or None,
+                "email": row.get("email", "").strip() or None,
+                "company": company or None,
+                "source": row.get("source", "批量导入").strip(),
+                "notes": row.get("notes", "").strip() or None,
+                "created_by": user_id,
+                "organization_id": org_id,
+            }
+        ).execute()
         return "inserted"
 
-    async def _import_attendance(
-        self, row: dict[str, str], org_id: str, db, mode: str = "insert"
-    ) -> str:
+    async def _import_attendance(self, row: dict[str, str], org_id: str, db, mode: str = "insert") -> str:
         """导入单条考勤记录"""
         email = row.get("email", "").strip()
 
         # 查找用户 ID
-        user_res = await db.table("users").select("id").eq(
-            "email", email
-        ).maybe_single().execute()
+        user_res = await db.table("users").select("id").eq("email", email).maybe_single().execute()
 
         if not user_res.data:
             raise ValueError(f"未找到邮箱对应的用户: {email}")
@@ -662,9 +696,14 @@ class DataImportService:
         date_str = row.get("date", "").strip()
 
         # 检查是否已存在
-        existing = await db.table("attendance_records").select("id").eq(
-            "user_id", user_id
-        ).eq("date", date_str).maybe_single().execute()
+        existing = (
+            await db.table("attendance_records")
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("date", date_str)
+            .maybe_single()
+            .execute()
+        )
 
         if existing.data:
             if mode == "incremental":
@@ -679,26 +718,24 @@ class DataImportService:
                 if notes:
                     update_data["notes"] = notes
                 if update_data:
-                    await db.table("attendance_records").update(update_data).eq(
-                        "id", existing.data["id"]
-                    ).execute()
+                    await db.table("attendance_records").update(update_data).eq("id", existing.data["id"]).execute()
                     return "updated"
             return "skipped"
 
-        await db.table("attendance_records").insert({
-            "user_id": user_id,
-            "date": date_str,
-            "check_in": row.get("check_in", "").strip() or None,
-            "check_out": row.get("check_out", "").strip() or None,
-            "notes": row.get("notes", "").strip() or None,
-            "status": "normal",
-            "organization_id": org_id,
-        }).execute()
+        await db.table("attendance_records").insert(
+            {
+                "user_id": user_id,
+                "date": date_str,
+                "check_in": row.get("check_in", "").strip() or None,
+                "check_out": row.get("check_out", "").strip() or None,
+                "notes": row.get("notes", "").strip() or None,
+                "status": "normal",
+                "organization_id": org_id,
+            }
+        ).execute()
         return "inserted"
 
-    async def _import_sale(
-        self, row: dict[str, str], org_id: str, user_id: str, db, mode: str = "insert"
-    ) -> str:
+    async def _import_sale(self, row: dict[str, str], org_id: str, user_id: str, db, mode: str = "insert") -> str:
         """导入单条销售记录"""
         customer_name = row.get("customer_name", "").strip()
         amount_str = row.get("amount", "0").strip()
@@ -708,21 +745,21 @@ class DataImportService:
         sales_rep_id = user_id
         rep_email = row.get("sales_rep_email", "").strip()
         if rep_email:
-            rep_res = await db.table("users").select("id").eq(
-                "email", rep_email
-            ).maybe_single().execute()
+            rep_res = await db.table("users").select("id").eq("email", rep_email).maybe_single().execute()
             if rep_res.data:
                 sales_rep_id = rep_res.data["id"]
 
-        await db.table("sales_records").insert({
-            "customer_name": customer_name,
-            "amount": amount,
-            "product": row.get("product", "").strip() or None,
-            "sales_rep": sales_rep_id,
-            "status": row.get("status", "进行中").strip(),
-            "notes": row.get("notes", "").strip() or None,
-            "organization_id": org_id,
-        }).execute()
+        await db.table("sales_records").insert(
+            {
+                "customer_name": customer_name,
+                "amount": amount,
+                "product": row.get("product", "").strip() or None,
+                "sales_rep": sales_rep_id,
+                "status": row.get("status", "进行中").strip(),
+                "notes": row.get("notes", "").strip() or None,
+                "organization_id": org_id,
+            }
+        ).execute()
         return "inserted"
 
     # ============== 工具方法 ==============

@@ -85,6 +85,7 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Nexus Backend...")
 
     from app.core.env_config import env_config
+
     env_errors = env_config.validate_all()
     if env_errors:
         for err in env_errors:
@@ -98,6 +99,7 @@ async def lifespan(app: FastAPI):
 
     # Initialize LangGraph checkpointer (for state persistence)
     from app.agent.checkpointer import setup_checkpointer
+
     try:
         await setup_checkpointer()
         logger.info("LangGraph Checkpointer initialized")
@@ -106,6 +108,7 @@ async def lifespan(app: FastAPI):
 
     # Cold start optimization: Initialize connection pools
     from app.services.connection_pool_service import connection_pool_service
+
     try:
         await connection_pool_service.init_all()
         logger.info("Connection pools initialized")
@@ -115,6 +118,7 @@ async def lifespan(app: FastAPI):
     # Warm up tiktoken encoders (prevents first-request latency)
     try:
         from app.services.token_service import token_counter
+
         token_counter.count_tokens("warmup", "gpt-4o")
         token_counter.count_tokens("warmup", "gpt-4o-mini")
         logger.info("Token encoders warmed up")
@@ -126,6 +130,7 @@ async def lifespan(app: FastAPI):
         from app.core.database import supabase
         from app.services.billing_service import billing_service
         from app.services.tenant_credit_service import tenant_credit_service
+
         while True:
             await asyncio.sleep(300)
             try:
@@ -140,6 +145,7 @@ async def lifespan(app: FastAPI):
     # Start background approval timeout escalation (every 5 minutes)
     async def _approval_timeout_loop():
         from app.services.approval_chain import approval_chain_service
+
         while True:
             await asyncio.sleep(300)
             try:
@@ -154,12 +160,13 @@ async def lifespan(app: FastAPI):
         from app.core.database import supabase as sync_db
         from app.services.im_platform.attendance_sync_service import attendance_sync_service
         from app.services.im_platform.contact_sync_service import contact_sync_service
+
         while True:
             await asyncio.sleep(3600)  # Every hour
             try:
                 if sync_db:
                     result = await sync_db.table("im_platform_config").select("*").eq("is_active", True).execute()
-                    for config in (result.data or []):
+                    for config in result.data or []:
                         try:
                             org_id = config.get("organization_id", "")
                             platform = config.get("platform", "")
@@ -175,6 +182,7 @@ async def lifespan(app: FastAPI):
 
     # Start auto-trigger service (3.2 主动监控)
     from app.services.auto_trigger_service import auto_trigger_service
+
     try:
         await auto_trigger_service.start()
         logger.info("Auto-trigger service started")
@@ -255,9 +263,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     if isinstance(error_content, str):
         error_content = {"code": "HTTP_ERROR", "message": error_content}
 
-    return UTF8JSONResponse(
-        status_code=exc.status_code, content={"success": False, "error": error_content}
-    )
+    return UTF8JSONResponse(status_code=exc.status_code, content={"success": False, "error": error_content})
 
 
 # CORS Configuration
@@ -290,12 +296,12 @@ async def test_ai_connectivity(user_id: str = Depends(get_current_user_id)):
 app.add_middleware(TenantContextMiddleware)  # 6th: innermost, sets up tenant DB scope
 from app.core.api_key_middleware import APIKeyMiddleware  # noqa: E402
 
-app.add_middleware(APIKeyMiddleware)          # 5th: API Key auth sets org_id before tenant context
-app.add_middleware(RequestIDMiddleware)       # 4th: adds request tracing ID
-app.add_middleware(SecurityHeadersMiddleware) # 3rd: security response headers
-app.add_middleware(RateLimitMiddleware)       # 2nd: blocks abuse BEFORE DB queries
+app.add_middleware(APIKeyMiddleware)  # 5th: API Key auth sets org_id before tenant context
+app.add_middleware(RequestIDMiddleware)  # 4th: adds request tracing ID
+app.add_middleware(SecurityHeadersMiddleware)  # 3rd: security response headers
+app.add_middleware(RateLimitMiddleware)  # 2nd: blocks abuse BEFORE DB queries
 app.add_middleware(
-    CORSMiddleware,                          # 1st: outermost — handles OPTIONS preflight immediately
+    CORSMiddleware,  # 1st: outermost — handles OPTIONS preflight immediately
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -373,9 +379,7 @@ async def health_check():
     try:
         if supabase:
             # Quick check - just verify connection
-            await supabase.table("users").select("count", count="exact").limit(
-                1
-            ).execute()
+            await supabase.table("users").select("count", count="exact").limit(1).execute()
             db_status = "connected"
         else:
             db_status = "not_configured"
@@ -402,11 +406,7 @@ async def health_check():
         ai_status = "unreachable" if settings.IS_PRODUCTION else f"unreachable: {str(e)[:50]}"
 
     return {
-        "status": (
-            "healthy"
-            if db_status == "connected" and cache_status == "connected"
-            else "degraded"
-        ),
+        "status": ("healthy" if db_status == "connected" and cache_status == "connected" else "degraded"),
         "version": settings.VERSION,
         "environment": settings.ENV,
         "checks": {
@@ -427,29 +427,18 @@ async def boss_dashboard(request: Request, user_id: str = Depends(get_current_us
     from app.core.errors import ErrorCode, api_error, api_success
 
     if not client:
-        raise api_error(
-            ErrorCode.DB_CONNECTION_ERROR, "Database connection unavailable"
-        )
+        raise api_error(ErrorCode.DB_CONNECTION_ERROR, "Database connection unavailable")
 
     try:
         # P1 Security Fix #6: Verify user has boss role
-        user_res = (
-            await client.table("users")
-            .select("role")
-            .eq("id", user_id)
-            .single()
-            .execute()
-        )
+        user_res = await client.table("users").select("role").eq("id", user_id).single().execute()
 
         if not user_res.data or user_res.data.get("role") != "boss":
             raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "仅领导可访问此仪表板")
 
         # 1. Get Pending Approvals Count
         pending_res = (
-            await client.table("approval_requests")
-            .select("count", count="exact")
-            .eq("status", "pending")
-            .execute()
+            await client.table("approval_requests").select("count", count="exact").eq("status", "pending").execute()
         )
         pending_count = pending_res.count if pending_res.count is not None else 0
 
@@ -482,11 +471,7 @@ async def boss_dashboard(request: Request, user_id: str = Depends(get_current_us
 
         # 3. Get Top Performers
         users_res = (
-            await client.table("users")
-            .select("name, score, total_bonus")
-            .order("score", desc=True)
-            .limit(3)
-            .execute()
+            await client.table("users").select("name, score, total_bonus").order("score", desc=True).limit(3).execute()
         )
 
         top_performers = [u["name"] for u in users_res.data]
@@ -511,4 +496,3 @@ async def boss_dashboard(request: Request, user_id: str = Depends(get_current_us
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
     uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)
-

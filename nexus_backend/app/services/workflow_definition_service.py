@@ -16,9 +16,7 @@ logger = logging.getLogger(__name__)
 VALID_NODE_TYPES = {"approver", "condition", "parallel", "auto_approve", "notify"}
 
 # Valid approval types
-VALID_APPROVAL_TYPES = {
-    "travel", "purchase", "expense", "leave", "event", "activity", "custom"
-}
+VALID_APPROVAL_TYPES = {"travel", "purchase", "expense", "leave", "event", "activity", "custom"}
 
 
 class WorkflowDefinitionService:
@@ -109,12 +107,7 @@ class WorkflowDefinitionService:
 
         updates["updated_at"] = datetime.now(UTC).isoformat()
 
-        result = (
-            await client.table("approval_chains")
-            .update(updates)
-            .eq("id", workflow_id)
-            .execute()
-        )
+        result = await client.table("approval_chains").update(updates).eq("id", workflow_id).execute()
 
         if not result.data:
             raise RuntimeError(f"Workflow {workflow_id} not found or update failed")
@@ -132,12 +125,7 @@ class WorkflowDefinitionService:
         if not client:
             raise ValueError("Database client unavailable")
 
-        result = (
-            await client.table("approval_chains")
-            .delete()
-            .eq("id", workflow_id)
-            .execute()
-        )
+        result = await client.table("approval_chains").delete().eq("id", workflow_id).execute()
 
         deleted = bool(result.data)
         if deleted:
@@ -154,13 +142,7 @@ class WorkflowDefinitionService:
         if not client:
             return None
 
-        result = (
-            await client.table("approval_chains")
-            .select("*")
-            .eq("id", workflow_id)
-            .maybe_single()
-            .execute()
-        )
+        result = await client.table("approval_chains").select("*").eq("id", workflow_id).maybe_single().execute()
 
         return result.data
 
@@ -229,12 +211,7 @@ class WorkflowDefinitionService:
             raise RuntimeError(f"Workflow {workflow_id} not found")
 
         new_active = not existing.get("is_active", True)
-        result = (
-            await client.table("approval_chains")
-            .update({"is_active": new_active})
-            .eq("id", workflow_id)
-            .execute()
-        )
+        result = await client.table("approval_chains").update({"is_active": new_active}).eq("id", workflow_id).execute()
 
         if not result.data:
             raise RuntimeError(f"Failed to toggle workflow {workflow_id}")
@@ -376,9 +353,7 @@ class WorkflowDefinitionService:
         for node_id, targets in adjacency.items():
             for target in targets:
                 if target not in node_ids:
-                    errors.append(
-                        f"Node '{node_id}' references non-existent node '{target}'"
-                    )
+                    errors.append(f"Node '{node_id}' references non-existent node '{target}'")
 
         # Cycle detection using DFS
         visited = set()

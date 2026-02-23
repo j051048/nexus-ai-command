@@ -44,9 +44,7 @@ class SuperAdminService:
         offset = (page - 1) * limit
 
         try:
-            query = client.table("organizations").select(
-                "id, name, created_at, status, plan, subscription_status"
-            )
+            query = client.table("organizations").select("id, name, created_at, status, plan, subscription_status")
 
             if search:
                 query = query.ilike("name", f"%{search}%")
@@ -92,13 +90,7 @@ class SuperAdminService:
 
         try:
             # 获取组织基本信息
-            org_result = await (
-                client.table("organizations")
-                .select("*")
-                .eq("id", org_id)
-                .single()
-                .execute()
-            )
+            org_result = await client.table("organizations").select("*").eq("id", org_id).single().execute()
 
             if not org_result.data:
                 return {}
@@ -107,10 +99,7 @@ class SuperAdminService:
 
             # 获取用户数
             users_result = await (
-                client.table("users")
-                .select("id", count="exact")
-                .eq("organization_id", org_id)
-                .execute()
+                client.table("users").select("id", count="exact").eq("organization_id", org_id).execute()
             )
             user_count = len(users_result.data) if users_result.data else 0
 
@@ -153,11 +142,13 @@ class SuperAdminService:
         try:
             result = await (
                 client.table("organizations")
-                .update({
-                    "status": "suspended",
-                    "suspended_reason": reason,
-                    "suspended_at": datetime.now(UTC).isoformat(),
-                })
+                .update(
+                    {
+                        "status": "suspended",
+                        "suspended_reason": reason,
+                        "suspended_at": datetime.now(UTC).isoformat(),
+                    }
+                )
                 .eq("id", org_id)
                 .execute()
             )
@@ -186,11 +177,13 @@ class SuperAdminService:
         try:
             result = await (
                 client.table("organizations")
-                .update({
-                    "status": "active",
-                    "suspended_reason": None,
-                    "suspended_at": None,
-                })
+                .update(
+                    {
+                        "status": "active",
+                        "suspended_reason": None,
+                        "suspended_at": None,
+                    }
+                )
                 .eq("id", org_id)
                 .execute()
             )
@@ -229,28 +222,19 @@ class SuperAdminService:
 
             thirty_days_ago = (datetime.now(UTC) - timedelta(days=30)).isoformat()
             mau_result = await (
-                client.table("users")
-                .select("id", count="exact")
-                .gte("last_active_at", thirty_days_ago)
-                .execute()
+                client.table("users").select("id", count="exact").gte("last_active_at", thirty_days_ago).execute()
             )
             mau = len(mau_result.data) if mau_result.data else 0
 
             # 总 AI 调用量（30天）
             ai_result = await (
-                client.table("ai_usage_logs")
-                .select("id", count="exact")
-                .gte("created_at", thirty_days_ago)
-                .execute()
+                client.table("ai_usage_logs").select("id", count="exact").gte("created_at", thirty_days_ago).execute()
             )
             total_ai_calls = len(ai_result.data) if ai_result.data else 0
 
             # 活跃组织数
             active_orgs_result = await (
-                client.table("organizations")
-                .select("id", count="exact")
-                .eq("status", "active")
-                .execute()
+                client.table("organizations").select("id", count="exact").eq("status", "active").execute()
             )
             active_orgs = len(active_orgs_result.data) if active_orgs_result.data else 0
 
@@ -317,8 +301,10 @@ class SuperAdminService:
             ai_key = os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
             health["services"]["ai"] = {
                 "status": "healthy" if ai_key else "unconfigured",
-                "provider": "openai" if os.getenv("OPENAI_API_KEY") else (
-                    "anthropic" if os.getenv("ANTHROPIC_API_KEY") else "none"
+                "provider": (
+                    "openai"
+                    if os.getenv("OPENAI_API_KEY")
+                    else ("anthropic" if os.getenv("ANTHROPIC_API_KEY") else "none")
                 ),
             }
         except Exception as e:
@@ -390,11 +376,7 @@ class SuperAdminService:
             if filters.get("date_to"):
                 query = query.lte("created_at", filters["date_to"])
 
-            result = await (
-                query.order("created_at", desc=True)
-                .range(offset, offset + limit - 1)
-                .execute()
-            )
+            result = await query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
 
             return result.data or []
 

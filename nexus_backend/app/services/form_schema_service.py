@@ -32,9 +32,7 @@ SUPPORTED_FIELD_TYPES = {
 }
 
 # ISO 8601 date pattern (YYYY-MM-DD or full datetime)
-ISO_DATE_PATTERN = re.compile(
-    r"^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$"
-)
+ISO_DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$")
 
 
 class FormSchemaService:
@@ -69,9 +67,7 @@ class FormSchemaService:
 
         # Deactivate existing active schema for same org+type
         try:
-            await client.table("form_schemas").update(
-                {"is_active": False}
-            ).eq("organization_id", org_id).eq(
+            await client.table("form_schemas").update({"is_active": False}).eq("organization_id", org_id).eq(
                 "approval_type", approval_type
             ).eq("is_active", True).execute()
         except Exception as e:
@@ -99,14 +95,10 @@ class FormSchemaService:
             raise RuntimeError("Failed to create form schema")
 
         created = result.data[0] if isinstance(result.data, list) else result.data
-        logger.info(
-            f"Form schema created: {created.get('id')} for type={approval_type} org={org_id}"
-        )
+        logger.info(f"Form schema created: {created.get('id')} for type={approval_type} org={org_id}")
         return created
 
-    async def update_schema(
-        self, schema_id: str, updates: dict[str, Any], db=None
-    ) -> dict:
+    async def update_schema(self, schema_id: str, updates: dict[str, Any], db=None) -> dict:
         """
         Update an existing form schema.
 
@@ -124,9 +116,7 @@ class FormSchemaService:
                 raise ValueError(f"Schema definition invalid: {'; '.join(errors)}")
 
         # Fetch current version for incrementing
-        current = await client.table("form_schemas").select(
-            "version"
-        ).eq("id", schema_id).maybe_single().execute()
+        current = await client.table("form_schemas").select("version").eq("id", schema_id).maybe_single().execute()
 
         if not current.data:
             raise ValueError("Schema not found")
@@ -136,14 +126,10 @@ class FormSchemaService:
 
         # Remove fields that should not be directly updated
         safe_updates = {
-            k: v
-            for k, v in updates.items()
-            if k in ("name", "description", "fields", "layout", "is_active", "version")
+            k: v for k, v in updates.items() if k in ("name", "description", "fields", "layout", "is_active", "version")
         }
 
-        result = await client.table("form_schemas").update(
-            safe_updates
-        ).eq("id", schema_id).execute()
+        result = await client.table("form_schemas").update(safe_updates).eq("id", schema_id).execute()
 
         if not result.data:
             raise RuntimeError("Failed to update form schema")
@@ -162,9 +148,7 @@ class FormSchemaService:
         if not client:
             raise RuntimeError("Database client unavailable")
 
-        result = await client.table("form_schemas").delete().eq(
-            "id", schema_id
-        ).execute()
+        result = await client.table("form_schemas").delete().eq("id", schema_id).execute()
 
         deleted = bool(result.data)
         if deleted:
@@ -181,9 +165,7 @@ class FormSchemaService:
         if not client:
             raise RuntimeError("Database client unavailable")
 
-        result = await client.table("form_schemas").select(
-            "*"
-        ).eq("id", schema_id).maybe_single().execute()
+        result = await client.table("form_schemas").select("*").eq("id", schema_id).maybe_single().execute()
 
         return result.data
 
@@ -197,17 +179,18 @@ class FormSchemaService:
         if not client:
             raise RuntimeError("Database client unavailable")
 
-        result = await client.table("form_schemas").select(
-            "*"
-        ).eq("organization_id", org_id).order(
-            "approval_type"
-        ).order("created_at", desc=True).execute()
+        result = (
+            await client.table("form_schemas")
+            .select("*")
+            .eq("organization_id", org_id)
+            .order("approval_type")
+            .order("created_at", desc=True)
+            .execute()
+        )
 
         return result.data or []
 
-    async def get_schema_for_type(
-        self, org_id: str, approval_type: str, db=None
-    ) -> dict | None:
+    async def get_schema_for_type(self, org_id: str, approval_type: str, db=None) -> dict | None:
         """
         Get the active form schema for a specific approval type within an organization.
         """
@@ -215,17 +198,19 @@ class FormSchemaService:
         if not client:
             raise RuntimeError("Database client unavailable")
 
-        result = await client.table("form_schemas").select(
-            "*"
-        ).eq("organization_id", org_id).eq(
-            "approval_type", approval_type
-        ).eq("is_active", True).maybe_single().execute()
+        result = (
+            await client.table("form_schemas")
+            .select("*")
+            .eq("organization_id", org_id)
+            .eq("approval_type", approval_type)
+            .eq("is_active", True)
+            .maybe_single()
+            .execute()
+        )
 
         return result.data
 
-    def validate_form_data(
-        self, schema_fields: list[dict], form_data: dict
-    ) -> list[str]:
+    def validate_form_data(self, schema_fields: list[dict], form_data: dict) -> list[str]:
         """
         Validate user-submitted form data against the schema definition.
 
@@ -266,55 +251,36 @@ class FormSchemaService:
                 try:
                     num_val = float(value)
                 except (TypeError, ValueError):
-                    errors.append(
-                        f"字段 '{field.get('label', key)}' 必须为数字"
-                    )
+                    errors.append(f"字段 '{field.get('label', key)}' 必须为数字")
                     continue
 
                 if "min" in field and num_val < field["min"]:
-                    errors.append(
-                        f"字段 '{field.get('label', key)}' 不能小于 {field['min']}"
-                    )
+                    errors.append(f"字段 '{field.get('label', key)}' 不能小于 {field['min']}")
                 if "max" in field and num_val > field["max"]:
-                    errors.append(
-                        f"字段 '{field.get('label', key)}' 不能大于 {field['max']}"
-                    )
+                    errors.append(f"字段 '{field.get('label', key)}' 不能大于 {field['max']}")
 
             elif field_type == "date":
                 if not isinstance(value, str) or not ISO_DATE_PATTERN.match(value):
-                    errors.append(
-                        f"字段 '{field.get('label', key)}' 日期格式无效，需符合 ISO 8601 (YYYY-MM-DD)"
-                    )
+                    errors.append(f"字段 '{field.get('label', key)}' 日期格式无效，需符合 ISO 8601 (YYYY-MM-DD)")
 
             elif field_type == "daterange":
                 if not isinstance(value, dict):
-                    errors.append(
-                        f"字段 '{field.get('label', key)}' 日期范围应为对象 {{start, end}}"
-                    )
+                    errors.append(f"字段 '{field.get('label', key)}' 日期范围应为对象 {{start, end}}")
                 else:
                     for date_key in ("start", "end"):
                         date_val = value.get(date_key)
-                        if date_val and (
-                            not isinstance(date_val, str)
-                            or not ISO_DATE_PATTERN.match(date_val)
-                        ):
-                            errors.append(
-                                f"字段 '{field.get('label', key)}' 的 {date_key} 日期格式无效"
-                            )
+                        if date_val and (not isinstance(date_val, str) or not ISO_DATE_PATTERN.match(date_val)):
+                            errors.append(f"字段 '{field.get('label', key)}' 的 {date_key} 日期格式无效")
 
             elif field_type == "select":
                 options = field.get("options", [])
                 if options and value not in options:
-                    errors.append(
-                        f"字段 '{field.get('label', key)}' 的值 '{value}' 不在可选项中"
-                    )
+                    errors.append(f"字段 '{field.get('label', key)}' 的值 '{value}' 不在可选项中")
 
             elif field_type == "multiselect":
                 options = field.get("options", [])
                 if not isinstance(value, list):
-                    errors.append(
-                        f"字段 '{field.get('label', key)}' 应为数组"
-                    )
+                    errors.append(f"字段 '{field.get('label', key)}' 应为数组")
                 elif options:
                     invalid = [v for v in value if v not in options]
                     if invalid:
@@ -324,28 +290,17 @@ class FormSchemaService:
 
             elif field_type == "file":
                 if not isinstance(value, list):
-                    errors.append(
-                        f"字段 '{field.get('label', key)}' 文件列表应为数组"
-                    )
+                    errors.append(f"字段 '{field.get('label', key)}' 文件列表应为数组")
                 else:
                     max_files = field.get("max_files")
                     if max_files and len(value) > max_files:
-                        errors.append(
-                            f"字段 '{field.get('label', key)}' 最多上传 {max_files} 个文件"
-                        )
+                        errors.append(f"字段 '{field.get('label', key)}' 最多上传 {max_files} 个文件")
 
                     file_types = field.get("file_types", [])
                     if file_types:
                         for file_item in value:
-                            file_name = (
-                                file_item
-                                if isinstance(file_item, str)
-                                else file_item.get("name", "")
-                            )
-                            if not any(
-                                file_name.lower().endswith(ft.lower())
-                                for ft in file_types
-                            ):
+                            file_name = file_item if isinstance(file_item, str) else file_item.get("name", "")
+                            if not any(file_name.lower().endswith(ft.lower()) for ft in file_types):
                                 errors.append(
                                     f"字段 '{field.get('label', key)}' 中文件 '{file_name}' 类型不被允许，"
                                     f"支持的类型: {', '.join(file_types)}"
@@ -355,14 +310,10 @@ class FormSchemaService:
                 if isinstance(value, str):
                     max_len = field.get("max")
                     if max_len and len(value) > max_len:
-                        errors.append(
-                            f"字段 '{field.get('label', key)}' 长度不能超过 {max_len} 个字符"
-                        )
+                        errors.append(f"字段 '{field.get('label', key)}' 长度不能超过 {max_len} 个字符")
                     min_len = field.get("min")
                     if min_len and len(value) < min_len:
-                        errors.append(
-                            f"字段 '{field.get('label', key)}' 长度不能少于 {min_len} 个字符"
-                        )
+                        errors.append(f"字段 '{field.get('label', key)}' 长度不能少于 {min_len} 个字符")
 
         return errors
 
@@ -418,9 +369,7 @@ class FormSchemaService:
             if field_type in ("select", "multiselect"):
                 options = field.get("options")
                 if not options or not isinstance(options, list) or len(options) == 0:
-                    errors.append(
-                        f"字段 '{key}' 类型为 '{field_type}'，必须提供 options 列表"
-                    )
+                    errors.append(f"字段 '{key}' 类型为 '{field_type}'，必须提供 options 列表")
 
         return errors
 

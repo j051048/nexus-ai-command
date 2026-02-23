@@ -46,12 +46,7 @@ async def batch_delete_documents(
         # With CASCADE DELETE on FK, only need to delete documents.
         # Embeddings are automatically cleaned up by PostgreSQL.
         try:
-            res = (
-                await client.table("documents")
-                .delete()
-                .in_("id", payload.document_ids)
-                .execute()
-            )
+            res = await client.table("documents").delete().in_("id", payload.document_ids).execute()
             count = len(res.data) if res and res.data else 0
         except Exception as e:
             if _is_postgrest_204(e):
@@ -65,10 +60,7 @@ async def batch_delete_documents(
                 if global_supabase:
                     try:
                         res = (
-                            await global_supabase.table("documents")
-                            .delete()
-                            .in_("id", payload.document_ids)
-                            .execute()
+                            await global_supabase.table("documents").delete().in_("id", payload.document_ids).execute()
                         )
                         count = len(res.data) if res and res.data else 0
                     except Exception as fallback_e:
@@ -106,36 +98,36 @@ async def upload_documents(
     base_url = None
     user_department = None
     client = req.state.db
-    org_id = getattr(req.state, 'org_id', None)
+    org_id = getattr(req.state, "org_id", None)
 
     # 1. Validate visibility and category parameters
     if visibility not in ("private", "department", "organization"):
         visibility = "organization"
 
-    if category not in ("regulation", "manual", "contract", "training", "product", "bid", "proposal", "invoice", "other"):
+    if category not in (
+        "regulation",
+        "manual",
+        "contract",
+        "training",
+        "product",
+        "bid",
+        "proposal",
+        "invoice",
+        "other",
+    ):
         category = "other"
 
     if user_id:
         try:
             # Fetch user settings and department
             user_settings = (
-                await client.table("ai_settings")
-                .select("*")
-                .eq("user_id", user_id)
-                .maybe_single()
-                .execute()
+                await client.table("ai_settings").select("*").eq("user_id", user_id).maybe_single().execute()
             )
             if user_settings.data:
                 api_key = user_settings.data.get("api_key")
                 base_url = user_settings.data.get("base_url")
 
-            user_data = (
-                await client.table("users")
-                .select("department")
-                .eq("id", user_id)
-                .maybe_single()
-                .execute()
-            )
+            user_data = await client.table("users").select("department").eq("id", user_id).maybe_single().execute()
             if user_data.data:
                 user_department = user_data.data.get("department")
         except Exception as e:
@@ -202,17 +194,13 @@ async def upload_documents(
 
         except Exception as e:
             logger.error(f"Upload Setup Failed for {file.filename}: {e}")
-            results.append(
-                {"filename": file.filename, "status": "error", "reason": str(e)}
-            )
+            results.append({"filename": file.filename, "status": "error", "reason": str(e)})
 
     summary = f"Queued {processed_count} files"
     if skipped_count > 0:
         summary += f", skipped {skipped_count} duplicates"
 
-    return api_success(
-        data={"summary": summary, "results": results}, message="Upload received"
-    )
+    return api_success(data={"summary": summary, "results": results}, message="Upload received")
 
 
 @router.post("/batch-upload", response_model=StandardResponse)
@@ -231,28 +219,18 @@ async def batch_upload_documents(
     base_url = None
     user_department = None
     client = req.state.db
-    org_id = getattr(req.state, 'org_id', None)
+    org_id = getattr(req.state, "org_id", None)
 
     if user_id:
         try:
             user_settings = (
-                await client.table("ai_settings")
-                .select("*")
-                .eq("user_id", user_id)
-                .maybe_single()
-                .execute()
+                await client.table("ai_settings").select("*").eq("user_id", user_id).maybe_single().execute()
             )
             if user_settings.data:
                 api_key = user_settings.data.get("api_key")
                 base_url = user_settings.data.get("base_url")
 
-            user_data = (
-                await client.table("users")
-                .select("department")
-                .eq("id", user_id)
-                .maybe_single()
-                .execute()
-            )
+            user_data = await client.table("users").select("department").eq("id", user_id).maybe_single().execute()
             if user_data.data:
                 user_department = user_data.data.get("department")
         except Exception as e:
@@ -263,11 +241,7 @@ async def batch_upload_documents(
         try:
             # Validate file type
             allowed_extensions = [".pdf", ".docx", ".txt", ".md", ".csv"]
-            ext = (
-                "." + file.filename.rsplit(".", 1)[-1].lower()
-                if "." in file.filename
-                else ""
-            )
+            ext = "." + file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
             if ext not in allowed_extensions:
                 results.append(
                     {
@@ -337,9 +311,7 @@ async def batch_upload_documents(
             )
         except Exception as e:
             logger.error(f"Failed to upload {file.filename}: {e}")
-            results.append(
-                {"filename": file.filename, "status": "error", "reason": str(e)[:100]}
-            )
+            results.append({"filename": file.filename, "status": "error", "reason": str(e)[:100]})
 
     success_count = sum(1 for r in results if r["status"] == "uploaded")
     error_count = sum(1 for r in results if r["status"] == "error")
@@ -380,9 +352,7 @@ async def update_document(
 
     # 2. Delete old embeddings
     try:
-        await client.table("document_embeddings").delete().eq(
-            "document_id", document_id
-        ).execute()
+        await client.table("document_embeddings").delete().eq("document_id", document_id).execute()
     except Exception as e:
         if not _is_postgrest_204(e):
             logger.warning(f"Failed to delete old embeddings: {e}")
@@ -406,13 +376,7 @@ async def update_document(
     api_key = None
     base_url = None
     try:
-        user_settings = (
-            await client.table("ai_settings")
-            .select("*")
-            .eq("user_id", user_id)
-            .maybe_single()
-            .execute()
-        )
+        user_settings = await client.table("ai_settings").select("*").eq("user_id", user_id).maybe_single().execute()
         if user_settings.data:
             api_key = user_settings.data.get("api_key")
             base_url = user_settings.data.get("base_url")
@@ -420,7 +384,7 @@ async def update_document(
         logger.warning(f"Failed to fetch user settings: {e}")
 
     # 6. Queue reprocessing
-    org_id = getattr(req.state, 'org_id', None)
+    org_id = getattr(req.state, "org_id", None)
     background_tasks.add_task(
         etl_service.process_file,
         content=content,

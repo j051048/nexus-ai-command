@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PermissionRule:
     """权限规则定义"""
+
     permission: str
     roles: list[str]
     conditions: list[str] = field(default_factory=list)
@@ -35,6 +36,7 @@ class PermissionRule:
 @dataclass
 class PermissionContext:
     """权限评估上下文"""
+
     user_id: str
     user_role: str | None = None
     user_department: str | None = None
@@ -45,6 +47,7 @@ class PermissionContext:
 @dataclass
 class PermissionResult:
     """权限评估结果"""
+
     granted: bool
     permission: str
     reason: str = ""
@@ -358,9 +361,7 @@ class PermissionService:
                 # 条件采用 OR 逻辑：满足任一条件即可
                 condition_met = False
                 for condition in conditions:
-                    if await self._evaluate_condition(
-                        condition, user_id, user_info, resource, db
-                    ):
+                    if await self._evaluate_condition(condition, user_id, user_info, resource, db):
                         condition_met = True
                         break
 
@@ -421,9 +422,7 @@ class PermissionService:
             evaluated_conditions = []
 
             # 检查角色
-            role_allowed = user_role in rule["roles"] or self._role_has_hierarchy_access(
-                user_role, rule["roles"]
-            )
+            role_allowed = user_role in rule["roles"] or self._role_has_hierarchy_access(user_role, rule["roles"])
             if not role_allowed:
                 return PermissionResult(
                     granted=False,
@@ -435,13 +434,13 @@ class PermissionService:
             conditions = rule.get("conditions", [])
             if conditions and resource:
                 for condition in conditions:
-                    result = await self._evaluate_condition(
-                        condition, user_id, user_info, resource, db
+                    result = await self._evaluate_condition(condition, user_id, user_info, resource, db)
+                    evaluated_conditions.append(
+                        {
+                            "condition": condition,
+                            "result": result,
+                        }
                     )
-                    evaluated_conditions.append({
-                        "condition": condition,
-                        "result": result,
-                    })
 
                 if not any(ec["result"] for ec in evaluated_conditions):
                     return PermissionResult(
@@ -466,9 +465,7 @@ class PermissionService:
                 reason=f"评估异常: {str(e)}",
             )
 
-    async def get_user_permissions(
-        self, user_id: str, db=None
-    ) -> list[dict[str, Any]]:
+    async def get_user_permissions(self, user_id: str, db=None) -> list[dict[str, Any]]:
         """
         获取用户所有权限列表。
 
@@ -492,19 +489,19 @@ class PermissionService:
             permissions = []
 
             for perm_key, rule in self.PERMISSION_RULES.items():
-                granted = user_role in rule["roles"] or self._role_has_hierarchy_access(
-                    user_role, rule["roles"]
-                )
+                granted = user_role in rule["roles"] or self._role_has_hierarchy_access(user_role, rule["roles"])
                 has_conditions = bool(rule.get("conditions"))
 
-                permissions.append({
-                    "permission": perm_key,
-                    "granted": granted,
-                    "conditional": has_conditions,
-                    "description": rule.get("description", ""),
-                    "required_roles": rule["roles"],
-                    "conditions": rule.get("conditions", []),
-                })
+                permissions.append(
+                    {
+                        "permission": perm_key,
+                        "granted": granted,
+                        "conditional": has_conditions,
+                        "description": rule.get("description", ""),
+                        "required_roles": rule["roles"],
+                        "conditions": rule.get("conditions", []),
+                    }
+                )
 
             return permissions
 
@@ -541,9 +538,7 @@ class PermissionService:
         """
         permissions = []
         for perm_key, rule in self.PERMISSION_RULES.items():
-            if role in rule["roles"] or self._role_has_hierarchy_access(
-                role, rule["roles"]
-            ):
+            if role in rule["roles"] or self._role_has_hierarchy_access(role, rule["roles"]):
                 permissions.append(perm_key)
         return permissions
 
@@ -587,9 +582,7 @@ class PermissionService:
             logger.error(f"Condition evaluation error ({condition}): {e}")
             return False
 
-    async def _check_is_owner(
-        self, user_id: str, resource: dict[str, Any], db
-    ) -> bool:
+    async def _check_is_owner(self, user_id: str, resource: dict[str, Any], db) -> bool:
         """检查用户是否是资源的所有者"""
         # 先从 resource 字典直接获取
         owner_id = (
@@ -606,9 +599,13 @@ class PermissionService:
         resource_id = resource.get("id")
         if table and resource_id:
             try:
-                result = await db.table(table).select(
-                    "created_by, owner_id, submitted_by, uploaded_by"
-                ).eq("id", resource_id).maybe_single().execute()
+                result = (
+                    await db.table(table)
+                    .select("created_by, owner_id, submitted_by, uploaded_by")
+                    .eq("id", resource_id)
+                    .maybe_single()
+                    .execute()
+                )
 
                 if result.data:
                     return user_id in [
@@ -651,9 +648,7 @@ class PermissionService:
 
         return False
 
-    async def _check_is_approver(
-        self, user_id: str, resource: dict[str, Any], db
-    ) -> bool:
+    async def _check_is_approver(self, user_id: str, resource: dict[str, Any], db) -> bool:
         """检查用户是否是某审批请求的审批人"""
         approval_id = resource.get("id") or resource.get("approval_id")
         if not approval_id:
@@ -661,17 +656,26 @@ class PermissionService:
 
         try:
             # 检查 approval_steps 表
-            result = await db.table("approval_steps").select("id").eq(
-                "approval_request_id", approval_id
-            ).eq("approver_id", user_id).maybe_single().execute()
+            result = (
+                await db.table("approval_steps")
+                .select("id")
+                .eq("approval_request_id", approval_id)
+                .eq("approver_id", user_id)
+                .maybe_single()
+                .execute()
+            )
 
             if result.data:
                 return True
 
             # 也检查 approval_requests 表的 current_approver_id
-            req_result = await db.table("approval_requests").select(
-                "current_approver_id"
-            ).eq("id", approval_id).maybe_single().execute()
+            req_result = (
+                await db.table("approval_requests")
+                .select("current_approver_id")
+                .eq("id", approval_id)
+                .maybe_single()
+                .execute()
+            )
 
             if req_result.data:
                 return req_result.data.get("current_approver_id") == user_id
@@ -691,9 +695,13 @@ class PermissionService:
             return cached
 
         try:
-            result = await db.table("users").select(
-                "id, role, department, name, email"
-            ).eq("id", user_id).maybe_single().execute()
+            result = (
+                await db.table("users")
+                .select("id, role, department, name, email")
+                .eq("id", user_id)
+                .maybe_single()
+                .execute()
+            )
 
             if result.data:
                 self._cache.set(cache_key, result.data)
@@ -713,9 +721,7 @@ class PermissionService:
             return False
 
         # 找出允许角色中的最高层级
-        max_allowed_level = max(
-            self.ROLE_HIERARCHY.get(r, 0) for r in allowed_roles
-        )
+        max_allowed_level = max(self.ROLE_HIERARCHY.get(r, 0) for r in allowed_roles)
 
         # 如果用户层级 >= 最高允许层级，则自动获得权限
         return user_level >= max_allowed_level

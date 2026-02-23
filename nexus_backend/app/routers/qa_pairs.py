@@ -53,9 +53,7 @@ async def list_qa_pairs(
 
 
 @router.post("", response_model=StandardResponse)
-async def create_qa_pair(
-    payload: QAPairCreate, req: Request, user_id: str = Depends(get_current_user_id)
-):
+async def create_qa_pair(payload: QAPairCreate, req: Request, user_id: str = Depends(get_current_user_id)):
     """Create a new QA pair"""
     try:
         client = req.state.db
@@ -103,13 +101,7 @@ async def update_qa_pair(
 
         data["updated_at"] = "now()"
 
-        res = (
-            await client.table("qa_pairs")
-            .update(data)
-            .eq("id", qa_id)
-            .eq("user_id", user_id)
-            .execute()
-        )
+        res = await client.table("qa_pairs").update(data).eq("id", qa_id).eq("user_id", user_id).execute()
 
         if not res.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "QA pair not found or no permission")
@@ -121,20 +113,12 @@ async def update_qa_pair(
 
 
 @router.delete("/{qa_id}", response_model=StandardResponse)
-async def delete_qa_pair(
-    qa_id: str, req: Request, user_id: str = Depends(get_current_user_id)
-):
+async def delete_qa_pair(qa_id: str, req: Request, user_id: str = Depends(get_current_user_id)):
     """Delete a QA pair"""
     try:
         client = req.state.db
 
-        res = (
-            await client.table("qa_pairs")
-            .delete()
-            .eq("id", qa_id)
-            .eq("user_id", user_id)
-            .execute()
-        )
+        res = await client.table("qa_pairs").delete().eq("id", qa_id).eq("user_id", user_id).execute()
 
         if not res.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "QA pair not found or no permission")
@@ -151,12 +135,7 @@ async def list_categories(req: Request, user_id: str = Depends(get_current_user_
     try:
         client = req.state.db
 
-        res = (
-            await client.table("qa_pairs")
-            .select("category")
-            .eq("user_id", user_id)
-            .execute()
-        )
+        res = await client.table("qa_pairs").select("category").eq("user_id", user_id).execute()
 
         # Extract unique categories
         categories = set()

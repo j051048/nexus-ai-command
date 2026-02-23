@@ -1,4 +1,3 @@
-
 from app.core.config import settings
 from app.models.schemas import ApprovalDecision, ApprovalRequest, PerformanceEvent
 
@@ -10,9 +9,7 @@ class RuleEngine:
     """
 
     @staticmethod
-    def calculate_performance_score(
-        event: PerformanceEvent, current_daily_stats: dict
-    ) -> float:
+    def calculate_performance_score(event: PerformanceEvent, current_daily_stats: dict) -> float:
         """
         Calculate score delta based on event and current stats.
         Hardcoded rules as per requirements.
@@ -24,9 +21,7 @@ class RuleEngine:
             # Check if this update pushes the count over 3 (Logic would normally query DB, simulating here)
             # Assuming 'data' contains 'daily_count' for simplicity in this MVP
             current_count = event.data.get("daily_updates_count", 0)
-            if (
-                current_count == settings.SCORE_DAILY_UPDATE_THRESHOLD
-            ):  # Just hit the threshold
+            if current_count == settings.SCORE_DAILY_UPDATE_THRESHOLD:  # Just hit the threshold
                 score += settings.SCORE_DAILY_UPDATE_BONUS
 
         # Rule 2: Call Quality (AI Analyzed upstream)
@@ -38,9 +33,7 @@ class RuleEngine:
         # Rule 3: Win Rate / Opportunity Stage (Simplified)
         if event.event_type == "deal_won":
             deal_value = event.data.get("value", 0)
-            score += (
-                deal_value / 1000
-            ) * settings.SCORE_DEAL_POINTS_PER_1000  # points per 1000 currency
+            score += (deal_value / 1000) * settings.SCORE_DEAL_POINTS_PER_1000  # points per 1000 currency
 
         return score
 
@@ -78,14 +71,9 @@ class RuleEngine:
                 notify_boss = True
 
         # Rule: Expense (Reimbursement)
-        elif (
-            request.type == "expense"
-            and request.amount < settings.APPROVAL_EXPENSE_SMALL_LIMIT
-        ):
+        elif request.type == "expense" and request.amount < settings.APPROVAL_EXPENSE_SMALL_LIMIT:
             decision = "auto_approved"
             reason = "Small expense auto-approved"
             notify_boss = False
 
-        return ApprovalDecision(
-            decision=decision, reason=reason, boss_notification_sent=notify_boss
-        )
+        return ApprovalDecision(decision=decision, reason=reason, boss_notification_sent=notify_boss)

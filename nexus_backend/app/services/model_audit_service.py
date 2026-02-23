@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class AuditEventType(Enum):
     """Types of audit events."""
+
     LLM_REQUEST = "llm_request"
     LLM_RESPONSE = "llm_response"
     TOOL_CALL = "tool_call"
@@ -30,6 +31,7 @@ class AuditEventType(Enum):
 @dataclass
 class AuditEntry:
     """Audit log entry."""
+
     event_id: str
     event_type: AuditEventType
     timestamp: str
@@ -70,7 +72,7 @@ class AuditEntry:
             "duration_ms": self.duration_ms,
             "status": self.status,
             "flags": self.flags,
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
 
 
@@ -111,13 +113,14 @@ class ModelAuditService:
         self._pending_entries: list[AuditEntry] = []
         self._cost_thresholds = {
             "per_request": 1.0,  # $1 per request
-            "per_hour": 10.0,    # $10 per hour
-            "per_day": 100.0     # $100 per day
+            "per_hour": 10.0,  # $10 per hour
+            "per_day": 100.0,  # $100 per day
         }
 
     def _generate_event_id(self) -> str:
         """Generate unique event ID."""
         import uuid
+
         return f"audit_{uuid.uuid4().hex[:12]}"
 
     def _hash_content(self, content: str) -> str:
@@ -145,6 +148,7 @@ class ModelAuditService:
     def _check_content_flags(self, content: str) -> list[str]:
         """Check content for sensitive patterns."""
         import re
+
         flags = []
         for flag_name, pattern in self.SENSITIVE_PATTERNS:
             if re.search(pattern, content, re.IGNORECASE):
@@ -159,7 +163,7 @@ class ModelAuditService:
         org_id: str = None,
         session_id: str = None,
         trace_id: str = None,
-        metadata: dict = None
+        metadata: dict = None,
     ) -> str:
         """
         Log an LLM request.
@@ -177,7 +181,7 @@ class ModelAuditService:
             input_hash=self._hash_content(input_content),
             input_preview=self._preview_content(input_content),
             flags=self._check_content_flags(input_content),
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
         self._add_entry(entry)
@@ -196,7 +200,7 @@ class ModelAuditService:
         org_id: str = None,
         session_id: str = None,
         trace_id: str = None,
-        metadata: dict = None
+        metadata: dict = None,
     ) -> AuditEntry:
         """Log an LLM response."""
         cost = self._calculate_cost(model, tokens_in, tokens_out)
@@ -218,7 +222,7 @@ class ModelAuditService:
             duration_ms=duration_ms,
             status=status,
             flags=self._check_content_flags(output_content),
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
         self._add_entry(entry)
@@ -237,7 +241,7 @@ class ModelAuditService:
         status: str,
         duration_ms: int,
         org_id: str = None,
-        trace_id: str = None
+        trace_id: str = None,
     ) -> AuditEntry:
         """Log a tool call."""
         entry = AuditEntry(
@@ -253,19 +257,14 @@ class ModelAuditService:
             output_preview=self._preview_content(tool_result),
             duration_ms=duration_ms,
             status=status,
-            metadata={"tool_name": tool_name, "tool_args": tool_args}
+            metadata={"tool_name": tool_name, "tool_args": tool_args},
         )
 
         self._add_entry(entry)
         return entry
 
     async def log_policy_violation(
-        self,
-        user_id: str,
-        violation_type: str,
-        content: str,
-        action_taken: str,
-        org_id: str = None
+        self, user_id: str, violation_type: str, content: str, action_taken: str, org_id: str = None
     ) -> AuditEntry:
         """Log a policy violation."""
         entry = AuditEntry(
@@ -277,7 +276,7 @@ class ModelAuditService:
             input_preview=self._preview_content(content),
             status="blocked",
             flags=[violation_type],
-            metadata={"action_taken": action_taken}
+            metadata={"action_taken": action_taken},
         )
 
         self._add_entry(entry)
@@ -289,33 +288,26 @@ class ModelAuditService:
 
         # Trim if needed
         if len(self._audit_log) > self.max_entries:
-            self._audit_log = self._audit_log[-self.max_entries:]
+            self._audit_log = self._audit_log[-self.max_entries :]
 
     async def _check_cost_thresholds(self, user_id: str, org_id: str, current_cost: float):
         """Check if cost thresholds are exceeded."""
         # Get user's total cost today
         today = datetime.utcnow().date()
         user_costs = [
-            e.cost_usd for e in self._audit_log
+            e.cost_usd
+            for e in self._audit_log
             if e.user_id == user_id
             and e.event_type == AuditEventType.LLM_RESPONSE
-            and datetime.fromisoformat(e.timestamp.rstrip('Z')).date() == today
+            and datetime.fromisoformat(e.timestamp.rstrip("Z")).date() == today
         ]
         total_cost = sum(user_costs) + current_cost
 
         if total_cost > self._cost_thresholds["per_day"]:
-            logger.warning(
-                f"User {user_id} exceeded daily cost threshold: ${total_cost:.2f}"
-            )
+            logger.warning(f"User {user_id} exceeded daily cost threshold: ${total_cost:.2f}")
             await self._log_cost_alert(user_id, org_id, total_cost, "daily")
 
-    async def _log_cost_alert(
-        self,
-        user_id: str,
-        org_id: str,
-        total_cost: float,
-        threshold_type: str
-    ):
+    async def _log_cost_alert(self, user_id: str, org_id: str, total_cost: float, threshold_type: str):
         """Log cost threshold alert."""
         entry = AuditEntry(
             event_id=self._generate_event_id(),
@@ -324,7 +316,7 @@ class ModelAuditService:
             user_id=user_id,
             org_id=org_id,
             cost_usd=total_cost,
-            metadata={"threshold_type": threshold_type}
+            metadata={"threshold_type": threshold_type},
         )
         self._add_entry(entry)
 
@@ -335,7 +327,7 @@ class ModelAuditService:
         event_type: AuditEventType = None,
         start_time: datetime = None,
         end_time: datetime = None,
-        limit: int = 100
+        limit: int = 100,
     ) -> list[dict]:
         """Query audit log with filters."""
         results = []
@@ -349,11 +341,11 @@ class ModelAuditService:
             if event_type and entry.event_type != event_type:
                 continue
             if start_time:
-                entry_time = datetime.fromisoformat(entry.timestamp.rstrip('Z'))
+                entry_time = datetime.fromisoformat(entry.timestamp.rstrip("Z"))
                 if entry_time < start_time:
                     continue
             if end_time:
-                entry_time = datetime.fromisoformat(entry.timestamp.rstrip('Z'))
+                entry_time = datetime.fromisoformat(entry.timestamp.rstrip("Z"))
                 if entry_time > end_time:
                     continue
 
@@ -373,7 +365,6 @@ class ModelAuditService:
         if user_id:
             entries = [e for e in entries if e.user_id == user_id]
 
-
         total_tokens_in = sum(e.tokens_in for e in entries if e.event_type == AuditEventType.LLM_RESPONSE)
         total_tokens_out = sum(e.tokens_out for e in entries if e.event_type == AuditEventType.LLM_RESPONSE)
         total_cost = sum(e.cost_usd for e in entries)
@@ -383,11 +374,8 @@ class ModelAuditService:
             "total_tokens_in": total_tokens_in,
             "total_tokens_out": total_tokens_out,
             "total_cost_usd": round(total_cost, 4),
-            "by_event_type": {
-                et.value: len([e for e in entries if e.event_type == et])
-                for et in AuditEventType
-            },
-            "violations": len([e for e in entries if e.event_type == AuditEventType.POLICY_VIOLATION])
+            "by_event_type": {et.value: len([e for e in entries if e.event_type == et]) for et in AuditEventType},
+            "violations": len([e for e in entries if e.event_type == AuditEventType.POLICY_VIOLATION]),
         }
 
     async def persist_to_db(self, db=None):

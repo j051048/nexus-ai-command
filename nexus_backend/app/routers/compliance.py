@@ -42,12 +42,14 @@ async def export_audit_logs(
                 headers={"Content-Disposition": f"attachment; filename=audit_logs_{days}d.csv"},
             )
 
-        return api_success(data={
-            "logs": logs,
-            "count": len(logs),
-            "period_days": days,
-            "exported_at": datetime.utcnow().isoformat(),
-        })
+        return api_success(
+            data={
+                "logs": logs,
+                "count": len(logs),
+                "period_days": days,
+                "exported_at": datetime.utcnow().isoformat(),
+            }
+        )
     except Exception as e:
         logger.error(f"Audit export failed: {e}")
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
@@ -73,32 +75,33 @@ async def data_subject_access_request(
             req_org = requester.data.get("org_id") if requester.data else None
             tgt_org = target.data.get("org_id") if target.data else None
             if req_role not in ("admin", "boss") or req_org != tgt_org:
-                return api_error(ErrorCode.AUTH_PERMISSION_DENIED, "DSAR for other users requires admin role in same organization")
+                return api_error(
+                    ErrorCode.AUTH_PERMISSION_DENIED, "DSAR for other users requires admin role in same organization"
+                )
 
         report = {"user_id": target_user_id, "export_date": datetime.utcnow().isoformat()}
 
         # Audit logs
-        audit_logs = await audit_logger.query_logs(
-            user_id=target_user_id, limit=10000
-        )
+        audit_logs = await audit_logger.query_logs(user_id=target_user_id, limit=10000)
         report["audit_logs"] = audit_logs
         report["audit_log_count"] = len(audit_logs)
 
         # User profile data
         if client:
             try:
-                user_res = await client.table("users").select("*").eq(
-                    "id", target_user_id
-                ).maybe_single().execute()
+                user_res = await client.table("users").select("*").eq("id", target_user_id).maybe_single().execute()
                 report["profile"] = user_res.data if user_res.data else {}
             except Exception:
                 report["profile"] = {}
 
             # Documents
             try:
-                docs_res = await client.table("documents").select(
-                    "id, name, created_at, updated_at"
-                ).eq("owner_id", target_user_id).execute()
+                docs_res = (
+                    await client.table("documents")
+                    .select("id, name, created_at, updated_at")
+                    .eq("owner_id", target_user_id)
+                    .execute()
+                )
                 report["documents"] = docs_res.data or []
             except Exception:
                 report["documents"] = []
@@ -115,32 +118,34 @@ async def data_retention_policy(
     user_id: str = Depends(get_current_user_id),
 ):
     """Get current data retention policy information."""
-    return api_success(data={
-        "policies": [
-            {
-                "data_type": "audit_logs",
-                "retention_days": 365,
-                "description": "Audit logs are retained for 1 year",
-            },
-            {
-                "data_type": "chat_history",
-                "retention_days": 90,
-                "description": "Chat history is retained for 90 days",
-            },
-            {
-                "data_type": "documents",
-                "retention_days": None,
-                "description": "Documents are retained until manually deleted",
-            },
-            {
-                "data_type": "token_usage",
-                "retention_days": 180,
-                "description": "Usage data is retained for 6 months",
-            },
-        ],
-        "gdpr_supported": True,
-        "dsar_endpoint": "/api/compliance/dsar/{user_id}",
-    })
+    return api_success(
+        data={
+            "policies": [
+                {
+                    "data_type": "audit_logs",
+                    "retention_days": 365,
+                    "description": "Audit logs are retained for 1 year",
+                },
+                {
+                    "data_type": "chat_history",
+                    "retention_days": 90,
+                    "description": "Chat history is retained for 90 days",
+                },
+                {
+                    "data_type": "documents",
+                    "retention_days": None,
+                    "description": "Documents are retained until manually deleted",
+                },
+                {
+                    "data_type": "token_usage",
+                    "retention_days": 180,
+                    "description": "Usage data is retained for 6 months",
+                },
+            ],
+            "gdpr_supported": True,
+            "dsar_endpoint": "/api/compliance/dsar/{user_id}",
+        }
+    )
 
 
 def _to_csv(logs: list) -> str:

@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class WorkflowStage(Enum):
     """Stages in a business workflow."""
+
     DATA_COLLECTION = "data_collection"
     ANALYSIS = "analysis"
     DECISION = "decision"
@@ -28,6 +29,7 @@ class WorkflowStage(Enum):
 
 class IntegrationPoint(Enum):
     """Integration points for AI."""
+
     BEFORE_STAGE = "before"
     DURING_STAGE = "during"
     AFTER_STAGE = "after"
@@ -37,6 +39,7 @@ class IntegrationPoint(Enum):
 @dataclass
 class AIWorkflowAction:
     """AI action within a workflow."""
+
     action_id: str
     name: str
     description: str
@@ -51,6 +54,7 @@ class AIWorkflowAction:
 @dataclass
 class WorkflowContext:
     """Context for a business workflow."""
+
     workflow_id: str
     workflow_type: str
     current_stage: WorkflowStage
@@ -79,28 +83,13 @@ class AIWorkflowIntegrationService:
                 WorkflowStage.DATA_COLLECTION,
                 WorkflowStage.ANALYSIS,
                 WorkflowStage.DECISION,
-                WorkflowStage.COMPLETION
+                WorkflowStage.COMPLETION,
             ],
             "ai_actions": [
-                {
-                    "stage": "data_collection",
-                    "point": "after",
-                    "action": "suggest_data_sources",
-                    "auto": True
-                },
-                {
-                    "stage": "analysis",
-                    "point": "during",
-                    "action": "analyze_patterns",
-                    "auto": True
-                },
-                {
-                    "stage": "decision",
-                    "point": "before",
-                    "action": "recommend_actions",
-                    "auto": False
-                }
-            ]
+                {"stage": "data_collection", "point": "after", "action": "suggest_data_sources", "auto": True},
+                {"stage": "analysis", "point": "during", "action": "analyze_patterns", "auto": True},
+                {"stage": "decision", "point": "before", "action": "recommend_actions", "auto": False},
+            ],
         },
         "report_generation": {
             "stages": [
@@ -108,28 +97,13 @@ class AIWorkflowIntegrationService:
                 WorkflowStage.ANALYSIS,
                 WorkflowStage.EXECUTION,
                 WorkflowStage.REVIEW,
-                WorkflowStage.COMPLETION
+                WorkflowStage.COMPLETION,
             ],
             "ai_actions": [
-                {
-                    "stage": "data_collection",
-                    "point": "during",
-                    "action": "auto_extract_metrics",
-                    "auto": True
-                },
-                {
-                    "stage": "execution",
-                    "point": "during",
-                    "action": "generate_insights",
-                    "auto": True
-                },
-                {
-                    "stage": "review",
-                    "point": "before",
-                    "action": "quality_check",
-                    "auto": True
-                }
-            ]
+                {"stage": "data_collection", "point": "during", "action": "auto_extract_metrics", "auto": True},
+                {"stage": "execution", "point": "during", "action": "generate_insights", "auto": True},
+                {"stage": "review", "point": "before", "action": "quality_check", "auto": True},
+            ],
         },
         "customer_service": {
             "stages": [
@@ -137,34 +111,14 @@ class AIWorkflowIntegrationService:
                 WorkflowStage.ANALYSIS,
                 WorkflowStage.DECISION,
                 WorkflowStage.EXECUTION,
-                WorkflowStage.COMPLETION
+                WorkflowStage.COMPLETION,
             ],
             "ai_actions": [
-                {
-                    "stage": "data_collection",
-                    "point": "during",
-                    "action": "understand_intent",
-                    "auto": True
-                },
-                {
-                    "stage": "analysis",
-                    "point": "during",
-                    "action": "sentiment_analysis",
-                    "auto": True
-                },
-                {
-                    "stage": "decision",
-                    "point": "during",
-                    "action": "suggest_response",
-                    "auto": False
-                },
-                {
-                    "stage": "execution",
-                    "point": "before",
-                    "action": "validate_response",
-                    "auto": True
-                }
-            ]
+                {"stage": "data_collection", "point": "during", "action": "understand_intent", "auto": True},
+                {"stage": "analysis", "point": "during", "action": "sentiment_analysis", "auto": True},
+                {"stage": "decision", "point": "during", "action": "suggest_response", "auto": False},
+                {"stage": "execution", "point": "before", "action": "validate_response", "auto": True},
+            ],
         },
         "task_management": {
             "stages": [
@@ -172,29 +126,14 @@ class AIWorkflowIntegrationService:
                 WorkflowStage.ANALYSIS,
                 WorkflowStage.DECISION,
                 WorkflowStage.EXECUTION,
-                WorkflowStage.COMPLETION
+                WorkflowStage.COMPLETION,
             ],
             "ai_actions": [
-                {
-                    "stage": "data_collection",
-                    "point": "after",
-                    "action": "categorize_task",
-                    "auto": True
-                },
-                {
-                    "stage": "decision",
-                    "point": "during",
-                    "action": "prioritize_tasks",
-                    "auto": True
-                },
-                {
-                    "stage": "execution",
-                    "point": "during",
-                    "action": "progress_tracking",
-                    "auto": True
-                }
-            ]
-        }
+                {"stage": "data_collection", "point": "after", "action": "categorize_task", "auto": True},
+                {"stage": "decision", "point": "during", "action": "prioritize_tasks", "auto": True},
+                {"stage": "execution", "point": "during", "action": "progress_tracking", "auto": True},
+            ],
+        },
     }
 
     def __init__(self):
@@ -230,11 +169,7 @@ class AIWorkflowIntegrationService:
         self._workflow_definitions[workflow_type] = definition
 
     async def start_workflow(
-        self,
-        workflow_id: str,
-        workflow_type: str,
-        user_id: str = "",
-        initial_data: dict = None
+        self, workflow_id: str, workflow_type: str, user_id: str = "", initial_data: dict = None
     ) -> WorkflowContext:
         """
         Start a new workflow with AI integration.
@@ -260,7 +195,7 @@ class AIWorkflowIntegrationService:
             workflow_type=workflow_type,
             current_stage=initial_stage,
             data=initial_data or {},
-            user_id=user_id
+            user_id=user_id,
         )
 
         self._workflows[workflow_id] = context
@@ -271,11 +206,7 @@ class AIWorkflowIntegrationService:
         logger.info(f"Started workflow {workflow_id} of type {workflow_type}")
         return context
 
-    async def advance_stage(
-        self,
-        workflow_id: str,
-        new_data: dict = None
-    ) -> WorkflowContext | None:
+    async def advance_stage(self, workflow_id: str, new_data: dict = None) -> WorkflowContext | None:
         """
         Advance workflow to next stage.
 
@@ -312,18 +243,17 @@ class AIWorkflowIntegrationService:
 
         return context
 
-    async def _execute_stage_ai_actions(
-        self,
-        context: WorkflowContext,
-        integration_point: IntegrationPoint
-    ):
+    async def _execute_stage_ai_actions(self, context: WorkflowContext, integration_point: IntegrationPoint):
         """Execute AI actions for current stage."""
         definition = self._workflow_definitions.get(context.workflow_type)
         if not definition:
             return
 
         for action_config in definition.get("ai_actions", []):
-            if action_config["stage"] == context.current_stage.value and action_config["point"] == integration_point.value:
+            if (
+                action_config["stage"] == context.current_stage.value
+                and action_config["point"] == integration_point.value
+            ):
                 action_name = action_config["action"]
                 auto_execute = action_config.get("auto", False)
 
@@ -347,23 +277,23 @@ class AIWorkflowIntegrationService:
                 result = handler(context)
 
             if result:
-                context.ai_suggestions.append({
-                    "action": action_name,
-                    "result": result,
-                    "timestamp": datetime.utcnow().isoformat()
-                })
+                context.ai_suggestions.append(
+                    {"action": action_name, "result": result, "timestamp": datetime.utcnow().isoformat()}
+                )
 
         except Exception as e:
             logger.error(f"AI action {action_name} failed: {e}")
 
     async def _queue_suggestion(self, context: WorkflowContext, action_name: str):
         """Queue an AI suggestion for user approval."""
-        context.ai_suggestions.append({
-            "action": action_name,
-            "status": "pending_approval",
-            "message": f"AI建议: 执行 {action_name}",
-            "timestamp": datetime.utcnow().isoformat()
-        })
+        context.ai_suggestions.append(
+            {
+                "action": action_name,
+                "status": "pending_approval",
+                "message": f"AI建议: 执行 {action_name}",
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        )
 
     async def get_ai_suggestions(self, workflow_id: str) -> list[dict]:
         """Get pending AI suggestions for a workflow."""
@@ -371,16 +301,9 @@ class AIWorkflowIntegrationService:
         if not context:
             return []
 
-        return [
-            s for s in context.ai_suggestions
-            if s.get("status") == "pending_approval"
-        ]
+        return [s for s in context.ai_suggestions if s.get("status") == "pending_approval"]
 
-    async def approve_suggestion(
-        self,
-        workflow_id: str,
-        action_name: str
-    ) -> dict:
+    async def approve_suggestion(self, workflow_id: str, action_name: str) -> dict:
         """Approve and execute a pending suggestion."""
         context = self._workflows.get(workflow_id)
         if not context:
@@ -388,11 +311,7 @@ class AIWorkflowIntegrationService:
 
         await self._execute_action(context, action_name)
 
-        return {
-            "success": True,
-            "action": action_name,
-            "workflow_id": workflow_id
-        }
+        return {"success": True, "action": action_name, "workflow_id": workflow_id}
 
     def get_workflow(self, workflow_id: str) -> WorkflowContext | None:
         """Get workflow context."""
@@ -402,116 +321,60 @@ class AIWorkflowIntegrationService:
 
     async def _suggest_data_sources(self, context: WorkflowContext) -> dict:
         """Suggest relevant data sources."""
-        return {
-            "suggestions": [
-                "数据库销售表",
-                "用户行为日志",
-                "外部市场数据"
-            ],
-            "confidence": 0.85
-        }
+        return {"suggestions": ["数据库销售表", "用户行为日志", "外部市场数据"], "confidence": 0.85}
 
     async def _analyze_patterns(self, context: WorkflowContext) -> dict:
         """Analyze patterns in data."""
-        return {
-            "patterns": [
-                "销售周期性波动",
-                "用户活跃度下降趋势"
-            ],
-            "insights": "建议关注周末销售表现"
-        }
+        return {"patterns": ["销售周期性波动", "用户活跃度下降趋势"], "insights": "建议关注周末销售表现"}
 
     async def _recommend_actions(self, context: WorkflowContext) -> dict:
         """Recommend next actions."""
         return {
             "recommendations": [
                 {"action": "优化定价策略", "priority": "high"},
-                {"action": "加强周末促销", "priority": "medium"}
+                {"action": "加强周末促销", "priority": "medium"},
             ]
         }
 
     async def _auto_extract_metrics(self, context: WorkflowContext) -> dict:
         """Auto extract key metrics."""
-        return {
-            "metrics": {
-                "total_revenue": 0,
-                "growth_rate": 0,
-                "active_users": 0
-            },
-            "status": "metrics_extracted"
-        }
+        return {"metrics": {"total_revenue": 0, "growth_rate": 0, "active_users": 0}, "status": "metrics_extracted"}
 
     async def _generate_insights(self, context: WorkflowContext) -> dict:
         """Generate insights from data."""
-        return {
-            "insights": [
-                "本月销售额环比增长15%",
-                "新用户转化率提升至12%"
-            ]
-        }
+        return {"insights": ["本月销售额环比增长15%", "新用户转化率提升至12%"]}
 
     async def _quality_check(self, context: WorkflowContext) -> dict:
         """Perform quality check."""
-        return {
-            "passed": True,
-            "issues": [],
-            "score": 95
-        }
+        return {"passed": True, "issues": [], "score": 95}
 
     async def _understand_intent(self, context: WorkflowContext) -> dict:
         """Understand user intent."""
-        return {
-            "intent": "query",
-            "confidence": 0.92,
-            "entities": []
-        }
+        return {"intent": "query", "confidence": 0.92, "entities": []}
 
     async def _sentiment_analysis(self, context: WorkflowContext) -> dict:
         """Analyze sentiment."""
-        return {
-            "sentiment": "neutral",
-            "score": 0.0,
-            "confidence": 0.88
-        }
+        return {"sentiment": "neutral", "score": 0.0, "confidence": 0.88}
 
     async def _suggest_response(self, context: WorkflowContext) -> dict:
         """Suggest response."""
-        return {
-            "suggestions": [
-                "感谢您的反馈，我们会尽快处理",
-                "我已经记录了您的问题"
-            ]
-        }
+        return {"suggestions": ["感谢您的反馈，我们会尽快处理", "我已经记录了您的问题"]}
 
     async def _validate_response(self, context: WorkflowContext) -> dict:
         """Validate response before sending."""
-        return {
-            "valid": True,
-            "issues": []
-        }
+        return {"valid": True, "issues": []}
 
     async def _categorize_task(self, context: WorkflowContext) -> dict:
         """Categorize task automatically."""
-        return {
-            "category": "general",
-            "priority": "medium",
-            "estimated_effort": "2 hours"
-        }
+        return {"category": "general", "priority": "medium", "estimated_effort": "2 hours"}
 
     async def _prioritize_tasks(self, context: WorkflowContext) -> dict:
         """Prioritize tasks."""
-        return {
-            "priority_order": [],
-            "reasoning": "Based on deadlines and dependencies"
-        }
+        return {"priority_order": [], "reasoning": "Based on deadlines and dependencies"}
 
     async def _progress_tracking(self, context: WorkflowContext) -> dict:
         """Track progress."""
-        return {
-            "progress": 0,
-            "milestones": [],
-            "eta": None
-        }
+        return {"progress": 0, "milestones": [], "eta": None}
 
 
 # Global instance

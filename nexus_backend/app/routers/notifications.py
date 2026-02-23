@@ -19,25 +19,18 @@ router = APIRouter(prefix="/api/notifications", tags=["Notification Center"])
 
 # ─── Request Models ──────────────────────────────────────────
 
+
 class MarkReadBody(BaseModel):
-    notification_ids: list[str] = Field(
-        ..., min_length=1, description="要标记已读的通知 ID 列表"
-    )
+    notification_ids: list[str] = Field(..., min_length=1, description="要标记已读的通知 ID 列表")
 
 
 class UpdatePreferencesBody(BaseModel):
     email_enabled: bool | None = None
     push_enabled: bool | None = None
     im_enabled: bool | None = None
-    quiet_hours_start: str | None = Field(
-        None, description="免打扰开始时间 (HH:MM)"
-    )
-    quiet_hours_end: str | None = Field(
-        None, description="免打扰结束时间 (HH:MM)"
-    )
-    categories: dict | None = Field(
-        None, description="分类通知开关 {approval: bool, system: bool, ...}"
-    )
+    quiet_hours_start: str | None = Field(None, description="免打扰开始时间 (HH:MM)")
+    quiet_hours_end: str | None = Field(None, description="免打扰结束时间 (HH:MM)")
+    categories: dict | None = Field(None, description="分类通知开关 {approval: bool, system: bool, ...}")
 
 
 # ─── Endpoints ───────────────────────────────────────────────
@@ -182,7 +175,8 @@ async def update_preferences(
         updates = {k: v for k, v in body.model_dump().items() if v is not None}
         if not updates:
             prefs = await notification_center_service.get_preferences(
-                user_id=user_id, db=db,
+                user_id=user_id,
+                db=db,
             )
             return api_success(data=prefs, message="无变更")
 

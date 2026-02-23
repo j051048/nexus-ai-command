@@ -72,9 +72,7 @@ async def submit_with_form(
 
     try:
         # 1. Load form schema for this approval type
-        schema = await form_schema_service.get_schema_for_type(
-            org_id, body.type, db=client
-        )
+        schema = await form_schema_service.get_schema_for_type(org_id, body.type, db=client)
 
         form_schema_id = None
 
@@ -84,9 +82,7 @@ async def submit_with_form(
 
             # 2. Validate form_data against schema
             if schema_fields and body.form_data:
-                validation_errors = form_schema_service.validate_form_data(
-                    schema_fields, body.form_data
-                )
+                validation_errors = form_schema_service.validate_form_data(schema_fields, body.form_data)
                 if validation_errors:
                     raise api_error(
                         ErrorCode.VALIDATION_INVALID_INPUT,
@@ -95,9 +91,7 @@ async def submit_with_form(
                     )
             elif schema_fields:
                 # Schema exists but no form_data provided: check required fields
-                validation_errors = form_schema_service.validate_form_data(
-                    schema_fields, {}
-                )
+                validation_errors = form_schema_service.validate_form_data(schema_fields, {})
                 if validation_errors:
                     raise api_error(
                         ErrorCode.VALIDATION_INVALID_INPUT,
@@ -120,18 +114,12 @@ async def submit_with_form(
         if form_schema_id:
             insert_data["form_schema_id"] = form_schema_id
 
-        result = await client.table("approval_requests").insert(
-            insert_data
-        ).execute()
+        result = await client.table("approval_requests").insert(insert_data).execute()
 
         if not result.data:
-            raise api_error(
-                ErrorCode.DB_QUERY_ERROR, "审批请求创建失败"
-            )
+            raise api_error(ErrorCode.DB_QUERY_ERROR, "审批请求创建失败")
 
-        created_request = (
-            result.data[0] if isinstance(result.data, list) else result.data
-        )
+        created_request = result.data[0] if isinstance(result.data, list) else result.data
         request_id = created_request.get("id")
 
         # 4. Route through approval chain
@@ -145,9 +133,9 @@ async def submit_with_form(
 
         # Update approval request with chain result status if auto-approved
         if chain_result.get("auto_approved"):
-            await client.table("approval_requests").update(
-                {"status": "approved", "ai_decision": "auto_approved"}
-            ).eq("id", request_id).execute()
+            await client.table("approval_requests").update({"status": "approved", "ai_decision": "auto_approved"}).eq(
+                "id", request_id
+            ).execute()
 
         return api_success(
             data={

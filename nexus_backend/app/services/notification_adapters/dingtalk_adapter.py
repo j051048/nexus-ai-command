@@ -55,9 +55,7 @@ class DingtalkNotificationAdapter(BaseNotificationAdapter):
 
     def __init__(self):
         """初始化钉钉适配器"""
-        self.webhook_url: str | None = getattr(
-            settings, "DINGTALK_WEBHOOK_URL", None
-        )
+        self.webhook_url: str | None = getattr(settings, "DINGTALK_WEBHOOK_URL", None)
         self.secret: str | None = getattr(settings, "DINGTALK_SECRET", None)
 
         if not self.webhook_url:
@@ -138,8 +136,7 @@ class DingtalkNotificationAdapter(BaseNotificationAdapter):
             return False
         except httpx.RequestError as e:
             logger.error(
-                f"Request error sending dingtalk notification: {e}, "
-                f"notification_id={notification.notification_id}"
+                f"Request error sending dingtalk notification: {e}, " f"notification_id={notification.notification_id}"
             )
             return False
         except Exception as e:
@@ -289,18 +286,13 @@ class DingtalkNotificationAdapter(BaseNotificationAdapter):
         }
 
         # 单按钮模式
-        if (
-            "singleTitle" in notification.metadata
-            and "singleURL" in notification.metadata
-        ):
+        if "singleTitle" in notification.metadata and "singleURL" in notification.metadata:
             action_card["singleTitle"] = notification.metadata["singleTitle"]
             action_card["singleURL"] = notification.metadata["singleURL"]
         # 多按钮模式
         elif "btns" in notification.metadata:
             action_card["btns"] = notification.metadata["btns"]
-            action_card["btnOrientation"] = notification.metadata.get(
-                "btnOrientation", "0"
-            )
+            action_card["btnOrientation"] = notification.metadata.get("btnOrientation", "0")
 
         return {"msgtype": "actionCard", "actionCard": action_card}
 

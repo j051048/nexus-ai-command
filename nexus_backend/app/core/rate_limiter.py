@@ -35,13 +35,9 @@ if REDIS_URL:
         redis_client = aioredis.from_url(REDIS_URL, decode_responses=True)
         logger.info("[RateLimiter] Redis backend enabled for distributed rate limiting")
     except ImportError:
-        logger.warning(
-            "[RateLimiter] redis package not installed, falling back to in-memory"
-        )
+        logger.warning("[RateLimiter] redis package not installed, falling back to in-memory")
     except Exception as e:
-        logger.warning(
-            f"[RateLimiter] Redis connection failed: {e}, falling back to in-memory"
-        )
+        logger.warning(f"[RateLimiter] Redis connection failed: {e}, falling back to in-memory")
 
 
 class RateLimiter:
@@ -90,9 +86,7 @@ class RateLimiter:
                 ip = parts[index]
         return f"{self.prefix}:ip:{ip}"
 
-    async def is_allowed(
-        self, request: Request, user_id: str | None = None
-    ) -> tuple[bool, dict]:
+    async def is_allowed(self, request: Request, user_id: str | None = None) -> tuple[bool, dict]:
         """
         Check if request is allowed under rate limit.
         Returns (is_allowed, metadata)
@@ -124,9 +118,7 @@ class RateLimiter:
 
             # Refill tokens
             time_passed = now - last_update
-            new_tokens = min(
-                self.burst, current_tokens + time_passed * (self.rate / 60.0)
-            )
+            new_tokens = min(self.burst, current_tokens + time_passed * (self.rate / 60.0))
 
             if new_tokens >= 1:
                 new_tokens -= 1
@@ -162,23 +154,18 @@ class RateLimiter:
         # P0 Fix: Prevent memory leak — evict stale entries when dict grows too large
         if len(self.last_update) > 10000:
             stale_cutoff = now - 3600  # 1 hour
-            stale_keys = [
-                k for k, ts in self.last_update.items() if ts < stale_cutoff
-            ]
+            stale_keys = [k for k, ts in self.last_update.items() if ts < stale_cutoff]
             for k in stale_keys:
                 self.tokens.pop(k, None)
                 self.last_update.pop(k, None)
             if stale_keys:
                 logger.info(
-                    f"[RateLimiter] Evicted {len(stale_keys)} stale entries "
-                    f"(remaining: {len(self.last_update)})"
+                    f"[RateLimiter] Evicted {len(stale_keys)} stale entries " f"(remaining: {len(self.last_update)})"
                 )
 
         # Refill tokens based on time passed
         time_passed = now - self.last_update[key]
-        self.tokens[key] = min(
-            self.burst, self.tokens[key] + time_passed * (self.rate / 60.0)
-        )
+        self.tokens[key] = min(self.burst, self.tokens[key] + time_passed * (self.rate / 60.0))
         self.last_update[key] = now
 
         # Check if we have tokens available
@@ -204,9 +191,7 @@ class RateLimiter:
 
 
 # Global rate limiter instance
-rate_limiter = RateLimiter(
-    rate=settings.RATE_LIMIT_PER_MINUTE, burst=settings.RATE_LIMIT_BURST
-)
+rate_limiter = RateLimiter(rate=settings.RATE_LIMIT_PER_MINUTE, burst=settings.RATE_LIMIT_BURST)
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):

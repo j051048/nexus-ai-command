@@ -39,11 +39,13 @@ def sanitize_search_query(query: str, max_length: int = 500) -> str:
 
 class VectorServiceError(Exception):
     """Custom exception for VectorService errors"""
+
     pass
 
 
 class MissingOrgIdError(VectorServiceError):
     """Raised when org_id is not provided - P0 Security requirement"""
+
     pass
 
 
@@ -146,14 +148,8 @@ class VectorService:
         limit = min(max(1, limit), 10)
         api_key = (config or {}).get("api_key") or settings.OPENAI_API_KEY
 
-        raw_url = (
-            (config or {}).get("base_url")
-            or settings.AI_BASE_URL
-            or "https://api.openai.com/v1"
-        )
-        base_url = (
-            raw_url.split("/chat/completions")[0].split("/embeddings")[0].rstrip("/")
-        )
+        raw_url = (config or {}).get("base_url") or settings.AI_BASE_URL or "https://api.openai.com/v1"
+        base_url = raw_url.split("/chat/completions")[0].split("/embeddings")[0].rstrip("/")
         if "/v1" not in base_url and "api.openai.com" not in base_url:
             base_url = f"{base_url}/v1"
 
@@ -169,9 +165,7 @@ class VectorService:
         )
 
         try:
-            return await self._search_supabase(
-                query, user_id, limit, client, org_id=org_id
-            )
+            return await self._search_supabase(query, user_id, limit, client, org_id=org_id)
         except Exception as e:
             logger.error(f"Vector search failed: {e}")
             if settings.IS_PRODUCTION:
@@ -196,9 +190,7 @@ class VectorService:
 
         async def run_vector_search():
             try:
-                response = await client.embeddings.create(
-                    input=query, model=EMBEDDING_MODEL
-                )
+                response = await client.embeddings.create(input=query, model=EMBEDDING_MODEL)
                 embedding = response.data[0].embedding
                 params = {
                     "query_embedding": embedding,
@@ -228,9 +220,7 @@ class VectorService:
                     ).execute()
                     return res.data or []
                 except Exception as rpc_err:
-                    logger.debug(
-                        f"Keyword search RPC not available, falling back: {rpc_err}"
-                    )
+                    logger.debug(f"Keyword search RPC not available, falling back: {rpc_err}")
 
                 # P0 Security: Fallback query also respects org_id
                 base_query = supabase.table("document_embeddings").select("*, documents!inner(*)")
@@ -253,9 +243,7 @@ class VectorService:
                 logger.warning(f"Keyword search failed completely: {e}")
                 return []
 
-        vector_res, keyword_res = await asyncio.gather(
-            run_vector_search(), run_keyword_search()
-        )
+        vector_res, keyword_res = await asyncio.gather(run_vector_search(), run_keyword_search())
 
         # Graceful degradation
         if not vector_res and keyword_res:
@@ -269,25 +257,17 @@ class VectorService:
                 meta = item.get("metadata") or item.get("doc_metadata") or {}
                 source = meta.get("source") or meta.get("file_name") or "公司知识库"
                 results.append(f"{content} [来源: {source}]")
-            return "为您检索到以下相关企业知识 (关键词匹配):\n\n- " + "\n- ".join(
-                results
-            )
+            return "为您检索到以下相关企业知识 (关键词匹配):\n\n- " + "\n- ".join(results)
 
         # RRF Fusion
         fused_docs = self._rrf_fusion([vector_res, keyword_res], k=60)
-        top_docs_unsorted = sorted(
-            fused_docs.values(), key=lambda x: x["score"], reverse=True
-        )[: limit * 2]
+        top_docs_unsorted = sorted(fused_docs.values(), key=lambda x: x["score"], reverse=True)[: limit * 2]
 
         # Reranking (if enabled and enough documents)
         if RERANK_ENABLED and len(top_docs_unsorted) > 1:
             try:
-                top_docs = await self._rerank_with_llm(
-                    query, top_docs_unsorted, client, top_n=limit
-                )
-                logger.info(
-                    f"Reranked {len(top_docs_unsorted)} docs to {len(top_docs)}"
-                )
+                top_docs = await self._rerank_with_llm(query, top_docs_unsorted, client, top_n=limit)
+                logger.info(f"Reranked {len(top_docs_unsorted)} docs to {len(top_docs)}")
             except Exception as e:
                 logger.warning(f"Reranking failed: {e}")
                 top_docs = top_docs_unsorted[:limit]
@@ -295,7 +275,9 @@ class VectorService:
             top_docs = top_docs_unsorted[:limit]
 
         if not top_docs:
-            return f"知识库中未找到与 '{query}' 相关的公开或个人信息。建议您可以尝试更换关键词，或者上传相关文档后再试。"
+            return (
+                f"知识库中未找到与 '{query}' 相关的公开或个人信息。建议您可以尝试更换关键词，或者上传相关文档后再试。"
+            )
 
         results = []
         for item in top_docs:
@@ -346,14 +328,10 @@ class VectorService:
                 results.append(f"{item['content']} [来源: 模拟数据]")
 
         return (
-            "为您检索到以下相关知识 (Mock):\n- " + "\n- ".join(results)
-            if results
-            else "知识库中未找到相关信息 (Mock)."
+            "为您检索到以下相关知识 (Mock):\n- " + "\n- ".join(results) if results else "知识库中未找到相关信息 (Mock)."
         )
 
-    async def check_staleness(
-        self, org_id: str, staleness_days: int = 30, db=None
-    ) -> list[dict]:
+    async def check_staleness(self, org_id: str, staleness_days: int = 30, db=None) -> list[dict]:
         """
         #25 Knowledge Base Update Strategy: Check which documents have stale embeddings.
         Returns list of documents whose embeddings are older than staleness_days.
@@ -364,30 +342,37 @@ class VectorService:
 
         cutoff = (datetime.utcnow() - timedelta(days=staleness_days)).isoformat()
         try:
-            res = await client.table("documents").select(
-                "id, name, updated_at, last_embedded_at"
-            ).eq("organization_id", org_id).execute()
+            res = (
+                await client.table("documents")
+                .select("id, name, updated_at, last_embedded_at")
+                .eq("organization_id", org_id)
+                .execute()
+            )
 
             stale = []
             for doc in res.data or []:
                 last_embedded = doc.get("last_embedded_at")
                 updated_at = doc.get("updated_at")
                 if not last_embedded or last_embedded < cutoff:
-                    stale.append({
-                        "document_id": doc["id"],
-                        "name": doc.get("name"),
-                        "updated_at": updated_at,
-                        "last_embedded_at": last_embedded,
-                        "reason": "never_embedded" if not last_embedded else "stale",
-                    })
+                    stale.append(
+                        {
+                            "document_id": doc["id"],
+                            "name": doc.get("name"),
+                            "updated_at": updated_at,
+                            "last_embedded_at": last_embedded,
+                            "reason": "never_embedded" if not last_embedded else "stale",
+                        }
+                    )
                 elif updated_at and last_embedded and updated_at > last_embedded:
-                    stale.append({
-                        "document_id": doc["id"],
-                        "name": doc.get("name"),
-                        "updated_at": updated_at,
-                        "last_embedded_at": last_embedded,
-                        "reason": "modified_after_embedding",
-                    })
+                    stale.append(
+                        {
+                            "document_id": doc["id"],
+                            "name": doc.get("name"),
+                            "updated_at": updated_at,
+                            "last_embedded_at": last_embedded,
+                            "reason": "modified_after_embedding",
+                        }
+                    )
             return stale
         except Exception as e:
             logger.error(f"Staleness check failed: {e}")
@@ -414,9 +399,12 @@ class VectorService:
 
         try:
             # 1. Load existing chunks
-            existing_res = await client.table("document_embeddings").select(
-                "id, chunk_index, content_hash"
-            ).eq("document_id", document_id).execute()
+            existing_res = (
+                await client.table("document_embeddings")
+                .select("id, chunk_index, content_hash")
+                .eq("document_id", document_id)
+                .execute()
+            )
 
             existing_map = {}
             for row in existing_res.data or []:
@@ -442,9 +430,7 @@ class VectorService:
             # 4. Embed changed chunks
             if to_embed:
                 texts = [t[1] for t in to_embed]
-                response = await oai_client.embeddings.create(
-                    input=texts, model=EMBEDDING_MODEL
-                )
+                response = await oai_client.embeddings.create(input=texts, model=EMBEDDING_MODEL)
                 for idx, (chunk_index, chunk_text) in enumerate(to_embed):
                     embedding = response.data[idx].embedding
                     row_data = {
@@ -470,18 +456,16 @@ class VectorService:
             for old_index, old_data in existing_map.items():
                 if old_index >= len(chunks):
                     try:
-                        await client.table("document_embeddings").delete().eq(
-                            "id", old_data["id"]
-                        ).execute()
+                        await client.table("document_embeddings").delete().eq("id", old_data["id"]).execute()
                     except Exception as del_e:
                         if not (hasattr(del_e, "code") and str(getattr(del_e, "code", "")) == "204"):
                             raise
                     stats["deleted"] += 1
 
             # 6. Update last_embedded_at on the document
-            await client.table("documents").update({
-                "last_embedded_at": datetime.utcnow().isoformat()
-            }).eq("id", document_id).execute()
+            await client.table("documents").update({"last_embedded_at": datetime.utcnow().isoformat()}).eq(
+                "id", document_id
+            ).execute()
 
             return {"status": "ok", **stats}
         except Exception as e:
@@ -491,4 +475,3 @@ class VectorService:
 
 # Singleton instance
 vector_service = VectorService()
-

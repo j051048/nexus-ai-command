@@ -34,8 +34,10 @@ _DEV_WARNING = "Robot/RPA interface is in development. No real device connection
 # Enums
 # ---------------------------------------------------------------------------
 
+
 class CommandType(StrEnum):
     """Supported robot command types."""
+
     MOVE = "move"
     CLICK = "click"
     TYPE = "type"
@@ -46,6 +48,7 @@ class CommandType(StrEnum):
 
 class CommandPriority(StrEnum):
     """Priority levels for queued commands."""
+
     LOW = "low"
     NORMAL = "normal"
     HIGH = "high"
@@ -56,8 +59,10 @@ class CommandPriority(StrEnum):
 # Request / Response models
 # ---------------------------------------------------------------------------
 
+
 class RobotCommand(BaseModel):
     """A command to be executed by a robot device."""
+
     device_id: str = Field(..., description="Target device identifier")
     command_type: CommandType = Field(..., description="Type of command to execute")
     parameters: dict[str, Any] = Field(
@@ -72,6 +77,7 @@ class RobotCommand(BaseModel):
 
 class DeviceInfo(BaseModel):
     """Information about a registered robot device."""
+
     device_id: str
     name: str
     status: str
@@ -82,6 +88,7 @@ class DeviceInfo(BaseModel):
 
 class CommandResponse(BaseModel):
     """Response after queuing a robot command."""
+
     command_id: str
     device_id: str
     command_type: str
@@ -93,6 +100,7 @@ class CommandResponse(BaseModel):
 
 class DeviceListResponse(BaseModel):
     """Response for listing registered devices."""
+
     devices: list[DeviceInfo]
     count: int
     _is_stub: bool = True
@@ -101,6 +109,7 @@ class DeviceListResponse(BaseModel):
 
 class DeviceStatusResponse(BaseModel):
     """Response for a device status query."""
+
     device_id: str
     status: str
     last_heartbeat: str | None = None
@@ -113,6 +122,7 @@ class DeviceStatusResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.post("/command")
 async def queue_command(
@@ -135,15 +145,17 @@ async def queue_command(
         user_id,
     )
 
-    return api_success(data=CommandResponse(
-        command_id=command_id,
-        device_id=command.device_id,
-        command_type=command.command_type.value,
-        status="queued",
-        queued_at=queued_at,
-        _is_stub=True,
-        _dev_warning=_DEV_WARNING,
-    ).model_dump())
+    return api_success(
+        data=CommandResponse(
+            command_id=command_id,
+            device_id=command.device_id,
+            command_type=command.command_type.value,
+            status="queued",
+            queued_at=queued_at,
+            _is_stub=True,
+            _dev_warning=_DEV_WARNING,
+        ).model_dump()
+    )
 
 
 @router.get("/devices")
@@ -157,12 +169,14 @@ async def list_devices(
     """
     logger.info("[Robot] list_devices called by user=%s (stub)", user_id)
 
-    return api_success(data=DeviceListResponse(
-        devices=[],
-        count=0,
-        _is_stub=True,
-        _dev_warning=_DEV_WARNING,
-    ).model_dump())
+    return api_success(
+        data=DeviceListResponse(
+            devices=[],
+            count=0,
+            _is_stub=True,
+            _dev_warning=_DEV_WARNING,
+        ).model_dump()
+    )
 
 
 @router.get("/status/{device_id}")
@@ -181,12 +195,14 @@ async def get_device_status(
         user_id,
     )
 
-    return api_success(data=DeviceStatusResponse(
-        device_id=device_id,
-        status="offline",
-        last_heartbeat=None,
-        current_task=None,
-        queue_depth=0,
-        _is_stub=True,
-        _dev_warning=_DEV_WARNING,
-    ).model_dump())
+    return api_success(
+        data=DeviceStatusResponse(
+            device_id=device_id,
+            status="offline",
+            last_heartbeat=None,
+            current_task=None,
+            queue_depth=0,
+            _is_stub=True,
+            _dev_warning=_DEV_WARNING,
+        ).model_dump()
+    )

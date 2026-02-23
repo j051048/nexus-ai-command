@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class AIState(Enum):
     """AI processing states."""
+
     IDLE = "idle"
     THINKING = "thinking"
     ANALYZING = "analyzing"
@@ -32,6 +33,7 @@ class AIState(Enum):
 @dataclass
 class StatusIndicator:
     """Status indicator for AI state."""
+
     state: AIState
     message: str
     sub_message: str = ""
@@ -56,51 +58,15 @@ class AIStatusService:
 
     # State configurations
     STATE_CONFIGS = {
-        AIState.IDLE: {
-            "icon": "⚪",
-            "message": "AI助手就绪",
-            "color": "gray"
-        },
-        AIState.THINKING: {
-            "icon": "🤔",
-            "message": "正在思考...",
-            "color": "blue"
-        },
-        AIState.ANALYZING: {
-            "icon": "🔍",
-            "message": "正在分析...",
-            "color": "purple"
-        },
-        AIState.SEARCHING: {
-            "icon": "🔎",
-            "message": "正在搜索...",
-            "color": "yellow"
-        },
-        AIState.GENERATING: {
-            "icon": "✨",
-            "message": "正在生成回复...",
-            "color": "green"
-        },
-        AIState.TOOL_CALLING: {
-            "icon": "🔧",
-            "message": "正在调用工具...",
-            "color": "orange"
-        },
-        AIState.WAITING_INPUT: {
-            "icon": "⏳",
-            "message": "等待输入...",
-            "color": "yellow"
-        },
-        AIState.ERROR: {
-            "icon": "❌",
-            "message": "处理出错",
-            "color": "red"
-        },
-        AIState.COMPLETED: {
-            "icon": "✅",
-            "message": "处理完成",
-            "color": "green"
-        }
+        AIState.IDLE: {"icon": "⚪", "message": "AI助手就绪", "color": "gray"},
+        AIState.THINKING: {"icon": "🤔", "message": "正在思考...", "color": "blue"},
+        AIState.ANALYZING: {"icon": "🔍", "message": "正在分析...", "color": "purple"},
+        AIState.SEARCHING: {"icon": "🔎", "message": "正在搜索...", "color": "yellow"},
+        AIState.GENERATING: {"icon": "✨", "message": "正在生成回复...", "color": "green"},
+        AIState.TOOL_CALLING: {"icon": "🔧", "message": "正在调用工具...", "color": "orange"},
+        AIState.WAITING_INPUT: {"icon": "⏳", "message": "等待输入...", "color": "yellow"},
+        AIState.ERROR: {"icon": "❌", "message": "处理出错", "color": "red"},
+        AIState.COMPLETED: {"icon": "✅", "message": "处理完成", "color": "green"},
     }
 
     # Thinking messages for variety
@@ -130,7 +96,7 @@ class AIStatusService:
         message: str = None,
         sub_message: str = "",
         progress: float = None,
-        metadata: dict = None
+        metadata: dict = None,
     ) -> StatusIndicator:
         """
         Set AI state for a session.
@@ -161,7 +127,7 @@ class AIStatusService:
             progress=progress if progress is not None else self._get_default_progress(state),
             icon=config.get("icon", "🤖"),
             duration_ms=duration_ms,
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
         # Store state
@@ -174,7 +140,7 @@ class AIStatusService:
 
         # Trim history
         if len(self._state_history[session_id]) > self._max_history:
-            self._state_history[session_id] = self._state_history[session_id][-self._max_history:]
+            self._state_history[session_id] = self._state_history[session_id][-self._max_history :]
 
         # Start timer for new processing states
         if state in [AIState.THINKING, AIState.ANALYZING, AIState.GENERATING, AIState.SEARCHING]:
@@ -197,16 +163,11 @@ class AIStatusService:
             AIState.TOOL_CALLING: 0.5,
             AIState.WAITING_INPUT: 0.0,
             AIState.ERROR: 0.0,
-            AIState.COMPLETED: 1.0
+            AIState.COMPLETED: 1.0,
         }
         return progress_map.get(state, 0.0)
 
-    async def update_progress(
-        self,
-        session_id: str,
-        progress: float,
-        message: str = None
-    ) -> StatusIndicator | None:
+    async def update_progress(self, session_id: str, progress: float, message: str = None) -> StatusIndicator | None:
         """Update progress for current state."""
         if session_id not in self._current_states:
             return None
@@ -290,10 +251,10 @@ class AIStatusService:
             "timestamp": indicator.timestamp,
             "durationMs": indicator.duration_ms,
             "estimatedRemainingMs": None,  # Will be filled if available
-            "metadata": indicator.metadata
+            "metadata": indicator.metadata,
         }
 
-    async def create_thinking_animation(self, session_id: str) -> 'ThinkingAnimation':
+    async def create_thinking_animation(self, session_id: str) -> "ThinkingAnimation":
         """Create an animated thinking indicator."""
         return ThinkingAnimation(self, session_id)
 
@@ -324,11 +285,7 @@ class ThinkingAnimation:
         async def animate():
             idx = 0
             while self._running:
-                await self.status_service.set_state(
-                    self.session_id,
-                    AIState.THINKING,
-                    message=steps[idx % len(steps)]
-                )
+                await self.status_service.set_state(self.session_id, AIState.THINKING, message=steps[idx % len(steps)])
                 idx += 1
                 await asyncio.sleep(2)
 

@@ -71,9 +71,7 @@ class IncentiveService:
             if supabase:
                 try:
                     await supabase.table("incentives").insert(record).execute()
-                    logger.info(
-                        f"Incentive created: {record['id']} for user {trigger.user_id}"
-                    )
+                    logger.info(f"Incentive created: {record['id']} for user {trigger.user_id}")
                 except Exception as db_err:
                     logger.error(f"Failed to save incentive to DB: {db_err}")
                     # Don't fail the request if DB fails, but log it criticaly

@@ -109,9 +109,7 @@ async def run_agent_stream(
     # ── 1. Token budget check ──
     await usage_tracker.ensure_loaded(user_id)
     messages_dicts = [{"role": m.get("role", "user"), "content": m.get("content", "")} for m in messages]
-    is_allowed, input_tokens, reason = validate_request_tokens(
-        messages_dicts, agent_config.model, user_id
-    )
+    is_allowed, input_tokens, reason = validate_request_tokens(messages_dicts, agent_config.model, user_id)
     if not is_allowed:
         yield _sse_content(f"⛔ 请求被拒绝 (超出限制): {reason}")
         yield "data: [DONE]\n\n"
@@ -138,7 +136,10 @@ async def run_agent_stream(
     yield _sse_status("正在思考...")
 
     prep_result = await prepare_initial_state(
-        messages, system_prompt, agent_config, db_client=db_client,
+        messages,
+        system_prompt,
+        agent_config,
+        db_client=db_client,
     )
     lc_messages = prep_result["messages"]
     cached_response = prep_result["cached_response"]
@@ -217,7 +218,9 @@ async def run_agent_stream(
                 data = event.get("data", {})
                 output = data.get("output")
 
-                if isinstance(output, dict) and any(k in output for k in ("current_phase", "thinking_steps", "messages")):
+                if isinstance(output, dict) and any(
+                    k in output for k in ("current_phase", "thinking_steps", "messages")
+                ):
                     state_delta = output
 
                     # Merge delta into accumulated state
@@ -267,6 +270,7 @@ async def run_agent_stream(
     # Fallback: if final_response is empty, try to extract from last AI message
     if not final_response:
         from langchain_core.messages import AIMessage as _AIMsg
+
         for msg in reversed(accumulated_state.get("messages", [])):
             if isinstance(msg, _AIMsg) and msg.content:
                 final_response = msg.content
@@ -287,10 +291,12 @@ async def run_agent_stream(
             await asyncio.sleep(0.01)
 
     # ── 7. Emit thinking chain completion ──
-    yield _sse_data({
-        "thinking_chain_complete": True,
-        "total_steps": len(all_thinking_steps),
-    })
+    yield _sse_data(
+        {
+            "thinking_chain_complete": True,
+            "total_steps": len(all_thinking_steps),
+        }
+    )
 
     # ── 8. Token tracking ──
     total_in = accumulated_state.get("total_input_tokens", 0) or input_tokens
@@ -346,4 +352,3 @@ def _chunk_text(text: str, chunk_size: int = 4) -> list[str]:
     if current:
         chunks.append(current)
     return chunks
-

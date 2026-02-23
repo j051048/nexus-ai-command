@@ -93,17 +93,18 @@ async def trim_messages_to_window(
     trimmed.extend(system_older)
 
     if summary:
-        trimmed.append({
-            "role": "system",
-            "content": f"[对话历史摘要 — 早期 {len(non_system_older)} 条消息已压缩] {summary}",
-        })
+        trimmed.append(
+            {
+                "role": "system",
+                "content": f"[对话历史摘要 — 早期 {len(non_system_older)} 条消息已压缩] {summary}",
+            }
+        )
 
     trimmed.extend(recent)
 
     new_tokens = token_counter.count_messages_tokens(trimmed, model)
     logger.info(
-        f"[Memory] Trimmed from {total_tokens} to {new_tokens} tokens "
-        f"({len(messages)} → {len(trimmed)} messages)"
+        f"[Memory] Trimmed from {total_tokens} to {new_tokens} tokens " f"({len(messages)} → {len(trimmed)} messages)"
     )
     return trimmed
 
@@ -127,10 +128,8 @@ class QueryTransformer:
         if self._llm_client is None:
             try:
                 from openai import AsyncOpenAI
-                self._llm_client = AsyncOpenAI(
-                    api_key=self.config.api_key,
-                    base_url=self.config.base_url
-                )
+
+                self._llm_client = AsyncOpenAI(api_key=self.config.api_key, base_url=self.config.base_url)
             except Exception as e:
                 logger.warning(f"Failed to init LLM for query transformation: {e}")
         return self._llm_client
@@ -161,7 +160,7 @@ class QueryTransformer:
                 model=self.config.mini_model,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=300,
-                temperature=0.3
+                temperature=0.3,
             )
             hyde_doc = response.choices[0].message.content.strip()
             logger.debug(f"[HyDE] Generated hypothetical doc: {hyde_doc[:100]}...")
@@ -196,9 +195,9 @@ class QueryTransformer:
                 model=self.config.mini_model,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=200,
-                temperature=0.5
+                temperature=0.5,
             )
-            expanded = response.choices[0].message.content.strip().split('\n')
+            expanded = response.choices[0].message.content.strip().split("\n")
             expanded = [q.strip() for q in expanded if q.strip()][:num_queries]
 
             # Always include original query
@@ -235,7 +234,7 @@ class QueryTransformer:
                 model=self.config.mini_model,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=100,
-                temperature=0.2
+                temperature=0.2,
             )
             rewritten = response.choices[0].message.content.strip()
             logger.debug(f"[QueryRewrite] '{query}' -> '{rewritten}'")
@@ -270,12 +269,7 @@ async def prepare_initial_state(
         }
     """
     client = db_client or supabase
-    result = {
-        "messages": [],
-        "cached_response": None,
-        "rag_context": "",
-        "rag_sources": []
-    }
+    result = {"messages": [], "cached_response": None, "rag_context": "", "rag_sources": []}
 
     # ── 1. Semantic Cache Lookup ──
     last_user_msg = ""
@@ -287,6 +281,7 @@ async def prepare_initial_state(
     if last_user_msg and config.user_id:
         try:
             from app.services.semantic_cache import semantic_cache_service
+
             cached = await semantic_cache_service.get_cache(last_user_msg, config.user_id)
             if cached:
                 logger.info(f"[Memory] Semantic cache hit for user {config.user_id}")
@@ -306,9 +301,9 @@ async def prepare_initial_state(
 
             # Determine transformation strategy based on config
             # HyDE is expensive; only enable by default for the knowledge agent
-            is_knowledge_agent = getattr(config, 'agent_name', '') in ('knowledge', 'knowledge_base')
-            use_hyde = getattr(config, 'use_hyde', is_knowledge_agent)
-            use_multi_query = getattr(config, 'use_multi_query', is_knowledge_agent)
+            is_knowledge_agent = getattr(config, "agent_name", "") in ("knowledge", "knowledge_base")
+            use_hyde = getattr(config, "use_hyde", is_knowledge_agent)
+            use_multi_query = getattr(config, "use_multi_query", is_knowledge_agent)
 
             all_docs = []
 
@@ -373,7 +368,9 @@ async def prepare_initial_state(
 
                 result["rag_context"] = "\n\n---\n\n".join(context_parts)
                 result["rag_sources"] = list(set(doc.get("source", "知识库") for doc in unique_docs))
-                logger.info(f"[Memory] RAG injected {len(unique_docs)} docs (HyDE+MultiQuery) for user {config.user_id}")
+                logger.info(
+                    f"[Memory] RAG injected {len(unique_docs)} docs (HyDE+MultiQuery) for user {config.user_id}"
+                )
 
         except Exception as e:
             logger.warning(f"[Memory] RAG retrieval failed: {e}")
@@ -383,6 +380,7 @@ async def prepare_initial_state(
     if config.user_id and last_user_msg:
         try:
             from app.services.conversation_memory_service import conversation_memory_service
+
             memory_context = await conversation_memory_service.build_memory_context(
                 user_id=config.user_id,
                 current_query=last_user_msg,
@@ -390,10 +388,13 @@ async def prepare_initial_state(
             )
             if memory_context:
                 # Inject as the first system-level context message
-                raw_messages.insert(0, {
-                    "role": "system",
-                    "content": memory_context,
-                })
+                raw_messages.insert(
+                    0,
+                    {
+                        "role": "system",
+                        "content": memory_context,
+                    },
+                )
                 logger.info(f"[Memory] Injected long-term memory context for user {config.user_id}")
         except Exception as e:
             logger.debug(f"[Memory] Long-term memory injection skipped: {e}")
@@ -405,10 +406,13 @@ async def prepare_initial_state(
 
         summary = await _summarize_messages(older, config)
         if summary:
-            recent.insert(0, {
-                "role": "system",
-                "content": f"[对话历史摘要] {summary}",
-            })
+            recent.insert(
+                0,
+                {
+                    "role": "system",
+                    "content": f"[对话历史摘要] {summary}",
+                },
+            )
         raw_messages = recent
 
     # ── 3b. Token Window Trim ──
@@ -433,7 +437,6 @@ async def prepare_initial_state(
 
     result["messages"] = lc_messages
     return result
-
 
 
 async def persist_result(
@@ -479,9 +482,8 @@ async def persist_result(
     if user_message and assistant_response:
         try:
             from app.services.semantic_cache import semantic_cache_service
-            await semantic_cache_service.set_cache(
-                user_message, assistant_response, user_id
-            )
+
+            await semantic_cache_service.set_cache(user_message, assistant_response, user_id)
         except Exception as e:
             logger.debug(f"[Memory] Failed to update semantic cache: {e}")
 
@@ -489,22 +491,19 @@ async def persist_result(
     if user_message:
         try:
             from app.services.conversation_memory_service import conversation_memory_service
+
             messages_for_extraction = [
                 {"role": "user", "content": user_message},
             ]
             if assistant_response:
-                messages_for_extraction.append(
-                    {"role": "assistant", "content": assistant_response}
-                )
+                messages_for_extraction.append({"role": "assistant", "content": assistant_response})
             extracted = await conversation_memory_service.extract_preferences(
                 user_id=user_id,
                 messages=messages_for_extraction,
                 db=client,
             )
             if extracted:
-                logger.info(
-                    f"[Memory] Extracted {len(extracted)} long-term memories for user {user_id}"
-                )
+                logger.info(f"[Memory] Extracted {len(extracted)} long-term memories for user {user_id}")
         except Exception as e:
             logger.debug(f"[Memory] Memory extraction skipped: {e}")
 
@@ -530,16 +529,14 @@ async def load_session_history(
             .limit(limit)
             .execute()
         )
-        return [
-            {"role": msg["role"], "content": msg["content"]}
-            for msg in (response.data or [])
-        ]
+        return [{"role": msg["role"], "content": msg["content"]} for msg in (response.data or [])]
     except Exception as e:
         logger.warning(f"[Memory] Failed to load session history: {e}")
         return []
 
 
 # ─── Internal Helpers ────────────────────────────────────────────────────────
+
 
 async def _summarize_messages(
     messages: list[dict[str, str]],
@@ -554,6 +551,7 @@ async def _summarize_messages(
 
     try:
         from app.services.summary_service import summary_service
+
         return await summary_service.summarize_messages(
             messages,
             config={

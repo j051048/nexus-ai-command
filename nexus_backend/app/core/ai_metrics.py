@@ -78,9 +78,7 @@ try:
     logger.info("OpenTelemetry AI metrics initialised (meter: nexus-ai-metrics)")
 
 except ImportError:
-    logger.info(
-        "opentelemetry.metrics not available -- AI metrics will be no-ops"
-    )
+    logger.info("opentelemetry.metrics not available -- AI metrics will be no-ops")
 except Exception as exc:
     logger.warning("Failed to initialise OpenTelemetry AI metrics: %s", exc)
 
@@ -88,6 +86,7 @@ except Exception as exc:
 # ---------------------------------------------------------------------------
 # Helper functions -- safe to call regardless of OTel availability
 # ---------------------------------------------------------------------------
+
 
 def record_llm_latency(model: str, duration_ms: float) -> None:
     """Record the duration of an LLM API request.
@@ -132,9 +131,7 @@ def record_hallucination(detection_layer: str) -> None:
     """
     if not _otel_available:
         return
-    _hallucination_detected.add(
-        1, attributes={"detection_layer": detection_layer}
-    )
+    _hallucination_detected.add(1, attributes={"detection_layer": detection_layer})
 
 
 def record_cache_event(hit: bool) -> None:
@@ -160,9 +157,7 @@ def record_rag_retrieval(duration_ms: float, source: str = "default") -> None:
     """
     if not _otel_available:
         return
-    _rag_retrieval_duration.record(
-        duration_ms, attributes={"source": source}
-    )
+    _rag_retrieval_duration.record(duration_ms, attributes={"source": source})
 
 
 def record_agent_delegation(
@@ -177,6 +172,4 @@ def record_agent_delegation(
     """
     if not _otel_available:
         return
-    _agent_delegation.add(
-        1, attributes={"from_agent": from_agent, "to_agent": to_agent}
-    )
+    _agent_delegation.add(1, attributes={"from_agent": from_agent, "to_agent": to_agent})

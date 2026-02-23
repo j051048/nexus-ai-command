@@ -89,8 +89,7 @@ async def get_login_url(
     if platform not in SUPPORTED_PLATFORMS:
         return api_error(
             ErrorCode.VALIDATION_INVALID_INPUT,
-            f"Unsupported platform: {platform}. "
-            f"Supported: {', '.join(SUPPORTED_PLATFORMS)}",
+            f"Unsupported platform: {platform}. " f"Supported: {', '.join(SUPPORTED_PLATFORMS)}",
         )
 
     if not redirect_uri:
@@ -112,8 +111,7 @@ async def get_login_url(
         if not client:
             return api_error(
                 ErrorCode.VALIDATION_INVALID_INPUT,
-                f"{platform} is not configured. "
-                f"Please set the required credentials.",
+                f"{platform} is not configured. " f"Please set the required credentials.",
             )
 
         login_url = client.get_oauth_url(
@@ -190,9 +188,7 @@ async def oauth_callback(
         platform_user_id = platform_user.get("userid", "")
 
         if not platform_user_id:
-            logger.warning(
-                f"[im_oauth] No userid returned from {platform} OAuth"
-            )
+            logger.warning(f"[im_oauth] No userid returned from {platform} OAuth")
             return api_error(
                 ErrorCode.AUTH_TOKEN_INVALID,
                 "Could not resolve user identity from platform",
@@ -221,13 +217,7 @@ async def oauth_callback(
             # 3. 尝试通过手机号自动关联
             mobile = platform_user.get("mobile", "")
             if mobile:
-                user_result = (
-                    await db.table("users")
-                    .select("id")
-                    .eq("phone", mobile)
-                    .limit(1)
-                    .execute()
-                )
+                user_result = await db.table("users").select("id").eq("phone", mobile).limit(1).execute()
                 if user_result.data:
                     nexus_user_id = user_result.data[0].get("id")
 
@@ -244,9 +234,7 @@ async def oauth_callback(
                                 .execute()
                             )
                             if org_result.data:
-                                resolved_org_id = org_result.data.get(
-                                    "organization_id", ""
-                                )
+                                resolved_org_id = org_result.data.get("organization_id", "")
 
                         if resolved_org_id:
                             await db.table("im_user_mappings").insert(
@@ -265,9 +253,7 @@ async def oauth_callback(
                                 f"{nexus_user_id} via mobile"
                             )
                     except Exception as e:
-                        logger.warning(
-                            f"[im_oauth] Failed to auto-create mapping: {e}"
-                        )
+                        logger.warning(f"[im_oauth] Failed to auto-create mapping: {e}")
 
         if not nexus_user_id:
             return api_error(

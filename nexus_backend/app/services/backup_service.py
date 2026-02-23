@@ -58,12 +58,7 @@ class BackupService:
         try:
             for table_name in tables_to_backup:
                 try:
-                    result = await (
-                        db.table(table_name)
-                        .select("*")
-                        .eq("organization_id", org_id)
-                        .execute()
-                    )
+                    result = await db.table(table_name).select("*").eq("organization_id", org_id).execute()
                     table_data = result.data or []
                     backup_data[table_name] = table_data
                     total_size += len(json.dumps(table_data, default=str).encode("utf-8"))
@@ -102,10 +97,7 @@ class BackupService:
                     "status": "completed",
                     "created_at": backup_record.get("created_at"),
                     "expires_at": expires_at,
-                    "table_row_counts": {
-                        t: len(d) if isinstance(d, list) else 0
-                        for t, d in backup_data.items()
-                    },
+                    "table_row_counts": {t: len(d) if isinstance(d, list) else 0 for t, d in backup_data.items()},
                 }
 
             raise RuntimeError("备份记录写入失败")
@@ -158,13 +150,7 @@ class BackupService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            result = await (
-                db.table("backup_records")
-                .select("*")
-                .eq("id", backup_id)
-                .single()
-                .execute()
-            )
+            result = await db.table("backup_records").select("*").eq("id", backup_id).single().execute()
 
             if not result.data:
                 return None
@@ -183,10 +169,7 @@ class BackupService:
                 "created_by": record.get("created_by"),
                 "created_at": record.get("created_at"),
                 "expires_at": record.get("expires_at"),
-                "table_row_counts": {
-                    t: len(d) if isinstance(d, list) else 0
-                    for t, d in data.items()
-                },
+                "table_row_counts": {t: len(d) if isinstance(d, list) else 0 for t, d in data.items()},
             }
 
         except Exception as e:
@@ -208,13 +191,7 @@ class BackupService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            result = await (
-                db.table("backup_records")
-                .select("*")
-                .eq("id", backup_id)
-                .single()
-                .execute()
-            )
+            result = await db.table("backup_records").select("*").eq("id", backup_id).single().execute()
 
             if not result.data:
                 return {"error": "备份记录不存在"}
@@ -268,13 +245,7 @@ class BackupService:
 
         try:
             # 获取备份数据
-            result = await (
-                db.table("backup_records")
-                .select("*")
-                .eq("id", backup_id)
-                .single()
-                .execute()
-            )
+            result = await db.table("backup_records").select("*").eq("id", backup_id).single().execute()
 
             if not result.data:
                 return {"error": "备份记录不存在"}
@@ -302,11 +273,7 @@ class BackupService:
 
                 try:
                     # 使用 upsert 恢复数据（保留主键冲突时更新）
-                    upsert_result = await (
-                        db.table(table_name)
-                        .upsert(table_data)
-                        .execute()
-                    )
+                    upsert_result = await db.table(table_name).upsert(table_data).execute()
                     restored_count = len(upsert_result.data) if upsert_result.data else 0
                     restore_results[table_name] = {
                         "status": "restored",
@@ -372,11 +339,7 @@ class BackupService:
                 "next_backup_at": next_backup.isoformat(),
             }
 
-            result = await (
-                db.table("backup_schedules")
-                .upsert(schedule_data, on_conflict="organization_id")
-                .execute()
-            )
+            result = await db.table("backup_schedules").upsert(schedule_data, on_conflict="organization_id").execute()
 
             if result.data and len(result.data) > 0:
                 logger.info(f"自动备份计划已设置: org={org_id}, freq={frequency}")
@@ -407,11 +370,7 @@ class BackupService:
 
         try:
             result = await (
-                db.table("backup_records")
-                .delete()
-                .eq("organization_id", org_id)
-                .lt("created_at", cutoff)
-                .execute()
+                db.table("backup_records").delete().eq("organization_id", org_id).lt("created_at", cutoff).execute()
             )
 
             deleted_count = len(result.data) if result.data else 0

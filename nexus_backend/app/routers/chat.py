@@ -41,9 +41,7 @@ async def _error_stream(msg: str):
 
 
 @router.post("/chat")
-async def chat(
-    request: ChatRequest, req: Request, user_id: str = Depends(get_current_user_id)
-):
+async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_current_user_id)):
     """
     Unified Chat Endpoint.
 
@@ -58,25 +56,15 @@ async def chat(
     # 1. Identity & Profile Check
     # P0 Multi-tenancy: Use scoped client from request state
     client = req.state.db
-    user_res = (
-        await client.table("users")
-        .select("id, role")
-        .eq("id", user_id)
-        .maybe_single()
-        .execute()
-    )
+    user_res = await client.table("users").select("id, role").eq("id", user_id).maybe_single().execute()
     if not user_res.data:
-        raise HTTPException(
-            status_code=403, detail="User profile not found or access denied"
-        )
+        raise HTTPException(status_code=403, detail="User profile not found or access denied")
 
     user_role = user_res.data.get("role", "employee")
 
     # 2. Content Moderation
     if request.messages:
-        last_msg = next(
-            (m for m in reversed(request.messages) if m.role == "user"), None
-        )
+        last_msg = next((m for m in reversed(request.messages) if m.role == "user"), None)
         if last_msg:
             is_safe, warning = check_user_input(last_msg.content)
             if not is_safe:
@@ -87,9 +75,7 @@ async def chat(
 
     # 3. Load User AI Settings
     auth_header = req.headers.get("Authorization")
-    token = (
-        auth_header.split(" ")[1] if auth_header and "Bearer" in auth_header else None
-    )
+    token = auth_header.split(" ")[1] if auth_header and "Bearer" in auth_header else None
 
     ai_config = {
         "base_url": os.getenv("AI_BASE_URL", "https://proxy.flydao.top/v1"),
@@ -99,7 +85,7 @@ async def chat(
     }
     try:
         # Query AI settings with organization_id to match frontend save logic
-        org_id = getattr(req.state, 'org_id', None)
+        org_id = getattr(req.state, "org_id", None)
         settings_query = client.table("ai_settings").select("*").eq("user_id", user_id)
         if org_id:
             settings_query = settings_query.eq("organization_id", org_id)
@@ -129,18 +115,14 @@ async def chat(
         logger.warning(f"Settings fetch failed: {e}")
 
     if not ai_config["api_key"]:
-        return StreamingResponse(
-            _error_stream("未配置 AI API Key"), media_type="text/event-stream; charset=utf-8"
-        )
+        return StreamingResponse(_error_stream("未配置 AI API Key"), media_type="text/event-stream; charset=utf-8")
 
     # 3b. Infer mini_model for dynamic routing
     ai_config["mini_model"] = _infer_mini_model(ai_config["model"])
 
     # 4. Token Validation
     messages_dicts = [{"role": m.role, "content": m.content} for m in request.messages]
-    is_allowed, _, limit_reason = validate_request_tokens(
-        messages_dicts, ai_config["model"], user_id
-    )
+    is_allowed, _, limit_reason = validate_request_tokens(messages_dicts, ai_config["model"], user_id)
     if not is_allowed:
         return StreamingResponse(
             _error_stream(f"⚠️ 额度超限: {limit_reason}"),
@@ -148,12 +130,11 @@ async def chat(
         )
 
     # 4b. P0 Fix: Tenant Quota Enforcement
-    org_id = getattr(req.state, 'org_id', None)
+    org_id = getattr(req.state, "org_id", None)
     if org_id:
         from app.services.tenant_credit_service import CreditType, tenant_credit_service
-        has_credit, credit_error = await tenant_credit_service.check_credit(
-            org_id, CreditType.API_CALLS, 1, db=client
-        )
+
+        has_credit, credit_error = await tenant_credit_service.check_credit(org_id, CreditType.API_CALLS, 1, db=client)
         if not has_credit:
             return StreamingResponse(
                 _error_stream(f"⚠️ 组织配额不足: {credit_error}"),
@@ -167,9 +148,7 @@ async def chat(
     tracer = TraceLogger(user_id=user_id, agent=request.agent or "default")
 
     # 5b. P1 Fix: Semantic Cache Check — skip LLM if high-similarity hit
-    last_user_msg = next(
-        (m.content for m in reversed(request.messages) if m.role == "user"), None
-    )
+    last_user_msg = next((m.content for m in reversed(request.messages) if m.role == "user"), None)
     if last_user_msg:
         try:
             from app.services.semantic_cache import semantic_cache_service
@@ -180,12 +159,11 @@ async def chat(
 
                 async def _cache_stream(text: str):
                     import json
+
                     yield f"data: {json.dumps({'choices': [{'delta': {'content': text}}]})}\n\n"
                     yield "data: [DONE]\n\n"
 
-                return StreamingResponse(
-                    _cache_stream(cached), media_type="text/event-stream; charset=utf-8"
-                )
+                return StreamingResponse(_cache_stream(cached), media_type="text/event-stream; charset=utf-8")
         except Exception as e:
             logger.debug(f"Semantic cache check skipped: {e}")
 
@@ -199,8 +177,7 @@ async def chat(
         raw_messages = [{"role": m.role, "content": m.content} for m in request.messages]
 
         logger.info(
-            f"[Chat] Using LangGraph agent for user={user_id} "
-            f"agent={request.agent} model={ai_config['model']}"
+            f"[Chat] Using LangGraph agent for user={user_id} " f"agent={request.agent} model={ai_config['model']}"
         )
 
         return StreamingResponse(
@@ -222,10 +199,7 @@ async def chat(
     else:
         # ── Legacy: ChatService.stream_response ──
         # Keep the old sliding window + summary logic for backward compatibility
-        logger.info(
-            f"[Chat] Using legacy ChatService for user={user_id} "
-            f"agent={request.agent}"
-        )
+        logger.info(f"[Chat] Using legacy ChatService for user={user_id} " f"agent={request.agent}")
 
         max_history = 10
         if len(request.messages) > max_history:
@@ -242,9 +216,7 @@ async def chat(
                 if summary:
                     from app.models.schemas import Message
 
-                    recent_messages.insert(
-                        0, Message(role="system", content=f"[对话历史摘要] {summary}")
-                    )
+                    recent_messages.insert(0, Message(role="system", content=f"[对话历史摘要] {summary}"))
             except Exception as e:
                 logger.warning(f"Failed to generate conversation summary: {e}")
         else:
@@ -269,9 +241,7 @@ async def chat(
 
 
 @router.get("/history/{session_id}")
-async def get_chat_history(
-    session_id: str, req: Request, user_id: str = Depends(get_current_user_id)
-):
+async def get_chat_history(session_id: str, req: Request, user_id: str = Depends(get_current_user_id)):
     """Fetch persistent chat history for a session"""
     try:
         client = req.state.db
@@ -324,15 +294,11 @@ async def list_sessions(req: Request, user_id: str = Depends(get_current_user_id
 
 
 @router.delete("/sessions/{session_id}")
-async def archive_session(
-    session_id: str, req: Request, user_id: str = Depends(get_current_user_id)
-):
+async def archive_session(session_id: str, req: Request, user_id: str = Depends(get_current_user_id)):
     """Archive/delete a chat session"""
     client = req.state.db
     try:
-        await client.table("chat_messages").delete().eq("user_id", user_id).eq(
-            "session_id", session_id
-        ).execute()
+        await client.table("chat_messages").delete().eq("user_id", user_id).eq("session_id", session_id).execute()
         return api_success(data={"message": f"Session {session_id} archived"})
     except Exception as e:
         # PostgREST 204 = success with no content body
@@ -343,9 +309,7 @@ async def archive_session(
 
 
 @router.get("/search")
-async def search_messages(
-    q: str, req: Request, user_id: str = Depends(get_current_user_id), limit: int = 20
-):
+async def search_messages(q: str, req: Request, user_id: str = Depends(get_current_user_id), limit: int = 20):
     """Search chat messages by keyword"""
     if not q or len(q) < 2:
         return api_success(data={"messages": []})
@@ -370,9 +334,7 @@ async def search_messages(
 
 
 @router.post("/sessions/{session_id}/star")
-async def toggle_star_session(
-    session_id: str, req: Request, user_id: str = Depends(get_current_user_id)
-):
+async def toggle_star_session(session_id: str, req: Request, user_id: str = Depends(get_current_user_id)):
     """Toggle star/pin on a chat session"""
     client = req.state.db
     try:
@@ -400,9 +362,7 @@ async def toggle_star_session(
             return api_success(data={"starred": False})
         else:
             # Star
-            await client.table("starred_sessions").insert(
-                {"user_id": user_id, "session_id": session_id}
-            ).execute()
+            await client.table("starred_sessions").insert({"user_id": user_id, "session_id": session_id}).execute()
             return api_success(data={"starred": True})
     except Exception as e:
         # If starred_sessions table doesn't exist, log and return gracefully

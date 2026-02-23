@@ -320,10 +320,7 @@ class TrainingService:
                     "difficulty": course.get("difficulty", "beginner"),
                     "cover_icon": course.get("cover_icon", "book-open"),
                     "module_count": len(course.get("modules", [])),
-                    "modules": [
-                        {"id": m["id"], "title": m["title"]}
-                        for m in course.get("modules", [])
-                    ],
+                    "modules": [{"id": m["id"], "title": m["title"]} for m in course.get("modules", [])],
                 }
             )
         return result
@@ -402,21 +399,15 @@ class TrainingService:
 
         if db:
             try:
-                db.table("training_progress").upsert(
-                    data, on_conflict="user_id,course_id,module_id"
-                ).execute()
-                logger.info(
-                    f"Progress updated: user={user_id}, course={course_id}, module={module_id}"
-                )
+                db.table("training_progress").upsert(data, on_conflict="user_id,course_id,module_id").execute()
+                logger.info(f"Progress updated: user={user_id}, course={course_id}, module={module_id}")
             except Exception as e:
                 logger.error(f"Failed to update training progress: {e}")
                 raise
 
         return data
 
-    async def get_quiz_questions(
-        self, course_id: str, module_id: str
-    ) -> list[dict]:
+    async def get_quiz_questions(self, course_id: str, module_id: str) -> list[dict]:
         """获取测验题目（不含答案）"""
         module = self._module_map.get(course_id, {}).get(module_id)
         if not module:

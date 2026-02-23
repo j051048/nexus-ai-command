@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 class WebhookEvent(Enum):
     """Events that can trigger webhook delivery."""
+
     APPROVAL_SUBMITTED = "approval.submitted"
     APPROVAL_APPROVED = "approval.approved"
     APPROVAL_REJECTED = "approval.rejected"
@@ -42,6 +43,7 @@ class WebhookEvent(Enum):
 @dataclass
 class WebhookSubscription:
     """A registered webhook subscription."""
+
     id: str
     org_id: str
     url: str
@@ -69,6 +71,7 @@ class WebhookSubscription:
 @dataclass
 class WebhookDelivery:
     """Record of a webhook delivery attempt."""
+
     id: str
     subscription_id: str
     event: str
@@ -112,9 +115,7 @@ class WebhookService:
         ).hexdigest()
         return f"t={ts},v1={sig}"
 
-    def verify_signature(
-        self, payload: str, signature: str, secret: str, tolerance: int = 300
-    ) -> bool:
+    def verify_signature(self, payload: str, signature: str, secret: str, tolerance: int = 300) -> bool:
         """Verify an incoming webhook signature with timestamp validation.
 
         P0 Fix: Validates that the timestamp is within ±tolerance seconds to
@@ -187,11 +188,7 @@ class WebhookService:
 
     async def list_subscriptions(self, org_id: str, db=None) -> list[dict]:
         """List all subscriptions for an org."""
-        results = [
-            sub.to_dict()
-            for sub in self._subscriptions.values()
-            if sub.org_id == org_id and sub.is_active
-        ]
+        results = [sub.to_dict() for sub in self._subscriptions.values() if sub.org_id == org_id and sub.is_active]
         return results
 
     async def deactivate_subscription(self, sub_id: str, db=None) -> bool:
@@ -203,9 +200,7 @@ class WebhookService:
 
         if db:
             try:
-                await db.table("webhook_subscriptions").update(
-                    {"is_active": False}
-                ).eq("id", sub_id).execute()
+                await db.table("webhook_subscriptions").update({"is_active": False}).eq("id", sub_id).execute()
             except Exception as e:
                 logger.warning(f"Failed to deactivate webhook in DB: {e}")
 
@@ -216,9 +211,7 @@ class WebhookService:
         matching = [
             sub
             for sub in self._subscriptions.values()
-            if sub.is_active
-            and sub.org_id == org_id
-            and (event in sub.events or "*" in sub.events)
+            if sub.is_active and sub.org_id == org_id and (event in sub.events or "*" in sub.events)
         ]
 
         for sub in matching:
@@ -235,9 +228,7 @@ class WebhookService:
         if len(self._deliveries) > self._max_deliveries:
             self._deliveries = self._deliveries[-5000:]
 
-    async def _send_webhook(
-        self, delivery: WebhookDelivery, subscription: WebhookSubscription
-    ) -> bool:
+    async def _send_webhook(self, delivery: WebhookDelivery, subscription: WebhookSubscription) -> bool:
         """Send a webhook with retry and exponential backoff."""
         payload_json = json.dumps(
             {
@@ -277,13 +268,11 @@ class WebhookService:
 
             except Exception as e:
                 delivery.response_body = str(e)[:500]
-                logger.warning(
-                    f"Webhook delivery {delivery.id} attempt {attempt + 1} failed: {e}"
-                )
+                logger.warning(f"Webhook delivery {delivery.id} attempt {attempt + 1} failed: {e}")
 
             # Exponential backoff before retry
             if attempt < delivery.max_attempts - 1:
-                backoff = min(2 ** attempt * 5, 60)
+                backoff = min(2**attempt * 5, 60)
                 await asyncio.sleep(backoff)
 
         # All attempts failed
@@ -299,17 +288,11 @@ class WebhookService:
 
         return False
 
-    def get_recent_deliveries(
-        self, org_id: str = None, limit: int = 50
-    ) -> list[dict]:
+    def get_recent_deliveries(self, org_id: str = None, limit: int = 50) -> list[dict]:
         """Get recent webhook deliveries."""
         deliveries = self._deliveries
         if org_id:
-            sub_ids = {
-                s.id
-                for s in self._subscriptions.values()
-                if s.org_id == org_id
-            }
+            sub_ids = {s.id for s in self._subscriptions.values() if s.org_id == org_id}
             deliveries = [d for d in deliveries if d.subscription_id in sub_ids]
 
         return [d.to_dict() for d in deliveries[-limit:]]

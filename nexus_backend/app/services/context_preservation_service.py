@@ -18,15 +18,17 @@ logger = logging.getLogger(__name__)
 
 class ContextScope(Enum):
     """Scope of context preservation."""
-    SESSION = "session"      # Current browser session
-    USER = "user"            # User-level, cross-session
-    ORGANIZATION = "org"     # Organization-level
-    GLOBAL = "global"        # System-wide
+
+    SESSION = "session"  # Current browser session
+    USER = "user"  # User-level, cross-session
+    ORGANIZATION = "org"  # Organization-level
+    GLOBAL = "global"  # System-wide
 
 
 @dataclass
 class ContextEntry:
     """A single context entry."""
+
     key: str
     value: Any
     scope: ContextScope
@@ -52,10 +54,10 @@ class ContextPreservationService:
 
     # Default TTL for different scopes
     DEFAULT_TTL = {
-        ContextScope.SESSION: 1800,      # 30 minutes
-        ContextScope.USER: 86400,         # 24 hours
-        ContextScope.ORGANIZATION: 604800, # 7 days
-        ContextScope.GLOBAL: 2592000      # 30 days
+        ContextScope.SESSION: 1800,  # 30 minutes
+        ContextScope.USER: 86400,  # 24 hours
+        ContextScope.ORGANIZATION: 604800,  # 7 days
+        ContextScope.GLOBAL: 2592000,  # 30 days
     }
 
     # Max entries per scope
@@ -63,7 +65,7 @@ class ContextPreservationService:
         ContextScope.SESSION: 100,
         ContextScope.USER: 500,
         ContextScope.ORGANIZATION: 1000,
-        ContextScope.GLOBAL: 10000
+        ContextScope.GLOBAL: 10000,
     }
 
     def __init__(self, redis_client=None, db_client=None):
@@ -83,7 +85,7 @@ class ContextPreservationService:
         scope: ContextScope = ContextScope.USER,
         owner_id: str = None,
         ttl_seconds: int = None,
-        metadata: dict = None
+        metadata: dict = None,
     ) -> ContextEntry:
         """
         Set a context value.
@@ -114,7 +116,7 @@ class ContextPreservationService:
             owner_id=owner_id,
             expires_at=expires_at,
             metadata=metadata or {},
-            ttl_seconds=ttl
+            ttl_seconds=ttl,
         )
 
         storage_key = self._generate_key(scope, owner_id, key)
@@ -126,11 +128,7 @@ class ContextPreservationService:
         # Store in Redis if available
         if self.redis:
             try:
-                await self.redis.setex(
-                    storage_key,
-                    ttl,
-                    json.dumps(entry.__dict__, default=str, ensure_ascii=False)
-                )
+                await self.redis.setex(storage_key, ttl, json.dumps(entry.__dict__, default=str, ensure_ascii=False))
             except Exception as e:
                 logger.warning(f"Redis context store failed: {e}")
 
@@ -142,11 +140,7 @@ class ContextPreservationService:
         return entry
 
     async def get(
-        self,
-        key: str,
-        scope: ContextScope = ContextScope.USER,
-        owner_id: str = None,
-        default: Any = None
+        self, key: str, scope: ContextScope = ContextScope.USER, owner_id: str = None, default: Any = None
     ) -> Any | None:
         """
         Get a context value.
@@ -188,12 +182,7 @@ class ContextPreservationService:
 
         return default
 
-    async def delete(
-        self,
-        key: str,
-        scope: ContextScope = ContextScope.USER,
-        owner_id: str = None
-    ):
+    async def delete(self, key: str, scope: ContextScope = ContextScope.USER, owner_id: str = None):
         """Delete a context value."""
         if not owner_id:
             owner_id = "default"
@@ -213,12 +202,7 @@ class ContextPreservationService:
         if self.db:
             await self._delete_from_db(scope, owner_id, key)
 
-    async def get_all(
-        self,
-        scope: ContextScope,
-        owner_id: str = None,
-        prefix: str = None
-    ) -> dict[str, Any]:
+    async def get_all(self, scope: ContextScope, owner_id: str = None, prefix: str = None) -> dict[str, Any]:
         """
         Get all context values for a scope/owner.
 
@@ -274,37 +258,35 @@ class ContextPreservationService:
             return
 
         try:
-            await self.db.table("ai_context_store").upsert({
-                "scope": entry.scope.value,
-                "owner_id": entry.owner_id,
-                "key": entry.key,
-                "value": json.dumps(entry.value, ensure_ascii=False),
-                "expires_at": entry.expires_at,
-                "metadata": entry.metadata
-            }).execute()
+            await self.db.table("ai_context_store").upsert(
+                {
+                    "scope": entry.scope.value,
+                    "owner_id": entry.owner_id,
+                    "key": entry.key,
+                    "value": json.dumps(entry.value, ensure_ascii=False),
+                    "expires_at": entry.expires_at,
+                    "metadata": entry.metadata,
+                }
+            ).execute()
         except Exception as e:
             logger.warning(f"DB persist failed: {e}")
 
-    async def _get_from_db(
-        self,
-        scope: ContextScope,
-        owner_id: str,
-        key: str
-    ) -> ContextEntry | None:
+    async def _get_from_db(self, scope: ContextScope, owner_id: str, key: str) -> ContextEntry | None:
         """Get entry from database."""
         if not self.db:
             return None
 
         try:
-            result = await self.db.table("ai_context_store").select("*").eq(
-                "scope", scope.value
-            ).eq(
-                "owner_id", owner_id
-            ).eq(
-                "key", key
-            ).gt(
-                "expires_at", datetime.utcnow().isoformat()
-            ).single().execute()
+            result = (
+                await self.db.table("ai_context_store")
+                .select("*")
+                .eq("scope", scope.value)
+                .eq("owner_id", owner_id)
+                .eq("key", key)
+                .gt("expires_at", datetime.utcnow().isoformat())
+                .single()
+                .execute()
+            )
 
             if result.data:
                 return ContextEntry(
@@ -313,7 +295,7 @@ class ContextPreservationService:
                     scope=ContextScope(result.data["scope"]),
                     owner_id=result.data["owner_id"],
                     expires_at=result.data["expires_at"],
-                    metadata=result.data["metadata"]
+                    metadata=result.data["metadata"],
                 )
         except Exception:
             pass
@@ -326,72 +308,41 @@ class ContextPreservationService:
             return
 
         with contextlib.suppress(Exception):
-            await self.db.table("ai_context_store").delete().eq(
-                "scope", scope.value
-            ).eq(
-                "owner_id", owner_id
-            ).eq(
+            await self.db.table("ai_context_store").delete().eq("scope", scope.value).eq("owner_id", owner_id).eq(
                 "key", key
             ).execute()
 
     # Conversation-specific helpers
 
     async def save_conversation_state(
-        self,
-        session_id: str,
-        messages: list[dict],
-        current_intent: str = None,
-        metadata: dict = None
+        self, session_id: str, messages: list[dict], current_intent: str = None, metadata: dict = None
     ):
         """Save full conversation state for recovery."""
         await self.set(
             key="conversation",
-            value={
-                "messages": messages,
-                "current_intent": current_intent,
-                "message_count": len(messages)
-            },
+            value={"messages": messages, "current_intent": current_intent, "message_count": len(messages)},
             scope=ContextScope.SESSION,
             owner_id=session_id,
-            metadata=metadata
+            metadata=metadata,
         )
 
     async def restore_conversation(self, session_id: str) -> dict | None:
         """Restore conversation state."""
-        return await self.get(
-            key="conversation",
-            scope=ContextScope.SESSION,
-            owner_id=session_id
-        )
+        return await self.get(key="conversation", scope=ContextScope.SESSION, owner_id=session_id)
 
-    async def save_user_preference(
-        self,
-        user_id: str,
-        preference_key: str,
-        value: Any
-    ):
+    async def save_user_preference(self, user_id: str, preference_key: str, value: Any):
         """Save user preference."""
         await self.set(
             key=f"pref:{preference_key}",
             value=value,
             scope=ContextScope.USER,
             owner_id=user_id,
-            ttl_seconds=self.DEFAULT_TTL[ContextScope.USER]
+            ttl_seconds=self.DEFAULT_TTL[ContextScope.USER],
         )
 
-    async def get_user_preference(
-        self,
-        user_id: str,
-        preference_key: str,
-        default: Any = None
-    ) -> Any:
+    async def get_user_preference(self, user_id: str, preference_key: str, default: Any = None) -> Any:
         """Get user preference."""
-        return await self.get(
-            key=f"pref:{preference_key}",
-            scope=ContextScope.USER,
-            owner_id=user_id,
-            default=default
-        )
+        return await self.get(key=f"pref:{preference_key}", scope=ContextScope.USER, owner_id=user_id, default=default)
 
     async def compress_context(self, messages: list[dict], max_tokens: int = 4000) -> list[dict]:
         """
@@ -417,7 +368,7 @@ class ContextPreservationService:
         # Create summary of older messages
         summary = {
             "role": "system",
-            "content": f"[历史对话摘要] 共{len(older)}条消息，关键信息: {self._extract_key_info(older)}"
+            "content": f"[历史对话摘要] 共{len(older)}条消息，关键信息: {self._extract_key_info(older)}",
         }
 
         return [summary] + recent

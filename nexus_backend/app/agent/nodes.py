@@ -48,19 +48,25 @@ logger = logging.getLogger(__name__)
 
 # ─── Pydantic models for structured LLM output in reflect_node ───────────────
 
+
 class GroundednessCheck(BaseModel):
     """RAG groundedness evaluation result."""
+
     is_grounded: bool = Field(description="Whether the response is grounded in reference knowledge")
     reason: str = Field(default="", description="Reason for the evaluation")
     score: float = Field(default=0.5, ge=0.0, le=1.0, description="Groundedness score 0-1")
 
+
 class HallucinationCheck(BaseModel):
     """LLM-based hallucination detection result."""
+
     is_hallucination: bool = Field(description="Whether the response contains fabricated information")
     reason: str = Field(default="", description="Reason for the evaluation")
     confidence: float = Field(default=0.5, ge=0.0, le=1.0, description="Confidence score 0-1")
 
+
 logger = logging.getLogger(__name__)
+
 
 # P0 Fix: Tool schemas now fetched dynamically instead of cached at import time
 def _get_tool_schemas():
@@ -69,6 +75,7 @@ def _get_tool_schemas():
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
+
 
 def _get_llm(config: AgentConfig, model: str | None = None, streaming: bool = False):
     """Get a LangChain ChatOpenAI instance with the provided config."""
@@ -98,7 +105,9 @@ def _messages_to_lc_format(messages) -> list[BaseMessage]:
             elif role == "assistant":
                 result.append(AIMessage(content=content, additional_kwargs=msg.get("additional_kwargs", {})))
             elif role == "tool":
-                result.append(ToolMessage(content=content, tool_call_id=msg.get("tool_call_id", ""), name=msg.get("name", "")))
+                result.append(
+                    ToolMessage(content=content, tool_call_id=msg.get("tool_call_id", ""), name=msg.get("name", ""))
+                )
     return result
 
 
@@ -151,9 +160,7 @@ async def _execute_single_tool(
             return record
 
     # 2. Confirmation Gate (irreversible operations)
-    confirmation_msg = tool.check_confirmation(
-        record.tool_args, system_confirmed=config.system_confirmed
-    )
+    confirmation_msg = tool.check_confirmation(record.tool_args, system_confirmed=config.system_confirmed)
     if confirmation_msg is not None:
         record.status = "blocked"
         record.result = confirmation_msg
@@ -219,6 +226,7 @@ async def _execute_single_tool(
 # ═══════════════════════════════════════════════════════════════════════════════
 #  NODE: plan_node
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 async def plan_node(state: AgentState) -> dict:
     """
@@ -291,10 +299,12 @@ async def plan_node(state: AgentState) -> dict:
             return {
                 "error": "LLM 服务断路器已打开，请稍后重试。",
                 "current_phase": AgentPhase.ERROR,
-                "thinking_steps": [ThinkingStep(
-                    phase=AgentPhase.PLANNING.value,
-                    content="⚠️ LLM 服务暂时不可用（断路器保护），请稍后再试",
-                )],
+                "thinking_steps": [
+                    ThinkingStep(
+                        phase=AgentPhase.PLANNING.value,
+                        content="⚠️ LLM 服务暂时不可用（断路器保护），请稍后再试",
+                    )
+                ],
             }
         # We use astream to capture tokens if needed, but for the node return we need the full message
         # In a real heavy-streaming app, we'd use a callback handler passed via config
@@ -308,10 +318,12 @@ async def plan_node(state: AgentState) -> dict:
         return {
             "error": f"LLM 规划失败: {str(e)}",
             "current_phase": AgentPhase.ERROR,
-            "thinking_steps": [ThinkingStep(
-                phase=AgentPhase.PLANNING.value,
-                content=f"⚠️ LLM 调用异常: {str(e)}",
-            )],
+            "thinking_steps": [
+                ThinkingStep(
+                    phase=AgentPhase.PLANNING.value,
+                    content=f"⚠️ LLM 调用异常: {str(e)}",
+                )
+            ],
         }
 
     # Track usage (LangChain usually provides this in additional_kwargs or response_metadata)
@@ -326,11 +338,13 @@ async def plan_node(state: AgentState) -> dict:
     pending_tools: list[ToolCallRecord] = []
     if tool_calls_raw:
         for tc in tool_calls_raw:
-            pending_tools.append(ToolCallRecord(
-                tool_name=tc.get("name", "unknown"),
-                tool_args=tc.get("args", {}),
-                tool_call_id=tc.get("id", ""),
-            ))
+            pending_tools.append(
+                ToolCallRecord(
+                    tool_name=tc.get("name", "unknown"),
+                    tool_args=tc.get("args", {}),
+                    tool_call_id=tc.get("id", ""),
+                )
+            )
 
     # Construct the AIMessage to append to history
     # LangChain's ai_msg already is a BaseMessage
@@ -359,6 +373,7 @@ async def plan_node(state: AgentState) -> dict:
 # ═══════════════════════════════════════════════════════════════════════════════
 #  NODE: execute_node
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 async def execute_node(state: AgentState) -> dict:
     """
@@ -394,20 +409,24 @@ async def execute_node(state: AgentState) -> dict:
         return {
             "error": f"工具执行整体超时 ({gather_timeout}秒)",
             "current_phase": AgentPhase.ERROR,
-            "thinking_steps": [ThinkingStep(
-                phase=AgentPhase.EXECUTING.value,
-                content=f"⚠️ 工具执行整体超时 ({gather_timeout}秒)",
-            )],
+            "thinking_steps": [
+                ThinkingStep(
+                    phase=AgentPhase.EXECUTING.value,
+                    content=f"⚠️ 工具执行整体超时 ({gather_timeout}秒)",
+                )
+            ],
         }
     except Exception as e:
         logger.error(f"[ExecuteNode] Tool execution fatal error: {e}")
         return {
             "error": f"工具执行异常: {str(e)}",
             "current_phase": AgentPhase.ERROR,
-            "thinking_steps": [ThinkingStep(
-                phase=AgentPhase.EXECUTING.value,
-                content=f"⚠️ 工具执行崩溃: {str(e)}",
-            )],
+            "thinking_steps": [
+                ThinkingStep(
+                    phase=AgentPhase.EXECUTING.value,
+                    content=f"⚠️ 工具执行崩溃: {str(e)}",
+                )
+            ],
         }
 
     # Build ToolMessage objects for the message history
@@ -425,13 +444,15 @@ async def execute_node(state: AgentState) -> dict:
             logger.warning(f"[ExecuteNode] Tool {record.tool_name} failed: {record.result}")
             # Non-fatal errors are passed to LLM, but we log them
 
-        result_steps.append(ThinkingStep(
-            phase=AgentPhase.EXECUTING.value,
-            content=f"工具 [{record.tool_name}] 执行完毕 ({record.status})",
-            tool_name=record.tool_name,
-            tool_result=record.result[:500] if record.result else None,
-            duration_ms=record.duration_ms,
-        ))
+        result_steps.append(
+            ThinkingStep(
+                phase=AgentPhase.EXECUTING.value,
+                content=f"工具 [{record.tool_name}] 执行完毕 ({record.status})",
+                tool_name=record.tool_name,
+                tool_result=record.result[:500] if record.result else None,
+                duration_ms=record.duration_ms,
+            )
+        )
 
     # Merge with previously completed tools
     all_completed = list(state.get("completed_tool_calls", [])) + completed
@@ -449,6 +470,7 @@ async def execute_node(state: AgentState) -> dict:
 # ═══════════════════════════════════════════════════════════════════════════════
 #  NODE: reflect_node
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 async def reflect_node(state: AgentState) -> dict:
     """
@@ -485,10 +507,12 @@ async def reflect_node(state: AgentState) -> dict:
             "reflection": "回复内容为空，需要整合工具结果重新回答。",
             "needs_replanning": iteration < config.max_iterations,
             "current_phase": AgentPhase.PLANNING if iteration < config.max_iterations else AgentPhase.RESPONDING,
-            "thinking_steps": [ThinkingStep(
-                phase=AgentPhase.REFLECTING.value,
-                content="检测到未正常生成回复，触发重试路径",
-            )],
+            "thinking_steps": [
+                ThinkingStep(
+                    phase=AgentPhase.REFLECTING.value,
+                    content="检测到未正常生成回复，触发重试路径",
+                )
+            ],
         }
 
     # ── Layer 2: Keyword-based hallucination detection ──
@@ -500,7 +524,8 @@ async def reflect_node(state: AgentState) -> dict:
         if any(kw in last_ai_content for kw in hallucination_keywords):
             # Additional check: does it contain specific numbers/data?
             import re
-            number_pattern = r'\d+(?:\.\d+)?(?:万|千|百|元|个|%|位)?'
+
+            number_pattern = r"\d+(?:\.\d+)?(?:万|千|百|元|个|%|位)?"
             if re.search(number_pattern, last_ai_content):
                 is_hallucination = True
                 hallucination_reason = "复杂查询未调用工具却产出了具体数据"
@@ -519,10 +544,10 @@ async def reflect_node(state: AgentState) -> dict:
     # second-guessed by RAG context (which may show "搜索失败" or stale data).
     grounded_warning = None
     rag_context = state.get("rag_context", "")
-    has_successful_tools = any(
-        getattr(t, "status", None) == "success" for t in completed_tools
+    has_successful_tools = any(getattr(t, "status", None) == "success" for t in completed_tools)
+    rag_search_failed = (
+        not rag_context or "搜索失败" in rag_context or "缺少" in rag_context or len(rag_context.strip()) < 20
     )
-    rag_search_failed = not rag_context or "搜索失败" in rag_context or "缺少" in rag_context or len(rag_context.strip()) < 20
 
     if rag_context and last_ai_content and not is_hallucination and not has_successful_tools and not rag_search_failed:
         prompt = f"""[事实核查任务]
@@ -600,16 +625,22 @@ AI 回复:
 
     if needs_replanning:
         return {
-            "messages": [HumanMessage(content=f"[自我指引] 发现回复可能包含不实内容({hallucination_reason})。请务必核实工具返回的数据，严禁编造信息。")],
+            "messages": [
+                HumanMessage(
+                    content=f"[自我指引] 发现回复可能包含不实内容({hallucination_reason})。请务必核实工具返回的数据，严禁编造信息。"
+                )
+            ],
             "reflection": f"触发幻觉修正: {hallucination_reason}",
             "is_hallucination": True,
             "needs_replanning": True,
             "confidence_score": confidence,
             "current_phase": AgentPhase.PLANNING,
-            "thinking_steps": [ThinkingStep(
-                phase=AgentPhase.REFLECTING.value,
-                content=f"⚠️ 检测到潜在事实错误: {hallucination_reason}，正在修正...",
-            )],
+            "thinking_steps": [
+                ThinkingStep(
+                    phase=AgentPhase.REFLECTING.value,
+                    content=f"⚠️ 检测到潜在事实错误: {hallucination_reason}，正在修正...",
+                )
+            ],
         }
 
     return {
@@ -638,13 +669,13 @@ async def _verify_tool_grounding(ai_response: str, tool_results: list) -> str | 
     issues = []
 
     # Extract all numbers from AI response
-    ai_numbers = re.findall(r'\d+(?:\.\d+)?', ai_response)
+    ai_numbers = re.findall(r"\d+(?:\.\d+)?", ai_response)
 
     # Get all numbers from tool results
     tool_numbers = []
     for tool in tool_results:
         if tool.result:
-            tool_numbers.extend(re.findall(r'\d+(?:\.\d+)?', str(tool.result)))
+            tool_numbers.extend(re.findall(r"\d+(?:\.\d+)?", str(tool.result)))
 
     if not tool_numbers:
         return None  # No tool numbers to compare against
@@ -655,10 +686,7 @@ async def _verify_tool_grounding(ai_response: str, tool_results: list) -> str | 
         if float(num) < 10:
             continue
         # Use ±10% relative tolerance for comparison
-        found = any(
-            abs(float(num) - float(tn)) / max(float(tn), 1.0) < 0.10
-            for tn in tool_numbers
-        )
+        found = any(abs(float(num) - float(tn)) / max(float(tn), 1.0) < 0.10 for tn in tool_numbers)
         if not found:
             issues.append(f"数值 {num} 未见工具返回")
 
@@ -672,6 +700,7 @@ async def _verify_tool_grounding(ai_response: str, tool_results: list) -> str | 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  NODE: respond_node
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 async def respond_node(state: AgentState) -> dict:
     """
@@ -698,16 +727,19 @@ async def respond_node(state: AgentState) -> dict:
     return {
         "final_response": final_response or "抱歉，系统处理出现异常，请重试。",
         "current_phase": AgentPhase.DONE,
-        "thinking_steps": [ThinkingStep(
-            phase=AgentPhase.RESPONDING.value,
-            content=f"思考路径完成，正在输出回复 (置信度: {state.get('confidence_score', 0.8):.0%})",
-        )],
+        "thinking_steps": [
+            ThinkingStep(
+                phase=AgentPhase.RESPONDING.value,
+                content=f"思考路径完成，正在输出回复 (置信度: {state.get('confidence_score', 0.8):.0%})",
+            )
+        ],
     }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  NODE: error_node
 # ═══════════════════════════════════════════════════════════════════════════════
+
 
 async def error_node(state: AgentState) -> dict:
     """
@@ -732,11 +764,15 @@ async def error_node(state: AgentState) -> dict:
             "error_recovery_attempted": True,
             "pending_tool_calls": [],
             "current_phase": AgentPhase.PLANNING,
-            "messages": [HumanMessage(content=f"[错误恢复L1] 前序操作失败: {error_msg}。请尝试一个不涉及此错误的替代方案。")],
-            "thinking_steps": [ThinkingStep(
-                phase=AgentPhase.ERROR.value,
-                content=f"恢复L1: 切换方案以避免: {error_msg}",
-            )],
+            "messages": [
+                HumanMessage(content=f"[错误恢复L1] 前序操作失败: {error_msg}。请尝试一个不涉及此错误的替代方案。")
+            ],
+            "thinking_steps": [
+                ThinkingStep(
+                    phase=AgentPhase.ERROR.value,
+                    content=f"恢复L1: 切换方案以避免: {error_msg}",
+                )
+            ],
         }
     elif recovery_level == 1 and iteration < 5:
         # Level 2: Disable tools, ask for best-effort text answer
@@ -746,21 +782,29 @@ async def error_node(state: AgentState) -> dict:
             "pending_tool_calls": [],
             "requires_tools": False,
             "current_phase": AgentPhase.PLANNING,
-            "messages": [HumanMessage(content="[错误恢复L2] 工具调用持续失败。请不使用任何工具，基于已有信息给出最佳回答。如信息不足请如实说明。")],
-            "thinking_steps": [ThinkingStep(
-                phase=AgentPhase.ERROR.value,
-                content=f"恢复L2: 降级为纯文本模式: {error_msg}",
-            )],
+            "messages": [
+                HumanMessage(
+                    content="[错误恢复L2] 工具调用持续失败。请不使用任何工具，基于已有信息给出最佳回答。如信息不足请如实说明。"
+                )
+            ],
+            "thinking_steps": [
+                ThinkingStep(
+                    phase=AgentPhase.ERROR.value,
+                    content=f"恢复L2: 降级为纯文本模式: {error_msg}",
+                )
+            ],
         }
 
     # Level 3: Give up gracefully
     return {
         "final_response": f"⚠️ 系统执行过程中遇到了难以恢复的问题: {error_msg}。您可以尝试换一种说法再次提问。",
         "current_phase": AgentPhase.RESPONDING,
-        "thinking_steps": [ThinkingStep(
-            phase=AgentPhase.ERROR.value,
-            content=f"❌ 遇到严重故障，停止执行: {error_msg}",
-        )],
+        "thinking_steps": [
+            ThinkingStep(
+                phase=AgentPhase.ERROR.value,
+                content=f"❌ 遇到严重故障，停止执行: {error_msg}",
+            )
+        ],
     }
 
 
@@ -775,16 +819,20 @@ import re as _re  # noqa: E402
 _SENSITIVE_FIELD_RULES = [
     # (pattern, mask_replacement, minimum_role_level)
     # Role levels: guest=0, employee=1, manager=2, boss=3, founder=4
-    (_re.compile(r'(薪[资酬水]|工资|月薪|年薪|底薪|基本工资)\s*[:：]?\s*[\d,.]+\s*[元万千]?'), '[薪资信息已隐藏]', 3),
-    (_re.compile(r'(提成|奖金|绩效奖|年终奖)\s*[:：]?\s*[\d,.]+\s*[元万千]?'), '[奖金信息已隐藏]', 3),
-    (_re.compile(r'(社保|公积金|五险一金)\s*[:：]?\s*[\d,.]+\s*[元万千]?'), '[社保信息已隐藏]', 3),
-    (_re.compile(r'(合同金额|签约金额|合同价)\s*[:：]?\s*[\d,.]+\s*[元万千]?'), '[合同金额已隐藏]', 2),
-    (_re.compile(r'(成本价|进货价|底价)\s*[:：]?\s*[\d,.]+\s*[元万千]?'), '[成本信息已隐藏]', 2),
-    (_re.compile(r'(利润率|毛利率|净利率)\s*[:：]?\s*[\d,.]+\s*%?'), '[利润信息已隐藏]', 2),
+    (_re.compile(r"(薪[资酬水]|工资|月薪|年薪|底薪|基本工资)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[薪资信息已隐藏]", 3),
+    (_re.compile(r"(提成|奖金|绩效奖|年终奖)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[奖金信息已隐藏]", 3),
+    (_re.compile(r"(社保|公积金|五险一金)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[社保信息已隐藏]", 3),
+    (_re.compile(r"(合同金额|签约金额|合同价)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[合同金额已隐藏]", 2),
+    (_re.compile(r"(成本价|进货价|底价)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[成本信息已隐藏]", 2),
+    (_re.compile(r"(利润率|毛利率|净利率)\s*[:：]?\s*[\d,.]+\s*%?"), "[利润信息已隐藏]", 2),
 ]
 
 _ROLE_LEVELS = {
-    'guest': 0, 'employee': 1, 'manager': 2, 'boss': 3, 'founder': 4,
+    "guest": 0,
+    "employee": 1,
+    "manager": 2,
+    "boss": 3,
+    "founder": 4,
 }
 
 

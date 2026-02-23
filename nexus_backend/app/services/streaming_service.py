@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class StreamEventType(Enum):
     """Types of streaming events."""
+
     TOKEN = "token"
     CHUNK = "chunk"
     THINKING = "thinking"
@@ -34,6 +35,7 @@ class StreamEventType(Enum):
 @dataclass
 class StreamEvent:
     """A single streaming event."""
+
     event_type: StreamEventType
     data: Any
     timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
@@ -47,19 +49,22 @@ class StreamEvent:
             "data": self.data,
             "timestamp": self.timestamp,
             "sequence": self.sequence,
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
         return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
     def to_json(self) -> str:
         """Convert to JSON string."""
-        return json.dumps({
-            "type": self.event_type.value,
-            "data": self.data,
-            "timestamp": self.timestamp,
-            "sequence": self.sequence,
-            "metadata": self.metadata
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "type": self.event_type.value,
+                "data": self.data,
+                "timestamp": self.timestamp,
+                "sequence": self.sequence,
+                "metadata": self.metadata,
+            },
+            ensure_ascii=False,
+        )
 
 
 class StreamingService:
@@ -75,12 +80,7 @@ class StreamingService:
     - Backpressure handling
     """
 
-    def __init__(
-        self,
-        chunk_size: int = 10,
-        delay_ms: int = 20,
-        max_buffer_size: int = 10000
-    ):
+    def __init__(self, chunk_size: int = 10, delay_ms: int = 20, max_buffer_size: int = 10000):
         self.chunk_size = chunk_size
         self.delay_ms = delay_ms
         self.max_buffer_size = max_buffer_size
@@ -88,12 +88,7 @@ class StreamingService:
         self._sequence_counters: dict[str, int] = {}
 
     async def create_stream(
-        self,
-        stream_id: str,
-        llm_client: Any,
-        messages: list,
-        model: str = "gpt-4o-mini",
-        **kwargs
+        self, stream_id: str, llm_client: Any, messages: list, model: str = "gpt-4o-mini", **kwargs
     ) -> AsyncGenerator[StreamEvent, None]:
         """
         Create a streaming response from LLM.
@@ -114,20 +109,11 @@ class StreamingService:
         self._sequence_counters[stream_id] = 0
 
         # Yield metadata event
-        yield self._create_event(
-            stream_id,
-            StreamEventType.METADATA,
-            {"model": model, "stream_id": stream_id}
-        )
+        yield self._create_event(stream_id, StreamEventType.METADATA, {"model": model, "stream_id": stream_id})
 
         try:
             # Start LLM stream
-            stream = await llm_client.chat.completions.create(
-                model=model,
-                messages=messages,
-                stream=True,
-                **kwargs
-            )
+            stream = await llm_client.chat.completions.create(model=model, messages=messages, stream=True, **kwargs)
 
             # Process stream
             accumulated = ""
@@ -138,10 +124,7 @@ class StreamingService:
 
                     # Yield token event
                     yield self._create_event(
-                        stream_id,
-                        StreamEventType.TOKEN,
-                        token,
-                        {"accumulated_length": len(accumulated)}
+                        stream_id, StreamEventType.TOKEN, token, {"accumulated_length": len(accumulated)}
                     )
 
                     # Small delay for natural feel
@@ -149,59 +132,41 @@ class StreamingService:
 
             # Yield done event
             yield self._create_event(
-                stream_id,
-                StreamEventType.DONE,
-                {"full_response": accumulated, "total_tokens": len(accumulated)}
+                stream_id, StreamEventType.DONE, {"full_response": accumulated, "total_tokens": len(accumulated)}
             )
 
         except Exception as e:
-            yield self._create_event(
-                stream_id,
-                StreamEventType.ERROR,
-                {"error": str(e), "recoverable": True}
-            )
+            yield self._create_event(stream_id, StreamEventType.ERROR, {"error": str(e), "recoverable": True})
 
         finally:
             self._cleanup_stream(stream_id)
 
     async def stream_with_thinking(
-        self,
-        stream_id: str,
-        llm_client: Any,
-        messages: list,
-        model: str = "gpt-4o-mini",
-        **kwargs
+        self, stream_id: str, llm_client: Any, messages: list, model: str = "gpt-4o-mini", **kwargs
     ) -> AsyncGenerator[StreamEvent, None]:
         """
         Stream with thinking state visibility.
         Shows what the AI is "thinking" before responding.
         """
         yield self._create_event(
-            stream_id,
-            StreamEventType.THINKING,
-            {"status": "analyzing", "message": "正在分析您的问题..."}
+            stream_id, StreamEventType.THINKING, {"status": "analyzing", "message": "正在分析您的问题..."}
         )
 
         # First, get thinking/analysis (if model supports)
         thinking_prompt = [
             {"role": "system", "content": "分析用户问题，简要说明你的思路（一句话）"},
-            messages[-1]  # Last user message
+            messages[-1],  # Last user message
         ]
 
         try:
             thinking_response = await llm_client.chat.completions.create(
-                model=model,
-                messages=thinking_prompt,
-                max_tokens=50,
-                stream=False
+                model=model, messages=thinking_prompt, max_tokens=50, stream=False
             )
 
             thinking_text = thinking_response.choices[0].message.content
 
             yield self._create_event(
-                stream_id,
-                StreamEventType.THINKING,
-                {"status": "planning", "message": thinking_text}
+                stream_id, StreamEventType.THINKING, {"status": "planning", "message": thinking_text}
             )
 
         except Exception:
@@ -212,24 +177,14 @@ class StreamingService:
             yield event
 
     async def stream_tool_call(
-        self,
-        stream_id: str,
-        tool_name: str,
-        tool_args: dict,
-        tool_executor: Callable
+        self, stream_id: str, tool_name: str, tool_args: dict, tool_executor: Callable
     ) -> AsyncGenerator[StreamEvent, None]:
         """
         Stream tool call progress.
         """
         # Tool call started
         yield self._create_event(
-            stream_id,
-            StreamEventType.TOOL_CALL,
-            {
-                "tool": tool_name,
-                "status": "started",
-                "args": tool_args
-            }
+            stream_id, StreamEventType.TOOL_CALL, {"tool": tool_name, "status": "started", "args": tool_args}
         )
 
         try:
@@ -237,9 +192,7 @@ class StreamingService:
 
             # Progress updates
             yield self._create_event(
-                stream_id,
-                StreamEventType.PROGRESS,
-                {"tool": tool_name, "progress": 0.5, "message": "正在执行..."}
+                stream_id, StreamEventType.PROGRESS, {"tool": tool_name, "progress": 0.5, "message": "正在执行..."}
             )
 
             # Execute tool
@@ -251,32 +204,15 @@ class StreamingService:
             yield self._create_event(
                 stream_id,
                 StreamEventType.TOOL_RESULT,
-                {
-                    "tool": tool_name,
-                    "status": "completed",
-                    "result": result,
-                    "duration_ms": duration_ms
-                }
+                {"tool": tool_name, "status": "completed", "result": result, "duration_ms": duration_ms},
             )
 
         except Exception as e:
             yield self._create_event(
-                stream_id,
-                StreamEventType.ERROR,
-                {
-                    "tool": tool_name,
-                    "status": "failed",
-                    "error": str(e)
-                }
+                stream_id, StreamEventType.ERROR, {"tool": tool_name, "status": "failed", "error": str(e)}
             )
 
-    async def stream_progress(
-        self,
-        stream_id: str,
-        current: int,
-        total: int,
-        message: str = None
-    ) -> StreamEvent:
+    async def stream_progress(self, stream_id: str, current: int, total: int, message: str = None) -> StreamEvent:
         """Create a progress update event."""
         return self._create_event(
             stream_id,
@@ -285,16 +221,12 @@ class StreamingService:
                 "current": current,
                 "total": total,
                 "percentage": round(current / total * 100, 1) if total > 0 else 0,
-                "message": message
-            }
+                "message": message,
+            },
         )
 
     def _create_event(
-        self,
-        stream_id: str,
-        event_type: StreamEventType,
-        data: Any,
-        metadata: dict = None
+        self, stream_id: str, event_type: StreamEventType, data: Any, metadata: dict = None
     ) -> StreamEvent:
         """Create a new stream event with sequence number."""
         if stream_id not in self._sequence_counters:
@@ -303,10 +235,7 @@ class StreamingService:
         self._sequence_counters[stream_id] += 1
 
         return StreamEvent(
-            event_type=event_type,
-            data=data,
-            sequence=self._sequence_counters[stream_id],
-            metadata=metadata or {}
+            event_type=event_type, data=data, sequence=self._sequence_counters[stream_id], metadata=metadata or {}
         )
 
     def _cleanup_stream(self, stream_id: str):
@@ -325,13 +254,7 @@ class StreamingService:
         """Get statistics for all active streams."""
         return {
             "active_streams": len(self._active_streams),
-            "streams": [
-                {
-                    "stream_id": sid,
-                    "queue_size": queue.qsize()
-                }
-                for sid, queue in self._active_streams.items()
-            ]
+            "streams": [{"stream_id": sid, "queue_size": queue.qsize()} for sid, queue in self._active_streams.items()],
         }
 
     async def close_stream(self, stream_id: str):

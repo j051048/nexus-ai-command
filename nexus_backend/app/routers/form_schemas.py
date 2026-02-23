@@ -119,9 +119,7 @@ async def get_by_type(
 
     try:
         client = getattr(request.state, "db", None)
-        schema = await form_schema_service.get_schema_for_type(
-            org_id, approval_type, db=client
-        )
+        schema = await form_schema_service.get_schema_for_type(org_id, approval_type, db=client)
         if not schema:
             raise api_error(
                 ErrorCode.RESOURCE_NOT_FOUND,
@@ -175,9 +173,7 @@ async def update_schema(
         if not updates:
             raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "没有需要更新的字段")
 
-        schema = await form_schema_service.update_schema(
-            schema_id, updates, db=client
-        )
+        schema = await form_schema_service.update_schema(schema_id, updates, db=client)
         return api_success(data=schema, message="表单 Schema 更新成功")
     except HTTPException:
         raise

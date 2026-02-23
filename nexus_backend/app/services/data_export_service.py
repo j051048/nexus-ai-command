@@ -33,60 +33,120 @@ class DataExportService:
         "approvals": {
             "table": "approval_requests",
             "columns": [
-                "id", "type", "amount", "description", "status",
-                "submitted_by", "created_at", "updated_at",
+                "id",
+                "type",
+                "amount",
+                "description",
+                "status",
+                "submitted_by",
+                "created_at",
+                "updated_at",
             ],
             "headers_cn": [
-                "审批ID", "类型", "金额", "描述", "状态",
-                "提交人", "创建时间", "更新时间",
+                "审批ID",
+                "类型",
+                "金额",
+                "描述",
+                "状态",
+                "提交人",
+                "创建时间",
+                "更新时间",
             ],
             "description": "审批记录",
         },
         "attendance": {
             "table": "attendance_records",
             "columns": [
-                "id", "user_id", "date", "check_in", "check_out",
-                "status", "work_hours", "notes",
+                "id",
+                "user_id",
+                "date",
+                "check_in",
+                "check_out",
+                "status",
+                "work_hours",
+                "notes",
             ],
             "headers_cn": [
-                "记录ID", "员工ID", "日期", "签到时间", "签退时间",
-                "状态", "工时", "备注",
+                "记录ID",
+                "员工ID",
+                "日期",
+                "签到时间",
+                "签退时间",
+                "状态",
+                "工时",
+                "备注",
             ],
             "description": "考勤数据",
         },
         "sales": {
             "table": "sales_records",
             "columns": [
-                "id", "customer_name", "amount", "status", "sales_rep",
-                "product", "created_at", "closed_at",
+                "id",
+                "customer_name",
+                "amount",
+                "status",
+                "sales_rep",
+                "product",
+                "created_at",
+                "closed_at",
             ],
             "headers_cn": [
-                "销售ID", "客户名称", "金额", "状态", "销售代表",
-                "产品", "创建时间", "成交时间",
+                "销售ID",
+                "客户名称",
+                "金额",
+                "状态",
+                "销售代表",
+                "产品",
+                "创建时间",
+                "成交时间",
             ],
             "description": "销售数据",
         },
         "employees": {
             "table": "users",
             "columns": [
-                "id", "name", "email", "department", "role",
-                "phone", "score", "total_bonus",
+                "id",
+                "name",
+                "email",
+                "department",
+                "role",
+                "phone",
+                "score",
+                "total_bonus",
             ],
             "headers_cn": [
-                "员工ID", "姓名", "邮箱", "部门", "角色",
-                "手机号", "积分", "总奖金",
+                "员工ID",
+                "姓名",
+                "邮箱",
+                "部门",
+                "角色",
+                "手机号",
+                "积分",
+                "总奖金",
             ],
             "description": "员工数据",
         },
         "customers": {
             "table": "customers",
             "columns": [
-                "id", "name", "contact_person", "phone", "email",
-                "company", "source", "notes",
+                "id",
+                "name",
+                "contact_person",
+                "phone",
+                "email",
+                "company",
+                "source",
+                "notes",
             ],
             "headers_cn": [
-                "客户ID", "客户名称", "联系人", "联系电话", "邮箱",
-                "公司", "来源", "备注",
+                "客户ID",
+                "客户名称",
+                "联系人",
+                "联系电话",
+                "邮箱",
+                "公司",
+                "来源",
+                "备注",
             ],
             "description": "客户数据",
         },
@@ -160,10 +220,7 @@ class DataExportService:
 
         config = self.EXPORT_CONFIGS.get(export_type)
         if not config:
-            raise ValueError(
-                f"不支持的导出类型: {export_type}，"
-                f"可选: {', '.join(self.EXPORT_CONFIGS.keys())}"
-            )
+            raise ValueError(f"不支持的导出类型: {export_type}，" f"可选: {', '.join(self.EXPORT_CONFIGS.keys())}")
 
         try:
             # 构建查询
@@ -219,11 +276,15 @@ class DataExportService:
             raise ValueError("数据库连接不可用")
 
         try:
-            query = db.table("approval_requests").select(
-                "id, type, amount, description, status, "
-                "submitted_by, created_at, updated_at, "
-                "users:submitted_by(name, email)"
-            ).eq("organization_id", org_id)
+            query = (
+                db.table("approval_requests")
+                .select(
+                    "id, type, amount, description, status, "
+                    "submitted_by, created_at, updated_at, "
+                    "users:submitted_by(name, email)"
+                )
+                .eq("organization_id", org_id)
+            )
 
             if filters:
                 if filters.get("status"):
@@ -243,25 +304,41 @@ class DataExportService:
             processed_rows = []
             for row in rows:
                 user_info = row.get("users") or {}
-                processed_rows.append({
-                    "id": row.get("id", ""),
-                    "type": row.get("type", ""),
-                    "amount": row.get("amount", 0),
-                    "description": row.get("description", ""),
-                    "status": row.get("status", ""),
-                    "submitter_name": user_info.get("name", ""),
-                    "submitter_email": user_info.get("email", ""),
-                    "created_at": row.get("created_at", ""),
-                    "updated_at": row.get("updated_at", ""),
-                })
+                processed_rows.append(
+                    {
+                        "id": row.get("id", ""),
+                        "type": row.get("type", ""),
+                        "amount": row.get("amount", 0),
+                        "description": row.get("description", ""),
+                        "status": row.get("status", ""),
+                        "submitter_name": user_info.get("name", ""),
+                        "submitter_email": user_info.get("email", ""),
+                        "created_at": row.get("created_at", ""),
+                        "updated_at": row.get("updated_at", ""),
+                    }
+                )
 
             headers = [
-                "审批ID", "类型", "金额", "描述", "状态",
-                "提交人", "提交人邮箱", "创建时间", "更新时间",
+                "审批ID",
+                "类型",
+                "金额",
+                "描述",
+                "状态",
+                "提交人",
+                "提交人邮箱",
+                "创建时间",
+                "更新时间",
             ]
             columns = [
-                "id", "type", "amount", "description", "status",
-                "submitter_name", "submitter_email", "created_at", "updated_at",
+                "id",
+                "type",
+                "amount",
+                "description",
+                "status",
+                "submitter_name",
+                "submitter_email",
+                "created_at",
+                "updated_at",
             ]
 
             return self._generate_csv(headers=headers, columns=columns, rows=processed_rows)
@@ -292,11 +369,15 @@ class DataExportService:
             raise ValueError("数据库连接不可用")
 
         try:
-            query = db.table("attendance_records").select(
-                "id, user_id, date, check_in, check_out, "
-                "status, work_hours, notes, "
-                "users:user_id(name, email, department)"
-            ).eq("organization_id", org_id)
+            query = (
+                db.table("attendance_records")
+                .select(
+                    "id, user_id, date, check_in, check_out, "
+                    "status, work_hours, notes, "
+                    "users:user_id(name, email, department)"
+                )
+                .eq("organization_id", org_id)
+            )
 
             if date_range:
                 if date_range.get("from"):
@@ -311,25 +392,41 @@ class DataExportService:
             processed_rows = []
             for row in rows:
                 user_info = row.get("users") or {}
-                processed_rows.append({
-                    "name": user_info.get("name", ""),
-                    "email": user_info.get("email", ""),
-                    "department": user_info.get("department", ""),
-                    "date": row.get("date", ""),
-                    "check_in": row.get("check_in", ""),
-                    "check_out": row.get("check_out", ""),
-                    "status": row.get("status", ""),
-                    "work_hours": row.get("work_hours", ""),
-                    "notes": row.get("notes", ""),
-                })
+                processed_rows.append(
+                    {
+                        "name": user_info.get("name", ""),
+                        "email": user_info.get("email", ""),
+                        "department": user_info.get("department", ""),
+                        "date": row.get("date", ""),
+                        "check_in": row.get("check_in", ""),
+                        "check_out": row.get("check_out", ""),
+                        "status": row.get("status", ""),
+                        "work_hours": row.get("work_hours", ""),
+                        "notes": row.get("notes", ""),
+                    }
+                )
 
             headers = [
-                "姓名", "邮箱", "部门", "日期", "签到时间",
-                "签退时间", "状态", "工时", "备注",
+                "姓名",
+                "邮箱",
+                "部门",
+                "日期",
+                "签到时间",
+                "签退时间",
+                "状态",
+                "工时",
+                "备注",
             ]
             columns = [
-                "name", "email", "department", "date", "check_in",
-                "check_out", "status", "work_hours", "notes",
+                "name",
+                "email",
+                "department",
+                "date",
+                "check_in",
+                "check_out",
+                "status",
+                "work_hours",
+                "notes",
             ]
 
             return self._generate_csv(headers=headers, columns=columns, rows=processed_rows)
@@ -360,11 +457,15 @@ class DataExportService:
             raise ValueError("数据库连接不可用")
 
         try:
-            query = db.table("sales_records").select(
-                "id, customer_name, amount, status, product, "
-                "created_at, closed_at, notes, "
-                "users:sales_rep(name, email)"
-            ).eq("organization_id", org_id)
+            query = (
+                db.table("sales_records")
+                .select(
+                    "id, customer_name, amount, status, product, "
+                    "created_at, closed_at, notes, "
+                    "users:sales_rep(name, email)"
+                )
+                .eq("organization_id", org_id)
+            )
 
             if filters:
                 if filters.get("status"):
@@ -383,26 +484,44 @@ class DataExportService:
             processed_rows = []
             for row in rows:
                 user_info = row.get("users") or {}
-                processed_rows.append({
-                    "id": row.get("id", ""),
-                    "customer_name": row.get("customer_name", ""),
-                    "amount": row.get("amount", 0),
-                    "status": row.get("status", ""),
-                    "product": row.get("product", ""),
-                    "sales_rep_name": user_info.get("name", ""),
-                    "sales_rep_email": user_info.get("email", ""),
-                    "created_at": row.get("created_at", ""),
-                    "closed_at": row.get("closed_at", ""),
-                    "notes": row.get("notes", ""),
-                })
+                processed_rows.append(
+                    {
+                        "id": row.get("id", ""),
+                        "customer_name": row.get("customer_name", ""),
+                        "amount": row.get("amount", 0),
+                        "status": row.get("status", ""),
+                        "product": row.get("product", ""),
+                        "sales_rep_name": user_info.get("name", ""),
+                        "sales_rep_email": user_info.get("email", ""),
+                        "created_at": row.get("created_at", ""),
+                        "closed_at": row.get("closed_at", ""),
+                        "notes": row.get("notes", ""),
+                    }
+                )
 
             headers = [
-                "销售ID", "客户名称", "金额", "状态", "产品",
-                "销售代表", "代表邮箱", "创建时间", "成交时间", "备注",
+                "销售ID",
+                "客户名称",
+                "金额",
+                "状态",
+                "产品",
+                "销售代表",
+                "代表邮箱",
+                "创建时间",
+                "成交时间",
+                "备注",
             ]
             columns = [
-                "id", "customer_name", "amount", "status", "product",
-                "sales_rep_name", "sales_rep_email", "created_at", "closed_at", "notes",
+                "id",
+                "customer_name",
+                "amount",
+                "status",
+                "product",
+                "sales_rep_name",
+                "sales_rep_email",
+                "created_at",
+                "closed_at",
+                "notes",
             ]
 
             return self._generate_csv(headers=headers, columns=columns, rows=processed_rows)
@@ -426,14 +545,11 @@ class DataExportService:
         """
         template = self.IMPORT_TEMPLATES.get(template_type)
         if not template:
-            raise ValueError(
-                f"不支持的模板类型: {template_type}，"
-                f"可选: {', '.join(self.IMPORT_TEMPLATES.keys())}"
-            )
+            raise ValueError(f"不支持的模板类型: {template_type}，" f"可选: {', '.join(self.IMPORT_TEMPLATES.keys())}")
 
         output = io.StringIO()
         # 添加 BOM 以支持 Excel 正确识别 UTF-8
-        output.write('\ufeff')
+        output.write("\ufeff")
 
         writer = csv.writer(output)
 
@@ -500,7 +616,7 @@ class DataExportService:
         """
         output = io.StringIO()
         # BOM for Excel UTF-8 compatibility
-        output.write('\ufeff')
+        output.write("\ufeff")
 
         writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
 

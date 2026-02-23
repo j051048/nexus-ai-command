@@ -43,18 +43,30 @@ def approval_notification_card(
     """
     if platform == "wecom":
         return _wecom_approval_card(
-            approval_id, approval_type, amount,
-            requester_name, description, callback_url,
+            approval_id,
+            approval_type,
+            amount,
+            requester_name,
+            description,
+            callback_url,
         )
     elif platform == "dingtalk":
         return _dingtalk_approval_card(
-            approval_id, approval_type, amount,
-            requester_name, description, callback_url,
+            approval_id,
+            approval_type,
+            amount,
+            requester_name,
+            description,
+            callback_url,
         )
     elif platform == "feishu":
         return _feishu_approval_card(
-            approval_id, approval_type, amount,
-            requester_name, description, callback_url,
+            approval_id,
+            approval_type,
+            amount,
+            requester_name,
+            description,
+            callback_url,
         )
     else:
         logger.warning(f"Unknown platform for card: {platform}")
@@ -145,9 +157,7 @@ def _wecom_approval_card(
     }
 
 
-def _wecom_general_card(
-    title: str, content: str, url: str | None = None
-) -> dict:
+def _wecom_general_card(title: str, content: str, url: str | None = None) -> dict:
     """企微通用通知卡片 - text_notice 类型"""
     card = {
         "card_type": "text_notice",
@@ -210,9 +220,7 @@ def _dingtalk_approval_card(
     }
 
 
-def _dingtalk_general_card(
-    title: str, content: str, url: str | None = None
-) -> dict:
+def _dingtalk_general_card(title: str, content: str, url: str | None = None) -> dict:
     """钉钉通用通知 ActionCard - 整体跳转"""
     card = {
         "title": title,
@@ -318,9 +326,7 @@ def _feishu_approval_card(
     }
 
 
-def _feishu_general_card(
-    title: str, content: str, url: str | None = None
-) -> dict:
+def _feishu_general_card(title: str, content: str, url: str | None = None) -> dict:
     """飞书通用通知卡片"""
     elements = [
         {

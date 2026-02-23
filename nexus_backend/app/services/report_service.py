@@ -117,21 +117,21 @@ class ReportService:
             period_revenue = sum(float(r.get("revenue", 0) or 0) for r in g["records"])
             period_conversions = sum(int(r.get("conversions", 0) or 0) for r in g["records"])
             period_leads = sum(int(r.get("leads_count", 0) or 0) for r in g["records"])
-            period_rate = (
-                round(period_conversions / period_leads * 100, 1) if period_leads > 0 else 0
-            )
+            period_rate = round(period_conversions / period_leads * 100, 1) if period_leads > 0 else 0
 
             total_revenue += period_revenue
             total_conversions += period_conversions
             total_leads += period_leads
 
-            summary_data.append({
-                "period": g["period"],
-                "revenue": round(period_revenue, 2),
-                "conversions": period_conversions,
-                "leads": period_leads,
-                "conversion_rate": period_rate,
-            })
+            summary_data.append(
+                {
+                    "period": g["period"],
+                    "revenue": round(period_revenue, 2),
+                    "conversions": period_conversions,
+                    "leads": period_leads,
+                    "conversion_rate": period_rate,
+                }
+            )
 
         overall_rate = round(total_conversions / total_leads * 100, 1) if total_leads > 0 else 0
 
@@ -149,9 +149,7 @@ class ReportService:
 
     # ─── 审批报表 ──────────────────────────────────────────
 
-    async def get_approval_report(
-        self, org_id: str, date_range: dict | None = None, db=None
-    ) -> dict:
+    async def get_approval_report(self, org_id: str, date_range: dict | None = None, db=None) -> dict:
         """审批报表: 审批数量、平均处理时间、自动审批率、驳回率"""
         start_date, end_date = _parse_date_range(date_range)
 
@@ -177,16 +175,17 @@ class ReportService:
         approved = sum(1 for r in records if r.get("status") == "approved")
         rejected = sum(1 for r in records if r.get("status") == "rejected")
         pending = sum(1 for r in records if r.get("status") == "pending")
-        auto_approved = sum(
-            1 for r in records
-            if r.get("status") == "approved" and r.get("ai_reason")
-        )
+        auto_approved = sum(1 for r in records if r.get("status") == "approved" and r.get("ai_reason"))
 
         # 模拟平均处理时间（小时）
-        avg_processing_hours = 4.2 if not records else round(
-            sum(self._calc_processing_hours(r) for r in records if r.get("status") != "pending")
-            / max(1, total - pending),
-            1,
+        avg_processing_hours = (
+            4.2
+            if not records
+            else round(
+                sum(self._calc_processing_hours(r) for r in records if r.get("status") != "pending")
+                / max(1, total - pending),
+                1,
+            )
         )
 
         by_type = defaultdict(int)
@@ -210,9 +209,7 @@ class ReportService:
 
     # ─── 绩效报表 ──────────────────────────────────────────
 
-    async def get_performance_report(
-        self, org_id: str, date_range: dict | None = None, db=None
-    ) -> dict:
+    async def get_performance_report(self, org_id: str, date_range: dict | None = None, db=None) -> dict:
         """绩效报表: 团队积分、个人排名、目标完成率"""
         start_date, end_date = _parse_date_range(date_range)
 
@@ -241,14 +238,16 @@ class ReportService:
         for i, u in enumerate(users):
             score = float(u.get("score", 0) or 0)
             target = 100  # 假设目标满分 100
-            rankings.append({
-                "rank": i + 1,
-                "name": u.get("name", "未知"),
-                "user_id": u.get("id", ""),
-                "score": score,
-                "bonus": float(u.get("total_bonus", 0) or 0),
-                "completion_rate": round(min(score / target * 100, 100), 1),
-            })
+            rankings.append(
+                {
+                    "rank": i + 1,
+                    "name": u.get("name", "未知"),
+                    "user_id": u.get("id", ""),
+                    "score": score,
+                    "bonus": float(u.get("total_bonus", 0) or 0),
+                    "completion_rate": round(min(score / target * 100, 100), 1),
+                }
+            )
 
         return {
             "summary": {
@@ -263,9 +262,7 @@ class ReportService:
 
     # ─── 使用报表 ──────────────────────────────────────────
 
-    async def get_usage_report(
-        self, org_id: str, date_range: dict | None = None, db=None
-    ) -> dict:
+    async def get_usage_report(self, org_id: str, date_range: dict | None = None, db=None) -> dict:
         """使用报表: AI 对话量、Token 消耗、功能使用频率"""
         start_date, end_date = _parse_date_range(date_range)
 

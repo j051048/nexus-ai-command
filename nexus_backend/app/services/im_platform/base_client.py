@@ -67,10 +67,7 @@ class IMPlatformClient(ABC):
             self._access_token = token_data["access_token"]
             expires_in = token_data.get("expires_in", 7200)
             self._token_expires_at = time.time() + expires_in
-            logger.info(
-                f"[{self.platform_name}] Access token refreshed, "
-                f"expires in {expires_in}s"
-            )
+            logger.info(f"[{self.platform_name}] Access token refreshed, " f"expires in {expires_in}s")
             return self._access_token
         except Exception as e:
             logger.error(f"[{self.platform_name}] Failed to refresh token: {e}")
@@ -114,9 +111,7 @@ class IMPlatformClient(ABC):
     # ── Attendance ────────────────────────────────────────────────
 
     @abstractmethod
-    async def get_attendance_records(
-        self, user_ids: list[str], start_date: str, end_date: str
-    ) -> list[dict]:
+    async def get_attendance_records(self, user_ids: list[str], start_date: str, end_date: str) -> list[dict]:
         """
         获取考勤打卡数据。
 
@@ -191,9 +186,7 @@ class IMPlatformClient(ABC):
 
     # ── Helper ────────────────────────────────────────────────────
 
-    async def _api_request(
-        self, method: str, url: str, **kwargs
-    ) -> dict:
+    async def _api_request(self, method: str, url: str, **kwargs) -> dict:
         """
         带 token 的 API 请求封装。
 
@@ -225,19 +218,14 @@ class IMPlatformClient(ABC):
             data = response.json()
         except httpx.HTTPStatusError as e:
             logger.error(
-                f"[{self.platform_name}] HTTP {e.response.status_code} "
-                f"for {method} {url}: {e.response.text[:200]}"
+                f"[{self.platform_name}] HTTP {e.response.status_code} " f"for {method} {url}: {e.response.text[:200]}"
             )
             raise
         except httpx.RequestError as e:
-            logger.error(
-                f"[{self.platform_name}] Request error for {method} {url}: {e}"
-            )
+            logger.error(f"[{self.platform_name}] Request error for {method} {url}: {e}")
             raise
         except Exception as e:
-            logger.error(
-                f"[{self.platform_name}] Unexpected error for {method} {url}: {e}"
-            )
+            logger.error(f"[{self.platform_name}] Unexpected error for {method} {url}: {e}")
             raise
 
         # 检查业务错误码（企微标准: errcode == 0 表示成功）
@@ -245,12 +233,9 @@ class IMPlatformClient(ABC):
         if errcode != 0:
             errmsg = data.get("errmsg", "unknown error")
             logger.error(
-                f"[{self.platform_name}] API business error: "
-                f"errcode={errcode}, errmsg={errmsg}, url={url}"
+                f"[{self.platform_name}] API business error: " f"errcode={errcode}, errmsg={errmsg}, url={url}"
             )
-            raise Exception(
-                f"{self.platform_name} API error (code={errcode}): {errmsg}"
-            )
+            raise Exception(f"{self.platform_name} API error (code={errcode}): {errmsg}")
 
         return data
 

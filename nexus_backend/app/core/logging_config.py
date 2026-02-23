@@ -14,9 +14,7 @@ IS_PRODUCTION = os.getenv("ENV", "development") in ("production", "prod")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO" if IS_PRODUCTION else "DEBUG")
 
 
-def setup_logging(
-    level: str | None = None, format_string: str | None = None
-) -> None:
+def setup_logging(level: str | None = None, format_string: str | None = None) -> None:
     """
     Configure logging for the entire application.
 
@@ -32,7 +30,9 @@ def setup_logging(
     default_format = "[%(asctime)s] %(levelname)s [%(name)s:%(lineno)d] %(message)s"
 
     # Production format: JSON-like for log aggregation tools
-    prod_format = '{"time":"%(asctime)s","level":"%(levelname)s","logger":"%(name)s","line":%(lineno)d,"message":"%(message)s"}'
+    prod_format = (
+        '{"time":"%(asctime)s","level":"%(levelname)s","logger":"%(name)s","line":%(lineno)d,"message":"%(message)s"}'
+    )
 
     if format_string:
         log_format = format_string
@@ -54,9 +54,7 @@ def setup_logging(
     # Reduce noise from third-party libraries
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
-    logging.getLogger("uvicorn.access").setLevel(
-        logging.WARNING if IS_PRODUCTION else logging.INFO
-    )
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING if IS_PRODUCTION else logging.INFO)
 
     # P0 Security: Prevent HTTP/2 libraries from leaking sensitive headers
     # (Authorization, apikey) in DEBUG logs
@@ -118,9 +116,7 @@ class SecurityLogger:
 
     def access_denied(self, user_id: str, resource: str, reason: str):
         """Log access denied event"""
-        self.logger.warning(
-            f"ACCESS_DENIED user_id={user_id} resource={resource} reason={reason}"
-        )
+        self.logger.warning(f"ACCESS_DENIED user_id={user_id} resource={resource} reason={reason}")
 
     def rate_limited(self, identifier: str, endpoint: str):
         """Log rate limit hit"""
@@ -128,9 +124,7 @@ class SecurityLogger:
 
     def suspicious_activity(self, user_id: str | None, activity: str, details: str):
         """Log suspicious activity for investigation"""
-        self.logger.error(
-            f"SUSPICIOUS_ACTIVITY user_id={user_id} activity={activity} details={details}"
-        )
+        self.logger.error(f"SUSPICIOUS_ACTIVITY user_id={user_id} activity={activity} details={details}")
 
     def security_config(self, event: str, details: str):
         """Log security configuration events"""

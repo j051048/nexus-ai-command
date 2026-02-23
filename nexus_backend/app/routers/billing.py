@@ -31,9 +31,7 @@ async def get_subscription(
 ):
     """Get current org subscription."""
     org_id = getattr(req.state, "org_id", None) or "default"
-    sub = await billing_service.get_subscription(
-        org_id, db=getattr(req.state, "db", None)
-    )
+    sub = await billing_service.get_subscription(org_id, db=getattr(req.state, "db", None))
     return api_success(data={"subscription": sub.__dict__ if sub else None})
 
 
@@ -55,9 +53,7 @@ async def subscribe(
             return api_error(ErrorCode.VALIDATION_INVALID_INPUT, f"Invalid plan: {plan_name}")
 
         org_id = getattr(req.state, "org_id", None) or "default"
-        sub = await billing_service.create_subscription(
-            org_id, plan, db=getattr(req.state, "db", None)
-        )
+        sub = await billing_service.create_subscription(org_id, plan, db=getattr(req.state, "db", None))
         return api_success(data={"subscription": sub.__dict__})
     except Exception as e:
         logger.error(f"Subscription failed: {e}")
@@ -71,9 +67,7 @@ async def cancel_subscription(
 ):
     """Cancel current subscription."""
     org_id = getattr(req.state, "org_id", None) or "default"
-    success = await billing_service.cancel_subscription(
-        org_id, db=getattr(req.state, "db", None)
-    )
+    success = await billing_service.cancel_subscription(org_id, db=getattr(req.state, "db", None))
     return api_success(data={"cancelled": success})
 
 
@@ -100,9 +94,7 @@ async def billing_webhook(req: Request):
                     sig = v
 
             signed_payload = f"{timestamp}.{raw_body.decode()}"
-            expected = hmac.new(
-                _STRIPE_WEBHOOK_SECRET.encode(), signed_payload.encode(), hashlib.sha256
-            ).hexdigest()
+            expected = hmac.new(_STRIPE_WEBHOOK_SECRET.encode(), signed_payload.encode(), hashlib.sha256).hexdigest()
             if not hmac.compare_digest(expected, sig):
                 logger.warning("Billing webhook signature verification failed")
                 return api_error(ErrorCode.AUTH_PERMISSION_DENIED, "Invalid webhook signature")
@@ -110,6 +102,7 @@ async def billing_webhook(req: Request):
             logger.warning("STRIPE_WEBHOOK_SECRET not set — webhook signature verification skipped (dev mode)")
 
         import json
+
         body = json.loads(raw_body)
         event_type = body.get("type", "")
         data = body.get("data", {})
@@ -133,7 +126,5 @@ async def start_trial(
     except Exception:
         days = 14
 
-    result = await billing_service.start_trial(
-        org_id, days=days, db=getattr(req.state, "db", None)
-    )
+    result = await billing_service.start_trial(org_id, days=days, db=getattr(req.state, "db", None))
     return api_success(data=result)

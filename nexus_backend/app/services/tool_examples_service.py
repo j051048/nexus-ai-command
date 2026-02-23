@@ -16,16 +16,18 @@ logger = logging.getLogger(__name__)
 
 class ExampleCategory(Enum):
     """Categories of tool examples."""
-    SIMPLE = "simple"           # Single parameter
-    COMPLEX = "complex"         # Multiple parameters
-    EDGE_CASE = "edge_case"     # Error handling
-    CHAINED = "chained"         # Tool chaining
-    CONDITIONAL = "conditional" # Conditional execution
+
+    SIMPLE = "simple"  # Single parameter
+    COMPLEX = "complex"  # Multiple parameters
+    EDGE_CASE = "edge_case"  # Error handling
+    CHAINED = "chained"  # Tool chaining
+    CONDITIONAL = "conditional"  # Conditional execution
 
 
 @dataclass
 class ToolExample:
     """Few-shot example for a tool."""
+
     user_query: str
     tool_name: str
     tool_args: dict[str, Any]
@@ -56,7 +58,7 @@ class ToolExamplesService:
                 tool_args={"query": "产品手册", "limit": 5},
                 expected_result="返回5条相关产品手册文档",
                 category=ExampleCategory.SIMPLE,
-                explanation="简单搜索只需提供查询关键词"
+                explanation="简单搜索只需提供查询关键词",
             ),
             ToolExample(
                 user_query="查找上周发布的销售报告",
@@ -64,7 +66,7 @@ class ToolExamplesService:
                 tool_args={"query": "销售报告", "filters": {"date": "last_week", "type": "report"}, "limit": 10},
                 expected_result="返回上周的销售报告",
                 category=ExampleCategory.COMPLEX,
-                explanation="复杂搜索可添加过滤条件"
+                explanation="复杂搜索可添加过滤条件",
             ),
         ],
         "query_database": [
@@ -73,15 +75,19 @@ class ToolExamplesService:
                 tool_name="query_database",
                 tool_args={"table": "sales", "columns": ["amount", "date"], "where": {"date": "this_month"}},
                 expected_result="返回本月销售数据",
-                category=ExampleCategory.SIMPLE
+                category=ExampleCategory.SIMPLE,
             ),
             ToolExample(
                 user_query="统计每个部门的员工数量",
                 tool_name="query_database",
-                tool_args={"table": "employees", "columns": ["department", "COUNT(*) as count"], "group_by": "department"},
+                tool_args={
+                    "table": "employees",
+                    "columns": ["department", "COUNT(*) as count"],
+                    "group_by": "department",
+                },
                 expected_result="返回各部门员工统计",
                 category=ExampleCategory.COMPLEX,
-                explanation="聚合查询需要指定group_by"
+                explanation="聚合查询需要指定group_by",
             ),
         ],
         "send_email": [
@@ -91,14 +97,19 @@ class ToolExamplesService:
                 tool_args={"to": "zhangsan@example.com", "subject": "工作通知", "body": "请查收"},
                 expected_result="邮件发送成功",
                 category=ExampleCategory.SIMPLE,
-                explanation="发送邮件需要收件人、主题和内容"
+                explanation="发送邮件需要收件人、主题和内容",
             ),
             ToolExample(
                 user_query="群发会议通知给所有部门主管",
                 tool_name="send_email",
-                tool_args={"to": "managers@company.com", "subject": "会议通知", "body": "会议内容...", "cc": ["dept1@company.com", "dept2@company.com"]},
+                tool_args={
+                    "to": "managers@company.com",
+                    "subject": "会议通知",
+                    "body": "会议内容...",
+                    "cc": ["dept1@company.com", "dept2@company.com"],
+                },
                 expected_result="群发邮件成功",
-                category=ExampleCategory.COMPLEX
+                category=ExampleCategory.COMPLEX,
             ),
         ],
         "create_task": [
@@ -107,14 +118,14 @@ class ToolExamplesService:
                 tool_name="create_task",
                 tool_args={"title": "参加会议", "due_date": "2024-01-15 10:00", "priority": "high"},
                 expected_result="任务创建成功",
-                category=ExampleCategory.SIMPLE
+                category=ExampleCategory.SIMPLE,
             ),
             ToolExample(
                 user_query="给项目组所有人创建任务",
                 tool_name="create_task",
                 tool_args={"title": "项目任务", "assignees": ["user1", "user2", "user3"], "project": "project_123"},
                 expected_result="批量创建任务成功",
-                category=ExampleCategory.COMPLEX
+                category=ExampleCategory.COMPLEX,
             ),
         ],
         "analyze_data": [
@@ -123,14 +134,19 @@ class ToolExamplesService:
                 tool_name="analyze_data",
                 tool_args={"dataset": "sales", "analysis_type": "trend", "time_range": "last_30_days"},
                 expected_result="返回销售趋势分析结果",
-                category=ExampleCategory.SIMPLE
+                category=ExampleCategory.SIMPLE,
             ),
             ToolExample(
                 user_query="对比去年同期销售数据",
                 tool_name="analyze_data",
-                tool_args={"dataset": "sales", "analysis_type": "comparison", "compare_periods": ["2023-Q1", "2024-Q1"], "metrics": ["revenue", "orders"]},
+                tool_args={
+                    "dataset": "sales",
+                    "analysis_type": "comparison",
+                    "compare_periods": ["2023-Q1", "2024-Q1"],
+                    "metrics": ["revenue", "orders"],
+                },
                 expected_result="返回同比分析结果",
-                category=ExampleCategory.COMPLEX
+                category=ExampleCategory.COMPLEX,
             ),
         ],
         "get_user_info": [
@@ -139,14 +155,14 @@ class ToolExamplesService:
                 tool_name="get_user_info",
                 tool_args={"user_id": "user_123"},
                 expected_result="返回用户信息",
-                category=ExampleCategory.SIMPLE
+                category=ExampleCategory.SIMPLE,
             ),
             ToolExample(
                 user_query="查询用户的历史订单",
                 tool_name="get_user_info",
                 tool_args={"user_id": "user_123", "include": ["orders", "history"], "limit": 20},
                 expected_result="返回用户信息及订单历史",
-                category=ExampleCategory.COMPLEX
+                category=ExampleCategory.COMPLEX,
             ),
         ],
         "web_search": [
@@ -155,14 +171,18 @@ class ToolExamplesService:
                 tool_name="web_search",
                 tool_args={"query": "AI artificial intelligence news 2024", "num_results": 5},
                 expected_result="返回5条AI相关新闻",
-                category=ExampleCategory.SIMPLE
+                category=ExampleCategory.SIMPLE,
             ),
             ToolExample(
                 user_query="查找竞争对手的产品定价",
                 tool_name="web_search",
-                tool_args={"query": "competitor pricing", "sites": ["competitor1.com", "competitor2.com"], "num_results": 10},
+                tool_args={
+                    "query": "competitor pricing",
+                    "sites": ["competitor1.com", "competitor2.com"],
+                    "num_results": 10,
+                },
                 expected_result="返回竞争对手定价信息",
-                category=ExampleCategory.COMPLEX
+                category=ExampleCategory.COMPLEX,
             ),
         ],
         "execute_code": [
@@ -171,14 +191,18 @@ class ToolExamplesService:
                 tool_name="execute_code",
                 tool_args={"language": "python", "code": "import math; print(math.factorial(100))"},
                 expected_result="返回计算结果",
-                category=ExampleCategory.SIMPLE
+                category=ExampleCategory.SIMPLE,
             ),
             ToolExample(
                 user_query="分析这个CSV文件并生成图表",
                 tool_name="execute_code",
-                tool_args={"language": "python", "code": "import pandas as pd; import matplotlib.pyplot as plt; ...", "files": ["data.csv"]},
+                tool_args={
+                    "language": "python",
+                    "code": "import pandas as pd; import matplotlib.pyplot as plt; ...",
+                    "files": ["data.csv"],
+                },
                 expected_result="返回图表文件",
-                category=ExampleCategory.COMPLEX
+                category=ExampleCategory.COMPLEX,
             ),
         ],
     }
@@ -201,12 +225,7 @@ class ToolExamplesService:
         self._examples[example.tool_name].append(example)
         self._build_query_patterns()
 
-    def get_examples(
-        self,
-        tool_name: str,
-        category: ExampleCategory = None,
-        limit: int = 3
-    ) -> list[ToolExample]:
+    def get_examples(self, tool_name: str, category: ExampleCategory = None, limit: int = 3) -> list[ToolExample]:
         """Get examples for a specific tool."""
         examples = self._examples.get(tool_name, [])
 
@@ -248,12 +267,7 @@ class ToolExamplesService:
 
         return len(intersection) / len(union)
 
-    def format_for_prompt(
-        self,
-        tool_name: str,
-        include_explanation: bool = True,
-        max_examples: int = 2
-    ) -> str:
+    def format_for_prompt(self, tool_name: str, include_explanation: bool = True, max_examples: int = 2) -> str:
         """
         Format examples for inclusion in tool description.
 
@@ -288,11 +302,7 @@ class ToolExamplesService:
 
         return "\n".join(sections)
 
-    def get_tool_description_with_examples(
-        self,
-        tool_name: str,
-        base_description: str
-    ) -> str:
+    def get_tool_description_with_examples(self, tool_name: str, base_description: str) -> str:
         """
         Enrich tool description with examples.
 
@@ -338,7 +348,7 @@ class ToolExamplesService:
                     "tool_args": ex.tool_args,
                     "expected_result": ex.expected_result,
                     "category": ex.category.value,
-                    "explanation": ex.explanation
+                    "explanation": ex.explanation,
                 }
                 for ex in examples
             ]
@@ -356,7 +366,7 @@ class ToolExamplesService:
                     tool_args=ex_data["tool_args"],
                     expected_result=ex_data["expected_result"],
                     category=ExampleCategory(ex_data.get("category", "simple")),
-                    explanation=ex_data.get("explanation", "")
+                    explanation=ex_data.get("explanation", ""),
                 )
                 self.register_example(example)
 

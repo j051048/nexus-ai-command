@@ -51,9 +51,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
         "required": ["type", "description"],
     }
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
         # 使用当前登录用户的 ID（从 JWT 解析出来的）
         employee_id = user_id
@@ -66,13 +64,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
         logger.info(f"[AI审批] 当前用户ID: {user_id}, 申请类型: {approval_type}")
 
         # 验证员工存在
-        employee_check = (
-            await client.table("users")
-            .select("id, name, role")
-            .eq("id", employee_id)
-            .single()
-            .execute()
-        )
+        employee_check = await client.table("users").select("id, name, role").eq("id", employee_id).single().execute()
         if not employee_check.data:
             return f"错误：找不到您的用户信息（ID: {employee_id}）"
 
@@ -101,9 +93,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
             }
             logger.debug(f"[AI审批] 准备插入数据: {insert_data}")
 
-            result = (
-                await client.table("approval_requests").insert(insert_data).execute()
-            )
+            result = await client.table("approval_requests").insert(insert_data).execute()
             logger.debug("[AI审批] 插入结果成功")
         except Exception as e:
             logger.exception(f"[AI审批] 插入失败: {e}")
@@ -145,17 +135,10 @@ class GetEmployeeInfoTool(BaseTool):
         "required": ["employee_name"],
     }
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         name = args.get("employee_name")
         client = _get_client(config)
-        result = (
-            await client.table("users")
-            .select("id, name, department, role")
-            .ilike("name", f"%{name}%")
-            .execute()
-        )
+        result = await client.table("users").select("id, name, department, role").ilike("name", f"%{name}%").execute()
 
         if not result.data:
             return f"找不到名为 '{name}' 的员工。"
@@ -163,9 +146,7 @@ class GetEmployeeInfoTool(BaseTool):
         employees = []
         for emp in result.data:
             if emp.get("role") != "founder":  # 不返回老板信息
-                employees.append(
-                    f"- {emp['name']}（ID: {emp['id']}, 部门: {emp.get('department', '未知')}）"
-                )
+                employees.append(f"- {emp['name']}（ID: {emp['id']}, 部门: {emp.get('department', '未知')}）")
 
         if not employees:
             return f"找不到名为 '{name}' 的普通员工。"
@@ -189,9 +170,7 @@ class GetEmployeeApprovalHistoryTool(BaseTool):
         "required": ["employee_id"],
     }
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         employee_id = args.get("employee_id")
         limit = args.get("limit", 5)
 
@@ -248,9 +227,7 @@ class ApprovalTool(BaseTool):
         "required": ["request_id"],
     }
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         req_id = args.get("request_id")
         reason = args.get("reason", "")
         confirm = args.get("confirm", False)
@@ -258,33 +235,16 @@ class ApprovalTool(BaseTool):
         client = _get_client(config)
 
         # Manager approval limit check
-        user_role_res = (
-            await client.table("users")
-            .select("role")
-            .eq("id", user_id)
-            .maybe_single()
-            .execute()
-        )
-        user_role = (
-            user_role_res.data.get("role", "employee")
-            if user_role_res.data
-            else "employee"
-        )
+        user_role_res = await client.table("users").select("role").eq("id", user_id).maybe_single().execute()
+        user_role = user_role_res.data.get("role", "employee") if user_role_res.data else "employee"
 
         if user_role == "manager":
             # Check if approval amount exceeds manager limit (5000)
             manager_approval_limit = 5000
             request_res = (
-                await client.table("approval_requests")
-                .select("amount")
-                .eq("id", req_id)
-                .maybe_single()
-                .execute()
+                await client.table("approval_requests").select("amount").eq("id", req_id).maybe_single().execute()
             )
-            if (
-                request_res.data
-                and float(request_res.data.get("amount", 0)) > manager_approval_limit
-            ):
+            if request_res.data and float(request_res.data.get("amount", 0)) > manager_approval_limit:
                 return f"⛔ 权限不足：部门经理审批上限为 ¥{manager_approval_limit:,}，该申请金额超出限额，需要更高级别审批。"
 
         # Step 1: Fetch the request details first
@@ -307,9 +267,7 @@ class ApprovalTool(BaseTool):
             return f"⚠️ 该审批单已被处理，当前状态为: {current_status}。无法重复操作。"
 
         submitter = request_data.get("users", {})
-        submitter_name = (
-            submitter.get("name", "未知") if isinstance(submitter, dict) else "未知"
-        )
+        submitter_name = submitter.get("name", "未知") if isinstance(submitter, dict) else "未知"
 
         # P0 Security Fix #1: Return preview if not confirmed
         if not confirm:
@@ -427,9 +385,7 @@ class RejectTool(BaseTool):
         "required": ["request_id", "reason"],
     }
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         req_id = args.get("request_id")
         reason = args.get("reason", "未说明原因")
         confirm = args.get("confirm", False)
@@ -437,33 +393,16 @@ class RejectTool(BaseTool):
         client = _get_client(config)
 
         # Manager approval limit check
-        user_role_res = (
-            await client.table("users")
-            .select("role")
-            .eq("id", user_id)
-            .maybe_single()
-            .execute()
-        )
-        user_role = (
-            user_role_res.data.get("role", "employee")
-            if user_role_res.data
-            else "employee"
-        )
+        user_role_res = await client.table("users").select("role").eq("id", user_id).maybe_single().execute()
+        user_role = user_role_res.data.get("role", "employee") if user_role_res.data else "employee"
 
         if user_role == "manager":
             # Check if approval amount exceeds manager limit (5000)
             manager_approval_limit = 5000
             request_res = (
-                await client.table("approval_requests")
-                .select("amount")
-                .eq("id", req_id)
-                .maybe_single()
-                .execute()
+                await client.table("approval_requests").select("amount").eq("id", req_id).maybe_single().execute()
             )
-            if (
-                request_res.data
-                and float(request_res.data.get("amount", 0)) > manager_approval_limit
-            ):
+            if request_res.data and float(request_res.data.get("amount", 0)) > manager_approval_limit:
                 return f"⛔ 权限不足：部门经理审批上限为 ¥{manager_approval_limit:,}，该申请金额超出限额，需要更高级别审批。"
 
         # Step 1: Fetch the request details first
@@ -486,9 +425,7 @@ class RejectTool(BaseTool):
             return f"⚠️ 该审批单已被处理，当前状态为: {current_status}。无法重复操作。"
 
         submitter = request_data.get("users", {})
-        submitter_name = (
-            submitter.get("name", "未知") if isinstance(submitter, dict) else "未知"
-        )
+        submitter_name = submitter.get("name", "未知") if isinstance(submitter, dict) else "未知"
 
         # P0 Security Fix #1: Return preview if not confirmed
         if not confirm:
@@ -588,9 +525,7 @@ class PendingApprovalsTool(BaseTool):
 
     parameters = {"type": "object", "properties": {}, "required": []}
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
         result = (
             await client.table("approval_requests")

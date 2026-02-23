@@ -31,22 +31,74 @@ _GREETING_PATTERNS = re.compile(
 )
 
 _CRITICAL_KEYWORDS = {
-    "approve", "reject", "批准", "拒绝", "审批", "批了", "不批",
-    "同意", "驳回", "通过", "报销", "付款", "转账", "发工资",
-    "发公告", "全员通知", "删除", "解雇", "开除", "降职",
+    "approve",
+    "reject",
+    "批准",
+    "拒绝",
+    "审批",
+    "批了",
+    "不批",
+    "同意",
+    "驳回",
+    "通过",
+    "报销",
+    "付款",
+    "转账",
+    "发工资",
+    "发公告",
+    "全员通知",
+    "删除",
+    "解雇",
+    "开除",
+    "降职",
 }
 
 _COMPLEX_KEYWORDS = {
-    "分析", "对比", "趋势", "预测", "报告", "总结", "统计",
-    "仪表盘", "dashboard", "经营", "绩效排名", "竞品",
-    "招标", "投标", "tender", "battlecard", "战报",
-    "多少人", "本月业绩", "团队表现", "环比", "同比",
+    "分析",
+    "对比",
+    "趋势",
+    "预测",
+    "报告",
+    "总结",
+    "统计",
+    "仪表盘",
+    "dashboard",
+    "经营",
+    "绩效排名",
+    "竞品",
+    "招标",
+    "投标",
+    "tender",
+    "battlecard",
+    "战报",
+    "多少人",
+    "本月业绩",
+    "团队表现",
+    "环比",
+    "同比",
 }
 
 _MODERATE_KEYWORDS = {
-    "查询", "查一下", "看看", "请假", "考勤", "项目", "进度",
-    "预算", "剩余", "工资", "薪资", "会议", "日程", "任务",
-    "商机", "线索", "客户", "合同", "知识库", "搜索",
+    "查询",
+    "查一下",
+    "看看",
+    "请假",
+    "考勤",
+    "项目",
+    "进度",
+    "预算",
+    "剩余",
+    "工资",
+    "薪资",
+    "会议",
+    "日程",
+    "任务",
+    "商机",
+    "线索",
+    "客户",
+    "合同",
+    "知识库",
+    "搜索",
 }
 
 
@@ -64,9 +116,7 @@ def classify_query(query: str) -> tuple[QueryComplexity, str]:
         return QueryComplexity.SIMPLE, "简单问候或闲聊"
 
     # 2. Critical (irreversible operations)
-    matched_critical = _CRITICAL_KEYWORDS & set(
-        re.findall(r"[\w]+", text)
-    )
+    matched_critical = _CRITICAL_KEYWORDS & set(re.findall(r"[\w]+", text))
     if matched_critical:
         return QueryComplexity.CRITICAL, f"关键操作: {', '.join(matched_critical)}"
 
@@ -86,6 +136,7 @@ def classify_query(query: str) -> tuple[QueryComplexity, str]:
 
 
 # ─── LLM-based Intent Classification ────────────────────────────────────────
+
 
 async def _llm_classify_intent(
     query: str,
@@ -111,17 +162,17 @@ async def _llm_classify_intent(
 
     try:
         llm = ChatOpenAI(
-                model=config.mini_model,
+            model=config.mini_model,
             api_key=config.api_key,
             base_url=config.base_url,
             temperature=0.0,
             timeout=10.0,
-    )
+        )
         response = await llm.ainvoke([HumanMessage(content=prompt)])
         content = response.content or "{}"
 
         # Extract JSON from response
-        json_match = re.search(r'\{[^}]+\}', content)
+        json_match = re.search(r"\{[^}]+\}", content)
         if json_match:
             data = json.loads(json_match.group())
             complexity_str = data.get("complexity", "moderate")
@@ -134,6 +185,7 @@ async def _llm_classify_intent(
 
 
 # ─── Router Node ─────────────────────────────────────────────────────────────
+
 
 async def route_node(state: AgentState) -> dict:
     """

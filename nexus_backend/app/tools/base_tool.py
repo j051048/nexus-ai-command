@@ -63,9 +63,7 @@ class BaseTool(ABC):
         """
         return "⚠️ 这是一个不可逆操作。请确认后再执行。"
 
-    def check_confirmation(
-        self, args: dict[str, Any], system_confirmed: bool = False
-    ) -> str | None:
+    def check_confirmation(self, args: dict[str, Any], system_confirmed: bool = False) -> str | None:
         """
         System-level confirmation gate.
         Called BEFORE run() for irreversible tools.
@@ -102,9 +100,7 @@ class BaseTool(ABC):
             raise
 
     @abstractmethod
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         """
         Execute the tool logic.
         :param args: Arguments parsed from the LLM's JSON output

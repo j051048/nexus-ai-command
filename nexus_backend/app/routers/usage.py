@@ -73,26 +73,33 @@ async def get_usage_history(
         )
 
     try:
-        res = await client.table("user_token_usage").select(
-            "date, total_tokens, estimated_cost_usd, request_count"
-        ).eq("user_id", user_id).order(
-            "date", desc=True
-        ).limit(days).execute()
+        res = (
+            await client.table("user_token_usage")
+            .select("date, total_tokens, estimated_cost_usd, request_count")
+            .eq("user_id", user_id)
+            .order("date", desc=True)
+            .limit(days)
+            .execute()
+        )
 
         history = []
         for row in res.data or []:
-            history.append({
-                "date": row.get("date"),
-                "tokens": row.get("total_tokens", 0),
-                "cost_usd": float(row.get("estimated_cost_usd", 0)),
-                "requests": row.get("request_count", 0),
-            })
+            history.append(
+                {
+                    "date": row.get("date"),
+                    "tokens": row.get("total_tokens", 0),
+                    "cost_usd": float(row.get("estimated_cost_usd", 0)),
+                    "requests": row.get("request_count", 0),
+                }
+            )
 
-        return api_success(data={
-            "current_day": usage_tracker.get_usage_summary(user_id),
-            "history": history,
-            "period_days": days,
-        })
+        return api_success(
+            data={
+                "current_day": usage_tracker.get_usage_summary(user_id),
+                "history": history,
+                "period_days": days,
+            }
+        )
     except Exception as e:
         logger.error(f"Usage history query failed: {e}")
         return api_success(
@@ -127,8 +134,10 @@ async def get_cost_report(
 # Token Estimation Endpoint
 # ---------------------------------------------------------------------------
 
+
 class EstimateRequest(BaseModel):
     """Request body for token estimation."""
+
     messages: list[dict]
     model: str = "gpt-4o"
     expected_output_ratio: float = 1.5  # Estimated output/input token ratio
@@ -154,15 +163,17 @@ async def estimate_tokens(
     # Check if this would exceed limits
     is_allowed, reason = usage_tracker.check_limits(user_id, estimated_total)
 
-    return api_success(data={
-        "input_tokens": input_tokens,
-        "estimated_output_tokens": estimated_output,
-        "estimated_total_tokens": estimated_total,
-        "estimated_cost_usd": estimated_cost,
-        "model": body.model,
-        "within_limits": is_allowed,
-        "limit_warning": reason if not is_allowed else None,
-    })
+    return api_success(
+        data={
+            "input_tokens": input_tokens,
+            "estimated_output_tokens": estimated_output,
+            "estimated_total_tokens": estimated_total,
+            "estimated_cost_usd": estimated_cost,
+            "model": body.model,
+            "within_limits": is_allowed,
+            "limit_warning": reason if not is_allowed else None,
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -201,13 +212,16 @@ async def get_quota_alert(
     if client:
         try:
             import time
+
             current_month_start = time.strftime("%Y-%m-01")
 
-            res = await client.table("user_token_usage").select(
-                "total_tokens, estimated_cost_usd, request_count"
-            ).eq("user_id", user_id).gte(
-                "date", current_month_start
-            ).execute()
+            res = (
+                await client.table("user_token_usage")
+                .select("total_tokens, estimated_cost_usd, request_count")
+                .eq("user_id", user_id)
+                .gte("date", current_month_start)
+                .execute()
+            )
 
             for row in res.data or []:
                 month_tokens += row.get("total_tokens", 0)
@@ -237,16 +251,18 @@ async def get_quota_alert(
             alert_level = level
             break
 
-    return api_success(data={
-        "month_tokens": month_tokens,
-        "month_cost_usd": round(month_cost, 4),
-        "month_requests": month_requests,
-        "monthly_token_budget": monthly_token_budget,
-        "monthly_cost_budget_usd": monthly_cost_budget,
-        "usage_percentage": round(usage_pct * 100, 1),
-        "alert_level": alert_level,
-        "alert_message": _get_alert_message(alert_level, usage_pct),
-    })
+    return api_success(
+        data={
+            "month_tokens": month_tokens,
+            "month_cost_usd": round(month_cost, 4),
+            "month_requests": month_requests,
+            "monthly_token_budget": monthly_token_budget,
+            "monthly_cost_budget_usd": monthly_cost_budget,
+            "usage_percentage": round(usage_pct * 100, 1),
+            "alert_level": alert_level,
+            "alert_message": _get_alert_message(alert_level, usage_pct),
+        }
+    )
 
 
 def _get_alert_message(level: str, pct: float) -> str | None:

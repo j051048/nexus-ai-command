@@ -88,7 +88,7 @@ class ContentModerator:
         ),
     }
 
-        # Prompt injection patterns - P0 Security Enhancement
+    # Prompt injection patterns - P0 Security Enhancement
     INJECTION_PATTERNS = [
         # Chinese injection patterns
         r"忽略(之前|上面|以上)(的|所有)?(指令|命令|提示)",
@@ -99,7 +99,6 @@ class ContentModerator:
         r"忘记(之前|上面)(的|所有)?(设定|身份)",
         r"假装(你是|成|是)(.){0,30}",
         r"角色扮演(游戏)?(.){0,30}",
-
         # English injection patterns
         r"ignore\s+(previous|above|all|prior)\s+(instructions?|prompts?|commands?|rules)",
         r"you\s+are\s+(now\s+)?(a|an)\s+(?!helpful)",
@@ -115,7 +114,6 @@ class ContentModerator:
         r"developer\s+mode",
         r"debug\s+mode",
         r"admin\s+mode",
-
         # Special markers
         r"\[\[.*?\]\]",  # Double bracket markers
         r"<\|.*?\|>",  # Special token markers
@@ -123,10 +121,8 @@ class ContentModerator:
         r"\{\{.*?\}\}",  # Curly bracket markers
         r"###\s*(INSTRUCTION|SYSTEM|PROMPT)",  # Markdown-style injection
         r"```\s*(system|prompt)",  # Code block injection
-
         # Base64 encoded patterns (require >= 40 chars and mandatory padding)
         r"[A-Za-z0-9+/]{40,}={1,2}",
-
         # Unicode tricks
         r"[\u200b-\u200f\u2028-\u202f\u205f-\u206f]",  # Zero-width and invisible chars
     ]
@@ -169,10 +165,8 @@ class ContentModerator:
                 from openai import AsyncOpenAI
 
                 from app.core.config import settings
-                self._llm_client = AsyncOpenAI(
-                    api_key=settings.OPENAI_API_KEY,
-                    base_url=settings.AI_BASE_URL
-                )
+
+                self._llm_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.AI_BASE_URL)
             except Exception as e:
                 logger.warning(f"Failed to initialize LLM client for detection: {e}")
                 self._llm_client = None
@@ -183,9 +177,7 @@ class ContentModerator:
         for vtype, (pattern, _, _) in self.PATTERNS.items():
             self._compiled_patterns[vtype] = re.compile(pattern)
 
-        self._injection_patterns = [
-            re.compile(p, re.IGNORECASE) for p in self.INJECTION_PATTERNS
-        ]
+        self._injection_patterns = [re.compile(p, re.IGNORECASE) for p in self.INJECTION_PATTERNS]
 
     def scan(self, content: str) -> tuple[bool, list[Violation]]:
         """
@@ -218,11 +210,7 @@ class ContentModerator:
                     Violation(
                         type=ViolationType.PROMPT_INJECTION,
                         severity="high",
-                        matched_text=(
-                            match.group()[:50] + "..."
-                            if len(match.group()) > 50
-                            else match.group()
-                        ),
+                        matched_text=(match.group()[:50] + "..." if len(match.group()) > 50 else match.group()),
                         position=(match.start(), match.end()),
                         suggestion="[疑似注入攻击]",
                     )
@@ -280,9 +268,7 @@ class ContentModerator:
             return content, violations
 
         # Sort violations by position (reverse order for replacement)
-        sorted_violations = sorted(
-            violations, key=lambda v: v.position[0], reverse=True
-        )
+        sorted_violations = sorted(violations, key=lambda v: v.position[0], reverse=True)
 
         sanitized = content
         for violation in sorted_violations:
@@ -326,14 +312,14 @@ class ContentModerator:
         same word — a strong homoglyph-attack indicator.
         """
         # Count zero-width and invisible characters
-        invisible_count = sum(1 for c in text if ord(c) in range(0x200b, 0x2070))
+        invisible_count = sum(1 for c in text if ord(c) in range(0x200B, 0x2070))
         # More than 3 invisible chars is suspicious
         if invisible_count > 3:
             return True
 
         # Mixed-script detection: flag words that mix Latin with Cyrillic/Greek.
         # Pure Cyrillic or Greek text is perfectly fine and should NOT be blocked.
-        words = re.findall(r'\w+', text)
+        words = re.findall(r"\w+", text)
         for word in words:
             has_latin = False
             has_cyrillic = False
@@ -356,7 +342,7 @@ class ContentModerator:
         """Detect suspicious structural patterns."""
         # Check for repeated patterns (common in attacks)
         if len(text) > 50:
-            chunks = [text[i:i+10] for i in range(0, len(text)-10, 10)]
+            chunks = [text[i : i + 10] for i in range(0, len(text) - 10, 10)]
             if len(set(chunks)) < len(chunks) * 0.3:  # Too much repetition
                 return True
 
@@ -364,10 +350,10 @@ class ContentModerator:
         bracket_depth = 0
         max_depth = 0
         for c in text:
-            if c in '([{<':
+            if c in "([{<":
                 bracket_depth += 1
                 max_depth = max(max_depth, bracket_depth)
-            elif c in ')]}>':
+            elif c in ")]}>":
                 bracket_depth -= 1
         return max_depth > 5  # Deeply nested brackets suspicious
 
@@ -401,10 +387,7 @@ class ContentModerator:
 仅回复JSON，无其他内容。"""
 
             response = await client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=100,
-                temperature=0
+                model="gpt-4o-mini", messages=[{"role": "user", "content": prompt}], max_tokens=100, temperature=0
             )
 
             result = json.loads(response.choices[0].message.content)
@@ -480,13 +463,15 @@ class ContentModerator:
             pattern = self._compiled_patterns[vtype]
 
             for match in pattern.finditer(sanitized):
-                violations.append(Violation(
-                    type=vtype,
-                    severity=severity,
-                    matched_text=self._mask_text(match.group(), vtype),
-                    position=(match.start(), match.end()),
-                    suggestion=replacement
-                ))
+                violations.append(
+                    Violation(
+                        type=vtype,
+                        severity=severity,
+                        matched_text=self._mask_text(match.group(), vtype),
+                        position=(match.start(), match.end()),
+                        suggestion=replacement,
+                    )
+                )
 
         # Apply replacements
         for v in sorted(violations, key=lambda x: x.position[0], reverse=True):
@@ -507,13 +492,15 @@ class ContentModerator:
             pattern = self._compiled_patterns[vtype]
 
             for match in pattern.finditer(sanitized):
-                violations.append(Violation(
-                    type=vtype,
-                    severity=severity,
-                    matched_text="[REDACTED]",
-                    position=(match.start(), match.end()),
-                    suggestion=replacement
-                ))
+                violations.append(
+                    Violation(
+                        type=vtype,
+                        severity=severity,
+                        matched_text="[REDACTED]",
+                        position=(match.start(), match.end()),
+                        suggestion=replacement,
+                    )
+                )
 
         for v in sorted(violations, key=lambda x: x.position[0], reverse=True):
             start, end = v.position
@@ -529,25 +516,29 @@ class ContentModerator:
         internal_refs = ["_system", "_internal", "__debug__", "admin_panel"]
         for ref in internal_refs:
             if ref in content:
-                violations.append(Violation(
-                    type=ViolationType.HARMFUL_CONTENT,
-                    severity="high",
-                    matched_text=ref,
-                    position=(content.find(ref), content.find(ref) + len(ref)),
-                    suggestion="[系统引用已隐藏]"
-                ))
+                violations.append(
+                    Violation(
+                        type=ViolationType.HARMFUL_CONTENT,
+                        severity="high",
+                        matched_text=ref,
+                        position=(content.find(ref), content.find(ref) + len(ref)),
+                        suggestion="[系统引用已隐藏]",
+                    )
+                )
 
         # Check for other user's data if context contains user_id
         if context.get("other_users_data"):
             for data in context["other_users_data"]:
                 if data in content:
-                    violations.append(Violation(
-                        type=ViolationType.HARMFUL_CONTENT,
-                        severity="critical",
-                        matched_text=data[:20] + "...",
-                        position=(content.find(data), content.find(data) + len(data)),
-                        suggestion="[他人数据已隐藏]"
-                    ))
+                    violations.append(
+                        Violation(
+                            type=ViolationType.HARMFUL_CONTENT,
+                            severity="critical",
+                            matched_text=data[:20] + "...",
+                            position=(content.find(data), content.find(data) + len(data)),
+                            suggestion="[他人数据已隐藏]",
+                        )
+                    )
 
         sanitized = content
         for v in sorted(violations, key=lambda x: x.position[0], reverse=True):
@@ -569,13 +560,15 @@ class ContentModerator:
 
         for pattern_str, severity, replacement in harmful_patterns:
             for match in re.finditer(pattern_str, content, re.IGNORECASE):
-                violations.append(Violation(
-                    type=ViolationType.HARMFUL_CONTENT,
-                    severity=severity,
-                    matched_text=match.group(),
-                    position=(match.start(), match.end()),
-                    suggestion=replacement
-                ))
+                violations.append(
+                    Violation(
+                        type=ViolationType.HARMFUL_CONTENT,
+                        severity=severity,
+                        matched_text=match.group(),
+                        position=(match.start(), match.end()),
+                        suggestion=replacement,
+                    )
+                )
 
         sanitized = content
         for v in sorted(violations, key=lambda x: x.position[0], reverse=True):

@@ -27,11 +27,13 @@ def setup_telemetry(app):
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-        resource = Resource.create({
-            "service.name": "nexus-backend",
-            "service.version": settings.VERSION,
-            "deployment.environment": settings.ENV,
-        })
+        resource = Resource.create(
+            {
+                "service.name": "nexus-backend",
+                "service.version": settings.VERSION,
+                "deployment.environment": settings.ENV,
+            }
+        )
 
         # Tracing
         provider = TracerProvider(resource=resource)
@@ -41,6 +43,7 @@ def setup_telemetry(app):
             from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
                 OTLPSpanExporter,
             )
+
             exporter = OTLPSpanExporter(endpoint=otlp_endpoint)
             provider.add_span_processor(BatchSpanProcessor(exporter))
 

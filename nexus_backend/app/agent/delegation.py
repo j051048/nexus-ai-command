@@ -26,20 +26,44 @@ logger = logging.getLogger(__name__)
 
 AGENT_CAPABILITIES: dict[str, list[str]] = {
     "sales": [
-        "sales", "deal", "pipeline", "revenue", "customer",
-        "forecast", "opportunity", "lead", "quote",
+        "sales",
+        "deal",
+        "pipeline",
+        "revenue",
+        "customer",
+        "forecast",
+        "opportunity",
+        "lead",
+        "quote",
     ],
     "performance": [
-        "KPI", "score", "badge", "ranking", "bonus",
-        "target", "incentive", "gamification",
+        "KPI",
+        "score",
+        "badge",
+        "ranking",
+        "bonus",
+        "target",
+        "incentive",
+        "gamification",
     ],
     "approval": [
-        "expense", "leave", "approval", "workflow",
-        "reimburse", "vacation", "overtime",
+        "expense",
+        "leave",
+        "approval",
+        "workflow",
+        "reimburse",
+        "vacation",
+        "overtime",
     ],
     "knowledge": [
-        "document", "search", "knowledge", "file",
-        "PDF", "RAG", "embedding", "policy",
+        "document",
+        "search",
+        "knowledge",
+        "file",
+        "PDF",
+        "RAG",
+        "embedding",
+        "policy",
     ],
 }
 
@@ -124,9 +148,7 @@ def get_delegation_hint(query: str, current_agent: str) -> str:
         return ""
 
     available = ", ".join(
-        f"{name} ({', '.join(kws[:4])}...)"
-        for name, kws in AGENT_CAPABILITIES.items()
-        if name != current_agent
+        f"{name} ({', '.join(kws[:4])}...)" for name, kws in AGENT_CAPABILITIES.items() if name != current_agent
     )
 
     hint = (

@@ -86,15 +86,17 @@ class PaymentService:
             try:
                 res = (
                     await db.table("payment_orders")
-                    .insert({
-                        "organization_id": org_id,
-                        "order_no": order_no,
-                        "plan_id": plan_id,
-                        "payment_method": payment_method,
-                        "amount": amount,
-                        "currency": "CNY",
-                        "status": "pending",
-                    })
+                    .insert(
+                        {
+                            "organization_id": org_id,
+                            "order_no": order_no,
+                            "plan_id": plan_id,
+                            "payment_method": payment_method,
+                            "amount": amount,
+                            "currency": "CNY",
+                            "status": "pending",
+                        }
+                    )
                     .execute()
                 )
                 if res.data:
@@ -113,17 +115,19 @@ class PaymentService:
             payment_info["order_no"] = order_no
             payment_info["amount"] = amount
         elif payment_method == "wechat_pay":
-            payment_info = await self.create_wechat_payment(order_no, amount, f"Nexus AI - {plan_info.get('name', plan_id)}")
+            payment_info = await self.create_wechat_payment(
+                order_no, amount, f"Nexus AI - {plan_info.get('name', plan_id)}"
+            )
         elif payment_method == "alipay":
-            payment_info = await self.create_alipay_payment(order_no, amount, f"Nexus AI - {plan_info.get('name', plan_id)}")
+            payment_info = await self.create_alipay_payment(
+                order_no, amount, f"Nexus AI - {plan_info.get('name', plan_id)}"
+            )
 
         return {**order, "payment_info": payment_info}
 
     # ─── 微信支付 ──────────────────────────────────────────
 
-    async def create_wechat_payment(
-        self, order_id: str, amount: float, description: str
-    ) -> dict:
+    async def create_wechat_payment(self, order_id: str, amount: float, description: str) -> dict:
         """
         创建微信支付（返回支付二维码 URL）。
         预留接口，当前返回 mock。真实环境需要对接微信支付 V3 API。
@@ -160,9 +164,7 @@ class PaymentService:
 
     # ─── 支付宝支付 ─────────────────────────────────────────
 
-    async def create_alipay_payment(
-        self, order_id: str, amount: float, description: str
-    ) -> dict:
+    async def create_alipay_payment(self, order_id: str, amount: float, description: str) -> dict:
         """
         创建支付宝支付（返回支付页面 URL）。
         预留接口，当前返回 mock。真实环境需要对接支付宝开放平台 API。
@@ -199,9 +201,7 @@ class PaymentService:
 
     # ─── 支付回调 ──────────────────────────────────────────
 
-    async def handle_payment_callback(
-        self, platform: str, callback_data: dict, db=None
-    ) -> dict:
+    async def handle_payment_callback(self, platform: str, callback_data: dict, db=None) -> dict:
         """处理支付回调（微信/支付宝）"""
         logger.info(f"Payment callback from {platform}: {callback_data}")
 
@@ -228,10 +228,12 @@ class PaymentService:
                 try:
                     await (
                         db.table("payment_orders")
-                        .update({
-                            "status": "paid",
-                            "paid_at": datetime.now(UTC).isoformat(),
-                        })
+                        .update(
+                            {
+                                "status": "paid",
+                                "paid_at": datetime.now(UTC).isoformat(),
+                            }
+                        )
                         .eq("order_no", order_no)
                         .execute()
                     )
@@ -254,13 +256,7 @@ class PaymentService:
         # 查数据库
         if db:
             try:
-                res = (
-                    await db.table("payment_orders")
-                    .select("*")
-                    .eq("id", order_id)
-                    .maybe_single()
-                    .execute()
-                )
+                res = await db.table("payment_orders").select("*").eq("id", order_id).maybe_single().execute()
                 if res.data:
                     return res.data
             except Exception as e:
@@ -297,9 +293,7 @@ class PaymentService:
 
     # ─── 发票申请 ──────────────────────────────────────────
 
-    async def generate_invoice_request(
-        self, order_id: str, invoice_info: dict, db=None
-    ) -> dict:
+    async def generate_invoice_request(self, order_id: str, invoice_info: dict, db=None) -> dict:
         """生成增值税发票申请"""
         required_fields = ["company_name", "tax_number"]
         for field in required_fields:
@@ -317,10 +311,12 @@ class PaymentService:
             try:
                 await (
                     db.table("payment_orders")
-                    .update({
-                        "invoice_status": "requested",
-                        "invoice_info": invoice_info,
-                    })
+                    .update(
+                        {
+                            "invoice_status": "requested",
+                            "invoice_info": invoice_info,
+                        }
+                    )
                     .eq("id", order_id)
                     .execute()
                 )

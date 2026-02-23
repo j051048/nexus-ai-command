@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class TriggerType(Enum):
     """Types of automatic triggers."""
+
     TIME_BASED = "time_based"
     EVENT_BASED = "event_based"
     DATA_BASED = "data_based"
@@ -27,6 +28,7 @@ class TriggerType(Enum):
 
 class TriggerAction(Enum):
     """Actions to take when triggered."""
+
     START_ANALYSIS = "start_analysis"
     GENERATE_REPORT = "generate_report"
     SEND_NOTIFICATION = "send_notification"
@@ -38,6 +40,7 @@ class TriggerAction(Enum):
 @dataclass
 class AutoTrigger:
     """Automatic trigger definition."""
+
     trigger_id: str
     name: str
     trigger_type: TriggerType
@@ -53,6 +56,7 @@ class AutoTrigger:
 @dataclass
 class TriggerEvent:
     """Record of a trigger event."""
+
     trigger_id: str
     triggered_at: str
     action: TriggerAction
@@ -81,7 +85,7 @@ class AutoTriggerService:
             "trigger_type": "time_based",
             "condition": {"hour": 8, "minute": 0},
             "action": "generate_report",
-            "action_params": {"report_type": "daily"}
+            "action_params": {"report_type": "daily"},
         },
         {
             "trigger_id": "weekly_summary",
@@ -89,7 +93,7 @@ class AutoTriggerService:
             "trigger_type": "time_based",
             "condition": {"day_of_week": 0, "hour": 9},
             "action": "generate_report",
-            "action_params": {"report_type": "weekly"}
+            "action_params": {"report_type": "weekly"},
         },
         {
             "trigger_id": "data_threshold",
@@ -97,7 +101,7 @@ class AutoTriggerService:
             "trigger_type": "data_based",
             "condition": {"metric": "error_rate", "threshold": 0.05, "operator": ">"},
             "action": "send_notification",
-            "action_params": {"type": "alert"}
+            "action_params": {"type": "alert"},
         },
         {
             "trigger_id": "user_idle_analysis",
@@ -105,7 +109,7 @@ class AutoTriggerService:
             "trigger_type": "behavior_based",
             "condition": {"idle_seconds": 60},
             "action": "start_analysis",
-            "action_params": {"type": "proactive"}
+            "action_params": {"type": "proactive"},
         },
         {
             "trigger_id": "document_upload",
@@ -113,7 +117,7 @@ class AutoTriggerService:
             "trigger_type": "event_based",
             "condition": {"event": "document_uploaded"},
             "action": "process_data",
-            "action_params": {"auto_analyze": True}
+            "action_params": {"auto_analyze": True},
         },
         {
             "trigger_id": "page_context_help",
@@ -121,8 +125,8 @@ class AutoTriggerService:
             "trigger_type": "context_based",
             "condition": {"page": "settings", "time_on_page": 30},
             "action": "send_notification",
-            "action_params": {"type": "help", "message": "需要帮助配置吗？"}
-        }
+            "action_params": {"type": "help", "message": "需要帮助配置吗？"},
+        },
     ]
 
     def __init__(self):
@@ -148,7 +152,7 @@ class AutoTriggerService:
                 trigger_type=TriggerType(trigger_config["trigger_type"]),
                 condition=trigger_config["condition"],
                 action=TriggerAction(trigger_config["action"]),
-                action_params=trigger_config.get("action_params", {})
+                action_params=trigger_config.get("action_params", {}),
             )
             self._triggers[trigger.trigger_id] = trigger
 
@@ -257,7 +261,14 @@ class AutoTriggerService:
                     value = data[metric]
 
                     should_trigger = False
-                    if operator == ">" and value > threshold or operator == "<" and value < threshold or operator == "==" and value == threshold:
+                    if (
+                        operator == ">"
+                        and value > threshold
+                        or operator == "<"
+                        and value < threshold
+                        or operator == "=="
+                        and value == threshold
+                    ):
                         should_trigger = True
 
                     if should_trigger:
@@ -332,13 +343,15 @@ class AutoTriggerService:
 
             # Record trigger
             self._last_triggered[trigger.trigger_id] = datetime.utcnow()
-            self._trigger_history.append(TriggerEvent(
-                trigger_id=trigger.trigger_id,
-                triggered_at=datetime.utcnow().isoformat(),
-                action=trigger.action,
-                result=str(result),
-                context=context or {}
-            ))
+            self._trigger_history.append(
+                TriggerEvent(
+                    trigger_id=trigger.trigger_id,
+                    triggered_at=datetime.utcnow().isoformat(),
+                    action=trigger.action,
+                    result=str(result),
+                    context=context or {},
+                )
+            )
 
             logger.info(f"Executed trigger {trigger.trigger_id}: {trigger.action.value}")
 
@@ -354,6 +367,7 @@ class AutoTriggerService:
 
         try:
             from app.services.notification_service import send_notification
+
             context = params.get("context", {})
             user_id = context.get("user_id") if context else None
             if user_id:
@@ -365,11 +379,7 @@ class AutoTriggerService:
         except Exception as e:
             logger.error(f"Analysis notification failed: {e}")
 
-        return {
-            "status": "started",
-            "analysis_type": analysis_type,
-            "message": "分析已自动启动"
-        }
+        return {"status": "started", "analysis_type": analysis_type, "message": "分析已自动启动"}
 
     async def _handle_generate_report(self, params: dict) -> dict:
         """Handle generate report action."""
@@ -378,6 +388,7 @@ class AutoTriggerService:
 
         try:
             from app.services.notification_service import send_notification
+
             context = params.get("context", {})
             user_id = context.get("user_id") if context else None
             if user_id:
@@ -389,11 +400,7 @@ class AutoTriggerService:
         except Exception as e:
             logger.error(f"Report notification failed: {e}")
 
-        return {
-            "status": "generated",
-            "report_type": report_type,
-            "message": f"{report_type}报告已生成"
-        }
+        return {"status": "generated", "report_type": report_type, "message": f"{report_type}报告已生成"}
 
     async def _handle_send_notification(self, params: dict) -> dict:
         """Handle send notification action."""
@@ -403,6 +410,7 @@ class AutoTriggerService:
 
         try:
             from app.services.notification_service import send_notification
+
             context = params.get("context", {})
             user_id = context.get("user_id") if context else None
             if user_id:
@@ -414,20 +422,13 @@ class AutoTriggerService:
         except Exception as e:
             logger.error(f"Notification send failed: {e}")
 
-        return {
-            "status": "sent",
-            "type": notification_type,
-            "message": message
-        }
+        return {"status": "sent", "type": notification_type, "message": message}
 
     async def _handle_update_dashboard(self, params: dict) -> dict:
         """Handle update dashboard action."""
         logger.info("Auto-updating dashboard")
 
-        return {
-            "status": "updated",
-            "message": "仪表盘已更新"
-        }
+        return {"status": "updated", "message": "仪表盘已更新"}
 
     async def _handle_process_data(self, params: dict) -> dict:
         """Handle process data action."""
@@ -435,11 +436,7 @@ class AutoTriggerService:
 
         logger.info(f"Auto-processing data, analyze={auto_analyze}")
 
-        return {
-            "status": "processed",
-            "auto_analyze": auto_analyze,
-            "message": "数据已处理"
-        }
+        return {"status": "processed", "auto_analyze": auto_analyze, "message": "数据已处理"}
 
     async def _handle_schedule_task(self, params: dict) -> dict:
         """Handle schedule task action."""
@@ -447,11 +444,7 @@ class AutoTriggerService:
 
         logger.info(f"Auto-scheduling task: {task_type}")
 
-        return {
-            "status": "scheduled",
-            "task_type": task_type,
-            "message": "任务已调度"
-        }
+        return {"status": "scheduled", "task_type": task_type, "message": "任务已调度"}
 
     def get_trigger_status(self) -> dict:
         """Get status of all triggers."""
@@ -460,13 +453,9 @@ class AutoTriggerService:
             "trigger_count": len(self._triggers),
             "enabled_count": sum(1 for t in self._triggers.values() if t.enabled),
             "recent_executions": [
-                {
-                    "trigger_id": e.trigger_id,
-                    "action": e.action.value,
-                    "triggered_at": e.triggered_at
-                }
+                {"trigger_id": e.trigger_id, "action": e.action.value, "triggered_at": e.triggered_at}
                 for e in self._trigger_history[-10:]
-            ]
+            ],
         }
 
     def get_triggers(self, trigger_type: TriggerType = None) -> list[dict]:
@@ -482,7 +471,7 @@ class AutoTriggerService:
                 "name": t.name,
                 "type": t.trigger_type.value,
                 "action": t.action.value,
-                "enabled": t.enabled
+                "enabled": t.enabled,
             }
             for t in triggers
         ]

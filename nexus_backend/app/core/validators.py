@@ -83,9 +83,7 @@ class InputValidator:
 
         return True, None
 
-    def validate_date(
-        self, value: str, format: str = "%Y-%m-%d"  # noqa: A002
-    ) -> tuple[bool, str | None]:
+    def validate_date(self, value: str, format: str = "%Y-%m-%d") -> tuple[bool, str | None]:  # noqa: A002
         """
         Validate a date string.
 

@@ -56,9 +56,7 @@ async def list_workflows(
         if not org_id:
             raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "Organization context required")
 
-        workflows = await workflow_definition_service.list_workflows(
-            org_id=org_id, db=db
-        )
+        workflows = await workflow_definition_service.list_workflows(org_id=org_id, db=db)
         return api_success(data=workflows)
     except Exception as e:
         if hasattr(e, "status_code"):
@@ -117,9 +115,7 @@ async def get_workflow(
     try:
         db = getattr(request.state, "db", None)
 
-        workflow = await workflow_definition_service.get_workflow(
-            workflow_id=workflow_id, db=db
-        )
+        workflow = await workflow_definition_service.get_workflow(workflow_id=workflow_id, db=db)
         if not workflow:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, f"Workflow {workflow_id} not found")
 
@@ -146,9 +142,7 @@ async def update_workflow(
         if not updates:
             return api_success(data=None, message="No updates provided")
 
-        workflow = await workflow_definition_service.update_workflow(
-            workflow_id=workflow_id, updates=updates, db=db
-        )
+        workflow = await workflow_definition_service.update_workflow(workflow_id=workflow_id, updates=updates, db=db)
         return api_success(data=workflow, message="Workflow updated")
     except ValueError as e:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
@@ -171,9 +165,7 @@ async def delete_workflow(
     try:
         db = getattr(request.state, "db", None)
 
-        deleted = await workflow_definition_service.delete_workflow(
-            workflow_id=workflow_id, db=db
-        )
+        deleted = await workflow_definition_service.delete_workflow(workflow_id=workflow_id, db=db)
         if not deleted:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, f"Workflow {workflow_id} not found")
 
@@ -195,9 +187,7 @@ async def toggle_workflow(
     try:
         db = getattr(request.state, "db", None)
 
-        workflow = await workflow_definition_service.toggle_workflow(
-            workflow_id=workflow_id, db=db
-        )
+        workflow = await workflow_definition_service.toggle_workflow(workflow_id=workflow_id, db=db)
         return api_success(data=workflow, message="Workflow toggled")
     except RuntimeError as e:
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, str(e))
@@ -222,9 +212,7 @@ async def set_default(
         if not org_id:
             raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "Organization context required")
 
-        workflow = await workflow_definition_service.set_default(
-            workflow_id=workflow_id, org_id=org_id, db=db
-        )
+        workflow = await workflow_definition_service.set_default(workflow_id=workflow_id, org_id=org_id, db=db)
         return api_success(data=workflow, message="Workflow set as default")
     except RuntimeError as e:
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, str(e))

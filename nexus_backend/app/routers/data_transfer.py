@@ -28,6 +28,7 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 class ExportRequest(BaseModel):
     """导出请求体"""
+
     filters: dict[str, Any] | None = Field(None, description="过滤条件")
     date_from: str | None = Field(None, description="开始日期 (YYYY-MM-DD)")
     date_to: str | None = Field(None, description="结束日期 (YYYY-MM-DD)")
@@ -35,11 +36,10 @@ class ExportRequest(BaseModel):
 
 class ImportValidateRequest(BaseModel):
     """导入预验证请求体"""
+
     import_type: str = Field(..., description="导入类型")
     csv_content: str = Field(..., description="CSV 字符串内容")
-    column_mapping: dict[str, str] | None = Field(
-        None, description="自定义列映射 (原列名 -> 标准列名)"
-    )
+    column_mapping: dict[str, str] | None = Field(None, description="自定义列映射 (原列名 -> 标准列名)")
 
 
 # ============== Export Endpoints ==============
@@ -77,9 +77,7 @@ async def export_data(
 
         # 选择导出方法
         if export_type == "approvals" and org_id:
-            csv_content = await data_export_service.export_approvals(
-                org_id=org_id, filters=filters, db=db
-            )
+            csv_content = await data_export_service.export_approvals(org_id=org_id, filters=filters, db=db)
         elif export_type == "attendance" and org_id:
             date_range = {}
             if body.date_from:
@@ -90,9 +88,7 @@ async def export_data(
                 org_id=org_id, date_range=date_range or None, db=db
             )
         elif export_type == "sales" and org_id:
-            csv_content = await data_export_service.export_sales_data(
-                org_id=org_id, filters=filters, db=db
-            )
+            csv_content = await data_export_service.export_sales_data(org_id=org_id, filters=filters, db=db)
         else:
             # 通用导出
             csv_content = await data_export_service.export_to_csv(

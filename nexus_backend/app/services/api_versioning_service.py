@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class VersionStatus(Enum):
     """API version status."""
+
     DEVELOPMENT = "development"
     BETA = "beta"
     STABLE = "stable"
@@ -28,6 +29,7 @@ class VersionStatus(Enum):
 @dataclass
 class APIVersion:
     """API version definition."""
+
     version: str
     status: VersionStatus
     release_date: str
@@ -52,10 +54,10 @@ class APIVersioningService:
 
     # Versioning strategies
     VERSION_STRATEGIES = {
-        "url",       # /v1/users, /v2/users
-        "header",    # X-API-Version: 1
-        "query",     # ?version=1
-        "content_type"  # Accept: application/vnd.api+json;version=1
+        "url",  # /v1/users, /v2/users
+        "header",  # X-API-Version: 1
+        "query",  # ?version=1
+        "content_type",  # Accept: application/vnd.api+json;version=1
     }
 
     def __init__(self, default_version: str = "1.0", strategy: str = "url"):
@@ -70,41 +72,33 @@ class APIVersioningService:
 
     def _init_default_versions(self):
         """Initialize default API versions."""
-        self.register_version(APIVersion(
-            version="1.0",
-            status=VersionStatus.STABLE,
-            release_date="2024-01-01",
-            changelog=[
-                "Initial API release",
-                "Core endpoints for chat, documents, users"
-            ]
-        ))
+        self.register_version(
+            APIVersion(
+                version="1.0",
+                status=VersionStatus.STABLE,
+                release_date="2024-01-01",
+                changelog=["Initial API release", "Core endpoints for chat, documents, users"],
+            )
+        )
 
-        self.register_version(APIVersion(
-            version="1.1",
-            status=VersionStatus.STABLE,
-            release_date="2024-06-01",
-            changelog=[
-                "Added streaming support",
-                "Added multimodal endpoints",
-                "Improved error responses"
-            ]
-        ))
+        self.register_version(
+            APIVersion(
+                version="1.1",
+                status=VersionStatus.STABLE,
+                release_date="2024-06-01",
+                changelog=["Added streaming support", "Added multimodal endpoints", "Improved error responses"],
+            )
+        )
 
-        self.register_version(APIVersion(
-            version="2.0",
-            status=VersionStatus.BETA,
-            release_date="2024-12-01",
-            changelog=[
-                "New Agent framework",
-                "Enhanced RAG capabilities",
-                "Multi-tenant improvements"
-            ],
-            breaking_changes=[
-                "Changed response format for /chat endpoint",
-                "Removed deprecated /legacy endpoints"
-            ]
-        ))
+        self.register_version(
+            APIVersion(
+                version="2.0",
+                status=VersionStatus.BETA,
+                release_date="2024-12-01",
+                changelog=["New Agent framework", "Enhanced RAG capabilities", "Multi-tenant improvements"],
+                breaking_changes=["Changed response format for /chat endpoint", "Removed deprecated /legacy endpoints"],
+            )
+        )
 
     def register_version(self, version: APIVersion):
         """Register an API version."""
@@ -137,18 +131,13 @@ class APIVersioningService:
 
         # Sort by version number
         def parse_version(v):
-            parts = v.version.split('.')
+            parts = v.version.split(".")
             return tuple(int(p) for p in parts)
 
         versions.sort(key=parse_version, reverse=True)
         return versions[0]
 
-    def parse_version_from_request(
-        self,
-        path: str = None,
-        headers: dict = None,
-        query_params: dict = None
-    ) -> str:
+    def parse_version_from_request(self, path: str = None, headers: dict = None, query_params: dict = None) -> str:
         """
         Parse API version from request.
 
@@ -164,10 +153,10 @@ class APIVersioningService:
 
         if self.strategy == "url" and path:
             # Extract version from URL path: /v1/users -> 1
-            match = re.match(r'/v(\d+(?:\.\d+)?)/', path)
+            match = re.match(r"/v(\d+(?:\.\d+)?)/", path)
             if match:
                 version = match.group(1)
-                if '.' not in version:
+                if "." not in version:
                     version = f"{version}.0"
 
         elif self.strategy == "header" and headers:
@@ -181,7 +170,7 @@ class APIVersioningService:
         elif self.strategy == "content_type" and headers:
             # Parse version from Accept header
             accept = headers.get("Accept", "")
-            match = re.search(r'version=(\d+(?:\.\d+)?)', accept)
+            match = re.search(r"version=(\d+(?:\.\d+)?)", accept)
             if match:
                 version = match.group(1)
 
@@ -211,7 +200,7 @@ class APIVersioningService:
             "deprecated": True,
             "sunset_date": api_version.sunset_date,
             "upgrade_to": latest.version if latest else None,
-            "message": f"API version {version} is deprecated and will be sunset on {api_version.sunset_date}"
+            "message": f"API version {version} is deprecated and will be sunset on {api_version.sunset_date}",
         }
 
     def get_version_headers(self, version: str) -> dict[str, str]:
@@ -220,10 +209,7 @@ class APIVersioningService:
         if not api_version:
             return {}
 
-        headers = {
-            "X-API-Version": version,
-            "X-API-Status": api_version.status.value
-        }
+        headers = {"X-API-Version": version, "X-API-Status": api_version.status.value}
 
         if api_version.status == VersionStatus.DEPRECATED:
             headers["Deprecation"] = "true"
@@ -245,21 +231,14 @@ class APIVersioningService:
                 "release_date": v.release_date,
                 "sunset_date": v.sunset_date,
                 "changelog": v.changelog,
-                "breaking_changes": v.breaking_changes if v.breaking_changes else None
+                "breaking_changes": v.breaking_changes if v.breaking_changes else None,
             }
             for v in sorted(
-                self._versions.values(),
-                key=lambda x: tuple(int(p) for p in x.version.split('.')),
-                reverse=True
+                self._versions.values(), key=lambda x: tuple(int(p) for p in x.version.split(".")), reverse=True
             )
         ]
 
-    async def deprecate_version(
-        self,
-        version: str,
-        sunset_date: str,
-        migration_guide: str = None
-    ):
+    async def deprecate_version(self, version: str, sunset_date: str, migration_guide: str = None):
         """
         Mark a version as deprecated.
 
@@ -300,12 +279,7 @@ class APIVersioningService:
         key = f"{version}:{endpoint}"
         return self._version_handlers.get(key)
 
-    async def migrate_request(
-        self,
-        request_data: dict,
-        from_version: str,
-        to_version: str
-    ) -> dict:
+    async def migrate_request(self, request_data: dict, from_version: str, to_version: str) -> dict:
         """
         Migrate request data between versions.
 
@@ -336,6 +310,5 @@ import asyncio  # noqa: E402
 
 # Global instance
 api_versioning_service = APIVersioningService(
-    default_version=os.getenv("API_DEFAULT_VERSION", "1.0"),
-    strategy=os.getenv("API_VERSION_STRATEGY", "url")
+    default_version=os.getenv("API_DEFAULT_VERSION", "1.0"), strategy=os.getenv("API_VERSION_STRATEGY", "url")
 )

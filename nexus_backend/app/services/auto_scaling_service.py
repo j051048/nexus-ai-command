@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class ScalingAction(Enum):
     """Scaling actions."""
+
     SCALE_UP = "scale_up"
     SCALE_DOWN = "scale_down"
     NO_ACTION = "no_action"
@@ -25,6 +26,7 @@ class ScalingAction(Enum):
 
 class ResourceType(Enum):
     """Resource types for scaling."""
+
     WORKERS = "workers"
     LLM_THREADS = "llm_threads"
     DB_CONNECTIONS = "db_connections"
@@ -35,6 +37,7 @@ class ResourceType(Enum):
 @dataclass
 class ScalingMetric:
     """Metric for scaling decisions."""
+
     name: str
     current_value: float
     threshold_high: float
@@ -46,6 +49,7 @@ class ScalingMetric:
 @dataclass
 class ScalingDecision:
     """Scaling decision result."""
+
     action: ScalingAction
     resource_type: ResourceType
     current_size: int
@@ -58,6 +62,7 @@ class ScalingDecision:
 @dataclass
 class ScalingConfig:
     """Configuration for a scalable resource."""
+
     resource_type: ResourceType
     min_size: int
     max_size: int
@@ -86,9 +91,9 @@ class AutoScalingService:
             resource_type=ResourceType.WORKERS,
             min_size=2,
             max_size=20,
-            scale_up_threshold=0.8,   # 80% utilization
+            scale_up_threshold=0.8,  # 80% utilization
             scale_down_threshold=0.3,  # 30% utilization
-            cooldown_seconds=60
+            cooldown_seconds=60,
         ),
         ResourceType.LLM_THREADS: ScalingConfig(
             resource_type=ResourceType.LLM_THREADS,
@@ -96,7 +101,7 @@ class AutoScalingService:
             max_size=50,
             scale_up_threshold=0.7,
             scale_down_threshold=0.2,
-            cooldown_seconds=30
+            cooldown_seconds=30,
         ),
         ResourceType.DB_CONNECTIONS: ScalingConfig(
             resource_type=ResourceType.DB_CONNECTIONS,
@@ -104,7 +109,7 @@ class AutoScalingService:
             max_size=30,
             scale_up_threshold=0.75,
             scale_down_threshold=0.25,
-            cooldown_seconds=120
+            cooldown_seconds=120,
         ),
         ResourceType.CACHE_SIZE: ScalingConfig(
             resource_type=ResourceType.CACHE_SIZE,
@@ -112,15 +117,13 @@ class AutoScalingService:
             max_size=10000,
             scale_up_threshold=0.9,
             scale_down_threshold=0.5,
-            cooldown_seconds=300
+            cooldown_seconds=300,
         ),
     }
 
     def __init__(self):
         self.configs: dict[ResourceType, ScalingConfig] = dict(self.DEFAULT_CONFIGS)
-        self.current_sizes: dict[ResourceType, int] = {
-            rt: config.min_size for rt, config in self.configs.items()
-        }
+        self.current_sizes: dict[ResourceType, int] = {rt: config.min_size for rt, config in self.configs.items()}
         self._last_scaling: dict[ResourceType, float] = {}
         self._metrics_history: dict[ResourceType, list[ScalingMetric]] = {}
         self._scaling_history: list[ScalingDecision] = []
@@ -184,7 +187,7 @@ class AutoScalingService:
                 current_size=0,
                 target_size=0,
                 reason="Resource not configured",
-                metrics={}
+                metrics={},
             )
 
         current_size = self.current_sizes.get(resource_type, config.min_size)
@@ -199,7 +202,7 @@ class AutoScalingService:
                 current_size=current_size,
                 target_size=current_size,
                 reason=f"Cooldown period active ({config.cooldown_seconds}s)",
-                metrics=self._get_latest_metrics(metrics)
+                metrics=self._get_latest_metrics(metrics),
             )
 
         # Calculate average utilization
@@ -210,7 +213,7 @@ class AutoScalingService:
                 current_size=current_size,
                 target_size=current_size,
                 reason="No metrics available",
-                metrics={}
+                metrics={},
             )
 
         # Use recent metrics (last 5)
@@ -228,7 +231,7 @@ class AutoScalingService:
                     current_size=current_size,
                     target_size=new_size,
                     reason=f"Utilization {avg_utilization:.1%} >= threshold {config.scale_up_threshold:.1%}",
-                    metrics=self._get_latest_metrics(metrics)
+                    metrics=self._get_latest_metrics(metrics),
                 )
 
         elif avg_utilization <= config.scale_down_threshold:
@@ -241,7 +244,7 @@ class AutoScalingService:
                     current_size=current_size,
                     target_size=new_size,
                     reason=f"Utilization {avg_utilization:.1%} <= threshold {config.scale_down_threshold:.1%}",
-                    metrics=self._get_latest_metrics(metrics)
+                    metrics=self._get_latest_metrics(metrics),
                 )
 
         return ScalingDecision(
@@ -250,7 +253,7 @@ class AutoScalingService:
             current_size=current_size,
             target_size=current_size,
             reason="Within optimal range",
-            metrics=self._get_latest_metrics(metrics)
+            metrics=self._get_latest_metrics(metrics),
         )
 
     def _get_latest_metrics(self, metrics: list[ScalingMetric]) -> dict[str, float]:
@@ -342,10 +345,10 @@ class AutoScalingService:
                     "current": d.current_size,
                     "target": d.target_size,
                     "reason": d.reason,
-                    "timestamp": d.timestamp
+                    "timestamp": d.timestamp,
                 }
                 for d in self._scaling_history[-10:]
-            ]
+            ],
         }
 
     def get_cost_savings(self) -> dict[str, Any]:
@@ -364,11 +367,11 @@ class AutoScalingService:
                 {
                     "resource": rt.value,
                     "current_size": self.current_sizes.get(rt, 0),
-                    "recommended_size": self.evaluate_scaling(rt).target_size
+                    "recommended_size": self.evaluate_scaling(rt).target_size,
                 }
                 for rt in self.configs
                 if self.evaluate_scaling(rt).action == ScalingAction.SCALE_DOWN
-            ]
+            ],
         }
 
 

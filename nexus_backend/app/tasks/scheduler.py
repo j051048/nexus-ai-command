@@ -35,6 +35,7 @@ def push_daily_briefing():
     3.1 每日晨报推送
     每天早8点推送给所有 manager/founder 角色用户
     """
+
     async def _run():
         from app.core.database import supabase
         from app.services.notification_service import send_notification
@@ -45,9 +46,7 @@ def push_daily_briefing():
             return "skipped: no db"
 
         # 查询所有管理层用户 (founder = boss, manager = 管理者)
-        result = await supabase.table("users").select("id, role").in_(
-            "role", ["manager", "founder"]
-        ).execute()
+        result = await supabase.table("users").select("id, role").in_("role", ["manager", "founder"]).execute()
         users = result.data or []
 
         tool = DailyBriefingTool()
@@ -75,6 +74,7 @@ def mine_sales_leads():
     3.3 商机线索挖掘
     扫描7天+未跟进的线索，生成AI跟进建议并通知负责人
     """
+
     async def _run():
         from app.core.database import supabase
         from app.services.ai_service import AIService
@@ -85,9 +85,14 @@ def mine_sales_leads():
 
         seven_days_ago = (datetime.now() - timedelta(days=7)).isoformat()
 
-        result = await supabase.table("sales_leads").select(
-            "id, company_name, status, assigned_to, updated_at"
-        ).eq("status", "lead").lt("updated_at", seven_days_ago).limit(20).execute()
+        result = (
+            await supabase.table("sales_leads")
+            .select("id, company_name, status, assigned_to, updated_at")
+            .eq("status", "lead")
+            .lt("updated_at", seven_days_ago)
+            .limit(20)
+            .execute()
+        )
 
         stale_leads = result.data or []
         if not stale_leads:
@@ -97,9 +102,8 @@ def mine_sales_leads():
         for lead in stale_leads:
             try:
                 suggestion = await AIService.call_llm(
-                    f"商机: {lead['company_name']}, 状态: {lead['status']}, "
-                    f"最后更新: {lead['updated_at']}",
-                    "你是销售顾问。这个线索已经超过7天未跟进，请给出简短的跟进建议（1-2句话）。"
+                    f"商机: {lead['company_name']}, 状态: {lead['status']}, " f"最后更新: {lead['updated_at']}",
+                    "你是销售顾问。这个线索已经超过7天未跟进，请给出简短的跟进建议（1-2句话）。",
                 )
                 if lead.get("assigned_to"):
                     await send_notification(
@@ -122,6 +126,7 @@ def monitor_competitors():
     3.4 竞品监控
     查询竞品分析记录，生成AI竞品动态分析
     """
+
     async def _run():
         from app.core.database import supabase
         from app.services.ai_service import AIService
@@ -132,9 +137,13 @@ def monitor_competitors():
 
         # 查询近期竞品分析
         try:
-            result = await supabase.table("battlecard_analyses").select(
-                "id, competitor_name, user_id, created_at"
-            ).order("created_at", desc=True).limit(10).execute()
+            result = (
+                await supabase.table("battlecard_analyses")
+                .select("id, competitor_name, user_id, created_at")
+                .order("created_at", desc=True)
+                .limit(10)
+                .execute()
+            )
         except Exception:
             logger.info("battlecard_analyses table not available")
             return "skipped: table not available"
@@ -151,7 +160,7 @@ def monitor_competitors():
         try:
             analysis = await AIService.call_llm(
                 f"我们跟踪的竞品列表: {', '.join(competitors[:5])}",
-                "你是竞争情报分析师。根据竞品列表，生成简短的竞品动态提醒（3-5条要点），用中文。"
+                "你是竞争情报分析师。根据竞品列表，生成简短的竞品动态提醒（3-5条要点），用中文。",
             )
 
             # 通知所有相关用户
@@ -177,6 +186,7 @@ def check_contract_expiry():
     3.5 合同到期预警
     查询30天内到期的合同，发送预警通知
     """
+
     async def _run():
         from app.core.database import supabase
         from app.services.notification_service import NotificationPriority, send_notification
@@ -188,11 +198,14 @@ def check_contract_expiry():
         today = datetime.now().strftime("%Y-%m-%d")
 
         try:
-            result = await supabase.table("contracts").select(
-                "id, title, end_date, user_id, status"
-            ).gte("end_date", today).lte("end_date", thirty_days_later).eq(
-                "status", "active"
-            ).execute()
+            result = (
+                await supabase.table("contracts")
+                .select("id, title, end_date, user_id, status")
+                .gte("end_date", today)
+                .lte("end_date", thirty_days_later)
+                .eq("status", "active")
+                .execute()
+            )
         except Exception:
             logger.info("contracts table not available")
             return "skipped: table not available"

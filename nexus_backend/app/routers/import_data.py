@@ -149,9 +149,7 @@ async def import_customers(
 
 
 @router.get("/templates/{template_type}")
-async def get_import_template(
-    template_type: str, user_id: str = Depends(get_current_user_id)
-):
+async def get_import_template(template_type: str, user_id: str = Depends(get_current_user_id)):
     """
     下载导入模板（CSV 格式）
 
@@ -166,9 +164,7 @@ async def get_import_template(
         return PlainTextResponse(
             content=template_content,
             media_type="text/csv",
-            headers={
-                "Content-Disposition": f"attachment; filename={template_type}_template.csv"
-            },
+            headers={"Content-Disposition": f"attachment; filename={template_type}_template.csv"},
         )
 
     except ValueError as e:
@@ -179,9 +175,7 @@ async def get_import_template(
 
 
 @router.post("/preview")
-async def preview_import_data(
-    file: UploadFile = File(...), user_id: str = Depends(get_current_user_id)
-):
+async def preview_import_data(file: UploadFile = File(...), user_id: str = Depends(get_current_user_id)):
     """
     预览导入数据
 
@@ -200,9 +194,7 @@ async def preview_import_data(
 
     try:
         # 预览数据
-        preview_data = await ImportService.preview(
-            contents=contents, filename=file.filename or "unknown.csv"
-        )
+        preview_data = await ImportService.preview(contents=contents, filename=file.filename or "unknown.csv")
 
         return api_success(data=preview_data)
 

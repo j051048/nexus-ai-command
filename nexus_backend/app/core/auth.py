@@ -72,9 +72,7 @@ async def get_current_user_id(request: Request = None, authorization: str | None
             return user_id
 
     if not authorization:
-        raise HTTPException(
-            status_code=401, detail="缺少身份认证信息 (Missing Authorization Header)"
-        )
+        raise HTTPException(status_code=401, detail="缺少身份认证信息 (Missing Authorization Header)")
 
     try:
         # P0 Security Fix #8: Remove test: prefix authentication entirely
@@ -171,9 +169,7 @@ async def get_current_user_id(request: Request = None, authorization: str | None
         if not payload:
             error_msg = "身份验签失败 (Authentication failed)"
             if last_error:
-                logger.warning(
-                    f"Auth failure reason: {type(last_error).__name__}: {last_error}"
-                )
+                logger.warning(f"Auth failure reason: {type(last_error).__name__}: {last_error}")
             raise HTTPException(status_code=401, detail=error_msg)
 
         user_id = payload.get("sub") or payload.get("id")
@@ -189,6 +185,4 @@ async def get_current_user_id(request: Request = None, authorization: str | None
         raise
     except Exception as e:
         logger.exception(f"Unexpected auth error: {e}")
-        raise HTTPException(
-            status_code=401, detail="认证执行异常 (Authentication error)"
-        )
+        raise HTTPException(status_code=401, detail="认证执行异常 (Authentication error)")

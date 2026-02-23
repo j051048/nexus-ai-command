@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class IntegrationType(Enum):
     """Categories of third-party integrations."""
+
     MESSAGING = "messaging"
     CRM = "crm"
     STORAGE = "storage"
@@ -27,6 +28,7 @@ class IntegrationType(Enum):
 
 class IntegrationStatus(Enum):
     """Lifecycle status of an integration."""
+
     ACTIVE = "active"
     INACTIVE = "inactive"
     ERROR = "error"
@@ -36,6 +38,7 @@ class IntegrationStatus(Enum):
 @dataclass
 class IntegrationConfig:
     """Configuration for a specific integration instance."""
+
     integration_id: str
     org_id: str
     type: IntegrationType
@@ -183,10 +186,7 @@ class ThirdPartyIntegrationService:
     and will return a development warning.
     """
 
-    _DEV_WARNING = (
-        "This connector is a stub implementation. "
-        "Real integration is not yet available."
-    )
+    _DEV_WARNING = "This connector is a stub implementation. " "Real integration is not yet available."
 
     CONNECTOR_REGISTRY: dict[str, type] = {
         "slack": SlackConnector,
@@ -238,9 +238,7 @@ class ThirdPartyIntegrationService:
         if config:
             config.status = IntegrationStatus.INACTIVE
 
-    async def send(
-        self, integration_id: str, action: str, payload: dict
-    ) -> dict:
+    async def send(self, integration_id: str, action: str, payload: dict) -> dict:
         """Send a message via an active integration."""
         connector = self._active_connections.get(integration_id)
         if not connector:
@@ -254,11 +252,13 @@ class ThirdPartyIntegrationService:
             result.append({"name": name, "status": "available"})
         # Stubs for planned connectors
         for stub_name in ("salesforce", "hubspot", "jira", "notion", "google_drive"):
-            result.append({
-                "name": stub_name,
-                "status": "planned",
-                "_dev_warning": self._DEV_WARNING,
-            })
+            result.append(
+                {
+                    "name": stub_name,
+                    "status": "planned",
+                    "_dev_warning": self._DEV_WARNING,
+                }
+            )
         return result
 
     def list_integrations(self, org_id: str = None) -> list[dict]:

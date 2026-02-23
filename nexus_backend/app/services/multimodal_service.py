@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 class InputType(Enum):
     """Types of multimodal input."""
+
     TEXT = "text"
     IMAGE = "image"
     VOICE = "voice"
@@ -32,6 +33,7 @@ class InputType(Enum):
 
 class FileCategory(Enum):
     """Categories of files."""
+
     DOCUMENT = "document"
     SPREADSHEET = "spreadsheet"
     IMAGE = "image"
@@ -45,6 +47,7 @@ class FileCategory(Enum):
 @dataclass
 class MultimodalInput:
     """Multimodal input data."""
+
     input_type: InputType
     content: Any
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -58,6 +61,7 @@ class MultimodalInput:
 @dataclass
 class ProcessedInput:
     """Processed multimodal input ready for LLM."""
+
     text_content: str = ""
     image_urls: list[str] = field(default_factory=list)
     image_descriptions: list[str] = field(default_factory=list)
@@ -94,7 +98,7 @@ class MultimodalService:
     # Max file sizes (in bytes)
     MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10MB
     MAX_AUDIO_SIZE = 50 * 1024 * 1024  # 50MB
-    MAX_FILE_SIZE = 20 * 1024 * 1024   # 20MB
+    MAX_FILE_SIZE = 20 * 1024 * 1024  # 20MB
 
     def __init__(self):
         self._openai_client = None
@@ -121,6 +125,7 @@ class MultimodalService:
             return config["vision_model"]
         try:
             from app.core.config import settings
+
             return getattr(settings, "AI_VISION_MODEL", None) or settings.AI_DEFAULT_MODEL or "gpt-4o-mini"
         except Exception:
             return "gpt-4o-mini"
@@ -163,9 +168,7 @@ class MultimodalService:
 
         return result
 
-    async def _process_image(
-        self, input_data: MultimodalInput, config: dict | None = None
-    ) -> dict:
+    async def _process_image(self, input_data: MultimodalInput, config: dict | None = None) -> dict:
         """Process image input — supports base64, bytes, and URL."""
         result: dict[str, Any] = {"urls": [], "description": ""}
 
@@ -199,9 +202,7 @@ class MultimodalService:
         client = self._get_openai_client()
         if client and image_url:
             try:
-                description = await self._analyze_image_with_llm(
-                    image_url, config
-                )
+                description = await self._analyze_image_with_llm(image_url, config)
                 result["description"] = description
             except Exception as e:
                 logger.warning(f"Image analysis failed: {e}")
@@ -209,9 +210,7 @@ class MultimodalService:
 
         return result
 
-    async def _analyze_image_with_llm(
-        self, image_url: str, config: dict | None = None
-    ) -> str:
+    async def _analyze_image_with_llm(self, image_url: str, config: dict | None = None) -> str:
         """Analyze image content using vision model with context-aware prompts."""
         client = self._get_openai_client()
         if not client:
@@ -328,9 +327,7 @@ class MultimodalService:
 
         # Extract text content based on file type
         if mime_type in self.SUPPORTED_DOC_TYPES:
-            content = await self._extract_document_content(
-                input_data.content, mime_type
-            )
+            content = await self._extract_document_content(input_data.content, mime_type)
             result["content"] = content
         else:
             result["content"] = f"[文件: {file_name}]"
@@ -355,9 +352,7 @@ class MultimodalService:
             return FileCategory.CODE
         return FileCategory.OTHER
 
-    async def _extract_document_content(
-        self, content: Any, mime_type: str
-    ) -> str:
+    async def _extract_document_content(self, content: Any, mime_type: str) -> str:
         """Extract text content from document."""
         if mime_type in ("text/plain", "text/csv"):
             if isinstance(content, bytes):
@@ -438,17 +433,21 @@ class MultimodalService:
 
         # Add images
         for url in processed.image_urls:
-            parts.append({
-                "type": "image_url",
-                "image_url": {"url": url},
-            })
+            parts.append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": url},
+                }
+            )
 
         # Add file context
         if processed.file_contents:
-            file_context = "\n".join([
-                f"附件: {f['metadata'].get('file_name', 'unknown')}\n{f['content'][:500]}"
-                for f in processed.file_contents
-            ])
+            file_context = "\n".join(
+                [
+                    f"附件: {f['metadata'].get('file_name', 'unknown')}\n{f['content'][:500]}"
+                    for f in processed.file_contents
+                ]
+            )
             parts.append({"type": "text", "text": f"\n[附件内容]\n{file_context}"})
 
         return parts

@@ -106,9 +106,7 @@ class APIKeyService:
             logger.error(f"创建 API Key 失败: {e}")
             raise
 
-    async def validate_api_key(
-        self, key_string: str, required_scope: str | None = None, db=None
-    ) -> dict | None:
+    async def validate_api_key(self, key_string: str, required_scope: str | None = None, db=None) -> dict | None:
         """
         验证 API Key 并返回关联信息
 
@@ -122,6 +120,7 @@ class APIKeyService:
         """
         if not db:
             from app.core.database import supabase
+
             db = supabase
 
         if not db:
@@ -131,12 +130,7 @@ class APIKeyService:
 
         try:
             result = await (
-                db.table("api_keys")
-                .select("*")
-                .eq("key_hash", key_hash)
-                .eq("is_active", True)
-                .single()
-                .execute()
+                db.table("api_keys").select("*").eq("key_hash", key_hash).eq("is_active", True).single().execute()
             )
 
             if not result.data:
@@ -166,10 +160,12 @@ class APIKeyService:
             with contextlib.suppress(Exception):
                 await (
                     db.table("api_keys")
-                    .update({
-                        "last_used_at": datetime.now(UTC).isoformat(),
-                        "usage_count": key_data.get("usage_count", 0) + 1,
-                    })
+                    .update(
+                        {
+                            "last_used_at": datetime.now(UTC).isoformat(),
+                            "usage_count": key_data.get("usage_count", 0) + 1,
+                        }
+                    )
                     .eq("id", key_data["id"])
                     .execute()
                 )
@@ -233,12 +229,7 @@ class APIKeyService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            result = await (
-                db.table("api_keys")
-                .update({"is_active": False})
-                .eq("id", key_id)
-                .execute()
-            )
+            result = await db.table("api_keys").update({"is_active": False}).eq("id", key_id).execute()
 
             if result.data:
                 logger.info(f"API Key 已撤销: {key_id}")
@@ -249,9 +240,7 @@ class APIKeyService:
             logger.error(f"撤销 API Key 失败: {e}")
             raise
 
-    async def get_api_usage(
-        self, key_id: str, date_range: dict | None = None, db=None
-    ) -> dict:
+    async def get_api_usage(self, key_id: str, date_range: dict | None = None, db=None) -> dict:
         """
         获取 API Key 使用统计
 
@@ -280,11 +269,7 @@ class APIKeyService:
                 return {"error": "API Key 不存在"}
 
             # 获取使用日志
-            query = (
-                db.table("api_usage_logs")
-                .select("*")
-                .eq("api_key_id", key_id)
-            )
+            query = db.table("api_usage_logs").select("*").eq("api_key_id", key_id)
 
             if date_range:
                 if date_range.get("from"):
@@ -299,9 +284,7 @@ class APIKeyService:
             total_calls = len(logs)
             success_calls = sum(1 for log_entry in logs if 200 <= (log_entry.get("status_code") or 0) < 400)
             avg_response_time = (
-                sum(log_entry.get("response_time_ms", 0) for log_entry in logs) / total_calls
-                if total_calls > 0
-                else 0
+                sum(log_entry.get("response_time_ms", 0) for log_entry in logs) / total_calls if total_calls > 0 else 0
             )
 
             # 按端点统计
@@ -344,6 +327,7 @@ class APIKeyService:
         """
         if not db:
             from app.core.database import supabase
+
             db = supabase
 
         if not db:
@@ -352,13 +336,15 @@ class APIKeyService:
         try:
             await (
                 db.table("api_usage_logs")
-                .insert({
-                    "api_key_id": key_id,
-                    "endpoint": endpoint,
-                    "method": method,
-                    "status_code": status_code,
-                    "response_time_ms": response_time_ms,
-                })
+                .insert(
+                    {
+                        "api_key_id": key_id,
+                        "endpoint": endpoint,
+                        "method": method,
+                        "status_code": status_code,
+                        "response_time_ms": response_time_ms,
+                    }
+                )
                 .execute()
             )
         except Exception as e:

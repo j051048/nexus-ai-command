@@ -61,9 +61,7 @@ def require_permission(permission: str):
         )
 
         if not has_perm:
-            logger.warning(
-                f"Permission denied: user={user_id}, permission={permission}"
-            )
+            logger.warning(f"Permission denied: user={user_id}, permission={permission}")
             raise api_error(
                 ErrorCode.AUTH_PERMISSION_DENIED,
                 f"缺少权限: {permission}",
@@ -105,10 +103,7 @@ def require_permission_with_resource(permission: str):
         )
 
         if not has_perm:
-            logger.warning(
-                f"Permission denied: user={user_id}, "
-                f"permission={permission}, resource={resource}"
-            )
+            logger.warning(f"Permission denied: user={user_id}, " f"permission={permission}, resource={resource}")
             raise api_error(
                 ErrorCode.AUTH_PERMISSION_DENIED,
                 f"缺少权限: {permission}",

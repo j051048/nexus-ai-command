@@ -31,9 +31,7 @@ async def list_contracts(
             filters["contract_type"] = contract_type
         if search:
             filters["search"] = search
-        contracts = await contract_service.list_contracts(
-            org_id=org_id, filters=filters if filters else None, db=db
-        )
+        contracts = await contract_service.list_contracts(org_id=org_id, filters=filters if filters else None, db=db)
         return api_success(data={"contracts": contracts})
     except Exception as e:
         logger.error(f"Failed to list contracts: {e}")
@@ -51,9 +49,7 @@ async def create_contract(
         org_id = getattr(req.state, "org_id", None) or "default"
         db = getattr(req.state, "db", None)
         body["created_by"] = user_id
-        result = await contract_service.create_contract(
-            org_id=org_id, data=body, db=db
-        )
+        result = await contract_service.create_contract(org_id=org_id, data=body, db=db)
         return api_success(data={"contract": result}, message="合同创建成功")
     except ValueError as e:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
@@ -88,9 +84,7 @@ async def get_expiring_contracts(
     try:
         org_id = getattr(req.state, "org_id", None) or "default"
         db = getattr(req.state, "db", None)
-        contracts = await contract_service.get_expiring_contracts(
-            org_id=org_id, days=days, db=db
-        )
+        contracts = await contract_service.get_expiring_contracts(org_id=org_id, days=days, db=db)
         return api_success(data={"contracts": contracts})
     except Exception as e:
         logger.error(f"Failed to get expiring contracts: {e}")
@@ -121,9 +115,7 @@ async def update_contract(
     try:
         body = await req.json()
         db = getattr(req.state, "db", None)
-        result = await contract_service.update_contract(
-            contract_id=contract_id, data=body, db=db
-        )
+        result = await contract_service.update_contract(contract_id=contract_id, data=body, db=db)
         return api_success(data={"contract": result}, message="合同已更新")
     except ValueError as e:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
@@ -141,9 +133,7 @@ async def get_contract_events(
     """获取合同事件时间线"""
     try:
         db = getattr(req.state, "db", None)
-        events = await contract_service.get_contract_events(
-            contract_id=contract_id, db=db
-        )
+        events = await contract_service.get_contract_events(contract_id=contract_id, db=db)
         return api_success(data={"events": events})
     except Exception as e:
         logger.error(f"Failed to get contract events: {e}")

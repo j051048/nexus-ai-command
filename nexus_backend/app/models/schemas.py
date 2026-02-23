@@ -26,9 +26,7 @@ class StandardResponse(BaseModel):
 class PerformanceEvent(BaseModel):
     user_id: str = Field(..., description="ID of the user performing the action")
     event_type: Literal["call_finished", "email_sent", "lead_updated", "deal_won"]
-    data: dict = Field(
-        ..., description="Context data: duration, sentiment_score, deal_value etc"
-    )
+    data: dict = Field(..., description="Context data: duration, sentiment_score, deal_value etc")
     timestamp: datetime = Field(default_factory=datetime.now)
 
 
@@ -69,9 +67,7 @@ class ApprovalDecision(BaseModel):
 
 class IncentiveTrigger(BaseModel):
     user_id: str
-    trigger_type: Literal[
-        "daily_target_hit", "deal_closed", "rank_top_3", "manual_bonus"
-    ]
+    trigger_type: Literal["daily_target_hit", "deal_closed", "rank_top_3", "manual_bonus"]
     context: dict = Field(default_factory=dict)
 
 
@@ -160,7 +156,5 @@ class ChatRequest(BaseModel):
     messages: list[Message]
     agent: str | None = None
     userId: str | None = None  # noqa: N815  # Support legacy field
-    system_confirmed: bool = (
-        False  # P0 Fix #2: Explicit user confirmation from frontend
-    )
+    system_confirmed: bool = False  # P0 Fix #2: Explicit user confirmation from frontend
     sessionId: str | None = "default"  # noqa: N815

@@ -17,9 +17,7 @@ try:
     _FERNET_AVAILABLE = True
 except ImportError:
     _FERNET_AVAILABLE = False
-    logger.warning(
-        "cryptography package not found. Data will be stored as base64 (UNSECURE)."
-    )
+    logger.warning("cryptography package not found. Data will be stored as base64 (UNSECURE).")
 
 
 class EncryptionService:
@@ -34,9 +32,7 @@ class EncryptionService:
             return Fernet(settings.ENCRYPTION_KEY.encode())
         except Exception as e:
             logger.error(f"Failed to initialize Fernet: {e}")
-            raise ValueError(
-                f"Invalid ENCRYPTION_KEY or Fernet initialization error: {e}"
-            )
+            raise ValueError(f"Invalid ENCRYPTION_KEY or Fernet initialization error: {e}")
 
     @staticmethod
     def encrypt(data: str) -> str:
@@ -81,9 +77,7 @@ class EncryptionService:
             return fernet.decrypt(encrypted_data.encode()).decode()
         except Exception as e:
             logger.warning(f"Fernet decryption failed: {e}")
-            raise ValueError(
-                "Decryption failed - data corrupted or encryption key mismatch"
-            )
+            raise ValueError("Decryption failed - data corrupted or encryption key mismatch")
 
 
 # Global instance

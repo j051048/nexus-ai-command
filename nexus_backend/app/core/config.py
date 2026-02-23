@@ -35,9 +35,7 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
 
     # Environment detection
-    ENV: str = Field(
-        default="development", description="Environment name (development, production)"
-    )
+    ENV: str = Field(default="development", description="Environment name (development, production)")
     DEBUG: bool = Field(default=False, description="Enable debug mode")
 
     # CORS Configuration
@@ -54,9 +52,7 @@ class Settings(BaseSettings):
         ],
         description="Allowed CORS origins",
     )
-    ADDITIONAL_ALLOWED_ORIGINS: str | None = Field(
-        default=None, description="Comma-separated additional CORS origins"
-    )
+    ADDITIONAL_ALLOWED_ORIGINS: str | None = Field(default=None, description="Comma-separated additional CORS origins")
 
     # --- Rule Engine Thresholds ---
     APPROVAL_PURCHASE_AUTO_LIMIT: float = 15000.0
@@ -71,28 +67,18 @@ class Settings(BaseSettings):
     SCORE_DEAL_POINTS_PER_1000: float = 5.0
 
     # AI Configuration
-    OPENAI_API_KEY: str = Field(
-        default="", description="OpenAI API key (or compatible provider)"
-    )
+    OPENAI_API_KEY: str = Field(default="", description="OpenAI API key (or compatible provider)")
     AI_BASE_URL: str = Field(
         default="https://proxy.flydao.top/v1",
         description="Base URL for OpenAI-compatible API",
     )
-    AI_DEFAULT_MODEL: str = Field(
-        default="gpt-4o", description="Default AI model for general tasks"
-    )
+    AI_DEFAULT_MODEL: str = Field(default="gpt-4o", description="Default AI model for general tasks")
 
     # Database (read by database.py via os.getenv, declared here for validation)
     SUPABASE_URL: str = Field(default="", description="Supabase project URL")
-    SUPABASE_SERVICE_KEY: str = Field(
-        default="", description="Supabase service role key"
-    )
-    SUPABASE_JWT_SECRET: str | None = Field(
-        default=None, description="JWT secret for token verification"
-    )
-    JWT_SECRET: str | None = Field(
-        default=None, description="Alternative JWT secret key"
-    )
+    SUPABASE_SERVICE_KEY: str = Field(default="", description="Supabase service role key")
+    SUPABASE_JWT_SECRET: str | None = Field(default=None, description="JWT secret for token verification")
+    JWT_SECRET: str | None = Field(default=None, description="Alternative JWT secret key")
 
     # Redis
     REDIS_URL: str | None = Field(default=None, description="Redis connection URL")
@@ -101,18 +87,12 @@ class Settings(BaseSettings):
     SENTRY_DSN: str = Field(default="", description="Sentry DSN for error tracking")
 
     # Rate limiting
-    RATE_LIMIT_PER_MINUTE: int = Field(
-        default=60, description="API rate limit per minute"
-    )
+    RATE_LIMIT_PER_MINUTE: int = Field(default=60, description="API rate limit per minute")
     RATE_LIMIT_BURST: int = Field(default=10, description="Rate limit burst size")
 
     # File upload
-    MAX_FILE_SIZE_MB: int = Field(
-        default=50, description="Maximum file upload size in MB"
-    )
-    MAX_CHAT_HISTORY: int = Field(
-        default=10, description="Maximum chat message history window size"
-    )
+    MAX_FILE_SIZE_MB: int = Field(default=50, description="Maximum file upload size in MB")
+    MAX_CHAT_HISTORY: int = Field(default=10, description="Maximum chat message history window size")
     ALLOWED_FILE_TYPES: list[str] = Field(
         default=[
             ".pdf",
@@ -128,53 +108,31 @@ class Settings(BaseSettings):
         description="Allowed file upload extensions",
     )
 
-        # RAG Configuration
-    RAG_CHUNK_SIZE: int = Field(
-        default=600, description="Document chunk size for RAG embedding"
-    )
-    RAG_CHUNK_OVERLAP: int = Field(
-        default=100, description="Document chunk overlap for RAG embedding"
-    )
+    # RAG Configuration
+    RAG_CHUNK_SIZE: int = Field(default=600, description="Document chunk size for RAG embedding")
+    RAG_CHUNK_OVERLAP: int = Field(default=100, description="Document chunk overlap for RAG embedding")
 
     # LangGraph Agent Configuration
-    LANGGRAPH_MAX_ITERATIONS: int = Field(
-        default=5, description="Maximum plan-execute-reflect loop iterations"
-    )
-    LANGGRAPH_TOOL_TIMEOUT: int = Field(
-        default=30, description="Timeout in seconds for individual tool execution"
-    )
-    LANGGRAPH_GATHER_TIMEOUT: int = Field(
-        default=60, description="Timeout in seconds for parallel tool gather"
-    )
-    LANGGRAPH_ENABLE_RAG_INJECT: bool = Field(
-        default=True, description="Auto-inject RAG context into agent messages"
-    )
+    LANGGRAPH_MAX_ITERATIONS: int = Field(default=5, description="Maximum plan-execute-reflect loop iterations")
+    LANGGRAPH_TOOL_TIMEOUT: int = Field(default=30, description="Timeout in seconds for individual tool execution")
+    LANGGRAPH_GATHER_TIMEOUT: int = Field(default=60, description="Timeout in seconds for parallel tool gather")
+    LANGGRAPH_ENABLE_RAG_INJECT: bool = Field(default=True, description="Auto-inject RAG context into agent messages")
     LANGGRAPH_RAG_INJECT_THRESHOLD: float = Field(
         default=0.5, description="Minimum similarity threshold for RAG auto-injection"
     )
-    LANGGRAPH_RAG_INJECT_LIMIT: int = Field(
-        default=3, description="Max number of RAG chunks to auto-inject"
-    )
+    LANGGRAPH_RAG_INJECT_LIMIT: int = Field(default=3, description="Max number of RAG chunks to auto-inject")
     LANGGRAPH_REFLECT_USE_LLM: bool = Field(
         default=True, description="Use LLM for grounded hallucination detection in reflect node"
     )
-    LANGGRAPH_CHECKPOINTER: str = Field(
-        default="memory", description="Checkpointer backend: 'memory' or 'postgres'"
-    )
-    SEMANTIC_CACHE_THRESHOLD: float = Field(
-        default=0.95, description="Similarity threshold for semantic cache hits"
-    )
+    LANGGRAPH_CHECKPOINTER: str = Field(default="memory", description="Checkpointer backend: 'memory' or 'postgres'")
+    SEMANTIC_CACHE_THRESHOLD: float = Field(default=0.95, description="Similarity threshold for semantic cache hits")
 
     # Security
     # P1 Fix #42: Key for encryption
-    ENCRYPTION_KEY: str = Field(
-        default="", description="Master key for encrypting API keys"
-    )
+    ENCRYPTION_KEY: str = Field(default="", description="Master key for encrypting API keys")
 
     # Observability (OpenTelemetry)
-    OTEL_ENABLED: bool = Field(
-        default=False, description="Enable OpenTelemetry distributed tracing"
-    )
+    OTEL_ENABLED: bool = Field(default=False, description="Enable OpenTelemetry distributed tracing")
     OTEL_EXPORTER_ENDPOINT: str = Field(
         default="", description="OTLP exporter gRPC endpoint (e.g. http://localhost:4317)"
     )
@@ -182,65 +140,35 @@ class Settings(BaseSettings):
     # B2: Notification Channel Configuration
     # Email (SMTP)
     SMTP_HOST: str | None = Field(default=None, description="SMTP server hostname")
-    SMTP_PORT: int = Field(
-        default=587, description="SMTP server port (587 for STARTTLS, 465 for SSL)"
-    )
+    SMTP_PORT: int = Field(default=587, description="SMTP server port (587 for STARTTLS, 465 for SSL)")
     SMTP_USER: str | None = Field(default=None, description="SMTP username")
     SMTP_PASSWORD: str | None = Field(default=None, description="SMTP password")
     SMTP_FROM: str | None = Field(default=None, description="Sender email address")
 
     # Wecom (企业微信) - Webhook
-    WECOM_WEBHOOK_URL: str | None = Field(
-        default=None, description="Wecom group bot webhook URL"
-    )
+    WECOM_WEBHOOK_URL: str | None = Field(default=None, description="Wecom group bot webhook URL")
     # Wecom (企业微信) - 深度集成
-    WECOM_CORP_ID: str = Field(
-        default="", description="企业微信 Corp ID"
-    )
-    WECOM_CORP_SECRET: str = Field(
-        default="", description="企业微信 Corp Secret (应用 Secret)"
-    )
-    WECOM_AGENT_ID: str = Field(
-        default="", description="企业微信 Agent ID (应用 AgentId)"
-    )
+    WECOM_CORP_ID: str = Field(default="", description="企业微信 Corp ID")
+    WECOM_CORP_SECRET: str = Field(default="", description="企业微信 Corp Secret (应用 Secret)")
+    WECOM_AGENT_ID: str = Field(default="", description="企业微信 Agent ID (应用 AgentId)")
 
     # Dingtalk (钉钉) - Webhook
-    DINGTALK_WEBHOOK_URL: str | None = Field(
-        default=None, description="Dingtalk group bot webhook URL"
-    )
-    DINGTALK_SECRET: str | None = Field(
-        default=None, description="Dingtalk webhook secret for signature"
-    )
+    DINGTALK_WEBHOOK_URL: str | None = Field(default=None, description="Dingtalk group bot webhook URL")
+    DINGTALK_SECRET: str | None = Field(default=None, description="Dingtalk webhook secret for signature")
     # Dingtalk (钉钉) - 深度集成
-    DINGTALK_APP_KEY: str = Field(
-        default="", description="钉钉 App Key"
-    )
-    DINGTALK_APP_SECRET: str = Field(
-        default="", description="钉钉 App Secret"
-    )
-    DINGTALK_AGENT_ID: str = Field(
-        default="", description="钉钉 Agent ID (应用 agentId)"
-    )
+    DINGTALK_APP_KEY: str = Field(default="", description="钉钉 App Key")
+    DINGTALK_APP_SECRET: str = Field(default="", description="钉钉 App Secret")
+    DINGTALK_AGENT_ID: str = Field(default="", description="钉钉 Agent ID (应用 agentId)")
 
     # Feishu (飞书) - Webhook
-    FEISHU_WEBHOOK_URL: str | None = Field(
-        default=None, description="Feishu group bot webhook URL"
-    )
+    FEISHU_WEBHOOK_URL: str | None = Field(default=None, description="Feishu group bot webhook URL")
     # Feishu (飞书) - 深度集成
-    FEISHU_APP_ID: str = Field(
-        default="", description="飞书 App ID"
-    )
-    FEISHU_APP_SECRET: str = Field(
-        default="", description="飞书 App Secret"
-    )
+    FEISHU_APP_ID: str = Field(default="", description="飞书 App ID")
+    FEISHU_APP_SECRET: str = Field(default="", description="飞书 App Secret")
 
     # Web Push VAPID
-    VAPID_PUBLIC_KEY: str = Field(
-        default="", description="VAPID public key for Web Push"
-    )
-    VAPID_PRIVATE_KEY: str = Field(
-        default="", description="VAPID private key for Web Push"
-    )
+    VAPID_PUBLIC_KEY: str = Field(default="", description="VAPID public key for Web Push")
+    VAPID_PRIVATE_KEY: str = Field(default="", description="VAPID private key for Web Push")
 
     # Computed properties
     @property
@@ -252,11 +180,7 @@ class Settings(BaseSettings):
         """Get all CORS origins including additional ones from env"""
         origins = list(self.CORS_ORIGINS)
         if self.ADDITIONAL_ALLOWED_ORIGINS:
-            extras = [
-                o.strip()
-                for o in self.ADDITIONAL_ALLOWED_ORIGINS.split(",")
-                if o.strip()
-            ]
+            extras = [o.strip() for o in self.ADDITIONAL_ALLOWED_ORIGINS.split(",") if o.strip()]
             origins.extend(extras)
         return origins
 
@@ -291,9 +215,7 @@ class Settings(BaseSettings):
                 errors.append("SUPABASE_SERVICE_KEY is required in production")
 
             if not self.SUPABASE_JWT_SECRET and not self.JWT_SECRET:
-                errors.append(
-                    "JWT secret (SUPABASE_JWT_SECRET or JWT_SECRET) is required in production"
-                )
+                errors.append("JWT secret (SUPABASE_JWT_SECRET or JWT_SECRET) is required in production")
 
             if self.DEBUG:
                 errors.append("DEBUG mode must be disabled in production")

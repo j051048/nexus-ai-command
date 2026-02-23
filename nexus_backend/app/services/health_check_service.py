@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class HealthStatus(Enum):
     """Health status levels."""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -29,6 +30,7 @@ class HealthStatus(Enum):
 @dataclass
 class HealthCheckResult:
     """Result of a health check."""
+
     name: str
     status: HealthStatus
     message: str
@@ -102,15 +104,11 @@ class HealthCheckService:
                 details={
                     "total_gb": round(memory.total / (1024**3), 2),
                     "used_gb": round(memory.used / (1024**3), 2),
-                    "percent": used_percent
-                }
+                    "percent": used_percent,
+                },
             )
         except ImportError:
-            return HealthCheckResult(
-                name="memory",
-                status=HealthStatus.UNKNOWN,
-                message="psutil not available"
-            )
+            return HealthCheckResult(name="memory", status=HealthStatus.UNKNOWN, message="psutil not available")
 
     async def _check_disk(self) -> HealthCheckResult:
         """Check disk usage."""
@@ -134,15 +132,11 @@ class HealthCheckService:
                 details={
                     "total_gb": round(usage.total / (1024**3), 2),
                     "used_gb": round(usage.used / (1024**3), 2),
-                    "free_gb": round(usage.free / (1024**3), 2)
-                }
+                    "free_gb": round(usage.free / (1024**3), 2),
+                },
             )
         except Exception as e:
-            return HealthCheckResult(
-                name="disk",
-                status=HealthStatus.UNKNOWN,
-                message=str(e)
-            )
+            return HealthCheckResult(name="disk", status=HealthStatus.UNKNOWN, message=str(e))
 
     async def _check_database(self) -> HealthCheckResult:
         """Check database connectivity."""
@@ -153,7 +147,7 @@ class HealthCheckService:
                 return HealthCheckResult(
                     name="database",
                     status=HealthStatus.DEGRADED,
-                    message="Database client not initialized (missing config or dependency)"
+                    message="Database client not initialized (missing config or dependency)",
                 )
 
             start = time.time()
@@ -167,15 +161,15 @@ class HealthCheckService:
                 name="database",
                 status=HealthStatus.HEALTHY,
                 message="Database connection OK",
-                latency_ms=round(latency, 2)
+                latency_ms=round(latency, 2),
             )
         except Exception as e:
-            latency = (time.time() - start) * 1000 if 'start' in locals() else 0
+            latency = (time.time() - start) * 1000 if "start" in locals() else 0
             return HealthCheckResult(
                 name="database",
                 status=HealthStatus.UNHEALTHY,
                 message=f"Database error: {str(e)}",
-                latency_ms=round(latency, 2)
+                latency_ms=round(latency, 2),
             )
 
     async def _check_redis(self) -> HealthCheckResult:
@@ -195,7 +189,7 @@ class HealthCheckService:
                     name="redis",
                     status=HealthStatus.DEGRADED,
                     message="Redis ping failed",
-                    latency_ms=round(latency, 2)
+                    latency_ms=round(latency, 2),
                 )
 
             # Report whether we're using real Redis or in-memory fallback
@@ -206,19 +200,14 @@ class HealthCheckService:
                 message = "Using in-memory cache fallback (Redis not configured or unavailable)"
                 status = HealthStatus.DEGRADED
 
-            return HealthCheckResult(
-                name="redis",
-                status=status,
-                message=message,
-                latency_ms=round(latency, 2)
-            )
+            return HealthCheckResult(name="redis", status=status, message=message, latency_ms=round(latency, 2))
         except Exception as e:
-            latency = (time.time() - start) * 1000 if 'start' in locals() else 0
+            latency = (time.time() - start) * 1000 if "start" in locals() else 0
             return HealthCheckResult(
                 name="redis",
                 status=HealthStatus.UNHEALTHY,
                 message=f"Redis error: {str(e)}",
-                latency_ms=round(latency, 2)
+                latency_ms=round(latency, 2),
             )
 
     async def run_check(self, name: str, check_func: Callable) -> HealthCheckResult:
@@ -232,11 +221,7 @@ class HealthCheckService:
                 result = check_func()
 
             if not isinstance(result, HealthCheckResult):
-                result = HealthCheckResult(
-                    name=name,
-                    status=HealthStatus.HEALTHY,
-                    message=str(result)
-                )
+                result = HealthCheckResult(name=name, status=HealthStatus.HEALTHY, message=str(result))
 
             return result
 
@@ -245,7 +230,7 @@ class HealthCheckService:
                 name=name,
                 status=HealthStatus.UNHEALTHY,
                 message=f"Check failed: {str(e)}",
-                latency_ms=(time.time() - start) * 1000
+                latency_ms=(time.time() - start) * 1000,
             )
 
     async def check_health(self) -> dict[str, Any]:
@@ -278,10 +263,10 @@ class HealthCheckService:
                     "status": r.status.value,
                     "message": r.message,
                     "latency_ms": r.latency_ms,
-                    "details": r.details
+                    "details": r.details,
                 }
                 for r in results
-            ]
+            ],
         }
 
     async def check_readiness(self) -> dict[str, Any]:
@@ -308,14 +293,9 @@ class HealthCheckService:
             "ready": is_ready,
             "timestamp": datetime.utcnow().isoformat(),
             "checks": [
-                {
-                    "name": r.name,
-                    "status": r.status.value,
-                    "message": r.message,
-                    "latency_ms": r.latency_ms
-                }
+                {"name": r.name, "status": r.status.value, "message": r.message, "latency_ms": r.latency_ms}
                 for r in results
-            ]
+            ],
         }
 
     async def check_startup(self) -> dict[str, Any]:
@@ -338,7 +318,7 @@ class HealthCheckService:
         return {
             "started": is_started,
             "timestamp": datetime.utcnow().isoformat(),
-            "uptime_seconds": int(time.time() - self._start_time)
+            "uptime_seconds": int(time.time() - self._start_time),
         }
 
     def get_liveness_endpoint(self) -> dict:
@@ -366,18 +346,14 @@ class HealthCheckService:
             "uptime_seconds": health["uptime_seconds"],
             "version": os.getenv("APP_VERSION", "1.0.0"),
             "environment": os.getenv("ENVIRONMENT", "development"),
-            "components": {
-                "health": health["checks"],
-                "readiness": readiness["checks"]
-            },
+            "components": {"health": health["checks"], "readiness": readiness["checks"]},
             "metrics": {
                 "uptime_human": self._format_uptime(health["uptime_seconds"]),
                 "total_checks": len(health["checks"]) + len(readiness["checks"]),
                 "healthy_count": sum(
-                    1 for r in health["checks"] + readiness["checks"]
-                    if r["status"] == HealthStatus.HEALTHY.value
-                )
-            }
+                    1 for r in health["checks"] + readiness["checks"] if r["status"] == HealthStatus.HEALTHY.value
+                ),
+            },
         }
 
     def _format_uptime(self, seconds: int) -> str:
@@ -402,7 +378,7 @@ class HealthCheckService:
             ("openai", self._check_openai),
             ("supabase", self._check_supabase),
             ("redis", self._check_redis),
-            ("database", self._check_database)
+            ("database", self._check_database),
         ]
 
         for name, check_func in checks:
@@ -411,13 +387,10 @@ class HealthCheckService:
                 dependencies[name] = {
                     "status": result.status.value,
                     "message": result.message,
-                    "latency_ms": result.latency_ms
+                    "latency_ms": result.latency_ms,
                 }
             except Exception as e:
-                dependencies[name] = {
-                    "status": HealthStatus.UNKNOWN.value,
-                    "message": str(e)
-                }
+                dependencies[name] = {"status": HealthStatus.UNKNOWN.value, "message": str(e)}
 
         return dependencies
 
@@ -427,17 +400,11 @@ class HealthCheckService:
 
         if not api_key:
             return HealthCheckResult(
-                name="openai",
-                status=HealthStatus.DEGRADED,
-                message="OPENAI_API_KEY not configured"
+                name="openai", status=HealthStatus.DEGRADED, message="OPENAI_API_KEY not configured"
             )
 
         # In production, make actual API call
-        return HealthCheckResult(
-            name="openai",
-            status=HealthStatus.HEALTHY,
-            message="OpenAI API configured"
-        )
+        return HealthCheckResult(name="openai", status=HealthStatus.HEALTHY, message="OpenAI API configured")
 
     async def _check_supabase(self) -> HealthCheckResult:
         """Check Supabase connectivity."""
@@ -445,9 +412,7 @@ class HealthCheckService:
 
         if not url:
             return HealthCheckResult(
-                name="supabase",
-                status=HealthStatus.DEGRADED,
-                message="SUPABASE_URL not configured"
+                name="supabase", status=HealthStatus.DEGRADED, message="SUPABASE_URL not configured"
             )
 
         try:
@@ -457,7 +422,7 @@ class HealthCheckService:
                 return HealthCheckResult(
                     name="supabase",
                     status=HealthStatus.DEGRADED,
-                    message="Supabase client not initialized (missing key or dependency)"
+                    message="Supabase client not initialized (missing key or dependency)",
                 )
 
             start = time.time()
@@ -471,15 +436,15 @@ class HealthCheckService:
                 name="supabase",
                 status=HealthStatus.HEALTHY,
                 message="Supabase connection OK",
-                latency_ms=round(latency, 2)
+                latency_ms=round(latency, 2),
             )
         except Exception as e:
-            latency = (time.time() - start) * 1000 if 'start' in locals() else 0
+            latency = (time.time() - start) * 1000 if "start" in locals() else 0
             return HealthCheckResult(
                 name="supabase",
                 status=HealthStatus.UNHEALTHY,
                 message=f"Supabase error: {str(e)}",
-                latency_ms=round(latency, 2)
+                latency_ms=round(latency, 2),
             )
 
 

@@ -46,9 +46,7 @@ class DataAttributionTool(BaseTool):
         "required": [],
     }
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         args.get("metric", "all")
         period = args.get("period", "month")
         client = _get_client(config)
@@ -82,12 +80,7 @@ class DataAttributionTool(BaseTool):
         # 收集各维度数据
         try:
             # 销售指标
-            current_metrics = (
-                await client.table("sales_metrics")
-                .select("*")
-                .gte("date", current_start)
-                .execute()
-            )
+            current_metrics = await client.table("sales_metrics").select("*").gte("date", current_start).execute()
             prev_metrics = (
                 await client.table("sales_metrics")
                 .select("*")
@@ -108,19 +101,13 @@ class DataAttributionTool(BaseTool):
                 f"营收: {period_name} ¥{cur_revenue:,.0f} vs 上期 ¥{prev_revenue:,.0f} "
                 f"(变化: {((cur_revenue - prev_revenue) / max(prev_revenue, 1)) * 100:+.1f}%)"
             )
-            data_context.append(
-                f"线索: {period_name} {cur_leads} vs 上期 {prev_leads}"
-            )
+            data_context.append(f"线索: {period_name} {cur_leads} vs 上期 {prev_leads}")
         except Exception as e:
             data_context.append(f"销售指标查询: {str(e)}")
 
         # 商机阶段分布
         try:
-            leads_res = (
-                await client.table("sales_leads")
-                .select("status", count="exact")
-                .execute()
-            )
+            leads_res = await client.table("sales_leads").select("status", count="exact").execute()
             if leads_res.data:
                 status_counts = {}
                 for lead in leads_res.data:
@@ -132,11 +119,7 @@ class DataAttributionTool(BaseTool):
 
         # HR 数据
         try:
-            users_res = (
-                await client.table("users")
-                .select("id, role", count="exact")
-                .execute()
-            )
+            users_res = await client.table("users").select("id, role", count="exact").execute()
             headcount = users_res.count or 0
             data_context.append(f"当前人数: {headcount}")
 
@@ -156,11 +139,7 @@ class DataAttributionTool(BaseTool):
 
         # 合同数据
         try:
-            contracts_res = (
-                await client.table("contracts")
-                .select("status, amount")
-                .execute()
-            )
+            contracts_res = await client.table("contracts").select("status, amount").execute()
             if contracts_res.data:
                 active = [c for c in contracts_res.data if c.get("status") == "active"]
                 total_amount = sum(float(c.get("amount", 0)) for c in active)
@@ -178,7 +157,9 @@ class DataAttributionTool(BaseTool):
             )
             if approvals_res.data:
                 pending = len([a for a in approvals_res.data if a.get("status") == "pending"])
-                total_spend = sum(float(a.get("amount", 0)) for a in approvals_res.data if a.get("status") == "approved")
+                total_spend = sum(
+                    float(a.get("amount", 0)) for a in approvals_res.data if a.get("status") == "approved"
+                )
                 data_context.append(f"审批: 待处理{pending}笔, 本期已批准支出 ¥{total_spend:,.0f}")
         except Exception:
             pass
@@ -237,9 +218,7 @@ class StrategySimulationTool(BaseTool):
         "required": ["scenario"],
     }
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         scenario = args.get("scenario", "")
         focus = args.get("focus", "comprehensive")
         client = _get_client(config)
@@ -265,22 +244,17 @@ class StrategySimulationTool(BaseTool):
                 avg_leads = sum(int(m.get("leads_count", 0)) for m in recent) / max(len(recent), 1)
                 avg_conv = sum(float(m.get("win_rate", 0)) for m in recent) / max(len(recent), 1)
                 baseline_data.append(
-                    f"近期营收合计: ¥{total_revenue:,.0f}, "
-                    f"日均线索: {avg_leads:.1f}, 平均转化率: {avg_conv:.1%}"
+                    f"近期营收合计: ¥{total_revenue:,.0f}, " f"日均线索: {avg_leads:.1f}, 平均转化率: {avg_conv:.1%}"
                 )
         except Exception:
             pass
 
         # HR 基线
         try:
-            users_res = (
-                await client.table("users")
-                .select("id, role", count="exact")
-                .execute()
-            )
+            users_res = await client.table("users").select("id, role", count="exact").execute()
             headcount = users_res.count or 0
             roles = {}
-            for u in (users_res.data or []):
+            for u in users_res.data or []:
                 r = u.get("role", "employee")
                 roles[r] = roles.get(r, 0) + 1
             baseline_data.append(f"团队规模: {headcount}人, 结构: {roles}")
@@ -297,18 +271,16 @@ class StrategySimulationTool(BaseTool):
                 .execute()
             )
             if salary_res.data:
-                avg_salary = sum(float(s.get("gross_salary", 0)) for s in salary_res.data) / max(len(salary_res.data), 1)
+                avg_salary = sum(float(s.get("gross_salary", 0)) for s in salary_res.data) / max(
+                    len(salary_res.data), 1
+                )
                 baseline_data.append(f"人均月薪: ¥{avg_salary:,.0f}")
         except Exception:
             pass
 
         # 合同基线
         try:
-            contracts_res = (
-                await client.table("contracts")
-                .select("amount, status")
-                .execute()
-            )
+            contracts_res = await client.table("contracts").select("amount, status").execute()
             if contracts_res.data:
                 active_contracts = [c for c in contracts_res.data if c.get("status") == "active"]
                 total_contract = sum(float(c.get("amount", 0)) for c in active_contracts)
@@ -318,11 +290,7 @@ class StrategySimulationTool(BaseTool):
 
         # 商机漏斗基线
         try:
-            leads_res = (
-                await client.table("sales_leads")
-                .select("status, estimated_value")
-                .execute()
-            )
+            leads_res = await client.table("sales_leads").select("status, estimated_value").execute()
             if leads_res.data:
                 pipeline = {}
                 for lead in leads_res.data:
@@ -334,11 +302,7 @@ class StrategySimulationTool(BaseTool):
 
         # 预算基线
         try:
-            budget_res = (
-                await client.table("finance_budgets")
-                .select("name, total_amount, used_amount")
-                .execute()
-            )
+            budget_res = await client.table("finance_budgets").select("name, total_amount, used_amount").execute()
             if budget_res.data:
                 total_budget = sum(float(b.get("total_amount", 0)) for b in budget_res.data)
                 total_used = sum(float(b.get("used_amount", 0)) for b in budget_res.data)

@@ -91,11 +91,7 @@ class NotificationCenterService:
         if not client:
             return []
 
-        query = (
-            client.table("notifications")
-            .select("*")
-            .eq("user_id", user_id)
-        )
+        query = client.table("notifications").select("*").eq("user_id", user_id)
 
         if unread_only:
             query = query.eq("is_read", False)
@@ -103,12 +99,7 @@ class NotificationCenterService:
         if type_filter and type_filter in VALID_NOTIFICATION_TYPES:
             query = query.eq("type", type_filter)
 
-        result = (
-            await query
-            .order("created_at", desc=True)
-            .range(offset, offset + limit - 1)
-            .execute()
-        )
+        result = await query.order("created_at", desc=True).range(offset, offset + limit - 1).execute()
 
         return result.data or []
 
@@ -232,8 +223,12 @@ class NotificationCenterService:
 
         # Sanitize input: only allow known preference keys
         allowed_keys = {
-            "email_enabled", "push_enabled", "im_enabled",
-            "quiet_hours_start", "quiet_hours_end", "categories",
+            "email_enabled",
+            "push_enabled",
+            "im_enabled",
+            "quiet_hours_start",
+            "quiet_hours_end",
+            "categories",
         }
         sanitized = {k: v for k, v in preferences.items() if k in allowed_keys}
         sanitized["user_id"] = user_id
@@ -241,29 +236,16 @@ class NotificationCenterService:
 
         # Check if preferences exist
         existing = (
-            await client.table("notification_preferences")
-            .select("id")
-            .eq("user_id", user_id)
-            .maybe_single()
-            .execute()
+            await client.table("notification_preferences").select("id").eq("user_id", user_id).maybe_single().execute()
         )
 
         if existing.data:
             # Update existing
-            result = (
-                await client.table("notification_preferences")
-                .update(sanitized)
-                .eq("user_id", user_id)
-                .execute()
-            )
+            result = await client.table("notification_preferences").update(sanitized).eq("user_id", user_id).execute()
         else:
             # Insert new preferences with defaults merged
             insert_data = {**DEFAULT_PREFERENCES, **sanitized}
-            result = (
-                await client.table("notification_preferences")
-                .insert(insert_data)
-                .execute()
-            )
+            result = await client.table("notification_preferences").insert(insert_data).execute()
 
         if not result.data:
             raise RuntimeError("更新通知偏好失败")

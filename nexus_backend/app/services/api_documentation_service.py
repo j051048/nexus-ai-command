@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 class HTTPMethod(Enum):
     """HTTP methods."""
+
     GET = "GET"
     POST = "POST"
     PUT = "PUT"
@@ -27,6 +28,7 @@ class HTTPMethod(Enum):
 @dataclass
 class APIParameter:
     """API parameter definition."""
+
     name: str
     type: str
     location: str  # path, query, header, body
@@ -40,6 +42,7 @@ class APIParameter:
 @dataclass
 class APIResponse:
     """API response definition."""
+
     status_code: int
     description: str
     schema: dict[str, Any] = None
@@ -49,6 +52,7 @@ class APIResponse:
 @dataclass
 class APIEndpoint:
     """API endpoint definition."""
+
     path: str
     method: HTTPMethod
     summary: str = ""
@@ -104,7 +108,7 @@ class APIDocumentationService:
         """
         try:
             for route in app.routes:
-                if hasattr(route, 'methods') and hasattr(route, 'path'):
+                if hasattr(route, "methods") and hasattr(route, "path"):
                     for method in route.methods:
                         if method in ["GET", "POST", "PUT", "PATCH", "DELETE"]:
                             endpoint = self._extract_endpoint_from_route(route, method)
@@ -123,31 +127,33 @@ class APIDocumentationService:
             docstring = inspect.getdoc(endpoint) or ""
 
             # Parse summary and description
-            lines = docstring.split('\n')
+            lines = docstring.split("\n")
             summary = lines[0] if lines else ""
-            description = '\n'.join(lines[1:]).strip() if len(lines) > 1 else ""
+            description = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
 
             # Extract parameters from signature
             parameters = []
             sig = inspect.signature(endpoint)
 
             for param_name, param in sig.parameters.items():
-                if param_name in ['self', 'request', 'response']:
+                if param_name in ["self", "request", "response"]:
                     continue
 
                 param_type = str(param.annotation) if param.annotation != inspect.Parameter.empty else "string"
                 required = param.default == inspect.Parameter.empty
 
-                parameters.append(APIParameter(
-                    name=param_name,
-                    type=self._python_type_to_openapi(param_type),
-                    location="query",  # Default, can be overridden
-                    required=required,
-                    description=f"{param_name} parameter"
-                ))
+                parameters.append(
+                    APIParameter(
+                        name=param_name,
+                        type=self._python_type_to_openapi(param_type),
+                        location="query",  # Default, can be overridden
+                        required=required,
+                        description=f"{param_name} parameter",
+                    )
+                )
 
             # Determine tag from path
-            path_parts = route.path.strip('/').split('/')
+            path_parts = route.path.strip("/").split("/")
             tag = path_parts[0] if path_parts else "default"
 
             return APIEndpoint(
@@ -161,8 +167,8 @@ class APIDocumentationService:
                     APIResponse(status_code=200, description="Success"),
                     APIResponse(status_code=400, description="Bad Request"),
                     APIResponse(status_code=401, description="Unauthorized"),
-                    APIResponse(status_code=500, description="Internal Server Error")
-                ]
+                    APIResponse(status_code=500, description="Internal Server Error"),
+                ],
             )
 
         except Exception as e:
@@ -204,44 +210,25 @@ class APIDocumentationService:
                 "title": self.title,
                 "version": version or self.version,
                 "description": "Enterprise AI Command Center API",
-                "contact": {
-                    "name": "API Support",
-                    "email": "support@nexus-ai.com"
-                },
-                "license": {
-                    "name": "MIT",
-                    "url": "https://opensource.org/licenses/MIT"
-                }
+                "contact": {"name": "API Support", "email": "support@nexus-ai.com"},
+                "license": {"name": "MIT", "url": "https://opensource.org/licenses/MIT"},
             },
             "servers": [
                 {
                     "url": "/api/v{version}",
                     "description": "API Server",
-                    "variables": {
-                        "version": {
-                            "default": "1",
-                            "enum": ["1", "2"]
-                        }
-                    }
+                    "variables": {"version": {"default": "1", "enum": ["1", "2"]}},
                 }
             ],
             "paths": {},
             "components": {
                 "schemas": self._schemas,
                 "securitySchemes": {
-                    "bearerAuth": {
-                        "type": "http",
-                        "scheme": "bearer",
-                        "bearerFormat": "JWT"
-                    },
-                    "apiKey": {
-                        "type": "apiKey",
-                        "in": "header",
-                        "name": "X-API-Key"
-                    }
-                }
+                    "bearerAuth": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"},
+                    "apiKey": {"type": "apiKey", "in": "header", "name": "X-API-Key"},
+                },
             },
-            "tags": list(self._tags.values())
+            "tags": list(self._tags.values()),
         }
 
         # Add paths
@@ -266,7 +253,7 @@ class APIDocumentationService:
                         "in": p.location,
                         "required": p.required,
                         "schema": {"type": p.type},
-                        "description": p.description
+                        "description": p.description,
                     }
                     for p in endpoint.parameters
                 ],
@@ -274,24 +261,16 @@ class APIDocumentationService:
                     str(r.status_code): {
                         "description": r.description,
                         "content": {
-                            "application/json": {
-                                "schema": r.schema or {"type": "object"},
-                                "example": r.example
-                            }
-                        }
+                            "application/json": {"schema": r.schema or {"type": "object"}, "example": r.example}
+                        },
                     }
                     for r in endpoint.responses
-                }
+                },
             }
 
             # Add request body if present
             if endpoint.request_body:
-                path_item["requestBody"] = {
-                    "required": True,
-                    "content": {
-                        "application/json": endpoint.request_body
-                    }
-                }
+                path_item["requestBody"] = {"required": True, "content": {"application/json": endpoint.request_body}}
 
             # Add security
             if endpoint.security:
@@ -308,14 +287,7 @@ class APIDocumentationService:
         Returns:
             Markdown formatted documentation
         """
-        lines = [
-            f"# {self.title} Documentation",
-            "",
-            f"Version: {version or self.version}",
-            "",
-            "---",
-            ""
-        ]
+        lines = [f"# {self.title} Documentation", "", f"Version: {version or self.version}", "", "---", ""]
 
         # Group by tags
         endpoints_by_tag = {}
@@ -335,13 +307,7 @@ class APIDocumentationService:
 
             for endpoint in endpoints:
                 # Method badge
-                method_colors = {
-                    "GET": "🟢",
-                    "POST": "🔵",
-                    "PUT": "🟡",
-                    "PATCH": "🟠",
-                    "DELETE": "🔴"
-                }
+                method_colors = {"GET": "🟢", "POST": "🔵", "PUT": "🟡", "PATCH": "🟠", "DELETE": "🔴"}
                 badge = method_colors.get(endpoint.method.value, "⚪")
 
                 lines.append(f"### {badge} {endpoint.method.value} `{endpoint.path}`")
@@ -399,9 +365,9 @@ class APIDocumentationService:
         collection = {
             "info": {
                 "name": self.title,
-                "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+                "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
             },
-            "item": []
+            "item": [],
         }
 
         # Group by tags
@@ -413,10 +379,7 @@ class APIDocumentationService:
                 endpoints_by_tag[tag].append(endpoint)
 
         for tag, endpoints in endpoints_by_tag.items():
-            folder = {
-                "name": tag,
-                "item": []
-            }
+            folder = {"name": tag, "item": []}
 
             for endpoint in endpoints:
                 item = {
@@ -424,12 +387,9 @@ class APIDocumentationService:
                     "request": {
                         "method": endpoint.method.value,
                         "header": [],
-                        "url": {
-                            "raw": f"{{baseUrl}}{endpoint.path}",
-                            "path": endpoint.path.strip('/').split('/')
-                        },
-                        "description": endpoint.description
-                    }
+                        "url": {"raw": f"{{baseUrl}}{endpoint.path}", "path": endpoint.path.strip("/").split("/")},
+                        "description": endpoint.description,
+                    },
                 }
 
                 # Add parameters
@@ -437,11 +397,9 @@ class APIDocumentationService:
                     if p.location == "query":
                         if "query" not in item["request"]["url"]:
                             item["request"]["url"]["query"] = []
-                        item["request"]["url"]["query"].append({
-                            "key": p.name,
-                            "value": p.example or "",
-                            "description": p.description
-                        })
+                        item["request"]["url"]["query"].append(
+                            {"key": p.name, "value": p.example or "", "description": p.description}
+                        )
 
                 folder["item"].append(item)
 
@@ -465,7 +423,4 @@ class APIDocumentationService:
 
 
 # Global instance
-api_documentation_service = APIDocumentationService(
-    title="Nexus AI API",
-    version="1.0.0"
-)
+api_documentation_service = APIDocumentationService(title="Nexus AI API", version="1.0.0")

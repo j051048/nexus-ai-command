@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class GrantType(Enum):
     """Supported OAuth 2.0 grant types."""
+
     AUTHORIZATION_CODE = "authorization_code"
     CLIENT_CREDENTIALS = "client_credentials"
     REFRESH_TOKEN = "refresh_token"
@@ -28,6 +29,7 @@ class GrantType(Enum):
 @dataclass
 class OAuthClient:
     """A registered OAuth client application."""
+
     client_id: str
     client_secret_hash: str
     client_name: str
@@ -53,6 +55,7 @@ class OAuthClient:
 @dataclass
 class AuthorizationCode:
     """A temporary authorization code for the code grant flow."""
+
     code: str
     client_id: str
     user_id: str
@@ -66,6 +69,7 @@ class AuthorizationCode:
 @dataclass
 class OAuthToken:
     """An issued OAuth token."""
+
     access_token: str
     token_type: str = "Bearer"
     expires_in: int = 3600
@@ -128,15 +132,17 @@ class OAuthService:
 
         if db:
             try:
-                await db.table("oauth_clients").insert({
-                    "client_id": client_id,
-                    "client_secret_hash": client.client_secret_hash,
-                    "client_name": name,
-                    "org_id": org_id,
-                    "redirect_uris": redirect_uris,
-                    "allowed_scopes": scopes,
-                    "is_active": True,
-                }).execute()
+                await db.table("oauth_clients").insert(
+                    {
+                        "client_id": client_id,
+                        "client_secret_hash": client.client_secret_hash,
+                        "client_name": name,
+                        "org_id": org_id,
+                        "redirect_uris": redirect_uris,
+                        "allowed_scopes": scopes,
+                        "is_active": True,
+                    }
+                ).execute()
             except Exception as e:
                 logger.warning(f"Failed to persist OAuth client: {e}")
 
@@ -239,15 +245,11 @@ class OAuthService:
         }
 
         # P1 Fix: Persist tokens to DB for multi-instance deployments
-        await self._persist_token(
-            access_token, refresh_token, client_id, auth_code.user_id, auth_code.scopes
-        )
+        await self._persist_token(access_token, refresh_token, client_id, auth_code.user_id, auth_code.scopes)
 
         return token
 
-    async def refresh_token(
-        self, refresh_tok: str, client_id: str
-    ) -> OAuthToken | None:
+    async def refresh_token(self, refresh_tok: str, client_id: str) -> OAuthToken | None:
         """Refresh an expired access token."""
         rt_data = self._refresh_tokens.get(refresh_tok)
         if not rt_data or rt_data["client_id"] != client_id:
@@ -315,18 +317,21 @@ class OAuthService:
         """P1 Fix: Persist OAuth tokens to DB (hashed) for multi-instance support."""
         try:
             from app.core.database import supabase
+
             if not supabase:
                 return
             token_hash = hashlib.sha256(access_token.encode()).hexdigest()
             refresh_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
-            await supabase.table("oauth_tokens").upsert({
-                "token_hash": token_hash,
-                "refresh_token_hash": refresh_hash,
-                "client_id": client_id,
-                "user_id": user_id,
-                "scopes": scopes,
-                "expires_at": int(time.time() + 3600),
-            }).execute()
+            await supabase.table("oauth_tokens").upsert(
+                {
+                    "token_hash": token_hash,
+                    "refresh_token_hash": refresh_hash,
+                    "client_id": client_id,
+                    "user_id": user_id,
+                    "scopes": scopes,
+                    "expires_at": int(time.time() + 3600),
+                }
+            ).execute()
         except Exception as e:
             logger.debug(f"OAuth token persistence skipped: {e}")
 
@@ -334,16 +339,11 @@ class OAuthService:
         """P1 Fix: Load token data from DB by hash."""
         try:
             from app.core.database import supabase
+
             if not supabase:
                 return None
             token_hash = hashlib.sha256(access_token.encode()).hexdigest()
-            res = (
-                await supabase.table("oauth_tokens")
-                .select("*")
-                .eq("token_hash", token_hash)
-                .maybe_single()
-                .execute()
-            )
+            res = await supabase.table("oauth_tokens").select("*").eq("token_hash", token_hash).maybe_single().execute()
             if res.data:
                 return {
                     "client_id": res.data.get("client_id"),

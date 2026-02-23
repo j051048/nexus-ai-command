@@ -19,16 +19,18 @@ logger = logging.getLogger(__name__)
 
 class Priority(Enum):
     """Request priority levels."""
-    CRITICAL = 0    # System critical, process immediately
-    HIGH = 1        # VIP users, urgent requests
-    NORMAL = 2      # Standard requests
-    LOW = 3         # Background tasks
-    BATCH = 4       # Batch processing, lowest priority
+
+    CRITICAL = 0  # System critical, process immediately
+    HIGH = 1  # VIP users, urgent requests
+    NORMAL = 2  # Standard requests
+    LOW = 3  # Background tasks
+    BATCH = 4  # Batch processing, lowest priority
 
 
 @dataclass(order=True)
 class PrioritizedRequest:
     """Request with priority for queue ordering."""
+
     priority: int
     timestamp: float
     request_id: str = field(compare=False)
@@ -44,6 +46,7 @@ class PrioritizedRequest:
 @dataclass
 class QueueStats:
     """Queue statistics."""
+
     total_requests: int = 0
     processed_requests: int = 0
     failed_requests: int = 0
@@ -67,20 +70,20 @@ class PriorityQueueService:
 
     # Priority boost for user roles
     ROLE_PRIORITY_BOOST = {
-        "boss": -1,      # Boss users get priority boost
-        "admin": -1,     # Admin gets priority boost
-        "manager": 0,    # Manager gets normal priority
-        "member": 0,     # Member gets normal priority
+        "boss": -1,  # Boss users get priority boost
+        "admin": -1,  # Admin gets priority boost
+        "manager": 0,  # Manager gets normal priority
+        "member": 0,  # Member gets normal priority
     }
 
     # Priority boost for request types
     TYPE_PRIORITY_BOOST = {
-        "chat": 0,           # Normal
-        "tool_call": -1,     # Higher priority
-        "search": 0,         # Normal
-        "analysis": 1,       # Lower priority (can wait)
-        "batch": 2,          # Lowest for batch jobs
-        "report": 1,         # Lower priority
+        "chat": 0,  # Normal
+        "tool_call": -1,  # Higher priority
+        "search": 0,  # Normal
+        "analysis": 1,  # Lower priority (can wait)
+        "batch": 2,  # Lowest for batch jobs
+        "report": 1,  # Lower priority
     }
 
     # Rate limits per priority (requests per second)
@@ -92,12 +95,7 @@ class PriorityQueueService:
         Priority.BATCH: 5,
     }
 
-    def __init__(
-        self,
-        max_workers: int = 10,
-        max_queue_size: int = 1000,
-        enable_rate_limit: bool = True
-    ):
+    def __init__(self, max_workers: int = 10, max_queue_size: int = 1000, enable_rate_limit: bool = True):
         self.max_workers = max_workers
         self.max_queue_size = max_queue_size
         self.enable_rate_limit = enable_rate_limit
@@ -114,10 +112,7 @@ class PriorityQueueService:
             self._queues[priority] = asyncio.PriorityQueue()
 
     def _determine_priority(
-        self,
-        user_role: str = None,
-        request_type: str = None,
-        explicit_priority: Priority = None
+        self, user_role: str = None, request_type: str = None, explicit_priority: Priority = None
     ) -> Priority:
         """Determine request priority based on factors."""
         if explicit_priority:
@@ -148,7 +143,7 @@ class PriorityQueueService:
         user_role: str = None,
         request_type: str = None,
         priority: Priority = None,
-        metadata: dict = None
+        metadata: dict = None,
     ) -> str:
         """
         Add a request to the priority queue.
@@ -157,13 +152,12 @@ class PriorityQueueService:
             request_id for tracking
         """
         import uuid
+
         request_id = f"req_{uuid.uuid4().hex[:12]}"
 
         # Determine priority
         final_priority = self._determine_priority(
-            user_role=user_role,
-            request_type=request_type,
-            explicit_priority=priority
+            user_role=user_role, request_type=request_type, explicit_priority=priority
         )
 
         # Check rate limit
@@ -187,7 +181,7 @@ class PriorityQueueService:
             user_id=user_id,
             org_id=org_id,
             request_type=request_type or "",
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
         # Add to appropriate queue
@@ -208,9 +202,7 @@ class PriorityQueueService:
         limit = self.RATE_LIMITS.get(priority, 20)
 
         # Clean old entries
-        self._rate_trackers[priority] = [
-            t for t in self._rate_trackers[priority] if now - t < 1.0
-        ]
+        self._rate_trackers[priority] = [t for t in self._rate_trackers[priority] if now - t < 1.0]
 
         return len(self._rate_trackers[priority]) < limit
 
@@ -288,17 +280,14 @@ class PriorityQueueService:
             process_time = (time.time() - start_time) * 1000
             self._stats.processed_requests += 1
             self._stats.avg_wait_time_ms = (
-                (self._stats.avg_wait_time_ms * (self._stats.processed_requests - 1) + wait_time)
-                / self._stats.processed_requests
-            )
+                self._stats.avg_wait_time_ms * (self._stats.processed_requests - 1) + wait_time
+            ) / self._stats.processed_requests
             self._stats.avg_process_time_ms = (
-                (self._stats.avg_process_time_ms * (self._stats.processed_requests - 1) + process_time)
-                / self._stats.processed_requests
-            )
+                self._stats.avg_process_time_ms * (self._stats.processed_requests - 1) + process_time
+            ) / self._stats.processed_requests
 
             logger.debug(
-                f"Processed request {request.request_id}: "
-                f"wait={wait_time:.1f}ms, process={process_time:.1f}ms"
+                f"Processed request {request.request_id}: " f"wait={wait_time:.1f}ms, process={process_time:.1f}ms"
             )
 
             return result
@@ -311,13 +300,7 @@ class PriorityQueueService:
         finally:
             self._stats.current_size -= 1
 
-    async def process_now(
-        self,
-        handler: Callable,
-        args: tuple = (),
-        kwargs: dict = None,
-        **priority_args
-    ) -> Any:
+    async def process_now(self, handler: Callable, args: tuple = (), kwargs: dict = None, **priority_args) -> Any:
         """
         Process a request immediately if capacity allows,
         otherwise add to queue.
@@ -330,12 +313,7 @@ class PriorityQueueService:
                 return handler(*args, **(kwargs or {}))
         else:
             # Add to queue
-            request_id = await self.enqueue(
-                handler=handler,
-                args=args,
-                kwargs=kwargs,
-                **priority_args
-            )
+            request_id = await self.enqueue(handler=handler, args=args, kwargs=kwargs, **priority_args)
             # Wait for result (simplified - in production use Future)
             return {"queued": True, "request_id": request_id}
 
@@ -345,10 +323,7 @@ class PriorityQueueService:
 
     def get_queue_sizes(self) -> dict[str, int]:
         """Get current size of each priority queue."""
-        return {
-            priority.name: self._queues[priority].qsize()
-            for priority in Priority
-        }
+        return {priority.name: self._queues[priority].qsize() for priority in Priority}
 
     def get_health(self) -> dict[str, Any]:
         """Get health status of the queue."""
@@ -371,7 +346,7 @@ class PriorityQueueService:
             "processed": self._stats.processed_requests,
             "failed": self._stats.failed_requests,
             "avg_wait_time_ms": f"{self._stats.avg_wait_time_ms:.1f}",
-            "avg_process_time_ms": f"{self._stats.avg_process_time_ms:.1f}"
+            "avg_process_time_ms": f"{self._stats.avg_process_time_ms:.1f}",
         }
 
 

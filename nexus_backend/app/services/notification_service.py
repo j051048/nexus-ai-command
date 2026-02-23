@@ -76,20 +76,10 @@ class Notification:
             "title": self.title,
             "content": self.content,
             "target_user_id": self.target_user_id,
-            "channel": (
-                self.channel.value if isinstance(self.channel, Enum) else self.channel
-            ),
-            "priority": (
-                self.priority.value
-                if isinstance(self.priority, Enum)
-                else self.priority
-            ),
+            "channel": (self.channel.value if isinstance(self.channel, Enum) else self.channel),
+            "priority": (self.priority.value if isinstance(self.priority, Enum) else self.priority),
             "metadata": self.metadata,
-            "created_at": (
-                self.created_at.isoformat()
-                if isinstance(self.created_at, datetime)
-                else self.created_at
-            ),
+            "created_at": (self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at),
         }
 
 
@@ -133,9 +123,7 @@ class InAppNotificationAdapter(BaseNotificationAdapter):
         """
         try:
             if not supabase:
-                logger.warning(
-                    "Supabase client not configured, skipping in-app notification"
-                )
+                logger.warning("Supabase client not configured, skipping in-app notification")
                 return False
 
             # 映射优先级到通知类型（兼容现有表结构）
@@ -204,9 +192,7 @@ class NotificationService:
         self._adapters: dict[NotificationChannel, BaseNotificationAdapter] = {}
         logger.info("NotificationService initialized")
 
-    def register_adapter(
-        self, channel: NotificationChannel, adapter: BaseNotificationAdapter
-    ) -> None:
+    def register_adapter(self, channel: NotificationChannel, adapter: BaseNotificationAdapter) -> None:
         """
         注册通知渠道适配器
 
@@ -325,16 +311,12 @@ class NotificationService:
             Dict[str, Dict[NotificationChannel, bool]]: 用户ID -> 渠道发送结果映射
         """
         if not supabase:
-            logger.warning(
-                "Supabase client not configured, cannot send role-based notifications"
-            )
+            logger.warning("Supabase client not configured, cannot send role-based notifications")
             return {}
 
         try:
             # 查询指定角色的所有用户
-            result = (
-                await supabase.table("users").select("id").eq("role", role).execute()
-            )
+            result = await supabase.table("users").select("id").eq("role", role).execute()
 
             if not result.data:
                 logger.warning(f"No users found with role: {role}")
@@ -361,10 +343,7 @@ class NotificationService:
 
             # 统计发送结果
             total_sends = len(user_ids) * len(channels)
-            total_success = sum(
-                sum(1 for v in user_results.values() if v)
-                for user_results in all_results.values()
-            )
+            total_success = sum(sum(1 for v in user_results.values() if v) for user_results in all_results.values())
 
             logger.info(
                 f"Role-based send completed: "
@@ -391,9 +370,7 @@ def _auto_register_adapters():
     from app.core.config import settings
 
     # Always register in-app adapter
-    notification_service.register_adapter(
-        NotificationChannel.IN_APP, InAppNotificationAdapter()
-    )
+    notification_service.register_adapter(NotificationChannel.IN_APP, InAppNotificationAdapter())
 
     # Register email adapter if SMTP configured
     if settings.SMTP_HOST and settings.SMTP_USER:
@@ -402,9 +379,7 @@ def _auto_register_adapters():
                 EmailNotificationAdapter,
             )
 
-            notification_service.register_adapter(
-                NotificationChannel.EMAIL, EmailNotificationAdapter()
-            )
+            notification_service.register_adapter(NotificationChannel.EMAIL, EmailNotificationAdapter())
             logger.info("✅ Email notification adapter registered")
         except Exception as e:
             logger.warning(f"Failed to register email adapter: {e}")
@@ -416,9 +391,7 @@ def _auto_register_adapters():
                 WecomNotificationAdapter,
             )
 
-            notification_service.register_adapter(
-                NotificationChannel.WECOM, WecomNotificationAdapter()
-            )
+            notification_service.register_adapter(NotificationChannel.WECOM, WecomNotificationAdapter())
             logger.info("✅ WeChat Work notification adapter registered")
         except Exception as e:
             logger.warning(f"Failed to register wecom adapter: {e}")
@@ -430,9 +403,7 @@ def _auto_register_adapters():
                 DingtalkNotificationAdapter,
             )
 
-            notification_service.register_adapter(
-                NotificationChannel.DINGTALK, DingtalkNotificationAdapter()
-            )
+            notification_service.register_adapter(NotificationChannel.DINGTALK, DingtalkNotificationAdapter())
             logger.info("✅ DingTalk notification adapter registered")
         except Exception as e:
             logger.warning(f"Failed to register dingtalk adapter: {e}")
@@ -444,9 +415,7 @@ def _auto_register_adapters():
                 FeishuNotificationAdapter,
             )
 
-            notification_service.register_adapter(
-                NotificationChannel.FEISHU, FeishuNotificationAdapter()
-            )
+            notification_service.register_adapter(NotificationChannel.FEISHU, FeishuNotificationAdapter())
             logger.info("✅ Feishu notification adapter registered")
         except Exception as e:
             logger.warning(f"Failed to register feishu adapter: {e}")

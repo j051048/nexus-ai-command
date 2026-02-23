@@ -27,18 +27,10 @@ class PerformanceReportTool(BaseTool):
         "required": [],
     }
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
         target_id = args.get("user_id") or user_id
-        user_res = (
-            await client.table("users")
-            .select("*")
-            .eq("id", target_id)
-            .maybe_single()
-            .execute()
-        )
+        user_res = await client.table("users").select("*").eq("id", target_id).maybe_single().execute()
         if not user_res.data:
             return f"找不到 ID 为 {target_id} 的用户绩效数据。"
 
@@ -56,7 +48,9 @@ class PerformanceReportTool(BaseTool):
             metrics_res = type("R", (), {"data": []})()
 
         report = f"用户: {user.get('name', '未知')}\n"
-        report += f"当前得分: {user.get('score', 0)} | 排名: {user.get('rank', 0)} | 总奖金: ¥{user.get('total_bonus', 0)}\n"
+        report += (
+            f"当前得分: {user.get('score', 0)} | 排名: {user.get('rank', 0)} | 总奖金: ¥{user.get('total_bonus', 0)}\n"
+        )
         if metrics_res.data:
             total_revenue = sum(float(m.get("revenue", 0)) for m in metrics_res.data)
             total_leads = sum(int(m.get("leads_count", 0)) for m in metrics_res.data)
@@ -72,9 +66,7 @@ class CompanyStatsTool(BaseTool):
 
     parameters = {"type": "object", "properties": {}, "required": []}
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
         count_res = await client.table("users").select("id", count="exact").execute()
         total_users = count_res.count if count_res.count is not None else 0
@@ -91,9 +83,7 @@ class CompanyStatsTool(BaseTool):
 
 class KnowledgeBaseTool(BaseTool):
     name = "query_knowledge_base"
-    description = (
-        "查询企业知识库/向量数据库，获取公司政策、业务流程、文档等非结构化数据环境数据"
-    )
+    description = "查询企业知识库/向量数据库，获取公司政策、业务流程、文档等非结构化数据环境数据"
 
     parameters = {
         "type": "object",
@@ -101,9 +91,7 @@ class KnowledgeBaseTool(BaseTool):
         "required": ["query"],
     }
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         query = args.get("query")
         org_id = config.get("org_id") if config else None
         # P1: Grounding ensured by vector_service.search which now returns citations
@@ -131,16 +119,12 @@ class AwardBadgeTool(BaseTool):
         "required": ["user_id", "badge_name"],
     }
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         target_id = args.get("user_id")
         badge_name = args.get("badge_name")
         icon = args.get("icon", "sparkles")
         client = _get_client(config)
-        await client.table("badges").insert(
-            {"user_id": target_id, "name": badge_name, "icon": icon}
-        ).execute()
+        await client.table("badges").insert({"user_id": target_id, "name": badge_name, "icon": icon}).execute()
         await client.table("notifications").insert(
             {
                 "user_id": target_id,

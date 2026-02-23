@@ -24,9 +24,7 @@ MAX_RETRIES = 2
 
 class AIService:
     @staticmethod
-    async def call_llm(
-        prompt: str, system_prompt: str = "You are a helpful enterprise AI assistant."
-    ) -> str:
+    async def call_llm(prompt: str, system_prompt: str = "You are a helpful enterprise AI assistant.") -> str:
         """
         Call LLM using raw HTTP calls (httpx) for maximum compatibility with proxy providers.
 
@@ -38,11 +36,7 @@ class AIService:
             return "AI Analysis: (API Key missing) Standard fallback active."
 
         # Normalize Base URL
-        base_url = (
-            settings.AI_BASE_URL
-            if settings.AI_BASE_URL
-            else "https://api.openai.com/v1"
-        )
+        base_url = settings.AI_BASE_URL if settings.AI_BASE_URL else "https://api.openai.com/v1"
         base_url = base_url.rstrip("/")
         url = f"{base_url}/chat/completions"
 
@@ -52,11 +46,7 @@ class AIService:
         }
 
         payload = {
-            "model": (
-                settings.AI_DEFAULT_MODEL
-                if hasattr(settings, "AI_DEFAULT_MODEL")
-                else "gpt-4o"
-            ),
+            "model": (settings.AI_DEFAULT_MODEL if hasattr(settings, "AI_DEFAULT_MODEL") else "gpt-4o"),
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt},
@@ -70,20 +60,14 @@ class AIService:
                 async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
                     response = await client.post(url, headers=headers, json=payload)
                     if response.status_code != 200:
-                        logger.warning(
-                            f"AI Service error response: {response.status_code}"
-                        )
-                        return (
-                            f"AI Error ({response.status_code}): {response.text[:200]}"
-                        )
+                        logger.warning(f"AI Service error response: {response.status_code}")
+                        return f"AI Error ({response.status_code}): {response.text[:200]}"
 
                     data = response.json()
                     return data["choices"][0]["message"]["content"]
             except httpx.TimeoutException as e:
                 last_error = e
-                logger.warning(
-                    f"AI Service timeout (attempt {attempt + 1}/{MAX_RETRIES + 1})"
-                )
+                logger.warning(f"AI Service timeout (attempt {attempt + 1}/{MAX_RETRIES + 1})")
                 if attempt < MAX_RETRIES:
                     continue
             except httpx.RequestError as e:
@@ -100,9 +84,7 @@ class AIService:
         return f"AI Analysis Error: {str(last_error)}"
 
     @staticmethod
-    async def analyze_approval(
-        request_type: str, description: str, amount: float
-    ) -> dict:
+    async def analyze_approval(request_type: str, description: str, amount: float) -> dict:
         """
         Analyze approvals using LLM.
 

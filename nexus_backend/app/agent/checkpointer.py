@@ -78,10 +78,7 @@ def _create_postgres_checkpointer():
         return checkpointer
 
     except ImportError as e:
-        logger.warning(
-            f"[Checkpointer] langgraph-checkpoint-postgres not installed, "
-            f"falling back to memory: {e}"
-        )
+        logger.warning(f"[Checkpointer] langgraph-checkpoint-postgres not installed, " f"falling back to memory: {e}")
         return _create_memory_checkpointer()
     except Exception as e:
         logger.error(f"[Checkpointer] Failed to create PostgreSQL checkpointer: {e}")

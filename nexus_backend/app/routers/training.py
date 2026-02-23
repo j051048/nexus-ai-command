@@ -46,9 +46,7 @@ async def get_progress(
     """获取学习进度"""
     try:
         db = getattr(req.state, "db", None)
-        progress = await training_service.get_user_progress(
-            user_id=user_id, course_id=course_id, db=db
-        )
+        progress = await training_service.get_user_progress(user_id=user_id, course_id=course_id, db=db)
         return api_success(data={"progress": progress})
     except Exception as e:
         logger.error(f"Failed to get progress: {e}")

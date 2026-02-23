@@ -49,9 +49,7 @@ class ContractService:
         "terminated": "终止",
     }
 
-    async def create_contract(
-        self, org_id: str, data: dict, db: Any = None
-    ) -> dict:
+    async def create_contract(self, org_id: str, data: dict, db: Any = None) -> dict:
         """创建新合同"""
         contract = {
             "organization_id": org_id,
@@ -89,9 +87,7 @@ class ContractService:
 
         return {**contract, "id": "mock-id", "created_at": datetime.utcnow().isoformat()}
 
-    async def update_contract(
-        self, contract_id: str, data: dict, db: Any = None
-    ) -> dict:
+    async def update_contract(self, contract_id: str, data: dict, db: Any = None) -> dict:
         """更新合同"""
         update_data = {
             k: v
@@ -119,12 +115,7 @@ class ContractService:
 
         if db:
             try:
-                result = (
-                    db.table("contracts")
-                    .update(update_data)
-                    .eq("id", contract_id)
-                    .execute()
-                )
+                result = db.table("contracts").update(update_data).eq("id", contract_id).execute()
                 if result.data:
                     return result.data[0]
             except Exception as e:
@@ -133,19 +124,11 @@ class ContractService:
 
         return {"id": contract_id, **update_data}
 
-    async def get_contract(
-        self, contract_id: str, db: Any = None
-    ) -> dict | None:
+    async def get_contract(self, contract_id: str, db: Any = None) -> dict | None:
         """获取合同详情"""
         if db:
             try:
-                result = (
-                    db.table("contracts")
-                    .select("*")
-                    .eq("id", contract_id)
-                    .single()
-                    .execute()
-                )
+                result = db.table("contracts").select("*").eq("id", contract_id).single().execute()
                 return result.data
             except Exception as e:
                 logger.warning(f"Failed to get contract: {e}")
@@ -161,12 +144,7 @@ class ContractService:
         """列出组织的合同"""
         if db:
             try:
-                query = (
-                    db.table("contracts")
-                    .select("*")
-                    .eq("organization_id", org_id)
-                    .order("created_at", desc=True)
-                )
+                query = db.table("contracts").select("*").eq("organization_id", org_id).order("created_at", desc=True)
 
                 if filters:
                     if filters.get("status"):
@@ -183,9 +161,7 @@ class ContractService:
                 return []
         return []
 
-    async def get_expiring_contracts(
-        self, org_id: str, days: int = 30, db: Any = None
-    ) -> list[dict]:
+    async def get_expiring_contracts(self, org_id: str, days: int = 30, db: Any = None) -> list[dict]:
         """获取即将到期的合同"""
         if db:
             try:
@@ -207,9 +183,7 @@ class ContractService:
                 return []
         return []
 
-    async def get_contract_stats(
-        self, org_id: str, db: Any = None
-    ) -> dict:
+    async def get_contract_stats(self, org_id: str, db: Any = None) -> dict:
         """合同统计"""
         stats: dict[str, Any] = {
             "total": 0,
@@ -222,12 +196,7 @@ class ContractService:
         if db:
             try:
                 # 获取所有合同
-                result = (
-                    db.table("contracts")
-                    .select("*")
-                    .eq("organization_id", org_id)
-                    .execute()
-                )
+                result = db.table("contracts").select("*").eq("organization_id", org_id).execute()
                 contracts = result.data or []
                 stats["total"] = len(contracts)
 
@@ -281,9 +250,7 @@ class ContractService:
 
         return {**event, "id": "mock-event-id", "created_at": datetime.utcnow().isoformat()}
 
-    async def get_contract_events(
-        self, contract_id: str, db: Any = None
-    ) -> list[dict]:
+    async def get_contract_events(self, contract_id: str, db: Any = None) -> list[dict]:
         """获取合同事件时间线"""
         if db:
             try:

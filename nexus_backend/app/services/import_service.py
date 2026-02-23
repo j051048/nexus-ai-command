@@ -115,11 +115,7 @@ class ImportService:
             for row in rows[1:]:
                 # 过滤空行
                 if any(row):
-                    row_dict = {
-                        str(headers[i]): row[i]
-                        for i in range(len(headers))
-                        if i < len(row)
-                    }
+                    row_dict = {str(headers[i]): row[i] for i in range(len(headers)) if i < len(row)}
                     data.append(row_dict)
 
             return data
@@ -185,9 +181,7 @@ class ImportService:
         return bool(re.match(pattern, phone))
 
     @staticmethod
-    def _validate_employee(
-        row: dict[str, Any], row_num: int
-    ) -> dict[str, Any] | None:
+    def _validate_employee(row: dict[str, Any], row_num: int) -> dict[str, Any] | None:
         """
         验证员工数据
 
@@ -231,9 +225,7 @@ class ImportService:
         return None
 
     @staticmethod
-    def _validate_customer(
-        row: dict[str, Any], row_num: int
-    ) -> dict[str, Any] | None:
+    def _validate_customer(row: dict[str, Any], row_num: int) -> dict[str, Any] | None:
         """
         验证客户数据
 
@@ -264,9 +256,7 @@ class ImportService:
         return None
 
     @staticmethod
-    def _detect_duplicates(
-        rows: list[dict[str, Any]], key_fields: list[str]
-    ) -> list[dict[str, Any]]:
+    def _detect_duplicates(rows: list[dict[str, Any]], key_fields: list[str]) -> list[dict[str, Any]]:
         """
         检测文件内部重复行
 
@@ -379,9 +369,7 @@ class ImportService:
         errors.extend(duplicates)
         error_count += len(duplicates)
 
-        for idx, row in enumerate(
-            normalized_data, start=2
-        ):  # 从第2行开始（第1行是表头）
+        for idx, row in enumerate(normalized_data, start=2):  # 从第2行开始（第1行是表头）
             try:
                 # 校验必填字段
                 name = row.get("name", "").strip()
@@ -432,13 +420,7 @@ class ImportService:
                     continue
 
                 # 检查邮箱是否已存在
-                existing = (
-                    await db_client.table("users")
-                    .select("id")
-                    .eq("email", email)
-                    .maybe_single()
-                    .execute()
-                )
+                existing = await db_client.table("users").select("id").eq("email", email).maybe_single().execute()
 
                 # 构建用户数据
                 user_data = {
@@ -457,9 +439,7 @@ class ImportService:
                     # 增量模式：使用 upsert
                     if existing.data:
                         # 更新已有记录
-                        await db_client.table("users").update(user_data).eq(
-                            "id", existing.data["id"]
-                        ).execute()
+                        await db_client.table("users").update(user_data).eq("id", existing.data["id"]).execute()
                         success_count += 1
                     else:
                         # 新增记录
@@ -477,9 +457,7 @@ class ImportService:
 
             except Exception as e:
                 logger.error(f"第{idx}行导入失败: {e}")
-                errors.append(
-                    {"row": idx, "data": row, "reason": str(e), "field": "unknown"}
-                )
+                errors.append({"row": idx, "data": row, "reason": str(e), "field": "unknown"})
                 error_count += 1
 
         return {
@@ -561,9 +539,7 @@ class ImportService:
             normalized_data.append(normalized_row)
 
         # C5: 检测文件内部重复（基于客户名称和公司）
-        duplicates = ImportService._detect_duplicates(
-            normalized_data, ["name", "company"]
-        )
+        duplicates = ImportService._detect_duplicates(normalized_data, ["name", "company"])
         errors.extend(duplicates)
         error_count += len(duplicates)
 
@@ -631,15 +607,11 @@ class ImportService:
                     # 增量模式：使用 upsert
                     if existing.data:
                         # 更新已有记录
-                        await db_client.table("customers").update(customer_data).eq(
-                            "id", existing.data["id"]
-                        ).execute()
+                        await db_client.table("customers").update(customer_data).eq("id", existing.data["id"]).execute()
                         success_count += 1
                     else:
                         # 新增记录
-                        await db_client.table("customers").insert(
-                            customer_data
-                        ).execute()
+                        await db_client.table("customers").insert(customer_data).execute()
                         success_count += 1
                 else:
                     # 默认 insert 模式：跳过已存在的记录
@@ -653,9 +625,7 @@ class ImportService:
 
             except Exception as e:
                 logger.error(f"第{idx}行导入失败: {e}")
-                errors.append(
-                    {"row": idx, "data": row, "reason": str(e), "field": "unknown"}
-                )
+                errors.append({"row": idx, "data": row, "reason": str(e), "field": "unknown"})
                 error_count += 1
 
         return {

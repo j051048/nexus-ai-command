@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 class PluginStatus(Enum):
     """Plugin lifecycle states."""
+
     REGISTERED = "registered"
     ACTIVE = "active"
     DISABLED = "disabled"
@@ -25,18 +26,20 @@ class PluginStatus(Enum):
 
 class ExtensionPoint(Enum):
     """Points where plugins can hook into the system."""
-    PRE_CHAT = "pre_chat"           # Before LLM call
-    POST_CHAT = "post_chat"         # After LLM response
-    PRE_TOOL = "pre_tool"           # Before tool execution
-    POST_TOOL = "post_tool"         # After tool execution
-    CUSTOM_TOOL = "custom_tool"     # Register new tools
-    DATA_EXPORT = "data_export"     # Export pipeline hook
-    ON_ERROR = "on_error"           # Error handling hook
+
+    PRE_CHAT = "pre_chat"  # Before LLM call
+    POST_CHAT = "post_chat"  # After LLM response
+    PRE_TOOL = "pre_tool"  # Before tool execution
+    POST_TOOL = "post_tool"  # After tool execution
+    CUSTOM_TOOL = "custom_tool"  # Register new tools
+    DATA_EXPORT = "data_export"  # Export pipeline hook
+    ON_ERROR = "on_error"  # Error handling hook
 
 
 @dataclass
 class PluginMetadata:
     """Metadata describing a plugin."""
+
     plugin_id: str
     name: str
     version: str
@@ -87,9 +90,7 @@ class PluginSystemService:
     def __init__(self):
         self._plugins: dict[str, BasePlugin] = {}
         self._metadata: dict[str, PluginMetadata] = {}
-        self._hooks: dict[ExtensionPoint, list[HookHandler]] = {
-            ep: [] for ep in ExtensionPoint
-        }
+        self._hooks: dict[ExtensionPoint, list[HookHandler]] = {ep: [] for ep in ExtensionPoint}
 
     def register(self, plugin: BasePlugin) -> bool:
         """Register a plugin (does not activate it)."""
@@ -143,17 +144,13 @@ class PluginSystemService:
         for ep_hooks in self._hooks.values():
             ep_hooks[:] = [h for h in ep_hooks if getattr(h, "_plugin_id", None) != plugin_id]
 
-    def add_hook(
-        self, point: ExtensionPoint, handler: HookHandler, plugin_id: str = None
-    ):
+    def add_hook(self, point: ExtensionPoint, handler: HookHandler, plugin_id: str = None):
         """Register a hook handler at an extension point."""
         if plugin_id:
             handler._plugin_id = plugin_id  # type: ignore
         self._hooks[point].append(handler)
 
-    async def run_hooks(
-        self, point: ExtensionPoint, context: dict
-    ) -> dict:
+    async def run_hooks(self, point: ExtensionPoint, context: dict) -> dict:
         """Execute all hooks at an extension point, passing context through."""
         for handler in self._hooks[point]:
             try:

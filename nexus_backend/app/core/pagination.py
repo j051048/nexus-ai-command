@@ -45,9 +45,7 @@ class SortParams(BaseModel):
     """
 
     sort_by: str | None = Field(default=None, description="Field to sort by")
-    sort_order: str = Field(
-        default="desc", pattern="^(asc|desc)$", description="Sort order"
-    )
+    sort_order: str = Field(default="desc", pattern="^(asc|desc)$", description="Sort order")
 
     @field_validator("sort_order")
     @classmethod
@@ -92,11 +90,7 @@ class PaginatedResult(Generic[T]):
 
     @property
     def total_pages(self) -> int:
-        return (
-            (self.total + self.page_size - 1) // self.page_size
-            if self.page_size > 0
-            else 0
-        )
+        return (self.total + self.page_size - 1) // self.page_size if self.page_size > 0 else 0
 
     @property
     def has_next(self) -> bool:

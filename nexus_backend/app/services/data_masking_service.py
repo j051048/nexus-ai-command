@@ -17,15 +17,17 @@ logger = logging.getLogger(__name__)
 
 class MaskingLevel(Enum):
     """Data masking levels."""
-    FULL = "full"           # 完全隐藏 (****)
-    PARTIAL = "partial"     # 部分隐藏 (张**)
-    HASH = "hash"           # 哈希替换
-    TOKENIZE = "tokenize"   # Token化 (可逆)
-    REDACT = "redact"       # 移除
+
+    FULL = "full"  # 完全隐藏 (****)
+    PARTIAL = "partial"  # 部分隐藏 (张**)
+    HASH = "hash"  # 哈希替换
+    TOKENIZE = "tokenize"  # Token化 (可逆)
+    REDACT = "redact"  # 移除
 
 
 class DataType(Enum):
     """Data types for masking."""
+
     PHONE = "phone"
     EMAIL = "email"
     ID_CARD = "id_card"
@@ -43,6 +45,7 @@ class DataType(Enum):
 @dataclass
 class MaskingRule:
     """Rule for masking a specific data type."""
+
     data_type: DataType
     pattern: str
     masking_level: MaskingLevel
@@ -65,13 +68,13 @@ class DataMaskingService:
 
     # Default masking patterns
     DEFAULT_PATTERNS = {
-        DataType.PHONE: r'1[3-9]\d{9}',
-        DataType.EMAIL: r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}',
-        DataType.ID_CARD: r'\d{17}[\dXx]',
-        DataType.BANK_CARD: r'\d{16,19}',
-        DataType.IP_ADDRESS: r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}',
-        DataType.API_KEY: r'sk-[a-zA-Z0-9]{20,}|api[_-]?key[_-]?[a-zA-Z0-9]{16,}',
-        DataType.CREDIT_CARD: r'\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}',
+        DataType.PHONE: r"1[3-9]\d{9}",
+        DataType.EMAIL: r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
+        DataType.ID_CARD: r"\d{17}[\dXx]",
+        DataType.BANK_CARD: r"\d{16,19}",
+        DataType.IP_ADDRESS: r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}",
+        DataType.API_KEY: r"sk-[a-zA-Z0-9]{20,}|api[_-]?key[_-]?[a-zA-Z0-9]{16,}",
+        DataType.CREDIT_CARD: r"\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}",
     }
 
     def __init__(self, secret_key: str = "default-secret-key"):
@@ -87,43 +90,43 @@ class DataMaskingService:
                 data_type=DataType.PHONE,
                 pattern=self.DEFAULT_PATTERNS[DataType.PHONE],
                 masking_level=MaskingLevel.PARTIAL,
-                replacement="***"
+                replacement="***",
             ),
             DataType.EMAIL: MaskingRule(
                 data_type=DataType.EMAIL,
                 pattern=self.DEFAULT_PATTERNS[DataType.EMAIL],
                 masking_level=MaskingLevel.PARTIAL,
-                replacement="***"
+                replacement="***",
             ),
             DataType.ID_CARD: MaskingRule(
                 data_type=DataType.ID_CARD,
                 pattern=self.DEFAULT_PATTERNS[DataType.ID_CARD],
                 masking_level=MaskingLevel.PARTIAL,
-                replacement="***********"
+                replacement="***********",
             ),
             DataType.BANK_CARD: MaskingRule(
                 data_type=DataType.BANK_CARD,
                 pattern=self.DEFAULT_PATTERNS[DataType.BANK_CARD],
                 masking_level=MaskingLevel.PARTIAL,
-                replacement="****"
+                replacement="****",
             ),
             DataType.API_KEY: MaskingRule(
                 data_type=DataType.API_KEY,
                 pattern=self.DEFAULT_PATTERNS[DataType.API_KEY],
                 masking_level=MaskingLevel.FULL,
-                replacement="[REDACTED]"
+                replacement="[REDACTED]",
             ),
             DataType.IP_ADDRESS: MaskingRule(
                 data_type=DataType.IP_ADDRESS,
                 pattern=self.DEFAULT_PATTERNS[DataType.IP_ADDRESS],
                 masking_level=MaskingLevel.PARTIAL,
-                replacement=".***"
+                replacement=".***",
             ),
             DataType.CREDIT_CARD: MaskingRule(
                 data_type=DataType.CREDIT_CARD,
                 pattern=self.DEFAULT_PATTERNS[DataType.CREDIT_CARD],
                 masking_level=MaskingLevel.PARTIAL,
-                replacement="****"
+                replacement="****",
             ),
         }
 
@@ -192,7 +195,7 @@ class DataMaskingService:
 
         elif data_type == DataType.EMAIL:
             # a***@example.com
-            parts = value.split('@')
+            parts = value.split("@")
             if len(parts) == 2:
                 name = parts[0]
                 if len(name) > 1:
@@ -210,13 +213,13 @@ class DataMaskingService:
 
         elif data_type == DataType.IP_ADDRESS:
             # 192.168.*.*
-            parts = value.split('.')
+            parts = value.split(".")
             if len(parts) == 4:
                 return f"{parts[0]}.{parts[1]}.*.*"
 
         elif data_type == DataType.CREDIT_CARD:
             # ****-****-****-1234
-            digits = re.sub(r'[\s-]', '', value)
+            digits = re.sub(r"[\s-]", "", value)
             if len(digits) >= 4:
                 return "****-****-****-" + digits[-4:]
 
@@ -248,11 +251,7 @@ class DataMaskingService:
         """Recover original value from token."""
         return self._token_map.get(token)
 
-    def mask_dict(
-        self,
-        data: dict[str, Any],
-        field_rules: dict[str, DataType] = None
-    ) -> dict[str, Any]:
+    def mask_dict(self, data: dict[str, Any], field_rules: dict[str, DataType] = None) -> dict[str, Any]:
         """
         Mask sensitive fields in a dictionary.
 
@@ -281,9 +280,11 @@ class DataMaskingService:
                 result[key] = self.mask_dict(value, field_rules)
             elif isinstance(value, list):
                 result[key] = [
-                    self.mask_dict(item, field_rules) if isinstance(item, dict)
-                    else self.mask(item) if isinstance(item, str)
-                    else item
+                    (
+                        self.mask_dict(item, field_rules)
+                        if isinstance(item, dict)
+                        else self.mask(item) if isinstance(item, str) else item
+                    )
                     for item in value
                 ]
             else:
@@ -302,12 +303,9 @@ class DataMaskingService:
 
         for data_type, pattern in self.DEFAULT_PATTERNS.items():
             for match in re.finditer(pattern, text):
-                detections.append({
-                    "type": data_type.value,
-                    "value": match.group(),
-                    "start": match.start(),
-                    "end": match.end()
-                })
+                detections.append(
+                    {"type": data_type.value, "value": match.group(), "start": match.start(), "end": match.end()}
+                )
 
         return detections
 

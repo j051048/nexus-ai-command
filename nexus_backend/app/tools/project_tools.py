@@ -18,16 +18,10 @@ class ProjectListTool(BaseTool):
 
     parameters = {"type": "object", "properties": {}, "required": []}
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
         # Check role to filter projects? For now, list all accessible via RLS
-        result = (
-            await client.table("projects")
-            .select("id, name, stage, progress")
-            .execute()
-        )
+        result = await client.table("projects").select("id, name, stage, progress").execute()
         if not result.data:
             return "暂无进行中的项目。"
         items = [
@@ -57,9 +51,7 @@ class CreateProjectTool(BaseTool):
 
     required_role = "all"
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         name = args.get("name")
         description = args.get("description", "")
         status = args.get("status", "planning")
@@ -112,9 +104,7 @@ class CreateEventTool(BaseTool):
         "required": ["project_id", "title", "content", "event_type"],
     }
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         project_id = args.get("project_id")
         title = args.get("title")
         content = args.get("content")
@@ -150,7 +140,9 @@ class WeeklyReportTool(BaseTool):
     """AI 周报/日报自动起草"""
 
     name = "generate_weekly_report"
-    description = "自动生成本周工作周报或日报，汇总项目进度、完成任务和下周计划。当用户说'帮我写周报'、'生成日报'时调用。"
+    description = (
+        "自动生成本周工作周报或日报，汇总项目进度、完成任务和下周计划。当用户说'帮我写周报'、'生成日报'时调用。"
+    )
     required_role = "all"
 
     parameters = {
@@ -165,9 +157,7 @@ class WeeklyReportTool(BaseTool):
         "required": [],
     }
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         from app.services.ai_service import AIService
 
         report_type = args.get("report_type", "weekly")
@@ -175,10 +165,10 @@ class WeeklyReportTool(BaseTool):
         now = datetime.now()
 
         if report_type == "daily":
-            period_start = now.strftime('%Y-%m-%dT00:00:00')
+            period_start = now.strftime("%Y-%m-%dT00:00:00")
             report_type_name = "日报"
         else:
-            period_start = (now - timedelta(days=now.weekday())).strftime('%Y-%m-%dT00:00:00')
+            period_start = (now - timedelta(days=now.weekday())).strftime("%Y-%m-%dT00:00:00")
             report_type_name = "周报"
 
         # 聚合任务数据
@@ -212,12 +202,7 @@ class WeeklyReportTool(BaseTool):
         # 查询用户项目
         projects_data = []
         try:
-            proj_res = (
-                await client.table("projects")
-                .select("name, stage, progress")
-                .eq("user_id", user_id)
-                .execute()
-            )
+            proj_res = await client.table("projects").select("name, stage, progress").eq("user_id", user_id).execute()
             projects_data = proj_res.data or []
         except Exception:
             pass

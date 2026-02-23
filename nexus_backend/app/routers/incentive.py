@@ -20,9 +20,7 @@ async def trigger_incentive(trigger: IncentiveTrigger):
         # P4 Enhancement: Move logic to service layer
         result = await IncentiveService.trigger_incentive(trigger)
 
-        return api_success(
-            data=result.model_dump(), message="Incentive Generated Successfully"
-        )
+        return api_success(data=result.model_dump(), message="Incentive Generated Successfully")
     except Exception as e:
         # Catch unexpected errors handled by service layer
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

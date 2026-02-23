@@ -61,6 +61,7 @@ def increment_tool_schema_version():
 
 # ─── Conditional Edge Functions ──────────────────────────────────────────────
 
+
 def _after_plan(state: AgentState) -> str:
     """
     After planning:
@@ -124,6 +125,7 @@ def _after_error(state: AgentState) -> str:
 
 # ─── Graph Builder ───────────────────────────────────────────────────────────
 
+
 def build_agent_graph() -> StateGraph:
     """
     Construct the LangGraph state machine.
@@ -147,30 +149,46 @@ def build_agent_graph() -> StateGraph:
     graph.add_edge("router", "plan")
 
     # plan → execute | reflect | error (conditional)
-    graph.add_conditional_edges("plan", _after_plan, {
-        "execute": "execute",
-        "reflect": "reflect",
-        "error": "error",
-    })
+    graph.add_conditional_edges(
+        "plan",
+        _after_plan,
+        {
+            "execute": "execute",
+            "reflect": "reflect",
+            "error": "error",
+        },
+    )
 
     # execute → plan | reflect | error (conditional)
-    graph.add_conditional_edges("execute", _after_execute, {
-        "plan": "plan",
-        "reflect": "reflect",
-        "error": "error",
-    })
+    graph.add_conditional_edges(
+        "execute",
+        _after_execute,
+        {
+            "plan": "plan",
+            "reflect": "reflect",
+            "error": "error",
+        },
+    )
 
     # reflect → plan | respond (conditional)
-    graph.add_conditional_edges("reflect", _after_reflect, {
-        "plan": "plan",
-        "respond": "respond",
-    })
+    graph.add_conditional_edges(
+        "reflect",
+        _after_reflect,
+        {
+            "plan": "plan",
+            "respond": "respond",
+        },
+    )
 
     # error → plan | respond (conditional)
-    graph.add_conditional_edges("error", _after_error, {
-        "plan": "plan",
-        "respond": "respond",
-    })
+    graph.add_conditional_edges(
+        "error",
+        _after_error,
+        {
+            "plan": "plan",
+            "respond": "respond",
+        },
+    )
 
     # respond → END
     graph.add_edge("respond", END)
@@ -305,4 +323,3 @@ class AgentGraph:
 def get_agent_graph() -> AgentGraph:
     """Get the singleton AgentGraph instance."""
     return AgentGraph()
-

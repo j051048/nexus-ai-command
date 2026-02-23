@@ -40,9 +40,7 @@ def _verify_wecom_signature(request_body: bytes, signature: str) -> bool:
     return True
 
 
-def _verify_dingtalk_signature(
-    request_body: bytes, timestamp: str, signature: str
-) -> bool:
+def _verify_dingtalk_signature(request_body: bytes, timestamp: str, signature: str) -> bool:
     """
     验证钉钉回调签名。
 
@@ -67,9 +65,7 @@ def _verify_dingtalk_signature(
         return False
 
 
-def _verify_feishu_signature(
-    request_body: bytes, timestamp: str, nonce: str, signature: str
-) -> bool:
+def _verify_feishu_signature(request_body: bytes, timestamp: str, nonce: str, signature: str) -> bool:
     """
     验证飞书回调签名。
 
@@ -81,9 +77,7 @@ def _verify_feishu_signature(
     return True
 
 
-async def _parse_callback_data(
-    platform: str, request: Request
-) -> dict[str, Any]:
+async def _parse_callback_data(platform: str, request: Request) -> dict[str, Any]:
     """
     解析不同平台的回调数据格式，提取审批 ID 和用户决定。
 
@@ -173,21 +167,15 @@ async def handle_approval_callback(platform: str, request: Request):
         elif platform == "dingtalk":
             timestamp = request.headers.get("timestamp", "")
             signature = request.headers.get("sign", "")
-            is_valid = _verify_dingtalk_signature(
-                body_bytes, timestamp, signature
-            )
+            is_valid = _verify_dingtalk_signature(body_bytes, timestamp, signature)
         elif platform == "feishu":
             timestamp = request.headers.get("X-Lark-Request-Timestamp", "")
             nonce = request.headers.get("X-Lark-Request-Nonce", "")
             signature = request.headers.get("X-Lark-Signature", "")
-            is_valid = _verify_feishu_signature(
-                body_bytes, timestamp, nonce, signature
-            )
+            is_valid = _verify_feishu_signature(body_bytes, timestamp, nonce, signature)
 
         if not is_valid:
-            logger.warning(
-                f"[im_callback] Invalid signature from {platform}"
-            )
+            logger.warning(f"[im_callback] Invalid signature from {platform}")
             return api_error(
                 ErrorCode.AUTH_TOKEN_INVALID,
                 "Invalid callback signature",
@@ -209,18 +197,14 @@ async def handle_approval_callback(platform: str, request: Request):
         platform_user_id = callback_data.get("user_id", "")
 
         if not approval_id or not action:
-            logger.warning(
-                f"[im_callback] Missing approval_id or action in "
-                f"{platform} callback"
-            )
+            logger.warning(f"[im_callback] Missing approval_id or action in " f"{platform} callback")
             return api_error(
                 ErrorCode.VALIDATION_INVALID_INPUT,
                 "Missing approval_id or action",
             )
 
         logger.info(
-            f"[im_callback] Received {action} for approval {approval_id} "
-            f"from {platform} user {platform_user_id}"
+            f"[im_callback] Received {action} for approval {approval_id} " f"from {platform} user {platform_user_id}"
         )
 
         # 4. 调用审批链服务
@@ -259,14 +243,11 @@ async def handle_approval_callback(platform: str, request: Request):
             )
 
             logger.info(
-                f"[im_callback] Approval {approval_id} {decision} "
-                f"by user {nexus_user_id or platform_user_id}"
+                f"[im_callback] Approval {approval_id} {decision} " f"by user {nexus_user_id or platform_user_id}"
             )
 
         except Exception as e:
-            logger.error(
-                f"[im_callback] Failed to advance approval {approval_id}: {e}"
-            )
+            logger.error(f"[im_callback] Failed to advance approval {approval_id}: {e}")
             return api_error(
                 ErrorCode.SYSTEM_INTERNAL_ERROR,
                 f"Failed to process approval: {str(e)[:100]}",

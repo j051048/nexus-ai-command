@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 class TraceStatus(Enum):
     """Status of a trace"""
+
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
@@ -25,6 +26,7 @@ class TraceStatus(Enum):
 
 class NodeType(Enum):
     """Types of agent nodes"""
+
     ROUTER = "router"
     PLAN = "plan"
     EXECUTE = "execute"
@@ -36,6 +38,7 @@ class NodeType(Enum):
 @dataclass
 class TraceStep:
     """Single step in agent execution"""
+
     step_id: str
     node_type: str
     timestamp: float
@@ -54,6 +57,7 @@ class TraceStep:
 @dataclass
 class AgentTrace:
     """Complete trace of an agent execution"""
+
     trace_id: str
     thread_id: str
     user_id: str
@@ -86,13 +90,14 @@ class AgentTrace:
             "steps": [s.to_dict() for s in self.steps],
             "final_response": self.final_response,
             "metadata": self.metadata,
-            "tags": self.tags
+            "tags": self.tags,
         }
 
 
 @dataclass
 class MetricPoint:
     """Single metric data point"""
+
     timestamp: float
     metric_name: str
     value: float
@@ -118,13 +123,7 @@ class AgentTraceService:
         self._max_completed_traces = 1000
 
     def start_trace(
-        self,
-        trace_id: str,
-        thread_id: str,
-        user_id: str,
-        query: str,
-        org_id: str = None,
-        metadata: dict = None
+        self, trace_id: str, thread_id: str, user_id: str, query: str, org_id: str = None, metadata: dict = None
     ) -> AgentTrace:
         """Start a new trace."""
         trace = AgentTrace(
@@ -135,7 +134,7 @@ class AgentTraceService:
             query=query,
             status=TraceStatus.RUNNING,
             start_time=time.time(),
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
         self._active_traces[trace_id] = trace
         self._record_metric("trace_started", 1, {"user_id": user_id})
@@ -152,7 +151,7 @@ class AgentTraceService:
         status: str = "completed",
         error: str = None,
         tokens_used: int = 0,
-        tool_calls: list[dict] = None
+        tool_calls: list[dict] = None,
     ) -> TraceStep | None:
         """Add a step to an active trace."""
         trace = self._active_traces.get(trace_id)
@@ -176,7 +175,7 @@ class AgentTraceService:
             status=status,
             error=error,
             tokens_used=tokens_used,
-            tool_calls=tool_calls or []
+            tool_calls=tool_calls or [],
         )
 
         trace.steps.append(step)
@@ -190,11 +189,7 @@ class AgentTraceService:
         return step
 
     def end_trace(
-        self,
-        trace_id: str,
-        status: TraceStatus,
-        final_response: str = None,
-        error: str = None
+        self, trace_id: str, status: TraceStatus, final_response: str = None, error: str = None
     ) -> AgentTrace | None:
         """End a trace and move to completed."""
         trace = self._active_traces.pop(trace_id, None)
@@ -232,7 +227,8 @@ class AgentTraceService:
     def get_thread_traces(self, thread_id: str) -> list[AgentTrace]:
         """Get all traces for a thread."""
         return [
-            t for t in list(self._active_traces.values()) + list(self._completed_traces.values())
+            t
+            for t in list(self._active_traces.values()) + list(self._completed_traces.values())
             if t.thread_id == thread_id
         ]
 
@@ -252,10 +248,10 @@ class AgentTraceService:
                     "output": step.output_data,
                     "duration_ms": step.duration_ms,
                     "tokens": step.tokens_used,
-                    "tools": step.tool_calls
+                    "tools": step.tool_calls,
                 }
                 for i, step in enumerate(trace.steps)
-            ]
+            ],
         }
 
     def get_metrics(self, metric_name: str = None, since: float = None) -> list[dict]:
@@ -265,7 +261,9 @@ class AgentTraceService:
             metrics = [m for m in metrics if m.metric_name == metric_name]
         if since:
             metrics = [m for m in metrics if m.timestamp >= since]
-        return [{"timestamp": m.timestamp, "name": m.metric_name, "value": m.value, "labels": m.labels} for m in metrics]
+        return [
+            {"timestamp": m.timestamp, "name": m.metric_name, "value": m.value, "labels": m.labels} for m in metrics
+        ]
 
     def get_stats(self, org_id: str = None, user_id: str = None) -> dict:
         """Get aggregate statistics."""
@@ -289,10 +287,7 @@ class AgentTraceService:
             "total_cost_usd": round(total_cost, 4),
             "avg_duration_ms": sum(durations) / len(durations) if durations else 0,
             "success_rate": len([t for t in traces if t.status == TraceStatus.COMPLETED]) / len(traces),
-            "by_status": {
-                status.value: len([t for t in traces if t.status == status])
-                for status in TraceStatus
-            }
+            "by_status": {status.value: len([t for t in traces if t.status == status]) for status in TraceStatus},
         }
 
     async def persist_trace(self, trace_id: str, db=None):
@@ -302,34 +297,33 @@ class AgentTraceService:
             return
 
         try:
-            await db.table("agent_traces").upsert({
-                "trace_id": trace.trace_id,
-                "thread_id": trace.thread_id,
-                "user_id": trace.user_id,
-                "org_id": trace.org_id,
-                "query": trace.query,
-                "status": trace.status.value,
-                "start_time": datetime.fromtimestamp(trace.start_time).isoformat(),
-                "end_time": datetime.fromtimestamp(trace.end_time).isoformat() if trace.end_time else None,
-                "total_duration_ms": trace.total_duration_ms,
-                "total_tokens": trace.total_tokens,
-                "total_cost_usd": trace.total_cost_usd,
-                "steps_json": [s.to_dict() for s in trace.steps],
-                "final_response": trace.final_response,
-                "metadata_json": trace.metadata,
-                "tags": trace.tags
-            }).execute()
+            await db.table("agent_traces").upsert(
+                {
+                    "trace_id": trace.trace_id,
+                    "thread_id": trace.thread_id,
+                    "user_id": trace.user_id,
+                    "org_id": trace.org_id,
+                    "query": trace.query,
+                    "status": trace.status.value,
+                    "start_time": datetime.fromtimestamp(trace.start_time).isoformat(),
+                    "end_time": datetime.fromtimestamp(trace.end_time).isoformat() if trace.end_time else None,
+                    "total_duration_ms": trace.total_duration_ms,
+                    "total_tokens": trace.total_tokens,
+                    "total_cost_usd": trace.total_cost_usd,
+                    "steps_json": [s.to_dict() for s in trace.steps],
+                    "final_response": trace.final_response,
+                    "metadata_json": trace.metadata,
+                    "tags": trace.tags,
+                }
+            ).execute()
         except Exception as e:
             logger.error(f"Failed to persist trace: {e}")
 
     def _record_metric(self, metric_name: str, value: float, labels: dict = None):
         """Record a metric point."""
-        self._metrics_buffer.append(MetricPoint(
-            timestamp=time.time(),
-            metric_name=metric_name,
-            value=value,
-            labels=labels or {}
-        ))
+        self._metrics_buffer.append(
+            MetricPoint(timestamp=time.time(), metric_name=metric_name, value=value, labels=labels or {})
+        )
         # Keep buffer manageable
         if len(self._metrics_buffer) > 10000:
             self._metrics_buffer = self._metrics_buffer[-5000:]
@@ -343,11 +337,8 @@ class AgentTraceService:
         """Remove old traces to prevent memory leak."""
         if len(self._completed_traces) > self._max_completed_traces:
             # Remove oldest traces
-            sorted_ids = sorted(
-                self._completed_traces.keys(),
-                key=lambda x: self._completed_traces[x].start_time
-            )
-            for trace_id in sorted_ids[:len(self._completed_traces) - self._max_completed_traces]:
+            sorted_ids = sorted(self._completed_traces.keys(), key=lambda x: self._completed_traces[x].start_time)
+            for trace_id in sorted_ids[: len(self._completed_traces) - self._max_completed_traces]:
                 del self._completed_traces[trace_id]
 
 

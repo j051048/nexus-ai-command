@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 class ErrorSeverity(Enum):
     """Error severity levels."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -27,6 +28,7 @@ class ErrorSeverity(Enum):
 
 class RecoveryStrategy(Enum):
     """Recovery strategies for errors."""
+
     RETRY = "retry"
     FALLBACK = "fallback"
     GRACEFUL_DEGRADATION = "graceful_degradation"
@@ -37,6 +39,7 @@ class RecoveryStrategy(Enum):
 @dataclass
 class ErrorContext:
     """Context information for an error."""
+
     error_type: str
     error_message: str
     severity: ErrorSeverity
@@ -51,6 +54,7 @@ class ErrorContext:
 @dataclass
 class RecoveryResult:
     """Result of a recovery attempt."""
+
     success: bool
     strategy_used: RecoveryStrategy
     message: str
@@ -107,13 +111,7 @@ class ErrorRecoveryService:
         """Register a fallback handler for an operation."""
         self._fallback_handlers[operation] = handler
 
-    def classify_error(
-        self,
-        error: Exception,
-        component: str,
-        operation: str,
-        metadata: dict = None
-    ) -> ErrorContext:
+    def classify_error(self, error: Exception, component: str, operation: str, metadata: dict = None) -> ErrorContext:
         """Classify an error and determine its severity."""
         error_type = type(error).__name__
         error_message = str(error)
@@ -131,15 +129,10 @@ class ErrorRecoveryService:
             severity=severity,
             component=component,
             operation=operation,
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
-    async def recover(
-        self,
-        error: Exception,
-        context: ErrorContext,
-        operation_func: Callable = None
-    ) -> RecoveryResult:
+    async def recover(self, error: Exception, context: ErrorContext, operation_func: Callable = None) -> RecoveryResult:
         """
         Attempt to recover from an error.
 
@@ -174,11 +167,7 @@ class ErrorRecoveryService:
         elif strategy == RecoveryStrategy.ESCALATE:
             return self._escalate_recovery(error, context)
 
-        return RecoveryResult(
-            success=False,
-            strategy_used=strategy,
-            message="Unknown recovery strategy"
-        )
+        return RecoveryResult(success=False, strategy_used=strategy, message="Unknown recovery strategy")
 
     def _get_strategy(self, context: ErrorContext) -> RecoveryStrategy:
         """Determine recovery strategy based on error context."""
@@ -187,23 +176,17 @@ class ErrorRecoveryService:
             return RecoveryStrategy.FALLBACK  # Let handler decide
 
         # Use default mapping
-        return self.DEFAULT_STRATEGIES.get(
-            context.error_type,
-            RecoveryStrategy.GRACEFUL_DEGRADATION
-        )
+        return self.DEFAULT_STRATEGIES.get(context.error_type, RecoveryStrategy.GRACEFUL_DEGRADATION)
 
     async def _retry_recovery(
-        self,
-        error: Exception,
-        context: ErrorContext,
-        operation_func: Callable
+        self, error: Exception, context: ErrorContext, operation_func: Callable
     ) -> RecoveryResult:
         """Attempt retry with exponential backoff."""
         if context.retry_count >= context.max_retries:
             return RecoveryResult(
                 success=False,
                 strategy_used=RecoveryStrategy.RETRY,
-                message=f"Max retries ({context.max_retries}) exceeded"
+                message=f"Max retries ({context.max_retries}) exceeded",
             )
 
         if not operation_func:
@@ -211,34 +194,26 @@ class ErrorRecoveryService:
                 success=False,
                 strategy_used=RecoveryStrategy.RETRY,
                 should_retry=True,
-                message="Retry requested - caller should re-execute"
+                message="Retry requested - caller should re-execute",
             )
 
         # Exponential backoff
-        backoff = min(2 ** context.retry_count, 30)
+        backoff = min(2**context.retry_count, 30)
         await asyncio.sleep(backoff)
 
         try:
             await operation_func()
-            return RecoveryResult(
-                success=True,
-                strategy_used=RecoveryStrategy.RETRY,
-                message="Retry successful"
-            )
+            return RecoveryResult(success=True, strategy_used=RecoveryStrategy.RETRY, message="Retry successful")
         except Exception as e:
             context.retry_count += 1
             return RecoveryResult(
                 success=False,
                 strategy_used=RecoveryStrategy.RETRY,
                 should_retry=context.retry_count < context.max_retries,
-                message=f"Retry failed: {str(e)}"
+                message=f"Retry failed: {str(e)}",
             )
 
-    async def _fallback_recovery(
-        self,
-        error: Exception,
-        context: ErrorContext
-    ) -> RecoveryResult:
+    async def _fallback_recovery(self, error: Exception, context: ErrorContext) -> RecoveryResult:
         """Attempt fallback operation."""
         handler = self._fallback_handlers.get(context.operation)
 
@@ -248,7 +223,7 @@ class ErrorRecoveryService:
                 success=False,
                 strategy_used=RecoveryStrategy.FALLBACK,
                 fallback_data=self._get_generic_fallback(context),
-                message="Using generic fallback"
+                message="Using generic fallback",
             )
 
         try:
@@ -257,20 +232,14 @@ class ErrorRecoveryService:
                 success=True,
                 strategy_used=RecoveryStrategy.FALLBACK,
                 fallback_data=fallback_data,
-                message="Fallback successful"
+                message="Fallback successful",
             )
         except Exception as e:
             return RecoveryResult(
-                success=False,
-                strategy_used=RecoveryStrategy.FALLBACK,
-                message=f"Fallback failed: {str(e)}"
+                success=False, strategy_used=RecoveryStrategy.FALLBACK, message=f"Fallback failed: {str(e)}"
             )
 
-    def _degradation_recovery(
-        self,
-        error: Exception,
-        context: ErrorContext
-    ) -> RecoveryResult:
+    def _degradation_recovery(self, error: Exception, context: ErrorContext) -> RecoveryResult:
         """Implement graceful degradation."""
         degraded_response = self._get_degraded_response(context)
 
@@ -278,46 +247,27 @@ class ErrorRecoveryService:
             success=True,
             strategy_used=RecoveryStrategy.GRACEFUL_DEGRADATION,
             fallback_data=degraded_response,
-            message="Operating in degraded mode"
+            message="Operating in degraded mode",
         )
 
-    def _abort_recovery(
-        self,
-        error: Exception,
-        context: ErrorContext
-    ) -> RecoveryResult:
+    def _abort_recovery(self, error: Exception, context: ErrorContext) -> RecoveryResult:
         """Abort operation and return error."""
-        logger.error(
-            f"Aborting operation {context.operation} in {context.component}: "
-            f"{context.error_message}"
-        )
+        logger.error(f"Aborting operation {context.operation} in {context.component}: " f"{context.error_message}")
 
         return RecoveryResult(
-            success=False,
-            strategy_used=RecoveryStrategy.ABORT,
-            message=f"Operation aborted: {context.error_message}"
+            success=False, strategy_used=RecoveryStrategy.ABORT, message=f"Operation aborted: {context.error_message}"
         )
 
-    def _escalate_recovery(
-        self,
-        error: Exception,
-        context: ErrorContext
-    ) -> RecoveryResult:
+    def _escalate_recovery(self, error: Exception, context: ErrorContext) -> RecoveryResult:
         """Escalate error to monitoring/alerting."""
         # Log for alerting
         logger.critical(
-            f"ESCALATE: {context.error_type} in {context.component}: "
-            f"{context.error_message}",
-            extra={
-                "error_context": context.__dict__,
-                "alert_required": True
-            }
+            f"ESCALATE: {context.error_type} in {context.component}: " f"{context.error_message}",
+            extra={"error_context": context.__dict__, "alert_required": True},
         )
 
         return RecoveryResult(
-            success=False,
-            strategy_used=RecoveryStrategy.ESCALATE,
-            message="Error escalated for human review"
+            success=False, strategy_used=RecoveryStrategy.ESCALATE, message="Error escalated for human review"
         )
 
     def _get_generic_fallback(self, context: ErrorContext) -> Any:
@@ -326,7 +276,7 @@ class ErrorRecoveryService:
             "search": {"results": [], "message": "搜索暂时不可用，请稍后重试"},
             "generate": {"content": "内容生成暂时不可用，请稍后重试"},
             "analyze": {"analysis": None, "message": "分析服务暂时不可用"},
-            "default": {"message": "服务暂时不可用，请稍后重试"}
+            "default": {"message": "服务暂时不可用，请稍后重试"},
         }
         return fallbacks.get(context.operation, fallbacks["default"])
 
@@ -336,7 +286,7 @@ class ErrorRecoveryService:
             "status": "degraded",
             "message": "部分功能暂时不可用",
             "available_features": self._get_available_features(context),
-            "retry_suggested": True
+            "retry_suggested": True,
         }
 
     def _get_available_features(self, context: ErrorContext) -> list:
@@ -350,21 +300,20 @@ class ErrorRecoveryService:
         self._error_counts[key] = self._error_counts.get(key, 0) + 1
 
         # Keep history manageable
-        self._error_history.append({
-            "type": context.error_type,
-            "component": context.component,
-            "severity": context.severity.value,
-            "timestamp": context.timestamp.isoformat()
-        })
+        self._error_history.append(
+            {
+                "type": context.error_type,
+                "component": context.component,
+                "severity": context.severity.value,
+                "timestamp": context.timestamp.isoformat(),
+            }
+        )
         if len(self._error_history) > 1000:
             self._error_history = self._error_history[-500:]
 
     def get_error_stats(self) -> dict:
         """Get error statistics."""
-        return {
-            "error_counts": dict(self._error_counts),
-            "recent_errors": self._error_history[-10:]
-        }
+        return {"error_counts": dict(self._error_counts), "recent_errors": self._error_history[-10:]}
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -374,18 +323,20 @@ class ErrorRecoveryService:
 
 class CircuitState(Enum):
     """Circuit breaker states."""
-    CLOSED = "closed"       # Normal operation
-    OPEN = "open"           # Failing, reject fast
-    HALF_OPEN = "half_open" # Testing if service recovered
+
+    CLOSED = "closed"  # Normal operation
+    OPEN = "open"  # Failing, reject fast
+    HALF_OPEN = "half_open"  # Testing if service recovered
 
 
 @dataclass
 class CircuitBreakerConfig:
     """Configuration for circuit breaker behavior."""
-    failure_threshold: int = 5          # Failures before opening
-    recovery_timeout: float = 60.0     # Seconds before trying half-open
-    half_open_max_calls: int = 1       # Probe calls in half-open
-    success_threshold: int = 2         # Successes to close from half-open
+
+    failure_threshold: int = 5  # Failures before opening
+    recovery_timeout: float = 60.0  # Seconds before trying half-open
+    half_open_max_calls: int = 1  # Probe calls in half-open
+    success_threshold: int = 2  # Successes to close from half-open
 
 
 class CircuitBreaker:
@@ -451,10 +402,7 @@ class CircuitBreaker:
             logger.warning(f"Circuit breaker '{self.name}' re-opened (probe failed)")
         elif self._failure_count >= self.config.failure_threshold:
             self._state = CircuitState.OPEN
-            logger.warning(
-                f"Circuit breaker '{self.name}' opened after "
-                f"{self._failure_count} failures"
-            )
+            logger.warning(f"Circuit breaker '{self.name}' opened after " f"{self._failure_count} failures")
 
     def get_status(self) -> dict:
         """Get circuit breaker status for monitoring."""

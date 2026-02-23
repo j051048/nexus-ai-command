@@ -22,9 +22,13 @@ async def get_profile(
         return api_error(ErrorCode.DB_CONNECTION_ERROR, "Database unavailable")
 
     try:
-        res = await client.table("users").select(
-            "id, name, email, role, department, position, avatar_url, created_at"
-        ).eq("id", user_id).maybe_single().execute()
+        res = (
+            await client.table("users")
+            .select("id, name, email, role, department, position, avatar_url, created_at")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
 
         if not res.data:
             return api_error(ErrorCode.RESOURCE_NOT_FOUND, "User not found")
@@ -53,9 +57,7 @@ async def update_profile(
         if not updates:
             return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "No valid fields to update")
 
-        await client.table("users").update(updates).eq(
-            "id", user_id
-        ).execute()
+        await client.table("users").update(updates).eq("id", user_id).execute()
 
         return api_success(data={"updated": True, "fields": list(updates.keys())})
     except Exception as e:
@@ -74,9 +76,13 @@ async def get_ai_settings(
         return api_error(ErrorCode.DB_CONNECTION_ERROR, "Database unavailable")
 
     try:
-        res = await client.table("ai_settings").select(
-            "model, base_url, temperature"
-        ).eq("user_id", user_id).maybe_single().execute()
+        res = (
+            await client.table("ai_settings")
+            .select("model, base_url, temperature")
+            .eq("user_id", user_id)
+            .maybe_single()
+            .execute()
+        )
 
         return api_success(data={"ai_settings": res.data or {}})
     except Exception as e:
@@ -119,9 +125,11 @@ async def update_security_settings(
     """Update security settings (notification preferences, etc.)."""
     try:
         await req.json()
-        return api_success(data={
-            "updated": True,
-            "note": "Security settings updated. Password changes require Supabase Auth.",
-        })
+        return api_success(
+            data={
+                "updated": True,
+                "note": "Security settings updated. Password changes require Supabase Auth.",
+            }
+        )
     except Exception as e:
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

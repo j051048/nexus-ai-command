@@ -55,9 +55,7 @@ class ApprovalService:
             )
 
             raw_decision = ai_result.get("decision", "manual_review_required")
-            normalized_decision = DECISION_MAP.get(
-                raw_decision, "manual_review_required"
-            )
+            normalized_decision = DECISION_MAP.get(raw_decision, "manual_review_required")
             ai_reason = ai_result.get("reasoning", "需要人工进一步核实详情")
 
             # 2. Rule Engine Guardrails (Optional but recommended)
@@ -68,10 +66,7 @@ class ApprovalService:
             final_reason = ai_reason
 
             # If Rule Engine suggests manual review but AI says auto-approve, trust Rule Engine for safety (amounts)
-            if (
-                rule_decision.decision == "manual_review_required"
-                and normalized_decision == "auto_approved"
-            ):
+            if rule_decision.decision == "manual_review_required" and normalized_decision == "auto_approved":
                 final_decision = "manual_review_required"
                 final_reason = f"Security Rule Override: {rule_decision.reason}. AI Reason: {ai_reason}"
 
@@ -85,6 +80,4 @@ class ApprovalService:
 
         except Exception as e:
             logger.error(f"Approval process failed: {e}")
-            raise api_error(
-                ErrorCode.SYSTEM_INTERNAL_ERROR, f"Approval processing error: {str(e)}"
-            )
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"Approval processing error: {str(e)}")

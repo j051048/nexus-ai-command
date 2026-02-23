@@ -53,9 +53,7 @@ PREFERENCE_PATTERNS: list[dict[str, Any]] = [
     },
     # "我的邮箱/电话/工号是..."
     {
-        "pattern": re.compile(
-            r"我的(?:邮箱|邮件|电话|手机|工号|员工号)(?:是|为)?\s*([^\s,，。.]{3,40})"
-        ),
+        "pattern": re.compile(r"我的(?:邮箱|邮件|电话|手机|工号|员工号)(?:是|为)?\s*([^\s,，。.]{3,40})"),
         "category": "explicit_memory",
         "key_prefix": "contact_info",
     },
@@ -113,13 +111,15 @@ class ConversationMemoryService:
             # Update existing memory
             result = (
                 await client.table("conversation_memories")
-                .update({
-                    "value": value,
-                    "category": category,
-                    "metadata": metadata or {},
-                    "importance": importance,
-                    "updated_at": now,
-                })
+                .update(
+                    {
+                        "value": value,
+                        "category": category,
+                        "metadata": metadata or {},
+                        "importance": importance,
+                        "updated_at": now,
+                    }
+                )
                 .eq("id", existing.data["id"])
                 .execute()
             )
@@ -127,19 +127,21 @@ class ConversationMemoryService:
             # Insert new memory
             result = (
                 await client.table("conversation_memories")
-                .insert({
-                    "user_id": user_id,
-                    "organization_id": org_id,
-                    "category": category,
-                    "key": key,
-                    "value": value,
-                    "metadata": metadata or {},
-                    "importance": importance,
-                    "access_count": 0,
-                    "last_accessed_at": now,
-                    "created_at": now,
-                    "updated_at": now,
-                })
+                .insert(
+                    {
+                        "user_id": user_id,
+                        "organization_id": org_id,
+                        "category": category,
+                        "key": key,
+                        "value": value,
+                        "metadata": metadata or {},
+                        "importance": importance,
+                        "access_count": 0,
+                        "last_accessed_at": now,
+                        "created_at": now,
+                        "updated_at": now,
+                    }
+                )
                 .execute()
             )
 
@@ -162,22 +164,12 @@ class ConversationMemoryService:
         if not client:
             return []
 
-        query = (
-            client.table("conversation_memories")
-            .select("*")
-            .eq("user_id", user_id)
-        )
+        query = client.table("conversation_memories").select("*").eq("user_id", user_id)
 
         if category:
             query = query.eq("category", category)
 
-        result = (
-            await query
-            .order("importance", desc=True)
-            .order("updated_at", desc=True)
-            .limit(limit)
-            .execute()
-        )
+        result = await query.order("importance", desc=True).order("updated_at", desc=True).limit(limit).execute()
 
         return result.data or []
 
@@ -233,10 +225,12 @@ class ConversationMemoryService:
             with contextlib.suppress(Exception):
                 await (
                     client.table("conversation_memories")
-                    .update({
-                        "access_count": (mem.get("access_count", 0) or 0) + 1,
-                        "last_accessed_at": now,
-                    })
+                    .update(
+                        {
+                            "access_count": (mem.get("access_count", 0) or 0) + 1,
+                            "last_accessed_at": now,
+                        }
+                    )
                     .eq("id", mem["id"])
                     .execute()
                 )
@@ -255,11 +249,7 @@ class ConversationMemoryService:
             return False
 
         result = (
-            await client.table("conversation_memories")
-            .delete()
-            .eq("id", memory_id)
-            .eq("user_id", user_id)
-            .execute()
+            await client.table("conversation_memories").delete().eq("id", memory_id).eq("user_id", user_id).execute()
         )
 
         deleted = bool(result.data)
@@ -278,11 +268,7 @@ class ConversationMemoryService:
         if not client:
             return 0
 
-        query = (
-            client.table("conversation_memories")
-            .delete()
-            .eq("user_id", user_id)
-        )
+        query = client.table("conversation_memories").delete().eq("user_id", user_id)
 
         if category:
             query = query.eq("category", category)
@@ -290,10 +276,7 @@ class ConversationMemoryService:
         result = await query.execute()
         count = len(result.data) if result.data else 0
 
-        logger.info(
-            f"Cleared {count} memories for user {user_id}"
-            f"{f' (category={category})' if category else ''}"
-        )
+        logger.info(f"Cleared {count} memories for user {user_id}" f"{f' (category={category})' if category else ''}")
         return count
 
     # ─── 偏好自动提取（规则引擎，不调 LLM）─────────────────────
@@ -372,9 +355,7 @@ class ConversationMemoryService:
                 logger.warning(f"Failed to save extracted memory: {e}")
 
         if saved:
-            logger.info(
-                f"Extracted {len(saved)} memories from conversation for user {user_id}"
-            )
+            logger.info(f"Extracted {len(saved)} memories from conversation for user {user_id}")
 
         return saved
 
@@ -398,7 +379,10 @@ class ConversationMemoryService:
 
         # 1) High-importance preferences (top 5)
         preferences = await self.get_memories(
-            user_id=user_id, category="preference", limit=5, db=db,
+            user_id=user_id,
+            category="preference",
+            limit=5,
+            db=db,
         )
         if preferences:
             pref_lines = [f"- {m['value']}" for m in preferences]
@@ -406,7 +390,10 @@ class ConversationMemoryService:
 
         # 2) Explicit memories (top 3)
         explicit = await self.get_memories(
-            user_id=user_id, category="explicit_memory", limit=3, db=db,
+            user_id=user_id,
+            category="explicit_memory",
+            limit=3,
+            db=db,
         )
         if explicit:
             mem_lines = [f"- {m['value']}" for m in explicit]
@@ -415,7 +402,10 @@ class ConversationMemoryService:
         # 3) Query-relevant memories
         if current_query and len(current_query) >= 2:
             relevant = await self.search_memories(
-                user_id=user_id, query=current_query, limit=3, db=db,
+                user_id=user_id,
+                query=current_query,
+                limit=3,
+                db=db,
             )
             if relevant:
                 # Deduplicate against already included memories
@@ -428,11 +418,7 @@ class ConversationMemoryService:
         if not context_parts:
             return ""
 
-        return (
-            "[用户记忆上下文 - 以下信息来自该用户的历史交互]\n"
-            + "\n\n".join(context_parts)
-            + "\n[记忆上下文结束]"
-        )
+        return "[用户记忆上下文 - 以下信息来自该用户的历史交互]\n" + "\n\n".join(context_parts) + "\n[记忆上下文结束]"
 
 
 # Global service instance

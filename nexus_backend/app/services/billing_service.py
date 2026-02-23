@@ -19,6 +19,7 @@ _IS_DEV_MODE = not bool(_STRIPE_SECRET_KEY)
 
 class BillingPlan(Enum):
     """Available subscription plans."""
+
     FREE = "free"
     STARTER = "starter"
     PROFESSIONAL = "professional"
@@ -28,6 +29,7 @@ class BillingPlan(Enum):
 @dataclass
 class PlanDetails:
     """Details of a subscription plan."""
+
     plan: BillingPlan
     name: str
     price_monthly_usd: float
@@ -50,19 +52,39 @@ class PlanDetails:
 
 PLAN_CATALOG: dict[BillingPlan, PlanDetails] = {
     BillingPlan.FREE: PlanDetails(
-        BillingPlan.FREE, "Free", 0, 50_000, 500, 100,
+        BillingPlan.FREE,
+        "Free",
+        0,
+        50_000,
+        500,
+        100,
         ["basic_chat", "3_documents"],
     ),
     BillingPlan.STARTER: PlanDetails(
-        BillingPlan.STARTER, "Starter", 29.0, 500_000, 5_000, 1_000,
+        BillingPlan.STARTER,
+        "Starter",
+        29.0,
+        500_000,
+        5_000,
+        1_000,
         ["basic_chat", "documents", "tools", "email_support"],
     ),
     BillingPlan.PROFESSIONAL: PlanDetails(
-        BillingPlan.PROFESSIONAL, "Professional", 99.0, 2_000_000, 20_000, 5_000,
+        BillingPlan.PROFESSIONAL,
+        "Professional",
+        99.0,
+        2_000_000,
+        20_000,
+        5_000,
         ["all_features", "priority_support", "api_access", "custom_tools"],
     ),
     BillingPlan.ENTERPRISE: PlanDetails(
-        BillingPlan.ENTERPRISE, "Enterprise", 299.0, 10_000_000, 100_000, 50_000,
+        BillingPlan.ENTERPRISE,
+        "Enterprise",
+        299.0,
+        10_000_000,
+        100_000,
+        50_000,
         ["all_features", "sla", "custom_integrations", "dedicated_support", "sso"],
     ),
 }
@@ -71,6 +93,7 @@ PLAN_CATALOG: dict[BillingPlan, PlanDetails] = {
 @dataclass
 class Subscription:
     """An organization's subscription."""
+
     org_id: str
     plan: BillingPlan
     status: str = "active"  # active, past_due, cancelled, trialing
@@ -102,9 +125,7 @@ class BillingService:
         # Check DB
         if db:
             try:
-                res = await db.table("subscriptions").select("*").eq(
-                    "org_id", org_id
-                ).maybe_single().execute()
+                res = await db.table("subscriptions").select("*").eq("org_id", org_id).maybe_single().execute()
                 if res.data:
                     sub = Subscription(
                         org_id=org_id,
@@ -124,29 +145,27 @@ class BillingService:
         self._subscriptions[org_id] = sub
         return sub
 
-    async def create_subscription(
-        self, org_id: str, plan: BillingPlan, db=None
-    ) -> Subscription:
+    async def create_subscription(self, org_id: str, plan: BillingPlan, db=None) -> Subscription:
         """Create or update a subscription."""
         sub = Subscription(org_id=org_id, plan=plan, status="active")
         self._subscriptions[org_id] = sub
 
         if db:
             try:
-                await db.table("subscriptions").upsert({
-                    "org_id": org_id,
-                    "plan": plan.value,
-                    "status": "active",
-                }).execute()
+                await db.table("subscriptions").upsert(
+                    {
+                        "org_id": org_id,
+                        "plan": plan.value,
+                        "status": "active",
+                    }
+                ).execute()
             except Exception as e:
                 logger.warning(f"Failed to persist subscription: {e}")
 
         logger.info(f"Subscription created: {org_id} -> {plan.value}")
         return sub
 
-    async def change_plan(
-        self, org_id: str, new_plan: BillingPlan, db=None
-    ) -> Subscription:
+    async def change_plan(self, org_id: str, new_plan: BillingPlan, db=None) -> Subscription:
         """Change an org's plan."""
         return await self.create_subscription(org_id, new_plan, db)
 
@@ -159,9 +178,11 @@ class BillingService:
 
         if db:
             try:
-                await db.table("subscriptions").update({
-                    "status": "cancel_at_period_end",
-                }).eq("org_id", org_id).execute()
+                await db.table("subscriptions").update(
+                    {
+                        "status": "cancel_at_period_end",
+                    }
+                ).eq("org_id", org_id).execute()
             except Exception as e:
                 logger.warning(f"Failed to cancel subscription in DB: {e}")
 
@@ -205,12 +226,14 @@ class BillingService:
 
         if db:
             try:
-                await db.table("subscriptions").upsert({
-                    "org_id": org_id,
-                    "plan": plan.value,
-                    "status": "trialing",
-                    "current_period_end": trial_end.isoformat(),
-                }).execute()
+                await db.table("subscriptions").upsert(
+                    {
+                        "org_id": org_id,
+                        "plan": plan.value,
+                        "status": "trialing",
+                        "current_period_end": trial_end.isoformat(),
+                    }
+                ).execute()
             except Exception as e:
                 logger.warning(f"Failed to persist trial subscription: {e}")
 
@@ -228,7 +251,8 @@ class BillingService:
         """P2 Fix: Check and downgrade expired trials."""
         now = datetime.now(UTC)
         expired = [
-            org_id for org_id, sub in self._subscriptions.items()
+            org_id
+            for org_id, sub in self._subscriptions.items()
             if sub.status == "trialing"
             and sub.current_period_end
             and datetime.fromisoformat(sub.current_period_end) < now
@@ -242,17 +266,20 @@ class BillingService:
 
             if db:
                 try:
-                    await db.table("subscriptions").update({
-                        "plan": "free",
-                        "status": "active",
-                        "current_period_end": None,
-                    }).eq("org_id", org_id).execute()
+                    await db.table("subscriptions").update(
+                        {
+                            "plan": "free",
+                            "status": "active",
+                            "current_period_end": None,
+                        }
+                    ).eq("org_id", org_id).execute()
                 except Exception as e:
                     logger.warning(f"Failed to persist trial expiry for {org_id}: {e}")
 
         # Also check cancel_at_period_end subscriptions
         cancelled = [
-            org_id for org_id, sub in self._subscriptions.items()
+            org_id
+            for org_id, sub in self._subscriptions.items()
             if sub.status == "cancel_at_period_end"
             and sub.current_period_end
             and datetime.fromisoformat(sub.current_period_end) < now
@@ -265,10 +292,12 @@ class BillingService:
 
             if db:
                 try:
-                    await db.table("subscriptions").update({
-                        "plan": "free",
-                        "status": "cancelled",
-                    }).eq("org_id", org_id).execute()
+                    await db.table("subscriptions").update(
+                        {
+                            "plan": "free",
+                            "status": "cancelled",
+                        }
+                    ).eq("org_id", org_id).execute()
                 except Exception as e:
                     logger.warning(f"Failed to persist cancellation for {org_id}: {e}")
 

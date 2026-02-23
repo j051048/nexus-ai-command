@@ -70,26 +70,17 @@ class AttendanceSyncService:
             # 1. 获取平台客户端
             client = await self._contact_sync._get_client(org_id, platform, db)
             if not client:
-                stats["errors"].append(
-                    f"Failed to create {platform} client for org {org_id}"
-                )
+                stats["errors"].append(f"Failed to create {platform} client for org {org_id}")
                 return stats
 
             # 2. 获取该组织在该平台上的所有映射用户
-            user_mappings = await self._get_user_mappings(
-                org_id, platform, db
-            )
+            user_mappings = await self._get_user_mappings(org_id, platform, db)
             if not user_mappings:
-                logger.info(
-                    f"[AttendanceSync] No user mappings found for "
-                    f"org={org_id}, platform={platform}"
-                )
+                logger.info(f"[AttendanceSync] No user mappings found for " f"org={org_id}, platform={platform}")
                 return stats
 
             # 3. 拉取考勤数据
-            platform_user_ids = [
-                m["platform_user_id"] for m in user_mappings
-            ]
+            platform_user_ids = [m["platform_user_id"] for m in user_mappings]
             raw_records = await client.get_attendance_records(
                 user_ids=platform_user_ids,
                 start_date=target_date,
@@ -97,20 +88,14 @@ class AttendanceSyncService:
             )
 
             logger.info(
-                f"[AttendanceSync] Fetched {len(raw_records)} raw records "
-                f"from {platform} for date={target_date}"
+                f"[AttendanceSync] Fetched {len(raw_records)} raw records " f"from {platform} for date={target_date}"
             )
 
             # 4. 标准化并存储
-            normalized = await self._normalize_attendance(
-                platform, raw_records
-            )
+            normalized = await self._normalize_attendance(platform, raw_records)
 
             # 建立 platform_user_id -> nexus_user_id 映射
-            user_id_map = {
-                m["platform_user_id"]: m["user_id"]
-                for m in user_mappings
-            }
+            user_id_map = {m["platform_user_id"]: m["user_id"] for m in user_mappings}
 
             for record in normalized:
                 platform_user_id = record.get("userid", "")
@@ -134,10 +119,14 @@ class AttendanceSyncService:
                     }
 
                     # Upsert by unique constraint
-                    result = await db.table("attendance_records").upsert(
-                        attendance_data,
-                        on_conflict="user_id,organization_id,platform,check_date",
-                    ).execute()
+                    result = (
+                        await db.table("attendance_records")
+                        .upsert(
+                            attendance_data,
+                            on_conflict="user_id,organization_id,platform,check_date",
+                        )
+                        .execute()
+                    )
 
                     stats["records_synced"] += 1
                     if result.data:
@@ -145,13 +134,8 @@ class AttendanceSyncService:
                         stats["records_updated"] += 1
 
                 except Exception as e:
-                    logger.warning(
-                        f"[AttendanceSync] Failed to upsert attendance "
-                        f"for user {platform_user_id}: {e}"
-                    )
-                    stats["errors"].append(
-                        f"User {platform_user_id}: {str(e)[:100]}"
-                    )
+                    logger.warning(f"[AttendanceSync] Failed to upsert attendance " f"for user {platform_user_id}: {e}")
+                    stats["errors"].append(f"User {platform_user_id}: {str(e)[:100]}")
 
             logger.info(
                 f"[AttendanceSync] Sync complete for org={org_id}, "
@@ -168,9 +152,7 @@ class AttendanceSyncService:
 
         return stats
 
-    async def _get_user_mappings(
-        self, org_id: str, platform: str, db
-    ) -> list[dict]:
+    async def _get_user_mappings(self, org_id: str, platform: str, db) -> list[dict]:
         """
         获取组织在指定平台上的所有用户映射。
 
@@ -187,14 +169,10 @@ class AttendanceSyncService:
             )
             return result.data or []
         except Exception as e:
-            logger.error(
-                f"[AttendanceSync] Failed to get user mappings: {e}"
-            )
+            logger.error(f"[AttendanceSync] Failed to get user mappings: {e}")
             return []
 
-    async def _normalize_attendance(
-        self, platform: str, raw_records: list[dict]
-    ) -> list[dict]:
+    async def _normalize_attendance(self, platform: str, raw_records: list[dict]) -> list[dict]:
         """
         将不同平台的考勤数据标准化为统一格式。
 
@@ -240,9 +218,7 @@ class AttendanceSyncService:
         return normalized
 
     @staticmethod
-    def _normalize_wecom(
-        uid: str, records: list[dict], entry: dict
-    ) -> dict:
+    def _normalize_wecom(uid: str, records: list[dict], entry: dict) -> dict:
         """企微考勤数据标准化"""
         for record in records:
             checkin_type = record.get("checkin_type", "")
@@ -271,9 +247,7 @@ class AttendanceSyncService:
         return entry
 
     @staticmethod
-    def _normalize_dingtalk(
-        uid: str, records: list[dict], entry: dict
-    ) -> dict:
+    def _normalize_dingtalk(uid: str, records: list[dict], entry: dict) -> dict:
         """钉钉考勤数据标准化"""
         for record in records:
             check_type = record.get("checkin_type", "")
@@ -282,9 +256,7 @@ class AttendanceSyncService:
 
             if checkin_time:
                 if isinstance(checkin_time, int | float):
-                    time_str = datetime.fromtimestamp(
-                        checkin_time / 1000, tz=UTC
-                    ).isoformat()
+                    time_str = datetime.fromtimestamp(checkin_time / 1000, tz=UTC).isoformat()
                 else:
                     time_str = str(checkin_time)
             else:
@@ -308,9 +280,7 @@ class AttendanceSyncService:
         return entry
 
     @staticmethod
-    def _normalize_feishu(
-        uid: str, records: list[dict], entry: dict
-    ) -> dict:
+    def _normalize_feishu(uid: str, records: list[dict], entry: dict) -> dict:
         """飞书考勤数据标准化"""
         for record in records:
             check_type = record.get("checkin_type", "")

@@ -70,11 +70,11 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
                     # 使用全局 client（API Key 访问不走 RLS）
                     from app.core.database import supabase
+
                     request.state.db = supabase
 
                     logger.debug(
-                        f"API Key 认证成功: key_id={key_info['key_id']}, "
-                        f"org_id={key_info['organization_id']}"
+                        f"API Key 认证成功: key_id={key_info['key_id']}, " f"org_id={key_info['organization_id']}"
                     )
 
                     # 执行请求

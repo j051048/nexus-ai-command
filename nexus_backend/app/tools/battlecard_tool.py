@@ -20,9 +20,7 @@ class BattlecardTool(BaseTool):
         "required": ["competitor_name"],
     }
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         comp = args.get("competitor_name", "")
         if not comp:
             return "❌ 请指定竞争对手名称。"

@@ -24,11 +24,7 @@ class SemanticCacheService:
     """
 
     def __init__(self):
-        self.threshold = (
-            settings.SEMANTIC_CACHE_THRESHOLD
-            if hasattr(settings, "SEMANTIC_CACHE_THRESHOLD")
-            else 0.95
-        )
+        self.threshold = settings.SEMANTIC_CACHE_THRESHOLD if hasattr(settings, "SEMANTIC_CACHE_THRESHOLD") else 0.95
         self.ttl_hours = (
             settings.SEMANTIC_CACHE_TTL_HOURS
             if hasattr(settings, "SEMANTIC_CACHE_TTL_HOURS")
@@ -37,11 +33,7 @@ class SemanticCacheService:
         # Initialize OpenAI client for embeddings
         self.openai_client = AsyncOpenAI(
             api_key=settings.OPENAI_API_KEY,
-            base_url=(
-                settings.AI_BASE_URL.split("/chat/completions")[0].rstrip("/")
-                if settings.AI_BASE_URL
-                else None
-            ),
+            base_url=(settings.AI_BASE_URL.split("/chat/completions")[0].rstrip("/") if settings.AI_BASE_URL else None),
         )
 
     @staticmethod
@@ -85,18 +77,15 @@ class SemanticCacheService:
             )
 
             if hash_res and hash_res.data:
-                logger.info(
-                    f"Semantic Cache Hash-Hit: query='{query[:30]}...'"
-                )
+                logger.info(f"Semantic Cache Hash-Hit: query='{query[:30]}...'")
                 import asyncio
+
                 asyncio.create_task(self._update_hit_count(hash_res.data["id"]))
                 return hash_res.data["response_text"]
 
             # --- Slow path: vector similarity search ---
             # 1. Get embedding for the new query
-            response = await self.openai_client.embeddings.create(
-                input=query, model="text-embedding-3-small"
-            )
+            response = await self.openai_client.embeddings.create(input=query, model="text-embedding-3-small")
             query_embedding = response.data[0].embedding
 
             # 2. Match in Supabase via RPC (TTL-filtered)
@@ -112,9 +101,7 @@ class SemanticCacheService:
 
             if res.data and len(res.data) > 0:
                 match = res.data[0]
-                logger.info(
-                    f"Semantic Cache Hit: query='{query[:30]}...', similarity={match['similarity']:.4f}"
-                )
+                logger.info(f"Semantic Cache Hit: query='{query[:30]}...', similarity={match['similarity']:.4f}")
 
                 # Update hit count (Async, don't wait)
                 import asyncio
@@ -141,19 +128,11 @@ class SemanticCacheService:
 
         try:
             # 1. Get embedding
-            response = await self.openai_client.embeddings.create(
-                input=query, model="text-embedding-3-small"
-            )
+            response = await self.openai_client.embeddings.create(input=query, model="text-embedding-3-small")
             embedding = response.data[0].embedding
 
             # 2. Get org_id for multi-tenancy
-            u_res = (
-                await supabase.table("users")
-                .select("organization_id")
-                .eq("id", user_id)
-                .maybe_single()
-                .execute()
-            )
+            u_res = await supabase.table("users").select("organization_id").eq("id", user_id).maybe_single().execute()
             org_id = u_res.data.get("organization_id") if u_res and u_res.data else None
 
             # 3. Insert into cache (with deterministic hash for exact-match)
@@ -182,9 +161,7 @@ class SemanticCacheService:
         back to a non-atomic read/write cycle.
         """
         try:
-            await supabase.rpc(
-                "increment_cache_hit", {"p_cache_id": cache_id}
-            ).execute()
+            await supabase.rpc("increment_cache_hit", {"p_cache_id": cache_id}).execute()
         except Exception as e:
             # NOTE: We intentionally do NOT fall back to a read-then-write
             # pattern here because that introduces a race condition when

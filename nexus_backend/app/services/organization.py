@@ -173,11 +173,7 @@ class OrganizationService:
 
         try:
             # P2 Fix: Batch fetch all users with manager_id to walk chain in memory
-            all_users_res = (
-                await client.table("users")
-                .select("id, name, role, department, manager_id")
-                .execute()
-            )
+            all_users_res = await client.table("users").select("id, name, role, department, manager_id").execute()
             all_users = {u["id"]: u for u in (all_users_res.data or [])}
 
             reporting_line = []
@@ -191,12 +187,14 @@ class OrganizationService:
                     break
 
                 if current_id != user_id:
-                    reporting_line.append({
-                        "id": user_data["id"],
-                        "name": user_data["name"],
-                        "role": user_data["role"],
-                        "department": user_data.get("department"),
-                    })
+                    reporting_line.append(
+                        {
+                            "id": user_data["id"],
+                            "name": user_data["name"],
+                            "role": user_data["role"],
+                            "department": user_data.get("department"),
+                        }
+                    )
 
                 manager_id = user_data.get("manager_id")
                 if not manager_id:
@@ -247,11 +245,7 @@ class OrganizationService:
 
         try:
             # Single query: fetch all users to build tree in memory
-            all_res = (
-                await client.table("users")
-                .select("id, name, role, manager_id")
-                .execute()
-            )
+            all_res = await client.table("users").select("id, name, role, manager_id").execute()
             all_users = {u["id"]: u for u in (all_res.data or [])}
 
             def build_tree_in_memory(uid: str, depth: int) -> OrgNode | None:
@@ -267,9 +261,7 @@ class OrganizationService:
                             node.children.append(child)
                 return node
 
-            return build_tree_in_memory(manager_id, 0) or OrgNode(
-                id=manager_id, name="Unknown", type="user"
-            )
+            return build_tree_in_memory(manager_id, 0) or OrgNode(id=manager_id, name="Unknown", type="user")
         except Exception as e:
             logger.error(f"Error building team hierarchy: {e}")
             return OrgNode(id=manager_id, name="Error", type="user")
@@ -285,12 +277,7 @@ class OrganizationService:
 
         try:
             # Single query: fetch all users with role and department
-            result = (
-                await client.table("users")
-                .select("id, role, department")
-                .eq("org_id", org_id)
-                .execute()
-            )
+            result = await client.table("users").select("id, role, department").eq("org_id", org_id).execute()
             users = result.data or []
             total_users = len(users)
 
@@ -326,9 +313,7 @@ class OrganizationService:
             if new_manager_id:
                 update_data["manager_id"] = new_manager_id
 
-            await supabase.table("users").update(update_data).eq(
-                "id", user_id
-            ).execute()
+            await supabase.table("users").update(update_data).eq("id", user_id).execute()
 
             # Invalidate caches
             await cache_service.delete("org:departments")

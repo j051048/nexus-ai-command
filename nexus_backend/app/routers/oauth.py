@@ -64,10 +64,12 @@ async def authorize(
     if not auth_code:
         return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "Invalid client or redirect URI")
 
-    return api_success(data={
-        "code": auth_code.code,
-        "redirect_uri": redirect_uri,
-    })
+    return api_success(
+        data={
+            "code": auth_code.code,
+            "redirect_uri": redirect_uri,
+        }
+    )
 
 
 @router.post("/token")

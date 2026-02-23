@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class ContentType(Enum):
     """Types of content that can be rendered."""
+
     TEXT = "text"
     MARKDOWN = "markdown"
     CODE = "code"
@@ -37,6 +38,7 @@ class ContentType(Enum):
 @dataclass
 class RenderedContent:
     """Rendered content block."""
+
     content_type: ContentType
     content: Any
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -58,15 +60,15 @@ class ContentRenderingService:
     """
 
     # Patterns for content detection
-    CODE_PATTERN = re.compile(r'```(\w*)\n([\s\S]*?)```', re.MULTILINE)
-    TABLE_PATTERN = re.compile(r'\|(.+)\|\n\|[-| ]+\|\n((?:\|.+)\|\n?)+')
-    HEADING_PATTERN = re.compile(r'^(#{1,6})\s+(.+)$', re.MULTILINE)
-    LIST_PATTERN = re.compile(r'^[\*\-\+]\s+(.+)$', re.MULTILINE)
-    NUMBERED_LIST_PATTERN = re.compile(r'^\d+\.\s+(.+)$', re.MULTILINE)
-    LINK_PATTERN = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
-    BOLD_PATTERN = re.compile(r'\*\*([^*]+)\*\*')
-    ITALIC_PATTERN = re.compile(r'\*([^*]+)\*')
-    METRIC_PATTERN = re.compile(r'(\d+(?:\.\d+)?)\s*([%$￥€]|美元|元|万|百万|亿)')
+    CODE_PATTERN = re.compile(r"```(\w*)\n([\s\S]*?)```", re.MULTILINE)
+    TABLE_PATTERN = re.compile(r"\|(.+)\|\n\|[-| ]+\|\n((?:\|.+)\|\n?)+")
+    HEADING_PATTERN = re.compile(r"^(#{1,6})\s+(.+)$", re.MULTILINE)
+    LIST_PATTERN = re.compile(r"^[\*\-\+]\s+(.+)$", re.MULTILINE)
+    NUMBERED_LIST_PATTERN = re.compile(r"^\d+\.\s+(.+)$", re.MULTILINE)
+    LINK_PATTERN = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+    BOLD_PATTERN = re.compile(r"\*\*([^*]+)\*\*")
+    ITALIC_PATTERN = re.compile(r"\*([^*]+)\*")
+    METRIC_PATTERN = re.compile(r"(\d+(?:\.\d+)?)\s*([%$￥€]|美元|元|万|百万|亿)")
 
     def __init__(self):
         self._renderers = {
@@ -130,11 +132,7 @@ class ContentRenderingService:
         # Remaining as markdown
         remaining = remaining.strip()
         if remaining:
-            blocks.append(RenderedContent(
-                ContentType.MARKDOWN,
-                remaining,
-                metadata={"parsed": True}
-            ))
+            blocks.append(RenderedContent(ContentType.MARKDOWN, remaining, metadata={"parsed": True}))
 
         return blocks
 
@@ -146,21 +144,20 @@ class ContentRenderingService:
             language = match.group(1) or "text"
             code = match.group(2).strip()
 
-            blocks.append(RenderedContent(
-                ContentType.CODE,
-                code,
-                metadata={
-                    "language": language,
-                    "lines": len(code.split('\n'))
-                },
-                actions=[
-                    {"type": "copy", "label": "复制代码", "data": code},
-                    {"type": "run", "label": "运行", "data": code, "language": language}
-                ]
-            ))
+            blocks.append(
+                RenderedContent(
+                    ContentType.CODE,
+                    code,
+                    metadata={"language": language, "lines": len(code.split("\n"))},
+                    actions=[
+                        {"type": "copy", "label": "复制代码", "data": code},
+                        {"type": "run", "label": "运行", "data": code, "language": language},
+                    ],
+                )
+            )
 
         # Remove code blocks from content
-        remaining = self.CODE_PATTERN.sub('', content)
+        remaining = self.CODE_PATTERN.sub("", content)
         return blocks, remaining
 
     def _extract_tables(self, content: str) -> tuple[list[RenderedContent], str]:
@@ -171,36 +168,35 @@ class ContentRenderingService:
             table_text = match.group(0)
             parsed = self._parse_table(table_text)
 
-            blocks.append(RenderedContent(
-                ContentType.TABLE,
-                parsed,
-                metadata={
-                    "rows": len(parsed.get("rows", [])),
-                    "columns": len(parsed.get("headers", []))
-                },
-                actions=[
-                    {"type": "export", "label": "导出CSV", "data": parsed},
-                    {"type": "chart", "label": "生成图表", "data": parsed}
-                ]
-            ))
+            blocks.append(
+                RenderedContent(
+                    ContentType.TABLE,
+                    parsed,
+                    metadata={"rows": len(parsed.get("rows", [])), "columns": len(parsed.get("headers", []))},
+                    actions=[
+                        {"type": "export", "label": "导出CSV", "data": parsed},
+                        {"type": "chart", "label": "生成图表", "data": parsed},
+                    ],
+                )
+            )
 
-        remaining = self.TABLE_PATTERN.sub('', content)
+        remaining = self.TABLE_PATTERN.sub("", content)
         return blocks, remaining
 
     def _parse_table(self, table_text: str) -> dict:
         """Parse markdown table to structured data."""
-        lines = [line.strip() for line in table_text.strip().split('\n') if line.strip()]
+        lines = [line.strip() for line in table_text.strip().split("\n") if line.strip()]
 
         if len(lines) < 2:
             return {"headers": [], "rows": []}
 
         # Parse headers
-        headers = [cell.strip() for cell in lines[0].split('|') if cell.strip()]
+        headers = [cell.strip() for cell in lines[0].split("|") if cell.strip()]
 
         # Parse rows (skip separator line)
         rows = []
         for line in lines[2:]:
-            cells = [cell.strip() for cell in line.split('|') if cell.strip()]
+            cells = [cell.strip() for cell in line.split("|") if cell.strip()]
             if cells:
                 rows.append(dict(zip(headers, cells, strict=False)))
 
@@ -217,23 +213,19 @@ class ContentRenderingService:
 
             # Get surrounding context for label
             start = max(0, match.start() - 20)
-            context = content[start:match.start()].strip()
-            label = context.split('\n')[-1].strip() if context else ""
+            context = content[start : match.start()].strip()
+            label = context.split("\n")[-1].strip() if context else ""
 
-            metrics.append({
-                "value": value,
-                "unit": unit,
-                "label": label,
-                "trend": None  # Could be enhanced with comparison
-            })
+            metrics.append(
+                {"value": value, "unit": unit, "label": label, "trend": None}  # Could be enhanced with comparison
+            )
 
         if metrics:
-            blocks.append(RenderedContent(
-                ContentType.METRIC,
-                metrics,
-                metadata={"count": len(metrics)},
-                styling={"layout": "horizontal"}
-            ))
+            blocks.append(
+                RenderedContent(
+                    ContentType.METRIC, metrics, metadata={"count": len(metrics)}, styling={"layout": "horizontal"}
+                )
+            )
 
         return blocks
 
@@ -244,28 +236,20 @@ class ContentRenderingService:
         # Bullet lists
         bullet_items = [m.group(1) for m in self.LIST_PATTERN.finditer(content)]
         if bullet_items:
-            blocks.append(RenderedContent(
-                ContentType.LIST,
-                {"type": "bullet", "items": bullet_items},
-                styling={"icon": "check"}
-            ))
+            blocks.append(
+                RenderedContent(ContentType.LIST, {"type": "bullet", "items": bullet_items}, styling={"icon": "check"})
+            )
 
         # Numbered lists
         numbered_items = [m.group(1) for m in self.NUMBERED_LIST_PATTERN.finditer(content)]
         if numbered_items:
-            blocks.append(RenderedContent(
-                ContentType.LIST,
-                {"type": "numbered", "items": numbered_items}
-            ))
+            blocks.append(RenderedContent(ContentType.LIST, {"type": "numbered", "items": numbered_items}))
 
         return blocks
 
     def _render_text(self, content: Any, **kwargs) -> dict:
         """Render plain text."""
-        return {
-            "type": "text",
-            "content": str(content)
-        }
+        return {"type": "text", "content": str(content)}
 
     def _render_markdown(self, content: str, **kwargs) -> dict:
         """Render markdown content."""
@@ -273,16 +257,13 @@ class ContentRenderingService:
         rendered = content
 
         # Bold
-        rendered = self.BOLD_PATTERN.sub(r'<strong>\1</strong>', rendered)
+        rendered = self.BOLD_PATTERN.sub(r"<strong>\1</strong>", rendered)
         # Italic
-        rendered = self.ITALIC_PATTERN.sub(r'<em>\1</em>', rendered)
+        rendered = self.ITALIC_PATTERN.sub(r"<em>\1</em>", rendered)
         # Links
         rendered = self.LINK_PATTERN.sub(r'<a href="\2">\1</a>', rendered)
 
-        return {
-            "type": "markdown",
-            "content": rendered
-        }
+        return {"type": "markdown", "content": rendered}
 
     def _render_code(self, content: str, metadata: dict = None, **kwargs) -> dict:
         """Render code block."""
@@ -291,7 +272,7 @@ class ContentRenderingService:
             "content": content,
             "language": metadata.get("language", "text") if metadata else "text",
             "highlight": True,
-            "lineNumbers": True
+            "lineNumbers": True,
         }
 
     def _render_table(self, content: dict, **kwargs) -> dict:
@@ -301,7 +282,7 @@ class ContentRenderingService:
             "headers": content.get("headers", []),
             "rows": content.get("rows", []),
             "sortable": True,
-            "filterable": True
+            "filterable": True,
         }
 
     def _render_chart(self, content: dict, **kwargs) -> dict:
@@ -312,10 +293,7 @@ class ContentRenderingService:
             "type": "chart",
             "chartType": chart_type,
             "data": content,
-            "options": {
-                "responsive": True,
-                "legend": {"position": "bottom"}
-            }
+            "options": {"responsive": True, "legend": {"position": "bottom"}},
         }
 
     def _render_card(self, content: dict, **kwargs) -> dict:
@@ -326,7 +304,7 @@ class ContentRenderingService:
             "content": content.get("content", ""),
             "icon": content.get("icon"),
             "actions": content.get("actions", []),
-            "styling": content.get("styling", {})
+            "styling": content.get("styling", {}),
         }
 
     def _render_list(self, content: dict, **kwargs) -> dict:
@@ -335,16 +313,12 @@ class ContentRenderingService:
             "type": "list",
             "listType": content.get("type", "bullet"),
             "items": content.get("items", []),
-            "icon": content.get("icon", "check")
+            "icon": content.get("icon", "check"),
         }
 
     def _render_metric(self, content: list[dict], **kwargs) -> dict:
         """Render metrics display."""
-        return {
-            "type": "metrics",
-            "metrics": content,
-            "layout": "horizontal"
-        }
+        return {"type": "metrics", "metrics": content, "layout": "horizontal"}
 
     def _render_action(self, content: dict, **kwargs) -> dict:
         """Render action button."""
@@ -353,7 +327,7 @@ class ContentRenderingService:
             "label": content.get("label", ""),
             "action": content.get("action", "click"),
             "data": content.get("data", {}),
-            "styling": content.get("styling", {"variant": "primary"})
+            "styling": content.get("styling", {"variant": "primary"}),
         }
 
     def render_to_json(self, blocks: list[RenderedContent]) -> str:
@@ -369,11 +343,7 @@ class ContentRenderingService:
         return json.dumps(result, ensure_ascii=False, indent=2)
 
     def create_rich_response(
-        self,
-        content: str,
-        title: str = None,
-        icon: str = None,
-        actions: list[dict] = None
+        self, content: str, title: str = None, icon: str = None, actions: list[dict] = None
     ) -> dict:
         """
         Create a complete rich response with cards and actions.
@@ -388,8 +358,8 @@ class ContentRenderingService:
                 "blockCount": len(blocks),
                 "hasCode": any(b.content_type == ContentType.CODE for b in blocks),
                 "hasTable": any(b.content_type == ContentType.TABLE for b in blocks),
-                "hasMetrics": any(b.content_type == ContentType.METRIC for b in blocks)
-            }
+                "hasMetrics": any(b.content_type == ContentType.METRIC for b in blocks),
+            },
         }
 
         if title:
@@ -419,10 +389,7 @@ class ContentRenderingService:
                 "label": action.get("label", ""),
                 "action": action.get("type", "click"),
                 "data": action.get("data", {}),
-                "styling": {
-                    "variant": action.get("variant", "default"),
-                    "icon": action.get("icon")
-                }
+                "styling": {"variant": action.get("variant", "default"), "icon": action.get("icon")},
             }
             buttons.append(button)
 

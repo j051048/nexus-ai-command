@@ -159,18 +159,14 @@ class UsageTracker:
 
     def __init__(self):
         self._usage: dict[str, dict] = {}  # In-memory cache (fast path)
-        self._db_loaded: dict[str, bool] = (
-            {}
-        )  # Track which users have been loaded from DB
+        self._db_loaded: dict[str, bool] = {}  # Track which users have been loaded from DB
         self._limits = UsageLimits(
             max_tokens_per_request=int(os.getenv("MAX_TOKENS_PER_REQUEST", 100000)),
             max_tokens_per_day=int(os.getenv("MAX_TOKENS_PER_DAY", 1000000)),
             max_cost_per_day_usd=float(os.getenv("MAX_COST_PER_DAY_USD", 50.0)),
             max_requests_per_day=int(os.getenv("MAX_REQUESTS_PER_DAY", 1000)),
             max_tokens_per_org_day=int(os.getenv("MAX_TOKENS_PER_ORG_DAY", 10000000)),
-            max_cost_per_org_day_usd=float(
-                os.getenv("MAX_COST_PER_ORG_DAY_USD", 500.0)
-            ),
+            max_cost_per_org_day_usd=float(os.getenv("MAX_COST_PER_ORG_DAY_USD", 500.0)),
         )
         self._org_usage: dict[str, dict] = {}  # In-memory cache for org totals
         self._user_to_org: dict[str, str] = {}  # User ID to Org ID cache
@@ -197,9 +193,7 @@ class UsageTracker:
                 # P1 Fix #13: Load user usage and org ID
                 res = (
                     await supabase.table("user_token_usage")
-                    .select(
-                        "user_id, org_id, total_tokens, estimated_cost_usd, request_count"
-                    )
+                    .select("user_id, org_id, total_tokens, estimated_cost_usd, request_count")
                     .eq("user_id", user_id)
                     .eq("date", day_key)
                     .maybe_single()
@@ -215,11 +209,7 @@ class UsageTracker:
                         .maybe_single()
                         .execute()
                     )
-                    org_id = (
-                        user_res.data.get("organization_id")
-                        if user_res and user_res.data
-                        else None
-                    )
+                    org_id = user_res.data.get("organization_id") if user_res and user_res.data else None
                 else:
                     org_id = res.data.get("org_id")
 
@@ -239,9 +229,7 @@ class UsageTracker:
                         org_totals = {"tokens": 0, "cost": 0.0, "requests": 0}
                         for r in org_res.data or []:
                             org_totals["tokens"] += r.get("total_tokens", 0)
-                            org_totals["cost"] += float(
-                                r.get("estimated_cost_usd", 0.0)
-                            )
+                            org_totals["cost"] += float(r.get("estimated_cost_usd", 0.0))
                             org_totals["requests"] += r.get("request_count", 0)
                         self._org_usage[org_key] = org_totals
 
@@ -258,9 +246,7 @@ class UsageTracker:
                 self._usage[cache_key] = self._make_empty(day_key)
         except Exception as e:
             logger.warning(f"Failed to load usage from DB for {user_id}: {e}")
-            self._usage[cache_key] = self._usage.get(
-                cache_key, self._make_empty(day_key)
-            )
+            self._usage[cache_key] = self._usage.get(cache_key, self._make_empty(day_key))
 
         self._db_loaded[cache_key] = True
         return self._usage[cache_key]
@@ -314,10 +300,7 @@ class UsageTracker:
         if org_id:
             org_usage = self._org_usage.get(f"org:{org_id}:{self._get_day_key()}")
             if org_usage:
-                if (
-                    org_usage["tokens"] + estimated_tokens
-                    > self._limits.max_tokens_per_org_day
-                ):
+                if org_usage["tokens"] + estimated_tokens > self._limits.max_tokens_per_org_day:
                     return False, "Organization daily token limit exceeded"
                 if org_usage["cost"] >= self._limits.max_cost_per_org_day_usd:
                     return False, "Organization daily cost limit reached"
@@ -383,9 +366,7 @@ class UsageTracker:
             "date": usage["day"],
             "tokens_used": usage["tokens"],
             "tokens_limit": self._limits.max_tokens_per_day,
-            "tokens_remaining": max(
-                0, self._limits.max_tokens_per_day - usage["tokens"]
-            ),
+            "tokens_remaining": max(0, self._limits.max_tokens_per_day - usage["tokens"]),
             "cost_usd": round(usage["cost_usd"], 4),
             "cost_limit_usd": self._limits.max_cost_per_day_usd,
             "requests": usage["requests"],
@@ -399,9 +380,7 @@ class UsageTracker:
         for key in keys_to_remove:
             del self._usage[key]
         # Also reset db_loaded tracker for old days
-        loaded_to_remove = [
-            k for k in self._db_loaded if not k.endswith(current_day)
-        ]
+        loaded_to_remove = [k for k in self._db_loaded if not k.endswith(current_day)]
         for key in loaded_to_remove:
             del self._db_loaded[key]
 
@@ -413,6 +392,7 @@ class UsageTracker:
         if not db:
             try:
                 from app.core.database import supabase
+
                 db = supabase
             except Exception:
                 pass
@@ -431,27 +411,35 @@ class UsageTracker:
             return report
 
         try:
-            res = await db.rpc("get_cost_report", {
-                "p_org_id": org_id,
-                "p_days": days,
-            }).execute()
+            res = await db.rpc(
+                "get_cost_report",
+                {
+                    "p_org_id": org_id,
+                    "p_days": days,
+                },
+            ).execute()
 
             if res.data:
                 data = res.data if isinstance(res.data, dict) else (res.data[0] if res.data else {})
-                report.update({
-                    "by_department": data.get("by_department", []),
-                    "by_project": data.get("by_project", []),
-                    "by_model": data.get("by_model", []),
-                    "total_cost_usd": data.get("total_cost_usd", 0.0),
-                    "total_tokens": data.get("total_tokens", 0),
-                })
+                report.update(
+                    {
+                        "by_department": data.get("by_department", []),
+                        "by_project": data.get("by_project", []),
+                        "by_model": data.get("by_model", []),
+                        "total_cost_usd": data.get("total_cost_usd", 0.0),
+                        "total_tokens": data.get("total_tokens", 0),
+                    }
+                )
         except Exception as e:
             logger.warning(f"Cost report RPC failed, using fallback: {e}")
             # Fallback: aggregate from daily usage table
             try:
-                res = await db.table("user_token_usage").select(
-                    "total_tokens, estimated_cost_usd, department_id, project_id"
-                ).eq("org_id", org_id).execute()
+                res = (
+                    await db.table("user_token_usage")
+                    .select("total_tokens, estimated_cost_usd, department_id, project_id")
+                    .eq("org_id", org_id)
+                    .execute()
+                )
                 dept_map: dict[str, dict] = {}
                 proj_map: dict[str, dict] = {}
                 total_cost = 0.0
@@ -489,9 +477,7 @@ token_counter = TokenCounter()
 usage_tracker = UsageTracker()
 
 
-def validate_request_tokens(
-    messages: list[dict], model: str, user_id: str
-) -> tuple[bool, int, str]:
+def validate_request_tokens(messages: list[dict], model: str, user_id: str) -> tuple[bool, int, str]:
     """
     Validate that a request is within token/usage limits.
     Returns (is_valid, token_count, error_message)
@@ -501,9 +487,7 @@ def validate_request_tokens(
     return is_allowed, token_count, reason
 
 
-async def record_completion(
-    user_id: str, input_tokens: int, output_tokens: int, model: str
-) -> TokenUsage:
+async def record_completion(user_id: str, input_tokens: int, output_tokens: int, model: str) -> TokenUsage:
     """
     Record a completed API call.
     P1 Fix #13: Now async — persists to Supabase in addition to in-memory cache.

@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 class RateTier(Enum):
     """Subscription tier for rate limiting."""
+
     FREE = "free"
     BASIC = "basic"
     PREMIUM = "premium"
@@ -24,6 +25,7 @@ class RateTier(Enum):
 @dataclass
 class TierLimits:
     """Per-endpoint rate limits for a specific tier."""
+
     chat_per_minute: int = 10
     upload_per_minute: int = 5
     auth_per_minute: int = 20
@@ -66,6 +68,7 @@ DEFAULT_TIER_LIMITS: dict[RateTier, TierLimits] = {
 @dataclass
 class RateLimitEvent:
     """Records a rate limit event for auditing."""
+
     user_id: str
     endpoint: str
     tier: str
@@ -92,13 +95,7 @@ class RateLimitingService:
         tier = RateTier.BASIC  # Default tier
         if db:
             try:
-                res = (
-                    await db.table("users")
-                    .select("tier")
-                    .eq("id", user_id)
-                    .maybe_single()
-                    .execute()
-                )
+                res = await db.table("users").select("tier").eq("id", user_id).maybe_single().execute()
                 if res.data and res.data.get("tier"):
                     with contextlib.suppress(ValueError):
                         tier = RateTier(res.data["tier"])

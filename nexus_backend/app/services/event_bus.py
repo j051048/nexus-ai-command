@@ -120,9 +120,7 @@ class InMemoryEventBus:
     def unsubscribe(self, event_type: str, handler: Callable):
         """Unsubscribe a handler from an event type"""
         if event_type in self._handlers:
-            self._handlers[event_type] = [
-                h for h in self._handlers[event_type] if h != handler
-            ]
+            self._handlers[event_type] = [h for h in self._handlers[event_type] if h != handler]
 
     async def publish(self, event: Event):
         """
@@ -199,9 +197,7 @@ class InMemoryEventBus:
                 await self._worker_task
         logger.info("EventBus: Stopped")
 
-    def get_recent_events(
-        self, limit: int = 100, event_type: str = None
-    ) -> list[Event]:
+    def get_recent_events(self, limit: int = 100, event_type: str = None) -> list[Event]:
         """Get recent events from history"""
         events = self._event_history
         if event_type:
@@ -292,9 +288,7 @@ async def notify_approval_escalated(event: Event):
 
     try:
         # Find all bosses
-        bosses = (
-            await supabase.table("users").select("id").eq("role", "founder").execute()
-        )
+        bosses = await supabase.table("users").select("id").eq("role", "founder").execute()
 
         for boss in bosses.data or []:
             await supabase.table("notifications").insert(
@@ -353,12 +347,7 @@ async def handle_system_alert(event: Event):
                 .execute()
             )
         else:
-            admins = (
-                await supabase.table("users")
-                .select("id")
-                .eq("role", "founder")
-                .execute()
-            )
+            admins = await supabase.table("users").select("id").eq("role", "founder").execute()
 
         for admin in admins.data or []:
             await supabase.table("notifications").insert(
@@ -386,6 +375,7 @@ async def invalidate_org_cache(event: Event):
         return
     try:
         from app.core.security_middleware import TenantContextMiddleware
+
         cache = TenantContextMiddleware._org_cache
         # Remove the user's cached org_id entry
         keys_to_remove = [k for k in cache if k == user_id]
@@ -415,9 +405,7 @@ async def calculate_deal_bonus(event: Event):
         bonus = deal_value * 0.005
 
         # Update user's total bonus
-        await supabase.rpc(
-            "increment_user_bonus", {"p_user_id": user_id, "p_amount": bonus}
-        ).execute()
+        await supabase.rpc("increment_user_bonus", {"p_user_id": user_id, "p_amount": bonus}).execute()
 
         # Create incentive record
         await supabase.table("incentives").insert(

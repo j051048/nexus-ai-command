@@ -15,9 +15,7 @@ class CrawlerService:
     """
 
     @staticmethod
-    def crawl_arxiv(
-        query: str = "spectroscopy", max_results: int = 5
-    ) -> list[dict[str, Any]]:
+    def crawl_arxiv(query: str = "spectroscopy", max_results: int = 5) -> list[dict[str, Any]]:
         """
         Crawl arXiv for latest papers in the domain.
         """

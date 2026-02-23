@@ -7,9 +7,7 @@ from celery.schedules import crontab
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 # Initialize Celery app
-celery_app = Celery(
-    "nexus_tasks", broker=REDIS_URL, backend=REDIS_URL, include=["app.tasks.scheduler"]
-)
+celery_app = Celery("nexus_tasks", broker=REDIS_URL, backend=REDIS_URL, include=["app.tasks.scheduler"])
 
 # Configuration
 celery_app.conf.update(

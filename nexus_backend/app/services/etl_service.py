@@ -26,11 +26,7 @@ class ETLService:
     def __init__(self):
         self.api_key = settings.OPENAI_API_KEY
         # Normalize Base URL: Ensure it ends with /v1
-        base_url = (
-            settings.AI_BASE_URL
-            if settings.AI_BASE_URL
-            else "https://api.openai.com/v1"
-        )
+        base_url = settings.AI_BASE_URL if settings.AI_BASE_URL else "https://api.openai.com/v1"
         self.base_url = base_url.rstrip("/")
 
         # RAG Configurable Parameters (Optimization 5)
@@ -41,9 +37,7 @@ class ETLService:
         self.chunk_size = app_settings.RAG_CHUNK_SIZE
         self.chunk_overlap = app_settings.RAG_CHUNK_OVERLAP
 
-    async def _call_ai_raw(
-        self, payload: dict, endpoint: str = "/chat/completions"
-    ) -> str:
+    async def _call_ai_raw(self, payload: dict, endpoint: str = "/chat/completions") -> str:
         """
         Low-level HTTP call to the AI proxy. Bypass SDK limitations.
         """
@@ -80,9 +74,7 @@ class ETLService:
         # 2. Chinese ID Card (18 digits or 17+X)
         # Matches 18-digit ID cards: 6 (Area) + 8 (DOB) + 4 (Suffix)
         # Mask the DOB part (8 digits) with asterisks
-        content = re.sub(
-            r"(?<!\d)(\d{6})\d{8}(\d{3}[\dXx])(?!\d)", r"\1********\2", content
-        )
+        content = re.sub(r"(?<!\d)(\d{6})\d{8}(\d{3}[\dXx])(?!\d)", r"\1********\2", content)
 
         # 3. Email Addresses
         content = re.sub(
@@ -166,13 +158,7 @@ class ETLService:
         # If department visibility but no department provided, try to get user's department
         if visibility == "department" and not department:
             try:
-                user_res = (
-                    await supabase.table("users")
-                    .select("department")
-                    .eq("id", user_id)
-                    .maybe_single()
-                    .execute()
-                )
+                user_res = await supabase.table("users").select("department").eq("id", user_id).maybe_single().execute()
                 if user_res.data:
                     department = user_res.data.get("department")
             except Exception as e:
@@ -194,16 +180,14 @@ class ETLService:
             raise Exception("Failed to create initial document record")
         return res.data[0]["id"]
 
-    async def _update_progress(
-        self, doc_id: str, progress: int, stage: str, status: str = "processing"
-    ):
+    async def _update_progress(self, doc_id: str, progress: int, stage: str, status: str = "processing"):
         """Updates the progress of the document processing."""
         if not doc_id:
             return
         try:
-            await supabase.table("documents").update(
-                {"progress": progress, "stage": stage, "status": status}
-            ).eq("id", doc_id).execute()
+            await supabase.table("documents").update({"progress": progress, "stage": stage, "status": status}).eq(
+                "id", doc_id
+            ).execute()
         except Exception as e:
             logger.error(f"Failed to update progress for {doc_id}: {e}")
 
@@ -224,12 +208,7 @@ class ETLService:
 
         # Use provided config or fall back to system settings
         # URL Normalization: Extract base even if user provided full endpoint
-        raw_url = (
-            (base_url or self.base_url)
-            .split("/chat/completions")[0]
-            .split("/embeddings")[0]
-            .rstrip("/")
-        )
+        raw_url = (base_url or self.base_url).split("/chat/completions")[0].split("/embeddings")[0].rstrip("/")
         if "/v1" not in raw_url and "api.openai.com" not in raw_url:
             active_url = f"{raw_url}/v1" if not raw_url.endswith("/v1") else raw_url
         else:
@@ -271,9 +250,7 @@ class ETLService:
                                 },
                                 {
                                     "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:image/jpeg;base64,{base64_image}"
-                                    },
+                                    "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
                                 },
                             ],
                         }
@@ -281,9 +258,7 @@ class ETLService:
                     "max_tokens": 4000,
                 }
                 try:
-                    text = await self._call_ai_raw(
-                        payload, endpoint="/chat/completions"
-                    )
+                    text = await self._call_ai_raw(payload, endpoint="/chat/completions")
                 except Exception as e:
                     return {
                         "filename": filename,
@@ -302,10 +277,7 @@ class ETLService:
                     text = await asyncio.to_thread(_parse_docx)
                 except Exception as e:
                     error_str = str(e)
-                    if (
-                        "Bad magic number" in error_str
-                        or "File is not a zip file" in error_str
-                    ):
+                    if "Bad magic number" in error_str or "File is not a zip file" in error_str:
                         return {
                             "filename": filename,
                             "status": "error",
@@ -334,9 +306,7 @@ class ETLService:
             await self._update_progress(doc_id, 30, "analyzing")
 
             # 2. Sequential Processing
-            success, details = await self.extract_metadata_via_ai(
-                text, filename, active_key, active_url
-            )
+            success, details = await self.extract_metadata_via_ai(text, filename, active_key, active_url)
 
             # Update Progress: Metadata Done
             await self._update_progress(doc_id, 70, "embedding")
@@ -375,15 +345,17 @@ class ETLService:
 
                     # Generate embeddings with PII-scrubbed text
                     embedding_success = await self._generate_embeddings(
-                        safe_text_for_embedding, doc_id, filename, active_key, active_url,
+                        safe_text_for_embedding,
+                        doc_id,
+                        filename,
+                        active_key,
+                        active_url,
                         organization_id=organization_id,
                     )
 
                     if embedding_success:
                         # Finalize status
-                        await self._update_progress(
-                            doc_id, 100, "completed", status="ready"
-                        )
+                        await self._update_progress(doc_id, 100, "completed", status="ready")
                         return {
                             "filename": filename,
                             "status": "success",
@@ -407,9 +379,9 @@ class ETLService:
                 except Exception as db_err:
                     logger.error(f"DB Error: {db_err}")
                     if doc_id:
-                        await supabase.table("documents").update(
-                            {"status": "error", "error_log": str(db_err)}
-                        ).eq("id", doc_id).execute()
+                        await supabase.table("documents").update({"status": "error", "error_log": str(db_err)}).eq(
+                            "id", doc_id
+                        ).execute()
                     return {
                         "filename": filename,
                         "status": "error",
@@ -443,7 +415,17 @@ class ETLService:
         _fn_lower = filename.lower()
         _filename_hint = "other"
         _filename_keywords = {
-            "product": ["彩页", "产品资料", "产品手册", "产品说明", "规格书", "datasheet", "brochure", "产品目录", "catalog"],
+            "product": [
+                "彩页",
+                "产品资料",
+                "产品手册",
+                "产品说明",
+                "规格书",
+                "datasheet",
+                "brochure",
+                "产品目录",
+                "catalog",
+            ],
             "contract": ["合同", "协议", "contract"],
             "bid": ["标书", "招标", "投标", "bid", "tender"],
             "proposal": ["方案", "proposal"],
@@ -521,14 +503,10 @@ class ETLService:
             try:
                 logger.info(f"Attempting AI Analysis with model: {model_name}...")
                 async with httpx.AsyncClient(timeout=90.0) as client:
-                    response = await client.post(
-                        f"{base_url}/chat/completions", headers=headers, json=payload
-                    )
+                    response = await client.post(f"{base_url}/chat/completions", headers=headers, json=payload)
 
                     if response.status_code != 200:
-                        logger.warning(
-                            f"Model {model_name} failed: {response.status_code} - {response.text}"
-                        )
+                        logger.warning(f"Model {model_name} failed: {response.status_code} - {response.text}")
                         return False, None
 
                     return True, response.json()
@@ -553,12 +531,8 @@ class ETLService:
             # Extract JSON
             import re
 
-            json_match = re.search(
-                r"\[METADATA_JSON\](.*?)\[/METADATA_JSON\]", content, re.DOTALL
-            )
-            report_match = re.search(
-                r"\[ANALYSIS_REPORT\](.*?)\[/ANALYSIS_REPORT\]", content, re.DOTALL
-            )
+            json_match = re.search(r"\[METADATA_JSON\](.*?)\[/METADATA_JSON\]", content, re.DOTALL)
+            report_match = re.search(r"\[ANALYSIS_REPORT\](.*?)\[/ANALYSIS_REPORT\]", content, re.DOTALL)
 
             metadata = {}
             if json_match:
@@ -572,9 +546,7 @@ class ETLService:
             elif not json_match:
                 # Fallback: if no blocks found, try raw JSON parse (if model ignored instructions)
                 try:
-                    clean_json = (
-                        content.replace("```json", "").replace("```", "").strip()
-                    )
+                    clean_json = content.replace("```json", "").replace("```", "").strip()
                     metadata = json.loads(clean_json)
                 except json.JSONDecodeError:
                     pass  # Fallback parsing also failed
@@ -641,7 +613,12 @@ class ETLService:
         return res.data[0]["id"]
 
     async def _generate_embeddings(
-        self, text: str, doc_id: str, filename: str, api_key: str, base_url: str,
+        self,
+        text: str,
+        doc_id: str,
+        filename: str,
+        api_key: str,
+        base_url: str,
         organization_id: str = None,
     ) -> bool:
         """
@@ -656,9 +633,7 @@ class ETLService:
                 payload = {"model": "text-embedding-3-small", "input": batch_texts}
                 headers = {"Authorization": f"Bearer {api_key}"}
                 async with httpx.AsyncClient(timeout=45.0) as client:
-                    resp = await client.post(
-                        f"{base_url}/embeddings", headers=headers, json=payload
-                    )
+                    resp = await client.post(f"{base_url}/embeddings", headers=headers, json=payload)
                     if resp.status_code == 200:
                         embeddings_data = resp.json()["data"]
                         records = []
@@ -672,9 +647,7 @@ class ETLService:
                                     "organization_id": organization_id,
                                 }
                             )
-                        await supabase.table("document_embeddings").insert(
-                            records
-                        ).execute()
+                        await supabase.table("document_embeddings").insert(records).execute()
                         return True
                     return False
             except Exception as e:
@@ -682,9 +655,7 @@ class ETLService:
                 return False
 
         # Use new dynamic size and overlap
-        for chunk in self._semantic_chunk(
-            text, size=self.chunk_size, overlap=self.chunk_overlap
-        ):
+        for chunk in self._semantic_chunk(text, size=self.chunk_size, overlap=self.chunk_overlap):
             current_batch_text.append(chunk)
             if len(current_batch_text) >= batch_size:
                 if not await _process_batch(current_batch_text):

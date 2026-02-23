@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PoolStats:
     """Connection pool statistics."""
+
     pool_name: str
     total_connections: int
     active_connections: int
@@ -47,7 +48,7 @@ class ConnectionPoolService:
         db_max_overflow: int = 20,
         http_pool_size: int = 100,
         redis_pool_size: int = 10,
-        pool_recycle_seconds: int = 3600
+        pool_recycle_seconds: int = 3600,
     ):
         self.db_pool_size = db_pool_size
         self.db_max_overflow = db_max_overflow
@@ -79,7 +80,7 @@ class ConnectionPoolService:
                 min_size=self.db_pool_size,
                 max_size=self.db_pool_size + self.db_max_overflow,
                 command_timeout=60,
-                max_inactive_connection_lifetime=self.pool_recycle_seconds
+                max_inactive_connection_lifetime=self.pool_recycle_seconds,
             )
 
             self._pool_stats["database"] = PoolStats(
@@ -89,10 +90,12 @@ class ConnectionPoolService:
                 idle_connections=self.db_pool_size,
                 waiting_requests=0,
                 avg_wait_time_ms=0,
-                created_at=datetime.utcnow().isoformat()
+                created_at=datetime.utcnow().isoformat(),
             )
 
-            logger.info(f"Database pool initialized: size={self.db_pool_size}, max={self.db_pool_size + self.db_max_overflow}")
+            logger.info(
+                f"Database pool initialized: size={self.db_pool_size}, max={self.db_pool_size + self.db_max_overflow}"
+            )
 
         except ImportError:
             logger.warning("asyncpg not installed, using default connection")
@@ -108,22 +111,12 @@ class ConnectionPoolService:
             import aiohttp
 
             connector = aiohttp.TCPConnector(
-                limit=self.http_pool_size,
-                limit_per_host=20,
-                ttl_dns_cache=300,
-                enable_cleanup_closed=True
+                limit=self.http_pool_size, limit_per_host=20, ttl_dns_cache=300, enable_cleanup_closed=True
             )
 
-            timeout = aiohttp.ClientTimeout(
-                total=60,
-                connect=10,
-                sock_read=30
-            )
+            timeout = aiohttp.ClientTimeout(total=60, connect=10, sock_read=30)
 
-            self._http_client = aiohttp.ClientSession(
-                connector=connector,
-                timeout=timeout
-            )
+            self._http_client = aiohttp.ClientSession(connector=connector, timeout=timeout)
 
             self._pool_stats["http"] = PoolStats(
                 pool_name="http",
@@ -132,7 +125,7 @@ class ConnectionPoolService:
                 idle_connections=self.http_pool_size,
                 waiting_requests=0,
                 avg_wait_time_ms=0,
-                created_at=datetime.utcnow().isoformat()
+                created_at=datetime.utcnow().isoformat(),
             )
 
             logger.info(f"HTTP pool initialized: size={self.http_pool_size}")
@@ -155,9 +148,7 @@ class ConnectionPoolService:
             import redis.asyncio as redis
 
             self._redis_pool = redis.ConnectionPool.from_url(
-                redis_url,
-                max_connections=self.redis_pool_size,
-                decode_responses=True
+                redis_url, max_connections=self.redis_pool_size, decode_responses=True
             )
 
             self._pool_stats["redis"] = PoolStats(
@@ -167,7 +158,7 @@ class ConnectionPoolService:
                 idle_connections=self.redis_pool_size,
                 waiting_requests=0,
                 avg_wait_time_ms=0,
-                created_at=datetime.utcnow().isoformat()
+                created_at=datetime.utcnow().isoformat(),
             )
 
             logger.info(f"Redis pool initialized: size={self.redis_pool_size}")
@@ -179,11 +170,7 @@ class ConnectionPoolService:
 
     async def init_all(self, database_url: str = None, redis_url: str = None):
         """Initialize all connection pools."""
-        await asyncio.gather(
-            self.init_db_pool(database_url),
-            self.init_http_pool(),
-            self.init_redis_pool(redis_url)
-        )
+        await asyncio.gather(self.init_db_pool(database_url), self.init_http_pool(), self.init_redis_pool(redis_url))
 
     @property
     def db(self):
@@ -255,14 +242,14 @@ class ConnectionPoolService:
                 "active_connections": stats.active_connections,
                 "idle_connections": stats.idle_connections,
                 "waiting_requests": stats.waiting_requests,
-                "created_at": stats.created_at
+                "created_at": stats.created_at,
             }
 
         # Add internal pool stats if available
         if self._db_pool:
             result["database"]["internal"] = {
-                "size": self._db_pool.get_size() if hasattr(self._db_pool, 'get_size') else None,
-                "idle": self._db_pool.get_idle_size() if hasattr(self._db_pool, 'get_idle_size') else None
+                "size": self._db_pool.get_size() if hasattr(self._db_pool, "get_size") else None,
+                "idle": self._db_pool.get_idle_size() if hasattr(self._db_pool, "get_idle_size") else None,
             }
 
         return result
@@ -303,5 +290,5 @@ connection_pool_service = ConnectionPoolService(
     db_pool_size=int(os.getenv("DB_POOL_SIZE", "10")),
     db_max_overflow=int(os.getenv("DB_MAX_OVERFLOW", "20")),
     http_pool_size=int(os.getenv("HTTP_POOL_SIZE", "100")),
-    redis_pool_size=int(os.getenv("REDIS_POOL_SIZE", "10"))
+    redis_pool_size=int(os.getenv("REDIS_POOL_SIZE", "10")),
 )

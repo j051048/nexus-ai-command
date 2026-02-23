@@ -79,9 +79,7 @@ DEFAULT_CHAINS: dict[str, ApprovalChainConfig] = {
         description="适用于各类请假申请",
         applies_to=["leave", "vacation", "sick_leave"],
         steps=[
-            ApprovalStep(
-                ApprovalLevel.AUTO, 1, "system", timeout_hours=0
-            ),  # 1 day auto
+            ApprovalStep(ApprovalLevel.AUTO, 1, "system", timeout_hours=0),  # 1 day auto
             ApprovalStep(ApprovalLevel.MANAGER, 5, "manager", timeout_hours=24),
             ApprovalStep(ApprovalLevel.DIRECTOR, 15, "director", timeout_hours=48),
             ApprovalStep(ApprovalLevel.CEO, float("inf"), "ceo", timeout_hours=72),
@@ -118,9 +116,7 @@ class ApprovalChainService:
                 return chain
         return self.chains["default"]
 
-    async def load_chain_from_db(
-        self, org_id: str, approval_type: str, db=None
-    ) -> dict | None:
+    async def load_chain_from_db(self, org_id: str, approval_type: str, db=None) -> dict | None:
         """
         Load the active workflow definition from DB for the given org and approval type.
         Falls back to DEFAULT_CHAINS if no DB definition is found.
@@ -160,9 +156,7 @@ class ApprovalChainService:
             if result.data:
                 chain_data = result.data[0]
                 chain_data["source"] = "database"
-                logger.info(
-                    f"Loaded workflow '{chain_data['name']}' from DB for org={org_id}, type={approval_type}"
-                )
+                logger.info(f"Loaded workflow '{chain_data['name']}' from DB for org={org_id}, type={approval_type}")
                 return chain_data
 
         except Exception as e:
@@ -186,9 +180,7 @@ class ApprovalChainService:
             "source": "default",
         }
 
-    def determine_approval_level(
-        self, approval_type: str, amount: float
-    ) -> tuple[ApprovalStep, int]:
+    def determine_approval_level(self, approval_type: str, amount: float) -> tuple[ApprovalStep, int]:
         """
         Determine which approval level is required based on type and amount.
         Returns (ApprovalStep, step_index)
@@ -202,9 +194,7 @@ class ApprovalChainService:
         # Return highest level if amount exceeds all thresholds
         return chain.steps[-1], len(chain.steps) - 1
 
-    async def get_approvers_for_step(
-        self, step: ApprovalStep, requester_id: str
-    ) -> list[dict]:
+    async def get_approvers_for_step(self, step: ApprovalStep, requester_id: str) -> list[dict]:
         """
         Get list of users who can approve at the given step.
         """
@@ -237,13 +227,7 @@ class ApprovalChainService:
 
         try:
             # Get user's department
-            user = (
-                await supabase.table("users")
-                .select("department")
-                .eq("id", user_id)
-                .maybe_single()
-                .execute()
-            )
+            user = await supabase.table("users").select("department").eq("id", user_id).maybe_single().execute()
 
             if not user.data:
                 return None
@@ -266,13 +250,7 @@ class ApprovalChainService:
                 return manager.data[0]
 
             # Fallback to any founder
-            founder = (
-                await supabase.table("users")
-                .select("id, name")
-                .eq("role", "founder")
-                .limit(1)
-                .execute()
-            )
+            founder = await supabase.table("users").select("id, name").eq("role", "founder").limit(1).execute()
 
             return founder.data[0] if founder.data else None
         except Exception as e:
@@ -325,9 +303,7 @@ class ApprovalChainService:
             # Get approvers for this level
             approvers = await self.get_approvers_for_step(step, requester_id)
             result["approvers"] = approvers
-            result["reason"] = (
-                f"需要 {step.level.value} 级别审批 (限额: ¥{step.threshold})"
-            )
+            result["reason"] = f"需要 {step.level.value} 级别审批 (限额: ¥{step.threshold})"
 
             # Try to get direct manager first for manager-level approvals
             if step.level == ApprovalLevel.MANAGER:
@@ -439,13 +415,7 @@ class ApprovalChainService:
             raise ValueError("Database client unavailable")
 
         # Fetch current request
-        req_result = (
-            await client.table("approval_requests")
-            .select("*")
-            .eq("id", request_id)
-            .maybe_single()
-            .execute()
-        )
+        req_result = await client.table("approval_requests").select("*").eq("id", request_id).maybe_single().execute()
 
         if not req_result.data:
             raise RuntimeError(f"Approval request {request_id} not found")
@@ -457,9 +427,7 @@ class ApprovalChainService:
 
         # Optimistic lock: reject if already processed
         if current_status != "pending":
-            raise RuntimeError(
-                f"Approval {request_id} already {current_status}, cannot advance"
-            )
+            raise RuntimeError(f"Approval {request_id} already {current_status}, cannot advance")
 
         # Record this decision in history
         history_entry = {
@@ -498,11 +466,7 @@ class ApprovalChainService:
         if chain_id:
             # Load the chain definition to check step count
             chain_result = (
-                await client.table("approval_chains")
-                .select("steps")
-                .eq("id", chain_id)
-                .maybe_single()
-                .execute()
+                await client.table("approval_chains").select("steps").eq("id", chain_id).maybe_single().execute()
             )
             if chain_result.data:
                 chain_steps = chain_result.data.get("steps", [])
@@ -513,8 +477,8 @@ class ApprovalChainService:
                     next_step_def = chain_steps[next_step]
                     timeout_hours = next_step_def.get("timeout_hours", 48)
                     timeout_at = (
-                        datetime.now(UTC) + timedelta(hours=timeout_hours)
-                    ).isoformat() if timeout_hours > 0 else None
+                        (datetime.now(UTC) + timedelta(hours=timeout_hours)).isoformat() if timeout_hours > 0 else None
+                    )
 
                     update_data = {
                         "current_step": next_step,
@@ -694,26 +658,24 @@ class ApprovalChainService:
                             except Exception:
                                 pass
 
-                        new_timeout = (
-                            datetime.now(UTC) + timedelta(hours=timeout_hours)
-                        ).isoformat()
+                        new_timeout = (datetime.now(UTC) + timedelta(hours=timeout_hours)).isoformat()
 
                         # Update the request with escalation info
                         await (
                             client.table("approval_requests")
-                            .update({
-                                "current_step": new_step,
-                                "approval_level": esc_result.get("approval_level", ""),
-                                "escalated": True,
-                                "timeout_at": new_timeout,
-                            })
+                            .update(
+                                {
+                                    "current_step": new_step,
+                                    "approval_level": esc_result.get("approval_level", ""),
+                                    "escalated": True,
+                                    "timeout_at": new_timeout,
+                                }
+                            )
                             .eq("id", request_id)
                             .execute()
                         )
                         escalated_count += 1
-                        logger.info(
-                            f"Escalated approval {request_id} from step {current_step} to {new_step}"
-                        )
+                        logger.info(f"Escalated approval {request_id} from step {current_step} to {new_step}")
                     else:
                         # Already at highest level, mark as escalated to prevent re-processing
                         await (
@@ -722,9 +684,7 @@ class ApprovalChainService:
                             .eq("id", request_id)
                             .execute()
                         )
-                        logger.warning(
-                            f"Approval {request_id} at highest level, cannot escalate further"
-                        )
+                        logger.warning(f"Approval {request_id} at highest level, cannot escalate further")
 
                 except Exception as e:
                     logger.error(f"Error escalating request {req.get('id')}: {e}")

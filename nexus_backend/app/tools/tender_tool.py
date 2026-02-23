@@ -9,9 +9,7 @@ from .base_tool import BaseTool
 
 class TenderAnalysisTool(BaseTool):
     name = "analyze_tender_document"
-    description = (
-        "【智能投标专家】利用 LLM 深度分析招标文件，提取否决性条款并进行合规性比对"
-    )
+    description = "【智能投标专家】利用 LLM 深度分析招标文件，提取否决性条款并进行合规性比对"
 
     parameters = {
         "type": "object",
@@ -24,9 +22,7 @@ class TenderAnalysisTool(BaseTool):
         "required": ["tender_text"],
     }
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         text = args.get("tender_text", "")
         if not text:
             return "❌ 错误: 未提供招标文件内容。"

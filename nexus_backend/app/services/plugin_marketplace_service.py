@@ -215,9 +215,12 @@ class PluginMarketplaceService:
         installed_ids: set = set()
         if org_id and db:
             try:
-                result = db.table("installed_plugins").select("plugin_id, is_active, config").eq(
-                    "organization_id", org_id
-                ).execute()
+                result = (
+                    db.table("installed_plugins")
+                    .select("plugin_id, is_active, config")
+                    .eq("organization_id", org_id)
+                    .execute()
+                )
                 if result.data:
                     for row in result.data:
                         installed_ids.add(row["plugin_id"])
@@ -278,24 +281,20 @@ class PluginMarketplaceService:
             "installed_at": datetime.utcnow().isoformat(),
         }
 
-    async def uninstall_plugin(
-        self, org_id: str, plugin_id: str, db: Any = None
-    ) -> bool:
+    async def uninstall_plugin(self, org_id: str, plugin_id: str, db: Any = None) -> bool:
         """从组织卸载插件"""
         if db:
             try:
-                db.table("installed_plugins").delete().eq(
-                    "organization_id", org_id
-                ).eq("plugin_id", plugin_id).execute()
+                db.table("installed_plugins").delete().eq("organization_id", org_id).eq(
+                    "plugin_id", plugin_id
+                ).execute()
                 logger.info(f"Plugin {plugin_id} uninstalled for org {org_id}")
             except Exception as e:
                 logger.error(f"Failed to uninstall plugin: {e}")
                 raise
         return True
 
-    async def update_plugin_config(
-        self, org_id: str, plugin_id: str, config: dict, db: Any = None
-    ) -> dict:
+    async def update_plugin_config(self, org_id: str, plugin_id: str, config: dict, db: Any = None) -> dict:
         """更新插件配置"""
         plugin = self._plugin_map.get(plugin_id)
         if not plugin:
@@ -308,9 +307,7 @@ class PluginMarketplaceService:
                         "config": config,
                         "updated_at": datetime.utcnow().isoformat(),
                     }
-                ).eq("organization_id", org_id).eq(
-                    "plugin_id", plugin_id
-                ).execute()
+                ).eq("organization_id", org_id).eq("plugin_id", plugin_id).execute()
                 logger.info(f"Plugin {plugin_id} config updated for org {org_id}")
             except Exception as e:
                 logger.error(f"Failed to update plugin config: {e}")
@@ -318,17 +315,19 @@ class PluginMarketplaceService:
 
         return {**plugin, "config": config, "installed": True}
 
-    async def get_installed_plugins(
-        self, org_id: str, db: Any = None
-    ) -> list[dict]:
+    async def get_installed_plugins(self, org_id: str, db: Any = None) -> list[dict]:
         """获取组织已安装的插件列表"""
         installed = []
 
         if db:
             try:
-                result = db.table("installed_plugins").select("*").eq(
-                    "organization_id", org_id
-                ).eq("is_active", True).execute()
+                result = (
+                    db.table("installed_plugins")
+                    .select("*")
+                    .eq("organization_id", org_id)
+                    .eq("is_active", True)
+                    .execute()
+                )
 
                 if result.data:
                     for row in result.data:

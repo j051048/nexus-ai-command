@@ -75,9 +75,7 @@ class FeishuClient(IMPlatformClient):
         data = response.json()
 
         if data.get("code", -1) != 0:
-            raise Exception(
-                f"Feishu gettoken error: {data.get('msg', 'unknown')}"
-            )
+            raise Exception(f"Feishu gettoken error: {data.get('msg', 'unknown')}")
 
         return {
             "access_token": data["tenant_access_token"],
@@ -104,10 +102,7 @@ class FeishuClient(IMPlatformClient):
             response.raise_for_status()
             data = response.json()
         except httpx.HTTPStatusError as e:
-            logger.error(
-                f"[feishu] HTTP {e.response.status_code} "
-                f"for {method} {url}: {e.response.text[:200]}"
-            )
+            logger.error(f"[feishu] HTTP {e.response.status_code} " f"for {method} {url}: {e.response.text[:200]}")
             raise
         except httpx.RequestError as e:
             logger.error(f"[feishu] Request error for {method} {url}: {e}")
@@ -117,9 +112,7 @@ class FeishuClient(IMPlatformClient):
         code = data.get("code", 0)
         if code != 0:
             msg = data.get("msg", "unknown error")
-            logger.error(
-                f"[feishu] API business error: code={code}, msg={msg}, url={url}"
-            )
+            logger.error(f"[feishu] API business error: code={code}, msg={msg}, url={url}")
             raise Exception(f"feishu API error (code={code}): {msg}")
 
         return data
@@ -217,18 +210,14 @@ class FeishuClient(IMPlatformClient):
                 has_more = data.get("data", {}).get("has_more", False)
                 page_token = data.get("data", {}).get("page_token", "")
             except Exception as e:
-                logger.error(
-                    f"[feishu] Failed to get users for dept {department_id}: {e}"
-                )
+                logger.error(f"[feishu] Failed to get users for dept {department_id}: {e}")
                 break
 
         return all_users
 
     # ── Attendance ────────────────────────────────────────────────
 
-    async def get_attendance_records(
-        self, user_ids: list[str], start_date: str, end_date: str
-    ) -> list[dict]:
+    async def get_attendance_records(self, user_ids: list[str], start_date: str, end_date: str) -> list[dict]:
         """
         获取考勤打卡数据。
         POST /attendance/v1/user_tasks/query
@@ -264,9 +253,7 @@ class FeishuClient(IMPlatformClient):
             params = {"employee_type": "employee_id"}
 
             try:
-                data = await self._api_request(
-                    "POST", url, json=body, params=params
-                )
+                data = await self._api_request("POST", url, json=body, params=params)
                 task_list = data.get("data", {}).get("user_task_results", [])
 
                 for task in task_list:
@@ -285,9 +272,7 @@ class FeishuClient(IMPlatformClient):
                             }
                         )
             except Exception as e:
-                logger.error(
-                    f"[feishu] Failed to get attendance for batch: {e}"
-                )
+                logger.error(f"[feishu] Failed to get attendance for batch: {e}")
 
         return all_records
 
@@ -317,9 +302,7 @@ class FeishuClient(IMPlatformClient):
             logger.info(f"[feishu] Text message sent to {user_id}")
             return True
         except Exception as e:
-            logger.error(
-                f"[feishu] Failed to send text message to {user_id}: {e}"
-            )
+            logger.error(f"[feishu] Failed to send text message to {user_id}: {e}")
             return False
 
     async def send_interactive_card(self, user_id: str, card: dict) -> bool:
@@ -348,9 +331,7 @@ class FeishuClient(IMPlatformClient):
             logger.info(f"[feishu] Interactive card sent to {user_id}")
             return True
         except Exception as e:
-            logger.error(
-                f"[feishu] Failed to send interactive card to {user_id}: {e}"
-            )
+            logger.error(f"[feishu] Failed to send interactive card to {user_id}: {e}")
             return False
 
     # ── OAuth SSO ─────────────────────────────────────────────────
@@ -413,13 +394,9 @@ class FeishuClient(IMPlatformClient):
             token_data = token_resp.json()
 
             if token_data.get("code", -1) != 0:
-                raise Exception(
-                    f"Failed to get user access token: {token_data.get('msg')}"
-                )
+                raise Exception(f"Failed to get user access token: {token_data.get('msg')}")
 
-            user_access_token = token_data.get("data", {}).get(
-                "access_token", ""
-            )
+            user_access_token = token_data.get("data", {}).get("access_token", "")
 
             if not user_access_token:
                 raise Exception("Empty user access token returned")
@@ -436,9 +413,7 @@ class FeishuClient(IMPlatformClient):
             user_data = user_resp.json()
 
             if user_data.get("code", -1) != 0:
-                raise Exception(
-                    f"Failed to get user info: {user_data.get('msg')}"
-                )
+                raise Exception(f"Failed to get user info: {user_data.get('msg')}")
 
             info = user_data.get("data", {})
             result = {
@@ -451,9 +426,7 @@ class FeishuClient(IMPlatformClient):
                 "avatar": info.get("avatar_url", ""),
                 "tenant_key": info.get("tenant_key", ""),
             }
-            logger.info(
-                f"[feishu] OAuth user resolved: userid={result['userid']}"
-            )
+            logger.info(f"[feishu] OAuth user resolved: userid={result['userid']}")
             return result
 
         except Exception as e:

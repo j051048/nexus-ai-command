@@ -19,6 +19,7 @@ router = APIRouter(prefix="/api/workflow-templates", tags=["Workflow Templates"]
 
 # ─── Request Models ──────────────────────────────────────────
 
+
 class CreateFromTemplateBody(BaseModel):
     name: str | None = Field(None, max_length=200, description="自定义工作流名称")
 
@@ -38,7 +39,9 @@ async def list_templates(
         db = getattr(request.state, "db", None)
 
         templates = await workflow_template_service.list_templates(
-            category=category, org_id=org_id, db=db,
+            category=category,
+            org_id=org_id,
+            db=db,
         )
 
         categories = workflow_template_service.get_categories()
@@ -65,7 +68,8 @@ async def get_template(
         db = getattr(request.state, "db", None)
 
         template = await workflow_template_service.get_template(
-            template_id=template_id, db=db,
+            template_id=template_id,
+            db=db,
         )
         if not template:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "模板不存在")

@@ -22,9 +22,7 @@ async def list_plugins(
     try:
         org_id = getattr(req.state, "org_id", None) or "default"
         db = getattr(req.state, "db", None)
-        plugins = await plugin_marketplace_service.list_plugins(
-            org_id=org_id, category=category, db=db
-        )
+        plugins = await plugin_marketplace_service.list_plugins(org_id=org_id, category=category, db=db)
         return api_success(data={"plugins": plugins})
     except Exception as e:
         logger.error(f"Failed to list plugins: {e}")
@@ -40,9 +38,7 @@ async def get_installed_plugins(
     try:
         org_id = getattr(req.state, "org_id", None) or "default"
         db = getattr(req.state, "db", None)
-        plugins = await plugin_marketplace_service.get_installed_plugins(
-            org_id=org_id, db=db
-        )
+        plugins = await plugin_marketplace_service.get_installed_plugins(org_id=org_id, db=db)
         return api_success(data={"plugins": plugins})
     except Exception as e:
         logger.error(f"Failed to get installed plugins: {e}")
@@ -82,9 +78,7 @@ async def uninstall_plugin(
     try:
         org_id = getattr(req.state, "org_id", None) or "default"
         db = getattr(req.state, "db", None)
-        success = await plugin_marketplace_service.uninstall_plugin(
-            org_id=org_id, plugin_id=plugin_id, db=db
-        )
+        success = await plugin_marketplace_service.uninstall_plugin(org_id=org_id, plugin_id=plugin_id, db=db)
         return api_success(data={"uninstalled": success}, message="插件已卸载")
     except Exception as e:
         logger.error(f"Failed to uninstall plugin: {e}")

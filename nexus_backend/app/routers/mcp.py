@@ -37,8 +37,10 @@ router = APIRouter(prefix="/api/mcp", tags=["MCP Server"])
 # Response / Request schemas
 # ---------------------------------------------------------------------------
 
+
 class MCPToolSchema(BaseModel):
     """MCP-compatible tool descriptor."""
+
     name: str
     description: str
     inputSchema: dict[str, Any]  # noqa: N815
@@ -46,17 +48,20 @@ class MCPToolSchema(BaseModel):
 
 class MCPToolListResponse(BaseModel):
     """Response for the tool listing endpoint."""
+
     tools: list[MCPToolSchema]
     count: int
 
 
 class MCPExecuteRequest(BaseModel):
     """Request body for tool execution."""
+
     arguments: dict[str, Any] = {}
 
 
 class MCPExecuteResponse(BaseModel):
     """Response for a tool execution."""
+
     tool_name: str
     success: bool
     result: Any = None
@@ -67,6 +72,7 @@ class MCPExecuteResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # SSE Session Management
 # ---------------------------------------------------------------------------
+
 
 class MCPSession:
     """Manages a single MCP SSE session."""
@@ -83,19 +89,23 @@ class MCPSession:
 
     async def send_jsonrpc_response(self, id: Any, result: Any):  # noqa: A002
         """Send a JSON-RPC 2.0 response."""
-        await self.send({
-            "jsonrpc": "2.0",
-            "id": id,
-            "result": result,
-        })
+        await self.send(
+            {
+                "jsonrpc": "2.0",
+                "id": id,
+                "result": result,
+            }
+        )
 
     async def send_jsonrpc_error(self, id: Any, code: int, message: str):  # noqa: A002
         """Send a JSON-RPC 2.0 error response."""
-        await self.send({
-            "jsonrpc": "2.0",
-            "id": id,
-            "error": {"code": code, "message": message},
-        })
+        await self.send(
+            {
+                "jsonrpc": "2.0",
+                "id": id,
+                "error": {"code": code, "message": message},
+            }
+        )
 
 
 # In-memory session store (suitable for single-instance deployment)
@@ -115,6 +125,7 @@ MCP_CAPABILITIES = {
 # ---------------------------------------------------------------------------
 # REST Endpoints (original MVP)
 # ---------------------------------------------------------------------------
+
 
 @router.get("/tools")
 async def list_tools(user_id: str = Depends(get_current_user_id)):
@@ -158,9 +169,7 @@ async def execute_tool(
     # --- Resolve tool ---
     tool = get_tool(tool_name)
     if tool is None:
-        logger.warning(
-            "[MCP] tool_not_found tool=%s user=%s", tool_name, user_id
-        )
+        logger.warning("[MCP] tool_not_found tool=%s user=%s", tool_name, user_id)
         raise api_error(
             ErrorCode.RESOURCE_NOT_FOUND,
             f"Tool '{tool_name}' not found in the registry.",
@@ -208,12 +217,14 @@ async def execute_tool(
             duration_ms,
         )
 
-        return api_success(data=MCPExecuteResponse(
-            tool_name=tool_name,
-            success=True,
-            result=result,
-            duration_ms=duration_ms,
-        ).model_dump())
+        return api_success(
+            data=MCPExecuteResponse(
+                tool_name=tool_name,
+                success=True,
+                result=result,
+                duration_ms=duration_ms,
+            ).model_dump()
+        )
     except HTTPException:
         raise
     except Exception as exc:
@@ -234,6 +245,7 @@ async def execute_tool(
 # ---------------------------------------------------------------------------
 # SSE Transport Endpoints (Standard MCP)
 # ---------------------------------------------------------------------------
+
 
 @router.get("/sse")
 async def sse_endpoint(request: Request, user_id: str = Depends(get_current_user_id)):
@@ -319,16 +331,21 @@ async def handle_message(
 
     logger.info(
         "[MCP-SSE] message session=%s method=%s id=%s",
-        session_id, method, msg_id,
+        session_id,
+        method,
+        msg_id,
     )
 
     try:
         if method == "initialize":
-            await session.send_jsonrpc_response(msg_id, {
-                "protocolVersion": "2024-11-05",
-                "serverInfo": MCP_SERVER_INFO,
-                "capabilities": MCP_CAPABILITIES,
-            })
+            await session.send_jsonrpc_response(
+                msg_id,
+                {
+                    "protocolVersion": "2024-11-05",
+                    "serverInfo": MCP_SERVER_INFO,
+                    "capabilities": MCP_CAPABILITIES,
+                },
+            )
 
         elif method == "notifications/initialized":
             # Client acknowledges initialization — no response needed
@@ -340,14 +357,17 @@ async def handle_message(
         elif method == "tools/list":
             tools = []
             for tool in TOOL_REGISTRY.values():
-                tools.append({
-                    "name": tool.name,
-                    "description": tool.description,
-                    "inputSchema": tool.parameters or {
-                        "type": "object",
-                        "properties": {},
-                    },
-                })
+                tools.append(
+                    {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "inputSchema": tool.parameters
+                        or {
+                            "type": "object",
+                            "properties": {},
+                        },
+                    }
+                )
             await session.send_jsonrpc_response(msg_id, {"tools": tools})
 
         elif method == "tools/call":
@@ -356,9 +376,7 @@ async def handle_message(
 
             tool = get_tool(tool_name)
             if not tool:
-                await session.send_jsonrpc_error(
-                    msg_id, -32602, f"Tool '{tool_name}' not found"
-                )
+                await session.send_jsonrpc_error(msg_id, -32602, f"Tool '{tool_name}' not found")
                 return {"ok": True}
 
             # Execute tool
@@ -372,36 +390,36 @@ async def handle_message(
                 )
                 duration_ms = round((time.perf_counter() - start) * 1000, 2)
 
-                await session.send_jsonrpc_response(msg_id, {
-                    "content": [
-                        {"type": "text", "text": str(result)},
-                    ],
-                    "isError": False,
-                    "_meta": {"duration_ms": duration_ms},
-                })
+                await session.send_jsonrpc_response(
+                    msg_id,
+                    {
+                        "content": [
+                            {"type": "text", "text": str(result)},
+                        ],
+                        "isError": False,
+                        "_meta": {"duration_ms": duration_ms},
+                    },
+                )
             except Exception as exc:
                 duration_ms = round((time.perf_counter() - start) * 1000, 2)
-                logger.error(
-                    "[MCP-SSE] tool_error tool=%s error=%s", tool_name, exc
+                logger.error("[MCP-SSE] tool_error tool=%s error=%s", tool_name, exc)
+                await session.send_jsonrpc_response(
+                    msg_id,
+                    {
+                        "content": [
+                            {"type": "text", "text": f"Tool error: {str(exc)}"},
+                        ],
+                        "isError": True,
+                        "_meta": {"duration_ms": duration_ms},
+                    },
                 )
-                await session.send_jsonrpc_response(msg_id, {
-                    "content": [
-                        {"type": "text", "text": f"Tool error: {str(exc)}"},
-                    ],
-                    "isError": True,
-                    "_meta": {"duration_ms": duration_ms},
-                })
 
         else:
-            await session.send_jsonrpc_error(
-                msg_id, -32601, f"Method '{method}' not supported"
-            )
+            await session.send_jsonrpc_error(msg_id, -32601, f"Method '{method}' not supported")
 
     except Exception as exc:
         logger.exception("[MCP-SSE] handler error: %s", exc)
         if msg_id is not None:
-            await session.send_jsonrpc_error(
-                msg_id, -32603, f"Internal error: {str(exc)}"
-            )
+            await session.send_jsonrpc_error(msg_id, -32603, f"Internal error: {str(exc)}")
 
     return {"ok": True}

@@ -51,17 +51,13 @@ def get_pagination(
 
 def get_sorting(
     sort_by: str | None = Query(default=None, description="Field to sort by"),
-    sort_order: str = Query(
-        default="desc", regex="^(asc|desc)$", description="Sort order"
-    ),
+    sort_order: str = Query(default="desc", regex="^(asc|desc)$", description="Sort order"),
 ) -> SortParams:
     """Sorting dependency"""
     return SortParams(sort_by=sort_by, sort_order=sort_order)
 
 
-def get_search(
-    q: str | None = Query(default=None, max_length=200, description="Search query")
-) -> SearchParams:
+def get_search(q: str | None = Query(default=None, max_length=200, description="Search query")) -> SearchParams:
     """Search dependency"""
     return SearchParams(q=q)
 
@@ -112,13 +108,7 @@ async def _get_user_role(user_id: str) -> str | None:
     # Fetch from database
     if supabase:
         try:
-            result = (
-                await supabase.table("users")
-                .select("role")
-                .eq("id", user_id)
-                .single()
-                .execute()
-            )
+            result = await supabase.table("users").select("role").eq("id", user_id).single().execute()
             if result.data:
                 role = result.data.get("role", "employee")
                 await cache_service.set_user_role(user_id, role)

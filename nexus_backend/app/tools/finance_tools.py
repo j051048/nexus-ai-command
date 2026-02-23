@@ -58,9 +58,7 @@ class ExpenseClaimTool(BaseTool):
         "required": ["expense_type", "amount"],
     }
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
         expense_type = args.get("expense_type", "other")
         amount = float(args.get("amount", 0))
@@ -73,13 +71,7 @@ class ExpenseClaimTool(BaseTool):
             return "❌ 报销金额必须大于0"
 
         # 获取用户信息
-        user_res = (
-            await client.table("users")
-            .select("name, department")
-            .eq("id", user_id)
-            .maybe_single()
-            .execute()
-        )
+        user_res = await client.table("users").select("name, department").eq("id", user_id).maybe_single().execute()
         if not user_res.data:
             return "❌ 无法获取用户信息"
 
@@ -119,9 +111,7 @@ class ExpenseClaimTool(BaseTool):
 
         # 差旅费检查
         if expense_type == "travel" and amount > config_info.get("daily_limit", 1500):
-            compliance_issues.append(
-                f"⚠️ 单日差旅费 ¥{amount:.0f} 超过标准 ¥{config_info['daily_limit']}"
-            )
+            compliance_issues.append(f"⚠️ 单日差旅费 ¥{amount:.0f} 超过标准 ¥{config_info['daily_limit']}")
 
         # 确定审批级别
         auto_limit = config_info.get("auto_limit", 300)
@@ -145,11 +135,7 @@ class ExpenseClaimTool(BaseTool):
         project_id = None
         if project_name:
             proj_res = (
-                await client.table("projects")
-                .select("id, name")
-                .ilike("name", f"%{project_name}%")
-                .limit(1)
-                .execute()
+                await client.table("projects").select("id, name").ilike("name", f"%{project_name}%").limit(1).execute()
             )
             if proj_res.data:
                 project_id = proj_res.data[0]["id"]
@@ -184,12 +170,7 @@ class ExpenseClaimTool(BaseTool):
 
         # 如果需要人工审批，发送通知
         if approval_status == "pending":
-            approvers = (
-                await client.table("users")
-                .select("id")
-                .in_("role", ["manager", "founder"])
-                .execute()
-            )
+            approvers = await client.table("users").select("id").in_("role", ["manager", "founder"]).execute()
             for approver in approvers.data or []:
                 await client.table("notifications").insert(
                     {
@@ -250,9 +231,7 @@ class ExpenseQueryTool(BaseTool):
         "required": [],
     }
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
         # 查询该用户的报销申请
         claims = (
@@ -320,19 +299,11 @@ class BudgetQueryTool(BaseTool):
         "required": [],
     }
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         args.get("department")
         client = _get_client(config)
         # 获取用户部门
-        user_res = (
-            await client.table("users")
-            .select("department, role")
-            .eq("id", user_id)
-            .maybe_single()
-            .execute()
-        )
+        user_res = await client.table("users").select("department, role").eq("id", user_id).maybe_single().execute()
         if not user_res.data:
             return "❌ 无法获取用户信息"
 
@@ -362,9 +333,7 @@ class SalaryQueryTool(BaseTool):
         "required": [],
     }
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         month = args.get("month", datetime.now().strftime("%Y-%m"))
         client = _get_client(config)
         try:
@@ -410,9 +379,7 @@ class InvoiceOCRTool(BaseTool):
         "required": ["image_url"],
     }
 
-    async def run(
-        self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
-    ) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         image_url = args.get("image_url", "")
         invoice_type = args.get("invoice_type", "auto")
 
@@ -427,7 +394,7 @@ class InvoiceOCRTool(BaseTool):
                 f"请识别以下发票信息，提取结构化数据：\n图片URL: {image_url}\n{type_hint}",
                 "你是发票OCR识别专家。请从发票中提取以下字段并以中文列表格式返回：\n"
                 "- 发票号码\n- 开票日期\n- 金额（不含税）\n- 税额\n- 价税合计\n"
-                "- 开票单位\n- 发票类型\n如果无法识别某字段，标注'未识别'。"
+                "- 开票单位\n- 发票类型\n如果无法识别某字段，标注'未识别'。",
             )
             return f"🧾 发票识别结果:\n\n{result}"
         except Exception as e:

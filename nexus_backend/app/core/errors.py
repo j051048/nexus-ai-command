@@ -191,9 +191,7 @@ def api_error(
     return HTTPException(status_code=status_code, detail=error_body)
 
 
-def api_success(
-    data: Any, message: str | None = None, meta: dict[str, Any] | None = None
-) -> dict[str, Any]:
+def api_success(data: Any, message: str | None = None, meta: dict[str, Any] | None = None) -> dict[str, Any]:
     """
     Create a standardized success response.
 
