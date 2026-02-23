@@ -6,7 +6,7 @@
 import React, { useState, useMemo } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { NoDataYet, NoSearchResults } from '@/components/common/EmptyState';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import {
   Search,
@@ -38,7 +46,6 @@ import {
   TrendingUp,
   LayoutGrid,
   List,
-  ChevronRight,
   User2,
   DollarSign,
   MessageSquare,
@@ -47,6 +54,9 @@ import {
   Pencil,
   Trash2,
   Loader2,
+  MoreHorizontal,
+  Eye,
+  Tag,
 } from 'lucide-react';
 import {
   useCustomers,
@@ -173,11 +183,10 @@ function KanbanView({
   const columns = ['lead', 'prospect', 'opportunity', 'customer'];
   const updateMutation = useUpdateCustomer();
 
-  const advanceStage = (e: React.MouseEvent, customer: Customer) => {
+  const handleStageChange = (e: React.MouseEvent, customer: Customer, newStage: string) => {
     e.stopPropagation();
-    const idx = columns.indexOf(customer.stage);
-    if (idx >= 0 && idx < columns.length - 1) {
-      updateMutation.mutate({ id: customer.id, data: { stage: columns[idx + 1] } });
+    if (newStage !== customer.stage) {
+      updateMutation.mutate({ id: customer.id, data: { stage: newStage } });
     }
   };
 
@@ -193,24 +202,23 @@ function KanbanView({
               <Badge variant="outline" className="text-xs">{stageCustomers.length}</Badge>
             </div>
             <div className="space-y-2 min-h-[200px]">
-              {stageCustomers.map(c => {
-                const canAdvance = columns.indexOf(c.stage) < columns.length - 1;
-                return (
-                  <div key={c.id} className="relative">
-                    <CustomerCard customer={c} onClick={() => onSelect(c)} />
-                    {canAdvance && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="absolute bottom-1 right-1 h-6 px-2 text-xs gap-1 opacity-60 hover:opacity-100"
-                        onClick={(e) => advanceStage(e, c)}
-                      >
-                        推进 <ChevronRight className="w-3 h-3" />
-                      </Button>
-                    )}
+              {stageCustomers.map(c => (
+                <div key={c.id} className="relative group">
+                  <CustomerCard customer={c} onClick={() => onSelect(c)} />
+                  <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                    <Select value={c.stage} onValueChange={(v) => handleStageChange({ stopPropagation: () => {} } as React.MouseEvent, c, v)}>
+                      <SelectTrigger className="h-6 w-[80px] text-xs bg-background/90 backdrop-blur-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(STAGES).filter(([k]) => k !== 'churned').map(([key, val]) => (
+                          <SelectItem key={key} value={key} className="text-xs">{val.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                );
-              })}
+                </div>
+              ))}
               {stageCustomers.length === 0 && (
                 <div className="text-center py-8 text-sm text-muted-foreground border border-dashed rounded-lg">
                   暂无客户
@@ -228,9 +236,13 @@ function KanbanView({
 function ListView({
   customers,
   onSelect,
+  onEdit,
+  onDelete,
 }: {
   customers: Customer[];
   onSelect: (c: Customer) => void;
+  onEdit: (c: Customer) => void;
+  onDelete: (c: Customer) => void;
 }) {
   return (
     <div className="space-y-2">
@@ -262,8 +274,29 @@ function ListView({
               {c.estimated_value > 0 ? `\u00A5${Number(c.estimated_value).toLocaleString()}` : '-'}
             </div>
             <div className="hidden lg:block lg:col-span-2 text-sm text-muted-foreground">{c.source || '-'}</div>
-            <div className="col-span-1 md:col-span-1 lg:col-span-1">
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            <div className="col-span-1 md:col-span-1 lg:col-span-1" onClick={e => e.stopPropagation()}>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <MoreHorizontal className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => onSelect(c)}>
+                    <Eye className="w-4 h-4 mr-2" />
+                    查看详情
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onEdit(c)}>
+                    <Pencil className="w-4 h-4 mr-2" />
+                    编辑
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-destructive" onClick={() => onDelete(c)}>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    删除
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         );
@@ -292,6 +325,7 @@ function CustomerDetailSheet({
   const [addActivityOpen, setAddActivityOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<CustomerContact | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [activityFilter, setActivityFilter] = useState<string>('all');
 
   if (!customer) return null;
 
@@ -311,11 +345,15 @@ function CustomerDetailSheet({
     }
   };
 
+  const filteredTimeline = activityFilter === 'all'
+    ? (timeline as CustomerActivity[])
+    : (timeline as CustomerActivity[]).filter(a => a.activity_type === activityFilter);
+
   return (
     <>
       <Sheet open={open} onOpenChange={onClose}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-          <SheetHeader className="mb-6">
+          <SheetHeader className="mb-4">
             <div className="flex items-center justify-between">
               <SheetTitle className="flex items-center gap-2">
                 <Building2 className="w-5 h-5" />
@@ -333,61 +371,91 @@ function CustomerDetailSheet({
             <SheetDescription>{customer.company}</SheetDescription>
           </SheetHeader>
 
-          {/* 基本信息 */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Select value={customer.stage} onValueChange={handleStageChange}>
-                <SelectTrigger className="w-[130px]">
-                  <Badge className={cn('text-sm', stage.color, stage.bg)}>{stage.name}</Badge>
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(STAGES).map(([key, val]) => (
-                    <SelectItem key={key} value={key}>{val.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {customer.estimated_value > 0 && (
-                <span className="text-lg font-bold">{'\u00A5'}{Number(customer.estimated_value).toLocaleString()}</span>
+          <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-4">
+              <TabsTrigger value="overview">概览</TabsTrigger>
+              <TabsTrigger value="contacts">
+                联系人 {(contacts as CustomerContact[]).length > 0 && `(${(contacts as CustomerContact[]).length})`}
+              </TabsTrigger>
+              <TabsTrigger value="timeline">
+                时间线 {(timeline as CustomerActivity[]).length > 0 && `(${(timeline as CustomerActivity[]).length})`}
+              </TabsTrigger>
+            </TabsList>
+
+            {/* 概览 Tab */}
+            <TabsContent value="overview" className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Select value={customer.stage} onValueChange={handleStageChange}>
+                  <SelectTrigger className="w-[130px]">
+                    <Badge className={cn('text-sm', stage.color, stage.bg)}>{stage.name}</Badge>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(STAGES).map(([key, val]) => (
+                      <SelectItem key={key} value={key}>{val.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {customer.estimated_value > 0 && (
+                  <span className="text-lg font-bold">{'\u00A5'}{Number(customer.estimated_value).toLocaleString()}</span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-muted-foreground">行业</span>
+                  <p className="font-medium">{customer.industry || '-'}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">来源</span>
+                  <p className="font-medium">{customer.source || '-'}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">负责人</span>
+                  <p className="font-medium">{customer.assigned_to || '未分配'}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">创建时间</span>
+                  <p className="font-medium">{new Date(customer.created_at).toLocaleDateString('zh-CN')}</p>
+                </div>
+              </div>
+
+              {/* 标签 */}
+              {customer.tags && customer.tags.length > 0 && (
+                <div>
+                  <span className="text-sm text-muted-foreground">标签</span>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {customer.tags.map((tag, i) => (
+                      <Badge key={i} variant="outline" className="text-xs gap-1">
+                        <Tag className="w-3 h-3" />
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
               )}
-            </div>
 
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <span className="text-muted-foreground">行业</span>
-                <p className="font-medium">{customer.industry || '-'}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">来源</span>
-                <p className="font-medium">{customer.source || '-'}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">创建时间</span>
-                <p className="font-medium">{new Date(customer.created_at).toLocaleDateString('zh-CN')}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">更新时间</span>
-                <p className="font-medium">{new Date(customer.updated_at).toLocaleDateString('zh-CN')}</p>
-              </div>
-            </div>
+              <Separator />
 
-            <Separator />
+              <div className="text-xs text-muted-foreground">
+                更新于 {new Date(customer.updated_at).toLocaleDateString('zh-CN')}
+              </div>
+            </TabsContent>
 
-            {/* 联系人 */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="font-medium flex items-center gap-2">
-                  <User2 className="w-4 h-4" />
-                  联系人
-                </h4>
+            {/* 联系人 Tab */}
+            <TabsContent value="contacts" className="space-y-3">
+              <div className="flex items-center justify-end">
                 <Button variant="outline" size="sm" className="gap-1 h-7 text-xs" onClick={() => setAddContactOpen(true)}>
                   <Plus className="w-3 h-3" />
-                  添加
+                  添加联系人
                 </Button>
               </div>
               {contactsLoading ? (
                 <Skeleton className="h-16 w-full" />
               ) : (contacts as CustomerContact[]).length === 0 ? (
-                <p className="text-sm text-muted-foreground">暂无联系人</p>
+                <div className="text-center py-8 text-sm text-muted-foreground">
+                  <User2 className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                  暂无联系人
+                </div>
               ) : (
                 <div className="space-y-2">
                   {(contacts as CustomerContact[]).map(contact => (
@@ -400,30 +468,47 @@ function CustomerDetailSheet({
                   ))}
                 </div>
               )}
-            </div>
+            </TabsContent>
 
-            <Separator />
-
-            {/* 活动时间线 */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="font-medium flex items-center gap-2">
-                  <Clock className="w-4 h-4" />
-                  活动时间线
-                </h4>
-                <Button variant="outline" size="sm" className="gap-1 h-7 text-xs" onClick={() => setAddActivityOpen(true)}>
+            {/* 时间线 Tab */}
+            <TabsContent value="timeline" className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                {/* 活动类型筛选 */}
+                <div className="flex flex-wrap gap-1">
+                  <Badge
+                    variant={activityFilter === 'all' ? 'default' : 'outline'}
+                    className="cursor-pointer text-xs"
+                    onClick={() => setActivityFilter('all')}
+                  >
+                    全部
+                  </Badge>
+                  {Object.entries(ACTIVITY_NAMES).map(([key, name]) => (
+                    <Badge
+                      key={key}
+                      variant={activityFilter === key ? 'default' : 'outline'}
+                      className="cursor-pointer text-xs"
+                      onClick={() => setActivityFilter(key)}
+                    >
+                      {name}
+                    </Badge>
+                  ))}
+                </div>
+                <Button variant="outline" size="sm" className="gap-1 h-7 text-xs shrink-0" onClick={() => setAddActivityOpen(true)}>
                   <Plus className="w-3 h-3" />
                   添加跟进
                 </Button>
               </div>
               {timelineLoading ? (
                 <div className="space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
-              ) : (timeline as CustomerActivity[]).length === 0 ? (
-                <p className="text-sm text-muted-foreground">暂无活动记录</p>
+              ) : filteredTimeline.length === 0 ? (
+                <div className="text-center py-8 text-sm text-muted-foreground">
+                  <Clock className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                  {activityFilter === 'all' ? '暂无活动记录' : `暂无${ACTIVITY_NAMES[activityFilter]}记录`}
+                </div>
               ) : (
-                <ScrollArea className="h-[300px]">
+                <ScrollArea className="h-[400px]">
                   <div className="space-y-3">
-                    {(timeline as CustomerActivity[]).map(act => (
+                    {filteredTimeline.map(act => (
                       <div key={act.id} className="flex gap-3">
                         <div className="mt-1 p-1.5 rounded-full bg-muted shrink-0">
                           {ACTIVITY_ICONS[act.activity_type] || <MessageSquare className="w-4 h-4" />}
@@ -442,8 +527,8 @@ function CustomerDetailSheet({
                   </div>
                 </ScrollArea>
               )}
-            </div>
-          </div>
+            </TabsContent>
+          </Tabs>
         </SheetContent>
       </Sheet>
 
@@ -519,10 +604,14 @@ function ContactRow({
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           {contact.phone && (
-            <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{contact.phone}</span>
+            <a href={`tel:${contact.phone}`} className="flex items-center gap-1 hover:text-foreground hover:underline" onClick={e => e.stopPropagation()}>
+              <Phone className="w-3 h-3" />{contact.phone}
+            </a>
           )}
           {contact.email && (
-            <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{contact.email}</span>
+            <a href={`mailto:${contact.email}`} className="flex items-center gap-1 hover:text-foreground hover:underline" onClick={e => e.stopPropagation()}>
+              <Mail className="w-3 h-3" />{contact.email}
+            </a>
           )}
         </div>
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -562,6 +651,7 @@ function EditCustomerDialog({
     stage: 'lead',
     source: '',
     estimated_value: '',
+    tags: '' as string,
   });
 
   // Sync form when dialog opens or customer changes
@@ -574,6 +664,7 @@ function EditCustomerDialog({
         stage: customer.stage || 'lead',
         source: customer.source || '',
         estimated_value: customer.estimated_value ? String(customer.estimated_value) : '',
+        tags: (customer.tags || []).join(', '),
       });
     }
   }, [open, customer]);
@@ -583,6 +674,10 @@ function EditCustomerDialog({
       toast.error('请输入客户名称');
       return;
     }
+    const tagsArray = form.tags
+      .split(/[,，]/)
+      .map(t => t.trim())
+      .filter(Boolean);
     try {
       await updateMutation.mutateAsync({
         id: customer.id,
@@ -593,6 +688,7 @@ function EditCustomerDialog({
           stage: form.stage,
           source: form.source,
           estimated_value: form.estimated_value ? Number(form.estimated_value) : 0,
+          tags: tagsArray,
         },
       });
       onClose();
@@ -653,6 +749,10 @@ function EditCustomerDialog({
           <div className="space-y-2">
             <Label>预估金额</Label>
             <Input type="number" value={form.estimated_value} onChange={e => setForm({ ...form, estimated_value: e.target.value })} placeholder="预估交易金额" />
+          </div>
+          <div className="space-y-2">
+            <Label>标签</Label>
+            <Input value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} placeholder="多个标签用逗号分隔，如：重点客户, VIP" />
           </div>
         </div>
         <DialogFooter>
@@ -927,11 +1027,10 @@ function CreateCustomerDialog({
         source: form.source,
         estimated_value: form.estimated_value ? Number(form.estimated_value) : 0,
       });
-      toast.success('客户创建成功');
       setForm({ name: '', company: '', industry: '', stage: 'lead', source: '', estimated_value: '' });
       onClose();
     } catch {
-      toast.error('创建失败，请重试');
+      // error toast handled in hook
     }
   };
 
@@ -1008,6 +1107,9 @@ function CRMPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editFromList, setEditFromList] = useState<Customer | null>(null);
+  const [deleteFromList, setDeleteFromList] = useState<Customer | null>(null);
+  const deleteMutation = useDeleteCustomer();
 
   const filters = useMemo(() => {
     const f: Record<string, string> = {};
@@ -1112,7 +1214,12 @@ function CRMPage() {
       ) : viewMode === 'kanban' ? (
         <KanbanView customers={customers} onSelect={handleSelectCustomer} />
       ) : (
-        <ListView customers={customers} onSelect={handleSelectCustomer} />
+        <ListView
+          customers={customers}
+          onSelect={handleSelectCustomer}
+          onEdit={(c) => setEditFromList(c)}
+          onDelete={(c) => setDeleteFromList(c)}
+        />
       )}
 
       {/* 客户详情侧边栏 */}
@@ -1124,6 +1231,43 @@ function CRMPage() {
 
       {/* 新建客户弹窗 */}
       <CreateCustomerDialog open={createOpen} onClose={() => setCreateOpen(false)} />
+
+      {/* 列表视图编辑弹窗 */}
+      {editFromList && (
+        <EditCustomerDialog customer={editFromList} open={!!editFromList} onClose={() => setEditFromList(null)} />
+      )}
+
+      {/* 列表视图删除确认 */}
+      <Dialog open={!!deleteFromList} onOpenChange={() => setDeleteFromList(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="w-5 h-5" />
+              确认删除客户
+            </DialogTitle>
+            <DialogDescription>
+              您即将删除客户 <strong>{deleteFromList?.name}</strong>。此操作不可撤销。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteFromList(null)}>取消</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={async () => {
+                if (!deleteFromList) return;
+                try {
+                  await deleteMutation.mutateAsync(deleteFromList.id);
+                  setDeleteFromList(null);
+                } catch { /* hook handles toast */ }
+              }}
+            >
+              {deleteMutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              确认删除
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
