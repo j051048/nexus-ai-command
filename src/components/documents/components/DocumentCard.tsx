@@ -1,10 +1,21 @@
 import React from 'react';
-import { FileText, CheckCircle, Clock } from 'lucide-react';
+import { FileText, CheckCircle, Clock, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AICopilotInsight } from '@/components/common/AICopilotInsight';
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 import { NexusDocument } from '@/types/nexus';
+
+interface DocTypeOption {
+    readonly value: string;
+    readonly label: string;
+}
 
 interface DocumentCardProps {
     doc: NexusDocument;
@@ -12,11 +23,14 @@ interface DocumentCardProps {
     showCheckbox?: boolean;
     isSelected?: boolean;
     onToggleSelect?: () => void;
+    docTypeOptions?: readonly DocTypeOption[];
+    onCategoryChange?: (newType: string) => void;
 }
 
-export function DocumentCard({ doc, onClick, showCheckbox, isSelected, onToggleSelect }: DocumentCardProps) {
+export function DocumentCard({ doc, onClick, showCheckbox, isSelected, onToggleSelect, docTypeOptions, onCategoryChange }: DocumentCardProps) {
     const isCompleted = doc.status === 'completed';
     const isError = doc.status === 'error';
+    const currentLabel = docTypeOptions?.find(o => o.value === doc.doc_type)?.label || '其他';
 
     return (
         <div
@@ -66,6 +80,35 @@ export function DocumentCard({ doc, onClick, showCheckbox, isSelected, onToggleS
                         {doc.extracted_data?.client_name || '未识别客户'}
                         {isCompleted && <CheckCircle className="w-3 h-3 text-success fill-success/10" />}
                     </p>
+                    <span className="text-[10px] text-muted-foreground opacity-50">•</span>
+                    {docTypeOptions && onCategoryChange ? (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                                >
+                                    {currentLabel}
+                                    <ChevronDown className="w-3 h-3" />
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
+                                {docTypeOptions.map(opt => (
+                                    <DropdownMenuItem
+                                        key={opt.value}
+                                        onClick={() => onCategoryChange(opt.value)}
+                                        className={cn(opt.value === doc.doc_type && "font-bold text-primary")}
+                                    >
+                                        {opt.label}
+                                    </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    ) : (
+                        <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-primary/10 text-primary">
+                            {currentLabel}
+                        </span>
+                    )}
                     <span className="text-[10px] text-muted-foreground opacity-50">•</span>
                     <p className="text-[10px] text-muted-foreground max-w-[300px] truncate">
                         {doc.extracted_data?.summary || '文档已入库，AI 索引已完成'}

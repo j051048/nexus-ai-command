@@ -1,6 +1,8 @@
 import logging
+from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Request, UploadFile
+from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
@@ -405,3 +407,35 @@ async def update_document(
         },
         message="文档更新中",
     )
+
+
+class UpdateCategoryRequest(BaseModel):
+    doc_type: Literal["contract", "bid", "product", "proposal", "invoice", "other"] = Field(
+        ..., description="文档分类"
+    )
+
+
+@router.patch("/{document_id}/category", response_model=StandardResponse)
+async def update_document_category(
+    document_id: str,
+    body: UpdateCategoryRequest,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """手动修改文档分类"""
+    client = req.state.db
+    try:
+        res = (
+            await client.table("documents")
+            .update({"doc_type": body.doc_type})
+            .eq("id", document_id)
+            .execute()
+        )
+        if not res.data:
+            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "文档不存在")
+
+        logger.info(f"User {user_id} updated doc {document_id} category to {body.doc_type}")
+        return api_success(data={"document_id": document_id, "doc_type": body.doc_type}, message="分类已更新")
+    except Exception as e:
+        logger.error(f"Update category failed: doc={document_id} user={user_id} err={e}")
+        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"更新分类失败: {str(e)}")

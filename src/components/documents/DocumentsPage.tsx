@@ -17,6 +17,15 @@ import { DocumentCard } from './components/DocumentCard';
 import { useUser } from '@/contexts/UserContext';
 import { NexusDocument } from '@/types/nexus';
 
+const DOC_TYPE_OPTIONS = [
+    { value: 'contract', label: '销售合同' },
+    { value: 'bid',      label: '投标文件' },
+    { value: 'product',  label: '产品资料' },
+    { value: 'proposal', label: '方案文档' },
+    { value: 'invoice',  label: '发票' },
+    { value: 'other',    label: '其他' },
+] as const;
+
 export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => void }) {
     const { user } = useUser();
     const isBoss = user?.role === 'boss';
@@ -27,7 +36,7 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
     const [uploadProgress, setUploadProgress] = useState(0);
     const [uploadStage, setUploadStage] = useState<'uploading' | 'extracting' | 'indexing'>('uploading');
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeFilter, setActiveFilter] = useState<'all' | 'contract' | 'bid' | 'product'>('all');
+    const [activeFilter, setActiveFilter] = useState<string>('all');
 
     // Selection for Batch Delete
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -246,6 +255,25 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
         }
     };
 
+    const handleCategoryChange = async (docId: string, newType: string) => {
+        try {
+            const { error } = await supabase
+                .from('documents')
+                .update({ doc_type: newType })
+                .eq('id', docId);
+            if (error) throw error;
+
+            // Optimistic UI update
+            setDocuments(prev => prev.map(d =>
+                d.id === docId ? { ...d, doc_type: newType as NexusDocument['doc_type'] } : d
+            ));
+            toast.success('文档分类已更新');
+        } catch (error) {
+            console.error('Update category error:', error);
+            toast.error('更新分类失败');
+        }
+    };
+
     const filteredDocs = documents.filter(doc => {
         // 1. Category Filter
         if (activeFilter !== 'all' && doc.doc_type !== activeFilter) return false;
@@ -352,14 +380,15 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
                         <div className="space-y-1">
                             {[
                                 { id: 'all', label: '全部文档', count: documents.length },
-                                { id: 'contract', label: '销售合同', count: documents.filter(d => d.doc_type === 'contract').length },
-                                { id: 'bid', label: '投标文件', count: documents.filter(d => d.doc_type === 'bid').length },
-                                { id: 'product', label: '产品资料', count: documents.filter(d => d.doc_type === 'product').length },
+                                ...DOC_TYPE_OPTIONS.map(opt => ({
+                                    id: opt.value,
+                                    label: opt.label,
+                                    count: documents.filter(d => d.doc_type === opt.value).length,
+                                })),
                             ].map(filter => (
                                 <button
                                     key={filter.id}
-                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                    onClick={() => setActiveFilter(filter.id as any)}
+                                    onClick={() => setActiveFilter(filter.id)}
                                     className={cn(
                                         "w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm transition-all group",
                                         activeFilter === filter.id
@@ -475,6 +504,8 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
                                         showCheckbox={isBoss}
                                         isSelected={selectedIds.has(doc.id)}
                                         onToggleSelect={() => toggleSelect(doc.id)}
+                                        docTypeOptions={DOC_TYPE_OPTIONS}
+                                        onCategoryChange={(newType) => handleCategoryChange(doc.id, newType)}
                                         onClick={() => {
                                             if ((doc.doc_type === 'bid' || (doc.extracted_data as Record<string, unknown>)?.doc_type === 'bid') && onNavigate) {
                                                 onNavigate('tender-analysis');
