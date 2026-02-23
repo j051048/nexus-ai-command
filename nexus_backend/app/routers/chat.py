@@ -121,7 +121,8 @@ async def chat(
                 try:
                     ai_config["api_key"] = encryption_service.decrypt(s["api_key"])
                 except Exception:
-                    ai_config["api_key"] = s["api_key"]
+                    logger.warning("API key decryption failed, key may be corrupted")
+                    ai_config["api_key"] = ""
             if s.get("model"):
                 ai_config["model"] = s["model"]
     except Exception as e:

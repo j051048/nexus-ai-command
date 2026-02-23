@@ -49,8 +49,18 @@ class EncryptionService:
         return fernet.encrypt(data.encode()).decode()
 
     @staticmethod
+    def is_encrypted(data: str) -> bool:
+        """Check if a string looks like Fernet-encrypted data or legacy enc: format."""
+        if not data:
+            return False
+        if data.startswith("enc:"):
+            return True
+        # Fernet tokens are URL-safe base64 and always start with 'gAAAAA'
+        return data.startswith("gAAAAA")
+
+    @staticmethod
     def decrypt(encrypted_data: str) -> str:
-        """Decrypt an encrypted string"""
+        """Decrypt an encrypted string. Returns raw value if not encrypted."""
         if not encrypted_data:
             return ""
 
@@ -62,13 +72,15 @@ class EncryptionService:
                 logger.error(f"Legacy base64 decryption failed: {e}")
                 raise ValueError("Failed to decrypt legacy-encoded data")
 
+        # Not encrypted (plain text API key) — return as-is without attempting Fernet
+        if not EncryptionService.is_encrypted(encrypted_data):
+            return encrypted_data
+
         fernet = EncryptionService._get_fernet()
         try:
             return fernet.decrypt(encrypted_data.encode()).decode()
         except Exception as e:
-            logger.debug(
-                f"Fernet decryption failed (will try raw fallback): {e}"
-            )
+            logger.warning(f"Fernet decryption failed: {e}")
             raise ValueError(
                 "Decryption failed - data corrupted or encryption key mismatch"
             )
