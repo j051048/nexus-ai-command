@@ -410,9 +410,7 @@ async def update_document(
 
 
 class UpdateCategoryRequest(BaseModel):
-    doc_type: Literal["contract", "bid", "product", "proposal", "invoice", "other"] = Field(
-        ..., description="文档分类"
-    )
+    doc_type: Literal["contract", "bid", "product", "proposal", "invoice", "other"] = Field(..., description="文档分类")
 
 
 @router.patch("/{document_id}/category", response_model=StandardResponse)
@@ -425,12 +423,7 @@ async def update_document_category(
     """手动修改文档分类"""
     client = req.state.db
     try:
-        res = (
-            await client.table("documents")
-            .update({"doc_type": body.doc_type})
-            .eq("id", document_id)
-            .execute()
-        )
+        res = await client.table("documents").update({"doc_type": body.doc_type}).eq("id", document_id).execute()
         if not res.data:
             return api_error(ErrorCode.RESOURCE_NOT_FOUND, "文档不存在")
 
