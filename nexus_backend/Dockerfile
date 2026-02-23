@@ -8,6 +8,9 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 # Stage 2: Production image
 FROM python:3.11-slim
 
+# Ensure UTF-8 encoding for Chinese character support
+ENV LANG=C.UTF-8 LC_ALL=C.UTF-8 PYTHONIOENCODING=utf-8
+
 # Security: Create non-root user
 RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser
 

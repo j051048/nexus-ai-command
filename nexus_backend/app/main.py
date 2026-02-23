@@ -5,12 +5,12 @@ import sentry_sdk
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 
 from app.core.auth import get_current_user_id
 from app.core.config import settings
 from app.core.logging_config import get_logger, setup_logging
 from app.core.rate_limiter import RateLimitMiddleware
+from app.core.responses import UTF8JSONResponse
 from app.core.security_middleware import (
     RequestIDMiddleware,
     SecurityHeadersMiddleware,
@@ -199,6 +199,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Project Nexus Backend",
+    default_response_class=UTF8JSONResponse,
     description=(
         "AI-Driven Low-Code Backend for Sales Performance & Governance.\n\n"
         "## Core Capabilities\n"
@@ -254,7 +255,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     if isinstance(error_content, str):
         error_content = {"code": "HTTP_ERROR", "message": error_content}
 
-    return JSONResponse(
+    return UTF8JSONResponse(
         status_code=exc.status_code, content={"success": False, "error": error_content}
     )
 

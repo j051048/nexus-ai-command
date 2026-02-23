@@ -284,7 +284,7 @@ async def sse_endpoint(request: Request, user_id: str = Depends(get_current_user
 
     return StreamingResponse(
         event_stream(),
-        media_type="text/event-stream",
+        media_type="text/event-stream; charset=utf-8",
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",

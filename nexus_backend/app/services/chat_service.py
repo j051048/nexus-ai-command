@@ -40,6 +40,12 @@ from app.services.token_service import (
 )
 from app.tools import get_all_tools_schema, get_tool
 
+
+def _json(obj: Any) -> str:
+    """JSON serialize preserving Chinese characters."""
+    return json.dumps(obj, ensure_ascii=False)
+
+
 logger = logging.getLogger(__name__)
 
 # P1 Fix #12: Make chat history window configurable
@@ -307,7 +313,7 @@ class ChatService:
             messages, model, user_id
         )
         if not is_allowed:
-            yield f"data: {json.dumps({'choices': [{'delta': {'content': f'⛔ 请求被拒绝 (超出限制): {reason}'}}]})}\n\n"
+            yield f"data: {_json({'choices': [{'delta': {'content': f'⛔ 请求被拒绝 (超出限制): {reason}'}}]})}\n\n"
             yield "data: [DONE]\n\n"
             return
 
@@ -316,7 +322,7 @@ class ChatService:
         if isinstance(last_msg, str):
             is_safe, warning = check_user_input(last_msg)
             if not is_safe:
-                yield f"data: {json.dumps({'choices': [{'delta': {'content': f'⛔ 安全警告: {warning}'}}]})}\n\n"
+                yield f"data: {_json({'choices': [{'delta': {'content': f'⛔ 安全警告: {warning}'}}]})}\n\n"
                 yield "data: [DONE]\n\n"
                 return
 
@@ -343,7 +349,7 @@ class ChatService:
                 words = cached_res.split(" ")
                 for i, word in enumerate(words):
                     chunk = word + (" " if i < len(words) - 1 else "")
-                    yield f"data: {json.dumps({'choices': [{'delta': {'content': chunk}}]})}\n\n"
+                    yield f"data: {_json({'choices': [{'delta': {'content': chunk}}]})}\n\n"
                     await asyncio.sleep(0.005)
                 # Record token usage even for cache hits
                 try:
@@ -386,7 +392,7 @@ class ChatService:
 
         def emit_thinking_step(step: ThinkingStep):
             """Helper to emit thinking step via SSE"""
-            return f"data: {json.dumps({'thinking_step': step.to_dict()})}\n\n"
+            return f"data: {_json({'thinking_step': step.to_dict()})}\n\n"
 
         for iteration in range(max_iterations):
             iteration_start = time.time()
@@ -399,7 +405,7 @@ class ChatService:
                 )
                 thinking_steps.append(planning_step)
                 yield emit_thinking_step(planning_step)
-                yield f"data: {json.dumps({'status': '正在思考...'})}\n\n"
+                yield f"data: {_json({'status': '正在思考...'})}\n\n"
             else:
                 # Reflection phase for subsequent iterations
                 reflect_step = ThinkingStep(
@@ -416,7 +422,7 @@ class ChatService:
 
             async for line in _call_api(messages):
                 if line.startswith("error: "):
-                    yield f"data: {json.dumps({'choices': [{'delta': {'content': f' {line}'}}]})}\n\n"
+                    yield f"data: {_json({'choices': [{'delta': {'content': f' {line}'}}]})}\n\n"
                     return
 
                 if not line.startswith("data: "):
@@ -462,7 +468,7 @@ class ChatService:
                             full_response_content += content
                             # Clear status when generating content
                             if iteration == 0 and len(full_response_content) < 20:
-                                yield f"data: {json.dumps({'status': ''})}\n\n"
+                                yield f"data: {_json({'status': ''})}\n\n"
                             yield f"{line}\n\n"
 
                 except json.JSONDecodeError:
@@ -505,7 +511,7 @@ class ChatService:
                 )
                 thinking_steps.append(exec_step)
                 yield emit_thinking_step(exec_step)
-                yield f"data: {json.dumps({'status': f'正在调用: {joined_tool_names}...'})}\n\n"
+                yield f"data: {_json({'status': f'正在调用: {joined_tool_names}...'})}\n\n"
 
                 for idx in tool_indices:
                     tc = tool_calls_map[idx]
@@ -590,7 +596,7 @@ class ChatService:
                 )
                 thinking_steps.append(reflect_step)
                 yield emit_thinking_step(reflect_step)
-                yield f"data: {json.dumps({'status': '正在分析执行结果...'})}\n\n"
+                yield f"data: {_json({'status': '正在分析执行结果...'})}\n\n"
 
             else:
                 # No tool calls in this turn, emit responding phase
@@ -604,7 +610,7 @@ class ChatService:
 
         # Emit final thinking chain summary
         if thinking_steps:
-            yield f"data: {json.dumps({'thinking_chain_complete': True, 'total_steps': len(thinking_steps)})}\n\n"
+            yield f"data: {_json({'thinking_chain_complete': True, 'total_steps': len(thinking_steps)})}\n\n"
 
         # B. Real LLM Execution
         # 3. P1 Optimization: Token Usage Recording & Output Sanitization
@@ -620,7 +626,7 @@ class ChatService:
                 sanitized_content = sanitize_output(full_response_content)
                 if sanitized_content != full_response_content:
                     # Emit a correction event so frontend replaces the streamed content
-                    yield f"data: {json.dumps({'sanitized_content': sanitized_content, 'violation_count': len(violations)})}\n\n"
+                    yield f"data: {_json({'sanitized_content': sanitized_content, 'violation_count': len(violations)})}\n\n"
                     logger.info(
                         f"Sanitized {len(violations)} violations from AI output before delivery"
                     )

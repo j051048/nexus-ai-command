@@ -36,7 +36,7 @@ def _infer_mini_model(model: str) -> str:
 async def _error_stream(msg: str):
     import json
 
-    yield f"data: {json.dumps({'choices': [{'delta': {'content': msg}}]})}\n\n"
+    yield f"data: {json.dumps({'choices': [{'delta': {'content': msg}}]}, ensure_ascii=False)}\n\n"
     yield "data: [DONE]\n\n"
 
 
@@ -82,7 +82,7 @@ async def chat(
             if not is_safe:
                 return StreamingResponse(
                     _error_stream(f"⚠️ 安全拦截: {warning}"),
-                    media_type="text/event-stream",
+                    media_type="text/event-stream; charset=utf-8",
                 )
 
     # 3. Load User AI Settings
@@ -129,7 +129,7 @@ async def chat(
 
     if not ai_config["api_key"]:
         return StreamingResponse(
-            _error_stream("未配置 AI API Key"), media_type="text/event-stream"
+            _error_stream("未配置 AI API Key"), media_type="text/event-stream; charset=utf-8"
         )
 
     # 3b. Infer mini_model for dynamic routing
@@ -143,7 +143,7 @@ async def chat(
     if not is_allowed:
         return StreamingResponse(
             _error_stream(f"⚠️ 额度超限: {limit_reason}"),
-            media_type="text/event-stream",
+            media_type="text/event-stream; charset=utf-8",
         )
 
     # 4b. P0 Fix: Tenant Quota Enforcement
@@ -156,7 +156,7 @@ async def chat(
         if not has_credit:
             return StreamingResponse(
                 _error_stream(f"⚠️ 组织配额不足: {credit_error}"),
-                media_type="text/event-stream",
+                media_type="text/event-stream; charset=utf-8",
             )
 
     # 5. Prepare Context
@@ -183,7 +183,7 @@ async def chat(
                     yield "data: [DONE]\n\n"
 
                 return StreamingResponse(
-                    _cache_stream(cached), media_type="text/event-stream"
+                    _cache_stream(cached), media_type="text/event-stream; charset=utf-8"
                 )
         except Exception as e:
             logger.debug(f"Semantic cache check skipped: {e}")
@@ -216,7 +216,7 @@ async def chat(
                 user_role=user_role,
                 org_id=org_id,
             ),
-            media_type="text/event-stream",
+            media_type="text/event-stream; charset=utf-8",
         )
     else:
         # ── Legacy: ChatService.stream_response ──
@@ -263,7 +263,7 @@ async def chat(
                 session_id=request.sessionId,
                 db_client=client,
             ),
-            media_type="text/event-stream",
+            media_type="text/event-stream; charset=utf-8",
         )
 
 
