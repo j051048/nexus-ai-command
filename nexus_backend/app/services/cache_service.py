@@ -152,7 +152,7 @@ class CacheService:
         await self._ensure_initialized()
         try:
             # Serialize complex objects to JSON
-            if isinstance(value, (dict, list)):
+            if isinstance(value, dict | list):
                 value = json.dumps(value)
 
             if ttl:

@@ -1079,7 +1079,9 @@ class CustomerProfileTool(BaseTool):
     async def run(
         self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None
     ) -> str:
-        name = args["customer_name"]
+        name = args.get("customer_name", "")
+        if not name:
+            return "❌ 请提供客户名称（customer_name）"
         client = _get_client(config)
 
         try:

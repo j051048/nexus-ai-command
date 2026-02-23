@@ -281,7 +281,7 @@ class AttendanceSyncService:
             time_result = record.get("time_result", "")
 
             if checkin_time:
-                if isinstance(checkin_time, (int, float)):
+                if isinstance(checkin_time, int | float):
                     time_str = datetime.fromtimestamp(
                         checkin_time / 1000, tz=UTC
                     ).isoformat()

@@ -166,6 +166,16 @@ async def execute_tool(
             f"Tool '{tool_name}' not found in the registry.",
         )
 
+    # --- Validate required arguments ---
+    schema = getattr(tool, "input_schema", None) or {}
+    required_args = schema.get("required", [])
+    missing = [r for r in required_args if r not in body.arguments]
+    if missing:
+        raise api_error(
+            ErrorCode.SYSTEM_INTERNAL_ERROR,
+            f"Tool '{tool_name}' 缺少必填参数: {', '.join(missing)}",
+        )
+
     # --- Build execution context ---
     org_id = getattr(request.state, "org_id", None)
     config: dict[str, Any] = {

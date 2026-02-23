@@ -516,10 +516,10 @@ class DataExportService:
                 if value is None:
                     value = ""
                 # 处理日期时间
-                elif isinstance(value, (datetime, date)):
+                elif isinstance(value, datetime | date):
                     value = value.isoformat()
                 # 处理数字
-                elif isinstance(value, (int, float)):
+                elif isinstance(value, int | float):
                     value = str(value)
                 csv_row.append(str(value))
             writer.writerow(csv_row)
