@@ -182,6 +182,17 @@ class CRMService:
         # 无数据库连接时返回空列表
         return []
 
+    async def delete_customer(self, customer_id: str, db=None) -> bool:
+        """删除客户（级联删除联系人和活动记录）"""
+        if db:
+            try:
+                # DB FK ON DELETE CASCADE handles contacts & activities
+                await db.table("customers").delete().eq("id", customer_id).execute()
+            except Exception as e:
+                logger.error(f"Failed to delete customer: {e}")
+                raise
+        return True
+
     # ─── 联系人管理 ─────────────────────────────────────────
 
     async def create_contact(self, customer_id: str, data: dict, db=None) -> dict:
@@ -242,6 +253,39 @@ class CRMService:
 
         # 无数据库连接时返回空列表
         return []
+
+    async def update_contact(self, contact_id: str, data: dict, db=None) -> dict:
+        """更新联系人信息"""
+        allowed_fields = ["name", "title", "phone", "email", "is_primary"]
+        update_data = {k: v for k, v in data.items() if k in allowed_fields}
+
+        if not update_data:
+            raise ValueError("没有可更新的字段")
+
+        if "name" in update_data and not update_data["name"]:
+            raise ValueError("联系人姓名不能为空")
+
+        if db:
+            try:
+                res = await db.table("customer_contacts").update(update_data).eq("id", contact_id).execute()
+                if res.data:
+                    return res.data[0]
+            except Exception as e:
+                logger.error(f"Failed to update contact: {e}")
+                raise
+            return {"id": contact_id, **update_data}
+
+        return {"id": contact_id, **update_data}
+
+    async def delete_contact(self, contact_id: str, db=None) -> bool:
+        """删除联系人"""
+        if db:
+            try:
+                await db.table("customer_contacts").delete().eq("id", contact_id).execute()
+            except Exception as e:
+                logger.error(f"Failed to delete contact: {e}")
+                raise
+        return True
 
     # ─── 活动时间线 ─────────────────────────────────────────
 

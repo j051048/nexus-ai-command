@@ -72,10 +72,18 @@ class CreateActivityRequest(BaseModel):
     @field_validator("activity_type")
     @classmethod
     def validate_type(cls, v: str) -> str:
-        valid = {t["value"] for t in ACTIVITY_TYPES} if ACTIVITY_TYPES else {"call", "email", "meeting", "note", "task"}
+        valid = set(ACTIVITY_TYPES.keys())
         if v not in valid:
             raise ValueError(f"activity_type must be one of {valid}")
         return v
+
+
+class UpdateContactRequest(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=100)
+    title: str | None = Field(None, max_length=100)
+    phone: str | None = Field(None, max_length=50)
+    email: str | None = Field(None, max_length=200)
+    is_primary: bool | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -200,6 +208,59 @@ async def create_contact(
         return api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
     except Exception as e:
         logger.error(f"Create contact error: customer={customer_id} user={user_id} err={e}")
+        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+@router.put("/customers/{customer_id}/contacts/{contact_id}")
+async def update_contact(
+    customer_id: str,
+    contact_id: str,
+    body: UpdateContactRequest,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """更新联系人信息"""
+    try:
+        db = getattr(req.state, "db", None)
+        contact = await crm_service.update_contact(contact_id, body.model_dump(exclude_none=True), db=db)
+        return api_success(data={"contact": contact}, message="联系人已更新")
+    except ValueError as e:
+        return api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+    except Exception as e:
+        logger.error(f"Update contact error: contact={contact_id} customer={customer_id} user={user_id} err={e}")
+        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+@router.delete("/customers/{customer_id}/contacts/{contact_id}")
+async def delete_contact(
+    customer_id: str,
+    contact_id: str,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """删除联系人"""
+    try:
+        db = getattr(req.state, "db", None)
+        await crm_service.delete_contact(contact_id, db=db)
+        return api_success(message="联系人已删除")
+    except Exception as e:
+        logger.error(f"Delete contact error: contact={contact_id} customer={customer_id} user={user_id} err={e}")
+        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+@router.delete("/customers/{customer_id}")
+async def delete_customer(
+    customer_id: str,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """删除客户（级联删除联系人和活动记录）"""
+    try:
+        db = getattr(req.state, "db", None)
+        await crm_service.delete_customer(customer_id, db=db)
+        return api_success(message="客户已删除")
+    except Exception as e:
+        logger.error(f"Delete customer error: id={customer_id} user={user_id} err={e}")
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 

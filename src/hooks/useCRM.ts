@@ -162,3 +162,99 @@ export function useCustomerStats() {
     staleTime: 60_000,
   });
 }
+
+export function useDeleteCustomer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await aiClient.fetch(`api/crm/customers/${id}`, { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['crm-customers'] });
+      queryClient.invalidateQueries({ queryKey: ['crm-stats'] });
+      toast.success('客户已删除');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || '删除客户失败');
+    },
+  });
+}
+
+export function useCreateContact(customerId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: Partial<CustomerContact>) => {
+      const res = await aiClient.fetch<{ success: boolean; data: { contact: CustomerContact } }>(
+        `api/crm/customers/${customerId}/contacts`,
+        { method: 'POST', body: JSON.stringify(data) }
+      );
+      return res.data.contact;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['crm-contacts', customerId] });
+      toast.success('联系人已添加');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || '添加联系人失败');
+    },
+  });
+}
+
+export function useUpdateContact(customerId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ contactId, data }: { contactId: string; data: Partial<CustomerContact> }) => {
+      const res = await aiClient.fetch<{ success: boolean; data: { contact: CustomerContact } }>(
+        `api/crm/customers/${customerId}/contacts/${contactId}`,
+        { method: 'PUT', body: JSON.stringify(data) }
+      );
+      return res.data.contact;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['crm-contacts', customerId] });
+      toast.success('联系人已更新');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || '更新联系人失败');
+    },
+  });
+}
+
+export function useDeleteContact(customerId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (contactId: string) => {
+      await aiClient.fetch(
+        `api/crm/customers/${customerId}/contacts/${contactId}`,
+        { method: 'DELETE' }
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['crm-contacts', customerId] });
+      toast.success('联系人已删除');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || '删除联系人失败');
+    },
+  });
+}
+
+export function useCreateActivity(customerId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { activity_type: string; content: string }) => {
+      const res = await aiClient.fetch<{ success: boolean; data: { activity: CustomerActivity } }>(
+        `api/crm/customers/${customerId}/activities`,
+        { method: 'POST', body: JSON.stringify(data) }
+      );
+      return res.data.activity;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['crm-timeline', customerId] });
+      toast.success('跟进记录已添加');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || '添加跟进记录失败');
+    },
+  });
+}
