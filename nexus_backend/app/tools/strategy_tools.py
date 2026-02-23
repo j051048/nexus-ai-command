@@ -35,19 +35,21 @@ class DataAttributionTool(BaseTool):
             "metric": {
                 "type": "string",
                 "enum": ["revenue", "leads", "conversion", "cost", "headcount", "all"],
-                "description": "要归因分析的指标类型",
+                "default": "all",
+                "description": "要归因分析的指标类型。revenue=营收, leads=线索, conversion=转化率, cost=成本, headcount=人力, all=全部",
             },
             "period": {
                 "type": "string",
                 "enum": ["week", "month", "quarter"],
-                "description": "对比周期（与上一同期对比）",
+                "default": "month",
+                "description": "对比周期（与上一同期对比）。week=本周vs上周, month=本月vs上月, quarter=本季vs上季",
             },
         },
         "required": [],
     }
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
-        args.get("metric", "all")
+        metric = args.get("metric", "all")  # noqa: F841 — reserved for per-metric filtering
         period = args.get("period", "month")
         client = _get_client(config)
 
@@ -58,17 +60,11 @@ class DataAttributionTool(BaseTool):
         if period == "week":
             current_start = (now - timedelta(days=now.weekday())).strftime("%Y-%m-%d")
             prev_start = (now - timedelta(days=now.weekday() + 7)).strftime("%Y-%m-%d")
-            (now - timedelta(days=now.weekday() + 1)).strftime("%Y-%m-%d")
             period_name = "本周"
         elif period == "quarter":
             q = (now.month - 1) // 3
             current_start = f"{now.year}-{q * 3 + 1:02d}-01"
-            if q == 0:
-                prev_start = f"{now.year - 1}-10-01"
-                f"{now.year - 1}-12-31"
-            else:
-                prev_start = f"{now.year}-{(q - 1) * 3 + 1:02d}-01"
-                f"{now.year}-{q * 3:02d}-28"
+            prev_start = f"{now.year - 1}-10-01" if q == 0 else f"{now.year}-{(q - 1) * 3 + 1:02d}-01"
             period_name = "本季度"
         else:
             current_start = now.strftime("%Y-%m-01")
@@ -207,24 +203,36 @@ class StrategySimulationTool(BaseTool):
         "properties": {
             "scenario": {
                 "type": "string",
+                "minLength": 5,
+                "maxLength": 500,
                 "description": "要推演的战略假设场景描述",
+                "examples": [
+                    "进军华南市场需要多少预算",
+                    "如果提价10%对客户流失的影响",
+                    "裁掉产品线X对现金流的影响",
+                    "招聘10名销售对季度营收的提升",
+                ],
             },
             "focus": {
                 "type": "string",
                 "enum": ["finance", "hr", "sales", "market", "comprehensive"],
-                "description": "推演重点维度",
+                "default": "comprehensive",
+                "description": "推演重点维度。finance=财务, hr=人力, sales=销售, market=市场, comprehensive=综合全面分析",
             },
         },
         "required": ["scenario"],
     }
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
-        scenario = args.get("scenario", "")
+        scenario = args.get("scenario", "").strip()
         focus = args.get("focus", "comprehensive")
         client = _get_client(config)
 
-        if not scenario:
-            return "❌ 请描述您要推演的战略假设场景。"
+        if not scenario or len(scenario) < 5:
+            return "❌ 请描述您要推演的战略假设场景（至少5个字），例如：'如果提价10%对客户流失的影响'。"
+
+        if len(scenario) > 500:
+            return "❌ 场景描述过长，请精简到500字以内。"
 
         # 收集企业当前基线数据作为推演基础
         baseline_data = []

@@ -44,6 +44,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
     /**
      * Parse an SSE stream from the backend (or proxy).
      * Handles thinking steps, status events, sanitized content, and content deltas.
+     * Also handles non-SSE JSON responses gracefully.
      */
     const parseBackendStream = async (
         response: Response,
@@ -53,11 +54,33 @@ export function useAIStream({ userId }: UseAIStreamProps) {
     ): Promise<void> => {
         if (!response.body) throw new Error('No response body');
 
+        const assistantMsgId = Date.now().toString();
+
+        // Check Content-Type: if not SSE, try to parse as JSON directly
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('text/event-stream') && !contentType.includes('text/plain')) {
+            try {
+                const json = await response.json();
+                const content = json.choices?.[0]?.message?.content
+                    || json.choices?.[0]?.delta?.content
+                    || json.error?.message
+                    || (typeof json.error === 'string' ? json.error : null)
+                    || JSON.stringify(json);
+                onUpdate?.(content, assistantMsgId);
+                return;
+            } catch {
+                // If JSON parse fails, read as text
+                const text = await response.text();
+                if (text) onUpdate?.(text, assistantMsgId);
+                return;
+            }
+        }
+
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let textBuffer = '';
         let assistantContent = '';
-        const assistantMsgId = Date.now().toString();
+        let streamDone = false;
 
         while (true) {
             const { done, value } = await reader.read();
@@ -75,7 +98,10 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                 if (!line.startsWith('data: ')) continue;
 
                 const jsonStr = line.slice(6).trim();
-                if (jsonStr === '[DONE]') break;
+                if (jsonStr === '[DONE]') {
+                    streamDone = true;
+                    break;
+                }
 
                 try {
                     const parsed = JSON.parse(jsonStr);
@@ -114,8 +140,30 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                         onUpdate?.(assistantContent, assistantMsgId);
                     }
                 } catch {
+                    // JSON incomplete — re-buffer and wait for next chunk
                     textBuffer = line + '\n' + textBuffer;
                     break;
+                }
+            }
+
+            if (streamDone) break;
+        }
+
+        // Safety net: if stream ended but we got no content, check remaining buffer
+        if (!assistantContent && textBuffer.trim()) {
+            try {
+                // Attempt to parse leftover as JSON (non-SSE fallback)
+                const json = JSON.parse(textBuffer.trim());
+                const content = json.choices?.[0]?.message?.content
+                    || json.choices?.[0]?.delta?.content
+                    || json.error?.message
+                    || '';
+                if (content) onUpdate?.(content, assistantMsgId);
+            } catch {
+                // Last resort: show trimmed raw text if it looks like content
+                const cleaned = textBuffer.trim();
+                if (cleaned && !cleaned.startsWith('data: ')) {
+                    onUpdate?.(cleaned, assistantMsgId);
                 }
             }
         }
@@ -235,6 +283,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         let textBuffer = '';
         let assistantContent = '';
         const assistantMsgId = Date.now().toString();
+        let streamDone = false;
 
         while (true) {
             const { done, value } = await reader.read();
@@ -252,7 +301,10 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                 if (!line.startsWith('data: ')) continue;
 
                 const jsonStr = line.slice(6).trim();
-                if (jsonStr === '[DONE]') return true;
+                if (jsonStr === '[DONE]') {
+                    streamDone = true;
+                    break;
+                }
 
                 try {
                     const parsed = JSON.parse(jsonStr);
@@ -266,6 +318,8 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                     break;
                 }
             }
+
+            if (streamDone) break;
         }
         return true;
     };
