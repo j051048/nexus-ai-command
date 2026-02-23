@@ -136,7 +136,6 @@ const bossActions: QuickAction[] = [
     icon: <ClipboardCheck className="w-5 h-5" />,
     prompt: '有哪些待审批的事项？',
     color: 'text-red-500 bg-red-500/10',
-    badge: '3',
   },
   {
     id: 'business_dashboard',

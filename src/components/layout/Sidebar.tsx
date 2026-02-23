@@ -55,6 +55,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Button } from '@/components/ui/button';
+import { useExceptions } from '@/hooks/useExceptions';
 
 type AppRole = 'boss' | 'manager' | 'ai_assistant' | 'employee';
 
@@ -78,6 +79,8 @@ export function Sidebar({ onNavClick }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const { data: exceptions = [] } = useExceptions();
+  const exceptionCount = exceptions.length;
 
   // 获取角色显示名称
   const getRoleDisplayName = (role: string) => {
@@ -128,7 +131,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
 
   const bossNav: NavItem[] = [
     { icon: <Crown size={20} />, label: '总控中心', href: 'boss-dashboard', roles: ['boss'] },
-    { icon: <AlertTriangle size={20} />, label: '异常待办', href: 'exceptions', badge: '3', badgeType: 'warning', roles: ['boss'] },
+    { icon: <AlertTriangle size={20} />, label: '异常待办', href: 'exceptions', badge: exceptionCount > 0 ? String(exceptionCount) : undefined, badgeType: 'warning', roles: ['boss'] },
     { icon: <TrendingUp size={20} />, label: '目标管理', href: 'targets', roles: ['boss'] },
     { icon: <Contact size={20} />, label: 'CRM管理', href: 'crm', roles: ['employee', 'manager', 'boss'] },
     { icon: <BookOpen size={20} />, label: '知识库管理', href: 'documents', badge: 'AI', badgeType: 'primary', roles: undefined },

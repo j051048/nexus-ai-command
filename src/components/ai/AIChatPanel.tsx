@@ -108,7 +108,7 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
       {
         id: '1',
         role: 'assistant',
-        content: `早上好，${user.name}！📊\n\n今日AI摘要：\n• 3条异常审批待您确认（均已超时预警）\n• 本周销售激励已自动发放 ¥12,800\n• 团队整体赢率提升 8.5%\n\n无需其他操作，一切尽在掌控。有什么需要了解的？`,
+        content: `早上好，${user.name}！📊\n\n我是您的AI助手，随时为您服务。\n您可以问我：\n• 有哪些待审批事项？\n• 本周销售情况如何？\n• 查看经营数据报表\n\n有什么需要了解的？`,
         timestamp: new Date(Date.now() - 1000 * 60 * 5),
         agent: '@企业小助手',
       }
@@ -116,7 +116,7 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
       {
         id: '1',
         role: 'assistant',
-        content: `早上好，${user.name}！我是您的AI指挥官 🚀\n\n今日重点：\n• 张教授商机进入关键阶段，建议上午跟进\n• 您的绩效分已达87分，距离"销售精英"徽章仅差13分\n• 有1条新线索待查看\n\n有什么我可以帮您的？`,
+        content: `早上好，${user.name}！我是您的AI助手 🚀\n\n您可以问我：\n• 今天有什么待办事项？\n• 帮我查看商机进展\n• 我的绩效数据\n\n有什么我可以帮您的？`,
         timestamp: new Date(Date.now() - 1000 * 60 * 5),
         agent: '@销售指挥官',
       }

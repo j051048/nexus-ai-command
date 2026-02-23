@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { usePendingApprovalsCount } from '@/hooks/useApprovals';
+import { useExceptions } from '@/hooks/useExceptions';
 import { cn } from '@/lib/utils';
 
 // ── 类型定义 ──────────────────────────────────────────────
@@ -45,6 +46,7 @@ export default function MobileWorkbenchPage() {
   const { role } = useAuth();
   const navigate = useNavigate();
   const { data: pendingCount } = usePendingApprovalsCount();
+  const { data: exceptions = [] } = useExceptions();
   const [searchFocused, setSearchFocused] = useState(false);
 
   const currentRole: Role = (role as Role) ?? 'employee';
@@ -65,7 +67,7 @@ export default function MobileWorkbenchPage() {
           label: '异常待办',
           path: '/exceptions',
           icon: AlertTriangle,
-          badge: 3,
+          badge: exceptions.length || null,
           visibleTo: ['boss'],
         },
       ],
