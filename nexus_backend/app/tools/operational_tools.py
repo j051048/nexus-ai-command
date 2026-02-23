@@ -40,7 +40,7 @@ class PerformanceReportTool(BaseTool):
                 await client.table("sales_metrics")
                 .select("*")
                 .eq("user_id", target_id)
-                .order("date", desc=True)
+                .order("metric_date", desc=True)
                 .limit(30)
                 .execute()
             )

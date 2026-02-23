@@ -92,9 +92,9 @@ class ReportService:
                     await db.table("sales_metrics")
                     .select("*")
                     .eq("organization_id", org_id)
-                    .gte("date", start_date[:10])
-                    .lte("date", end_date[:10])
-                    .order("date", desc=False)
+                    .gte("metric_date", start_date[:10])
+                    .lte("metric_date", end_date[:10])
+                    .order("metric_date", desc=False)
                     .execute()
                 )
                 records = res.data or []
@@ -105,7 +105,7 @@ class ReportService:
         if not records:
             records = []
 
-        grouped = _group_by_period(records, "date", group_by)
+        grouped = _group_by_period(records, "metric_date", group_by)
 
         # 汇总统计
         summary_data = []
@@ -115,7 +115,7 @@ class ReportService:
 
         for g in grouped:
             period_revenue = sum(float(r.get("revenue", 0) or 0) for r in g["records"])
-            period_conversions = sum(int(r.get("conversions", 0) or 0) for r in g["records"])
+            period_conversions = sum(float(r.get("conversion_rate", 0) or 0) for r in g["records"])
             period_leads = sum(int(r.get("leads_count", 0) or 0) for r in g["records"])
             period_rate = round(period_conversions / period_leads * 100, 1) if period_leads > 0 else 0
 

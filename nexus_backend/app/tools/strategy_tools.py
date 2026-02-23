@@ -76,12 +76,14 @@ class DataAttributionTool(BaseTool):
         # 收集各维度数据
         try:
             # 销售指标
-            current_metrics = await client.table("sales_metrics").select("*").gte("date", current_start).execute()
+            current_metrics = (
+                await client.table("sales_metrics").select("*").gte("metric_date", current_start).execute()
+            )
             prev_metrics = (
                 await client.table("sales_metrics")
                 .select("*")
-                .gte("date", prev_start)
-                .lt("date", current_start)
+                .gte("metric_date", prev_start)
+                .lt("metric_date", current_start)
                 .execute()
             )
 
@@ -242,7 +244,7 @@ class StrategySimulationTool(BaseTool):
             metrics_res = (
                 await client.table("sales_metrics")
                 .select("revenue, leads_count, win_rate")
-                .order("date", desc=True)
+                .order("metric_date", desc=True)
                 .limit(30)
                 .execute()
             )

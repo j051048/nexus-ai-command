@@ -635,6 +635,7 @@ AI 回复:
             "needs_replanning": True,
             "confidence_score": confidence,
             "current_phase": AgentPhase.PLANNING,
+            "iteration": iteration + 1,
             "thinking_steps": [
                 ThinkingStep(
                     phase=AgentPhase.REFLECTING.value,
