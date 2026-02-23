@@ -112,7 +112,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install ruff black isort
+          pip install ruff 'black==25.12.0' isort
           pip install -r requirements.txt
 
       - name: Run Ruff (linter)

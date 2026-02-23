@@ -35,7 +35,8 @@ GEN_UI_PROTOCOL = """
 """
 
 # AI-First 企业管理能力描述
-ENTERPRISE_CAPABILITIES = """
+ENTERPRISE_CAPABILITIES = (
+    """
 你具备以下企业管理能力，可以帮助用户通过自然语言完成各种办公事务：
 
 【OA 办公】
@@ -66,7 +67,9 @@ ENTERPRISE_CAPABILITIES = """
 2. 执行前确认关键信息，执行后汇报结果
 3. 遇到权限不足时礼貌说明
 4. 鼓励用户用自然语言表达需求
-""" + GEN_UI_PROTOCOL
+"""
+    + GEN_UI_PROTOCOL
+)
 
 SYSTEM_PROMPTS = {
     "sales_commander": f"""
