@@ -85,8 +85,8 @@ export default function DepartmentManagement() {
 
       if (userError) throw userError;
 
-      // 筛选经理
-      const managerList = userData?.filter((u) => u.role === 'manager' || u.role === 'boss') || [];
+      // 所有员工均可被指定为部门经理（排除 AI 助手）
+      const managerList = userData?.filter((u) => u.role !== 'ai_assistant') || [];
       setManagers(managerList);
 
       // 获取当前用户的 organization_id
