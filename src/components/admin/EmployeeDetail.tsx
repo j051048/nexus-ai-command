@@ -1,7 +1,8 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Mail, Phone, Calendar, Award, BarChart3, FileCheck, Trash2, ArrowRightLeft, CheckCircle2, Plus } from 'lucide-react';
-import { Employee, useEmployeeStats } from '@/hooks/useEmployeeManagement';
+import { Input } from '@/components/ui/input';
+import { ArrowLeft, Mail, Phone, Calendar, Award, BarChart3, FileCheck, Trash2, ArrowRightLeft, CheckCircle2, Plus, Pencil } from 'lucide-react';
+import { Employee, useEmployeeStats, useUpdateEmployee } from '@/hooks/useEmployeeManagement';
 import { useProjects } from '@/hooks/useProjects';
 import {
     Dialog,
@@ -19,6 +20,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Loader2, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
+import { useAuth } from '@/components/auth/AuthContext';
 
 
 interface EmployeeDetailProps {
@@ -44,10 +47,20 @@ export function EmployeeDetail({
 }: EmployeeDetailProps) {
     const { projects } = useProjects();
     const { data: stats } = useEmployeeStats(employee.user_id);
+    const { role: authRole } = useAuth();
+    const updateEmployee = useUpdateEmployee();
     const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
     const [showTransferDialog, setShowTransferDialog] = React.useState(false);
+    const [showEditDialog, setShowEditDialog] = React.useState(false);
     const [transferTargetId, setTransferTargetId] = React.useState<string>('');
     const [selectedProjects, setSelectedProjects] = React.useState<string[]>([]);
+    const [editForm, setEditForm] = React.useState({
+        employee_number: employee.employee_number || '',
+        department: employee.department || '',
+        job_title: employee.job_title || '',
+    });
+
+    const isBossUser = authRole === 'boss';
 
     const toggleProjectSelection = (projectId: string) => {
         setSelectedProjects(prev =>
@@ -61,6 +74,24 @@ export function EmployeeDetail({
     const isBoss = employee.role === 'boss';
     const isAIAssistant = employee.role === 'ai_assistant';
     const isSystemUser = isBoss || isAIAssistant;
+
+    const handleEditSave = async () => {
+        try {
+            await updateEmployee.mutateAsync({
+                userId: employee.user_id,
+                updates: {
+                    employee_number: editForm.employee_number || null,
+                    department: editForm.department || null,
+                    job_title: editForm.job_title || null,
+                },
+            });
+            toast.success('员工信息已更新');
+            setShowEditDialog(false);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : '未知错误';
+            toast.error('更新失败: ' + message);
+        }
+    };
 
     // 获取角色显示名称和样式
     const getRoleBadge = () => {
@@ -101,12 +132,22 @@ export function EmployeeDetail({
                             <span className={cn("px-3 py-1 text-xs rounded-full font-medium", roleBadge.className)}>
                                 {roleBadge.label}
                             </span>
+                            {employee.employee_number && (
+                                <span className="px-2 py-0.5 text-xs rounded bg-secondary text-muted-foreground font-mono">
+                                    {employee.employee_number}
+                                </span>
+                            )}
                         </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1">
                                 <Mail className="w-4 h-4" />
                                 {employee.department || '无部门'}
                             </span>
+                            {employee.job_title && (
+                                <span className="flex items-center gap-1">
+                                    {employee.job_title}
+                                </span>
+                            )}
                             <span className="flex items-center gap-1">
                                 <Calendar className="w-4 h-4" />
                                 入职日期: {new Date(employee.created_at).toLocaleDateString('zh-CN')}
@@ -116,6 +157,19 @@ export function EmployeeDetail({
                 </div>
 
                 <div className="flex gap-3">
+                    {isBossUser && (
+                        <Button variant="outline" onClick={() => {
+                            setEditForm({
+                                employee_number: employee.employee_number || '',
+                                department: employee.department || '',
+                                job_title: employee.job_title || '',
+                            });
+                            setShowEditDialog(true);
+                        }}>
+                            <Pencil className="w-4 h-4 mr-2" />
+                            编辑信息
+                        </Button>
+                    )}
                     <Button variant="outline" onClick={() => setShowTransferDialog(true)}>
                         <ArrowRightLeft className="w-4 h-4 mr-2" />
                         数据移交
@@ -342,6 +396,61 @@ export function EmployeeDetail({
                         >
                             {isProcessing && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
                             转移并删除
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Employee Dialog */}
+            <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Pencil className="w-5 h-5 text-primary" />
+                            编辑员工信息
+                        </DialogTitle>
+                        <DialogDescription>
+                            修改 <strong>{employee.name}</strong> 的工号、部门和职务
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 mt-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground">工号</label>
+                            <Input
+                                placeholder="请输入工号，如 EMP001"
+                                value={editForm.employee_number}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, employee_number: e.target.value }))}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground">部门</label>
+                            <Input
+                                placeholder="请输入部门名称"
+                                value={editForm.department}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, department: e.target.value }))}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground">职务</label>
+                            <Input
+                                placeholder="请输入职务，如 高级工程师"
+                                value={editForm.job_title}
+                                onChange={(e) => setEditForm(prev => ({ ...prev, job_title: e.target.value }))}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-4">
+                        <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+                            取消
+                        </Button>
+                        <Button
+                            onClick={handleEditSave}
+                            disabled={updateEmployee.isPending}
+                        >
+                            {updateEmployee.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                            保存
                         </Button>
                     </div>
                 </DialogContent>

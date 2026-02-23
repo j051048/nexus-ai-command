@@ -8,6 +8,8 @@ export interface Employee {
   name: string;
   avatar: string | null;
   department: string | null;
+  job_title: string | null;
+  employee_number: string | null;
   score: number;
   rank: number;
   total_bonus: number;
@@ -40,11 +42,13 @@ export function useAllEmployees() {
         name: u.name,
         avatar: u.avatar,
         department: u.department,
+        job_title: u.job_title || null,
+        employee_number: u.employee_number || null,
         score: u.score || 0,
         rank: u.rank || 0,
         total_bonus: u.total_bonus || 0,
         created_at: u.created_at,
-        role: (u.role === 'founder' || u.role === 'boss' ? 'boss' : 
+        role: (u.role === 'founder' || u.role === 'boss' ? 'boss' :
               u.role === 'ai_assistant' ? 'ai_assistant' : 'employee') as 'boss' | 'ai_assistant' | 'employee',
       })) as Employee[];
     },
@@ -112,7 +116,7 @@ export function useUpdateEmployee() {
       updates
     }: {
       userId: string;
-      updates: Partial<Pick<Employee, 'name' | 'department' | 'score' | 'total_bonus'>>;
+      updates: Partial<Pick<Employee, 'name' | 'department' | 'job_title' | 'employee_number' | 'score' | 'total_bonus'>>;
     }) => {
       const { data, error } = await supabase
         .from('users') // Updated to users table

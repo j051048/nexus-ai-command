@@ -19,6 +19,7 @@ export interface Database {
           department: string | null
           department_id: string | null
           job_title: string | null
+          employee_number: string | null
           status: 'active' | 'inactive' | 'suspended'
           phone: string | null
           organization_id: string
@@ -35,6 +36,7 @@ export interface Database {
           department?: string | null
           department_id?: string | null
           job_title?: string | null
+          employee_number?: string | null
           status?: 'active' | 'inactive' | 'suspended'
           phone?: string | null
           organization_id: string
@@ -51,6 +53,7 @@ export interface Database {
           department?: string | null
           department_id?: string | null
           job_title?: string | null
+          employee_number?: string | null
           status?: 'active' | 'inactive' | 'suspended'
           phone?: string | null
           organization_id?: string

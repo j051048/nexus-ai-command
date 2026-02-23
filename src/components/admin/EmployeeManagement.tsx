@@ -11,6 +11,7 @@ import {
   BarChart3,
   Award,
   FileCheck,
+  Pencil,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +34,7 @@ import {
   useAllEmployees,
   useTransferEmployeeData,
   useDeleteEmployee,
+  useUpdateEmployee,
   useEmployeeStats,
   Employee,
 } from '@/hooks/useEmployeeManagement';
@@ -50,12 +52,21 @@ export function EmployeeManagement({ onProjectSelect }: EmployeeManagementProps)
   const [viewingEmployee, setViewingEmployee] = useState<Employee | null>(null);   // For detail page
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [transferTargetId, setTransferTargetId] = useState<string>('');
+  const [editForm, setEditForm] = useState({
+    employee_number: '',
+    department: '',
+    job_title: '',
+  });
 
   const { data: employees, isLoading } = useAllEmployees();
   const transferData = useTransferEmployeeData();
   const deleteEmployee = useDeleteEmployee();
-  const { user } = useAuth();
+  const updateEmployee = useUpdateEmployee();
+  const { user, role } = useAuth();
+
+  const isBossUser = role === 'boss';
 
   // If viewing details, show detail component
   if (viewingEmployee) {
@@ -176,6 +187,27 @@ export function EmployeeManagement({ onProjectSelect }: EmployeeManagementProps)
     }
   };
 
+  const handleEditSave = async () => {
+    if (!selectedEmployee) return;
+
+    try {
+      await updateEmployee.mutateAsync({
+        userId: selectedEmployee.user_id,
+        updates: {
+          employee_number: editForm.employee_number || null,
+          department: editForm.department || null,
+          job_title: editForm.job_title || null,
+        },
+      });
+      toast.success(`员工 ${selectedEmployee.name} 信息已更新`);
+      setShowEditDialog(false);
+      setSelectedEmployee(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '未知错误';
+      toast.error('更新失败: ' + message);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -212,7 +244,17 @@ export function EmployeeManagement({ onProjectSelect }: EmployeeManagementProps)
               <EmployeeCard
                 key={employee.id}
                 employee={employee}
+                isBossUser={isBossUser}
                 onClick={() => setViewingEmployee(employee)}
+                onEdit={() => {
+                  setSelectedEmployee(employee);
+                  setEditForm({
+                    employee_number: employee.employee_number || '',
+                    department: employee.department || '',
+                    job_title: employee.job_title || '',
+                  });
+                  setShowEditDialog(true);
+                }}
                 onDelete={() => {
                   setSelectedEmployee(employee);
                   setShowDeleteDialog(true);
@@ -334,6 +376,61 @@ export function EmployeeManagement({ onProjectSelect }: EmployeeManagementProps)
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Employee Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="w-5 h-5 text-primary" />
+              编辑员工信息
+            </DialogTitle>
+            <DialogDescription>
+              修改 <strong>{selectedEmployee?.name}</strong> 的工号、部门和职务
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">工号</label>
+              <Input
+                placeholder="请输入工号，如 EMP001"
+                value={editForm.employee_number}
+                onChange={(e) => setEditForm(prev => ({ ...prev, employee_number: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">部门</label>
+              <Input
+                placeholder="请输入部门名称"
+                value={editForm.department}
+                onChange={(e) => setEditForm(prev => ({ ...prev, department: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">职务</label>
+              <Input
+                placeholder="请输入职务，如 高级工程师"
+                value={editForm.job_title}
+                onChange={(e) => setEditForm(prev => ({ ...prev, job_title: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              取消
+            </Button>
+            <Button
+              onClick={handleEditSave}
+              disabled={updateEmployee.isPending}
+            >
+              {updateEmployee.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              保存
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -341,12 +438,16 @@ export function EmployeeManagement({ onProjectSelect }: EmployeeManagementProps)
 // Employee Card Component
 function EmployeeCard({
   employee,
+  isBossUser,
   onClick,
+  onEdit,
   onDelete,
   onTransfer,
 }: {
   employee: Employee;
+  isBossUser: boolean;
   onClick: () => void;
+  onEdit: () => void;
   onDelete: () => void;
   onTransfer: () => void;
 }) {
@@ -385,9 +486,14 @@ function EmployeeCard({
             <span className={cn("px-2 py-0.5 text-xs rounded-full", roleBadge.className)}>
               {roleBadge.label}
             </span>
+            {employee.employee_number && (
+              <span className="px-1.5 py-0.5 text-[10px] rounded bg-secondary text-muted-foreground font-mono">
+                {employee.employee_number}
+              </span>
+            )}
           </div>
           <p className="text-sm text-muted-foreground">
-            {employee.department} · 积分 {employee.score} · 排名 #{employee.rank}
+            {employee.department || '无部门'}{employee.job_title ? ` · ${employee.job_title}` : ''} · 积分 {employee.score} · 排名 #{employee.rank}
           </p>
         </div>
       </div>
@@ -395,6 +501,17 @@ function EmployeeCard({
       {/* 系统用户（老板和AI助手）不显示删除和转移按钮 */}
       {!isSystemUser && (
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          {isBossUser && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onEdit}
+              className="flex items-center gap-2 hover:border-primary/50"
+            >
+              <Pencil className="w-4 h-4" />
+              编辑
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
