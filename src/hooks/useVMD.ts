@@ -449,7 +449,7 @@ export function useVMDStats() {
   return useQuery({
     queryKey: ['vmd-stats'],
     queryFn: async () => {
-      const res = await aiClient.fetch<{ success: boolean; data: AnyData }>('api/vmd/stats');
+      const res = await aiClient.fetch<{ success: boolean; data: AnyData }>('api/vmd/dashboard/stats');
       return res.data;
     },
     staleTime: 30_000,

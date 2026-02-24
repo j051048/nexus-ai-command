@@ -2,7 +2,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/components/auth/AuthContext";
 import { GlobalCommandBar } from "@/components/layout/GlobalCommandBar";
 import { EnhancedThemeProvider } from "@/contexts/EnhancedThemeContext";
@@ -25,15 +25,20 @@ if (SENTRY_DSN && import.meta.env.PROD) {
 }
 
 class ErrorBoundary extends React.Component<
-  { children: React.ReactNode; fallback?: React.ReactNode },
+  { children: React.ReactNode; fallback?: React.ReactNode; resetKey?: string },
   { hasError: boolean; error: Error | null }
 > {
-  constructor(props: { children: React.ReactNode; fallback?: React.ReactNode }) {
+  constructor(props: { children: React.ReactNode; fallback?: React.ReactNode; resetKey?: string }) {
     super(props);
     this.state = { hasError: false, error: null };
   }
   static getDerivedStateFromError(error: Error) {
     return { hasError: true, error };
+  }
+  componentDidUpdate(prevProps: { resetKey?: string }) {
+    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false, error: null });
+    }
   }
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('Page load error:', error, errorInfo);
@@ -171,6 +176,11 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function RouteErrorBoundary({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  return <ErrorBoundary resetKey={location.pathname}>{children}</ErrorBoundary>;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <I18nProvider>
@@ -181,7 +191,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <GlobalCommandBar />
-          <ErrorBoundary><Suspense fallback={<LoadingFallback />}>
+          <RouteErrorBoundary><Suspense fallback={<LoadingFallback />}>
             <Routes>
               <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -260,7 +270,7 @@ const App = () => (
 
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </Suspense></ErrorBoundary>
+          </Suspense></RouteErrorBoundary>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
