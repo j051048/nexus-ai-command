@@ -1,11 +1,11 @@
 """Tests for tenant_credit_service: quota, credits, rate limiting, abuse detection."""
 
 import pytest
-import time
+
 from app.services.tenant_credit_service import (
-    TenantCreditService,
-    CreditType,
     AlertLevel,
+    CreditType,
+    TenantCreditService,
     TenantQuota,
 )
 
@@ -48,9 +48,7 @@ class TestRateLimiting:
         # Exhaust burst limit
         for _ in range(15):
             await service.check_rate_limit("org-burst-test", "user-burst")
-        allowed, retry_after = await service.check_rate_limit(
-            "org-burst-test", "user-burst"
-        )
+        allowed, retry_after = await service.check_rate_limit("org-burst-test", "user-burst")
         # Should eventually be rate-limited
         # Note: depends on TenantQuota.burst_limit (default 10)
 

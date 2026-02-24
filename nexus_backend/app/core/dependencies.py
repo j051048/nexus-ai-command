@@ -51,7 +51,7 @@ def get_pagination(
 
 def get_sorting(
     sort_by: str | None = Query(default=None, description="Field to sort by"),
-    sort_order: str = Query(default="desc", regex="^(asc|desc)$", description="Sort order"),
+    sort_order: str = Query(default="desc", pattern="^(asc|desc)$", description="Sort order"),
 ) -> SortParams:
     """Sorting dependency"""
     return SortParams(sort_by=sort_by, sort_order=sort_order)
@@ -66,7 +66,7 @@ def get_filters(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     sort_by: str | None = Query(default=None),
-    sort_order: str = Query(default="desc", regex="^(asc|desc)$"),
+    sort_order: str = Query(default="desc", pattern="^(asc|desc)$"),
     q: str | None = Query(default=None, max_length=200),
     start_date: str | None = Query(default=None),
     end_date: str | None = Query(default=None),

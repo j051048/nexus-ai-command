@@ -9,9 +9,8 @@ Tests the quality of retrieval-augmented generation pipeline including:
 """
 
 import pytest
-import asyncio
-from app.services.vector_service import vector_service, EMBEDDING_MODEL, EMBEDDING_MODEL_VERSION
 
+from app.services.vector_service import EMBEDDING_MODEL, EMBEDDING_MODEL_VERSION, vector_service
 
 # ── Evaluation Fixture Dataset ──────────────────────────────────────────────
 
@@ -120,20 +119,23 @@ async def test_rag_answer_relevance():
         else:
             relevance = 0.0  # Not found is acceptable in test env
 
-        results.append({
-            "query": qa["query"],
-            "category": qa["category"],
-            "relevance_score": relevance,
-            "is_not_found": is_not_found,
-        })
+        results.append(
+            {
+                "query": qa["query"],
+                "category": qa["category"],
+                "relevance_score": relevance,
+                "is_not_found": is_not_found,
+            }
+        )
 
     # In a test environment with mock data, we just verify structure
     assert len(results) == len(EVAL_QA_PAIRS)
 
     # Log results for manual review
     for r in results:
-        print(f"  [{r['category']}] relevance={r['relevance_score']:.2f} "
-              f"not_found={r['is_not_found']} | {r['query']}")
+        print(
+            f"  [{r['category']}] relevance={r['relevance_score']:.2f} " f"not_found={r['is_not_found']} | {r['query']}"
+        )
 
 
 def test_embedding_model_versioning():
@@ -169,7 +171,5 @@ async def test_search_requires_org_id():
     user_id = "test_user"
 
     # Without org_id (require_org_id=True by default)
-    response = await vector_service.search(
-        "test query", user_id, org_id=None, require_org_id=True
-    )
+    response = await vector_service.search("test query", user_id, org_id=None, require_org_id=True)
     assert "缺少组织信息" in response or "搜索失败" in response

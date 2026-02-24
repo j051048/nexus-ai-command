@@ -5,13 +5,14 @@
 """
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 
 class EvalDimension(Enum):
     """评估维度枚举"""
+
     TOOL_SELECTION = "tool_selection"
     HALLUCINATION = "hallucination"
     TASK_COMPLETION = "task_completion"
@@ -21,28 +22,30 @@ class EvalDimension(Enum):
 @dataclass
 class EvalResult:
     """单个测试用例的评估结果"""
+
     case_id: str
     dimension: EvalDimension
     passed: bool
     score: float  # 0.0 to 1.0
-    details: Dict[str, Any] = field(default_factory=dict)
-    error: Optional[str] = None
+    details: dict[str, Any] = field(default_factory=dict)
+    error: str | None = None
     duration_ms: float = 0.0
 
 
 @dataclass
 class EvalReport:
     """一个维度的评估报告"""
+
     dimension: EvalDimension
     total_cases: int
     passed_cases: int
     failed_cases: int
     accuracy: float  # passed / total
     avg_score: float
-    results: List[EvalResult] = field(default_factory=list)
+    results: list[EvalResult] = field(default_factory=list)
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """将报告序列化为字典，方便 JSON 输出或日志记录。"""
         return {
             "dimension": self.dimension.value,
@@ -68,12 +71,12 @@ class MetricsReporter:
     """汇总多维度评估报告，支持阈值校验。"""
 
     def __init__(self) -> None:
-        self.reports: Dict[EvalDimension, EvalReport] = {}
+        self.reports: dict[EvalDimension, EvalReport] = {}
 
     def add_report(self, report: EvalReport) -> None:
         self.reports[report.dimension] = report
 
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         """返回各维度的汇总摘要。"""
         return {
             dim.value: {
@@ -84,7 +87,7 @@ class MetricsReporter:
             for dim, report in self.reports.items()
         }
 
-    def all_passed(self, thresholds: Dict[EvalDimension, float]) -> bool:
+    def all_passed(self, thresholds: dict[EvalDimension, float]) -> bool:
         """检查所有维度是否都达到了指定的准确率阈值。"""
         for dim, threshold in thresholds.items():
             report = self.reports.get(dim)

@@ -6,10 +6,9 @@
 - 当 tool_result 有值时，期望回复内容与工具结果一致
 """
 
-from typing import Dict, Any, Optional
+from typing import Any
 
-from evals.eval_metrics import EvalResult, EvalDimension
-
+from evals.eval_metrics import EvalDimension, EvalResult
 
 # 表达不确定性的常见中文词汇
 UNCERTAINTY_PHRASES = [
@@ -39,34 +38,26 @@ class HallucinationEvaluator:
 
     dimension = EvalDimension.HALLUCINATION
 
-    async def evaluate(self, case: Dict[str, Any]) -> EvalResult:
+    async def evaluate(self, case: dict[str, Any]) -> EvalResult:
         """评估单个用例是否存在幻觉。"""
-        tool_result: Optional[str] = case.get("context", {}).get("tool_result")
+        tool_result: str | None = case.get("context", {}).get("tool_result")
         ground_truth_keywords = case.get("ground_truth_keywords", [])
 
-        simulated_response = self._simulate_response(
-            case["user_message"], tool_result
-        )
+        simulated_response = self._simulate_response(case["user_message"], tool_result)
 
         if tool_result is None:
             # 工具无返回 -> Agent 应表达不确定性
-            has_uncertainty = any(
-                phrase in simulated_response for phrase in UNCERTAINTY_PHRASES
-            )
+            has_uncertainty = any(phrase in simulated_response for phrase in UNCERTAINTY_PHRASES)
             # 如果数据集指定了特定的关键词检查 (OR 语义: 至少匹配一个即可)
             if ground_truth_keywords:
-                has_any_keyword = any(
-                    kw in simulated_response for kw in ground_truth_keywords
-                )
+                has_any_keyword = any(kw in simulated_response for kw in ground_truth_keywords)
                 score = 1.0 if has_any_keyword else 0.0
             else:
                 score = 1.0 if has_uncertainty else 0.0
         else:
             # 有工具结果 -> 回复应包含关键事实
             if ground_truth_keywords:
-                matches = sum(
-                    1 for kw in ground_truth_keywords if kw in simulated_response
-                )
+                matches = sum(1 for kw in ground_truth_keywords if kw in simulated_response)
                 score = matches / len(ground_truth_keywords)
             else:
                 # 只要基于工具结果回答且不编造就算通过
@@ -84,7 +75,7 @@ class HallucinationEvaluator:
             },
         )
 
-    def _simulate_response(self, message: str, tool_result: Optional[str]) -> str:
+    def _simulate_response(self, message: str, tool_result: str | None) -> str:
         """模拟 Agent 响应（确定性规则，无 LLM 调用）。
 
         当有工具结果时，Agent 应该引用该结果。

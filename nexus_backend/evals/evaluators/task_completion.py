@@ -5,13 +5,12 @@
 - 成功标准: 最终结果是否满足业务条件
 """
 
-from typing import Dict, List, Any
+from typing import Any
 
-from evals.eval_metrics import EvalResult, EvalDimension
-
+from evals.eval_metrics import EvalDimension, EvalResult
 
 # 步骤关键词 -> 工具/动作映射
-STEP_KEYWORD_MAP: Dict[str, List[str]] = {
+STEP_KEYWORD_MAP: dict[str, list[str]] = {
     # 工具步骤
     "get_business_dashboard": ["经营", "业绩", "营收", "利润"],
     "query_leave_status": ["假期", "年假", "余额"],
@@ -39,7 +38,7 @@ STEP_KEYWORD_MAP: Dict[str, List[str]] = {
 }
 
 # 成功标准检查映射
-CRITERIA_KEYWORD_MAP: Dict[str, List[str]] = {
+CRITERIA_KEYWORD_MAP: dict[str, list[str]] = {
     "mentions_data": ["数据", "经营", "业绩", "指标"],
     "provides_recommendation": ["建议", "改进", "优化", "提升"],
     "mentions_top_performer": ["最好", "第一", "最优", "表现"],
@@ -75,23 +74,19 @@ class TaskCompletionEvaluator:
 
     dimension = EvalDimension.TASK_COMPLETION
 
-    async def evaluate(self, case: Dict[str, Any]) -> EvalResult:
+    async def evaluate(self, case: dict[str, Any]) -> EvalResult:
         """评估多步任务的完成度。"""
         user_message: str = case["user_message"]
-        expected_steps: List[str] = case.get("expected_steps", [])
-        success_criteria: List[str] = case.get("success_criteria", [])
+        expected_steps: list[str] = case.get("expected_steps", [])
+        success_criteria: list[str] = case.get("success_criteria", [])
 
         # 模拟执行: 检查哪些步骤可以被识别
         executed_steps = self._simulate_execution(user_message, expected_steps)
-        step_score = (
-            len(executed_steps) / len(expected_steps) if expected_steps else 1.0
-        )
+        step_score = len(executed_steps) / len(expected_steps) if expected_steps else 1.0
 
         # 检查成功标准
         criteria_met = self._check_criteria(user_message, success_criteria)
-        criteria_score = (
-            criteria_met / len(success_criteria) if success_criteria else 1.0
-        )
+        criteria_score = criteria_met / len(success_criteria) if success_criteria else 1.0
 
         # 综合得分 (步骤权重 60%, 标准权重 40%)
         score = step_score * 0.6 + criteria_score * 0.4
@@ -111,13 +106,11 @@ class TaskCompletionEvaluator:
             },
         )
 
-    def _simulate_execution(
-        self, message: str, expected_steps: List[str]
-    ) -> List[str]:
+    def _simulate_execution(self, message: str, expected_steps: list[str]) -> list[str]:
         """模拟步骤执行: 基于用户消息关键词判断哪些步骤会被触发。"""
         import re
 
-        executed: List[str] = []
+        executed: list[str] = []
         for step in expected_steps:
             keywords = STEP_KEYWORD_MAP.get(step, [])
             if keywords:
@@ -132,7 +125,7 @@ class TaskCompletionEvaluator:
                     executed.append(step)
         return executed
 
-    def _check_criteria(self, message: str, criteria: List[str]) -> int:
+    def _check_criteria(self, message: str, criteria: list[str]) -> int:
         """检查用户消息中有多少成功标准被覆盖。"""
         import re
 

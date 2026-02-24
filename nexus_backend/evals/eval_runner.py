@@ -10,11 +10,11 @@
 import logging
 import time
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any
 
 import yaml
 
-from evals.eval_metrics import EvalResult, EvalReport, EvalDimension
+from evals.eval_metrics import EvalDimension, EvalReport, EvalResult
 
 logger = logging.getLogger(__name__)
 
@@ -35,13 +35,13 @@ class EvalRunner:
         else:
             self.datasets_dir = Path(datasets_dir)
 
-    def load_dataset(self, name: str) -> List[Dict[str, Any]]:
+    def load_dataset(self, name: str) -> list[dict[str, Any]]:
         """加载 YAML 数据集文件并返回 test_cases 列表。"""
         path = self.datasets_dir / f"{name}.yaml"
         if not path.exists():
             raise FileNotFoundError(f"Dataset not found: {path}")
 
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
 
         cases = data.get("test_cases", [])
@@ -49,7 +49,7 @@ class EvalRunner:
             raise ValueError(f"Dataset '{name}' contains no test_cases")
         return cases
 
-    async def run_single_case(self, case: Dict[str, Any], evaluator: Any) -> EvalResult:
+    async def run_single_case(self, case: dict[str, Any], evaluator: Any) -> EvalResult:
         """运行单个测试用例，处理异常并记录耗时。"""
         start = time.perf_counter()
         try:
@@ -67,11 +67,9 @@ class EvalRunner:
                 duration_ms=(time.perf_counter() - start) * 1000,
             )
 
-    async def run_evaluation(
-        self, dataset: List[Dict[str, Any]], evaluator: Any
-    ) -> List[EvalResult]:
+    async def run_evaluation(self, dataset: list[dict[str, Any]], evaluator: Any) -> list[EvalResult]:
         """运行整个数据集的评估，返回所有结果。"""
-        results: List[EvalResult] = []
+        results: list[EvalResult] = []
         for case in dataset:
             result = await self.run_single_case(case, evaluator)
             results.append(result)
@@ -82,9 +80,7 @@ class EvalRunner:
             )
         return results
 
-    def generate_report(
-        self, results: List[EvalResult], dimension: EvalDimension
-    ) -> EvalReport:
+    def generate_report(self, results: list[EvalResult], dimension: EvalDimension) -> EvalReport:
         """根据评估结果列表生成汇总报告。"""
         total = len(results)
         passed = sum(1 for r in results if r.passed)

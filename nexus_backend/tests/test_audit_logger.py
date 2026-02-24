@@ -1,10 +1,8 @@
 """Tests for audit_logger: sanitization, buffering, querying."""
 
 import pytest
-from unittest.mock import MagicMock
-from datetime import datetime
 
-from app.services.audit_logger import AuditLogger, AuditAction
+from app.services.audit_logger import AuditAction, AuditLogger
 
 
 class TestSanitization:

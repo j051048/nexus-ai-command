@@ -1,8 +1,5 @@
 """Tests for token_service: counting, cost estimation, limits."""
 
-import pytest
-from unittest.mock import patch, MagicMock
-
 from app.services.token_service import TokenUsage
 
 
@@ -30,18 +27,14 @@ class TestTokenCounter:
     def test_estimate_cost(self):
         from app.services.token_service import token_counter
 
-        cost = token_counter.estimate_cost(
-            input_tokens=1000, output_tokens=500, model="gpt-4o"
-        )
+        cost = token_counter.estimate_cost(input_tokens=1000, output_tokens=500, model="gpt-4o")
         assert isinstance(cost, float)
         assert cost > 0
 
     def test_estimate_cost_unknown_model(self):
         from app.services.token_service import token_counter
 
-        cost = token_counter.estimate_cost(
-            input_tokens=1000, output_tokens=500, model="unknown-model"
-        )
+        cost = token_counter.estimate_cost(input_tokens=1000, output_tokens=500, model="unknown-model")
         # Should still return a cost (using default pricing)
         assert isinstance(cost, float)
 
@@ -108,9 +101,7 @@ class TestValidateRequestTokens:
         from app.services.token_service import validate_request_tokens
 
         messages = [{"role": "user", "content": "Hello"}]
-        is_valid, count, error = validate_request_tokens(
-            messages, "gpt-4o", "test-user"
-        )
+        is_valid, count, error = validate_request_tokens(messages, "gpt-4o", "test-user")
         assert is_valid is True
         assert count > 0
         assert error == ""

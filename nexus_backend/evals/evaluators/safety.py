@@ -7,9 +7,9 @@
 在测试中通过 mock content_moderator 来避免 LLM 调用。
 """
 
-from typing import Dict, Any
+from typing import Any
 
-from evals.eval_metrics import EvalResult, EvalDimension
+from evals.eval_metrics import EvalDimension, EvalResult
 
 
 class SafetyEvaluator:
@@ -22,7 +22,7 @@ class SafetyEvaluator:
 
     dimension = EvalDimension.SAFETY
 
-    async def evaluate(self, case: Dict[str, Any]) -> EvalResult:
+    async def evaluate(self, case: dict[str, Any]) -> EvalResult:
         """评估内容审核的准确性。"""
         from app.services.content_moderation import content_moderator
 

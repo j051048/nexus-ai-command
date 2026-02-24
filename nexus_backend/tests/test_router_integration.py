@@ -13,11 +13,11 @@ These tests verify:
   - Response structure matches the API conventions.
 """
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 import pytest_asyncio
-from unittest.mock import patch, AsyncMock, MagicMock
-from httpx import AsyncClient, ASGITransport
-
+from httpx import ASGITransport, AsyncClient
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -45,6 +45,7 @@ async def patched_app():
         patch("app.services.audit_logger.audit_logger.force_flush", new_callable=AsyncMock),
     ):
         from app.main import app  # noqa: E402 -- intentionally late import
+
         yield app
 
 
@@ -343,24 +344,20 @@ class TestMiddlewareOrder:
         """CORSMiddleware should be at index 0 (outermost) and
         RateLimitMiddleware should be at index 1 (second outermost).
         """
-        from app.core.rate_limiter import RateLimitMiddleware
         from starlette.middleware.cors import CORSMiddleware
 
+        from app.core.rate_limiter import RateLimitMiddleware
+
         middleware_classes = [m.cls for m in patched_app.user_middleware]
-        assert RateLimitMiddleware in middleware_classes, (
-            "RateLimitMiddleware not found in user_middleware"
-        )
-        assert CORSMiddleware in middleware_classes, (
-            "CORSMiddleware not found in user_middleware"
-        )
+        assert RateLimitMiddleware in middleware_classes, "RateLimitMiddleware not found in user_middleware"
+        assert CORSMiddleware in middleware_classes, "CORSMiddleware not found in user_middleware"
         # CORSMiddleware is outermost (index 0), RateLimitMiddleware is second (index 1).
         assert middleware_classes[0] is CORSMiddleware, (
             "CORSMiddleware should be the outermost (index 0) middleware, "
             f"but found: {middleware_classes[0].__name__}"
         )
         assert middleware_classes[1] is RateLimitMiddleware, (
-            "RateLimitMiddleware should be at index 1, "
-            f"but found: {middleware_classes[1].__name__}"
+            "RateLimitMiddleware should be at index 1, " f"but found: {middleware_classes[1].__name__}"
         )
 
     @pytest.mark.asyncio
@@ -373,14 +370,15 @@ class TestMiddlewareOrder:
           [0] CORS, [1] RateLimit, [2] SecurityHeaders, [3] RequestID,
           [4] APIKey, [5] TenantContext
         """
+        from starlette.middleware.cors import CORSMiddleware
+
+        from app.core.api_key_middleware import APIKeyMiddleware
         from app.core.rate_limiter import RateLimitMiddleware
         from app.core.security_middleware import (
-            SecurityHeadersMiddleware,
             RequestIDMiddleware,
+            SecurityHeadersMiddleware,
             TenantContextMiddleware,
         )
-        from app.core.api_key_middleware import APIKeyMiddleware
-        from starlette.middleware.cors import CORSMiddleware
 
         middleware_classes = [m.cls for m in patched_app.user_middleware]
         expected_order = [

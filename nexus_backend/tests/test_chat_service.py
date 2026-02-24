@@ -1,7 +1,6 @@
 """Tests for chat_service: prompt loading, system prompt resolution."""
 
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
 
 from app.services.chat_service import ChatService
 

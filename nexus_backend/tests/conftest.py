@@ -1,11 +1,10 @@
 """Shared test fixtures for nexus_backend tests."""
 
-import pytest
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-from dataclasses import dataclass, field
-from typing import Any, List, Optional, Dict
+from dataclasses import dataclass
+from typing import Any
+from unittest.mock import MagicMock
 
+import pytest
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Mock Supabase Client
@@ -15,8 +14,9 @@ from typing import Any, List, Optional, Dict
 @dataclass
 class MockResponse:
     """Simulates Supabase query response."""
+
     data: Any = None
-    count: Optional[int] = None
+    count: int | None = None
 
 
 class MockQueryBuilder:
@@ -104,8 +104,8 @@ class MockSupabaseClient:
 
     def __init__(self, default_data=None):
         self._default_data = default_data if default_data is not None else []
-        self._tables: Dict[str, MockQueryBuilder] = {}
-        self._rpc_results: Dict[str, Any] = {}
+        self._tables: dict[str, MockQueryBuilder] = {}
+        self._rpc_results: dict[str, Any] = {}
 
     def table(self, name: str) -> MockQueryBuilder:
         if name in self._tables:

@@ -29,8 +29,9 @@ test.describe('Authentication Flow', () => {
         await page.locator('#login-password').fill('wrongpassword');
         await page.getByRole('button', { name: '登录', exact: true }).click();
 
-        // Use .first() to avoid strict mode violation (shadcn toast implementation detail)
-        await expect(page.getByText('登录失败').first()).toBeVisible();
+        // Wait for Supabase to respond and toast to render via portal
+        // Use longer timeout since network request + toast animation takes time
+        await expect(page.getByText('登录失败').first()).toBeVisible({ timeout: 15000 });
     });
 });
 

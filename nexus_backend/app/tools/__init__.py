@@ -19,15 +19,15 @@ from .boss_tools import (
     TeamInsightTool,
 )
 
-# 合同分析工具
-from .contract_tools import ContractAnalysisTool
-
 # 合同 CRUD 工具
 from .contract_crud_tools import (
     CreateContractTool,
     GetContractsTool,
     GetExpiringContractsTool,
 )
+
+# 合同分析工具
+from .contract_tools import ContractAnalysisTool
 
 # CRM 客户管理工具
 from .crm_tools import (

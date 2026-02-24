@@ -113,7 +113,10 @@ class PromptVersionService:
         next_version = max([v.version_number for v in existing], default=0) + 1
 
         # Generate version ID
-        version_id = hashlib.md5(f"{prompt_key}:{next_version}:{datetime.now().isoformat()}".encode()).hexdigest()[:12]
+        version_id = hashlib.md5(
+            f"{prompt_key}:{next_version}:{datetime.now().isoformat()}".encode(),
+            usedforsecurity=False,
+        ).hexdigest()[:12]
 
         version = PromptVersion(
             version_id=version_id,
@@ -201,7 +204,10 @@ class PromptVersionService:
         self, prompt_key: str, variants: dict[str, float], created_by: str, duration_hours: int = 24 * 7
     ) -> ABTestConfig:
         """Create an A/B test for prompt variants."""
-        test_id = hashlib.md5(f"{prompt_key}:{datetime.now().isoformat()}".encode()).hexdigest()[:12]
+        test_id = hashlib.md5(
+            f"{prompt_key}:{datetime.now().isoformat()}".encode(),
+            usedforsecurity=False,
+        ).hexdigest()[:12]
 
         # Normalize weights
         total_weight = sum(variants.values())
@@ -242,7 +248,7 @@ class PromptVersionService:
 
         # Use deterministic assignment based on user_id
         test = active_tests[0]
-        user_hash = int(hashlib.md5(f"{test.test_id}:{user_id}".encode()).hexdigest()[:8], 16)
+        user_hash = int(hashlib.md5(f"{test.test_id}:{user_id}".encode(), usedforsecurity=False).hexdigest()[:8], 16)
         selection = (user_hash % 10000) / 10000
 
         # Select variant

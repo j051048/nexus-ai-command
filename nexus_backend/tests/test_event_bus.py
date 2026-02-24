@@ -1,8 +1,8 @@
 """Tests for event_bus: subscribe, publish, Event serialization."""
 
 import pytest
-import asyncio
-from app.services.event_bus import InMemoryEventBus, Event, EventType
+
+from app.services.event_bus import Event, EventType, InMemoryEventBus
 
 
 class TestEvent:

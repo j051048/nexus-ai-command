@@ -4,14 +4,13 @@
 关键词映射与 TOOL_REGISTRY 中注册的工具名精确对应。
 """
 
-from typing import Dict, List, Any
+from typing import Any
 
-from evals.eval_metrics import EvalResult, EvalDimension
-
+from evals.eval_metrics import EvalDimension, EvalResult
 
 # 工具名 -> 触发关键词映射表
 # 名称与 app/tools/__init__.py TOOL_REGISTRY 中注册的实际工具名一致
-TOOL_KEYWORD_MAP: Dict[str, List[str]] = {
+TOOL_KEYWORD_MAP: dict[str, list[str]] = {
     # 审批类
     "submit_approval_on_behalf": ["提交审批", "申请审批", "发起审批"],
     "approve_request": ["批准", "同意", "通过审批"],
@@ -68,10 +67,10 @@ class ToolSelectionEvaluator:
 
     dimension = EvalDimension.TOOL_SELECTION
 
-    async def evaluate(self, case: Dict[str, Any]) -> EvalResult:
+    async def evaluate(self, case: dict[str, Any]) -> EvalResult:
         """评估单个用例的工具选择准确性。"""
         user_message: str = case["user_message"]
-        expected_tools: List[str] = case["expected_tools"]
+        expected_tools: list[str] = case["expected_tools"]
 
         predicted_tools = self._predict_tools(user_message)
 
@@ -101,11 +100,11 @@ class ToolSelectionEvaluator:
             },
         )
 
-    def _predict_tools(self, message: str) -> List[str]:
+    def _predict_tools(self, message: str) -> list[str]:
         """基于关键词匹配预测应使用的工具。"""
         import re
 
-        predicted: List[str] = []
+        predicted: list[str] = []
         for tool_name, keywords in TOOL_KEYWORD_MAP.items():
             for kw in keywords:
                 # 支持正则关键词（如 "让.*做"）

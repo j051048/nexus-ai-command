@@ -1,18 +1,18 @@
 """Tests for error_recovery_service including CircuitBreaker."""
 
-import pytest
-import asyncio
 import time
 from unittest.mock import AsyncMock
 
+import pytest
+
 from app.services.error_recovery_service import (
-    ErrorRecoveryService,
-    ErrorSeverity,
-    RecoveryStrategy,
-    ErrorContext,
     CircuitBreaker,
     CircuitBreakerConfig,
     CircuitState,
+    ErrorContext,
+    ErrorRecoveryService,
+    ErrorSeverity,
+    RecoveryStrategy,
 )
 
 
@@ -107,9 +107,7 @@ class TestRetryRecovery:
             retry_count=0,
             max_retries=3,
         )
-        result = await service._retry_recovery(
-            ConnectionError("retry me"), ctx, ok_op
-        )
+        result = await service._retry_recovery(ConnectionError("retry me"), ctx, ok_op)
         assert result.success is True
         assert result.strategy_used == RecoveryStrategy.RETRY
 
@@ -130,9 +128,7 @@ class TestRetryRecovery:
             retry_count=0,
             max_retries=3,
         )
-        result = await service._retry_recovery(
-            ConnectionError("fail"), ctx, failing_op
-        )
+        result = await service._retry_recovery(ConnectionError("fail"), ctx, failing_op)
         assert result.success is False
         assert result.should_retry is True
         assert ctx.retry_count == 1
@@ -149,9 +145,7 @@ class TestRetryRecovery:
             retry_count=3,
             max_retries=3,
         )
-        result = await service._retry_recovery(
-            ConnectionError("fail"), ctx, AsyncMock()
-        )
+        result = await service._retry_recovery(ConnectionError("fail"), ctx, AsyncMock())
         assert result.success is False
         assert "Max retries" in result.message
 
@@ -180,18 +174,14 @@ class TestCircuitBreaker:
         assert cb.allow_request() is True
 
     def test_opens_after_threshold(self):
-        cb = CircuitBreaker(
-            "test", CircuitBreakerConfig(failure_threshold=3, recovery_timeout=60.0)
-        )
+        cb = CircuitBreaker("test", CircuitBreakerConfig(failure_threshold=3, recovery_timeout=60.0))
         for _ in range(3):
             cb.record_failure()
         assert cb.state == CircuitState.OPEN
         assert cb.allow_request() is False
 
     def test_half_open_after_recovery_timeout(self):
-        cb = CircuitBreaker(
-            "test", CircuitBreakerConfig(failure_threshold=2, recovery_timeout=0.1)
-        )
+        cb = CircuitBreaker("test", CircuitBreakerConfig(failure_threshold=2, recovery_timeout=0.1))
         cb.record_failure()
         cb.record_failure()
         assert cb.state == CircuitState.OPEN
@@ -202,9 +192,7 @@ class TestCircuitBreaker:
     def test_closes_after_success_in_half_open(self):
         cb = CircuitBreaker(
             "test",
-            CircuitBreakerConfig(
-                failure_threshold=2, recovery_timeout=0.1, success_threshold=1
-            ),
+            CircuitBreakerConfig(failure_threshold=2, recovery_timeout=0.1, success_threshold=1),
         )
         cb.record_failure()
         cb.record_failure()
@@ -214,9 +202,7 @@ class TestCircuitBreaker:
         assert cb.state == CircuitState.CLOSED
 
     def test_reopens_on_failure_in_half_open(self):
-        cb = CircuitBreaker(
-            "test", CircuitBreakerConfig(failure_threshold=2, recovery_timeout=0.1)
-        )
+        cb = CircuitBreaker("test", CircuitBreakerConfig(failure_threshold=2, recovery_timeout=0.1))
         cb.record_failure()
         cb.record_failure()
         time.sleep(0.15)
@@ -225,9 +211,7 @@ class TestCircuitBreaker:
         assert cb.state == CircuitState.OPEN
 
     def test_success_resets_failure_count(self):
-        cb = CircuitBreaker(
-            "test", CircuitBreakerConfig(failure_threshold=3)
-        )
+        cb = CircuitBreaker("test", CircuitBreakerConfig(failure_threshold=3))
         cb.record_failure()
         cb.record_failure()
         cb.record_success()
