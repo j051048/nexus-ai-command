@@ -58,6 +58,28 @@ from app.routers import (
 )
 from app.routers import mcp as mcp_router
 from app.routers import robot as robot_router
+
+# VMD (Virtual Marketing Department) routers
+try:
+    from app.routers import llm_models
+    from app.routers import vmd_tasks
+    from app.routers import vmd_compliance as vmd_compliance_router
+    from app.routers import vmd_clues
+    from app.routers import vmd_dashboard
+except ImportError:
+    llm_models = None
+    vmd_tasks = None
+    vmd_compliance_router = None
+    vmd_clues = None
+    vmd_dashboard = None
+try:
+    from app.routers import admin_traces
+except ImportError:
+    admin_traces = None
+try:
+    from app.routers import ai_feedback
+except ImportError:
+    ai_feedback = None
 from app.services.audit_logger import audit_logger
 from app.services.cache_service import cache_service
 from app.services.event_bus import event_bus
@@ -288,12 +310,15 @@ async def test_ai_connectivity(user_id: str = Depends(get_current_user_id)):
 
 
 # P0 Security Fix: Middleware order matters - last added runs first (outermost).
-# Execution order (outermost → innermost):
-#   CORS → RateLimit → SecurityHeaders → RequestID → APIKey → TenantContext
+# Execution order (outermost -> innermost):
+#   CORS -> RateLimit -> SecurityHeaders -> RequestID -> APIKey -> Idempotency -> TenantContext
 #
 # CORS MUST be outermost so browser preflight (OPTIONS) is handled immediately
 # before any auth/rate-limit middleware rejects the request.
-app.add_middleware(TenantContextMiddleware)  # 6th: innermost, sets up tenant DB scope
+app.add_middleware(TenantContextMiddleware)  # 7th: innermost, sets up tenant DB scope
+from app.core.idempotency_middleware import IdempotencyMiddleware  # noqa: E402
+
+app.add_middleware(IdempotencyMiddleware)  # 6th: idempotency dedup for write operations
 from app.core.api_key_middleware import APIKeyMiddleware  # noqa: E402
 
 app.add_middleware(APIKeyMiddleware)  # 5th: API Key auth sets org_id before tenant context
@@ -305,7 +330,7 @@ app.add_middleware(
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Requested-With", "X-Request-ID", "X-API-Key"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With", "X-Request-ID", "X-API-Key", "X-Idempotency-Key"],
 )
 
 
@@ -350,6 +375,22 @@ app.include_router(api_docs.router)
 app.include_router(backups.router)
 app.include_router(api_keys.router)
 app.include_router(onboarding.router)
+
+# VMD (Virtual Marketing Department) routers
+if llm_models:
+    app.include_router(llm_models.router)
+if vmd_tasks:
+    app.include_router(vmd_tasks.router)
+if vmd_compliance_router:
+    app.include_router(vmd_compliance_router.router)
+if vmd_clues:
+    app.include_router(vmd_clues.router)
+if vmd_dashboard:
+    app.include_router(vmd_dashboard.router)
+if admin_traces:
+    app.include_router(admin_traces.router)
+if ai_feedback:
+    app.include_router(ai_feedback.router)
 
 
 @app.get("/")
@@ -405,6 +446,22 @@ async def health_check():
     except Exception as e:
         ai_status = "unreachable" if settings.IS_PRODUCTION else f"unreachable: {str(e)[:50]}"
 
+    # 4. LLM Model Gateway Check (VMD)
+    llm_gateway_status = "not_configured"
+    try:
+        if supabase:
+            model_res = (
+                await supabase.table("llm_model_config")
+                .select("count", count="exact")
+                .eq("status", "enabled")
+                .eq("is_deleted", False)
+                .execute()
+            )
+            enabled_count = model_res.count if model_res.count is not None else 0
+            llm_gateway_status = f"ok ({enabled_count} models)" if enabled_count > 0 else "no_models_enabled"
+    except Exception:
+        llm_gateway_status = "available"  # Table may not exist yet, that's ok
+
     return {
         "status": ("healthy" if db_status == "connected" and cache_status == "connected" else "degraded"),
         "version": settings.VERSION,
@@ -413,6 +470,7 @@ async def health_check():
             "database": db_status,
             "cache": cache_status,
             "ai_gateway": ai_status,
+            "llm_model_gateway": llm_gateway_status,
         },
     }
 

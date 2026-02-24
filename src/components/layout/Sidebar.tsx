@@ -38,6 +38,12 @@ import {
   GraduationCap,
   ClipboardList,
   Key,
+  Rocket,
+  ListTodo,
+  Bot as BotIcon,
+  ShieldCheck,
+  Cpu,
+  Bug,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -100,6 +106,9 @@ export function Sidebar({ onNavClick }: SidebarProps) {
   const isActive = (href: string) => {
     if (href === 'dashboard' && location.pathname === '/dashboard') return true;
     if (href === 'boss-dashboard' && location.pathname === '/boss-dashboard') return true;
+    // Exact match for parent items that have sub-pages (e.g. 'vmd' shouldn't match 'vmd/tasks')
+    if (href === 'vmd' && location.pathname === '/vmd') return true;
+    if (href === 'vmd') return false;
     return location.pathname.startsWith('/' + href);
   };
 
@@ -126,6 +135,15 @@ export function Sidebar({ onNavClick }: SidebarProps) {
     { icon: <Puzzle size={20} />, label: '插件市场', href: 'plugins', roles: ['boss'] },
     { icon: <ClipboardList size={20} />, label: '审计日志', href: 'audit', roles: ['boss'] },
     { icon: <Key size={20} />, label: 'API密钥', href: 'api-keys', roles: ['boss'] },
+    { icon: <Bug size={20} />, label: 'Agent调试', href: 'agent-debug', roles: ['boss'] },
+    // VMD (Virtual Marketing Department)
+    { icon: <Rocket size={20} />, label: '虚拟市场部', href: 'vmd', badge: 'AI', badgeType: 'primary', roles: undefined },
+    { icon: <ListTodo size={20} />, label: '任务中心', href: 'vmd/tasks', roles: undefined },
+    { icon: <BotIcon size={20} />, label: 'Agent配置', href: 'vmd/agents', roles: ['boss', 'manager'] },
+    { icon: <Target size={20} />, label: '线索管理', href: 'vmd/clues', roles: undefined },
+    { icon: <ShieldCheck size={20} />, label: '合规校验', href: 'vmd/compliance', roles: undefined },
+    { icon: <BarChart3 size={20} />, label: 'VMD看板', href: 'vmd/dashboard', roles: undefined },
+    { icon: <Cpu size={20} />, label: '模型管理', href: 'llm/models', roles: ['boss'] },
   ];
 
   const bossNav: NavItem[] = [
@@ -149,6 +167,15 @@ export function Sidebar({ onNavClick }: SidebarProps) {
     { icon: <Puzzle size={20} />, label: '插件市场', href: 'plugins', roles: ['boss'] },
     { icon: <ClipboardList size={20} />, label: '审计日志', href: 'audit', roles: ['boss'] },
     { icon: <Key size={20} />, label: 'API密钥', href: 'api-keys', roles: ['boss'] },
+    { icon: <Bug size={20} />, label: 'Agent调试', href: 'agent-debug', roles: ['boss'] },
+    // VMD (Virtual Marketing Department)
+    { icon: <Rocket size={20} />, label: '虚拟市场部', href: 'vmd', badge: 'AI', badgeType: 'primary', roles: undefined },
+    { icon: <ListTodo size={20} />, label: '任务中心', href: 'vmd/tasks', roles: undefined },
+    { icon: <BotIcon size={20} />, label: 'Agent配置', href: 'vmd/agents', roles: ['boss', 'manager'] },
+    { icon: <Target size={20} />, label: '线索管理', href: 'vmd/clues', roles: undefined },
+    { icon: <ShieldCheck size={20} />, label: '合规校验', href: 'vmd/compliance', roles: undefined },
+    { icon: <BarChart3 size={20} />, label: 'VMD看板', href: 'vmd/dashboard', roles: undefined },
+    { icon: <Cpu size={20} />, label: '模型管理', href: 'llm/models', roles: ['boss'] },
   ];
 
   // Use bossNav if user is manager or boss to ensure they see management links
@@ -294,7 +321,8 @@ export function Sidebar({ onNavClick }: SidebarProps) {
         {renderNavGroup("业务与日常", navItems.filter(i => ['projects', 'target-dashboard', 'targets', 'approval', 'exceptions', 'employees', 'departments', 'contracts', 'reports'].includes(i.href)))}
         {renderNavGroup("OA/HR/财务", navItems.filter(i => ['oa', 'hr', 'finance'].includes(i.href)))}
         {renderNavGroup("知识与个人", navItems.filter(i => ['knowledge', 'documents', 'rewards', 'import', 'settings', 'training'].includes(i.href)))}
-        {renderNavGroup("系统管理", navItems.filter(i => ['audit', 'plugins', 'api-keys', 'payments'].includes(i.href)))}
+        {renderNavGroup("虚拟市场部", navItems.filter(i => ['vmd', 'vmd/tasks', 'vmd/agents', 'vmd/clues', 'vmd/compliance', 'vmd/dashboard', 'llm/models'].includes(i.href)))}
+        {renderNavGroup("系统管理", navItems.filter(i => ['audit', 'plugins', 'api-keys', 'payments', 'agent-debug'].includes(i.href)))}
       </nav>
 
       {/* User Profile with Dropdown */}

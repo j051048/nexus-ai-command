@@ -359,6 +359,199 @@ class ConversationMemoryService:
 
         return saved
 
+    # ─── Organization Memory ─────────────────────────────────────
+
+    async def save_org_memory(
+        self,
+        org_id: str,
+        category: str,
+        key: str,
+        value: str,
+        user_id: str | None = None,
+        metadata: dict | None = None,
+        db: Any = None,
+    ) -> dict | None:
+        """Save an organization-level memory visible to all users in the tenant."""
+        client = db or supabase
+        if not client:
+            return None
+        try:
+            record = {
+                "organization_id": org_id,
+                "scope": "organization",
+                "category": category,
+                "key": key,
+                "value": value,
+                "contributed_by": user_id,
+                "metadata": metadata or {},
+            }
+            res = await client.table("org_memories").upsert(
+                record, on_conflict="organization_id,category,key"
+            ).execute()
+            return res.data[0] if res.data else record
+        except Exception as e:
+            logger.error("Failed to save org memory: %s", e)
+            return None
+
+    async def get_org_memories(
+        self,
+        org_id: str,
+        category: str | None = None,
+        limit: int = 50,
+        db: Any = None,
+    ) -> list[dict]:
+        """Get organization-level memories."""
+        client = db or supabase
+        if not client:
+            return []
+        try:
+            query = (
+                client.table("org_memories")
+                .select("*")
+                .eq("organization_id", org_id)
+                .order("updated_at", desc=True)
+                .limit(limit)
+            )
+            if category:
+                query = query.eq("category", category)
+            res = await query.execute()
+            return res.data or []
+        except Exception as e:
+            logger.error("Failed to get org memories: %s", e)
+            return []
+
+    async def search_org_memories(
+        self,
+        org_id: str,
+        query: str,
+        limit: int = 10,
+        db: Any = None,
+    ) -> list[dict]:
+        """Search organization memories by keyword."""
+        client = db or supabase
+        if not client:
+            return []
+        try:
+            res = (
+                await client.table("org_memories")
+                .select("*")
+                .eq("organization_id", org_id)
+                .or_(f"key.ilike.%{query}%,value.ilike.%{query}%")
+                .order("updated_at", desc=True)
+                .limit(limit)
+                .execute()
+            )
+            return res.data or []
+        except Exception as e:
+            logger.error("Failed to search org memories: %s", e)
+            return []
+
+    async def delete_org_memory(
+        self,
+        org_id: str,
+        memory_id: str,
+        db: Any = None,
+    ) -> bool:
+        """Delete a specific organization memory."""
+        client = db or supabase
+        if not client:
+            return False
+        try:
+            await (
+                client.table("org_memories")
+                .delete()
+                .eq("id", memory_id)
+                .eq("organization_id", org_id)
+                .execute()
+            )
+            return True
+        except Exception as e:
+            if hasattr(e, "code") and str(getattr(e, "code", "")) == "204":
+                return True
+            logger.error("Failed to delete org memory: %s", e)
+            return False
+
+    async def build_org_memory_context(
+        self,
+        org_id: str,
+        query: str | None = None,
+        db: Any = None,
+    ) -> str:
+        """Build organization memory context string for injection into system prompt."""
+        if not org_id:
+            return ""
+
+        parts: list[str] = []
+
+        # Get org-wide preferences/rules
+        prefs = await self.get_org_memories(org_id, category="preference", limit=20, db=db)
+        if prefs:
+            parts.append("## 组织规则和偏好")
+            for m in prefs:
+                parts.append(f"- {m['key']}: {m['value']}")
+
+        # Get org knowledge
+        knowledge = await self.get_org_memories(org_id, category="knowledge", limit=20, db=db)
+        if knowledge:
+            parts.append("## 组织共享知识")
+            for m in knowledge:
+                parts.append(f"- {m['key']}: {m['value']}")
+
+        # If there's a query, search for relevant memories
+        if query:
+            relevant = await self.search_org_memories(org_id, query, limit=5, db=db)
+            # Filter out duplicates already in prefs/knowledge
+            existing_keys = {m["key"] for m in prefs + knowledge}
+            relevant = [m for m in relevant if m["key"] not in existing_keys]
+            if relevant:
+                parts.append("## 相关组织记忆")
+                for m in relevant:
+                    parts.append(f"- [{m['category']}] {m['key']}: {m['value']}")
+
+        return "\n".join(parts)
+
+    async def extract_org_memories(
+        self,
+        org_id: str,
+        user_id: str,
+        message: str,
+        ai_response: str,
+        db: Any = None,
+    ) -> list[dict]:
+        """
+        Extract potential organization-level knowledge from conversations.
+        Rules-based extraction for common patterns.
+        """
+        extracted: list[dict] = []
+
+        # Pattern: "我们公司..." / "公司规定..." / "组织要求..."
+        org_patterns = [
+            (re.compile(r"(?:我们公司|公司规定|组织要求|团队规则|部门规定)[：:是]?\s*(.{5,100})"), "preference"),
+            (re.compile(r"(?:记住|请记住|注意)[：:，,]\s*(?:我们|公司|组织)(.{5,100})"), "preference"),
+            (re.compile(r"(?:客户|供应商|合作伙伴)\s*[\w\u4e00-\u9fff]+\s*(?:的|是).{5,80}"), "knowledge"),
+            (re.compile(r"(?:以后|今后|从现在起).{3,50}(?:都要|必须|应该|需要).{5,50}"), "preference"),
+        ]
+
+        for pattern, category in org_patterns:
+            matches = pattern.findall(message)
+            for match in matches[:3]:  # Max 3 per pattern
+                clean = match.strip().rstrip("。.!！")
+                if len(clean) >= 5:
+                    key = clean[:100]
+                    saved = await self.save_org_memory(
+                        org_id=org_id,
+                        category=category,
+                        key=key,
+                        value=clean,
+                        user_id=user_id,
+                        metadata={"source": "auto_extract"},
+                        db=db,
+                    )
+                    if saved:
+                        extracted.append(saved)
+
+        return extracted
+
     # ─── 记忆上下文构建 ──────────────────────────────────────────
 
     async def build_memory_context(

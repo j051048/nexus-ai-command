@@ -1,0 +1,614 @@
+/**
+ * VMD (虚拟市场部) API Hooks
+ * 使用 @tanstack/react-query + aiClient 统一模式
+ */
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { aiClient } from '@/api/aiClient';
+import { toast } from 'sonner';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyData = Record<string, any>;
+
+// ─── Types ───────────────────────────────────────────────────
+
+export interface VMDTask {
+  id: string;
+  task_code: string;
+  title: string;
+  description: string;
+  scene_code: string;
+  status: 'pending' | 'planning' | 'executing' | 'reviewing' | 'done' | 'failed';
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  progress: number;
+  deadline: string | null;
+  created_at: string;
+  updated_at: string;
+  sub_tasks?: VMDSubTask[];
+}
+
+export interface VMDSubTask {
+  id: string;
+  task_id: string;
+  agent_role: string;
+  title: string;
+  status: string;
+  output: string | null;
+  created_at: string;
+}
+
+export interface VMDAgent {
+  id: string;
+  agent_code: string;
+  name: string;
+  role_description: string;
+  system_prompt: string;
+  tool_whitelist: string[];
+  scene_codes: string[];
+  model_tier: 'high' | 'standard';
+  is_active: boolean;
+  icon: string;
+}
+
+export interface LLMModel {
+  id: string;
+  provider_type: string;
+  model_code: string;
+  model_name: string;
+  api_base_url: string;
+  api_key?: string;
+  secret_key?: string;
+  model_id: string;
+  model_type: 'chat' | 'embedding';
+  timeout_ms: number;
+  max_tokens: number;
+  context_window: number;
+  supports_tools: boolean;
+  supports_streaming: boolean;
+  input_price: number;
+  output_price: number;
+  is_active: boolean;
+  is_default: boolean;
+}
+
+export interface ScheduleRule {
+  id: string;
+  scene_code: string;
+  agent_code: string;
+  primary_model: string;
+  backup_model: string;
+  strategy: string;
+}
+
+export interface VMDClue {
+  id: string;
+  company_name: string;
+  title: string;
+  source: string;
+  level: 'A' | 'B' | 'C' | 'D';
+  status: 'new' | 'following' | 'high_intent' | 'key_customer' | 'converted';
+  amount: number | null;
+  assigned_to: string | null;
+  follow_ups: VMDFollowUp[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VMDFollowUp {
+  id: string;
+  clue_id: string;
+  content: string;
+  created_at: string;
+}
+
+export interface BidProject {
+  id: string;
+  project_name: string;
+  purchaser: string;
+  deadline: string;
+  amount: number | null;
+  status: string;
+  keywords: string[];
+  created_at: string;
+}
+
+export interface ComplianceResult {
+  id: string;
+  content_snippet: string;
+  category: string;
+  severity: 'info' | 'warning' | 'error';
+  matched_text: string;
+  suggestion: string;
+}
+
+export interface ComplianceRule {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  severity: 'info' | 'warning' | 'error';
+  is_active: boolean;
+  pattern: string;
+}
+
+export interface ComplianceLog {
+  id: string;
+  source: string;
+  total_issues: number;
+  status: 'clean' | 'has_issues';
+  created_at: string;
+}
+
+// ─── VMD Tasks ───────────────────────────────────────────────
+
+interface TaskFilters {
+  status?: string;
+  priority?: string;
+  scene_code?: string;
+  date_from?: string;
+  date_to?: string;
+}
+
+export function useVMDTasks(filters: TaskFilters = {}) {
+  return useQuery({
+    queryKey: ['vmd-tasks', filters],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filters.status) params.set('status', filters.status);
+      if (filters.priority) params.set('priority', filters.priority);
+      if (filters.scene_code) params.set('scene_code', filters.scene_code);
+      if (filters.date_from) params.set('date_from', filters.date_from);
+      if (filters.date_to) params.set('date_to', filters.date_to);
+      const qs = params.toString();
+      const res = await aiClient.fetch<{ success: boolean; data: VMDTask[] }>(
+        `api/vmd/tasks${qs ? '?' + qs : ''}`
+      );
+      return res.data;
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useVMDTaskDetail(taskId: string | null) {
+  return useQuery({
+    queryKey: ['vmd-task', taskId],
+    queryFn: async () => {
+      if (!taskId) return null;
+      const res = await aiClient.fetch<{ success: boolean; data: VMDTask }>(
+        `api/vmd/tasks/${taskId}`
+      );
+      return res.data;
+    },
+    enabled: !!taskId,
+  });
+}
+
+export function useCreateVMDTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { title: string; description: string; scene_code: string; priority: string; deadline?: string }) => {
+      const res = await aiClient.fetch<{ success: boolean; data: VMDTask }>(
+        'api/vmd/tasks', { method: 'POST', body: JSON.stringify(data) }
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vmd-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['vmd-stats'] });
+      toast.success('任务创建成功');
+    },
+    onError: (err: Error) => toast.error(err.message || '创建任务失败'),
+  });
+}
+
+export function useAuditSubTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { subTaskId: string; action: 'approve' | 'reject'; comment?: string }) => {
+      const res = await aiClient.fetch<{ success: boolean }>(
+        `api/vmd/sub-tasks/${data.subTaskId}/audit`,
+        { method: 'POST', body: JSON.stringify({ action: data.action, comment: data.comment }) }
+      );
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vmd-task'] });
+      queryClient.invalidateQueries({ queryKey: ['vmd-tasks'] });
+      toast.success('审核完成');
+    },
+    onError: (err: Error) => toast.error(err.message || '审核操作失败'),
+  });
+}
+
+// ─── VMD Agents ──────────────────────────────────────────────
+
+export function useVMDAgents() {
+  return useQuery({
+    queryKey: ['vmd-agents'],
+    queryFn: async () => {
+      const res = await aiClient.fetch<{ success: boolean; data: VMDAgent[] }>('api/vmd/agents');
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useUpdateVMDAgent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: Partial<VMDAgent> & { id: string }) => {
+      const res = await aiClient.fetch<{ success: boolean; data: VMDAgent }>(
+        `api/vmd/agents/${data.id}`,
+        { method: 'PATCH', body: JSON.stringify(data) }
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vmd-agents'] });
+      toast.success('Agent 配置已更新');
+    },
+    onError: (err: Error) => toast.error(err.message || '更新 Agent 失败'),
+  });
+}
+
+// ─── LLM Models ──────────────────────────────────────────────
+
+export function useLLMModels() {
+  return useQuery({
+    queryKey: ['llm-models'],
+    queryFn: async () => {
+      const res = await aiClient.fetch<{ success: boolean; data: LLMModel[] }>('api/llm/models');
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useCreateLLMModel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: Partial<LLMModel>) => {
+      const res = await aiClient.fetch<{ success: boolean; data: LLMModel }>(
+        'api/llm/models', { method: 'POST', body: JSON.stringify(data) }
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['llm-models'] });
+      toast.success('模型添加成功');
+    },
+    onError: (err: Error) => toast.error(err.message || '添加模型失败'),
+  });
+}
+
+export function useUpdateLLMModel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: Partial<LLMModel> & { id: string }) => {
+      const res = await aiClient.fetch<{ success: boolean; data: LLMModel }>(
+        `api/llm/models/${data.id}`,
+        { method: 'PATCH', body: JSON.stringify(data) }
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['llm-models'] });
+      toast.success('模型更新成功');
+    },
+    onError: (err: Error) => toast.error(err.message || '更新模型失败'),
+  });
+}
+
+export function useDeleteLLMModel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await aiClient.fetch(`api/llm/models/${id}`, { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['llm-models'] });
+      toast.success('模型已删除');
+    },
+    onError: (err: Error) => toast.error(err.message || '删除模型失败'),
+  });
+}
+
+export function useTestLLMModel() {
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await aiClient.fetch<{ success: boolean; latency_ms: number }>(
+        `api/llm/models/${id}/test`, { method: 'POST' }
+      );
+      return res;
+    },
+  });
+}
+
+export function useScheduleRules() {
+  return useQuery({
+    queryKey: ['llm-schedule-rules'],
+    queryFn: async () => {
+      const res = await aiClient.fetch<{ success: boolean; data: ScheduleRule[] }>('api/llm/schedule-rules');
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useModelUsageStats(range: string = 'week') {
+  return useQuery({
+    queryKey: ['llm-usage-stats', range],
+    queryFn: async () => {
+      const res = await aiClient.fetch<{ success: boolean; data: AnyData[] }>(
+        `api/llm/usage-stats?range=${range}`
+      );
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+// ─── VMD Clues ───────────────────────────────────────────────
+
+interface ClueFilters {
+  status?: string;
+  level?: string;
+  source?: string;
+  assigned_to?: string;
+  search?: string;
+}
+
+export function useVMDClues(filters: ClueFilters = {}) {
+  return useQuery({
+    queryKey: ['vmd-clues', filters],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
+      const qs = params.toString();
+      const res = await aiClient.fetch<{ success: boolean; data: VMDClue[] }>(
+        `api/vmd/clues${qs ? '?' + qs : ''}`
+      );
+      return res.data;
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useCreateVMDClue() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: Partial<VMDClue>) => {
+      const res = await aiClient.fetch<{ success: boolean; data: VMDClue }>(
+        'api/vmd/clues', { method: 'POST', body: JSON.stringify(data) }
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vmd-clues'] });
+      toast.success('线索创建成功');
+    },
+    onError: (err: Error) => toast.error(err.message || '创建线索失败'),
+  });
+}
+
+export function useUpdateVMDClue() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: Partial<VMDClue> & { id: string }) => {
+      const res = await aiClient.fetch<{ success: boolean; data: VMDClue }>(
+        `api/vmd/clues/${data.id}`,
+        { method: 'PATCH', body: JSON.stringify(data) }
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vmd-clues'] });
+      toast.success('线索更新成功');
+    },
+    onError: (err: Error) => toast.error(err.message || '更新线索失败'),
+  });
+}
+
+export function useBidProjects() {
+  return useQuery({
+    queryKey: ['vmd-bid-projects'],
+    queryFn: async () => {
+      const res = await aiClient.fetch<{ success: boolean; data: BidProject[] }>('api/vmd/bid-projects');
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useBidKeywords() {
+  return useQuery({
+    queryKey: ['vmd-bid-keywords'],
+    queryFn: async () => {
+      const res = await aiClient.fetch<{ success: boolean; data: string[] }>('api/vmd/bid-keywords');
+      return res.data;
+    },
+  });
+}
+
+export function useUpdateBidKeywords() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (keywords: string[]) => {
+      await aiClient.fetch('api/vmd/bid-keywords', { method: 'PUT', body: JSON.stringify({ keywords }) });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vmd-bid-keywords'] });
+      toast.success('关键词已更新');
+    },
+  });
+}
+
+// ─── VMD Dashboard / Stats ───────────────────────────────────
+
+export function useVMDStats() {
+  return useQuery({
+    queryKey: ['vmd-stats'],
+    queryFn: async () => {
+      const res = await aiClient.fetch<{ success: boolean; data: AnyData }>('api/vmd/stats');
+      return res.data;
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useVMDDashboard(range: string = 'week') {
+  return useQuery({
+    queryKey: ['vmd-dashboard', range],
+    queryFn: async () => {
+      const res = await aiClient.fetch<{ success: boolean; data: AnyData }>(
+        `api/vmd/dashboard?range=${range}`
+      );
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+// ─── VMD Dashboard Charts ────────────────────────────────────
+
+export function useVMDTaskTrend(days: number = 30) {
+  return useQuery({
+    queryKey: ['vmd-task-trend', days],
+    queryFn: async () => {
+      const res = await aiClient.fetch<{ success: boolean; data: AnyData[] }>(
+        `api/vmd/dashboard/task-trend?days=${days}`
+      );
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useVMDSceneDistribution() {
+  return useQuery({
+    queryKey: ['vmd-scene-distribution'],
+    queryFn: async () => {
+      const res = await aiClient.fetch<{ success: boolean; data: AnyData[] }>(
+        'api/vmd/dashboard/scene-distribution'
+      );
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useVMDAgentWorkload() {
+  return useQuery({
+    queryKey: ['vmd-agent-workload'],
+    queryFn: async () => {
+      const res = await aiClient.fetch<{ success: boolean; data: AnyData[] }>(
+        'api/vmd/dashboard/agent-workload'
+      );
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useVMDComplianceTrend(days: number = 30) {
+  return useQuery({
+    queryKey: ['vmd-compliance-trend', days],
+    queryFn: async () => {
+      const res = await aiClient.fetch<{ success: boolean; data: AnyData[] }>(
+        `api/vmd/dashboard/compliance-trend?days=${days}`
+      );
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+// ─── VMD Clue Follow-ups & Conversion ────────────────────────
+
+export function useAddFollowUp() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { clue_id: string; content: string }) => {
+      const res = await aiClient.fetch<{ success: boolean; data: VMDFollowUp }>(
+        `api/vmd/clues/${data.clue_id}/follow-ups`,
+        { method: 'POST', body: JSON.stringify({ content: data.content }) }
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vmd-clues'] });
+      toast.success('跟进记录已添加');
+    },
+    onError: (err: Error) => toast.error(err.message || '添加跟进记录失败'),
+  });
+}
+
+export function useConvertClue() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (clueId: string) => {
+      const res = await aiClient.fetch<{ success: boolean }>(
+        `api/vmd/clues/${clueId}/convert`,
+        { method: 'POST' }
+      );
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vmd-clues'] });
+      toast.success('线索已成功转化为客户');
+    },
+    onError: (err: Error) => toast.error(err.message || '转化失败'),
+  });
+}
+
+// ─── Compliance ──────────────────────────────────────────────
+
+export function useComplianceCheck() {
+  return useMutation({
+    mutationFn: async (data: { content: string; categories: string[] }) => {
+      const res = await aiClient.fetch<{ success: boolean; data: ComplianceResult[] }>(
+        'api/vmd/compliance/check', { method: 'POST', body: JSON.stringify(data) }
+      );
+      return res.data;
+    },
+  });
+}
+
+export function useComplianceRules() {
+  return useQuery({
+    queryKey: ['vmd-compliance-rules'],
+    queryFn: async () => {
+      const res = await aiClient.fetch<{ success: boolean; data: ComplianceRule[] }>('api/vmd/compliance/rules');
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useCreateComplianceRule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: Partial<ComplianceRule>) => {
+      const res = await aiClient.fetch<{ success: boolean; data: ComplianceRule }>(
+        'api/vmd/compliance/rules', { method: 'POST', body: JSON.stringify(data) }
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vmd-compliance-rules'] });
+      toast.success('规则创建成功');
+    },
+    onError: (err: Error) => toast.error(err.message || '创建规则失败'),
+  });
+}
+
+export function useComplianceLogs() {
+  return useQuery({
+    queryKey: ['vmd-compliance-logs'],
+    queryFn: async () => {
+      const res = await aiClient.fetch<{ success: boolean; data: ComplianceLog[] }>('api/vmd/compliance/logs');
+      return res.data;
+    },
+    staleTime: 30_000,
+  });
+}

@@ -158,3 +158,6 @@ class ChatRequest(BaseModel):
     userId: str | None = None  # noqa: N815  # Support legacy field
     system_confirmed: bool = False  # P0 Fix #2: Explicit user confirmation from frontend
     sessionId: str | None = "default"  # noqa: N815
+    # VMD (Virtual Marketing Department) extensions
+    scene_code: str | None = None  # Business scene code (e.g., "bid_document", "content_writing")
+    agent_code: str | None = None  # Specific agent role code (e.g., "content_agent")

@@ -40,4 +40,12 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.scheduler.check_contract_expiry",
         "schedule": crontab(hour=9, minute=30),  # 每天早9:30
     },
+    "knowledge-base-gc": {
+        "task": "app.tasks.scheduler.cleanup_stale_embeddings",
+        "schedule": crontab(hour=3, minute=0),  # 每天凌晨3点
+    },
+    "ai-quality-aggregation": {
+        "task": "app.tasks.scheduler.aggregate_ai_quality_metrics",
+        "schedule": crontab(hour=23, minute=55),  # 每天23:55聚合当日数据
+    },
 }

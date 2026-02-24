@@ -122,12 +122,28 @@ class QueryTransformer:
     def __init__(self, config: AgentConfig):
         self.config = config
         self._llm_client = None
+        self._resolved_model = None
 
     async def _get_llm(self):
-        """Lazy load LLM client."""
+        """Lazy load LLM client, resolving via LLM gateway when available."""
         if self._llm_client is None:
             try:
                 from openai import AsyncOpenAI
+
+                # Try gateway resolution first
+                try:
+                    from app.services.llm_helpers import resolve_model_config
+                    resolved = await resolve_model_config(
+                        org_id=getattr(self.config, "org_id", None) or "default",
+                    )
+                    self._llm_client = AsyncOpenAI(
+                        api_key=resolved["api_key"],
+                        base_url=resolved["base_url"],
+                    )
+                    self._resolved_model = resolved.get("model", self.config.mini_model)
+                    return self._llm_client
+                except Exception:
+                    pass
 
                 self._llm_client = AsyncOpenAI(api_key=self.config.api_key, base_url=self.config.base_url)
             except Exception as e:
@@ -157,7 +173,7 @@ class QueryTransformer:
 
         try:
             response = await llm.chat.completions.create(
-                model=self.config.mini_model,
+                model=self._resolved_model or self.config.mini_model,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=300,
                 temperature=0.3,
@@ -192,7 +208,7 @@ class QueryTransformer:
 
         try:
             response = await llm.chat.completions.create(
-                model=self.config.mini_model,
+                model=self._resolved_model or self.config.mini_model,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=200,
                 temperature=0.5,
@@ -231,7 +247,7 @@ class QueryTransformer:
 
         try:
             response = await llm.chat.completions.create(
-                model=self.config.mini_model,
+                model=self._resolved_model or self.config.mini_model,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=100,
                 temperature=0.2,
@@ -399,6 +415,28 @@ async def prepare_initial_state(
         except Exception as e:
             logger.debug(f"[Memory] Long-term memory injection skipped: {e}")
 
+    # ── 2c. Organization Memory Injection ──
+    if config.org_id and last_user_msg:
+        try:
+            from app.services.conversation_memory_service import conversation_memory_service
+
+            org_memory_ctx = await conversation_memory_service.build_org_memory_context(
+                org_id=config.org_id,
+                query=last_user_msg,
+                db=client,
+            )
+            if org_memory_ctx:
+                raw_messages.insert(
+                    0,
+                    {
+                        "role": "system",
+                        "content": "[组织共享记忆上下文]\n" + org_memory_ctx + "\n[组织记忆结束]",
+                    },
+                )
+                logger.info(f"[Memory] Injected org memory context for org {config.org_id}")
+        except Exception as e:
+            logger.debug(f"[Memory] Org memory context failed: {e}")
+
     # ── 3. Sliding Window with Summary ──
     if len(raw_messages) > SHORT_TERM_WINDOW:
         older = raw_messages[:-SHORT_TERM_WINDOW]
@@ -447,12 +485,14 @@ async def persist_result(
     agent_name: str | None = None,
     metadata: dict | None = None,
     db_client: Any | None = None,
+    org_id: str | None = None,
 ):
     """
     Post-graph: persist messages and update caches.
 
     1. Save user + assistant messages to DB
     2. Update semantic cache with the new Q-A pair
+    3. Extract user-level and org-level long-term memories
     """
     client = db_client or supabase
 
@@ -506,6 +546,25 @@ async def persist_result(
                 logger.info(f"[Memory] Extracted {len(extracted)} long-term memories for user {user_id}")
         except Exception as e:
             logger.debug(f"[Memory] Memory extraction skipped: {e}")
+
+    # Extract and persist organization-level memories
+    if user_message and org_id:
+        try:
+            from app.services.conversation_memory_service import conversation_memory_service
+
+            org_extracted = await conversation_memory_service.extract_org_memories(
+                org_id=org_id,
+                user_id=user_id,
+                message=user_message,
+                ai_response=assistant_response or "",
+                db=client,
+            )
+            if org_extracted:
+                logger.info(
+                    f"[Memory] Extracted {len(org_extracted)} org memories for org {org_id} by user {user_id}"
+                )
+        except Exception as e:
+            logger.debug(f"[Memory] Org memory extraction skipped: {e}")
 
 
 async def load_session_history(

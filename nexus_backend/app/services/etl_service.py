@@ -23,6 +23,9 @@ class ETLService:
     maximum compatibility with 3rd-party proxies like apiyi.com.
     """
 
+    # Default embedding model (can be overridden by gateway resolution)
+    _DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
+
     def __init__(self):
         self.api_key = settings.OPENAI_API_KEY
         # Normalize Base URL: Ensure it ends with /v1
@@ -287,6 +290,145 @@ class ETLService:
                         "filename": filename,
                         "status": "error",
                         "reason": f"DOCX 解析失败: {error_str}",
+                    }
+            elif filename.lower().endswith((".xlsx", ".xls")):
+
+                def _parse_excel():
+                    try:
+                        import openpyxl
+                    except ImportError:
+                        raise ImportError("openpyxl 未安装，请运行: pip install openpyxl")
+
+                    if filename.lower().endswith(".xls"):
+                        raise ValueError(
+                            "不支持旧版 .xls 格式（Excel 97-2003）。请将文件另存为 .xlsx 格式后重新上传。"
+                        )
+
+                    wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+                    parts = []
+
+                    for sheet_name in wb.sheetnames:
+                        ws = wb[sheet_name]
+                        sheet_lines = [f"## 工作表: {sheet_name}\n"]
+
+                        rows = list(ws.iter_rows(values_only=True))
+                        if not rows:
+                            sheet_lines.append("（空工作表）\n")
+                            parts.append("\n".join(sheet_lines))
+                            continue
+
+                        # Build markdown table format for better structure preservation
+                        for row_idx, row in enumerate(rows):
+                            cell_values = [str(cell) if cell is not None else "" for cell in row]
+                            row_text = "| " + " | ".join(cell_values) + " |"
+                            sheet_lines.append(row_text)
+                            # Add header separator after first row
+                            if row_idx == 0:
+                                separator = "| " + " | ".join(["---"] * len(cell_values)) + " |"
+                                sheet_lines.append(separator)
+
+                        parts.append("\n".join(sheet_lines))
+
+                    wb.close()
+                    return "\n\n".join(parts)
+
+                try:
+                    text = await asyncio.to_thread(_parse_excel)
+                except ImportError as e:
+                    return {
+                        "filename": filename,
+                        "status": "error",
+                        "reason": str(e),
+                    }
+                except ValueError as e:
+                    return {
+                        "filename": filename,
+                        "status": "error",
+                        "reason": str(e),
+                    }
+                except Exception as e:
+                    error_str = str(e)
+                    if "File is not a zip file" in error_str:
+                        return {
+                            "filename": filename,
+                            "status": "error",
+                            "reason": "文件格式错误。请确认这是标准的 .xlsx 文件（OpenXML）。",
+                        }
+                    return {
+                        "filename": filename,
+                        "status": "error",
+                        "reason": f"Excel 解析失败: {error_str}",
+                    }
+            elif filename.lower().endswith((".pptx", ".ppt")):
+
+                def _parse_pptx():
+                    try:
+                        from pptx import Presentation
+                    except ImportError:
+                        raise ImportError("python-pptx 未安装，请运行: pip install python-pptx")
+
+                    if filename.lower().endswith(".ppt"):
+                        raise ValueError(
+                            "不支持旧版 .ppt 格式（PowerPoint 97-2003）。请将文件另存为 .pptx 格式后重新上传。"
+                        )
+
+                    prs = Presentation(io.BytesIO(content))
+                    parts = []
+
+                    for slide_num, slide in enumerate(prs.slides, start=1):
+                        slide_lines = [f"## 幻灯片 {slide_num}"]
+
+                        # Extract slide title
+                        if slide.shapes.title and slide.shapes.title.has_text_frame:
+                            slide_lines.append(f"**标题:** {slide.shapes.title.text_frame.text}")
+
+                        # Extract text from all text frames
+                        body_texts = []
+                        for shape in slide.shapes:
+                            if shape.has_text_frame:
+                                # Skip the title shape (already extracted above)
+                                if shape == slide.shapes.title:
+                                    continue
+                                for paragraph in shape.text_frame.paragraphs:
+                                    para_text = paragraph.text.strip()
+                                    if para_text:
+                                        body_texts.append(para_text)
+
+                        if body_texts:
+                            slide_lines.append("\n".join(body_texts))
+
+                        # Only add slide if it has any text content
+                        if len(slide_lines) > 1:
+                            parts.append("\n".join(slide_lines))
+
+                    return "\n\n".join(parts)
+
+                try:
+                    text = await asyncio.to_thread(_parse_pptx)
+                except ImportError as e:
+                    return {
+                        "filename": filename,
+                        "status": "error",
+                        "reason": str(e),
+                    }
+                except ValueError as e:
+                    return {
+                        "filename": filename,
+                        "status": "error",
+                        "reason": str(e),
+                    }
+                except Exception as e:
+                    error_str = str(e)
+                    if "File is not a zip file" in error_str or "Package not found" in error_str:
+                        return {
+                            "filename": filename,
+                            "status": "error",
+                            "reason": "文件格式错误。请确认这是标准的 .pptx 文件（OpenXML）。",
+                        }
+                    return {
+                        "filename": filename,
+                        "status": "error",
+                        "reason": f"PPT 解析失败: {error_str}",
                     }
             else:
                 return {
@@ -630,12 +772,30 @@ class ETLService:
         current_batch_text = []
         all_success = True
 
+        # Resolve embedding model dynamically via gateway
+        embedding_model = self._DEFAULT_EMBEDDING_MODEL
+        active_api_key = api_key
+        active_base_url = base_url
+        try:
+            from app.services.llm_helpers import resolve_embedding_config
+            emb_config = await resolve_embedding_config(organization_id or "default")
+            if emb_config.get("model"):
+                embedding_model = emb_config["model"]
+            if emb_config.get("api_key"):
+                active_api_key = emb_config["api_key"]
+            if emb_config.get("base_url"):
+                active_base_url = emb_config["base_url"].rstrip("/")
+                if "/v1" not in active_base_url and "api.openai.com" not in active_base_url:
+                    active_base_url = f"{active_base_url}/v1"
+        except Exception:
+            pass
+
         async def _process_batch(batch_texts):
             try:
-                payload = {"model": "text-embedding-3-small", "input": batch_texts}
-                headers = {"Authorization": f"Bearer {api_key}"}
+                payload = {"model": embedding_model, "input": batch_texts}
+                headers = {"Authorization": f"Bearer {active_api_key}"}
                 async with httpx.AsyncClient(timeout=45.0) as client:
-                    resp = await client.post(f"{base_url}/embeddings", headers=headers, json=payload)
+                    resp = await client.post(f"{active_base_url}/embeddings", headers=headers, json=payload)
                     if resp.status_code == 200:
                         embeddings_data = resp.json()["data"]
                         records = []

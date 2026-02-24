@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 # Default TTL for cache entries: 24 hours
 DEFAULT_CACHE_TTL_HOURS = 24
+_DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 
 
 class SemanticCacheService:
@@ -35,6 +36,26 @@ class SemanticCacheService:
             api_key=settings.OPENAI_API_KEY,
             base_url=(settings.AI_BASE_URL.split("/chat/completions")[0].rstrip("/") if settings.AI_BASE_URL else None),
         )
+        # Embedding model (will be dynamically resolved on first use)
+        self._embedding_model = _DEFAULT_EMBEDDING_MODEL
+        self._embedding_resolved = False
+
+    async def _resolve_embedding_model(self):
+        """Resolve embedding model via gateway (cached after first call)."""
+        if self._embedding_resolved:
+            return
+        try:
+            from app.services.llm_helpers import resolve_embedding_config
+            config = await resolve_embedding_config()
+            self._embedding_model = config.get("model", _DEFAULT_EMBEDDING_MODEL)
+            if config.get("api_key"):
+                self.openai_client = AsyncOpenAI(
+                    api_key=config["api_key"],
+                    base_url=config.get("base_url"),
+                )
+        except Exception as e:
+            logger.debug(f"Semantic cache embedding resolution failed, using default: {e}")
+        self._embedding_resolved = True
 
     @staticmethod
     def _query_hash(query: str) -> str:
@@ -84,8 +105,9 @@ class SemanticCacheService:
                 return hash_res.data["response_text"]
 
             # --- Slow path: vector similarity search ---
-            # 1. Get embedding for the new query
-            response = await self.openai_client.embeddings.create(input=query, model="text-embedding-3-small")
+            # 1. Resolve embedding model and get embedding for the new query
+            await self._resolve_embedding_model()
+            response = await self.openai_client.embeddings.create(input=query, model=self._embedding_model)
             query_embedding = response.data[0].embedding
 
             # 2. Match in Supabase via RPC (TTL-filtered)
@@ -127,8 +149,9 @@ class SemanticCacheService:
             return
 
         try:
-            # 1. Get embedding
-            response = await self.openai_client.embeddings.create(input=query, model="text-embedding-3-small")
+            # 1. Resolve embedding model and get embedding
+            await self._resolve_embedding_model()
+            response = await self.openai_client.embeddings.create(input=query, model=self._embedding_model)
             embedding = response.data[0].embedding
 
             # 2. Get org_id for multi-tenancy

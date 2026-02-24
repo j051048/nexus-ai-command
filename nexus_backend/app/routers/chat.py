@@ -193,6 +193,9 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
                 agent_name=request.agent,
                 user_role=user_role,
                 org_id=org_id,
+                # VMD extensions: pass scene/agent codes for role-based routing
+                scene_code=request.scene_code,
+                vmd_agent_code=request.agent_code,
             ),
             media_type="text/event-stream; charset=utf-8",
         )

@@ -85,6 +85,14 @@ export function MainLayout({ children }: MainLayoutProps) {
     if (path.includes('employees')) return '员工管理';
     if (path.includes('exceptions')) return '异常待办';
     if (path.includes('targets')) return '目标管理';
+    if (path.includes('vmd/tasks')) return '任务中心';
+    if (path.includes('vmd/agents')) return 'Agent配置';
+    if (path.includes('vmd/clues')) return '线索管理';
+    if (path.includes('vmd/compliance')) return '合规校验';
+    if (path.includes('vmd/dashboard')) return '数据看板';
+    if (path.includes('vmd')) return '虚拟市场部';
+    if (path.includes('llm/models')) return '模型管理';
+    if (path.includes('agent-debug')) return 'Agent 调试面板';
 
     return 'Nexus OS';
   };

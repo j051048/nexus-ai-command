@@ -8,26 +8,36 @@ Graph topology:
     └────┬────┘
          │
     ┌────▼─────┐
-    │  Router  │  ← classify intent, pick model
+    │  Router  │  ← classify intent, pick model, detect VMD role
     └────┬─────┘
          │
-    ┌────▼─────┐    ┌──────────┐
-    │   Plan   │◄───┤  Reflect │  ← hallucination? loop back
-    └────┬─────┘    └────▲─────┘
-         │                 │
-         ├── has tools? ───┤
-         │      YES        │ NO
-    ┌────▼─────┐           │
-    │ Execute  │───────────┘
-    └──────────┘  (after reflect passes)
-         │
-    ┌────▼─────┐
-    │ Respond  │  ← sanitize, finalize
-    └────┬─────┘
-         │
-    ┌────▼─────┐
-    │   END    │
-    └──────────┘
+    ┌────▼──────────┐
+    │ after_router  │  ← conditional: multi-agent or standard?
+    └───┬───────┬───┘
+        │       │
+    ┌───▼───┐ ┌─▼──────────┐
+    │ Plan  │ │ WBS Decomp │  ← multi-agent path
+    └───┬───┘ └─────┬──────┘
+        │           │
+        │     ┌─────▼───────┐
+        │     │ Orchestrate │  ← delegates to sub-agents
+        │     └─────┬───────┘
+        │           │
+    ┌───▼───┐       │
+    │Execute│       │
+    └───┬───┘       │
+        │           │
+    ┌───▼───┐  ┌────▼───┐
+    │Reflect│  │Respond │  ← both paths converge
+    └───┬───┘  └────┬───┘
+        │           │
+    ┌───▼───┐  ┌────▼───┐
+    │Respond│  │  END   │
+    └───┬───┘  └────────┘
+        │
+    ┌───▼───┐
+    │  END  │
+    └───────┘
 """
 
 import logging
@@ -37,6 +47,8 @@ from langgraph.graph import END, StateGraph
 
 from app.agent.checkpointer import get_checkpointer
 from app.agent.nodes import error_node, execute_node, plan_node, reflect_node, respond_node
+from app.agent.nodes_orchestrator import orchestrate_node
+from app.agent.nodes_wbs import wbs_decompose_node
 from app.agent.router import route_node
 from app.agent.state import AgentState
 from app.core.config import settings
@@ -123,6 +135,51 @@ def _after_error(state: AgentState) -> str:
     return "plan"
 
 
+def _after_router(state: AgentState) -> str:
+    """
+    After routing:
+      - If the router detected a multi-agent orchestration scenario
+        (agent_code is set AND scene_code indicates decomposition needed
+         AND complexity is COMPLEX) → wbs_decompose
+      - Otherwise → plan (standard single-agent flow)
+    """
+    agent_code = state.get("agent_code", "")
+    scene_code = state.get("scene_code", "")
+
+    # Check if this needs multi-agent WBS decomposition
+    # Trigger conditions: agent_code is set AND it's a complex task needing orchestration
+    if agent_code and scene_code == "task_decompose":
+        return "wbs_decompose"
+
+    return "plan"
+
+
+def _after_orchestrate(state: AgentState) -> str:
+    """
+    After orchestration:
+      - If error occurred → error
+      - Otherwise → respond (the orchestrate node already integrates results)
+    """
+    if state.get("error"):
+        return "error"
+    return "respond"
+
+
+def _after_wbs(state: AgentState) -> str:
+    """
+    After WBS decomposition:
+      - If error occurred → error
+      - If wbs_structure is ready → orchestrate
+      - Fallback → plan (degrade to single-agent)
+    """
+    if state.get("error"):
+        return "error"
+    if state.get("wbs_structure"):
+        return "orchestrate"
+    # Fallback to standard planning if WBS fails silently
+    return "plan"
+
+
 # ─── Graph Builder ───────────────────────────────────────────────────────────
 
 
@@ -130,6 +187,9 @@ def build_agent_graph() -> StateGraph:
     """
     Construct the LangGraph state machine.
     Returns an uncompiled StateGraph.
+
+    Includes both the standard single-agent flow and the VMD multi-agent
+    orchestration path (WBS decompose → orchestrate → respond).
     """
     graph = StateGraph(AgentState)
 
@@ -140,13 +200,44 @@ def build_agent_graph() -> StateGraph:
     graph.add_node("reflect", reflect_node)
     graph.add_node("respond", respond_node)
     graph.add_node("error", error_node)
+    # VMD multi-agent nodes
+    graph.add_node("wbs_decompose", wbs_decompose_node)
+    graph.add_node("orchestrate", orchestrate_node)
 
     # ── Set Entry Point ──
     graph.set_entry_point("router")
 
     # ── Add Edges ──
-    # router → plan (always)
-    graph.add_edge("router", "plan")
+    # router → plan | wbs_decompose (conditional: multi-agent or standard)
+    graph.add_conditional_edges(
+        "router",
+        _after_router,
+        {
+            "plan": "plan",
+            "wbs_decompose": "wbs_decompose",
+        },
+    )
+
+    # wbs_decompose → orchestrate | error | plan (conditional)
+    graph.add_conditional_edges(
+        "wbs_decompose",
+        _after_wbs,
+        {
+            "orchestrate": "orchestrate",
+            "error": "error",
+            "plan": "plan",
+        },
+    )
+
+    # orchestrate → respond | error (conditional)
+    graph.add_conditional_edges(
+        "orchestrate",
+        _after_orchestrate,
+        {
+            "respond": "respond",
+            "error": "error",
+        },
+    )
 
     # plan → execute | reflect | error (conditional)
     graph.add_conditional_edges(

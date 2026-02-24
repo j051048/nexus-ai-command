@@ -77,8 +77,21 @@ def _get_tool_schemas():
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 
-def _get_llm(config: AgentConfig, model: str | None = None, streaming: bool = False):
-    """Get a LangChain ChatOpenAI instance with the provided config."""
+def _get_llm(config: AgentConfig, model: str | None = None, streaming: bool = False, resolved_config: dict | None = None):
+    """Get a LangChain ChatOpenAI instance with the provided config.
+
+    If resolved_config is provided (from LLM gateway), use it.
+    Otherwise fall back to AgentConfig settings.
+    """
+    if resolved_config:
+        return ChatOpenAI(
+            model=resolved_config.get("model", model or config.model),
+            api_key=resolved_config.get("api_key", config.api_key),
+            base_url=resolved_config.get("base_url", config.base_url),
+            temperature=resolved_config.get("temperature", config.temperature),
+            streaming=streaming,
+            timeout=resolved_config.get("timeout", 60.0),
+        )
     return ChatOpenAI(
         model=model or config.model,
         api_key=config.api_key,
@@ -238,6 +251,17 @@ async def plan_node(state: AgentState) -> dict:
     iteration = state.get("iteration", 0)
     rag_context = state.get("rag_context", "")
 
+    # Resolve model via LLM gateway
+    resolved = None
+    try:
+        from app.services.llm_helpers import resolve_model_config
+        org_id = config.org_id or "default"
+        scene_code = state.get("scene_code", "")
+        agent_code = state.get("agent_code", "")
+        resolved = await resolve_model_config(org_id, scene_code, agent_code)
+    except Exception:
+        pass
+
     # Convert to LC format
     lc_msgs = _messages_to_lc_format(messages)
 
@@ -293,7 +317,7 @@ async def plan_node(state: AgentState) -> dict:
 
     # ── Task 1 & 2: LangChain Planning + Streaming ──
     # Use ChatOpenAI with streaming and bind_tools
-    llm = _get_llm(config, model=model, streaming=True)
+    llm = _get_llm(config, model=model, streaming=True, resolved_config=resolved)
     if include_tools:
         llm = llm.bind_tools(_get_tool_schemas())
 
@@ -499,6 +523,17 @@ async def reflect_node(state: AgentState) -> dict:
     complexity = state.get("complexity", QueryComplexity.MODERATE)
     completed_tools = state.get("completed_tool_calls", [])
 
+    # Resolve model via LLM gateway
+    resolved = None
+    try:
+        from app.services.llm_helpers import resolve_model_config
+        org_id = config.org_id or "default"
+        scene_code = state.get("scene_code", "")
+        agent_code = state.get("agent_code", "")
+        resolved = await resolve_model_config(org_id, scene_code, agent_code)
+    except Exception:
+        pass
+
     # Extract the last AI message
     last_ai_content = ""
     for msg in reversed(messages):
@@ -570,7 +605,7 @@ AI回复:
 {last_ai_content[:1000]}
 """
         try:
-            llm = _get_llm(config, model=config.mini_model)
+            llm = _get_llm(config, model=config.mini_model, resolved_config=resolved)
             structured_llm = llm.with_structured_output(GroundednessCheck)
             eval_result: GroundednessCheck = await structured_llm.ainvoke([HumanMessage(content=prompt)])
             if not eval_result.is_grounded:
@@ -600,7 +635,7 @@ AI 回复:
 {last_ai_content}
 """
         try:
-            llm = _get_llm(config, model=config.mini_model)
+            llm = _get_llm(config, model=config.mini_model, resolved_config=resolved)
             structured_llm = llm.with_structured_output(HallucinationCheck)
             eval_result: HallucinationCheck = await structured_llm.ainvoke([HumanMessage(content=prompt)])
             if eval_result.is_hallucination:

@@ -70,6 +70,35 @@ class ErrorCode(StrEnum):
     SYSTEM_CONFIGURATION_ERROR = "SYSTEM_CONFIGURATION_ERROR"
     SYSTEM_MAINTENANCE = "SYSTEM_MAINTENANCE"
 
+    # LLM Gateway (600xxx series per V2.0 spec)
+    LLM_MODEL_NOT_FOUND = "LLM_MODEL_NOT_FOUND"  # 600001
+    LLM_CONNECTIVITY_FAILED = "LLM_CONNECTIVITY_FAILED"  # 600002
+    LLM_MODEL_DISABLED = "LLM_MODEL_DISABLED"  # 600003
+    LLM_QUOTA_EXHAUSTED = "LLM_QUOTA_EXHAUSTED"  # 600004
+    LLM_CALL_FAILED = "LLM_CALL_FAILED"  # 601001
+    LLM_CALL_TIMEOUT = "LLM_CALL_TIMEOUT"  # 601002
+    LLM_ADAPTER_NOT_FOUND = "LLM_ADAPTER_NOT_FOUND"  # 601003
+    LLM_TOOL_FORMAT_ERROR = "LLM_TOOL_FORMAT_ERROR"  # 601004
+
+    # VMD Tasks (602xxx)
+    VMD_TASK_NOT_FOUND = "VMD_TASK_NOT_FOUND"  # 602001
+    VMD_TASK_STATUS_INVALID = "VMD_TASK_STATUS_INVALID"  # 602002
+    VMD_TASK_EXEC_FAILED = "VMD_TASK_EXEC_FAILED"  # 602003
+
+    # Knowledge Base (603xxx)
+    KB_DOC_NOT_FOUND = "KB_DOC_NOT_FOUND"  # 603001
+    KB_PARSE_FAILED = "KB_PARSE_FAILED"  # 603002
+    KB_VECTORIZE_FAILED = "KB_VECTORIZE_FAILED"  # 603003
+    KB_NO_PERMISSION = "KB_NO_PERMISSION"  # 603004
+
+    # Compliance (605xxx)
+    COMPLIANCE_RULE_NOT_FOUND = "COMPLIANCE_RULE_NOT_FOUND"  # 605001
+    COMPLIANCE_CHECK_FAILED = "COMPLIANCE_CHECK_FAILED"  # 605002
+
+    # Integration (606xxx)
+    INTEGRATION_CONNECT_FAILED = "INTEGRATION_CONNECT_FAILED"  # 606001
+    INTEGRATION_SYNC_FAILED = "INTEGRATION_SYNC_FAILED"  # 606002
+
 
 # Error code to HTTP status mapping
 ERROR_STATUS_MAP: dict[ErrorCode, int] = {
@@ -104,6 +133,30 @@ ERROR_STATUS_MAP: dict[ErrorCode, int] = {
     ErrorCode.AI_SERVICE_TIMEOUT: 503,
     ErrorCode.DB_CONNECTION_ERROR: 503,
     ErrorCode.SYSTEM_MAINTENANCE: 503,
+    # LLM Gateway
+    ErrorCode.LLM_MODEL_NOT_FOUND: 404,
+    ErrorCode.LLM_CONNECTIVITY_FAILED: 503,
+    ErrorCode.LLM_MODEL_DISABLED: 403,
+    ErrorCode.LLM_QUOTA_EXHAUSTED: 429,
+    ErrorCode.LLM_CALL_FAILED: 502,
+    ErrorCode.LLM_CALL_TIMEOUT: 504,
+    ErrorCode.LLM_ADAPTER_NOT_FOUND: 404,
+    ErrorCode.LLM_TOOL_FORMAT_ERROR: 400,
+    # VMD Tasks
+    ErrorCode.VMD_TASK_NOT_FOUND: 404,
+    ErrorCode.VMD_TASK_STATUS_INVALID: 400,
+    ErrorCode.VMD_TASK_EXEC_FAILED: 500,
+    # Knowledge Base
+    ErrorCode.KB_DOC_NOT_FOUND: 404,
+    ErrorCode.KB_PARSE_FAILED: 500,
+    ErrorCode.KB_VECTORIZE_FAILED: 500,
+    ErrorCode.KB_NO_PERMISSION: 403,
+    # Compliance
+    ErrorCode.COMPLIANCE_RULE_NOT_FOUND: 404,
+    ErrorCode.COMPLIANCE_CHECK_FAILED: 500,
+    # Integration
+    ErrorCode.INTEGRATION_CONNECT_FAILED: 503,
+    ErrorCode.INTEGRATION_SYNC_FAILED: 500,
 }
 
 # Error messages (Chinese)
@@ -132,6 +185,30 @@ ERROR_MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.SYSTEM_INTERNAL_ERROR: "系统内部错误",
     ErrorCode.SYSTEM_CONFIGURATION_ERROR: "系统配置错误",
     ErrorCode.SYSTEM_MAINTENANCE: "系统维护中",
+    # LLM Gateway
+    ErrorCode.LLM_MODEL_NOT_FOUND: "模型配置不存在",
+    ErrorCode.LLM_CONNECTIVITY_FAILED: "模型连通性测试失败",
+    ErrorCode.LLM_MODEL_DISABLED: "模型已停用",
+    ErrorCode.LLM_QUOTA_EXHAUSTED: "模型调用限额已耗尽",
+    ErrorCode.LLM_CALL_FAILED: "模型调用失败",
+    ErrorCode.LLM_CALL_TIMEOUT: "模型响应超时",
+    ErrorCode.LLM_ADAPTER_NOT_FOUND: "适配器不存在",
+    ErrorCode.LLM_TOOL_FORMAT_ERROR: "工具调用格式错误",
+    # VMD Tasks
+    ErrorCode.VMD_TASK_NOT_FOUND: "任务不存在",
+    ErrorCode.VMD_TASK_STATUS_INVALID: "任务状态异常",
+    ErrorCode.VMD_TASK_EXEC_FAILED: "任务执行失败",
+    # Knowledge Base
+    ErrorCode.KB_DOC_NOT_FOUND: "文档不存在",
+    ErrorCode.KB_PARSE_FAILED: "文档解析失败",
+    ErrorCode.KB_VECTORIZE_FAILED: "向量化处理失败",
+    ErrorCode.KB_NO_PERMISSION: "无知识库访问权限",
+    # Compliance
+    ErrorCode.COMPLIANCE_RULE_NOT_FOUND: "合规规则不存在",
+    ErrorCode.COMPLIANCE_CHECK_FAILED: "合规校验失败",
+    # Integration
+    ErrorCode.INTEGRATION_CONNECT_FAILED: "外部系统对接失败",
+    ErrorCode.INTEGRATION_SYNC_FAILED: "数据同步失败",
 }
 
 

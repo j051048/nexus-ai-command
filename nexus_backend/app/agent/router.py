@@ -101,6 +101,72 @@ _MODERATE_KEYWORDS = {
     "搜索",
 }
 
+# ─── VMD Agent Role Detection Patterns ────────────────────────────────────────
+# Maps regex patterns to agent_code + scene_code.
+# Checked AFTER complexity classification; used to assign a specific agent role.
+
+_AGENT_ROLE_PATTERNS: list[tuple[re.Pattern, str, str]] = [
+    # (pattern, agent_code, scene_code)
+    # Content marketing
+    (re.compile(r"白皮书|案例文章|内容营销|SEO|文案|公众号|社交媒体|技术文档|软文", re.IGNORECASE), "content_agent", "content_creation"),
+    # Visual design
+    (re.compile(r"视觉设计|海报|画册|展板|Banner|物料设计|品牌视觉|VI设计|宣传物料", re.IGNORECASE), "design_agent", "visual_design"),
+    # Media placement
+    (re.compile(r"媒介投放|广告投放|SEM|信息流|渠道分析|媒介策略|投放预算|ROI优化", re.IGNORECASE), "media_agent", "media_planning"),
+    # Lead generation / clue
+    (re.compile(r"线索获取|获客|线索评分|渠道归因|CAC|获客成本|MQL|SQL|线索培育", re.IGNORECASE), "clue_agent", "lead_generation"),
+    # Sales enablement
+    (re.compile(r"销售话术|Battlecard|报价策略|竞品对比|销售培训|赢单|丢单|投标策略|标书", re.IGNORECASE), "sales_agent", "sales_enablement"),
+    # R&D-production-sales synergy
+    (re.compile(r"研产销|新品上市|GTM|跨部门|产销协同|需求传递|VOC|产品发布", re.IGNORECASE), "synergy_agent", "rd_marketing_sync"),
+    # Private domain operation
+    (re.compile(r"私域|社群运营|会员体系|客户旅程|复购|客户留存|NPS|社群", re.IGNORECASE), "operation_agent", "private_domain"),
+    # PR / reputation
+    (re.compile(r"舆情|口碑|危机公关|品牌监控|负面|舆论|KOL|声誉", re.IGNORECASE), "pr_agent", "brand_monitoring"),
+    # Compliance
+    (re.compile(r"合规|广告法|审核|绝对化用语|极限词|医疗器械广告|内容审查", re.IGNORECASE), "compliance_agent", "ad_compliance"),
+    # Tender / bidding (may overlap with sales)
+    (re.compile(r"标书|投标|招标|评标|中标|开标", re.IGNORECASE), "sales_agent", "proposal"),
+]
+
+# Patterns that suggest the query needs multi-agent orchestration (WBS decomposition)
+_MULTI_AGENT_PATTERNS = re.compile(
+    r"营销方案|营销计划|推广方案|市场策略|整合营销|全案|年度计划|季度计划|Go.?to.?Market|上市计划|品牌策划|完整方案",
+    re.IGNORECASE,
+)
+
+
+def detect_agent_role(query: str, complexity: QueryComplexity) -> tuple[str, str, bool]:
+    """
+    Detect which VMD agent role should handle this query.
+
+    Returns:
+        (agent_code, scene_code, needs_multi_agent)
+
+    For simple/moderate queries or no match, returns ("", "", False) — meaning
+    the standard plan/execute flow handles it without a specific VMD role.
+    """
+    text = query.strip()
+
+    # Simple queries don't need role routing
+    if complexity == QueryComplexity.SIMPLE:
+        return "", "", False
+
+    # Check for multi-agent orchestration first
+    needs_multi_agent = bool(_MULTI_AGENT_PATTERNS.search(text)) and complexity == QueryComplexity.COMPLEX
+
+    # If multi-agent orchestration is needed, always route to director for WBS decomposition
+    # The director will delegate to specific agents via the orchestrator
+    if needs_multi_agent:
+        return "director_agent", "task_decompose", True
+
+    # Detect specific agent role for single-agent scenarios
+    for pattern, agent_code, scene_code in _AGENT_ROLE_PATTERNS:
+        if pattern.search(text):
+            return agent_code, scene_code, False
+
+    return "", "", False
+
 
 def classify_query(query: str) -> tuple[QueryComplexity, str]:
     """
@@ -161,13 +227,31 @@ async def _llm_classify_intent(
 """
 
     try:
-        llm = ChatOpenAI(
-            model=config.mini_model,
-            api_key=config.api_key,
-            base_url=config.base_url,
-            temperature=0.0,
-            timeout=10.0,
-        )
+        # Resolve via LLM gateway
+        resolved = None
+        try:
+            from app.services.llm_helpers import resolve_model_config
+            org_id = getattr(config, "org_id", None) or "default"
+            resolved = await resolve_model_config(org_id)
+        except Exception:
+            pass
+
+        if resolved:
+            llm = ChatOpenAI(
+                model=resolved.get("model", config.mini_model),
+                api_key=resolved["api_key"],
+                base_url=resolved["base_url"],
+                temperature=0.0,
+                timeout=10.0,
+            )
+        else:
+            llm = ChatOpenAI(
+                model=config.mini_model,
+                api_key=config.api_key,
+                base_url=config.base_url,
+                temperature=0.0,
+                timeout=10.0,
+            )
         response = await llm.ainvoke([HumanMessage(content=prompt)])
         content = response.content or "{}"
 
@@ -212,6 +296,15 @@ async def route_node(state: AgentState) -> dict:
 
     selected_model = config.get_model_for_complexity(complexity)
 
+    # ── VMD Agent Role Detection (additive) ──
+    agent_code, scene_code, needs_multi_agent = detect_agent_role(last_user_msg, complexity)
+
+    if agent_code:
+        logger.info(
+            f"[Router] VMD role detected: agent_code={agent_code} scene={scene_code} "
+            f"multi_agent={needs_multi_agent}"
+        )
+
     logger.info(
         f"[Router] user={config.user_id} complexity={complexity.value} "
         f"model={selected_model} intent='{intent_summary}'"
@@ -219,13 +312,21 @@ async def route_node(state: AgentState) -> dict:
 
     thinking_step = ThinkingStep(
         phase=AgentPhase.ROUTING.value,
-        content=f"意图分类: {intent_summary} → 复杂度: {complexity.value} → 模型: {selected_model}",
+        content=f"意图分类: {intent_summary} → 复杂度: {complexity.value} → 模型: {selected_model}"
+        + (f" → Agent: {agent_code}" if agent_code else ""),
     )
 
-    return {
+    result = {
         "complexity": complexity,
         "selected_model": selected_model,
         "intent_summary": intent_summary,
         "current_phase": AgentPhase.PLANNING,
         "thinking_steps": [thinking_step],
     }
+
+    # Write VMD role info into state (only if detected)
+    if agent_code:
+        result["agent_code"] = agent_code
+        result["scene_code"] = scene_code
+
+    return result

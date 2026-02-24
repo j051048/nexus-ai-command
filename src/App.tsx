@@ -110,6 +110,16 @@ const ContractManagement = lazy(() => import("@/pages/ContractManagement"));
 const SuperAdminDashboard = lazy(() => import("@/pages/SuperAdminDashboard"));
 const APIKeysPage = lazy(() => import("@/pages/APIKeysPage"));
 
+// VMD (Virtual Marketing Department) pages
+const VMDCenter = lazy(() => import("@/pages/VMDCenter"));
+const VMDTaskCenter = lazy(() => import("@/pages/VMDTaskCenter"));
+const VMDAgentConfig = lazy(() => import("@/pages/VMDAgentConfig"));
+const LLMModelManagement = lazy(() => import("@/pages/LLMModelManagement"));
+const VMDClueManagement = lazy(() => import("@/pages/VMDClueManagement"));
+const VMDDashboard = lazy(() => import("@/pages/VMDDashboard"));
+const VMDCompliancePage = lazy(() => import("@/pages/VMDCompliancePage"));
+const AgentDebugPanel = lazy(() => import("@/pages/AgentDebugPanel"));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -231,8 +241,18 @@ const App = () => (
                 <Route path="super-admin" element={<SuperAdminDashboard />} />
                 <Route path="api-keys" element={<APIKeysPage />} />
 
+                {/* VMD (Virtual Marketing Department) */}
+                <Route path="vmd" element={<VMDCenter />} />
+                <Route path="vmd/tasks" element={<VMDTaskCenter />} />
+                <Route path="vmd/agents" element={<VMDAgentConfig />} />
+                <Route path="vmd/clues" element={<VMDClueManagement />} />
+                <Route path="vmd/compliance" element={<VMDCompliancePage />} />
+                <Route path="vmd/dashboard" element={<VMDDashboard />} />
+                <Route path="llm/models" element={<LLMModelManagement />} />
+
                 {/* Developer Tools */}
                 <Route path="dev/animations" element={<AnimationShowcase />} />
+                <Route path="agent-debug" element={<AgentDebugPanel />} />
 
                 {/* 404 for authenticated users */}
                 <Route path="*" element={<NotFound />} />

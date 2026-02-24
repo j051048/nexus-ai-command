@@ -76,6 +76,9 @@ async def run_agent_stream(
     agent_name: str | None = None,
     user_role: str = "employee",
     org_id: str | None = None,
+    # VMD extensions
+    scene_code: str | None = None,
+    vmd_agent_code: str | None = None,
 ) -> AsyncGenerator[str, None]:
     """
     Main entry point: runs the LangGraph agent and streams SSE events.
@@ -191,6 +194,15 @@ async def run_agent_stream(
         "rag_context": rag_context,
         "rag_sources": rag_sources,
         "error_recovery_attempted": False,
+        "error_recovery_level": 0,
+        # VMD multi-agent orchestration fields
+        "agent_code": vmd_agent_code or "",
+        "scene_code": scene_code or "",
+        "main_task_id": None,
+        "sub_task_id": None,
+        "parent_agent_code": None,
+        "delegation_results": [],
+        "wbs_structure": None,
     }
 
     # ── 5. Run graph with granular event streaming (astream_events) ──
@@ -323,6 +335,7 @@ async def run_agent_stream(
                 "duration_ms": int((time.time() - start_time) * 1000),
             },
             db_client=db_client,
+            org_id=agent_config.org_id,
         )
     )
 

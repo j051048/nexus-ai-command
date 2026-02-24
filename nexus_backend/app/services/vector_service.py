@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 # P1: Embedding Model Versioning — Track model changes to detect stale embeddings
 EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_MODEL_VERSION = "2024-01"
+_DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 
 # Reranker configuration
 RERANK_ENABLED = getattr(settings, "RERANK_ENABLED", True)
@@ -67,6 +68,20 @@ class VectorService:
     }
 
     @staticmethod
+    async def _get_embedding_config(org_id: str = "default") -> tuple[str, str, str]:
+        """Resolve embedding model dynamically via gateway. Returns (api_key, base_url, model)."""
+        try:
+            from app.services.llm_helpers import resolve_embedding_config
+            config = await resolve_embedding_config(org_id)
+            return config["api_key"], config["base_url"], config["model"]
+        except Exception:
+            return (
+                settings.OPENAI_API_KEY,
+                getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1"),
+                _DEFAULT_EMBEDDING_MODEL,
+            )
+
+    @staticmethod
     def _get_doc_type_label(item: dict) -> str:
         """Get a Chinese label for the document type, if available."""
         doc_type = item.get("doc_type") or ""
@@ -100,7 +115,7 @@ class VectorService:
 请直接返回排序后的文档编号（用逗号分隔），最相关的排在前面。只返回编号，例如: 2,0,4,1,3"""
 
             response = await client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=getattr(self, "_rerank_model", "gpt-4o-mini"),
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=50,
                 temperature=0,
@@ -171,6 +186,21 @@ class VectorService:
         if "/v1" not in base_url and "api.openai.com" not in base_url:
             base_url = f"{base_url}/v1"
 
+        # Resolve embedding model dynamically via gateway
+        embedding_model = EMBEDDING_MODEL
+        try:
+            gw_api_key, gw_base_url, gw_model = await self._get_embedding_config(org_id or "default")
+            if gw_model:
+                embedding_model = gw_model
+            if gw_api_key:
+                api_key = gw_api_key
+            if gw_base_url:
+                base_url = gw_base_url.rstrip("/")
+                if "/v1" not in base_url and "api.openai.com" not in base_url:
+                    base_url = f"{base_url}/v1"
+        except Exception:
+            pass
+
         if not api_key:
             logger.warning("VectorService: Missing AI Key.")
             if settings.IS_PRODUCTION:
@@ -183,7 +213,7 @@ class VectorService:
         )
 
         try:
-            return await self._search_supabase(query, user_id, limit, client, org_id=org_id)
+            return await self._search_supabase(query, user_id, limit, client, org_id=org_id, embedding_model=embedding_model)
         except Exception as e:
             logger.error(f"Vector search failed: {e}")
             if settings.IS_PRODUCTION:
@@ -198,6 +228,7 @@ class VectorService:
         client: AsyncOpenAI,
         filters: dict[str, Any] = None,
         org_id: str = None,
+        embedding_model: str = None,
     ) -> str:
         """
         Implementation for Hybrid Search (Vector + Keyword) with RRF.
@@ -206,9 +237,11 @@ class VectorService:
         """
         import asyncio
 
+        _embedding_model = embedding_model or EMBEDDING_MODEL
+
         async def run_vector_search():
             try:
-                response = await client.embeddings.create(input=query, model=EMBEDDING_MODEL)
+                response = await client.embeddings.create(input=query, model=_embedding_model)
                 embedding = response.data[0].embedding
                 params = {
                     "query_embedding": embedding,
@@ -407,7 +440,8 @@ class VectorService:
             return []
 
     async def incremental_update(
-        self, document_id: str, chunks: list[str], org_id: str, config: dict = None, db=None
+        self, document_id: str, chunks: list[str], org_id: str, config: dict = None, db=None,
+        expires_at: str | None = None,
     ) -> dict:
         """
         #25 Knowledge Base Update Strategy: Incrementally update embeddings.
@@ -421,6 +455,17 @@ class VectorService:
         api_key = (config or {}).get("api_key") or settings.OPENAI_API_KEY
         if not api_key:
             return {"status": "error", "reason": "no_api_key"}
+
+        # Resolve embedding model dynamically
+        embedding_model = EMBEDDING_MODEL
+        try:
+            gw_api_key, _gw_base_url, gw_model = await self._get_embedding_config(org_id or "default")
+            if gw_model:
+                embedding_model = gw_model
+            if gw_api_key:
+                api_key = gw_api_key
+        except Exception:
+            pass
 
         oai_client = AsyncOpenAI(api_key=api_key)
         stats = {"inserted": 0, "updated": 0, "deleted": 0, "unchanged": 0}
@@ -458,7 +503,7 @@ class VectorService:
             # 4. Embed changed chunks
             if to_embed:
                 texts = [t[1] for t in to_embed]
-                response = await oai_client.embeddings.create(input=texts, model=EMBEDDING_MODEL)
+                response = await oai_client.embeddings.create(input=texts, model=embedding_model)
                 for idx, (chunk_index, chunk_text) in enumerate(to_embed):
                     embedding = response.data[idx].embedding
                     row_data = {
@@ -468,9 +513,11 @@ class VectorService:
                         "content_hash": new_chunk_hashes[chunk_index],
                         "embedding": embedding,
                         "organization_id": org_id,
-                        "embedding_model": EMBEDDING_MODEL,
+                        "embedding_model": embedding_model,
                         "embedding_model_version": EMBEDDING_MODEL_VERSION,
                     }
+                    if expires_at is not None:
+                        row_data["expires_at"] = expires_at
                     if chunk_index in existing_map:
                         await client.table("document_embeddings").update(row_data).eq(
                             "id", existing_map[chunk_index]["id"]

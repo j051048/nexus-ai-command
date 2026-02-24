@@ -160,6 +160,79 @@ register_tool(GetExpiringContractsTool())
 register_tool(DataAttributionTool())
 register_tool(StrategySimulationTool())
 
+# ============================================================
+# VMD (Virtual Marketing Department) 虚拟市场部行业专属工具
+# ============================================================
+try:
+    from .vmd_content_tools import (
+        GenerateApplicationNoteTool,
+        GenerateProductManualTool,
+        GenerateSocialPostTool,
+        GenerateWhitepaperTool,
+    )
+    register_tool(GenerateProductManualTool())
+    register_tool(GenerateWhitepaperTool())
+    register_tool(GenerateApplicationNoteTool())
+    register_tool(GenerateSocialPostTool())
+except ImportError:
+    pass
+
+try:
+    from .vmd_tender_tools import (
+        CheckBidComplianceTool,
+        ExtractBidRequirementsTool,
+        GenerateBidDocumentTool,
+        GenerateDeviationTableTool,
+    )
+    register_tool(GenerateBidDocumentTool())
+    register_tool(GenerateDeviationTableTool())
+    register_tool(CheckBidComplianceTool())
+    register_tool(ExtractBidRequirementsTool())
+except ImportError:
+    pass
+
+try:
+    from .vmd_sales_tools import (
+        GenerateCompetitorComparisonTool,
+        GenerateQuotationTemplateTool,
+        GenerateSalesScriptTool,
+        GenerateTrainingMaterialTool,
+    )
+    register_tool(GenerateSalesScriptTool())
+    register_tool(GenerateCompetitorComparisonTool())
+    register_tool(GenerateTrainingMaterialTool())
+    register_tool(GenerateQuotationTemplateTool())
+except ImportError:
+    pass
+
+try:
+    from .vmd_synergy_tools import (
+        AggregateCustomerFeedbackTool,
+        GenerateCompetitorAnalysisTool,
+        GenerateMarketResearchTool,
+        MonitorIndustryTrendsTool,
+    )
+    register_tool(MonitorIndustryTrendsTool())
+    register_tool(GenerateMarketResearchTool())
+    register_tool(GenerateCompetitorAnalysisTool())
+    register_tool(AggregateCustomerFeedbackTool())
+except ImportError:
+    pass
+
+try:
+    from .vmd_operation_tools import (
+        CustomerLifecycleAnalysisTool,
+        GenerateFaqResponseTool,
+        GenerateMaintenanceReminderTool,
+        GenerateRepurchaseCampaignTool,
+    )
+    register_tool(GenerateMaintenanceReminderTool())
+    register_tool(GenerateFaqResponseTool())
+    register_tool(GenerateRepurchaseCampaignTool())
+    register_tool(CustomerLifecycleAnalysisTool())
+except ImportError:
+    pass
+
 
 def get_tool(name: str) -> BaseTool:
     return TOOL_REGISTRY.get(name)

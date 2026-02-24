@@ -181,6 +181,109 @@ def monitor_competitors():
 
 
 @celery_app.task
+def cleanup_stale_embeddings():
+    """
+    知识库GC: 检测过期文档embedding并清理
+    - 检测 staleness_days 天未更新的过期 embedding
+    - 清理已标记 expires_at 过期的 embedding
+    - 通知文档所有者更新知识库
+    """
+
+    async def _run():
+        from app.core.database import supabase
+        from app.services.vector_service import VectorService
+
+        if not supabase:
+            return "skipped: no db"
+
+        vs = VectorService()
+
+        # 1. Get all active org_ids
+        try:
+            orgs_res = await supabase.table("organizations").select("id").execute()
+            org_ids = [o["id"] for o in (orgs_res.data or [])]
+        except Exception:
+            org_ids = ["default"]
+
+        total_stale = 0
+        total_expired = 0
+
+        for org_id in org_ids:
+            try:
+                # Check for stale embeddings (default 30 days)
+                stale_docs = await vs.check_staleness(org_id, staleness_days=30, db=supabase)
+                total_stale += len(stale_docs)
+
+                # Log stale documents for monitoring
+                if stale_docs:
+                    logger.info(f"Org {org_id}: {len(stale_docs)} stale documents found")
+
+                # Clean up expired embeddings (where expires_at < now)
+                try:
+                    expired_res = (
+                        await supabase.table("document_embeddings")
+                        .select("id, document_id")
+                        .eq("organization_id", org_id)
+                        .lt("expires_at", datetime.now().isoformat())
+                        .not_.is_("expires_at", "null")
+                        .limit(500)
+                        .execute()
+                    )
+                    expired = expired_res.data or []
+
+                    for chunk in expired:
+                        try:
+                            await supabase.table("document_embeddings").delete().eq("id", chunk["id"]).execute()
+                            total_expired += 1
+                        except Exception as del_e:
+                            if not (hasattr(del_e, "code") and str(getattr(del_e, "code", "")) == "204"):
+                                logger.warning(f"Failed to delete expired embedding {chunk['id']}: {del_e}")
+                            else:
+                                total_expired += 1
+                except Exception as e:
+                    logger.debug(f"Expired embedding cleanup skipped for {org_id}: {e}")
+
+            except Exception as e:
+                logger.error(f"Knowledge base GC failed for org {org_id}: {e}")
+
+        return f"GC complete: {total_stale} stale docs detected, {total_expired} expired embeddings cleaned"
+
+    return _run_async(_run())
+
+
+@celery_app.task
+def aggregate_ai_quality_metrics():
+    """每日聚合AI质量指标"""
+
+    async def _run():
+        from app.core.database import supabase
+        from app.services.ai_quality_service import ai_quality_service
+
+        if not supabase:
+            return "skipped: no db"
+
+        # Aggregate for all orgs
+        try:
+            orgs_res = await supabase.table("organizations").select("id").execute()
+            org_ids = [o["id"] for o in (orgs_res.data or [])]
+        except Exception:
+            org_ids = []
+
+        # Also aggregate global (no tenant filter)
+        await ai_quality_service.aggregate_daily_metrics(tenant_id=None)
+
+        for org_id in org_ids:
+            try:
+                await ai_quality_service.aggregate_daily_metrics(tenant_id=org_id)
+            except Exception as e:
+                logger.error(f"Quality aggregation failed for {org_id}: {e}")
+
+        return f"AI quality metrics aggregated for {len(org_ids)} orgs"
+
+    return _run_async(_run())
+
+
+@celery_app.task
 def check_contract_expiry():
     """
     3.5 合同到期预警

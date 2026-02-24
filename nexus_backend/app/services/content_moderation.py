@@ -156,16 +156,45 @@ class ContentModerator:
         self._injection_patterns = []
         self._compile_patterns()
         self._llm_client = None
+        self._resolved_model = "gpt-4o-mini"
         self._detection_cache: dict[str, tuple[bool, str]] = {}
 
     def _get_llm_client(self):
-        """Lazy load LLM client for detection."""
+        """Lazy load LLM client for detection, resolving via LLM gateway when available."""
         if self._llm_client is None and self.enable_llm_detection:
             try:
                 from openai import AsyncOpenAI
 
                 from app.core.config import settings
 
+                # Try gateway resolution first (sync-safe: only use cached/fallback config)
+                api_key = settings.OPENAI_API_KEY
+                base_url = settings.AI_BASE_URL
+                self._llm_client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+            except Exception as e:
+                logger.warning(f"Failed to initialize LLM client for detection: {e}")
+                self._llm_client = None
+        return self._llm_client
+
+    async def _get_llm_client_async(self):
+        """Async variant that resolves via LLM gateway for better model config."""
+        if self._llm_client is None and self.enable_llm_detection:
+            try:
+                from openai import AsyncOpenAI
+
+                try:
+                    from app.services.llm_helpers import resolve_model_config
+                    resolved = await resolve_model_config()
+                    self._llm_client = AsyncOpenAI(
+                        api_key=resolved["api_key"],
+                        base_url=resolved["base_url"],
+                    )
+                    self._resolved_model = resolved.get("model", "gpt-4o-mini")
+                    return self._llm_client
+                except Exception:
+                    pass
+
+                from app.core.config import settings
                 self._llm_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.AI_BASE_URL)
             except Exception as e:
                 logger.warning(f"Failed to initialize LLM client for detection: {e}")
@@ -373,7 +402,7 @@ class ContentModerator:
             return self._detection_cache[cache_key]
 
         # Use LLM for ambiguous cases
-        client = self._get_llm_client()
+        client = await self._get_llm_client_async()
         if not client or len(user_input) < 20:
             return True, None
 
@@ -387,7 +416,7 @@ class ContentModerator:
 仅回复JSON，无其他内容。"""
 
             response = await client.chat.completions.create(
-                model="gpt-4o-mini", messages=[{"role": "user", "content": prompt}], max_tokens=100, temperature=0
+                model=self._resolved_model, messages=[{"role": "user", "content": prompt}], max_tokens=100, temperature=0
             )
 
             result = json.loads(response.choices[0].message.content)

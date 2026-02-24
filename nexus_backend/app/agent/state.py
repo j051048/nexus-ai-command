@@ -161,7 +161,17 @@ class AgentState(TypedDict, total=False):
     # ── Error handling ──
     error: str | None
     error_recovery_attempted: bool  # Whether error recovery has been tried
+    error_recovery_level: int  # Multi-level error recovery (0=none, 1=retry, 2=degrade)
 
     # ── Token tracking ──
     total_input_tokens: int
     total_output_tokens: int
+
+    # ── VMD Multi-Agent Orchestration ──
+    agent_code: str  # Current agent role code (e.g., "content_agent")
+    scene_code: str  # Current business scene code
+    main_task_id: str | None  # Main task ID for multi-agent orchestration
+    sub_task_id: str | None  # Sub-task ID
+    parent_agent_code: str | None  # Parent agent that delegated to this one
+    delegation_results: list  # Results from sub-agents
+    wbs_structure: dict | None  # WBS task decomposition structure
