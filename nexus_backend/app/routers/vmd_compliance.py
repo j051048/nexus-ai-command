@@ -2,6 +2,7 @@
 
 import logging
 import uuid
+from dataclasses import asdict
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -12,7 +13,7 @@ from app.core.errors import ErrorCode, api_error, api_list, api_success
 from app.services.compliance_service import compliance_service
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/v1/vmd/compliance", tags=["VMD Compliance"])
+router = APIRouter(prefix="/api/vmd/compliance", tags=["VMD Compliance"])
 
 
 # ---------------------------------------------------------------------------
@@ -83,18 +84,18 @@ async def check_content(
                 "content_type": "text",
                 "categories": body.categories,
                 "use_llm": body.use_llm,
-                "status": result.get("status", "unknown"),
-                "total_issues": result.get("total_issues", 0),
-                "high_issues": result.get("high_issues", 0),
-                "medium_issues": result.get("medium_issues", 0),
-                "low_issues": result.get("low_issues", 0),
+                "status": "compliant" if result.is_compliant else "non_compliant",
+                "total_issues": result.total_issues,
+                "high_issues": result.errors,
+                "medium_issues": result.warnings,
+                "low_issues": result.total_issues - result.errors - result.warnings,
                 "checked_at": datetime.now(UTC).isoformat(),
             }
             await client.table("compliance_check_log").insert(log_record).execute()
         except Exception as log_err:
             logger.warning(f"Failed to log compliance check: {log_err}")
 
-        return api_success(data={"result": result}, message="合规检查完成")
+        return api_success(data={"result": asdict(result)}, message="合规检查完成")
     except Exception as e:
         logger.error(f"Compliance check error: user={user_id} err={e}")
         return api_error(ErrorCode.COMPLIANCE_CHECK_FAILED, str(e))

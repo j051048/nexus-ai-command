@@ -2,7 +2,6 @@
 
 import logging
 import time
-import uuid
 from math import ceil
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -40,7 +39,7 @@ class CreateModelRequest(BaseModel):
     input_price_per_1m: float = Field(0.0, ge=0, description="输入价格(每百万Token)")
     output_price_per_1m: float = Field(0.0, ge=0, description="输出价格(每百万Token)")
     default_temperature: float = Field(0.7, ge=0.0, le=2.0, description="默认温度")
-    status: str = Field("active", description="状态: active/inactive")
+    status: str = Field("enabled", description="状态: enabled/disabled")
 
 
 class UpdateModelRequest(BaseModel):
@@ -87,19 +86,19 @@ class UpdateScheduleRuleRequest(BaseModel):
 class CreateQuotaConfigRequest(BaseModel):
     quota_type: str = Field(..., description="配额类型: user/org/model")
     target_id: str = Field(..., description="目标ID(用户ID/组织ID/模型ID)")
-    max_tokens_per_day: int | None = Field(None, ge=0, description="每日最大Token数")
-    max_requests_per_day: int | None = Field(None, ge=0, description="每日最大请求数")
-    max_cost_per_day_usd: float | None = Field(None, ge=0, description="每日最大花费(USD)")
-    max_tokens_per_month: int | None = Field(None, ge=0, description="每月最大Token数")
-    max_cost_per_month_usd: float | None = Field(None, ge=0, description="每月最大花费(USD)")
+    daily_token_limit: int | None = Field(None, ge=0, description="每日最大Token数")
+    daily_request_limit: int | None = Field(None, ge=0, description="每日最大请求数")
+    daily_cost_limit: float | None = Field(None, ge=0, description="每日最大花费(USD)")
+    monthly_token_limit: int | None = Field(None, ge=0, description="每月最大Token数")
+    monthly_cost_limit: float | None = Field(None, ge=0, description="每月最大花费(USD)")
 
 
 class UpdateQuotaConfigRequest(BaseModel):
-    max_tokens_per_day: int | None = Field(None, ge=0)
-    max_requests_per_day: int | None = Field(None, ge=0)
-    max_cost_per_day_usd: float | None = Field(None, ge=0)
-    max_tokens_per_month: int | None = Field(None, ge=0)
-    max_cost_per_month_usd: float | None = Field(None, ge=0)
+    daily_token_limit: int | None = Field(None, ge=0)
+    daily_request_limit: int | None = Field(None, ge=0)
+    daily_cost_limit: float | None = Field(None, ge=0)
+    monthly_token_limit: int | None = Field(None, ge=0)
+    monthly_cost_limit: float | None = Field(None, ge=0)
 
 
 # ---------------------------------------------------------------------------
@@ -121,15 +120,15 @@ def _mask_model_record(record: dict) -> dict:
     if not record:
         return record
     result = dict(record)
-    if "api_key" in result and result["api_key"]:
+    if "api_key_encrypted" in result and result["api_key_encrypted"]:
         # Decrypt first to get real prefix/suffix for masking, then mask
         try:
-            decrypted = encryption_service.decrypt(result["api_key"])
-            result["api_key"] = _mask_api_key(decrypted)
+            decrypted = encryption_service.decrypt(result["api_key_encrypted"])
+            result["api_key_encrypted"] = _mask_api_key(decrypted)
         except Exception:
-            result["api_key"] = "****"
-    if "secret_key" in result and result["secret_key"]:
-        result["secret_key"] = "****"
+            result["api_key_encrypted"] = "****"
+    if "secret_key_encrypted" in result and result["secret_key_encrypted"]:
+        result["secret_key_encrypted"] = "****"
     return result
 
 
@@ -156,15 +155,14 @@ async def create_model(
         encrypted_secret_key = encryption_service.encrypt(body.secret_key) if body.secret_key else None
 
         record = {
-            "id": str(uuid.uuid4()),
-            "org_id": org_id,
+            "tenant_id": org_id,
             "model_code": body.model_code,
             "model_name": body.model_name,
             "provider_type": body.provider_type,
             "adapter_code": body.adapter_code,
             "api_base_url": body.api_base_url,
-            "api_key": encrypted_api_key,
-            "secret_key": encrypted_secret_key,
+            "api_key_encrypted": encrypted_api_key,
+            "secret_key_encrypted": encrypted_secret_key,
             "model_id": body.model_id,
             "timeout_ms": body.timeout_ms,
             "max_retries": body.max_retries,
@@ -212,7 +210,7 @@ async def list_models(
         count_query = (
             client.table("llm_model_config")
             .select("id", count="exact")
-            .eq("org_id", org_id)
+            .eq("tenant_id", org_id)
             .eq("is_deleted", False)
         )
         if status:
@@ -229,9 +227,9 @@ async def list_models(
         data_query = (
             client.table("llm_model_config")
             .select("*")
-            .eq("org_id", org_id)
+            .eq("tenant_id", org_id)
             .eq("is_deleted", False)
-            .order("created_at", desc=True)
+            .order("create_time", desc=True)
             .range(offset, offset + page_size - 1)
         )
         if status:
@@ -296,10 +294,10 @@ async def update_model(
 
         # Encrypt api_key if provided
         if "api_key" in update_data and update_data["api_key"]:
-            update_data["api_key"] = encryption_service.encrypt(update_data["api_key"])
+            update_data["api_key_encrypted"] = encryption_service.encrypt(update_data.pop("api_key"))
         # Encrypt secret_key if provided
         if "secret_key" in update_data and update_data["secret_key"]:
-            update_data["secret_key"] = encryption_service.encrypt(update_data["secret_key"])
+            update_data["secret_key_encrypted"] = encryption_service.encrypt(update_data.pop("secret_key"))
 
         if not update_data:
             return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "无更新内容")
@@ -378,7 +376,7 @@ async def test_model_connectivity(
         model_config = res.data
 
         # Decrypt api_key for testing
-        decrypted_key = encryption_service.decrypt(model_config.get("api_key", ""))
+        decrypted_key = encryption_service.decrypt(model_config.get("api_key_encrypted", ""))
 
         # Import adapter and test connectivity
         start_time = time.time()
@@ -442,8 +440,8 @@ async def toggle_model_status(
         if not res.data:
             return api_error(ErrorCode.RESOURCE_NOT_FOUND, "模型不存在")
 
-        current_status = res.data.get("status", "active")
-        new_status = "inactive" if current_status == "active" else "active"
+        current_status = res.data.get("status", "enabled")
+        new_status = "disabled" if current_status == "enabled" else "enabled"
 
         update_res = (
             await client.table("llm_model_config")
@@ -454,7 +452,7 @@ async def toggle_model_status(
 
         return api_success(
             data={"model_id": model_id, "status": new_status},
-            message=f"模型已{'启用' if new_status == 'active' else '禁用'}",
+            message=f"模型已{'启用' if new_status == 'enabled' else '禁用'}",
         )
     except Exception as e:
         logger.error(f"Toggle model error: id={model_id} user={user_id} err={e}")
@@ -503,8 +501,7 @@ async def create_schedule_rule(
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         record = {
-            "id": str(uuid.uuid4()),
-            "org_id": org_id,
+            "tenant_id": org_id,
             "rule_name": body.rule_name,
             "scene_code": body.scene_code,
             "agent_code": body.agent_code,
@@ -541,7 +538,7 @@ async def list_schedule_rules(
         count_res = (
             await client.table("llm_schedule_rule")
             .select("id", count="exact")
-            .eq("org_id", org_id)
+            .eq("tenant_id", org_id)
             .execute()
         )
         total = count_res.count if count_res.count is not None else len(count_res.data or [])
@@ -551,7 +548,7 @@ async def list_schedule_rules(
         res = (
             await client.table("llm_schedule_rule")
             .select("*")
-            .eq("org_id", org_id)
+            .eq("tenant_id", org_id)
             .order("priority", desc=True)
             .range(offset, offset + page_size - 1)
             .execute()
@@ -650,12 +647,12 @@ async def get_usage_stats(
         query = (
             client.table("llm_call_log")
             .select("*")
-            .eq("org_id", org_id)
+            .eq("tenant_id", org_id)
         )
         if start_date:
-            query = query.gte("created_at", f"{start_date}T00:00:00")
+            query = query.gte("create_time", f"{start_date}T00:00:00")
         if end_date:
-            query = query.lte("created_at", f"{end_date}T23:59:59")
+            query = query.lte("create_time", f"{end_date}T23:59:59")
         if model_code:
             query = query.eq("model_code", model_code)
         if scene_code:
@@ -663,7 +660,7 @@ async def get_usage_stats(
         if agent_code:
             query = query.eq("agent_code", agent_code)
 
-        res = await query.order("created_at", desc=True).execute()
+        res = await query.order("create_time", desc=True).execute()
         logs = res.data or []
 
         # Aggregate by group_by dimension
@@ -678,7 +675,7 @@ async def get_usage_stats(
             elif group_by == "user":
                 key = log.get("user_id", "unknown")
             else:  # day
-                key = str(log.get("created_at", ""))[:10]
+                key = str(log.get("create_time", ""))[:10]
 
             if key not in stats:
                 stats[key] = {
@@ -693,7 +690,7 @@ async def get_usage_stats(
             stats[key]["total_calls"] += 1
             stats[key]["total_input_tokens"] += log.get("input_tokens", 0) or 0
             stats[key]["total_output_tokens"] += log.get("output_tokens", 0) or 0
-            stats[key]["total_cost"] += float(log.get("cost", 0) or 0)
+            stats[key]["total_cost"] += float(log.get("call_cost", 0) or 0)
             if log.get("status") == "success":
                 stats[key]["success_count"] += 1
             else:
@@ -723,11 +720,11 @@ async def get_cost_report(
         if not client:
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
-        query = client.table("llm_call_log").select("*").eq("org_id", org_id)
+        query = client.table("llm_call_log").select("*").eq("tenant_id", org_id)
         if start_date:
-            query = query.gte("created_at", f"{start_date}T00:00:00")
+            query = query.gte("create_time", f"{start_date}T00:00:00")
         if end_date:
-            query = query.lte("created_at", f"{end_date}T23:59:59")
+            query = query.lte("create_time", f"{end_date}T23:59:59")
 
         res = await query.execute()
         logs = res.data or []
@@ -736,7 +733,7 @@ async def get_cost_report(
         by_model: dict = {}
         by_scene: dict = {}
         for log in logs:
-            cost = float(log.get("cost", 0) or 0)
+            cost = float(log.get("call_cost", 0) or 0)
             total_cost += cost
 
             model = log.get("model_code", "unknown")
@@ -771,11 +768,11 @@ async def get_model_ranking(
         if not client:
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
-        query = client.table("llm_call_log").select("*").eq("org_id", org_id)
+        query = client.table("llm_call_log").select("*").eq("tenant_id", org_id)
         if start_date:
-            query = query.gte("created_at", f"{start_date}T00:00:00")
+            query = query.gte("create_time", f"{start_date}T00:00:00")
         if end_date:
-            query = query.lte("created_at", f"{end_date}T23:59:59")
+            query = query.lte("create_time", f"{end_date}T23:59:59")
 
         res = await query.execute()
         logs = res.data or []
@@ -792,7 +789,7 @@ async def get_model_ranking(
                 }
             ranking[model]["call_count"] += 1
             ranking[model]["total_tokens"] += (log.get("input_tokens", 0) or 0) + (log.get("output_tokens", 0) or 0)
-            ranking[model]["total_cost"] += float(log.get("cost", 0) or 0)
+            ranking[model]["total_cost"] += float(log.get("call_cost", 0) or 0)
 
         sorted_ranking = sorted(ranking.values(), key=lambda x: x["call_count"], reverse=True)[:limit]
 
@@ -822,8 +819,8 @@ async def list_quota_configs(
         res = (
             await client.table("llm_quota_config")
             .select("*")
-            .eq("org_id", org_id)
-            .order("created_at", desc=True)
+            .eq("tenant_id", org_id)
+            .order("create_time", desc=True)
             .execute()
         )
         return api_success(data={"configs": res.data or []})
@@ -846,15 +843,14 @@ async def create_quota_config(
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         record = {
-            "id": str(uuid.uuid4()),
-            "org_id": org_id,
+            "tenant_id": org_id,
             "quota_type": body.quota_type,
             "target_id": body.target_id,
-            "max_tokens_per_day": body.max_tokens_per_day,
-            "max_requests_per_day": body.max_requests_per_day,
-            "max_cost_per_day_usd": body.max_cost_per_day_usd,
-            "max_tokens_per_month": body.max_tokens_per_month,
-            "max_cost_per_month_usd": body.max_cost_per_month_usd,
+            "daily_token_limit": body.daily_token_limit,
+            "daily_request_limit": body.daily_request_limit,
+            "daily_cost_limit": body.daily_cost_limit,
+            "monthly_token_limit": body.monthly_token_limit,
+            "monthly_cost_limit": body.monthly_cost_limit,
             "created_by": user_id,
         }
 

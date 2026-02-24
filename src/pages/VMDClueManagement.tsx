@@ -81,9 +81,9 @@ export default function VMDClueManagement() {
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
 
   // Filters
-  const [statusFilter, setStatusFilter] = useState('');
-  const [levelFilter, setLevelFilter] = useState('');
-  const [sourceFilter, setSourceFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [levelFilter, setLevelFilter] = useState('all');
+  const [sourceFilter, setSourceFilter] = useState('all');
   const [searchText, setSearchText] = useState('');
 
   // Dialog states
@@ -101,9 +101,9 @@ export default function VMDClueManagement() {
 
   // Queries & Mutations
   const { data: clues, isLoading } = useVMDClues({
-    status: statusFilter || undefined,
-    level: levelFilter || undefined,
-    source: sourceFilter || undefined,
+    status: statusFilter !== 'all' ? statusFilter : undefined,
+    level: levelFilter !== 'all' ? levelFilter : undefined,
+    source: sourceFilter !== 'all' ? sourceFilter : undefined,
     search: searchText || undefined,
   });
   const createClue = useCreateVMDClue();
@@ -217,7 +217,7 @@ export default function VMDClueManagement() {
                 <SelectValue placeholder="全部状态" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">全部状态</SelectItem>
+                <SelectItem value="all">全部状态</SelectItem>
                 {Object.entries(STATUS_CONFIG).map(([k, v]) => (
                   <SelectItem key={k} value={k}>{v.label}</SelectItem>
                 ))}
@@ -228,7 +228,7 @@ export default function VMDClueManagement() {
                 <SelectValue placeholder="全部等级" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">全部等级</SelectItem>
+                <SelectItem value="all">全部等级</SelectItem>
                 {Object.entries(LEVEL_CONFIG).map(([k, v]) => (
                   <SelectItem key={k} value={k}>{v.label}</SelectItem>
                 ))}
@@ -239,7 +239,7 @@ export default function VMDClueManagement() {
                 <SelectValue placeholder="全部来源" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">全部来源</SelectItem>
+                <SelectItem value="all">全部来源</SelectItem>
                 {SOURCE_OPTIONS.map(s => (
                   <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                 ))}

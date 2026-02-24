@@ -12,7 +12,7 @@ from app.core.errors import ErrorCode, api_error, api_list, api_success
 from app.services.clue_service import clue_service
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/v1/vmd", tags=["VMD Clues"])
+router = APIRouter(prefix="/api/vmd", tags=["VMD Clues"])
 
 
 # ---------------------------------------------------------------------------

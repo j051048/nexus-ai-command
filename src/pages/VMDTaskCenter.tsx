@@ -87,23 +87,23 @@ export default function VMDTaskCenter() {
   const [detailId, setDetailId] = useState<string | null>(searchParams.get('detail'));
 
   // Filters
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [priorityFilter, setPriorityFilter] = useState<string>('');
-  const [sceneFilter, setSceneFilter] = useState<string>(searchParams.get('scene') || '');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [sceneFilter, setSceneFilter] = useState<string>(searchParams.get('scene') || 'all');
   const [searchText, setSearchText] = useState('');
 
   // Form state
   const [formTitle, setFormTitle] = useState('');
   const [formDesc, setFormDesc] = useState('');
-  const [formScene, setFormScene] = useState(searchParams.get('scene') || '');
+  const [formScene, setFormScene] = useState(searchParams.get('scene') || 'all');
   const [formPriority, setFormPriority] = useState('normal');
   const [formDeadline, setFormDeadline] = useState('');
 
   // Queries
   const { data: tasks, isLoading } = useVMDTasks({
-    status: statusFilter || undefined,
-    priority: priorityFilter || undefined,
-    scene_code: sceneFilter || undefined,
+    status: statusFilter !== 'all' ? statusFilter : undefined,
+    priority: priorityFilter !== 'all' ? priorityFilter : undefined,
+    scene_code: sceneFilter !== 'all' ? sceneFilter : undefined,
   });
   const { data: taskDetail, isLoading: detailLoading } = useVMDTaskDetail(detailId);
   const createTask = useCreateVMDTask();
@@ -121,7 +121,7 @@ export default function VMDTaskCenter() {
   }, [tasks, searchText]);
 
   const handleCreate = async () => {
-    if (!formTitle.trim() || !formScene) {
+    if (!formTitle.trim() || !formScene || formScene === 'all') {
       toast.error('请填写任务标题和选择场景');
       return;
     }
@@ -135,7 +135,7 @@ export default function VMDTaskCenter() {
     setCreateOpen(false);
     setFormTitle('');
     setFormDesc('');
-    setFormScene('');
+    setFormScene('all');
     setFormPriority('normal');
     setFormDeadline('');
   };
@@ -176,7 +176,7 @@ export default function VMDTaskCenter() {
                 <SelectValue placeholder="全部状态" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">全部状态</SelectItem>
+                <SelectItem value="all">全部状态</SelectItem>
                 {Object.entries(STATUS_CONFIG).map(([k, v]) => (
                   <SelectItem key={k} value={k}>{v.label}</SelectItem>
                 ))}
@@ -187,7 +187,7 @@ export default function VMDTaskCenter() {
                 <SelectValue placeholder="全部优先级" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">全部优先级</SelectItem>
+                <SelectItem value="all">全部优先级</SelectItem>
                 {Object.entries(PRIORITY_CONFIG).map(([k, v]) => (
                   <SelectItem key={k} value={k}>{v.label}</SelectItem>
                 ))}
@@ -198,7 +198,7 @@ export default function VMDTaskCenter() {
                 <SelectValue placeholder="全部场景" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">全部场景</SelectItem>
+                <SelectItem value="all">全部场景</SelectItem>
                 {SCENES.map(s => (
                   <SelectItem key={s.code} value={s.code}>{s.name}</SelectItem>
                 ))}

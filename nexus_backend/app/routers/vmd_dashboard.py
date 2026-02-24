@@ -10,7 +10,7 @@ from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/v1/vmd/dashboard", tags=["VMD Dashboard"])
+router = APIRouter(prefix="/api/vmd/dashboard", tags=["VMD Dashboard"])
 
 
 # ---------------------------------------------------------------------------
@@ -239,7 +239,7 @@ async def get_model_usage(
 
         res = (
             await client.table("llm_call_log")
-            .select("model_code, input_tokens, output_tokens, cost, status")
+            .select("model_code, input_tokens, output_tokens, call_cost, status")
             .eq("tenant_id", org_id)
             .execute()
         )
@@ -261,7 +261,7 @@ async def get_model_usage(
             usage[model]["call_count"] += 1
             usage[model]["total_input_tokens"] += log.get("input_tokens", 0) or 0
             usage[model]["total_output_tokens"] += log.get("output_tokens", 0) or 0
-            usage[model]["total_cost"] += float(log.get("cost", 0) or 0)
+            usage[model]["total_cost"] += float(log.get("call_cost", 0) or 0)
             if log.get("status") == "success":
                 usage[model]["success_count"] += 1
             else:

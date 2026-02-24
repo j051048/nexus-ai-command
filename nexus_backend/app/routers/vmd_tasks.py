@@ -11,7 +11,7 @@ from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_list, api_success
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/v1/vmd", tags=["VMD Tasks"])
+router = APIRouter(prefix="/api/vmd", tags=["VMD Tasks"])
 
 
 # ---------------------------------------------------------------------------
@@ -73,7 +73,6 @@ async def create_task(
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         record = {
-            "id": str(uuid.uuid4()),
             "tenant_id": org_id,
             "task_code": _generate_task_code(),
             "title": body.title,
@@ -450,7 +449,7 @@ async def audit_sub_task(
         # Verify sub-task exists
         sub_res = (
             await client.table("vmd_sub_task")
-            .select("id, status, task_id")
+            .select("id, status, main_task_id")
             .eq("id", sub_task_id)
             .maybe_single()
             .execute()
