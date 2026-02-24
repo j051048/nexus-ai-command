@@ -19,6 +19,7 @@ import { NexusDocument } from '@/types/nexus';
 
 const DOC_TYPE_OPTIONS = [
     { value: 'contract', label: '销售合同' },
+    { value: 'tender',   label: '招标文件' },
     { value: 'bid',      label: '投标文件' },
     { value: 'product',  label: '产品资料' },
     { value: 'proposal', label: '方案文档' },
@@ -507,7 +508,8 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
                                         docTypeOptions={DOC_TYPE_OPTIONS}
                                         onCategoryChange={(newType) => handleCategoryChange(doc.id, newType)}
                                         onClick={() => {
-                                            if ((doc.doc_type === 'bid' || (doc.extracted_data as Record<string, unknown>)?.doc_type === 'bid') && onNavigate) {
+                                            const docType = doc.doc_type || (doc.extracted_data as Record<string, unknown>)?.doc_type;
+                                            if ((docType === 'bid' || docType === 'tender') && onNavigate) {
                                                 onNavigate('tender-analysis');
                                                 toast.success("已为您打开标书深度分析视图");
                                             } else {

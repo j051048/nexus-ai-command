@@ -112,6 +112,7 @@ async def upload_documents(
         "contract",
         "training",
         "product",
+        "tender",
         "bid",
         "proposal",
         "invoice",
@@ -410,7 +411,9 @@ async def update_document(
 
 
 class UpdateCategoryRequest(BaseModel):
-    doc_type: Literal["contract", "bid", "product", "proposal", "invoice", "other"] = Field(..., description="文档分类")
+    doc_type: Literal["contract", "tender", "bid", "product", "proposal", "invoice", "other"] = Field(
+        ..., description="文档分类"
+    )
 
 
 @router.patch("/{document_id}/category", response_model=StandardResponse)

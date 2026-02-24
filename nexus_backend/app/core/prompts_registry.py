@@ -159,7 +159,7 @@ TOOL_PROMPTS = {
     """,
     "etl_metadata": """
     Extract document metadata as JSON ONLY:
-    - doc_type: [contract, bid, product, proposal, invoice, other]
+    - doc_type: [contract, tender, bid, product, proposal, invoice, other]
     - client_name: string
     - amount: number
     - date: YYYY-MM-DD

@@ -427,7 +427,8 @@ class ETLService:
                 "catalog",
             ],
             "contract": ["合同", "协议", "contract"],
-            "bid": ["标书", "招标", "投标", "bid", "tender"],
+            "tender": ["招标", "招标文件", "tender", "招标公告", "采购需求"],
+            "bid": ["投标", "投标书", "标书", "bid", "应标", "响应文件"],
             "proposal": ["方案", "proposal"],
             "invoice": ["发票", "invoice"],
         }
@@ -454,7 +455,7 @@ class ETLService:
         第一部分：元数据 (JSON)
         [METADATA_JSON]
         {{
-            "doc_type": "bid" | "contract" | "product" | "proposal" | "invoice" | "other",
+            "doc_type": "tender" | "bid" | "contract" | "product" | "proposal" | "invoice" | "other",
             "client_name": "采购方/客户名称",
             "amount": 预算金额(数字)或null,
             "date": "YYYY-MM-DD",
@@ -465,7 +466,8 @@ class ETLService:
         [/METADATA_JSON]
 
         doc_type 分类说明：
-        - "bid": 招标文件、投标书、标书
+        - "tender": 招标文件、采购需求文件（客户/甲方发布的需求文档，包含技术要求、资质条件、评分标准等）
+        - "bid": 投标文件、应标书、响应文件（我方编写的投标响应文档，包含技术方案、报价、资质证明等）
         - "contract": 合同、协议
         - "product": 产品资料、产品彩页、产品手册、规格书、产品说明书、产品目录
         - "proposal": 解决方案、项目方案、技术方案

@@ -123,7 +123,7 @@ export interface WeeklyReport {
 export interface NexusDocument {
   id: string;
   name: string;
-  doc_type: 'contract' | 'bid' | 'product' | 'other' | 'proposal' | 'invoice';
+  doc_type: 'contract' | 'tender' | 'bid' | 'product' | 'other' | 'proposal' | 'invoice';
   extracted_data?: {
     client_name?: string;
     amount?: number;

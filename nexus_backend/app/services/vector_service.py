@@ -57,6 +57,24 @@ class VectorService:
     P0 Security: org_id is MANDATORY for all search operations to prevent cross-tenant data leakage.
     """
 
+    _DOC_TYPE_LABELS = {
+        "tender": "招标文件",
+        "bid": "投标文件",
+        "product": "产品资料",
+        "contract": "合同",
+        "proposal": "方案文档",
+        "invoice": "发票",
+    }
+
+    @staticmethod
+    def _get_doc_type_label(item: dict) -> str:
+        """Get a Chinese label for the document type, if available."""
+        doc_type = item.get("doc_type") or ""
+        if not doc_type:
+            meta = item.get("metadata") or item.get("doc_metadata") or {}
+            doc_type = meta.get("doc_type", "")
+        return VectorService._DOC_TYPE_LABELS.get(doc_type, "")
+
     async def _rerank_with_llm(
         self, query: str, documents: list[dict], client: AsyncOpenAI, top_n: int = 5
     ) -> list[dict]:
@@ -237,7 +255,13 @@ class VectorService:
                 flattened = []
                 for item in res.data or []:
                     doc_data = item.pop("documents", {})
-                    flattened.append({**item, "doc_metadata": doc_data.get("metadata")})
+                    flattened.append(
+                        {
+                            **item,
+                            "doc_metadata": doc_data.get("metadata"),
+                            "doc_type": doc_data.get("doc_type"),
+                        }
+                    )
                 return flattened
             except Exception as e:
                 logger.warning(f"Keyword search failed completely: {e}")
@@ -256,7 +280,9 @@ class VectorService:
                 content = item.get("content", "").strip()
                 meta = item.get("metadata") or item.get("doc_metadata") or {}
                 source = meta.get("source") or meta.get("file_name") or "公司知识库"
-                results.append(f"{content} [来源: {source}]")
+                type_label = self._get_doc_type_label(item)
+                prefix = f"[{type_label}] " if type_label else ""
+                results.append(f"{prefix}{content} [来源: {source}]")
             return "为您检索到以下相关企业知识 (关键词匹配):\n\n- " + "\n- ".join(results)
 
         # RRF Fusion
@@ -284,7 +310,9 @@ class VectorService:
             content = item.get("content", "").strip()
             meta = item.get("metadata") or item.get("doc_metadata") or {}
             source = meta.get("source") or meta.get("file_name") or "公司知识库"
-            results.append(f"{content} [来源: {source}] (相似度: {item['score']:.4f})")
+            type_label = self._get_doc_type_label(item)
+            prefix = f"[{type_label}] " if type_label else ""
+            results.append(f"{prefix}{content} [来源: {source}] (相似度: {item['score']:.4f})")
 
         return "为您检索到以下相关企业知识:\n\n- " + "\n- ".join(results)
 

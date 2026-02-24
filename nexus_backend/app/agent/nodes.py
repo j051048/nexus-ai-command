@@ -268,14 +268,24 @@ async def plan_node(state: AgentState) -> dict:
     # ── RAG Injection ──
     # If we have retrieved context, prepend it to the history or inject into system prompt
     if rag_context and iteration == 0:
+        rag_disclaimer = (
+            "【重要：文档来源区分】\n"
+            "以下检索结果可能来自不同类型的文档，请注意区分：\n"
+            "- [招标文件]: 客户/甲方发布的采购需求，其中提到的产品规格是客户要求，不代表我方产品\n"
+            "- [投标文件]: 我方编写的投标响应文档\n"
+            "- [产品资料]: 我方的产品说明、规格书等，代表我方实际能力\n"
+            "- 无标签的内容请根据上下文自行判断来源\n"
+            "回答时务必区分「客户要求」和「我方能力」，切勿将招标文件中的需求当作我方产品参数。\n"
+        )
+        rag_block = f"\n\n{rag_disclaimer}\n[检索到的参考知识]:\n{rag_context}"
         found_sys = False
         for _i, m in enumerate(lc_msgs):
             if isinstance(m, SystemMessage):
-                m.content += f"\n\n[检索到的参考知识]:\n{rag_context}"
+                m.content += rag_block
                 found_sys = True
                 break
         if not found_sys:
-            lc_msgs.insert(0, SystemMessage(content=f"你可以参考以下背景知识来回答问题:\n{rag_context}"))
+            lc_msgs.insert(0, SystemMessage(content=f"你可以参考以下背景知识来回答问题:{rag_block}"))
 
     # Decide whether to include tools
     complexity = state.get("complexity", QueryComplexity.MODERATE)

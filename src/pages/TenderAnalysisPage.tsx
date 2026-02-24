@@ -60,7 +60,8 @@ export function TenderAnalysisPage() {
                 const ed = typeof doc.extracted_data === 'string'
                     ? JSON.parse(doc.extracted_data)
                     : doc.extracted_data;
-                return doc.doc_type === 'bid' || (ed && ed.doc_type === 'bid');
+                const dt = doc.doc_type || (ed && ed.doc_type);
+                return dt === 'bid' || dt === 'tender';
             });
 
             // Resolve owner names
