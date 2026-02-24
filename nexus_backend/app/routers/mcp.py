@@ -22,7 +22,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
@@ -54,9 +54,22 @@ class MCPToolListResponse(BaseModel):
 
 
 class MCPExecuteRequest(BaseModel):
-    """Request body for tool execution."""
+    """Request body for tool execution.
+
+    Accepts both formats:
+      - Standard: {"arguments": {"name": "..."}}
+      - Flat:     {"name": "..."}  (auto-wrapped into arguments)
+    """
 
     arguments: dict[str, Any] = {}
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_arguments(cls, data: Any) -> Any:
+        """Handle flat argument format from external clients like OpenClaw."""
+        if isinstance(data, dict) and "arguments" not in data:
+            return {"arguments": data}
+        return data
 
 
 class MCPExecuteResponse(BaseModel):
@@ -176,7 +189,7 @@ async def execute_tool(
         )
 
     # --- Validate required arguments ---
-    schema = getattr(tool, "input_schema", None) or {}
+    schema = getattr(tool, "parameters", None) or {}
     required_args = schema.get("required", [])
     missing = [r for r in required_args if r not in body.arguments]
     if missing:
@@ -193,11 +206,12 @@ async def execute_tool(
     }
 
     logger.info(
-        "[MCP] execute tool=%s user=%s org=%s args_keys=%s",
+        "[MCP] execute tool=%s user=%s org=%s args_keys=%s args=%s",
         tool_name,
         user_id,
         org_id,
         list(body.arguments.keys()),
+        {k: (v if len(str(v)) < 100 else str(v)[:100] + "...") for k, v in body.arguments.items()},
     )
 
     # --- Execute ---
