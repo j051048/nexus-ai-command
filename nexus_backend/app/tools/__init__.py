@@ -22,6 +22,25 @@ from .boss_tools import (
 # 合同分析工具
 from .contract_tools import ContractAnalysisTool
 
+# 合同 CRUD 工具
+from .contract_crud_tools import (
+    CreateContractTool,
+    GetContractsTool,
+    GetExpiringContractsTool,
+)
+
+# CRM 客户管理工具
+from .crm_tools import (
+    AddFollowUpTool,
+    CreateCustomerTool,
+    GetCustomerDetailTool,
+    GetCustomersTool,
+    GetFollowUpsTool,
+    GetSalesPipelineTool,
+    UpdateCustomerStageTool,
+    UpdateCustomerTool,
+)
+
 # 财务管理工具
 from .finance_tools import (
     BudgetQueryTool,
@@ -121,6 +140,21 @@ register_tool(CustomerProfileTool())
 
 # 注册合同分析工具
 register_tool(ContractAnalysisTool())
+
+# 注册 CRM 客户管理工具
+register_tool(GetCustomersTool())
+register_tool(GetCustomerDetailTool())
+register_tool(CreateCustomerTool())
+register_tool(UpdateCustomerTool())
+register_tool(AddFollowUpTool())
+register_tool(GetFollowUpsTool())
+register_tool(UpdateCustomerStageTool())
+register_tool(GetSalesPipelineTool())
+
+# 注册合同 CRUD 工具
+register_tool(GetContractsTool())
+register_tool(CreateContractTool())
+register_tool(GetExpiringContractsTool())
 
 # 注册战略分析工具 (Phase 4)
 register_tool(DataAttributionTool())

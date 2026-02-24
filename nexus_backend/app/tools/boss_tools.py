@@ -527,29 +527,33 @@ class DailyBriefingTool(BaseTool):
 
 """
 
-        # 添加经营数据 - 查询真实数据
+        # 添加经营数据 - 查询真实数据 (从 customers 表)
         week_start = (now - timedelta(days=now.weekday())).strftime("%Y-%m-%dT00:00:00")
+        org_id = config.get("org_id") if config else None
 
-        # 查询本周新增商机
+        # 查询本周新增客户/商机
         try:
-            leads_res = (
-                await client.table("sales_leads").select("*", count="exact").gte("created_at", week_start).execute()
-            )
+            query = client.table("customers").select("*", count="exact").gte("created_at", week_start)
+            if org_id:
+                query = query.eq("organization_id", org_id)
+            leads_res = await query.execute()
             new_leads = leads_res.count or len(leads_res.data or [])
         except Exception:
             new_leads = 0
 
-        # 查询本周成交
+        # 查询本周成交客户
         try:
-            won_res = (
-                await client.table("sales_leads")
-                .select("amount")
-                .eq("status", "won")
+            query = (
+                client.table("customers")
+                .select("estimated_value")
+                .eq("stage", "customer")
                 .gte("updated_at", week_start)
-                .execute()
             )
+            if org_id:
+                query = query.eq("organization_id", org_id)
+            won_res = await query.execute()
             won_count = len(won_res.data or [])
-            won_amount = sum(float(d.get("amount", 0)) for d in (won_res.data or []))
+            won_amount = sum(float(d.get("estimated_value", 0)) for d in (won_res.data or []))
         except Exception:
             won_count = 0
             won_amount = 0
@@ -570,22 +574,25 @@ class DailyBriefingTool(BaseTool):
         for i, p in enumerate(top_performers):
             response += f"{medals[i]} {p.get('name', '员工')}: {p.get('score', 0)}分\n"
 
-        # 查询真实风险预警
+        # 查询真实风险预警 (从 customers 表)
         risk_alerts = []
         try:
             thirty_days_ago = (now - timedelta(days=30)).strftime("%Y-%m-%dT00:00:00")
-            stale_res = (
-                await client.table("sales_leads")
-                .select("company_name, updated_at")
+            query = (
+                client.table("customers")
+                .select("name, company, updated_at")
                 .lt("updated_at", thirty_days_ago)
-                .in_("status", ["negotiation", "contacted"])
+                .in_("stage", ["prospect", "opportunity"])
                 .limit(3)
-                .execute()
             )
-            for lead in stale_res.data or []:
-                updated = datetime.fromisoformat(lead["updated_at"][:19])
+            if org_id:
+                query = query.eq("organization_id", org_id)
+            stale_res = await query.execute()
+            for cust in stale_res.data or []:
+                updated = datetime.fromisoformat(cust["updated_at"][:19])
                 days_stale = (now - updated).days
-                risk_alerts.append(f"- {lead['company_name']}：{days_stale}天未推进，建议跟进")
+                display_name = cust.get("company") or cust.get("name", "未知客户")
+                risk_alerts.append(f"- {display_name}：{days_stale}天未推进，建议跟进")
         except Exception:
             pass
 
@@ -976,26 +983,85 @@ class CustomerProfileTool(BaseTool):
     }
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+        from app.services.crm_service import crm_service
+
         name = args.get("customer_name", "")
         if not name:
             return "❌ 请提供客户名称（customer_name）"
         client = _get_client(config)
+        org_id = config.get("org_id") if config else None
 
+        # Search customers table (new CRM system)
         try:
-            leads = await client.table("sales_leads").select("*").ilike("company_name", f"%{name}%").execute()
+            customers = []
+            if org_id:
+                customers = await crm_service.search_customers(org_id, name, db=client)
+            if not customers:
+                # Fallback: try direct query by company or name
+                res = (
+                    await client.table("customers")
+                    .select("*")
+                    .or_(f"name.ilike.%{name}%,company.ilike.%{name}%")
+                    .limit(10)
+                    .execute()
+                )
+                customers = res.data or []
         except Exception as e:
             return f"❌ 查询客户数据失败: {str(e)}"
 
-        if not leads.data:
+        if not customers:
             return f"未找到与 '{name}' 相关的客户记录。请确认客户名称是否正确。"
 
+        # Build summary from customers table
+        stage_labels = {
+            "lead": "线索",
+            "prospect": "意向",
+            "opportunity": "商机",
+            "customer": "成交",
+            "churned": "流失",
+        }
         leads_summary = []
-        for lead in leads.data:
+        customer_id = customers[0]["id"]
+        for c in customers:
+            stage = stage_labels.get(c.get("stage", ""), c.get("stage", ""))
+            value = c.get("estimated_value") or 0
             leads_summary.append(
-                f"- 公司: {lead.get('company_name')}, 联系人: {lead.get('contact_name', '未知')}, "
-                f"状态: {lead.get('status', '未知')}, 金额: ¥{lead.get('amount', 0):,.0f}, "
-                f"来源: {lead.get('source', '未知')}, 最后更新: {lead.get('updated_at', '')[:10]}"
+                f"- 客户: {c.get('name', '未知')}, 公司: {c.get('company', '未知')}, "
+                f"行业: {c.get('industry', '未知')}, 阶段: {stage}, "
+                f"预估金额: ¥{float(value):,.0f}, 来源: {c.get('source', '未知')}, "
+                f"最后更新: {str(c.get('updated_at', ''))[:10]}"
             )
+
+        # Fetch contacts and recent activities for richer profile
+        try:
+            contacts = await crm_service.list_contacts(customer_id, db=client)
+            if contacts:
+                leads_summary.append("\n联系人:")
+                for ct in contacts:
+                    primary = " (主要联系人)" if ct.get("is_primary") else ""
+                    leads_summary.append(
+                        f"  - {ct.get('name', '未知')}{primary}, "
+                        f"职位: {ct.get('title', '未知')}, "
+                        f"电话: {ct.get('phone', '')}, 邮箱: {ct.get('email', '')}"
+                    )
+
+            activities = await crm_service.get_activity_timeline(customer_id, limit=5, db=client)
+            if activities:
+                type_labels = {
+                    "call": "电话",
+                    "email": "邮件",
+                    "meeting": "会议",
+                    "note": "备注",
+                    "deal_update": "商机更新",
+                }
+                leads_summary.append("\n最近跟进:")
+                for act in activities:
+                    t = type_labels.get(act.get("activity_type", ""), act.get("activity_type", ""))
+                    leads_summary.append(
+                        f"  - [{t}] {act.get('content', '')[:80]} " f"({str(act.get('created_at', ''))[:10]})"
+                    )
+        except Exception:
+            pass
 
         prompt = (
             "客户数据:\n"
