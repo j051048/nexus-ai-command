@@ -474,7 +474,13 @@ class GetSalesPipelineTool(BaseTool):
         if not stats or stats.get("total_customers", 0) == 0:
             return "当前暂无客户数据。您可以说「创建客户」来添加新客户。"
 
-        stage_dist = stats.get("stage_distribution", {})
+        # stage_distribution is a list of {stage, name, count, color} — convert to dict
+        stage_dist_list = stats.get("stage_distribution", [])
+        stage_dist = (
+            {item["stage"]: item["count"] for item in stage_dist_list}
+            if isinstance(stage_dist_list, list)
+            else stage_dist_list
+        )
         stage_labels = {
             "lead": "🔵 线索",
             "prospect": "🟡 意向",

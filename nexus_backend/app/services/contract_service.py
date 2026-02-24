@@ -69,7 +69,7 @@ class ContractService:
 
         if db:
             try:
-                result = db.table("contracts").insert(contract).execute()
+                result = await db.table("contracts").insert(contract).execute()
                 if result.data:
                     created = result.data[0]
                     # 添加创建事件
@@ -115,7 +115,7 @@ class ContractService:
 
         if db:
             try:
-                result = db.table("contracts").update(update_data).eq("id", contract_id).execute()
+                result = await db.table("contracts").update(update_data).eq("id", contract_id).execute()
                 if result.data:
                     return result.data[0]
             except Exception as e:
@@ -128,7 +128,7 @@ class ContractService:
         """获取合同详情"""
         if db:
             try:
-                result = db.table("contracts").select("*").eq("id", contract_id).single().execute()
+                result = await db.table("contracts").select("*").eq("id", contract_id).single().execute()
                 return result.data
             except Exception as e:
                 logger.warning(f"Failed to get contract: {e}")
@@ -154,7 +154,7 @@ class ContractService:
                     if filters.get("search"):
                         query = query.ilike("title", f"%{filters['search']}%")
 
-                result = query.execute()
+                result = await query.execute()
                 return result.data or []
             except Exception as e:
                 logger.error(f"Failed to list contracts: {e}")
@@ -168,7 +168,7 @@ class ContractService:
                 today = datetime.utcnow().date().isoformat()
                 future = (datetime.utcnow() + timedelta(days=days)).date().isoformat()
                 result = (
-                    db.table("contracts")
+                    await db.table("contracts")
                     .select("*")
                     .eq("organization_id", org_id)
                     .eq("status", "active")
@@ -196,7 +196,7 @@ class ContractService:
         if db:
             try:
                 # 获取所有合同
-                result = db.table("contracts").select("*").eq("organization_id", org_id).execute()
+                result = await db.table("contracts").select("*").eq("organization_id", org_id).execute()
                 contracts = result.data or []
                 stats["total"] = len(contracts)
 
@@ -241,7 +241,7 @@ class ContractService:
 
         if db:
             try:
-                result = db.table("contract_events").insert(event).execute()
+                result = await db.table("contract_events").insert(event).execute()
                 if result.data:
                     return result.data[0]
             except Exception as e:
@@ -255,7 +255,7 @@ class ContractService:
         if db:
             try:
                 result = (
-                    db.table("contract_events")
+                    await db.table("contract_events")
                     .select("*")
                     .eq("contract_id", contract_id)
                     .order("created_at", desc=True)
