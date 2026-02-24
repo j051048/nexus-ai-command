@@ -131,12 +131,17 @@ class GetEmployeeInfoTool(BaseTool):
 
     parameters = {
         "type": "object",
-        "properties": {"employee_name": {"type": "string", "description": "员工姓名"}},
-        "required": ["employee_name"],
+        "properties": {
+            "query": {"type": "string", "description": "员工姓名关键词"},
+            "employee_name": {"type": "string", "description": "员工姓名（query的别名）"},
+        },
+        "required": ["query"],
     }
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
-        name = args.get("employee_name")
+        name = args.get("query") or args.get("employee_name")
+        if not name:
+            return "❌ 请提供员工姓名关键词"
         client = _get_client(config)
         result = await client.table("users").select("id, name, department, role").ilike("name", f"%{name}%").execute()
 
