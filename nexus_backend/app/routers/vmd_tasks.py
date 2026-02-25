@@ -462,15 +462,18 @@ async def list_agent_configs(
         if not client:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
+        # Use global service-key client for reading global defaults (bypass RLS)
+        from app.core.database import supabase as admin_client
+
         # Try tenant-specific configs first
         res = await client.table("vmd_agent_config").select("*").eq("tenant_id", org_id).order("sort_order").execute()
         agents = res.data or []
 
-        # Fallback to global defaults (tenant_id IS NULL) if no tenant rows
-        if not agents:
+        # Fallback to global defaults (tenant_id IS NULL) — use admin client to bypass RLS
+        if not agents and admin_client:
             try:
                 res = (
-                    await client.table("vmd_agent_config")
+                    await admin_client.table("vmd_agent_config")
                     .select("*")
                     .is_("tenant_id", "null")
                     .order("sort_order")
@@ -523,15 +526,21 @@ async def update_agent_config(
         if not client:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
+        # Use global service-key client for agent config writes (bypass RLS)
+        from app.core.database import supabase as admin_client
+
+        if not admin_client:
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "管理数据库客户端不可用")
+
         update_data = body.model_dump(exclude_none=True)
         if not update_data:
             raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "无更新内容")
 
         update_data["updated_by"] = user_id
 
-        # Try updating tenant-specific row first
+        # Try updating tenant-specific row first (use admin client to bypass RLS)
         res = (
-            await client.table("vmd_agent_config")
+            await admin_client.table("vmd_agent_config")
             .update(update_data)
             .eq("agent_code", agent_code)
             .eq("tenant_id", org_id)
@@ -543,7 +552,7 @@ async def update_agent_config(
             base = None
             try:
                 global_res = (
-                    await client.table("vmd_agent_config")
+                    await admin_client.table("vmd_agent_config")
                     .select("*")
                     .eq("agent_code", agent_code)
                     .is_("tenant_id", "null")
@@ -573,12 +582,12 @@ async def update_agent_config(
                     "sort_order": 0,
                 }
 
-            # Clone the base config for this tenant
+            # Clone the base config for this tenant (use admin client to bypass RLS)
             new_row = {k: v for k, v in base.items() if k not in ("id", "create_time", "update_time")}
             new_row["tenant_id"] = org_id
             new_row.update(update_data)
 
-            res = await client.table("vmd_agent_config").insert(new_row).execute()
+            res = await admin_client.table("vmd_agent_config").insert(new_row).execute()
             if not res.data:
                 raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "创建租户Agent配置失败")
 
