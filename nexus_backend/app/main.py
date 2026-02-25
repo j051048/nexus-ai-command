@@ -59,16 +59,27 @@ from app.routers import (
 from app.routers import mcp as mcp_router
 from app.routers import robot as robot_router
 
-# VMD (Virtual Marketing Department) routers
+# VMD (Virtual Marketing Department) routers — import individually to avoid all-or-nothing failure
 try:
-    from app.routers import llm_models, vmd_clues, vmd_dashboard, vmd_tasks
-    from app.routers import vmd_compliance as vmd_compliance_router
+    from app.routers import llm_models
 except ImportError:
     llm_models = None
+try:
+    from app.routers import vmd_tasks
+except ImportError:
     vmd_tasks = None
-    vmd_compliance_router = None
+try:
+    from app.routers import vmd_clues
+except ImportError:
     vmd_clues = None
+try:
+    from app.routers import vmd_dashboard
+except ImportError:
     vmd_dashboard = None
+try:
+    from app.routers import vmd_compliance as vmd_compliance_router
+except ImportError:
+    vmd_compliance_router = None
 try:
     from app.routers import admin_traces
 except ImportError:

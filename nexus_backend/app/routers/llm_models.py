@@ -380,14 +380,19 @@ async def test_model_connectivity(
         test_message = ""
 
         try:
-            from app.services.llm_adapters.base import get_adapter
+            from app.services.llm_adapters.base import ModelConfig
+            from app.services.llm_adapters.registry import get_adapter
 
-            adapter = get_adapter(
-                adapter_code=model_config["adapter_code"],
+            config = ModelConfig(
+                model_code=model_config.get("model_code", ""),
+                model_name=model_config.get("model_name", ""),
+                provider_type=model_config.get("provider_type", ""),
                 api_base_url=model_config.get("api_base_url", ""),
                 api_key=decrypted_key,
+                secret_key=model_config.get("secret_key_encrypted"),
                 model_id=model_config.get("model_id", ""),
             )
+            adapter = get_adapter(config.provider_type, config)
             test_result = await adapter.test_connectivity()
             test_success = test_result.get("success", False)
             test_message = test_result.get("message", "连通性测试完成")
