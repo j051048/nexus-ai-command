@@ -506,6 +506,7 @@ async def persist_result(
             content=user_message,
             agent=agent_name,
             db_client=client,
+            org_id=org_id,
         )
         await ChatService.save_message(
             user_id=user_id,
@@ -515,6 +516,7 @@ async def persist_result(
             agent=agent_name,
             metadata=metadata or {},
             db_client=client,
+            org_id=org_id,
         )
     except Exception as e:
         logger.error(f"[Memory] Failed to persist messages: {e}")

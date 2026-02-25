@@ -167,12 +167,12 @@ class ChatService:
         agent: str = None,
         metadata: dict = None,
         db_client: Any | None = None,
+        org_id: str | None = None,
     ):
         """Save a message to the database for persistence.
 
-        Always uses the global (service-key) supabase client because
-        chat_messages has no organization_id column and RLS-scoped
-        clients will be rejected by row-level security policies.
+        Always uses the global (service-key) supabase client to bypass RLS.
+        The org_id is stored for tenant-level isolation via RLS SELECT policies.
         """
         try:
             data = {
@@ -182,6 +182,10 @@ class ChatService:
                 "content": content,
                 "metadata": metadata or {},
             }
+            if agent:
+                data["agent"] = agent
+            if org_id:
+                data["organization_id"] = org_id
             await supabase.table("chat_messages").insert(data).execute()
         except Exception as e:
             logger.error(f"Failed to save chat message: {str(e)}")

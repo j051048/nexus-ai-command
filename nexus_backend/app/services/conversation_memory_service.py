@@ -371,9 +371,14 @@ class ConversationMemoryService:
         metadata: dict | None = None,
         db: Any = None,
     ) -> dict | None:
-        """Save an organization-level memory visible to all users in the tenant."""
-        client = db or supabase
-        if not client:
+        """Save an organization-level memory visible to all users in the tenant.
+
+        Always uses the global admin client because org_memories RLS
+        relies on a session variable (app.current_org_id) that PostgREST
+        scoped clients do not set. Application-layer org_id filtering
+        ensures tenant isolation.
+        """
+        if not supabase:
             return None
         try:
             record = {
@@ -386,7 +391,7 @@ class ConversationMemoryService:
                 "metadata": metadata or {},
             }
             res = (
-                await client.table("org_memories").upsert(record, on_conflict="organization_id,category,key").execute()
+                await supabase.table("org_memories").upsert(record, on_conflict="organization_id,category,key").execute()
             )
             return res.data[0] if res.data else record
         except Exception as e:
@@ -400,13 +405,12 @@ class ConversationMemoryService:
         limit: int = 50,
         db: Any = None,
     ) -> list[dict]:
-        """Get organization-level memories."""
-        client = db or supabase
-        if not client:
+        """Get organization-level memories. Uses admin client to bypass RLS."""
+        if not supabase:
             return []
         try:
             query = (
-                client.table("org_memories")
+                supabase.table("org_memories")
                 .select("*")
                 .eq("organization_id", org_id)
                 .order("updated_at", desc=True)
@@ -427,13 +431,12 @@ class ConversationMemoryService:
         limit: int = 10,
         db: Any = None,
     ) -> list[dict]:
-        """Search organization memories by keyword."""
-        client = db or supabase
-        if not client:
+        """Search organization memories by keyword. Uses admin client to bypass RLS."""
+        if not supabase:
             return []
         try:
             res = (
-                await client.table("org_memories")
+                await supabase.table("org_memories")
                 .select("*")
                 .eq("organization_id", org_id)
                 .or_(f"key.ilike.%{query}%,value.ilike.%{query}%")
@@ -452,12 +455,11 @@ class ConversationMemoryService:
         memory_id: str,
         db: Any = None,
     ) -> bool:
-        """Delete a specific organization memory."""
-        client = db or supabase
-        if not client:
+        """Delete a specific organization memory. Uses admin client to bypass RLS."""
+        if not supabase:
             return False
         try:
-            await client.table("org_memories").delete().eq("id", memory_id).eq("organization_id", org_id).execute()
+            await supabase.table("org_memories").delete().eq("id", memory_id).eq("organization_id", org_id).execute()
             return True
         except Exception as e:
             if hasattr(e, "code") and str(getattr(e, "code", "")) == "204":

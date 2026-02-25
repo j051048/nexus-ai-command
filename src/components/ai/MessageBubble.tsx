@@ -113,12 +113,25 @@ export function MessageBubble({
                     
                     // P1: Generative UI Support
                     if (match && match[1] === 'gen-ui') {
+                      const raw = String(children).trim();
                       try {
-                        const config = JSON.parse(String(children));
+                        const config = JSON.parse(raw);
                         return <GenUIContainer componentName={config.component} props={config.props} />;
-                      } catch (e) {
-                        console.error("GenUI Parse Error:", e);
-                        return <div className="text-xs text-red-400 p-2 border border-red-900/30 rounded">UI组件渲染失败: {String(children)}</div>;
+                      } catch {
+                        // During streaming, JSON may be incomplete — show skeleton instead of error
+                        if (isTyping) {
+                          return (
+                            <div className="my-4 w-full rounded-xl border border-border bg-card p-6 space-y-3 animate-pulse">
+                              <div className="flex items-center gap-2">
+                                <div className="h-4 w-4 rounded bg-primary/20" />
+                                <div className="h-4 w-24 rounded bg-muted" />
+                              </div>
+                              <div className="h-32 w-full rounded bg-muted/50" />
+                            </div>
+                          );
+                        }
+                        console.error("GenUI Parse Error:", raw);
+                        return <div className="text-xs text-red-400 p-2 border border-red-900/30 rounded">UI组件渲染失败</div>;
                       }
                     }
 

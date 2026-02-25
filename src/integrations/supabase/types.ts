@@ -556,6 +556,8 @@ export interface Database {
             content: string
             metadata: Json | null
             user_id: string | null
+            organization_id: string | null
+            agent: string | null
             created_at: string
           }
           Insert: {
@@ -565,6 +567,8 @@ export interface Database {
               content: string
               metadata?: Json | null
               user_id?: string | null
+              organization_id?: string | null
+              agent?: string | null
               created_at?: string
           }
           Update: {
@@ -574,6 +578,8 @@ export interface Database {
               content?: string
               metadata?: Json | null
               user_id?: string | null
+              organization_id?: string | null
+              agent?: string | null
               created_at?: string
           }
       }

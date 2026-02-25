@@ -2,14 +2,18 @@ import React, { lazy, Suspense } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 // Registry of components available for Generative UI
-// Registry of components available for Generative UI
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const GEN_UI_COMPONENTS: Record<string, React.ComponentType<any>> = {
+  // Business components
   BadgePanel: lazy(() => import('../dashboard/employee/BadgePanel').then(m => ({ default: m.BadgePanel }))),
   ApprovalCenter: lazy(() => import('../approval/ApprovalCenter').then(m => ({ default: m.ApprovalCenter }))),
-  RewardsWallet: lazy(() => import('../rewards/RewardsWallet').then(m => ({ default: m.RewardsWallet }))), 
+  RewardsWallet: lazy(() => import('../rewards/RewardsWallet').then(m => ({ default: m.RewardsWallet }))),
   KanbanBoard: lazy(() => import('../sales/sections/KanbanBoard').then(m => ({ default: m.KanbanBoard }))),
   PriorityLeads: lazy(() => import('../sales/sections/PriorityLeads').then(m => ({ default: m.PriorityLeads }))),
+  // Data visualization components
+  DataChart: lazy(() => import('./genui/DataChart')),
+  DataTable: lazy(() => import('./genui/DataTable')),
+  StatCards: lazy(() => import('./genui/StatCards')),
 };
 
 interface GenUIContainerProps {
