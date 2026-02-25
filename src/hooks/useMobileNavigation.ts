@@ -75,7 +75,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/workflow-templates': '工作流模板',
   '/notification-center': '消息中心',
   '/profile': '我的',
-  '/settings': 'AI 配置',
+  '/settings': '系统设置',
   '/rewards': '激励钱包',
   '/payments': '订阅支付',
   '/api-keys': 'API 密钥',

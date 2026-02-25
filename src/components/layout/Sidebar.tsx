@@ -130,7 +130,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
     { icon: <BookOpen size={20} />, label: '知识库', href: 'knowledge', roles: undefined },
     { icon: <GraduationCap size={20} />, label: '培训中心', href: 'training', roles: undefined },
     { icon: <Gift size={20} />, label: '激励钱包', href: 'rewards', badge: '¥200', badgeType: 'success', roles: undefined },
-    { icon: <Settings size={20} />, label: 'AI配置中心', href: 'settings', roles: undefined },
+    { icon: <Settings size={20} />, label: '系统设置', href: 'settings', roles: undefined },
     { icon: <CreditCard size={20} />, label: '订阅支付', href: 'payments', roles: ['boss'] },
     { icon: <Puzzle size={20} />, label: '插件市场', href: 'plugins', roles: ['boss'] },
     { icon: <ClipboardList size={20} />, label: '审计日志', href: 'audit', roles: ['boss'] },

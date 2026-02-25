@@ -109,7 +109,7 @@ export default function MobileProfilePage() {
       },
       {
         id: 'ai-settings',
-        label: 'AI 配置',
+        label: '系统设置',
         icon: Settings,
         iconColor: 'text-gray-600 dark:text-gray-400',
         iconBg: 'bg-gray-100 dark:bg-gray-800',
