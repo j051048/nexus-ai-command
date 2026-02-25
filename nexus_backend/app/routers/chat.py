@@ -15,11 +15,6 @@ from app.services.token_service import validate_request_tokens
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["Chat"])
 
-# ── Feature Flag: LangGraph Agent ──────────────────────────────────────────
-# Set USE_LANGGRAPH_AGENT=true in env to enable the new agentic architecture.
-# When disabled, falls back to the legacy ChatService.stream_response.
-USE_LANGGRAPH_AGENT = os.getenv("USE_LANGGRAPH_AGENT", "true").lower() in ("true", "1", "yes")
-
 
 def _infer_mini_model(model: str) -> str:
     """Infer the lightweight model variant for simple queries."""
@@ -43,14 +38,14 @@ async def _error_stream(msg: str):
 @router.post("/chat")
 async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_current_user_id)):
     """
-    Unified Chat Endpoint.
+    Unified Chat Endpoint — routes all chat through LangGraph agent.
 
     Handles:
     - User Authentication (JWT)
     - Content Moderation (Input)
     - Token Limit Check
     - Agent System Prompt Selection
-    - Streaming Response via LangGraph agent (or legacy ChatService fallback)
+    - Streaming Response via LangGraph agent
     """
 
     # 1. Identity & Profile Check
@@ -167,80 +162,36 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
         except Exception as e:
             logger.debug(f"Semantic cache check skipped: {e}")
 
-    # 6. Route to LangGraph agent or legacy ChatService
-    if USE_LANGGRAPH_AGENT:
-        # ── New: LangGraph Agentic Architecture ──
-        # Memory management (sliding window, summary, semantic cache) is handled
-        # inside run_agent_stream → memory.prepare_messages, so we pass raw messages.
-        from app.agent import run_agent_stream
+    # 6. LangGraph Agentic Architecture (sole chat path)
+    # Memory management (sliding window, summary, semantic cache) is handled
+    # inside run_agent_stream → memory.prepare_messages, so we pass raw messages.
+    from app.agent import run_agent_stream
 
-        raw_messages = [{"role": m.role, "content": m.content} for m in request.messages]
+    raw_messages = [{"role": m.role, "content": m.content} for m in request.messages]
 
-        logger.info(
-            f"[Chat] Using LangGraph agent for user={user_id} " f"agent={request.agent} model={ai_config['model']}"
-        )
+    logger.info(
+        f"[Chat] Using LangGraph agent for user={user_id} " f"agent={request.agent} model={ai_config['model']}"
+    )
 
-        return StreamingResponse(
-            run_agent_stream(
-                messages=raw_messages,
-                config=ai_config,
-                user_id=user_id,
-                system_prompt=system_prompt,
-                tracer=tracer,
-                system_confirmed=request.system_confirmed,
-                session_id=request.sessionId,
-                db_client=client,
-                agent_name=request.agent,
-                user_role=user_role,
-                org_id=org_id,
-                # VMD extensions: pass scene/agent codes for role-based routing
-                scene_code=request.scene_code,
-                vmd_agent_code=request.agent_code,
-            ),
-            media_type="text/event-stream; charset=utf-8",
-        )
-    else:
-        # ── Legacy: ChatService.stream_response ──
-        # Keep the old sliding window + summary logic for backward compatibility
-        logger.info(f"[Chat] Using legacy ChatService for user={user_id} " f"agent={request.agent}")
-
-        max_history = 10
-        if len(request.messages) > max_history:
-            older_messages = request.messages[:-max_history]
-            recent_messages = request.messages[-max_history:]
-
-            try:
-                from app.services.summary_service import summary_service
-
-                summary = await summary_service.summarize_messages(
-                    [{"role": m.role, "content": m.content} for m in older_messages],
-                    config=ai_config,
-                )
-                if summary:
-                    from app.models.schemas import Message
-
-                    recent_messages.insert(0, Message(role="system", content=f"[对话历史摘要] {summary}"))
-            except Exception as e:
-                logger.warning(f"Failed to generate conversation summary: {e}")
-        else:
-            recent_messages = request.messages
-
-        final_messages = [{"role": "system", "content": system_prompt}]
-        for m in recent_messages:
-            final_messages.append({"role": m.role, "content": m.content})
-
-        return StreamingResponse(
-            ChatService.stream_response(
-                final_messages,
-                ai_config,
-                user_id,
-                tracer,
-                system_confirmed=request.system_confirmed,
-                session_id=request.sessionId,
-                db_client=client,
-            ),
-            media_type="text/event-stream; charset=utf-8",
-        )
+    return StreamingResponse(
+        run_agent_stream(
+            messages=raw_messages,
+            config=ai_config,
+            user_id=user_id,
+            system_prompt=system_prompt,
+            tracer=tracer,
+            system_confirmed=request.system_confirmed,
+            session_id=request.sessionId,
+            db_client=client,
+            agent_name=request.agent,
+            user_role=user_role,
+            org_id=org_id,
+            # VMD extensions: pass scene/agent codes for role-based routing
+            scene_code=request.scene_code,
+            vmd_agent_code=request.agent_code,
+        ),
+        media_type="text/event-stream; charset=utf-8",
+    )
 
 
 @router.get("/history/{session_id}")

@@ -50,7 +50,7 @@ from app.agent.nodes import error_node, execute_node, plan_node, reflect_node, r
 from app.agent.nodes_orchestrator import orchestrate_node
 from app.agent.nodes_wbs import wbs_decompose_node
 from app.agent.router import route_node
-from app.agent.state import AgentState
+from app.agent.state import AgentState, QueryComplexity
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -79,12 +79,16 @@ def _after_plan(state: AgentState) -> str:
     After planning:
       - If error occurred → error
       - If tool calls are pending → execute
+      - SIMPLE queries skip reflection → respond directly
       - Otherwise → reflect (validates the direct answer)
     """
     if state.get("error"):
         return "error"
     if state.get("requires_tools") and state.get("pending_tool_calls"):
         return "execute"
+    # Short-circuit: SIMPLE queries (greetings, FAQ) skip reflection
+    if state.get("complexity") == QueryComplexity.SIMPLE:
+        return "respond"
     return "reflect"
 
 
@@ -239,13 +243,14 @@ def build_agent_graph() -> StateGraph:
         },
     )
 
-    # plan → execute | reflect | error (conditional)
+    # plan → execute | reflect | respond | error (conditional)
     graph.add_conditional_edges(
         "plan",
         _after_plan,
         {
             "execute": "execute",
             "reflect": "reflect",
+            "respond": "respond",
             "error": "error",
         },
     )

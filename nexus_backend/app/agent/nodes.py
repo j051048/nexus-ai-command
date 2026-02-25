@@ -73,15 +73,43 @@ logger = logging.getLogger(__name__)
 _tool_schemas_cache = None
 _tool_schemas_count = None
 
+# Role hierarchy for tool access filtering
+_ROLE_HIERARCHY = {
+    "guest": 0,
+    "employee": 1,
+    "manager": 2,
+    "boss": 3,
+    "founder": 4,
+}
 
-def _get_tool_schemas():
-    """Get tool schemas with caching (invalidates when tool count changes)."""
+
+def _get_tool_schemas(user_role: str | None = None):
+    """Get tool schemas with caching. Optionally filter by user role to reduce token cost."""
     global _tool_schemas_cache, _tool_schemas_count
     schemas = get_all_tools_schema()
     if _tool_schemas_cache is None or len(schemas) != _tool_schemas_count:
         _tool_schemas_cache = schemas
         _tool_schemas_count = len(schemas)
-    return _tool_schemas_cache
+
+    if not user_role:
+        return _tool_schemas_cache
+
+    # Filter schemas by user role — exclude tools the user cannot execute
+    user_level = _ROLE_HIERARCHY.get(user_role, 1)
+    filtered = []
+    for schema in _tool_schemas_cache:
+        tool_name = schema.get("function", {}).get("name", "")
+        tool = get_tool(tool_name)
+        if not tool:
+            continue
+        req_role = getattr(tool, "required_role", "all")
+        if req_role in ("all", "ai_assistant"):
+            filtered.append(schema)
+        else:
+            req_level = _ROLE_HIERARCHY.get(req_role, 1)
+            if user_level >= req_level:
+                filtered.append(schema)
+    return filtered
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -286,7 +314,7 @@ async def plan_node(state: AgentState) -> dict:
         if user_role:
             extra_lines.append(f"当前用户角色: {user_role}")
 
-        tool_schemas = _get_tool_schemas()
+        tool_schemas = _get_tool_schemas(config.user_role)
         if tool_schemas:
             tool_names = ", ".join(t["function"]["name"] for t in tool_schemas)
             extra_lines.append(f"可用工具: {tool_names}")
@@ -332,7 +360,7 @@ async def plan_node(state: AgentState) -> dict:
     # Use ChatOpenAI with streaming and bind_tools
     llm = _get_llm(config, model=model, streaming=True, resolved_config=resolved)
     if include_tools:
-        llm = llm.bind_tools(_get_tool_schemas())
+        llm = llm.bind_tools(_get_tool_schemas(config.user_role))
 
     thinking_step = ThinkingStep(
         phase=AgentPhase.PLANNING.value,

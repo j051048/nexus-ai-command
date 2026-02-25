@@ -212,9 +212,13 @@ async def run_agent_stream(
     streamed_plan_text = ""  # Track what was streamed during plan phase
 
     try:
+        # P1 Security: Prefix thread_id with org_id to prevent cross-tenant
+        # state leakage via the LangGraph checkpointer.
+        scoped_thread_id = f"{agent_config.org_id or 'default'}::{agent_config.session_id}"
+
         async for event in _agent_graph.astream_events(
             initial_state,
-            thread_id=agent_config.session_id,
+            thread_id=scoped_thread_id,
             version="v2",
         ):
             kind = event.get("event")

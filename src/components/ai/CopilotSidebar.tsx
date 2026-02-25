@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/contexts/UserContext';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Sparkles,
   ChevronRight,
@@ -69,11 +70,38 @@ const typeConfig = {
   },
 };
 
-// Context-aware suggestion generator
+// Real data context for dynamic suggestions
+interface RealContext {
+  pendingApprovalCount: number;
+  recentDocCount: number;
+}
+
+// Fetch real context from Supabase for dynamic suggestions
+async function fetchRealContext(userId: string): Promise<RealContext> {
+  const ctx: RealContext = { pendingApprovalCount: 0, recentDocCount: 0 };
+  try {
+    const { count } = await supabase
+      .from('approval_requests')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pending');
+    ctx.pendingApprovalCount = count ?? 0;
+  } catch { /* ignore */ }
+  try {
+    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+    const { count } = await supabase
+      .from('documents')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', weekAgo);
+    ctx.recentDocCount = count ?? 0;
+  } catch { /* ignore */ }
+  return ctx;
+}
+
+// Context-aware suggestion generator — uses real data where available
 function generateSuggestions(
   pathname: string,
   userRole: string,
-  _userData?: unknown
+  realCtx: RealContext,
 ): CopilotSuggestion[] {
   const now = new Date();
   const suggestions: CopilotSuggestion[] = [];
@@ -92,17 +120,17 @@ function generateSuggestions(
     timestamp: now,
   });
 
-  // Page-specific suggestions
+  // Page-specific suggestions with real data
   if (pathname.includes('/sales')) {
     suggestions.unshift({
       id: 'sales-followup',
       type: 'opportunity',
-      title: '3个高优先级客户待跟进',
-      description: '张教授(清华)、李主任(北大)、王经理(中科院)已超过3天未联系',
+      title: '高优先级客户待跟进',
+      description: '查看超过3天未联系的重要客户，避免商机流失',
       priority: 'high',
       action: {
         label: '查看详情',
-        route: '/sales',
+        aiPrompt: '帮我查看需要跟进的客户',
       },
       context: 'sales',
       timestamp: now,
@@ -111,7 +139,7 @@ function generateSuggestions(
       id: 'sales-script',
       type: 'insight',
       title: '话术优化建议',
-      description: '基于最近成交案例，AI 发现强调"售后服务"可提升15%转化率',
+      description: '基于最近成交案例，AI 可以为您分析有效的销售话术',
       priority: 'medium',
       action: {
         label: '查看话术',
@@ -122,18 +150,21 @@ function generateSuggestions(
   }
 
   if (pathname.includes('/approval')) {
-    suggestions.unshift({
-      id: 'pending-approvals',
-      type: 'reminder',
-      title: '待处理审批',
-      description: '您有审批请求等待处理，部分已超过24小时',
-      priority: 'high',
-      action: {
-        label: '立即处理',
-        route: '/approval',
-      },
-      timestamp: now,
-    });
+    const count = realCtx.pendingApprovalCount;
+    if (count > 0) {
+      suggestions.unshift({
+        id: 'pending-approvals',
+        type: 'reminder',
+        title: `${count} 条待处理审批`,
+        description: `您有 ${count} 条审批请求等待处理`,
+        priority: 'high',
+        action: {
+          label: '立即处理',
+          route: '/approval',
+        },
+        timestamp: now,
+      });
+    }
   }
 
   if (pathname.includes('/dashboard') || pathname === '/') {
@@ -142,7 +173,7 @@ function generateSuggestions(
         id: 'weekly-summary',
         type: 'insight',
         title: '本周团队绩效概览',
-        description: '销售额环比增长12%，但客户投诉上升了5%',
+        description: '查看本周团队业绩表现和关键指标变化',
         priority: 'high',
         action: {
           label: '查看详情',
@@ -151,14 +182,29 @@ function generateSuggestions(
         timestamp: now,
       });
     }
+    if (realCtx.pendingApprovalCount > 0) {
+      suggestions.push({
+        id: 'dashboard-approvals',
+        type: 'reminder',
+        title: `${realCtx.pendingApprovalCount} 条审批待处理`,
+        description: '有待办审批需要您的关注',
+        priority: 'high',
+        action: {
+          label: '去审批',
+          route: '/approval',
+        },
+        timestamp: now,
+      });
+    }
   }
 
   if (pathname.includes('/documents')) {
+    const docCount = realCtx.recentDocCount;
     suggestions.unshift({
       id: 'doc-analysis',
       type: 'action',
-      title: '批量分析文档',
-      description: '选择多个文档让 AI 进行对比分析或摘要提取',
+      title: docCount > 0 ? `分析近期 ${docCount} 份文档` : '批量分析文档',
+      description: '选择文档让 AI 进行对比分析或摘要提取',
       priority: 'medium',
       action: {
         label: '开始分析',
@@ -257,21 +303,36 @@ export function CopilotSidebar({
   const [suggestions, setSuggestions] = useState<CopilotSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Generate context-aware suggestions
+  // Generate context-aware suggestions with real data
   useEffect(() => {
+    let cancelled = false;
     setIsLoading(true);
-    // Simulate AI processing
-    const timer = setTimeout(() => {
-      const newSuggestions = generateSuggestions(
-        location.pathname,
-        user.role,
-        user
-      );
-      setSuggestions(newSuggestions);
-      setIsLoading(false);
-    }, 500);
 
-    return () => clearTimeout(timer);
+    (async () => {
+      try {
+        const realCtx = await fetchRealContext(user.id || '');
+        if (cancelled) return;
+        const newSuggestions = generateSuggestions(
+          location.pathname,
+          user.role,
+          realCtx,
+        );
+        setSuggestions(newSuggestions);
+      } catch {
+        // Fallback to empty context on error
+        if (!cancelled) {
+          const fallback = generateSuggestions(location.pathname, user.role, {
+            pendingApprovalCount: 0,
+            recentDocCount: 0,
+          });
+          setSuggestions(fallback);
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
   }, [location.pathname, user]);
 
   const handleAction = (suggestion: CopilotSuggestion) => {
@@ -349,7 +410,7 @@ export function CopilotSidebar({
             title: '询问 AI',
             description: '',
             priority: 'low',
-            action: { aiPrompt: '' },
+            action: { label: '提问', aiPrompt: '' },
             timestamp: new Date(),
           })}
         >
