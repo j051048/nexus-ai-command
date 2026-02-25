@@ -124,7 +124,7 @@ async def wbs_decompose_node(state: AgentState) -> dict:
         agent_code = state.get("agent_code", "")
         resolved = await resolve_model_config(org_id, scene_code, agent_code)
     except Exception:
-        pass
+        logger.debug("LLM gateway model config unavailable in wbs_node, using default")
 
     if resolved:
         llm = ChatOpenAI(

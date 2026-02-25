@@ -250,7 +250,7 @@ export function EnhancedAIChatPanel({
         return;
       }
 
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://aizhz.zeabur.app';
+      const baseUrl = import.meta.env.VITE_API_BASE_URL;
       const response = await fetch(`${baseUrl}/api/documents/upload`, {
         method: 'POST',
         headers: {

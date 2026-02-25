@@ -144,11 +144,11 @@ class QueryTransformer:
                     self._resolved_model = resolved.get("model", self.config.mini_model)
                     return self._llm_client
                 except Exception:
-                    pass
+                    logger.debug("LLM gateway model config unavailable, using default")
 
                 self._llm_client = AsyncOpenAI(api_key=self.config.api_key, base_url=self.config.base_url)
             except Exception as e:
-                logger.warning(f"Failed to init LLM for query transformation: {e}")
+                logger.warning(f"Failed to init LLM for query transformation: {e}", exc_info=True)
         return self._llm_client
 
     async def generate_hyde(self, query: str) -> str:
@@ -183,7 +183,7 @@ class QueryTransformer:
             logger.debug(f"[HyDE] Generated hypothetical doc: {hyde_doc[:100]}...")
             return hyde_doc
         except Exception as e:
-            logger.warning(f"HyDE generation failed: {e}")
+            logger.warning(f"HyDE generation failed: {e}", exc_info=True)
             return query
 
     async def expand_multi_query(self, query: str, num_queries: int = 3) -> list[str]:
@@ -222,7 +222,7 @@ class QueryTransformer:
             logger.debug(f"[MultiQuery] Generated {len(all_queries)} query variants")
             return all_queries
         except Exception as e:
-            logger.warning(f"Multi-query expansion failed: {e}")
+            logger.warning(f"Multi-query expansion failed: {e}", exc_info=True)
             return [query]
 
     async def rewrite_query(self, query: str) -> str:
@@ -257,7 +257,7 @@ class QueryTransformer:
             logger.debug(f"[QueryRewrite] '{query}' -> '{rewritten}'")
             return rewritten
         except Exception as e:
-            logger.warning(f"Query rewriting failed: {e}")
+            logger.warning(f"Query rewriting failed: {e}", exc_info=True)
             return query
 
 
@@ -390,7 +390,7 @@ async def prepare_initial_state(
                 )
 
         except Exception as e:
-            logger.warning(f"[Memory] RAG retrieval failed: {e}")
+            logger.warning(f"[Memory] RAG retrieval failed: {e}", exc_info=True)
 
     # ── 2b. Long-term Memory Injection ──
     # Load user preferences and explicit memories from conversation_memory_service
@@ -589,7 +589,7 @@ async def load_session_history(
         )
         return [{"role": msg["role"], "content": msg["content"]} for msg in (response.data or [])]
     except Exception as e:
-        logger.warning(f"[Memory] Failed to load session history: {e}")
+        logger.warning(f"[Memory] Failed to load session history: {e}", exc_info=True)
         return []
 
 
@@ -619,7 +619,7 @@ async def _summarize_messages(
             },
         )
     except Exception as e:
-        logger.warning(f"[Memory] LLM summarization failed: {e}")
+        logger.warning(f"[Memory] LLM summarization failed: {e}", exc_info=True)
 
     # Fallback: simple text truncation
     try:

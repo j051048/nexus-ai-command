@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://aizhz.zeabur.app';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 interface RequestOptions extends RequestInit {
     requireAuth?: boolean;

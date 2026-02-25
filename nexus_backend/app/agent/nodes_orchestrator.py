@@ -277,7 +277,7 @@ async def _execute_sub_task(
         org_id = config.org_id or "default"
         resolved = await resolve_model_config(org_id, "", agent_code)
     except Exception:
-        pass
+        logger.debug("LLM gateway model config unavailable in sub-task, using default")
 
     if resolved:
         llm = ChatOpenAI(
@@ -427,7 +427,7 @@ async def _integrate_results(
         org_id = config.org_id or "default"
         resolved = await resolve_model_config(org_id)
     except Exception:
-        pass
+        logger.debug("LLM gateway model config unavailable in integrator, using default")
 
     if resolved:
         llm = ChatOpenAI(

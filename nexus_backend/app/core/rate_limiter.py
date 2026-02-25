@@ -37,7 +37,7 @@ if REDIS_URL:
     except ImportError:
         logger.warning("[RateLimiter] redis package not installed, falling back to in-memory")
     except Exception as e:
-        logger.warning(f"[RateLimiter] Redis connection failed: {e}, falling back to in-memory")
+        logger.warning(f"[RateLimiter] Redis connection failed: {e}", exc_info=True)
 
 
 class RateLimiter:

@@ -162,7 +162,7 @@ async def run_agent_stream(
             cache_tokens = token_counter.count_tokens(cached_response, agent_config.model)
             await record_completion(user_id, input_tokens, cache_tokens, agent_config.model)
         except Exception as e:
-            logger.warning(f"Failed to record cache tokens: {e}")
+            logger.warning(f"Failed to record cache tokens: {e}", exc_info=True)
 
         yield "data: [DONE]\n\n"
         if tracer:
@@ -331,7 +331,7 @@ async def run_agent_stream(
     try:
         await record_completion(user_id, total_in, total_out, agent_config.model)
     except Exception as e:
-        logger.warning(f"[Stream] Token recording failed: {e}")
+        logger.warning(f"[Stream] Token recording failed: {e}", exc_info=True)
 
     # ── 9. Persist to DB and cache (fire-and-forget) ──
     asyncio.create_task(

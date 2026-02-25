@@ -58,7 +58,7 @@ interface TemplateListResponse {
 
 // ─── Constants ──────────────────────────────────────────────
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://aizhz.zeabur.app';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
   finance: <DollarSign className="w-4 h-4" />,

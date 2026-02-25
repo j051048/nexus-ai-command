@@ -1,0 +1,9 @@
+THIS DIRECTORY IS DEPRECATED.
+
+All migrations have been consolidated into the canonical directory:
+  nexus_backend/supabase_migrations/migrations/
+
+Do NOT add new migration files here. Use the canonical directory above.
+
+Note: The config.toml in this directory references project_id 'lbmynlwrrkstryvuonnk'
+which may differ from the active Supabase project. Update if needed.

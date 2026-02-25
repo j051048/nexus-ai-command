@@ -25,7 +25,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
 
     /** Tier 1 primary: Zeabur backend directly */
     const getBackendUrl = useCallback(() => {
-        let url = import.meta.env.VITE_API_BASE_URL || 'https://aizhz.zeabur.app';
+        let url = import.meta.env.VITE_API_BASE_URL;
         if (!url.startsWith('http')) {
             url = `https://${url}`;
         }
@@ -37,7 +37,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
 
     /** Tier 1 fallback: Supabase Edge Function proxy → Zeabur backend */
     const getEdgeFunctionUrl = useCallback(() => {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://hztpazmuejgbtixihcgj.supabase.co';
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         return `${supabaseUrl}/functions/v1/ai-chat`;
     }, []);
 

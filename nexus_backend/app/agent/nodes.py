@@ -273,7 +273,7 @@ async def plan_node(state: AgentState) -> dict:
         agent_code = state.get("agent_code", "")
         resolved = await resolve_model_config(org_id, scene_code, agent_code)
     except Exception:
-        pass
+        logger.debug("LLM gateway model config unavailable in plan_node, using default")
 
     # Convert to LC format
     lc_msgs = _messages_to_lc_format(messages)
@@ -593,7 +593,7 @@ async def reflect_node(state: AgentState) -> dict:
         agent_code = state.get("agent_code", "")
         resolved = await resolve_model_config(org_id, scene_code, agent_code)
     except Exception:
-        pass
+        logger.debug("LLM gateway model config unavailable in plan_node, using default")
 
     # Extract the last AI message
     last_ai_content = ""

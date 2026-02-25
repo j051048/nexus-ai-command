@@ -99,7 +99,7 @@ async def get_current_user_id(request: Request = None, authorization: str | None
             if claimed_alg not in ALLOWED_ALGORITHMS:
                 logger.warning(f"Token claims unsupported algorithm: {claimed_alg}")
         except Exception:
-            pass
+            logger.debug("Failed to parse JWT header for algorithm check, proceeding with verification")
 
         payload = None
         last_error = None

@@ -268,7 +268,7 @@ async def _llm_classify_intent(
             org_id = getattr(config, "org_id", None) or "default"
             resolved = await resolve_model_config(org_id)
         except Exception:
-            pass
+            logger.debug("LLM gateway model config unavailable in router, using default")
 
         if resolved:
             llm = ChatOpenAI(
