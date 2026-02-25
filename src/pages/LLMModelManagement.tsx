@@ -130,13 +130,44 @@ export default function LLMModelManagement() {
       toast.error('请填写模型编码和名称');
       return;
     }
-    const payload = { ...editModel };
-    if (payload.api_key === '••••••••') delete payload.api_key;
+    if (!editModel.api_base_url) {
+      toast.error('请填写 API Base URL');
+      return;
+    }
+    if (!isEditing && !editModel.api_key) {
+      toast.error('请填写 API Key');
+      return;
+    }
+
+    // Map frontend field names to backend field names
+    const payload: Record<string, unknown> = {
+      model_code: editModel.model_code,
+      model_name: editModel.model_name,
+      provider_type: editModel.provider_type || 'openai',
+      adapter_code: editModel.provider_type || 'openai',
+      api_base_url: editModel.api_base_url,
+      model_id: editModel.model_id || null,
+      model_type: editModel.model_type || 'chat',
+      timeout_ms: editModel.timeout_ms || 30000,
+      max_tokens: editModel.max_tokens || 4096,
+      context_window: editModel.context_window || 8192,
+      supports_tools: editModel.supports_tools ?? true,
+      supports_streaming: editModel.supports_streaming ?? true,
+      input_price_per_1m: (editModel.input_price || 0) * 1000,
+      output_price_per_1m: (editModel.output_price || 0) * 1000,
+      status: editModel.is_active === false ? 'disabled' : 'enabled',
+    };
+    if (editModel.api_key && editModel.api_key !== '••••••••') {
+      payload.api_key = editModel.api_key;
+    }
+    if (editModel.secret_key) {
+      payload.secret_key = editModel.secret_key;
+    }
 
     if (isEditing && editModel.id) {
       await updateModel.mutateAsync({ ...payload, id: editModel.id } as LLMModel & { id: string });
     } else {
-      await createModel.mutateAsync(payload);
+      await createModel.mutateAsync(payload as Partial<LLMModel>);
     }
     setEditOpen(false);
   };

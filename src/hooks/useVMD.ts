@@ -289,12 +289,37 @@ export function useUpdateVMDAgent() {
 
 // ─── LLM Models ──────────────────────────────────────────────
 
+/** Map DB row field names to frontend LLMModel field names */
+function mapModelFromDB(row: AnyData): LLMModel {
+  return {
+    id: String(row.id),
+    provider_type: row.provider_type ?? row.adapter_code ?? '',
+    model_code: row.model_code ?? '',
+    model_name: row.model_name ?? '',
+    api_base_url: row.api_base_url ?? '',
+    api_key: row.api_key,
+    secret_key: row.secret_key,
+    model_id: row.model_id ?? '',
+    model_type: row.model_type ?? 'chat',
+    timeout_ms: row.timeout_ms ?? 30000,
+    max_tokens: row.max_tokens ?? 4096,
+    context_window: row.context_window ?? 8192,
+    supports_tools: row.supports_tools ?? false,
+    supports_streaming: row.supports_streaming ?? true,
+    input_price: row.input_price_per_1m != null ? row.input_price_per_1m / 1000 : (row.input_price ?? 0),
+    output_price: row.output_price_per_1m != null ? row.output_price_per_1m / 1000 : (row.output_price ?? 0),
+    is_active: row.status === 'enabled' || row.status === 'active' || row.is_active === true,
+    is_default: row.is_default ?? false,
+  };
+}
+
 export function useLLMModels() {
   return useQuery({
     queryKey: ['llm-models'],
     queryFn: async () => {
-      const res = await aiClient.fetch<{ success: boolean; data: LLMModel[] }>('api/llm/models');
-      return res.data;
+      const res = await aiClient.fetch<{ success: boolean; data: AnyData[] }>('api/llm/models');
+      const rows = Array.isArray(res.data) ? res.data : [];
+      return rows.map(mapModelFromDB);
     },
     staleTime: 60_000,
   });
