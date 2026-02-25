@@ -36,6 +36,8 @@ class UpdateAgentConfigRequest(BaseModel):
     system_prompt: str | None = Field(None, description="系统提示词")
     tool_whitelist: list[str] | None = Field(None, description="工具白名单")
     scene_codes: list[str] | None = Field(None, description="适用场景编码列表")
+    is_active: bool | None = Field(None, description="是否启用")
+    recommended_model_tier: str | None = Field(None, description="模型层级: high/standard")
     max_retries: int | None = Field(None, ge=0, le=10, description="最大重试次数")
     timeout_ms: int | None = Field(None, ge=1000, le=600000, description="超时时间(ms)")
     model_code: str | None = Field(None, max_length=100, description="指定模型编码")
@@ -453,15 +455,29 @@ async def list_agent_configs(
     req: Request,
     user_id: str = Depends(get_current_user_id),
 ):
-    """获取所有Agent角色配置"""
+    """获取所有Agent角色配置（优先租户自定义，回退全局默认）"""
     try:
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
-        res = await client.table("vmd_agent_config").select("*").eq("tenant_id", org_id).order("agent_code").execute()
-        return api_success(data={"agents": res.data or []})
+        # Try tenant-specific configs first
+        res = await client.table("vmd_agent_config").select("*").eq("tenant_id", org_id).order("sort_order").execute()
+        agents = res.data or []
+
+        # Fallback to global defaults (tenant_id IS NULL) if no tenant rows
+        if not agents:
+            res = (
+                await client.table("vmd_agent_config")
+                .select("*")
+                .is_("tenant_id", "null")
+                .order("sort_order")
+                .execute()
+            )
+            agents = res.data or []
+
+        return api_success(data={"agents": agents})
     except Exception as e:
         logger.error(f"List agent configs error: user={user_id} err={e}")
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
@@ -474,7 +490,7 @@ async def update_agent_config(
     req: Request,
     user_id: str = Depends(get_current_user_id),
 ):
-    """更新Agent配置"""
+    """更新Agent配置（租户级覆写，首次编辑时从全局默认复制）"""
     try:
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
@@ -487,6 +503,7 @@ async def update_agent_config(
 
         update_data["updated_by"] = user_id
 
+        # Try updating tenant-specific row first
         res = (
             await client.table("vmd_agent_config")
             .update(update_data)
@@ -494,8 +511,29 @@ async def update_agent_config(
             .eq("tenant_id", org_id)
             .execute()
         )
+
         if not res.data:
-            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "Agent配置不存在")
+            # No tenant row exists — copy from global default and apply changes
+            global_res = (
+                await client.table("vmd_agent_config")
+                .select("*")
+                .eq("agent_code", agent_code)
+                .is_("tenant_id", "null")
+                .limit(1)
+                .execute()
+            )
+            if not global_res.data:
+                return api_error(ErrorCode.RESOURCE_NOT_FOUND, "Agent配置不存在")
+
+            # Clone the global row for this tenant
+            base = global_res.data[0]
+            new_row = {k: v for k, v in base.items() if k not in ("id", "create_time", "update_time")}
+            new_row["tenant_id"] = org_id
+            new_row.update(update_data)
+
+            res = await client.table("vmd_agent_config").insert(new_row).execute()
+            if not res.data:
+                return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "创建租户Agent配置失败")
 
         return api_success(data={"agent": res.data[0]}, message="Agent配置已更新")
     except Exception as e:

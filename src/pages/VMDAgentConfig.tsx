@@ -82,14 +82,14 @@ export default function VMDAgentConfig() {
   }));
 
   const handleSave = async () => {
-    if (!editAgent || editAgent.id.startsWith('default-')) return;
+    if (!editAgent) return;
     await updateAgent.mutateAsync(editAgent);
     setEditAgent(null);
   };
 
   const handleToggleActive = async (agent: VMDAgent) => {
-    if (agent.id.startsWith('default-')) return;
-    await updateAgent.mutateAsync({ id: agent.id, is_active: !agent.is_active });
+    if (!agent.agent_code) return;
+    await updateAgent.mutateAsync({ id: agent.id, agent_code: agent.agent_code, is_active: !agent.is_active });
   };
 
   const toggleTool = (tool: string) => {
@@ -305,7 +305,7 @@ export default function VMDAgentConfig() {
           </ScrollArea>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditAgent(null)}>取消</Button>
-            <Button onClick={handleSave} disabled={updateAgent.isPending || editAgent?.id.startsWith('default-')}>
+            <Button onClick={handleSave} disabled={updateAgent.isPending || !editAgent?.agent_code}>
               {updateAgent.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               保存配置
             </Button>

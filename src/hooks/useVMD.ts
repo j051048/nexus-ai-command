@@ -222,12 +222,29 @@ export function useAuditSubTask() {
 
 // ─── VMD Agents ──────────────────────────────────────────────
 
+/** Map DB row field names to frontend VMDAgent field names */
+function mapAgentFromDB(row: AnyData): VMDAgent {
+  return {
+    id: String(row.id),
+    agent_code: row.agent_code ?? '',
+    name: row.agent_name ?? row.name ?? '',
+    role_description: row.agent_role ?? row.role_description ?? '',
+    system_prompt: row.system_prompt ?? '',
+    tool_whitelist: row.tool_whitelist ?? [],
+    scene_codes: row.scene_codes ?? [],
+    model_tier: row.recommended_model_tier === 'high' ? 'high' : 'standard',
+    is_active: row.is_active ?? true,
+    icon: row.icon ?? '',
+  };
+}
+
 export function useVMDAgents() {
   return useQuery({
     queryKey: ['vmd-agents'],
     queryFn: async () => {
-      const res = await aiClient.fetch<{ success: boolean; data: VMDAgent[] }>('api/vmd/agents');
-      return res.data;
+      const res = await aiClient.fetch<{ success: boolean; data: { agents: AnyData[] } }>('api/vmd/agents/config');
+      const rows = res.data?.agents ?? (Array.isArray(res.data) ? res.data : []);
+      return rows.map(mapAgentFromDB);
     },
     staleTime: 60_000,
   });
@@ -236,12 +253,22 @@ export function useVMDAgents() {
 export function useUpdateVMDAgent() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: Partial<VMDAgent> & { id: string }) => {
-      const res = await aiClient.fetch<{ success: boolean; data: VMDAgent }>(
-        `api/vmd/agents/${data.id}`,
-        { method: 'PATCH', body: JSON.stringify(data) }
+    mutationFn: async (data: Partial<VMDAgent> & { id: string; agent_code?: string }) => {
+      const agentCode = data.agent_code;
+      if (!agentCode) throw new Error('缺少 agent_code');
+      // Map frontend fields to backend DB column names
+      const payload: AnyData = {};
+      if (data.system_prompt !== undefined) payload.system_prompt = data.system_prompt;
+      if (data.tool_whitelist !== undefined) payload.tool_whitelist = data.tool_whitelist;
+      if (data.scene_codes !== undefined) payload.scene_codes = data.scene_codes;
+      if (data.is_active !== undefined) payload.is_active = data.is_active;
+      if (data.model_tier !== undefined) payload.recommended_model_tier = data.model_tier;
+      const res = await aiClient.fetch<{ success: boolean; data: { agent: AnyData } }>(
+        `api/vmd/agents/config/${agentCode}`,
+        { method: 'PUT', body: JSON.stringify(payload) }
       );
-      return res.data;
+      const row = res.data?.agent ?? res.data;
+      return mapAgentFromDB(row);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vmd-agents'] });
