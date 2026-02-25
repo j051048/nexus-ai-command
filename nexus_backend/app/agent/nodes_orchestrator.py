@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import time
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 
 from app.agent.roles.registry import get_role_config_sync
@@ -22,9 +22,8 @@ from app.agent.state import (
     AgentPhase,
     AgentState,
     ThinkingStep,
-    ToolCallRecord,
 )
-from app.tools import get_all_tools_schema, get_tool
+from app.tools import get_tool
 
 logger = logging.getLogger(__name__)
 
@@ -265,10 +264,7 @@ async def _execute_sub_task(
             timeout=60.0,
         )
 
-    if tool_schemas:
-        llm_with_tools = llm.bind_tools(tool_schemas)
-    else:
-        llm_with_tools = llm
+    llm_with_tools = llm.bind_tools(tool_schemas) if tool_schemas else llm
 
     # 5. Execute (with one tool-calling round)
     total_in = 0

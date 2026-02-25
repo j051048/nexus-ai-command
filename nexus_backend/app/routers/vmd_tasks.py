@@ -275,8 +275,8 @@ async def pause_task(
         if current_status not in ("pending", "executing"):
             return api_error(ErrorCode.VALIDATION_INVALID_INPUT, f"当前状态({current_status})不允许暂停")
 
-        res = (
-            await client.table("vmd_main_task")
+        await (
+            client.table("vmd_main_task")
             .update({"status": "paused", "updated_by": user_id})
             .eq("id", task_id)
             .execute()
@@ -312,8 +312,8 @@ async def resume_task(
         if task_res.data.get("status") != "paused":
             return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "只有暂停状态的任务可以恢复")
 
-        res = (
-            await client.table("vmd_main_task")
+        await (
+            client.table("vmd_main_task")
             .update({"status": "executing", "updated_by": user_id})
             .eq("id", task_id)
             .execute()
@@ -350,8 +350,8 @@ async def cancel_task(
         if current_status in ("completed", "cancelled"):
             return api_error(ErrorCode.VALIDATION_INVALID_INPUT, f"当前状态({current_status})不允许取消")
 
-        res = (
-            await client.table("vmd_main_task")
+        await (
+            client.table("vmd_main_task")
             .update({"status": "cancelled", "updated_by": user_id})
             .eq("id", task_id)
             .execute()
@@ -473,8 +473,8 @@ async def audit_sub_task(
                 "status": "pending",  # Allow re-execution
             }
 
-        res = (
-            await client.table("vmd_sub_task")
+        await (
+            client.table("vmd_sub_task")
             .update(update_data)
             .eq("id", sub_task_id)
             .execute()

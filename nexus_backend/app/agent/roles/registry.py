@@ -62,9 +62,9 @@ def _load_role_from_module(module_path: str) -> RoleConfig:
     """Import a role module and build a RoleConfig from its constants."""
     mod = importlib.import_module(module_path)
     return RoleConfig(
-        agent_code=getattr(mod, "AGENT_CODE"),
-        agent_name=getattr(mod, "AGENT_NAME"),
-        system_prompt=getattr(mod, "SYSTEM_PROMPT"),
+        agent_code=mod.AGENT_CODE,
+        agent_name=mod.AGENT_NAME,
+        system_prompt=mod.SYSTEM_PROMPT,
         tool_whitelist=getattr(mod, "TOOL_WHITELIST", []),
         scene_codes=getattr(mod, "SCENE_CODES", []),
         recommended_model_tier=getattr(mod, "RECOMMENDED_MODEL_TIER", "medium"),

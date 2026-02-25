@@ -12,7 +12,7 @@ import json
 import logging
 import time
 import uuid
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 import httpx
 
@@ -294,8 +294,7 @@ class WenxinAdapter(BaseModelAdapter):
         timeout = self._build_timeout()
 
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                async with client.stream("POST", url, headers=headers, json=payload) as response:
+            async with httpx.AsyncClient(timeout=timeout) as client, client.stream("POST", url, headers=headers, json=payload) as response:
                     if response.status_code != 200:
                         error_text = ""
                         async for chunk in response.aiter_text():

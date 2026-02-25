@@ -6,17 +6,16 @@ Provides factory function to instantiate adapters from ModelConfig.
 """
 
 import logging
-from typing import Type
 
 from app.services.llm_adapters.base import BaseModelAdapter, ModelConfig
 
 logger = logging.getLogger(__name__)
 
 # Registry: provider_type -> adapter class
-_ADAPTER_REGISTRY: dict[str, Type[BaseModelAdapter]] = {}
+_ADAPTER_REGISTRY: dict[str, type[BaseModelAdapter]] = {}
 
 
-def register_adapter(provider_type: str, adapter_class: Type[BaseModelAdapter]):
+def register_adapter(provider_type: str, adapter_class: type[BaseModelAdapter]):
     """Register an adapter class for a provider type."""
     _ADAPTER_REGISTRY[provider_type] = adapter_class
     logger.debug(f"Registered LLM adapter: {provider_type} -> {adapter_class.__name__}")

@@ -373,6 +373,7 @@ class TestMiddlewareOrder:
         from starlette.middleware.cors import CORSMiddleware
 
         from app.core.api_key_middleware import APIKeyMiddleware
+        from app.core.idempotency_middleware import IdempotencyMiddleware
         from app.core.rate_limiter import RateLimitMiddleware
         from app.core.security_middleware import (
             RequestIDMiddleware,
@@ -387,6 +388,7 @@ class TestMiddlewareOrder:
             SecurityHeadersMiddleware,
             RequestIDMiddleware,
             APIKeyMiddleware,
+            IdempotencyMiddleware,
             TenantContextMiddleware,
         ]
         assert middleware_classes == expected_order, (

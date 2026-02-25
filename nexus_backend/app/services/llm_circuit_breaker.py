@@ -100,12 +100,8 @@ class ModelCircuitBreaker:
         if current_state == CircuitState.CLOSED:
             return True
 
-        if current_state == CircuitState.HALF_OPEN:
-            # Allow exactly one probe request
-            return True
-
-        # OPEN - block all requests
-        return False
+        # HALF_OPEN: allow exactly one probe request; OPEN: block all
+        return current_state == CircuitState.HALF_OPEN
 
     def record_success(self):
         """Record a successful call."""

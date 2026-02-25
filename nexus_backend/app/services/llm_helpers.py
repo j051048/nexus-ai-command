@@ -62,12 +62,11 @@ async def resolve_embedding_config(org_id: str = "default") -> dict:
     Falls back to settings + default text-embedding-3-small.
     """
     try:
+        from app.core.database import supabase
         from app.services.llm_gateway_service import llm_gateway
 
         # Try to find an embedding model in the schedule rules
         # Load the default embedding model config directly from DB
-        from app.core.database import supabase
-
         if supabase:
             res = (
                 await supabase.table("llm_model_config")

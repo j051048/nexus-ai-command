@@ -60,10 +60,7 @@ def _cache_key(tenant_id: str, model_code: str | None = None, user_id: str | Non
 
 def _usage_key(tenant_id: str, model_code: str, period: str) -> str:
     """Build a usage accumulator key."""
-    if period == "daily":
-        date_part = time.strftime("%Y-%m-%d")
-    else:
-        date_part = time.strftime("%Y-%m")
+    date_part = time.strftime("%Y-%m-%d") if period == "daily" else time.strftime("%Y-%m")
     return f"usage:{tenant_id}:{model_code}:{date_part}"
 
 
@@ -133,11 +130,7 @@ async def _load_usage_from_db(tenant_id: str, model_code: str, period: str) -> d
             _usage_cache[u_key] = usage
             return usage
 
-        if period == "daily":
-            date_filter = time.strftime("%Y-%m-%d")
-        else:
-            # Monthly: filter by current month
-            date_filter = time.strftime("%Y-%m-01")
+        date_filter = time.strftime("%Y-%m-%d") if period == "daily" else time.strftime("%Y-%m-01")
 
         query = (
             supabase.table("llm_usage_stats")
@@ -148,11 +141,7 @@ async def _load_usage_from_db(tenant_id: str, model_code: str, period: str) -> d
         if model_code != "__all__":
             query = query.eq("model_code", model_code)
 
-        if period == "daily":
-            query = query.eq("stat_date", date_filter)
-        else:
-            # For monthly, need to aggregate >= start of month
-            query = query.gte("stat_date", date_filter)
+        query = query.eq("stat_date", date_filter) if period == "daily" else query.gte("stat_date", date_filter)
 
         res = await query.execute()
 

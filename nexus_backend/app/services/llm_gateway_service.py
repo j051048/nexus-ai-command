@@ -15,7 +15,7 @@ It handles:
 import logging
 import time
 import uuid
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from app.core.database import supabase
 from app.services.encryption_service import encryption_service
@@ -885,8 +885,7 @@ class LLMGatewayService:
                 rule.get("backup_model_code")
                 or rule.get("backup_model_id")
             )
-            if backup and backup != exclude:
-                if circuit_breaker_manager.is_allowed(backup):
+            if backup and backup != exclude and circuit_breaker_manager.is_allowed(backup):
                     return backup
         return None
 

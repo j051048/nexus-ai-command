@@ -16,7 +16,7 @@ import json
 import logging
 import time
 import uuid
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 import httpx
 
@@ -90,7 +90,7 @@ class HunyuanAdapter(BaseModelAdapter):
         )
 
         # Step 2: Build string to sign
-        date = datetime.datetime.fromtimestamp(timestamp, tz=datetime.timezone.utc).strftime("%Y-%m-%d")
+        date = datetime.datetime.fromtimestamp(timestamp, tz=datetime.UTC).strftime("%Y-%m-%d")
         credential_scope = f"{date}/{HUNYUAN_SERVICE}/tc3_request"
         hashed_canonical = hashlib.sha256(canonical_request.encode("utf-8")).hexdigest()
         string_to_sign = f"TC3-HMAC-SHA256\n{timestamp}\n{credential_scope}\n{hashed_canonical}"
@@ -339,8 +339,7 @@ class HunyuanAdapter(BaseModelAdapter):
         timeout = self._build_timeout()
 
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                async with client.stream(
+            async with httpx.AsyncClient(timeout=timeout) as client, client.stream(
                     "POST", self.endpoint, headers=headers, content=payload_json
                 ) as response:
                     if response.status_code != 200:

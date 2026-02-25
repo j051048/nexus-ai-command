@@ -10,7 +10,7 @@ import json
 import logging
 import time
 import uuid
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 import httpx
 
@@ -219,12 +219,10 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
 
         accumulated_content = ""
         accumulated_tool_calls: list[dict] = []
-        finish_reason = "stop"
         usage_data = {}
 
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                async with client.stream("POST", url, headers=headers, json=payload) as response:
+            async with httpx.AsyncClient(timeout=timeout) as client, client.stream("POST", url, headers=headers, json=payload) as response:
                     if response.status_code != 200:
                         error_text = ""
                         async for chunk in response.aiter_text():
@@ -295,9 +293,6 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
                                         accumulated_tool_calls[idx]["function"]["name"] = fn["name"]
                                     if fn.get("arguments"):
                                         accumulated_tool_calls[idx]["function"]["arguments"] += fn["arguments"]
-
-                            if chunk_finish:
-                                finish_reason = chunk_finish
 
                             # Check for usage in streaming response (some providers include it)
                             if chunk_data.get("usage"):

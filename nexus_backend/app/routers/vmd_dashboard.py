@@ -144,7 +144,7 @@ async def get_agent_workload(
 ):
     """获取Agent工作量分布"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        _org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")

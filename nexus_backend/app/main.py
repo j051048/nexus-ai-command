@@ -61,11 +61,8 @@ from app.routers import robot as robot_router
 
 # VMD (Virtual Marketing Department) routers
 try:
-    from app.routers import llm_models
-    from app.routers import vmd_tasks
+    from app.routers import llm_models, vmd_clues, vmd_dashboard, vmd_tasks
     from app.routers import vmd_compliance as vmd_compliance_router
-    from app.routers import vmd_clues
-    from app.routers import vmd_dashboard
 except ImportError:
     llm_models = None
     vmd_tasks = None

@@ -364,7 +364,7 @@ class BidService:
                             },
                             **(
                                 {"win_probability": analysis["win_probability"]}
-                                if isinstance(analysis.get("win_probability"), (int, float))
+                                if isinstance(analysis.get("win_probability"), int | float)
                                 else {}
                             ),
                         },

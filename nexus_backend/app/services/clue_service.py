@@ -13,7 +13,6 @@ import logging
 import random
 import uuid
 from datetime import UTC, datetime
-from typing import Any
 
 from app.core.database import supabase
 

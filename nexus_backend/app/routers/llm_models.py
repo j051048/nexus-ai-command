@@ -2,7 +2,6 @@
 
 import logging
 import time
-from math import ceil
 
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
@@ -443,8 +442,8 @@ async def toggle_model_status(
         current_status = res.data.get("status", "enabled")
         new_status = "disabled" if current_status == "enabled" else "enabled"
 
-        update_res = (
-            await client.table("llm_model_config")
+        await (
+            client.table("llm_model_config")
             .update({"status": new_status, "updated_by": user_id})
             .eq("id", model_id)
             .execute()
