@@ -14,6 +14,9 @@ const GEN_UI_COMPONENTS: Record<string, React.ComponentType<any>> = {
   DataChart: lazy(() => import('./genui/DataChart')),
   DataTable: lazy(() => import('./genui/DataTable')),
   StatCards: lazy(() => import('./genui/StatCards')),
+  // Interactive components
+  TodoList: lazy(() => import('./genui/TodoList')),
+  Timeline: lazy(() => import('./genui/Timeline')),
 };
 
 interface GenUIContainerProps {

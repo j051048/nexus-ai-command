@@ -1,10 +1,9 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import EnhancedAIChatPanel from '@/components/ai/EnhancedAIChatPanel';
 import { Button } from '@/components/ui/button';
 import { Sidebar } from '@/components/layout/Sidebar';
-import { CommandPalette } from '@/components/common/CommandPalette';
 import { InstallPrompt } from '@/components/common/InstallPrompt';
 import { WelcomeTour } from '@/components/common/WelcomeTour';
 import { NotificationCenter } from '@/components/common/NotificationCenter';
@@ -21,13 +20,7 @@ interface ChatFirstLayoutProps {
  */
 export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
     const [isCanvasOpen, setIsCanvasOpen] = useState(true);
-    const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
     const location = useLocation();
-
-    // Handler for when user triggers AI chat from command palette
-    const handleCommandPaletteAIChat = useCallback((message: string) => {
-        if (import.meta.env.DEV) console.log('CommandPalette AI Chat:', message);
-    }, []);
 
     // Dynamic page title
     const getPageTitle = useCallback(() => {
@@ -57,18 +50,6 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
         if (path.includes('agent-debug')) return 'Agent 调试面板';
         return 'Nexus OS';
     }, [location.pathname]);
-
-    // Register global keyboard shortcut: Cmd+K / Ctrl+K
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-                e.preventDefault();
-                setIsCommandPaletteOpen(true);
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, []);
 
     // Auto-open canvas on page routes
     const isPageRoute = location.pathname !== '/' && location.pathname !== '/chat';
@@ -150,13 +131,6 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                     <PanelRightOpen className="w-4 h-4" />
                 </Button>
             )}
-
-            {/* Command Palette */}
-            <CommandPalette
-                open={isCommandPaletteOpen}
-                onOpenChange={setIsCommandPaletteOpen}
-                onAIChat={handleCommandPaletteAIChat}
-            />
 
             {/* PWA Install Prompt */}
             <InstallPrompt />

@@ -33,11 +33,15 @@ GEN_UI_PROTOCOL = """
 6. DataChart: {"type": "bar|line|pie|area", "title": "标题", "data": [{"name":"1月","销售额":120}], "dataKeys": ["销售额"]} - 数据图表
 7. DataTable: {"title": "标题", "columns": [{"key":"name","label":"姓名"}], "rows": [...], "sortable": true} - 交互式表格
 8. StatCards: {"title": "标题", "cards": [{"label":"总收入","value":12800,"change":5.2,"unit":"元"}]} - 指标卡片
+9. TodoList: {"title": "今日待办", "items": [{"label":"回复客户邮件","priority":"high"},{"label":"提交周报","done":true}]} - 待办清单
+10. Timeline: {"title": "审批进度", "items": [{"time":"10:00","title":"提交申请","status":"done"},{"time":"14:00","title":"主管审批","status":"active"}]} - 时间轴
 
 原则：
 - 当用户询问"我的表现怎么样"、"现在还有什么要批的"、"看看业绩"时，展示对应的组件。
 - 当用户请求数据分析、对比、趋势图时，优先使用 DataChart 或 StatCards。
 - 当用户请求列表、排名、明细时，使用 DataTable。
+- 当用户请求待办、任务列表时，使用 TodoList。
+- 当用户请求进度、流程状态时，使用 Timeline。
 - 组件必须放置在回复的开头或结尾，并配合简短的文字说明。
 - gen-ui 代码块中的 JSON 必须是完整的，不可分段输出。
 """

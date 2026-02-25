@@ -38,10 +38,13 @@ import {
   UserCog,
   Building2,
   Loader2,
+  MessageSquare,
+  Sparkles,
+  SunMoon,
 } from 'lucide-react';
 import { aiClient } from '@/api/aiClient';
 
-interface CommandItem {
+interface NavCommandItem {
   label: string;
   path: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -55,7 +58,14 @@ interface CustomerResult {
   company?: string;
 }
 
-const COMMAND_ITEMS: CommandItem[] = [
+// Custom event for Command Bar → Chat Panel bridge
+export const COMMAND_BAR_CHAT_EVENT = 'nexus:command-bar-chat';
+
+export function dispatchAIChatMessage(message: string) {
+  window.dispatchEvent(new CustomEvent(COMMAND_BAR_CHAT_EVENT, { detail: { message } }));
+}
+
+const COMMAND_ITEMS: NavCommandItem[] = [
   // 核心功能
   { label: '仪表板', path: '/dashboard', icon: LayoutDashboard, keywords: ['首页', 'home', 'dashboard'], group: '核心功能' },
   { label: '领导驾驶舱', path: '/boss-dashboard', icon: Crown, keywords: ['boss', '管理', '概览'], group: '核心功能' },
@@ -105,6 +115,13 @@ const COMMAND_ITEMS: CommandItem[] = [
   { label: '支付管理', path: '/payments', icon: CreditCard, keywords: ['支付', 'payment', '订阅'], group: '其他' },
   { label: '培训中心', path: '/training', icon: GraduationCap, keywords: ['培训', 'training', '学习'], group: '其他' },
   { label: '插件市场', path: '/plugins', icon: Plug, keywords: ['插件', 'plugin', '扩展'], group: '其他' },
+];
+
+// AI quick actions shown at the top of the command list
+const AI_QUICK_ACTIONS = [
+  { label: '生成今日日报', prompt: '帮我生成今天的工作日报', icon: FileText },
+  { label: '查看待审批事项', prompt: '有哪些待审批的事项？', icon: FileCheck },
+  { label: '本周业绩总结', prompt: '帮我总结本周的业绩情况', icon: BarChart3 },
 ];
 
 export function GlobalCommandBar() {
@@ -177,8 +194,18 @@ export function GlobalCommandBar() {
     [navigate],
   );
 
+  const handleAIChat = useCallback((message: string) => {
+    setOpen(false);
+    dispatchAIChatMessage(message);
+  }, []);
+
+  const handleThemeToggle = useCallback(() => {
+    setOpen(false);
+    document.documentElement.classList.toggle('dark');
+  }, []);
+
   // Group items
-  const groups = COMMAND_ITEMS.reduce<Record<string, CommandItem[]>>((acc, item) => {
+  const groups = COMMAND_ITEMS.reduce<Record<string, NavCommandItem[]>>((acc, item) => {
     if (!acc[item.group]) acc[item.group] = [];
     acc[item.group].push(item);
     return acc;
@@ -187,12 +214,51 @@ export function GlobalCommandBar() {
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
       <CommandInput
-        placeholder="搜索功能、页面、客户... (Ctrl+K)"
+        placeholder="搜索功能、页面，或直接提问 AI... (Ctrl+K)"
         value={searchQuery}
         onValueChange={setSearchQuery}
       />
       <CommandList>
-        <CommandEmpty>未找到匹配的功能</CommandEmpty>
+        <CommandEmpty>
+          <div className="py-2 text-center">
+            <p className="text-sm text-muted-foreground">未找到匹配的功能</p>
+            {searchQuery.trim() && (
+              <button
+                className="mt-2 inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                onClick={() => handleAIChat(searchQuery)}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                问问 AI: &ldquo;{searchQuery}&rdquo;
+              </button>
+            )}
+          </div>
+        </CommandEmpty>
+
+        {/* AI 智能助手 */}
+        <CommandGroup heading="AI 智能助手">
+          {AI_QUICK_ACTIONS.map((action) => (
+            <CommandItem
+              key={action.prompt}
+              value={`AI ${action.label} ${action.prompt}`}
+              onSelect={() => handleAIChat(action.prompt)}
+            >
+              <action.icon className="mr-2 h-4 w-4" />
+              <span>{action.label}</span>
+              <MessageSquare className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
+            </CommandItem>
+          ))}
+          {searchQuery.trim() && (
+            <CommandItem
+              value={`AI 提问 ${searchQuery}`}
+              onSelect={() => handleAIChat(searchQuery)}
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              <span>问 AI: &ldquo;{searchQuery}&rdquo;</span>
+            </CommandItem>
+          )}
+        </CommandGroup>
+
+        <CommandSeparator />
 
         {/* 业务数据搜索结果 */}
         {(isSearching || customerResults.length > 0) && (
@@ -224,6 +290,7 @@ export function GlobalCommandBar() {
           </>
         )}
 
+        {/* 页面导航 */}
         {Object.entries(groups).map(([group, items], idx) => (
           <React.Fragment key={group}>
             {idx > 0 && <CommandSeparator />}
@@ -236,14 +303,25 @@ export function GlobalCommandBar() {
                 >
                   <item.icon className="mr-2 h-4 w-4" />
                   <span>{item.label}</span>
-                  {item.path === '/dashboard' && (
-                    <CommandShortcut>Ctrl+K</CommandShortcut>
-                  )}
                 </CommandItem>
               ))}
             </CommandGroup>
           </React.Fragment>
         ))}
+
+        <CommandSeparator />
+
+        {/* 通用操作 */}
+        <CommandGroup heading="通用">
+          <CommandItem
+            value="切换主题 theme dark light 深色 浅色"
+            onSelect={handleThemeToggle}
+          >
+            <SunMoon className="mr-2 h-4 w-4" />
+            <span>切换主题</span>
+            <CommandShortcut>Ctrl+J</CommandShortcut>
+          </CommandItem>
+        </CommandGroup>
       </CommandList>
     </CommandDialog>
   );

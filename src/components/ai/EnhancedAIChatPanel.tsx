@@ -342,6 +342,28 @@ export function EnhancedAIChatPanel({
     }
   }, [input, isAiTyping, currentAgent, messages, streamChat, onSendMessage]);
 
+  // Bridge: Command Bar → Chat Panel via custom event
+  const commandBarSendRef = useRef(false);
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const message = (e as CustomEvent).detail?.message;
+      if (message && typeof message === 'string') {
+        setInput(message);
+        commandBarSendRef.current = true;
+      }
+    };
+    window.addEventListener('nexus:command-bar-chat', handler);
+    return () => window.removeEventListener('nexus:command-bar-chat', handler);
+  }, []);
+
+  // Auto-send when input is set via Command Bar
+  useEffect(() => {
+    if (commandBarSendRef.current && input.trim()) {
+      commandBarSendRef.current = false;
+      handleSend();
+    }
+  }, [input, handleSend]);
+
   const handleRegenerate = useCallback(() => {
     const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
     if (lastUserMessage) {
