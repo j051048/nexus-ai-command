@@ -41,6 +41,7 @@ from app.core.ai_metrics import (
 )
 from app.services.content_moderation import sanitize_output, scan_content
 from app.services.error_recovery_service import llm_circuit_breaker, tool_circuit_breaker
+from app.services.plugin_system_service import ExtensionPoint, plugin_system_service
 from app.tools import get_all_tools_schema, get_tool
 
 logger = logging.getLogger(__name__)
@@ -338,7 +339,18 @@ async def plan_node(state: AgentState) -> dict:
         content=f"正在分析意图并规划执行路径... (轮次 {iteration + 1})",
     )
 
-    # Call LLM via standard invoke (streaming tokens will be caught by graph callbacks if set)
+    # P1 Plugin: PRE_CHAT hook
+    try:
+        hook_ctx = await plugin_system_service.run_hooks(
+            ExtensionPoint.PRE_CHAT,
+            {"messages": lc_msgs, "model": model, "config": config},
+        )
+        if "messages" in hook_ctx and isinstance(hook_ctx["messages"], list):
+            lc_msgs = hook_ctx["messages"]
+    except Exception as e:
+        logger.debug(f"[PlanNode] PRE_CHAT hook error: {e}")
+
+    # Call LLM via standard invoke
     try:
         # Circuit breaker check for LLM service
         if not llm_circuit_breaker.allow_request():
@@ -376,6 +388,15 @@ async def plan_node(state: AgentState) -> dict:
     usage = ai_msg.response_metadata.get("token_usage", {})
     input_tokens = usage.get("prompt_tokens", 0)
     output_tokens = usage.get("completion_tokens", 0)
+
+    # P1 Plugin: POST_CHAT hook
+    try:
+        await plugin_system_service.run_hooks(
+            ExtensionPoint.POST_CHAT,
+            {"ai_message": ai_msg, "input_tokens": input_tokens, "output_tokens": output_tokens},
+        )
+    except Exception as e:
+        logger.debug(f"[PlanNode] POST_CHAT hook error: {e}")
 
     tool_calls_raw = ai_msg.tool_calls
     content = ai_msg.content or ""
@@ -444,6 +465,16 @@ async def execute_node(state: AgentState) -> dict:
     # Execute all tools in parallel with overall timeout
     gather_timeout = config.gather_timeout if hasattr(config, "gather_timeout") else 60.0
 
+    # P1 Plugin: PRE_TOOL hook
+    try:
+        tool_names_list = [t.tool_name for t in pending]
+        await plugin_system_service.run_hooks(
+            ExtensionPoint.PRE_TOOL,
+            {"tools": tool_names_list, "pending_count": len(pending)},
+        )
+    except Exception as e:
+        logger.debug(f"[ExecuteNode] PRE_TOOL hook error: {e}")
+
     # P1 Fix: Share a single idempotency cache across all parallel tool executions
     shared_idempotency_cache: dict = {}
 
@@ -505,6 +536,20 @@ async def execute_node(state: AgentState) -> dict:
 
     # Merge with previously completed tools
     all_completed = list(state.get("completed_tool_calls", [])) + completed
+
+    # P1 Plugin: POST_TOOL hook
+    try:
+        await plugin_system_service.run_hooks(
+            ExtensionPoint.POST_TOOL,
+            {
+                "completed_tools": [
+                    {"name": r.tool_name, "status": r.status, "duration_ms": r.duration_ms}
+                    for r in completed
+                ]
+            },
+        )
+    except Exception as e:
+        logger.debug(f"[ExecuteNode] POST_TOOL hook error: {e}")
 
     return {
         "messages": tool_messages,
@@ -817,6 +862,15 @@ async def error_node(state: AgentState) -> dict:
     iteration = state.get("iteration", 0)
 
     logger.error(f"[ErrorNode] Handling error: {error_msg} (level={recovery_level}, iter={iteration})")
+
+    # P1 Plugin: ON_ERROR hook
+    try:
+        await plugin_system_service.run_hooks(
+            ExtensionPoint.ON_ERROR,
+            {"error": error_msg, "recovery_level": recovery_level, "iteration": iteration},
+        )
+    except Exception as e:
+        logger.debug(f"[ErrorNode] ON_ERROR hook error: {e}")
 
     if recovery_level == 0 and iteration < 5:
         # Level 1: Clear failed tools, ask LLM to try alternative approach

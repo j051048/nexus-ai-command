@@ -358,93 +358,145 @@ class AutoTriggerService:
         except Exception as e:
             logger.error(f"Trigger execution failed: {e}")
 
-    # Default action handlers
+    # ── Action Handlers with real AI Agent integration ──
 
     async def _handle_start_analysis(self, params: dict) -> dict:
-        """Handle start analysis action."""
+        """Run AI agent to perform analysis and notify the user."""
         analysis_type = params.get("type", "general")
-        logger.info(f"Auto-starting analysis: {analysis_type}")
+        context = params.get("context", {})
+        user_id = context.get("user_id") if context else None
+        org_id = context.get("org_id") if context else None
 
-        try:
-            from app.services.notification_service import send_notification
+        logger.info(f"Auto-starting analysis: {analysis_type} for user={user_id}")
 
-            context = params.get("context", {})
-            user_id = context.get("user_id") if context else None
-            if user_id:
-                await send_notification(
-                    title="AI 分析已启动",
-                    content=f"自动触发 {analysis_type} 类型的分析任务",
-                    target_user_id=user_id,
-                )
-        except Exception as e:
-            logger.error(f"Analysis notification failed: {e}")
+        prompt = f"请对当前业务数据进行 {analysis_type} 分析，给出关键发现和建议。"
+        result = await self._invoke_agent(prompt, user_id, org_id, scene_code="auto_analysis")
 
-        return {"status": "started", "analysis_type": analysis_type, "message": "分析已自动启动"}
+        # Notify user with the analysis result
+        await self._notify_user(
+            user_id=user_id,
+            title="AI 分析完成",
+            content=result.get("response", "分析已完成")[:500],
+        )
+
+        return {"status": "completed" if result["success"] else "failed", "analysis_type": analysis_type}
 
     async def _handle_generate_report(self, params: dict) -> dict:
-        """Handle generate report action."""
+        """Use AI agent to generate a report and notify."""
         report_type = params.get("report_type", "daily")
+        context = params.get("context", {})
+        user_id = context.get("user_id") if context else None
+        org_id = context.get("org_id") if context else None
+
         logger.info(f"Auto-generating report: {report_type}")
 
-        try:
-            from app.services.notification_service import send_notification
+        prompt_map = {
+            "daily": "请生成今日工作日报，包含：关键指标变化、待办事项、风险提示。",
+            "weekly": "请生成本周工作周报，包含：本周成果、关键数据、下周计划、问题总结。",
+            "monthly": "请生成本月工作月报，包含：月度目标达成情况、核心业绩、趋势分析、改进建议。",
+        }
+        prompt = prompt_map.get(report_type, f"请生成一份 {report_type} 报告。")
+        result = await self._invoke_agent(prompt, user_id, org_id, scene_code="auto_report")
 
-            context = params.get("context", {})
-            user_id = context.get("user_id") if context else None
-            if user_id:
-                await send_notification(
-                    title="工作报告已生成",
-                    content=f"已自动生成 {report_type} 报告，请在 AI 聊天中查看",
-                    target_user_id=user_id,
-                )
-        except Exception as e:
-            logger.error(f"Report notification failed: {e}")
+        await self._notify_user(
+            user_id=user_id,
+            title=f"{report_type} 报告已生成",
+            content=f"AI 已自动生成{report_type}报告，请在聊天中查看详情。",
+        )
 
-        return {"status": "generated", "report_type": report_type, "message": f"{report_type}报告已生成"}
+        return {"status": "generated" if result["success"] else "failed", "report_type": report_type}
 
     async def _handle_send_notification(self, params: dict) -> dict:
-        """Handle send notification action."""
+        """Send notification to user."""
         notification_type = params.get("type", "info")
         message = params.get("message", "您有新的通知")
-        logger.info(f"Sending notification: {notification_type} - {message}")
+        context = params.get("context", {})
+        user_id = context.get("user_id") if context else None
 
-        try:
-            from app.services.notification_service import send_notification
-
-            context = params.get("context", {})
-            user_id = context.get("user_id") if context else None
-            if user_id:
-                await send_notification(
-                    title="系统通知",
-                    content=message,
-                    target_user_id=user_id,
-                )
-        except Exception as e:
-            logger.error(f"Notification send failed: {e}")
+        await self._notify_user(user_id=user_id, title="系统通知", content=message)
 
         return {"status": "sent", "type": notification_type, "message": message}
 
     async def _handle_update_dashboard(self, params: dict) -> dict:
-        """Handle update dashboard action."""
+        """Trigger dashboard data refresh via event bus."""
         logger.info("Auto-updating dashboard")
 
-        return {"status": "updated", "message": "仪表盘已更新"}
+        try:
+            from app.services.event_bus import emit
+
+            await emit("cache.invalidated", {"scope": "dashboard"})
+        except Exception as e:
+            logger.error(f"Dashboard update event failed: {e}")
+
+        return {"status": "updated", "message": "仪表盘刷新事件已发送"}
 
     async def _handle_process_data(self, params: dict) -> dict:
-        """Handle process data action."""
+        """Process uploaded data with AI analysis when auto_analyze is enabled."""
         auto_analyze = params.get("auto_analyze", False)
+        context = params.get("context", {})
+        user_id = context.get("user_id") if context else None
+        org_id = context.get("org_id") if context else None
 
         logger.info(f"Auto-processing data, analyze={auto_analyze}")
 
-        return {"status": "processed", "auto_analyze": auto_analyze, "message": "数据已处理"}
+        if auto_analyze and user_id:
+            prompt = "用户上传了新文档，请分析文档内容并提取关键信息要点。"
+            result = await self._invoke_agent(prompt, user_id, org_id, scene_code="doc_analysis")
+            await self._notify_user(
+                user_id=user_id,
+                title="文档分析完成",
+                content=result.get("response", "文档已处理")[:500],
+            )
+            return {"status": "analyzed" if result["success"] else "processed"}
+
+        return {"status": "processed", "auto_analyze": auto_analyze}
 
     async def _handle_schedule_task(self, params: dict) -> dict:
-        """Handle schedule task action."""
+        """Schedule a background task."""
         task_type = params.get("task_type", "general")
-
         logger.info(f"Auto-scheduling task: {task_type}")
 
         return {"status": "scheduled", "task_type": task_type, "message": "任务已调度"}
+
+    # ── Internal helpers ──
+
+    async def _invoke_agent(
+        self,
+        prompt: str,
+        user_id: str | None,
+        org_id: str | None,
+        scene_code: str = "",
+    ) -> dict:
+        """Invoke the proactive agent runner. Returns result dict."""
+        if not user_id:
+            return {"success": False, "response": "缺少 user_id，无法执行"}
+
+        try:
+            from app.agent.proactive_runner import run_proactive_agent
+
+            return await run_proactive_agent(
+                prompt=prompt,
+                user_id=user_id,
+                org_id=org_id,
+                scene_code=scene_code,
+            )
+        except Exception as e:
+            logger.error(f"Proactive agent invocation failed: {e}")
+            return {"success": False, "response": str(e)[:200]}
+
+    async def _notify_user(self, user_id: str | None, title: str, content: str) -> None:
+        """Send a notification to the user via DB."""
+        if not user_id:
+            return
+        try:
+            from app.core.database import supabase
+
+            if supabase:
+                await supabase.table("notifications").insert(
+                    {"user_id": user_id, "title": title, "content": content, "type": "info"}
+                ).execute()
+        except Exception as e:
+            logger.error(f"Notification insert failed: {e}")
 
     def get_trigger_status(self) -> dict:
         """Get status of all triggers."""

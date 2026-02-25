@@ -58,6 +58,7 @@ from app.routers import (
 )
 from app.routers import mcp as mcp_router
 from app.routers import robot as robot_router
+from app.routers import ws as ws_router
 
 # VMD (Virtual Marketing Department) routers — import individually to avoid all-or-nothing failure
 try:
@@ -390,6 +391,7 @@ app.include_router(api_docs.router)
 app.include_router(backups.router)
 app.include_router(api_keys.router)
 app.include_router(onboarding.router)
+app.include_router(ws_router.router)
 
 # VMD (Virtual Marketing Department) routers
 if llm_models:

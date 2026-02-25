@@ -153,7 +153,7 @@ class AgentState(TypedDict, total=False):
 
     # ── Final output ──
     final_response: str  # The text response to send to user
-    thinking_steps: list[ThinkingStep]  # For frontend thinking-chain UI
+    thinking_steps: Annotated[list[ThinkingStep], operator.add]  # Accumulate across nodes
 
     # ── Configuration (immutable, set once at start) ──
     config: AgentConfig

@@ -10,6 +10,7 @@ This node reads the wbs_structure from state, then for each sub-task:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 
@@ -29,6 +30,8 @@ logger = logging.getLogger(__name__)
 
 # Maximum sub-tasks to execute in one orchestration pass
 _MAX_SUB_TASKS = 8
+# Maximum concurrent LLM calls per layer (rate-limit guard)
+_MAX_CONCURRENCY = 4
 
 
 async def orchestrate_node(state: AgentState) -> dict:
@@ -69,78 +72,102 @@ async def orchestrate_node(state: AgentState) -> dict:
         )
     ]
 
-    # ── Sort sub-tasks by dependency (topological-ish: no-dependency tasks first) ──
-    execution_order = _resolve_execution_order(sub_tasks)
+    # ── Resolve execution layers (parallelizable groups) ──
+    execution_layers = _resolve_execution_layers(sub_tasks)
 
     delegation_results = []
     completed_context = {}  # agent_code -> result text (for dependent tasks)
     total_input_tokens = state.get("total_input_tokens", 0)
     total_output_tokens = state.get("total_output_tokens", 0)
 
-    for task_idx in execution_order:
-        task = sub_tasks[task_idx]
-        agent_code = task.get("agent_code", "director_agent")
-        task_title = task.get("title", f"子任务{task_idx + 1}")
-        task_description = task.get("description", "")
-        sub_task_id = task.get("sub_task_id", f"sub_{task_idx}")
+    semaphore = asyncio.Semaphore(_MAX_CONCURRENCY)
 
-        thinking_steps.append(
-            ThinkingStep(
-                phase="orchestrate",
-                content=f"[{task_idx + 1}/{total_tasks}] 委派给 {agent_code}: {task_title}",
-            )
-        )
-
-        try:
-            result, tokens_in, tokens_out = await _execute_sub_task(
-                config=config,
-                agent_code=agent_code,
-                task_title=task_title,
-                task_description=task_description,
-                dependencies=task.get("dependencies", []),
-                completed_context=completed_context,
-                original_messages=state.get("messages", []),
-            )
-
-            total_input_tokens += tokens_in
-            total_output_tokens += tokens_out
-
-            delegation_results.append(
-                {
-                    "sub_task_id": sub_task_id,
-                    "agent_code": agent_code,
-                    "title": task_title,
-                    "status": "completed",
-                    "result": result,
-                }
-            )
-
-            # Store result for dependent tasks to reference
-            completed_context[f"task_{task_idx}"] = result
-            completed_context[agent_code] = result
-
+    for layer_idx, layer in enumerate(execution_layers):
+        layer_size = len(layer)
+        if layer_size > 1:
             thinking_steps.append(
                 ThinkingStep(
                     phase="orchestrate",
-                    content=f"[{task_idx + 1}/{total_tasks}] {agent_code} 完成: {task_title}",
+                    content=f"第{layer_idx + 1}层: 并行执行 {layer_size} 个独立子任务",
                 )
             )
 
-        except Exception as e:
-            logger.error(f"[Orchestrate] Sub-task {task_idx} ({agent_code}) failed: {e}")
-            delegation_results.append(
-                {
-                    "sub_task_id": sub_task_id,
-                    "agent_code": agent_code,
-                    "title": task_title,
-                    "status": "failed",
-                    "result": f"执行失败: {str(e)[:200]}",
-                }
-            )
+        async def _run_task_with_semaphore(task_idx: int) -> dict:
+            """Execute a single sub-task with concurrency control."""
+            async with semaphore:
+                task = sub_tasks[task_idx]
+                agent_code = task.get("agent_code", "director_agent")
+                task_title = task.get("title", f"子任务{task_idx + 1}")
+                task_description = task.get("description", "")
+                sub_task_id = task.get("sub_task_id", f"sub_{task_idx}")
+
+                try:
+                    result, tokens_in, tokens_out = await _execute_sub_task(
+                        config=config,
+                        agent_code=agent_code,
+                        task_title=task_title,
+                        task_description=task_description,
+                        dependencies=task.get("dependencies", []),
+                        completed_context=completed_context,
+                        original_messages=state.get("messages", []),
+                    )
+
+                    return {
+                        "task_idx": task_idx,
+                        "sub_task_id": sub_task_id,
+                        "agent_code": agent_code,
+                        "title": task_title,
+                        "status": "completed",
+                        "result": result,
+                        "tokens_in": tokens_in,
+                        "tokens_out": tokens_out,
+                    }
+                except Exception as e:
+                    logger.error(f"[Orchestrate] Sub-task {task_idx} ({agent_code}) failed: {e}")
+                    return {
+                        "task_idx": task_idx,
+                        "sub_task_id": sub_task_id,
+                        "agent_code": agent_code,
+                        "title": task_title,
+                        "status": "failed",
+                        "result": f"执行失败: {str(e)[:200]}",
+                        "tokens_in": 0,
+                        "tokens_out": 0,
+                    }
+
+        # Execute all tasks in this layer concurrently
+        layer_results = await asyncio.gather(
+            *[_run_task_with_semaphore(idx) for idx in layer],
+            return_exceptions=True,
+        )
+
+        # Aggregate layer results
+        for lr in layer_results:
+            if isinstance(lr, Exception):
+                logger.error(f"[Orchestrate] Unexpected layer error: {lr}")
+                continue
+
+            task_idx = lr["task_idx"]
+            total_input_tokens += lr["tokens_in"]
+            total_output_tokens += lr["tokens_out"]
+
+            delegation_results.append({
+                "sub_task_id": lr["sub_task_id"],
+                "agent_code": lr["agent_code"],
+                "title": lr["title"],
+                "status": lr["status"],
+                "result": lr["result"],
+            })
+
+            # Store result for dependent tasks in subsequent layers
+            completed_context[f"task_{task_idx}"] = lr["result"]
+            completed_context[lr["agent_code"]] = lr["result"]
+
+            status_label = "完成" if lr["status"] == "completed" else "失败"
             thinking_steps.append(
                 ThinkingStep(
                     phase="orchestrate",
-                    content=f"[{task_idx + 1}/{total_tasks}] {agent_code} 失败: {str(e)[:100]}",
+                    content=f"[{task_idx + 1}/{total_tasks}] {lr['agent_code']} {status_label}: {lr['title']}",
                 )
             )
 
@@ -485,3 +512,56 @@ def _resolve_execution_order(sub_tasks: list[dict]) -> list[int]:
         order.extend(remaining)
 
     return order
+
+
+def _resolve_execution_layers(sub_tasks: list[dict]) -> list[list[int]]:
+    """
+    Resolve execution layers: tasks within the same layer have no mutual
+    dependencies and can run in parallel.
+
+    Uses Kahn's algorithm but collects each "wave" of zero-in-degree nodes
+    as a single layer instead of flattening into one list.
+
+    Returns a list of layers, each layer being a list of task indices.
+    """
+    n = len(sub_tasks)
+    if n == 0:
+        return []
+
+    # Build adjacency
+    in_degree = [0] * n
+    dependents = [[] for _ in range(n)]
+
+    for i, task in enumerate(sub_tasks):
+        deps = task.get("dependencies", [])
+        if isinstance(deps, list):
+            for dep in deps:
+                if isinstance(dep, int) and 0 <= dep < n:
+                    in_degree[i] += 1
+                    dependents[dep].append(i)
+
+    # Layered Kahn's algorithm
+    current_layer = [i for i in range(n) if in_degree[i] == 0]
+    layers: list[list[int]] = []
+    visited = set()
+
+    while current_layer:
+        # Sort within layer by priority
+        current_layer.sort(key=lambda idx: sub_tasks[idx].get("priority", 3))
+        layers.append(current_layer)
+        visited.update(current_layer)
+
+        next_layer = []
+        for node in current_layer:
+            for dep in dependents[node]:
+                in_degree[dep] -= 1
+                if in_degree[dep] == 0:
+                    next_layer.append(dep)
+        current_layer = next_layer
+
+    # Handle cycles: add remaining as final layer
+    if len(visited) < n:
+        remaining = [i for i in range(n) if i not in visited]
+        layers.append(remaining)
+
+    return layers

@@ -170,6 +170,115 @@ class PluginSystemService:
         metadata = self._metadata.get(plugin_id)
         return metadata.to_dict() if metadata else None
 
+    async def load_installed_plugins(self, org_id: str, db=None) -> int:
+        """
+        P1 Bridge: Load installed marketplace plugins into the hook system.
+
+        Reads installed plugins from the DB (via PluginMarketplaceService) and
+        registers lightweight hook handlers based on their category/type.
+
+        Returns the number of plugins loaded.
+        """
+        try:
+            from app.services.plugin_marketplace_service import plugin_marketplace_service
+
+            installed = await plugin_marketplace_service.get_installed_plugins(org_id, db=db)
+        except Exception as e:
+            logger.warning(f"Failed to load installed plugins for org {org_id}: {e}")
+            return 0
+
+        loaded = 0
+        for plugin_info in installed:
+            plugin_id = plugin_info["id"]
+            if plugin_id in self._plugins:
+                continue  # Already registered
+
+            category = plugin_info.get("category", "")
+            config = plugin_info.get("config", {})
+
+            # Create a marketplace bridge plugin
+            bridge = _MarketplaceBridgePlugin(plugin_id, plugin_info["name"], category, config)
+            if self.register(bridge):
+                # Register category-specific hooks
+                if category == "notification":
+                    self.add_hook(ExtensionPoint.POST_CHAT, bridge.post_chat_notify, plugin_id)
+                elif category == "erp":
+                    self.add_hook(ExtensionPoint.POST_TOOL, bridge.post_tool_sync, plugin_id)
+                elif category == "productivity":
+                    self.add_hook(ExtensionPoint.DATA_EXPORT, bridge.data_export_hook, plugin_id)
+                elif category == "security":
+                    self.add_hook(ExtensionPoint.PRE_CHAT, bridge.pre_chat_compliance, plugin_id)
+
+                loaded += 1
+                logger.info(f"[PluginBridge] Loaded marketplace plugin: {plugin_id} ({category})")
+
+        return loaded
+
+
+class _MarketplaceBridgePlugin(BasePlugin):
+    """Bridge adapter: wraps a marketplace plugin config into the hook system."""
+
+    def __init__(self, plugin_id: str, name: str, category: str, config: dict):
+        self._plugin_id = plugin_id
+        self._name = name
+        self._category = category
+        self._config = config
+
+    def get_metadata(self) -> PluginMetadata:
+        return PluginMetadata(
+            plugin_id=self._plugin_id,
+            name=self._name,
+            version="1.0.0",
+            description=f"Marketplace bridge: {self._category}",
+            author="Nexus Marketplace",
+            extension_points=[],
+            config=self._config,
+        )
+
+    async def initialize(self, config: dict) -> bool:
+        self._config = config
+        return True
+
+    async def shutdown(self) -> None:
+        pass
+
+    # ── Category-specific hook handlers ──
+
+    async def post_chat_notify(self, context: dict) -> dict:
+        """Notification plugins: forward AI responses to configured webhook."""
+        webhook_url = self._config.get("webhook_url")
+        if not webhook_url:
+            return context
+        try:
+            import httpx
+
+            ai_msg = context.get("ai_message")
+            content = getattr(ai_msg, "content", "")[:500] if ai_msg else ""
+            if content:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    await client.post(
+                        webhook_url,
+                        json={"msgtype": "text", "text": {"content": f"[Nexus AI] {content}"}},
+                    )
+        except Exception as e:
+            logger.warning(f"[PluginBridge] Notification hook failed for {self._plugin_id}: {e}")
+        return context
+
+    async def post_tool_sync(self, context: dict) -> dict:
+        """ERP plugins: log tool execution for audit/sync purposes."""
+        logger.debug(f"[PluginBridge] ERP sync hook ({self._plugin_id}): {len(context.get('completed_tools', []))} tools")
+        return context
+
+    async def data_export_hook(self, context: dict) -> dict:
+        """Productivity plugins: intercept data export for report generation."""
+        logger.debug(f"[PluginBridge] Data export hook ({self._plugin_id})")
+        return context
+
+    async def pre_chat_compliance(self, context: dict) -> dict:
+        """Security plugins: pre-chat compliance check (pass-through for now)."""
+        logger.debug(f"[PluginBridge] Compliance check hook ({self._plugin_id})")
+        return context
+
 
 # Global instance
 plugin_system_service = PluginSystemService()

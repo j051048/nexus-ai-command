@@ -1,0 +1,140 @@
+"""
+Proactive Agent Runner — invokes the AI agent pipeline without an HTTP request context.
+
+Used by AutoTriggerService and EventBus handlers to run the agent
+for background tasks like report generation, data analysis, and proactive notifications.
+"""
+
+import asyncio
+import logging
+from typing import Any
+
+from app.agent.graph import get_agent_graph
+from app.agent.state import AgentConfig, AgentPhase, QueryComplexity
+from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
+_agent_graph = get_agent_graph()
+
+
+async def run_proactive_agent(
+    prompt: str,
+    user_id: str,
+    org_id: str | None = None,
+    agent_name: str = "proactive_agent",
+    scene_code: str = "",
+    timeout: float = 120.0,
+) -> dict[str, Any]:
+    """
+    Run the agent graph to completion for a background/proactive task.
+
+    Unlike the SSE streaming path, this collects the full result synchronously
+    and returns it as a dict — suitable for trigger handlers and event processors.
+
+    Returns:
+        {
+            "success": bool,
+            "response": str,       # The final agent response text
+            "thinking_steps": int,  # Number of thinking steps
+            "tokens": {"input": int, "output": int},
+        }
+    """
+    agent_config = AgentConfig(
+        user_id=user_id,
+        session_id=f"proactive_{agent_name}",
+        agent_name=agent_name,
+        api_key=settings.OPENAI_API_KEY or "",
+        base_url=settings.AI_BASE_URL or "https://api.openai.com/v1",
+        model=settings.AI_DEFAULT_MODEL or "gpt-4o",
+        mini_model="gpt-4o-mini",
+        system_confirmed=True,
+        user_role="system",
+        org_id=org_id,
+        max_iterations=3,
+        tool_timeout=30,
+        gather_timeout=60,
+        enable_rag_inject=False,
+        reflect_use_llm=False,
+    )
+
+    from langchain_core.messages import HumanMessage, SystemMessage
+
+    initial_state = {
+        "messages": [
+            SystemMessage(content="你是 Nexus AI 系统的后台分析助手。请根据指令完成分析任务并给出简洁的结论。"),
+            HumanMessage(content=prompt),
+        ],
+        "current_phase": AgentPhase.ROUTING,
+        "iteration": 0,
+        "complexity": QueryComplexity.MODERATE,
+        "selected_model": agent_config.model,
+        "intent_summary": "",
+        "plan": "",
+        "requires_tools": False,
+        "pending_tool_calls": [],
+        "completed_tool_calls": [],
+        "reflection": "",
+        "is_hallucination": False,
+        "needs_replanning": False,
+        "confidence_score": 0.0,
+        "final_response": "",
+        "thinking_steps": [],
+        "config": agent_config,
+        "error": None,
+        "total_input_tokens": 0,
+        "total_output_tokens": 0,
+        "rag_context": "",
+        "rag_sources": [],
+        "error_recovery_attempted": False,
+        "error_recovery_level": 0,
+        "agent_code": "",
+        "scene_code": scene_code,
+        "main_task_id": None,
+        "sub_task_id": None,
+        "parent_agent_code": None,
+        "delegation_results": [],
+        "wbs_structure": None,
+    }
+
+    try:
+        final_state = await asyncio.wait_for(
+            _agent_graph.run(initial_state, thread_id=f"proactive_{agent_name}_{user_id}"),
+            timeout=timeout,
+        )
+
+        response = final_state.get("final_response", "")
+        if not response:
+            from langchain_core.messages import AIMessage
+
+            for msg in reversed(final_state.get("messages", [])):
+                if isinstance(msg, AIMessage) and msg.content:
+                    response = msg.content
+                    break
+
+        return {
+            "success": True,
+            "response": response or "分析完成，但未生成有效输出。",
+            "thinking_steps": len(final_state.get("thinking_steps", [])),
+            "tokens": {
+                "input": final_state.get("total_input_tokens", 0),
+                "output": final_state.get("total_output_tokens", 0),
+            },
+        }
+
+    except TimeoutError:
+        logger.error(f"[ProactiveRunner] Agent timed out after {timeout}s for user {user_id}")
+        return {
+            "success": False,
+            "response": "后台任务执行超时",
+            "thinking_steps": 0,
+            "tokens": {"input": 0, "output": 0},
+        }
+    except Exception as e:
+        logger.error(f"[ProactiveRunner] Agent execution failed: {e}", exc_info=True)
+        return {
+            "success": False,
+            "response": f"后台任务执行失败: {str(e)[:200]}",
+            "thinking_steps": 0,
+            "tokens": {"input": 0, "output": 0},
+        }

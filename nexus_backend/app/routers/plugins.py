@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Request
 
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
+from app.services.plugin_executor import EXECUTOR_REGISTRY, execute_plugin
 from app.services.plugin_marketplace_service import plugin_marketplace_service
 
 logger = logging.getLogger(__name__)
@@ -106,3 +107,72 @@ async def update_plugin_config(
     except Exception as e:
         logger.error(f"Failed to update plugin config: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+# ── P3: Plugin Execution API ──
+
+
+@router.post("/{plugin_id}/execute")
+async def execute_plugin_action(
+    plugin_id: str,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Execute a plugin action.
+
+    Body: {"action": "send_message", "params": {"content": "Hello"}}
+    """
+    try:
+        body = await req.json()
+        action = body.get("action", "")
+        params = body.get("params", {})
+
+        if not action:
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "Missing 'action' field")
+
+        org_id = getattr(req.state, "org_id", None) or "default"
+        db = getattr(req.state, "db", None)
+
+        # Inject user context into params
+        params["user_id"] = user_id
+        params["org_id"] = org_id
+
+        result = await execute_plugin(
+            plugin_id=plugin_id,
+            action=action,
+            params=params,
+            org_id=org_id,
+            db=db,
+        )
+
+        if result.get("success"):
+            return api_success(data=result, message="插件执行成功")
+        else:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, result.get("error", "执行失败"))
+
+    except ValueError as e:
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+    except Exception as e:
+        if hasattr(e, "status_code"):
+            raise
+        logger.error(f"Plugin execution failed: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+@router.get("/{plugin_id}/actions")
+async def get_plugin_actions(
+    plugin_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Get available actions for a plugin."""
+    executor = EXECUTOR_REGISTRY.get(plugin_id)
+    if not executor:
+        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, f"No executor for plugin: {plugin_id}")
+
+    return api_success(
+        data={
+            "plugin_id": plugin_id,
+            "actions": executor.supported_actions(),
+        }
+    )

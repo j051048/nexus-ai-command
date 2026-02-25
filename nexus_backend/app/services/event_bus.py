@@ -421,3 +421,40 @@ async def calculate_deal_bonus(event: Event):
         logger.info(f"Deal bonus calculated: ¥{bonus} for user {user_id}")
     except Exception as e:
         logger.error(f"Failed to calculate deal bonus: {e}")
+
+
+# ============== P0: EventBus → AutoTriggerService Bridge ==============
+
+
+@on(EventType.DOCUMENT_UPLOADED.value)
+async def bridge_document_upload(event: Event):
+    """Forward document upload events to auto-trigger service."""
+    try:
+        from app.services.auto_trigger_service import auto_trigger_service
+
+        await auto_trigger_service.process_event("document_uploaded", event.payload)
+    except Exception as e:
+        logger.error(f"[EventBridge] document_uploaded forward failed: {e}")
+
+
+@on(EventType.PERFORMANCE_THRESHOLD_REACHED.value)
+async def bridge_performance_threshold(event: Event):
+    """Forward performance threshold events to auto-trigger data check."""
+    try:
+        from app.services.auto_trigger_service import auto_trigger_service
+
+        await auto_trigger_service.check_data_trigger(event.payload)
+    except Exception as e:
+        logger.error(f"[EventBridge] performance threshold forward failed: {e}")
+
+
+@on(EventType.AI_ERROR.value)
+async def bridge_ai_error(event: Event):
+    """Forward AI errors for data-based threshold alerting."""
+    try:
+        from app.services.auto_trigger_service import auto_trigger_service
+
+        await auto_trigger_service.check_data_trigger({"error_rate": event.payload.get("error_rate", 0)})
+    except Exception as e:
+        logger.error(f"[EventBridge] AI error forward failed: {e}")
+
