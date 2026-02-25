@@ -72,6 +72,7 @@ class VectorService:
         """Resolve embedding model dynamically via gateway. Returns (api_key, base_url, model)."""
         try:
             from app.services.llm_helpers import resolve_embedding_config
+
             config = await resolve_embedding_config(org_id)
             return config["api_key"], config["base_url"], config["model"]
         except Exception:
@@ -213,7 +214,9 @@ class VectorService:
         )
 
         try:
-            return await self._search_supabase(query, user_id, limit, client, org_id=org_id, embedding_model=embedding_model)
+            return await self._search_supabase(
+                query, user_id, limit, client, org_id=org_id, embedding_model=embedding_model
+            )
         except Exception as e:
             logger.error(f"Vector search failed: {e}")
             if settings.IS_PRODUCTION:
@@ -440,7 +443,12 @@ class VectorService:
             return []
 
     async def incremental_update(
-        self, document_id: str, chunks: list[str], org_id: str, config: dict = None, db=None,
+        self,
+        document_id: str,
+        chunks: list[str],
+        org_id: str,
+        config: dict = None,
+        db=None,
         expires_at: str | None = None,
     ) -> dict:
         """

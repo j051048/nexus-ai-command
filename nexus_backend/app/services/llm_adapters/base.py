@@ -54,12 +54,14 @@ class ChatResponse:
     model_code: str
     content: str
     tool_calls: list[dict] | None = None
-    usage: dict = field(default_factory=lambda: {
-        "input_tokens": 0,
-        "output_tokens": 0,
-        "total_tokens": 0,
-        "call_cost": 0.0,
-    })
+    usage: dict = field(
+        default_factory=lambda: {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "call_cost": 0.0,
+        }
+    )
     exec_time_ms: int = 0
     finish_reason: str = "stop"  # stop / tool_calls / length / error
     raw_response: dict | None = None
@@ -72,11 +74,13 @@ class EmbeddingResponse:
     request_id: str
     model_code: str
     embeddings: list[list[float]] = field(default_factory=list)
-    usage: dict = field(default_factory=lambda: {
-        "input_tokens": 0,
-        "total_tokens": 0,
-        "call_cost": 0.0,
-    })
+    usage: dict = field(
+        default_factory=lambda: {
+            "input_tokens": 0,
+            "total_tokens": 0,
+            "call_cost": 0.0,
+        }
+    )
     exec_time_ms: int = 0
 
 

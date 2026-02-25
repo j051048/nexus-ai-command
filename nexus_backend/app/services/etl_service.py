@@ -300,9 +300,7 @@ class ETLService:
                         raise ImportError("openpyxl 未安装，请运行: pip install openpyxl")
 
                     if filename.lower().endswith(".xls"):
-                        raise ValueError(
-                            "不支持旧版 .xls 格式（Excel 97-2003）。请将文件另存为 .xlsx 格式后重新上传。"
-                        )
+                        raise ValueError("不支持旧版 .xls 格式（Excel 97-2003）。请将文件另存为 .xlsx 格式后重新上传。")
 
                     wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
                     parts = []
@@ -778,6 +776,7 @@ class ETLService:
         active_base_url = base_url
         try:
             from app.services.llm_helpers import resolve_embedding_config
+
             emb_config = await resolve_embedding_config(organization_id or "default")
             if emb_config.get("model"):
                 embedding_model = emb_config["model"]

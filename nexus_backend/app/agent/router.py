@@ -108,23 +108,55 @@ _MODERATE_KEYWORDS = {
 _AGENT_ROLE_PATTERNS: list[tuple[re.Pattern, str, str]] = [
     # (pattern, agent_code, scene_code)
     # Content marketing
-    (re.compile(r"白皮书|案例文章|内容营销|SEO|文案|公众号|社交媒体|技术文档|软文", re.IGNORECASE), "content_agent", "content_creation"),
+    (
+        re.compile(r"白皮书|案例文章|内容营销|SEO|文案|公众号|社交媒体|技术文档|软文", re.IGNORECASE),
+        "content_agent",
+        "content_creation",
+    ),
     # Visual design
-    (re.compile(r"视觉设计|海报|画册|展板|Banner|物料设计|品牌视觉|VI设计|宣传物料", re.IGNORECASE), "design_agent", "visual_design"),
+    (
+        re.compile(r"视觉设计|海报|画册|展板|Banner|物料设计|品牌视觉|VI设计|宣传物料", re.IGNORECASE),
+        "design_agent",
+        "visual_design",
+    ),
     # Media placement
-    (re.compile(r"媒介投放|广告投放|SEM|信息流|渠道分析|媒介策略|投放预算|ROI优化", re.IGNORECASE), "media_agent", "media_planning"),
+    (
+        re.compile(r"媒介投放|广告投放|SEM|信息流|渠道分析|媒介策略|投放预算|ROI优化", re.IGNORECASE),
+        "media_agent",
+        "media_planning",
+    ),
     # Lead generation / clue
-    (re.compile(r"线索获取|获客|线索评分|渠道归因|CAC|获客成本|MQL|SQL|线索培育", re.IGNORECASE), "clue_agent", "lead_generation"),
+    (
+        re.compile(r"线索获取|获客|线索评分|渠道归因|CAC|获客成本|MQL|SQL|线索培育", re.IGNORECASE),
+        "clue_agent",
+        "lead_generation",
+    ),
     # Sales enablement
-    (re.compile(r"销售话术|Battlecard|报价策略|竞品对比|销售培训|赢单|丢单|投标策略|标书", re.IGNORECASE), "sales_agent", "sales_enablement"),
+    (
+        re.compile(r"销售话术|Battlecard|报价策略|竞品对比|销售培训|赢单|丢单|投标策略|标书", re.IGNORECASE),
+        "sales_agent",
+        "sales_enablement",
+    ),
     # R&D-production-sales synergy
-    (re.compile(r"研产销|新品上市|GTM|跨部门|产销协同|需求传递|VOC|产品发布", re.IGNORECASE), "synergy_agent", "rd_marketing_sync"),
+    (
+        re.compile(r"研产销|新品上市|GTM|跨部门|产销协同|需求传递|VOC|产品发布", re.IGNORECASE),
+        "synergy_agent",
+        "rd_marketing_sync",
+    ),
     # Private domain operation
-    (re.compile(r"私域|社群运营|会员体系|客户旅程|复购|客户留存|NPS|社群", re.IGNORECASE), "operation_agent", "private_domain"),
+    (
+        re.compile(r"私域|社群运营|会员体系|客户旅程|复购|客户留存|NPS|社群", re.IGNORECASE),
+        "operation_agent",
+        "private_domain",
+    ),
     # PR / reputation
     (re.compile(r"舆情|口碑|危机公关|品牌监控|负面|舆论|KOL|声誉", re.IGNORECASE), "pr_agent", "brand_monitoring"),
     # Compliance
-    (re.compile(r"合规|广告法|审核|绝对化用语|极限词|医疗器械广告|内容审查", re.IGNORECASE), "compliance_agent", "ad_compliance"),
+    (
+        re.compile(r"合规|广告法|审核|绝对化用语|极限词|医疗器械广告|内容审查", re.IGNORECASE),
+        "compliance_agent",
+        "ad_compliance",
+    ),
     # Tender / bidding (may overlap with sales)
     (re.compile(r"标书|投标|招标|评标|中标|开标", re.IGNORECASE), "sales_agent", "proposal"),
 ]
@@ -231,6 +263,7 @@ async def _llm_classify_intent(
         resolved = None
         try:
             from app.services.llm_helpers import resolve_model_config
+
             org_id = getattr(config, "org_id", None) or "default"
             resolved = await resolve_model_config(org_id)
         except Exception:

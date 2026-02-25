@@ -97,12 +97,7 @@ async def _load_role_from_db(agent_code: str, tenant_id: str | None = None) -> R
         if supabase is None:
             return None
 
-        query = (
-            supabase.table("vmd_agent_config")
-            .select("*")
-            .eq("agent_code", agent_code)
-            .eq("is_active", True)
-        )
+        query = supabase.table("vmd_agent_config").select("*").eq("agent_code", agent_code).eq("is_active", True)
         if tenant_id:
             query = query.eq("tenant_id", tenant_id)
 
@@ -177,11 +172,14 @@ async def get_role_config(agent_code: str, tenant_id: str | None = None) -> Role
 
     # 3. Fallback
     logger.warning(f"[RoleRegistry] Unknown agent_code '{agent_code}', falling back to director_agent")
-    return ROLE_REGISTRY.get("director_agent", RoleConfig(
-        agent_code="director_agent",
-        agent_name="市场总监Agent",
-        system_prompt="你是一个市场营销助手。",
-    ))
+    return ROLE_REGISTRY.get(
+        "director_agent",
+        RoleConfig(
+            agent_code="director_agent",
+            agent_name="市场总监Agent",
+            system_prompt="你是一个市场营销助手。",
+        ),
+    )
 
 
 def get_all_roles() -> list[RoleConfig]:
@@ -197,8 +195,11 @@ def get_role_config_sync(agent_code: str) -> RoleConfig:
     """
     if agent_code in ROLE_REGISTRY:
         return ROLE_REGISTRY[agent_code]
-    return ROLE_REGISTRY.get("director_agent", RoleConfig(
-        agent_code="director_agent",
-        agent_name="市场总监Agent",
-        system_prompt="你是一个市场营销助手。",
-    ))
+    return ROLE_REGISTRY.get(
+        "director_agent",
+        RoleConfig(
+            agent_code="director_agent",
+            agent_name="市场总监Agent",
+            system_prompt="你是一个市场营销助手。",
+        ),
+    )

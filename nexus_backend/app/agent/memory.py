@@ -133,6 +133,7 @@ class QueryTransformer:
                 # Try gateway resolution first
                 try:
                     from app.services.llm_helpers import resolve_model_config
+
                     resolved = await resolve_model_config(
                         org_id=getattr(self.config, "org_id", None) or "default",
                     )
@@ -560,9 +561,7 @@ async def persist_result(
                 db=client,
             )
             if org_extracted:
-                logger.info(
-                    f"[Memory] Extracted {len(org_extracted)} org memories for org {org_id} by user {user_id}"
-                )
+                logger.info(f"[Memory] Extracted {len(org_extracted)} org memories for org {org_id} by user {user_id}")
         except Exception as e:
             logger.debug(f"[Memory] Org memory extraction skipped: {e}")
 

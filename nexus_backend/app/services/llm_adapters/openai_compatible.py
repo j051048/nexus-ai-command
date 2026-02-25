@@ -90,9 +90,8 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
         call_cost = 0.0
         try:
             from app.services.token_service import token_counter
-            call_cost = token_counter.estimate_cost(
-                input_tokens, output_tokens, self.config.model_code
-            )
+
+            call_cost = token_counter.estimate_cost(input_tokens, output_tokens, self.config.model_code)
         except Exception:
             pass
 
@@ -112,14 +111,16 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
 
         parsed = []
         for tc in raw_tool_calls:
-            parsed.append({
-                "id": tc.get("id", ""),
-                "type": tc.get("type", "function"),
-                "function": {
-                    "name": tc.get("function", {}).get("name", ""),
-                    "arguments": tc.get("function", {}).get("arguments", "{}"),
-                },
-            })
+            parsed.append(
+                {
+                    "id": tc.get("id", ""),
+                    "type": tc.get("type", "function"),
+                    "function": {
+                        "name": tc.get("function", {}).get("name", ""),
+                        "arguments": tc.get("function", {}).get("arguments", "{}"),
+                    },
+                }
+            )
         return parsed
 
     async def chat(self, request: ChatRequest) -> ChatResponse:
@@ -222,93 +223,96 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
         usage_data = {}
 
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client, client.stream("POST", url, headers=headers, json=payload) as response:
-                    if response.status_code != 200:
-                        error_text = ""
-                        async for chunk in response.aiter_text():
-                            error_text += chunk
-                        error_text = error_text[:500]
-                        logger.error(
-                            f"OpenAI-compatible streaming error ({response.status_code}): {error_text}"
-                        )
+            async with (
+                httpx.AsyncClient(timeout=timeout) as client,
+                client.stream("POST", url, headers=headers, json=payload) as response,
+            ):
+                if response.status_code != 200:
+                    error_text = ""
+                    async for chunk in response.aiter_text():
+                        error_text += chunk
+                    error_text = error_text[:500]
+                    logger.error(f"OpenAI-compatible streaming error ({response.status_code}): {error_text}")
+                    exec_time_ms = int((time.monotonic() - start_time) * 1000)
+                    yield ChatResponse(
+                        request_id=request_id,
+                        model_code=self.config.model_code,
+                        content=f"API Error {response.status_code}: {error_text}",
+                        finish_reason="error",
+                        exec_time_ms=exec_time_ms,
+                    )
+                    return
+
+                buffer = ""
+                async for raw_chunk in response.aiter_text():
+                    buffer += raw_chunk
+                    # Process complete SSE lines
+                    while "\n" in buffer:
+                        line, buffer = buffer.split("\n", 1)
+                        line = line.strip()
+
+                        if not line or line.startswith(":"):
+                            continue
+
+                        if line == "data: [DONE]":
+                            break
+
+                        if not line.startswith("data: "):
+                            continue
+
+                        json_str = line[6:]  # Remove "data: " prefix
+                        try:
+                            chunk_data = json.loads(json_str)
+                        except json.JSONDecodeError:
+                            continue
+
+                        choices = chunk_data.get("choices", [])
+                        if not choices:
+                            continue
+
+                        delta = choices[0].get("delta", {})
+                        chunk_finish = choices[0].get("finish_reason")
+
+                        # Accumulate content
+                        delta_content = delta.get("content", "")
+                        if delta_content:
+                            accumulated_content += delta_content
+
+                        # Accumulate tool calls
+                        if delta.get("tool_calls"):
+                            for tc_delta in delta["tool_calls"]:
+                                idx = tc_delta.get("index", 0)
+                                while len(accumulated_tool_calls) <= idx:
+                                    accumulated_tool_calls.append(
+                                        {
+                                            "id": "",
+                                            "type": "function",
+                                            "function": {"name": "", "arguments": ""},
+                                        }
+                                    )
+                                if tc_delta.get("id"):
+                                    accumulated_tool_calls[idx]["id"] = tc_delta["id"]
+                                fn = tc_delta.get("function", {})
+                                if fn.get("name"):
+                                    accumulated_tool_calls[idx]["function"]["name"] = fn["name"]
+                                if fn.get("arguments"):
+                                    accumulated_tool_calls[idx]["function"]["arguments"] += fn["arguments"]
+
+                        # Check for usage in streaming response (some providers include it)
+                        if chunk_data.get("usage"):
+                            usage_data = chunk_data["usage"]
+
+                        # Yield partial response
                         exec_time_ms = int((time.monotonic() - start_time) * 1000)
                         yield ChatResponse(
                             request_id=request_id,
                             model_code=self.config.model_code,
-                            content=f"API Error {response.status_code}: {error_text}",
-                            finish_reason="error",
+                            content=delta_content,
+                            tool_calls=accumulated_tool_calls if accumulated_tool_calls else None,
+                            usage=self._parse_usage(usage_data if usage_data else None),
                             exec_time_ms=exec_time_ms,
+                            finish_reason=chunk_finish or "",
                         )
-                        return
-
-                    buffer = ""
-                    async for raw_chunk in response.aiter_text():
-                        buffer += raw_chunk
-                        # Process complete SSE lines
-                        while "\n" in buffer:
-                            line, buffer = buffer.split("\n", 1)
-                            line = line.strip()
-
-                            if not line or line.startswith(":"):
-                                continue
-
-                            if line == "data: [DONE]":
-                                break
-
-                            if not line.startswith("data: "):
-                                continue
-
-                            json_str = line[6:]  # Remove "data: " prefix
-                            try:
-                                chunk_data = json.loads(json_str)
-                            except json.JSONDecodeError:
-                                continue
-
-                            choices = chunk_data.get("choices", [])
-                            if not choices:
-                                continue
-
-                            delta = choices[0].get("delta", {})
-                            chunk_finish = choices[0].get("finish_reason")
-
-                            # Accumulate content
-                            delta_content = delta.get("content", "")
-                            if delta_content:
-                                accumulated_content += delta_content
-
-                            # Accumulate tool calls
-                            if delta.get("tool_calls"):
-                                for tc_delta in delta["tool_calls"]:
-                                    idx = tc_delta.get("index", 0)
-                                    while len(accumulated_tool_calls) <= idx:
-                                        accumulated_tool_calls.append({
-                                            "id": "",
-                                            "type": "function",
-                                            "function": {"name": "", "arguments": ""},
-                                        })
-                                    if tc_delta.get("id"):
-                                        accumulated_tool_calls[idx]["id"] = tc_delta["id"]
-                                    fn = tc_delta.get("function", {})
-                                    if fn.get("name"):
-                                        accumulated_tool_calls[idx]["function"]["name"] = fn["name"]
-                                    if fn.get("arguments"):
-                                        accumulated_tool_calls[idx]["function"]["arguments"] += fn["arguments"]
-
-                            # Check for usage in streaming response (some providers include it)
-                            if chunk_data.get("usage"):
-                                usage_data = chunk_data["usage"]
-
-                            # Yield partial response
-                            exec_time_ms = int((time.monotonic() - start_time) * 1000)
-                            yield ChatResponse(
-                                request_id=request_id,
-                                model_code=self.config.model_code,
-                                content=delta_content,
-                                tool_calls=accumulated_tool_calls if accumulated_tool_calls else None,
-                                usage=self._parse_usage(usage_data if usage_data else None),
-                                exec_time_ms=exec_time_ms,
-                                finish_reason=chunk_finish or "",
-                            )
 
         except httpx.TimeoutException:
             exec_time_ms = int((time.monotonic() - start_time) * 1000)

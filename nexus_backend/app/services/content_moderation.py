@@ -184,6 +184,7 @@ class ContentModerator:
 
                 try:
                     from app.services.llm_helpers import resolve_model_config
+
                     resolved = await resolve_model_config()
                     self._llm_client = AsyncOpenAI(
                         api_key=resolved["api_key"],
@@ -195,6 +196,7 @@ class ContentModerator:
                     pass
 
                 from app.core.config import settings
+
                 self._llm_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.AI_BASE_URL)
             except Exception as e:
                 logger.warning(f"Failed to initialize LLM client for detection: {e}")
@@ -416,7 +418,10 @@ class ContentModerator:
 仅回复JSON，无其他内容。"""
 
             response = await client.chat.completions.create(
-                model=self._resolved_model, messages=[{"role": "user", "content": prompt}], max_tokens=100, temperature=0
+                model=self._resolved_model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=100,
+                temperature=0,
             )
 
             result = json.loads(response.choices[0].message.content)

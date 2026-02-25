@@ -46,6 +46,7 @@ class SemanticCacheService:
             return
         try:
             from app.services.llm_helpers import resolve_embedding_config
+
             config = await resolve_embedding_config()
             self._embedding_model = config.get("model", _DEFAULT_EMBEDDING_MODEL)
             if config.get("api_key"):

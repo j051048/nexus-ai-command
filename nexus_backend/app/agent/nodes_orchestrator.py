@@ -105,13 +105,15 @@ async def orchestrate_node(state: AgentState) -> dict:
             total_input_tokens += tokens_in
             total_output_tokens += tokens_out
 
-            delegation_results.append({
-                "sub_task_id": sub_task_id,
-                "agent_code": agent_code,
-                "title": task_title,
-                "status": "completed",
-                "result": result,
-            })
+            delegation_results.append(
+                {
+                    "sub_task_id": sub_task_id,
+                    "agent_code": agent_code,
+                    "title": task_title,
+                    "status": "completed",
+                    "result": result,
+                }
+            )
 
             # Store result for dependent tasks to reference
             completed_context[f"task_{task_idx}"] = result
@@ -126,13 +128,15 @@ async def orchestrate_node(state: AgentState) -> dict:
 
         except Exception as e:
             logger.error(f"[Orchestrate] Sub-task {task_idx} ({agent_code}) failed: {e}")
-            delegation_results.append({
-                "sub_task_id": sub_task_id,
-                "agent_code": agent_code,
-                "title": task_title,
-                "status": "failed",
-                "result": f"执行失败: {str(e)[:200]}",
-            })
+            delegation_results.append(
+                {
+                    "sub_task_id": sub_task_id,
+                    "agent_code": agent_code,
+                    "title": task_title,
+                    "status": "failed",
+                    "result": f"执行失败: {str(e)[:200]}",
+                }
+            )
             thinking_steps.append(
                 ThinkingStep(
                     phase="orchestrate",
@@ -242,6 +246,7 @@ async def _execute_sub_task(
     resolved = None
     try:
         from app.services.llm_helpers import resolve_model_config
+
         org_id = config.org_id or "default"
         resolved = await resolve_model_config(org_id, "", agent_code)
     except Exception:
@@ -391,6 +396,7 @@ async def _integrate_results(
     resolved = None
     try:
         from app.services.llm_helpers import resolve_model_config
+
         org_id = config.org_id or "default"
         resolved = await resolve_model_config(org_id)
     except Exception:
@@ -414,10 +420,12 @@ async def _integrate_results(
         )
 
     try:
-        ai_msg = await llm.ainvoke([
-            SystemMessage(content="你是一位资深市场总监，擅长整合多方信息形成完整方案。"),
-            HumanMessage(content=integration_prompt),
-        ])
+        ai_msg = await llm.ainvoke(
+            [
+                SystemMessage(content="你是一位资深市场总监，擅长整合多方信息形成完整方案。"),
+                HumanMessage(content=integration_prompt),
+            ]
+        )
         return ai_msg.content or "整合结果生成失败，请查看各子任务的独立输出。"
     except Exception as e:
         logger.error(f"[Orchestrate] Integration failed: {e}")

@@ -110,11 +110,7 @@ async def list_tasks(
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         # Count query
-        count_query = (
-            client.table("vmd_main_task")
-            .select("id", count="exact")
-            .eq("tenant_id", org_id)
-        )
+        count_query = client.table("vmd_main_task").select("id", count="exact").eq("tenant_id", org_id)
         if status:
             count_query = count_query.eq("status", status)
         if priority:
@@ -161,13 +157,7 @@ async def get_task(
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         # Get main task
-        task_res = (
-            await client.table("vmd_main_task")
-            .select("*")
-            .eq("id", task_id)
-            .maybe_single()
-            .execute()
-        )
+        task_res = await client.table("vmd_main_task").select("*").eq("id", task_id).maybe_single().execute()
         if not task_res.data:
             return api_error(ErrorCode.RESOURCE_NOT_FOUND, "任务不存在")
 
@@ -188,16 +178,18 @@ async def get_task(
         completed_sub = sum(1 for s in sub_tasks if s.get("status") == "completed")
         progress = round((completed_sub / total_sub * 100), 1) if total_sub > 0 else 0.0
 
-        return api_success(data={
-            "task": task,
-            "sub_tasks": sub_tasks,
-            "wbs_structure": task.get("wbs_structure"),
-            "progress": {
-                "total_sub_tasks": total_sub,
-                "completed": completed_sub,
-                "percentage": progress,
-            },
-        })
+        return api_success(
+            data={
+                "task": task,
+                "sub_tasks": sub_tasks,
+                "wbs_structure": task.get("wbs_structure"),
+                "progress": {
+                    "total_sub_tasks": total_sub,
+                    "completed": completed_sub,
+                    "percentage": progress,
+                },
+            }
+        )
     except Exception as e:
         logger.error(f"Get task error: id={task_id} user={user_id} err={e}")
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
@@ -218,12 +210,7 @@ async def get_task_logs(
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         # Count
-        count_res = (
-            await client.table("llm_call_log")
-            .select("id", count="exact")
-            .eq("main_task_id", task_id)
-            .execute()
-        )
+        count_res = await client.table("llm_call_log").select("id", count="exact").eq("main_task_id", task_id).execute()
         total = count_res.count if count_res.count is not None else len(count_res.data or [])
 
         # Data
@@ -261,13 +248,7 @@ async def pause_task(
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         # Verify task exists and is in executable state
-        task_res = (
-            await client.table("vmd_main_task")
-            .select("id, status")
-            .eq("id", task_id)
-            .maybe_single()
-            .execute()
-        )
+        task_res = await client.table("vmd_main_task").select("id, status").eq("id", task_id).maybe_single().execute()
         if not task_res.data:
             return api_error(ErrorCode.RESOURCE_NOT_FOUND, "任务不存在")
 
@@ -299,13 +280,7 @@ async def resume_task(
         if not client:
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
-        task_res = (
-            await client.table("vmd_main_task")
-            .select("id, status")
-            .eq("id", task_id)
-            .maybe_single()
-            .execute()
-        )
+        task_res = await client.table("vmd_main_task").select("id, status").eq("id", task_id).maybe_single().execute()
         if not task_res.data:
             return api_error(ErrorCode.RESOURCE_NOT_FOUND, "任务不存在")
 
@@ -336,13 +311,7 @@ async def cancel_task(
         if not client:
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
-        task_res = (
-            await client.table("vmd_main_task")
-            .select("id, status")
-            .eq("id", task_id)
-            .maybe_single()
-            .execute()
-        )
+        task_res = await client.table("vmd_main_task").select("id, status").eq("id", task_id).maybe_single().execute()
         if not task_res.data:
             return api_error(ErrorCode.RESOURCE_NOT_FOUND, "任务不存在")
 
@@ -375,23 +344,13 @@ async def retry_task(
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         # Verify task exists
-        task_res = (
-            await client.table("vmd_main_task")
-            .select("id, status")
-            .eq("id", task_id)
-            .maybe_single()
-            .execute()
-        )
+        task_res = await client.table("vmd_main_task").select("id, status").eq("id", task_id).maybe_single().execute()
         if not task_res.data:
             return api_error(ErrorCode.RESOURCE_NOT_FOUND, "任务不存在")
 
         # Find failed sub-tasks
         failed_res = (
-            await client.table("vmd_sub_task")
-            .select("id")
-            .eq("main_task_id", task_id)
-            .eq("status", "failed")
-            .execute()
+            await client.table("vmd_sub_task").select("id").eq("main_task_id", task_id).eq("status", "failed").execute()
         )
         failed_sub_tasks = failed_res.data or []
 
@@ -473,12 +432,7 @@ async def audit_sub_task(
                 "status": "pending",  # Allow re-execution
             }
 
-        await (
-            client.table("vmd_sub_task")
-            .update(update_data)
-            .eq("id", sub_task_id)
-            .execute()
-        )
+        await client.table("vmd_sub_task").update(update_data).eq("id", sub_task_id).execute()
 
         return api_success(
             data={"sub_task_id": sub_task_id, "review_status": update_data["review_status"]},
@@ -506,13 +460,7 @@ async def list_agent_configs(
         if not client:
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
-        res = (
-            await client.table("vmd_agent_config")
-            .select("*")
-            .eq("tenant_id", org_id)
-            .order("agent_code")
-            .execute()
-        )
+        res = await client.table("vmd_agent_config").select("*").eq("tenant_id", org_id).order("agent_code").execute()
         return api_success(data={"agents": res.data or []})
     except Exception as e:
         logger.error(f"List agent configs error: user={user_id} err={e}")

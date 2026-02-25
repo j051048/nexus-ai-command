@@ -203,13 +203,7 @@ class ClueService:
             return None
 
         try:
-            res = (
-                await db.table("business_clue")
-                .select("*")
-                .eq("id", clue_id)
-                .maybe_single()
-                .execute()
-            )
+            res = await db.table("business_clue").select("*").eq("id", clue_id).maybe_single().execute()
             return res.data
         except Exception as e:
             logger.error("Failed to get clue %s: %s", clue_id, e)
@@ -242,12 +236,7 @@ class ClueService:
             raise ValueError(f"无效的线索状态: {data['status']}")
 
         try:
-            res = (
-                await db.table("business_clue")
-                .update(data)
-                .eq("id", clue_id)
-                .execute()
-            )
+            res = await db.table("business_clue").update(data).eq("id", clue_id).execute()
             return res.data[0] if res.data else None
         except Exception as e:
             logger.error("Failed to update clue %s: %s", clue_id, e)
@@ -352,14 +341,16 @@ class ClueService:
             # Mark clue as converted
             await (
                 db.table("business_clue")
-                .update({
-                    "status": "converted",
-                    "update_time": datetime.now(UTC).isoformat(),
-                    "metadata": {
-                        **(clue.get("metadata") or {}),
-                        "converted_customer_id": customer.get("id"),
-                    },
-                })
+                .update(
+                    {
+                        "status": "converted",
+                        "update_time": datetime.now(UTC).isoformat(),
+                        "metadata": {
+                            **(clue.get("metadata") or {}),
+                            "converted_customer_id": customer.get("id"),
+                        },
+                    }
+                )
                 .eq("id", clue_id)
                 .execute()
             )
@@ -385,12 +376,7 @@ class ClueService:
             return {}
 
         try:
-            res = (
-                await db.table("business_clue")
-                .select("*")
-                .eq("tenant_id", tenant_id)
-                .execute()
-            )
+            res = await db.table("business_clue").select("*").eq("tenant_id", tenant_id).execute()
             clues = res.data or []
 
             if not clues:

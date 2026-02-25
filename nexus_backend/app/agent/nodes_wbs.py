@@ -118,6 +118,7 @@ async def wbs_decompose_node(state: AgentState) -> dict:
     resolved = None
     try:
         from app.services.llm_helpers import resolve_model_config
+
         org_id = config.org_id or "default"
         scene_code = state.get("scene_code", "")
         agent_code = state.get("agent_code", "")
@@ -183,8 +184,7 @@ async def wbs_decompose_node(state: AgentState) -> dict:
 
         task_count = len(wbs_structure["sub_tasks"])
         task_summary = ", ".join(
-            f"{t.get('agent_code', '?')}:{t.get('title', '?')}"
-            for t in wbs_structure["sub_tasks"]
+            f"{t.get('agent_code', '?')}:{t.get('title', '?')}" for t in wbs_structure["sub_tasks"]
         )
 
         # Track token usage
@@ -192,9 +192,7 @@ async def wbs_decompose_node(state: AgentState) -> dict:
         input_tokens = usage.get("prompt_tokens", 0)
         output_tokens = usage.get("completion_tokens", 0)
 
-        logger.info(
-            f"[WBS] Decomposed into {task_count} sub-tasks in {duration_ms}ms: {task_summary}"
-        )
+        logger.info(f"[WBS] Decomposed into {task_count} sub-tasks in {duration_ms}ms: {task_summary}")
 
         return {
             "wbs_structure": wbs_structure,

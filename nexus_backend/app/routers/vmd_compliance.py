@@ -121,12 +121,7 @@ async def list_rules(
         if not client:
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
-        query = (
-            client.table("compliance_rule")
-            .select("*")
-            .eq("tenant_id", org_id)
-            .order("create_time", desc=True)
-        )
+        query = client.table("compliance_rule").select("*").eq("tenant_id", org_id).order("create_time", desc=True)
         if category:
             query = query.eq("category", category)
 
@@ -191,12 +186,7 @@ async def update_rule(
 
         update_data["updated_by"] = user_id
 
-        res = (
-            await client.table("compliance_rule")
-            .update(update_data)
-            .eq("id", rule_id)
-            .execute()
-        )
+        res = await client.table("compliance_rule").update(update_data).eq("id", rule_id).execute()
         if not res.data:
             return api_error(ErrorCode.COMPLIANCE_RULE_NOT_FOUND, "合规规则不存在")
 
@@ -220,12 +210,7 @@ async def delete_rule(
         if not client:
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
-        res = (
-            await client.table("compliance_rule")
-            .delete()
-            .eq("id", rule_id)
-            .execute()
-        )
+        res = await client.table("compliance_rule").delete().eq("id", rule_id).execute()
         if not res.data:
             return api_error(ErrorCode.COMPLIANCE_RULE_NOT_FOUND, "合规规则不存在")
 
@@ -256,11 +241,7 @@ async def get_check_history(
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         # Count query
-        count_query = (
-            client.table("compliance_check_log")
-            .select("id", count="exact")
-            .eq("tenant_id", org_id)
-        )
+        count_query = client.table("compliance_check_log").select("id", count="exact").eq("tenant_id", org_id)
         if content_type:
             count_query = count_query.eq("content_type", content_type)
 

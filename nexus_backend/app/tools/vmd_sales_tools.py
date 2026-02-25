@@ -29,8 +29,7 @@ class GenerateSalesScriptTool(BaseTool):
 
     name = "generate_sales_script"
     description = (
-        "生成科学仪器产品销售话术和技术答疑口径。"
-        "当用户说'销售话术'、'怎么和客户说'、'产品卖点'、'FAQs回答'时调用。"
+        "生成科学仪器产品销售话术和技术答疑口径。" "当用户说'销售话术'、'怎么和客户说'、'产品卖点'、'FAQs回答'时调用。"
     )
     required_role = "all"
 
@@ -220,10 +219,7 @@ class GenerateTrainingMaterialTool(BaseTool):
     """生成销售培训课件大纲和内容"""
 
     name = "generate_training_material"
-    description = (
-        "生成销售培训课件大纲和内容。"
-        "当用户说'培训课件'、'新人培训'、'产品培训'时调用。"
-    )
+    description = "生成销售培训课件大纲和内容。" "当用户说'培训课件'、'新人培训'、'产品培训'时调用。"
     required_role = "all"
 
     parameters = {
@@ -324,8 +320,7 @@ class GenerateQuotationTemplateTool(BaseTool):
 
     name = "generate_quotation_template"
     description = (
-        "生成产品报价单模板，包含产品配置、价格明细、优惠方案等。"
-        "当用户说'报价单'、'做报价'、'价格方案'时调用。"
+        "生成产品报价单模板，包含产品配置、价格明细、优惠方案等。" "当用户说'报价单'、'做报价'、'价格方案'时调用。"
     )
     required_role = "all"
 
@@ -399,10 +394,7 @@ class GenerateQuotationTemplateTool(BaseTool):
                 "7. **质保条款** — 质保期限、服务响应\n"
             )
         else:
-            prompt += (
-                "4. **付款条件** — 付款方式\n"
-                "5. **交付说明** — 交货周期、运输方式\n"
-            )
+            prompt += "4. **付款条件** — 付款方式\n" "5. **交付说明** — 交货周期、运输方式\n"
 
         prompt += "\n请用 Markdown 表格展示价格明细，价格处标注'[需填入]'。"
 

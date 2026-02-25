@@ -170,6 +170,7 @@ try:
         GenerateSocialPostTool,
         GenerateWhitepaperTool,
     )
+
     register_tool(GenerateProductManualTool())
     register_tool(GenerateWhitepaperTool())
     register_tool(GenerateApplicationNoteTool())
@@ -184,6 +185,7 @@ try:
         GenerateBidDocumentTool,
         GenerateDeviationTableTool,
     )
+
     register_tool(GenerateBidDocumentTool())
     register_tool(GenerateDeviationTableTool())
     register_tool(CheckBidComplianceTool())
@@ -198,6 +200,7 @@ try:
         GenerateSalesScriptTool,
         GenerateTrainingMaterialTool,
     )
+
     register_tool(GenerateSalesScriptTool())
     register_tool(GenerateCompetitorComparisonTool())
     register_tool(GenerateTrainingMaterialTool())
@@ -212,6 +215,7 @@ try:
         GenerateMarketResearchTool,
         MonitorIndustryTrendsTool,
     )
+
     register_tool(MonitorIndustryTrendsTool())
     register_tool(GenerateMarketResearchTool())
     register_tool(GenerateCompetitorAnalysisTool())
@@ -226,6 +230,7 @@ try:
         GenerateMaintenanceReminderTool,
         GenerateRepurchaseCampaignTool,
     )
+
     register_tool(GenerateMaintenanceReminderTool())
     register_tool(GenerateFaqResponseTool())
     register_tool(GenerateRepurchaseCampaignTool())

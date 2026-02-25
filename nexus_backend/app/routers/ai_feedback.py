@@ -73,11 +73,7 @@ async def list_feedback(
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         org_id = getattr(req.state, "org_id", None)
-        query = (
-            client.table("ai_feedback")
-            .select("*", count="exact")
-            .order("created_at", desc=True)
-        )
+        query = client.table("ai_feedback").select("*", count="exact").order("created_at", desc=True)
         if org_id:
             query = query.eq("tenant_id", org_id)
         if rating:
@@ -107,6 +103,7 @@ async def feedback_stats(
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         from datetime import UTC, datetime, timedelta
+
         org_id = getattr(req.state, "org_id", None)
         since = (datetime.now(UTC) - timedelta(days=days)).isoformat()
 
@@ -122,13 +119,15 @@ async def feedback_stats(
         negative = sum(1 for f in feedbacks if f.get("rating") == "negative")
         total = positive + negative
 
-        return api_success(data={
-            "total": total,
-            "positive": positive,
-            "negative": negative,
-            "satisfaction_rate": round(positive / total * 100, 1) if total > 0 else 0,
-            "days": days,
-        })
+        return api_success(
+            data={
+                "total": total,
+                "positive": positive,
+                "negative": negative,
+                "satisfaction_rate": round(positive / total * 100, 1) if total > 0 else 0,
+                "days": days,
+            }
+        )
     except Exception as e:
         logger.error("Feedback stats error: %s", e)
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

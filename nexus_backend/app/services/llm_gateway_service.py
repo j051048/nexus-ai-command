@@ -51,9 +51,7 @@ class LLMGatewayService:
     # Internal: Model config loading
     # ------------------------------------------------------------------
 
-    async def _load_model_config(
-        self, model_code: str, org_id: str
-    ) -> ModelConfig | None:
+    async def _load_model_config(self, model_code: str, org_id: str) -> ModelConfig | None:
         """
         Load a model configuration from the llm_model_config table.
 
@@ -89,10 +87,7 @@ class LLMGatewayService:
 
             rows = res.data or []
             if not rows:
-                logger.warning(
-                    "No active model config found for "
-                    f"model_code={model_code}, org_id={org_id}"
-                )
+                logger.warning("No active model config found for " f"model_code={model_code}, org_id={org_id}")
                 return None
 
             row = rows[0]
@@ -102,9 +97,7 @@ class LLMGatewayService:
             try:
                 api_key = encryption_service.decrypt(raw_api_key)
             except Exception as e:
-                logger.error(
-                    f"Failed to decrypt api_key for model {model_code}: {e}"
-                )
+                logger.error(f"Failed to decrypt api_key for model {model_code}: {e}")
                 return None
 
             # Decrypt optional secret_key (used by some providers like Wenxin)
@@ -114,9 +107,7 @@ class LLMGatewayService:
                 try:
                     secret_key = encryption_service.decrypt(raw_secret_key)
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to decrypt secret_key for model {model_code}: {e}"
-                    )
+                    logger.warning(f"Failed to decrypt secret_key for model {model_code}: {e}")
 
             config = ModelConfig(
                 model_code=row.get("model_code", model_code),
@@ -150,9 +141,7 @@ class LLMGatewayService:
     # Internal: Schedule rule resolution
     # ------------------------------------------------------------------
 
-    async def _resolve_model(
-        self, scene_code: str, agent_code: str, org_id: str
-    ) -> str | None:
+    async def _resolve_model(self, scene_code: str, agent_code: str, org_id: str) -> str | None:
         """
         Look up the llm_schedule_rule table to find the model assigned
         to a given scene + agent combination.
@@ -171,9 +160,7 @@ class LLMGatewayService:
                 return self._pick_healthy_model(rule)
 
         if not supabase:
-            logger.warning(
-                "Database not available - cannot resolve model schedule"
-            )
+            logger.warning("Database not available - cannot resolve model schedule")
             return None
 
         try:
@@ -216,10 +203,7 @@ class LLMGatewayService:
                 rows = res.data or []
 
             if not rows:
-                logger.warning(
-                    f"No schedule rule found for scene={scene_code}, "
-                    f"agent={agent_code}, org={org_id}"
-                )
+                logger.warning(f"No schedule rule found for scene={scene_code}, " f"agent={agent_code}, org={org_id}")
                 return None
 
             rule = rows[0]
@@ -228,8 +212,7 @@ class LLMGatewayService:
 
         except Exception as e:
             logger.error(
-                f"Error resolving model for scene={scene_code}, "
-                f"agent={agent_code}, org={org_id}: {e}",
+                f"Error resolving model for scene={scene_code}, " f"agent={agent_code}, org={org_id}: {e}",
                 exc_info=True,
             )
             return None
@@ -246,19 +229,13 @@ class LLMGatewayService:
             return primary
 
         if primary:
-            logger.warning(
-                f"Primary model '{primary}' circuit is open, "
-                f"attempting backup model '{backup}'"
-            )
+            logger.warning(f"Primary model '{primary}' circuit is open, " f"attempting backup model '{backup}'")
 
         if backup and circuit_breaker_manager.is_allowed(backup):
             return backup
 
         if backup:
-            logger.error(
-                f"Both primary '{primary}' and backup '{backup}' "
-                "circuits are open"
-            )
+            logger.error(f"Both primary '{primary}' and backup '{backup}' " "circuits are open")
 
         # Return primary anyway as last resort (circuit breaker may
         # transition to half-open by the time the actual call is made)
@@ -315,9 +292,7 @@ class LLMGatewayService:
         # --- Resolve model ---
         model_code = await self._resolve_model(scene_code, agent_code, org_id)
         if not model_code:
-            return self._error_response(
-                request_id, "", "No model configured for this scene/agent"
-            )
+            return self._error_response(request_id, "", "No model configured for this scene/agent")
 
         # --- Try primary model, then backup on failure ---
         response = await self._try_chat_with_model(
@@ -338,14 +313,9 @@ class LLMGatewayService:
 
         if response.finish_reason == "error":
             # Attempt backup model
-            backup_code = await self._get_backup_model(
-                scene_code, agent_code, org_id, exclude=model_code
-            )
+            backup_code = await self._get_backup_model(scene_code, agent_code, org_id, exclude=model_code)
             if backup_code:
-                logger.info(
-                    f"Retrying with backup model '{backup_code}' "
-                    f"after primary '{model_code}' failed"
-                )
+                logger.info(f"Retrying with backup model '{backup_code}' " f"after primary '{model_code}' failed")
                 backup_response = await self._try_chat_with_model(
                     model_code=backup_code,
                     org_id=org_id,
@@ -407,15 +377,13 @@ class LLMGatewayService:
                 error_msg=quota_result.reason,
             )
             return self._error_response(
-                request_id, model_code,
+                request_id,
+                model_code,
                 f"Quota exceeded: {quota_result.reason}",
             )
 
         if quota_result.warning:
-            logger.warning(
-                f"Quota warning for org={org_id}, model={model_code}: "
-                f"{quota_result.reason}"
-            )
+            logger.warning(f"Quota warning for org={org_id}, model={model_code}: " f"{quota_result.reason}")
 
         # --- Circuit breaker check ---
         if not circuit_breaker_manager.is_allowed(model_code):
@@ -434,15 +402,14 @@ class LLMGatewayService:
                 latency_ms=latency,
                 error_msg="Circuit breaker is open",
             )
-            return self._error_response(
-                request_id, model_code, "Model circuit breaker is open"
-            )
+            return self._error_response(request_id, model_code, "Model circuit breaker is open")
 
         # --- Create adapter ---
         adapter, config = await self._create_adapter(model_code, org_id)
         if not adapter or not config:
             return self._error_response(
-                request_id, model_code,
+                request_id,
+                model_code,
                 f"Failed to load adapter for model {model_code}",
             )
 
@@ -503,8 +470,7 @@ class LLMGatewayService:
             latency = int((time.monotonic() - start_ts) * 1000)
             error_msg = str(e)
             logger.error(
-                f"LLM call failed for model={model_code}, "
-                f"request_id={request_id}: {error_msg}",
+                f"LLM call failed for model={model_code}, " f"request_id={request_id}: {error_msg}",
                 exc_info=True,
             )
 
@@ -559,9 +525,7 @@ class LLMGatewayService:
         # --- Resolve model ---
         model_code = await self._resolve_model(scene_code, agent_code, org_id)
         if not model_code:
-            yield self._error_response(
-                request_id, "", "No model configured for this scene/agent"
-            )
+            yield self._error_response(request_id, "", "No model configured for this scene/agent")
             return
 
         # --- Quota check ---
@@ -572,29 +536,26 @@ class LLMGatewayService:
         )
         if not quota_result.allowed:
             yield self._error_response(
-                request_id, model_code,
+                request_id,
+                model_code,
                 f"Quota exceeded: {quota_result.reason}",
             )
             return
 
         if quota_result.warning:
-            logger.warning(
-                f"Quota warning for org={org_id}, model={model_code}: "
-                f"{quota_result.reason}"
-            )
+            logger.warning(f"Quota warning for org={org_id}, model={model_code}: " f"{quota_result.reason}")
 
         # --- Circuit breaker check ---
         if not circuit_breaker_manager.is_allowed(model_code):
-            yield self._error_response(
-                request_id, model_code, "Model circuit breaker is open"
-            )
+            yield self._error_response(request_id, model_code, "Model circuit breaker is open")
             return
 
         # --- Create adapter ---
         adapter, config = await self._create_adapter(model_code, org_id)
         if not adapter or not config:
             yield self._error_response(
-                request_id, model_code,
+                request_id,
+                model_code,
                 f"Failed to load adapter for model {model_code}",
             )
             return
@@ -620,18 +581,12 @@ class LLMGatewayService:
 
         try:
             async for chunk in adapter.stream_chat(chat_request):
-                chunk.exec_time_ms = int(
-                    (time.monotonic() - start_ts) * 1000
-                )
+                chunk.exec_time_ms = int((time.monotonic() - start_ts) * 1000)
 
                 # Accumulate usage from the final chunk (providers typically
                 # report usage only in the last chunk)
-                total_input_tokens = chunk.usage.get(
-                    "input_tokens", total_input_tokens
-                )
-                total_output_tokens = chunk.usage.get(
-                    "output_tokens", total_output_tokens
-                )
+                total_input_tokens = chunk.usage.get("input_tokens", total_input_tokens)
+                total_output_tokens = chunk.usage.get("output_tokens", total_output_tokens)
                 total_cost = chunk.usage.get("call_cost", total_cost)
 
                 yield chunk
@@ -666,8 +621,7 @@ class LLMGatewayService:
             latency = int((time.monotonic() - start_ts) * 1000)
             error_msg = str(e)
             logger.error(
-                f"Streaming LLM call failed for model={model_code}, "
-                f"request_id={request_id}: {error_msg}",
+                f"Streaming LLM call failed for model={model_code}, " f"request_id={request_id}: {error_msg}",
                 exc_info=True,
             )
 
@@ -728,9 +682,7 @@ class LLMGatewayService:
         # Create adapter
         adapter, config = await self._create_adapter(model_code, org_id)
         if not adapter or not config:
-            logger.error(
-                f"Failed to create embedding adapter for {model_code}"
-            )
+            logger.error(f"Failed to create embedding adapter for {model_code}")
             return EmbeddingResponse(
                 request_id=request_id,
                 model_code=model_code,
@@ -745,9 +697,7 @@ class LLMGatewayService:
         try:
             response = await adapter.embedding(texts)
             response.request_id = request_id
-            response.exec_time_ms = int(
-                (time.monotonic() - start_ts) * 1000
-            )
+            response.exec_time_ms = int((time.monotonic() - start_ts) * 1000)
 
             circuit_breaker_manager.record_success(model_code)
 
@@ -881,12 +831,9 @@ class LLMGatewayService:
         cache_key = f"{org_id}:{scene_code}:{agent_code}"
         if cache_key in self._schedule_cache:
             rule, _ = self._schedule_cache[cache_key]
-            backup = (
-                rule.get("backup_model_code")
-                or rule.get("backup_model_id")
-            )
+            backup = rule.get("backup_model_code") or rule.get("backup_model_id")
             if backup and backup != exclude and circuit_breaker_manager.is_allowed(backup):
-                    return backup
+                return backup
         return None
 
     # ------------------------------------------------------------------
@@ -905,17 +852,11 @@ class LLMGatewayService:
             self._schedule_cache.clear()
             logger.info("All LLM gateway caches invalidated")
         else:
-            model_keys = [
-                k for k in self._model_cache if k.startswith(f"{org_id}:")
-            ]
+            model_keys = [k for k in self._model_cache if k.startswith(f"{org_id}:")]
             for k in model_keys:
                 del self._model_cache[k]
 
-            schedule_keys = [
-                k
-                for k in self._schedule_cache
-                if k.startswith(f"{org_id}:")
-            ]
+            schedule_keys = [k for k in self._schedule_cache if k.startswith(f"{org_id}:")]
             for k in schedule_keys:
                 del self._schedule_cache[k]
 
@@ -930,9 +871,7 @@ class LLMGatewayService:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _error_response(
-        request_id: str, model_code: str, error_msg: str
-    ) -> ChatResponse:
+    def _error_response(request_id: str, model_code: str, error_msg: str) -> ChatResponse:
         """Build a ChatResponse representing an error."""
         return ChatResponse(
             request_id=request_id,

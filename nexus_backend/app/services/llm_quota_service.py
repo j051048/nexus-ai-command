@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class QuotaConfig:
     """Quota configuration for a tenant + model combination."""
+
     tenant_id: str
     model_code: str | None  # None = tenant-wide quota
     user_id: str | None  # None = applies to all users
@@ -34,6 +35,7 @@ class QuotaConfig:
 @dataclass
 class QuotaCheckResult:
     """Result of a quota check."""
+
     allowed: bool
     reason: str
     warning: bool = False
@@ -80,6 +82,7 @@ async def _load_quota_configs(tenant_id: str) -> list[QuotaConfig]:
     configs: list[QuotaConfig] = []
     try:
         from app.core.database import supabase
+
         if not supabase:
             return configs
 
@@ -92,17 +95,19 @@ async def _load_quota_configs(tenant_id: str) -> list[QuotaConfig]:
         )
 
         for row in res.data or []:
-            configs.append(QuotaConfig(
-                tenant_id=row.get("tenant_id", tenant_id),
-                model_code=row.get("model_code"),
-                user_id=row.get("user_id"),
-                period=row.get("period", "daily"),
-                max_tokens=row.get("max_tokens", 0),
-                max_cost=float(row.get("max_cost", 0.0)),
-                max_requests=row.get("max_requests", 0),
-                overage_action=row.get("overage_action", "warn"),
-                loaded_at=now,
-            ))
+            configs.append(
+                QuotaConfig(
+                    tenant_id=row.get("tenant_id", tenant_id),
+                    model_code=row.get("model_code"),
+                    user_id=row.get("user_id"),
+                    period=row.get("period", "daily"),
+                    max_tokens=row.get("max_tokens", 0),
+                    max_cost=float(row.get("max_cost", 0.0)),
+                    max_requests=row.get("max_requests", 0),
+                    overage_action=row.get("overage_action", "warn"),
+                    loaded_at=now,
+                )
+            )
 
     except Exception as e:
         logger.warning(f"Failed to load quota configs for tenant {tenant_id}: {e}")
@@ -126,6 +131,7 @@ async def _load_usage_from_db(tenant_id: str, model_code: str, period: str) -> d
 
     try:
         from app.core.database import supabase
+
         if not supabase:
             _usage_cache[u_key] = usage
             return usage
@@ -242,8 +248,7 @@ async def check_quota(
                     return QuotaCheckResult(
                         allowed=False,
                         reason=(
-                            f"Cost quota exceeded for {cfg.period} period: "
-                            f"${usage['cost']:.4f}/${cfg.max_cost:.2f}"
+                            f"Cost quota exceeded for {cfg.period} period: " f"${usage['cost']:.4f}/${cfg.max_cost:.2f}"
                         ),
                         usage_pct=cost_pct,
                     )
@@ -319,6 +324,7 @@ async def record_usage(
     # Persist to database
     try:
         from app.core.database import supabase
+
         if not supabase:
             return
 

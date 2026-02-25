@@ -226,8 +226,7 @@ class GenerateApplicationNoteTool(BaseTool):
 
     name = "generate_application_note"
     description = (
-        "生成科学仪器应用方案文档，针对特定行业或应用场景。"
-        "当用户说'写应用方案'、'应用笔记'、'解决方案文档'时调用。"
+        "生成科学仪器应用方案文档，针对特定行业或应用场景。" "当用户说'写应用方案'、'应用笔记'、'解决方案文档'时调用。"
     )
     required_role = "all"
 
@@ -299,8 +298,7 @@ class GenerateApplicationNoteTool(BaseTool):
         )
 
         system = (
-            "你是科学仪器应用工程师，擅长编写应用方案和方法学文档。"
-            "内容需要专业准确，涵盖完整的实验流程。中文输出。"
+            "你是科学仪器应用工程师，擅长编写应用方案和方法学文档。" "内容需要专业准确，涵盖完整的实验流程。中文输出。"
         )
 
         try:

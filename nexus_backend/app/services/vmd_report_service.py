@@ -107,9 +107,7 @@ class VMDReportService:
     #  Daily Report
     # ═══════════════════════════════════════════════════════
 
-    async def generate_daily_report(
-        self, tenant_id: str, date: str | None = None, db=None
-    ) -> dict[str, Any]:
+    async def generate_daily_report(self, tenant_id: str, date: str | None = None, db=None) -> dict[str, Any]:
         """
         Generate a daily VMD report.
 
@@ -149,9 +147,7 @@ class VMDReportService:
                 f"基于以下VMD日报数据，生成简洁的日报摘要（中文）：\n\n{summary}\n\n"
                 "格式：1.今日概览 2.线索动态 3.合规状况 4.重点事项 5.明日建议"
             )
-            report_content = await AIService.call_llm(
-                prompt, "你是企业营销运营数据分析师。简洁输出。"
-            )
+            report_content = await AIService.call_llm(prompt, "你是企业营销运营数据分析师。简洁输出。")
         except Exception as e:
             logger.debug("LLM daily report generation skipped: %s", e)
 
@@ -179,9 +175,7 @@ class VMDReportService:
     #  Weekly Report
     # ═══════════════════════════════════════════════════════
 
-    async def generate_weekly_report(
-        self, tenant_id: str, db=None
-    ) -> dict[str, Any]:
+    async def generate_weekly_report(self, tenant_id: str, db=None) -> dict[str, Any]:
         """
         Generate a weekly VMD report covering the last 7 days.
 
@@ -190,9 +184,7 @@ class VMDReportService:
         db = db or supabase
 
         now = datetime.now(UTC)
-        week_start = (now - timedelta(days=6)).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        week_start = (now - timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
         week_end = now
 
         start_iso = week_start.isoformat()
@@ -209,18 +201,18 @@ class VMDReportService:
         for i in range(7):
             day = week_start + timedelta(days=i)
             day_start = day.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
-            day_end = (day + timedelta(days=1)).replace(
-                hour=0, minute=0, second=0, microsecond=0
-            ).isoformat()
+            day_end = (day + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
 
             day_tasks = await self._aggregate_tasks(db, tenant_id, day_start, day_end)
             day_clues = await self._aggregate_clues(db, tenant_id, day_start, day_end)
 
-            daily_breakdown.append({
-                "date": day.strftime("%Y-%m-%d"),
-                "tasks_completed": day_tasks.get("completed", 0),
-                "new_clues": day_clues.get("new_count", 0),
-            })
+            daily_breakdown.append(
+                {
+                    "date": day.strftime("%Y-%m-%d"),
+                    "tasks_completed": day_tasks.get("completed", 0),
+                    "new_clues": day_clues.get("new_count", 0),
+                }
+            )
 
         # Narrative summary
         summary = (
@@ -240,9 +232,7 @@ class VMDReportService:
                 "格式：1.本周概览 2.线索分析 3.投标进展 4.合规状况 "
                 "5.趋势分析 6.问题与风险 7.下周计划"
             )
-            report_content = await AIService.call_llm(
-                prompt, "你是企业营销运营分析师。突出趋势变化和行动建议。"
-            )
+            report_content = await AIService.call_llm(prompt, "你是企业营销运营分析师。突出趋势变化和行动建议。")
         except Exception as e:
             logger.debug("LLM weekly report generation skipped: %s", e)
 
@@ -262,9 +252,7 @@ class VMDReportService:
             "generated_at": datetime.now(UTC).isoformat(),
         }
 
-        await self._save_report(
-            db, tenant_id, "weekly", week_start.strftime("%Y-%m-%d"), report
-        )
+        await self._save_report(db, tenant_id, "weekly", week_start.strftime("%Y-%m-%d"), report)
 
         logger.info(
             "Weekly report generated for tenant %s (%s ~ %s)",
@@ -278,9 +266,7 @@ class VMDReportService:
     #  Internal Aggregation Helpers
     # ═══════════════════════════════════════════════════════
 
-    async def _aggregate_tasks(
-        self, db, tenant_id: str, start: str, end: str
-    ) -> dict:
+    async def _aggregate_tasks(self, db, tenant_id: str, start: str, end: str) -> dict:
         """Count tasks within [start, end]."""
         result = {"total": 0, "completed": 0, "pending": 0, "in_progress": 0}
         if not db:
@@ -309,9 +295,7 @@ class VMDReportService:
             logger.warning("Failed to aggregate tasks: %s", e)
         return result
 
-    async def _aggregate_clues(
-        self, db, tenant_id: str, start: str, end: str
-    ) -> dict:
+    async def _aggregate_clues(self, db, tenant_id: str, start: str, end: str) -> dict:
         """Count clues within [start, end]."""
         result: dict[str, Any] = {"new_count": 0, "converted_count": 0, "total_value": 0}
         if not db:
@@ -337,9 +321,7 @@ class VMDReportService:
             logger.warning("Failed to aggregate clues: %s", e)
         return result
 
-    async def _aggregate_compliance(
-        self, db, tenant_id: str, start: str, end: str
-    ) -> dict:
+    async def _aggregate_compliance(self, db, tenant_id: str, start: str, end: str) -> dict:
         """Count compliance checks within [start, end]."""
         result = {"total_checks": 0, "passed": 0, "blocked": 0, "has_issues": 0}
         if not db:
@@ -369,9 +351,7 @@ class VMDReportService:
             logger.warning("Failed to aggregate compliance checks: %s", e)
         return result
 
-    async def _aggregate_bids(
-        self, db, tenant_id: str, start: str, end: str
-    ) -> dict:
+    async def _aggregate_bids(self, db, tenant_id: str, start: str, end: str) -> dict:
         """Count bid projects within [start, end]."""
         result: dict[str, Any] = {
             "new_projects": 0,
@@ -419,14 +399,16 @@ class VMDReportService:
         if not db:
             return
         try:
-            await db.table("vmd_reports").insert({
-                "tenant_id": tenant_id,
-                "report_type": report_type,
-                "report_date": report_date,
-                "report_data": report.get("data", {}),
-                "report_content": report.get("content", ""),
-                "created_at": report.get("generated_at", datetime.now(UTC).isoformat()),
-            }).execute()
+            await db.table("vmd_reports").insert(
+                {
+                    "tenant_id": tenant_id,
+                    "report_type": report_type,
+                    "report_date": report_date,
+                    "report_data": report.get("data", {}),
+                    "report_content": report.get("content", ""),
+                    "created_at": report.get("generated_at", datetime.now(UTC).isoformat()),
+                }
+            ).execute()
         except Exception as e:
             logger.warning("Failed to save %s report to DB: %s", report_type, e)
 

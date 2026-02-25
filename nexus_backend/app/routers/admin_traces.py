@@ -60,19 +60,21 @@ async def list_traces(
 
         items = []
         for t in all_traces:
-            items.append({
-                "trace_id": t.trace_id,
-                "thread_id": t.thread_id,
-                "user_id": t.user_id,
-                "query": t.query[:200] if t.query else "",
-                "status": t.status.value,
-                "start_time": datetime.fromtimestamp(t.start_time, tz=UTC).isoformat(),
-                "total_duration_ms": t.total_duration_ms,
-                "total_tokens": t.total_tokens,
-                "total_cost_usd": t.total_cost_usd,
-                "step_count": len(t.steps),
-                "tags": t.tags,
-            })
+            items.append(
+                {
+                    "trace_id": t.trace_id,
+                    "thread_id": t.thread_id,
+                    "user_id": t.user_id,
+                    "query": t.query[:200] if t.query else "",
+                    "status": t.status.value,
+                    "start_time": datetime.fromtimestamp(t.start_time, tz=UTC).isoformat(),
+                    "total_duration_ms": t.total_duration_ms,
+                    "total_tokens": t.total_tokens,
+                    "total_cost_usd": t.total_cost_usd,
+                    "step_count": len(t.steps),
+                    "tags": t.tags,
+                }
+            )
 
         return api_success(data={"traces": items, "total": len(items)})
     except Exception as e:

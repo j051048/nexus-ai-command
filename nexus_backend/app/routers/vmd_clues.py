@@ -263,11 +263,13 @@ async def delete_clue(
 
         res = (
             await client.table("business_clue")
-            .update({
-                "status": "invalid",
-                "updated_by": user_id,
-                "updated_at": datetime.now(UTC).isoformat(),
-            })
+            .update(
+                {
+                    "status": "invalid",
+                    "updated_by": user_id,
+                    "updated_at": datetime.now(UTC).isoformat(),
+                }
+            )
             .eq("id", clue_id)
             .eq("tenant_id", org_id)
             .execute()
@@ -374,11 +376,13 @@ async def convert_clue(
         # Update clue status to converted
         await (
             client.table("business_clue")
-            .update({
-                "status": "converted",
-                "updated_by": user_id,
-                "updated_at": datetime.now(UTC).isoformat(),
-            })
+            .update(
+                {
+                    "status": "converted",
+                    "updated_by": user_id,
+                    "updated_at": datetime.now(UTC).isoformat(),
+                }
+            )
             .eq("id", clue_id)
             .eq("tenant_id", org_id)
             .execute()

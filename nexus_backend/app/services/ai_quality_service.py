@@ -69,9 +69,7 @@ class AIQualityService:
         }
 
         try:
-            await db.table("ai_quality_daily").upsert(
-                record, on_conflict="tenant_id,metric_date"
-            ).execute()
+            await db.table("ai_quality_daily").upsert(record, on_conflict="tenant_id,metric_date").execute()
             logger.info("AI quality metrics aggregated for %s: %s", tenant_id or "global", today)
             return {"status": "ok", "date": today, "metrics": record}
         except Exception as e:
@@ -91,12 +89,7 @@ class AIQualityService:
 
         try:
             since = (datetime.now(UTC) - timedelta(days=days)).strftime("%Y-%m-%d")
-            query = (
-                db.table("ai_quality_daily")
-                .select("*")
-                .gte("metric_date", since)
-                .order("metric_date", desc=False)
-            )
+            query = db.table("ai_quality_daily").select("*").gte("metric_date", since).order("metric_date", desc=False)
             if tenant_id:
                 query = query.eq("tenant_id", tenant_id)
 

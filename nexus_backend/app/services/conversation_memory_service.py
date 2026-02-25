@@ -385,9 +385,9 @@ class ConversationMemoryService:
                 "contributed_by": user_id,
                 "metadata": metadata or {},
             }
-            res = await client.table("org_memories").upsert(
-                record, on_conflict="organization_id,category,key"
-            ).execute()
+            res = (
+                await client.table("org_memories").upsert(record, on_conflict="organization_id,category,key").execute()
+            )
             return res.data[0] if res.data else record
         except Exception as e:
             logger.error("Failed to save org memory: %s", e)
@@ -457,13 +457,7 @@ class ConversationMemoryService:
         if not client:
             return False
         try:
-            await (
-                client.table("org_memories")
-                .delete()
-                .eq("id", memory_id)
-                .eq("organization_id", org_id)
-                .execute()
-            )
+            await client.table("org_memories").delete().eq("id", memory_id).eq("organization_id", org_id).execute()
             return True
         except Exception as e:
             if hasattr(e, "code") and str(getattr(e, "code", "")) == "204":

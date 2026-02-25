@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 class CircuitState(StrEnum):
     """Circuit breaker states."""
+
     CLOSED = "closed"
     OPEN = "open"
     HALF_OPEN = "half_open"
@@ -35,6 +36,7 @@ class CircuitState(StrEnum):
 @dataclass
 class CircuitStats:
     """Statistics for a single model's circuit breaker."""
+
     model_code: str
     state: CircuitState
     total_calls: int
@@ -114,9 +116,7 @@ class ModelCircuitBreaker:
             self._state = CircuitState.CLOSED
             self._opened_at = None
             self._half_open_at = None
-            logger.info(
-                f"Circuit breaker CLOSED for model '{self.model_code}' - probe succeeded"
-            )
+            logger.info(f"Circuit breaker CLOSED for model '{self.model_code}' - probe succeeded")
 
     def record_failure(self):
         """Record a failed call."""
@@ -129,9 +129,7 @@ class ModelCircuitBreaker:
             self._state = CircuitState.OPEN
             self._opened_at = time.monotonic()
             self._half_open_at = None
-            logger.warning(
-                f"Circuit breaker re-OPENED for model '{self.model_code}' - probe failed"
-            )
+            logger.warning(f"Circuit breaker re-OPENED for model '{self.model_code}' - probe failed")
             return
 
         # Check if we should open the circuit
@@ -234,14 +232,16 @@ class CircuitBreakerManager:
         stats = []
         for breaker in self._breakers.values():
             cb_stats = breaker.get_stats()
-            stats.append({
-                "model_code": cb_stats.model_code,
-                "state": cb_stats.state,
-                "total_calls": cb_stats.total_calls,
-                "recent_failures": cb_stats.recent_failures,
-                "recent_successes": cb_stats.recent_successes,
-                "error_rate": cb_stats.error_rate,
-            })
+            stats.append(
+                {
+                    "model_code": cb_stats.model_code,
+                    "state": cb_stats.state,
+                    "total_calls": cb_stats.total_calls,
+                    "recent_failures": cb_stats.recent_failures,
+                    "recent_successes": cb_stats.recent_successes,
+                    "error_rate": cb_stats.error_rate,
+                }
+            )
         return stats
 
     def get_stats(self, model_code: str) -> CircuitStats:

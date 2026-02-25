@@ -35,10 +35,7 @@ class GenerateMaintenanceReminderTool(BaseTool):
     """生成设备维护保养提醒和服务通知"""
 
     name = "generate_maintenance_reminder"
-    description = (
-        "生成设备维护保养提醒和服务通知。"
-        "当用户说'维护提醒'、'保养通知'、'售后提醒'时调用。"
-    )
+    description = "生成设备维护保养提醒和服务通知。" "当用户说'维护提醒'、'保养通知'、'售后提醒'时调用。"
     required_role = "all"
 
     parameters = {
@@ -137,8 +134,7 @@ class GenerateFaqResponseTool(BaseTool):
 
     name = "generate_faq_response"
     description = (
-        "智能回答产品常见问题，基于知识库生成精准FAQ回复。"
-        "当用户说'FAQ'、'常见问题'、'产品问题回复'时调用。"
+        "智能回答产品常见问题，基于知识库生成精准FAQ回复。" "当用户说'FAQ'、'常见问题'、'产品问题回复'时调用。"
     )
     required_role = "all"
 
@@ -240,10 +236,7 @@ class GenerateRepurchaseCampaignTool(BaseTool):
     """生成老客户复购/增购营销方案"""
 
     name = "generate_repurchase_campaign"
-    description = (
-        "生成老客户复购/增购营销方案。"
-        "当用户说'复购方案'、'老客户营销'、'增购计划'时调用。"
-    )
+    description = "生成老客户复购/增购营销方案。" "当用户说'复购方案'、'老客户营销'、'增购计划'时调用。"
     required_role = "all"
 
     parameters = {
@@ -287,9 +280,9 @@ class GenerateRepurchaseCampaignTool(BaseTool):
             client = _get_client(config)
             if client:
                 # Get customers matching the segment
-                customers_res = await client.table("customers").select(
-                    "name, industry, stage, source, created_at"
-                ).execute()
+                customers_res = (
+                    await client.table("customers").select("name, industry, stage, source, created_at").execute()
+                )
 
                 if customers_res.data:
                     total_customers = len(customers_res.data)
@@ -369,10 +362,7 @@ class CustomerLifecycleAnalysisTool(BaseTool):
     """分析客户生命周期价值和健康度"""
 
     name = "customer_lifecycle_analysis"
-    description = (
-        "分析客户生命周期价值和健康度。"
-        "当用户说'客户分析'、'生命周期'、'客户健康度'、'LTV分析'时调用。"
-    )
+    description = "分析客户生命周期价值和健康度。" "当用户说'客户分析'、'生命周期'、'客户健康度'、'LTV分析'时调用。"
     required_role = "all"
 
     parameters = {
@@ -424,9 +414,12 @@ class CustomerLifecycleAnalysisTool(BaseTool):
                 if customer_id:
                     customers_res = await client.table("customers").select("*").eq("id", customer_id).execute()
                 else:
-                    customers_res = await client.table("customers").select(
-                        "id, name, industry, stage, source, created_at"
-                    ).limit(200).execute()
+                    customers_res = (
+                        await client.table("customers")
+                        .select("id, name, industry, stage, source, created_at")
+                        .limit(200)
+                        .execute()
+                    )
 
                 if customers_res.data:
                     total = len(customers_res.data)
@@ -459,9 +452,12 @@ class CustomerLifecycleAnalysisTool(BaseTool):
                         )
 
                 # Get customer activities
-                activity_query = client.table("customer_activities").select(
-                    "customer_id, activity_type, content, created_at"
-                ).order("created_at", desc=True).limit(200)
+                activity_query = (
+                    client.table("customer_activities")
+                    .select("customer_id, activity_type, content, created_at")
+                    .order("created_at", desc=True)
+                    .limit(200)
+                )
 
                 if customer_id:
                     activity_query = activity_query.eq("customer_id", customer_id)

@@ -50,7 +50,9 @@ async def get_overview_stats(
             .eq("is_active", True)
             .execute()
         )
-        active_agents = active_agents_res.count if active_agents_res.count is not None else len(active_agents_res.data or [])
+        active_agents = (
+            active_agents_res.count if active_agents_res.count is not None else len(active_agents_res.data or [])
+        )
 
         # New clues (today)
         new_clues_res = (
@@ -65,19 +67,20 @@ async def get_overview_stats(
 
         # Pending review sub-tasks
         pending_review_res = (
-            await client.table("vmd_sub_task")
-            .select("id", count="exact")
-            .eq("review_status", "pending")
-            .execute()
+            await client.table("vmd_sub_task").select("id", count="exact").eq("review_status", "pending").execute()
         )
-        pending_review = pending_review_res.count if pending_review_res.count is not None else len(pending_review_res.data or [])
+        pending_review = (
+            pending_review_res.count if pending_review_res.count is not None else len(pending_review_res.data or [])
+        )
 
-        return api_success(data={
-            "today_tasks": today_tasks,
-            "active_agents": active_agents,
-            "new_clues": new_clues,
-            "pending_review": pending_review,
-        })
+        return api_success(
+            data={
+                "today_tasks": today_tasks,
+                "active_agents": active_agents,
+                "new_clues": new_clues,
+                "pending_review": pending_review,
+            }
+        )
     except Exception as e:
         logger.error(f"Dashboard stats error: user={user_id} err={e}")
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
@@ -149,17 +152,19 @@ async def get_agent_workload(
         if not client:
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
-        res = (
-            await client.table("vmd_sub_task")
-            .select("agent_code, status")
-            .execute()
-        )
+        res = await client.table("vmd_sub_task").select("agent_code, status").execute()
         sub_tasks = res.data or []
 
         # Group by agent_code
-        workload: dict = defaultdict(lambda: {
-            "agent_code": "", "total": 0, "completed": 0, "running": 0, "failed": 0,
-        })
+        workload: dict = defaultdict(
+            lambda: {
+                "agent_code": "",
+                "total": 0,
+                "completed": 0,
+                "running": 0,
+                "failed": 0,
+            }
+        )
         for st in sub_tasks:
             agent = st.get("agent_code", "unknown")
             workload[agent]["agent_code"] = agent
@@ -196,12 +201,7 @@ async def get_scene_distribution(
         if not client:
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
-        res = (
-            await client.table("vmd_main_task")
-            .select("scene_code, status")
-            .eq("tenant_id", org_id)
-            .execute()
-        )
+        res = await client.table("vmd_main_task").select("scene_code, status").eq("tenant_id", org_id).execute()
         tasks = res.data or []
 
         # Group by scene_code
@@ -246,15 +246,17 @@ async def get_model_usage(
         logs = res.data or []
 
         # Group by model_code
-        usage: dict = defaultdict(lambda: {
-            "model_code": "",
-            "call_count": 0,
-            "total_input_tokens": 0,
-            "total_output_tokens": 0,
-            "total_cost": 0.0,
-            "success_count": 0,
-            "error_count": 0,
-        })
+        usage: dict = defaultdict(
+            lambda: {
+                "model_code": "",
+                "call_count": 0,
+                "total_input_tokens": 0,
+                "total_output_tokens": 0,
+                "total_cost": 0.0,
+                "success_count": 0,
+                "error_count": 0,
+            }
+        )
         for log in logs:
             model = log.get("model_code", "unknown")
             usage[model]["model_code"] = model
@@ -309,9 +311,15 @@ async def get_compliance_trend(
         logs = res.data or []
 
         # Group by date
-        trend: dict = defaultdict(lambda: {
-            "date": "", "total_checks": 0, "passed": 0, "has_issues": 0, "total_issues_found": 0,
-        })
+        trend: dict = defaultdict(
+            lambda: {
+                "date": "",
+                "total_checks": 0,
+                "passed": 0,
+                "has_issues": 0,
+                "total_issues_found": 0,
+            }
+        )
         for log in logs:
             date_key = str(log.get("created_at", ""))[:10]
             trend[date_key]["date"] = date_key

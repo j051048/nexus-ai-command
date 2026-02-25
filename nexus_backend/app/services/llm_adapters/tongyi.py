@@ -122,14 +122,16 @@ class TongyiAdapter(BaseModelAdapter):
 
         parsed = []
         for tc in raw_tool_calls:
-            parsed.append({
-                "id": tc.get("id", f"tongyi_{uuid.uuid4().hex[:8]}"),
-                "type": tc.get("type", "function"),
-                "function": {
-                    "name": tc.get("function", {}).get("name", ""),
-                    "arguments": tc.get("function", {}).get("arguments", "{}"),
-                },
-            })
+            parsed.append(
+                {
+                    "id": tc.get("id", f"tongyi_{uuid.uuid4().hex[:8]}"),
+                    "type": tc.get("type", "function"),
+                    "function": {
+                        "name": tc.get("function", {}).get("name", ""),
+                        "arguments": tc.get("function", {}).get("arguments", "{}"),
+                    },
+                }
+            )
         return parsed
 
     async def chat(self, request: ChatRequest) -> ChatResponse:
@@ -239,79 +241,82 @@ class TongyiAdapter(BaseModelAdapter):
         timeout = self._build_timeout()
 
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client, client.stream("POST", self.chat_url, headers=headers, json=payload) as response:
-                    if response.status_code != 200:
-                        error_text = ""
-                        async for chunk in response.aiter_text():
-                            error_text += chunk
-                        error_text = error_text[:500]
-                        exec_time_ms = int((time.monotonic() - start_time) * 1000)
-                        yield ChatResponse(
-                            request_id=request_id,
-                            model_code=self.config.model_code,
-                            content=f"API Error {response.status_code}: {error_text}",
-                            finish_reason="error",
-                            exec_time_ms=exec_time_ms,
-                        )
-                        return
+            async with (
+                httpx.AsyncClient(timeout=timeout) as client,
+                client.stream("POST", self.chat_url, headers=headers, json=payload) as response,
+            ):
+                if response.status_code != 200:
+                    error_text = ""
+                    async for chunk in response.aiter_text():
+                        error_text += chunk
+                    error_text = error_text[:500]
+                    exec_time_ms = int((time.monotonic() - start_time) * 1000)
+                    yield ChatResponse(
+                        request_id=request_id,
+                        model_code=self.config.model_code,
+                        content=f"API Error {response.status_code}: {error_text}",
+                        finish_reason="error",
+                        exec_time_ms=exec_time_ms,
+                    )
+                    return
 
-                    buffer = ""
-                    async for raw_chunk in response.aiter_text():
-                        buffer += raw_chunk
-                        while "\n" in buffer:
-                            line, buffer = buffer.split("\n", 1)
-                            line = line.strip()
+                buffer = ""
+                async for raw_chunk in response.aiter_text():
+                    buffer += raw_chunk
+                    while "\n" in buffer:
+                        line, buffer = buffer.split("\n", 1)
+                        line = line.strip()
 
-                            if not line or line.startswith(":"):
-                                continue
+                        if not line or line.startswith(":"):
+                            continue
 
-                            # DashScope SSE format: "id:", "event:", "data:" lines
-                            if not line.startswith("data:"):
-                                continue
+                        # DashScope SSE format: "id:", "event:", "data:" lines
+                        if not line.startswith("data:"):
+                            continue
 
-                            json_str = line[5:].strip()
-                            if not json_str:
-                                continue
+                        json_str = line[5:].strip()
+                        if not json_str:
+                            continue
 
-                            try:
-                                chunk_data = json.loads(json_str)
-                            except json.JSONDecodeError:
-                                continue
+                        try:
+                            chunk_data = json.loads(json_str)
+                        except json.JSONDecodeError:
+                            continue
 
-                            # Check for errors
-                            if chunk_data.get("code"):
-                                exec_time_ms = int((time.monotonic() - start_time) * 1000)
-                                yield ChatResponse(
-                                    request_id=request_id,
-                                    model_code=self.config.model_code,
-                                    content=chunk_data.get("message", "Stream error"),
-                                    finish_reason="error",
-                                    exec_time_ms=exec_time_ms,
-                                )
-                                return
-
-                            output = chunk_data.get("output", {})
-                            usage = self._parse_usage(chunk_data.get("usage"))
-
-                            choices = output.get("choices", [])
-                            if choices:
-                                choice = choices[0]
-                                message = choice.get("message", {})
-                                delta_content = message.get("content", "") or ""
-                                chunk_finish = choice.get("finish_reason")
-                            else:
-                                delta_content = output.get("text", "")
-                                chunk_finish = output.get("finish_reason")
-
+                        # Check for errors
+                        if chunk_data.get("code"):
                             exec_time_ms = int((time.monotonic() - start_time) * 1000)
                             yield ChatResponse(
                                 request_id=request_id,
                                 model_code=self.config.model_code,
-                                content=delta_content,
-                                usage=usage,
+                                content=chunk_data.get("message", "Stream error"),
+                                finish_reason="error",
                                 exec_time_ms=exec_time_ms,
-                                finish_reason=chunk_finish or "",
                             )
+                            return
+
+                        output = chunk_data.get("output", {})
+                        usage = self._parse_usage(chunk_data.get("usage"))
+
+                        choices = output.get("choices", [])
+                        if choices:
+                            choice = choices[0]
+                            message = choice.get("message", {})
+                            delta_content = message.get("content", "") or ""
+                            chunk_finish = choice.get("finish_reason")
+                        else:
+                            delta_content = output.get("text", "")
+                            chunk_finish = output.get("finish_reason")
+
+                        exec_time_ms = int((time.monotonic() - start_time) * 1000)
+                        yield ChatResponse(
+                            request_id=request_id,
+                            model_code=self.config.model_code,
+                            content=delta_content,
+                            usage=usage,
+                            exec_time_ms=exec_time_ms,
+                            finish_reason=chunk_finish or "",
+                        )
 
         except httpx.TimeoutException:
             exec_time_ms = int((time.monotonic() - start_time) * 1000)

@@ -154,14 +154,16 @@ class HunyuanAdapter(BaseModelAdapter):
             hunyuan_tools = []
             for tool in request.tools:
                 fn = tool.get("function", tool)
-                hunyuan_tools.append({
-                    "Type": "function",
-                    "Function": {
-                        "Name": fn.get("name", ""),
-                        "Description": fn.get("description", ""),
-                        "Parameters": json.dumps(fn.get("parameters", {})),
-                    },
-                })
+                hunyuan_tools.append(
+                    {
+                        "Type": "function",
+                        "Function": {
+                            "Name": fn.get("name", ""),
+                            "Description": fn.get("description", ""),
+                            "Parameters": json.dumps(fn.get("parameters", {})),
+                        },
+                    }
+                )
             payload["Tools"] = hunyuan_tools
             payload["ToolChoice"] = "auto"
 
@@ -193,14 +195,16 @@ class HunyuanAdapter(BaseModelAdapter):
         parsed = []
         for tc in raw_tool_calls:
             fn = tc.get("Function", {})
-            parsed.append({
-                "id": tc.get("Id", f"hunyuan_{uuid.uuid4().hex[:8]}"),
-                "type": "function",
-                "function": {
-                    "name": fn.get("Name", ""),
-                    "arguments": fn.get("Arguments", "{}"),
-                },
-            })
+            parsed.append(
+                {
+                    "id": tc.get("Id", f"hunyuan_{uuid.uuid4().hex[:8]}"),
+                    "type": "function",
+                    "function": {
+                        "name": fn.get("Name", ""),
+                        "arguments": fn.get("Arguments", "{}"),
+                    },
+                }
+            )
         return parsed
 
     async def chat(self, request: ChatRequest) -> ChatResponse:
@@ -230,9 +234,7 @@ class HunyuanAdapter(BaseModelAdapter):
 
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.post(
-                    self.endpoint, headers=headers, content=payload_json
-                )
+                response = await client.post(self.endpoint, headers=headers, content=payload_json)
 
                 if response.status_code != 200:
                     error_text = response.text[:500]
@@ -339,68 +341,69 @@ class HunyuanAdapter(BaseModelAdapter):
         timeout = self._build_timeout()
 
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client, client.stream(
-                    "POST", self.endpoint, headers=headers, content=payload_json
-                ) as response:
-                    if response.status_code != 200:
-                        error_text = ""
-                        async for chunk in response.aiter_text():
-                            error_text += chunk
-                        error_text = error_text[:500]
+            async with (
+                httpx.AsyncClient(timeout=timeout) as client,
+                client.stream("POST", self.endpoint, headers=headers, content=payload_json) as response,
+            ):
+                if response.status_code != 200:
+                    error_text = ""
+                    async for chunk in response.aiter_text():
+                        error_text += chunk
+                    error_text = error_text[:500]
+                    exec_time_ms = int((time.monotonic() - start_time) * 1000)
+                    yield ChatResponse(
+                        request_id=request_id,
+                        model_code=self.config.model_code,
+                        content=f"API Error {response.status_code}: {error_text}",
+                        finish_reason="error",
+                        exec_time_ms=exec_time_ms,
+                    )
+                    return
+
+                buffer = ""
+                async for raw_chunk in response.aiter_text():
+                    buffer += raw_chunk
+                    while "\n" in buffer:
+                        line, buffer = buffer.split("\n", 1)
+                        line = line.strip()
+
+                        if not line or line.startswith(":"):
+                            continue
+
+                        if not line.startswith("data: "):
+                            continue
+
+                        json_str = line[6:]
+                        if json_str == "[DONE]":
+                            break
+
+                        try:
+                            chunk_data = json.loads(json_str)
+                        except json.JSONDecodeError:
+                            continue
+
+                        resp = chunk_data.get("Response", chunk_data)
+                        choices = resp.get("Choices", [])
+                        usage = self._parse_usage(resp.get("Usage"))
+
+                        if choices:
+                            choice = choices[0]
+                            delta = choice.get("Delta", {})
+                            delta_content = delta.get("Content", "") or ""
+                            chunk_finish = choice.get("FinishReason")
+                        else:
+                            delta_content = ""
+                            chunk_finish = None
+
                         exec_time_ms = int((time.monotonic() - start_time) * 1000)
                         yield ChatResponse(
                             request_id=request_id,
                             model_code=self.config.model_code,
-                            content=f"API Error {response.status_code}: {error_text}",
-                            finish_reason="error",
+                            content=delta_content,
+                            usage=usage,
                             exec_time_ms=exec_time_ms,
+                            finish_reason=chunk_finish or "",
                         )
-                        return
-
-                    buffer = ""
-                    async for raw_chunk in response.aiter_text():
-                        buffer += raw_chunk
-                        while "\n" in buffer:
-                            line, buffer = buffer.split("\n", 1)
-                            line = line.strip()
-
-                            if not line or line.startswith(":"):
-                                continue
-
-                            if not line.startswith("data: "):
-                                continue
-
-                            json_str = line[6:]
-                            if json_str == "[DONE]":
-                                break
-
-                            try:
-                                chunk_data = json.loads(json_str)
-                            except json.JSONDecodeError:
-                                continue
-
-                            resp = chunk_data.get("Response", chunk_data)
-                            choices = resp.get("Choices", [])
-                            usage = self._parse_usage(resp.get("Usage"))
-
-                            if choices:
-                                choice = choices[0]
-                                delta = choice.get("Delta", {})
-                                delta_content = delta.get("Content", "") or ""
-                                chunk_finish = choice.get("FinishReason")
-                            else:
-                                delta_content = ""
-                                chunk_finish = None
-
-                            exec_time_ms = int((time.monotonic() - start_time) * 1000)
-                            yield ChatResponse(
-                                request_id=request_id,
-                                model_code=self.config.model_code,
-                                content=delta_content,
-                                usage=usage,
-                                exec_time_ms=exec_time_ms,
-                                finish_reason=chunk_finish or "",
-                            )
 
         except httpx.TimeoutException:
             exec_time_ms = int((time.monotonic() - start_time) * 1000)
@@ -452,9 +455,7 @@ class HunyuanAdapter(BaseModelAdapter):
 
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.post(
-                    self.endpoint, headers=headers, content=payload_json
-                )
+                response = await client.post(self.endpoint, headers=headers, content=payload_json)
 
                 if response.status_code != 200:
                     logger.error(f"Hunyuan embedding error ({response.status_code}): {response.text[:300]}")

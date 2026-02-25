@@ -77,7 +77,9 @@ def _get_tool_schemas():
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 
-def _get_llm(config: AgentConfig, model: str | None = None, streaming: bool = False, resolved_config: dict | None = None):
+def _get_llm(
+    config: AgentConfig, model: str | None = None, streaming: bool = False, resolved_config: dict | None = None
+):
     """Get a LangChain ChatOpenAI instance with the provided config.
 
     If resolved_config is provided (from LLM gateway), use it.
@@ -255,6 +257,7 @@ async def plan_node(state: AgentState) -> dict:
     resolved = None
     try:
         from app.services.llm_helpers import resolve_model_config
+
         org_id = config.org_id or "default"
         scene_code = state.get("scene_code", "")
         agent_code = state.get("agent_code", "")
@@ -527,6 +530,7 @@ async def reflect_node(state: AgentState) -> dict:
     resolved = None
     try:
         from app.services.llm_helpers import resolve_model_config
+
         org_id = config.org_id or "default"
         scene_code = state.get("scene_code", "")
         agent_code = state.get("agent_code", "")

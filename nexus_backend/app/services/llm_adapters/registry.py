@@ -38,10 +38,7 @@ def get_adapter(provider_type: str, config: ModelConfig) -> BaseModelAdapter:
     adapter_class = _ADAPTER_REGISTRY.get(provider_type)
     if not adapter_class:
         available = ", ".join(_ADAPTER_REGISTRY.keys()) or "(none)"
-        raise ValueError(
-            f"Unknown LLM adapter type: '{provider_type}'. "
-            f"Available adapters: {available}"
-        )
+        raise ValueError(f"Unknown LLM adapter type: '{provider_type}'. " f"Available adapters: {available}")
     return adapter_class(config)
 
 
@@ -52,10 +49,12 @@ def list_adapters() -> dict[str, str]:
 
 # ---- Auto-register built-in adapters ----
 
+
 def _auto_register():
     """Register all built-in adapters on import."""
     try:
         from app.services.llm_adapters.openai_compatible import OpenAICompatibleAdapter
+
         register_adapter("openai_compatible", OpenAICompatibleAdapter)
         # Also register common aliases
         register_adapter("openai", OpenAICompatibleAdapter)
@@ -70,6 +69,7 @@ def _auto_register():
 
     try:
         from app.services.llm_adapters.wenxin import WenxinAdapter
+
         register_adapter("wenxin", WenxinAdapter)
         register_adapter("ernie", WenxinAdapter)
         register_adapter("baidu", WenxinAdapter)
@@ -78,6 +78,7 @@ def _auto_register():
 
     try:
         from app.services.llm_adapters.tongyi import TongyiAdapter
+
         register_adapter("tongyi", TongyiAdapter)
         register_adapter("dashscope", TongyiAdapter)
         register_adapter("qwen", TongyiAdapter)
@@ -87,6 +88,7 @@ def _auto_register():
 
     try:
         from app.services.llm_adapters.hunyuan import HunyuanAdapter
+
         register_adapter("hunyuan", HunyuanAdapter)
         register_adapter("tencent", HunyuanAdapter)
     except ImportError as e:

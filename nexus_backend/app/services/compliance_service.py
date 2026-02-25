@@ -235,9 +235,7 @@ class ComplianceService:
             checked_at=time.strftime("%Y-%m-%dT%H:%M:%SZ"),
         )
 
-    async def check_bid_document(
-        self, content: str, tender_requirements: str | None = None
-    ) -> dict[str, Any]:
+    async def check_bid_document(self, content: str, tender_requirements: str | None = None) -> dict[str, Any]:
         """
         Specialized bid-document compliance check.
 
@@ -245,14 +243,9 @@ class ComplianceService:
         commercial issues, and legal risks.
         """
         # First run standard Level-1 scan on bid-related categories
-        base_result = await self.check_content(
-            content, categories=["bidding_law"], use_llm=False
-        )
+        base_result = await self.check_content(content, categories=["bidding_law"], use_llm=False)
 
-        prompt = (
-            f"请对以下投标文件内容进行专项合规审查：\n\n"
-            f"## 投标文件\n{content[:5000]}\n\n"
-        )
+        prompt = f"请对以下投标文件内容进行专项合规审查：\n\n" f"## 投标文件\n{content[:5000]}\n\n"
         if tender_requirements:
             prompt += f"## 招标要求\n{tender_requirements[:3000]}\n\n"
 
@@ -339,7 +332,9 @@ class ComplianceService:
                 "tenant_id": tenant_id,
                 "task_id": task_id,
                 "agent_code": agent_code,
-                "check_status": "compliant" if result.get("is_compliant", result.get("status") == "passed") else "non_compliant",
+                "check_status": (
+                    "compliant" if result.get("is_compliant", result.get("status") == "passed") else "non_compliant"
+                ),
                 "total_issues": result.get("total_issues", 0),
                 "errors": result.get("errors", result.get("high_issues", 0)),
                 "warnings": result.get("warnings", result.get("medium_issues", 0)),
@@ -369,11 +364,7 @@ class ComplianceService:
         # Attempt to load tenant-specific rules from DB
         try:
             if org_id and supabase:
-                query = (
-                    supabase.table("compliance_rule")
-                    .select("*")
-                    .eq("is_active", True)
-                )
+                query = supabase.table("compliance_rule").select("*").eq("is_active", True)
                 if categories:
                     query = query.in_("category", categories)
 
@@ -400,9 +391,7 @@ class ComplianceService:
             from app.services.ai_service import AIService
 
             category_text = (
-                ", ".join(categories)
-                if categories
-                else "advertising_law, metrology_law, bidding_law, medical_device"
+                ", ".join(categories) if categories else "advertising_law, metrology_law, bidding_law, medical_device"
             )
             prompt = (
                 f"请检查以下内容是否存在合规问题，重点关注{category_text}相关法规。\n\n"

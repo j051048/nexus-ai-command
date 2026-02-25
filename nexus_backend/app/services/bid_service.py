@@ -115,9 +115,7 @@ class BidService:
             res = await db.table("bid_project").insert(insert_data).execute()
             if res.data:
                 project = {**project, **res.data[0]}
-            logger.info(
-                "Bid project created: %s (%s)", project["project_code"], project["title"]
-            )
+            logger.info("Bid project created: %s (%s)", project["project_code"], project["title"])
         except Exception as e:
             logger.error("Failed to create bid project: %s", e)
             raise
@@ -183,13 +181,7 @@ class BidService:
             return None
 
         try:
-            res = (
-                await db.table("bid_project")
-                .select("*")
-                .eq("id", project_id)
-                .maybe_single()
-                .execute()
-            )
+            res = await db.table("bid_project").select("*").eq("id", project_id).maybe_single().execute()
             return res.data
         except Exception as e:
             logger.error("Failed to get bid project %s: %s", project_id, e)
@@ -215,12 +207,7 @@ class BidService:
             raise ValueError(f"无效的项目状态: {data['status']}")
 
         try:
-            res = (
-                await db.table("bid_project")
-                .update(data)
-                .eq("id", project_id)
-                .execute()
-            )
+            res = await db.table("bid_project").update(data).eq("id", project_id).execute()
             return res.data[0] if res.data else None
         except Exception as e:
             logger.error("Failed to update bid project %s: %s", project_id, e)
@@ -249,10 +236,12 @@ class BidService:
         try:
             res = (
                 await db.table("bid_project")
-                .update({
-                    "compliance_status": status,
-                    "update_time": datetime.now(UTC).isoformat(),
-                })
+                .update(
+                    {
+                        "compliance_status": status,
+                        "update_time": datetime.now(UTC).isoformat(),
+                    }
+                )
                 .eq("id", project_id)
                 .execute()
             )
@@ -389,12 +378,7 @@ class BidService:
             return {}
 
         try:
-            res = (
-                await db.table("bid_project")
-                .select("*")
-                .eq("tenant_id", tenant_id)
-                .execute()
-            )
+            res = await db.table("bid_project").select("*").eq("tenant_id", tenant_id).execute()
             projects = res.data or []
 
             if not projects:

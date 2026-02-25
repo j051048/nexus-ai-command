@@ -207,10 +207,7 @@ async def list_models(
 
         # Build query for count
         count_query = (
-            client.table("llm_model_config")
-            .select("id", count="exact")
-            .eq("tenant_id", org_id)
-            .eq("is_deleted", False)
+            client.table("llm_model_config").select("id", count="exact").eq("tenant_id", org_id).eq("is_deleted", False)
         )
         if status:
             count_query = count_query.eq("status", status)
@@ -404,13 +401,15 @@ async def test_model_connectivity(
 
         elapsed_ms = round((time.time() - start_time) * 1000, 2)
 
-        return api_success(data={
-            "model_id": model_id,
-            "model_code": model_config.get("model_code"),
-            "success": test_success,
-            "message": test_message,
-            "response_time_ms": elapsed_ms,
-        })
+        return api_success(
+            data={
+                "model_id": model_id,
+                "model_code": model_config.get("model_code"),
+                "success": test_success,
+                "message": test_message,
+                "response_time_ms": elapsed_ms,
+            }
+        )
     except Exception as e:
         logger.error(f"Test model error: id={model_id} user={user_id} err={e}")
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
@@ -535,10 +534,7 @@ async def list_schedule_rules(
 
         # Count
         count_res = (
-            await client.table("llm_schedule_rule")
-            .select("id", count="exact")
-            .eq("tenant_id", org_id)
-            .execute()
+            await client.table("llm_schedule_rule").select("id", count="exact").eq("tenant_id", org_id).execute()
         )
         total = count_res.count if count_res.count is not None else len(count_res.data or [])
 
@@ -578,12 +574,7 @@ async def update_schedule_rule(
 
         update_data["updated_by"] = user_id
 
-        res = (
-            await client.table("llm_schedule_rule")
-            .update(update_data)
-            .eq("id", rule_id)
-            .execute()
-        )
+        res = await client.table("llm_schedule_rule").update(update_data).eq("id", rule_id).execute()
         if not res.data:
             return api_error(ErrorCode.RESOURCE_NOT_FOUND, "调度规则不存在")
 
@@ -605,12 +596,7 @@ async def delete_schedule_rule(
         if not client:
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
-        res = (
-            await client.table("llm_schedule_rule")
-            .delete()
-            .eq("id", rule_id)
-            .execute()
-        )
+        res = await client.table("llm_schedule_rule").delete().eq("id", rule_id).execute()
         if not res.data:
             return api_error(ErrorCode.RESOURCE_NOT_FOUND, "调度规则不存在")
 
@@ -643,11 +629,7 @@ async def get_usage_stats(
         if not client:
             return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
-        query = (
-            client.table("llm_call_log")
-            .select("*")
-            .eq("tenant_id", org_id)
-        )
+        query = client.table("llm_call_log").select("*").eq("tenant_id", org_id)
         if start_date:
             query = query.gte("create_time", f"{start_date}T00:00:00")
         if end_date:
@@ -695,11 +677,13 @@ async def get_usage_stats(
             else:
                 stats[key]["error_count"] += 1
 
-        return api_success(data={
-            "group_by": group_by,
-            "stats": list(stats.values()),
-            "total_records": len(logs),
-        })
+        return api_success(
+            data={
+                "group_by": group_by,
+                "stats": list(stats.values()),
+                "total_records": len(logs),
+            }
+        )
     except Exception as e:
         logger.error(f"Usage stats error: user={user_id} err={e}")
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
@@ -741,12 +725,18 @@ async def get_cost_report(
             scene = log.get("scene_code", "unknown")
             by_scene[scene] = by_scene.get(scene, 0.0) + cost
 
-        return api_success(data={
-            "total_cost": round(total_cost, 4),
-            "total_calls": len(logs),
-            "by_model": [{"model": k, "cost": round(v, 4)} for k, v in sorted(by_model.items(), key=lambda x: -x[1])],
-            "by_scene": [{"scene": k, "cost": round(v, 4)} for k, v in sorted(by_scene.items(), key=lambda x: -x[1])],
-        })
+        return api_success(
+            data={
+                "total_cost": round(total_cost, 4),
+                "total_calls": len(logs),
+                "by_model": [
+                    {"model": k, "cost": round(v, 4)} for k, v in sorted(by_model.items(), key=lambda x: -x[1])
+                ],
+                "by_scene": [
+                    {"scene": k, "cost": round(v, 4)} for k, v in sorted(by_scene.items(), key=lambda x: -x[1])
+                ],
+            }
+        )
     except Exception as e:
         logger.error(f"Cost report error: user={user_id} err={e}")
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
@@ -880,12 +870,7 @@ async def update_quota_config(
 
         update_data["updated_by"] = user_id
 
-        res = (
-            await client.table("llm_quota_config")
-            .update(update_data)
-            .eq("id", config_id)
-            .execute()
-        )
+        res = await client.table("llm_quota_config").update(update_data).eq("id", config_id).execute()
         if not res.data:
             return api_error(ErrorCode.RESOURCE_NOT_FOUND, "配额配置不存在")
 
