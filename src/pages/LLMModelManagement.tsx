@@ -164,12 +164,16 @@ export default function LLMModelManagement() {
       payload.secret_key = editModel.secret_key;
     }
 
-    if (isEditing && editModel.id) {
-      await updateModel.mutateAsync({ ...payload, id: editModel.id } as LLMModel & { id: string });
-    } else {
-      await createModel.mutateAsync(payload as Partial<LLMModel>);
+    try {
+      if (isEditing && editModel.id) {
+        await updateModel.mutateAsync({ ...payload, id: editModel.id } as LLMModel & { id: string });
+      } else {
+        await createModel.mutateAsync(payload as Partial<LLMModel>);
+      }
+      setEditOpen(false);
+    } catch {
+      // onError handler in mutation already shows toast
     }
-    setEditOpen(false);
   };
 
   const handleTest = async (modelId: string) => {

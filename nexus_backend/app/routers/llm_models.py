@@ -147,7 +147,7 @@ async def create_model(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         # Encrypt sensitive fields
         encrypted_api_key = encryption_service.encrypt(body.api_key)
@@ -182,10 +182,10 @@ async def create_model(
         model = res.data[0] if res.data else record
         return api_success(data={"model": _mask_model_record(model)}, message="模型配置创建成功")
     except ValueError as e:
-        return api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
     except Exception as e:
         logger.error(f"Create model error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.get("/models")
@@ -203,7 +203,7 @@ async def list_models(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         # Build query for count
         count_query = (
@@ -241,7 +241,7 @@ async def list_models(
         return api_list(items=records, total=total, page=page, page_size=page_size)
     except Exception as e:
         logger.error(f"List models error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.get("/models/{model_id}")
@@ -254,7 +254,7 @@ async def get_model(
     try:
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         res = (
             await client.table("llm_model_config")
@@ -265,12 +265,12 @@ async def get_model(
             .execute()
         )
         if not res.data:
-            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "模型不存在")
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "模型不存在")
 
         return api_success(data={"model": _mask_model_record(res.data)})
     except Exception as e:
         logger.error(f"Get model error: id={model_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.put("/models/{model_id}")
@@ -284,7 +284,7 @@ async def update_model(
     try:
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         update_data = body.model_dump(exclude_none=True)
 
@@ -296,7 +296,7 @@ async def update_model(
             update_data["secret_key_encrypted"] = encryption_service.encrypt(update_data.pop("secret_key"))
 
         if not update_data:
-            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "无更新内容")
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "无更新内容")
 
         update_data["updated_by"] = user_id
 
@@ -308,14 +308,14 @@ async def update_model(
             .execute()
         )
         if not res.data:
-            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "模型不存在")
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "模型不存在")
 
         return api_success(data={"model": _mask_model_record(res.data[0])}, message="模型配置已更新")
     except ValueError as e:
-        return api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
     except Exception as e:
         logger.error(f"Update model error: id={model_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.delete("/models/{model_id}")
@@ -328,7 +328,7 @@ async def delete_model(
     try:
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         res = (
             await client.table("llm_model_config")
@@ -338,12 +338,12 @@ async def delete_model(
             .execute()
         )
         if not res.data:
-            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "模型不存在")
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "模型不存在")
 
         return api_success(message="模型已删除")
     except Exception as e:
         logger.error(f"Delete model error: id={model_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.post("/models/{model_id}/test")
@@ -356,7 +356,7 @@ async def test_model_connectivity(
     try:
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         res = (
             await client.table("llm_model_config")
@@ -367,7 +367,7 @@ async def test_model_connectivity(
             .execute()
         )
         if not res.data:
-            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "模型不存在")
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "模型不存在")
 
         model_config = res.data
 
@@ -417,7 +417,7 @@ async def test_model_connectivity(
         )
     except Exception as e:
         logger.error(f"Test model error: id={model_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.post("/models/{model_id}/toggle")
@@ -430,7 +430,7 @@ async def toggle_model_status(
     try:
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         res = (
             await client.table("llm_model_config")
@@ -441,7 +441,7 @@ async def toggle_model_status(
             .execute()
         )
         if not res.data:
-            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "模型不存在")
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "模型不存在")
 
         current_status = res.data.get("status", "enabled")
         new_status = "disabled" if current_status == "enabled" else "enabled"
@@ -459,7 +459,7 @@ async def toggle_model_status(
         )
     except Exception as e:
         logger.error(f"Toggle model error: id={model_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -476,13 +476,13 @@ async def list_adapters(
     try:
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         res = await client.table("llm_adapter").select("*").order("adapter_code").execute()
         return api_success(data={"adapters": res.data or []})
     except Exception as e:
         logger.error(f"List adapters error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -501,7 +501,7 @@ async def create_schedule_rule(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         record = {
             "tenant_id": org_id,
@@ -520,7 +520,7 @@ async def create_schedule_rule(
         return api_success(data={"rule": rule}, message="调度规则创建成功")
     except Exception as e:
         logger.error(f"Create schedule rule error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.get("/schedule-rules")
@@ -535,7 +535,7 @@ async def list_schedule_rules(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         # Count
         count_res = (
@@ -557,7 +557,7 @@ async def list_schedule_rules(
         return api_list(items=res.data or [], total=total, page=page, page_size=page_size)
     except Exception as e:
         logger.error(f"List schedule rules error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.put("/schedule-rules/{rule_id}")
@@ -571,22 +571,22 @@ async def update_schedule_rule(
     try:
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         update_data = body.model_dump(exclude_none=True)
         if not update_data:
-            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "无更新内容")
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "无更新内容")
 
         update_data["updated_by"] = user_id
 
         res = await client.table("llm_schedule_rule").update(update_data).eq("id", rule_id).execute()
         if not res.data:
-            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "调度规则不存在")
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "调度规则不存在")
 
         return api_success(data={"rule": res.data[0]}, message="调度规则已更新")
     except Exception as e:
         logger.error(f"Update schedule rule error: id={rule_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.delete("/schedule-rules/{rule_id}")
@@ -599,16 +599,16 @@ async def delete_schedule_rule(
     try:
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         res = await client.table("llm_schedule_rule").delete().eq("id", rule_id).execute()
         if not res.data:
-            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "调度规则不存在")
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "调度规则不存在")
 
         return api_success(message="调度规则已删除")
     except Exception as e:
         logger.error(f"Delete schedule rule error: id={rule_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -632,7 +632,7 @@ async def get_usage_stats(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         query = client.table("llm_call_log").select("*").eq("tenant_id", org_id)
         if start_date:
@@ -691,7 +691,7 @@ async def get_usage_stats(
         )
     except Exception as e:
         logger.error(f"Usage stats error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.get("/usage/cost-report")
@@ -706,7 +706,7 @@ async def get_cost_report(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         query = client.table("llm_call_log").select("*").eq("tenant_id", org_id)
         if start_date:
@@ -744,7 +744,7 @@ async def get_cost_report(
         )
     except Exception as e:
         logger.error(f"Cost report error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.get("/usage/model-ranking")
@@ -760,7 +760,7 @@ async def get_model_ranking(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         query = client.table("llm_call_log").select("*").eq("tenant_id", org_id)
         if start_date:
@@ -790,7 +790,7 @@ async def get_model_ranking(
         return api_success(data={"ranking": sorted_ranking})
     except Exception as e:
         logger.error(f"Model ranking error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -808,7 +808,7 @@ async def list_quota_configs(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         res = (
             await client.table("llm_quota_config")
@@ -820,7 +820,7 @@ async def list_quota_configs(
         return api_success(data={"configs": res.data or []})
     except Exception as e:
         logger.error(f"List quota configs error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.post("/quota-configs")
@@ -834,7 +834,7 @@ async def create_quota_config(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         record = {
             "tenant_id": org_id,
@@ -853,7 +853,7 @@ async def create_quota_config(
         return api_success(data={"config": config}, message="配额配置创建成功")
     except Exception as e:
         logger.error(f"Create quota config error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.put("/quota-configs/{config_id}")
@@ -867,19 +867,19 @@ async def update_quota_config(
     try:
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         update_data = body.model_dump(exclude_none=True)
         if not update_data:
-            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "无更新内容")
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "无更新内容")
 
         update_data["updated_by"] = user_id
 
         res = await client.table("llm_quota_config").update(update_data).eq("id", config_id).execute()
         if not res.data:
-            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "配额配置不存在")
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "配额配置不存在")
 
         return api_success(data={"config": res.data[0]}, message="配额配置已更新")
     except Exception as e:
         logger.error(f"Update quota config error: id={config_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

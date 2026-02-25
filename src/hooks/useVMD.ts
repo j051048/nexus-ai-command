@@ -348,7 +348,7 @@ export function useUpdateLLMModel() {
     mutationFn: async (data: Partial<LLMModel> & { id: string }) => {
       const res = await aiClient.fetch<{ success: boolean; data: LLMModel }>(
         `api/llm/models/${data.id}`,
-        { method: 'PATCH', body: JSON.stringify(data) }
+        { method: 'PUT', body: JSON.stringify(data) }
       );
       return res.data;
     },
