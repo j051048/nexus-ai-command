@@ -242,11 +242,17 @@ export function useVMDAgents() {
   return useQuery({
     queryKey: ['vmd-agents'],
     queryFn: async () => {
-      const res = await aiClient.fetch<{ success: boolean; data: { agents: AnyData[] } }>('api/vmd/agents/config');
-      const rows = res.data?.agents ?? (Array.isArray(res.data) ? res.data : []);
-      return rows.map(mapAgentFromDB);
+      try {
+        const res = await aiClient.fetch<{ success: boolean; data: { agents: AnyData[] } }>('api/vmd/agents/config');
+        const rows = res.data?.agents ?? (Array.isArray(res.data) ? res.data : []);
+        return rows.map(mapAgentFromDB);
+      } catch {
+        // API unreachable or auth error — return empty so page falls back to defaults
+        return [] as VMDAgent[];
+      }
     },
     staleTime: 60_000,
+    retry: 1,
   });
 }
 

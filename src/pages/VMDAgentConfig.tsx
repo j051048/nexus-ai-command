@@ -63,12 +63,13 @@ const TOOL_NAMES: Record<string, string> = {
 };
 
 export default function VMDAgentConfig() {
-  const { data: agents, isLoading } = useVMDAgents();
+  const { data: agents, isLoading, isError } = useVMDAgents();
   const updateAgent = useUpdateVMDAgent();
   const [editAgent, setEditAgent] = useState<VMDAgent | null>(null);
 
   // Use API data or fallback to defaults for display
-  const displayAgents = agents || DEFAULT_AGENTS.map((a, i) => ({
+  // Note: [] is truthy — must check .length to properly fallback
+  const displayAgents = agents?.length ? agents : DEFAULT_AGENTS.map((a, i) => ({
     id: `default-${i}`,
     agent_code: a.agent_code || '',
     name: a.name || '',
