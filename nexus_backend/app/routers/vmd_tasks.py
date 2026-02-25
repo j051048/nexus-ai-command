@@ -451,25 +451,45 @@ async def list_agent_configs(
         org_id = getattr(req.state, "org_id", None) or "default"
         admin = _get_admin_client()
 
-        # Try tenant-specific configs first
-        res = await admin.table("vmd_agent_config").select("*").eq("tenant_id", org_id).order("sort_order").execute()
-        agents = res.data or []
+        # 1. Query global defaults (tenant_id IS NULL)
+        global_agents: dict[str, dict] = {}
+        try:
+            res = (
+                await admin.table("vmd_agent_config")
+                .select("*")
+                .is_("tenant_id", "null")
+                .order("sort_order")
+                .execute()
+            )
+            for a in (res.data or []):
+                global_agents[a["agent_code"]] = a
+        except Exception:
+            pass
 
-        # Fallback to global defaults (tenant_id IS NULL)
-        if not agents:
-            try:
-                res = (
-                    await admin.table("vmd_agent_config")
-                    .select("*")
-                    .is_("tenant_id", "null")
-                    .order("sort_order")
-                    .execute()
-                )
-                agents = res.data or []
-            except Exception:
-                agents = []
+        # 2. Query tenant-specific overrides
+        tenant_agents: dict[str, dict] = {}
+        try:
+            res = await admin.table("vmd_agent_config").select("*").eq("tenant_id", org_id).order("sort_order").execute()
+            for a in (res.data or []):
+                tenant_agents[a["agent_code"]] = a
+        except Exception:
+            pass
 
-        # Final fallback: use Python role registry code defaults
+        # 3. Merge: tenant overrides take priority over global defaults
+        if global_agents:
+            merged = {}
+            for code, agent in global_agents.items():
+                merged[code] = tenant_agents.pop(code, None) or agent
+            # Append any tenant-only agents not in global defaults
+            for code, agent in tenant_agents.items():
+                merged[code] = agent
+            agents = sorted(merged.values(), key=lambda x: x.get("sort_order", 0))
+        elif tenant_agents:
+            agents = sorted(tenant_agents.values(), key=lambda x: x.get("sort_order", 0))
+        else:
+            agents = []
+
+        # 4. Final fallback: use Python role registry code defaults
         if not agents:
             from app.agent.roles.registry import ROLE_REGISTRY
 
