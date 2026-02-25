@@ -24,7 +24,7 @@ async def get_profile(
     try:
         res = (
             await client.table("users")
-            .select("id, name, email, role, department, position, avatar_url, created_at")
+            .select("id, name, email, role, department, position, avatar_url, employee_number, job_title, created_at")
             .eq("id", user_id)
             .maybe_single()
             .execute()

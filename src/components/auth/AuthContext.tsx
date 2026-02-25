@@ -17,6 +17,8 @@ interface Profile {
   rank: number;
   total_bonus: number;
   organization_id: string;
+  employee_number: string | null;
+  job_title: string | null;
 }
 
 interface AuthContextType {

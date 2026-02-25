@@ -13,6 +13,8 @@ interface User {
   rank: number;
   totalBonus: number;
   badges: Badge[];
+  employeeNumber: string | null;
+  jobTitle: string | null;
 }
 
 interface UserContextType {
@@ -39,6 +41,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
     rank: profile?.rank ?? 0,
     totalBonus: Number(profile?.total_bonus) || 0,
     badges: defaultBadges,
+    employeeNumber: profile?.employee_number || null,
+    jobTitle: profile?.job_title || null,
   });
 
   // Sync with auth profile when it changes
@@ -53,6 +57,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         score: profile.score ?? 0,
         rank: profile.rank ?? 0,
         totalBonus: Number(profile.total_bonus) || 0,
+        employeeNumber: profile.employee_number || null,
+        jobTitle: profile.job_title || null,
       }));
     }
   }, [profile]);

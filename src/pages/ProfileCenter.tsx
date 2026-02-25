@@ -100,8 +100,8 @@ export function ProfileCenter() {
     phone: '—',
     joinDate: '—',
     department: user.department || '—',
-    position: '—',
-    employeeId: '—',
+    position: user.jobTitle || '—',
+    employeeId: user.employeeNumber || '—',
   };
 
   const achievements: { name: string; icon: string; date: string; description: string }[] = [];
