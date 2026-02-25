@@ -42,7 +42,7 @@ class GetCustomersTool(BaseTool):
             "stage": {
                 "type": "string",
                 "description": f"客户阶段筛选: {', '.join(CUSTOMER_STAGES)}",
-                "enum": CUSTOMER_STAGES,
+                "enum": list(CUSTOMER_STAGES),
             },
             "search": {
                 "type": "string",
@@ -195,7 +195,7 @@ class CreateCustomerTool(BaseTool):
             "stage": {
                 "type": "string",
                 "description": f"客户阶段: {', '.join(CUSTOMER_STAGES)}，默认lead",
-                "enum": CUSTOMER_STAGES,
+                "enum": list(CUSTOMER_STAGES),
             },
             "source": {"type": "string", "description": "客户来源（如：官网、展会、转介绍）"},
             "estimated_value": {"type": "number", "description": "预估成交金额"},
@@ -306,7 +306,7 @@ class AddFollowUpTool(BaseTool):
             "activity_type": {
                 "type": "string",
                 "description": f"跟进类型: {', '.join(ACTIVITY_TYPES)}",
-                "enum": ACTIVITY_TYPES,
+                "enum": list(ACTIVITY_TYPES),
             },
             "content": {"type": "string", "description": "跟进内容（必填）"},
         },
@@ -403,7 +403,7 @@ class UpdateCustomerStageTool(BaseTool):
             "new_stage": {
                 "type": "string",
                 "description": f"新阶段: {', '.join(CUSTOMER_STAGES)}",
-                "enum": CUSTOMER_STAGES,
+                "enum": list(CUSTOMER_STAGES),
             },
         },
         "required": ["customer_id", "new_stage"],

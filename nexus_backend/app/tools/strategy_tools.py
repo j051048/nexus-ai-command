@@ -207,13 +207,7 @@ class StrategySimulationTool(BaseTool):
                 "type": "string",
                 "minLength": 5,
                 "maxLength": 500,
-                "description": "要推演的战略假设场景描述",
-                "examples": [
-                    "进军华南市场需要多少预算",
-                    "如果提价10%对客户流失的影响",
-                    "裁掉产品线X对现金流的影响",
-                    "招聘10名销售对季度营收的提升",
-                ],
+                "description": "要推演的战略假设场景描述，例如：进军华南市场需要多少预算、如果提价10%对客户流失的影响、裁掉产品线X对现金流的影响、招聘10名销售对季度营收的提升",
             },
             "focus": {
                 "type": "string",

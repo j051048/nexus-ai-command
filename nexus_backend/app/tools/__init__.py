@@ -243,17 +243,44 @@ def get_tool(name: str) -> BaseTool:
     return TOOL_REGISTRY.get(name)
 
 
+def _sanitize_schema(properties: dict) -> dict:
+    """清洗工具参数 schema，确保兼容 OpenAI / Gemini 等不同 LLM 后端。
+
+    - enum 值如果是 dict，转为 list(keys)
+    - 移除 Gemini 不支持的 examples 字段
+    """
+    if not isinstance(properties, dict):
+        return properties
+    cleaned = {}
+    for key, prop in properties.items():
+        if not isinstance(prop, dict):
+            cleaned[key] = prop
+            continue
+        prop = dict(prop)  # shallow copy
+        # dict enum → list of keys
+        if "enum" in prop and isinstance(prop["enum"], dict):
+            prop["enum"] = list(prop["enum"])
+        # remove unsupported 'examples' field
+        prop.pop("examples", None)
+        cleaned[key] = prop
+    return cleaned
+
+
 def get_all_tools_schema():
     """Generates the OpenAI tools schema list dynamically"""
     schemas = []
     for tool in TOOL_REGISTRY.values():
+        params = tool.parameters
+        # 防御性清洗 properties
+        if isinstance(params, dict) and "properties" in params:
+            params = {**params, "properties": _sanitize_schema(params["properties"])}
         schemas.append(
             {
                 "type": "function",
                 "function": {
                     "name": tool.name,
                     "description": tool.description,
-                    "parameters": tool.parameters,
+                    "parameters": params,
                 },
             }
         )
