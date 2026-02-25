@@ -80,8 +80,9 @@ class LLMGatewayService:
                 await supabase.table("llm_model_config")
                 .select("*")
                 .eq("model_code", model_code)
-                .eq("org_id", org_id)
-                .eq("is_active", True)
+                .eq("tenant_id", org_id)
+                .eq("status", "enabled")
+                .eq("is_deleted", False)
                 .execute()
             )
 
@@ -93,7 +94,7 @@ class LLMGatewayService:
             row = rows[0]
 
             # Decrypt the API key
-            raw_api_key = row.get("api_key", "")
+            raw_api_key = row.get("api_key_encrypted", "")
             try:
                 api_key = encryption_service.decrypt(raw_api_key)
             except Exception as e:
@@ -101,7 +102,7 @@ class LLMGatewayService:
                 return None
 
             # Decrypt optional secret_key (used by some providers like Wenxin)
-            raw_secret_key = row.get("secret_key") or ""
+            raw_secret_key = row.get("secret_key_encrypted") or ""
             secret_key = None
             if raw_secret_key:
                 try:
@@ -170,8 +171,7 @@ class LLMGatewayService:
                 .select("*")
                 .eq("scene_code", scene_code)
                 .eq("agent_code", agent_code)
-                .eq("org_id", org_id)
-                .eq("is_active", True)
+                .eq("tenant_id", org_id)
                 .execute()
             )
 
@@ -183,8 +183,7 @@ class LLMGatewayService:
                     await supabase.table("llm_schedule_rule")
                     .select("*")
                     .eq("scene_code", scene_code)
-                    .eq("org_id", org_id)
-                    .eq("is_active", True)
+                    .eq("tenant_id", org_id)
                     .in_("agent_code", ["*", ""])
                     .execute()
                 )
@@ -195,8 +194,7 @@ class LLMGatewayService:
                 res = (
                     await supabase.table("llm_schedule_rule")
                     .select("*")
-                    .eq("org_id", org_id)
-                    .eq("is_active", True)
+                    .eq("tenant_id", org_id)
                     .in_("scene_code", ["*", ""])
                     .execute()
                 )
@@ -794,7 +792,7 @@ class LLMGatewayService:
         try:
             row = {
                 "id": str(uuid.uuid4()),
-                "org_id": org_id,
+                "tenant_id": org_id,
                 "model_code": model_code,
                 "scene_code": scene_code,
                 "agent_code": agent_code,
