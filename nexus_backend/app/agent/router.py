@@ -30,6 +30,14 @@ _GREETING_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# Self-description / capability inquiry patterns — should be handled as SIMPLE
+# without tool calls (the AI knows its own capabilities from system prompt)
+_SELF_DESCRIPTION_PATTERNS = re.compile(
+    r"你(能|会|可以)(做|帮|干)什么|你(有|会)哪些(技能|能力|功能)|你的(技能|能力|功能)|"
+    r"能帮我做什么|你能干嘛|介绍(一下)?你(自己|的功能|的能力)",
+    re.IGNORECASE,
+)
+
 _CRITICAL_KEYWORDS = {
     "approve",
     "reject",
@@ -212,6 +220,10 @@ def classify_query(query: str) -> tuple[QueryComplexity, str]:
     # 1. Greetings / trivial
     if _GREETING_PATTERNS.match(text) or len(text) < 5:
         return QueryComplexity.SIMPLE, "简单问候或闲聊"
+
+    # 1b. Self-description / capability inquiry — answer from system prompt, no tools needed
+    if _SELF_DESCRIPTION_PATTERNS.search(text):
+        return QueryComplexity.SIMPLE, "AI自我介绍或能力说明"
 
     # 2. Critical (irreversible operations)
     # P1 Fix: Use substring matching instead of word splitting to avoid
