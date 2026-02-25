@@ -27,6 +27,9 @@ const TAB_CONFIG: Record<Exclude<TabId, 'ai'>, TabConfig> = {
       '/tender-analysis', '/battlecards', '/reports', '/employees',
       '/roles', '/departments', '/targets', '/knowledge', '/documents',
       '/import', '/form-designer', '/workflow-templates',
+      '/vmd', '/vmd/tasks', '/vmd/agents', '/vmd/clues',
+      '/vmd/compliance', '/vmd/dashboard', '/llm/models',
+      '/agent-debug',
     ],
   },
   notifications: {
@@ -81,6 +84,14 @@ const PAGE_TITLES: Record<string, string> = {
   '/training': '培训中心',
   '/custom-dashboard': '自定义看板',
   '/super-admin': '超管面板',
+  '/vmd': '虚拟市场部',
+  '/vmd/tasks': 'VMD 任务中心',
+  '/vmd/agents': 'Agent 配置',
+  '/vmd/clues': '线索管理',
+  '/vmd/compliance': '合规校验',
+  '/vmd/dashboard': 'VMD 数据看板',
+  '/llm/models': 'LLM 模型管理',
+  '/agent-debug': 'Agent 调试',
 };
 
 /** Tab 首页路径集合 — 这些路径算 Tab 首页，不显示返回按钮 */

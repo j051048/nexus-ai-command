@@ -72,7 +72,7 @@ export default function MobileHomePage() {
         icon: ClipboardCheck,
         path: '/approval',
         color: 'text-blue-600',
-        bgColor: 'bg-blue-50',
+        bgColor: 'bg-blue-50 dark:bg-blue-900/20',
       },
       isBoss
         ? {
@@ -81,7 +81,7 @@ export default function MobileHomePage() {
             icon: AlertTriangle,
             path: '/approval?status=pending',
             color: 'text-red-600',
-            bgColor: 'bg-red-50',
+            bgColor: 'bg-red-50 dark:bg-red-900/20',
           }
         : {
             id: 'crm',
@@ -89,7 +89,7 @@ export default function MobileHomePage() {
             icon: Users,
             path: '/crm',
             color: 'text-purple-600',
-            bgColor: 'bg-purple-50',
+            bgColor: 'bg-purple-50 dark:bg-purple-900/20',
           },
       {
         id: 'sales',
@@ -97,7 +97,7 @@ export default function MobileHomePage() {
         icon: TrendingUp,
         path: '/sales',
         color: 'text-green-600',
-        bgColor: 'bg-green-50',
+        bgColor: 'bg-green-50 dark:bg-green-900/20',
       },
       {
         id: 'targets',
@@ -105,7 +105,7 @@ export default function MobileHomePage() {
         icon: Target,
         path: '/targets',
         color: 'text-orange-600',
-        bgColor: 'bg-orange-50',
+        bgColor: 'bg-orange-50 dark:bg-orange-900/20',
       },
       {
         id: 'knowledge',
@@ -113,15 +113,15 @@ export default function MobileHomePage() {
         icon: BookOpen,
         path: '/knowledge',
         color: 'text-cyan-600',
-        bgColor: 'bg-cyan-50',
+        bgColor: 'bg-cyan-50 dark:bg-cyan-900/20',
       },
       {
         id: 'more',
         label: '更多',
         icon: MoreHorizontal,
-        path: '/dashboard',
+        path: '/approval',
         color: 'text-gray-600',
-        bgColor: 'bg-gray-100',
+        bgColor: 'bg-gray-100 dark:bg-gray-800',
       },
     ];
     return base;
@@ -137,7 +137,7 @@ export default function MobileHomePage() {
         unit: '/100',
         icon: Trophy,
         color: 'text-amber-600',
-        bgColor: 'bg-amber-50',
+        bgColor: 'bg-amber-50 dark:bg-amber-900/20',
       },
       {
         id: 'rank',
@@ -146,7 +146,7 @@ export default function MobileHomePage() {
         unit: '',
         icon: Medal,
         color: 'text-blue-600',
-        bgColor: 'bg-blue-50',
+        bgColor: 'bg-blue-50 dark:bg-blue-900/20',
       },
       {
         id: 'bonus',
@@ -155,7 +155,7 @@ export default function MobileHomePage() {
         unit: '',
         icon: DollarSign,
         color: 'text-green-600',
-        bgColor: 'bg-green-50',
+        bgColor: 'bg-green-50 dark:bg-green-900/20',
       },
       {
         id: 'ai-score',
@@ -164,7 +164,7 @@ export default function MobileHomePage() {
         unit: '分',
         icon: Brain,
         color: 'text-violet-600',
-        bgColor: 'bg-violet-50',
+        bgColor: 'bg-violet-50 dark:bg-violet-900/20',
       },
     ],
     [user.score, user.rank, user.totalBonus]
@@ -187,7 +187,7 @@ export default function MobileHomePage() {
   return (
     <div
       ref={containerRef}
-      className="h-full overflow-y-auto bg-gray-50"
+      className="h-full overflow-y-auto bg-gray-50 dark:bg-background"
       {...handlers}
     >
       {/* 下拉刷新指示器 */}
@@ -238,12 +238,12 @@ export default function MobileHomePage() {
 
         {/* ===== 关键指标 2x2 ===== */}
         <section>
-          <h3 className="mb-3 text-sm font-semibold text-gray-500">关键指标</h3>
+          <h3 className="mb-3 text-sm font-semibold text-gray-500 dark:text-muted-foreground">关键指标</h3>
           <div className="grid grid-cols-2 gap-3">
             {metrics.map((m) => (
               <div
                 key={m.id}
-                className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm"
+                className="flex items-center gap-3 rounded-xl bg-white dark:bg-card p-4 shadow-sm"
               >
                 <div
                   className={cn(
@@ -254,15 +254,15 @@ export default function MobileHomePage() {
                   <m.icon className={cn('h-5 w-5', m.color)} />
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-lg font-bold text-gray-900">
+                  <p className="truncate text-lg font-bold text-gray-900 dark:text-foreground">
                     {m.value}
                     {m.unit && (
-                      <span className="text-xs font-normal text-gray-400">
+                      <span className="text-xs font-normal text-gray-400 dark:text-muted-foreground">
                         {m.unit}
                       </span>
                     )}
                   </p>
-                  <p className="text-xs text-gray-500">{m.label}</p>
+                  <p className="text-xs text-gray-500 dark:text-muted-foreground">{m.label}</p>
                 </div>
               </div>
             ))}
@@ -271,14 +271,14 @@ export default function MobileHomePage() {
 
         {/* ===== 快捷入口 3x2 ===== */}
         <section>
-          <h3 className="mb-3 text-sm font-semibold text-gray-500">快捷入口</h3>
+          <h3 className="mb-3 text-sm font-semibold text-gray-500 dark:text-muted-foreground">快捷入口</h3>
           <div className="grid grid-cols-3 gap-3">
             {quickEntries.map((entry) => (
               <button
                 key={entry.id}
                 type="button"
                 onClick={() => navigate(entry.path)}
-                className="flex flex-col items-center gap-2 rounded-xl bg-white p-4 shadow-sm transition-transform active:scale-95"
+                className="flex flex-col items-center gap-2 rounded-xl bg-white dark:bg-card p-4 shadow-sm transition-transform active:scale-95"
               >
                 <div
                   className={cn(
@@ -288,7 +288,7 @@ export default function MobileHomePage() {
                 >
                   <entry.icon className={cn('h-5 w-5', entry.color)} />
                 </div>
-                <span className="text-xs font-medium text-gray-700">
+                <span className="text-xs font-medium text-gray-700 dark:text-foreground/80">
                   {entry.label}
                 </span>
               </button>
@@ -298,7 +298,7 @@ export default function MobileHomePage() {
 
         {/* ===== 待办速览 ===== */}
         <section>
-          <h3 className="mb-3 text-sm font-semibold text-gray-500">待办速览</h3>
+          <h3 className="mb-3 text-sm font-semibold text-gray-500 dark:text-muted-foreground">待办速览</h3>
           {todoItems.length > 0 ? (
             <div className="space-y-2">
               {todoItems.map((item) => (
@@ -306,13 +306,13 @@ export default function MobileHomePage() {
                   key={item.id}
                   type="button"
                   onClick={() => navigate(item.path)}
-                  className="flex w-full items-center justify-between rounded-xl bg-white px-4 py-3 shadow-sm transition-colors active:bg-gray-50"
+                  className="flex w-full items-center justify-between rounded-xl bg-white dark:bg-card px-4 py-3 shadow-sm transition-colors active:bg-gray-50 dark:active:bg-muted"
                 >
                   <div className="flex items-center gap-3">
                     <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50">
                       <ClipboardCheck className="h-4 w-4 text-red-500" />
                     </span>
-                    <span className="text-sm font-medium text-gray-800">
+                    <span className="text-sm font-medium text-gray-800 dark:text-foreground">
                       {item.label}
                     </span>
                   </div>
@@ -326,9 +326,9 @@ export default function MobileHomePage() {
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center rounded-xl bg-white py-8 shadow-sm">
-              <ClipboardCheck className="mb-2 h-8 w-8 text-gray-300" />
-              <p className="text-sm text-gray-400">暂无待办事项</p>
+            <div className="flex flex-col items-center justify-center rounded-xl bg-white dark:bg-card py-8 shadow-sm">
+              <ClipboardCheck className="mb-2 h-8 w-8 text-gray-300 dark:text-muted-foreground" />
+              <p className="text-sm text-gray-400 dark:text-muted-foreground">暂无待办事项</p>
             </div>
           )}
         </section>

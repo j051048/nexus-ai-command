@@ -15,6 +15,19 @@ import {
   Calendar,
   Clock,
   DollarSign,
+  Users,
+  Building2,
+  BookOpen,
+  Workflow,
+  Import,
+  FileEdit,
+  LayoutTemplate,
+  Megaphone,
+  ListTodo,
+  Bot,
+  ShieldCheck,
+  BarChart2,
+  Cpu,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
@@ -85,7 +98,8 @@ export default function MobileWorkbenchPage() {
       title: '管理中心',
       items: [
         { label: '项目管理', path: '/projects', icon: Briefcase },
-        { label: '目标看板', path: '/target-dashboard', icon: Target },
+        { label: '目标管理', path: '/targets', icon: Target },
+        { label: '目标看板', path: '/target-dashboard', icon: BarChart3 },
         {
           label: '合同管理',
           path: '/contracts',
@@ -93,6 +107,18 @@ export default function MobileWorkbenchPage() {
           visibleTo: ['boss', 'manager'],
         },
         { label: '数据报表', path: '/reports', icon: BarChart3 },
+        {
+          label: '员工管理',
+          path: '/employees',
+          icon: Users,
+          visibleTo: ['boss', 'manager'],
+        },
+        {
+          label: '部门管理',
+          path: '/departments',
+          icon: Building2,
+          visibleTo: ['boss', 'manager'],
+        },
       ],
     },
     {
@@ -106,6 +132,43 @@ export default function MobileWorkbenchPage() {
           visibleTo: ['boss', 'manager'],
         },
         { label: '财务中心', path: '/finance', icon: DollarSign },
+        { label: '知识库', path: '/knowledge', icon: BookOpen },
+        { label: '工作流', path: '/workflows', icon: Workflow },
+      ],
+    },
+    {
+      title: '智能营销 (VMD)',
+      items: [
+        { label: 'VMD 中心', path: '/vmd', icon: Megaphone },
+        { label: '任务中心', path: '/vmd/tasks', icon: ListTodo },
+        { label: '线索管理', path: '/vmd/clues', icon: Contact },
+        { label: '合规校验', path: '/vmd/compliance', icon: ShieldCheck },
+        { label: 'VMD 看板', path: '/vmd/dashboard', icon: BarChart2 },
+        {
+          label: 'Agent 配置',
+          path: '/vmd/agents',
+          icon: Bot,
+          visibleTo: ['boss', 'manager'],
+        },
+        {
+          label: 'LLM 模型',
+          path: '/llm/models',
+          icon: Cpu,
+          visibleTo: ['boss'],
+        },
+      ],
+    },
+    {
+      title: '更多工具',
+      items: [
+        {
+          label: '数据导入',
+          path: '/import',
+          icon: Import,
+          visibleTo: ['boss', 'manager'],
+        },
+        { label: '表单设计', path: '/form-designer', icon: FileEdit },
+        { label: '流程模板', path: '/workflow-templates', icon: LayoutTemplate },
       ],
     },
   ];

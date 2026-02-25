@@ -128,7 +128,10 @@ export function MobileLayout() {
       <CommandPalette
         open={isCommandPaletteOpen}
         onOpenChange={setIsCommandPaletteOpen}
-        onAIChat={() => {}}
+        onAIChat={() => {
+          setIsCommandPaletteOpen(false);
+          setIsAISheetOpen(true);
+        }}
       />
 
       {/* PWA 安装提示 */}
