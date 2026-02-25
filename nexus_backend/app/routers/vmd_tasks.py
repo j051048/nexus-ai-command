@@ -4,7 +4,7 @@ import logging
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id
@@ -72,7 +72,7 @@ async def create_task(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         record = {
             "tenant_id": org_id,
@@ -91,7 +91,7 @@ async def create_task(
         return api_success(data={"task": task}, message="任务创建成功")
     except Exception as e:
         logger.error(f"Create task error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.get("/tasks")
@@ -109,7 +109,7 @@ async def list_tasks(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         # Count query
         count_query = client.table("vmd_main_task").select("id", count="exact").eq("tenant_id", org_id)
@@ -143,7 +143,7 @@ async def list_tasks(
         return api_list(items=res.data or [], total=total, page=page, page_size=page_size)
     except Exception as e:
         logger.error(f"List tasks error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.get("/tasks/{task_id}")
@@ -156,12 +156,12 @@ async def get_task(
     try:
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         # Get main task
         task_res = await client.table("vmd_main_task").select("*").eq("id", task_id).maybe_single().execute()
         if not task_res.data:
-            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "任务不存在")
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "任务不存在")
 
         task = task_res.data
 
@@ -194,7 +194,7 @@ async def get_task(
         )
     except Exception as e:
         logger.error(f"Get task error: id={task_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.get("/tasks/{task_id}/logs")
@@ -209,7 +209,7 @@ async def get_task_logs(
     try:
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         # Count
         count_res = await client.table("llm_call_log").select("id", count="exact").eq("main_task_id", task_id).execute()
@@ -229,7 +229,7 @@ async def get_task_logs(
         return api_list(items=res.data or [], total=total, page=page, page_size=page_size)
     except Exception as e:
         logger.error(f"Get task logs error: task={task_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -247,16 +247,16 @@ async def pause_task(
     try:
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         # Verify task exists and is in executable state
         task_res = await client.table("vmd_main_task").select("id, status").eq("id", task_id).maybe_single().execute()
         if not task_res.data:
-            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "任务不存在")
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "任务不存在")
 
         current_status = task_res.data.get("status")
         if current_status not in ("pending", "executing"):
-            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, f"当前状态({current_status})不允许暂停")
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, f"当前状态({current_status})不允许暂停")
 
         await (
             client.table("vmd_main_task")
@@ -267,7 +267,7 @@ async def pause_task(
         return api_success(data={"task_id": task_id, "status": "paused"}, message="任务已暂停")
     except Exception as e:
         logger.error(f"Pause task error: id={task_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.post("/tasks/{task_id}/resume")
@@ -280,14 +280,14 @@ async def resume_task(
     try:
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         task_res = await client.table("vmd_main_task").select("id, status").eq("id", task_id).maybe_single().execute()
         if not task_res.data:
-            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "任务不存在")
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "任务不存在")
 
         if task_res.data.get("status") != "paused":
-            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "只有暂停状态的任务可以恢复")
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "只有暂停状态的任务可以恢复")
 
         await (
             client.table("vmd_main_task")
@@ -298,7 +298,7 @@ async def resume_task(
         return api_success(data={"task_id": task_id, "status": "executing"}, message="任务已恢复执行")
     except Exception as e:
         logger.error(f"Resume task error: id={task_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.post("/tasks/{task_id}/cancel")
@@ -311,15 +311,15 @@ async def cancel_task(
     try:
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         task_res = await client.table("vmd_main_task").select("id, status").eq("id", task_id).maybe_single().execute()
         if not task_res.data:
-            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "任务不存在")
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "任务不存在")
 
         current_status = task_res.data.get("status")
         if current_status in ("completed", "cancelled"):
-            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, f"当前状态({current_status})不允许取消")
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, f"当前状态({current_status})不允许取消")
 
         await (
             client.table("vmd_main_task")
@@ -330,7 +330,7 @@ async def cancel_task(
         return api_success(data={"task_id": task_id, "status": "cancelled"}, message="任务已取消")
     except Exception as e:
         logger.error(f"Cancel task error: id={task_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.post("/tasks/{task_id}/retry")
@@ -343,12 +343,12 @@ async def retry_task(
     try:
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         # Verify task exists
         task_res = await client.table("vmd_main_task").select("id, status").eq("id", task_id).maybe_single().execute()
         if not task_res.data:
-            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "任务不存在")
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "任务不存在")
 
         # Find failed sub-tasks
         failed_res = (
@@ -383,7 +383,7 @@ async def retry_task(
         )
     except Exception as e:
         logger.error(f"Retry task error: id={task_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -402,10 +402,10 @@ async def audit_sub_task(
     try:
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         if body.action not in ("approve", "reject"):
-            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "action 必须为 approve 或 reject")
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "action 必须为 approve 或 reject")
 
         # Verify sub-task exists
         sub_res = (
@@ -416,7 +416,7 @@ async def audit_sub_task(
             .execute()
         )
         if not sub_res.data:
-            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "子任务不存在")
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "子任务不存在")
 
         if body.action == "approve":
             update_data = {
@@ -442,7 +442,7 @@ async def audit_sub_task(
         )
     except Exception as e:
         logger.error(f"Audit sub-task error: id={sub_task_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -455,12 +455,12 @@ async def list_agent_configs(
     req: Request,
     user_id: str = Depends(get_current_user_id),
 ):
-    """获取所有Agent角色配置（优先租户自定义，回退全局默认）"""
+    """获取所有Agent角色配置（优先租户自定义，回退全局默认，最终回退代码默认）"""
     try:
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         # Try tenant-specific configs first
         res = await client.table("vmd_agent_config").select("*").eq("tenant_id", org_id).order("sort_order").execute()
@@ -468,19 +468,46 @@ async def list_agent_configs(
 
         # Fallback to global defaults (tenant_id IS NULL) if no tenant rows
         if not agents:
-            res = (
-                await client.table("vmd_agent_config")
-                .select("*")
-                .is_("tenant_id", "null")
-                .order("sort_order")
-                .execute()
-            )
-            agents = res.data or []
+            try:
+                res = (
+                    await client.table("vmd_agent_config")
+                    .select("*")
+                    .is_("tenant_id", "null")
+                    .order("sort_order")
+                    .execute()
+                )
+                agents = res.data or []
+            except Exception:
+                agents = []
+
+        # Final fallback: use Python role registry code defaults
+        if not agents:
+            from app.agent.roles.registry import ROLE_REGISTRY
+
+            agents = []
+            for i, (code, role) in enumerate(ROLE_REGISTRY.items()):
+                agents.append(
+                    {
+                        "id": f"code-default-{code}",
+                        "agent_code": code,
+                        "agent_name": role.agent_name,
+                        "agent_role": role.system_prompt[:100] if role.system_prompt else "",
+                        "system_prompt": role.system_prompt,
+                        "tool_whitelist": role.tool_whitelist,
+                        "scene_codes": role.scene_codes,
+                        "recommended_model_tier": role.recommended_model_tier,
+                        "is_active": True,
+                        "icon": "",
+                        "sort_order": i,
+                    }
+                )
 
         return api_success(data={"agents": agents})
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"List agent configs error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.put("/agents/config/{agent_code}")
@@ -490,16 +517,16 @@ async def update_agent_config(
     req: Request,
     user_id: str = Depends(get_current_user_id),
 ):
-    """更新Agent配置（租户级覆写，首次编辑时从全局默认复制）"""
+    """更新Agent配置（租户级覆写，首次编辑时从全局默认或代码默认复制）"""
     try:
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         update_data = body.model_dump(exclude_none=True)
         if not update_data:
-            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "无更新内容")
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "无更新内容")
 
         update_data["updated_by"] = user_id
 
@@ -513,29 +540,53 @@ async def update_agent_config(
         )
 
         if not res.data:
-            # No tenant row exists — copy from global default and apply changes
-            global_res = (
-                await client.table("vmd_agent_config")
-                .select("*")
-                .eq("agent_code", agent_code)
-                .is_("tenant_id", "null")
-                .limit(1)
-                .execute()
-            )
-            if not global_res.data:
-                return api_error(ErrorCode.RESOURCE_NOT_FOUND, "Agent配置不存在")
+            # No tenant row exists — try to copy from global default
+            base = None
+            try:
+                global_res = (
+                    await client.table("vmd_agent_config")
+                    .select("*")
+                    .eq("agent_code", agent_code)
+                    .is_("tenant_id", "null")
+                    .limit(1)
+                    .execute()
+                )
+                if global_res.data:
+                    base = global_res.data[0]
+            except Exception:
+                pass
 
-            # Clone the global row for this tenant
-            base = global_res.data[0]
+            # If DB global default not found, use Python role registry
+            if not base:
+                from app.agent.roles.registry import ROLE_REGISTRY
+
+                role = ROLE_REGISTRY.get(agent_code)
+                if not role:
+                    raise api_error(ErrorCode.RESOURCE_NOT_FOUND, f"Agent配置不存在: {agent_code}")
+                base = {
+                    "agent_code": role.agent_code,
+                    "agent_name": role.agent_name,
+                    "system_prompt": role.system_prompt,
+                    "tool_whitelist": role.tool_whitelist,
+                    "scene_codes": role.scene_codes,
+                    "recommended_model_tier": role.recommended_model_tier,
+                    "is_active": True,
+                    "icon": "",
+                    "sort_order": 0,
+                }
+
+            # Clone the base config for this tenant
             new_row = {k: v for k, v in base.items() if k not in ("id", "create_time", "update_time")}
             new_row["tenant_id"] = org_id
             new_row.update(update_data)
 
             res = await client.table("vmd_agent_config").insert(new_row).execute()
             if not res.data:
-                return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "创建租户Agent配置失败")
+                raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "创建租户Agent配置失败")
 
         return api_success(data={"agent": res.data[0]}, message="Agent配置已更新")
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Update agent config error: code={agent_code} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

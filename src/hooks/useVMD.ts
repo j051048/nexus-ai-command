@@ -274,6 +274,9 @@ export function useUpdateVMDAgent() {
         { method: 'PUT', body: JSON.stringify(payload) }
       );
       const row = res.data?.agent ?? res.data;
+      if (!row || typeof row !== 'object' || !row.id) {
+        throw new Error('服务端返回数据异常，请重试');
+      }
       return mapAgentFromDB(row);
     },
     onSuccess: () => {
