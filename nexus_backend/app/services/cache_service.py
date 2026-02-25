@@ -268,15 +268,21 @@ class SemanticCache:
         self.default_ttl = default_ttl
         self.max_entries = max_entries
         self._cache: dict[str, SemanticCacheEntry] = {}
-        self._embedding_cache: dict[str, list[float]] = {}
+        self._embedding_cache: dict[str, tuple[list[float], float]] = {}  # P2 Fix: key -> (embedding, timestamp)
+        self._embedding_cache_ttl = 7200  # 2 hours TTL for embeddings
+        self._embedding_cache_max = 5000
         self._embedding_client = None
 
     async def _get_embedding(self, text: str) -> list[float] | None:
         """Get embedding for text using OpenAI."""
-        # Check cache first
-        cache_key = hashlib.md5(text.encode()).hexdigest()
+        # Check cache first (with TTL)
+        cache_key = hashlib.sha256(text.encode()).hexdigest()
         if cache_key in self._embedding_cache:
-            return self._embedding_cache[cache_key]
+            cached_embedding, cached_at = self._embedding_cache[cache_key]
+            if time.time() - cached_at < self._embedding_cache_ttl:
+                return cached_embedding
+            else:
+                del self._embedding_cache[cache_key]
 
         # Lazy init embedding client
         if self._embedding_client is None:
@@ -296,10 +302,20 @@ class SemanticCache:
             )
             embedding = response.data[0].embedding
 
-            # Cache embedding
-            self._embedding_cache[cache_key] = embedding
-            if len(self._embedding_cache) > 5000:
-                self._embedding_cache = dict(list(self._embedding_cache.items())[-2500:])
+            # Cache embedding with timestamp
+            self._embedding_cache[cache_key] = (embedding, time.time())
+            # P2 Fix: Evict expired entries when approaching limit
+            if len(self._embedding_cache) > self._embedding_cache_max:
+                now = time.time()
+                expired = [k for k, (_, ts) in self._embedding_cache.items()
+                           if now - ts > self._embedding_cache_ttl]
+                for k in expired:
+                    del self._embedding_cache[k]
+                # If still over limit, remove oldest half
+                if len(self._embedding_cache) > self._embedding_cache_max:
+                    sorted_keys = sorted(self._embedding_cache, key=lambda k: self._embedding_cache[k][1])
+                    for k in sorted_keys[:len(sorted_keys) // 2]:
+                        del self._embedding_cache[k]
 
             return embedding
         except Exception as e:
@@ -332,16 +348,19 @@ class SemanticCache:
             return None, {}
 
         # Search for similar cached queries
+        # P2 Fix: Clean expired entries during search and exit early on perfect match
         best_match = None
         best_similarity = 0.0
+        expired_keys = []
 
         for _key, entry in self._cache.items():
-            # Skip if context doesn't match
-            if context_hash and entry.metadata and entry.metadata.get("context_hash") != context_hash:
+            # Track expired entries for cleanup
+            if entry.is_expired():
+                expired_keys.append(_key)
                 continue
 
-            # Skip if expired
-            if entry.is_expired():
+            # Skip if context doesn't match
+            if context_hash and entry.metadata and entry.metadata.get("context_hash") != context_hash:
                 continue
 
             # Calculate similarity
@@ -350,6 +369,13 @@ class SemanticCache:
             if similarity > best_similarity and similarity >= self.similarity_threshold:
                 best_similarity = similarity
                 best_match = entry
+                # Early exit on near-perfect match
+                if similarity > 0.99:
+                    break
+
+        # Lazy cleanup of expired entries found during search
+        for k in expired_keys:
+            del self._cache[k]
 
         if best_match:
             return best_match.response, {
@@ -391,7 +417,6 @@ class SemanticCache:
 
     def _cleanup(self):
         """Remove expired entries."""
-        time.time()
         expired_keys = [k for k, v in self._cache.items() if v.is_expired()]
         for key in expired_keys:
             del self._cache[key]
@@ -433,8 +458,10 @@ def cached(ttl: int = 300, key_prefix: str = ""):
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
-            # Generate cache key from function name and arguments
-            cache_key = f"{key_prefix}:{func.__name__}:{hash(str(args) + str(kwargs))}"
+            # P2 Fix: Use hashlib.sha256 instead of hash() for cross-process stability
+            raw_key = f"{func.__name__}:{str(args)}:{str(sorted(kwargs.items()))}"
+            key_hash = hashlib.sha256(raw_key.encode()).hexdigest()[:16]
+            cache_key = f"{key_prefix}:{key_hash}"
 
             # Try to get from cache
             result = await cache_service.get(cache_key)

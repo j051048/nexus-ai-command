@@ -209,6 +209,7 @@ async def run_agent_stream(
     accumulated_state: dict[str, Any] = dict(initial_state)
     all_thinking_steps: list[ThinkingStep] = []
     streamed_plan_content = False  # Track whether plan tokens were already streamed
+    streamed_plan_text = ""  # Track what was streamed during plan phase
 
     try:
         async for event in _agent_graph.astream_events(
@@ -226,6 +227,7 @@ async def run_agent_stream(
                     # Stream planning tokens as part of the thinking process
                     yield _sse_content(content)
                     streamed_plan_content = True
+                    streamed_plan_text += content
 
             # B. State Updates (when a node completes)
             elif kind == "on_chain_end":
@@ -270,7 +272,8 @@ async def run_agent_stream(
 
     except Exception as e:
         logger.error(f"[Stream] Agent graph execution failed: {e}", exc_info=True)
-        yield _sse_content(f"\n\n⚠️ 处理请求时发生错误: {str(e)[:200]}")
+        # P1 Security: Do not expose internal error details to the client
+        yield _sse_content("\n\n⚠️ 处理请求时发生内部错误，请稍后重试。如问题持续，请联系管理员。")
         yield _sse_data({"thinking_chain_complete": True, "total_steps": len(all_thinking_steps)})
         yield "data: [DONE]\n\n"
         if tracer:
@@ -295,8 +298,15 @@ async def run_agent_stream(
         logger.warning("[Stream] No final_response found in accumulated state")
         final_response = "抱歉，处理您的请求时遇到了问题。请稍后重试。"
 
-    # Stream the final response content (skip if already streamed during plan phase)
-    if final_response and not streamed_plan_content:
+    # Stream the final response content
+    # P1 Fix: Skip only if plan already streamed the SAME content.
+    # If reflect/respond modified the response, we must stream the corrected version.
+    plan_already_streamed = (
+        streamed_plan_content
+        and final_response
+        and final_response.strip() == streamed_plan_text.strip()
+    )
+    if final_response and not plan_already_streamed:
         yield _sse_status("")  # Clear status
         # Stream word by word for smooth UX
         chunks = _chunk_text(final_response)

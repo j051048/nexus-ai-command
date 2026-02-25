@@ -6,6 +6,7 @@ Provides plan catalog, subscription lifecycle, and Stripe integration stub.
 
 import logging
 import os
+import time as _time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import Enum
@@ -106,7 +107,10 @@ class BillingService:
     """Subscription and billing management."""
 
     def __init__(self):
-        self._subscriptions: dict[str, Subscription] = {}
+        # P0 Fix: Memory cache is only used as a short-lived cache layer.
+        # Always read-through from DB on cache miss. TTL-based invalidation.
+        self._subscriptions: dict[str, tuple[Subscription, float]] = {}  # org_id -> (sub, cached_at_timestamp)
+        self._CACHE_TTL = 60.0  # seconds — refetch from DB after TTL
 
     def get_plan_catalog(self) -> list[dict]:
         """Get all available plans."""
@@ -118,11 +122,14 @@ class BillingService:
         return plans
 
     async def get_subscription(self, org_id: str, db=None) -> Subscription:
-        """Get an org's current subscription."""
+        """Get an org's current subscription. Always checks DB if cache expired."""
+        # Check memory cache with TTL
         if org_id in self._subscriptions:
-            return self._subscriptions[org_id]
+            cached_sub, cached_at = self._subscriptions[org_id]
+            if (_time.time() - cached_at) < self._CACHE_TTL:
+                return cached_sub
 
-        # Check DB
+        # Always try DB first (source of truth)
         if db:
             try:
                 res = await db.table("subscriptions").select("*").eq("org_id", org_id).maybe_single().execute()
@@ -135,20 +142,20 @@ class BillingService:
                         stripe_subscription_id=res.data.get("stripe_subscription_id"),
                         current_period_end=res.data.get("current_period_end"),
                     )
-                    self._subscriptions[org_id] = sub
+                    self._subscriptions[org_id] = (sub, _time.time())
                     return sub
             except Exception as e:
                 logger.debug(f"Subscription lookup failed: {e}")
 
         # Default to free plan
         sub = Subscription(org_id=org_id, plan=BillingPlan.FREE)
-        self._subscriptions[org_id] = sub
+        self._subscriptions[org_id] = (sub, _time.time())
         return sub
 
     async def create_subscription(self, org_id: str, plan: BillingPlan, db=None) -> Subscription:
         """Create or update a subscription."""
         sub = Subscription(org_id=org_id, plan=plan, status="active")
-        self._subscriptions[org_id] = sub
+        self._subscriptions[org_id] = (sub, _time.time())
 
         if db:
             try:
@@ -171,8 +178,8 @@ class BillingService:
 
     async def cancel_subscription(self, org_id: str, db=None) -> bool:
         """Cancel a subscription at period end (not immediately)."""
-        sub = self._subscriptions.get(org_id)
-        if sub:
+        if org_id in self._subscriptions:
+            sub, _ = self._subscriptions[org_id]
             # P2 Fix: Don't immediately downgrade — mark for cancellation at period end
             sub.status = "cancel_at_period_end"
 
@@ -189,19 +196,39 @@ class BillingService:
         logger.info(f"Subscription marked for cancellation at period end: {org_id}")
         return True
 
-    async def handle_payment_webhook(self, event_type: str, data: dict):
-        """Handle payment provider webhook events."""
+    async def handle_payment_webhook(self, event_type: str, data: dict, signature: str = None):
+        """Handle payment provider webhook events.
+
+        P1 Security Fix: Validates Stripe webhook signature when configured.
+        """
+        # P1 Security: Verify Stripe webhook signature
+        if _STRIPE_SECRET_KEY and signature:
+            webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+            if webhook_secret:
+                try:
+                    import stripe
+                    stripe.Webhook.construct_event(
+                        data.get("_raw_body", "{}"), signature, webhook_secret
+                    )
+                except Exception as e:
+                    logger.warning(f"Stripe webhook signature verification failed: {e}")
+                    return  # Reject unverified webhooks
+            else:
+                logger.warning("STRIPE_WEBHOOK_SECRET not configured, skipping signature verification")
+
         logger.info(f"Billing webhook received: {event_type}")
 
         if event_type == "invoice.payment_succeeded":
             org_id = data.get("metadata", {}).get("org_id")
             if org_id and org_id in self._subscriptions:
-                self._subscriptions[org_id].status = "active"
+                sub, _ = self._subscriptions[org_id]
+                sub.status = "active"
 
         elif event_type == "invoice.payment_failed":
             org_id = data.get("metadata", {}).get("org_id")
             if org_id and org_id in self._subscriptions:
-                self._subscriptions[org_id].status = "past_due"
+                sub, _ = self._subscriptions[org_id]
+                sub.status = "past_due"
 
         elif event_type == "customer.subscription.deleted":
             org_id = data.get("metadata", {}).get("org_id")
@@ -222,7 +249,7 @@ class BillingService:
             status="trialing",
             current_period_end=trial_end.isoformat(),
         )
-        self._subscriptions[org_id] = sub
+        self._subscriptions[org_id] = (sub, _time.time())
 
         if db:
             try:
@@ -252,13 +279,13 @@ class BillingService:
         now = datetime.now(UTC)
         expired = [
             org_id
-            for org_id, sub in self._subscriptions.items()
+            for org_id, (sub, _ts) in self._subscriptions.items()
             if sub.status == "trialing"
             and sub.current_period_end
             and datetime.fromisoformat(sub.current_period_end) < now
         ]
         for org_id in expired:
-            sub = self._subscriptions[org_id]
+            sub, _ = self._subscriptions[org_id]
             sub.plan = BillingPlan.FREE
             sub.status = "active"
             sub.current_period_end = None
@@ -279,13 +306,13 @@ class BillingService:
         # Also check cancel_at_period_end subscriptions
         cancelled = [
             org_id
-            for org_id, sub in self._subscriptions.items()
+            for org_id, (sub, _ts) in self._subscriptions.items()
             if sub.status == "cancel_at_period_end"
             and sub.current_period_end
             and datetime.fromisoformat(sub.current_period_end) < now
         ]
         for org_id in cancelled:
-            sub = self._subscriptions[org_id]
+            sub, _ = self._subscriptions[org_id]
             sub.plan = BillingPlan.FREE
             sub.status = "cancelled"
             logger.info(f"Subscription period ended, downgraded to FREE: {org_id}")

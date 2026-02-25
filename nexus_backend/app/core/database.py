@@ -5,6 +5,7 @@ Provides a lightweight Supabase client wrapper using PostgREST.
 Falls back gracefully when database is not configured.
 """
 
+import hashlib
 import logging
 import os
 
@@ -25,9 +26,11 @@ key: str = os.getenv("SUPABASE_SERVICE_KEY", "")
 try:
     from postgrest import AsyncPostgrestClient
 
-    # Cache for scoped clients (P2 Fix #16)
-    _scoped_client_cache = {}
-    _SCOPED_CLIENT_CACHE_MAX = 50
+    # Cache for scoped clients — P2 Fix: increased size + LRU eviction
+    from collections import OrderedDict
+
+    _scoped_client_cache: OrderedDict = OrderedDict()
+    _SCOPED_CLIENT_CACHE_MAX = 200
 
     class MiniSupabaseClient:
         """
@@ -59,16 +62,17 @@ try:
             return bool(self._url) and bool(self.client)
 
         def get_scoped_client(self, token: str):
-            """Return a cached scoped client instance for RLS."""
-            # Use first 32 chars of token as cache key (sufficient for uniqueness)
-            cache_key = token[:32] if token else ""
+            """Return a cached scoped client instance for RLS (LRU eviction)."""
+            # P0 Security Fix: Use full SHA-256 hash of token as cache key
+            cache_key = hashlib.sha256(token.encode()).hexdigest() if token else ""
             if cache_key in _scoped_client_cache:
+                # P2 Fix: Move to end for LRU ordering
+                _scoped_client_cache.move_to_end(cache_key)
                 return _scoped_client_cache[cache_key]
 
-            # Evict oldest if cache full
-            if len(_scoped_client_cache) >= _SCOPED_CLIENT_CACHE_MAX:
-                oldest_key = next(iter(_scoped_client_cache))
-                del _scoped_client_cache[oldest_key]
+            # Evict least recently used if cache full
+            while len(_scoped_client_cache) >= _SCOPED_CLIENT_CACHE_MAX:
+                _scoped_client_cache.popitem(last=False)
 
             client = MiniSupabaseClient(self._url, self._key, token)
             _scoped_client_cache[cache_key] = client

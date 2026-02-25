@@ -319,12 +319,14 @@ async def search_messages(q: str, req: Request, user_id: str = Depends(get_curre
 
     client = req.state.db
     try:
+        # P1 Security: Escape LIKE wildcards in user input to prevent wildcard injection
+        escaped_q = q.replace("%", r"\%").replace("_", r"\_")
         # Simple ILIKE search on content
         response = (
             await client.table("chat_messages")
             .select("*")
             .eq("user_id", user_id)
-            .ilike("content", f"%{q}%")
+            .ilike("content", f"%{escaped_q}%")
             .order("created_at", desc=True)
             .limit(min(limit, 50))
             .execute()

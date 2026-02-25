@@ -214,18 +214,19 @@ def classify_query(query: str) -> tuple[QueryComplexity, str]:
         return QueryComplexity.SIMPLE, "简单问候或闲聊"
 
     # 2. Critical (irreversible operations)
-    matched_critical = _CRITICAL_KEYWORDS & set(re.findall(r"[\w]+", text))
+    # P1 Fix: Use substring matching instead of word splitting to avoid
+    # Chinese tokenization issues (e.g., "不批准" being split into "不" + "批准")
+    matched_critical = {kw for kw in _CRITICAL_KEYWORDS if kw in text}
     if matched_critical:
         return QueryComplexity.CRITICAL, f"关键操作: {', '.join(matched_critical)}"
 
     # 3. Complex (multi-step analysis)
-    words = set(re.findall(r"[\w]+", text))
-    matched_complex = _COMPLEX_KEYWORDS & words
+    matched_complex = {kw for kw in _COMPLEX_KEYWORDS if kw in text}
     if matched_complex or len(text) > 200:
         return QueryComplexity.COMPLEX, f"复杂分析: {', '.join(matched_complex) if matched_complex else '长文本'}"
 
     # 4. Moderate (single-tool operations)
-    matched_moderate = _MODERATE_KEYWORDS & words
+    matched_moderate = {kw for kw in _MODERATE_KEYWORDS if kw in text}
     if matched_moderate:
         return QueryComplexity.MODERATE, f"工具查询: {', '.join(matched_moderate)}"
 

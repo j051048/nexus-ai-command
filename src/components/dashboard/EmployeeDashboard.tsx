@@ -125,23 +125,24 @@ export function EmployeeDashboard() {
   };
 
   useEffect(() => {
-    // Animate score counting up
-    let current = 0;
+    // P2 Fix: Use requestAnimationFrame instead of setInterval to avoid 60+ re-renders
     const target = user.score;
     const duration = 1000;
-    const step = target / (duration / 16);
+    let startTime: number | null = null;
+    let rafId: number;
 
-    const timer = setInterval(() => {
-      current += step;
-      if (current >= target) {
-        setAnimatedScore(target);
-        clearInterval(timer);
-      } else {
-        setAnimatedScore(Math.floor(current));
+    const animate = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      setAnimatedScore(Math.floor(progress * target));
+      if (progress < 1) {
+        rafId = requestAnimationFrame(animate);
       }
-    }, 16);
+    };
 
-    return () => clearInterval(timer);
+    rafId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafId);
   }, [user.score]);
 
 

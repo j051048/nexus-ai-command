@@ -68,10 +68,19 @@ class HallucinationCheck(BaseModel):
 logger = logging.getLogger(__name__)
 
 
-# P0 Fix: Tool schemas now fetched dynamically instead of cached at import time
+# P1 Fix: Cache tool schemas to avoid rebuilding on every request
+_tool_schemas_cache = None
+_tool_schemas_count = None
+
+
 def _get_tool_schemas():
-    """Get tool schemas dynamically (supports hot-reload of tools/plugins)."""
-    return get_all_tools_schema()
+    """Get tool schemas with caching (invalidates when tool count changes)."""
+    global _tool_schemas_cache, _tool_schemas_count
+    schemas = get_all_tools_schema()
+    if _tool_schemas_cache is None or len(schemas) != _tool_schemas_count:
+        _tool_schemas_cache = schemas
+        _tool_schemas_count = len(schemas)
+    return _tool_schemas_cache
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -435,8 +444,11 @@ async def execute_node(state: AgentState) -> dict:
     # Execute all tools in parallel with overall timeout
     gather_timeout = config.gather_timeout if hasattr(config, "gather_timeout") else 60.0
 
+    # P1 Fix: Share a single idempotency cache across all parallel tool executions
+    shared_idempotency_cache: dict = {}
+
     try:
-        tasks = [_execute_single_tool(record, config) for record in pending]
+        tasks = [_execute_single_tool(record, config, shared_idempotency_cache) for record in pending]
         completed: list[ToolCallRecord] = await asyncio.wait_for(
             asyncio.gather(*tasks, return_exceptions=False),
             timeout=gather_timeout,

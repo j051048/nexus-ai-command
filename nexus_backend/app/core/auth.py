@@ -141,10 +141,12 @@ async def get_current_user_id(request: Request = None, authorization: str | None
                         token,
                         secret,
                         algorithms=["HS256"],
+                        audience="authenticated",
                         options={
                             "verify_signature": True,
                             "verify_exp": True,
                             "verify_iat": True,
+                            "verify_aud": True,
                             "require": ["sub", "exp"],
                         },
                     )

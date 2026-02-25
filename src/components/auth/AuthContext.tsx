@@ -140,7 +140,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string, name: string, selectedRole: AppRole) => {
+  const signUp = useCallback(async (email: string, password: string, name: string, _selectedRole: AppRole) => {
+    // P0 Security Fix: Always register as 'employee' — role elevation must be done by admin
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -148,7 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         emailRedirectTo: window.location.origin,
         data: {
           name,
-          role: selectedRole,
+          role: 'employee',
         },
       },
     });

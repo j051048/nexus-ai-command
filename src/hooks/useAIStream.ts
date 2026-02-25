@@ -253,10 +253,15 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         }
 
         setAiStatus('正在连接 AI 服务...');
-        const response = await fetch(url, {
+        // P0 Security Fix: Never send API keys from the browser.
+        // Route through backend proxy which holds the key server-side.
+        const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+        const proxyUrl = `${API_BASE}/api/chat/proxy`;
+        const { data: { session } } = await supabase.auth.getSession();
+        const response = await fetch(proxyUrl, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${aiSettings.api_key}`,
+                'Authorization': `Bearer ${session?.access_token || ''}`,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({

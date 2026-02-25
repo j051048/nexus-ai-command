@@ -162,6 +162,25 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// P0 Security Fix: Role-based route guard for admin pages
+function AdminRoute({ children, allowedRoles = ['boss'] }: { children: React.ReactNode; allowedRoles?: string[] }) {
+  const { user, role, loading } = useAuth();
+
+  if (loading) {
+    return <LoadingFallback />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!role || !allowedRoles.includes(role)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <>{children}</>;
+}
+
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
 
@@ -214,7 +233,7 @@ const App = () => (
                 <Route path="documents" element={<DocumentsPage />} />
                 <Route path="knowledge" element={<DocumentsPage />} />
                 <Route path="settings" element={<AISettingsPanel />} />
-                <Route path="employees" element={<EmployeeManagement />} />
+                <Route path="employees" element={<AdminRoute allowedRoles={['boss', 'manager']}><EmployeeManagement /></AdminRoute>} />
                 <Route path="departments" element={<DepartmentManagement />} />
 
                 {/* 可视化流程设计器 */}
@@ -248,8 +267,8 @@ const App = () => (
                 <Route path="plugins" element={<PluginMarketplace />} />
                 <Route path="training" element={<TrainingCenter />} />
                 <Route path="contracts" element={<ContractManagement />} />
-                <Route path="super-admin" element={<SuperAdminDashboard />} />
-                <Route path="api-keys" element={<APIKeysPage />} />
+                <Route path="super-admin" element={<AdminRoute><SuperAdminDashboard /></AdminRoute>} />
+                <Route path="api-keys" element={<AdminRoute><APIKeysPage /></AdminRoute>} />
 
                 {/* VMD (Virtual Marketing Department) */}
                 <Route path="vmd" element={<VMDCenter />} />
@@ -258,11 +277,11 @@ const App = () => (
                 <Route path="vmd/clues" element={<VMDClueManagement />} />
                 <Route path="vmd/compliance" element={<VMDCompliancePage />} />
                 <Route path="vmd/dashboard" element={<VMDDashboard />} />
-                <Route path="llm/models" element={<LLMModelManagement />} />
+                <Route path="llm/models" element={<AdminRoute><LLMModelManagement /></AdminRoute>} />
 
                 {/* Developer Tools */}
                 <Route path="dev/animations" element={<AnimationShowcase />} />
-                <Route path="agent-debug" element={<AgentDebugPanel />} />
+                <Route path="agent-debug" element={<AdminRoute><AgentDebugPanel /></AdminRoute>} />
 
                 {/* 404 for authenticated users */}
                 <Route path="*" element={<NotFound />} />

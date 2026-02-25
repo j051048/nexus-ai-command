@@ -102,6 +102,10 @@ class TenantCreditService:
         self._behavior_tracker: dict[str, dict] = {}
         self._ip_tracker: dict[str, dict] = {}
         self._credit_locks: dict[str, asyncio.Lock] = {}  # P0 Fix: per-org locks
+        # P1 Note: asyncio.Lock is single-process only.
+        # For multi-instance deployments, consume_credit should use DB-level
+        # atomic operations (the RPC `consume_tenant_credit` already handles this).
+        # The local lock prevents duplicate calls within the same process.
 
     def _get_lock(self, org_id: str) -> asyncio.Lock:
         """Get or create a per-org asyncio lock for atomic credit operations."""
