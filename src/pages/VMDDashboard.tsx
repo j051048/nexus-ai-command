@@ -281,7 +281,7 @@ export default function VMDDashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={modelUsage || []}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                  <XAxis dataKey="model_code" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                   <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                   <Tooltip {...TOOLTIP_STYLE} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />

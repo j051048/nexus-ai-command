@@ -339,10 +339,15 @@ export function useModelUsageStats(range: string = 'week') {
   return useQuery({
     queryKey: ['llm-usage-stats', range],
     queryFn: async () => {
-      const res = await aiClient.fetch<{ success: boolean; data: AnyData[] }>(
-        `api/llm/usage-stats?range=${range}`
+      const res = await aiClient.fetch<{ success: boolean; data: { usage: AnyData[] } }>(
+        'api/vmd/dashboard/model-usage'
       );
-      return res.data;
+      return (res.data?.usage || []).map((item: AnyData) => ({
+        ...item,
+        model_code: item.model_code ?? 'unknown',
+        total_tokens: (item.total_input_tokens ?? 0) + (item.total_output_tokens ?? 0),
+        call_count: item.call_count ?? 0,
+      }));
     },
     staleTime: 60_000,
   });
@@ -475,10 +480,13 @@ export function useVMDTaskTrend(days: number = 30) {
   return useQuery({
     queryKey: ['vmd-task-trend', days],
     queryFn: async () => {
-      const res = await aiClient.fetch<{ success: boolean; data: AnyData[] }>(
+      const res = await aiClient.fetch<{ success: boolean; data: { trend: AnyData[]; days: number } }>(
         `api/vmd/dashboard/task-trend?days=${days}`
       );
-      return res.data;
+      return (res.data?.trend || []).map((item: AnyData) => ({
+        ...item,
+        created: item.total ?? 0,
+      }));
     },
     staleTime: 60_000,
   });
@@ -488,10 +496,13 @@ export function useVMDSceneDistribution() {
   return useQuery({
     queryKey: ['vmd-scene-distribution'],
     queryFn: async () => {
-      const res = await aiClient.fetch<{ success: boolean; data: AnyData[] }>(
+      const res = await aiClient.fetch<{ success: boolean; data: { distribution: AnyData[] } }>(
         'api/vmd/dashboard/scene-distribution'
       );
-      return res.data;
+      return (res.data?.distribution || []).map((item: AnyData) => ({
+        ...item,
+        count: item.total ?? 0,
+      }));
     },
     staleTime: 60_000,
   });
@@ -501,10 +512,14 @@ export function useVMDAgentWorkload() {
   return useQuery({
     queryKey: ['vmd-agent-workload'],
     queryFn: async () => {
-      const res = await aiClient.fetch<{ success: boolean; data: AnyData[] }>(
+      const res = await aiClient.fetch<{ success: boolean; data: { workload: AnyData[] } }>(
         'api/vmd/dashboard/agent-workload'
       );
-      return res.data;
+      return (res.data?.workload || []).map((item: AnyData) => ({
+        ...item,
+        agent_name: item.agent_code ?? 'unknown',
+        executing: item.running ?? 0,
+      }));
     },
     staleTime: 60_000,
   });
@@ -514,10 +529,13 @@ export function useVMDComplianceTrend(days: number = 30) {
   return useQuery({
     queryKey: ['vmd-compliance-trend', days],
     queryFn: async () => {
-      const res = await aiClient.fetch<{ success: boolean; data: AnyData[] }>(
+      const res = await aiClient.fetch<{ success: boolean; data: { trend: AnyData[]; days: number } }>(
         `api/vmd/dashboard/compliance-trend?days=${days}`
       );
-      return res.data;
+      return (res.data?.trend || []).map((item: AnyData) => ({
+        ...item,
+        clean: item.passed ?? 0,
+      }));
     },
     staleTime: 60_000,
   });

@@ -12,7 +12,7 @@ from app.core.errors import ErrorCode, api_error, api_list, api_success
 from app.services.encryption_service import encryption_service
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/v1/llm", tags=["LLM Models"])
+router = APIRouter(prefix="/api/llm", tags=["LLM Models"])
 
 
 # ---------------------------------------------------------------------------

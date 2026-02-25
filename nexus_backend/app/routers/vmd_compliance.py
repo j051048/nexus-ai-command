@@ -86,6 +86,8 @@ async def check_content(
                 "use_llm": body.use_llm,
                 "status": "compliant" if result.is_compliant else "non_compliant",
                 "total_issues": result.total_issues,
+                "error_count": result.errors,
+                "warning_count": result.warnings,
                 "high_issues": result.errors,
                 "medium_issues": result.warnings,
                 "low_issues": result.total_issues - result.errors - result.warnings,
