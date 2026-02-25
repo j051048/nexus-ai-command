@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAISettings, useSaveAISettings, useTestAIConnection, DEFAULT_MODELS } from '@/hooks/useAISettings';
 import { useAuth } from '@/components/auth/AuthContext';
 import { toast } from 'sonner';
@@ -19,9 +20,11 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
-  Terminal
+  Terminal,
+  Shield
 } from 'lucide-react';
 import { UsageStats } from './UsageStats';
+import { OrgPolicyEditor } from './OrgPolicyEditor';
 
 interface LogEntry {
   timestamp: Date;
@@ -170,12 +173,25 @@ export function AISettingsPanel() {
           <Settings className="w-6 h-6 text-primary" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-foreground">AI 配置中心</h1>
-          <p className="text-muted-foreground">配置云端 AI 算力接口</p>
+          <h1 className="text-2xl font-bold text-foreground">设置中心</h1>
+          <p className="text-muted-foreground">管理 AI 配置和组织行为准则</p>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <Tabs defaultValue="ai-config">
+        <TabsList>
+          <TabsTrigger value="ai-config" className="gap-1.5">
+            <Bot className="w-4 h-4" />
+            AI 配置
+          </TabsTrigger>
+          <TabsTrigger value="org-policy" className="gap-1.5">
+            <Shield className="w-4 h-4" />
+            组织行为准则
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="ai-config" className="space-y-6 mt-4">
+        <div className="grid gap-6 lg:grid-cols-2">
         {/* Configuration Card */}
         <Card className="border-border">
           <CardHeader>
@@ -422,6 +438,12 @@ export function AISettingsPanel() {
           </CardContent>
         </Card>
       </div>
+        </TabsContent>
+
+        <TabsContent value="org-policy" className="mt-4">
+          <OrgPolicyEditor />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

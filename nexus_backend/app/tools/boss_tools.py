@@ -452,9 +452,10 @@ class DailyBriefingTool(BaseTool):
             auto_processed = 0
 
         # 获取团队绩效
-        team_res = (
-            await client.table("users").select("name, score, total_bonus").order("score", desc=True).limit(3).execute()
-        )
+        team_query = client.table("users").select("name, score, total_bonus").order("score", desc=True).limit(3)
+        if org_id:
+            team_query = team_query.eq("organization_id", org_id)
+        team_res = await team_query.execute()
         top_performers = team_res.data or []
 
         # 计算总奖金
@@ -668,6 +669,7 @@ class BusinessDashboardTool(BaseTool):
         }
 
         client = _get_client(config)
+        org_id = config.get("org_id") if config else None
 
         # 1. Get Real Financial Metrics from DB
         # Note: We aggregate from 'sales_metrics' table. If empty, we return 0/No Data.
@@ -683,8 +685,11 @@ class BusinessDashboardTool(BaseTool):
             contract_sum = sum(float(m["value"]) for m in metrics if m["metric_type"] == "contract")
             opportunity_val = sum(float(m["value"]) for m in metrics if m["metric_type"] == "opportunity")
 
-            # 2. Get Real HR Metrics
-            users_res = await client.table("users").select("id", count="exact").execute()
+            # 2. Get Real HR Metrics (scoped to organization)
+            hr_query = client.table("users").select("id", count="exact")
+            if org_id:
+                hr_query = hr_query.eq("organization_id", org_id)
+            users_res = await hr_query.execute()
             headcount = users_res.count or 0
 
             # 3. Logic for "No Data"
@@ -757,6 +762,7 @@ class TeamInsightTool(BaseTool):
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
+        org_id = config.get("org_id") if config else None
 
         # F4: Check if user is manager (not boss) - filter to own department only
         from app.services.chat_service import ChatService
@@ -773,12 +779,21 @@ class TeamInsightTool(BaseTool):
             user_dept = dept_res.data.get("department") if dept_res.data else None
             if user_dept:
                 # Filter team to same department
-                team_res = await client.table("users").select("*").eq("department", user_dept).execute()
+                team_query = client.table("users").select("*").eq("department", user_dept)
+                if org_id:
+                    team_query = team_query.eq("organization_id", org_id)
+                team_res = await team_query.execute()
             else:
-                team_res = await client.table("users").select("*").execute()
+                team_query = client.table("users").select("*")
+                if org_id:
+                    team_query = team_query.eq("organization_id", org_id)
+                team_res = await team_query.execute()
         else:
-            # Boss/founder sees all
-            team_res = await client.table("users").select("*").execute()
+            # Boss/founder sees all within their organization
+            team_query = client.table("users").select("*")
+            if org_id:
+                team_query = team_query.eq("organization_id", org_id)
+            team_res = await team_query.execute()
 
         team = team_res.data or []
         total_count = len(team)
@@ -881,13 +896,23 @@ class AnnouncementTool(BaseTool):
         priority = args.get("priority", "normal")
 
         client = _get_client(config)
+        org_id = config.get("org_id") if config else None
         # 获取目标用户
         if target == "all":
-            users_res = await client.table("users").select("id, name").execute()
+            users_query = client.table("users").select("id, name")
+            if org_id:
+                users_query = users_query.eq("organization_id", org_id)
+            users_res = await users_query.execute()
         elif target == "managers":
-            users_res = await client.table("users").select("id, name").in_("role", ["manager", "founder"]).execute()
+            users_query = client.table("users").select("id, name").in_("role", ["manager", "founder"])
+            if org_id:
+                users_query = users_query.eq("organization_id", org_id)
+            users_res = await users_query.execute()
         else:
-            users_res = await client.table("users").select("id, name").execute()
+            users_query = client.table("users").select("id, name")
+            if org_id:
+                users_query = users_query.eq("organization_id", org_id)
+            users_res = await users_query.execute()
 
         users = users_res.data or []
 

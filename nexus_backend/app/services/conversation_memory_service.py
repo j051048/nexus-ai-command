@@ -107,7 +107,7 @@ class ConversationMemoryService:
             .execute()
         )
 
-        if existing.data:
+        if existing and existing.data:
             # Update existing memory
             result = (
                 await client.table("conversation_memories")
@@ -477,6 +477,13 @@ class ConversationMemoryService:
 
         parts: list[str] = []
 
+        # Always inject org behavior policies (highest priority, query-independent)
+        policies = await self.get_org_memories(org_id, category="policy", limit=20, db=db)
+        if policies:
+            parts.append("## 组织行为准则（必须遵守）")
+            for m in policies:
+                parts.append(f"- {m['key']}: {m['value']}")
+
         # Get org-wide preferences/rules
         prefs = await self.get_org_memories(org_id, category="preference", limit=20, db=db)
         if prefs:
@@ -494,8 +501,8 @@ class ConversationMemoryService:
         # If there's a query, search for relevant memories
         if query:
             relevant = await self.search_org_memories(org_id, query, limit=5, db=db)
-            # Filter out duplicates already in prefs/knowledge
-            existing_keys = {m["key"] for m in prefs + knowledge}
+            # Filter out duplicates already in policies/prefs/knowledge
+            existing_keys = {m["key"] for m in policies + prefs + knowledge}
             relevant = [m for m in relevant if m["key"] not in existing_keys]
             if relevant:
                 parts.append("## 相关组织记忆")

@@ -68,9 +68,18 @@ class CompanyStatsTool(BaseTool):
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
-        count_res = await client.table("users").select("id", count="exact").execute()
+        org_id = config.get("org_id") if config else None
+
+        # Build org-scoped queries
+        count_query = client.table("users").select("id", count="exact")
+        dept_query = client.table("users").select("department")
+        if org_id:
+            count_query = count_query.eq("organization_id", org_id)
+            dept_query = dept_query.eq("organization_id", org_id)
+
+        count_res = await count_query.execute()
         total_users = count_res.count if count_res.count is not None else 0
-        dept_res = await client.table("users").select("department").execute()
+        dept_res = await dept_query.execute()
         depts = {}
         for u in dept_res.data:
             d = u.get("department", "未分配") or "未分配"

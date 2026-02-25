@@ -154,6 +154,14 @@ async function fetchSalesContext(): Promise<ContextResult> {
 async function fetchBossContext(userId: string): Promise<ContextResult> {
   const sections: string[] = [];
 
+  // Get user's organization_id for tenant-scoped queries
+  const { data: profile } = await supabase
+    .from('users')
+    .select('organization_id')
+    .eq('id', userId)
+    .maybeSingle();
+  const orgId = profile?.organization_id;
+
   // Pending approvals count + top items
   const { data: pending } = await supabase
     .from('approval_requests')
@@ -170,12 +178,15 @@ async function fetchBossContext(userId: string): Promise<ContextResult> {
     }
   }
 
-  // Team overview
-  const { data: users } = await supabase
+  // Team overview (scoped to organization)
+  let usersQuery = supabase
     .from('users')
     .select('full_name, role, department, status')
-    .eq('status', 'active')
-    .limit(20);
+    .eq('status', 'active');
+  if (orgId) {
+    usersQuery = usersQuery.eq('organization_id', orgId);
+  }
+  const { data: users } = await usersQuery.limit(20);
 
   if (users?.length) {
     const deptCounts: Record<string, number> = {};
@@ -226,12 +237,27 @@ async function fetchBossContext(userId: string): Promise<ContextResult> {
 async function fetchPerformanceContext(): Promise<ContextResult> {
   const sections: string[] = [];
 
-  // Team members
-  const { data: users } = await supabase
+  // Get current user's org_id for scoped queries
+  const { data: { user } } = await supabase.auth.getUser();
+  let orgId: string | null = null;
+  if (user) {
+    const { data: profile } = await supabase
+      .from('users')
+      .select('organization_id')
+      .eq('id', user.id)
+      .maybeSingle();
+    orgId = profile?.organization_id ?? null;
+  }
+
+  // Team members (scoped to organization)
+  let usersQuery = supabase
     .from('users')
     .select('full_name, role, department, job_title, status')
-    .eq('status', 'active')
-    .limit(20);
+    .eq('status', 'active');
+  if (orgId) {
+    usersQuery = usersQuery.eq('organization_id', orgId);
+  }
+  const { data: users } = await usersQuery.limit(20);
 
   if (users?.length) {
     sections.push('### 团队成员');
