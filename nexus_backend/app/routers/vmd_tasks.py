@@ -497,7 +497,6 @@ async def list_agent_configs(
                         "scene_codes": role.scene_codes,
                         "recommended_model_tier": role.recommended_model_tier,
                         "is_active": True,
-                        "icon": "",
                         "sort_order": i,
                     }
                 )
@@ -571,7 +570,6 @@ async def update_agent_config(
                     "scene_codes": role.scene_codes,
                     "recommended_model_tier": role.recommended_model_tier,
                     "is_active": True,
-                    "icon": "",
                     "sort_order": 0,
                 }
 
