@@ -14,6 +14,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/vmd", tags=["VMD Tasks"])
 
 
+def _get_admin_client():
+    """Get the global service-key Supabase client (bypasses RLS)."""
+    from app.core.database import supabase
+
+    if not supabase:
+        raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+    return supabase
+
+
 # ---------------------------------------------------------------------------
 # Pydantic request models
 # ---------------------------------------------------------------------------
@@ -70,9 +79,7 @@ async def create_task(
     """创建VMD任务"""
     try:
         org_id = getattr(req.state, "org_id", None) or "default"
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        admin = _get_admin_client()
 
         record = {
             "tenant_id": org_id,
@@ -86,7 +93,7 @@ async def create_task(
             "user_id": user_id,
         }
 
-        res = await client.table("vmd_main_task").insert(record).execute()
+        res = await admin.table("vmd_main_task").insert(record).execute()
         task = res.data[0] if res.data else record
         return api_success(data={"task": task}, message="任务创建成功")
     except Exception as e:
@@ -107,12 +114,10 @@ async def list_tasks(
     """获取任务列表"""
     try:
         org_id = getattr(req.state, "org_id", None) or "default"
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        admin = _get_admin_client()
 
         # Count query
-        count_query = client.table("vmd_main_task").select("id", count="exact").eq("tenant_id", org_id)
+        count_query = admin.table("vmd_main_task").select("id", count="exact").eq("tenant_id", org_id)
         if status:
             count_query = count_query.eq("status", status)
         if priority:
@@ -126,7 +131,7 @@ async def list_tasks(
         # Data query
         offset = (page - 1) * page_size
         data_query = (
-            client.table("vmd_main_task")
+            admin.table("vmd_main_task")
             .select("*")
             .eq("tenant_id", org_id)
             .order("create_time", desc=True)
@@ -154,12 +159,10 @@ async def get_task(
 ):
     """获取任务详情（含子任务、WBS结构、进度信息）"""
     try:
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        admin = _get_admin_client()
 
         # Get main task
-        task_res = await client.table("vmd_main_task").select("*").eq("id", task_id).maybe_single().execute()
+        task_res = await admin.table("vmd_main_task").select("*").eq("id", task_id).maybe_single().execute()
         if not task_res.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "任务不存在")
 
@@ -167,7 +170,7 @@ async def get_task(
 
         # Get sub-tasks
         sub_tasks_res = (
-            await client.table("vmd_sub_task")
+            await admin.table("vmd_sub_task")
             .select("*")
             .eq("main_task_id", task_id)
             .order("sort_order", desc=False)
@@ -207,18 +210,16 @@ async def get_task_logs(
 ):
     """获取任务执行日志"""
     try:
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        admin = _get_admin_client()
 
         # Count
-        count_res = await client.table("llm_call_log").select("id", count="exact").eq("main_task_id", task_id).execute()
+        count_res = await admin.table("llm_call_log").select("id", count="exact").eq("main_task_id", task_id).execute()
         total = count_res.count if count_res.count is not None else len(count_res.data or [])
 
         # Data
         offset = (page - 1) * page_size
         res = (
-            await client.table("llm_call_log")
+            await admin.table("llm_call_log")
             .select("*")
             .eq("main_task_id", task_id)
             .order("create_time", desc=True)
@@ -245,12 +246,10 @@ async def pause_task(
 ):
     """暂停任务"""
     try:
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        admin = _get_admin_client()
 
         # Verify task exists and is in executable state
-        task_res = await client.table("vmd_main_task").select("id, status").eq("id", task_id).maybe_single().execute()
+        task_res = await admin.table("vmd_main_task").select("id, status").eq("id", task_id).maybe_single().execute()
         if not task_res.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "任务不存在")
 
@@ -259,7 +258,7 @@ async def pause_task(
             raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, f"当前状态({current_status})不允许暂停")
 
         await (
-            client.table("vmd_main_task")
+            admin.table("vmd_main_task")
             .update({"status": "paused", "updated_by": user_id})
             .eq("id", task_id)
             .execute()
@@ -278,11 +277,9 @@ async def resume_task(
 ):
     """恢复任务"""
     try:
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        admin = _get_admin_client()
 
-        task_res = await client.table("vmd_main_task").select("id, status").eq("id", task_id).maybe_single().execute()
+        task_res = await admin.table("vmd_main_task").select("id, status").eq("id", task_id).maybe_single().execute()
         if not task_res.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "任务不存在")
 
@@ -290,7 +287,7 @@ async def resume_task(
             raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "只有暂停状态的任务可以恢复")
 
         await (
-            client.table("vmd_main_task")
+            admin.table("vmd_main_task")
             .update({"status": "executing", "updated_by": user_id})
             .eq("id", task_id)
             .execute()
@@ -309,11 +306,9 @@ async def cancel_task(
 ):
     """取消任务"""
     try:
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        admin = _get_admin_client()
 
-        task_res = await client.table("vmd_main_task").select("id, status").eq("id", task_id).maybe_single().execute()
+        task_res = await admin.table("vmd_main_task").select("id, status").eq("id", task_id).maybe_single().execute()
         if not task_res.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "任务不存在")
 
@@ -322,7 +317,7 @@ async def cancel_task(
             raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, f"当前状态({current_status})不允许取消")
 
         await (
-            client.table("vmd_main_task")
+            admin.table("vmd_main_task")
             .update({"status": "cancelled", "updated_by": user_id})
             .eq("id", task_id)
             .execute()
@@ -341,18 +336,16 @@ async def retry_task(
 ):
     """重试失败的子任务"""
     try:
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        admin = _get_admin_client()
 
         # Verify task exists
-        task_res = await client.table("vmd_main_task").select("id, status").eq("id", task_id).maybe_single().execute()
+        task_res = await admin.table("vmd_main_task").select("id, status").eq("id", task_id).maybe_single().execute()
         if not task_res.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "任务不存在")
 
         # Find failed sub-tasks
         failed_res = (
-            await client.table("vmd_sub_task").select("id").eq("main_task_id", task_id).eq("status", "failed").execute()
+            await admin.table("vmd_sub_task").select("id").eq("main_task_id", task_id).eq("status", "failed").execute()
         )
         failed_sub_tasks = failed_res.data or []
 
@@ -363,7 +356,7 @@ async def retry_task(
         failed_ids = [s["id"] for s in failed_sub_tasks]
         for sub_id in failed_ids:
             await (
-                client.table("vmd_sub_task")
+                admin.table("vmd_sub_task")
                 .update({"status": "pending", "retry_count": 0, "error_message": None, "updated_by": user_id})
                 .eq("id", sub_id)
                 .execute()
@@ -371,7 +364,7 @@ async def retry_task(
 
         # Set main task back to executing
         await (
-            client.table("vmd_main_task")
+            admin.table("vmd_main_task")
             .update({"status": "executing", "updated_by": user_id})
             .eq("id", task_id)
             .execute()
@@ -400,16 +393,14 @@ async def audit_sub_task(
 ):
     """审核子任务"""
     try:
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        admin = _get_admin_client()
 
         if body.action not in ("approve", "reject"):
             raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "action 必须为 approve 或 reject")
 
         # Verify sub-task exists
         sub_res = (
-            await client.table("vmd_sub_task")
+            await admin.table("vmd_sub_task")
             .select("id, status, main_task_id")
             .eq("id", sub_task_id)
             .maybe_single()
@@ -434,7 +425,7 @@ async def audit_sub_task(
                 "status": "pending",  # Allow re-execution
             }
 
-        await client.table("vmd_sub_task").update(update_data).eq("id", sub_task_id).execute()
+        await admin.table("vmd_sub_task").update(update_data).eq("id", sub_task_id).execute()
 
         return api_success(
             data={"sub_task_id": sub_task_id, "review_status": update_data["review_status"]},
@@ -458,22 +449,17 @@ async def list_agent_configs(
     """获取所有Agent角色配置（优先租户自定义，回退全局默认，最终回退代码默认）"""
     try:
         org_id = getattr(req.state, "org_id", None) or "default"
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
-
-        # Use global service-key client for reading global defaults (bypass RLS)
-        from app.core.database import supabase as admin_client
+        admin = _get_admin_client()
 
         # Try tenant-specific configs first
-        res = await client.table("vmd_agent_config").select("*").eq("tenant_id", org_id).order("sort_order").execute()
+        res = await admin.table("vmd_agent_config").select("*").eq("tenant_id", org_id).order("sort_order").execute()
         agents = res.data or []
 
-        # Fallback to global defaults (tenant_id IS NULL) — use admin client to bypass RLS
-        if not agents and admin_client:
+        # Fallback to global defaults (tenant_id IS NULL)
+        if not agents:
             try:
                 res = (
-                    await admin_client.table("vmd_agent_config")
+                    await admin.table("vmd_agent_config")
                     .select("*")
                     .is_("tenant_id", "null")
                     .order("sort_order")
@@ -522,15 +508,7 @@ async def update_agent_config(
     """更新Agent配置（租户级覆写，首次编辑时从全局默认或代码默认复制）"""
     try:
         org_id = getattr(req.state, "org_id", None) or "default"
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
-
-        # Use global service-key client for agent config writes (bypass RLS)
-        from app.core.database import supabase as admin_client
-
-        if not admin_client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "管理数据库客户端不可用")
+        admin = _get_admin_client()
 
         update_data = body.model_dump(exclude_none=True)
         if not update_data:
@@ -538,9 +516,9 @@ async def update_agent_config(
 
         update_data["updated_by"] = user_id
 
-        # Try updating tenant-specific row first (use admin client to bypass RLS)
+        # Try updating tenant-specific row first
         res = (
-            await admin_client.table("vmd_agent_config")
+            await admin.table("vmd_agent_config")
             .update(update_data)
             .eq("agent_code", agent_code)
             .eq("tenant_id", org_id)
@@ -552,7 +530,7 @@ async def update_agent_config(
             base = None
             try:
                 global_res = (
-                    await admin_client.table("vmd_agent_config")
+                    await admin.table("vmd_agent_config")
                     .select("*")
                     .eq("agent_code", agent_code)
                     .is_("tenant_id", "null")
@@ -582,12 +560,12 @@ async def update_agent_config(
                     "sort_order": 0,
                 }
 
-            # Clone the base config for this tenant (use admin client to bypass RLS)
+            # Clone the base config for this tenant
             new_row = {k: v for k, v in base.items() if k not in ("id", "create_time", "update_time")}
             new_row["tenant_id"] = org_id
             new_row.update(update_data)
 
-            res = await admin_client.table("vmd_agent_config").insert(new_row).execute()
+            res = await admin.table("vmd_agent_config").insert(new_row).execute()
             if not res.data:
                 raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "创建租户Agent配置失败")
 
