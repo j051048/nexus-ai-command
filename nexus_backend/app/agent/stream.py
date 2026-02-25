@@ -208,6 +208,7 @@ async def run_agent_stream(
     # ── 5. Run graph with granular event streaming (astream_events) ──
     accumulated_state: dict[str, Any] = dict(initial_state)
     all_thinking_steps: list[ThinkingStep] = []
+    streamed_plan_content = False  # Track whether plan tokens were already streamed
 
     try:
         async for event in _agent_graph.astream_events(
@@ -224,6 +225,7 @@ async def run_agent_stream(
                 if content and node_name == "plan":
                     # Stream planning tokens as part of the thinking process
                     yield _sse_content(content)
+                    streamed_plan_content = True
 
             # B. State Updates (when a node completes)
             elif kind == "on_chain_end":
@@ -293,8 +295,8 @@ async def run_agent_stream(
         logger.warning("[Stream] No final_response found in accumulated state")
         final_response = "抱歉，处理您的请求时遇到了问题。请稍后重试。"
 
-    # Stream the final response content
-    if final_response:
+    # Stream the final response content (skip if already streamed during plan phase)
+    if final_response and not streamed_plan_content:
         yield _sse_status("")  # Clear status
         # Stream word by word for smooth UX
         chunks = _chunk_text(final_response)
