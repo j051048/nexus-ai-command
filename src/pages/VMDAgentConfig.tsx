@@ -27,17 +27,18 @@ import { useVMDAgents, useUpdateVMDAgent, type VMDAgent } from '@/hooks/useVMD';
 import { SCENES } from '@/components/vmd/SceneSelector';
 
 // Agent 默认配置（用于在 API 返回数据前展示占位）
+// agent_code 必须与数据库 vmd_agent_config 表中的种子数据一致
 const DEFAULT_AGENTS: Partial<VMDAgent>[] = [
-  { agent_code: 'director', name: '市场总监Agent', role_description: '全局协调、任务拆解与资源调度', icon: '\uD83C\uDFAF' },
-  { agent_code: 'content', name: '内容营销Agent', role_description: '文案撰写、内容策划与SEO优化', icon: '\u270D\uFE0F' },
-  { agent_code: 'design', name: '设计Agent', role_description: '视觉设计、排版与素材生成', icon: '\uD83C\uDFA8' },
-  { agent_code: 'media', name: '媒介投放Agent', role_description: '渠道选择、预算分配与投放优化', icon: '\uD83D\uDCE2' },
-  { agent_code: 'clue', name: '线索挖掘Agent', role_description: '市场情报收集、线索评分与分配', icon: '\uD83D\uDD0D' },
-  { agent_code: 'compliance', name: '合规校验Agent', role_description: '广告法/计量法/招投标法合规审查', icon: '\uD83D\uDEE1\uFE0F' },
-  { agent_code: 'operation', name: '运营Agent', role_description: '活动运营、展会管理与数据分析', icon: '\u2699\uFE0F' },
-  { agent_code: 'synergy', name: '研产销协同Agent', role_description: '需求协同、市场洞察与产品反馈', icon: '\uD83D\uDD17' },
-  { agent_code: 'pr', name: '公关Agent', role_description: '舆情监控、危机公关与媒体关系', icon: '\uD83D\uDCF0' },
-  { agent_code: 'sales', name: '销售支持Agent', role_description: '销售物料、话术生成与客户跟进', icon: '\uD83D\uDCB0' },
+  { agent_code: 'director_agent', name: '市场总监Agent', role_description: '全局协调、任务拆解与资源调度', icon: '\uD83C\uDFAF' },
+  { agent_code: 'content_agent', name: '内容营销Agent', role_description: '文案撰写、内容策划与SEO优化', icon: '\u270D\uFE0F' },
+  { agent_code: 'design_agent', name: '设计Agent', role_description: '视觉设计、排版与素材生成', icon: '\uD83C\uDFA8' },
+  { agent_code: 'media_agent', name: '媒介投放Agent', role_description: '渠道选择、预算分配与投放优化', icon: '\uD83D\uDCE2' },
+  { agent_code: 'clue_agent', name: '线索挖掘Agent', role_description: '市场情报收集、线索评分与分配', icon: '\uD83D\uDD0D' },
+  { agent_code: 'compliance_agent', name: '合规校验Agent', role_description: '广告法/计量法/招投标法合规审查', icon: '\uD83D\uDEE1\uFE0F' },
+  { agent_code: 'operation_agent', name: '运营Agent', role_description: '活动运营、展会管理与数据分析', icon: '\u2699\uFE0F' },
+  { agent_code: 'synergy_agent', name: '研产销协同Agent', role_description: '需求协同、市场洞察与产品反馈', icon: '\uD83D\uDD17' },
+  { agent_code: 'pr_agent', name: '公关Agent', role_description: '舆情监控、危机公关与媒体关系', icon: '\uD83D\uDCF0' },
+  { agent_code: 'sales_agent', name: '销售支持Agent', role_description: '销售物料、话术生成与客户跟进', icon: '\uD83D\uDCB0' },
 ];
 
 // 所有可用工具
