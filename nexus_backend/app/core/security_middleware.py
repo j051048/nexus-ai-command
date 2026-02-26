@@ -82,15 +82,37 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # Configurable allowed origins for CSRF validation
         raw_origins = os.environ.get(
             "ALLOWED_ORIGINS",
-            "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173",
+            "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173,"
+            "https://aizk.flydao.top,https://*.flydao.top,https://*.zeabur.app",
         )
-        self._allowed_origins: set[str] = {
-            o.strip().rstrip("/").lower() for o in raw_origins.split(",") if o.strip()
-        }
+        self._allowed_origins: set[str] = set()
+        self._allowed_wildcard_suffixes: list[str] = []
+        for o in raw_origins.split(","):
+            o = o.strip().rstrip("/").lower()
+            if not o:
+                continue
+            if "://*." in o:
+                # e.g. "https://*.flydao.top" -> match any subdomain
+                # Extract the suffix after the wildcard: ".flydao.top"
+                scheme_end = o.index("://")
+                suffix = o[scheme_end + 4:]  # skip "://*"
+                scheme = o[: scheme_end + 3]  # "https://"
+                self._allowed_wildcard_suffixes.append((scheme, suffix))
+            else:
+                self._allowed_origins.add(o)
 
     # ------------------------------------------------------------------
     # CSRF Origin Validation
     # ------------------------------------------------------------------
+    def _origin_allowed(self, normalised: str) -> bool:
+        """Check if origin is in the allowed list (exact or wildcard)."""
+        if normalised in self._allowed_origins:
+            return True
+        for scheme, suffix in self._allowed_wildcard_suffixes:
+            if normalised.startswith(scheme) and normalised.endswith(suffix):
+                return True
+        return False
+
     def _validate_csrf_origin(self, request: Request) -> JSONResponse | None:
         """Validate Origin/Referer on mutating requests.
 
@@ -117,7 +139,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             return None
 
         normalised = origin.strip().rstrip("/").lower()
-        if normalised not in self._allowed_origins:
+        if not self._origin_allowed(normalised):
             logger.warning(
                 "CSRF validation failed: origin %s not in allowed list", origin
             )
