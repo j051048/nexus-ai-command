@@ -395,6 +395,41 @@ class VectorService:
             "为您检索到以下相关知识 (Mock):\n- " + "\n- ".join(results) if results else "知识库中未找到相关信息 (Mock)."
         )
 
+    async def embed_text(self, text: str, org_id: str = "default") -> list[float] | None:
+        """Generate an embedding vector for a single text string.
+
+        Used by ConversationMemoryService for memory embeddings.
+        Returns None on failure so callers can gracefully degrade.
+        """
+        if not text or not text.strip():
+            return None
+
+        try:
+            api_key, base_url, model = await self._get_embedding_config(org_id)
+            if not api_key:
+                api_key = settings.OPENAI_API_KEY
+            if not api_key:
+                return None
+
+            if not base_url:
+                base_url = getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1")
+            base_url = base_url.rstrip("/")
+            if "/v1" not in base_url and "api.openai.com" not in base_url:
+                base_url = f"{base_url}/v1"
+
+            client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+            response = await client.embeddings.create(
+                input=text[:8000],  # truncate to avoid token limits
+                model=model or _DEFAULT_EMBEDDING_MODEL,
+            )
+            return response.data[0].embedding
+        except Exception as e:
+            logger.warning(f"Failed to generate embedding: {e}")
+            return None
+
+    # Keep backward-compatible private alias
+    _embed_text = embed_text
+
     async def check_staleness(self, org_id: str, staleness_days: int = 30, db=None) -> list[dict]:
         """
         #25 Knowledge Base Update Strategy: Check which documents have stale embeddings.

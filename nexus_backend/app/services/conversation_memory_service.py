@@ -90,12 +90,15 @@ class ConversationMemoryService:
         org_id: str | None = None,
         db: Any = None,
     ) -> dict:
-        """保存用户记忆条目（upsert by user_id + key）"""
+        """保存用户记忆条目（upsert by user_id + key），同时生成 embedding 向量"""
         client = db or supabase
         if not client:
             raise RuntimeError("数据库连接不可用")
 
         now = datetime.now(UTC).isoformat()
+
+        # Generate embedding for semantic search
+        embedding = await self._generate_embedding(f"{key}: {value}", org_id)
 
         # Check if key already exists for this user
         existing = (
@@ -107,41 +110,44 @@ class ConversationMemoryService:
             .execute()
         )
 
+        update_data = {
+            "value": value,
+            "category": category,
+            "metadata": metadata or {},
+            "importance": importance,
+            "updated_at": now,
+        }
+        if embedding:
+            update_data["embedding"] = embedding
+
         if existing and existing.data:
             # Update existing memory
             result = (
                 await client.table("conversation_memories")
-                .update(
-                    {
-                        "value": value,
-                        "category": category,
-                        "metadata": metadata or {},
-                        "importance": importance,
-                        "updated_at": now,
-                    }
-                )
+                .update(update_data)
                 .eq("id", existing.data["id"])
                 .execute()
             )
         else:
             # Insert new memory
+            insert_data = {
+                "user_id": user_id,
+                "organization_id": org_id,
+                "category": category,
+                "key": key,
+                "value": value,
+                "metadata": metadata or {},
+                "importance": importance,
+                "access_count": 0,
+                "last_accessed_at": now,
+                "created_at": now,
+                "updated_at": now,
+            }
+            if embedding:
+                insert_data["embedding"] = embedding
             result = (
                 await client.table("conversation_memories")
-                .insert(
-                    {
-                        "user_id": user_id,
-                        "organization_id": org_id,
-                        "category": category,
-                        "key": key,
-                        "value": value,
-                        "metadata": metadata or {},
-                        "importance": importance,
-                        "access_count": 0,
-                        "last_accessed_at": now,
-                        "created_at": now,
-                        "updated_at": now,
-                    }
-                )
+                .insert(insert_data)
                 .execute()
             )
 
@@ -151,6 +157,16 @@ class ConversationMemoryService:
         saved = result.data[0] if isinstance(result.data, list) else result.data
         logger.info(f"Saved memory for user {user_id}: key={key}, category={category}")
         return saved
+
+    async def _generate_embedding(self, text: str, org_id: str | None = None) -> list[float] | None:
+        """Generate embedding vector for memory text. Returns None on failure."""
+        try:
+            from app.services.vector_service import vector_service
+
+            return await vector_service.embed_text(text, org_id or "default")
+        except Exception as e:
+            logger.debug(f"Embedding generation skipped: {e}")
+            return None
 
     async def get_memories(
         self,
@@ -236,7 +252,7 @@ class ConversationMemoryService:
             from app.services.vector_service import vector_service
 
             # Generate embedding for the query
-            query_embedding = await vector_service._embed_text(query)
+            query_embedding = await vector_service.embed_text(query)
             if not query_embedding:
                 return []
 
@@ -327,7 +343,7 @@ class ConversationMemoryService:
         logger.info(f"Cleared {count} memories for user {user_id}" f"{f' (category={category})' if category else ''}")
         return count
 
-    # ─── 偏好自动提取（规则引擎，不调 LLM）─────────────────────
+    # ─── 偏好自动提取（规则引擎 + LLM 增强）─────────────────────
 
     async def extract_preferences(
         self,
@@ -339,11 +355,9 @@ class ConversationMemoryService:
         """
         从对话中自动提取用户偏好。
 
-        提取模式：
-        - "我喜欢..." → preference
-        - "以后都..." → preference
-        - "记住..." → explicit_memory
-        - 常用工具/操作 → usage_pattern
+        双引擎策略：
+        1. 规则引擎（快速路径）：正则匹配明确的偏好表达
+        2. LLM 增强（深度提取）：捕获复杂语义中的隐含偏好
         """
         extracted: list[dict] = []
 
@@ -355,7 +369,7 @@ class ConversationMemoryService:
             if role != "user" or not content:
                 continue
 
-            # 1) Pattern-based preference extraction
+            # 1) Pattern-based preference extraction (fast path)
             for pattern_info in PREFERENCE_PATTERNS:
                 matches = pattern_info["pattern"].findall(content)
                 for match in matches:
@@ -385,6 +399,14 @@ class ConversationMemoryService:
                     if not any(e["key"] == entry["key"] for e in extracted):
                         extracted.append(entry)
 
+        # 3) LLM-assisted deep extraction (catches complex semantics)
+        llm_extracted = await self._extract_with_llm(messages)
+        if llm_extracted:
+            existing_values = {e["value"] for e in extracted}
+            for entry in llm_extracted:
+                if entry["value"] not in existing_values:
+                    extracted.append(entry)
+
         # Save all extracted memories
         saved: list[dict] = []
         for entry in extracted:
@@ -406,6 +428,93 @@ class ConversationMemoryService:
             logger.info(f"Extracted {len(saved)} memories from conversation for user {user_id}")
 
         return saved
+
+    async def _extract_with_llm(
+        self,
+        messages: list[dict[str, str]],
+    ) -> list[dict]:
+        """Use LLM to extract implicit preferences and facts from conversation.
+
+        Only processes user messages, returns structured memory entries.
+        Designed to catch semantics that regex patterns miss, such as:
+        - "我们的主要客户群体是制造业中大型企业"
+        - "报告用表格形式比较好"
+        - "我负责华东区的大客户"
+        """
+        user_texts = [
+            msg["content"]
+            for msg in messages
+            if msg.get("role") == "user" and msg.get("content")
+        ]
+        if not user_texts:
+            return []
+
+        # Only process if there's substantial content
+        combined = "\n".join(user_texts[-5:])  # last 5 user messages
+        if len(combined) < 10:
+            return []
+
+        try:
+            import json as _json
+
+            from app.services.ai_service import AIService
+
+            prompt = f"以下是用户在对话中说的话：\n\n{combined}"
+            system = (
+                "你是记忆提取专家。从用户的对话中提取值得长期记住的信息。\n"
+                "提取以下类型的信息：\n"
+                "- 用户的身份、职位、负责区域等个人信息\n"
+                "- 用户的工作习惯和偏好（如报告格式、沟通方式）\n"
+                "- 用户提到的重要事实（如客户群体、业务方向）\n"
+                "- 用户的明确要求和指令（如'以后都用表格'）\n\n"
+                "不要提取：临时性的问题、一次性的查询、礼貌用语。\n"
+                "如果没有值得提取的信息，返回空数组 []。\n\n"
+                "严格以JSON数组格式返回，每个元素包含：\n"
+                '- "category": "preference" 或 "explicit_memory" 或 "fact"\n'
+                '- "key": 简短的标识键（如 "role_region"、"report_format"）\n'
+                '- "value": 提取的完整信息\n'
+                '- "importance": 0.0-1.0 的重要性评分\n\n'
+                "只返回JSON数组，不要其他文字。最多提取5条。"
+            )
+
+            result_text = await AIService.call_llm(prompt, system)
+
+            # Parse JSON from LLM response
+            clean = result_text.strip()
+            if "```json" in clean:
+                clean = clean.split("```json")[1].split("```")[0].strip()
+            elif "```" in clean:
+                clean = clean.split("```")[1].split("```")[0].strip()
+
+            items = _json.loads(clean)
+            if not isinstance(items, list):
+                return []
+
+            extracted = []
+            for item in items[:5]:
+                if not isinstance(item, dict):
+                    continue
+                category = item.get("category", "preference")
+                if category not in ("preference", "explicit_memory", "fact"):
+                    category = "preference"
+                key = item.get("key", f"llm_{uuid.uuid4().hex[:6]}")
+                value = item.get("value", "")
+                if not value or len(value) < 3:
+                    continue
+                extracted.append({
+                    "key": f"llm_{key}",
+                    "value": value,
+                    "category": category,
+                    "importance": min(max(float(item.get("importance", 0.5)), 0.1), 1.0),
+                })
+
+            if extracted:
+                logger.info(f"LLM extracted {len(extracted)} memories from conversation")
+            return extracted
+
+        except Exception as e:
+            logger.debug(f"LLM memory extraction skipped: {e}")
+            return []
 
     # ─── Organization Memory ─────────────────────────────────────
 

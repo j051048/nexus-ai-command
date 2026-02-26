@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from app.core.celery_app import celery_app
 from app.services.crawler_service import crawler_service
@@ -404,5 +404,111 @@ def check_contract_expiry():
                 logger.error(f"Contract expiry notification failed for {contract['id']}: {e}")
 
         return f"Notified {notified} expiring contracts"
+
+    return _run_async(_run())
+
+
+@celery_app.task
+def execute_user_scheduled_tasks():
+    """
+    用户自定义定时任务执行器
+    每分钟检查是否有到期的用户定时任务，执行并推送结果通知
+    """
+
+    async def _run():
+        from app.agent.proactive_runner import run_proactive_agent
+        from app.core.database import supabase
+        from app.services.notification_service import send_notification
+
+        if not supabase:
+            return "skipped: no db"
+
+        now = datetime.now(UTC)
+        result = (
+            await supabase.table("user_scheduled_tasks")
+            .select("*")
+            .eq("is_active", True)
+            .lte("next_execution_at", now.isoformat())
+            .order("next_execution_at")
+            .limit(20)
+            .execute()
+        )
+
+        tasks = result.data or []
+        if not tasks:
+            return "No user tasks due"
+
+        executed = 0
+        for task in tasks:
+            try:
+                # Run AI agent with the user's prompt
+                agent_result = await run_proactive_agent(
+                    prompt=task["prompt"],
+                    user_id=task["user_id"],
+                    org_id=task.get("organization_id"),
+                    agent_name=f"scheduled_{task['id'][:8]}",
+                    timeout=60.0,
+                )
+
+                response = agent_result.get("response", "任务执行完成，但未生成结果。")
+
+                # Send notification to user
+                if task.get("notify_method") == "notification":
+                    await send_notification(
+                        title=f"定时任务: {task['name']}",
+                        content=response[:500],
+                        target_user_id=task["user_id"],
+                    )
+
+                # Compute next execution time
+                from app.tools.scheduled_task_tools import _compute_next_execution
+
+                next_exec = None
+                if task["schedule_type"] != "once":
+                    next_exec = _compute_next_execution(
+                        task["schedule_type"],
+                        task.get("hour"),
+                        task.get("minute", 0),
+                        task.get("day_of_week"),
+                        task.get("interval_minutes"),
+                        None,
+                    )
+
+                # Update task record
+                update_data = {
+                    "last_executed_at": now.isoformat(),
+                    "execution_count": (task.get("execution_count", 0) or 0) + 1,
+                    "last_result": response[:1000],
+                }
+
+                if task["schedule_type"] == "once":
+                    update_data["is_active"] = False
+                elif next_exec:
+                    update_data["next_execution_at"] = next_exec
+
+                await (
+                    supabase.table("user_scheduled_tasks")
+                    .update(update_data)
+                    .eq("id", task["id"])
+                    .execute()
+                )
+
+                executed += 1
+                logger.info(f"Executed user scheduled task: {task['name']} for user {task['user_id']}")
+
+            except Exception as e:
+                logger.error(f"User scheduled task failed {task['id']}: {e}")
+                # Record failure but keep task active
+                try:
+                    await (
+                        supabase.table("user_scheduled_tasks")
+                        .update({"last_result": f"执行失败: {str(e)[:200]}"})
+                        .eq("id", task["id"])
+                        .execute()
+                    )
+                except Exception:
+                    pass
+
+        return f"Executed {executed}/{len(tasks)} user scheduled tasks"
 
     return _run_async(_run())

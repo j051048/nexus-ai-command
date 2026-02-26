@@ -61,4 +61,8 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.scheduler.sync_im_platforms",
         "schedule": 3600.0,  # 每小时
     },
+    "user-scheduled-tasks": {
+        "task": "app.tasks.scheduler.execute_user_scheduled_tasks",
+        "schedule": 60.0,  # 每分钟检查用户自定义定时任务
+    },
 }

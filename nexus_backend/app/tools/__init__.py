@@ -77,6 +77,10 @@ _TOOL_MODULES: dict[str, tuple[str, str]] = {
     # strategy_tools (Phase 4)
     "analyze_data_attribution": ("app.tools.strategy_tools", "DataAttributionTool"),
     "strategy_simulation": ("app.tools.strategy_tools", "StrategySimulationTool"),
+    # scheduled_task_tools (user-defined scheduled tasks)
+    "create_scheduled_task": ("app.tools.scheduled_task_tools", "CreateScheduledTaskTool"),
+    "list_scheduled_tasks": ("app.tools.scheduled_task_tools", "ListScheduledTasksTool"),
+    "delete_scheduled_task": ("app.tools.scheduled_task_tools", "DeleteScheduledTaskTool"),
 }
 
 # VMD tools are optional — kept separate so ImportError is tolerated
