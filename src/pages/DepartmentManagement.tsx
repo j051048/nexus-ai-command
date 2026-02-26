@@ -113,7 +113,6 @@ export default function DepartmentManagement() {
 
       setDepartments(deptsWithDetails);
     } catch (error) {
-      console.error('Error fetching data:', error);
       toast({
         title: '加载失败',
         description: '无法加载部门数据',
@@ -196,7 +195,6 @@ export default function DepartmentManagement() {
       handleCloseDialog();
       fetchData();
     } catch (error) {
-      console.error('Error saving department:', error);
       toast({
         title: '保存失败',
         description: '无法保存部门信息',
@@ -224,7 +222,6 @@ export default function DepartmentManagement() {
       setDepartmentToDelete(null);
       fetchData();
     } catch (error) {
-      console.error('Error deleting department:', error);
       toast({
         title: '删除失败',
         description: '无法删除部门',

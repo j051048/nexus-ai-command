@@ -40,7 +40,6 @@ export function useAISettings() {
         .maybeSingle();
 
       if (error) {
-        console.error('Error fetching AI settings:', error);
         throw new Error(error.message || '获取配置失败');
       }
       return data as AISettings | null;
@@ -60,8 +59,7 @@ export function useSaveAISettings() {
 
       const userId = session.user.id;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: profileData, error: profileError } = await (supabase.from('users') as any)
+      const { data: profileData, error: profileError } = await supabase.from('users')
         .select('organization_id')
         .eq('id', userId)
         .maybeSingle();
@@ -138,7 +136,10 @@ export function useTestAIConnection() {
         }
       }
 
-      if (import.meta.env.DEV) console.log('Testing connection to:', url);
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.log('Testing connection to:', url);
+      }
 
       const response = await fetch(url, {
         method: 'POST',

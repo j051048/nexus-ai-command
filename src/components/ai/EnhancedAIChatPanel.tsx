@@ -278,7 +278,6 @@ export function EnhancedAIChatPanel({
         },
       ]);
     } catch (error) {
-      console.error(error);
       toast.error('文档上传失败', { id: toastId });
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -685,7 +684,7 @@ export function EnhancedAIChatPanel({
                         : undefined
                     }
                     onFeedback={(type) => {
-                      if (import.meta.env.DEV) console.log('Feedback:', type, msg.id);
+                      // TODO: integrate with backend feedback API
                     }}
                     onDelete={() => handleDeleteMessage(msg.id)}
                     isLatest={index === messages.length - 1}

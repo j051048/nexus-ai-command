@@ -246,8 +246,7 @@ function ProjectSubtasks({ projectId }: { projectId: string }) {
     const { data: tasks = [], isLoading } = useQuery({
         queryKey: ['project-subtasks', projectId],
         queryFn: async () => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const { data, error } = await (supabase.from('oa_tasks') as any)
+            const { data, error } = await supabase.from('oa_tasks')
                 .select('id, title, status, priority, assignee_id, created_at')
                 .eq('metadata->>project_id', projectId)
                 .order('created_at', { ascending: false })

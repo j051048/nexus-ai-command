@@ -47,14 +47,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       // Use 'users' table instead of 'profiles'
       // Map id to user_id for backward compatibility
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: profileData, error: profileError } = await (supabase.from('users') as any)
+      const { data: profileData, error: profileError } = await supabase.from('users')
         .select('*, user_id:id')
         .eq('id', userId)
         .maybeSingle();
 
       if (profileError) {
-        console.error('Error fetching profile:', profileError);
+        // Profile fetch failed — user will have limited functionality
       } else if (profileData) {
         // Map DB fields to Profile interface if needed, or use as is
         setProfile(profileData as unknown as Profile);
@@ -83,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRole(resolvedRole);
       }
     } catch (error) {
-      console.error('Error fetching user data:', error);
+      // Auth data fetch failed — default to employee role for safety
       setRole('employee');
     } finally {
       // Ensure loading state is turned off regardless of success/fail

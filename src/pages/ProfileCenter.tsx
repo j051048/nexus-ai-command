@@ -119,8 +119,7 @@ export function ProfileCenter() {
 
       // Projects: count oa_tasks assigned to this user
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { count } = await (supabase.from('oa_tasks') as any)
+        const { count } = await supabase.from('oa_tasks')
           .select('id', { count: 'exact', head: true })
           .eq('assigned_to', userId);
         totalProjects = count || 0;
@@ -128,8 +127,7 @@ export function ProfileCenter() {
 
       // Sales: sum revenue from sales_metrics for this user
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: metrics } = await (supabase.from('sales_metrics') as any)
+        const { data: metrics } = await supabase.from('sales_metrics')
           .select('revenue')
           .eq('user_id', userId);
         totalSales = (metrics || []).reduce((sum: number, m: { revenue: number }) => sum + (Number(m.revenue) || 0), 0);
@@ -138,8 +136,7 @@ export function ProfileCenter() {
       // Attendance: calculate rate from hr_attendance for current month
       try {
         const monthStart = new Date().toISOString().slice(0, 7) + '-01';
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: records } = await (supabase.from('hr_attendance') as any)
+        const { data: records } = await supabase.from('hr_attendance')
           .select('status')
           .eq('user_id', userId)
           .gte('date', monthStart);
@@ -179,15 +176,13 @@ export function ProfileCenter() {
       const userId = session.user.id;
 
       // 直接更新 users 表中的 name 字段
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: updated, error } = await (supabase.from('users') as any)
+      const { data: updated, error } = await supabase.from('users')
         .update({ name: editName.trim() })
         .eq('id', userId)
         .select('id')
         .single();
 
       if (error) {
-        console.error('Profile save error:', error);
         toast.error('保存失败: ' + error.message);
         return;
       }
@@ -203,7 +198,6 @@ export function ProfileCenter() {
       toast.success('个人信息保存成功');
       setIsEditing(false);
     } catch (err) {
-      console.error('Profile save exception:', err);
       toast.error('保存失败，请稍后重试');
     } finally {
       setIsSavingProfile(false);

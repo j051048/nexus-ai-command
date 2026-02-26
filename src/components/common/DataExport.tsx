@@ -340,7 +340,6 @@ export function DataExport<T extends Record<string, unknown>>({
           setTimeout(() => setIsOpen(false), 500);
         }
       } catch (error) {
-        console.error('Export error:', error);
         toast.error('导出失败，请稍后重试');
       } finally {
         setTimeout(() => {

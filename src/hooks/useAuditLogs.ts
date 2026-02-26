@@ -59,8 +59,7 @@ export function useAuditLogs(filters: AuditFilters) {
   return useQuery({
     queryKey: ['audit-logs', filters],
     queryFn: async (): Promise<AuditLogEntry[]> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let query = (supabase as any).from('audit_logs').select('*').order('created_at', { ascending: false }).limit(200);
+      let query = supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(200);
 
       if (filters.startDate) {
         query = query.gte('created_at', filters.startDate);
@@ -110,8 +109,7 @@ export function useAuditActions() {
   return useQuery({
     queryKey: ['audit-actions'],
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('audit_logs')
         .select('action')
         .order('action');

@@ -52,7 +52,6 @@ export function ProjectManagement() {
             setProjects(data as Project[] || []);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
-            console.error("Error fetching projects:", error);
             toast.error(error?.message || "加载项目失败");
         } finally {
             setLoading(false);
@@ -141,7 +140,6 @@ export function ProjectManagement() {
             toast.success("项目列表已刷新");
 
         } catch (error) {
-            console.error(error);
             toast.error("AI 服务连接失败，请稍后重试");
         } finally {
             setIsAiCreating(false);

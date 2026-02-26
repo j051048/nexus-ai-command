@@ -81,6 +81,8 @@ export default defineConfig(({ mode }) => ({
           "vendor-charts": ["recharts"],
           "vendor-flow": ["@xyflow/react"],
           "vendor-markdown": ["react-markdown"],
+          "vendor-syntax": ["react-syntax-highlighter"],
+          "vendor-icons": ["lucide-react"],
         },
       },
     },

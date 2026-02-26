@@ -30,7 +30,7 @@ interface MessageBubbleProps {
   isTyping?: boolean;
 }
 
-export function MessageBubble({
+export const MessageBubble = React.memo(function MessageBubble({
   message,
   onCopy,
   onRegenerate,
@@ -315,4 +315,4 @@ export function MessageBubble({
       )}
     </div>
   );
-}
+});

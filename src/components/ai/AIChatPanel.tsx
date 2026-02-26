@@ -95,7 +95,6 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
       }]);
 
     } catch (error) {
-      console.error(error);
       toast.error('文档上传失败');
     } finally {
       toast.dismiss(toastId);

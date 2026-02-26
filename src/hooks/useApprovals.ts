@@ -31,7 +31,6 @@ export function useApprovals() {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching approvals:', error);
         throw new Error('获取审批列表失败，请刷新重试');
       }
 
@@ -89,7 +88,6 @@ export function useMyApprovals() {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching my approvals:', error);
         throw error;
       }
       return data as ApprovalRequest[];

@@ -26,7 +26,7 @@ from pydantic import BaseModel, model_validator
 
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
-from app.tools import TOOL_REGISTRY, get_tool
+from app.tools import TOOL_REGISTRY, _load_all, get_tool
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +147,7 @@ async def list_tools(user_id: str = Depends(get_current_user_id)):
     Returns each tool's name, description and JSON-Schema input definition so
     that MCP clients can build dynamic UIs or route calls automatically.
     """
+    _load_all()
     tools: list[MCPToolSchema] = []
     for tool in TOOL_REGISTRY.values():
         tools.append(
@@ -369,6 +370,7 @@ async def handle_message(
             await session.send_jsonrpc_response(msg_id, {})
 
         elif method == "tools/list":
+            _load_all()
             tools = []
             for tool in TOOL_REGISTRY.values():
                 tools.append(

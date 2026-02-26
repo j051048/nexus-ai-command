@@ -84,7 +84,7 @@ export function NotificationPreferences() {
                     setPreferences({ ...DEFAULT_PREFERENCES, ...parsed });
                 }
             } catch (error) {
-                console.error('Failed to load notification preferences:', error);
+                // localStorage parse failure is non-critical; use defaults
             }
         };
 
@@ -116,7 +116,6 @@ export function NotificationPreferences() {
                 description: '通知偏好设置已更新',
             });
         } catch (error) {
-            console.error('Failed to save notification preferences:', error);
             toast({
                 title: '保存失败',
                 description: '无法保存通知偏好设置，请稍后重试',

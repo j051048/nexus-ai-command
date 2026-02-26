@@ -123,7 +123,7 @@ function SuperAdminDashboard() {
       const data = await fetchAPI<PlatformStats>('/stats');
       setStats(data);
     } catch (e) {
-      console.error('加载平台统计失败', e);
+      toast.error('加载平台统计失败');
     }
   }, []);
 
@@ -132,7 +132,7 @@ function SuperAdminDashboard() {
       const data = await fetchAPI<SystemHealth>('/system-health');
       setHealth(data);
     } catch (e) {
-      console.error('加载系统健康失败', e);
+      toast.error('加载系统健康失败');
     }
   }, []);
 
@@ -144,7 +144,7 @@ function SuperAdminDashboard() {
       const data = await fetchAPI<Organization[]>(`/organizations?${params}`);
       setOrganizations(Array.isArray(data) ? data : []);
     } catch (e) {
-      console.error('加载组织列表失败', e);
+      toast.error('加载组织列表失败');
     }
   }, [searchTerm, statusFilter]);
 
@@ -153,7 +153,7 @@ function SuperAdminDashboard() {
       const data = await fetchAPI<AuditLog[]>('/audit-logs?limit=100');
       setAuditLogs(Array.isArray(data) ? data : []);
     } catch (e) {
-      console.error('加载审计日志失败', e);
+      toast.error('加载审计日志失败');
     }
   }, []);
 

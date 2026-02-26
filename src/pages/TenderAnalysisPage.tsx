@@ -48,7 +48,7 @@ export function TenderAnalysisPage() {
     const fetchHistory = useCallback(async () => {
         setHistoryLoading(true);
         try {
-            const { data, error } = await (supabase.from('documents') as any)
+            const { data, error } = await supabase.from('documents')
                 .select('id, name, doc_type, status, extracted_data, owner_id, created_at')
                 .order('created_at', { ascending: false })
                 .limit(20);
@@ -69,7 +69,7 @@ export function TenderAnalysisPage() {
             let nameMap: Record<string, string> = {};
 
             if (ownerIds.length > 0) {
-                const { data: users } = await (supabase.from('users') as any)
+                const { data: users } = await supabase.from('users')
                     .select('id, name')
                     .in('id', ownerIds);
                 nameMap = Object.fromEntries(
@@ -89,7 +89,7 @@ export function TenderAnalysisPage() {
 
             setHistoryDocs(withNames);
         } catch (err) {
-            console.error('Failed to fetch tender history:', err);
+            // Silently fail — empty history list is acceptable UX
         } finally {
             setHistoryLoading(false);
         }
@@ -197,7 +197,6 @@ export function TenderAnalysisPage() {
                 body: formData,
                 mode: 'cors',
             }).catch(err => {
-                console.error('Fetch error details:', err);
                 throw new Error(`网络连接异常: 无法触达后端 [${endpoint}]。请确认后端服务已启动。`);
             });
 
@@ -271,7 +270,6 @@ export function TenderAnalysisPage() {
             }
 
         } catch (error) {
-            console.error(error);
             const message = error instanceof Error ? error.message : '上传处理异常，请重试';
             toast.error(message);
             setAnalyzing(false);
@@ -300,7 +298,7 @@ export function TenderAnalysisPage() {
             const doc = data;
 
             if (error) {
-                console.error("Polling error:", error);
+                // Polling error — continue polling, next attempt may succeed
             }
 
             if (doc) {
@@ -423,7 +421,6 @@ export function TenderAnalysisPage() {
             toast.success("PDF 已下载");
 
         } catch (error) {
-            console.error("PDF Export Error:", error);
             toast.error("PDF 生成失败");
         }
     };

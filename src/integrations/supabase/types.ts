@@ -629,6 +629,487 @@ export interface Database {
               created_at?: string
           }
       }
+      oa_leave_requests: {
+          Row: {
+            id: string
+            user_id: string
+            organization_id: string | null
+            leave_type: string
+            start_date: string
+            end_date: string
+            days: number
+            reason: string
+            status: string
+            approver_id: string | null
+            created_at: string
+            updated_at: string | null
+          }
+          Insert: {
+              id?: string
+              user_id: string
+              organization_id?: string | null
+              leave_type: string
+              start_date: string
+              end_date: string
+              days: number
+              reason: string
+              status?: string
+              approver_id?: string | null
+              created_at?: string
+              updated_at?: string | null
+          }
+          Update: {
+              id?: string
+              user_id?: string
+              organization_id?: string | null
+              leave_type?: string
+              start_date?: string
+              end_date?: string
+              days?: number
+              reason?: string
+              status?: string
+              approver_id?: string | null
+              created_at?: string
+              updated_at?: string | null
+          }
+      }
+      oa_meeting_bookings: {
+          Row: {
+            id: string
+            title: string
+            room_id: string | null
+            organizer_id: string
+            start_time: string
+            end_time: string
+            attendees: string[] | null
+            status: string
+            organization_id: string | null
+            created_at: string
+            updated_at: string | null
+          }
+          Insert: {
+              id?: string
+              title: string
+              room_id?: string | null
+              organizer_id: string
+              start_time: string
+              end_time: string
+              attendees?: string[] | null
+              status?: string
+              organization_id?: string | null
+              created_at?: string
+              updated_at?: string | null
+          }
+          Update: {
+              id?: string
+              title?: string
+              room_id?: string | null
+              organizer_id?: string
+              start_time?: string
+              end_time?: string
+              attendees?: string[] | null
+              status?: string
+              organization_id?: string | null
+              created_at?: string
+              updated_at?: string | null
+          }
+      }
+      hr_attendance: {
+          Row: {
+            id: string
+            user_id: string
+            date: string
+            check_in: string | null
+            check_out: string | null
+            status: string
+            late_minutes: number
+            early_leave_minutes: number
+            overtime_hours: number
+            source: string
+            created_at: string
+          }
+          Insert: {
+              id?: string
+              user_id: string
+              date: string
+              check_in?: string | null
+              check_out?: string | null
+              status?: string
+              late_minutes?: number
+              early_leave_minutes?: number
+              overtime_hours?: number
+              source?: string
+              created_at?: string
+          }
+          Update: {
+              id?: string
+              user_id?: string
+              date?: string
+              check_in?: string | null
+              check_out?: string | null
+              status?: string
+              late_minutes?: number
+              early_leave_minutes?: number
+              overtime_hours?: number
+              source?: string
+              created_at?: string
+          }
+      }
+      hr_salary_records: {
+          Row: {
+            id: string
+            user_id: string
+            period: string
+            base_salary: number
+            performance_bonus: number
+            attendance_bonus: number
+            other_allowances: number
+            gross_salary: number
+            social_insurance: number
+            housing_fund: number
+            tax: number
+            other_deductions: number
+            net_salary: number
+            payment_date: string | null
+            payment_status: string
+            created_at: string
+          }
+          Insert: {
+              id?: string
+              user_id: string
+              period: string
+              base_salary?: number
+              performance_bonus?: number
+              attendance_bonus?: number
+              other_allowances?: number
+              gross_salary?: number
+              social_insurance?: number
+              housing_fund?: number
+              tax?: number
+              other_deductions?: number
+              net_salary?: number
+              payment_date?: string | null
+              payment_status?: string
+              created_at?: string
+          }
+          Update: {
+              id?: string
+              user_id?: string
+              period?: string
+              base_salary?: number
+              performance_bonus?: number
+              attendance_bonus?: number
+              other_allowances?: number
+              gross_salary?: number
+              social_insurance?: number
+              housing_fund?: number
+              tax?: number
+              other_deductions?: number
+              net_salary?: number
+              payment_date?: string | null
+              payment_status?: string
+              created_at?: string
+          }
+      }
+      hr_performance_reviews: {
+          Row: {
+            id: string
+            user_id: string
+            reviewer_id: string | null
+            period: string
+            self_rating: number | null
+            manager_rating: number | null
+            final_rating: number | null
+            ai_rating: number | null
+            ai_analysis: string | null
+            goals: Json | null
+            strengths: string | null
+            improvements: string | null
+            status: string
+            created_at: string
+            updated_at: string
+          }
+          Insert: {
+              id?: string
+              user_id: string
+              reviewer_id?: string | null
+              period: string
+              self_rating?: number | null
+              manager_rating?: number | null
+              final_rating?: number | null
+              ai_rating?: number | null
+              ai_analysis?: string | null
+              goals?: Json | null
+              strengths?: string | null
+              improvements?: string | null
+              status?: string
+              created_at?: string
+              updated_at?: string
+          }
+          Update: {
+              id?: string
+              user_id?: string
+              reviewer_id?: string | null
+              period?: string
+              self_rating?: number | null
+              manager_rating?: number | null
+              final_rating?: number | null
+              ai_rating?: number | null
+              ai_analysis?: string | null
+              goals?: Json | null
+              strengths?: string | null
+              improvements?: string | null
+              status?: string
+              created_at?: string
+              updated_at?: string
+          }
+      }
+      hr_job_positions: {
+          Row: {
+            id: string
+            organization_id: string | null
+            title: string
+            department: string | null
+            description: string | null
+            requirements: string | null
+            salary_range_min: number | null
+            salary_range_max: number | null
+            headcount: number
+            hired_count: number
+            status: string
+            created_by: string | null
+            created_at: string
+            updated_at: string
+          }
+          Insert: {
+              id?: string
+              organization_id?: string | null
+              title: string
+              department?: string | null
+              description?: string | null
+              requirements?: string | null
+              salary_range_min?: number | null
+              salary_range_max?: number | null
+              headcount?: number
+              hired_count?: number
+              status?: string
+              created_by?: string | null
+              created_at?: string
+              updated_at?: string
+          }
+          Update: {
+              id?: string
+              organization_id?: string | null
+              title?: string
+              department?: string | null
+              description?: string | null
+              requirements?: string | null
+              salary_range_min?: number | null
+              salary_range_max?: number | null
+              headcount?: number
+              hired_count?: number
+              status?: string
+              created_by?: string | null
+              created_at?: string
+              updated_at?: string
+          }
+      }
+      hr_candidates: {
+          Row: {
+            id: string
+            position_id: string
+            name: string
+            email: string | null
+            phone: string | null
+            resume_url: string | null
+            status: string
+            ai_score: number | null
+            ai_analysis: string | null
+            interview_date: string | null
+            created_at: string
+          }
+          Insert: {
+              id?: string
+              position_id: string
+              name: string
+              email?: string | null
+              phone?: string | null
+              resume_url?: string | null
+              status?: string
+              ai_score?: number | null
+              ai_analysis?: string | null
+              interview_date?: string | null
+              created_at?: string
+          }
+          Update: {
+              id?: string
+              position_id?: string
+              name?: string
+              email?: string | null
+              phone?: string | null
+              resume_url?: string | null
+              status?: string
+              ai_score?: number | null
+              ai_analysis?: string | null
+              interview_date?: string | null
+              created_at?: string
+          }
+      }
+      finance_budgets: {
+          Row: {
+            id: string
+            organization_id: string
+            name: string
+            total_amount: number
+            used_amount: number
+            period: string
+            department_id: string | null
+            category: string | null
+            status: string
+            created_by: string | null
+            created_at: string
+            updated_at: string
+          }
+          Insert: {
+              id?: string
+              organization_id: string
+              name: string
+              total_amount: number
+              used_amount?: number
+              period: string
+              department_id?: string | null
+              category?: string | null
+              status?: string
+              created_by?: string | null
+              created_at?: string
+              updated_at?: string
+          }
+          Update: {
+              id?: string
+              organization_id?: string
+              name?: string
+              total_amount?: number
+              used_amount?: number
+              period?: string
+              department_id?: string | null
+              category?: string | null
+              status?: string
+              created_by?: string | null
+              created_at?: string
+              updated_at?: string
+          }
+      }
+      contracts: {
+          Row: {
+            id: string
+            organization_id: string
+            title: string
+            party_a: string | null
+            party_b: string | null
+            amount: number | null
+            start_date: string | null
+            end_date: string | null
+            status: string
+            type: string | null
+            description: string | null
+            created_by: string | null
+            created_at: string
+            updated_at: string
+          }
+          Insert: {
+              id?: string
+              organization_id: string
+              title: string
+              party_a?: string | null
+              party_b?: string | null
+              amount?: number | null
+              start_date?: string | null
+              end_date?: string | null
+              status?: string
+              type?: string | null
+              description?: string | null
+              created_by?: string | null
+              created_at?: string
+              updated_at?: string
+          }
+          Update: {
+              id?: string
+              organization_id?: string
+              title?: string
+              party_a?: string | null
+              party_b?: string | null
+              amount?: number | null
+              start_date?: string | null
+              end_date?: string | null
+              status?: string
+              type?: string | null
+              description?: string | null
+              created_by?: string | null
+              created_at?: string
+              updated_at?: string
+          }
+      }
+      audit_logs: {
+          Row: {
+            id: string
+            action: string
+            actor: string
+            target: string | null
+            details: string | null
+            status: string
+            ip_address: string | null
+            user_agent: string | null
+            created_at: string
+          }
+          Insert: {
+              id?: string
+              action: string
+              actor: string
+              target?: string | null
+              details?: string | null
+              status?: string
+              ip_address?: string | null
+              user_agent?: string | null
+              created_at?: string
+          }
+          Update: {
+              id?: string
+              action?: string
+              actor?: string
+              target?: string | null
+              details?: string | null
+              status?: string
+              ip_address?: string | null
+              user_agent?: string | null
+              created_at?: string
+          }
+      }
+      dashboard_configs: {
+          Row: {
+            id: string
+            user_id: string
+            organization_id: string | null
+            config_json: Json
+            created_at: string
+            updated_at: string
+          }
+          Insert: {
+              id?: string
+              user_id: string
+              organization_id?: string | null
+              config_json: Json
+              created_at?: string
+              updated_at?: string
+          }
+          Update: {
+              id?: string
+              user_id?: string
+              organization_id?: string | null
+              config_json?: Json
+              created_at?: string
+              updated_at?: string
+          }
+      }
       qa_pairs: {
           Row: {
             id: string

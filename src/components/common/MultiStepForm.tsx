@@ -262,7 +262,6 @@ export function MultiStepForm<T extends Record<string, unknown>>({
           return;
         }
       } catch (error) {
-        console.error('Validation error:', error);
         return;
       }
     }
@@ -273,7 +272,7 @@ export function MultiStepForm<T extends Record<string, unknown>>({
       try {
         await onSubmit(formData);
       } catch (error) {
-        console.error('Submit error:', error);
+        // onSubmit is expected to handle its own error display
       } finally {
         setIsSubmitting(false);
       }

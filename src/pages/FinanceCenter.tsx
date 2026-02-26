@@ -160,8 +160,7 @@ export function FinanceCenter() {
     setBudgetSubmitting(true);
     try {
       if (editingBudgetId) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase.from('finance_budgets') as any)
+        const { error } = await supabase.from('finance_budgets')
           .update({
             name: budgetForm.name,
             total_amount: budgetForm.total_amount,
@@ -171,8 +170,7 @@ export function FinanceCenter() {
         if (error) throw error;
         toast.success('预算更新成功');
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase.from('finance_budgets') as any).insert({
+        const { error } = await supabase.from('finance_budgets').insert({
           name: budgetForm.name,
           total_amount: budgetForm.total_amount,
           used_amount: 0,
@@ -231,8 +229,7 @@ export function FinanceCenter() {
     }
     setInvoiceSubmitting(true);
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from('finance_invoices') as any).insert({
+      const { error } = await supabase.from('finance_invoices').insert({
         invoice_number: invoiceForm.invoice_number,
         amount: invoiceForm.amount,
         due_date: invoiceForm.due_date || null,
@@ -268,7 +265,7 @@ export function FinanceCenter() {
       setInvoices((data as FinanceInvoice[]) || []);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
-      console.error('Error fetching invoices:', error);
+      toast.error('加载发票数据失败');
     } finally {
       setInvoiceLoading(false);
     }
@@ -281,8 +278,7 @@ export function FinanceCenter() {
   const fetchBudgets = useCallback(async () => {
     try {
       if (!profile?.organization_id) return;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase.from('finance_budgets') as any)
+      const { data, error } = await supabase.from('finance_budgets')
         .select('*')
         .eq('organization_id', profile.organization_id)
         .order('created_at', { ascending: false });
@@ -290,7 +286,7 @@ export function FinanceCenter() {
       setBudgets((data as FinanceBudget[]) || []);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
-      console.error('Error fetching budgets:', error);
+      toast.error('加载预算数据失败');
     } finally {
       setBudgetLoading(false);
     }

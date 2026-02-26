@@ -77,7 +77,7 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
             setDocuments(formattedDocs);
             setSelectedIds(new Set()); // Clear selection on refresh
         } catch (error) {
-            console.error('Fetch error:', error);
+            toast.error('加载文档失败，请刷新重试');
         } finally {
             setIsLoading(false);
         }
@@ -156,7 +156,6 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
             // Sync with server truth
             await fetchDocuments();
         } catch (error) {
-            console.error(error);
             toast.error('删除操作失败，请重试');
             // Refresh to restore correct state on error
             await fetchDocuments();
@@ -207,7 +206,6 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
 
             // Append endpoint
             const endpoint = `${url.replace(/\/$/, '')}/api/documents/upload`;
-            if (import.meta.env.DEV) console.log('Attempting upload to:', endpoint);
 
             // P0: Secure Identity Verification
             const { data: { session } } = await supabase.auth.getSession();
@@ -221,7 +219,6 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
                 body: formData,
                 mode: 'cors',
             }).catch(err => {
-                console.error('Fetch error details:', err);
                 throw new Error(`网络连接异常: 无法触达后端 [${endpoint}]。请确认后端服务已启动且 CORS 已放行。`);
             });
 
@@ -244,7 +241,6 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
             toast.success('上传成功并已完成 AI 知识提取');
             await fetchDocuments();
         } catch (error) {
-            console.error(error);
             const message = error instanceof Error ? error.message : '上传处理异常，请重试';
             toast.error(message);
             setDocuments(prev => prev.map(d => d.id === tempId ? { ...d, status: 'error' } : d));
@@ -270,7 +266,6 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
             ));
             toast.success('文档分类已更新');
         } catch (error) {
-            console.error('Update category error:', error);
             toast.error('更新分类失败');
         }
     };

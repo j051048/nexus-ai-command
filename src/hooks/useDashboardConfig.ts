@@ -90,8 +90,7 @@ export function useDashboardConfig() {
   const { data: dbConfig } = useQuery({
     queryKey: ['dashboard-config', userId],
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase.from('dashboard_configs') as any)
+      const { data } = await supabase.from('dashboard_configs')
         .select('id, config_json')
         .eq('user_id', userId)
         .maybeSingle();
@@ -118,8 +117,7 @@ export function useDashboardConfig() {
     mutationFn: async (newConfig: DashboardConfig) => {
       if (!userId) return;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('dashboard_configs') as any).upsert(
+      await supabase.from('dashboard_configs').upsert(
         {
           user_id: userId,
           organization_id: orgId || null,

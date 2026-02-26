@@ -9,10 +9,12 @@ Adds security headers to all responses to prevent common web vulnerabilities:
 """
 
 import logging
+import os
+from urllib.parse import urlparse
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 
 logger = logging.getLogger(__name__)
 
@@ -23,9 +25,27 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
     These headers help protect against various web vulnerabilities
     and are recommended by OWASP security guidelines.
+
+    Features:
+    - Configurable CSP via CSP_POLICY environment variable
+    - CSRF origin validation on mutating requests (POST, PUT, PATCH, DELETE)
+    - Standard OWASP security headers
     """
 
-    # Default security headers
+    # Default CSP policy (used when CSP_POLICY env var is not set)
+    # TODO: For full CSP compliance, 'unsafe-inline' in script-src should be
+    # replaced with nonce-based script-src (e.g. script-src 'nonce-{random}')
+    # when the frontend deployment supports injecting nonces into script tags.
+    DEFAULT_CSP = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://*.zeabur.app; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data: https:; "
+        "connect-src 'self' https://*.supabase.co https://*.flydao.top;"
+    )
+
+    # Default security headers (CSP is added dynamically in dispatch)
     SECURITY_HEADERS = {
         # Prevent XSS attacks
         "X-Content-Type-Options": "nosniff",
@@ -42,8 +62,6 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         "Pragma": "no-cache",
         # Permissions policy (restrict browser features)
         "Permissions-Policy": "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()",
-        # P1 Security: Content Security Policy
-        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://*.zeabur.app; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co https://*.flydao.top;",
         # P0 Security: HSTS (Strict-Transport-Security)
         "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
     }
@@ -51,7 +69,71 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     # Paths that may need different caching
     STATIC_PATHS = {"/docs", "/redoc", "/openapi.json", "/favicon.ico"}
 
+    # Public paths exempt from CSRF validation (mirrors TenantContextMiddleware)
+    PUBLIC_PATHS = {"/", "/health", "/favicon.ico", "/docs", "/redoc", "/openapi.json", "/api/test-ai"}
+
+    # HTTP methods that mutate state and require CSRF origin checks
+    MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+    def __init__(self, app) -> None:
+        super().__init__(app)
+        # Configurable CSP: prefer CSP_POLICY env var, fall back to default
+        self._csp_policy = os.environ.get("CSP_POLICY", self.DEFAULT_CSP)
+        # Configurable allowed origins for CSRF validation
+        raw_origins = os.environ.get(
+            "ALLOWED_ORIGINS",
+            "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173",
+        )
+        self._allowed_origins: set[str] = {
+            o.strip().rstrip("/").lower() for o in raw_origins.split(",") if o.strip()
+        }
+
+    # ------------------------------------------------------------------
+    # CSRF Origin Validation
+    # ------------------------------------------------------------------
+    def _validate_csrf_origin(self, request: Request) -> JSONResponse | None:
+        """Validate Origin/Referer on mutating requests.
+
+        Returns a 403 JSONResponse if validation fails, or None if the
+        request is allowed to proceed.
+        """
+        if request.method not in self.MUTATING_METHODS:
+            return None
+
+        if request.url.path in self.PUBLIC_PATHS:
+            return None
+
+        # Prefer Origin header; fall back to Referer
+        origin = request.headers.get("origin")
+        if not origin:
+            referer = request.headers.get("referer")
+            if referer:
+                parsed = urlparse(referer)
+                origin = f"{parsed.scheme}://{parsed.netloc}"
+
+        # If no Origin/Referer at all, allow the request through — this
+        # accommodates non-browser clients (curl, Postman, mobile SDKs).
+        if not origin:
+            return None
+
+        normalised = origin.strip().rstrip("/").lower()
+        if normalised not in self._allowed_origins:
+            logger.warning(
+                "CSRF validation failed: origin %s not in allowed list", origin
+            )
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "CSRF validation failed: origin not allowed"},
+            )
+
+        return None
+
     async def dispatch(self, request: Request, call_next) -> Response:
+        # --- CSRF check (before processing the request) ---
+        csrf_error = self._validate_csrf_origin(request)
+        if csrf_error is not None:
+            return csrf_error
+
         response = await call_next(request)
 
         # Add security headers to all responses
@@ -59,6 +141,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             # Don't override if already set
             if header_name not in response.headers:
                 response.headers[header_name] = header_value
+
+        # Add CSP header (configurable via env)
+        if "Content-Security-Policy" not in response.headers:
+            response.headers["Content-Security-Policy"] = self._csp_policy
 
         # Allow caching for static/documentation paths
         if request.url.path in self.STATIC_PATHS:

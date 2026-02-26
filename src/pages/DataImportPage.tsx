@@ -98,7 +98,6 @@ export default function DataImportPage() {
         description: '模板已下载到本地',
       });
     } catch (error) {
-      console.error('下载模板失败:', error);
       toast({
         title: '下载失败',
         description: error instanceof Error ? error.message : '下载模板时出现错误',
@@ -174,7 +173,6 @@ export default function DataImportPage() {
         description: `解析到 ${result.data.total} 条记录`,
       });
     } catch (error) {
-      console.error('预览失败:', error);
       toast({
         title: '预览失败',
         description: error instanceof Error ? error.message : '预览文件时出现错误',
@@ -265,7 +263,6 @@ export default function DataImportPage() {
         description: `成功导入 ${result.data.success_count} 条记录`,
       });
     } catch (error) {
-      console.error('导入失败:', error);
       toast({
         title: '导入失败',
         description: error instanceof Error ? error.message : '导入数据时出现错误',

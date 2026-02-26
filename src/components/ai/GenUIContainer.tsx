@@ -24,7 +24,7 @@ interface GenUIContainerProps {
   props: Record<string, unknown>;
 }
 
-export function GenUIContainer({ componentName, props }: GenUIContainerProps) {
+export const GenUIContainer = React.memo(function GenUIContainer({ componentName, props }: GenUIContainerProps) {
   const Component = GEN_UI_COMPONENTS[componentName];
 
   if (!Component) {
@@ -39,7 +39,7 @@ export function GenUIContainer({ componentName, props }: GenUIContainerProps) {
       </Suspense>
     </div>
   );
-}
+});
 
 function GenUISkeleton() {
   return (

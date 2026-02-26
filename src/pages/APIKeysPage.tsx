@@ -136,7 +136,6 @@ function APIKeysPage() {
       setKeys(Array.isArray(data) ? data : []);
     } catch (e) {
       toast.error('加载 API Keys 失败');
-      console.error(e);
     } finally {
       setLoading(false);
     }

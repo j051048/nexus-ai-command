@@ -366,14 +366,12 @@ export function useAIStream({ userId }: UseAIStreamProps) {
             const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
             if (sessionError) {
-                console.error('Session error:', sessionError);
                 throw new Error('获取用户会话失败，请重新登录');
             }
 
             const token = session?.access_token;
 
             if (!token) {
-                console.warn('No auth token available, user may not be logged in');
                 throw new Error('请先登录后再使用 AI 助手');
             }
 
@@ -406,7 +404,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                     await parseBackendStream(response, onUpdate, onThinkingStep, onThinkingComplete);
                     tier1Succeeded = true;
                 } else if (response.status >= 500) {
-                    console.warn(`Backend returned ${response.status}, trying Edge Function proxy...`);
+                    // 5xx: backend down, fall through to next tier
                 } else {
                     // 4xx errors are real errors, don't fallback
                     const errorData = await response.json().catch(() => ({}));
@@ -419,7 +417,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                 if (!isNetworkError && !msg.includes('500')) {
                     throw err; // Non-network error, propagate
                 }
-                console.warn('Tier 1a (direct backend) failed:', msg);
+                // Tier 1a failed, fall through to Tier 1b
             }
 
             if (tier1Succeeded) return;
@@ -446,11 +444,11 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                     await parseBackendStream(response, onUpdate, onThinkingStep, onThinkingComplete);
                     tier1Succeeded = true;
                 } else {
-                    console.warn(`Edge Function proxy returned ${response.status}, falling back to enhanced direct mode...`);
+                    // Proxy failed, fall through to Tier 2
                 }
             } catch (err) {
                 if ((err as Error).name === 'AbortError') throw err;
-                console.warn('Tier 1b (Edge Function proxy) failed:', (err as Error).message);
+                // Tier 1b failed, fall through to Tier 2
             }
 
             if (tier1Succeeded) return;
@@ -470,8 +468,6 @@ export function useAIStream({ userId }: UseAIStreamProps) {
             if ((error as Error).name === 'AbortError') return;
 
             const err = error as Error;
-            console.error('AI chat error:', err);
-
             let errorMessage = 'AI 回复失败，请重试';
 
             if (err.message.includes('Failed to fetch')) {
