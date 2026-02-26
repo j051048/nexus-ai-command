@@ -17,6 +17,12 @@ const GEN_UI_COMPONENTS: Record<string, React.ComponentType<any>> = {
   // Interactive components
   TodoList: lazy(() => import('./genui/TodoList')),
   Timeline: lazy(() => import('./genui/Timeline')),
+  // P1-7: Extended GenUI components
+  ProgressTracker: lazy(() => import('./genui/ProgressTracker')),
+  MetricComparison: lazy(() => import('./genui/MetricComparison')),
+  AlertList: lazy(() => import('./genui/AlertList')),
+  FormBuilder: lazy(() => import('./genui/FormBuilder')),
+  UserProfileCard: lazy(() => import('./genui/UserProfileCard')),
 };
 
 interface GenUIContainerProps {

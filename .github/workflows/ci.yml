@@ -169,7 +169,7 @@ jobs:
           pip install pytest pytest-asyncio pytest-cov httpx
 
       - name: Run tests with coverage
-        run: pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=28
+        run: pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=50
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -250,7 +250,6 @@ jobs:
 
       - name: Run E2E tests
         run: npx playwright test --project=chromium
-        continue-on-error: true
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
@@ -364,10 +363,18 @@ jobs:
 
       - name: Build and push backend Docker image (staging)
         run: |
-          echo "Building backend Docker image for staging..."
-          echo "docker build -t nexus-backend:staging-${{ github.sha }} ./nexus_backend"
-          echo "docker tag nexus-backend:staging-${{ github.sha }} registry/nexus-backend:staging-latest"
-          echo "docker push registry/nexus-backend:staging-latest"
+          if [ -n "$DOCKER_REGISTRY" ]; then
+            echo "$DOCKER_PASSWORD" | docker login "$DOCKER_REGISTRY" -u "$DOCKER_USERNAME" --password-stdin
+            docker build -t nexus-backend:staging-${{ github.sha }} ./nexus_backend
+            docker tag nexus-backend:staging-${{ github.sha }} $DOCKER_REGISTRY/nexus-backend:staging-latest
+            docker push $DOCKER_REGISTRY/nexus-backend:staging-latest
+          else
+            echo "DOCKER_REGISTRY not configured, skipping Docker build"
+          fi
+        env:
+          DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Trigger backend staging deployment
         if: env.STAGING_DEPLOY_WEBHOOK_URL != ''

@@ -1,17 +1,42 @@
 import logging
 from abc import ABC, abstractmethod
+from enum import Enum
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
+class ConfirmationType(Enum):
+    """P2-1: Structured HITL confirmation types."""
+
+    IRREVERSIBLE = "irreversible"  # Delete, reject, cancel operations
+    HIGH_VALUE = "high_value"  # Amount exceeds threshold
+    BULK_OPERATION = "bulk"  # Batch operations affecting multiple records
+    EXTERNAL = "external"  # Actions affecting external systems (email, webhook)
+    PERMISSION_ESCALATION = "escalation"  # Actions requiring elevated privileges
+
+
+# P2-1: Thresholds for automatic confirmation triggers
+CONFIRMATION_THRESHOLDS = {
+    "high_value_amount": 50_000,  # CNY
+    "bulk_record_count": 5,
+}
+
+
 class ConfirmationRequired(Exception):  # noqa: N818
     """Raised when a tool requires human confirmation before execution."""
 
-    def __init__(self, preview_message: str, tool_name: str, args: dict[str, Any]):
+    def __init__(
+        self,
+        preview_message: str,
+        tool_name: str,
+        args: dict[str, Any],
+        confirmation_type: ConfirmationType = ConfirmationType.IRREVERSIBLE,
+    ):
         self.preview_message = preview_message
         self.tool_name = tool_name
         self.args = args
+        self.confirmation_type = confirmation_type
         super().__init__(preview_message)
 
 
@@ -71,15 +96,36 @@ class BaseTool(ABC):
 
         P0 Fix #2: This NOW requires system_confirmed=True (from frontend action)
         and ignores the LLM-generated 'confirm' argument to prevent bypass.
+
+        P2-1: Enhanced with structured confirmation types:
+        - Irreversible operations (delete, reject, cancel)
+        - High-value transactions (above threshold)
+        - Bulk operations (affecting multiple records)
         """
-        if not self.is_irreversible:
+        reasons: list[str] = []
+
+        # Check irreversible flag
+        if self.is_irreversible:
+            reasons.append(f"🔒 不可逆操作: {self.confirmation_message}")
+
+        # P2-1: Check high-value amount
+        amount = args.get("amount") or args.get("value") or args.get("total")
+        if amount and isinstance(amount, (int, float)) and amount >= CONFIRMATION_THRESHOLDS["high_value_amount"]:
+            reasons.append(f"💰 大额操作: ¥{amount:,.0f} (超过 ¥{CONFIRMATION_THRESHOLDS['high_value_amount']:,} 阈值)")
+
+        # P2-1: Check bulk operations
+        items = args.get("ids") or args.get("items") or args.get("batch")
+        if isinstance(items, (list, tuple)) and len(items) >= CONFIRMATION_THRESHOLDS["bulk_record_count"]:
+            reasons.append(f"📦 批量操作: 将影响 {len(items)} 条记录")
+
+        if not reasons:
             return None
 
         # System-level enforcement: if not explicitly confirmed by the system (human click), block
         if system_confirmed is True:
             return None  # Confirmed by human, allow execution
 
-        return self.confirmation_message
+        return "\n".join(["⚠️ 操作需要确认:"] + reasons + ["请确认后再执行。"])
 
     async def validate(self, args: dict[str, Any]) -> None:
         """

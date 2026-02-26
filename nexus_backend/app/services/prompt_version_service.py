@@ -264,8 +264,8 @@ class PromptVersionService:
             return self._version_cache.get(selected_version_id)
         return self.get_active_version(prompt_key)
 
-    def record_ab_test_metric(self, test_id: str, version_id: str, metric_name: str, value: float):
-        """Record a metric for A/B test analysis."""
+    def record_ab_test_metric(self, test_id: str, version_id: str, metric_name: str, value: float, db=None):
+        """Record a metric for A/B test analysis. Auto-persists to DB if provided."""
         test = self._ab_tests.get(test_id)
         if not test:
             return
@@ -277,9 +277,30 @@ class PromptVersionService:
         if metric_name not in test.metrics["metrics"][version_id]:
             test.metrics["metrics"][version_id][metric_name] = []
 
-        test.metrics["metrics"][version_id][metric_name].append(
-            {"value": value, "timestamp": datetime.now().isoformat()}
-        )
+        metric_entry = {"value": value, "timestamp": datetime.now().isoformat()}
+        test.metrics["metrics"][version_id][metric_name].append(metric_entry)
+
+        # P1-3: Auto-persist to DB (fire-and-forget)
+        if db:
+            import asyncio
+
+            async def _persist():
+                try:
+                    await db.table("prompt_metrics").insert({
+                        "test_id": test_id,
+                        "version_id": version_id,
+                        "metric_name": metric_name,
+                        "value": value,
+                        "prompt_key": test.prompt_key,
+                    }).execute()
+                except Exception as e:
+                    logger.debug(f"AB metric persist skipped: {e}")
+
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(_persist())
+            except RuntimeError:
+                pass
 
     def get_ab_test_results(self, test_id: str) -> dict:
         """Get A/B test results summary."""

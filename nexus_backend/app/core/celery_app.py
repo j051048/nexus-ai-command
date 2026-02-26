@@ -48,4 +48,17 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.scheduler.aggregate_ai_quality_metrics",
         "schedule": crontab(hour=23, minute=55),  # 每天23:55聚合当日数据
     },
+    # P0-2: Migrated from main.py asyncio.create_task loops to Celery Beat
+    "tenant-monitoring": {
+        "task": "app.tasks.scheduler.monitor_tenants",
+        "schedule": 300.0,  # 每5分钟
+    },
+    "approval-timeout-check": {
+        "task": "app.tasks.scheduler.check_approval_timeouts",
+        "schedule": 300.0,  # 每5分钟
+    },
+    "im-platform-sync": {
+        "task": "app.tasks.scheduler.sync_im_platforms",
+        "schedule": 3600.0,  # 每小时
+    },
 }

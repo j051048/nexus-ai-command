@@ -157,60 +157,10 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Tiktoken warmup skipped: {e}")
 
-    # Start background tenant monitoring (every 5 minutes)
-    async def _tenant_monitor_loop():
-        from app.core.database import supabase
-        from app.services.billing_service import billing_service
-        from app.services.tenant_credit_service import tenant_credit_service
-
-        while True:
-            await asyncio.sleep(300)
-            try:
-                await tenant_credit_service.monitor_all_tenants(db=supabase)
-                # P2 Fix: Check for expired trials and period-end cancellations
-                await billing_service.check_expired_trials(db=supabase)
-            except Exception as e:
-                logger.error(f"Tenant monitoring error: {e}")
-
-    monitor_task = asyncio.create_task(_tenant_monitor_loop())
-
-    # Start background approval timeout escalation (every 5 minutes)
-    async def _approval_timeout_loop():
-        from app.services.approval_chain import approval_chain_service
-
-        while True:
-            await asyncio.sleep(300)
-            try:
-                await approval_chain_service.check_timeout_escalation()
-            except Exception as e:
-                logger.error(f"Approval timeout check error: {e}")
-
-    timeout_task = asyncio.create_task(_approval_timeout_loop())
-
-    # Start background IM platform sync (contacts + attendance, every hour)
-    async def _im_sync_loop():
-        from app.core.database import supabase as sync_db
-        from app.services.im_platform.attendance_sync_service import attendance_sync_service
-        from app.services.im_platform.contact_sync_service import contact_sync_service
-
-        while True:
-            await asyncio.sleep(3600)  # Every hour
-            try:
-                if sync_db:
-                    result = await sync_db.table("im_platform_config").select("*").eq("is_active", True).execute()
-                    for config in result.data or []:
-                        try:
-                            org_id = config.get("organization_id", "")
-                            platform = config.get("platform", "")
-                            if org_id and platform:
-                                await contact_sync_service.sync_contacts(org_id, platform, db=sync_db)
-                                await attendance_sync_service.sync_attendance(org_id, platform, db=sync_db)
-                        except Exception as e:
-                            logger.error(f"IM sync error for org {config.get('organization_id')}: {e}")
-            except Exception as e:
-                logger.error(f"IM sync loop error: {e}")
-
-    im_sync_task = asyncio.create_task(_im_sync_loop())
+    # P0-2: Background tasks migrated to Celery Beat (see app/tasks/scheduler.py)
+    # - monitor_tenants (every 5 min)
+    # - check_approval_timeouts (every 5 min)
+    # - sync_im_platforms (every hour)
 
     # Start auto-trigger service (3.2 主动监控)
     from app.services.auto_trigger_service import auto_trigger_service
@@ -225,9 +175,6 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Shutting down Nexus Backend...")
-    monitor_task.cancel()
-    timeout_task.cancel()
-    im_sync_task.cancel()
     with suppress(Exception):
         await auto_trigger_service.stop()
     await event_bus.stop()

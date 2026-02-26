@@ -8,13 +8,65 @@ Provides a unified execution interface for all plugin categories:
 - Security plugins (Compliance Check): run audits
 
 Each executor handles the specific API protocol of its target system.
+
+P0-3 Security: Added sandbox isolation with:
+- URL allowlist validation (SSRF protection)
+- Execution timeout enforcement
+- Output size limits
 """
 
+import asyncio
 import logging
 from abc import ABC, abstractmethod
 from typing import Any
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
+# P0-3: SSRF protection — only allow these domains for outbound requests
+ALLOWED_DOMAINS: set[str] = {
+    # Notification webhooks
+    "qyapi.weixin.qq.com",
+    "oapi.dingtalk.com",
+    # ERP domains — add your actual domains here
+    "api.kingdee.com",
+    "api.yonyou.com",
+}
+
+# P0-3: Limits
+PLUGIN_TIMEOUT_SECONDS = 30
+PLUGIN_MAX_OUTPUT_SIZE = 50_000  # 50KB max output
+
+
+def _validate_url(url: str) -> bool:
+    """Validate URL against SSRF allowlist. Block private IPs and unknown domains."""
+    try:
+        parsed = urlparse(url)
+        hostname = parsed.hostname or ""
+
+        # Block private/internal IPs
+        if hostname in ("localhost", "127.0.0.1", "0.0.0.0", "::1"):
+            return False
+        # Check if hostname starts with internal ranges
+        if hostname.startswith(("10.", "172.16.", "192.168.", "169.254.")):
+            return False
+
+        # Check domain allowlist
+        return hostname in ALLOWED_DOMAINS
+    except Exception:
+        return False
+
+
+def _truncate_output(result: dict) -> dict:
+    """Truncate oversized output to prevent memory abuse."""
+    import json
+
+    serialized = json.dumps(result, default=str)
+    if len(serialized) > PLUGIN_MAX_OUTPUT_SIZE:
+        result["_truncated"] = True
+        if "data" in result:
+            result["data"] = str(result["data"])[:PLUGIN_MAX_OUTPUT_SIZE // 2]
+    return result
 
 
 class BasePluginExecutor(ABC):
@@ -38,6 +90,10 @@ class WebhookNotificationExecutor(BasePluginExecutor):
         webhook_url = config.get("webhook_url")
         if not webhook_url:
             return {"success": False, "error": "Missing webhook_url in plugin config"}
+
+        # P0-3: SSRF protection
+        if not _validate_url(webhook_url):
+            return {"success": False, "error": f"URL not in allowlist: {urlparse(webhook_url).hostname}"}
 
         if action == "send_message":
             return await self._send_webhook_message(webhook_url, params)
@@ -88,6 +144,10 @@ class ERPConnectorExecutor(BasePluginExecutor):
 
         if not api_url:
             return {"success": False, "error": "Missing API URL in plugin config"}
+
+        # P0-3: SSRF protection
+        if not _validate_url(api_url):
+            return {"success": False, "error": f"URL not in allowlist: {urlparse(api_url).hostname}"}
 
         if action == "query":
             return await self._query_erp(api_url, api_key, params)
@@ -276,9 +336,16 @@ async def execute_plugin(
         except Exception as e:
             logger.warning(f"Failed to load plugin config: {e}")
 
-    # Execute
+    # Execute with sandbox isolation
     try:
-        return await executor.execute(action, params, config)
+        result = await asyncio.wait_for(
+            executor.execute(action, params, config),
+            timeout=PLUGIN_TIMEOUT_SECONDS,
+        )
+        return _truncate_output(result)
+    except asyncio.TimeoutError:
+        logger.error(f"Plugin execution timed out ({plugin_id}/{action})")
+        return {"success": False, "error": f"Plugin execution timed out after {PLUGIN_TIMEOUT_SECONDS}s"}
     except Exception as e:
         logger.error(f"Plugin execution failed ({plugin_id}/{action}): {e}")
         return {"success": False, "error": str(e)[:200]}

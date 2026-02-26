@@ -178,42 +178,33 @@ class ConversationMemoryService:
         user_id: str,
         query: str,
         limit: int = 5,
+        org_id: str | None = None,
         db: Any = None,
     ) -> list[dict]:
-        """搜索相关记忆（基于关键字匹配）"""
+        """搜索相关记忆（混合检索：embedding 语义搜索 + 关键字匹配）
+
+        P0 Security: 强制 org_id 过滤，防止跨租户记忆泄露。
+        P1 Enhancement: 优先使用 embedding 向量搜索，关键字匹配作为 fallback。
+        """
         client = db or supabase
         if not client:
             return []
 
-        # Simple keyword-based search using ilike on key and value
-        # For production, consider using pg_trgm or full-text search
         memories: list[dict] = []
 
         try:
-            # Search in key field
-            result_key = (
-                await client.table("conversation_memories")
-                .select("*")
-                .eq("user_id", user_id)
-                .ilike("key", f"%{query}%")
-                .limit(limit)
-                .execute()
-            )
-            if result_key.data:
-                memories.extend(result_key.data)
+            # Strategy 1: Embedding-based semantic search (preferred)
+            semantic_results = await self._semantic_search(user_id, query, limit, org_id, client)
+            if semantic_results:
+                memories.extend(semantic_results)
 
-            # Search in value field
-            seen_ids = {m["id"] for m in memories}
-            result_value = (
-                await client.table("conversation_memories")
-                .select("*")
-                .eq("user_id", user_id)
-                .ilike("value", f"%{query}%")
-                .limit(limit)
-                .execute()
-            )
-            if result_value.data:
-                for item in result_value.data:
+            # Strategy 2: Keyword fallback (supplement if semantic results insufficient)
+            if len(memories) < limit:
+                keyword_results = await self._keyword_search(
+                    user_id, query, limit - len(memories), org_id, client
+                )
+                seen_ids = {m["id"] for m in memories}
+                for item in keyword_results:
                     if item["id"] not in seen_ids:
                         memories.append(item)
         except Exception as e:
@@ -236,6 +227,63 @@ class ConversationMemoryService:
                 )
 
         return memories[:limit]
+
+    async def _semantic_search(
+        self, user_id: str, query: str, limit: int, org_id: str | None, client
+    ) -> list[dict]:
+        """Embedding-based semantic search on memories using pgvector."""
+        try:
+            from app.services.vector_service import vector_service
+
+            # Generate embedding for the query
+            query_embedding = await vector_service._embed_text(query)
+            if not query_embedding:
+                return []
+
+            # Use RPC for cosine similarity search on conversation_memories
+            params = {
+                "query_embedding": query_embedding,
+                "match_user_id": user_id,
+                "match_limit": limit,
+            }
+            if org_id:
+                params["match_org_id"] = org_id
+
+            result = await client.rpc("search_memories_by_embedding", params).execute()
+            return result.data or []
+        except Exception as e:
+            logger.debug(f"Semantic memory search unavailable, falling back to keyword: {e}")
+            return []
+
+    async def _keyword_search(
+        self, user_id: str, query: str, limit: int, org_id: str | None, client
+    ) -> list[dict]:
+        """Keyword-based fallback search using ILIKE."""
+        memories: list[dict] = []
+
+        # Build base query with mandatory tenant isolation
+        base_query = client.table("conversation_memories").select("*").eq("user_id", user_id)
+        if org_id:
+            base_query = base_query.eq("organization_id", org_id)
+
+        # Search in key field
+        result_key = await base_query.ilike("key", f"%{query}%").limit(limit).execute()
+        if result_key.data:
+            memories.extend(result_key.data)
+
+        # Search in value field
+        if len(memories) < limit:
+            seen_ids = {m["id"] for m in memories}
+            val_query = client.table("conversation_memories").select("*").eq("user_id", user_id)
+            if org_id:
+                val_query = val_query.eq("organization_id", org_id)
+            result_value = await val_query.ilike("value", f"%{query}%").limit(limit).execute()
+            if result_value.data:
+                for item in result_value.data:
+                    if item["id"] not in seen_ids:
+                        memories.append(item)
+
+        return memories
 
     async def delete_memory(
         self,

@@ -201,27 +201,59 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     P1 Security Fix #7: Removed JWT decoding with verify_signature=False
     Now uses IP-based limiting only in middleware layer.
     User-based limiting should be done at endpoint level after proper auth.
+
+    P1-8: Integrates with tiered rate_limiting_service for per-endpoint limits.
     """
 
     # Endpoints exempt from rate limiting
     EXEMPT_PATHS = {"/", "/health", "/favicon.ico", "/docs", "/openapi.json", "/redoc"}
+
+    # P1-8: Endpoint category mapping for tiered limits
+    ENDPOINT_CATEGORIES = {
+        "/api/chat": "chat",
+        "/api/documents/upload": "upload",
+        "/api/auth": "auth",
+        "/api/export": "export",
+    }
 
     async def dispatch(self, request: Request, call_next):
         # Skip rate limiting for exempt paths
         if request.url.path in self.EXEMPT_PATHS:
             return await call_next(request)
 
-        # P1 Security Fix #7:
-        # NO LONGER extract user_id from JWT without signature verification!
-        # That was a security vulnerability (algorithm confusion, token manipulation)
-        #
-        # Rate limiting at middleware level now uses IP only.
-        # For user-specific rate limiting, use @rate_limit decorator on
-        # endpoints AFTER proper authentication.
-        user_id = None  # IP-based only at middleware level
+        # P1-8: Resolve tier-aware limits for authenticated users
+        user_id = None
+        tier_limit = None
+        path = request.url.path
 
-        # Check rate limit
-        allowed, metadata = await rate_limiter.is_allowed(request, user_id)
+        # Determine endpoint category
+        category = None
+        for prefix, cat in self.ENDPOINT_CATEGORIES.items():
+            if path.startswith(prefix):
+                category = cat
+                break
+
+        # If we have a category, try to apply tiered limits
+        if category:
+            try:
+                from app.services.rate_limiting_service import rate_limiting_service, RateTier
+
+                # Try to get user_id from request state (set by auth middleware)
+                uid = getattr(request.state, "user_id", None) if hasattr(request.state, "user_id") else None
+                if uid:
+                    user_id = uid
+                    tier = await rate_limiting_service.get_user_tier(user_id)
+                    tier_limit = rate_limiting_service.get_endpoint_limit(tier, category)
+            except Exception:
+                pass  # Fall through to global rate limit
+
+        # Check rate limit (use tier limit or global)
+        if tier_limit and user_id:
+            # Create a temporary rate limiter with tier-specific rate
+            tier_limiter = RateLimiter(rate=tier_limit, burst=max(tier_limit // 6, 2))
+            allowed, metadata = await tier_limiter.is_allowed(request, user_id)
+        else:
+            allowed, metadata = await rate_limiter.is_allowed(request, user_id)
 
         if not allowed:
             raise HTTPException(

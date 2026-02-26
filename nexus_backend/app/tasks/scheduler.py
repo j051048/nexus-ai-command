@@ -284,6 +284,77 @@ def aggregate_ai_quality_metrics():
 
 
 @celery_app.task
+def monitor_tenants():
+    """
+    租户信用监控 + 试用到期检查（原 main.py asyncio 循环）
+    每5分钟运行一次
+    """
+
+    async def _run():
+        from app.core.database import supabase
+        from app.services.billing_service import billing_service
+        from app.services.tenant_credit_service import tenant_credit_service
+
+        if not supabase:
+            return "skipped: no db"
+
+        await tenant_credit_service.monitor_all_tenants(db=supabase)
+        await billing_service.check_expired_trials(db=supabase)
+        return "Tenant monitoring complete"
+
+    return _run_async(_run())
+
+
+@celery_app.task
+def check_approval_timeouts():
+    """
+    审批超时升级检查（原 main.py asyncio 循环）
+    每5分钟运行一次
+    """
+
+    async def _run():
+        from app.services.approval_chain import approval_chain_service
+
+        await approval_chain_service.check_timeout_escalation()
+        return "Approval timeout check complete"
+
+    return _run_async(_run())
+
+
+@celery_app.task
+def sync_im_platforms():
+    """
+    IM平台通讯录+考勤同步（原 main.py asyncio 循环）
+    每小时运行一次
+    """
+
+    async def _run():
+        from app.core.database import supabase as sync_db
+        from app.services.im_platform.attendance_sync_service import attendance_sync_service
+        from app.services.im_platform.contact_sync_service import contact_sync_service
+
+        if not sync_db:
+            return "skipped: no db"
+
+        result = await sync_db.table("im_platform_config").select("*").eq("is_active", True).execute()
+        synced = 0
+        for config in result.data or []:
+            try:
+                org_id = config.get("organization_id", "")
+                platform = config.get("platform", "")
+                if org_id and platform:
+                    await contact_sync_service.sync_contacts(org_id, platform, db=sync_db)
+                    await attendance_sync_service.sync_attendance(org_id, platform, db=sync_db)
+                    synced += 1
+            except Exception as e:
+                logger.error(f"IM sync error for org {config.get('organization_id')}: {e}")
+
+        return f"IM sync complete: {synced} orgs synced"
+
+    return _run_async(_run())
+
+
+@celery_app.task
 def check_contract_expiry():
     """
     3.5 合同到期预警

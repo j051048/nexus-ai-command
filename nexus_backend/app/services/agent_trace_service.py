@@ -189,9 +189,10 @@ class AgentTraceService:
         return step
 
     def end_trace(
-        self, trace_id: str, status: TraceStatus, final_response: str = None, error: str = None
+        self, trace_id: str, status: TraceStatus, final_response: str = None, error: str = None,
+        db=None,
     ) -> AgentTrace | None:
-        """End a trace and move to completed."""
+        """End a trace and move to completed. Auto-persists to DB if db is provided."""
         trace = self._active_traces.pop(trace_id, None)
         if not trace:
             return None
@@ -218,6 +219,18 @@ class AgentTraceService:
         self._record_metric("trace_cost_usd", trace.total_cost_usd)
 
         logger.info(f"Trace ended: {trace_id}, status={status.value}, duration={trace.total_duration_ms}ms")
+
+        # P0-5: Auto-persist to DB (fire-and-forget)
+        if db:
+            import asyncio
+
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(self.persist_trace(trace_id, db=db))
+            except RuntimeError:
+                # No running loop, skip auto-persist
+                logger.debug(f"No event loop for auto-persist of trace {trace_id}")
+
         return trace
 
     def get_trace(self, trace_id: str) -> AgentTrace | None:
