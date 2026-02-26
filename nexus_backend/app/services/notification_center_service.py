@@ -201,7 +201,7 @@ class NotificationCenterService:
                 .execute()
             )
 
-            if result.data:
+            if result and result.data:
                 return result.data
 
             # Return defaults if no preferences exist
@@ -239,7 +239,7 @@ class NotificationCenterService:
             await client.table("notification_preferences").select("id").eq("user_id", user_id).maybe_single().execute()
         )
 
-        if existing.data:
+        if existing and existing.data:
             # Update existing
             result = await client.table("notification_preferences").update(sanitized).eq("user_id", user_id).execute()
         else:
