@@ -48,9 +48,12 @@ class LeaveRequestTool(BaseTool):
             },
             "start_date": {
                 "type": "string",
-                "description": "开始日期，格式 YYYY-MM-DD",
+                "description": "开始日期，格式 YYYY-MM-DD。必须基于系统提示词中的当前时间来推算，禁止使用过去年份的日期。",
             },
-            "end_date": {"type": "string", "description": "结束日期，格式 YYYY-MM-DD"},
+            "end_date": {
+                "type": "string",
+                "description": "结束日期，格式 YYYY-MM-DD。必须基于系统提示词中的当前时间来推算，禁止使用过去年份的日期。",
+            },
             "reason": {"type": "string", "description": "请假原因"},
             "handover_to": {
                 "type": "string",
@@ -70,16 +73,33 @@ class LeaveRequestTool(BaseTool):
         reason = args.get("reason", "")
         handover_to = args.get("handover_to")
 
-        # 计算请假天数 - P2 Fix: Proper exception handling
+        # P0 Fix: Date sanity checks
         try:
             start = datetime.strptime(start_date, "%Y-%m-%d")
             end = datetime.strptime(end_date, "%Y-%m-%d")
+
+            # Reject dates that are clearly in the wrong year
+            now = datetime.now()
+            if start.year < now.year - 1 or start.year > now.year + 1:
+                logger.warning(f"Suspicious leave date: {start_date} (current: {now.strftime('%Y-%m-%d')})")
+                return (
+                    f"日期异常：您提交的请假开始日期是 {start_date}，"
+                    f"但当前日期是 {now.strftime('%Y-%m-%d')}。\n\n"
+                    f"请重新告诉我您想请假的具体日期，例如：\n"
+                    f'- "帮我请明天的假"\n'
+                    f'- "请 {now.strftime("%Y-%m-%d")} 到 {(now + timedelta(days=2)).strftime("%Y-%m-%d")} 的假"'
+                )
+            if end < start:
+                return "结束日期不能早于开始日期，请检查后重新提交。"
+            if start < now - timedelta(days=7):
+                return f"请假开始日期 {start_date} 已经过去超过一周，请确认日期是否正确。当前日期是 {now.strftime('%Y-%m-%d')}。"
+
             days = (end - start).days + 1
             # 排除周末（简化计算）
             work_days = sum(1 for i in range(days) if (start + timedelta(days=i)).weekday() < 5)
         except ValueError as e:
             logger.warning(f"Date parsing error: {e}")
-            return "❌ 日期格式错误，请使用 YYYY-MM-DD 格式"
+            return "日期格式错误，请使用 YYYY-MM-DD 格式"
 
         # 获取用户信息
         user_res = (
