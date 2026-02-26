@@ -37,12 +37,9 @@ export interface ContractWithEvents extends Contract {
   events: ContractEvent[];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const contractsTable = () => supabase.from('contracts') as any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const eventsTable = () => supabase.from('contract_events') as any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const customersTable = () => supabase.from('customers') as any;
+const contractsTable = () => supabase.from('contracts');
+const eventsTable = () => supabase.from('contract_events');
+const customersTable = () => supabase.from('customers');
 
 /** Fetch all contracts for the current organization */
 export function useContracts(filters?: { status?: string; search?: string }) {

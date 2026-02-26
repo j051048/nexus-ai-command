@@ -195,6 +195,8 @@ async def run_agent_stream(
         "rag_sources": rag_sources,
         "error_recovery_attempted": False,
         "error_recovery_level": 0,
+        # Observability
+        "trace_logger": tracer,
         # VMD multi-agent orchestration fields
         "agent_code": vmd_agent_code or "",
         "scene_code": scene_code or "",

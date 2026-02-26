@@ -167,6 +167,9 @@ class AgentState(TypedDict, total=False):
     total_input_tokens: int
     total_output_tokens: int
 
+    # ── Observability ──
+    trace_logger: Any  # TraceLogger instance (optional, for Langfuse integration)
+
     # ── VMD Multi-Agent Orchestration ──
     agent_code: str  # Current agent role code (e.g., "content_agent")
     scene_code: str  # Current business scene code

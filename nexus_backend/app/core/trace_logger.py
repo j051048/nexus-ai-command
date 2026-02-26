@@ -30,14 +30,26 @@ def _get_sanitizer():
 
 
 def _get_langfuse():
-    """Lazy initialize Langfuse client if configured."""
+    """Lazy initialize Langfuse client if configured via Settings."""
     global _langfuse_client
     if _langfuse_client is not None:
         return _langfuse_client
 
-    public_key = os.getenv("LANGFUSE_PUBLIC_KEY")
-    secret_key = os.getenv("LANGFUSE_SECRET_KEY")
-    host = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
+    try:
+        from app.core.config import settings
+
+        if not settings.LANGFUSE_ENABLED:
+            _langfuse_client = False
+            return None
+
+        public_key = settings.LANGFUSE_PUBLIC_KEY
+        secret_key = settings.LANGFUSE_SECRET_KEY
+        host = settings.LANGFUSE_HOST
+    except Exception:
+        # Fallback to env vars if settings not available
+        public_key = os.getenv("LANGFUSE_PUBLIC_KEY", "")
+        secret_key = os.getenv("LANGFUSE_SECRET_KEY", "")
+        host = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
 
     if public_key and secret_key:
         try:
@@ -47,12 +59,12 @@ def _get_langfuse():
             logger.info("Langfuse client initialized successfully")
         except ImportError:
             logger.warning("Langfuse package not installed. Run: pip install langfuse")
-            _langfuse_client = False  # Mark as unavailable
+            _langfuse_client = False
         except Exception as e:
             logger.warning(f"Failed to initialize Langfuse: {e}")
             _langfuse_client = False
     else:
-        _langfuse_client = False  # Not configured
+        _langfuse_client = False
 
     return _langfuse_client if _langfuse_client else None
 

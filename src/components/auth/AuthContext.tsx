@@ -59,8 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(profileData as unknown as Profile);
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: roleData } = await (supabase as any)
+      const { data: roleData } = await supabase
         .rpc('get_user_role', { _user_id: userId });
 
       if (roleData) {

@@ -64,11 +64,70 @@ import {
 import { Button } from '@/components/ui/button';
 import { useExceptions } from '@/hooks/useExceptions';
 
-type AppRole = 'boss' | 'manager' | 'ai_assistant' | 'employee';
+type AppRole = 'boss' | 'manager' | 'ai_assistant' | 'employee' | 'founder';
 
 interface NavItem {
   icon: React.ReactNode;
   label: string;
+  href: string;
+  badge?: string;
+  badgeType?: 'primary' | 'success' | 'warning';
+  roles?: AppRole[]; // undefined = 所有人可见
+  group: string; // 菜单分组
+}
+
+// 统一导航配置 — 单一数据源，通过 roles 和 group 控制可见性
+const NAV_CONFIG: NavItem[] = [
+  // AI 核心指挥
+  { icon: <Crown size={20} />, label: '总控中心', href: 'boss-dashboard', roles: ['boss', 'founder'], group: 'AI 核心指挥' },
+  { icon: <LayoutDashboard size={20} />, label: '战绩中心', href: 'dashboard', group: 'AI 核心指挥' },
+  { icon: <FileSearch size={20} />, label: '标书审阅', href: 'tender-analysis', roles: ['employee', 'manager', 'boss', 'founder'], group: 'AI 核心指挥' },
+  { icon: <Swords size={20} />, label: '竞品库', href: 'battlecards', group: 'AI 核心指挥' },
+  { icon: <TrendingUp size={20} />, label: '销售AI管理', href: 'sales', badge: '5', badgeType: 'primary', roles: ['employee', 'manager', 'boss', 'founder'], group: 'AI 核心指挥' },
+  { icon: <Contact size={20} />, label: 'CRM管理', href: 'crm', roles: ['employee', 'manager', 'boss', 'founder'], group: 'AI 核心指挥' },
+
+  // 业务与日常
+  { icon: <Briefcase size={20} />, label: '项目管理', href: 'projects', roles: ['employee', 'manager', 'boss', 'founder'], group: '业务与日常' },
+  { icon: <Target size={20} />, label: '目标看板', href: 'target-dashboard', group: '业务与日常' },
+  { icon: <TrendingUp size={20} />, label: '目标管理', href: 'targets', roles: ['boss', 'founder'], group: '业务与日常' },
+  { icon: <AlertTriangle size={20} />, label: '异常待办', href: 'exceptions', roles: ['boss', 'founder'], group: '业务与日常' },
+  { icon: <FileCheck size={20} />, label: '智能审批', href: 'approval', roles: ['employee', 'manager', 'boss', 'founder'], group: '业务与日常' },
+  { icon: <Users size={20} />, label: '团队管理', href: 'employees', roles: ['manager', 'boss', 'founder'], group: '业务与日常' },
+  { icon: <Building2 size={20} />, label: '部门管理', href: 'departments', roles: ['boss', 'founder'], group: '业务与日常' },
+  { icon: <FileSignature size={20} />, label: '合同管理', href: 'contracts', roles: ['manager', 'boss', 'founder'], group: '业务与日常' },
+  { icon: <BarChart3 size={20} />, label: '数据报表', href: 'reports', group: '业务与日常' },
+
+  // OA/HR/财务
+  { icon: <Calendar size={20} />, label: 'OA办公', href: 'oa', group: 'OA/HR/财务' },
+  { icon: <Clock size={20} />, label: '人事中心', href: 'hr', roles: ['manager', 'boss', 'founder'], group: 'OA/HR/财务' },
+  { icon: <DollarSign size={20} />, label: '财务中心', href: 'finance', group: 'OA/HR/财务' },
+
+  // 知识与个人
+  { icon: <BookOpen size={20} />, label: '知识库', href: 'knowledge', group: '知识与个人' },
+  { icon: <Upload size={20} />, label: '数据导入', href: 'import', roles: ['boss', 'founder'], group: '知识与个人' },
+  { icon: <GraduationCap size={20} />, label: '培训中心', href: 'training', group: '知识与个人' },
+  { icon: <Gift size={20} />, label: '激励钱包', href: 'rewards', badge: '¥200', badgeType: 'success', group: '知识与个人' },
+  { icon: <Settings size={20} />, label: '系统设置', href: 'settings', group: '知识与个人' },
+
+  // 虚拟市场部
+  { icon: <Rocket size={20} />, label: '虚拟市场部', href: 'vmd', badge: 'AI', badgeType: 'primary', group: '虚拟市场部' },
+  { icon: <ListTodo size={20} />, label: '任务中心', href: 'vmd/tasks', group: '虚拟市场部' },
+  { icon: <BotIcon size={20} />, label: 'Agent配置', href: 'vmd/agents', roles: ['boss', 'manager', 'founder'], group: '虚拟市场部' },
+  { icon: <Target size={20} />, label: '线索管理', href: 'vmd/clues', group: '虚拟市场部' },
+  { icon: <ShieldCheck size={20} />, label: '合规校验', href: 'vmd/compliance', group: '虚拟市场部' },
+  { icon: <BarChart3 size={20} />, label: 'VMD看板', href: 'vmd/dashboard', group: '虚拟市场部' },
+
+  // 系统管理
+  { icon: <Cpu size={20} />, label: '模型管理', href: 'llm/models', roles: ['boss', 'founder'], group: '系统管理' },
+  { icon: <ClipboardList size={20} />, label: '审计日志', href: 'audit', roles: ['boss', 'founder'], group: '系统管理' },
+  { icon: <Puzzle size={20} />, label: '插件市场', href: 'plugins', roles: ['boss', 'founder'], group: '系统管理' },
+  { icon: <Key size={20} />, label: 'API密钥', href: 'api-keys', roles: ['boss', 'founder'], group: '系统管理' },
+  { icon: <CreditCard size={20} />, label: '订阅支付', href: 'payments', roles: ['boss', 'founder'], group: '系统管理' },
+  { icon: <Bug size={20} />, label: 'Agent调试', href: 'agent-debug', roles: ['boss', 'founder'], group: '系统管理' },
+];
+
+// 分组顺序
+const NAV_GROUPS = ['AI 核心指挥', '业务与日常', 'OA/HR/财务', '知识与个人', '虚拟市场部', '系统管理'];
   href: string;
   badge?: string;
   badgeType?: 'primary' | 'success' | 'warning';
@@ -114,79 +173,20 @@ export function Sidebar({ onNavClick }: SidebarProps) {
     return location.pathname.startsWith('/' + href);
   };
 
-  const employeeNav: NavItem[] = [
-    { icon: <LayoutDashboard size={20} />, label: '战绩中心', href: 'dashboard', roles: undefined }, // 所有人
-    { icon: <Briefcase size={20} />, label: '项目管理', href: 'projects', roles: ['employee', 'manager', 'boss'] },
-    { icon: <FileSearch size={20} />, label: '标书审阅', href: 'tender-analysis', roles: ['employee', 'manager', 'boss'] },
-    { icon: <Swords size={20} />, label: '竞品库', href: 'battlecards', roles: undefined },
-    { icon: <Target size={20} />, label: '目标看板', href: 'target-dashboard', roles: undefined },
-    { icon: <TrendingUp size={20} />, label: '销售AI管理', href: 'sales', badge: '5', badgeType: 'primary', roles: ['employee', 'manager', 'boss'] },
-    { icon: <Contact size={20} />, label: 'CRM管理', href: 'crm', roles: ['employee', 'manager', 'boss'] },
-    { icon: <FileCheck size={20} />, label: '智能审批', href: 'approval', roles: ['employee', 'manager', 'boss'] },
-    { icon: <FileSignature size={20} />, label: '合同管理', href: 'contracts', roles: ['manager', 'boss'] },
-    { icon: <BarChart3 size={20} />, label: '数据报表', href: 'reports', roles: undefined },
-    { icon: <Calendar size={20} />, label: 'OA办公', href: 'oa', roles: undefined },
-    { icon: <Clock size={20} />, label: '人事中心', href: 'hr', roles: ['manager', 'boss'] },
-    { icon: <DollarSign size={20} />, label: '财务中心', href: 'finance', roles: undefined },
-    { icon: <Upload size={20} />, label: '数据导入', href: 'import', roles: ['boss'] },
-    { icon: <BookOpen size={20} />, label: '知识库', href: 'knowledge', roles: undefined },
-    { icon: <GraduationCap size={20} />, label: '培训中心', href: 'training', roles: undefined },
-    { icon: <Gift size={20} />, label: '激励钱包', href: 'rewards', badge: '¥200', badgeType: 'success', roles: undefined },
-    { icon: <Settings size={20} />, label: '系统设置', href: 'settings', roles: undefined },
-    { icon: <CreditCard size={20} />, label: '订阅支付', href: 'payments', roles: ['boss'] },
-    { icon: <Puzzle size={20} />, label: '插件市场', href: 'plugins', roles: ['boss'] },
-    { icon: <ClipboardList size={20} />, label: '审计日志', href: 'audit', roles: ['boss'] },
-    { icon: <Key size={20} />, label: 'API密钥', href: 'api-keys', roles: ['boss'] },
-    { icon: <Bug size={20} />, label: 'Agent调试', href: 'agent-debug', roles: ['boss'] },
-    // VMD (Virtual Marketing Department)
-    { icon: <Rocket size={20} />, label: '虚拟市场部', href: 'vmd', badge: 'AI', badgeType: 'primary', roles: undefined },
-    { icon: <ListTodo size={20} />, label: '任务中心', href: 'vmd/tasks', roles: undefined },
-    { icon: <BotIcon size={20} />, label: 'Agent配置', href: 'vmd/agents', roles: ['boss', 'manager'] },
-    { icon: <Target size={20} />, label: '线索管理', href: 'vmd/clues', roles: undefined },
-    { icon: <ShieldCheck size={20} />, label: '合规校验', href: 'vmd/compliance', roles: undefined },
-    { icon: <BarChart3 size={20} />, label: 'VMD看板', href: 'vmd/dashboard', roles: undefined },
-    { icon: <Cpu size={20} />, label: '模型管理', href: 'llm/models', roles: ['boss'] },
-  ];
+  // 动态设置异常待办 badge
+  const navWithBadges = NAV_CONFIG.map(item => {
+    if (item.href === 'exceptions' && exceptionCount > 0) {
+      return { ...item, badge: String(exceptionCount) };
+    }
+    return item;
+  });
 
-  const bossNav: NavItem[] = [
-    { icon: <Crown size={20} />, label: '总控中心', href: 'boss-dashboard', roles: ['boss'] },
-    { icon: <AlertTriangle size={20} />, label: '异常待办', href: 'exceptions', badge: exceptionCount > 0 ? String(exceptionCount) : undefined, badgeType: 'warning', roles: ['boss'] },
-    { icon: <TrendingUp size={20} />, label: '目标管理', href: 'targets', roles: ['boss'] },
-    { icon: <Contact size={20} />, label: 'CRM管理', href: 'crm', roles: ['employee', 'manager', 'boss'] },
-    { icon: <BookOpen size={20} />, label: '知识库管理', href: 'documents', badge: 'AI', badgeType: 'primary', roles: undefined },
-    { icon: <Users size={20} />, label: '团队管理', href: 'employees', roles: ['manager', 'boss'] },
-    { icon: <Building2 size={20} />, label: '部门管理', href: 'departments', roles: ['boss'] },
-    { icon: <Upload size={20} />, label: '数据导入', href: 'import', roles: ['boss'] },
-    { icon: <FileCheck size={20} />, label: '审批中心', href: 'approval', roles: ['employee', 'manager', 'boss'] },
-    { icon: <FileSignature size={20} />, label: '合同管理', href: 'contracts', roles: ['manager', 'boss'] },
-    { icon: <BarChart3 size={20} />, label: '数据报表', href: 'reports', roles: undefined },
-    { icon: <Calendar size={20} />, label: 'OA办公', href: 'oa', roles: undefined },
-    { icon: <Clock size={20} />, label: '人事中心', href: 'hr', roles: ['manager', 'boss'] },
-    { icon: <DollarSign size={20} />, label: '财务中心', href: 'finance', roles: undefined },
-    { icon: <GraduationCap size={20} />, label: '培训中心', href: 'training', roles: undefined },
-    { icon: <Settings size={20} />, label: '系统设置', href: 'settings', roles: undefined },
-    { icon: <CreditCard size={20} />, label: '订阅支付', href: 'payments', roles: ['boss'] },
-    { icon: <Puzzle size={20} />, label: '插件市场', href: 'plugins', roles: ['boss'] },
-    { icon: <ClipboardList size={20} />, label: '审计日志', href: 'audit', roles: ['boss'] },
-    { icon: <Key size={20} />, label: 'API密钥', href: 'api-keys', roles: ['boss'] },
-    { icon: <Bug size={20} />, label: 'Agent调试', href: 'agent-debug', roles: ['boss'] },
-    // VMD (Virtual Marketing Department)
-    { icon: <Rocket size={20} />, label: '虚拟市场部', href: 'vmd', badge: 'AI', badgeType: 'primary', roles: undefined },
-    { icon: <ListTodo size={20} />, label: '任务中心', href: 'vmd/tasks', roles: undefined },
-    { icon: <BotIcon size={20} />, label: 'Agent配置', href: 'vmd/agents', roles: ['boss', 'manager'] },
-    { icon: <Target size={20} />, label: '线索管理', href: 'vmd/clues', roles: undefined },
-    { icon: <ShieldCheck size={20} />, label: '合规校验', href: 'vmd/compliance', roles: undefined },
-    { icon: <BarChart3 size={20} />, label: 'VMD看板', href: 'vmd/dashboard', roles: undefined },
-    { icon: <Cpu size={20} />, label: '模型管理', href: 'llm/models', roles: ['boss'] },
-  ];
-
-  // Use bossNav if user is manager or boss to ensure they see management links
-  const allNavItems = (user.role === 'boss' || user.role === 'manager') ? bossNav : employeeNav;
-  
-  // Filter menu items based on current user role
-  const currentRole = (role || 'employee') as AppRole;
-  const navItems = allNavItems.filter(item => 
-    !item.roles || item.roles.includes(currentRole)
+  // 基于角色过滤导航项 — 单一过滤逻辑，不再区分 boss/employee 两套数组
+  const currentRole = (role || user.role || 'employee') as AppRole;
+  // founder 可以看到所有 boss 权限的菜单
+  const effectiveRole = currentRole === 'founder' ? 'founder' : currentRole;
+  const navItems = navWithBadges.filter(item =>
+    !item.roles || item.roles.includes(effectiveRole) || (effectiveRole === 'founder' && item.roles.includes('boss'))
   );
 
   const { confirm, ConfirmDialogProps } = useConfirmDialog();
@@ -331,12 +331,10 @@ export function Sidebar({ onNavClick }: SidebarProps) {
 
       {/* Navigation */}
       <nav role="navigation" aria-label="功能菜单" className="flex-1 py-4 overflow-y-auto overflow-x-hidden space-y-2 custom-scrollbar">
-        {renderNavGroup("AI 核心指挥", navItems.filter(i => ['dashboard', 'boss-dashboard', 'tender-analysis', 'battlecards', 'sales', 'crm'].includes(i.href)))}
-        {renderNavGroup("业务与日常", navItems.filter(i => ['projects', 'target-dashboard', 'targets', 'approval', 'exceptions', 'employees', 'departments', 'contracts', 'reports'].includes(i.href)))}
-        {renderNavGroup("OA/HR/财务", navItems.filter(i => ['oa', 'hr', 'finance'].includes(i.href)))}
-        {renderNavGroup("知识与个人", navItems.filter(i => ['knowledge', 'documents', 'rewards', 'import', 'settings', 'training'].includes(i.href)))}
-        {renderNavGroup("虚拟市场部", navItems.filter(i => ['vmd', 'vmd/tasks', 'vmd/agents', 'vmd/clues', 'vmd/compliance', 'vmd/dashboard', 'llm/models'].includes(i.href)))}
-        {renderNavGroup("系统管理", navItems.filter(i => ['audit', 'plugins', 'api-keys', 'payments', 'agent-debug'].includes(i.href)))}
+        {NAV_GROUPS.map(group => {
+          const groupItems = navItems.filter(i => i.group === group);
+          return renderNavGroup(group, groupItems);
+        })}
       </nav>
 
       {/* User Profile with Dropdown */}

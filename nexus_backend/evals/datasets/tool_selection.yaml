@@ -128,3 +128,28 @@ test_cases:
     user_message: "什么是OKR管理法？"
     expected_tools: []
     context: {}
+
+  # ── 定时任务 ──
+  - id: ts_021
+    description: "创建定时提醒"
+    user_message: "每天下午4点提醒我检查客户回复"
+    expected_tools: ["create_scheduled_task"]
+    context: {}
+
+  - id: ts_022
+    description: "查看定时任务列表"
+    user_message: "我现在有哪些定时任务？"
+    expected_tools: ["list_scheduled_tasks"]
+    context: {}
+
+  - id: ts_023
+    description: "删除定时任务"
+    user_message: "取消那个检查客户回复的提醒"
+    expected_tools: ["delete_scheduled_task"]
+    context: {}
+
+  - id: ts_024
+    description: "创建每周定时任务"
+    user_message: "每周一早上9点帮我生成上周的销售周报"
+    expected_tools: ["create_scheduled_task"]
+    context: {}

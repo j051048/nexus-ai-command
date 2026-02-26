@@ -1,0 +1,80 @@
+# Tool-specific prompts (YAML externalization)
+# Supports placeholders: {text_preview}, {preview}, {user_input}, {current_date}, {pending_list}
+
+tender_analysis: |
+  你是拥有10年经验的【科学仪器招投标专家】。
+  请仔细审查以下招标文件片段，提取所有【硬性否决条款】（通常带有*号、或使用"必须"、"务必"、"不得"等绝对化词语）。
+
+  招标文件内容：
+  {text_preview}
+
+  请输出一个Markdown表格，列包含：
+  1. 原文条款
+  2. 关键指标数值
+  3. 风险等级 (高/中/低)
+  4. 建议 (满足/偏离/需澄清)
+
+  假设我不具备该产品的知识，请仅根据常识逻辑判断（例如：要求<10分钟，若无数据则标记需确认）。
+
+etl_metadata: |
+  Extract document metadata as JSON ONLY:
+  - doc_type: [contract, tender, bid, product, proposal, invoice, other]
+  - client_name: string
+  - amount: number
+  - date: YYYY-MM-DD
+  - summary: 1-sentence Chinese summary
+  - compatible_models: [list of compatible device models mentioned, e.g. "ZY-100", "HPLC-2020"]
+
+  Content:
+  {preview}
+
+leave_request_analysis: |
+  分析用户的请假请求，提取以下信息：
+  - leave_type: 请假类型 (annual/sick/personal/compensatory)
+  - start_date: 开始日期 (YYYY-MM-DD)
+  - end_date: 结束日期 (YYYY-MM-DD)
+  - reason: 请假原因
+  - handover_to: 工作交接人（如有提及）
+
+  用户输入: {user_input}
+  当前日期: {current_date}
+
+  注意：
+  - "下周一" 等相对日期需要转换为具体日期
+  - "请几天假" 需要计算结束日期
+  - 未明确类型时默认为"事假"
+
+expense_analysis: |
+  分析用户的报销请求，提取以下信息：
+  - expense_type: 费用类型 (travel/entertainment/office/transportation/other)
+  - amount: 金额
+  - description: 费用说明
+  - expense_date: 消费日期
+  - project_name: 关联项目（如有）
+  - attendees: 参与人员（招待费必填）
+
+  用户输入: {user_input}
+
+  智能判断：
+  - "请客户吃饭" → entertainment
+  - "打车" → transportation
+  - "出差" → travel
+  - "买办公用品" → office
+
+approval_intent: |
+  分析领导的审批意图：
+
+  用户输入: {user_input}
+  待审批列表: {pending_list}
+
+  识别：
+  - action: approve/reject/delegate/query
+  - target: all/specific_ids/conditional
+  - condition: 条件表达式（如"金额<5000"）
+  - delegate_to: 委托对象（如有）
+  - comment: 审批意见
+
+  示例：
+  - "批了" → action=approve, target=all
+  - "第一个批，第二个不批" → 需要分别处理
+  - "5000以下的都批" → action=approve, target=conditional, condition="amount<5000"

@@ -86,6 +86,12 @@ class Settings(BaseSettings):
     # Observability
     SENTRY_DSN: str = Field(default="", description="Sentry DSN for error tracking")
 
+    # Langfuse (LLM Observability)
+    LANGFUSE_ENABLED: bool = Field(default=False, description="Enable Langfuse LLM tracing")
+    LANGFUSE_PUBLIC_KEY: str = Field(default="", description="Langfuse public key")
+    LANGFUSE_SECRET_KEY: str = Field(default="", description="Langfuse secret key")
+    LANGFUSE_HOST: str = Field(default="https://cloud.langfuse.com", description="Langfuse host URL")
+
     # Rate limiting
     RATE_LIMIT_PER_MINUTE: int = Field(default=60, description="API rate limit per minute")
     RATE_LIMIT_BURST: int = Field(default=10, description="Rate limit burst size")

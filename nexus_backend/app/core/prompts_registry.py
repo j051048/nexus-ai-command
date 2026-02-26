@@ -2,7 +2,39 @@
 Centralized Prompt Registry (P2: Consolidated Prompts)
 This file serves as the single source of truth for all System Prompts and Tool Prompts.
 Updated: 2024-12 - Added AI-First Enterprise Management Capabilities
+
+P2 Enhancement: Supports YAML externalization.
+Loads prompts from YAML files under app/core/prompts/ at startup.
+Falls back to hardcoded defaults if YAML files are missing.
 """
+
+import logging
+import os
+from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+_PROMPTS_DIR = Path(__file__).parent / "prompts"
+
+
+def _load_yaml_prompts(filename: str) -> dict[str, str]:
+    """Load prompts from a YAML file. Returns empty dict on failure."""
+    filepath = _PROMPTS_DIR / filename
+    if not filepath.exists():
+        return {}
+    try:
+        # Use PyYAML if available, otherwise skip
+        import yaml
+
+        with open(filepath, encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        if isinstance(data, dict):
+            return {k: str(v) for k, v in data.items()}
+    except ImportError:
+        logger.debug("PyYAML not installed, using hardcoded prompts")
+    except Exception as e:
+        logger.warning(f"Failed to load {filename}: {e}")
+    return {}
 
 # Common Instructions for security and reliability (P3 Patch)
 SECURITY_GUARDRAILS = """
@@ -234,3 +266,20 @@ TOOL_PROMPTS = {
     - "5000以下的都批" → action=approve, target=conditional, condition="amount<5000"
     """,
 }
+
+# ─── YAML Override Layer ─────────────────────────────────────────────────────
+# Load YAML prompts and merge (YAML takes precedence over hardcoded defaults).
+# This allows editing prompts without code changes or redeployment.
+
+_yaml_system = _load_yaml_prompts("system_prompts.yaml")
+if _yaml_system:
+    for key, raw_prompt in _yaml_system.items():
+        # Re-inject SECURITY_GUARDRAILS and ENTERPRISE_CAPABILITIES
+        full_prompt = raw_prompt + "\n" + SECURITY_GUARDRAILS + "\n" + ENTERPRISE_CAPABILITIES
+        SYSTEM_PROMPTS[key] = full_prompt
+    logger.info(f"Loaded {len(_yaml_system)} system prompts from YAML")
+
+_yaml_tools = _load_yaml_prompts("tool_prompts.yaml")
+if _yaml_tools:
+    TOOL_PROMPTS.update(_yaml_tools)
+    logger.info(f"Loaded {len(_yaml_tools)} tool prompts from YAML")

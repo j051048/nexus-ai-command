@@ -205,8 +205,7 @@ export function FinanceCenter() {
   const handleDeleteBudget = async (budgetId: string) => {
     if (!window.confirm('确认删除此预算？删除后不可恢复。')) return;
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from('finance_budgets') as any)
+      const { error } = await supabase.from('finance_budgets')
         .delete()
         .eq('id', budgetId);
       if (error) throw error;

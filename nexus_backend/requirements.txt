@@ -33,11 +33,15 @@ cryptography==46.0.3
 # P1 Fix: Explicit JWT dependency (previously transitive via supabase)
 PyJWT==2.10.1
 
+# Prompt externalization
+PyYAML==6.0.2
+
 # Observability
 opentelemetry-api==1.28.2
 opentelemetry-sdk==1.28.2
 opentelemetry-instrumentation-fastapi==0.49b2
 opentelemetry-exporter-otlp==1.28.2
+langfuse==2.51.3
 
 # Development/Testing
 ruff==0.8.6

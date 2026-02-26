@@ -1139,6 +1139,76 @@ export interface Database {
               updated_at?: string | null
           }
       }
+      contract_events: {
+          Row: {
+            id: string
+            contract_id: string
+            event_type: string
+            description: string | null
+            event_date: string
+            created_by: string | null
+            created_at: string
+          }
+          Insert: {
+              id?: string
+              contract_id: string
+              event_type: string
+              description?: string | null
+              event_date: string
+              created_by?: string | null
+              created_at?: string
+          }
+          Update: {
+              id?: string
+              contract_id?: string
+              event_type?: string
+              description?: string | null
+              event_date?: string
+              created_by?: string | null
+              created_at?: string
+          }
+      }
+      customers: {
+          Row: {
+            id: string
+            name: string
+            company: string | null
+            email: string | null
+            phone: string | null
+            address: string | null
+            notes: string | null
+            organization_id: string | null
+            created_by: string | null
+            created_at: string
+            updated_at: string | null
+          }
+          Insert: {
+              id?: string
+              name: string
+              company?: string | null
+              email?: string | null
+              phone?: string | null
+              address?: string | null
+              notes?: string | null
+              organization_id?: string | null
+              created_by?: string | null
+              created_at?: string
+              updated_at?: string | null
+          }
+          Update: {
+              id?: string
+              name?: string
+              company?: string | null
+              email?: string | null
+              phone?: string | null
+              address?: string | null
+              notes?: string | null
+              organization_id?: string | null
+              created_by?: string | null
+              created_at?: string
+              updated_at?: string | null
+          }
+      }
     }
     Views: {
       [_ in never]: never
@@ -1181,6 +1251,44 @@ export interface Database {
           _user_id: string
         }
         Returns: 'boss' | 'manager' | 'employee' | 'admin' | null
+      }
+      transfer_employee_data: {
+        Args: {
+          from_user_id: string
+          to_user_id: string
+        }
+        Returns: undefined
+      }
+      delete_employee: {
+        Args: {
+          target_user_id: string
+        }
+        Returns: undefined
+      }
+      admin_update_user: {
+        Args: {
+          target_user_id: string
+          new_role: string | null
+          new_name: string | null
+          new_department_id: string | null
+        }
+        Returns: Json
+      }
+      search_memories_by_embedding: {
+        Args: {
+          query_embedding: string
+          target_user_id: string
+          match_threshold: number
+          match_count: number
+        }
+        Returns: {
+          id: string
+          key: string
+          value: string
+          category: string
+          importance: number
+          similarity: number
+        }[]
       }
     }
     Enums: {

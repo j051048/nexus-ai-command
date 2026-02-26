@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -234,20 +233,20 @@ export function TenderAnalysisPage() {
                         return;
                     }
 
-                    const ed = typeof (existingDoc as any).extracted_data === 'string'
-                        ? JSON.parse((existingDoc as any).extracted_data)
-                        : ((existingDoc as any).extracted_data || {});
+                    const ed = typeof existingDoc.extracted_data === 'string'
+                        ? JSON.parse(existingDoc.extracted_data)
+                        : (existingDoc.extracted_data || {});
 
-                    if ((existingDoc as any).status === 'ready' || (existingDoc as any).status === 'success') {
+                    if (existingDoc.status === 'ready' || existingDoc.status === 'success') {
                         setDocId(existingDocId);
                         setSelectedHistoryId(existingDocId);
-                        generateReport(ed, (existingDoc as any).name);
+                        generateReport(ed, existingDoc.name);
                         setAnalyzing(false);
                         setProgress(100);
                         setCurrentStep(3);
                         fetchHistory();
-                        toast.success(`已加载「${(existingDoc as any).name}」的分析报告`);
-                    } else if ((existingDoc as any).status === 'processing' || (existingDoc as any).status === 'pending') {
+                        toast.success(`已加载「${existingDoc.name}」的分析报告`);
+                    } else if (existingDoc.status === 'processing' || existingDoc.status === 'pending') {
                         setDocId(existingDocId);
                         setSelectedHistoryId(existingDocId);
                         toast.info('该文档正在分析中，已自动跟踪进度...');
@@ -302,7 +301,7 @@ export function TenderAnalysisPage() {
             }
 
             if (doc) {
-                const prog = (doc as any).progress || 0;
+                const prog = (doc.progress as number) || 0;
                 setProgress(prog);
 
                 // Map Progress to Steps
@@ -311,14 +310,14 @@ export function TenderAnalysisPage() {
                 else if (prog < 90) setCurrentStep(2);
                 else setCurrentStep(3);
 
-                if ((doc as any).status === 'ready' || (doc as any).status === 'success') {
-                    generateReport((doc as any).extracted_data);
+                if (doc.status === 'ready' || doc.status === 'success') {
+                    generateReport(doc.extracted_data);
                     setAnalyzing(false);
                     setSelectedHistoryId(docId);
                     toast.success("AI 诊断完成");
                     fetchHistory(); // Refresh history list
                     return; // stop polling
-                } else if ((doc as any).status === 'failed' || (doc as any).status === 'error') {
+                } else if (doc.status === 'failed' || doc.status === 'error') {
                     setAnalyzing(false);
                     toast.error("AI 分析过程中发生错误");
                     fetchHistory();

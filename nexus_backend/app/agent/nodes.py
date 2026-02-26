@@ -360,7 +360,7 @@ async def plan_node(state: AgentState) -> dict:
     # Use ChatOpenAI with streaming and bind_tools
     llm = _get_llm(config, model=model, streaming=True, resolved_config=resolved)
     if include_tools:
-        llm = llm.bind_tools(_get_tool_schemas(config.user_role), parallel_tool_calls=False)
+        llm = llm.bind_tools(_get_tool_schemas(config.user_role), parallel_tool_calls=True)
 
     thinking_step = ThinkingStep(
         phase=AgentPhase.PLANNING.value,
@@ -417,6 +417,19 @@ async def plan_node(state: AgentState) -> dict:
     input_tokens = usage.get("prompt_tokens", 0)
     output_tokens = usage.get("completion_tokens", 0)
 
+    # Langfuse: log LLM generation
+    trace_logger = state.get("trace_logger")
+    if trace_logger:
+        try:
+            trace_logger.log_generation(
+                model=model or config.model,
+                input_messages=[{"role": "user", "content": str(lc_msgs[-1].content)[:500]}] if lc_msgs else [],
+                output=str(ai_msg.content or "")[:1000],
+                usage={"prompt_tokens": input_tokens, "completion_tokens": output_tokens},
+            )
+        except Exception:
+            pass
+
     # P1 Plugin: POST_CHAT hook
     try:
         await plugin_system_service.run_hooks(
@@ -461,6 +474,13 @@ async def plan_node(state: AgentState) -> dict:
             content=f"计划调用工具: {tool_names}",
         )
         result["thinking_steps"] = [thinking_step, exec_step]
+        # Langfuse: log tool plans
+        if trace_logger:
+            for t in pending_tools:
+                try:
+                    trace_logger.log_tool_plan(t.tool_name, t.tool_args)
+                except Exception:
+                    pass
 
     return result
 
@@ -564,6 +584,17 @@ async def execute_node(state: AgentState) -> dict:
 
     # Merge with previously completed tools
     all_completed = list(state.get("completed_tool_calls", [])) + completed
+
+    # Langfuse: log tool executions
+    trace_logger = state.get("trace_logger")
+    if trace_logger:
+        for record in completed:
+            try:
+                trace_logger.log_tool_execution(
+                    record.tool_name, record.status, record.result[:500] if record.result else ""
+                )
+            except Exception:
+                pass
 
     # P1 Plugin: POST_TOOL hook
     try:

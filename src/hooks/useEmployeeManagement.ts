@@ -70,8 +70,7 @@ export function useTransferEmployeeData() {
       toUserId: string;
     }) => {
       // Use the RPC for atomic transfer
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await supabase.rpc('transfer_employee_data' as any, {
+      const { error } = await supabase.rpc('transfer_employee_data', {
         from_user_id: fromUserId,
         to_user_id: toUserId,
       });
@@ -93,8 +92,7 @@ export function useDeleteEmployee() {
   return useMutation({
     mutationFn: async (userId: string) => {
       // Use the RPC for deletion
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await supabase.rpc('delete_employee' as any, {
+      const { error } = await supabase.rpc('delete_employee', {
         target_user_id: userId,
       });
 
@@ -119,8 +117,7 @@ export function useUpdateEmployee() {
       userId: string;
       updates: Partial<Pick<Employee, 'name' | 'department' | 'job_title' | 'employee_number' | 'score' | 'total_bonus' | 'role'>>;
     }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await supabase.rpc('admin_update_user' as any, {
+      const { data, error } = await supabase.rpc('admin_update_user', {
         target_user_id: userId,
         new_role: updates.role ?? null,
         new_department: updates.department ?? null,
