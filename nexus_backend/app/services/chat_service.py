@@ -58,7 +58,7 @@ class ChatService:
                 variant = prompt_version_service.get_ab_test_variant(prompt_key, user_id)
                 if variant and variant.content:
                     try:
-                        return variant.content.format(current_time=now_str)
+                        return variant.content.replace("{current_time}", now_str).replace("{{current_time}}", now_str)
                     except Exception:
                         return variant.content
             except Exception as e:
@@ -69,7 +69,7 @@ class ChatService:
         cached_prompt = await cache_service.get(cache_key)
         if cached_prompt:
             try:
-                return cached_prompt.format(current_time=now_str)
+                return cached_prompt.replace("{current_time}", now_str).replace("{{current_time}}", now_str)
             except Exception:
                 return cached_prompt
 
@@ -80,14 +80,14 @@ class ChatService:
             if res and res.data:
                 raw_prompt = res.data["content"]
                 await cache_service.set(cache_key, raw_prompt, ttl=3600)
-                return raw_prompt.format(current_time=now_str)
+                return raw_prompt.replace("{current_time}", now_str).replace("{{current_time}}", now_str)
         except Exception as e:
             logger.warning(f"Failed to fetch prompt {prompt_key} from DB: {e}")
 
         # 3. Fallback to hardcoded registry
         raw_prompt = SYSTEM_PROMPTS.get(prompt_key, SYSTEM_PROMPTS["default_fallback"])
         try:
-            return raw_prompt.format(current_time=now_str)
+            return raw_prompt.replace("{current_time}", now_str).replace("{{current_time}}", now_str)
         except Exception:
             return raw_prompt
 

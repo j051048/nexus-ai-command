@@ -360,7 +360,7 @@ async def plan_node(state: AgentState) -> dict:
     # Use ChatOpenAI with streaming and bind_tools
     llm = _get_llm(config, model=model, streaming=True, resolved_config=resolved)
     if include_tools:
-        llm = llm.bind_tools(_get_tool_schemas(config.user_role))
+        llm = llm.bind_tools(_get_tool_schemas(config.user_role), parallel_tool_calls=False)
 
     thinking_step = ThinkingStep(
         phase=AgentPhase.PLANNING.value,
