@@ -294,6 +294,7 @@ app.add_middleware(
         "X-Request-ID",
         "X-API-Key",
         "X-Idempotency-Key",
+        "X-Trace-ID",
     ],
 )
 
