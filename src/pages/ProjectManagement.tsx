@@ -42,8 +42,8 @@ export function ProjectManagement() {
                 .select('*')
                 .order('created_at', { ascending: false });
 
-            if (user.role !== 'boss' && user.role !== 'founder') {
-                query.eq('owner_id', user.id);
+            if (user.role !== 'boss' && user.role !== 'admin') {
+                query.eq('user_id', user.id);
             }
 
             const { data, error } = await query;
