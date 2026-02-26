@@ -13,14 +13,17 @@ export interface AISettings {
 }
 
 export const DEFAULT_MODELS = [
-  { value: 'gpt-4o', label: 'GPT-4o (稳定推荐)' },
-  { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo (快速)' },
-  { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
-  { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
-  { value: 'google/gemini-pro', label: 'Gemini Pro' },
-  { value: 'google/gemini-1.5-pro-latest', label: 'Gemini 1.5 Pro' },
-  { value: 'google/gemini-3-pro-preview', label: 'Gemini 3 Pro Preview (实验性)' },
+  { value: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview (日常默认)' },
+  { value: 'deepseek-v3', label: 'DeepSeek-V3 (推荐: 极速且聪明)' },
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (推荐: 查阅超大文档)' },
+  { value: 'qwen-plus-latest', label: '通义千问 Plus (适合: 报告与邮件润色)' },
+  { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (高级: 修改代码与架构)' },
+  { value: 'deepseek-reasoner', label: 'DeepSeek R1/Reasoner (高级: 深度数据排查与战略推演)' },
+  { value: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro (实验: 最强多模态预览)' },
+  { value: 'gpt-4o-mini', label: 'GPT-4o mini (快速稳定备选)' },
+  { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku (优质短文客服装)' },
+  { value: 'o3-mini', label: 'o3-mini (复杂逻辑推演备选)' },
+  { value: 'qwen-vl-plus', label: 'Qwen-VL-Plus (性价比视觉 OCR)' },
   { value: 'custom', label: '自定义模型...' },
 ];
 

@@ -40,7 +40,7 @@ export function AISettingsPanel() {
 
   const [baseUrl, setBaseUrl] = useState('https://api.apiyi.com/v1');
   const [apiKey, setApiKey] = useState('');
-  const [selectedModel, setSelectedModel] = useState('google/gemini-3-pro-preview');
+  const [selectedModel, setSelectedModel] = useState('gemini-3-flash-preview');
   const [customModel, setCustomModel] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -57,7 +57,7 @@ export function AISettingsPanel() {
         setCustomModel(settings.model);
         setShowCustomInput(true);
       } else {
-        setSelectedModel(settings.model || 'google/gemini-3-pro-preview');
+        setSelectedModel(settings.model || 'gemini-3-flash-preview');
       }
     }
   }, [settings]);

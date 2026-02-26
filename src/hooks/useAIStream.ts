@@ -265,7 +265,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                model: aiSettings.model || 'gpt-4o',
+                model: aiSettings.model || 'gemini-3-flash-preview',
                 messages: messagesWithContext,
                 stream: true,
             }),
