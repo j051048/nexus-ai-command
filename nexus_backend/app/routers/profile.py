@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Request
 
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
+from app.models.schemas import AISettingsUpdate, ProfileUpdate
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/profile", tags=["Profile"])
@@ -41,6 +42,7 @@ async def get_profile(
 
 @router.put("")
 async def update_profile(
+    body: ProfileUpdate,
     req: Request,
     user_id: str = Depends(get_current_user_id),
 ):
@@ -50,9 +52,7 @@ async def update_profile(
         return api_error(ErrorCode.DB_CONNECTION_ERROR, "Database unavailable")
 
     try:
-        body = await req.json()
-        allowed_fields = {"name", "avatar_url", "position", "phone"}
-        updates = {k: v for k, v in body.items() if k in allowed_fields}
+        updates = body.model_dump(exclude_none=True)
 
         if not updates:
             return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "No valid fields to update")
@@ -92,6 +92,7 @@ async def get_ai_settings(
 
 @router.put("/ai-settings")
 async def update_ai_settings(
+    body: AISettingsUpdate,
     req: Request,
     user_id: str = Depends(get_current_user_id),
 ):
@@ -101,9 +102,7 @@ async def update_ai_settings(
         return api_error(ErrorCode.DB_CONNECTION_ERROR, "Database unavailable")
 
     try:
-        body = await req.json()
-        allowed_fields = {"model", "base_url", "temperature", "api_key"}
-        updates = {k: v for k, v in body.items() if k in allowed_fields}
+        updates = body.model_dump(exclude_none=True)
 
         if not updates:
             return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "No valid fields to update")

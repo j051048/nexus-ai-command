@@ -16,6 +16,7 @@ from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.config import settings
+from app.core.responses import UTF8JSONResponse
 
 logger = logging.getLogger(__name__)
 

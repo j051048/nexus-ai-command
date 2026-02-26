@@ -199,9 +199,17 @@ class InMemoryEventBus:
         logger.info("EventBus: Started")
 
     async def stop(self):
-        """Stop the event processing worker"""
+        """Stop the event processing worker with graceful queue drain."""
         self._running = False
         if self._worker_task:
+            # Drain remaining events in the queue (max 5s grace period)
+            try:
+                await asyncio.wait_for(self._queue.join(), timeout=5.0)
+                logger.info(f"EventBus: Queue drained ({self._queue.qsize()} remaining)")
+            except TimeoutError:
+                logger.warning(
+                    f"EventBus: Queue drain timeout, {self._queue.qsize()} events dropped"
+                )
             self._worker_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._worker_task

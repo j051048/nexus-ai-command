@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Request
 
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
+from app.models.schemas import OAuthClientCreate, OAuthRevokeRequest, OAuthTokenRequest
 from app.services.oauth_service import oauth_service
 
 logger = logging.getLogger(__name__)
@@ -14,27 +15,18 @@ router = APIRouter(prefix="/api/oauth", tags=["OAuth"])
 
 @router.post("/clients")
 async def register_client(
+    body: OAuthClientCreate,
     req: Request,
     user_id: str = Depends(get_current_user_id),
 ):
     """Register a new OAuth client application."""
     try:
-        body = await req.json()
-        name = body.get("client_name")
-        redirect_uris = body.get("redirect_uris", [])
-        scopes = body.get("scopes", ["read"])
-
-        if not name:
-            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "client_name is required")
-        if not redirect_uris:
-            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "redirect_uris is required")
-
         org_id = getattr(req.state, "org_id", None) or "default"
         result = await oauth_service.register_client(
-            name=name,
+            name=body.client_name,
             org_id=org_id,
-            redirect_uris=redirect_uris,
-            scopes=scopes,
+            redirect_uris=body.redirect_uris,
+            scopes=body.scopes,
             db=getattr(req.state, "db", None),
         )
         return api_success(data=result)
@@ -73,24 +65,21 @@ async def authorize(
 
 
 @router.post("/token")
-async def exchange_token(req: Request):
+async def exchange_token(body: OAuthTokenRequest):
     """Token exchange endpoint — exchange code for tokens or refresh."""
     try:
-        body = await req.json()
-        grant_type = body.get("grant_type")
-
-        if grant_type == "authorization_code":
+        if body.grant_type == "authorization_code":
             token = await oauth_service.exchange_code(
-                code=body.get("code", ""),
-                client_id=body.get("client_id", ""),
-                client_secret=body.get("client_secret", ""),
-                redirect_uri=body.get("redirect_uri", ""),
-                code_verifier=body.get("code_verifier"),
+                code=body.code or "",
+                client_id=body.client_id or "",
+                client_secret=body.client_secret or "",
+                redirect_uri=body.redirect_uri or "",
+                code_verifier=body.code_verifier,
             )
-        elif grant_type == "refresh_token":
+        elif body.grant_type == "refresh_token":
             token = await oauth_service.refresh_token(
-                refresh_tok=body.get("refresh_token", ""),
-                client_id=body.get("client_id", ""),
+                refresh_tok=body.refresh_token or "",
+                client_id=body.client_id or "",
             )
         else:
             return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "Unsupported grant_type")
@@ -105,12 +94,10 @@ async def exchange_token(req: Request):
 
 
 @router.post("/revoke")
-async def revoke_token(req: Request):
+async def revoke_token(body: OAuthRevokeRequest):
     """Revoke an access or refresh token."""
     try:
-        body = await req.json()
-        token = body.get("token", "")
-        success = await oauth_service.revoke_token(token)
+        success = await oauth_service.revoke_token(body.token)
         return api_success(data={"revoked": success})
     except Exception as e:
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

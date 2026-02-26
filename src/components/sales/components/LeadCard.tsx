@@ -12,8 +12,17 @@ interface LeadCardProps {
 export function LeadCard({ lead, onClick }: LeadCardProps) {
     return (
         <div
+            role="button"
+            tabIndex={0}
+            aria-label={`${lead.name} - ${lead.company}, 赢率 ${lead.winProbability}%`}
             onClick={onClick}
-            className="p-4 rounded-xl bg-secondary/50 border border-border hover:border-primary/50 transition-all cursor-pointer active-card group relative"
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onClick();
+                }
+            }}
+            className="p-4 rounded-xl bg-secondary/50 border border-border hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none transition-all cursor-pointer active-card group relative"
         >
             <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-2">

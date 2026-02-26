@@ -161,3 +161,156 @@ class ChatRequest(BaseModel):
     # VMD (Virtual Marketing Department) extensions
     scene_code: str | None = None  # Business scene code (e.g., "bid_document", "content_writing")
     agent_code: str | None = None  # Specific agent role code (e.g., "content_agent")
+
+
+# --- Contract Models ---
+
+
+class ContractCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    party_a: str | None = None
+    party_b: str | None = None
+    amount: float | None = Field(None, ge=0)
+    status: str = "draft"
+    metadata: dict = Field(default_factory=dict)
+
+
+class ContractUpdate(BaseModel):
+    title: str | None = Field(None, min_length=1, max_length=200)
+    party_a: str | None = None
+    party_b: str | None = None
+    amount: float | None = Field(None, ge=0)
+    status: str | None = None
+    metadata: dict | None = None
+
+
+class ContractEventCreate(BaseModel):
+    event_type: str = "created"
+    description: str = ""
+
+
+# --- Plugin Models ---
+
+
+class PluginInstall(BaseModel):
+    config: dict = Field(default_factory=dict)
+
+
+class PluginConfigUpdate(BaseModel):
+    config: dict = Field(default_factory=dict)
+
+
+class PluginExecute(BaseModel):
+    action: str = Field(..., min_length=1)
+    params: dict = Field(default_factory=dict)
+
+
+# --- OAuth Models ---
+
+
+class OAuthClientCreate(BaseModel):
+    client_name: str = Field(..., min_length=1, max_length=100)
+    redirect_uris: list[str] = Field(..., min_length=1)
+    scopes: list[str] = Field(default_factory=lambda: ["read"])
+
+
+class OAuthTokenRequest(BaseModel):
+    grant_type: Literal["authorization_code", "refresh_token"]
+    code: str | None = None
+    client_id: str | None = None
+    client_secret: str | None = None
+    redirect_uri: str | None = None
+    code_verifier: str | None = None
+    refresh_token: str | None = None
+
+
+class OAuthRevokeRequest(BaseModel):
+    token: str = Field(..., min_length=1)
+
+
+# --- Profile Models ---
+
+
+class ProfileUpdate(BaseModel):
+    name: str | None = Field(None, max_length=50)
+    avatar_url: str | None = None
+    position: str | None = Field(None, max_length=100)
+    phone: str | None = Field(None, max_length=20)
+
+
+class AISettingsUpdate(BaseModel):
+    model: str | None = None
+    base_url: str | None = None
+    temperature: float | None = Field(None, ge=0, le=2)
+    api_key: str | None = None
+
+
+# --- Push Models ---
+
+
+class PushSubscriptionKeys(BaseModel):
+    p256dh: str
+    auth: str
+
+
+class PushSubscriptionData(BaseModel):
+    endpoint: str = Field(..., min_length=1)
+    keys: PushSubscriptionKeys
+
+
+class PushSubscribeRequest(BaseModel):
+    subscription: PushSubscriptionData
+
+
+class PushUnsubscribeRequest(BaseModel):
+    endpoint: str = Field(..., min_length=1)
+
+
+# --- Webhook Models ---
+
+
+class WebhookSubscriptionCreate(BaseModel):
+    url: str = Field(..., min_length=1)
+    events: list[str] = Field(default_factory=lambda: ["*"])
+    description: str = ""
+
+
+# --- Training Models ---
+
+
+class TrainingProgressCreate(BaseModel):
+    course_id: str
+    module_id: str
+    completed: bool = True
+    score: float | None = None
+
+
+class QuizSubmitRequest(BaseModel):
+    course_id: str
+    module_id: str
+    answers: dict = Field(default_factory=dict)
+
+
+# --- Billing Models ---
+
+
+class BillingSubscribeRequest(BaseModel):
+    plan: str = Field(..., min_length=1)
+
+
+class BillingTrialRequest(BaseModel):
+    days: int = Field(14, ge=1, le=90)
+
+
+# --- Payment Models ---
+
+
+class PaymentCreateOrder(BaseModel):
+    plan_id: str = Field(..., min_length=1)
+    payment_method: str = Field(..., min_length=1)
+    amount: float = Field(..., gt=0)
+
+
+class PaymentInvoiceRequest(BaseModel):
+    order_id: str = Field(..., min_length=1)
+    invoice_info: dict = Field(...)

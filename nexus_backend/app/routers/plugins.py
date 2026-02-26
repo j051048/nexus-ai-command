@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Request
 
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
+from app.models.schemas import PluginConfigUpdate, PluginExecute, PluginInstall
 from app.services.plugin_executor import EXECUTOR_REGISTRY, execute_plugin
 from app.services.plugin_marketplace_service import plugin_marketplace_service
 
@@ -49,17 +50,16 @@ async def get_installed_plugins(
 @router.post("/{plugin_id}/install")
 async def install_plugin(
     plugin_id: str,
+    body: PluginInstall,
     req: Request,
     user_id: str = Depends(get_current_user_id),
 ):
     """安装插件"""
     try:
-        body = await req.json()
-        config = body.get("config", {})
         org_id = getattr(req.state, "org_id", None) or "default"
         db = getattr(req.state, "db", None)
         result = await plugin_marketplace_service.install_plugin(
-            org_id=org_id, plugin_id=plugin_id, config=config, db=db
+            org_id=org_id, plugin_id=plugin_id, config=body.config, db=db
         )
         return api_success(data={"plugin": result}, message="插件安装成功")
     except ValueError as e:
@@ -89,17 +89,16 @@ async def uninstall_plugin(
 @router.put("/{plugin_id}/config")
 async def update_plugin_config(
     plugin_id: str,
+    body: PluginConfigUpdate,
     req: Request,
     user_id: str = Depends(get_current_user_id),
 ):
     """更新插件配置"""
     try:
-        body = await req.json()
-        config = body.get("config", {})
         org_id = getattr(req.state, "org_id", None) or "default"
         db = getattr(req.state, "db", None)
         result = await plugin_marketplace_service.update_plugin_config(
-            org_id=org_id, plugin_id=plugin_id, config=config, db=db
+            org_id=org_id, plugin_id=plugin_id, config=body.config, db=db
         )
         return api_success(data={"plugin": result}, message="配置已更新")
     except ValueError as e:
@@ -115,6 +114,7 @@ async def update_plugin_config(
 @router.post("/{plugin_id}/execute")
 async def execute_plugin_action(
     plugin_id: str,
+    body: PluginExecute,
     req: Request,
     user_id: str = Depends(get_current_user_id),
 ):
@@ -124,23 +124,17 @@ async def execute_plugin_action(
     Body: {"action": "send_message", "params": {"content": "Hello"}}
     """
     try:
-        body = await req.json()
-        action = body.get("action", "")
-        params = body.get("params", {})
-
-        if not action:
-            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "Missing 'action' field")
-
         org_id = getattr(req.state, "org_id", None) or "default"
         db = getattr(req.state, "db", None)
 
         # Inject user context into params
+        params = body.params.copy()
         params["user_id"] = user_id
         params["org_id"] = org_id
 
         result = await execute_plugin(
             plugin_id=plugin_id,
-            action=action,
+            action=body.action,
             params=params,
             org_id=org_id,
             db=db,

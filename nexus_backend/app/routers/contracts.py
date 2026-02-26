@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Request
 
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
+from app.models.schemas import ContractCreate, ContractEventCreate, ContractUpdate
 from app.services.contract_service import contract_service
 
 logger = logging.getLogger(__name__)
@@ -40,16 +41,17 @@ async def list_contracts(
 
 @router.post("")
 async def create_contract(
+    body: ContractCreate,
     req: Request,
     user_id: str = Depends(get_current_user_id),
 ):
     """创建合同"""
     try:
-        body = await req.json()
         org_id = getattr(req.state, "org_id", None) or "default"
         db = getattr(req.state, "db", None)
-        body["created_by"] = user_id
-        result = await contract_service.create_contract(org_id=org_id, data=body, db=db)
+        data = body.model_dump(exclude_none=True)
+        data["created_by"] = user_id
+        result = await contract_service.create_contract(org_id=org_id, data=data, db=db)
         return api_success(data={"contract": result}, message="合同创建成功")
     except ValueError as e:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
@@ -108,14 +110,15 @@ async def get_contract(
 @router.put("/{contract_id}")
 async def update_contract(
     contract_id: str,
+    body: ContractUpdate,
     req: Request,
     user_id: str = Depends(get_current_user_id),
 ):
     """更新合同"""
     try:
-        body = await req.json()
         db = getattr(req.state, "db", None)
-        result = await contract_service.update_contract(contract_id=contract_id, data=body, db=db)
+        data = body.model_dump(exclude_none=True)
+        result = await contract_service.update_contract(contract_id=contract_id, data=data, db=db)
         return api_success(data={"contract": result}, message="合同已更新")
     except ValueError as e:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
@@ -143,17 +146,17 @@ async def get_contract_events(
 @router.post("/{contract_id}/events")
 async def add_contract_event(
     contract_id: str,
+    body: ContractEventCreate,
     req: Request,
     user_id: str = Depends(get_current_user_id),
 ):
     """添加合同事件"""
     try:
-        body = await req.json()
         db = getattr(req.state, "db", None)
         event = await contract_service.add_contract_event(
             contract_id=contract_id,
-            event_type=body.get("event_type", "created"),
-            description=body.get("description", ""),
+            event_type=body.event_type,
+            description=body.description,
             user_id=user_id,
             db=db,
         )

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Request
 
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
+from app.models.schemas import PushSubscribeRequest, PushUnsubscribeRequest
 from app.services.push_notification_service import push_notification_service
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,7 @@ async def get_vapid_key():
 
 @router.post("/subscribe")
 async def subscribe(
+    body: PushSubscribeRequest,
     request: Request,
     user_id: str = Depends(get_current_user_id),
 ):
@@ -34,21 +36,7 @@ async def subscribe(
     前端将 PushManager.subscribe() 返回的 subscription 对象发送到此端点。
     """
     try:
-        body = await request.json()
-        subscription = body.get("subscription")
-        if not subscription or not subscription.get("endpoint"):
-            return api_error(
-                ErrorCode.VALIDATION_MISSING_FIELD,
-                "subscription with endpoint is required",
-            )
-
-        keys = subscription.get("keys", {})
-        if not keys.get("p256dh") or not keys.get("auth"):
-            return api_error(
-                ErrorCode.VALIDATION_MISSING_FIELD,
-                "subscription keys (p256dh, auth) are required",
-            )
-
+        subscription = body.subscription.model_dump()
         org_id = getattr(request.state, "org_id", None)
         user_agent = request.headers.get("user-agent")
         db = getattr(request.state, "db", None)
@@ -75,23 +63,16 @@ async def subscribe(
 
 @router.post("/unsubscribe")
 async def unsubscribe(
+    body: PushUnsubscribeRequest,
     request: Request,
     user_id: str = Depends(get_current_user_id),
 ):
     """取消推送订阅"""
     try:
-        body = await request.json()
-        endpoint = body.get("endpoint")
-        if not endpoint:
-            return api_error(
-                ErrorCode.VALIDATION_MISSING_FIELD,
-                "endpoint is required",
-            )
-
         db = getattr(request.state, "db", None)
         success = await push_notification_service.unsubscribe(
             user_id=user_id,
-            endpoint=endpoint,
+            endpoint=body.endpoint,
             db=db,
         )
 

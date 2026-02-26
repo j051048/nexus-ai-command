@@ -5,13 +5,38 @@ Provides structured logging with proper formatting for all modules.
 Supports different log levels for development and production.
 """
 
+import json as _json
 import logging
 import os
 import sys
+from datetime import UTC, datetime
 
 # Determine environment
 IS_PRODUCTION = os.getenv("ENV", "development") in ("production", "prod")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO" if IS_PRODUCTION else "DEBUG")
+
+
+class _JSONFormatter(logging.Formatter):
+    """JSON-safe log formatter that properly escapes message content.
+
+    Prevents broken JSON when log messages contain quotes, newlines, or
+    other special characters that would break naive %-style JSON templates.
+    """
+
+    def format(self, record: logging.LogRecord) -> str:
+        log_obj = {
+            "time": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
+            "level": record.levelname,
+            "logger": record.name,
+            "line": record.lineno,
+            "message": record.getMessage(),
+        }
+        # Include extra fields from structured logging (e.g., SecurityLogger)
+        for key in ("user_id", "resource", "ip", "event", "activity"):
+            val = getattr(record, key, None)
+            if val is not None:
+                log_obj[key] = val
+        return _json.dumps(log_obj, ensure_ascii=False)
 
 
 def setup_logging(level: str | None = None, format_string: str | None = None) -> None:
@@ -29,15 +54,8 @@ def setup_logging(level: str | None = None, format_string: str | None = None) ->
     # Default format includes timestamp, level, module, and message
     default_format = "[%(asctime)s] %(levelname)s [%(name)s:%(lineno)d] %(message)s"
 
-    # Production format: JSON-like for log aggregation tools
-    prod_format = (
-        '{"time":"%(asctime)s","level":"%(levelname)s","logger":"%(name)s","line":%(lineno)d,"message":"%(message)s"}'
-    )
-
     if format_string:
         log_format = format_string
-    elif IS_PRODUCTION:
-        log_format = prod_format
     else:
         log_format = default_format
 
@@ -49,6 +67,12 @@ def setup_logging(level: str | None = None, format_string: str | None = None) ->
         stream=sys.stdout,
         force=True,  # Override any existing configuration
     )
+
+    # Production: Replace root handler with JSON-safe formatter
+    if IS_PRODUCTION and not format_string:
+        json_formatter = _JSONFormatter()
+        for handler in logging.root.handlers:
+            handler.setFormatter(json_formatter)
 
     # Set specific loggers to appropriate levels
     # Reduce noise from third-party libraries
@@ -108,27 +132,31 @@ class SecurityLogger:
 
     def auth_success(self, user_id: str, method: str = "jwt"):
         """Log successful authentication"""
-        self.logger.info(f"AUTH_SUCCESS user_id={user_id} method={method}")
+        self.logger.info("AUTH_SUCCESS", extra={"user_id": user_id, "event": f"method={method}"})
 
     def auth_failure(self, reason: str, ip: str | None = None):
         """Log failed authentication attempt"""
-        self.logger.warning(f"AUTH_FAILURE reason={reason} ip={ip}")
+        self.logger.warning("AUTH_FAILURE", extra={"ip": ip, "event": f"reason={reason}"})
 
     def access_denied(self, user_id: str, resource: str, reason: str):
         """Log access denied event"""
-        self.logger.warning(f"ACCESS_DENIED user_id={user_id} resource={resource} reason={reason}")
+        self.logger.warning(
+            "ACCESS_DENIED", extra={"user_id": user_id, "resource": resource, "event": f"reason={reason}"}
+        )
 
     def rate_limited(self, identifier: str, endpoint: str):
         """Log rate limit hit"""
-        self.logger.warning(f"RATE_LIMITED identifier={identifier} endpoint={endpoint}")
+        self.logger.warning("RATE_LIMITED", extra={"event": f"identifier={identifier} endpoint={endpoint}"})
 
     def suspicious_activity(self, user_id: str | None, activity: str, details: str):
         """Log suspicious activity for investigation"""
-        self.logger.error(f"SUSPICIOUS_ACTIVITY user_id={user_id} activity={activity} details={details}")
+        self.logger.error(
+            "SUSPICIOUS_ACTIVITY", extra={"user_id": user_id, "activity": activity, "event": f"details={details}"}
+        )
 
     def security_config(self, event: str, details: str):
         """Log security configuration events"""
-        self.logger.info(f"SECURITY_CONFIG event={event} details={details}")
+        self.logger.info("SECURITY_CONFIG", extra={"event": f"{event}: {details}"})
 
 
 # Singleton instance

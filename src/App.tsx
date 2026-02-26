@@ -226,63 +226,63 @@ const App = () => (
                 <Route path="sales" element={<ModuleErrorBoundary moduleName="销售管道"><SalesPipeline /></ModuleErrorBoundary>} />
                 <Route path="approval" element={<ModuleErrorBoundary moduleName="审批中心"><ApprovalCenter /></ModuleErrorBoundary>} />
                 <Route path="exceptions" element={<ModuleErrorBoundary moduleName="异常管理"><ExceptionsPage /></ModuleErrorBoundary>} />
-                <Route path="rewards" element={<RewardsWallet />} />
-                <Route path="targets" element={<SalesTargetManager />} />
-                <Route path="target-dashboard" element={<TargetDashboard />} />
-                <Route path="tender-analysis" element={<TenderAnalysisPage />} />
-                <Route path="battlecards" element={<BattlecardLibrary />} />
+                <Route path="rewards" element={<ModuleErrorBoundary moduleName="奖励钱包"><RewardsWallet /></ModuleErrorBoundary>} />
+                <Route path="targets" element={<ModuleErrorBoundary moduleName="销售目标"><SalesTargetManager /></ModuleErrorBoundary>} />
+                <Route path="target-dashboard" element={<ModuleErrorBoundary moduleName="目标仪表盘"><TargetDashboard /></ModuleErrorBoundary>} />
+                <Route path="tender-analysis" element={<ModuleErrorBoundary moduleName="标书分析"><TenderAnalysisPage /></ModuleErrorBoundary>} />
+                <Route path="battlecards" element={<ModuleErrorBoundary moduleName="竞品卡片"><BattlecardLibrary /></ModuleErrorBoundary>} />
                 <Route path="documents" element={<ModuleErrorBoundary moduleName="知识库"><DocumentsPage /></ModuleErrorBoundary>} />
                 <Route path="knowledge" element={<ModuleErrorBoundary moduleName="知识库"><DocumentsPage /></ModuleErrorBoundary>} />
-                <Route path="settings" element={<AISettingsPanel />} />
-                <Route path="employees" element={<AdminRoute allowedRoles={['boss', 'manager']}><EmployeeManagement /></AdminRoute>} />
-                <Route path="departments" element={<DepartmentManagement />} />
+                <Route path="settings" element={<ModuleErrorBoundary moduleName="AI设置"><AISettingsPanel /></ModuleErrorBoundary>} />
+                <Route path="employees" element={<AdminRoute allowedRoles={['boss', 'manager']}><ModuleErrorBoundary moduleName="员工管理"><EmployeeManagement /></ModuleErrorBoundary></AdminRoute>} />
+                <Route path="departments" element={<ModuleErrorBoundary moduleName="部门管理"><DepartmentManagement /></ModuleErrorBoundary>} />
 
                 {/* 可视化流程设计器 */}
-                <Route path="workflows" element={<WorkflowList />} />
-                <Route path="workflows/new" element={<WorkflowDesigner />} />
-                <Route path="workflows/:id" element={<WorkflowDesigner />} />
+                <Route path="workflows" element={<ModuleErrorBoundary moduleName="工作流"><WorkflowList /></ModuleErrorBoundary>} />
+                <Route path="workflows/new" element={<ModuleErrorBoundary moduleName="工作流设计"><WorkflowDesigner /></ModuleErrorBoundary>} />
+                <Route path="workflows/:id" element={<ModuleErrorBoundary moduleName="工作流设计"><WorkflowDesigner /></ModuleErrorBoundary>} />
 
                 {/* AI-First 企业管理页面 */}
-                <Route path="oa" element={<OACenter />} />
-                <Route path="hr" element={<HRCenter />} />
+                <Route path="oa" element={<ModuleErrorBoundary moduleName="OA办公"><OACenter /></ModuleErrorBoundary>} />
+                <Route path="hr" element={<ModuleErrorBoundary moduleName="人力资源"><HRCenter /></ModuleErrorBoundary>} />
                 <Route path="finance" element={<ModuleErrorBoundary moduleName="财务中心"><FinanceCenter /></ModuleErrorBoundary>} />
-                <Route path="profile" element={<ProfileCenter />} />
-                <Route path="import" element={<DataImportPage />} />
+                <Route path="profile" element={<ModuleErrorBoundary moduleName="个人中心"><ProfileCenter /></ModuleErrorBoundary>} />
+                <Route path="import" element={<ModuleErrorBoundary moduleName="数据导入"><DataImportPage /></ModuleErrorBoundary>} />
 
                 {/* 自定义表单设计器 */}
-                <Route path="form-designer" element={<FormDesigner />} />
-                <Route path="form-designer/:id" element={<FormDesigner />} />
+                <Route path="form-designer" element={<ModuleErrorBoundary moduleName="表单设计"><FormDesigner /></ModuleErrorBoundary>} />
+                <Route path="form-designer/:id" element={<ModuleErrorBoundary moduleName="表单设计"><FormDesigner /></ModuleErrorBoundary>} />
 
                 {/* P2: 可定制仪表板 + 审计 */}
-                <Route path="custom-dashboard" element={<CustomDashboard />} />
-                <Route path="audit" element={<AuditPanel />} />
+                <Route path="custom-dashboard" element={<ModuleErrorBoundary moduleName="自定义仪表盘"><CustomDashboard /></ModuleErrorBoundary>} />
+                <Route path="audit" element={<ModuleErrorBoundary moduleName="审计面板"><AuditPanel /></ModuleErrorBoundary>} />
 
                 {/* P3: 模板市场 + 消息中心 + 报表 + 支付 + CRM */}
-                <Route path="workflow-templates" element={<WorkflowTemplates />} />
-                <Route path="notification-center" element={<NotificationCenter />} />
-                <Route path="reports" element={<ReportsPage />} />
-                <Route path="payments" element={<PaymentPage />} />
+                <Route path="workflow-templates" element={<ModuleErrorBoundary moduleName="工作流模板"><WorkflowTemplates /></ModuleErrorBoundary>} />
+                <Route path="notification-center" element={<ModuleErrorBoundary moduleName="消息中心"><NotificationCenter /></ModuleErrorBoundary>} />
+                <Route path="reports" element={<ModuleErrorBoundary moduleName="报表"><ReportsPage /></ModuleErrorBoundary>} />
+                <Route path="payments" element={<ModuleErrorBoundary moduleName="支付"><PaymentPage /></ModuleErrorBoundary>} />
                 <Route path="crm" element={<ModuleErrorBoundary moduleName="CRM"><CRMPage /></ModuleErrorBoundary>} />
 
                 {/* P4: 插件 + 培训 + 合同 + 超管 + API密钥 */}
-                <Route path="plugins" element={<PluginMarketplace />} />
-                <Route path="training" element={<TrainingCenter />} />
+                <Route path="plugins" element={<ModuleErrorBoundary moduleName="插件市场"><PluginMarketplace /></ModuleErrorBoundary>} />
+                <Route path="training" element={<ModuleErrorBoundary moduleName="培训中心"><TrainingCenter /></ModuleErrorBoundary>} />
                 <Route path="contracts" element={<ModuleErrorBoundary moduleName="合同管理"><ContractManagement /></ModuleErrorBoundary>} />
-                <Route path="super-admin" element={<AdminRoute><SuperAdminDashboard /></AdminRoute>} />
-                <Route path="api-keys" element={<AdminRoute><APIKeysPage /></AdminRoute>} />
+                <Route path="super-admin" element={<AdminRoute><ModuleErrorBoundary moduleName="超级管理"><SuperAdminDashboard /></ModuleErrorBoundary></AdminRoute>} />
+                <Route path="api-keys" element={<AdminRoute><ModuleErrorBoundary moduleName="API密钥"><APIKeysPage /></ModuleErrorBoundary></AdminRoute>} />
 
                 {/* VMD (Virtual Marketing Department) */}
                 <Route path="vmd" element={<ModuleErrorBoundary moduleName="VMD"><VMDCenter /></ModuleErrorBoundary>} />
-                <Route path="vmd/tasks" element={<VMDTaskCenter />} />
-                <Route path="vmd/agents" element={<VMDAgentConfig />} />
-                <Route path="vmd/clues" element={<VMDClueManagement />} />
-                <Route path="vmd/compliance" element={<VMDCompliancePage />} />
-                <Route path="vmd/dashboard" element={<VMDDashboard />} />
-                <Route path="llm/models" element={<AdminRoute><LLMModelManagement /></AdminRoute>} />
+                <Route path="vmd/tasks" element={<ModuleErrorBoundary moduleName="VMD任务"><VMDTaskCenter /></ModuleErrorBoundary>} />
+                <Route path="vmd/agents" element={<ModuleErrorBoundary moduleName="VMD代理"><VMDAgentConfig /></ModuleErrorBoundary>} />
+                <Route path="vmd/clues" element={<ModuleErrorBoundary moduleName="VMD线索"><VMDClueManagement /></ModuleErrorBoundary>} />
+                <Route path="vmd/compliance" element={<ModuleErrorBoundary moduleName="VMD合规"><VMDCompliancePage /></ModuleErrorBoundary>} />
+                <Route path="vmd/dashboard" element={<ModuleErrorBoundary moduleName="VMD仪表盘"><VMDDashboard /></ModuleErrorBoundary>} />
+                <Route path="llm/models" element={<AdminRoute><ModuleErrorBoundary moduleName="LLM模型"><LLMModelManagement /></ModuleErrorBoundary></AdminRoute>} />
 
                 {/* Developer Tools */}
                 <Route path="dev/animations" element={<AnimationShowcase />} />
-                <Route path="agent-debug" element={<AdminRoute><AgentDebugPanel /></AdminRoute>} />
+                <Route path="agent-debug" element={<AdminRoute><ModuleErrorBoundary moduleName="调试面板"><AgentDebugPanel /></ModuleErrorBoundary></AdminRoute>} />
 
                 {/* 404 for authenticated users */}
                 <Route path="*" element={<NotFound />} />
