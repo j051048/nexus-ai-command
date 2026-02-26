@@ -128,11 +128,6 @@ const NAV_CONFIG: NavItem[] = [
 
 // 分组顺序
 const NAV_GROUPS = ['AI 核心指挥', '业务与日常', 'OA/HR/财务', '知识与个人', '虚拟市场部', '系统管理'];
-  href: string;
-  badge?: string;
-  badgeType?: 'primary' | 'success' | 'warning';
-  roles?: AppRole[]; // undefined = 所有人可见
-}
 
 interface SidebarProps {
   onNavClick?: () => void; // For mobile close
