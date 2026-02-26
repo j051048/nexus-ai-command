@@ -203,7 +203,9 @@ export function Sidebar({ onNavClick }: SidebarProps) {
     }
   };
 
-  const renderNavGroup = (title: string, items: NavItem[]) => (
+  const renderNavGroup = (title: string, items: NavItem[]) => {
+    if (items.length === 0) return null;
+    return (
     <div className={cn("mb-4", isCollapsed ? "px-2" : "px-4")}>
       {!isCollapsed && (
         <h3 className="px-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 transition-all duration-300">
@@ -273,7 +275,8 @@ export function Sidebar({ onNavClick }: SidebarProps) {
         ))}
       </ul>
     </div>
-  );
+    );
+  };
 
   return (
     <aside
