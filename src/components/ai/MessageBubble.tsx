@@ -109,14 +109,24 @@ export const MessageBubble = React.memo(function MessageBubble({
                 components={{
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   code({ node, inline, className, children, ...props }: React.ClassAttributes<HTMLElement> & React.HTMLAttributes<HTMLElement> & { inline?: boolean, node?: any }) {
-                    const match = /language-(\w+)/.exec(className || '');
-                    
-                    // P1: Generative UI Support
-                    if (match && match[1] === 'gen-ui') {
-                      const raw = String(children).trim();
+                    const match = /language-(\w+[-]?\w*)/.exec(className || '');
+                    const lang = match?.[1]?.toLowerCase() || '';
+                    const raw = String(children).trim();
+
+                    // P0: Generative UI Support — multi-layer detection
+                    // Layer 1: Match explicit GenUI language tags (gen-ui, gen, genui, gen_ui)
+                    const isGenUITag = ['gen-ui', 'gen', 'genui', 'gen_ui'].includes(lang);
+                    // Layer 2: Detect GenUI JSON structure in any code block
+                    // Matches {"component":"...", "props": ...} pattern even with json/no tag
+                    const isGenUIContent = !inline && !isGenUITag && raw.startsWith('{') &&
+                      /^\s*\{\s*"component"\s*:/.test(raw);
+
+                    if (isGenUITag || isGenUIContent) {
                       try {
                         const config = JSON.parse(raw);
-                        return <GenUIContainer componentName={config.component} props={config.props} />;
+                        if (config.component && typeof config.component === 'string') {
+                          return <GenUIContainer componentName={config.component} props={config.props || {}} />;
+                        }
                       } catch {
                         // During streaming, JSON may be incomplete — show skeleton instead of error
                         if (isTyping) {
@@ -130,8 +140,16 @@ export const MessageBubble = React.memo(function MessageBubble({
                             </div>
                           );
                         }
-                        console.error("GenUI Parse Error:", raw);
-                        return <div className="text-xs text-red-400 p-2 border border-red-900/30 rounded">UI组件渲染失败</div>;
+                        // If tag was explicitly GenUI but JSON is invalid, show friendly error
+                        if (isGenUITag) {
+                          console.error("GenUI Parse Error:", raw);
+                          return (
+                            <div className="my-4 w-full rounded-xl border border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 p-4 text-sm text-amber-700 dark:text-amber-400">
+                              组件加载失败，正在以文本形式展示...
+                            </div>
+                          );
+                        }
+                        // For content-detected blocks, fall through to normal code rendering
                       }
                     }
 

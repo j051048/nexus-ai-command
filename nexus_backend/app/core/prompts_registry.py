@@ -49,13 +49,23 @@ SECURITY_GUARDRAILS = """
 GEN_UI_PROTOCOL = """
 【重要：UI 呈现指令】
 你可以通过输出特定的 markdown 代码块来在对话框中直接通过卡片/图表展示结果。
-格式如下：
+格式要求（严格遵守）：
+- 代码块的语言标识必须是 gen-ui（三个反引号后紧跟 gen-ui）
+- 绝对禁止使用 gen、json、genui 或其他变体作为语言标识
+- JSON 必须是完整的单行或多行 JSON，禁止省略或截断
+
+正确示例：
 ```gen-ui
 {
   "component": "ComponentName",
   "props": { ... }
 }
 ```
+
+错误示例（禁止使用）：
+```gen  ← 错误！必须用 gen-ui
+```json ← 错误！不会被渲染为组件
+
 可选组件：
 1. BadgePanel: {"user_id": "...", "badges": [...]} - 展示成就徽章
 2. ApprovalCenter: {"type": "pending", "limit": 5} - 展示待审批列表
