@@ -56,8 +56,11 @@ export function useSaveAISettings() {
 
   return useMutation({
     mutationFn: async (settings: { base_url: string; api_key: string | null; model: string }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = supabase as any;
+      
       // 直接从 Supabase 实时获取当前会话，不依赖 React 状态/闭包
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await sb.auth.getSession();
       if (!session?.user) throw new Error('未登录，请重新登录');
 
       const userId = session.user.id;
