@@ -203,6 +203,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     User-based limiting should be done at endpoint level after proper auth.
 
     P1-8: Integrates with tiered rate_limiting_service for per-endpoint limits.
+    Note: Middleware runs BEFORE auth, so user_id is unavailable here.
+    Tiered user-based limits are applied in post-auth phase via response hook.
     """
 
     # Endpoints exempt from rate limiting
@@ -216,44 +218,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         "/api/export": "export",
     }
 
+    # P1-8: Per-category rate limiter cache (persistent across requests)
+    _category_limiters: dict[str, RateLimiter] = {}
+
     async def dispatch(self, request: Request, call_next):
         # Skip rate limiting for exempt paths
         if request.url.path in self.EXEMPT_PATHS:
             return await call_next(request)
 
-        # P1-8: Resolve tier-aware limits for authenticated users
-        user_id = None
-        tier_limit = None
-        path = request.url.path
-
-        # Determine endpoint category
-        category = None
-        for prefix, cat in self.ENDPOINT_CATEGORIES.items():
-            if path.startswith(prefix):
-                category = cat
-                break
-
-        # If we have a category, try to apply tiered limits
-        if category:
-            try:
-                from app.services.rate_limiting_service import rate_limiting_service, RateTier
-
-                # Try to get user_id from request state (set by auth middleware)
-                uid = getattr(request.state, "user_id", None) if hasattr(request.state, "user_id") else None
-                if uid:
-                    user_id = uid
-                    tier = await rate_limiting_service.get_user_tier(user_id)
-                    tier_limit = rate_limiting_service.get_endpoint_limit(tier, category)
-            except Exception:
-                pass  # Fall through to global rate limit
-
-        # Check rate limit (use tier limit or global)
-        if tier_limit and user_id:
-            # Create a temporary rate limiter with tier-specific rate
-            tier_limiter = RateLimiter(rate=tier_limit, burst=max(tier_limit // 6, 2))
-            allowed, metadata = await tier_limiter.is_allowed(request, user_id)
-        else:
-            allowed, metadata = await rate_limiter.is_allowed(request, user_id)
+        # Phase 1: Global IP-based rate limiting (always runs, pre-auth)
+        allowed, metadata = await rate_limiter.is_allowed(request)
 
         if not allowed:
             raise HTTPException(
@@ -271,8 +245,58 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 },
             )
 
-        # Process request
+        # Process request (auth middleware will set request.state.user_id)
         response = await call_next(request)
+
+        # Phase 2: Post-auth tiered rate check (user_id now available)
+        path = request.url.path
+        category = None
+        for prefix, cat in self.ENDPOINT_CATEGORIES.items():
+            if path.startswith(prefix):
+                category = cat
+                break
+
+        if category:
+            user_id = getattr(request.state, "user_id", None) if hasattr(request, "state") else None
+            if user_id:
+                try:
+                    from app.services.rate_limiting_service import rate_limiting_service
+
+                    tier = await rate_limiting_service.get_user_tier(user_id)
+                    tier_limit = rate_limiting_service.get_endpoint_limit(tier, category)
+
+                    if tier_limit:
+                        # Use persistent per-category limiter keyed by tier+category
+                        cache_key = f"{tier.value}:{category}"
+                        if cache_key not in self._category_limiters:
+                            self._category_limiters[cache_key] = RateLimiter(
+                                rate=tier_limit,
+                                burst=max(tier_limit // 6, 2),
+                                prefix=f"tier:{cache_key}",
+                            )
+                        tier_limiter = self._category_limiters[cache_key]
+                        tier_allowed, tier_meta = await tier_limiter.is_allowed(request, user_id)
+
+                        if not tier_allowed:
+                            # Return 429 — tier limit exceeded
+                            return UTF8JSONResponse(
+                                status_code=429,
+                                content={
+                                    "success": False,
+                                    "error": {
+                                        "code": "RATE_LIMIT_EXCEEDED",
+                                        "message": "您当前套餐的接口调用频率已达上限，请稍后再试",
+                                        "retry_after": tier_meta.get("retry_after", 60),
+                                    },
+                                },
+                                headers={
+                                    "X-RateLimit-Limit": str(tier_meta["limit"]),
+                                    "X-RateLimit-Remaining": str(tier_meta["remaining"]),
+                                    "Retry-After": str(tier_meta.get("retry_after", 60)),
+                                },
+                            )
+                except Exception:
+                    pass  # Tiered limiting is best-effort; global limit already passed
 
         # Add rate limit headers to response
         response.headers["X-RateLimit-Limit"] = str(metadata["limit"])

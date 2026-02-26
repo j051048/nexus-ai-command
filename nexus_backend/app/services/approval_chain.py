@@ -660,8 +660,8 @@ class ApprovalChainService:
 
                         new_timeout = (datetime.now(UTC) + timedelta(hours=timeout_hours)).isoformat()
 
-                        # Update the request with escalation info
-                        await (
+                        # Update the request with escalation info (optimistic lock)
+                        esc_update_result = await (
                             client.table("approval_requests")
                             .update(
                                 {
@@ -672,8 +672,13 @@ class ApprovalChainService:
                                 }
                             )
                             .eq("id", request_id)
+                            .eq("escalated", False)
+                            .eq("status", "pending")
                             .execute()
                         )
+                        if not esc_update_result.data:
+                            logger.info(f"Approval {request_id} already escalated concurrently, skipping")
+                            continue
                         escalated_count += 1
                         logger.info(f"Escalated approval {request_id} from step {current_step} to {new_step}")
                     else:

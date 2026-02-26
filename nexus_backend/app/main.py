@@ -428,17 +428,23 @@ async def health_check():
     except Exception:
         llm_gateway_status = "available"  # Table may not exist yet, that's ok
 
-    return {
-        "status": ("healthy" if db_status == "connected" and cache_status == "connected" else "degraded"),
-        "version": settings.VERSION,
-        "environment": settings.ENV,
-        "checks": {
-            "database": db_status,
-            "cache": cache_status,
-            "ai_gateway": ai_status,
-            "llm_model_gateway": llm_gateway_status,
+    is_healthy = db_status == "connected" and cache_status == "connected"
+    status_code = 200 if is_healthy else 503
+
+    return UTF8JSONResponse(
+        status_code=status_code,
+        content={
+            "status": "healthy" if is_healthy else "degraded",
+            "version": settings.VERSION,
+            "environment": settings.ENV,
+            "checks": {
+                "database": db_status,
+                "cache": cache_status,
+                "ai_gateway": ai_status,
+                "llm_model_gateway": llm_gateway_status,
+            },
         },
-    }
+    )
 
 
 if __name__ == "__main__":

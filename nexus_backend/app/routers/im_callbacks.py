@@ -31,13 +31,24 @@ def _verify_wecom_signature(request_body: bytes, signature: str) -> bool:
     """
     验证企微回调签名。
 
-    企微回调验证需要 Token 和 EncodingAESKey，
-    此处简化处理，生产环境应使用完整的企微加解密库。
+    企微使用 HMAC-SHA256(token, body) 进行签名校验。
+    若 WECOM_CALLBACK_TOKEN 未配置则拒绝请求（fail-closed）。
     """
-    # TODO: 实现完整的企微回调签名验证
-    # 生产环境需要配置回调 Token 和 EncodingAESKey
-    logger.debug("[im_callback] Wecom signature verification (simplified)")
-    return True
+    token = getattr(settings, "WECOM_CALLBACK_TOKEN", None)
+    if not token:
+        logger.warning("[im_callback] WECOM_CALLBACK_TOKEN not configured, rejecting request")
+        return False
+
+    try:
+        expected = hmac.new(
+            token.encode("utf-8"),
+            request_body,
+            digestmod=hashlib.sha256,
+        ).hexdigest()
+        return hmac.compare_digest(expected, signature)
+    except Exception as e:
+        logger.error(f"[im_callback] Wecom signature verification failed: {e}")
+        return False
 
 
 def _verify_dingtalk_signature(request_body: bytes, timestamp: str, signature: str) -> bool:
@@ -71,10 +82,20 @@ def _verify_feishu_signature(request_body: bytes, timestamp: str, nonce: str, si
 
     飞书签名规则:
     sign = SHA256(timestamp + nonce + encrypt_key + body)
+    若 FEISHU_ENCRYPT_KEY 未配置则拒绝请求（fail-closed）。
     """
-    # TODO: 使用飞书 Encrypt Key 进行完整验证
-    logger.debug("[im_callback] Feishu signature verification (simplified)")
-    return True
+    encrypt_key = getattr(settings, "FEISHU_ENCRYPT_KEY", None)
+    if not encrypt_key:
+        logger.warning("[im_callback] FEISHU_ENCRYPT_KEY not configured, rejecting request")
+        return False
+
+    try:
+        content = f"{timestamp}{nonce}{encrypt_key}".encode("utf-8") + request_body
+        expected = hashlib.sha256(content).hexdigest()
+        return hmac.compare_digest(expected, signature)
+    except Exception as e:
+        logger.error(f"[im_callback] Feishu signature verification failed: {e}")
+        return False
 
 
 async def _parse_callback_data(platform: str, request: Request) -> dict[str, Any]:
@@ -238,7 +259,6 @@ async def handle_approval_callback(platform: str, request: Request):
                 request_id=approval_id,
                 approver_id=nexus_user_id or "im_callback",
                 decision=decision,
-                comment=f"Via {platform} interactive card",
                 db=db,
             )
 
