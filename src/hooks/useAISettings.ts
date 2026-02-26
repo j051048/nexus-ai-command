@@ -62,18 +62,19 @@ export function useSaveAISettings() {
 
       const userId = session.user.id;
 
-      const { data: profileData, error: profileError } = await supabase.from('users')
+      const { data: profileData, error: profileError } = await sb.from('users')
         .select('organization_id')
         .eq('id', userId)
         .maybeSingle();
 
       if (profileError) throw new Error('获取用户信息失败: ' + profileError.message);
-      if (!profileData?.organization_id) throw new Error('用户组织信息缺失，请联系管理员');
+      
+      if (!profileData || !profileData.organization_id) throw new Error('用户组织信息缺失，请联系管理员');
 
       const organizationId = profileData.organization_id as string;
 
       // Check if settings exist for THIS organization and user
-      const { data: existing, error: checkError } = await supabase
+      const { data: existing, error: checkError } = await sb
         .from('ai_settings')
         .select('id')
         .eq('user_id', userId)
@@ -83,7 +84,7 @@ export function useSaveAISettings() {
       if (checkError) throw new Error(checkError.message);
 
       if (existing) {
-        const { data, error } = await supabase
+        const { data, error } = await sb
           .from('ai_settings')
           .update({
             base_url: settings.base_url,
@@ -98,7 +99,7 @@ export function useSaveAISettings() {
         if (error) throw new Error(error.message);
         return data as AISettings;
       } else {
-        const { data, error } = await supabase
+        const { data, error } = await sb
           .from('ai_settings')
           .insert({
             user_id: userId,
@@ -140,7 +141,6 @@ export function useTestAIConnection() {
       }
 
       if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
         console.log('Testing connection to:', url);
       }
 
