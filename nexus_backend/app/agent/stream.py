@@ -64,6 +64,17 @@ def _sse_status(status: str) -> str:
     return _sse_data({"status": status})
 
 
+def _sse_confirmation(tool_name: str, message: str, args: dict) -> str:
+    """Emit a confirmation request for a blocked tool call."""
+    return _sse_data({
+        "confirmation_required": {
+            "tool_name": tool_name,
+            "message": message,
+            "args": {k: v for k, v in args.items() if k != "api_key"},  # Strip secrets
+        }
+    })
+
+
 async def run_agent_stream(
     messages: list[dict],
     config: dict,
@@ -327,6 +338,19 @@ async def run_agent_stream(
             "total_steps": len(all_thinking_steps),
         }
     )
+
+    # ── 7.5 HITL: Emit confirmation request if any tools were blocked ──
+    blocked_calls = [
+        tc for tc in accumulated_state.get("completed_tool_calls", [])
+        if getattr(tc, "status", None) == "blocked"
+    ]
+    if blocked_calls:
+        for tc in blocked_calls:
+            yield _sse_confirmation(
+                tool_name=tc.tool_name,
+                message=tc.result or "此操作需要您的确认才能执行。",
+                args=tc.tool_args,
+            )
 
     # ── 8. Token tracking ──
     total_in = accumulated_state.get("total_input_tokens", 0) or input_tokens

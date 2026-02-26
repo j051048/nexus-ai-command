@@ -158,7 +158,7 @@ export function EnhancedAIChatPanel({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
-  const { isTyping: isAiTyping, aiStatus, streamChat } = useAIStream({ userId: user.id });
+  const { isTyping: isAiTyping, aiStatus, streamChat, pendingConfirmation, confirmAndResend, dismissConfirmation } = useAIStream({ userId: user.id });
 
   // Quota alert state
   const [quotaAlert, setQuotaAlert] = useState<QuotaAlert | null>(null);
@@ -697,6 +697,53 @@ export function EnhancedAIChatPanel({
                      <Loader2 className="w-3 h-3 animate-spin text-primary" />
                      <span className="font-mono">{aiStatus}</span>
                    </div>
+                )}
+
+                {/* HITL: Confirmation card for blocked tool calls */}
+                {pendingConfirmation && (
+                  <div className="mx-4 mb-2 rounded-xl border border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 p-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                          操作确认
+                        </p>
+                        <p className="text-sm text-amber-800 dark:text-amber-300">
+                          {pendingConfirmation.message}
+                        </p>
+                        <div className="flex gap-2 pt-1">
+                          <Button
+                            size="sm"
+                            className="h-7 px-3 text-xs"
+                            onClick={() => {
+                              confirmAndResend(messages, (content, assistantMsgId) => {
+                                setMessages((prev) => {
+                                  const exists = prev.find((m) => m.id === assistantMsgId);
+                                  if (exists) {
+                                    return prev.map((m) =>
+                                      m.id === assistantMsgId ? { ...m, content } : m
+                                    );
+                                  }
+                                  return [...prev, { id: assistantMsgId, role: 'assistant' as const, content, timestamp: new Date() }];
+                                });
+                              });
+                            }}
+                          >
+                            <Zap className="w-3 h-3 mr-1" />
+                            确认执行
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-3 text-xs"
+                            onClick={dismissConfirmation}
+                          >
+                            取消
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 )}
                 
                 <div ref={messagesEndRef} />

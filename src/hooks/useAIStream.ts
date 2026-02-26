@@ -16,12 +16,20 @@ interface StreamCallbacks {
     onThinkingComplete?: (totalSteps: number) => void;
 }
 
+export interface ConfirmationRequest {
+    tool_name: string;
+    message: string;
+    args: Record<string, unknown>;
+}
+
 export function useAIStream({ userId }: UseAIStreamProps) {
     const [isTyping, setIsTyping] = useState(false);
     const [aiStatus, setAiStatus] = useState<string | undefined>();
     const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([]);
     const [isThinkingComplete, setIsThinkingComplete] = useState(false);
+    const [pendingConfirmation, setPendingConfirmation] = useState<ConfirmationRequest | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
+    const lastRequestRef = useRef<{ messages: Array<{ role: string; content: string }>; agent?: string } | null>(null);
 
     /** Tier 1 primary: Zeabur backend directly */
     const getBackendUrl = useCallback(() => {
@@ -124,6 +132,12 @@ export function useAIStream({ userId }: UseAIStreamProps) {
 
                     if (parsed.status) {
                         setAiStatus(parsed.status);
+                        continue;
+                    }
+
+                    // Handle HITL confirmation request from blocked tool calls
+                    if (parsed.confirmation_required) {
+                        setPendingConfirmation(parsed.confirmation_required as ConfirmationRequest);
                         continue;
                     }
 
@@ -333,12 +347,14 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         input: string,
         history: AIMessage[],
         agent?: string,
-        callbacks?: StreamCallbacks | ((content: string, id: string) => void)
+        callbacks?: StreamCallbacks | ((content: string, id: string) => void),
+        options?: { system_confirmed?: boolean }
     ) => {
         setIsTyping(true);
         setAiStatus(undefined);
         setThinkingSteps([]);
         setIsThinkingComplete(false);
+        setPendingConfirmation(null);
 
         // Support both old callback style and new object style
         const onUpdate = typeof callbacks === 'function' ? callbacks : callbacks?.onUpdate;
@@ -385,6 +401,8 @@ export function useAIStream({ userId }: UseAIStreamProps) {
             // ── Tier 1a: Direct backend ──
             try {
                 setAiStatus('正在连接后端服务...');
+                // Save request context for HITL confirmation resend
+                lastRequestRef.current = { messages: chatMessages, agent };
                 const response = await fetch(getBackendUrl(), {
                     method: 'POST',
                     headers: {
@@ -395,6 +413,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                         messages: chatMessages,
                         agent: agent,
                         userId: userId,
+                        system_confirmed: options?.system_confirmed || false,
                     }),
                     signal: abortControllerRef.current.signal,
                 });
@@ -492,13 +511,29 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         }
     };
 
+    /** HITL: Resend the last request with system_confirmed=true */
+    const confirmAndResend = useCallback(async (
+        history: AIMessage[],
+        callbacks?: StreamCallbacks | ((content: string, id: string) => void)
+    ) => {
+        const lastReq = lastRequestRef.current;
+        if (!lastReq) return;
+
+        setPendingConfirmation(null);
+        const lastUserMsg = lastReq.messages[lastReq.messages.length - 1]?.content || '';
+        await streamChat(lastUserMsg, history, lastReq.agent, callbacks, { system_confirmed: true });
+    }, [streamChat]);
+
     return {
         isTyping,
         aiStatus,
         thinkingSteps,
         isThinkingComplete,
+        pendingConfirmation,
         streamChat,
         stopStream,
+        confirmAndResend,
+        dismissConfirmation: () => setPendingConfirmation(null),
         clearThinkingSteps: () => setThinkingSteps([])
     };
 }
