@@ -1,7 +1,9 @@
 """
 Subscription billing service with plan management.
 
-Provides plan catalog, subscription lifecycle, and Stripe integration stub.
+Provides plan catalog, subscription lifecycle, and Stripe integration.
+In dev mode (no STRIPE_SECRET_KEY), billing is simulated locally.
+In production, creates real Stripe Checkout Sessions and manages subscription lifecycle.
 """
 
 import logging
@@ -13,9 +15,33 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
-# P0 Fix: Detect dev mode when Stripe is not configured
+# Detect dev mode when Stripe is not configured
 _STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 _IS_DEV_MODE = not bool(_STRIPE_SECRET_KEY)
+
+# Lazy-load stripe module only when key is present
+_stripe = None
+
+
+def _get_stripe():
+    """Lazy-load and configure the stripe module."""
+    global _stripe
+    if _stripe is None and _STRIPE_SECRET_KEY:
+        try:
+            import stripe
+            stripe.api_key = _STRIPE_SECRET_KEY
+            _stripe = stripe
+        except ImportError:
+            logger.warning("stripe package not installed, falling back to dev mode")
+    return _stripe
+
+
+# Stripe Price IDs mapped by plan (set via env vars)
+STRIPE_PRICE_IDS: dict[str, str] = {
+    "starter": os.getenv("STRIPE_PRICE_STARTER", ""),
+    "professional": os.getenv("STRIPE_PRICE_PROFESSIONAL", ""),
+    "enterprise": os.getenv("STRIPE_PRICE_ENTERPRISE", ""),
+}
 
 
 class BillingPlan(Enum):
@@ -152,8 +178,41 @@ class BillingService:
         self._subscriptions[org_id] = (sub, _time.time())
         return sub
 
-    async def create_subscription(self, org_id: str, plan: BillingPlan, db=None) -> Subscription:
-        """Create or update a subscription."""
+    async def create_subscription(self, org_id: str, plan: BillingPlan, db=None) -> Subscription | dict:
+        """Create or update a subscription.
+
+        In production (Stripe configured): creates a Checkout Session URL.
+        In dev mode: immediately activates the subscription locally.
+        """
+        # Production: create Stripe Checkout Session
+        stripe = _get_stripe()
+        price_id = STRIPE_PRICE_IDS.get(plan.value, "")
+        if stripe and price_id and plan != BillingPlan.FREE:
+            try:
+                # Find or create Stripe customer
+                customer_id = await self._get_or_create_stripe_customer(org_id, db)
+
+                session = stripe.checkout.Session.create(
+                    customer=customer_id,
+                    mode="subscription",
+                    line_items=[{"price": price_id, "quantity": 1}],
+                    success_url=os.getenv("STRIPE_SUCCESS_URL", "https://app.example.com/payments?status=success"),
+                    cancel_url=os.getenv("STRIPE_CANCEL_URL", "https://app.example.com/payments?status=cancelled"),
+                    metadata={"org_id": org_id, "plan": plan.value},
+                    subscription_data={"metadata": {"org_id": org_id, "plan": plan.value}},
+                )
+                logger.info(f"Stripe Checkout Session created: {session.id} for org={org_id} plan={plan.value}")
+                return {
+                    "checkout_url": session.url,
+                    "session_id": session.id,
+                    "plan": plan.value,
+                    "status": "pending_payment",
+                }
+            except Exception as e:
+                logger.error(f"Stripe Checkout Session creation failed: {e}")
+                # Fall through to local subscription as fallback
+
+        # Dev mode or free plan: immediate local activation
         sub = Subscription(org_id=org_id, plan=plan, status="active")
         self._subscriptions[org_id] = (sub, _time.time())
 
@@ -169,8 +228,41 @@ class BillingService:
             except Exception as e:
                 logger.warning(f"Failed to persist subscription: {e}")
 
-        logger.info(f"Subscription created: {org_id} -> {plan.value}")
+        logger.info(f"Subscription created (local): {org_id} -> {plan.value}")
         return sub
+
+    async def _get_or_create_stripe_customer(self, org_id: str, db=None) -> str:
+        """Get existing Stripe customer ID or create a new one."""
+        # Check DB for existing customer ID
+        if db:
+            try:
+                res = await db.table("subscriptions").select("stripe_customer_id").eq("org_id", org_id).maybe_single().execute()
+                if res.data and res.data.get("stripe_customer_id"):
+                    return res.data["stripe_customer_id"]
+            except Exception:
+                pass
+
+        # Check memory cache
+        if org_id in self._subscriptions:
+            cached_sub, _ = self._subscriptions[org_id]
+            if cached_sub.stripe_customer_id:
+                return cached_sub.stripe_customer_id
+
+        # Create new Stripe customer
+        stripe = _get_stripe()
+        customer = stripe.Customer.create(metadata={"org_id": org_id})
+        customer_id = customer.id
+
+        # Persist customer ID
+        if db:
+            try:
+                await db.table("subscriptions").upsert(
+                    {"org_id": org_id, "stripe_customer_id": customer_id}
+                ).execute()
+            except Exception as e:
+                logger.warning(f"Failed to persist Stripe customer ID: {e}")
+
+        return customer_id
 
     async def change_plan(self, org_id: str, new_plan: BillingPlan, db=None) -> Subscription:
         """Change an org's plan."""

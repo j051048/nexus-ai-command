@@ -5,6 +5,8 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { cn } from '@/lib/utils';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import {
   LayoutDashboard,
   Users,
@@ -187,9 +189,18 @@ export function Sidebar({ onNavClick }: SidebarProps) {
     !item.roles || item.roles.includes(currentRole)
   );
 
+  const { confirm, ConfirmDialogProps } = useConfirmDialog();
+
   const handleLogout = async () => {
-    await signOut();
-    // Redirect is handled by AuthContext/App state change
+    const ok = await confirm({
+      title: '确认退出登录',
+      description: '退出后需要重新登录才能访问系统，确定要继续吗？',
+      confirmText: '退出登录',
+      variant: 'destructive',
+    });
+    if (ok) {
+      await signOut();
+    }
   };
 
   const renderNavGroup = (title: string, items: NavItem[]) => (
@@ -375,6 +386,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      <ConfirmDialog {...ConfirmDialogProps} />
     </aside>
   );
 }

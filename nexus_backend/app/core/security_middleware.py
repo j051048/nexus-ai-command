@@ -10,6 +10,7 @@ Adds security headers to all responses to prevent common web vulnerabilities:
 
 import logging
 import os
+import secrets
 from urllib.parse import urlparse
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -32,11 +33,21 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     - Standard OWASP security headers
     """
 
-    # Default CSP policy (used when CSP_POLICY env var is not set)
-    # TODO: For full CSP compliance, 'unsafe-inline' in script-src should be
-    # replaced with nonce-based script-src (e.g. script-src 'nonce-{random}')
-    # when the frontend deployment supports injecting nonces into script tags.
-    DEFAULT_CSP = (
+    # CSP policy template with nonce placeholder.
+    # When CSP_NONCE_ENABLED=true (default), {nonce_placeholder} is replaced
+    # per-request with a fresh cryptographic nonce, eliminating 'unsafe-inline'.
+    # When disabled or overridden via CSP_POLICY env var, falls back gracefully.
+    CSP_TEMPLATE = (
+        "default-src 'self'; "
+        "script-src 'self' 'nonce-{{nonce}}' https://*.zeabur.app; "
+        "style-src 'self' 'nonce-{{nonce}}' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data: https:; "
+        "connect-src 'self' https://*.supabase.co https://*.flydao.top;"
+    )
+
+    # Fallback CSP for environments where nonce injection is not possible
+    FALLBACK_CSP = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://*.zeabur.app; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
@@ -77,8 +88,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
     def __init__(self, app) -> None:
         super().__init__(app)
-        # Configurable CSP: prefer CSP_POLICY env var, fall back to default
-        self._csp_policy = os.environ.get("CSP_POLICY", self.DEFAULT_CSP)
+        # Configurable CSP: prefer CSP_POLICY env var (static), else use nonce template
+        self._csp_override = os.environ.get("CSP_POLICY")
+        self._nonce_enabled = os.environ.get("CSP_NONCE_ENABLED", "true").lower() == "true"
         # Configurable allowed origins for CSRF validation
         raw_origins = os.environ.get(
             "ALLOWED_ORIGINS",
@@ -156,6 +168,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         if csrf_error is not None:
             return csrf_error
 
+        # Generate per-request CSP nonce
+        nonce = secrets.token_urlsafe(16) if self._nonce_enabled else None
+        if nonce:
+            request.state.csp_nonce = nonce
+
         response = await call_next(request)
 
         # Add security headers to all responses
@@ -164,9 +181,14 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             if header_name not in response.headers:
                 response.headers[header_name] = header_value
 
-        # Add CSP header (configurable via env)
+        # Add CSP header: nonce-based (secure) or fallback
         if "Content-Security-Policy" not in response.headers:
-            response.headers["Content-Security-Policy"] = self._csp_policy
+            if self._csp_override:
+                response.headers["Content-Security-Policy"] = self._csp_override
+            elif nonce:
+                response.headers["Content-Security-Policy"] = self.CSP_TEMPLATE.replace("{{nonce}}", nonce)
+            else:
+                response.headers["Content-Security-Policy"] = self.FALLBACK_CSP
 
         # Allow caching for static/documentation paths
         if request.url.path in self.STATIC_PATHS:
@@ -177,27 +199,58 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
     """
-    Middleware to add a unique request ID to each request.
+    Middleware to add a unique request/trace ID to each request.
 
-    Useful for tracing requests across logs and services.
+    Supports distributed tracing by propagating a single Trace ID from
+    frontend → API → database queries → audit logs.
+
+    Headers:
+    - X-Request-ID: Unique per-request identifier
+    - X-Trace-ID: End-to-end trace identifier (can be set by frontend)
+    - Server-Timing: Includes traceId for browser DevTools visibility
     """
 
     async def dispatch(self, request: Request, call_next) -> Response:
+        import time
         import uuid
+
+        request_start = time.monotonic()
 
         # Check if request ID already provided (e.g., from load balancer)
         request_id = request.headers.get("X-Request-ID")
         if not request_id:
             request_id = str(uuid.uuid4())
 
-        # Store in request state for access in route handlers
+        # Trace ID: propagate from frontend or generate new
+        trace_id = request.headers.get("X-Trace-ID") or request_id
+
+        # Store in request state for access in route handlers and services
         request.state.request_id = request_id
+        request.state.trace_id = trace_id
 
         # Process request
         response = await call_next(request)
 
-        # Add request ID to response headers
+        duration_ms = round((time.monotonic() - request_start) * 1000, 2)
+
+        # Add tracing headers to response
         response.headers["X-Request-ID"] = request_id
+        response.headers["X-Trace-ID"] = trace_id
+        response.headers["Server-Timing"] = f'total;dur={duration_ms};desc="Request Duration"'
+
+        # Structured log with trace context for log aggregation
+        logger.info(
+            "request_completed",
+            extra={
+                "trace_id": trace_id,
+                "request_id": request_id,
+                "method": request.method,
+                "path": request.url.path,
+                "status": response.status_code,
+                "duration_ms": duration_ms,
+                "user_id": getattr(request.state, "user_id", None),
+            },
+        )
 
         return response
 

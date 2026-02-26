@@ -12,6 +12,7 @@ import { ResetPasswordPage } from "@/components/auth/ResetPasswordPage";
 import React, { Suspense, lazy } from "react";
 import * as Sentry from "@sentry/react";
 import { toast } from "sonner";
+import { ModuleErrorBoundary } from "@/components/common/ModuleErrorBoundary";
 
 // P0 Fix: Initialize Sentry for production error tracking
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
@@ -218,20 +219,20 @@ const App = () => (
               {/* Main App Routes */}
               <Route path="/" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
                 <Route index element={<Navigate to="/dashboard" replace />} />
-                <Route path="dashboard" element={<EmployeeDashboard />} />
-                <Route path="boss-dashboard" element={<BossDashboard />} />
-                <Route path="projects" element={<ProjectManagement />} />
-                <Route path="projects/:id" element={<ProjectDetail />} />
-                <Route path="sales" element={<SalesPipeline />} />
-                <Route path="approval" element={<ApprovalCenter />} />
-                <Route path="exceptions" element={<ExceptionsPage />} />
+                <Route path="dashboard" element={<ModuleErrorBoundary moduleName="仪表盘"><EmployeeDashboard /></ModuleErrorBoundary>} />
+                <Route path="boss-dashboard" element={<ModuleErrorBoundary moduleName="管理驾驶舱"><BossDashboard /></ModuleErrorBoundary>} />
+                <Route path="projects" element={<ModuleErrorBoundary moduleName="项目管理"><ProjectManagement /></ModuleErrorBoundary>} />
+                <Route path="projects/:id" element={<ModuleErrorBoundary moduleName="项目详情"><ProjectDetail /></ModuleErrorBoundary>} />
+                <Route path="sales" element={<ModuleErrorBoundary moduleName="销售管道"><SalesPipeline /></ModuleErrorBoundary>} />
+                <Route path="approval" element={<ModuleErrorBoundary moduleName="审批中心"><ApprovalCenter /></ModuleErrorBoundary>} />
+                <Route path="exceptions" element={<ModuleErrorBoundary moduleName="异常管理"><ExceptionsPage /></ModuleErrorBoundary>} />
                 <Route path="rewards" element={<RewardsWallet />} />
                 <Route path="targets" element={<SalesTargetManager />} />
                 <Route path="target-dashboard" element={<TargetDashboard />} />
                 <Route path="tender-analysis" element={<TenderAnalysisPage />} />
                 <Route path="battlecards" element={<BattlecardLibrary />} />
-                <Route path="documents" element={<DocumentsPage />} />
-                <Route path="knowledge" element={<DocumentsPage />} />
+                <Route path="documents" element={<ModuleErrorBoundary moduleName="知识库"><DocumentsPage /></ModuleErrorBoundary>} />
+                <Route path="knowledge" element={<ModuleErrorBoundary moduleName="知识库"><DocumentsPage /></ModuleErrorBoundary>} />
                 <Route path="settings" element={<AISettingsPanel />} />
                 <Route path="employees" element={<AdminRoute allowedRoles={['boss', 'manager']}><EmployeeManagement /></AdminRoute>} />
                 <Route path="departments" element={<DepartmentManagement />} />
@@ -244,7 +245,7 @@ const App = () => (
                 {/* AI-First 企业管理页面 */}
                 <Route path="oa" element={<OACenter />} />
                 <Route path="hr" element={<HRCenter />} />
-                <Route path="finance" element={<FinanceCenter />} />
+                <Route path="finance" element={<ModuleErrorBoundary moduleName="财务中心"><FinanceCenter /></ModuleErrorBoundary>} />
                 <Route path="profile" element={<ProfileCenter />} />
                 <Route path="import" element={<DataImportPage />} />
 
@@ -261,17 +262,17 @@ const App = () => (
                 <Route path="notification-center" element={<NotificationCenter />} />
                 <Route path="reports" element={<ReportsPage />} />
                 <Route path="payments" element={<PaymentPage />} />
-                <Route path="crm" element={<CRMPage />} />
+                <Route path="crm" element={<ModuleErrorBoundary moduleName="CRM"><CRMPage /></ModuleErrorBoundary>} />
 
                 {/* P4: 插件 + 培训 + 合同 + 超管 + API密钥 */}
                 <Route path="plugins" element={<PluginMarketplace />} />
                 <Route path="training" element={<TrainingCenter />} />
-                <Route path="contracts" element={<ContractManagement />} />
+                <Route path="contracts" element={<ModuleErrorBoundary moduleName="合同管理"><ContractManagement /></ModuleErrorBoundary>} />
                 <Route path="super-admin" element={<AdminRoute><SuperAdminDashboard /></AdminRoute>} />
                 <Route path="api-keys" element={<AdminRoute><APIKeysPage /></AdminRoute>} />
 
                 {/* VMD (Virtual Marketing Department) */}
-                <Route path="vmd" element={<VMDCenter />} />
+                <Route path="vmd" element={<ModuleErrorBoundary moduleName="VMD"><VMDCenter /></ModuleErrorBoundary>} />
                 <Route path="vmd/tasks" element={<VMDTaskCenter />} />
                 <Route path="vmd/agents" element={<VMDAgentConfig />} />
                 <Route path="vmd/clues" element={<VMDClueManagement />} />

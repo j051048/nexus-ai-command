@@ -2,6 +2,29 @@ import { supabase } from '@/integrations/supabase/client';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
+// --- Distributed Trace ID ---
+// Generate a unique trace ID per browser tab/session for end-to-end tracing.
+// This ID is sent as X-Trace-ID header and can be correlated across
+// frontend logs → API middleware → database audit logs.
+function generateTraceId(): string {
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substring(2, 10);
+    return `fe-${timestamp}-${random}`;
+}
+
+let _sessionTracePrefix = generateTraceId();
+
+/** Get a trace ID for the current operation (unique per API call, prefixed with session) */
+export function getTraceId(): string {
+    const seq = Math.random().toString(36).substring(2, 6);
+    return `${_sessionTracePrefix}-${seq}`;
+}
+
+/** Reset session trace prefix (e.g., on login/logout) */
+export function resetTraceSession(): void {
+    _sessionTracePrefix = generateTraceId();
+}
+
 interface RequestOptions extends RequestInit {
     requireAuth?: boolean;
     _retried?: boolean; // internal flag to prevent infinite retry
@@ -39,6 +62,7 @@ export const aiClient = {
 
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
+            'X-Trace-ID': getTraceId(),
             ...(options.headers as Record<string, string>),
         };
 

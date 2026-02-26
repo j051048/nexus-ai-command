@@ -36,8 +36,18 @@ class EventType(Enum):
     # Sales Events
     LEAD_CREATED = "lead.created"
     LEAD_UPDATED = "lead.updated"
+    LEAD_QUALIFIED = "lead.qualified"
     DEAL_WON = "deal.won"
     DEAL_LOST = "deal.lost"
+
+    # Contract Events
+    CONTRACT_CREATED = "contract.created"
+    CONTRACT_SIGNED = "contract.signed"
+    CONTRACT_EXPIRING = "contract.expiring"
+
+    # Finance Events
+    INVOICE_CREATED = "invoice.created"
+    PAYMENT_RECEIVED = "payment.received"
 
     # Document Events
     DOCUMENT_UPLOADED = "document.uploaded"
@@ -457,4 +467,194 @@ async def bridge_ai_error(event: Event):
         await auto_trigger_service.check_data_trigger({"error_rate": event.payload.get("error_rate", 0)})
     except Exception as e:
         logger.error(f"[EventBridge] AI error forward failed: {e}")
+
+
+# ============== Cross-Module Data Workflow ==============
+# These handlers wire the horizontal business flow:
+# Lead → Analysis → Quote → Approval → Contract → Payment
+
+
+@on(EventType.DEAL_WON.value)
+async def auto_create_contract_from_deal(event: Event):
+    """When a deal is won, auto-create a draft contract and notify finance."""
+    from app.core.database import supabase
+
+    if not supabase:
+        return
+
+    user_id = event.payload.get("user_id")
+    customer_name = event.payload.get("customer_name", "")
+    deal_value = event.payload.get("value", 0)
+    deal_id = event.payload.get("deal_id")
+    org_id = event.payload.get("org_id")
+
+    if not user_id or not deal_value:
+        return
+
+    try:
+        # Create draft contract linked to the deal
+        contract_data = {
+            "title": f"{customer_name} 合同",
+            "party_a": customer_name,
+            "amount": deal_value,
+            "status": "draft",
+            "created_by": user_id,
+            "metadata": json.dumps({"source_deal_id": deal_id, "auto_generated": True}),
+        }
+        if org_id:
+            contract_data["organization_id"] = org_id
+
+        await supabase.table("contracts").insert(contract_data).execute()
+
+        # Notify the sales rep
+        await supabase.table("notifications").insert({
+            "user_id": user_id,
+            "title": "合同已自动创建",
+            "content": f"客户「{customer_name}」的合同草稿已自动生成（金额: ¥{deal_value:,.0f}），请前往合同管理确认。",
+            "type": "info",
+        }).execute()
+
+        logger.info(f"[CrossModule] Auto-created contract from deal {deal_id} for {customer_name}")
+    except Exception as e:
+        logger.error(f"[CrossModule] Failed to auto-create contract from deal: {e}")
+
+
+@on(EventType.CONTRACT_SIGNED.value)
+async def auto_create_invoice_from_contract(event: Event):
+    """When a contract is signed, auto-create an invoice and notify finance team."""
+    from app.core.database import supabase
+
+    if not supabase:
+        return
+
+    contract_id = event.payload.get("contract_id")
+    amount = event.payload.get("amount", 0)
+    customer_name = event.payload.get("customer_name", "")
+    org_id = event.payload.get("org_id")
+    user_id = event.payload.get("user_id")
+
+    if not contract_id or not amount:
+        return
+
+    try:
+        # Create invoice linked to contract
+        invoice_data = {
+            "contract_id": contract_id,
+            "amount": amount,
+            "status": "pending",
+            "title": f"{customer_name} 应收款",
+            "metadata": json.dumps({"auto_generated": True}),
+        }
+        if org_id:
+            invoice_data["organization_id"] = org_id
+
+        await supabase.table("payment_orders").insert(invoice_data).execute()
+
+        # Notify finance team (founders and managers)
+        finance_roles = await supabase.table("users").select("id").in_("role", ["founder", "manager"]).execute()
+        for user in finance_roles.data or []:
+            await supabase.table("notifications").insert({
+                "user_id": user["id"],
+                "title": "新应收款项待确认",
+                "content": f"客户「{customer_name}」合同已签署，应收金额 ¥{amount:,.0f}，请在财务中心确认。",
+                "type": "info",
+            }).execute()
+
+        logger.info(f"[CrossModule] Auto-created invoice from contract {contract_id}")
+    except Exception as e:
+        logger.error(f"[CrossModule] Failed to auto-create invoice from contract: {e}")
+
+
+@on(EventType.LEAD_QUALIFIED.value)
+async def auto_trigger_tender_analysis(event: Event):
+    """When a lead is qualified (high-value), auto-suggest tender analysis."""
+    from app.core.database import supabase
+
+    if not supabase:
+        return
+
+    user_id = event.payload.get("user_id")
+    lead_value = event.payload.get("estimated_value", 0)
+    lead_name = event.payload.get("name", "")
+
+    # Only trigger for high-value leads (> 100k)
+    if not user_id or lead_value < 100_000:
+        return
+
+    try:
+        await supabase.table("notifications").insert({
+            "user_id": user_id,
+            "title": "建议发起招标分析",
+            "content": f"线索「{lead_name}」预估价值 ¥{lead_value:,.0f}，建议前往标书审阅进行竞争分析。",
+            "type": "info",
+        }).execute()
+
+        logger.info(f"[CrossModule] Suggested tender analysis for lead {lead_name}")
+    except Exception as e:
+        logger.error(f"[CrossModule] Failed to suggest tender analysis: {e}")
+
+
+@on(EventType.PAYMENT_RECEIVED.value)
+async def update_sales_metrics_on_payment(event: Event):
+    """When payment is received, update sales metrics and close the loop."""
+    from app.core.database import supabase
+
+    if not supabase:
+        return
+
+    user_id = event.payload.get("user_id")
+    amount = event.payload.get("amount", 0)
+    org_id = event.payload.get("org_id")
+
+    if not user_id or not amount:
+        return
+
+    try:
+        # Update sales_metrics: increment revenue
+        await supabase.rpc("increment_user_bonus", {
+            "p_user_id": user_id,
+            "p_amount": amount * 0.003,  # 0.3% commission on payment
+        }).execute()
+
+        # Notify the sales rep
+        await supabase.table("notifications").insert({
+            "user_id": user_id,
+            "title": "回款到账通知",
+            "content": f"客户回款 ¥{amount:,.0f} 已确认，佣金已自动计入您的奖励账户。",
+            "type": "success",
+        }).execute()
+
+        logger.info(f"[CrossModule] Payment received ¥{amount} → metrics updated for user {user_id}")
+    except Exception as e:
+        logger.error(f"[CrossModule] Failed to update metrics on payment: {e}")
+
+
+@on(EventType.APPROVAL_APPROVED.value)
+async def trigger_downstream_on_approval(event: Event):
+    """When an approval is approved, trigger downstream actions based on type."""
+    approval_type = event.payload.get("type", "")
+
+    if approval_type == "contract":
+        # Auto-emit contract signed event
+        await emit(
+            EventType.CONTRACT_SIGNED.value,
+            payload=event.payload,
+            user_id=event.user_id,
+        )
+    elif approval_type == "expense":
+        # Notify finance for expense reimbursement
+        from app.core.database import supabase
+        if supabase:
+            try:
+                finance_users = await supabase.table("users").select("id").in_("role", ["founder"]).execute()
+                for user in finance_users.data or []:
+                    await supabase.table("notifications").insert({
+                        "user_id": user["id"],
+                        "title": "费用报销已审批",
+                        "content": f"¥{event.payload.get('amount', 0):,.0f} 的报销申请已通过审批，请在财务中心处理打款。",
+                        "type": "info",
+                    }).execute()
+            except Exception as e:
+                logger.error(f"[CrossModule] Failed to notify finance on expense approval: {e}")
+
 

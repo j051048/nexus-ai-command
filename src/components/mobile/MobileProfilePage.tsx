@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import {
   Wallet,
   Award,
@@ -229,8 +231,17 @@ export default function MobileProfilePage() {
   };
 
   /** 退出登录 */
+  const { confirm, ConfirmDialogProps } = useConfirmDialog();
   const handleSignOut = async () => {
-    await signOut();
+    const ok = await confirm({
+      title: '确认退出登录',
+      description: '退出后需要重新登录才能访问系统，确定要继续吗？',
+      confirmText: '退出登录',
+      variant: 'destructive',
+    });
+    if (ok) {
+      await signOut();
+    }
   };
 
   return (
@@ -345,6 +356,7 @@ export default function MobileProfilePage() {
           </button>
         </section>
       </div>
+      <ConfirmDialog {...ConfirmDialogProps} />
     </div>
   );
 }
