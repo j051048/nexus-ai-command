@@ -678,7 +678,14 @@ async def reflect_node(state: AgentState) -> dict:
     # second-guessed by RAG context (which may show "搜索失败" or stale data).
     grounded_warning = None
     rag_context = state.get("rag_context", "")
-    has_successful_tools = any(getattr(t, "status", None) == "success" for t in completed_tools)
+    
+    # Safely get tool status, handling both dict and dataclass
+    def _is_success(t):
+        if isinstance(t, dict):
+            return t.get("status") == "success"
+        return getattr(t, "status", None) == "success"
+        
+    has_successful_tools = any(_is_success(t) for t in completed_tools)
     rag_search_failed = (
         not rag_context or "搜索失败" in rag_context or "缺少" in rag_context or len(rag_context.strip()) < 20
     )
@@ -798,19 +805,27 @@ async def _verify_tool_grounding(ai_response: str, tool_results: list) -> str | 
     - Skips small numbers (< 10) which are commonly used in formatting
     - Uses ±10% relative tolerance for number comparison
     - Requires at least 3 ungrounded numbers to trigger (avoids noise from dates, IDs, etc.)
+    - Aggressively strips date/time strings before extracting numbers.
     """
     import re
 
     issues = []
 
+    # Strip out common date/time formats to avoid false positives (e.g. 2024年12月16日, 2024-12-16)
+    clean_ai_response = re.sub(r"\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*[日号]?", "", ai_response)
+    clean_ai_response = re.sub(r"\d{4}\s*-\s*\d{1,2}\s*-\s*\d{1,2}", "", clean_ai_response)
+    clean_ai_response = re.sub(r"\d{1,2}\s*:\s*\d{1,2}(?:\s*:\s*\d{1,2})?", "", clean_ai_response)
+
     # Extract all numbers from AI response
-    ai_numbers = re.findall(r"\d+(?:\.\d+)?", ai_response)
+    ai_numbers = re.findall(r"\d+(?:\.\d+)?", clean_ai_response)
 
     # Get all numbers from tool results
     tool_numbers = []
     for tool in tool_results:
-        if tool.result:
-            tool_numbers.extend(re.findall(r"\d+(?:\.\d+)?", str(tool.result)))
+        # P1 fix: Handle both ToolCallRecord objects and dicts
+        result_text = tool.get("result", "") if isinstance(tool, dict) else getattr(tool, "result", "")
+        if result_text:
+            tool_numbers.extend(re.findall(r"\d+(?:\.\d+)?", str(result_text)))
 
     if not tool_numbers:
         return None  # No tool numbers to compare against
@@ -825,7 +840,7 @@ async def _verify_tool_grounding(ai_response: str, tool_results: list) -> str | 
         if not found:
             issues.append(f"数值 {num} 未见工具返回")
 
-    # Require at least 3 ungrounded numbers to flag (avoids noise from dates, IDs, etc.)
+    # Require at least 3 ungrounded numbers to flag (avoids noise from IDs, etc.)
     if len(issues) >= 3:
         return "; ".join(issues[:3])
 
