@@ -206,8 +206,6 @@ async def run_agent_stream(
         "rag_sources": rag_sources,
         "error_recovery_attempted": False,
         "error_recovery_level": 0,
-        # Observability
-        "trace_logger": tracer,
         # VMD multi-agent orchestration fields
         "agent_code": vmd_agent_code or "",
         "scene_code": scene_code or "",
@@ -232,6 +230,11 @@ async def run_agent_stream(
         async for event in _agent_graph.astream_events(
             initial_state,
             thread_id=scoped_thread_id,
+            config={
+                "configurable": {
+                    "trace_logger": tracer,
+                },
+            },
             version="v2",
         ):
             kind = event.get("event")

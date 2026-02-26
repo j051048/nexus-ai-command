@@ -281,12 +281,12 @@ async def _execute_single_tool(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-async def plan_node(state: AgentState) -> dict:
+async def plan_node(state: AgentState, config: dict | None = None) -> dict:
     """
     Call the LLM with the current messages + tool schemas.
     """
-    config: AgentConfig = state["config"]
-    model = state.get("selected_model", config.model)
+    agent_config: AgentConfig = state["config"]
+    model = state.get("selected_model", agent_config.model)
     messages = state.get("messages", [])
     iteration = state.get("iteration", 0)
     rag_context = state.get("rag_context", "")
@@ -296,7 +296,7 @@ async def plan_node(state: AgentState) -> dict:
     try:
         from app.services.llm_helpers import resolve_model_config
 
-        org_id = config.org_id or "default"
+        org_id = agent_config.org_id or "default"
         scene_code = state.get("scene_code", "")
         agent_code = state.get("agent_code", "")
         resolved = await resolve_model_config(org_id, scene_code, agent_code)
@@ -310,11 +310,11 @@ async def plan_node(state: AgentState) -> dict:
     # Inject user_role and available_tools into the system prompt
     if iteration == 0:
         extra_lines = []
-        user_role = config.user_role
+        user_role = agent_config.user_role
         if user_role:
             extra_lines.append(f"当前用户角色: {user_role}")
 
-        tool_schemas = _get_tool_schemas(config.user_role)
+        tool_schemas = _get_tool_schemas(agent_config.user_role)
         if tool_schemas:
             tool_names = ", ".join(t["function"]["name"] for t in tool_schemas)
             extra_lines.append(f"可用工具: {tool_names}")
@@ -358,9 +358,9 @@ async def plan_node(state: AgentState) -> dict:
 
     # ── Task 1 & 2: LangChain Planning + Streaming ──
     # Use ChatOpenAI with streaming and bind_tools
-    llm = _get_llm(config, model=model, streaming=True, resolved_config=resolved)
+    llm = _get_llm(agent_config, model=model, streaming=True, resolved_config=resolved)
     if include_tools:
-        llm = llm.bind_tools(_get_tool_schemas(config.user_role), parallel_tool_calls=True)
+        llm = llm.bind_tools(_get_tool_schemas(agent_config.user_role), parallel_tool_calls=True)
 
     thinking_step = ThinkingStep(
         phase=AgentPhase.PLANNING.value,
@@ -371,7 +371,7 @@ async def plan_node(state: AgentState) -> dict:
     try:
         hook_ctx = await plugin_system_service.run_hooks(
             ExtensionPoint.PRE_CHAT,
-            {"messages": lc_msgs, "model": model, "config": config},
+            {"messages": lc_msgs, "model": model, "config": agent_config},
         )
         if "messages" in hook_ctx and isinstance(hook_ctx["messages"], list):
             lc_msgs = hook_ctx["messages"]
@@ -396,7 +396,7 @@ async def plan_node(state: AgentState) -> dict:
         # In a real heavy-streaming app, we'd use a callback handler passed via config
         _llm_start = time.time()
         ai_msg = await llm.ainvoke(lc_msgs)
-        record_llm_latency(model=model or config.model, duration_ms=(time.time() - _llm_start) * 1000)
+        record_llm_latency(model=model or agent_config.model, duration_ms=(time.time() - _llm_start) * 1000)
         llm_circuit_breaker.record_success()
     except Exception as e:
         llm_circuit_breaker.record_failure()
@@ -418,11 +418,12 @@ async def plan_node(state: AgentState) -> dict:
     output_tokens = usage.get("completion_tokens", 0)
 
     # Langfuse: log LLM generation
-    trace_logger = state.get("trace_logger")
+    _configurable = (config or {}).get("configurable", {}) if isinstance(config, dict) else {}
+    trace_logger = _configurable.get("trace_logger")
     if trace_logger:
         try:
             trace_logger.log_generation(
-                model=model or config.model,
+                model=model or agent_config.model,
                 input_messages=[{"role": "user", "content": str(lc_msgs[-1].content)[:500]}] if lc_msgs else [],
                 output=str(ai_msg.content or "")[:1000],
                 usage={"prompt_tokens": input_tokens, "completion_tokens": output_tokens},
@@ -490,11 +491,11 @@ async def plan_node(state: AgentState) -> dict:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-async def execute_node(state: AgentState) -> dict:
+async def execute_node(state: AgentState, config: dict | None = None) -> dict:
     """
     Execute all pending tool calls in parallel.
     """
-    config: AgentConfig = state["config"]
+    agent_config: AgentConfig = state["config"]
     pending = state.get("pending_tool_calls", [])
 
     if not pending:
@@ -511,7 +512,7 @@ async def execute_node(state: AgentState) -> dict:
     )
 
     # Execute all tools in parallel with overall timeout
-    gather_timeout = config.gather_timeout if hasattr(config, "gather_timeout") else 60.0
+    gather_timeout = agent_config.gather_timeout if hasattr(agent_config, "gather_timeout") else 60.0
 
     # P1 Plugin: PRE_TOOL hook
     try:
@@ -527,7 +528,7 @@ async def execute_node(state: AgentState) -> dict:
     shared_idempotency_cache: dict = {}
 
     try:
-        tasks = [_execute_single_tool(record, config, shared_idempotency_cache) for record in pending]
+        tasks = [_execute_single_tool(record, agent_config, shared_idempotency_cache) for record in pending]
         completed: list[ToolCallRecord] = await asyncio.wait_for(
             asyncio.gather(*tasks, return_exceptions=False),
             timeout=gather_timeout,
@@ -586,7 +587,8 @@ async def execute_node(state: AgentState) -> dict:
     all_completed = list(state.get("completed_tool_calls", [])) + completed
 
     # Langfuse: log tool executions
-    trace_logger = state.get("trace_logger")
+    _configurable = (config or {}).get("configurable", {}) if isinstance(config, dict) else {}
+    trace_logger = _configurable.get("trace_logger")
     if trace_logger:
         for record in completed:
             try:

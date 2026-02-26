@@ -12,8 +12,8 @@ interface UsageSummary {
   tokens_used: number;
   cost_usd: number;
   requests: number;
-  limit_tokens: number;
-  limit_cost: number;
+  tokens_limit: number;
+  cost_limit_usd: number;
 }
 
 interface HistoryItem {
@@ -146,7 +146,7 @@ export default function LLMCostDashboard() {
               <CardContent>
                 <p className="text-2xl font-bold">{formatTokens(current?.tokens_used || 0)}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  限额 {formatTokens(current?.limit_tokens || 0)}
+                  限额 {formatTokens(current?.tokens_limit || 0)}
                 </p>
               </CardContent>
             </Card>
@@ -160,7 +160,7 @@ export default function LLMCostDashboard() {
               <CardContent>
                 <p className="text-2xl font-bold">{formatCost(current?.cost_usd || 0)}</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  限额 {formatCost(current?.limit_cost || 0)}
+                  限额 {formatCost(current?.cost_limit_usd || 0)}
                 </p>
               </CardContent>
             </Card>

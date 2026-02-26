@@ -168,7 +168,8 @@ class AgentState(TypedDict, total=False):
     total_output_tokens: int
 
     # ── Observability ──
-    trace_logger: Any  # TraceLogger instance (optional, for Langfuse integration)
+    # NOTE: trace_logger is passed via RunnableConfig["configurable"]["trace_logger"]
+    # instead of state, because it's not serializable (contains network connections).
 
     # ── VMD Multi-Agent Orchestration ──
     agent_code: str  # Current agent role code (e.g., "content_agent")

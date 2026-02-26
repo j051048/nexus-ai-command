@@ -384,17 +384,21 @@ class AgentGraph:
         async for event in self.compiled.astream(initial_state, config=config):
             yield event
 
-    async def astream_events(self, initial_state: AgentState, thread_id: str = "default", version: str = "v2"):
+    async def astream_events(self, initial_state: AgentState, thread_id: str = "default", version: str = "v2", config: dict | None = None):
         """
         Async generator for granular events (token streaming, etc.).
+        If config is provided, it will be merged with the default config.
         """
-        config = {
+        base_config = {
             "configurable": {
                 "thread_id": thread_id,
             },
             "recursion_limit": settings.LANGGRAPH_MAX_ITERATIONS * 3 + 5,
         }
-        async for event in self.compiled.astream_events(initial_state, config=config, version=version):
+        if config:
+            # Merge configurable keys from caller (e.g. trace_logger)
+            base_config["configurable"].update(config.get("configurable", {}))
+        async for event in self.compiled.astream_events(initial_state, config=base_config, version=version):
             yield event
 
     async def get_state(self, thread_id: str) -> AgentState | None:
