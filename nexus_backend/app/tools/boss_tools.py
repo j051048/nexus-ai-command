@@ -377,6 +377,7 @@ class DailyBriefingTool(BaseTool):
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
+        org_id = config.get("org_id") if config else None
         # 获取待审批数量
         pending_res = (
             await client.table("approval_requests")
