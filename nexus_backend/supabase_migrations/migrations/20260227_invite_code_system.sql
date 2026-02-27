@@ -109,7 +109,7 @@ RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  _role       public.user_role;
+  _role       user_role;
   _raw_role   text;
   _department text;
   _name       text;
@@ -164,7 +164,7 @@ BEGIN
 
   -- C) public.user_roles (RBAC compat)
   INSERT INTO public.user_roles (user_id, role)
-  VALUES (NEW.id, CASE WHEN _raw_role = 'boss' THEN 'boss'::public.app_role ELSE 'employee'::public.app_role END)
+  VALUES (NEW.id, CASE WHEN _raw_role = 'boss' THEN 'boss'::app_role ELSE 'employee'::app_role END)
   ON CONFLICT (user_id) DO NOTHING;
 
   -- D) organization_members

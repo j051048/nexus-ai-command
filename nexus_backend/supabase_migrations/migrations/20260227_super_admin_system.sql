@@ -10,8 +10,9 @@
 -- ============================================================================
 
 -- 1. Add new enum values
-ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'pending_boss';
-ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'super_admin';
+-- Note: Supabase may store the type without schema prefix. Try without 'public.' first.
+ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'pending_boss';
+ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'super_admin';
 
 -- 2. is_super_admin() — checks user_roles table
 CREATE OR REPLACE FUNCTION public.is_super_admin(_user_id UUID)
@@ -29,7 +30,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.get_user_role(_user_id UUID)
 RETURNS TEXT AS $$
 DECLARE
-  _role public.user_role;
+  _role user_role;
   _has_pending BOOLEAN;
 BEGIN
   -- Check for pending boss in user_roles
@@ -57,8 +58,8 @@ RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  _role       public.user_role;
-  _app_role   public.app_role;
+  _role       user_role;
+  _app_role   app_role;
   _raw_role   text;
   _department text;
   _name       text;
@@ -137,7 +138,7 @@ $$;
 
 -- 5. Set j051048@gmail.com as super_admin (keep existing roles)
 INSERT INTO public.user_roles (user_id, role)
-SELECT au.id, 'super_admin'::public.app_role
+SELECT au.id, 'super_admin'::app_role
 FROM auth.users au
 WHERE au.email = 'j051048@gmail.com'
 ON CONFLICT DO NOTHING;
