@@ -118,6 +118,7 @@ const NAV_CONFIG: NavItem[] = [
   { icon: <BarChart3 size={20} />, label: 'VMD看板', href: 'vmd/dashboard', group: '虚拟市场部' },
 
   // 系统管理
+  { icon: <Building2 size={20} />, label: '企业设置', href: 'company-settings', roles: ['boss', 'founder'], group: '系统管理' },
   { icon: <Cpu size={20} />, label: '模型管理', href: 'llm/models', roles: ['boss', 'founder'], group: '系统管理' },
   { icon: <DollarSign size={20} />, label: 'LLM成本', href: 'llm/costs', roles: ['boss', 'founder'], group: '系统管理' },
   { icon: <ClipboardList size={20} />, label: '审计日志', href: 'audit', roles: ['boss', 'founder'], group: '系统管理' },

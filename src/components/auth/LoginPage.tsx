@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LogIn, UserPlus, Loader2, Briefcase, Users, KeyRound, ArrowLeft, Mail } from 'lucide-react';
+import { LogIn, UserPlus, Loader2, Briefcase, Users, KeyRound, ArrowLeft, Mail, Ticket } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,6 +17,9 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [selectedRole, setSelectedRole] = useState<AppRole>('employee');
+  const [inviteCode, setInviteCode] = useState('');
+  const [inviteValidating, setInviteValidating] = useState(false);
+  const [inviteError, setInviteError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
@@ -59,9 +62,41 @@ export function LoginPage() {
       return;
     }
 
+    // Validate invite code for employees
+    if (selectedRole === 'employee') {
+      if (!inviteCode.trim()) {
+        setInviteError('员工注册需要输入企业邀请码');
+        return;
+      }
+
+      setInviteValidating(true);
+      setInviteError('');
+      try {
+        const { data: orgId, error } = await supabase.rpc('validate_invite_code', {
+          _code: inviteCode.trim(),
+        });
+        if (error || !orgId) {
+          setInviteError('邀请码无效或已过期');
+          setInviteValidating(false);
+          return;
+        }
+      } catch {
+        setInviteError('验证邀请码失败，请稍后重试');
+        setInviteValidating(false);
+        return;
+      }
+      setInviteValidating(false);
+    }
+
     setLoading(true);
 
-    const { error } = await signUp(email, password, name, selectedRole);
+    const { error } = await signUp(
+      email,
+      password,
+      name,
+      selectedRole,
+      selectedRole === 'employee' ? inviteCode.trim() : undefined,
+    );
 
     if (error) {
       toast({
@@ -83,10 +118,6 @@ export function LoginPage() {
           description: '请手动登录',
           variant: 'destructive',
         });
-        // Switch to login tab if auto-login fails (user usually expects this)
-        // But since we don't control the Tabs state from here directly without lifting state, 
-        // effectively they will just stay on the form or we can navigate.
-        // For now, let's keep it simple.
       } else {
         navigate('/');
       }
@@ -385,6 +416,37 @@ export function LoginPage() {
                     </button>
                   </div>
                 </div>
+
+                {/* Invite Code (employees only) */}
+                {selectedRole === 'employee' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-invite">
+                      <span className="flex items-center gap-1.5">
+                        <Ticket className="w-3.5 h-3.5" />
+                        企业邀请码
+                      </span>
+                    </Label>
+                    <Input
+                      id="reg-invite"
+                      type="text"
+                      placeholder="请输入企业邀请码"
+                      value={inviteCode}
+                      onChange={(e) => {
+                        setInviteCode(e.target.value);
+                        setInviteError('');
+                      }}
+                      required
+                      className={cn("h-11 font-mono tracking-wider", inviteError && "border-destructive")}
+                      data-testid="register-invite-input"
+                    />
+                    {inviteError && (
+                      <p className="text-xs text-destructive">{inviteError}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      请向您的企业管理员获取邀请码
+                    </p>
+                  </div>
+                )}
 
                 <Button
                   type="submit"

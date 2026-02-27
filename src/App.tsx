@@ -126,6 +126,7 @@ const VMDDashboard = lazy(() => import("@/pages/VMDDashboard"));
 const VMDCompliancePage = lazy(() => import("@/pages/VMDCompliancePage"));
 const AgentDebugPanel = lazy(() => import("@/pages/AgentDebugPanel"));
 const LLMCostDashboard = lazy(() => import("@/pages/LLMCostDashboard"));
+const CompanySettingsPage = lazy(() => import("@/pages/CompanySettingsPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -281,6 +282,7 @@ const App = () => (
                 <Route path="vmd/dashboard" element={<ModuleErrorBoundary moduleName="VMD仪表盘"><VMDDashboard /></ModuleErrorBoundary>} />
                 <Route path="llm/models" element={<AdminRoute><ModuleErrorBoundary moduleName="LLM模型"><LLMModelManagement /></ModuleErrorBoundary></AdminRoute>} />
                 <Route path="llm/costs" element={<AdminRoute><ModuleErrorBoundary moduleName="LLM成本"><LLMCostDashboard /></ModuleErrorBoundary></AdminRoute>} />
+                <Route path="company-settings" element={<AdminRoute><ModuleErrorBoundary moduleName="企业设置"><CompanySettingsPage /></ModuleErrorBoundary></AdminRoute>} />
 
                 {/* Developer Tools */}
                 <Route path="dev/animations" element={<AnimationShowcase />} />

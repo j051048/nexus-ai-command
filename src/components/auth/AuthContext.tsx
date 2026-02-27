@@ -28,7 +28,7 @@ interface AuthContextType {
   role: AppRole | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
-  signUp: (email: string, password: string, name: string, role: AppRole) => Promise<{ error: AuthError | null }>;
+  signUp: (email: string, password: string, name: string, role: AppRole, inviteCode?: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -138,17 +138,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string, name: string, _selectedRole: AppRole) => {
+  const signUp = useCallback(async (email: string, password: string, name: string, _selectedRole: AppRole, inviteCode?: string) => {
     // P0 Security Fix: Always register as 'employee' — role elevation must be done by admin
+    const metadata: Record<string, string> = {
+      name,
+      role: 'employee',
+    };
+    if (inviteCode) {
+      metadata.invite_code = inviteCode;
+    }
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: window.location.origin,
-        data: {
-          name,
-          role: 'employee',
-        },
+        data: metadata,
       },
     });
     return { error };
