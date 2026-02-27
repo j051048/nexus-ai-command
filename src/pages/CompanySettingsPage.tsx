@@ -41,16 +41,41 @@ function CompanySettingsPage() {
 
   // Load organization data
   const loadOrg = useCallback(async () => {
-    if (!orgId) return;
+    if (!orgId) {
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
+
+      // Select only known base columns to avoid issues with missing invite_code columns
       const { data, error } = await supabase
         .from('organizations')
-        .select('*')
+        .select('id, name, slug, created_at, updated_at')
         .eq('id', orgId)
         .single();
 
       if (error) throw error;
+
+      // Try to get invite_code fields separately (may not exist if migration not run)
+      let inviteCode: string | null = null;
+      let inviteEnabled = true;
+      let inviteExpires: string | null = null;
+      try {
+        const { data: fullData } = await supabase
+          .from('organizations')
+          .select('*')
+          .eq('id', orgId)
+          .single();
+        if (fullData) {
+          const fd = fullData as Record<string, unknown>;
+          inviteCode = (fd.invite_code as string) ?? null;
+          inviteEnabled = (fd.invite_code_enabled as boolean) ?? true;
+          inviteExpires = (fd.invite_code_expires_at as string) ?? null;
+        }
+      } catch {
+        // invite_code columns may not exist yet — that's OK
+      }
 
       // Get member count
       const { count } = await supabase
@@ -62,16 +87,18 @@ function CompanySettingsPage() {
         id: data.id,
         name: data.name,
         slug: data.slug,
-        invite_code: (data as Record<string, unknown>).invite_code as string | null,
-        invite_code_enabled: ((data as Record<string, unknown>).invite_code_enabled as boolean) ?? true,
-        invite_code_expires_at: (data as Record<string, unknown>).invite_code_expires_at as string | null,
+        invite_code: inviteCode,
+        invite_code_enabled: inviteEnabled,
+        invite_code_expires_at: inviteExpires,
         member_count: count ?? 0,
       };
 
       setOrg(orgData);
       setOrgName(orgData.name);
-    } catch {
-      toast.error('加载企业信息失败');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '未知错误';
+      console.error('[CompanySettings] Load failed:', msg, 'orgId:', orgId);
+      toast.error(`加载企业信息失败: ${msg}`);
     } finally {
       setLoading(false);
     }

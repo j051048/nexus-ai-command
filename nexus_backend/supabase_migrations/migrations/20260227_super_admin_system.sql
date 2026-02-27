@@ -294,3 +294,28 @@ BEGIN
   DELETE FROM public.organizations WHERE id = _org_id;
 END;
 $$;
+
+-- 10. Fix RLS: ensure boss/founder users can read & update their own org
+--     The existing SELECT policy requires organization_members membership.
+--     Add an UPDATE policy so boss can modify org name, invite code, etc.
+CREATE POLICY "Boss can update own organization"
+  ON public.organizations FOR UPDATE TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.organization_members om
+      WHERE om.organization_id = organizations.id
+        AND om.user_id = auth.uid()
+        AND om.role IN ('owner', 'admin', 'member')
+    )
+  );
+
+-- 11. Backfill: ensure ALL users are in organization_members so RLS works
+INSERT INTO public.organization_members (organization_id, user_id, role)
+SELECT u.organization_id, u.id, 'member'
+FROM public.users u
+WHERE u.organization_id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM public.organization_members om
+    WHERE om.user_id = u.id AND om.organization_id = u.organization_id
+  )
+ON CONFLICT DO NOTHING;
