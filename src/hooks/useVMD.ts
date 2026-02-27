@@ -160,10 +160,26 @@ export function useVMDTasks(filters: TaskFilters = {}) {
       if (filters.date_from) params.set('date_from', filters.date_from);
       if (filters.date_to) params.set('date_to', filters.date_to);
       const qs = params.toString();
-      const res = await aiClient.fetch<{ success: boolean; data: VMDTask[] }>(
+      const res = await aiClient.fetch<{ success: boolean; data: AnyData[] }>(
         `api/vmd/tasks${qs ? '?' + qs : ''}`
       );
-      return res.data;
+      // Map DB row fields to frontend VMDTask fields
+      return (res.data || []).map((row): VMDTask => ({
+        id: row.id,
+        task_code: row.task_code || '',
+        title: row.title || '',
+        description: row.description || '',
+        scene_code: row.scene_code || '',
+        status: row.status || 'pending',
+        priority: row.priority || 'normal',
+        // progress may not exist in list rows — default to 0
+        progress: typeof row.progress === 'number' ? row.progress
+          : (typeof row.progress === 'object' && row.progress?.percentage != null) ? row.progress.percentage
+          : 0,
+        deadline: row.deadline || null,
+        created_at: row.created_at || row.create_time || '',
+        updated_at: row.updated_at || row.update_time || '',
+      }));
     },
     staleTime: 30_000,
   });
@@ -174,10 +190,32 @@ export function useVMDTaskDetail(taskId: string | null) {
     queryKey: ['vmd-task', taskId],
     queryFn: async () => {
       if (!taskId) return null;
-      const res = await aiClient.fetch<{ success: boolean; data: VMDTask }>(
+      // Backend returns { task, sub_tasks, wbs_structure, progress: {total_sub_tasks, completed, percentage} }
+      const res = await aiClient.fetch<{ success: boolean; data: {
+        task: AnyData;
+        sub_tasks: VMDSubTask[];
+        wbs_structure: AnyData | null;
+        progress: { total_sub_tasks: number; completed: number; percentage: number };
+      } }>(
         `api/vmd/tasks/${taskId}`
       );
-      return res.data;
+      const raw = res.data;
+      const task = raw.task || {};
+      return {
+        ...task,
+        id: task.id,
+        task_code: task.task_code || '',
+        title: task.title || '',
+        description: task.description || '',
+        scene_code: task.scene_code || '',
+        status: task.status || 'pending',
+        priority: task.priority || 'normal',
+        progress: raw.progress?.percentage ?? 0,
+        deadline: task.deadline || null,
+        created_at: task.created_at || task.create_time || '',
+        updated_at: task.updated_at || task.update_time || '',
+        sub_tasks: raw.sub_tasks || [],
+      } as VMDTask;
     },
     enabled: !!taskId,
   });
