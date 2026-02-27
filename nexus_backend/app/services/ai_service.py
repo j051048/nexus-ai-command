@@ -40,10 +40,20 @@ class AIService:
         base_url = base_url.rstrip("/")
         url = f"{base_url}/chat/completions"
 
+        # #25: 在 LLM API 调用中传播 trace_id
+        from app.core.trace_context import get_request_id, get_trace_id
+
+        trace_id = get_trace_id()
+        request_id = get_request_id()
+
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
+        if trace_id:
+            headers["X-Trace-ID"] = trace_id
+        if request_id:
+            headers["X-Request-ID"] = request_id
 
         payload = {
             "model": (settings.AI_DEFAULT_MODEL if hasattr(settings, "AI_DEFAULT_MODEL") else "gpt-4o"),

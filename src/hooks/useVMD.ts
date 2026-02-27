@@ -6,6 +6,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { aiClient } from '@/api/aiClient';
 import { toast } from 'sonner';
+import { mapVMDTaskListFromAPI, mapVMDTaskDetailFromAPI } from '@/utils/vmdMapper';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyData = Record<string, any>;
@@ -163,23 +164,8 @@ export function useVMDTasks(filters: TaskFilters = {}) {
       const res = await aiClient.fetch<{ success: boolean; data: AnyData[] }>(
         `api/vmd/tasks${qs ? '?' + qs : ''}`
       );
-      // Map DB row fields to frontend VMDTask fields
-      return (res.data || []).map((row): VMDTask => ({
-        id: row.id,
-        task_code: row.task_code || '',
-        title: row.title || '',
-        description: row.description || '',
-        scene_code: row.scene_code || '',
-        status: row.status || 'pending',
-        priority: row.priority || 'normal',
-        // progress may not exist in list rows — default to 0
-        progress: typeof row.progress === 'number' ? row.progress
-          : (typeof row.progress === 'object' && row.progress?.percentage != null) ? row.progress.percentage
-          : 0,
-        deadline: row.deadline || null,
-        created_at: row.created_at || row.create_time || '',
-        updated_at: row.updated_at || row.update_time || '',
-      }));
+      // Use centralized VMD mapper for consistent field normalization
+      return mapVMDTaskListFromAPI(res.data || []);
     },
     staleTime: 30_000,
   });
@@ -199,23 +185,8 @@ export function useVMDTaskDetail(taskId: string | null) {
       } }>(
         `api/vmd/tasks/${taskId}`
       );
-      const raw = res.data;
-      const task = raw.task || {};
-      return {
-        ...task,
-        id: task.id,
-        task_code: task.task_code || '',
-        title: task.title || '',
-        description: task.description || '',
-        scene_code: task.scene_code || '',
-        status: task.status || 'pending',
-        priority: task.priority || 'normal',
-        progress: raw.progress?.percentage ?? 0,
-        deadline: task.deadline || null,
-        created_at: task.created_at || task.create_time || '',
-        updated_at: task.updated_at || task.update_time || '',
-        sub_tasks: raw.sub_tasks || [],
-      } as VMDTask;
+      // Use centralized VMD mapper for consistent field normalization
+      return mapVMDTaskDetailFromAPI(res.data) as VMDTask;
     },
     enabled: !!taskId,
   });

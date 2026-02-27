@@ -134,7 +134,20 @@ def _get_llm(
 
     If resolved_config is provided (from LLM gateway), use it.
     Otherwise fall back to AgentConfig settings.
+
+    #25: Injects trace_id as default header for full-chain propagation.
     """
+    from app.core.trace_context import get_request_id, get_trace_id
+
+    # 构建追踪头
+    default_headers = {}
+    trace_id = get_trace_id()
+    request_id = get_request_id()
+    if trace_id:
+        default_headers["X-Trace-ID"] = trace_id
+    if request_id:
+        default_headers["X-Request-ID"] = request_id
+
     if resolved_config:
         return ChatOpenAI(
             model=resolved_config.get("model", model or config.model),
@@ -143,6 +156,7 @@ def _get_llm(
             temperature=resolved_config.get("temperature", config.temperature),
             streaming=streaming,
             timeout=resolved_config.get("timeout", 60.0),
+            default_headers=default_headers or None,
         )
     return ChatOpenAI(
         model=model or config.model,
@@ -151,6 +165,7 @@ def _get_llm(
         temperature=config.temperature,
         streaming=streaming,
         timeout=60.0,
+        default_headers=default_headers or None,
     )
 
 

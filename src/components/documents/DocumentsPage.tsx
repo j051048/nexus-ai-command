@@ -9,7 +9,8 @@ import {
     Calendar,
     Currency,
     Filter,
-    Trash2
+    Trash2,
+    PackagePlus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -47,8 +48,10 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
     const [minAmount, setMinAmount] = useState<string>('');
     const [maxAmount, setMaxAmount] = useState<string>('');
     const [filterDate, setFilterDate] = useState<string>('');
+    const [isBulkImporting, setIsBulkImporting] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const bulkImportInputRef = useRef<HTMLInputElement>(null);
 
     // Fetch documents from Supabase
     const fetchDocuments = async () => {
@@ -270,6 +273,74 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
         }
     };
 
+    const handleBulkImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        if (!file.name.endsWith('.json')) {
+            toast.error('请上传 JSON 格式的批量导入文件');
+            return;
+        }
+
+        setIsBulkImporting(true);
+        try {
+            const text = await file.text();
+            const parsed = JSON.parse(text);
+
+            // Validate format: expect { documents: [...] } or just [...]
+            const documents = Array.isArray(parsed) ? parsed : parsed.documents;
+            if (!Array.isArray(documents) || documents.length === 0) {
+                throw new Error('JSON 格式无效：需要包含 documents 数组');
+            }
+
+            // Build API URL
+            let url = '';
+            const configuredUrl = import.meta.env.VITE_API_BASE_URL;
+            if (configuredUrl) {
+                url = configuredUrl.startsWith('http') ? configuredUrl : `https://${configuredUrl}`;
+            } else {
+                url = window.location.hostname === 'localhost' ? 'http://localhost:8000' : window.location.origin;
+            }
+            const endpoint = `${url.replace(/\/$/, '')}/api/documents/bulk-import`;
+
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+
+            if (!token) {
+                toast.error('请先登录');
+                return;
+            }
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ documents }),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result?.detail?.message || result?.message || '批量导入失败');
+            }
+
+            const data = result.data;
+            toast.success(
+                `批量导入完成：${data.success_count} 成功, ${data.skip_count} 跳过, ${data.error_count} 失败`
+            );
+
+            await fetchDocuments();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : '批量导入失败';
+            toast.error(message);
+        } finally {
+            setIsBulkImporting(false);
+            if (bulkImportInputRef.current) bulkImportInputRef.current.value = '';
+        }
+    };
+
     const filteredDocs = documents.filter(doc => {
         // 1. Category Filter
         if (activeFilter !== 'all' && doc.doc_type !== activeFilter) return false;
@@ -309,6 +380,27 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
                     </p>
                 </div>
                 <div className="flex gap-3">
+                    {/* Bulk Import Button for Boss */}
+                    {isBoss && (
+                        <>
+                            <input
+                                type="file"
+                                ref={bulkImportInputRef}
+                                className="hidden"
+                                onChange={handleBulkImport}
+                                accept=".json"
+                            />
+                            <button
+                                onClick={() => bulkImportInputRef.current?.click()}
+                                disabled={isUploading || isBulkImporting}
+                                className="px-5 py-2.5 bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition-all flex items-center gap-2 shadow-lg shadow-amber-500/20 disabled:opacity-50 active:scale-95"
+                            >
+                                {isBulkImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <PackagePlus className="w-4 h-4" />}
+                                批量导入
+                            </button>
+                        </>
+                    )}
+
                     {/* Delete Button for Boss */}
                     {isBoss && (
                         <button

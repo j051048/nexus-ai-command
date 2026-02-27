@@ -1,3 +1,4 @@
+import hashlib
 import logging
 from typing import Literal
 
@@ -5,6 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Request, Up
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id
+from app.core.dependencies import require_role
 from app.core.errors import ErrorCode, api_error, api_success
 from app.models.schemas import BatchDeleteRequest, StandardResponse
 from app.services.etl_service import etl_service
@@ -435,3 +437,210 @@ async def update_document_category(
     except Exception as e:
         logger.error(f"Update category failed: doc={document_id} user={user_id} err={e}")
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"更新分类失败: {str(e)}")
+
+
+# ============== Bulk Import Endpoint ==============
+
+# Role check dependency: admin / founder / boss only
+require_kb_admin = require_role(["admin", "founder", "boss"])
+
+
+class BulkImportDocumentItem(BaseModel):
+    """Single document in a bulk import request."""
+
+    title: str = Field(..., min_length=1, max_length=500, description="文档标题（将用作文件名）")
+    content: str = Field(..., min_length=10, description="文档正文内容")
+    doc_type: Literal["contract", "tender", "bid", "product", "proposal", "invoice", "other"] = Field(
+        default="other", description="文档分类"
+    )
+    library_code: str | None = Field(default=None, description="目标知识库编码（如 product_lib）")
+    tags: list[str] = Field(default_factory=list, description="文档标签")
+    visibility: Literal["private", "department", "organization"] = Field(
+        default="organization", description="可见性"
+    )
+
+
+class BulkImportRequest(BaseModel):
+    """Bulk import request body."""
+
+    documents: list[BulkImportDocumentItem] = Field(..., min_length=1, max_length=50, description="文档列表（最多50条）")
+
+
+@router.post("/bulk-import", response_model=StandardResponse)
+async def bulk_import_documents(
+    payload: BulkImportRequest,
+    req: Request,
+    user_id: str = Depends(require_kb_admin),
+):
+    """
+    批量导入知识库文档（管理员专用）。
+
+    接收 JSON 数组，为每个条目创建 documents 记录。
+    不触发 AI 解析或 Embedding 生成（适用于预置的知识库内容）。
+    需要 admin / founder / boss 角色。
+    """
+    from app.core.database import supabase as global_supabase
+
+    client = getattr(req.state, "db", global_supabase)
+    if not client:
+        raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库服务不可用")
+
+    org_id = getattr(req.state, "org_id", None)
+
+    # Prefetch library code -> id mapping
+    library_map: dict[str, int] = {}
+    try:
+        lib_res = await client.table("knowledge_library").select("id, library_code").execute()
+        if lib_res.data:
+            library_map = {row["library_code"]: row["id"] for row in lib_res.data}
+    except Exception as e:
+        logger.warning(f"Failed to fetch knowledge libraries: {e}")
+
+    results = []
+    success_count = 0
+    skip_count = 0
+    error_count = 0
+
+    for item in payload.documents:
+        try:
+            # Dedup by content hash
+            content_bytes = item.content.encode("utf-8")
+            content_hash = hashlib.sha256(content_bytes).hexdigest()
+
+            # Check if document with same name already exists (idempotent)
+            existing = (
+                await client.table("documents")
+                .select("id, name")
+                .eq("name", item.title)
+                .limit(1)
+                .execute()
+            )
+            if existing.data and len(existing.data) > 0:
+                skip_count += 1
+                results.append({
+                    "title": item.title,
+                    "status": "skipped",
+                    "existing_id": existing.data[0]["id"],
+                    "message": "同名文档已存在",
+                })
+                continue
+
+            # Build extracted_data
+            extracted_data = {
+                "doc_type": item.doc_type,
+                "tags": item.tags,
+                "full_text_context": item.content[:100000],
+            }
+
+            # Resolve library_id
+            library_id = library_map.get(item.library_code) if item.library_code else None
+
+            record = {
+                "name": item.title,
+                "doc_type": item.doc_type,
+                "version": 1,
+                "extracted_data": extracted_data,
+                "owner_id": user_id,
+                "status": "ready",
+                "progress": 100,
+                "stage": "completed",
+                "visibility": item.visibility,
+                "content_hash": content_hash,
+                "organization_id": org_id,
+                "category": item.doc_type,
+            }
+
+            if library_id:
+                record["library_id"] = library_id
+
+            res = await client.table("documents").insert(record).execute()
+            if res.data:
+                doc_id = res.data[0]["id"]
+                success_count += 1
+                results.append({
+                    "title": item.title,
+                    "status": "created",
+                    "document_id": doc_id,
+                    "library_id": library_id,
+                })
+            else:
+                error_count += 1
+                results.append({
+                    "title": item.title,
+                    "status": "error",
+                    "message": "数据库未返回记录",
+                })
+
+        except Exception as e:
+            error_count += 1
+            logger.error(f"Bulk import failed for '{item.title}': {e}")
+            results.append({
+                "title": item.title,
+                "status": "error",
+                "message": str(e)[:200],
+            })
+
+    # Update library doc_count for affected libraries
+    affected_codes = {item.library_code for item in payload.documents if item.library_code}
+    for code in affected_codes:
+        lib_id = library_map.get(code)
+        if lib_id:
+            try:
+                count_res = (
+                    await client.table("documents")
+                    .select("id")
+                    .eq("library_id", lib_id)
+                    .execute()
+                )
+                doc_count = len(count_res.data) if count_res.data else 0
+                await (
+                    client.table("knowledge_library")
+                    .update({"doc_count": doc_count})
+                    .eq("id", lib_id)
+                    .execute()
+                )
+            except Exception as e:
+                logger.warning(f"Failed to update doc_count for library {code}: {e}")
+
+    logger.info(
+        f"Bulk import by user {user_id}: {success_count} created, "
+        f"{skip_count} skipped, {error_count} errors"
+    )
+
+    return api_success(
+        data={
+            "total": len(payload.documents),
+            "success_count": success_count,
+            "skip_count": skip_count,
+            "error_count": error_count,
+            "results": results,
+        },
+        message=f"批量导入完成: {success_count} 成功, {skip_count} 跳过, {error_count} 失败",
+    )
+
+
+@router.get("/libraries", response_model=StandardResponse)
+async def list_knowledge_libraries(
+    req: Request,
+    _user_id: str = Depends(get_current_user_id),
+):
+    """获取所有知识库分类及其文档计数"""
+    from app.core.database import supabase as global_supabase
+
+    client = getattr(req.state, "db", global_supabase)
+    if not client:
+        raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库服务不可用")
+
+    try:
+        res = (
+            await client.table("knowledge_library")
+            .select("id, library_code, library_name, description, access_level, doc_count, is_active")
+            .eq("is_active", True)
+            .order("id")
+            .execute()
+        )
+        libraries = res.data if res.data else []
+        return api_success(data=libraries, message=f"共 {len(libraries)} 个知识库")
+    except Exception as e:
+        logger.error(f"Failed to list knowledge libraries: {e}")
+        raise api_error(ErrorCode.DB_QUERY_ERROR, f"获取知识库列表失败: {str(e)}")

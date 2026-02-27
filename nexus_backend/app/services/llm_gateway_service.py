@@ -10,6 +10,7 @@ It handles:
 - Adapter instantiation and request dispatch
 - Usage recording and call logging
 - Automatic fallback to backup models on failure
+- #25: Trace ID 全链路传播 (via trace_context)
 """
 
 import logging
@@ -18,6 +19,7 @@ import uuid
 from collections.abc import AsyncIterator
 
 from app.core.database import supabase
+from app.core.trace_context import get_trace_id
 from app.services.encryption_service import encryption_service
 from app.services.llm_adapters.base import (
     BaseModelAdapter,
@@ -816,6 +818,10 @@ class LLMGatewayService:
                 "latency_ms": latency_ms,
                 "error_msg": error_msg,
             }
+            # #25: 添加 trace_id 用于全链路追踪
+            trace_id = get_trace_id()
+            if trace_id:
+                row["trace_id"] = trace_id
             await supabase.table("llm_call_log").insert(row).execute()
         except Exception as e:
             # Logging failures must never break the main flow

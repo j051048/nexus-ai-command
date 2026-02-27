@@ -48,6 +48,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
         if (path.includes('vmd/compliance')) return '合规校验';
         if (path.includes('vmd/dashboard')) return '数据看板';
         if (path.includes('vmd')) return '虚拟市场部';
+        if (path.includes('org-chart')) return '组织架构';
         if (path.includes('llm/models')) return '模型管理';
         if (path.includes('agent-debug')) return 'Agent 调试面板';
         return 'Nexus OS';

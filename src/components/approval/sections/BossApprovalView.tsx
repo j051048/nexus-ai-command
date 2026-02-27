@@ -7,6 +7,7 @@ import {
     XCircle,
     CheckSquare,
     X,
+    GitBranch,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -26,11 +27,49 @@ import {
     useApproveRequest,
     useRejectRequest,
     useAdvanceApproval,
+    useApprovalProgress,
 } from '@/hooks/useApprovals';
 import { BossApprovalCard } from '../components/BossApprovalCard';
 import { approvalTypes } from '../constants';
 import { useFormSchema } from '@/hooks/useFormSchemas';
 import { DynamicFormRenderer } from '@/components/forms/DynamicFormRenderer';
+
+// ─── 小型内联审批进度指示器 ──────────────────────────────────
+// 在审批列表项中显示简化的审批链进度
+function MiniApprovalProgress({ requestId }: { requestId: string }) {
+    const { data: progressData } = useApprovalProgress(requestId);
+
+    if (!progressData || !progressData.steps || progressData.steps.length === 0) {
+        return null;
+    }
+
+    const { steps, current_step, status } = progressData;
+    const totalSteps = steps.length;
+    const completedSteps = current_step;
+    const progressPct = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+
+    return (
+        <div className="flex items-center gap-2 mt-2">
+            <GitBranch className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+            <div className="flex-1 flex items-center gap-1.5">
+                <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                        className={cn(
+                            'h-full rounded-full transition-all',
+                            status === 'rejected' ? 'bg-destructive' :
+                            status === 'approved' ? 'bg-success' :
+                            'bg-primary'
+                        )}
+                        style={{ width: `${status === 'approved' ? 100 : progressPct}%` }}
+                    />
+                </div>
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                    {completedSteps}/{totalSteps}
+                </span>
+            </div>
+        </div>
+    );
+}
 
 export function BossApprovalView() {
     const [statusFilter, setStatusFilter] = useState('pending');
@@ -343,6 +382,9 @@ export function BossApprovalView() {
                                                     </p>
                                                 </div>
                                             )}
+
+                                            {/* 内联审批进度指示器 */}
+                                            <MiniApprovalProgress requestId={approval.id} />
 
                                             {/* A6: 移动端批准/驳回按钮 */}
                                             {approval.status === 'pending' && (

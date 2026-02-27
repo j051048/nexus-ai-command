@@ -50,9 +50,11 @@ import {
 import { AIMessage } from '@/types/nexus';
 import { toast } from 'sonner';
 import { useAIStream } from '@/hooks/useAIStream';
+import { useAgentTrace } from '@/hooks/useAgentTrace';
 import { aiClient } from '@/api/aiClient';
 import { PulseDot } from '@/components/common/AnimatedComponents';
 import { MessageBubble } from './MessageBubble';
+import { AgentTracePanel } from './AgentTracePanel';
 import { supabase } from '@/integrations/supabase/client';
 
 
@@ -159,6 +161,10 @@ export function EnhancedAIChatPanel({
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   const { isTyping: isAiTyping, aiStatus, streamChat, pendingConfirmation, confirmAndResend, dismissConfirmation } = useAIStream({ userId: user.id });
+
+  // Agent Trace Panel
+  const { trace, startTrace, endTrace, addThinkingStep, clearTrace } = useAgentTrace();
+  const [showTrace, setShowTrace] = useState(false);
 
   // Quota alert state
   const [quotaAlert, setQuotaAlert] = useState<QuotaAlert | null>(null);
@@ -308,34 +314,44 @@ export function EnhancedAIChatPanel({
     }
 
     try {
+      startTrace();
       await streamChat(
         messageToSend,
         messages,
         detectedAgent,
-        (content, assistantMsgId) => {
-          setMessages((prev) => {
-            const exists = prev.find((m) => m.id === assistantMsgId);
-            if (exists) {
-              return prev.map((m) =>
-                m.id === assistantMsgId ? { ...m, content } : m
-              );
-            } else {
-              return [
-                ...prev,
-                {
-                  id: assistantMsgId,
-                  role: 'assistant',
-                  content,
-                  timestamp: new Date(),
-                  agent: detectedAgent,
-                },
-              ];
-            }
-          });
+        {
+          onUpdate: (content, assistantMsgId) => {
+            setMessages((prev) => {
+              const exists = prev.find((m) => m.id === assistantMsgId);
+              if (exists) {
+                return prev.map((m) =>
+                  m.id === assistantMsgId ? { ...m, content } : m
+                );
+              } else {
+                return [
+                  ...prev,
+                  {
+                    id: assistantMsgId,
+                    role: 'assistant',
+                    content,
+                    timestamp: new Date(),
+                    agent: detectedAgent,
+                  },
+                ];
+              }
+            });
+          },
+          onThinkingStep: (step) => {
+            addThinkingStep(step);
+          },
+          onThinkingComplete: () => {
+            endTrace();
+          },
         }
       );
 
       onSendMessage?.(messageToSend, messages[messages.length - 1]?.content || '');
+      endTrace();
     } catch (e) {
       setMessages((prev) => prev.filter((m) => m.content !== ''));
     }
@@ -583,6 +599,26 @@ export function EnhancedAIChatPanel({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
+                          variant={showTrace ? 'default' : 'ghost'}
+                          size="icon"
+                          className="h-8 w-8"
+                          data-compact
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowTrace(!showTrace);
+                          }}
+                        >
+                          <Zap className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {showTrace ? '隐藏执行日志' : '查看执行日志'}
+                      </TooltipContent>
+                    </Tooltip>
+
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8"
@@ -756,6 +792,17 @@ export function EnhancedAIChatPanel({
                         </div>
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {/* Agent Trace Panel */}
+                {showTrace && (
+                  <div className="mx-4 mb-2">
+                    <AgentTracePanel
+                      trace={trace}
+                      onClose={() => setShowTrace(false)}
+                      defaultExpanded
+                    />
                   </div>
                 )}
                 

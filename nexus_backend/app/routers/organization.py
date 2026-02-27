@@ -4,6 +4,8 @@ Provides endpoints for managing organizational hierarchy and approval chains.
 """
 
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+from typing import Optional
 
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
@@ -158,3 +160,116 @@ async def process_approval_through_chain(
         return api_success(data=result, message="Approval Request Processed")
     except Exception as e:
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"Approval processing failed: {str(e)}")
+
+
+# ============== Organization Members Management ==============
+
+
+@router.get("/members", response_model=StandardResponse)
+async def get_organization_members(user_id: str = Depends(get_current_user_id)):
+    """
+    Get all members in the user's organization for the org chart management page.
+    Returns: id, full_name, department, role, manager_id, avatar_url
+    """
+    from app.core.database import supabase
+
+    # Get the user's organization
+    user_res = await supabase.table("users").select("organization_id").eq("id", user_id).maybe_single().execute()
+    org_id = user_res.data.get("organization_id") if user_res.data else None
+
+    if not org_id:
+        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "Organization not found for current user")
+
+    # Fetch all members in the organization
+    members_res = await supabase.table("users").select(
+        "id, full_name, name, department, role, manager_id, avatar_url"
+    ).eq("organization_id", org_id).order("full_name").execute()
+
+    members = []
+    all_members = members_res.data or []
+
+    # Build a name lookup for manager display
+    name_map = {}
+    for m in all_members:
+        name_map[m["id"]] = m.get("full_name") or m.get("name") or "未知"
+
+    for m in all_members:
+        members.append({
+            "id": m["id"],
+            "full_name": m.get("full_name") or m.get("name") or "未知",
+            "department": m.get("department") or "",
+            "role": m.get("role") or "employee",
+            "manager_id": m.get("manager_id"),
+            "manager_name": name_map.get(m.get("manager_id", ""), None),
+            "avatar_url": m.get("avatar_url"),
+        })
+
+    return api_success(data=members, message=f"Found {len(members)} members")
+
+
+class UpdateManagerRequest(BaseModel):
+    manager_id: Optional[str] = None
+
+
+@router.put("/members/{target_user_id}/manager", response_model=StandardResponse)
+async def update_user_manager(
+    target_user_id: str,
+    body: UpdateManagerRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Update the manager_id for a user (org chart management).
+    Only admins/bosses should call this (enforced via frontend role guard).
+    """
+    from app.core.database import supabase
+
+    # Verify the requesting user is in the same org and has boss/admin role
+    user_res = await supabase.table("users").select(
+        "organization_id, role"
+    ).eq("id", user_id).maybe_single().execute()
+
+    if not user_res.data:
+        raise api_error(ErrorCode.AUTH_UNAUTHORIZED, "User not found")
+
+    caller_role = user_res.data.get("role", "")
+    if caller_role not in ("boss", "founder", "admin"):
+        raise api_error(ErrorCode.AUTH_FORBIDDEN, "Only admins can update reporting relationships")
+
+    caller_org = user_res.data.get("organization_id")
+
+    # Verify target user is in the same org
+    target_res = await supabase.table("users").select(
+        "id, organization_id"
+    ).eq("id", target_user_id).maybe_single().execute()
+
+    if not target_res.data:
+        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "Target user not found")
+
+    if target_res.data.get("organization_id") != caller_org:
+        raise api_error(ErrorCode.AUTH_FORBIDDEN, "Cannot modify users outside your organization")
+
+    # Prevent self-assignment as manager
+    if body.manager_id == target_user_id:
+        raise api_error(ErrorCode.VALIDATION_ERROR, "A user cannot be their own manager")
+
+    # If manager_id is provided, verify the manager exists in the same org
+    if body.manager_id:
+        manager_res = await supabase.table("users").select(
+            "id, organization_id"
+        ).eq("id", body.manager_id).maybe_single().execute()
+
+        if not manager_res.data:
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "Manager user not found")
+
+        if manager_res.data.get("organization_id") != caller_org:
+            raise api_error(ErrorCode.AUTH_FORBIDDEN, "Manager must be in the same organization")
+
+    # Update the manager_id
+    update_res = await supabase.table("users").update(
+        {"manager_id": body.manager_id}
+    ).eq("id", target_user_id).execute()
+
+    if not update_res.data:
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Failed to update manager")
+
+    return api_success(data={"user_id": target_user_id, "manager_id": body.manager_id}, message="Manager updated successfully")

@@ -214,6 +214,8 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         import time
         import uuid
 
+        from app.core.trace_context import set_request_id, set_trace_id
+
         request_start = time.monotonic()
 
         # Check if request ID already provided (e.g., from load balancer)
@@ -227,6 +229,10 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         # Store in request state for access in route handlers and services
         request.state.request_id = request_id
         request.state.trace_id = trace_id
+
+        # #25: 设置 ContextVar 使得任何服务层都能获取 trace_id
+        set_trace_id(trace_id)
+        set_request_id(request_id)
 
         # Process request
         response = await call_next(request)

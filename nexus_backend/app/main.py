@@ -148,6 +148,26 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Connection pool init skipped: {e}")
 
+    # #20: 启动时验证关键表列是否存在
+    from app.core.schema_validator import validate_schema
+
+    try:
+        schema_warnings = await validate_schema()
+        if schema_warnings:
+            logger.warning(f"Schema validation: {len(schema_warnings)} warnings")
+    except Exception as e:
+        logger.warning(f"Schema validation skipped: {e}")
+
+    # #18: 自动执行数据库迁移（需要 AUTO_MIGRATE=true）
+    from app.core.migration_runner import run_migrations
+
+    try:
+        applied = await run_migrations()
+        if applied:
+            logger.info(f"Migration runner: {len(applied)} migrations processed")
+    except Exception as e:
+        logger.warning(f"Migration runner skipped: {e}")
+
     # Warm up tiktoken encoders (prevents first-request latency)
     try:
         from app.services.token_service import token_counter
@@ -255,18 +275,24 @@ async def test_ai_connectivity(user_id: str = Depends(get_current_user_id)):
 
 # P0 Security Fix: Middleware order matters - last added runs first (outermost).
 # Execution order (outermost -> innermost):
-#   CORS -> RateLimit -> SecurityHeaders -> RequestID -> APIKey -> Idempotency -> TenantContext
+#   CORS -> RateLimit -> SecurityHeaders -> RequestID -> DataMasking -> CSRF -> APIKey -> Idempotency -> TenantContext
 #
 # CORS MUST be outermost so browser preflight (OPTIONS) is handled immediately
 # before any auth/rate-limit middleware rejects the request.
-app.add_middleware(TenantContextMiddleware)  # 7th: innermost, sets up tenant DB scope
+app.add_middleware(TenantContextMiddleware)  # 9th: innermost, sets up tenant DB scope
 from app.core.idempotency_middleware import IdempotencyMiddleware  # noqa: E402
 
-app.add_middleware(IdempotencyMiddleware)  # 6th: idempotency dedup for write operations
+app.add_middleware(IdempotencyMiddleware)  # 8th: idempotency dedup for write operations
 from app.core.api_key_middleware import APIKeyMiddleware  # noqa: E402
 
-app.add_middleware(APIKeyMiddleware)  # 5th: API Key auth sets org_id before tenant context
-app.add_middleware(RequestIDMiddleware)  # 4th: adds request tracing ID
+app.add_middleware(APIKeyMiddleware)  # 7th: API Key auth sets org_id before tenant context
+from app.core.csrf_middleware import CSRFMiddleware  # noqa: E402
+
+app.add_middleware(CSRFMiddleware)  # 6th: CSRF protection for cookie-based auth
+from app.core.data_masking import DataMaskingMiddleware  # noqa: E402
+
+app.add_middleware(DataMaskingMiddleware)  # 5th: auto-mask sensitive fields in responses
+app.add_middleware(RequestIDMiddleware)  # 4th: adds request tracing ID + sets contextvars
 app.add_middleware(SecurityHeadersMiddleware)  # 3rd: security response headers
 app.add_middleware(RateLimitMiddleware)  # 2nd: blocks abuse BEFORE DB queries
 app.add_middleware(
@@ -282,6 +308,7 @@ app.add_middleware(
         "X-API-Key",
         "X-Idempotency-Key",
         "X-Trace-ID",
+        "X-CSRF-Token",
     ],
 )
 

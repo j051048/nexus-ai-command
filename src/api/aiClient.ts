@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -28,6 +29,8 @@ export function resetTraceSession(): void {
 interface RequestOptions extends RequestInit {
     requireAuth?: boolean;
     _retried?: boolean; // internal flag to prevent infinite retry
+    /** Skip the unified error toast (caller handles errors manually) */
+    _silentError?: boolean;
 }
 
 async function getAuthToken(): Promise<string | null> {
@@ -56,9 +59,65 @@ function buildUrl(endpoint: string): string {
     return `${cleanBase}/${cleanEndpoint}`;
 }
 
+// ─── Unified Error Interceptor ──────────────────────────────
+// Centralized error handler that shows user-friendly toasts
+// for common HTTP error codes and network failures.
+
+function handleErrorResponse(status: number, errorMessage: string, silent?: boolean): void {
+    if (silent) return;
+
+    switch (status) {
+        case 401:
+            toast.error('会话已过期，请重新登录', {
+                id: 'auth-expired', // deduplicate
+                action: {
+                    label: '去登录',
+                    onClick: () => { window.location.href = '/login'; },
+                },
+            });
+            break;
+        case 403:
+            toast.error('没有权限执行此操作', { id: 'no-permission' });
+            break;
+        case 500:
+        case 502:
+        case 503:
+        case 504:
+            toast.error('服务器错误，请稍后重试', { id: 'server-error' });
+            break;
+        case 422:
+            // Validation error — show the specific message
+            toast.error(errorMessage || '请求参数有误');
+            break;
+        case 429:
+            toast.error('请求过于频繁，请稍后再试', { id: 'rate-limit' });
+            break;
+        default:
+            // For other 4xx/5xx, show the extracted message
+            if (status >= 400) {
+                toast.error(errorMessage || `请求失败 (${status})`);
+            }
+            break;
+    }
+}
+
+function handleNetworkError(error: Error, silent?: boolean): void {
+    if (silent) return;
+
+    const msg = error.message || '';
+    if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('network')) {
+        toast.error('网络不可用，请检查网络连接', { id: 'network-error' });
+    } else if (msg.includes('AbortError') || error.name === 'AbortError') {
+        // User-initiated abort — no toast
+    } else {
+        toast.error(msg || '请求失败，请重试');
+    }
+}
+
 export const aiClient = {
     async fetch<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
         const fullUrl = buildUrl(endpoint);
+        const silent = options._silentError;
 
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
@@ -73,10 +132,17 @@ export const aiClient = {
             }
         }
 
-        const response = await fetch(fullUrl, {
-            ...options,
-            headers,
-        });
+        let response: Response;
+        try {
+            response = await fetch(fullUrl, {
+                ...options,
+                headers,
+            });
+        } catch (networkError) {
+            // Network-level failure (no response at all)
+            handleNetworkError(networkError as Error, silent);
+            throw networkError;
+        }
 
         // Handle 401: try refresh token once then retry
         if (response.status === 401 && !options._retried && options.requireAuth !== false) {
@@ -92,6 +158,7 @@ export const aiClient = {
                 });
             }
             // refreshAndGetToken already redirected to /login
+            handleErrorResponse(401, '会话已过期，请重新登录', silent);
             throw new Error('会话已过期，请重新登录');
         }
 
@@ -113,6 +180,9 @@ export const aiClient = {
                 const text = await response.text().catch(() => response.statusText);
                  errorMessage += `: ${text.slice(0, 100)}`;
             }
+
+            // Unified error interceptor toast
+            handleErrorResponse(response.status, errorMessage, silent);
             throw new Error(errorMessage);
         }
 
