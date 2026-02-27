@@ -6,7 +6,6 @@
 """
 
 import logging
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +23,55 @@ CRITICAL_SCHEMA: dict[str, list[str]] = {
 }
 
 
+async def _get_table_columns(supabase, table_name: str) -> set[str] | None:
+    """
+    通过 SELECT * ... LIMIT 1 获取表的列名。
+    Supabase PostgREST 返回的 JSON 对象键就是列名。
+    返回 None 表示表不存在或查询失败。
+    """
+    try:
+        res = (
+            await supabase.table(table_name)
+            .select("*")
+            .limit(1)
+            .execute()
+        )
+        # 即使表为空（data=[]），PostgREST 也会返回空数组
+        # 但如果有至少一行数据，键名就是列名
+        if res.data and len(res.data) > 0:
+            return set(res.data[0].keys())
+
+        # 表存在但无数据 — 尝试 insert 一个无效行来触发错误
+        # 更安全的方式：直接查询 head 获取列信息
+        # PostgREST 对空表也会成功返回 []，无法获取列名
+        # 改用 RPC fallback
+        try:
+            rpc_res = await supabase.rpc(
+                "get_table_columns",
+                {"p_table_name": table_name},
+            ).execute()
+            if rpc_res.data:
+                return {
+                    row.get("column_name")
+                    for row in rpc_res.data
+                    if isinstance(row, dict) and row.get("column_name")
+                }
+        except Exception:
+            pass
+
+        # 如果 RPC 也不存在，表存在但无数据 — 跳过列验证
+        return None
+
+    except Exception:
+        return None
+
+
 async def validate_schema() -> list[str]:
     """
     验证关键表的关键列是否存在。
 
-    通过查询 information_schema.columns 检查每个表的列，
-    返回缺失列的警告列表。不会抛出异常或阻止启动。
+    通过查询表数据获取列名，返回缺失列的警告列表。
+    不会抛出异常或阻止启动。
     """
     from app.core.database import supabase
 
@@ -42,50 +84,13 @@ async def validate_schema() -> list[str]:
         return warnings
 
     for table_name, expected_columns in CRITICAL_SCHEMA.items():
-        try:
-            # 查询 information_schema 获取表的所有列名
-            res = await supabase.rpc(
-                "get_table_columns",
-                {"p_table_name": table_name},
-            ).execute()
+        existing_columns = await _get_table_columns(supabase, table_name)
 
-            # 如果 RPC 不存在，回退到直接查询
-            if res.data is not None:
-                existing_columns = {
-                    row.get("column_name") for row in res.data if isinstance(row, dict)
-                }
-            else:
-                existing_columns = set()
-
-        except Exception:
-            # RPC 可能不存在，回退到通过 information_schema 表直接查询
-            try:
-                res = (
-                    await supabase.table("information_schema.columns")
-                    .select("column_name")
-                    .eq("table_schema", "public")
-                    .eq("table_name", table_name)
-                    .execute()
-                )
-                existing_columns = {
-                    row.get("column_name")
-                    for row in (res.data or [])
-                    if isinstance(row, dict)
-                }
-            except Exception as e2:
-                # 如果连 information_schema 也查不了，跳过此表
-                msg = (
-                    f"[SchemaValidator] 无法检查表 '{table_name}' 的列信息: {e2}"
-                )
-                logger.warning(msg)
-                warnings.append(msg)
-                continue
-
-        if not existing_columns:
-            # 表可能不存在
-            msg = f"[SchemaValidator] 表 '{table_name}' 不存在或无列信息"
-            logger.warning(msg)
-            warnings.append(msg)
+        if existing_columns is None:
+            # 无法确定列信息（空表或表不存在），跳过
+            logger.info(
+                f"[SchemaValidator] 表 '{table_name}' 无数据或无法访问，跳过列验证"
+            )
             continue
 
         # 检查缺失的列

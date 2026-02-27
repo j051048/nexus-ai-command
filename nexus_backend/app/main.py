@@ -1,5 +1,13 @@
 import os
+import warnings
 from contextlib import asynccontextmanager, suppress
+
+# 过滤第三方依赖的已知弃用警告（不影响功能）
+warnings.filterwarnings(
+    "ignore",
+    message="ARC4 has been moved",
+    category=DeprecationWarning,
+)
 
 import sentry_sdk
 import uvicorn

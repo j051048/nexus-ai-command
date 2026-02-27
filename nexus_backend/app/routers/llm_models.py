@@ -4,7 +4,7 @@ import logging
 import time
 
 from fastapi import APIRouter, Depends, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_list, api_success
@@ -20,6 +20,8 @@ router = APIRouter(prefix="/api/llm", tags=["LLM Models"])
 
 
 class CreateModelRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     model_code: str = Field(..., min_length=1, max_length=100, description="模型编码")
     model_name: str = Field(..., min_length=1, max_length=200, description="模型名称")
     provider_type: str = Field(..., min_length=1, max_length=50, description="供应商类型")
@@ -42,6 +44,8 @@ class CreateModelRequest(BaseModel):
 
 
 class UpdateModelRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     model_name: str | None = Field(None, max_length=200)
     provider_type: str | None = Field(None, max_length=50)
     adapter_code: str | None = Field(None, max_length=100)
@@ -63,6 +67,8 @@ class UpdateModelRequest(BaseModel):
 
 
 class CreateScheduleRuleRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     rule_name: str = Field(..., min_length=1, max_length=200, description="规则名称")
     scene_code: str = Field(..., min_length=1, max_length=100, description="场景编码")
     agent_code: str | None = Field(None, max_length=100, description="Agent编码")
@@ -73,6 +79,8 @@ class CreateScheduleRuleRequest(BaseModel):
 
 
 class UpdateScheduleRuleRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     rule_name: str | None = Field(None, max_length=200)
     scene_code: str | None = Field(None, max_length=100)
     agent_code: str | None = Field(None, max_length=100)
