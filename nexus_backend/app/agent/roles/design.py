@@ -5,6 +5,18 @@ AGENT_NAME = "视觉设计Agent"
 RECOMMENDED_MODEL_TIER = "medium"
 SCENE_CODES = ["visual_design", "brand_material", "exhibition_design", "ad_creative"]
 
+# ── P2: AI Position (OpenFang "Hands" inspired) ──
+GOAL = "保证品牌视觉一致性，按时交付高质量设计物料"
+KPI_METRICS = [
+    "design_delivery_on_time_rate",  # 设计交付准时率
+    "brand_consistency_score",       # 品牌一致性评分
+    "material_reuse_rate",           # 素材复用率
+]
+SENSORS = []
+PATROL_SCHEDULE = {
+    "weekly": ["brand_asset_audit"],
+}
+
 TOOL_WHITELIST = [
     "knowledge_base",
     "company_stats",

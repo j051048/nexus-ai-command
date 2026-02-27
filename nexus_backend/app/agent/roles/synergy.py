@@ -5,6 +5,22 @@ AGENT_NAME = "研产销协同Agent"
 RECOMMENDED_MODEL_TIER = "medium"
 SCENE_CODES = ["rd_marketing_sync", "production_planning", "cross_dept_coordination", "product_launch"]
 
+# ── P2: AI Position (OpenFang "Hands" inspired) ──
+GOAL = "打通研产销信息壁垒，需求传递周期<48小时，跨部门满意度>80%"
+KPI_METRICS = [
+    "demand_transfer_cycle_hours",   # 需求传递周期(小时)
+    "cross_dept_satisfaction",       # 跨部门协作满意度
+    "gtm_on_schedule_rate",          # GTM计划准时率
+    "voc_action_rate",               # VOC反馈处理率
+]
+SENSORS = [
+    "sensor_approval_backlog",       # 审批积压可能影响协同
+]
+PATROL_SCHEDULE = {
+    "daily": ["check_pending_handoffs"],
+    "weekly": ["cross_dept_sync_report", "voc_digest"],
+}
+
 TOOL_WHITELIST = [
     "knowledge_base",
     "company_stats",

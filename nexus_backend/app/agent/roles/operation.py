@@ -5,6 +5,24 @@ AGENT_NAME = "私域运营Agent"
 RECOMMENDED_MODEL_TIER = "medium"
 SCENE_CODES = ["private_domain", "community_operation", "membership", "customer_journey", "retention"]
 
+# ── P2: AI Position (OpenFang "Hands" inspired) ──
+GOAL = "提升客户留存率至90%+，耗材复购率提升20%"
+KPI_METRICS = [
+    "customer_retention_rate",       # 年度客户留存率
+    "consumable_repurchase_rate",    # 耗材复购率
+    "nps_score",                     # NPS净推荐值
+    "community_dau_mau_ratio",       # 社群日活/月活比
+    "customer_ltv",                  # 客户生命周期价值
+]
+SENSORS = [
+    "sensor_followup_timeout",       # 客户关怀超时预警
+    "sensor_contract_expiry_ladder", # 合同到期提醒(续约机会)
+]
+PATROL_SCHEDULE = {
+    "daily": ["check_expiring_consumable_orders", "review_at_risk_customers"],
+    "weekly": ["community_health_report", "retention_funnel_review"],
+}
+
 TOOL_WHITELIST = [
     "knowledge_base",
     "get_customers",

@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class RoleConfig:
-    """Configuration for a single VMD agent role."""
+    """Configuration for a single VMD agent role / AI Position."""
 
     agent_code: str
     agent_name: str
@@ -29,6 +29,12 @@ class RoleConfig:
     tool_whitelist: list[str] = field(default_factory=list)
     scene_codes: list[str] = field(default_factory=list)
     recommended_model_tier: str = "medium"  # "low", "medium", "high"
+
+    # ── P2: AI Position fields (OpenFang "Hands" inspired) ──
+    goal: str = ""                         # Position objective, e.g. "确保所有商机在72小时内被跟进"
+    kpi_metrics: list[str] = field(default_factory=list)  # KPIs this position tracks
+    sensors: list[str] = field(default_factory=list)       # Event sensors this position monitors
+    patrol_schedule: dict = field(default_factory=dict)    # Autonomous patrol schedule
 
     def get_tool_schemas(self) -> list[dict]:
         """Return OpenAI-format tool schemas filtered by this role's whitelist."""
@@ -68,6 +74,11 @@ def _load_role_from_module(module_path: str) -> RoleConfig:
         tool_whitelist=getattr(mod, "TOOL_WHITELIST", []),
         scene_codes=getattr(mod, "SCENE_CODES", []),
         recommended_model_tier=getattr(mod, "RECOMMENDED_MODEL_TIER", "medium"),
+        # P2: AI Position fields
+        goal=getattr(mod, "GOAL", ""),
+        kpi_metrics=getattr(mod, "KPI_METRICS", []),
+        sensors=getattr(mod, "SENSORS", []),
+        patrol_schedule=getattr(mod, "PATROL_SCHEDULE", {}),
     )
 
 
@@ -115,6 +126,11 @@ async def _load_role_from_db(agent_code: str, tenant_id: str | None = None) -> R
             tool_whitelist=row.get("tool_whitelist", []),
             scene_codes=row.get("scene_codes", []),
             recommended_model_tier=row.get("recommended_model_tier", "medium"),
+            # P2: AI Position fields from DB
+            goal=row.get("goal", ""),
+            kpi_metrics=row.get("kpi_metrics", []),
+            sensors=row.get("sensors", []),
+            patrol_schedule=row.get("patrol_schedule", {}),
         )
     except Exception as e:
         # Table may not exist yet — that's fine, fall back to code defaults

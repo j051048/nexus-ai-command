@@ -438,6 +438,49 @@ async def prepare_initial_state(
         except Exception as e:
             logger.debug(f"[Memory] Org memory context failed: {e}")
 
+    # ── 2d. Knowledge Graph Context Injection (P2-2) ──
+    if config.org_id and last_user_msg:
+        try:
+            from app.services.knowledge_graph_service import query_entity_context
+
+            kg_context = await query_entity_context(
+                query=last_user_msg,
+                org_id=config.org_id,
+            )
+            if kg_context:
+                raw_messages.insert(
+                    0,
+                    {
+                        "role": "system",
+                        "content": kg_context,
+                    },
+                )
+                logger.info(f"[Memory] Injected knowledge graph context for org {config.org_id}")
+        except Exception as e:
+            logger.debug(f"[Memory] Knowledge graph context failed: {e}")
+
+    # ── 2e. Behavior Pattern Suggestions (P3) ──
+    if config.user_id and config.org_id and last_user_msg:
+        try:
+            from app.services.knowledge_graph_service import get_pattern_suggestions
+
+            pattern_hints = await get_pattern_suggestions(
+                user_id=config.user_id,
+                org_id=config.org_id,
+                current_query=last_user_msg,
+            )
+            if pattern_hints:
+                raw_messages.insert(
+                    0,
+                    {
+                        "role": "system",
+                        "content": pattern_hints,
+                    },
+                )
+                logger.info(f"[Memory] Injected pattern suggestions for user {config.user_id}")
+        except Exception as e:
+            logger.debug(f"[Memory] Pattern suggestion failed: {e}")
+
     # ── 3. Sliding Window with Summary ──
     if len(raw_messages) > SHORT_TERM_WINDOW:
         older = raw_messages[:-SHORT_TERM_WINDOW]
@@ -487,6 +530,7 @@ async def persist_result(
     metadata: dict | None = None,
     db_client: Any | None = None,
     org_id: str | None = None,
+    completed_tool_calls: list[dict] | None = None,
 ):
     """
     Post-graph: persist messages and update caches.
@@ -566,6 +610,46 @@ async def persist_result(
                 logger.info(f"[Memory] Extracted {len(org_extracted)} org memories for org {org_id} by user {user_id}")
         except Exception as e:
             logger.debug(f"[Memory] Org memory extraction skipped: {e}")
+
+    # ── P2-2: Extract entity relationships for knowledge graph ──
+    if user_message and org_id:
+        try:
+            from app.services.knowledge_graph_service import extract_entities_from_conversation
+
+            tool_outputs = []
+            if completed_tool_calls:
+                tool_outputs = [
+                    {"tool_name": tc.get("tool_name", ""), "result": tc.get("result", "")}
+                    for tc in completed_tool_calls
+                    if tc.get("tool_name")
+                ]
+
+            entities = await extract_entities_from_conversation(
+                user_message=user_message,
+                ai_response=assistant_response or "",
+                org_id=org_id,
+                tool_outputs=tool_outputs,
+            )
+            if entities:
+                logger.info(f"[Memory] Extracted {len(entities)} entity relations for org {org_id}")
+        except Exception as e:
+            logger.debug(f"[Memory] Entity extraction skipped: {e}")
+
+    # ── P3: Behavior pattern learning from tool usage ──
+    if completed_tool_calls and org_id:
+        try:
+            from app.services.knowledge_graph_service import learn_tool_patterns
+
+            patterns = await learn_tool_patterns(
+                user_id=user_id,
+                org_id=org_id,
+                tool_calls=completed_tool_calls,
+                user_message=user_message,
+            )
+            if patterns:
+                logger.info(f"[Memory] Detected {len(patterns)} behavior patterns for org {org_id}")
+        except Exception as e:
+            logger.debug(f"[Memory] Pattern learning skipped: {e}")
 
 
 async def load_session_history(

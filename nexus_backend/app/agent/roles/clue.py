@@ -5,6 +5,23 @@ AGENT_NAME = "线索获客Agent"
 RECOMMENDED_MODEL_TIER = "medium"
 SCENE_CODES = ["lead_generation", "lead_scoring", "channel_attribution", "cac_optimization"]
 
+# ── P2: AI Position (OpenFang "Hands" inspired) ──
+GOAL = "保障线索获取漏斗健康，MQL到SQL转化率>30%，CAC持续优化"
+KPI_METRICS = [
+    "new_leads_count",            # 新增线索数
+    "mql_to_sql_rate",            # MQL→SQL转化率
+    "cac_trend",                  # 获客成本趋势
+    "channel_roi",                # 各渠道ROI
+    "lead_response_time",         # 线索响应时间
+]
+SENSORS = [
+    "sensor_sales_anomaly",       # 线索获取量异常检测
+]
+PATROL_SCHEDULE = {
+    "daily": ["check_new_leads_quality", "review_unscored_leads"],
+    "weekly": ["channel_attribution_report", "cac_optimization_review"],
+}
+
 TOOL_WHITELIST = [
     "knowledge_base",
     "get_customers",

@@ -367,6 +367,15 @@ async def run_agent_stream(
         logger.warning(f"[Stream] Token recording failed: {e}", exc_info=True)
 
     # ── 9. Persist to DB and cache (fire-and-forget) ──
+    # Extract tool call data for knowledge graph and pattern learning
+    raw_tool_calls = []
+    for tc in accumulated_state.get("completed_tool_calls", []):
+        raw_tool_calls.append({
+            "tool_name": getattr(tc, "tool_name", "") or "",
+            "result": (getattr(tc, "result", "") or "")[:500],
+            "tool_args": getattr(tc, "tool_args", {}) or {},
+        })
+
     asyncio.create_task(
         persist_result(
             user_id=user_id,
@@ -381,6 +390,7 @@ async def run_agent_stream(
             },
             db_client=db_client,
             org_id=agent_config.org_id,
+            completed_tool_calls=raw_tool_calls or None,
         )
     )
 
