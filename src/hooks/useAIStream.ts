@@ -90,6 +90,23 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         let assistantContent = '';
         let streamDone = false;
 
+        // P1 Fix: RAF 节流 — 累积 token 后按帧批量刷新，避免每个 token 触发一次 re-render
+        let rafPending = false;
+        let lastFlushedContent = '';
+        const flushContent = () => {
+            rafPending = false;
+            if (assistantContent !== lastFlushedContent) {
+                lastFlushedContent = assistantContent;
+                onUpdate?.(assistantContent, assistantMsgId);
+            }
+        };
+        const scheduleFlush = () => {
+            if (!rafPending) {
+                rafPending = true;
+                requestAnimationFrame(flushContent);
+            }
+        };
+
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -144,14 +161,14 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                     // Handle sanitized content correction from backend
                     if (parsed.sanitized_content) {
                         assistantContent = parsed.sanitized_content;
-                        onUpdate?.(assistantContent, assistantMsgId);
+                        scheduleFlush();
                         continue;
                     }
 
                     if (content) {
                         setAiStatus(undefined);
                         assistantContent += content;
-                        onUpdate?.(assistantContent, assistantMsgId);
+                        scheduleFlush();
                     }
                 } catch {
                     // JSON incomplete — re-buffer and wait for next chunk
@@ -161,6 +178,14 @@ export function useAIStream({ userId }: UseAIStreamProps) {
             }
 
             if (streamDone) break;
+        }
+
+        // P1 Fix: 流结束后立即刷新剩余累积内容，确保最后一批 token 显示到 UI
+        if (rafPending) {
+            cancelAnimationFrame(0); // cancel any pending RAF
+            flushContent();
+        } else if (assistantContent !== lastFlushedContent) {
+            flushContent();
         }
 
         // Safety net: if stream ended but we got no content, check remaining buffer

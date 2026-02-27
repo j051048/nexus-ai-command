@@ -246,6 +246,15 @@ async def _execute_single_tool(
         record.result = confirmation_msg
         return record
 
+    # 2b. Schema Validation — 强制验证 LLM 生成的参数符合工具声明的 JSON Schema
+    try:
+        await tool.validate(record.tool_args)
+    except Exception as ve:
+        record.status = "error"
+        record.result = f"参数校验失败: {ve}"
+        logger.warning(f"[Execute] Tool {record.tool_name} schema validation failed: {ve}")
+        return record
+
     # 3. Execute with configurable timeout and retry
     start_time = time.time()
     last_error = None

@@ -353,6 +353,13 @@ async def _run_single_tool(tool_name: str, tool_args: dict, config: AgentConfig)
     if not tool:
         return f"Error: Tool '{tool_name}' not found."
 
+    # Schema Validation — 强制验证 LLM 生成的参数
+    try:
+        await tool.validate(tool_args)
+    except Exception as ve:
+        logger.warning(f"[Orchestrate] Tool {tool_name} schema validation failed: {ve}")
+        return f"参数校验失败: {ve}"
+
     try:
         result = await asyncio.wait_for(
             tool.run(
