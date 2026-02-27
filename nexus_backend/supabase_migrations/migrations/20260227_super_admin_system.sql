@@ -124,9 +124,9 @@ BEGIN
     SELECT id INTO _org_id FROM public.organizations LIMIT 1;
   END IF;
 
-  -- A) public.users
-  INSERT INTO public.users (id, name, role, department, organization_id, created_at, updated_at)
-  VALUES (NEW.id, _name, _role, _department, _org_id, now(), now())
+  -- A) public.users (set BOTH org_id and organization_id for RLS compat)
+  INSERT INTO public.users (id, name, role, department, organization_id, org_id, created_at, updated_at)
+  VALUES (NEW.id, _name, _role, _department, _org_id, _org_id, now(), now())
   ON CONFLICT (id) DO NOTHING;
 
   -- B) public.profiles (skip if table doesn't exist)
@@ -317,3 +317,8 @@ WHERE u.organization_id IS NOT NULL
     WHERE om.user_id = u.id AND om.organization_id = u.organization_id
   )
 ON CONFLICT DO NOTHING;
+
+-- 12. Sync org_id from organization_id (RLS SELECT policy uses org_id)
+UPDATE public.users
+SET org_id = organization_id
+WHERE org_id IS NULL AND organization_id IS NOT NULL;

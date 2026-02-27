@@ -63,19 +63,19 @@ export default function LLMCostDashboard() {
     setLoading(true);
     try {
       const [currentRes, historyRes, quotaRes, costRes] = await Promise.all([
-        aiClient.get('/api/usage/current'),
-        aiClient.get(`/api/usage/history?days=${days}`),
-        aiClient.get('/api/usage/quota-alert'),
-        aiClient.get(`/api/usage/cost-report?days=${days}`),
+        aiClient.fetch<{ success?: boolean; data?: UsageSummary }>('/api/usage/current'),
+        aiClient.fetch<{ success?: boolean; data?: { history?: HistoryItem[] } }>(`/api/usage/history?days=${days}`),
+        aiClient.fetch<{ success?: boolean; data?: QuotaAlert }>('/api/usage/quota-alert'),
+        aiClient.fetch<{ success?: boolean; data?: CostReport }>(`/api/usage/cost-report?days=${days}`),
       ]);
 
-      if (currentRes.data?.success) setCurrent(currentRes.data.data);
-      if (historyRes.data?.success) {
-        const h = historyRes.data.data?.history || [];
-        setHistory(h.reverse());
+      if (currentRes?.success) setCurrent(currentRes.data ?? null);
+      if (historyRes?.success) {
+        const h = historyRes.data?.history || [];
+        setHistory([...h].reverse());
       }
-      if (quotaRes.data?.success) setQuota(quotaRes.data.data);
-      if (costRes.data?.success) setCostReport(costRes.data.data);
+      if (quotaRes?.success) setQuota(quotaRes.data ?? null);
+      if (costRes?.success) setCostReport(costRes.data ?? null);
     } catch {
       toast.error('加载用量数据失败');
     } finally {

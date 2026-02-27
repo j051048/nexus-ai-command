@@ -96,8 +96,10 @@ function CompanySettingsPage() {
       setOrg(orgData);
       setOrgName(orgData.name);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : '未知错误';
-      console.error('[CompanySettings] Load failed:', msg, 'orgId:', orgId);
+      const msg = e instanceof Error ? e.message
+        : (e && typeof e === 'object' && 'message' in e) ? String((e as { message: unknown }).message)
+        : '未知错误';
+      console.error('[CompanySettings] Load failed:', msg, 'orgId:', orgId, 'error:', e);
       toast.error(`加载企业信息失败: ${msg}`);
     } finally {
       setLoading(false);
