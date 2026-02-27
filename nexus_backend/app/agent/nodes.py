@@ -191,6 +191,28 @@ def _messages_to_lc_format(messages) -> list[BaseMessage]:
     return result
 
 
+def _try_extract_tool_name(concatenated_name: str) -> str | None:
+    """
+    Gemini concatenation bug workaround: Try to extract the first valid tool name
+    from a concatenated string like 'get_daily_briefingget_pending_approvals'.
+
+    Returns the matched tool name, or None if no match found.
+    """
+    all_schemas = get_all_tools_schema()
+    # Sort by length descending to match longest tool name first
+    known_names = sorted(
+        [s["function"]["name"] for s in all_schemas],
+        key=len,
+        reverse=True,
+    )
+
+    for name in known_names:
+        # Tool name must be a proper prefix (not the full string, since that would mean get_tool succeeded)
+        if concatenated_name.startswith(name) and len(concatenated_name) > len(name):
+            return name
+    return None
+
+
 async def _execute_single_tool(
     record: ToolCallRecord,
     config: AgentConfig,
@@ -207,6 +229,19 @@ async def _execute_single_tool(
             del _idempotency_cache[k]
 
     tool = get_tool(record.tool_name)
+    if not tool:
+        # Gemini concatenation bug workaround: when the model concatenates multiple
+        # tool names into one (e.g. "get_daily_briefingget_pending_approvals"),
+        # try to extract the first valid tool name from the concatenated string.
+        matched_name = _try_extract_tool_name(record.tool_name)
+        if matched_name:
+            logger.warning(
+                f"[Execute] Tool name '{record.tool_name}' appears concatenated, "
+                f"using extracted name '{matched_name}'"
+            )
+            record.tool_name = matched_name
+            tool = get_tool(matched_name)
+
     if not tool:
         record.status = "error"
         record.result = f"Error: Tool '{record.tool_name}' not found."
@@ -746,24 +781,31 @@ async def reflect_node(state: AgentState) -> dict:
             hallucination_reason = f"回复数据与工具返回不一致: {grounding_issues}"
 
     # ── Layer 4: RAG-based groundedness check ──
-    # IMPORTANT: Skip this check when tools were called and returned real data.
-    # Tool results are authoritative data sources — they should NOT be
-    # second-guessed by RAG context (which may show "搜索失败" or stale data).
+    # IMPORTANT: Skip this check when tools were involved (even if some failed).
+    # If the query triggered tool calls, it's a tool-oriented query — RAG context
+    # is NOT the right source of truth for validating the response.
     grounded_warning = None
     rag_context = state.get("rag_context", "")
-    
+
     # Safely get tool status, handling both dict and dataclass
     def _is_success(t):
         if isinstance(t, dict):
             return t.get("status") == "success"
         return getattr(t, "status", None) == "success"
-        
+
     has_successful_tools = any(_is_success(t) for t in completed_tools)
+    has_any_tool_attempts = len(completed_tools) > 0
+
+    # Broader pattern matching for failed/empty RAG results
+    _rag_empty_patterns = ("搜索失败", "缺少", "未找到", "没有找到", "无相关", "暂无", "不存在")
     rag_search_failed = (
-        not rag_context or "搜索失败" in rag_context or "缺少" in rag_context or len(rag_context.strip()) < 20
+        not rag_context
+        or any(p in rag_context for p in _rag_empty_patterns)
+        or len(rag_context.strip()) < 20
     )
 
-    if rag_context and last_ai_content and not is_hallucination and not has_successful_tools and not rag_search_failed:
+    # Skip Layer 4 when: tools were attempted (query is tool-oriented), OR RAG returned nothing useful
+    if rag_context and last_ai_content and not is_hallucination and not has_any_tool_attempts and not rag_search_failed:
         prompt = f"""[事实核查任务]
 请比较【参考知识】与【AI回复】，判断回复是否完全基于背景知识，是否存在编造或矛盾。
 
@@ -783,12 +825,18 @@ AI回复:
                 logger.warning(f"[Reflect] Ungrounded response: {grounded_warning}")
         except Exception as e:
             logger.debug(f"[ReflectNode] Groundedness check failed: {e}")
-    elif has_successful_tools and rag_context:
-        logger.info("[Reflect] Layer 4 skipped: tools returned authoritative data, RAG groundedness check not needed")
+    elif has_any_tool_attempts:
+        logger.info(
+            f"[Reflect] Layer 4 skipped: query used tools "
+            f"(success={has_successful_tools}, total={len(completed_tools)}), "
+            f"RAG groundedness check not applicable"
+        )
+    elif rag_search_failed:
+        logger.info("[Reflect] Layer 4 skipped: RAG context empty or search failed")
 
     # ── Layer 5: LLM-based reflection ──
-    # Skip LLM reflection if tools returned real data — tool results are ground truth.
-    if config.reflect_use_llm and last_ai_content and not is_hallucination and not has_successful_tools:
+    # Skip LLM reflection if tools were involved — tool results are ground truth.
+    if config.reflect_use_llm and last_ai_content and not is_hallucination and not has_any_tool_attempts:
         messages_text = "\n".join([f"{m.type}: {m.content[:200]}" for m in messages[-3:]])
         prompt = f"""请评估 AI 的最新回复是否包含编造的信息（幻觉）。
 
@@ -885,20 +933,28 @@ async def _verify_tool_grounding(ai_response: str, tool_results: list) -> str | 
     issues = []
 
     # Strip out common date/time formats to avoid false positives (e.g. 2024年12月16日, 2024-12-16)
-    clean_ai_response = re.sub(r"\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*[日号]?", "", ai_response)
-    clean_ai_response = re.sub(r"\d{4}\s*-\s*\d{1,2}\s*-\s*\d{1,2}", "", clean_ai_response)
-    clean_ai_response = re.sub(r"\d{1,2}\s*:\s*\d{1,2}(?:\s*:\s*\d{1,2})?", "", clean_ai_response)
+    def _strip_dates(text: str) -> str:
+        text = re.sub(r"\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*[日号]?", "", text)
+        text = re.sub(r"\d{4}\s*-\s*\d{1,2}\s*-\s*\d{1,2}", "", text)
+        text = re.sub(r"\d{1,2}\s*:\s*\d{1,2}(?:\s*:\s*\d{1,2})?", "", text)
+        # Also strip ISO timestamps and UUIDs which contain many numbers
+        text = re.sub(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", "", text)
+        text = re.sub(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", "", text)
+        return text
+
+    clean_ai_response = _strip_dates(ai_response)
 
     # Extract all numbers from AI response
     ai_numbers = re.findall(r"\d+(?:\.\d+)?", clean_ai_response)
 
-    # Get all numbers from tool results
+    # Get all numbers from tool results (also strip dates to avoid false positives)
     tool_numbers = []
     for tool in tool_results:
         # P1 fix: Handle both ToolCallRecord objects and dicts
         result_text = tool.get("result", "") if isinstance(tool, dict) else getattr(tool, "result", "")
         if result_text:
-            tool_numbers.extend(re.findall(r"\d+(?:\.\d+)?", str(result_text)))
+            clean_result = _strip_dates(str(result_text))
+            tool_numbers.extend(re.findall(r"\d+(?:\.\d+)?", clean_result))
 
     if not tool_numbers:
         return None  # No tool numbers to compare against
