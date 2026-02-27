@@ -65,12 +65,13 @@ class SubmitApprovalOnBehalfTool(BaseTool):
         logger.info(f"[AI审批] 当前用户ID: {user_id}, 申请类型: {approval_type}")
 
         # 验证员工存在
-        employee_check = await client.table("users").select("id, name, role").eq("id", employee_id).single().execute()
+        employee_check = await client.table("users").select("id, name, role, organization_id").eq("id", employee_id).single().execute()
         if not employee_check.data:
             return f"错误：找不到您的用户信息（ID: {employee_id}）"
 
         actual_employee = employee_check.data
         employee_name = actual_employee.get("name", "未知")
+        employee_org_id = actual_employee.get("organization_id")
 
         if actual_employee.get("role") == "founder":
             return "错误：老板无需通过AI提交审批申请，您可以直接审批"
@@ -92,6 +93,9 @@ class SubmitApprovalOnBehalfTool(BaseTool):
                 "status": "pending",
                 "ai_reason": f"由AI助手豆豆代{actual_employee.get('name', employee_name)}提交",
             }
+            # 确保 organization_id 存在
+            if employee_org_id:
+                insert_data["organization_id"] = employee_org_id
             logger.debug(f"[AI审批] 准备插入数据: {insert_data}")
 
             result = await client.table("approval_requests").insert(insert_data).execute()

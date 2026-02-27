@@ -76,17 +76,22 @@ class LLMGatewayService:
             return None
 
         try:
-            res = (
-                await supabase.table("llm_model_config")
-                .select("*")
-                .eq("model_code", model_code)
-                .eq("tenant_id", org_id)
-                .eq("status", "enabled")
-                .eq("is_deleted", False)
-                .execute()
-            )
+            # Try tenant-specific first, then fall back to global defaults
+            rows = []
+            for tid in [org_id, "default"]:
+                res = (
+                    await supabase.table("llm_model_config")
+                    .select("*")
+                    .eq("model_code", model_code)
+                    .eq("tenant_id", tid)
+                    .eq("status", "enabled")
+                    .eq("is_deleted", False)
+                    .execute()
+                )
+                rows = res.data or []
+                if rows:
+                    break
 
-            rows = res.data or []
             if not rows:
                 logger.warning("No active model config found for " f"model_code={model_code}, org_id={org_id}")
                 return None
@@ -165,40 +170,45 @@ class LLMGatewayService:
             return None
 
         try:
-            # Try exact match first: scene + agent
-            res = (
-                await supabase.table("llm_schedule_rule")
-                .select("*")
-                .eq("scene_code", scene_code)
-                .eq("agent_code", agent_code)
-                .eq("tenant_id", org_id)
-                .execute()
-            )
-
-            rows = res.data or []
-
-            # Fallback: scene-level default (agent_code = '*' or empty)
-            if not rows:
+            # Try tenant-specific first, then fall back to global 'default' tenant
+            for tid in [org_id, "default"]:
+                # Try exact match first: scene + agent
                 res = (
                     await supabase.table("llm_schedule_rule")
                     .select("*")
                     .eq("scene_code", scene_code)
-                    .eq("tenant_id", org_id)
-                    .in_("agent_code", ["*", ""])
+                    .eq("agent_code", agent_code)
+                    .eq("tenant_id", tid)
                     .execute()
                 )
+
                 rows = res.data or []
 
-            # Fallback: org-level default (scene_code = '*')
-            if not rows:
-                res = (
-                    await supabase.table("llm_schedule_rule")
-                    .select("*")
-                    .eq("tenant_id", org_id)
-                    .in_("scene_code", ["*", ""])
-                    .execute()
-                )
-                rows = res.data or []
+                # Fallback: scene-level default (agent_code = '*' or empty)
+                if not rows:
+                    res = (
+                        await supabase.table("llm_schedule_rule")
+                        .select("*")
+                        .eq("scene_code", scene_code)
+                        .eq("tenant_id", tid)
+                        .in_("agent_code", ["*", ""])
+                        .execute()
+                    )
+                    rows = res.data or []
+
+                # Fallback: org-level default (scene_code = '*')
+                if not rows:
+                    res = (
+                        await supabase.table("llm_schedule_rule")
+                        .select("*")
+                        .eq("tenant_id", tid)
+                        .in_("scene_code", ["*", ""])
+                        .execute()
+                    )
+                    rows = res.data or []
+
+                if rows:
+                    break
 
             if not rows:
                 logger.warning(f"No schedule rule found for scene={scene_code}, " f"agent={agent_code}, org={org_id}")

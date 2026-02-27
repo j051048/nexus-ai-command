@@ -71,7 +71,7 @@ class ExpenseClaimTool(BaseTool):
             return "❌ 报销金额必须大于0"
 
         # 获取用户信息
-        user_res = await client.table("users").select("name, department").eq("id", user_id).maybe_single().execute()
+        user_res = await client.table("users").select("name, department, organization_id").eq("id", user_id).maybe_single().execute()
         if not user_res.data:
             return "❌ 无法获取用户信息"
 
@@ -160,6 +160,9 @@ class ExpenseClaimTool(BaseTool):
                 },
             },
         }
+        # 确保 organization_id 存在
+        if user.get("organization_id"):
+            expense_data["organization_id"] = user["organization_id"]
 
         result = await client.table("approval_requests").insert(expense_data).execute()
 

@@ -419,12 +419,12 @@ async def health_check():
         if supabase:
             model_res = (
                 await supabase.table("llm_model_config")
-                .select("count", count="exact")
+                .select("id", count="exact")
                 .eq("status", "enabled")
                 .eq("is_deleted", False)
                 .execute()
             )
-            enabled_count = model_res.count if model_res.count is not None else 0
+            enabled_count = model_res.count if model_res.count is not None else len(model_res.data or [])
             llm_gateway_status = f"ok ({enabled_count} models)" if enabled_count > 0 else "no_models_enabled"
     except Exception:
         llm_gateway_status = "available"  # Table may not exist yet, that's ok
