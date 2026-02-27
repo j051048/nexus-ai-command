@@ -27,19 +27,21 @@ async def resolve_model_config(
     try:
         from app.services.llm_gateway_service import llm_gateway
 
-        if scene_code or agent_code:
-            model_code = await llm_gateway._resolve_model(scene_code, agent_code, org_id)
-            if model_code:
-                config = await llm_gateway._load_model_config(model_code, org_id)
-                if config:
-                    return {
-                        "api_key": config.api_key,
-                        "base_url": config.api_base_url,
-                        "model": config.model_id or config.model_code,
-                        "temperature": config.default_temperature,
-                        "timeout": config.timeout_ms / 1000,
-                        "supports_tools": config.supports_tools,
-                    }
+        # Always try gateway resolution — use wildcards when scene/agent not specified
+        resolved_scene = scene_code or "*"
+        resolved_agent = agent_code or "*"
+        model_code = await llm_gateway._resolve_model(resolved_scene, resolved_agent, org_id)
+        if model_code:
+            config = await llm_gateway._load_model_config(model_code, org_id)
+            if config:
+                return {
+                    "api_key": config.api_key,
+                    "base_url": config.api_base_url,
+                    "model": config.model_id or config.model_code,
+                    "temperature": config.default_temperature,
+                    "timeout": config.timeout_ms / 1000,
+                    "supports_tools": config.supports_tools,
+                }
     except Exception as e:
         logger.debug("Gateway model resolution failed, using fallback: %s", e)
 
