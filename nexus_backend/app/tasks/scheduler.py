@@ -512,3 +512,153 @@ def execute_user_scheduled_tasks():
         return f"Executed {executed}/{len(tasks)} user scheduled tasks"
 
     return _run_async(_run())
+
+
+# ---------------------------------------------------------------------------
+# P0-2: Memory Decay Cleanup
+# ---------------------------------------------------------------------------
+
+@celery_app.task
+def cleanup_stale_memories():
+    """
+    P0-2: 记忆衰减清理
+    每天凌晨4点运行，清理30天以上未访问且衰减分数低于阈值的记忆。
+    保护 explicit_memory 和 policy 类型不被自动删除。
+    """
+
+    async def _run():
+        from app.core.database import supabase
+        from app.services.conversation_memory_service import conversation_memory_service
+
+        if not supabase:
+            return "skipped: no db"
+
+        result = await conversation_memory_service.cleanup_decayed_memories(
+            min_age_days=30,
+            score_threshold=0.1,
+            batch_size=200,
+            db=supabase,
+        )
+        return f"Memory decay cleanup: scanned={result['scanned']}, deleted={result['deleted']}"
+
+    return _run_async(_run())
+
+
+# ---------------------------------------------------------------------------
+# P1-2: Action Outcome Tracking — Record AI actions for effectiveness measurement
+# ---------------------------------------------------------------------------
+
+@celery_app.task
+def measure_action_outcomes():
+    """
+    P1-2: 操作效果追踪
+    每天检查过去24-72小时的AI操作是否产生了预期效果。
+    例如：AI发送跟进提醒后，客户是否在48小时内被更新。
+    """
+
+    async def _run():
+        from app.core.database import supabase
+
+        if not supabase:
+            return "skipped: no db"
+
+        now = datetime.now(UTC)
+        check_window_start = (now - timedelta(hours=72)).isoformat()
+        check_window_end = (now - timedelta(hours=24)).isoformat()
+
+        try:
+            result = (
+                await supabase.table("ai_action_outcomes")
+                .select("id, action_type, target_id, action_at, expected_outcome")
+                .is_("success", "null")
+                .gte("action_at", check_window_start)
+                .lte("action_at", check_window_end)
+                .limit(50)
+                .execute()
+            )
+        except Exception as e:
+            logger.debug(f"ai_action_outcomes query failed: {e}")
+            return "skipped: table not available"
+
+        actions = result.data or []
+        if not actions:
+            return "no actions to measure"
+
+        measured = 0
+        for action in actions:
+            try:
+                success = None
+                actual_outcome = ""
+
+                if action["action_type"] == "followup_reminder":
+                    # Check if the customer was updated since the reminder
+                    cust_res = (
+                        await supabase.table("customers")
+                        .select("updated_at")
+                        .eq("id", action["target_id"])
+                        .maybe_single()
+                        .execute()
+                    )
+                    if cust_res.data:
+                        updated_at = cust_res.data.get("updated_at", "")
+                        if updated_at > action["action_at"]:
+                            success = True
+                            actual_outcome = "客户记录在提醒后已更新"
+                        else:
+                            success = False
+                            actual_outcome = "客户记录在提醒后仍未更新"
+
+                elif action["action_type"] == "approval_reminder":
+                    # Check if the approval was processed
+                    apr_res = (
+                        await supabase.table("approval_requests")
+                        .select("status")
+                        .eq("id", action["target_id"])
+                        .maybe_single()
+                        .execute()
+                    )
+                    if apr_res.data:
+                        status = apr_res.data.get("status", "pending")
+                        if status != "pending":
+                            success = True
+                            actual_outcome = f"审批已处理，状态: {status}"
+                        else:
+                            success = False
+                            actual_outcome = "审批仍在待处理中"
+
+                elif action["action_type"] == "contract_expiry_reminder":
+                    # Check if contract was renewed or handled
+                    cont_res = (
+                        await supabase.table("contracts")
+                        .select("status, updated_at")
+                        .eq("id", action["target_id"])
+                        .maybe_single()
+                        .execute()
+                    )
+                    if cont_res.data:
+                        if cont_res.data.get("updated_at", "") > action["action_at"]:
+                            success = True
+                            actual_outcome = f"合同已处理，状态: {cont_res.data.get('status')}"
+                        else:
+                            success = False
+                            actual_outcome = "合同到期提醒后仍未处理"
+
+                if success is not None:
+                    await (
+                        supabase.table("ai_action_outcomes")
+                        .update({
+                            "success": success,
+                            "actual_outcome": actual_outcome,
+                            "measured_at": now.isoformat(),
+                        })
+                        .eq("id", action["id"])
+                        .execute()
+                    )
+                    measured += 1
+
+            except Exception as e:
+                logger.error(f"Action outcome measurement failed for {action['id']}: {e}")
+
+        return f"Measured {measured}/{len(actions)} action outcomes"
+
+    return _run_async(_run())

@@ -7,7 +7,12 @@ from celery.schedules import crontab
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 # Initialize Celery app
-celery_app = Celery("nexus_tasks", broker=REDIS_URL, backend=REDIS_URL, include=["app.tasks.scheduler"])
+celery_app = Celery(
+    "nexus_tasks",
+    broker=REDIS_URL,
+    backend=REDIS_URL,
+    include=["app.tasks.scheduler", "app.tasks.event_sensors"],
+)
 
 # Configuration
 celery_app.conf.update(
@@ -64,5 +69,36 @@ celery_app.conf.beat_schedule = {
     "user-scheduled-tasks": {
         "task": "app.tasks.scheduler.execute_user_scheduled_tasks",
         "schedule": 60.0,  # 每分钟检查用户自定义定时任务
+    },
+    # ── P0-1: Event Sensors (proactive anomaly detection) ──
+    "sensor-sales-anomaly": {
+        "task": "app.tasks.event_sensors.sensor_sales_anomaly",
+        "schedule": crontab(hour=10, minute=30),  # 每天10:30
+    },
+    "sensor-followup-timeout": {
+        "task": "app.tasks.event_sensors.sensor_followup_timeout",
+        "schedule": crontab(minute=0, hour="8,12,16,20"),  # 每4小时
+    },
+    "sensor-contract-expiry-ladder": {
+        "task": "app.tasks.event_sensors.sensor_contract_expiry_ladder",
+        "schedule": crontab(hour=9, minute=0),  # 每天9:00
+    },
+    "sensor-approval-backlog": {
+        "task": "app.tasks.event_sensors.sensor_approval_backlog",
+        "schedule": 1800.0,  # 每30分钟
+    },
+    "sensor-target-progress": {
+        "task": "app.tasks.event_sensors.sensor_target_progress",
+        "schedule": crontab(hour=17, minute=0),  # 每天17:00
+    },
+    # ── P0-2: Memory decay cleanup ──
+    "memory-decay-cleanup": {
+        "task": "app.tasks.scheduler.cleanup_stale_memories",
+        "schedule": crontab(hour=4, minute=0),  # 每天凌晨4:00
+    },
+    # ── P1-2: Action outcome measurement ──
+    "action-outcome-measurement": {
+        "task": "app.tasks.scheduler.measure_action_outcomes",
+        "schedule": crontab(hour=6, minute=0),  # 每天早6:00
     },
 }

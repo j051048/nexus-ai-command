@@ -724,13 +724,13 @@ class ConversationMemoryService:
         构建记忆上下文，注入到 system prompt 中。
 
         策略：
-        1. 获取高重要性偏好记忆
+        1. 获取高重要性偏好记忆（带衰减排序）
         2. 搜索与当前查询相关的记忆
         3. 格式化为上下文字符串
         """
         context_parts: list[str] = []
 
-        # 1) High-importance preferences (top 5)
+        # 1) High-importance preferences (top 5, with decay scoring)
         preferences = await self.get_memories(
             user_id=user_id,
             category="preference",
@@ -772,6 +772,102 @@ class ConversationMemoryService:
             return ""
 
         return "[用户记忆上下文 - 以下信息来自该用户的历史交互]\n" + "\n\n".join(context_parts) + "\n[记忆上下文结束]"
+
+    # ─── P0-2: Memory Decay — 记忆衰减与自动清理 ─────────────────
+
+    def _compute_decay_score(self, memory: dict) -> float:
+        """Compute a decay-weighted importance score for a memory.
+
+        Formula: score = base_importance * recency_factor * access_factor
+        - recency_factor decays over 30 days half-life
+        - access_factor rewards frequently accessed memories
+        """
+        import math
+
+        importance = float(memory.get("importance", 0.5) or 0.5)
+        access_count = int(memory.get("access_count", 0) or 0)
+
+        # Recency: days since last access (or last update)
+        last_accessed = memory.get("last_accessed_at") or memory.get("updated_at") or memory.get("created_at")
+        if last_accessed:
+            try:
+                if isinstance(last_accessed, str):
+                    last_dt = datetime.fromisoformat(last_accessed.replace("Z", "+00:00"))
+                else:
+                    last_dt = last_accessed
+                days_since = max((datetime.now(UTC) - last_dt).days, 0)
+            except Exception:
+                days_since = 30
+        else:
+            days_since = 60
+
+        # Half-life of 30 days
+        recency_factor = 1.0 / (1 + days_since / 30.0)
+
+        # Access frequency bonus (logarithmic)
+        access_factor = math.log(access_count + 1) / math.log(10) + 0.5  # range ~0.5-2.0
+        access_factor = min(access_factor, 2.0)
+
+        return importance * recency_factor * access_factor
+
+    async def cleanup_decayed_memories(
+        self,
+        min_age_days: int = 30,
+        score_threshold: float = 0.1,
+        batch_size: int = 200,
+        db: Any = None,
+    ) -> dict:
+        """Remove low-score memories that are older than min_age_days.
+
+        Returns: {"scanned": int, "deleted": int}
+        """
+        client = db or supabase
+        if not client:
+            return {"scanned": 0, "deleted": 0}
+
+        cutoff = (datetime.now(UTC) - timedelta(days=min_age_days)).isoformat()
+
+        try:
+            result = (
+                await client.table("conversation_memories")
+                .select("id, user_id, importance, access_count, last_accessed_at, updated_at, created_at, category")
+                .lt("updated_at", cutoff)
+                .order("updated_at", desc=False)
+                .limit(batch_size)
+                .execute()
+            )
+        except Exception as e:
+            logger.error(f"Memory decay scan failed: {e}")
+            return {"scanned": 0, "deleted": 0}
+
+        candidates = result.data or []
+        deleted = 0
+
+        for mem in candidates:
+            # Never auto-delete explicit_memory or policy
+            if mem.get("category") in ("explicit_memory", "policy"):
+                continue
+
+            score = self._compute_decay_score(mem)
+            if score < score_threshold:
+                try:
+                    await (
+                        client.table("conversation_memories")
+                        .delete()
+                        .eq("id", mem["id"])
+                        .execute()
+                    )
+                    deleted += 1
+                except Exception as e:
+                    if not (hasattr(e, "code") and str(getattr(e, "code", "")) == "204"):
+                        logger.warning(f"Failed to delete decayed memory {mem['id']}: {e}")
+                    else:
+                        deleted += 1
+
+        if deleted > 0:
+            logger.info(f"Memory decay cleanup: scanned={len(candidates)}, deleted={deleted}")
+
+        return {"scanned": len(candidates), "deleted": deleted}
 
 
 # Global service instance

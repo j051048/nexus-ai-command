@@ -684,7 +684,20 @@ export function EnhancedAIChatPanel({
                         : undefined
                     }
                     onFeedback={(type) => {
-                      // TODO: integrate with backend feedback API
+                      // P1-1: Connect frontend feedback to backend API
+                      const sessionId = `chat_${user.id}_${Date.now()}`;
+                      const aiMsg = msg.role === 'assistant' ? msg : undefined;
+                      const prevUserMsg = index > 0 && messages[index - 1]?.role === 'user' ? messages[index - 1] : undefined;
+                      aiClient.fetch('/api/v1/ai/feedback', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                          session_id: sessionId,
+                          message_index: index,
+                          rating: type,
+                          ai_response_snippet: aiMsg?.content?.slice(0, 500),
+                          query_snippet: prevUserMsg?.content?.slice(0, 500),
+                        }),
+                      }).catch(() => { /* silent — toast already shown by MessageBubble */ });
                     }}
                     onDelete={() => handleDeleteMessage(msg.id)}
                     isLatest={index === messages.length - 1}
