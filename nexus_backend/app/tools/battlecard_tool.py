@@ -25,6 +25,8 @@ class BattlecardTool(BaseTool):
         if not comp:
             return "❌ 请指定竞争对手名称。"
 
+        org_id = (config or {}).get("org_id")
+
         # P2 Implementation: Dynamic RAG instead of Hardcoded Dict
         # We query the Vector DB for info about this competitor
 
@@ -32,7 +34,7 @@ class BattlecardTool(BaseTool):
 
         # Reuse the VectorService to get real data from uploaded documents
         # This assumes the user has uploaded competitor analysis docs
-        rag_result = await vector_service.search(query, user_id, limit=2, config=config)
+        rag_result = await vector_service.search(query, user_id, limit=2, config=config, org_id=org_id)
 
         if "No relevant documents" in rag_result or not rag_result:
             # Fallback to a generic template if knowledge base is empty, but warn the user
