@@ -7,7 +7,8 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { InstallPrompt } from '@/components/common/InstallPrompt';
 import { WelcomeTour } from '@/components/common/WelcomeTour';
 import { NotificationCenter } from '@/components/common/NotificationCenter';
-import { PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { PanelRightClose, PanelRightOpen, Clock } from 'lucide-react';
+import { useAuth } from '@/components/auth/AuthContext';
 
 // Interface for props
 interface ChatFirstLayoutProps {
@@ -21,6 +22,7 @@ interface ChatFirstLayoutProps {
 export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
     const [isCanvasOpen, setIsCanvasOpen] = useState(true);
     const location = useLocation();
+    const { isPendingBoss } = useAuth();
 
     // Dynamic page title
     const getPageTitle = useCallback(() => {
@@ -62,8 +64,16 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
 
     return (
         <div className="flex h-[100dvh] w-full bg-background overflow-hidden">
+            {/* Pending Boss Banner */}
+            {isPendingBoss && (
+                <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500/90 text-white text-center text-sm py-2 px-4 flex items-center justify-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    您的管理员账号正在审核中，审核通过前可以普通员工身份使用系统
+                </div>
+            )}
+
             {/* Sidebar */}
-            <div className="flex h-full border-r bg-card z-20">
+            <div className={cn("flex h-full border-r bg-card z-20", isPendingBoss && "pt-9")}>
                 <Sidebar />
             </div>
 

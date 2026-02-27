@@ -127,6 +127,7 @@ const VMDCompliancePage = lazy(() => import("@/pages/VMDCompliancePage"));
 const AgentDebugPanel = lazy(() => import("@/pages/AgentDebugPanel"));
 const LLMCostDashboard = lazy(() => import("@/pages/LLMCostDashboard"));
 const CompanySettingsPage = lazy(() => import("@/pages/CompanySettingsPage"));
+const AdminPanel = lazy(() => import("@/pages/AdminPanel"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -198,6 +199,25 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Super Admin route guard — checks isSuperAdmin flag from AuthContext
+function SuperAdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading, isSuperAdmin } = useAuth();
+
+  if (loading) {
+    return <LoadingFallback />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!isSuperAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <>{children}</>;
+}
+
 function RouteErrorBoundary({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   return <ErrorBoundary resetKey={location.pathname}>{children}</ErrorBoundary>;
@@ -217,6 +237,9 @@ const App = () => (
             <Routes>
               <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+              {/* Super Admin Panel — standalone layout, no sidebar */}
+              <Route path="/admin" element={<SuperAdminRoute><AdminPanel /></SuperAdminRoute>} />
 
               {/* Main App Routes */}
               <Route path="/" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>

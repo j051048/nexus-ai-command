@@ -415,6 +415,11 @@ export function LoginPage() {
                       </span>
                     </button>
                   </div>
+                  {selectedRole === 'boss' && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      管理员账号注册后需要超级管理员审批通过才能使用管理功能
+                    </p>
+                  )}
                 </div>
 
                 {/* Invite Code (employees only) */}

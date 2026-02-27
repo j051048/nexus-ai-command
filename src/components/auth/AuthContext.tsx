@@ -4,8 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 
-// 三级权限系统
-type AppRole = 'boss' | 'manager' | 'ai_assistant' | 'employee';
+// 权限系统
+type AppRole = 'boss' | 'manager' | 'ai_assistant' | 'employee' | 'pending_boss';
 
 interface Profile {
   id: string;
@@ -27,6 +27,8 @@ interface AuthContextType {
   profile: Profile | null;
   role: AppRole | null;
   loading: boolean;
+  isSuperAdmin: boolean;
+  isPendingBoss: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signUp: (email: string, password: string, name: string, role: AppRole, inviteCode?: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
@@ -40,6 +42,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [isPendingBoss, setIsPendingBoss] = useState(false);
   const [loading, setLoading] = useState(true);
   const hadSessionRef = useRef(false);
 
@@ -63,7 +67,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .rpc('get_user_role', { _user_id: userId });
 
       if (roleData) {
-        setRole(roleData as AppRole);
+        // Handle pending_boss: treat as employee but flag it
+        if (roleData === 'pending_boss') {
+          setRole('employee');
+          setIsPendingBoss(true);
+        } else {
+          setRole(roleData as AppRole);
+          setIsPendingBoss(false);
+        }
       } else {
         // Fallback: default to employee for security
         // P0 Security Fix: Do NOT trust user_metadata.role as it can be set by the user during signup
@@ -79,6 +90,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
         setRole(resolvedRole);
+      }
+
+      // Check super admin status (separate from role)
+      try {
+        const { data: saData } = await supabase.rpc('is_super_admin', { _user_id: userId });
+        setIsSuperAdmin(!!saData);
+      } catch {
+        setIsSuperAdmin(false);
       }
     } catch (error) {
       // Auth data fetch failed — default to employee role for safety
@@ -109,6 +128,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           hadSessionRef.current = false;
           setProfile(null);
           setRole(null);
+          setIsSuperAdmin(false);
+          setIsPendingBoss(false);
           setLoading(false);
         }
       }
@@ -138,11 +159,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string, name: string, _selectedRole: AppRole, inviteCode?: string) => {
-    // P0 Security Fix: Always register as 'employee' — role elevation must be done by admin
+  const signUp = useCallback(async (email: string, password: string, name: string, selectedRole: AppRole, inviteCode?: string) => {
+    // Security: the trigger handles boss→pending_boss safely (requires super_admin approval)
     const metadata: Record<string, string> = {
       name,
-      role: 'employee',
+      role: selectedRole === 'boss' ? 'boss' : 'employee',
     };
     if (inviteCode) {
       metadata.invite_code = inviteCode;
@@ -165,6 +186,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setProfile(null);
     setRole(null);
+    setIsSuperAdmin(false);
+    setIsPendingBoss(false);
   }, []);
 
   const refreshProfile = useCallback(async () => {
@@ -180,11 +203,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     role,
     loading,
+    isSuperAdmin,
+    isPendingBoss,
     signIn,
     signUp,
     signOut,
     refreshProfile,
-  }), [user, session, profile, role, loading, signIn, signUp, signOut, refreshProfile]);
+  }), [user, session, profile, role, loading, isSuperAdmin, isPendingBoss, signIn, signUp, signOut, refreshProfile]);
 
   return (
     <AuthContext.Provider value={value}>
