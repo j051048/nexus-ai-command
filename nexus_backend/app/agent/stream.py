@@ -279,6 +279,7 @@ async def run_agent_stream(
                     # Emit phase status updates
                     phase = state_delta.get("current_phase")
                     if phase:
+                        iteration = accumulated_state.get("iteration", 0)
                         status_map = {
                             AgentPhase.ROUTING: "正在分析意图...",
                             AgentPhase.PLANNING: "正在规划...",
@@ -286,9 +287,15 @@ async def run_agent_stream(
                             AgentPhase.REFLECTING: "正在验证结果...",
                             AgentPhase.RESPONDING: "正在生成回复...",
                         }
-                        status_text = status_map.get(phase)
-                        if status_text:
-                            yield _sse_status(status_text)
+                        # Escalating reflect status for deeper iterations
+                        if phase == AgentPhase.REFLECTING and iteration >= 2:
+                            yield _sse_status(f"正在深度验证... (第{iteration}轮)")
+                        elif phase == AgentPhase.PLANNING and iteration >= 3:
+                            yield _sse_status(f"正在重新规划... (第{iteration}轮)")
+                        else:
+                            status_text = status_map.get(phase)
+                            if status_text:
+                                yield _sse_status(status_text)
 
     except Exception as e:
         logger.error(f"[Stream] Agent graph execution failed: {e}", exc_info=True)
@@ -365,6 +372,22 @@ async def run_agent_stream(
         await record_completion(user_id, total_in, total_out, agent_config.model)
     except Exception as e:
         logger.warning(f"[Stream] Token recording failed: {e}", exc_info=True)
+
+    # ── 8.5 Emit quota info for frontend quota display ──
+    try:
+        summary = usage_tracker.get_usage_summary(user_id)
+        yield _sse_data({
+            "quota": {
+                "tokens_used": summary.get("tokens_used", 0),
+                "tokens_limit": summary.get("tokens_limit", 0),
+                "tokens_remaining": summary.get("tokens_remaining", 0),
+                "requests": summary.get("requests", 0),
+                "requests_limit": summary.get("requests_limit", 0),
+                "cost_usd": summary.get("cost_usd", 0),
+            }
+        })
+    except Exception as e:
+        logger.debug(f"[Stream] Quota emission failed: {e}")
 
     # ── 9. Persist to DB and cache (fire-and-forget) ──
     # Extract tool call data for knowledge graph and pattern learning

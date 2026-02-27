@@ -16,6 +16,7 @@ from typing import Any
 from app.core.config import settings
 from app.core.database import supabase
 from app.core.prompts_registry import SYSTEM_PROMPTS
+from app.core.redis_keys import NS_PROMPT, rk
 from app.services.cache_service import cache_service
 from app.tools import get_tool
 
@@ -34,7 +35,12 @@ MAX_HISTORY = getattr(settings, "MAX_CHAT_HISTORY", 10)
 class ChatService:
 
     @staticmethod
-    async def get_system_prompt(agent_name: str, db_client: Any | None = None, user_id: str | None = None) -> str:
+    async def get_system_prompt(
+        agent_name: str,
+        db_client: Any | None = None,
+        user_id: str | None = None,
+        org_id: str | None = None,
+    ) -> str:
         """Get formatted system prompt for agent (P1 Fix #29: Fetch from DB with local fallback)
         #24: Integrates A/B test variant selection when user_id is provided.
         """
@@ -64,8 +70,8 @@ class ChatService:
             except Exception as e:
                 logger.debug(f"A/B test variant lookup failed: {e}")
 
-        # 1. Try Cache
-        cache_key = f"prompt:{prompt_key}"
+        # 1. Try Cache (org-scoped to prevent cross-tenant prompt leakage)
+        cache_key = rk(org_id, NS_PROMPT, prompt_key)
         cached_prompt = await cache_service.get(cache_key)
         if cached_prompt:
             try:

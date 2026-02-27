@@ -191,6 +191,52 @@ def _messages_to_lc_format(messages) -> list[BaseMessage]:
     return result
 
 
+def _format_validation_error(tool_name: str, error: Exception, schema: dict | None = None) -> str:
+    """
+    Format a schema validation error with field-level guidance for the LLM.
+
+    Instead of raw jsonschema error text, produces a structured message
+    that helps the LLM understand exactly which field to fix.
+    """
+    try:
+        import jsonschema
+
+        if isinstance(error, jsonschema.ValidationError):
+            field_path = " → ".join(str(p) for p in error.absolute_path) if error.absolute_path else "(root)"
+            lines = [f"参数校验失败 [{tool_name}]:"]
+            lines.append(f"  错误字段: {field_path}")
+            lines.append(f"  问题: {error.message}")
+
+            # Add expected type/enum info
+            if error.schema:
+                if "type" in error.schema:
+                    lines.append(f"  期望类型: {error.schema['type']}")
+                if "enum" in error.schema:
+                    lines.append(f"  允许值: {error.schema['enum']}")
+                if "description" in error.schema:
+                    lines.append(f"  字段说明: {error.schema['description']}")
+
+            # Show required fields if it's a missing-property error
+            if error.validator == "required" and schema:
+                required = schema.get("required", [])
+                props = schema.get("properties", {})
+                if required:
+                    field_hints = []
+                    for r in required:
+                        desc = props.get(r, {}).get("description", "")
+                        ftype = props.get(r, {}).get("type", "")
+                        field_hints.append(f"    - {r} ({ftype}): {desc}" if desc else f"    - {r} ({ftype})")
+                    lines.append(f"  必填字段:")
+                    lines.extend(field_hints)
+
+            return "\n".join(lines)
+    except Exception:
+        pass
+
+    # Fallback for non-jsonschema errors
+    return f"参数校验失败 [{tool_name}]: {error}"
+
+
 def _try_extract_tool_name(concatenated_name: str) -> str | None:
     """
     Gemini concatenation bug workaround: Try to extract the first valid tool name
@@ -286,7 +332,7 @@ async def _execute_single_tool(
         await tool.validate(record.tool_args)
     except Exception as ve:
         record.status = "error"
-        record.result = f"参数校验失败: {ve}"
+        record.result = _format_validation_error(record.tool_name, ve, tool.parameters)
         logger.warning(f"[Execute] Tool {record.tool_name} schema validation failed: {ve}")
         return record
 
@@ -886,6 +932,14 @@ AI 回复:
         record_hallucination("reflect_node")
 
     if needs_replanning:
+        # Provide escalating feedback: deeper iterations get more specific UI hints
+        if iteration >= 3:
+            thinking_content = f"🔄 深度验证第{iteration}轮: {hallucination_reason}，即将结束验证..."
+        elif iteration >= 2:
+            thinking_content = f"🔄 深度验证中 (第{iteration}轮): {hallucination_reason}，正在修正..."
+        else:
+            thinking_content = f"⚠️ 检测到潜在事实错误: {hallucination_reason}，正在修正..."
+
         return {
             "messages": [
                 HumanMessage(
@@ -901,7 +955,7 @@ AI 回复:
             "thinking_steps": [
                 ThinkingStep(
                     phase=AgentPhase.REFLECTING.value,
-                    content=f"⚠️ 检测到潜在事实错误: {hallucination_reason}，正在修正...",
+                    content=thinking_content,
                 )
             ],
         }

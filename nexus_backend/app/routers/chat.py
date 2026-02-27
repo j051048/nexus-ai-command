@@ -143,7 +143,7 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
             )
 
     # 5. Prepare Context
-    system_prompt = await ChatService.get_system_prompt(request.agent, db_client=client)
+    system_prompt = await ChatService.get_system_prompt(request.agent, db_client=client, org_id=org_id)
 
     # Trace Logger
     tracer = TraceLogger(user_id=user_id, agent=request.agent or "default")

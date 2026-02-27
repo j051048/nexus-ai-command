@@ -22,12 +22,22 @@ export interface ConfirmationRequest {
     args: Record<string, unknown>;
 }
 
+export interface QuotaInfo {
+    tokens_used: number;
+    tokens_limit: number;
+    tokens_remaining: number;
+    requests: number;
+    requests_limit: number;
+    cost_usd: number;
+}
+
 export function useAIStream({ userId }: UseAIStreamProps) {
     const [isTyping, setIsTyping] = useState(false);
     const [aiStatus, setAiStatus] = useState<string | undefined>();
     const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([]);
     const [isThinkingComplete, setIsThinkingComplete] = useState(false);
     const [pendingConfirmation, setPendingConfirmation] = useState<ConfirmationRequest | null>(null);
+    const [quotaInfo, setQuotaInfo] = useState<QuotaInfo | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
     const lastRequestRef = useRef<{ messages: Array<{ role: string; content: string }>; agent?: string } | null>(null);
 
@@ -162,6 +172,12 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                     if (parsed.sanitized_content) {
                         assistantContent = parsed.sanitized_content;
                         scheduleFlush();
+                        continue;
+                    }
+
+                    // Handle quota info from backend (emitted after each request)
+                    if (parsed.quota) {
+                        setQuotaInfo(parsed.quota as QuotaInfo);
                         continue;
                     }
 
@@ -555,6 +571,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         thinkingSteps,
         isThinkingComplete,
         pendingConfirmation,
+        quotaInfo,
         streamChat,
         stopStream,
         confirmAndResend,

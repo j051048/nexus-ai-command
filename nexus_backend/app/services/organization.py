@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.core.database import supabase
+from app.core.redis_keys import NS_DEPT, rk
 from app.services.cache_service import cache_service
 
 logger = logging.getLogger(__name__)
@@ -79,16 +80,18 @@ class OrganizationService:
         {"id": "operations", "name": "运营部", "parent_id": None},
     ]
 
-    async def get_all_departments(self) -> list[dict]:
+    async def get_all_departments(self, org_id: str | None = None) -> list[dict]:
         """
         Get all departments from database or return defaults.
+        Uses org_id-scoped cache key to prevent cross-tenant data leakage.
         """
         if not supabase:
             return self.DEFAULT_DEPARTMENTS
 
         try:
-            # Check cache first
-            cached_deps = await cache_service.get("org:departments")
+            # Check cache first (tenant-scoped key)
+            cache_key = rk(org_id, NS_DEPT, "all")
+            cached_deps = await cache_service.get(cache_key)
             if cached_deps:
                 return cached_deps
 
@@ -96,7 +99,7 @@ class OrganizationService:
             departments = result.data or self.DEFAULT_DEPARTMENTS
 
             # Cache for 10 minutes
-            await cache_service.set("org:departments", departments, ttl=600)
+            await cache_service.set(cache_key, departments, ttl=600)
 
             return departments
         except Exception as e:
@@ -315,8 +318,8 @@ class OrganizationService:
 
             await supabase.table("users").update(update_data).eq("id", user_id).execute()
 
-            # Invalidate caches
-            await cache_service.delete("org:departments")
+            # Invalidate caches (use pattern to clear all org-scoped dept caches)
+            await cache_service.delete_pattern(f"*:{NS_DEPT}:*")
             await cache_service.invalidate_user_cache(user_id)
 
             return True

@@ -358,7 +358,20 @@ async def _run_single_tool(tool_name: str, tool_args: dict, config: AgentConfig)
         await tool.validate(tool_args)
     except Exception as ve:
         logger.warning(f"[Orchestrate] Tool {tool_name} schema validation failed: {ve}")
-        return f"参数校验失败: {ve}"
+        # Provide field-level error guidance for the LLM
+        try:
+            import jsonschema
+
+            if isinstance(ve, jsonschema.ValidationError):
+                field_path = " → ".join(str(p) for p in ve.absolute_path) if ve.absolute_path else "(root)"
+                return (
+                    f"参数校验失败 [{tool_name}]: "
+                    f"字段 {field_path} - {ve.message}"
+                    + (f" (允许值: {ve.schema['enum']})" if ve.schema and "enum" in ve.schema else "")
+                )
+        except Exception:
+            pass
+        return f"参数校验失败 [{tool_name}]: {ve}"
 
     try:
         result = await asyncio.wait_for(
