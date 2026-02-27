@@ -58,6 +58,14 @@ interface OrgItem {
   created_at: string;
 }
 
+// ============== Helpers ==============
+
+function errMsg(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (e && typeof e === 'object' && 'message' in e) return String((e as { message: unknown }).message);
+  return String(e);
+}
+
 // ============== Component ==============
 
 function AdminPanel() {
@@ -79,7 +87,7 @@ function AdminPanel() {
       if (error) throw error;
       setPendingBosses((data as PendingBoss[]) || []);
     } catch (e) {
-      toast.error(`加载待审批列表失败: ${e instanceof Error ? e.message : '未知错误'}`);
+      toast.error(`加载待审批列表失败: ${errMsg(e)}`);
     } finally {
       setLoadingPending(false);
     }
@@ -92,7 +100,7 @@ function AdminPanel() {
       if (error) throw error;
       setOrganizations((data as OrgItem[]) || []);
     } catch (e) {
-      toast.error(`加载企业列表失败: ${e instanceof Error ? e.message : '未知错误'}`);
+      toast.error(`加载企业列表失败: ${errMsg(e)}`);
     } finally {
       setLoadingOrgs(false);
     }
@@ -113,7 +121,7 @@ function AdminPanel() {
       toast.success(`已批准 ${name} 的管理员权限`);
       loadPendingBosses();
     } catch (e) {
-      toast.error(`审批失败: ${e instanceof Error ? e.message : '未知错误'}`);
+      toast.error(`审批失败: ${errMsg(e)}`);
     } finally {
       setActionLoading(null);
     }
@@ -127,7 +135,7 @@ function AdminPanel() {
       toast.success(`已拒绝 ${name} 的管理员申请`);
       loadPendingBosses();
     } catch (e) {
-      toast.error(`操作失败: ${e instanceof Error ? e.message : '未知错误'}`);
+      toast.error(`操作失败: ${errMsg(e)}`);
     } finally {
       setActionLoading(null);
     }
@@ -143,7 +151,7 @@ function AdminPanel() {
       setDeleteTarget(null);
       loadOrganizations();
     } catch (e) {
-      toast.error(`删除失败: ${e instanceof Error ? e.message : '未知错误'}`);
+      toast.error(`删除失败: ${errMsg(e)}`);
     } finally {
       setActionLoading(null);
     }
