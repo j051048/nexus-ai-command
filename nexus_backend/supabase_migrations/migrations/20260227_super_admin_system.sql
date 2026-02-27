@@ -129,10 +129,12 @@ BEGIN
   VALUES (NEW.id, _name, _role, _department, _org_id, now(), now())
   ON CONFLICT (id) DO NOTHING;
 
-  -- B) public.profiles
-  INSERT INTO public.profiles (user_id, name, organization_id)
-  VALUES (NEW.id, _name, _org_id)
-  ON CONFLICT (user_id) DO NOTHING;
+  -- B) public.profiles (skip if table doesn't exist)
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'profiles') THEN
+    INSERT INTO public.profiles (user_id, name, organization_id)
+    VALUES (NEW.id, _name, _org_id)
+    ON CONFLICT (user_id) DO NOTHING;
+  END IF;
 
   -- C) public.user_roles (TEXT column, no enum cast needed)
   INSERT INTO public.user_roles (user_id, role)
@@ -283,10 +285,6 @@ BEGIN
   END IF;
 
   UPDATE public.users
-  SET organization_id = (SELECT id FROM public.organizations WHERE slug = 'default-org' LIMIT 1)
-  WHERE organization_id = _org_id;
-
-  UPDATE public.profiles
   SET organization_id = (SELECT id FROM public.organizations WHERE slug = 'default-org' LIMIT 1)
   WHERE organization_id = _org_id;
 
