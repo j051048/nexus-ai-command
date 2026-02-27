@@ -1,9 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Bot, Copy, RotateCcw, ThumbsUp, ThumbsDown, User, Check, MoreHorizontal, Trash2, Download } from 'lucide-react';
+
+// Lazy-load react-syntax-highlighter (~608KB) — only loaded when code blocks appear
+const SyntaxHighlighter = lazy(() =>
+  import('react-syntax-highlighter/dist/esm/prism').then(mod => ({ default: mod.default }))
+);
+const loadStyle = () => import('react-syntax-highlighter/dist/esm/styles/prism/vsc-dark-plus').then(mod => mod.default);
+
+// Wrapper that lazy-loads both the highlighter component and its style
+function LazyCodeBlock({ language, children, ...props }: { language: string; children: string; [key: string]: unknown }) {
+  const [style, setStyle] = React.useState<Record<string, React.CSSProperties> | null>(null);
+  React.useEffect(() => { loadStyle().then(setStyle); }, []);
+  return (
+    <Suspense fallback={<pre className="bg-zinc-900 text-zinc-300 p-3 rounded-md text-sm overflow-x-auto"><code>{children}</code></pre>}>
+      <SyntaxHighlighter
+        language={language}
+        style={style || {}}
+        PreTag="div"
+        customStyle={{ margin: 0, borderRadius: '0 0 0.375rem 0.375rem' }}
+        {...props}
+      >
+        {children}
+      </SyntaxHighlighter>
+    </Suspense>
+  );
+}
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -167,15 +190,9 @@ export const MessageBubble = React.memo(function MessageBubble({
                                 <Copy className="w-3 h-3" />
                             </button>
                          </div>
-                        <SyntaxHighlighter
-                          style={vscDarkPlus}
-                          language={match[1]}
-                          PreTag="div"
-                          customStyle={{ margin: 0, borderRadius: '0 0 0.375rem 0.375rem' }}
-                          {...props}
-                        >
+                        <LazyCodeBlock language={match[1]} {...props}>
                           {String(children).replace(/\n$/, '')}
-                        </SyntaxHighlighter>
+                        </LazyCodeBlock>
                       </div>
                     ) : (
                       <code className={cn("bg-muted/50 px-1 py-0.5 rounded font-mono text-sm", className)} {...props}>

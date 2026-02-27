@@ -29,7 +29,7 @@ warn_unused_configs = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "-v --tb=short"
+addopts = "-v --tb=short --timeout=30"
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]

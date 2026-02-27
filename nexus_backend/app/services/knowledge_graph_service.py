@@ -14,6 +14,7 @@ import logging
 import re
 from collections import Counter
 from datetime import datetime, timezone
+from difflib import SequenceMatcher
 
 from app.core.database import supabase
 
@@ -43,6 +44,51 @@ RELATION_PATTERNS = [
     (r"(.+?)(?:的联系人|的对接人)(?:是|为)(.+)", "customer", "contacts", "person"),
     (r"(.+?)(?:报价|询价)(.+)", "customer", "quoted", "product"),
 ]
+
+# ─── Entity Normalization & Disambiguation ────────────────────────────────────
+
+# Company suffixes to strip for normalization
+_COMPANY_SUFFIXES = re.compile(
+    r"(有限责任公司|股份有限公司|有限公司|集团公司|集团|科技|技术|生物|医药|电子|信息|控股)$"
+)
+
+# Brackets/parenthetical info to strip
+_BRACKET_INFO = re.compile(r"[（(][^)）]*[)）]")
+
+# Common prefixes that don't distinguish entities
+_TRIVIAL_PREFIXES = re.compile(r"^(中国|北京|上海|深圳|广州|杭州|成都|南京|武汉|西安)")
+
+
+def normalize_entity(name: str) -> str:
+    """Normalize entity name for dedup.
+
+    Strips company suffixes, brackets, whitespace, and lowercases
+    so that '华为技术有限公司' and '华为' can be recognized as the same entity.
+    """
+    name = name.strip()
+    # Remove bracketed info: "阿里巴巴（中国）" → "阿里巴巴"
+    name = _BRACKET_INFO.sub("", name).strip()
+    # Remove company suffixes: "华为技术有限公司" → "华为"
+    name = _COMPANY_SUFFIXES.sub("", name).strip()
+    # Collapse whitespace
+    name = re.sub(r"\s+", "", name)
+    return name
+
+
+def fuzzy_match(a: str, b: str, threshold: float = 0.85) -> bool:
+    """Check if two entity names are fuzzy-similar above threshold."""
+    if not a or not b:
+        return False
+    na, nb = normalize_entity(a), normalize_entity(b)
+    if na == nb:
+        return True
+    # Short strings: require exact normalized match
+    if len(na) <= 2 or len(nb) <= 2:
+        return na == nb
+    # One contains the other (e.g., "华为" in "华为技术")
+    if na in nb or nb in na:
+        return True
+    return SequenceMatcher(None, na, nb).ratio() >= threshold
 
 
 async def extract_entities_from_conversation(
@@ -75,6 +121,10 @@ async def extract_entities_from_conversation(
             for prefix in ["把", "将", "对", "和", "与", "向"]:
                 source = source.lstrip(prefix)
                 target = target.lstrip(prefix)
+
+            # Normalize entity names for consistent dedup
+            source = normalize_entity(source) or source
+            target = normalize_entity(target) or target
 
             relations.append({
                 "org_id": org_id,
@@ -164,17 +214,50 @@ def _extract_from_sales_tool(result: str, org_id: str, relations: list):
 
 
 async def _upsert_relations(relations: list[dict]):
-    """Upsert entity relations into the DB (update last_seen_at on conflict)."""
+    """Upsert entity relations into the DB with fuzzy dedup.
+
+    Before inserting, checks existing entities for fuzzy matches to avoid
+    duplicate entries like '华为技术有限公司' vs '华为'.
+    """
     if not supabase:
         return
 
+    # Pre-fetch existing entities for this org to enable fuzzy matching
+    org_ids = {r["org_id"] for r in relations if r.get("org_id")}
+    existing_entities: dict[str, list[str]] = {}  # org_id -> list of entity names
+    for oid in org_ids:
+        try:
+            resp = await (
+                supabase.table("entity_relations")
+                .select("source_entity, target_entity")
+                .eq("org_id", oid)
+                .limit(500)
+                .execute()
+            )
+            names = set()
+            for row in resp.data or []:
+                names.add(row.get("source_entity", ""))
+                names.add(row.get("target_entity", ""))
+            existing_entities[oid] = list(names)
+        except Exception:
+            existing_entities[oid] = []
+
     for rel in relations:
         try:
+            org_id = rel["org_id"]
+            # Fuzzy-match source/target against existing entities to canonicalize
+            rel["source_entity"] = _find_canonical(
+                rel["source_entity"], existing_entities.get(org_id, [])
+            )
+            rel["target_entity"] = _find_canonical(
+                rel["target_entity"], existing_entities.get(org_id, [])
+            )
+
             await (
                 supabase.table("entity_relations")
                 .upsert(
                     {
-                        "org_id": rel["org_id"],
+                        "org_id": org_id,
                         "source_entity": rel["source_entity"],
                         "source_type": rel["source_type"],
                         "relation": rel["relation"],
@@ -189,8 +272,32 @@ async def _upsert_relations(relations: list[dict]):
                 )
                 .execute()
             )
+
+            # Track newly inserted entity names for subsequent fuzzy matches
+            existing = existing_entities.get(org_id, [])
+            if rel["source_entity"] not in existing:
+                existing.append(rel["source_entity"])
+            if rel["target_entity"] not in existing:
+                existing.append(rel["target_entity"])
         except Exception as e:
             logger.debug(f"[EntityRelation] Upsert failed: {e}")
+
+
+def _find_canonical(name: str, existing_names: list[str]) -> str:
+    """Find the best existing canonical name via fuzzy matching.
+
+    If a similar entity already exists in the DB, reuse its name to prevent
+    fragmentation (e.g., '华为技术有限公司' → '华为' if '华为' already stored).
+    """
+    if not existing_names or not name:
+        return name
+    norm_new = normalize_entity(name)
+    for existing in existing_names:
+        if fuzzy_match(name, existing):
+            # Prefer the shorter/normalized form as canonical
+            norm_exist = normalize_entity(existing)
+            return existing if len(norm_exist) <= len(norm_new) else name
+    return name
 
 
 async def query_entity_context(
@@ -209,9 +316,12 @@ async def query_entity_context(
     try:
         # Extract potential entity names from the query (simple keyword match)
         keywords = [w for w in re.split(r"[，。！？\s,.\?!]+", query) if len(w) >= 2]
+        # Also search with normalized forms for fuzzy coverage
+        norm_keywords = list({normalize_entity(kw) for kw in keywords if normalize_entity(kw)})
+        all_search_terms = list(dict.fromkeys(keywords[:5] + norm_keywords[:3]))  # dedup, preserve order
 
         all_results = []
-        for kw in keywords[:5]:  # Limit keyword searches
+        for kw in all_search_terms[:6]:  # Limit keyword searches
             # Search as source entity
             resp = await (
                 supabase.table("entity_relations")
