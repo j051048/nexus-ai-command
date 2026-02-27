@@ -1,8 +1,7 @@
 -- ============================================================================
 -- Fix: Auth trigger must insert into public.users (not just profiles)
--- Root cause: Migration 20260126000002 changed handle_new_user() to only
---   write to profiles + user_roles, but the entire frontend reads from
---   public.users. New registrations became invisible.
+-- + Force ALL users into the main organization (slug='default-org')
+-- + Clean up auto-generated personal orgs ("XX 的企业")
 -- ============================================================================
 
 -- 0a. Ensure a default organization exists (reuse existing if slug taken)
@@ -50,12 +49,11 @@ BEGIN
     _department := 'Sales Dept';
   END IF;
 
-  -- Resolve organization: metadata > default org
+  -- Resolve organization: metadata > default org > first org
   _org_id := (NEW.raw_user_meta_data->>'organization_id')::uuid;
   IF _org_id IS NULL THEN
     SELECT id INTO _org_id FROM public.organizations WHERE slug = 'default-org' LIMIT 1;
   END IF;
-  -- Ultimate fallback: first org in table
   IF _org_id IS NULL THEN
     SELECT id INTO _org_id FROM public.organizations LIMIT 1;
   END IF;
@@ -91,16 +89,20 @@ EXCEPTION
 END;
 $$;
 
--- 2. Drop redundant org trigger (merged above)
+-- 2. Drop ALL auth.users triggers, then recreate only the correct one
+--    This kills any hidden trigger that auto-creates personal orgs
 DROP TRIGGER IF EXISTS on_auth_user_created_org ON auth.users;
-
--- 3. Recreate primary trigger
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP TRIGGER IF EXISTS handle_new_user_trigger ON auth.users;
+DROP TRIGGER IF EXISTS create_user_on_signup ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- 4. Backfill orphaned auth users (e.g. afei_4806@qq.com)
+-- Also drop the handle_new_user_org function to prevent any resurrection
+DROP FUNCTION IF EXISTS public.handle_new_user_org() CASCADE;
+
+-- 3. Backfill: insert orphaned auth users into public.users
 INSERT INTO public.users (id, name, role, department, organization_id, created_at, updated_at)
 SELECT
   au.id,
@@ -116,19 +118,47 @@ FROM auth.users au
 LEFT JOIN public.users pu ON pu.id = au.id
 WHERE pu.id IS NULL;
 
--- Backfill organization_members
+-- 4. KEY FIX: Force ALL users into the main org (default-org)
+--    This fixes users who got placed in auto-generated personal orgs
+UPDATE public.users
+SET organization_id = (SELECT id FROM public.organizations WHERE slug = 'default-org' LIMIT 1)
+WHERE organization_id != (SELECT id FROM public.organizations WHERE slug = 'default-org' LIMIT 1)
+   OR organization_id IS NULL;
+
+-- Also sync profiles table
+UPDATE public.profiles
+SET organization_id = (SELECT id FROM public.organizations WHERE slug = 'default-org' LIMIT 1)
+WHERE organization_id IS DISTINCT FROM (SELECT id FROM public.organizations WHERE slug = 'default-org' LIMIT 1);
+
+-- 5. Ensure all users are in organization_members for the main org
 INSERT INTO public.organization_members (organization_id, user_id, role)
 SELECT
   (SELECT id FROM public.organizations WHERE slug = 'default-org' LIMIT 1),
-  au.id,
+  u.id,
   'member'
-FROM auth.users au
-LEFT JOIN public.organization_members om ON om.user_id = au.id
-WHERE om.user_id IS NULL
-  AND (SELECT id FROM public.organizations WHERE slug = 'default-org' LIMIT 1) IS NOT NULL;
+FROM public.users u
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.organization_members om
+  WHERE om.user_id = u.id
+    AND om.organization_id = (SELECT id FROM public.organizations WHERE slug = 'default-org' LIMIT 1)
+)
+AND (SELECT id FROM public.organizations WHERE slug = 'default-org' LIMIT 1) IS NOT NULL;
 
--- 5. Fix any users with NULL organization_id
-UPDATE public.users
-SET organization_id = (SELECT id FROM public.organizations WHERE slug = 'default-org' LIMIT 1)
-WHERE organization_id IS NULL
-  AND (SELECT id FROM public.organizations WHERE slug = 'default-org' LIMIT 1) IS NOT NULL;
+-- 6. Clean up auto-generated personal orgs (like "文池 的企业", "Test User 的企业")
+--    Delete orgs that are NOT the main org and have no users left
+DELETE FROM public.organizations
+WHERE slug != 'default-org'
+  AND id NOT IN (SELECT DISTINCT organization_id FROM public.users WHERE organization_id IS NOT NULL);
+
+-- 7. List all triggers on auth.users for diagnostic (check Supabase logs)
+DO $$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT tgname, tgfoid::regproc AS func_name
+    FROM pg_trigger
+    WHERE tgrelid = 'auth.users'::regclass
+  LOOP
+    RAISE NOTICE 'Trigger on auth.users: % -> %', r.tgname, r.func_name;
+  END LOOP;
+END $$;
