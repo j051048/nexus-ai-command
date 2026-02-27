@@ -694,7 +694,7 @@ export function useComplianceLogs() {
   return useQuery({
     queryKey: ['vmd-compliance-logs'],
     queryFn: async () => {
-      const res = await aiClient.fetch<{ success: boolean; data: ComplianceLog[] }>('api/vmd/compliance/logs');
+      const res = await aiClient.fetch<{ success: boolean; data: ComplianceLog[] }>('api/vmd/compliance/history');
       return res.data;
     },
     staleTime: 30_000,

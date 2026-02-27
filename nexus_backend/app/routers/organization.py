@@ -3,7 +3,7 @@ P2 Optimization: Organization Structure API Routes
 Provides endpoints for managing organizational hierarchy and approval chains.
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from typing import Optional
 
@@ -166,22 +166,22 @@ async def process_approval_through_chain(
 
 
 @router.get("/members", response_model=StandardResponse)
-async def get_organization_members(user_id: str = Depends(get_current_user_id)):
+async def get_organization_members(req: Request, user_id: str = Depends(get_current_user_id)):
     """
     Get all members in the user's organization for the org chart management page.
     Returns: id, full_name, department, role, manager_id, avatar_url
     """
-    from app.core.database import supabase
+    client = req.state.db
 
     # Get the user's organization
-    user_res = await supabase.table("users").select("organization_id").eq("id", user_id).maybe_single().execute()
+    user_res = await client.table("users").select("organization_id").eq("id", user_id).maybe_single().execute()
     org_id = user_res.data.get("organization_id") if user_res.data else None
 
     if not org_id:
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "Organization not found for current user")
 
     # Fetch all members in the organization
-    members_res = await supabase.table("users").select(
+    members_res = await client.table("users").select(
         "id, full_name, name, department, role, manager_id, avatar_url"
     ).eq("organization_id", org_id).order("full_name").execute()
 
@@ -215,16 +215,17 @@ class UpdateManagerRequest(BaseModel):
 async def update_user_manager(
     target_user_id: str,
     body: UpdateManagerRequest,
+    req: Request,
     user_id: str = Depends(get_current_user_id),
 ):
     """
     Update the manager_id for a user (org chart management).
     Only admins/bosses should call this (enforced via frontend role guard).
     """
-    from app.core.database import supabase
+    client = req.state.db
 
     # Verify the requesting user is in the same org and has boss/admin role
-    user_res = await supabase.table("users").select(
+    user_res = await client.table("users").select(
         "organization_id, role"
     ).eq("id", user_id).maybe_single().execute()
 
@@ -238,7 +239,7 @@ async def update_user_manager(
     caller_org = user_res.data.get("organization_id")
 
     # Verify target user is in the same org
-    target_res = await supabase.table("users").select(
+    target_res = await client.table("users").select(
         "id, organization_id"
     ).eq("id", target_user_id).maybe_single().execute()
 
@@ -254,7 +255,7 @@ async def update_user_manager(
 
     # If manager_id is provided, verify the manager exists in the same org
     if body.manager_id:
-        manager_res = await supabase.table("users").select(
+        manager_res = await client.table("users").select(
             "id, organization_id"
         ).eq("id", body.manager_id).maybe_single().execute()
 
@@ -265,7 +266,7 @@ async def update_user_manager(
             raise api_error(ErrorCode.AUTH_FORBIDDEN, "Manager must be in the same organization")
 
     # Update the manager_id
-    update_res = await supabase.table("users").update(
+    update_res = await client.table("users").update(
         {"manager_id": body.manager_id}
     ).eq("id", target_user_id).execute()
 

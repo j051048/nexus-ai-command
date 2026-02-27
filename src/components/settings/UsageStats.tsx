@@ -28,7 +28,7 @@ export function UsageStats() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['usage-stats'],
     queryFn: async () => {
-      const response = await aiClient.fetch<{ success: boolean; data: UsageData }>('api/usage');
+      const response = await aiClient.fetch<{ success: boolean; data: UsageData }>('api/usage/current');
       return response.data;
     },
     refetchInterval: 60000, // Refresh every minute
