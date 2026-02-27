@@ -16,6 +16,7 @@ from app.core.security_middleware import (
     SecurityHeadersMiddleware,
     TenantContextMiddleware,
 )
+from app.core.exception_handlers import register_exception_handlers
 from app.routers import (
     api_docs,
     api_keys,
@@ -222,27 +223,13 @@ from app.core.telemetry import setup_telemetry  # noqa: E402
 
 setup_telemetry(app)
 
+# Register global exception handlers (validation, HTTP, and generic 500)
+register_exception_handlers(app)
+
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     return Response(status_code=204)
-
-
-# Global Exception Handler for Standardized Error Responses
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
-    """
-    Standardize HTTP exceptions to matching API response format.
-    Wraps standard HTTPExceptions into {"success": False, "error": ...}
-    """
-    error_content = exc.detail
-
-    # If detail is already a dict (from api_error), use it directly
-    # If it's a string (standard raise HTTPException), wrap it
-    if isinstance(error_content, str):
-        error_content = {"code": "HTTP_ERROR", "message": error_content}
-
-    return UTF8JSONResponse(status_code=exc.status_code, content={"success": False, "error": error_content})
 
 
 # CORS Configuration

@@ -21,25 +21,40 @@ class _JSONFormatter(logging.Formatter):
 
     Prevents broken JSON when log messages contain quotes, newlines, or
     other special characters that would break naive %-style JSON templates.
+
+    Includes trace_id, user_id, org_id when available on the log record,
+    as well as module/function/line for production log aggregation.
     """
 
     def format(self, record: logging.LogRecord) -> str:
         log_obj = {
-            "time": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
+            "timestamp": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
             "level": record.levelname,
             "logger": record.name,
-            "line": record.lineno,
             "message": record.getMessage(),
+            "module": record.module,
+            "function": record.funcName,
+            "line": record.lineno,
         }
+        # Include exception info if present
+        if record.exc_info and record.exc_info[1]:
+            log_obj["exception"] = self.formatException(record.exc_info)
+        # Include tracing / tenant context fields
+        if hasattr(record, "trace_id") and record.trace_id:
+            log_obj["trace_id"] = record.trace_id
+        if hasattr(record, "user_id") and record.user_id:
+            log_obj["user_id"] = record.user_id
+        if hasattr(record, "org_id") and record.org_id:
+            log_obj["org_id"] = record.org_id
         # Include extra fields from structured logging (e.g., SecurityLogger)
-        for key in ("user_id", "resource", "ip", "event", "activity"):
+        for key in ("resource", "ip", "event", "activity"):
             val = getattr(record, key, None)
             if val is not None:
                 log_obj[key] = val
         return _json.dumps(log_obj, ensure_ascii=False)
 
 
-def setup_logging(level: str | None = None, format_string: str | None = None) -> None:
+def setup_logging(level: str | None = None, format_string: str | None = None, json_output: bool | None = None) -> None:
     """
     Configure logging for the entire application.
 
@@ -48,6 +63,8 @@ def setup_logging(level: str | None = None, format_string: str | None = None) ->
     Args:
         level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         format_string: Custom format string for log messages
+        json_output: Force JSON output (True/False). Defaults to auto-detect
+                     (JSON in production, human-readable in development).
     """
     log_level = getattr(logging, (level or LOG_LEVEL).upper(), logging.INFO)
 
@@ -68,8 +85,11 @@ def setup_logging(level: str | None = None, format_string: str | None = None) ->
         force=True,  # Override any existing configuration
     )
 
-    # Production: Replace root handler with JSON-safe formatter
-    if IS_PRODUCTION and not format_string:
+    # Determine if JSON formatting should be used
+    use_json = json_output if json_output is not None else IS_PRODUCTION
+
+    # Production (or explicit json_output): Replace root handler with JSON-safe formatter
+    if use_json and not format_string:
         json_formatter = _JSONFormatter()
         for handler in logging.root.handlers:
             handler.setFormatter(json_formatter)

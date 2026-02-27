@@ -46,6 +46,18 @@ from app.tools import get_all_tools_schema, get_tool
 
 logger = logging.getLogger(__name__)
 
+# Long-running tools that need extended timeout (120s instead of default 30s)
+LONG_RUNNING_TOOLS: set[str] = {
+    "generate_product_manual",
+    "generate_faq_response",
+    "generate_training_material",
+    "generate_weekly_report",
+    "generate_competitor_analysis",
+    "generate_tender_analysis",
+    "generate_contract_summary",
+    "batch_analyze_documents",
+}
+
 
 # ─── Pydantic models for structured LLM output in reflect_node ───────────────
 
@@ -223,6 +235,10 @@ async def _execute_single_tool(
     start_time = time.time()
     last_error = None
     timeout = config.tool_timeout if hasattr(config, "tool_timeout") else 30.0
+
+    # Use longer timeout for known long-running tools
+    if record.tool_name in LONG_RUNNING_TOOLS:
+        timeout = max(timeout, 120.0)
 
     for attempt in range(3):
         try:

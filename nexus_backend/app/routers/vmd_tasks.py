@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_list, api_success
+from app.models.response_models import VMDSubTaskResponse, VMDTaskDetail
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/vmd", tags=["VMD Tasks"])
@@ -95,6 +96,14 @@ async def create_task(
 
         res = await admin.table("vmd_main_task").insert(record).execute()
         task = res.data[0] if res.data else record
+
+        # Trigger async WBS decomposition via Celery
+        try:
+            from app.tasks.scheduler import decompose_vmd_task
+            decompose_vmd_task.delay(task.get("id", record.get("id", "")))
+        except Exception as e:
+            logger.warning(f"Failed to trigger async decomposition: {e}")
+
         return api_success(data={"task": task}, message="任务创建成功")
     except Exception as e:
         logger.error(f"Create task error: user={user_id} err={e}")
@@ -157,7 +166,7 @@ async def get_task(
     req: Request,
     user_id: str = Depends(get_current_user_id),
 ):
-    """获取任务详情（含子任务、WBS结构、进度信息）"""
+    """获取任务详情（含子任务、WBS结构、进度信息）— 返回扁平结构"""
     try:
         admin = _get_admin_client()
 
@@ -178,23 +187,32 @@ async def get_task(
         )
         sub_tasks = sub_tasks_res.data or []
 
-        # Calculate progress
+        # Calculate progress as a flat number (percentage)
         total_sub = len(sub_tasks)
         completed_sub = sum(1 for s in sub_tasks if s.get("status") == "completed")
         progress = round((completed_sub / total_sub * 100), 1) if total_sub > 0 else 0.0
 
-        return api_success(
-            data={
-                "task": task,
-                "sub_tasks": sub_tasks,
-                "wbs_structure": task.get("wbs_structure"),
-                "progress": {
-                    "total_sub_tasks": total_sub,
-                    "completed": completed_sub,
-                    "percentage": progress,
-                },
-            }
-        )
+        # Build flat response using response model
+        flat_response = {
+            **task,
+            "progress": progress,  # Always a number, never a nested object
+            "total_sub_tasks": total_sub,
+            "completed_sub_tasks": completed_sub,
+            "sub_tasks": [
+                VMDSubTaskResponse(
+                    id=s.get("id", ""),
+                    agent_role=s.get("agent_role", ""),
+                    title=s.get("title", ""),
+                    status=s.get("status", "pending"),
+                    output=s.get("output"),
+                    sort_order=s.get("sort_order", 0),
+                    review_status=s.get("review_status"),
+                ).model_dump()
+                for s in sub_tasks
+            ],
+        }
+
+        return api_success(data=flat_response)
     except Exception as e:
         logger.error(f"Get task error: id={task_id} user={user_id} err={e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

@@ -514,6 +514,134 @@ def execute_user_scheduled_tasks():
     return _run_async(_run())
 
 
+@celery_app.task
+def decompose_vmd_task(task_id: str):
+    """
+    VMD Task Auto-Decomposition (#32)
+    Takes a main task and uses LLM to decompose it into sub-tasks (WBS structure).
+
+    Triggered asynchronously after task creation.
+    """
+
+    async def _run():
+        from app.core.database import supabase
+        from app.services.ai_service import AIService
+
+        if not supabase:
+            return "skipped: no db"
+
+        # 1. Load the main task
+        task_res = (
+            await supabase.table("vmd_main_task")
+            .select("*")
+            .eq("id", task_id)
+            .maybe_single()
+            .execute()
+        )
+        if not task_res.data:
+            logger.error(f"decompose_vmd_task: task {task_id} not found")
+            return f"task {task_id} not found"
+
+        task = task_res.data
+        if task.get("status") not in ("pending", None):
+            logger.info(f"decompose_vmd_task: task {task_id} status is {task.get('status')}, skipping")
+            return f"task {task_id} already processed"
+
+        title = task.get("title", "")
+        description = task.get("description", "")
+        scene_code = task.get("scene_code", "")
+
+        # 2. Use LLM to decompose the task description into sub-tasks
+        decompose_prompt = (
+            f"你是一个项目分解专家。请将以下任务分解为可执行的子任务列表。\n\n"
+            f"任务标题: {title}\n"
+            f"任务描述: {description}\n"
+            f"场景编码: {scene_code}\n\n"
+            f"请返回JSON格式的子任务列表，每个子任务包含:\n"
+            f'- title: 子任务标题\n'
+            f'- agent_role: 负责的Agent角色 (如: content_creator, data_analyst, market_researcher, reviewer)\n'
+            f'- description: 子任务描述\n'
+            f'- sort_order: 执行顺序 (从1开始)\n\n'
+            f'只返回JSON数组，不要其他内容。示例:\n'
+            f'[{{"title": "市场调研", "agent_role": "market_researcher", "description": "...", "sort_order": 1}}]'
+        )
+
+        try:
+            import json
+
+            llm_response = await AIService.call_llm(
+                decompose_prompt,
+                "你是一个严格按JSON格式输出的项目分解助手。只输出JSON数组，不添加任何其他文字。",
+            )
+
+            # Parse LLM response - try to extract JSON array
+            response_text = llm_response.strip()
+            # Handle markdown code blocks
+            if response_text.startswith("```"):
+                lines = response_text.split("\n")
+                response_text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+                response_text = response_text.strip()
+
+            sub_tasks_data = json.loads(response_text)
+            if not isinstance(sub_tasks_data, list):
+                sub_tasks_data = [sub_tasks_data]
+
+        except (json.JSONDecodeError, Exception) as e:
+            logger.warning(f"decompose_vmd_task: LLM response parse failed: {e}, creating default sub-task")
+            sub_tasks_data = [
+                {
+                    "title": f"执行: {title}",
+                    "agent_role": "content_creator",
+                    "description": description,
+                    "sort_order": 1,
+                }
+            ]
+
+        # 3. Create vmd_sub_task records
+        tenant_id = task.get("tenant_id", "default")
+        created_count = 0
+        for st in sub_tasks_data:
+            try:
+                sub_record = {
+                    "main_task_id": task_id,
+                    "tenant_id": tenant_id,
+                    "title": st.get("title", "未命名子任务"),
+                    "agent_role": st.get("agent_role", "content_creator"),
+                    "description": st.get("description", ""),
+                    "sort_order": st.get("sort_order", created_count + 1),
+                    "status": "pending",
+                }
+                await supabase.table("vmd_sub_task").insert(sub_record).execute()
+                created_count += 1
+            except Exception as e:
+                logger.error(f"decompose_vmd_task: failed to create sub-task: {e}")
+
+        # 4. Update main task status and WBS structure
+        wbs_structure = {
+            "version": "1.0",
+            "decomposed_at": datetime.now(UTC).isoformat(),
+            "total_sub_tasks": created_count,
+            "sub_tasks": [
+                {"title": st.get("title", ""), "agent_role": st.get("agent_role", "")}
+                for st in sub_tasks_data[:created_count]
+            ],
+        }
+
+        await (
+            supabase.table("vmd_main_task")
+            .update({
+                "status": "executing",
+                "wbs_structure": wbs_structure,
+            })
+            .eq("id", task_id)
+            .execute()
+        )
+
+        return f"Decomposed task {task_id} into {created_count} sub-tasks"
+
+    return _run_async(_run())
+
+
 # ---------------------------------------------------------------------------
 # P0-2: Memory Decay Cleanup
 # ---------------------------------------------------------------------------

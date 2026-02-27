@@ -2,7 +2,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/components/auth/AuthContext";
 import { GlobalCommandBar } from "@/components/layout/GlobalCommandBar";
 import { EnhancedThemeProvider } from "@/contexts/EnhancedThemeContext";
@@ -13,6 +13,7 @@ import React, { Suspense, lazy } from "react";
 import * as Sentry from "@sentry/react";
 import { toast } from "sonner";
 import { ModuleErrorBoundary } from "@/components/common/ModuleErrorBoundary";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // P0 Fix: Initialize Sentry for production error tracking
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
@@ -23,44 +24,6 @@ if (SENTRY_DSN && import.meta.env.PROD) {
     tracesSampleRate: 0.2,
     environment: import.meta.env.MODE,
   });
-}
-
-class ErrorBoundary extends React.Component<
-  { children: React.ReactNode; fallback?: React.ReactNode; resetKey?: string },
-  { hasError: boolean; error: Error | null }
-> {
-  constructor(props: { children: React.ReactNode; fallback?: React.ReactNode; resetKey?: string }) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-  static getDerivedStateFromError(error: Error) {
-    return { hasError: true, error };
-  }
-  componentDidUpdate(prevProps: { resetKey?: string }) {
-    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
-      this.setState({ hasError: false, error: null });
-    }
-  }
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Page load error:', error, errorInfo);
-    // P0 Fix: Report to Sentry in production
-    if (SENTRY_DSN && import.meta.env.PROD) {
-      Sentry.captureException(error, { extra: { componentStack: errorInfo.componentStack } });
-    }
-  }
-  render() {
-    if (this.state.hasError) {
-      return this.props.fallback || (
-        <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
-          <p className="text-destructive text-lg">页面加载失败</p>
-          <button className="px-4 py-2 bg-primary text-primary-foreground rounded" onClick={() => window.location.reload()}>
-            刷新页面
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
 }
 
 // Lazy load pages for better performance
@@ -218,12 +181,8 @@ function SuperAdminRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function RouteErrorBoundary({ children }: { children: React.ReactNode }) {
-  const location = useLocation();
-  return <ErrorBoundary resetKey={location.pathname}>{children}</ErrorBoundary>;
-}
-
 const App = () => (
+  <ErrorBoundary>
   <QueryClientProvider client={queryClient}>
     <I18nProvider>
     <EnhancedThemeProvider>
@@ -233,7 +192,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <GlobalCommandBar />
-          <RouteErrorBoundary><Suspense fallback={<LoadingFallback />}>
+          <Suspense fallback={<LoadingFallback />}>
             <Routes>
               <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -317,13 +276,14 @@ const App = () => (
 
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </Suspense></RouteErrorBoundary>
+          </Suspense>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
     </EnhancedThemeProvider>
     </I18nProvider>
   </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
