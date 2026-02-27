@@ -1,6 +1,6 @@
 import { DragEvent } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { UserCheck, GitBranch, Users, Zap, Bell } from 'lucide-react';
+import { UserCheck, GitBranch, Users, Zap, Bell, Mail, Timer, GitMerge } from 'lucide-react';
 
 interface NodeTypeConfig {
   type: string;
@@ -45,6 +45,27 @@ const NODE_TYPES: NodeTypeConfig[] = [
     description: '发送通知消息',
     icon: <Bell className="w-5 h-5" />,
     color: 'text-gray-500 bg-gray-500/10 border-gray-200',
+  },
+  {
+    type: 'cc_notify',
+    label: '抄送',
+    description: '抄送通知相关人员',
+    icon: <Mail className="w-5 h-5" />,
+    color: 'text-teal-500 bg-teal-500/10 border-teal-200',
+  },
+  {
+    type: 'timer',
+    label: '定时等待',
+    description: '延迟指定时间后继续',
+    icon: <Timer className="w-5 h-5" />,
+    color: 'text-orange-500 bg-orange-500/10 border-orange-200',
+  },
+  {
+    type: 'sub_workflow',
+    label: '子流程',
+    description: '引用其他审批流程',
+    icon: <GitMerge className="w-5 h-5" />,
+    color: 'text-indigo-500 bg-indigo-500/10 border-indigo-200',
   },
 ];
 

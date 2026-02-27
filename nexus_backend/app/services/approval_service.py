@@ -6,9 +6,11 @@ Handles approval workflow logic including:
 - Rule-based filtering
 - Database updates
 - Notifications
+- P0: AI risk analysis for smart approval
 """
 
 import logging
+from datetime import UTC, datetime, timedelta
 
 from app.core.errors import ErrorCode, api_error
 from app.models.schemas import ApprovalDecision, ApprovalRequest
@@ -81,3 +83,194 @@ class ApprovalService:
         except Exception as e:
             logger.error(f"Approval process failed: {e}")
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"Approval processing error: {str(e)}")
+
+    @staticmethod
+    async def analyze_risk(
+        request_type: str,
+        amount: float,
+        description: str,
+        user_id: str,
+        org_id: str,
+        db=None,
+    ) -> dict:
+        """
+        P0: AI risk analysis for approval requests.
+
+        Analyzes:
+        1. Compliance rules - check description against patterns in compliance_rule table
+        2. Historical patterns - how many similar requests this user made recently, average amounts
+        3. Calculate risk_score (0-100)
+
+        Returns:
+            {
+                "risk_score": int,          # 0-100, higher = more risky
+                "compliance_flags": list,    # matched compliance rule names
+                "historical_context": dict,  # user's recent request stats
+                "recommendation": str,       # risk assessment recommendation
+            }
+        """
+        risk_score = 0
+        compliance_flags: list[str] = []
+        historical_context: dict = {}
+        recommendation = "低风险，可正常审批"
+
+        if not db:
+            logger.warning("No DB client for risk analysis, returning default low-risk result")
+            return {
+                "risk_score": risk_score,
+                "compliance_flags": compliance_flags,
+                "historical_context": historical_context,
+                "recommendation": recommendation,
+            }
+
+        try:
+            # ============ 1. Compliance Rules Check ============
+            # Query active compliance rules and check description for matching patterns
+            try:
+                rules_result = (
+                    await db.table("compliance_rule")
+                    .select("rule_name, pattern, severity, check_type")
+                    .eq("is_active", True)
+                    .execute()
+                )
+
+                if rules_result.data:
+                    import re
+
+                    desc_lower = description.lower()
+                    for rule in rules_result.data:
+                        pattern = rule.get("pattern", "")
+                        check_type = rule.get("check_type", "keyword")
+                        severity = rule.get("severity", "warning")
+                        rule_name = rule.get("rule_name", "未命名规则")
+
+                        if not pattern:
+                            continue
+
+                        matched = False
+
+                        if check_type == "keyword":
+                            # Simple keyword matching
+                            keywords = [k.strip().lower() for k in pattern.split(",") if k.strip()]
+                            for kw in keywords:
+                                if kw in desc_lower:
+                                    matched = True
+                                    break
+                        elif check_type == "regex":
+                            # Regex pattern matching
+                            try:
+                                if re.search(pattern, description, re.IGNORECASE):
+                                    matched = True
+                            except re.error:
+                                logger.warning(f"Invalid regex pattern in compliance rule: {pattern}")
+
+                        if matched:
+                            compliance_flags.append(rule_name)
+                            # Adjust risk score based on severity
+                            if severity == "error":
+                                risk_score += 30
+                            elif severity == "warning":
+                                risk_score += 15
+                            else:
+                                risk_score += 5
+
+            except Exception as e:
+                logger.warning(f"Compliance rules check failed: {e}")
+
+            # ============ 2. Historical Patterns ============
+            try:
+                # Get recent requests from this user (last 30 days)
+                thirty_days_ago = (datetime.now(UTC) - timedelta(days=30)).isoformat()
+
+                hist_result = (
+                    await db.table("approval_requests")
+                    .select("amount, type, status, created_at")
+                    .eq("submitted_by", user_id)
+                    .gte("created_at", thirty_days_ago)
+                    .execute()
+                )
+
+                if hist_result.data:
+                    recent_requests = hist_result.data
+                    total_count = len(recent_requests)
+                    same_type_count = sum(1 for r in recent_requests if r.get("type") == request_type)
+                    amounts = [float(r.get("amount", 0)) for r in recent_requests if r.get("amount")]
+                    avg_amount = sum(amounts) / len(amounts) if amounts else 0
+                    max_amount = max(amounts) if amounts else 0
+                    rejected_count = sum(1 for r in recent_requests if r.get("status") == "rejected")
+
+                    historical_context = {
+                        "recent_30d_total": total_count,
+                        "recent_30d_same_type": same_type_count,
+                        "avg_amount": round(avg_amount, 2),
+                        "max_amount": round(max_amount, 2),
+                        "rejected_count": rejected_count,
+                    }
+
+                    # Adjust risk score based on historical patterns
+                    # High frequency of same type requests
+                    if same_type_count > 10:
+                        risk_score += 15
+                    elif same_type_count > 5:
+                        risk_score += 5
+
+                    # Amount significantly above average
+                    if avg_amount > 0 and amount > avg_amount * 3:
+                        risk_score += 20
+                    elif avg_amount > 0 and amount > avg_amount * 2:
+                        risk_score += 10
+
+                    # High rejection rate
+                    if total_count > 0 and (rejected_count / total_count) > 0.3:
+                        risk_score += 15
+
+                else:
+                    historical_context = {
+                        "recent_30d_total": 0,
+                        "recent_30d_same_type": 0,
+                        "avg_amount": 0,
+                        "max_amount": 0,
+                        "rejected_count": 0,
+                    }
+
+            except Exception as e:
+                logger.warning(f"Historical patterns check failed: {e}")
+
+            # ============ 3. Amount-based risk ============
+            # Large amounts inherently carry more risk
+            if amount > 100000:
+                risk_score += 20
+            elif amount > 50000:
+                risk_score += 10
+            elif amount > 10000:
+                risk_score += 5
+
+            # Ensure risk_score stays within 0-100
+            risk_score = max(0, min(100, risk_score))
+
+            # ============ 4. Generate Recommendation ============
+            if risk_score >= 70:
+                recommendation = "高风险：建议仔细审核，关注合规问题和异常模式"
+            elif risk_score >= 40:
+                recommendation = "中等风险：建议核实申请详情，关注金额合理性"
+            elif risk_score >= 20:
+                recommendation = "低风险：可按正常流程审批，无明显异常"
+            else:
+                recommendation = "极低风险：申请正常，可快速审批"
+
+        except Exception as e:
+            logger.error(f"Risk analysis failed: {e}")
+            # Return a default result on failure rather than raising
+            return {
+                "risk_score": 0,
+                "compliance_flags": [],
+                "historical_context": {},
+                "recommendation": "风险分析暂不可用，请按常规流程审批",
+            }
+
+        return {
+            "risk_score": risk_score,
+            "compliance_flags": compliance_flags,
+            "historical_context": historical_context,
+            "recommendation": recommendation,
+        }

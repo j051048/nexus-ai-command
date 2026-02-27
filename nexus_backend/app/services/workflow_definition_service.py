@@ -13,7 +13,7 @@ from app.core.database import supabase
 logger = logging.getLogger(__name__)
 
 # Valid node types for workflow steps
-VALID_NODE_TYPES = {"approver", "condition", "parallel", "auto_approve", "notify"}
+VALID_NODE_TYPES = {"approver", "condition", "parallel", "auto_approve", "notify", "cc_notify", "timer", "sub_workflow"}
 
 # Valid approval types
 VALID_APPROVAL_TYPES = {"travel", "purchase", "expense", "leave", "event", "activity", "custom"}

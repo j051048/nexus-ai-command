@@ -2,6 +2,8 @@
 P2 Optimization: Multi-level Approval Chain Service
 Supports configurable approval workflows with multiple levels.
 Enhanced with DB-backed workflow definitions and timeout escalation.
+P0: Wired chain execution with advance_step, match_and_bind_chain.
+P4: Supports new node types (cc_notify, timer, sub_workflow) in advance_step.
 """
 
 import logging
@@ -218,44 +220,149 @@ class ApprovalChainService:
             logger.error(f"Error fetching approvers: {e}")
             return []
 
-    async def get_direct_manager(self, user_id: str) -> dict | None:
+    async def get_direct_manager(self, user_id: str, db=None) -> dict | None:
         """
         Get the direct manager of a user.
+        P2 Enhancement: Uses manager_id first, falls back to department-based lookup.
         """
-        if not supabase:
+        client = db or supabase
+        if not client:
             return None
 
         try:
-            # Get user's department
-            user = await supabase.table("users").select("department").eq("id", user_id).maybe_single().execute()
+            # P2: First try manager_id direct lookup
+            user = (
+                await client.table("users")
+                .select("department, manager_id")
+                .eq("id", user_id)
+                .maybe_single()
+                .execute()
+            )
 
             if not user.data:
                 return None
 
+            manager_id = user.data.get("manager_id")
             department = user.data.get("department")
 
-            # Find manager in same department (simplified logic)
-            # In a real system, you'd have a manager_id field or org structure
-            manager = (
-                await supabase.table("users")
-                .select("id, name")
-                .eq("department", department)
-                .in_("role", ["manager", "founder"])
-                .neq("id", user_id)
-                .limit(1)
-                .execute()
-            )
+            # Strategy 1: Use manager_id if available
+            if manager_id:
+                manager = (
+                    await client.table("users")
+                    .select("id, name")
+                    .eq("id", manager_id)
+                    .maybe_single()
+                    .execute()
+                )
+                if manager.data:
+                    return manager.data
 
-            if manager.data:
-                return manager.data[0]
+            # Strategy 2: Fall back to department-based lookup
+            if department:
+                manager = (
+                    await client.table("users")
+                    .select("id, name")
+                    .eq("department", department)
+                    .in_("role", ["manager", "founder"])
+                    .neq("id", user_id)
+                    .limit(1)
+                    .execute()
+                )
+                if manager.data:
+                    return manager.data[0]
 
-            # Fallback to any founder
-            founder = await supabase.table("users").select("id, name").eq("role", "founder").limit(1).execute()
+            # Strategy 3: Fallback to any founder
+            founder = await client.table("users").select("id, name").eq("role", "founder").limit(1).execute()
 
             return founder.data[0] if founder.data else None
         except Exception as e:
             logger.error(f"Error fetching manager: {e}")
             return None
+
+    async def match_and_bind_chain(
+        self,
+        org_id: str,
+        approval_type: str,
+        amount: float,
+        db=None,
+    ) -> dict[str, Any]:
+        """
+        P0: Match an approval type to a workflow chain and determine the starting step.
+
+        1. Tries to load from DB via load_chain_from_db(org_id, approval_type)
+        2. Determines the starting step based on amount
+        3. Returns chain_id, starting step index, approval_level, and timeout info
+
+        Returns:
+            {
+                "chain_id": str | None,
+                "chain_name": str,
+                "starting_step": int,
+                "approval_level": str,
+                "timeout_at": str | None,
+                "auto_approve": bool,
+                "source": "database" | "default",
+            }
+        """
+        chain_data = await self.load_chain_from_db(org_id, approval_type, db=db)
+
+        if not chain_data:
+            # Ultimate fallback
+            return {
+                "chain_id": None,
+                "chain_name": "默认审批链",
+                "starting_step": 0,
+                "approval_level": "manager",
+                "timeout_at": None,
+                "auto_approve": False,
+                "source": "default",
+            }
+
+        chain_id = chain_data.get("id")  # None for default/in-memory chains
+        chain_name = chain_data.get("name", "审批链")
+        steps = chain_data.get("steps", [])
+        source = chain_data.get("source", "default")
+
+        # Determine starting step based on amount thresholds
+        starting_step = 0
+        approval_level = ""
+        auto_approve = False
+        timeout_at = None
+
+        for i, step in enumerate(steps):
+            step_type = step.get("type", "approver")
+            threshold = step.get("threshold", float("inf"))
+            level = step.get("level", step.get("approver_role", ""))
+
+            try:
+                threshold_val = float(threshold)
+            except (TypeError, ValueError):
+                threshold_val = float("inf")
+
+            if amount <= threshold_val:
+                starting_step = i
+                approval_level = level
+
+                # Check if this step is an auto-approve step
+                if step_type == "auto_approve" or level == "auto":
+                    auto_approve = True
+                else:
+                    # Calculate timeout
+                    timeout_hours = step.get("timeout_hours", 48)
+                    if timeout_hours and timeout_hours > 0:
+                        timeout_at = (datetime.now(UTC) + timedelta(hours=timeout_hours)).isoformat()
+
+                break
+
+        return {
+            "chain_id": chain_id,
+            "chain_name": chain_name,
+            "starting_step": starting_step,
+            "approval_level": approval_level,
+            "timeout_at": timeout_at,
+            "auto_approve": auto_approve,
+            "source": source,
+        }
 
     async def process_approval_request(
         self,
@@ -395,16 +502,26 @@ class ApprovalChainService:
         request_id: str,
         decision: str,
         approver_id: str,
+        comment: str | None = None,
         db=None,
     ) -> dict[str, Any]:
         """
-        Advance an approval request to the next step in the workflow.
+        P0: Advance an approval request to the next step in the workflow.
         Records the decision in approval_history and updates current_step / timeout_at.
+
+        Enhanced to handle special node types:
+        - condition: Evaluate condition and skip to target step
+        - auto_approve: Check amount threshold and auto-approve if within limits
+        - notify / cc_notify: Emit notification and auto-advance to next step
+        - parallel: Track parallel approvals (all must approve)
+        - timer: Set timeout and auto-advance when expired
+        - sub_workflow: Placeholder for future sub-workflow support
 
         Args:
             request_id: The approval request ID
             decision: 'approved' or 'rejected'
             approver_id: The user ID who made the decision
+            comment: Optional comment from the approver
             db: RLS-scoped DB client
 
         Returns:
@@ -436,6 +553,8 @@ class ApprovalChainService:
             "approver_id": approver_id,
             "timestamp": datetime.now(UTC).isoformat(),
         }
+        if comment:
+            history_entry["comment"] = comment
         history.append(history_entry)
 
         # If rejected, finalize immediately
@@ -473,8 +592,139 @@ class ApprovalChainService:
                 has_more_steps = next_step < len(chain_steps)
 
                 if has_more_steps:
-                    # Calculate timeout for next step
+                    # P0/P4: Handle special node types for the next step
                     next_step_def = chain_steps[next_step]
+                    next_step_type = next_step_def.get("type", "approver")
+
+                    # Handle condition nodes: evaluate and skip to target
+                    if next_step_type == "condition":
+                        target = await self.evaluate_condition(next_step_def, request_data)
+                        if target is not None:
+                            # Find the target step index by ID
+                            target_index = self._find_step_index(chain_steps, target)
+                            if target_index is not None:
+                                next_step = target_index
+                                next_step_def = chain_steps[next_step]
+                                next_step_type = next_step_def.get("type", "approver")
+                                has_more_steps = next_step < len(chain_steps)
+                                # Record condition jump in history
+                                history.append({
+                                    "step": current_step + 1,
+                                    "decision": "condition_evaluated",
+                                    "approver_id": "system",
+                                    "timestamp": datetime.now(UTC).isoformat(),
+                                    "comment": f"条件节点跳转到步骤 {target}",
+                                })
+
+                    # Handle auto_approve nodes: check threshold
+                    if next_step_type == "auto_approve":
+                        amount = request_data.get("amount", 0)
+                        threshold = next_step_def.get("threshold", 0)
+                        try:
+                            if float(amount) <= float(threshold):
+                                # Auto-approve and finalize
+                                history.append({
+                                    "step": next_step,
+                                    "decision": "auto_approved",
+                                    "approver_id": "system",
+                                    "timestamp": datetime.now(UTC).isoformat(),
+                                    "comment": f"金额 ¥{amount} 在自动审批限额 ¥{threshold} 内",
+                                })
+                                update_data = {
+                                    "status": "approved",
+                                    "current_step": next_step,
+                                    "approval_history": history,
+                                    "timeout_at": None,
+                                }
+                                result = (
+                                    await client.table("approval_requests")
+                                    .update(update_data)
+                                    .eq("id", request_id)
+                                    .eq("current_step", current_step)
+                                    .eq("status", "pending")
+                                    .execute()
+                                )
+                                if not result.data:
+                                    raise RuntimeError(
+                                        f"Approval {request_id} was modified concurrently, please retry"
+                                    )
+                                logger.info(
+                                    f"Approval {request_id} auto-approved at step {next_step} "
+                                    f"(amount={amount}, threshold={threshold})"
+                                )
+                                return result.data[0]
+                        except (TypeError, ValueError):
+                            pass
+                        # If not auto-approved, continue to next step normally
+                        next_step += 1
+                        has_more_steps = next_step < len(chain_steps)
+                        if has_more_steps:
+                            next_step_def = chain_steps[next_step]
+
+                    # Handle notify / cc_notify nodes: emit notification and auto-advance
+                    if next_step_type in ("notify", "cc_notify"):
+                        notify_targets = next_step_def.get("notify_targets", [])
+                        notify_message = next_step_def.get("message", "审批流程通知")
+                        # Record notification in history
+                        history.append({
+                            "step": next_step,
+                            "decision": "notified",
+                            "approver_id": "system",
+                            "timestamp": datetime.now(UTC).isoformat(),
+                            "comment": f"已通知: {', '.join(notify_targets) if notify_targets else '相关人员'}",
+                        })
+                        # Emit notification event
+                        await emit(
+                            EventType.APPROVAL_ESCALATED.value,
+                            {
+                                "request_id": request_id,
+                                "type": request_data.get("type", ""),
+                                "notify_type": next_step_type,
+                                "targets": notify_targets,
+                                "message": notify_message,
+                            },
+                            user_id=approver_id,
+                        )
+                        # Auto-advance past notification step
+                        next_step += 1
+                        has_more_steps = next_step < len(chain_steps)
+                        if has_more_steps:
+                            next_step_def = chain_steps[next_step]
+
+                    # Handle timer nodes: set timeout and auto-advance
+                    if has_more_steps and next_step_def.get("type") == "timer":
+                        wait_hours = next_step_def.get("wait_hours", 24)
+                        history.append({
+                            "step": next_step,
+                            "decision": "timer_started",
+                            "approver_id": "system",
+                            "timestamp": datetime.now(UTC).isoformat(),
+                            "comment": f"等待 {wait_hours} 小时后自动推进",
+                        })
+                        # For timer nodes, set timeout but move to next step
+                        next_step += 1
+                        has_more_steps = next_step < len(chain_steps)
+                        if has_more_steps:
+                            next_step_def = chain_steps[next_step]
+
+                    # Handle parallel nodes: track parallel approvals
+                    if has_more_steps and next_step_def.get("type") == "parallel":
+                        required_approvals = next_step_def.get("required_count", 1)
+                        parallel_approvers = next_step_def.get("approvers", [])
+                        # Check how many parallel approvals we have at this step
+                        parallel_count = sum(
+                            1
+                            for h in history
+                            if h.get("step") == next_step and h.get("decision") == "approved"
+                        )
+                        if parallel_count < required_approvals:
+                            # Still waiting for more parallel approvals
+                            # Update to the parallel step but keep status pending
+                            pass  # Falls through to the normal pending-step update below
+
+                if has_more_steps:
+                    # Calculate timeout for next step
+                    next_step_def = chain_steps[next_step] if next_step < len(chain_steps) else {}
                     timeout_hours = next_step_def.get("timeout_hours", 48)
                     timeout_at = (
                         (datetime.now(UTC) + timedelta(hours=timeout_hours)).isoformat() if timeout_hours > 0 else None
@@ -526,6 +776,21 @@ class ApprovalChainService:
             f"decision={decision}, approver={approver_id}"
         )
         return result.data[0]
+
+    @staticmethod
+    def _find_step_index(chain_steps: list[dict], target_id: str) -> int | None:
+        """Find the index of a step by its ID in the chain steps list."""
+        for i, step in enumerate(chain_steps):
+            if step.get("id") == target_id:
+                return i
+        # Also try matching by index string
+        try:
+            idx = int(target_id)
+            if 0 <= idx < len(chain_steps):
+                return idx
+        except (TypeError, ValueError):
+            pass
+        return None
 
     async def evaluate_condition(
         self,

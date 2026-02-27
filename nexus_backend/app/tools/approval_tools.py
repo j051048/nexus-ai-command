@@ -1,7 +1,8 @@
 """
 P0 Security: Approval Tools with Human Confirmation
 Critical security fix #1: AI cannot directly execute irreversible operations
-All approval/reject operations now require explicit confirmation
+All approval/reject operations now require explicit confirmation.
+P0 Enhancement: Uses advance_step for chain-based approvals.
 """
 
 import logging
@@ -117,7 +118,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
                 }
             ).execute()
 
-            return f"✅ 已成功为您（{employee_name}）提交{approval_type}申请（单号：{req_id[:8]}...）。老板会在审批中心看到这个申请，申请人显示为您的名字。"
+            return f"已成功为您（{employee_name}）提交{approval_type}申请（单号：{req_id[:8]}...）。老板会在审批中心看到这个申请，申请人显示为您的名字。"
 
         return "提交失败，请稍后重试。"
 
@@ -141,7 +142,7 @@ class GetEmployeeInfoTool(BaseTool):
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         name = args.get("query") or args.get("employee_name")
         if not name:
-            return "❌ 请提供员工姓名关键词"
+            return "请提供员工姓名关键词"
         client = _get_client(config)
         result = await client.table("users").select("id, name, department, role").ilike("name", f"%{name}%").execute()
 
@@ -209,6 +210,9 @@ class ApprovalTool(BaseTool):
     This tool now operates in two modes:
     1. Preview mode (default): Shows what will be approved, requires user confirmation
     2. Execute mode: Actually performs the approval after user confirms
+
+    P0 Enhancement: When the approval request has a chain_id, uses advance_step
+    to properly route through the approval chain instead of direct status update.
     """
 
     name = "approve_request"
@@ -217,7 +221,7 @@ class ApprovalTool(BaseTool):
 这是一个不可逆操作，需要人工确认。"""
     required_role = "manager"
     is_irreversible = True
-    confirmation_message = "⚠️ 审批操作不可逆。请确认后设置 confirm=true 再执行。"
+    confirmation_message = "审批操作不可逆。请确认后设置 confirm=true 再执行。"
 
     parameters = {
         "type": "object",
@@ -250,7 +254,7 @@ class ApprovalTool(BaseTool):
                 await client.table("approval_requests").select("amount").eq("id", req_id).maybe_single().execute()
             )
             if request_res.data and float(request_res.data.get("amount", 0)) > manager_approval_limit:
-                return f"⛔ 权限不足：部门经理审批上限为 ¥{manager_approval_limit:,}，该申请金额超出限额，需要更高级别审批。"
+                return f"权限不足：部门经理审批上限为 ¥{manager_approval_limit:,}，该申请金额超出限额，需要更高级别审批。"
 
         # Step 1: Fetch the request details first
         fetch_result = (
@@ -262,37 +266,97 @@ class ApprovalTool(BaseTool):
         )
 
         if not fetch_result.data:
-            return f"❌ 找不到审批单 {req_id}，请检查ID是否正确。"
+            return f"找不到审批单 {req_id}，请检查ID是否正确。"
 
         request_data = fetch_result.data
 
         # P0 Security: Check if already processed (idempotency)
         if request_data.get("status") != "pending":
             current_status = request_data.get("status")
-            return f"⚠️ 该审批单已被处理，当前状态为: {current_status}。无法重复操作。"
+            return f"该审批单已被处理，当前状态为: {current_status}。无法重复操作。"
 
         submitter = request_data.get("users", {})
         submitter_name = submitter.get("name", "未知") if isinstance(submitter, dict) else "未知"
 
         # P0 Security Fix #1: Return preview if not confirmed
         if not confirm:
-            return f"""📋 **审批预览** - 请确认后执行
+            chain_info = ""
+            if request_data.get("chain_id"):
+                step = request_data.get("current_step", 0)
+                level = request_data.get("approval_level", "")
+                chain_info = f"\n• 审批链步骤: 第{step + 1}步 ({level})"
+
+            return f"""**审批预览** - 请确认后执行
 
 **申请信息**
-• 单号: {req_id[:8]}...
-• 申请人: {submitter_name}
-• 类型: {request_data.get('type', '未知')}
-• 金额: ¥{request_data.get('amount', 0):,.2f}
-• 说明: {request_data.get('description', '无')[:100]}
-• 提交时间: {request_data.get('created_at', '未知')[:10]}
+- 单号: {req_id[:8]}...
+- 申请人: {submitter_name}
+- 类型: {request_data.get('type', '未知')}
+- 金额: ¥{request_data.get('amount', 0):,.2f}
+- 说明: {request_data.get('description', '无')[:100]}
+- 提交时间: {request_data.get('created_at', '未知')[:10]}{chain_info}
 
-⚠️ **这是一个不可逆操作**
+**这是一个不可逆操作**
 如确认批准，请说「确认批准」或重新调用工具并设置 confirm=true"""
 
         # Step 2: Execute with idempotency check
         logger.info(f"[P0 Security] User {user_id} confirmed approval of {req_id}")
 
-        # P0 Security: Use conditional update to prevent race conditions
+        # P0 Enhancement: Use advance_step for chain-based approvals
+        chain_id = request_data.get("chain_id")
+        if chain_id:
+            try:
+                from app.services.approval_chain import approval_chain_service
+
+                updated = await approval_chain_service.advance_step(
+                    request_id=req_id,
+                    decision="approved",
+                    approver_id=user_id,
+                    comment=reason or "已批准",
+                    db=client,
+                )
+
+                new_status = updated.get("status", "pending")
+                current_step = updated.get("current_step", 0)
+                approval_level = updated.get("approval_level", "")
+
+                # Record audit log
+                await client.table("audit_logs").insert(
+                    {
+                        "action": "approval_advanced",
+                        "actor_user_id": user_id,
+                        "target_id": req_id,
+                        "target_table": "approval_requests",
+                        "details_json": {
+                            "amount": request_data.get("amount"),
+                            "type": request_data.get("type"),
+                            "submitter": submitter_name,
+                            "chain_id": chain_id,
+                            "new_step": current_step,
+                            "new_status": new_status,
+                        },
+                    }
+                ).execute()
+
+                if new_status == "approved":
+                    # Send final approval notification
+                    await self._send_approval_notification(client, request_data, submitter_name)
+                    return (
+                        f"已批准审批单 {req_id[:8]}...（{submitter_name} 的 "
+                        f"{request_data.get('type')} 申请，¥{request_data.get('amount', 0):,.2f}）"
+                        f"\n审批链已全部通过。"
+                    )
+                else:
+                    return (
+                        f"已批准审批单 {req_id[:8]}... 当前步骤。"
+                        f"\n审批已推进到第 {current_step + 1} 步（{approval_level}），等待下一级审批。"
+                    )
+
+            except RuntimeError as e:
+                logger.warning(f"Chain advance failed for {req_id}: {e}")
+                return f"审批推进失败: {str(e)}"
+
+        # Fallback: Direct status update for non-chain approvals (backward compatible)
         result = (
             await client.table("approval_requests")
             .update(
@@ -325,48 +389,61 @@ class ApprovalTool(BaseTool):
             ).execute()
 
             # Send notification
-            try:
-                target_user = request_data.get("submitted_by")
-                await client.table("notifications").insert(
-                    {
-                        "user_id": target_user,
-                        "title": "✅ 审批已通过",
-                        "content": f"您的{request_data.get('type', '')}申请（¥{request_data.get('amount', 0)}）已被批准。",
-                        "type": "success",
-                    }
-                ).execute()
-            except Exception as e:
-                logger.warning(f"Failed to send notification: {e}")
+            await self._send_approval_notification(client, request_data, submitter_name)
 
-            # Multi-channel notification via notification_service
-            try:
-                from app.services.notification_service import (
-                    Notification,
-                    NotificationChannel,
-                    NotificationPriority,
-                    notification_service,
+            return (
+                f"已成功批准审批单 {req_id[:8]}..."
+                f"（{submitter_name} 的 {request_data.get('type')} 申请，"
+                f"¥{request_data.get('amount', 0):,.2f}）"
+            )
+
+        return "批准失败，该单据可能已被他人处理。"
+
+    @staticmethod
+    async def _send_approval_notification(client, request_data: dict, submitter_name: str):
+        """Send approval notifications (in-app + multi-channel)."""
+        try:
+            target_user = request_data.get("submitted_by")
+            await client.table("notifications").insert(
+                {
+                    "user_id": target_user,
+                    "title": "审批已通过",
+                    "content": f"您的{request_data.get('type', '')}申请（¥{request_data.get('amount', 0)}）已被批准。",
+                    "type": "success",
+                }
+            ).execute()
+        except Exception as e:
+            logger.warning(f"Failed to send notification: {e}")
+
+        # Multi-channel notification via notification_service
+        try:
+            from app.services.notification_service import (
+                Notification,
+                NotificationChannel,
+                NotificationPriority,
+                notification_service,
+            )
+
+            await notification_service.send(
+                Notification(
+                    title="审批已通过",
+                    content=(
+                        f"您的{request_data.get('type', '')}申请"
+                        f"（¥{request_data.get('amount', 0):,.0f}）已被批准"
+                    ),
+                    target_user_id=request_data.get("submitted_by"),
+                    channel=NotificationChannel.IN_APP,
+                    priority=NotificationPriority.HIGH,
                 )
-
-                await notification_service.send(
-                    Notification(
-                        title="✅ 审批已通过",
-                        content=f"您的{request_data.get('type', '')}申请（¥{request_data.get('amount', 0):,.0f}）已被批准",
-                        target_user_id=request_data.get("submitted_by"),
-                        channel=NotificationChannel.IN_APP,
-                        priority=NotificationPriority.HIGH,
-                    )
-                )
-            except Exception as e:
-                logger.warning(f"Multi-channel approval notification failed: {e}")
-
-            return f"✅ 已成功批准审批单 {req_id[:8]}...（{submitter_name} 的 {request_data.get('type')} 申请，¥{request_data.get('amount', 0):,.2f}）"
-
-        return "❌ 批准失败，该单据可能已被他人处理。"
+            )
+        except Exception as e:
+            logger.warning(f"Multi-channel approval notification failed: {e}")
 
 
 class RejectTool(BaseTool):
     """
-    P0 Security Fix #1: Rejection with mandatory confirmation
+    P0 Security Fix #1: Rejection with mandatory confirmation.
+    P0 Enhancement: Uses advance_step for chain-based rejections.
     """
 
     name = "reject_request"
@@ -375,7 +452,7 @@ class RejectTool(BaseTool):
 这是一个不可逆操作，需要人工确认。"""
     required_role = "manager"
     is_irreversible = True
-    confirmation_message = "⚠️ 驳回操作不可逆。请确认后设置 confirm=true 再执行。"
+    confirmation_message = "驳回操作不可逆。请确认后设置 confirm=true 再执行。"
 
     parameters = {
         "type": "object",
@@ -408,7 +485,7 @@ class RejectTool(BaseTool):
                 await client.table("approval_requests").select("amount").eq("id", req_id).maybe_single().execute()
             )
             if request_res.data and float(request_res.data.get("amount", 0)) > manager_approval_limit:
-                return f"⛔ 权限不足：部门经理审批上限为 ¥{manager_approval_limit:,}，该申请金额超出限额，需要更高级别审批。"
+                return f"权限不足：部门经理审批上限为 ¥{manager_approval_limit:,}，该申请金额超出限额，需要更高级别审批。"
 
         # Step 1: Fetch the request details first
         fetch_result = (
@@ -420,38 +497,79 @@ class RejectTool(BaseTool):
         )
 
         if not fetch_result.data:
-            return f"❌ 找不到审批单 {req_id}，请检查ID是否正确。"
+            return f"找不到审批单 {req_id}，请检查ID是否正确。"
 
         request_data = fetch_result.data
 
         # P0 Security: Check if already processed (idempotency)
         if request_data.get("status") != "pending":
             current_status = request_data.get("status")
-            return f"⚠️ 该审批单已被处理，当前状态为: {current_status}。无法重复操作。"
+            return f"该审批单已被处理，当前状态为: {current_status}。无法重复操作。"
 
         submitter = request_data.get("users", {})
         submitter_name = submitter.get("name", "未知") if isinstance(submitter, dict) else "未知"
 
         # P0 Security Fix #1: Return preview if not confirmed
         if not confirm:
-            return f"""📋 **驳回预览** - 请确认后执行
+            return f"""**驳回预览** - 请确认后执行
 
 **申请信息**
-• 单号: {req_id[:8]}...
-• 申请人: {submitter_name}
-• 类型: {request_data.get('type', '未知')}
-• 金额: ¥{request_data.get('amount', 0):,.2f}
-• 说明: {request_data.get('description', '无')[:100]}
+- 单号: {req_id[:8]}...
+- 申请人: {submitter_name}
+- 类型: {request_data.get('type', '未知')}
+- 金额: ¥{request_data.get('amount', 0):,.2f}
+- 说明: {request_data.get('description', '无')[:100]}
 
 **驳回原因**
 {reason}
 
-⚠️ **这是一个不可逆操作**
+**这是一个不可逆操作**
 如确认驳回，请说「确认驳回」或重新调用工具并设置 confirm=true"""
 
         # Step 2: Execute with idempotency check
         logger.info(f"[P0 Security] User {user_id} confirmed rejection of {req_id}")
 
+        # P0 Enhancement: Use advance_step for chain-based rejections
+        chain_id = request_data.get("chain_id")
+        if chain_id:
+            try:
+                from app.services.approval_chain import approval_chain_service
+
+                updated = await approval_chain_service.advance_step(
+                    request_id=req_id,
+                    decision="rejected",
+                    approver_id=user_id,
+                    comment=reason,
+                    db=client,
+                )
+
+                # Record audit log
+                await client.table("audit_logs").insert(
+                    {
+                        "action": "approval_rejected",
+                        "actor_user_id": user_id,
+                        "target_id": req_id,
+                        "target_table": "approval_requests",
+                        "details_json": {
+                            "amount": request_data.get("amount"),
+                            "type": request_data.get("type"),
+                            "submitter": submitter_name,
+                            "reason": reason,
+                            "chain_id": chain_id,
+                        },
+                    }
+                ).execute()
+
+                # Send rejection notification
+                await self._send_rejection_notification(client, request_data, reason)
+
+                return f"已驳回审批单 {req_id[:8]}...。驳回原因：{reason}"
+
+            except RuntimeError as e:
+                logger.warning(f"Chain advance (reject) failed for {req_id}: {e}")
+                return f"驳回失败: {str(e)}"
+
+        # Fallback: Direct status update for non-chain rejections (backward compatible)
         result = (
             await client.table("approval_requests")
             .update(
@@ -484,44 +602,49 @@ class RejectTool(BaseTool):
                 }
             ).execute()
 
-            # Send notification
-            try:
-                target_user = request_data.get("submitted_by")
-                await client.table("notifications").insert(
-                    {
-                        "user_id": target_user,
-                        "title": "❌ 审批已驳回",
-                        "content": f"您的{request_data.get('type', '')}申请已被驳回。原因：{reason}",
-                        "type": "error",
-                    }
-                ).execute()
-            except Exception as e:
-                logger.warning(f"Failed to send notification: {e}")
+            # Send rejection notification
+            await self._send_rejection_notification(client, request_data, reason)
 
-            # Multi-channel notification via notification_service
-            try:
-                from app.services.notification_service import (
-                    Notification,
-                    NotificationChannel,
-                    NotificationPriority,
-                    notification_service,
+            return f"已驳回审批单 {req_id[:8]}...。驳回原因：{reason}"
+
+        return "驳回失败，该单据可能已被他人处理。"
+
+    @staticmethod
+    async def _send_rejection_notification(client, request_data: dict, reason: str):
+        """Send rejection notifications (in-app + multi-channel)."""
+        try:
+            target_user = request_data.get("submitted_by")
+            await client.table("notifications").insert(
+                {
+                    "user_id": target_user,
+                    "title": "审批已驳回",
+                    "content": f"您的{request_data.get('type', '')}申请已被驳回。原因：{reason}",
+                    "type": "error",
+                }
+            ).execute()
+        except Exception as e:
+            logger.warning(f"Failed to send notification: {e}")
+
+        # Multi-channel notification via notification_service
+        try:
+            from app.services.notification_service import (
+                Notification,
+                NotificationChannel,
+                NotificationPriority,
+                notification_service,
+            )
+
+            await notification_service.send(
+                Notification(
+                    title="审批已驳回",
+                    content=f"您的{request_data.get('type', '')}申请已被驳回。原因：{reason}",
+                    target_user_id=request_data.get("submitted_by"),
+                    channel=NotificationChannel.IN_APP,
+                    priority=NotificationPriority.HIGH,
                 )
-
-                await notification_service.send(
-                    Notification(
-                        title="❌ 审批已驳回",
-                        content=f"您的{request_data.get('type', '')}申请已被驳回。原因：{reason}",
-                        target_user_id=request_data.get("submitted_by"),
-                        channel=NotificationChannel.IN_APP,
-                        priority=NotificationPriority.HIGH,
-                    )
-                )
-            except Exception as e:
-                logger.warning(f"Multi-channel rejection notification failed: {e}")
-
-            return f"❌ 已驳回审批单 {req_id[:8]}...。驳回原因：{reason}"
-
-        return "❌ 驳回失败，该单据可能已被他人处理。"
+            )
+        except Exception as e:
+            logger.warning(f"Multi-channel rejection notification failed: {e}")
 
 
 class PendingApprovalsTool(BaseTool):
@@ -543,7 +666,13 @@ class PendingApprovalsTool(BaseTool):
         items = []
         for item in result.data:
             user_name = item.get("users", {}).get("name", "未知用户")
+            chain_info = ""
+            if item.get("chain_id"):
+                step = item.get("current_step", 0)
+                level = item.get("approval_level", "")
+                chain_info = f" [步骤{step + 1}/{level}]"
             items.append(
-                f"ID: {item['id']}, 申请人: {user_name}, 类型: {item['type']}, 金额: ¥{item['amount']}, 描述: {item['description']}"
+                f"ID: {item['id']}, 申请人: {user_name}, 类型: {item['type']}, "
+                f"金额: ¥{item['amount']}, 描述: {item['description']}{chain_info}"
             )
         return "待处理清单：\n" + "\n".join(items)

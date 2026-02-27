@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -13,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import type { Node } from '@xyflow/react';
 import { Settings2 } from 'lucide-react';
+import { useWorkflows } from '@/hooks/useWorkflows';
 
 interface WorkflowPropertiesProps {
   selectedNode: Node | null;
@@ -20,6 +22,7 @@ interface WorkflowPropertiesProps {
 }
 
 export function WorkflowProperties({ selectedNode, onNodeUpdate }: WorkflowPropertiesProps) {
+  const { data: workflows } = useWorkflows();
   const updateField = useCallback(
     (field: string, value: unknown) => {
       if (!selectedNode) return;
@@ -235,6 +238,101 @@ export function WorkflowProperties({ selectedNode, onNodeUpdate }: WorkflowPrope
               </Select>
             </div>
           </>
+        )}
+
+        {/* 抄送节点 */}
+        {nodeType === 'cc_notify' && (
+          <>
+            <div className="space-y-1.5">
+              <Label className="text-xs">抄送人员</Label>
+              <Textarea
+                value={((nodeData.recipients as string[]) || []).join('\n')}
+                onChange={(e) => {
+                  const lines = e.target.value.split('\n').filter((line) => line.trim() !== '');
+                  updateField('recipients', lines);
+                }}
+                placeholder={'输入抄送人员，每行一个\n例如:\n张三\n李四'}
+                className="text-sm min-h-[80px] resize-none"
+              />
+              <p className="text-[10px] text-muted-foreground">每行一个抄送人</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">通知消息</Label>
+              <Textarea
+                value={(nodeData.message as string) || ''}
+                onChange={(e) => updateField('message', e.target.value)}
+                placeholder="输入抄送附言内容..."
+                className="text-sm min-h-[60px] resize-none"
+              />
+            </div>
+          </>
+        )}
+
+        {/* 定时等待节点 */}
+        {nodeType === 'timer' && (
+          <>
+            <div className="space-y-1.5">
+              <Label className="text-xs">等待时间 (小时)</Label>
+              <Input
+                type="number"
+                value={(nodeData.wait_hours as number) || 0}
+                onChange={(e) => updateField('wait_hours', Number(e.target.value))}
+                className="h-8 text-sm"
+                min={0}
+                max={720}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">超时自动推进</Label>
+              <Switch
+                checked={!!nodeData.auto_advance}
+                onCheckedChange={(v) => updateField('auto_advance', v)}
+              />
+            </div>
+          </>
+        )}
+
+        {/* 子流程节点 */}
+        {nodeType === 'sub_workflow' && (
+          <div className="space-y-1.5">
+            <Label className="text-xs">引用流程</Label>
+            <Select
+              value={(nodeData.workflow_id as string) || ''}
+              onValueChange={(v) => {
+                const selected = workflows?.find((w) => w.id === v);
+                updateField('workflow_id', v);
+                if (selected) {
+                  // Also update the workflow_name for display in the node
+                  onNodeUpdate(selectedNode.id, {
+                    ...nodeData,
+                    workflow_id: v,
+                    workflow_name: selected.name,
+                  });
+                }
+              }}
+            >
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue placeholder="选择子流程" />
+              </SelectTrigger>
+              <SelectContent>
+                {(workflows || []).map((wf) => (
+                  <SelectItem key={wf.id} value={wf.id}>
+                    {wf.name}
+                  </SelectItem>
+                ))}
+                {(!workflows || workflows.length === 0) && (
+                  <SelectItem value="" disabled>
+                    暂无可用流程
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+            {(nodeData.workflow_name as string) && (
+              <p className="text-[10px] text-muted-foreground">
+                当前引用: {nodeData.workflow_name as string}
+              </p>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>

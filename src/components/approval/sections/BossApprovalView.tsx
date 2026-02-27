@@ -25,6 +25,7 @@ import {
     usePendingApprovalsCount,
     useApproveRequest,
     useRejectRequest,
+    useAdvanceApproval,
 } from '@/hooks/useApprovals';
 import { BossApprovalCard } from '../components/BossApprovalCard';
 import { approvalTypes } from '../constants';
@@ -43,6 +44,7 @@ export function BossApprovalView() {
     const { data: pendingCount } = usePendingApprovalsCount();
     const approveRequest = useApproveRequest();
     const rejectRequest = useRejectRequest();
+    const advanceApproval = useAdvanceApproval();
 
     // A6: 移动端检测
     useEffect(() => {
@@ -93,11 +95,21 @@ export function BossApprovalView() {
 
     const handleApprove = async (requestId: string) => {
         try {
-            await approveRequest.mutateAsync(requestId);
+            // Try advance endpoint first (supports multi-step chains)
+            await advanceApproval.mutateAsync({
+                requestId,
+                decision: 'approved',
+            });
             toast.success('已批准该项申请');
-        } catch (error: unknown) {
-            const err = error as Error;
-            toast.error('操作失败: ' + err.message);
+        } catch {
+            // Fallback to direct approve if advance endpoint not available
+            try {
+                await approveRequest.mutateAsync(requestId);
+                toast.success('已批准该项申请');
+            } catch (error: unknown) {
+                const err = error as Error;
+                toast.error('操作失败: ' + err.message);
+            }
         }
     };
 
@@ -108,13 +120,26 @@ export function BossApprovalView() {
         }
 
         try {
-            await rejectRequest.mutateAsync({ requestId: rejectingId, reason: rejectReason });
+            // Try advance endpoint first (supports multi-step chains)
+            await advanceApproval.mutateAsync({
+                requestId: rejectingId,
+                decision: 'rejected',
+                comment: rejectReason,
+            });
             toast.success('申请被驳回');
             setRejectingId(null);
             setRejectReason('');
-        } catch (error: unknown) {
-            const err = error as Error;
-            toast.error('操作失败: ' + err.message);
+        } catch {
+            // Fallback to direct reject if advance endpoint not available
+            try {
+                await rejectRequest.mutateAsync({ requestId: rejectingId, reason: rejectReason });
+                toast.success('申请被驳回');
+                setRejectingId(null);
+                setRejectReason('');
+            } catch (error: unknown) {
+                const err = error as Error;
+                toast.error('操作失败: ' + err.message);
+            }
         }
     };
 
@@ -127,10 +152,16 @@ export function BossApprovalView() {
 
         for (const id of selectedIds) {
             try {
-                await approveRequest.mutateAsync(id);
+                await advanceApproval.mutateAsync({ requestId: id, decision: 'approved' });
                 successCount++;
             } catch {
-                failCount++;
+                // Fallback to direct approve
+                try {
+                    await approveRequest.mutateAsync(id);
+                    successCount++;
+                } catch {
+                    failCount++;
+                }
             }
         }
 
@@ -153,10 +184,16 @@ export function BossApprovalView() {
 
         for (const id of selectedIds) {
             try {
-                await rejectRequest.mutateAsync({ requestId: id, reason: '批量驳回' });
+                await advanceApproval.mutateAsync({ requestId: id, decision: 'rejected', comment: '批量驳回' });
                 successCount++;
             } catch {
-                failCount++;
+                // Fallback to direct reject
+                try {
+                    await rejectRequest.mutateAsync({ requestId: id, reason: '批量驳回' });
+                    successCount++;
+                } catch {
+                    failCount++;
+                }
             }
         }
 

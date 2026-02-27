@@ -28,6 +28,9 @@ import { ConditionNode } from './nodes/ConditionNode';
 import { ParallelNode } from './nodes/ParallelNode';
 import { AutoApproveNode } from './nodes/AutoApproveNode';
 import { NotifyNode } from './nodes/NotifyNode';
+import { CcNotifyNode } from './nodes/CcNotifyNode';
+import { TimerNode } from './nodes/TimerNode';
+import { SubWorkflowNode } from './nodes/SubWorkflowNode';
 
 import type { WorkflowStep, WorkflowCondition, WorkflowDefinition } from '@/hooks/useWorkflows';
 
@@ -39,6 +42,9 @@ const nodeTypes: NodeTypes = {
   parallel: ParallelNode,
   auto_approve: AutoApproveNode,
   notify: NotifyNode,
+  cc_notify: CcNotifyNode,
+  timer: TimerNode,
+  sub_workflow: SubWorkflowNode,
 };
 
 // ---- Default data for new nodes ----
@@ -68,6 +74,21 @@ const DEFAULT_NODE_DATA: Record<string, Record<string, unknown>> = {
     label: '发送通知',
     channels: ['email'],
     template: 'default',
+  },
+  cc_notify: {
+    label: '抄送通知',
+    recipients: [],
+    message: '',
+  },
+  timer: {
+    label: '定时等待',
+    wait_hours: 24,
+    auto_advance: true,
+  },
+  sub_workflow: {
+    label: '子流程',
+    workflow_id: '',
+    workflow_name: '',
   },
 };
 
@@ -201,9 +222,11 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>
           return false;
         }
 
-        // Approver and auto_approve nodes: max 1 outgoing
+        // Approver, auto_approve, timer, cc_notify, sub_workflow nodes: max 1 outgoing
         if (
-          (sourceNode.type === 'approver' || sourceNode.type === 'auto_approve') &&
+          (sourceNode.type === 'approver' || sourceNode.type === 'auto_approve' ||
+           sourceNode.type === 'timer' || sourceNode.type === 'cc_notify' ||
+           sourceNode.type === 'sub_workflow') &&
           sourceEdges.length >= 1
         ) {
           return false;

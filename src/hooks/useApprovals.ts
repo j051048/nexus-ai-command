@@ -241,6 +241,69 @@ export function useApprovalsRealtime() {
   }, [user?.id, profile?.organization_id, queryClient]);
 }
 
+// ---- P1: Approval Progress Tracker hooks ----
+
+export function useApprovalProgress(requestId: string) {
+  return useQuery({
+    queryKey: ['approval-progress', requestId],
+    queryFn: async () => {
+      const result = await aiClient.fetch<{
+        steps: Array<{
+          id: string;
+          type: string;
+          label: string;
+          role?: string;
+          timeout_hours?: number;
+        }>;
+        current_step: number;
+        approval_history: Array<{
+          step: number;
+          decision: string;
+          approver_id: string;
+          approver_name?: string;
+          timestamp: string;
+        }>;
+        status: 'pending' | 'approved' | 'rejected';
+        risk_analysis?: {
+          risk_score: number;
+          compliance_flags: string[];
+          historical_context: string;
+        };
+      }>(`api/approval/${requestId}/progress`);
+      return result;
+    },
+    enabled: !!requestId,
+  });
+}
+
+export function useAdvanceApproval() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      requestId,
+      decision,
+      comment,
+    }: {
+      requestId: string;
+      decision: 'approved' | 'rejected';
+      comment?: string;
+    }) => {
+      const result = await aiClient.fetch<{ success: boolean }>(
+        `api/approval/${requestId}/advance`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ decision, comment }),
+        }
+      );
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['approvals'] });
+      queryClient.invalidateQueries({ queryKey: ['approval-progress'] });
+    },
+  });
+}
+
 export function usePendingApprovalsCount() {
   const { profile } = useAuth();
   return useQuery({

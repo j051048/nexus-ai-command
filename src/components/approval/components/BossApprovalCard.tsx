@@ -1,16 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
 import {
     CheckCircle2,
     XCircle,
     Bot,
     Loader2,
+    ChevronDown,
+    ChevronUp,
+    ShieldAlert,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ApprovalRequest } from '@/hooks/useApprovals';
+import { ApprovalRequest, useApprovalProgress } from '@/hooks/useApprovals';
 import { DynamicFormRenderer } from '@/components/forms/DynamicFormRenderer';
 import { useFormSchema } from '@/hooks/useFormSchemas';
 import type { FormField } from '@/components/forms/DynamicFormRenderer';
+import { ApprovalProgressTracker } from './ApprovalProgressTracker';
 
 const statusConfig = {
     pending: { label: '待处理', color: 'bg-warning/20 text-warning', icon: <CheckCircle2 className="w-4 h-4" /> },
@@ -61,6 +65,121 @@ function FormDataDisplay({ approval }: { approval: ApprovalRequest }) {
                 values={extendedApproval.form_data}
                 onChange={() => {}}
                 readOnly
+            />
+        </div>
+    );
+}
+
+// ─── AI 风险分析展示组件 ────────────────────────────────────
+
+function AIRiskAnalysis({ requestId }: { requestId: string }) {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const { data: progressData } = useApprovalProgress(requestId);
+
+    const riskAnalysis = progressData?.risk_analysis;
+
+    if (!riskAnalysis) {
+        return null;
+    }
+
+    const riskColor = riskAnalysis.risk_score >= 70
+        ? 'text-destructive'
+        : riskAnalysis.risk_score >= 40
+        ? 'text-warning'
+        : 'text-success';
+
+    return (
+        <div className="mt-3 border border-border/50 rounded-lg overflow-hidden">
+            <button
+                type="button"
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="w-full flex items-center justify-between p-2.5 hover:bg-secondary/30 transition-colors"
+            >
+                <div className="flex items-center gap-2">
+                    <ShieldAlert className={cn("w-4 h-4", riskColor)} />
+                    <span className="text-xs font-medium text-foreground">AI 风险分析</span>
+                    <span className={cn("text-xs font-bold", riskColor)}>
+                        {riskAnalysis.risk_score}分
+                    </span>
+                </div>
+                {isExpanded ? (
+                    <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                )}
+            </button>
+            {isExpanded && (
+                <div className="p-3 pt-0 space-y-2 border-t border-border/50">
+                    {/* Risk Score Bar */}
+                    <div className="mt-2">
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+                            <span>风险评分</span>
+                            <span className={cn("font-bold", riskColor)}>
+                                {riskAnalysis.risk_score}/100
+                            </span>
+                        </div>
+                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div
+                                className={cn(
+                                    "h-full rounded-full transition-all",
+                                    riskAnalysis.risk_score >= 70 ? 'bg-destructive' :
+                                    riskAnalysis.risk_score >= 40 ? 'bg-warning' :
+                                    'bg-success'
+                                )}
+                                style={{ width: `${riskAnalysis.risk_score}%` }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Compliance Flags */}
+                    {riskAnalysis.compliance_flags.length > 0 && (
+                        <div>
+                            <p className="text-[10px] text-muted-foreground mb-1">合规标记</p>
+                            <div className="flex flex-wrap gap-1">
+                                {riskAnalysis.compliance_flags.map((flag, i) => (
+                                    <span
+                                        key={i}
+                                        className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-warning/10 text-warning font-medium"
+                                    >
+                                        {flag}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Historical Context */}
+                    {riskAnalysis.historical_context && (
+                        <div>
+                            <p className="text-[10px] text-muted-foreground mb-1">历史分析</p>
+                            <p className="text-xs text-foreground/80 leading-relaxed">
+                                {riskAnalysis.historical_context}
+                            </p>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─── 审批链进度展示组件 ────────────────────────────────────
+
+function ApprovalChainProgress({ requestId }: { requestId: string }) {
+    const { data: progressData, isLoading } = useApprovalProgress(requestId);
+
+    if (isLoading || !progressData || !progressData.steps || progressData.steps.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="mt-3 p-2 rounded-lg bg-secondary/20 border border-border/30">
+            <p className="text-[10px] font-medium text-muted-foreground mb-1 px-1">审批链进度</p>
+            <ApprovalProgressTracker
+                steps={progressData.steps}
+                currentStep={progressData.current_step}
+                approvalHistory={progressData.approval_history}
+                status={progressData.status}
             />
         </div>
     );
@@ -123,6 +242,12 @@ export function BossApprovalCard({
                         )}
                         {/* 自定义表单数据展示 */}
                         <FormDataDisplay approval={approval} />
+
+                        {/* 审批链进度 */}
+                        <ApprovalChainProgress requestId={approval.id} />
+
+                        {/* AI 风险分析 */}
+                        <AIRiskAnalysis requestId={approval.id} />
                     </div>
                 </div>
 
