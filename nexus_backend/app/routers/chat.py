@@ -9,7 +9,7 @@ from app.core.errors import ErrorCode, api_error, api_success
 from app.core.trace_logger import TraceLogger
 from app.models.schemas import ChatRequest
 from app.services.chat_service import ChatService
-from app.services.content_moderation import check_user_input
+from app.services.content_moderation import check_user_input, check_user_input_advanced
 from app.services.token_service import validate_request_tokens
 
 logger = logging.getLogger(__name__)
@@ -58,10 +58,16 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
     user_role = user_res.data.get("role", "employee")
 
     # 2. Content Moderation
+    # P2: 对带工具调用能力的高风险 Agent 启用 LLM 深度注入检测
+    _TOOL_AGENTS = {"approval", "crm", "admin", "data", "workflow", "kingdee", "finance"}
     if request.messages:
         last_msg = next((m for m in reversed(request.messages) if m.role == "user"), None)
         if last_msg:
-            is_safe, warning = check_user_input(last_msg.content)
+            agent_type = (request.agent or "").lower()
+            if agent_type in _TOOL_AGENTS:
+                is_safe, warning = await check_user_input_advanced(last_msg.content)
+            else:
+                is_safe, warning = check_user_input(last_msg.content)
             if not is_safe:
                 return StreamingResponse(
                     _error_stream(f"⚠️ 安全拦截: {warning}"),

@@ -3,6 +3,7 @@ P1 Optimization: Token Counting and Cost Control Service
 Tracks token usage, estimates costs, and enforces usage limits.
 """
 
+import collections
 import logging
 import os
 import time
@@ -81,6 +82,8 @@ class UsageLimits:
     max_tokens_per_org_day: int = 10000000
     max_cost_per_org_day_usd: float = 500.0
     max_requests_per_org_day: int = 10000
+    # TPM (Tokens Per Minute) 限制 — 防止短时间高成本突发
+    max_tokens_per_minute: int = 200000
 
 
 class TokenCounter:
@@ -167,9 +170,12 @@ class UsageTracker:
             max_requests_per_day=int(os.getenv("MAX_REQUESTS_PER_DAY", 1000)),
             max_tokens_per_org_day=int(os.getenv("MAX_TOKENS_PER_ORG_DAY", 10000000)),
             max_cost_per_org_day_usd=float(os.getenv("MAX_COST_PER_ORG_DAY_USD", 500.0)),
+            max_tokens_per_minute=int(os.getenv("MAX_TOKENS_PER_MINUTE", 200000)),
         )
         self._org_usage: dict[str, dict] = {}  # In-memory cache for org totals
         self._user_to_org: dict[str, str] = {}  # User ID to Org ID cache
+        # TPM 滑动窗口: user_id -> deque of (timestamp, token_count)
+        self._tpm_window: dict[str, collections.deque] = {}
 
     def _get_day_key(self) -> str:
         """Get current day key for tracking"""
@@ -275,6 +281,24 @@ class UsageTracker:
                 f"Request exceeds maximum tokens ({estimated_tokens} > {self._limits.max_tokens_per_request})",
             )
 
+        # TPM (Tokens Per Minute) 滑动窗口检查 — 防止短时间突发高成本
+        now = time.time()
+        window = self._tpm_window.get(user_id)
+        if window is None:
+            window = collections.deque()
+            self._tpm_window[user_id] = window
+        # 清除 60 秒前的记录
+        cutoff = now - 60
+        while window and window[0][0] < cutoff:
+            window.popleft()
+        tokens_in_window = sum(t for _, t in window)
+        if tokens_in_window + estimated_tokens > self._limits.max_tokens_per_minute:
+            return (
+                False,
+                f"Token rate limit exceeded ({tokens_in_window + estimated_tokens} > "
+                f"{self._limits.max_tokens_per_minute} tokens/min)",
+            )
+
         usage = self._get_user_usage_sync(user_id)
 
         # Check daily request count
@@ -317,6 +341,13 @@ class UsageTracker:
         user_usage["tokens"] += usage.total_tokens
         user_usage["cost_usd"] += usage.estimated_cost_usd
         user_usage["requests"] += 1
+
+        # TPM 滑动窗口记录
+        window = self._tpm_window.get(user_id)
+        if window is None:
+            window = collections.deque()
+            self._tpm_window[user_id] = window
+        window.append((time.time(), usage.total_tokens))
 
         # P1 Fix #13: Update org aggregate
         org_id = self._user_to_org.get(user_id)

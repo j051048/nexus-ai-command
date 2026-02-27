@@ -445,23 +445,41 @@ class SemanticCache:
 semantic_cache = SemanticCache()
 
 
-def cached(ttl: int = 300, key_prefix: str = ""):
+def cached(ttl: int = 300, key_prefix: str = "", tenant_key: str | None = None):
     """
-    Decorator for caching function results.
+    Decorator for caching function results with optional tenant isolation.
+
+    Args:
+        ttl: Cache TTL in seconds (default 300).
+        key_prefix: Prefix for cache keys.
+        tenant_key: Name of a kwarg (e.g. "org_id", "user_id") whose value
+                    will be prepended to the cache key, ensuring per-tenant
+                    cache isolation.  If the kwarg is missing or None at
+                    call-time the cache is skipped (no cross-tenant leakage).
 
     Usage:
-        @cached(ttl=60, key_prefix="user_data")
-        async def get_user_data(user_id: str):
+        @cached(ttl=60, key_prefix="user_data", tenant_key="org_id")
+        async def get_org_dashboard(org_id: str):
             ...
     """
 
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
+            # P2 Fix: Tenant isolation — if tenant_key is configured,
+            # extract its value from kwargs and include in cache key.
+            tenant_value = ""
+            if tenant_key:
+                tenant_value = kwargs.get(tenant_key) or ""
+                if not tenant_value:
+                    # tenant_key required but not provided → skip cache entirely
+                    return await func(*args, **kwargs)
+                tenant_value = f"{tenant_value}:"
+
             # P2 Fix: Use hashlib.sha256 instead of hash() for cross-process stability
             raw_key = f"{func.__name__}:{str(args)}:{str(sorted(kwargs.items()))}"
             key_hash = hashlib.sha256(raw_key.encode()).hexdigest()[:16]
-            cache_key = f"{key_prefix}:{key_hash}"
+            cache_key = f"{key_prefix}:{tenant_value}{key_hash}"
 
             # Try to get from cache
             result = await cache_service.get(cache_key)
