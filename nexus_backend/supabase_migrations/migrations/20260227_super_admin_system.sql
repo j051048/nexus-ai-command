@@ -1,20 +1,42 @@
 -- ============================================================================
 -- Feature: Super Admin System + Boss Registration Approval
 --
--- 1. Adds pending_boss, super_admin to app_role enum
--- 2. Creates is_super_admin() check function
--- 3. Updates get_user_role() to detect pending_boss
--- 4. Updates handle_new_user() trigger: boss → pending_boss
--- 5. Sets j051048@gmail.com as super_admin
--- 6. Admin RPC functions: approve/reject boss, list pending, delete org
+-- Strategy: Convert user_roles.role to TEXT to avoid app_role enum dependency
+-- (the app_role enum was never created in this database)
 -- ============================================================================
 
--- 1. Add new enum values
--- Note: Supabase may store the type without schema prefix. Try without 'public.' first.
-ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'pending_boss';
-ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'super_admin';
+-- 0. Ensure user_roles table exists and role column is TEXT
+CREATE TABLE IF NOT EXISTS public.user_roles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  role TEXT NOT NULL DEFAULT 'employee',
+  UNIQUE (user_id)
+);
 
--- 2. is_super_admin() — checks user_roles table
+-- Convert role column to TEXT if it's currently an enum
+DO $$
+BEGIN
+  ALTER TABLE public.user_roles ALTER COLUMN role TYPE TEXT;
+EXCEPTION WHEN others THEN
+  NULL; -- Already text
+END $$;
+
+-- Drop old has_role function (may reference app_role enum type)
+DROP FUNCTION IF EXISTS public.has_role(UUID, app_role);
+
+-- Recreate has_role with TEXT parameter
+CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role TEXT)
+RETURNS BOOLEAN
+LANGUAGE SQL STABLE SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_roles
+    WHERE user_id = _user_id AND role = _role
+  );
+$$;
+
+-- 1. is_super_admin() — checks user_roles table
 CREATE OR REPLACE FUNCTION public.is_super_admin(_user_id UUID)
 RETURNS BOOLEAN
 LANGUAGE sql SECURITY DEFINER STABLE
@@ -26,19 +48,16 @@ AS $$
   );
 $$;
 
--- 3. Update get_user_role() — detect pending_boss from user_roles
+-- 2. Update get_user_role() — detect pending_boss from user_roles
 CREATE OR REPLACE FUNCTION public.get_user_role(_user_id UUID)
 RETURNS TEXT AS $$
 DECLARE
   _role user_role;
-  _has_pending BOOLEAN;
+  _ur_role TEXT;
 BEGIN
-  -- Check for pending boss in user_roles
-  SELECT EXISTS(
-    SELECT 1 FROM public.user_roles
-    WHERE user_id = _user_id AND role = 'pending_boss'
-  ) INTO _has_pending;
-  IF _has_pending THEN RETURN 'pending_boss'; END IF;
+  -- Check user_roles for special states
+  SELECT role INTO _ur_role FROM public.user_roles WHERE user_id = _user_id LIMIT 1;
+  IF _ur_role = 'pending_boss' THEN RETURN 'pending_boss'; END IF;
 
   -- Normal role from users table
   SELECT role INTO _role FROM public.users WHERE id = _user_id;
@@ -52,14 +71,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 4. Update handle_new_user() — boss registration → pending_boss
+-- 3. Update handle_new_user() — boss registration → pending_boss
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
   _role       user_role;
-  _app_role   app_role;
+  _app_role   TEXT;
   _raw_role   text;
   _department text;
   _name       text;
@@ -72,9 +91,9 @@ BEGIN
   -- Boss registration: start as sales (employee-level), pending approval
   -- Employee registration: normal sales role
   IF _raw_role = 'boss' THEN
-    _role := 'sales';           -- No boss privileges until approved
+    _role := 'sales';
     _department := 'Management';
-    _app_role := 'pending_boss'; -- Pending super admin approval
+    _app_role := 'pending_boss';
   ELSE
     _role := 'sales';
     _department := 'Sales Dept';
@@ -115,7 +134,7 @@ BEGIN
   VALUES (NEW.id, _name, _org_id)
   ON CONFLICT (user_id) DO NOTHING;
 
-  -- C) public.user_roles — uses pending_boss for boss registrations
+  -- C) public.user_roles (TEXT column, no enum cast needed)
   INSERT INTO public.user_roles (user_id, role)
   VALUES (NEW.id, _app_role)
   ON CONFLICT DO NOTHING;
@@ -136,14 +155,14 @@ EXCEPTION
 END;
 $$;
 
--- 5. Set j051048@gmail.com as super_admin (keep existing roles)
+-- 4. Set j051048@gmail.com as super_admin (TEXT value, no enum cast)
 INSERT INTO public.user_roles (user_id, role)
-SELECT au.id, 'super_admin'::app_role
+SELECT au.id, 'super_admin'
 FROM auth.users au
 WHERE au.email = 'j051048@gmail.com'
 ON CONFLICT DO NOTHING;
 
--- 6. Admin RPC: List pending boss approvals
+-- 5. Admin RPC: List pending boss approvals
 CREATE OR REPLACE FUNCTION public.admin_list_pending_bosses()
 RETURNS TABLE(
   user_id UUID,
@@ -176,7 +195,7 @@ BEGIN
 END;
 $$;
 
--- 7. Admin RPC: Approve boss
+-- 6. Admin RPC: Approve boss
 CREATE OR REPLACE FUNCTION public.admin_approve_boss(_user_id UUID)
 RETURNS VOID
 LANGUAGE plpgsql SECURITY DEFINER
@@ -187,19 +206,17 @@ BEGIN
     RAISE EXCEPTION 'Permission denied: super_admin only';
   END IF;
 
-  -- Upgrade users.role to founder
   UPDATE public.users
   SET role = 'founder', department = 'Management', updated_at = now()
   WHERE id = _user_id;
 
-  -- Change user_roles from pending_boss to boss
   UPDATE public.user_roles
   SET role = 'boss'
   WHERE user_id = _user_id AND role = 'pending_boss';
 END;
 $$;
 
--- 8. Admin RPC: Reject boss (keep as employee)
+-- 7. Admin RPC: Reject boss (keep as employee)
 CREATE OR REPLACE FUNCTION public.admin_reject_boss(_user_id UUID)
 RETURNS VOID
 LANGUAGE plpgsql SECURITY DEFINER
@@ -210,14 +227,13 @@ BEGIN
     RAISE EXCEPTION 'Permission denied: super_admin only';
   END IF;
 
-  -- Change pending_boss to employee
   UPDATE public.user_roles
   SET role = 'employee'
   WHERE user_id = _user_id AND role = 'pending_boss';
 END;
 $$;
 
--- 9. Admin RPC: List all organizations with member counts
+-- 8. Admin RPC: List all organizations with member counts
 CREATE OR REPLACE FUNCTION public.admin_list_organizations()
 RETURNS TABLE(
   org_id UUID,
@@ -248,7 +264,7 @@ BEGIN
 END;
 $$;
 
--- 10. Admin RPC: Delete organization and all its data
+-- 9. Admin RPC: Delete organization and all its data
 CREATE OR REPLACE FUNCTION public.admin_delete_organization(_org_id UUID)
 RETURNS VOID
 LANGUAGE plpgsql SECURITY DEFINER
@@ -266,7 +282,6 @@ BEGIN
     RAISE EXCEPTION 'Cannot delete the default organization';
   END IF;
 
-  -- Move users to default org before deleting
   UPDATE public.users
   SET organization_id = (SELECT id FROM public.organizations WHERE slug = 'default-org' LIMIT 1)
   WHERE organization_id = _org_id;
@@ -275,10 +290,7 @@ BEGIN
   SET organization_id = (SELECT id FROM public.organizations WHERE slug = 'default-org' LIMIT 1)
   WHERE organization_id = _org_id;
 
-  -- Delete organization_members
   DELETE FROM public.organization_members WHERE organization_id = _org_id;
-
-  -- Delete the organization
   DELETE FROM public.organizations WHERE id = _org_id;
 END;
 $$;
