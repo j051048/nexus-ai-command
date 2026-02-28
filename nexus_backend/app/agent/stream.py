@@ -240,14 +240,21 @@ async def run_agent_stream(
         ):
             kind = event.get("event")
 
-            # A. Continuous Token Streaming (Planning Phase)
+            # A. Continuous Token Streaming
             if kind == "on_chat_model_stream":
                 node_name = event.get("metadata", {}).get("langgraph_node")
                 content = event["data"]["chunk"].content
-                if content and node_name == "plan":
-                    # Stream planning tokens as part of the thinking process
+                if content and node_name == "respond":
+                    # Only stream the final "respond" node tokens to the user.
+                    # Plan tokens are NOT streamed directly because reflect/replan
+                    # cycles would cause the user to see multiple drafts.
                     yield _sse_content(content)
                     streamed_plan_content = True
+                    streamed_plan_text += content
+                elif content and node_name == "plan":
+                    # Accumulate plan text silently; it will be used for
+                    # final_response dedup check but not shown to the user
+                    # until the agent decides it's the definitive answer.
                     streamed_plan_text += content
 
             # B. State Updates (when a node completes)
@@ -345,14 +352,14 @@ async def run_agent_stream(
         final_response = "抱歉，处理您的请求时遇到了问题。请稍后重试。"
 
     # Stream the final response content
-    # P1 Fix: Skip only if plan already streamed the SAME content.
-    # If reflect/respond modified the response, we must stream the corrected version.
-    plan_already_streamed = (
+    # Skip if the respond node already streamed the same content to the user.
+    # streamed_plan_content is True only when respond-node tokens were yielded.
+    already_streamed = (
         streamed_plan_content
         and final_response
         and final_response.strip() == streamed_plan_text.strip()
     )
-    if final_response and not plan_already_streamed:
+    if final_response and not already_streamed:
         yield _sse_status("")  # Clear status
         # Stream word by word for smooth UX
         chunks = _chunk_text(final_response)
