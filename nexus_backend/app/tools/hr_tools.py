@@ -285,6 +285,14 @@ class PerformanceReviewTool(BaseTool):
             if not employee_name:
                 return "❌ 请提供员工姓名"
 
+            # rating 范围校验
+            try:
+                rating = float(rating)
+            except (TypeError, ValueError):
+                return "❌ 评分格式错误，请提供 1-5 之间的数字。"
+            if rating < 1 or rating > 5:
+                return "❌ 评分必须在 1-5 之间（1=差，3=合格，5=优秀）。"
+
             client = _get_client(config)
 
             # Find the employee

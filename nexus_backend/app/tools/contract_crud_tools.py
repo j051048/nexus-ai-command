@@ -131,6 +131,8 @@ class CreateContractTool(BaseTool):
     }
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+        from datetime import datetime
+
         client = _get_client(config)
         org_id = _get_org_id(config)
         if not org_id:
@@ -139,6 +141,39 @@ class CreateContractTool(BaseTool):
         title = args.get("title", "").strip()
         if not title:
             return "❌ 合同标题不能为空"
+
+        # ── 输入校验 ──
+        # 金额校验
+        amount = args.get("amount")
+        if amount is not None:
+            try:
+                amount = float(amount)
+            except (TypeError, ValueError):
+                return "❌ 合同金额格式错误，请提供有效的数字。"
+            if amount <= 0:
+                return "❌ 合同金额必须大于0。"
+
+        # 日期校验
+        start_date = args.get("start_date")
+        end_date = args.get("end_date")
+        if start_date or end_date:
+            try:
+                s = datetime.strptime(start_date, "%Y-%m-%d") if start_date else None
+                e = datetime.strptime(end_date, "%Y-%m-%d") if end_date else None
+                if s and e and e < s:
+                    return "❌ 合同结束日期不能早于开始日期。"
+            except ValueError:
+                return "❌ 日期格式错误，请使用 YYYY-MM-DD 格式。"
+
+        # customer_id 存在性校验
+        customer_id = args.get("customer_id")
+        if customer_id:
+            try:
+                cust_res = await client.table("customers").select("id").eq("id", customer_id).maybe_single().execute()
+                if not cust_res.data:
+                    return f"❌ 客户 ID {customer_id} 不存在，请先创建客户。"
+            except Exception:
+                pass  # 校验失败不阻塞，让 service 层兜底
 
         data = {"title": title, "created_by": user_id}
         for field in ("customer_id", "contract_type", "amount", "start_date", "end_date"):

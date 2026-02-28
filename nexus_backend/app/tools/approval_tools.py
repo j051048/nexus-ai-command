@@ -53,6 +53,8 @@ class SubmitApprovalOnBehalfTool(BaseTool):
     }
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+        from datetime import datetime, timedelta
+
         client = _get_client(config)
         # 使用当前登录用户的 ID（从 JWT 解析出来的）
         employee_id = user_id
@@ -63,6 +65,52 @@ class SubmitApprovalOnBehalfTool(BaseTool):
         end_date = args.get("end_date", "")
 
         logger.info(f"[AI审批] 当前用户ID: {user_id}, 申请类型: {approval_type}")
+
+        # ── 输入校验 ──
+        # 金额校验：涉及金额的审批类型必须 > 0
+        _amount_types = {"reimbursement", "expense", "purchase", "budget", "报销", "采购", "预算"}
+        if approval_type in _amount_types or amount:
+            try:
+                amount = float(amount)
+            except (TypeError, ValueError):
+                return "❌ 金额格式错误，请提供有效的数字金额。"
+            if amount <= 0:
+                return "❌ 审批金额必须大于0。"
+
+        # 日期校验
+        if start_date or end_date:
+            now = datetime.now()
+            try:
+                if start_date:
+                    s = datetime.strptime(start_date, "%Y-%m-%d")
+                    if s.year < now.year - 1 or s.year > now.year + 1:
+                        return f"❌ 开始日期 {start_date} 年份异常，当前日期是 {now.strftime('%Y-%m-%d')}。"
+                if end_date:
+                    e = datetime.strptime(end_date, "%Y-%m-%d")
+                    if e.year < now.year - 1 or e.year > now.year + 1:
+                        return f"❌ 结束日期 {end_date} 年份异常，当前日期是 {now.strftime('%Y-%m-%d')}。"
+                if start_date and end_date:
+                    if e < s:
+                        return "❌ 结束日期不能早于开始日期。"
+            except ValueError:
+                return "❌ 日期格式错误，请使用 YYYY-MM-DD 格式。"
+
+        # 防重复提交：检查同用户是否有近期完全相同的待审批申请
+        try:
+            dup_query = (
+                client.table("approval_requests")
+                .select("id")
+                .eq("submitted_by", employee_id)
+                .eq("type", approval_type)
+                .eq("status", "pending")
+            )
+            if amount:
+                dup_query = dup_query.eq("amount", amount)
+            dup_res = await dup_query.limit(1).execute()
+            if dup_res.data:
+                return f"❌ 您已有一条相同类型（{approval_type}）的待审批申请，请勿重复提交。"
+        except Exception:
+            pass  # 去重检查失败不应阻塞主流程
 
         # 验证员工存在
         employee_check = await client.table("users").select("id, name, role, organization_id").eq("id", employee_id).single().execute()

@@ -213,6 +213,16 @@ class CreateCustomerTool(BaseTool):
         if not name:
             return "❌ 客户名称不能为空"
 
+        # 预估金额校验
+        estimated_value = args.get("estimated_value")
+        if estimated_value is not None:
+            try:
+                estimated_value = float(estimated_value)
+            except (TypeError, ValueError):
+                return "❌ 预估金额格式错误，请提供有效的数字。"
+            if estimated_value < 0:
+                return "❌ 预估金额不能为负数。"
+
         data = {"name": name, "assigned_to": user_id}
         for field in ("company", "industry", "stage", "source", "estimated_value"):
             if args.get(field) is not None:

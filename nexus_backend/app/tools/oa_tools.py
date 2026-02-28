@@ -110,6 +110,28 @@ class LeaveRequestTool(BaseTool):
 
         user = user_res.data
 
+        # 重复请假检查：同用户、相同日期段是否已有 pending/approved 记录
+        try:
+            overlap_res = (
+                await client.table("oa_leave_requests")
+                .select("id, start_date, end_date, status")
+                .eq("user_id", user_id)
+                .in_("status", ["pending", "approved"])
+                .lte("start_date", end_date)
+                .gte("end_date", start_date)
+                .limit(1)
+                .execute()
+            )
+            if overlap_res.data:
+                existing = overlap_res.data[0]
+                return (
+                    f"❌ 您在 {existing['start_date']} ~ {existing['end_date']} "
+                    f"已有一条{existing['status'] == 'approved' and '已批准' or '待审批'}的请假记录，"
+                    f"日期范围与本次申请重叠，请勿重复提交。"
+                )
+        except Exception:
+            pass  # 检查失败不阻塞主流程
+
         # 查找交接人
         handover_id = None
         if handover_to:
