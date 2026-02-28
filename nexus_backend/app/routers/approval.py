@@ -116,20 +116,51 @@ async def submit_with_form(
                         details={"errors": validation_errors},
                     )
 
-        # 3. Create approval request record in database
+        # 3. Match approval chain BEFORE creating the record
+        chain_binding = await approval_chain_service.match_and_bind_chain(
+            org_id=org_id,
+            approval_type=body.type,
+            amount=body.amount,
+            db=client,
+        )
+
+        chain_id = chain_binding.get("chain_id")
+        starting_step = chain_binding.get("starting_step", 0)
+        approval_level = chain_binding.get("approval_level", "")
+        timeout_at = chain_binding.get("timeout_at")
+        auto_approve = chain_binding.get("auto_approve", False)
+
+        # 4. Create approval request record in database
         insert_data = {
             "submitted_by": user_id,
             "type": body.type,
             "amount": body.amount,
             "description": body.details,
-            "status": "pending",
+            "status": "approved" if auto_approve else "pending",
             "organization_id": org_id,
+            "current_step": starting_step,
+            "approval_level": approval_level,
         }
 
+        if chain_id:
+            insert_data["chain_id"] = chain_id
+        if timeout_at:
+            insert_data["timeout_at"] = timeout_at
         if body.form_data:
             insert_data["form_data"] = body.form_data
         if form_schema_id:
             insert_data["form_schema_id"] = form_schema_id
+        if auto_approve:
+            insert_data["ai_decision"] = "auto_approved"
+            insert_data["approval_history"] = [
+                {
+                    "step": starting_step,
+                    "decision": "auto_approved",
+                    "approver_id": "system",
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "comment": f"金额 ¥{body.amount} 在自动审批限额内",
+                }
+            ]
 
         result = await client.table("approval_requests").insert(insert_data).execute()
 
@@ -139,26 +170,34 @@ async def submit_with_form(
         created_request = result.data[0] if isinstance(result.data, list) else result.data
         request_id = created_request.get("id")
 
-        # 4. Route through approval chain
-        chain_result = await approval_chain_service.process_approval_request(
-            request_id=request_id,
-            approval_type=body.type,
-            amount=body.amount,
-            requester_id=user_id,
-            description=body.details,
-        )
+        # 5. Notify the correct approver (not broadcast)
+        if not auto_approve:
+            try:
+                # Get requester name for notification
+                user_res = await client.table("users").select("name").eq("id", user_id).maybe_single().execute()
+                requester_name = user_res.data.get("name", "员工") if user_res.data else "员工"
 
-        # Update approval request with chain result status if auto-approved
-        if chain_result.get("auto_approved"):
-            await client.table("approval_requests").update({"status": "approved", "ai_decision": "auto_approved"}).eq(
-                "id", request_id
-            ).execute()
+                from app.tools.approval_tools import _notify_next_approver
+
+                await _notify_next_approver(
+                    client=client,
+                    approval_level=approval_level,
+                    requester_id=user_id,
+                    requester_name=requester_name,
+                    approval_type=body.type,
+                    amount=body.amount,
+                    req_id=request_id,
+                    org_id=org_id,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to notify approver for form submission: {e}")
 
         return api_success(
             data={
                 "request_id": request_id,
                 "form_schema_id": form_schema_id,
-                "chain_result": chain_result,
+                "chain_binding": chain_binding,
+                "auto_approved": auto_approve,
                 "approval_request": created_request,
             },
             message="审批请求已提交",

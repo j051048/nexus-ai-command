@@ -113,23 +113,25 @@ class ExpenseClaimTool(BaseTool):
         if expense_type == "travel" and amount > config_info.get("daily_limit", 1500):
             compliance_issues.append(f"⚠️ 单日差旅费 ¥{amount:.0f} 超过标准 ¥{config_info['daily_limit']}")
 
-        # 确定审批级别
-        auto_limit = config_info.get("auto_limit", 300)
-        if amount <= auto_limit and compliance_passed:
-            approval_status = "approved"
-            approval_note = f"金额 ≤¥{auto_limit}，已自动审批"
-        elif amount <= 2000:
-            approval_status = "pending"
-            _approval_level = "manager"
-            approval_note = "需直属领导审批"
-        elif amount <= 10000:
-            approval_status = "pending"
-            _approval_level = "director"
-            approval_note = "需部门总监审批"
-        else:
-            approval_status = "pending"
-            _approval_level = "cfo"
-            approval_note = "需财务总监审批"
+        # ── 审批链匹配：替代硬编码的审批级别 ──
+        from app.services.approval_chain import approval_chain_service
+
+        chain_result = await approval_chain_service.match_and_bind_chain(
+            org_id=user.get("organization_id", ""),
+            approval_type="expense",
+            amount=amount,
+            db=client,
+        )
+
+        auto_approve = chain_result.get("auto_approve", False) and compliance_passed
+        chain_id = chain_result.get("chain_id")
+        starting_step = chain_result.get("starting_step", 0)
+        approval_level = chain_result.get("approval_level", "manager")
+        timeout_at = chain_result.get("timeout_at")
+        chain_name = chain_result.get("chain_name", "费用报销审批链")
+
+        approval_status = "approved" if auto_approve else "pending"
+        approval_note = f"金额在自动审批限额内，已自动审批" if auto_approve else f"需{approval_level}级别审批"
 
         # 查找关联项目
         project_id = None
@@ -148,6 +150,8 @@ class ExpenseClaimTool(BaseTool):
             "amount": amount,
             "description": f"[{config_info['name']}] {description}",
             "status": approval_status,
+            "current_step": starting_step,
+            "approval_level": approval_level,
             "metadata": {
                 "expense_type": expense_type,
                 "expense_date": expense_date,
@@ -160,6 +164,21 @@ class ExpenseClaimTool(BaseTool):
                 },
             },
         }
+        # 绑定审批链字段
+        if chain_id:
+            expense_data["chain_id"] = chain_id
+        if timeout_at:
+            expense_data["timeout_at"] = timeout_at
+        if auto_approve:
+            expense_data["approval_history"] = [
+                {
+                    "step": starting_step,
+                    "decision": "auto_approved",
+                    "approver_id": "system",
+                    "timestamp": datetime.now().isoformat(),
+                    "comment": f"金额 ¥{amount:.0f} 在自动审批限额内，合规检查通过",
+                }
+            ]
         # 确保 organization_id 存在
         if user.get("organization_id"):
             expense_data["organization_id"] = user["organization_id"]
@@ -169,20 +188,22 @@ class ExpenseClaimTool(BaseTool):
         if not result.data:
             return "❌ 创建报销申请失败，请稍后重试"
 
-        # request_id = result.data[0]["id"]
+        request_id = result.data[0]["id"]
 
-        # 如果需要人工审批，发送通知
+        # 如果需要人工审批，精准通知对应审批人
         if approval_status == "pending":
-            approvers = await client.table("users").select("id").in_("role", ["manager", "founder"]).execute()
-            for approver in approvers.data or []:
-                await client.table("notifications").insert(
-                    {
-                        "user_id": approver["id"],
-                        "title": "💰 新的报销申请",
-                        "content": f"{user['name']} 提交了 {config_info['name']} ¥{amount:.2f}",
-                        "type": "info",
-                    }
-                ).execute()
+            from app.tools.approval_tools import _notify_next_approver
+
+            await _notify_next_approver(
+                client=client,
+                approval_level=approval_level,
+                requester_id=user_id,
+                requester_name=user.get("name", "员工"),
+                approval_type="expense",
+                amount=amount,
+                req_id=request_id,
+                org_id=user.get("organization_id"),
+            )
 
         # 构建返回信息
         response = f"""✅ 报销申请已提交！

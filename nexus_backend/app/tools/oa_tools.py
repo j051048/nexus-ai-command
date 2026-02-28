@@ -159,20 +159,6 @@ class LeaveRequestTool(BaseTool):
                 return f"❌ 年假余额不足。您今年已使用 {used_days} 天，剩余 {remaining} 天，本次申请 {work_days} 天。"
             leave_balance_info = f"（年假余额: {remaining}天 → {remaining - work_days}天）"
 
-        # 确定审批人
-        if work_days <= 1:
-            approval_level = "auto"
-            approval_note = "1天以内自动批准"
-        elif work_days <= 3:
-            approval_level = "manager"
-            approval_note = "需直属领导审批"
-        elif work_days <= 7:
-            approval_level = "director"
-            approval_note = "需部门总监审批"
-        else:
-            approval_level = "ceo"
-            approval_note = "需CEO审批"
-
         # 请假类型中文映射
         type_names = {
             "annual": "年假",
@@ -183,7 +169,30 @@ class LeaveRequestTool(BaseTool):
             "paternity": "陪产假",
         }
 
-        # 创建请假记录
+        # ── 审批链匹配：用天数作为 amount 走请假审批链 ──
+        from app.services.approval_chain import approval_chain_service
+
+        org_id_res = await client.table("users").select("organization_id").eq("id", user_id).maybe_single().execute()
+        org_id = org_id_res.data.get("organization_id") if org_id_res.data else None
+
+        chain_result = await approval_chain_service.match_and_bind_chain(
+            org_id=org_id or "",
+            approval_type="leave",
+            amount=float(work_days),
+            db=client,
+        )
+
+        auto_approve = chain_result.get("auto_approve", False)
+        chain_id = chain_result.get("chain_id")
+        starting_step = chain_result.get("starting_step", 0)
+        approval_level = chain_result.get("approval_level", "manager")
+        timeout_at = chain_result.get("timeout_at")
+        chain_name = chain_result.get("chain_name", "请假审批链")
+        final_status = "approved" if auto_approve else "pending"
+
+        approval_note = "系统自动批准" if auto_approve else f"需{approval_level}级别审批"
+
+        # 创建请假记录（OA 业务表）
         leave_data = {
             "user_id": user_id,
             "type": leave_type,
@@ -192,7 +201,7 @@ class LeaveRequestTool(BaseTool):
             "days": work_days,
             "reason": reason,
             "handover_to": handover_id,
-            "status": "approved" if approval_level == "auto" else "pending",
+            "status": final_status,
             "approval_level": approval_level,
         }
 
@@ -201,21 +210,52 @@ class LeaveRequestTool(BaseTool):
         if not result.data:
             return "❌ 创建请假申请失败，请稍后重试"
 
-        # request_id = result.data[0]["id"]
+        leave_id = result.data[0].get("id")
 
-        # 发送通知
-        if approval_level != "auto":
-            # 查找审批人
-            approvers = await client.table("users").select("id").in_("role", ["manager", "founder"]).execute()
-            for approver in approvers.data or []:
-                await client.table("notifications").insert(
-                    {
-                        "user_id": approver["id"],
-                        "title": "📋 新的请假申请",
-                        "content": f"{user['name']} 申请 {type_names.get(leave_type, leave_type)} {work_days}天 ({start_date} ~ {end_date})",
-                        "type": "info",
-                    }
-                ).execute()
+        # 同步创建 approval_requests 记录（接入审批链体系）
+        type_label = type_names.get(leave_type, leave_type)
+        try:
+            approval_insert = {
+                "submitted_by": user_id,
+                "type": "leave",
+                "amount": 0,
+                "description": f"[{type_label}] {start_date} 至 {end_date}，共{work_days}天。{reason or ''}",
+                "status": final_status,
+                "current_step": starting_step,
+                "approval_level": approval_level,
+                "approval_history": (
+                    [{"step": 0, "decision": "auto_approved", "approver_id": "system",
+                      "timestamp": datetime.now().isoformat(),
+                      "comment": f"{work_days}天以内自动批准"}]
+                    if auto_approve else []
+                ),
+            }
+            if chain_id:
+                approval_insert["chain_id"] = chain_id
+            if timeout_at:
+                approval_insert["timeout_at"] = timeout_at
+            if org_id:
+                approval_insert["organization_id"] = org_id
+            await client.table("approval_requests").insert(approval_insert).execute()
+        except Exception as e:
+            logger.warning(f"Failed to create approval_request for leave {leave_id}: {e}")
+
+        # 精准通知审批人（非广播）
+        if not auto_approve:
+            try:
+                from app.tools.approval_tools import _notify_next_approver
+                await _notify_next_approver(
+                    client=client,
+                    approval_level=approval_level,
+                    requester_id=user_id,
+                    requester_name=user.get("name", "员工"),
+                    approval_type="leave",
+                    amount=float(work_days),
+                    req_id=leave_id,
+                    org_id=org_id,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to notify approver for leave {leave_id}: {e}")
 
         # 构建返回信息
         response = f"""✅ 请假申请已提交！
@@ -229,10 +269,10 @@ class LeaveRequestTool(BaseTool):
 
 🔄 **审批状态**
 - {approval_note}
-- 状态: {"✅ 已自动批准" if approval_level == "auto" else "⏳ 等待审批中"}
+- 状态: {"✅ 已自动批准" if auto_approve else "⏳ 等待审批中"}
 """
 
-        if approval_level == "auto":
+        if auto_approve:
             response += "\n🎉 由于请假时间较短，系统已自动批准。祝您假期愉快！"
         else:
             response += '\n📱 审批人已收到通知，请耐心等待。您可以随时问我"我的请假审批到哪了？"'

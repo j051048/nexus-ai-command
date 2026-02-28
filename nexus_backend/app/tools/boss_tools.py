@@ -171,26 +171,73 @@ class SmartApprovalTool(BaseTool):
 
         # 执行操作
         if action == "approve" or action == "batch_approve":
-            # P1 Fix #15: Use transactional RPC for atomic batch update
-            request_ids = [req["id"] for req in selected_requests]
-            try:
-                rpc_result = await client.rpc(
-                    "batch_update_approvals",
-                    {
-                        "p_request_ids": request_ids,
-                        "p_new_status": "approved",
-                        "p_approved_by": user_id,
-                        "p_comment": comment or "已批准",
-                    },
-                ).execute()
+            # Use advance_step for chain-bound requests, fallback to RPC for others
+            from app.services.approval_chain import approval_chain_service
 
-                batch_data = rpc_result.data or {}
-                approved_count = batch_data.get("updated_count", 0)
-                skipped_count = batch_data.get("skipped_count", 0)
-                updated_ids = set(batch_data.get("updated_ids", []))
-            except Exception as e:
-                logger.error(f"Batch approval RPC failed: {e}")
-                return f"❌ 批量审批失败，所有操作已回滚。错误: {str(e)}"
+            approved_count = 0
+            skipped_count = 0
+            updated_ids = set()
+            rpc_ids = []  # requests without chain_id use batch RPC
+
+            for req in selected_requests:
+                if req.get("chain_id"):
+                    # Has approval chain: use advance_step for proper multi-level flow
+                    try:
+                        updated = await approval_chain_service.advance_step(
+                            request_id=req["id"],
+                            decision="approved",
+                            approver_id=user_id,
+                            comment=comment or "已批准",
+                            db=client,
+                        )
+                        updated_ids.add(req["id"])
+                        approved_count += 1
+
+                        # If still pending (promoted to next level), notify next approver
+                        if updated.get("status") == "pending":
+                            try:
+                                from app.tools.approval_tools import _notify_next_approver
+
+                                user_info = req.get("users", {})
+                                req_name = user_info.get("name", "员工") if isinstance(user_info, dict) else "员工"
+                                await _notify_next_approver(
+                                    client=client,
+                                    approval_level=updated.get("approval_level", "manager"),
+                                    requester_id=req["submitted_by"],
+                                    requester_name=req_name,
+                                    approval_type=req.get("type", "default"),
+                                    amount=float(req.get("amount", 0)),
+                                    req_id=req["id"],
+                                    org_id=req.get("organization_id"),
+                                )
+                            except Exception as e:
+                                logger.warning(f"Failed to notify next approver for {req['id']}: {e}")
+                    except Exception as e:
+                        logger.warning(f"advance_step failed for {req['id']}: {e}")
+                        skipped_count += 1
+                else:
+                    rpc_ids.append(req["id"])
+
+            # Batch RPC for requests without chain
+            if rpc_ids:
+                try:
+                    rpc_result = await client.rpc(
+                        "batch_update_approvals",
+                        {
+                            "p_request_ids": rpc_ids,
+                            "p_new_status": "approved",
+                            "p_approved_by": user_id,
+                            "p_comment": comment or "已批准",
+                        },
+                    ).execute()
+
+                    batch_data = rpc_result.data or {}
+                    approved_count += batch_data.get("updated_count", 0)
+                    skipped_count += batch_data.get("skipped_count", 0)
+                    updated_ids.update(batch_data.get("updated_ids", []))
+                except Exception as e:
+                    logger.error(f"Batch approval RPC failed: {e}")
+                    skipped_count += len(rpc_ids)
 
             # Send notifications for successfully approved requests (non-transactional, best-effort)
             for req in selected_requests:
@@ -244,26 +291,51 @@ class SmartApprovalTool(BaseTool):
             return result_msg
 
         elif action == "reject":
-            # P1 Fix #15: Use transactional RPC for atomic batch rejection
-            request_ids = [req["id"] for req in selected_requests]
-            try:
-                rpc_result = await client.rpc(
-                    "batch_update_approvals",
-                    {
-                        "p_request_ids": request_ids,
-                        "p_new_status": "rejected",
-                        "p_approved_by": user_id,
-                        "p_comment": comment or "已驳回",
-                    },
-                ).execute()
+            # Use advance_step for chain-bound requests, fallback to RPC for others
+            from app.services.approval_chain import approval_chain_service
 
-                batch_data = rpc_result.data or {}
-                rejected_count = batch_data.get("updated_count", 0)
-                skipped_count = batch_data.get("skipped_count", 0)
-                updated_ids = set(batch_data.get("updated_ids", []))
-            except Exception as e:
-                logger.error(f"Batch rejection RPC failed: {e}")
-                return f"❌ 批量驳回失败，所有操作已回滚。错误: {str(e)}"
+            rejected_count = 0
+            skipped_count = 0
+            updated_ids = set()
+            rpc_ids = []
+
+            for req in selected_requests:
+                if req.get("chain_id"):
+                    try:
+                        await approval_chain_service.advance_step(
+                            request_id=req["id"],
+                            decision="rejected",
+                            approver_id=user_id,
+                            comment=comment or "已驳回",
+                            db=client,
+                        )
+                        updated_ids.add(req["id"])
+                        rejected_count += 1
+                    except Exception as e:
+                        logger.warning(f"advance_step (reject) failed for {req['id']}: {e}")
+                        skipped_count += 1
+                else:
+                    rpc_ids.append(req["id"])
+
+            if rpc_ids:
+                try:
+                    rpc_result = await client.rpc(
+                        "batch_update_approvals",
+                        {
+                            "p_request_ids": rpc_ids,
+                            "p_new_status": "rejected",
+                            "p_approved_by": user_id,
+                            "p_comment": comment or "已驳回",
+                        },
+                    ).execute()
+
+                    batch_data = rpc_result.data or {}
+                    rejected_count += batch_data.get("updated_count", 0)
+                    skipped_count += batch_data.get("skipped_count", 0)
+                    updated_ids.update(batch_data.get("updated_ids", []))
+                except Exception as e:
+                    logger.error(f"Batch rejection RPC failed: {e}")
+                    skipped_count += len(rpc_ids)
 
             # Send notifications (best-effort)
             for req in selected_requests:
