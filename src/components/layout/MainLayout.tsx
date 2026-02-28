@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { MobileSidebar } from './MobileSidebar';
 import { ActiveCardStream } from '../cards/ActiveCardStream';
@@ -14,6 +14,8 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/components/auth/AuthContext';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -29,6 +31,32 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [rightPanelTab, setRightPanelTab] = useState<'copilot' | 'cards'>('copilot');
   const isMobile = useIsMobile();
   const location = useLocation();
+  const [orgName, setOrgName] = useState('企业名称');
+  
+  const { profile } = useAuth();
+
+  useEffect(() => {
+    const fetchOrgName = async () => {
+      try {
+        if (profile?.organization_id) {
+          const { data, error } = await supabase
+            .from('organizations')
+            .select('name')
+            .eq('id', profile.organization_id)
+            .single();
+          
+          const orgData = data as { name: string } | null;
+          if (!error && orgData?.name) {
+            setOrgName(orgData.name);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load org name in MainLayout", e);
+      }
+    };
+    
+    fetchOrgName();
+  }, [profile?.organization_id]);
 
   // 快捷键回调
   const toggleAIChat = useCallback(() => {
@@ -110,7 +138,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       {isMobile && (
         <div className="fixed top-0 left-0 right-0 h-14 bg-card/95 backdrop-blur-sm border-b border-border z-40 flex items-center justify-between px-4">
           <MobileSidebar />
-          <span className="font-semibold text-foreground">Project Nexus</span>
+          <span className="font-semibold text-foreground">{orgName}</span>
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
