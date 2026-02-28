@@ -373,6 +373,8 @@ class TestMiddlewareOrder:
         from starlette.middleware.cors import CORSMiddleware
 
         from app.core.api_key_middleware import APIKeyMiddleware
+        from app.core.csrf_middleware import CSRFMiddleware
+        from app.core.data_masking import DataMaskingMiddleware
         from app.core.idempotency_middleware import IdempotencyMiddleware
         from app.core.rate_limiter import RateLimitMiddleware
         from app.core.security_middleware import (
@@ -387,6 +389,8 @@ class TestMiddlewareOrder:
             RateLimitMiddleware,
             SecurityHeadersMiddleware,
             RequestIDMiddleware,
+            DataMaskingMiddleware,
+            CSRFMiddleware,
             APIKeyMiddleware,
             IdempotencyMiddleware,
             TenantContextMiddleware,

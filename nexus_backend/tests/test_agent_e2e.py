@@ -203,6 +203,7 @@ class TestChatEndpointE2E:
             patch("app.routers.chat.check_user_input", return_value=(True, None)),
             patch("app.routers.chat.validate_request_tokens", return_value=(True, 100, None)),
             patch.dict("os.environ", {"OPENAI_API_KEY": ""}, clear=False),
+            patch("app.core.rate_limiter.RateLimitMiddleware.dispatch", side_effect=lambda req, call_next: call_next(req)),
         ):
             resp = await authed_client.post(
                 "/api/chat",

@@ -119,7 +119,7 @@ class TestCrossModuleWorkflows:
             },
         )
 
-        with patch("app.services.event_bus.supabase", mock_supabase):
+        with patch("app.core.database.supabase", mock_supabase):
             await auto_create_contract_from_deal(event)
 
         # Should have called insert twice: once for contract, once for notification
@@ -141,7 +141,7 @@ class TestCrossModuleWorkflows:
             },
         )
 
-        with patch("app.services.event_bus.supabase", mock_supabase):
+        with patch("app.core.database.supabase", mock_supabase):
             await auto_create_invoice_from_contract(event)
 
         assert mock_supabase.table.call_count >= 1
@@ -160,7 +160,7 @@ class TestCrossModuleWorkflows:
             },
         )
 
-        with patch("app.services.event_bus.supabase", mock_supabase):
+        with patch("app.core.database.supabase", mock_supabase):
             await auto_trigger_tender_analysis(event)
 
         # Should create a notification
@@ -180,7 +180,7 @@ class TestCrossModuleWorkflows:
             },
         )
 
-        with patch("app.services.event_bus.supabase", mock_supabase):
+        with patch("app.core.database.supabase", mock_supabase):
             await auto_trigger_tender_analysis(event)
 
         # Should NOT create any notifications
@@ -200,7 +200,7 @@ class TestCrossModuleWorkflows:
             },
         )
 
-        with patch("app.services.event_bus.supabase", mock_supabase):
+        with patch("app.core.database.supabase", mock_supabase):
             await update_sales_metrics_on_payment(event)
 
         # Should call rpc for bonus and insert notification
