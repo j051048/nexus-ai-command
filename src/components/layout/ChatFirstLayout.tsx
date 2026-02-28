@@ -111,7 +111,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                     "bg-background/95 backdrop-blur-sm transition-all duration-300 ease-in-out border-l shadow-2xl overflow-hidden flex flex-col",
                     isCanvasOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 w-0",
                     "static inset-auto bottom-0",
-                    isCanvasOpen ? "w-[55%] lg:w-[60%]" : "w-0"
+                    isCanvasOpen ? (isChatOpen ? "w-[55%] lg:w-[60%]" : "w-full flex-1") : "w-0"
                 )}>
 
                    {/* Canvas Header */}
