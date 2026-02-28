@@ -71,6 +71,9 @@ class ETLService:
         """
         import re
 
+        # 0. Strip null bytes — PostgreSQL text columns reject \u0000
+        content = content.replace("\x00", "")
+
         # 1. Phone Numbers (Simple 11 digits)
         content = re.sub(r"(?<!\d)1[3-9]\d{9}(?!\d)", "[PHONE_REDACTED]", content)
 
@@ -520,6 +523,9 @@ class ETLService:
                     "status": "error",
                     "reason": "No text content found",
                 }
+
+            # Strip null bytes early — PostgreSQL rejects \u0000 in text columns
+            text = text.replace("\x00", "")
 
             # Update Progress: Extraction Done
             await self._update_progress(doc_id, 30, "analyzing")
