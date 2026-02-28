@@ -169,7 +169,7 @@ async def process_approval_through_chain(
 async def get_organization_members(req: Request, user_id: str = Depends(get_current_user_id)):
     """
     Get all members in the user's organization for the org chart management page.
-    Returns: id, name, department, role, manager_id, avatar_url
+    Returns: id, name, department, role, manager_id, avatar
     """
     client = req.state.db
 
@@ -182,7 +182,7 @@ async def get_organization_members(req: Request, user_id: str = Depends(get_curr
 
     # Fetch all members in the organization
     members_res = await client.table("users").select(
-        "id, name, department, role, manager_id, avatar_url"
+        "id, name, department, role, manager_id, avatar"
     ).eq("organization_id", org_id).order("name").execute()
 
     members = []
@@ -201,7 +201,7 @@ async def get_organization_members(req: Request, user_id: str = Depends(get_curr
             "role": m.get("role") or "employee",
             "manager_id": m.get("manager_id"),
             "manager_name": name_map.get(m.get("manager_id", ""), None),
-            "avatar_url": m.get("avatar_url"),
+            "avatar_url": m.get("avatar"),
         })
 
     return api_success(data=members, message=f"Found {len(members)} members")
