@@ -80,19 +80,45 @@ class LLMGatewayService:
         try:
             # Try tenant-specific first, then fall back to global defaults
             rows = []
-            for tid in [org_id, "default"]:
+
+            # 1. Try org-specific config
+            if org_id and org_id != "default":
                 res = (
                     await supabase.table("llm_model_config")
                     .select("*")
                     .eq("model_code", model_code)
-                    .eq("tenant_id", tid)
+                    .eq("tenant_id", org_id)
                     .eq("status", "enabled")
                     .eq("is_deleted", False)
                     .execute()
                 )
                 rows = res.data or []
-                if rows:
-                    break
+
+            # 2. Fall back to global default (tenant_id IS NULL)
+            if not rows:
+                res = (
+                    await supabase.table("llm_model_config")
+                    .select("*")
+                    .eq("model_code", model_code)
+                    .is_("tenant_id", "null")
+                    .eq("status", "enabled")
+                    .eq("is_deleted", False)
+                    .execute()
+                )
+                rows = res.data or []
+
+            # 3. Last resort: any config matching model_code
+            if not rows:
+                res = (
+                    await supabase.table("llm_model_config")
+                    .select("*")
+                    .eq("model_code", model_code)
+                    .eq("status", "enabled")
+                    .eq("is_deleted", False)
+                    .limit(1)
+                    .execute()
+                )
+                rows = res.data or []
 
             if not rows:
                 logger.warning("No active model config found for " f"model_code={model_code}, org_id={org_id}")
