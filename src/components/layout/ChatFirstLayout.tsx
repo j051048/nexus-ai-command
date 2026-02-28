@@ -7,7 +7,7 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { InstallPrompt } from '@/components/common/InstallPrompt';
 import { WelcomeTour } from '@/components/common/WelcomeTour';
 import { NotificationCenter } from '@/components/common/NotificationCenter';
-import { PanelRightClose, PanelRightOpen, Clock } from 'lucide-react';
+import { PanelRightClose, PanelRightOpen, Clock, PanelLeftOpen } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 
 // Interface for props
@@ -21,6 +21,7 @@ interface ChatFirstLayoutProps {
  */
 export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
     const [isCanvasOpen, setIsCanvasOpen] = useState(true);
+    const [isChatOpen, setIsChatOpen] = useState(true);
     const location = useLocation();
     const { isPendingBoss } = useAuth();
 
@@ -84,14 +85,26 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                 {/* Chat Area */}
                 <div className={cn(
                     "flex flex-col transition-all duration-300 ease-in-out h-full relative z-10",
-                    isCanvasOpen ? "w-[45%] lg:w-[40%]" : "w-full"
+                    isChatOpen ? (isCanvasOpen ? "w-[45%] lg:w-[40%]" : "w-full") : "w-0 overflow-hidden opacity-0"
                 )}>
                     <EnhancedAIChatPanel
-                        isExpanded={true}
-                        onToggle={() => {}}
+                        isExpanded={isChatOpen}
+                        onToggle={() => setIsChatOpen(!isChatOpen)}
                         variant="embedded"
                     />
                 </div>
+
+                {/* Chat reopen button when closed */}
+                {!isChatOpen && (
+                    <Button
+                        size="icon"
+                        variant="secondary"
+                        className="absolute top-4 left-4 z-50 shadow-lg rounded-full"
+                        onClick={() => setIsChatOpen(true)}
+                    >
+                        <PanelLeftOpen className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                    </Button>
+                )}
 
                 {/* Canvas Area */}
                 <div className={cn(

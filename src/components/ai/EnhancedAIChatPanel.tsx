@@ -39,6 +39,8 @@ import {
   Download,
   Maximize2,
   Minimize2,
+  PanelLeftClose,
+  PanelLeftOpen,
   X,
   Lightbulb,
   History,
@@ -686,11 +688,19 @@ export function EnhancedAIChatPanel({
                     <X className="w-4 h-4" />
                   </Button>
                 ) : (
-                  <button className="p-2 rounded-lg hover:bg-secondary transition-colors">
-                    {isExpanded ? (
-                      <ChevronDown className="w-5 h-5" />
+                  <button 
+                    className="p-2 rounded-lg hover:bg-secondary transition-colors"
+                    onClick={(e) => {
+                      if (variant === 'embedded') {
+                        e.stopPropagation();
+                        onToggle();
+                      }
+                    }}
+                  >
+                    {variant === 'embedded' ? (
+                      isExpanded ? <PanelLeftClose className="w-5 h-5 text-muted-foreground hover:text-foreground" /> : <PanelLeftOpen className="w-5 h-5" />
                     ) : (
-                      <ChevronUp className="w-5 h-5" />
+                      isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />
                     )}
                   </button>
                 )}
