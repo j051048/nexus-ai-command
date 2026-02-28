@@ -28,6 +28,105 @@ AI_ASSISTANT_ID = "00000000-0000-0000-0000-000000000001"
 # P0 Security Fix #1: Maximum batch size for approvals
 MAX_BATCH_SIZE = 10
 
+# ── 审批级别到角色的映射 ──
+_LEVEL_ROLE_MAP = {
+    "manager": ["manager"],
+    "director": ["manager", "director"],
+    "cfo": ["manager", "founder"],
+    "ceo": ["founder"],
+    "board": ["founder"],
+    "founder": ["founder"],
+}
+
+_LEVEL_NAMES = {
+    "manager": "部门经理",
+    "director": "总监",
+    "cfo": "财务总监",
+    "ceo": "总经理/CEO",
+    "board": "董事会",
+    "founder": "老板",
+}
+
+
+async def _notify_next_approver(
+    *,
+    client,
+    approval_level: str,
+    requester_id: str,
+    requester_name: str,
+    approval_type: str,
+    amount: float,
+    req_id: str,
+    org_id: str | None = None,
+):
+    """
+    Notify the correct approver(s) for the current step.
+    Strategy:
+    1. Try direct manager (manager_id) for manager-level
+    2. Fall back to role-based lookup within the same org
+    3. Always fall back to founder if nobody found
+    """
+    from app.services.approval_chain import approval_chain_service
+
+    notified = False
+    type_names = {"travel": "出差", "leave": "请假", "expense": "报销", "purchase": "采购"}
+    type_label = type_names.get(approval_type, approval_type)
+    level_label = _LEVEL_NAMES.get(approval_level, approval_level)
+    content = (
+        f"{requester_name} 提交了一笔{type_label}申请（¥{amount:,.0f}），"
+        f"需要您（{level_label}）审批。\n单号：{req_id[:8]}..."
+    )
+
+    try:
+        # Strategy 1: Direct manager for manager-level
+        if approval_level == "manager":
+            manager = await approval_chain_service.get_direct_manager(requester_id, db=client)
+            if manager:
+                await client.table("notifications").insert(
+                    {
+                        "user_id": manager["id"],
+                        "title": f"📋 待审批: {requester_name}的{type_label}申请",
+                        "content": content,
+                        "type": "warning",
+                    }
+                ).execute()
+                notified = True
+
+        # Strategy 2: Role-based lookup
+        if not notified:
+            roles = _LEVEL_ROLE_MAP.get(approval_level, ["founder"])
+            query = client.table("users").select("id, name").in_("role", roles)
+            if org_id:
+                query = query.eq("organization_id", org_id)
+            approvers_res = await query.neq("id", requester_id).limit(5).execute()
+
+            for approver in approvers_res.data or []:
+                await client.table("notifications").insert(
+                    {
+                        "user_id": approver["id"],
+                        "title": f"📋 待审批: {requester_name}的{type_label}申请",
+                        "content": content,
+                        "type": "warning",
+                    }
+                ).execute()
+                notified = True
+
+        # Strategy 3: Ultimate fallback to any founder
+        if not notified:
+            founders_res = await client.table("users").select("id").eq("role", "founder").limit(3).execute()
+            for f in founders_res.data or []:
+                await client.table("notifications").insert(
+                    {
+                        "user_id": f["id"],
+                        "title": f"📋 待审批: {requester_name}的{type_label}申请",
+                        "content": content,
+                        "type": "warning",
+                    }
+                ).execute()
+
+    except Exception as e:
+        logger.warning(f"Failed to notify approver for {req_id}: {e}")
+
 
 class SubmitApprovalOnBehalfTool(BaseTool):
     """AI助手代员工提交审批申请 - 自动使用当前登录用户的身份"""
@@ -129,19 +228,54 @@ class SubmitApprovalOnBehalfTool(BaseTool):
         if start_date or end_date:
             full_details += f"\n日期：{start_date} 至 {end_date}"
 
-        # 插入审批记录 - 关键：submitted_by 是员工ID，不是AI的ID
+        # ── 审批链匹配：根据类型和金额决定走自动批准还是多级链路 ──
+        from app.services.approval_chain import approval_chain_service
+
+        chain_result = await approval_chain_service.match_and_bind_chain(
+            org_id=employee_org_id or "",
+            approval_type=approval_type,
+            amount=float(amount) if amount else 0,
+            db=client,
+        )
+
+        auto_approve = chain_result.get("auto_approve", False)
+        chain_id = chain_result.get("chain_id")
+        starting_step = chain_result.get("starting_step", 0)
+        approval_level = chain_result.get("approval_level", "manager")
+        timeout_at = chain_result.get("timeout_at")
+        chain_name = chain_result.get("chain_name", "默认审批链")
+
+        # 插入审批记录 — 携带审批链信息
         try:
             insert_data = {
-                "submitted_by": employee_id,  # 归属于员工
+                "submitted_by": employee_id,
                 "on_behalf_of": employee_id,
                 "submitted_via": "ai_assistant",
                 "type": approval_type,
                 "amount": amount,
                 "description": full_details,
-                "status": "pending",
+                "status": "approved" if auto_approve else "pending",
                 "ai_reason": f"由AI助手豆豆代{actual_employee.get('name', employee_name)}提交",
+                "current_step": starting_step,
+                "approval_level": approval_level,
+                "approval_history": (
+                    [
+                        {
+                            "step": 0,
+                            "decision": "auto_approved",
+                            "approver_id": "system",
+                            "timestamp": datetime.now().isoformat(),
+                            "comment": f"金额 ¥{amount} 在自动审批限额内",
+                        }
+                    ]
+                    if auto_approve
+                    else []
+                ),
             }
-            # 确保 organization_id 存在
+            if chain_id:
+                insert_data["chain_id"] = chain_id
+            if timeout_at:
+                insert_data["timeout_at"] = timeout_at
             if employee_org_id:
                 insert_data["organization_id"] = employee_org_id
             logger.debug(f"[AI审批] 准备插入数据: {insert_data}")
@@ -166,11 +300,56 @@ class SubmitApprovalOnBehalfTool(BaseTool):
                         "employee_name": actual_employee.get("name"),
                         "type": approval_type,
                         "amount": amount,
+                        "chain_name": chain_name,
+                        "auto_approve": auto_approve,
                     },
                 }
             ).execute()
 
-            return f"已成功为您（{employee_name}）提交{approval_type}申请（单号：{req_id[:8]}...）。老板会在审批中心看到这个申请，申请人显示为您的名字。"
+            if auto_approve:
+                # 小额自动批准 — 通知提交人
+                try:
+                    await client.table("notifications").insert(
+                        {
+                            "user_id": employee_id,
+                            "title": "✅ 审批已自动通过",
+                            "content": f"您的{approval_type}申请（¥{amount}）金额较小，已由系统自动批准。",
+                            "type": "success",
+                        }
+                    ).execute()
+                except Exception:
+                    pass
+                return (
+                    f"✅ 已为您（{employee_name}）提交{approval_type}申请（单号：{req_id[:8]}...）。\n"
+                    f"金额 ¥{amount} 在自动审批限额内，系统已自动批准。"
+                )
+            else:
+                # 大额需多级审批 — 通知第一个节点审批人
+                await _notify_next_approver(
+                    client=client,
+                    approval_level=approval_level,
+                    requester_id=employee_id,
+                    requester_name=employee_name,
+                    approval_type=approval_type,
+                    amount=amount,
+                    req_id=req_id,
+                    org_id=employee_org_id,
+                )
+                level_names = {
+                    "manager": "部门经理",
+                    "director": "总监",
+                    "cfo": "财务总监",
+                    "ceo": "总经理/CEO",
+                    "board": "董事会",
+                    "founder": "老板",
+                }
+                level_label = level_names.get(approval_level, approval_level)
+                return (
+                    f"已为您（{employee_name}）提交{approval_type}申请（单号：{req_id[:8]}...）。\n"
+                    f"审批链：{chain_name}\n"
+                    f"当前等待：{level_label} 审批\n"
+                    f"系统已自动通知相关审批人，请耐心等待。"
+                )
 
         return "提交失败，请稍后重试。"
 
@@ -391,7 +570,7 @@ class ApprovalTool(BaseTool):
                 ).execute()
 
                 if new_status == "approved":
-                    # Send final approval notification
+                    # Send final approval notification to submitter
                     await self._send_approval_notification(client, request_data, submitter_name)
                     return (
                         f"已批准审批单 {req_id[:8]}...（{submitter_name} 的 "
@@ -399,9 +578,22 @@ class ApprovalTool(BaseTool):
                         f"\n审批链已全部通过。"
                     )
                 else:
+                    # Still pending — notify the next approver in chain
+                    await _notify_next_approver(
+                        client=client,
+                        approval_level=approval_level,
+                        requester_id=request_data.get("submitted_by", ""),
+                        requester_name=submitter_name,
+                        approval_type=request_data.get("type", ""),
+                        amount=float(request_data.get("amount", 0)),
+                        req_id=req_id,
+                        org_id=request_data.get("organization_id"),
+                    )
+                    level_label = _LEVEL_NAMES.get(approval_level, approval_level)
                     return (
                         f"已批准审批单 {req_id[:8]}... 当前步骤。"
-                        f"\n审批已推进到第 {current_step + 1} 步（{approval_level}），等待下一级审批。"
+                        f"\n审批已推进到第 {current_step + 1} 步（{level_label}），"
+                        f"已通知下一级审批人。"
                     )
 
             except RuntimeError as e:
