@@ -110,26 +110,105 @@ class ETLService:
         """
         return hashlib.sha256(content).hexdigest()
 
-    async def check_duplicate(self, content_hash: str, user_id: str) -> dict | None:
+    async def check_duplicate(
+        self, content_hash: str, user_id: str, *, org_id: str | None = None, filename: str | None = None
+    ) -> dict | None:
         """
-        P1 Fix #20: Check if a document with the same content hash already exists.
+        Multi-level deduplication check:
+        1. Exact content hash match (same user) — original P1 Fix #20
+        2. Exact content hash match (org-wide) — cross-user dedup
+        3. Title similarity match (org-wide) — fuzzy filename dedup
         Returns the existing document record if found, None otherwise.
         """
         if not supabase:
             return None
+
         try:
+            # Level 1: Exact hash match for same user
             res = (
                 await supabase.table("documents")
-                .select("id, name, status, created_at")
+                .select("id, name, status, created_at, owner_id")
                 .eq("content_hash", content_hash)
                 .eq("owner_id", user_id)
                 .limit(1)
                 .execute()
             )
             if res.data and len(res.data) > 0:
-                return res.data[0]
+                return {**res.data[0], "dedup_reason": "exact_hash_same_user"}
+
+            # Level 2: Exact hash match across org
+            if org_id:
+                org_res = (
+                    await supabase.table("documents")
+                    .select("id, name, status, created_at, owner_id")
+                    .eq("content_hash", content_hash)
+                    .eq("organization_id", org_id)
+                    .limit(1)
+                    .execute()
+                )
+                if org_res.data and len(org_res.data) > 0:
+                    return {**org_res.data[0], "dedup_reason": "exact_hash_org"}
+
+            # Level 3: Title similarity match (org-wide)
+            if filename and org_id:
+                similar = await self._check_title_similarity(filename, org_id)
+                if similar:
+                    return similar
+
         except Exception as e:
             logger.debug(f"Dedup check failed (non-fatal): {e}")
+        return None
+
+    async def _check_title_similarity(
+        self, filename: str, org_id: str, threshold: float = 0.85
+    ) -> dict | None:
+        """
+        Check for documents with very similar titles within the same org.
+        Uses SequenceMatcher for fuzzy matching to catch renamed duplicates.
+        """
+        from difflib import SequenceMatcher
+        import re
+
+        # Normalize filename: strip extension and common prefixes/suffixes
+        base_name = filename.rsplit(".", 1)[0] if "." in filename else filename
+        normalized = re.sub(r"[\s_\-()（）\[\]【】]+", "", base_name).lower()
+
+        if len(normalized) < 3:
+            return None
+
+        try:
+            # Fetch recent org documents (limit to avoid full table scan)
+            res = (
+                await supabase.table("documents")
+                .select("id, name, status, created_at, owner_id")
+                .eq("organization_id", org_id)
+                .in_("status", ["ready", "processing", "pending"])
+                .order("created_at", desc=True)
+                .limit(200)
+                .execute()
+            )
+            if not res.data:
+                return None
+
+            for doc in res.data:
+                doc_name = doc.get("name", "")
+                doc_base = doc_name.rsplit(".", 1)[0] if "." in doc_name else doc_name
+                doc_normalized = re.sub(r"[\s_\-()（）\[\]【】]+", "", doc_base).lower()
+
+                if not doc_normalized:
+                    continue
+
+                # Exact normalized match
+                if normalized == doc_normalized:
+                    return {**doc, "dedup_reason": "title_exact"}
+
+                # Fuzzy match via SequenceMatcher
+                ratio = SequenceMatcher(None, normalized, doc_normalized).ratio()
+                if ratio >= threshold:
+                    return {**doc, "dedup_reason": f"title_similar({ratio:.0%})"}
+
+        except Exception as e:
+            logger.debug(f"Title similarity check failed (non-fatal): {e}")
         return None
 
     async def create_initial_record(

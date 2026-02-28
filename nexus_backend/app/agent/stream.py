@@ -222,6 +222,7 @@ async def run_agent_stream(
     streamed_plan_content = False  # Track whether plan tokens were already streamed
     streamed_plan_text = ""  # Track what was streamed during plan phase
 
+    client_disconnected = False
     try:
         # P1 Security: Prefix thread_id with org_id to prevent cross-tenant
         # state leakage via the LangGraph checkpointer.
@@ -296,6 +297,24 @@ async def run_agent_stream(
                             status_text = status_map.get(phase)
                             if status_text:
                                 yield _sse_status(status_text)
+
+    except asyncio.CancelledError:
+        # Client disconnected (e.g. user clicked "Stop generating")
+        client_disconnected = True
+        duration_ms = int((time.time() - start_time) * 1000)
+        logger.info(
+            f"[Stream] Client disconnected after {duration_ms}ms "
+            f"(user={user_id}, session={session_id})"
+        )
+        if tracer:
+            tracer.log_end(total_tokens=0)
+        return
+
+    except GeneratorExit:
+        # Generator closed by framework on client disconnect
+        client_disconnected = True
+        logger.info(f"[Stream] Generator closed (user={user_id})")
+        return
 
     except Exception as e:
         logger.error(f"[Stream] Agent graph execution failed: {e}", exc_info=True)

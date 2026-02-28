@@ -56,6 +56,9 @@ LONG_RUNNING_TOOLS: set[str] = {
     "generate_tender_analysis",
     "generate_contract_summary",
     "batch_analyze_documents",
+    "query_knowledge_base",
+    "strategy_simulation",
+    "get_company_stats",
 }
 
 

@@ -147,11 +147,21 @@ async def upload_documents(
             content = await file.read()
             filename = file.filename
 
-            # P1 Fix #20: Content hash deduplication
+            # P1 Fix #20: Multi-level deduplication (hash + title similarity)
             content_hash = etl_service.compute_content_hash(content)
-            existing_doc = await etl_service.check_duplicate(content_hash, user_id)
+            existing_doc = await etl_service.check_duplicate(
+                content_hash, user_id, org_id=org_id, filename=filename
+            )
 
             if existing_doc:
+                dedup_reason = existing_doc.get("dedup_reason", "exact_hash")
+                reason_text = {
+                    "exact_hash_same_user": "文件内容完全相同",
+                    "exact_hash_org": "组织内已有相同内容的文档",
+                    "title_exact": "同名文档已存在",
+                }.get(dedup_reason, "相似文档已存在")
+                if dedup_reason.startswith("title_similar"):
+                    reason_text = f"与已有文档「{existing_doc.get('name', '未知')}」高度相似"
                 skipped_count += 1
                 results.append(
                     {
@@ -159,7 +169,8 @@ async def upload_documents(
                         "status": "duplicate",
                         "existing_document_id": existing_doc["id"],
                         "existing_document_name": existing_doc.get("name", ""),
-                        "message": f"文件内容与已有文档重复（{existing_doc.get('name', '未知')}），已跳过。",
+                        "dedup_reason": dedup_reason,
+                        "message": f"{reason_text}（{existing_doc.get('name', '未知')}），已跳过。",
                     }
                 )
                 continue
@@ -269,16 +280,20 @@ async def batch_upload_documents(
                 )
                 continue
 
-            # Check for duplicates
+            # Multi-level deduplication
             content_hash = etl_service.compute_content_hash(content)
-            existing_doc = await etl_service.check_duplicate(content_hash, user_id)
+            existing_doc = await etl_service.check_duplicate(
+                content_hash, user_id, org_id=org_id, filename=file.filename
+            )
 
             if existing_doc:
+                dedup_reason = existing_doc.get("dedup_reason", "exact_hash")
                 results.append(
                     {
                         "filename": file.filename,
                         "status": "duplicate",
                         "existing_document_id": existing_doc["id"],
+                        "dedup_reason": dedup_reason,
                         "message": f"文件与已有文档重复：{existing_doc.get('name', '未知')}",
                     }
                 )

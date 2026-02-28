@@ -67,6 +67,8 @@ class CompanyStatsTool(BaseTool):
     parameters = {"type": "object", "properties": {}, "required": []}
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+        import asyncio
+
         client = _get_client(config)
         org_id = config.get("org_id") if config else None
 
@@ -77,9 +79,12 @@ class CompanyStatsTool(BaseTool):
             count_query = count_query.eq("organization_id", org_id)
             dept_query = dept_query.eq("organization_id", org_id)
 
-        count_res = await count_query.execute()
+        # Parallel execution (eliminates serial wait)
+        count_res, dept_res = await asyncio.gather(
+            count_query.execute(),
+            dept_query.execute(),
+        )
         total_users = count_res.count if count_res.count is not None else 0
-        dept_res = await dept_query.execute()
         depts = {}
         for u in dept_res.data:
             d = u.get("department", "未分配") or "未分配"

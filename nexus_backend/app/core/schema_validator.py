@@ -19,7 +19,7 @@ CRITICAL_SCHEMA: dict[str, list[str]] = {
         "chain_id",
     ],
     "llm_model_config": ["tenant_id", "status"],
-    "knowledge_library": ["organization_id"],
+    "knowledge_library": ["tenant_id"],
 }
 
 

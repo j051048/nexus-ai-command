@@ -46,6 +46,7 @@ import {
   Settings,
   Zap,
   AlertTriangle,
+  Square,
 } from 'lucide-react';
 import { AIMessage } from '@/types/nexus';
 import { toast } from 'sonner';
@@ -160,7 +161,7 @@ export function EnhancedAIChatPanel({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
-  const { isTyping: isAiTyping, aiStatus, streamChat, pendingConfirmation, confirmAndResend, dismissConfirmation } = useAIStream({ userId: user.id });
+  const { isTyping: isAiTyping, aiStatus, streamChat, stopStream, pendingConfirmation, confirmAndResend, dismissConfirmation } = useAIStream({ userId: user.id });
 
   // Agent Trace Panel
   const { trace, startTrace, endTrace, addThinkingStep, clearTrace } = useAgentTrace();
@@ -958,7 +959,6 @@ export function EnhancedAIChatPanel({
                         : '输入指令... 按 @ 选择助手'
                     }
                     className="w-full bg-secondary rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
-                    disabled={isAiTyping}
                   />
                   {currentAgent && (
                     <Badge
@@ -1005,23 +1005,31 @@ export function EnhancedAIChatPanel({
                   </Tooltip>
                 </div>
 
+                {isAiTyping ? (
+                  <Button
+                    size="icon"
+                    variant="destructive"
+                    className="h-10 w-10 flex-shrink-0 shadow-lg animate-pulse"
+                    onClick={stopStream}
+                    title="停止生成"
+                  >
+                    <Square className="w-4 h-4" />
+                  </Button>
+                ) : (
                 <Button
                   size="icon"
                   className={cn(
                     'h-10 w-10 flex-shrink-0 transition-all',
-                    input.trim() && !isAiTyping
+                    input.trim()
                       ? 'bg-primary hover:bg-primary/90 shadow-lg'
                       : 'bg-secondary text-muted-foreground'
                   )}
                   onClick={handleSend}
-                  disabled={!input.trim() || isAiTyping}
+                  disabled={!input.trim()}
                 >
-                  {isAiTyping ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <Send className="w-5 h-5" />
-                  )}
+                  <Send className="w-5 h-5" />
                 </Button>
+                )}
               </div>
 
               <p className="text-[10px] text-muted-foreground mt-2 text-center hidden md:block">
@@ -1030,6 +1038,12 @@ export function EnhancedAIChatPanel({
                 <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">@</kbd> 选择助手
                 {' · '}
                 <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">⌘K</kbd> 命令面板
+                {isAiTyping && (
+                  <>
+                    {' · '}
+                    <button className="text-destructive hover:underline" onClick={stopStream}>停止生成</button>
+                  </>
+                )}
               </p>
             </div>
           </div>

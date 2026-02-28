@@ -20,6 +20,9 @@ _DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 RERANK_ENABLED = getattr(settings, "RERANK_ENABLED", True)
 RERANK_TOP_N = getattr(settings, "RERANK_TOP_N", 5)
 
+# Timeout for OpenAI API calls (embedding + rerank)
+_OPENAI_TIMEOUT = float(getattr(settings, "VECTOR_OPENAI_TIMEOUT", 15))
+
 
 def escape_like_pattern(value: str) -> str:
     """P0 Security: Escape special characters in LIKE patterns to prevent SQL injection"""
@@ -97,9 +100,14 @@ class VectorService:
         """
         Use LLM to rerank documents based on relevance to query.
         This is a lightweight cross-encoder alternative using GPT.
+        Skipped when document count is small (<=3) to save latency.
         """
         if not documents or len(documents) <= 1:
             return documents
+
+        # Skip reranking for small result sets — not worth the LLM call latency
+        if len(documents) <= 3:
+            return documents[:top_n]
 
         try:
             doc_texts = []
@@ -211,6 +219,7 @@ class VectorService:
         client = AsyncOpenAI(
             api_key=api_key,
             base_url=base_url.rstrip("/") + ("/v1" if "/v1" not in base_url else ""),
+            timeout=_OPENAI_TIMEOUT,
         )
 
         try:

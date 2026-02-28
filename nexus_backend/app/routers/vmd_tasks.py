@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_list, api_success
@@ -43,6 +43,8 @@ class AuditSubTaskRequest(BaseModel):
 
 
 class UpdateAgentConfigRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     system_prompt: str | None = Field(None, description="系统提示词")
     tool_whitelist: list[str] | None = Field(None, description="工具白名单")
     scene_codes: list[str] | None = Field(None, description="适用场景编码列表")

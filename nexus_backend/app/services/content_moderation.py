@@ -424,7 +424,13 @@ class ContentModerator:
                 temperature=0,
             )
 
-            result = json.loads(response.choices[0].message.content)
+            raw_content = response.choices[0].message.content.strip()
+            # Strip markdown code fences that LLMs sometimes wrap around JSON
+            if "```json" in raw_content:
+                raw_content = raw_content.split("```json")[1].split("```")[0].strip()
+            elif raw_content.startswith("```"):
+                raw_content = raw_content.strip("`").strip()
+            result = json.loads(raw_content)
             is_safe = not result.get("is_injection", False)
 
             # Cache result

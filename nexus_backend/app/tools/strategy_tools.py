@@ -233,86 +233,95 @@ class StrategySimulationTool(BaseTool):
         # 收集企业当前基线数据作为推演基础
         baseline_data = []
 
-        # 财务基线
-        try:
-            metrics_res = (
-                await client.table("sales_metrics")
-                .select("revenue, leads_count, win_rate")
-                .order("date", desc=True)
-                .limit(30)
-                .execute()
-            )
-            if metrics_res.data:
-                recent = metrics_res.data
-                total_revenue = sum(float(m.get("revenue", 0)) for m in recent)
-                avg_leads = sum(int(m.get("leads_count", 0)) for m in recent) / max(len(recent), 1)
-                avg_conv = sum(float(m.get("win_rate", 0)) for m in recent) / max(len(recent), 1)
-                baseline_data.append(
-                    f"近期营收合计: ¥{total_revenue:,.0f}, " f"日均线索: {avg_leads:.1f}, 平均转化率: {avg_conv:.1%}"
+        # 并行执行所有基线数据查询（消除串行等待）
+        import asyncio
+
+        async def _fetch_metrics():
+            try:
+                res = (
+                    await client.table("sales_metrics")
+                    .select("revenue, leads_count, win_rate")
+                    .order("date", desc=True)
+                    .limit(30)
+                    .execute()
                 )
-        except Exception:
-            pass
+                if res.data:
+                    recent = res.data
+                    total_revenue = sum(float(m.get("revenue", 0)) for m in recent)
+                    avg_leads = sum(int(m.get("leads_count", 0)) for m in recent) / max(len(recent), 1)
+                    avg_conv = sum(float(m.get("win_rate", 0)) for m in recent) / max(len(recent), 1)
+                    return (
+                        f"近期营收合计: ¥{total_revenue:,.0f}, "
+                        f"日均线索: {avg_leads:.1f}, 平均转化率: {avg_conv:.1%}"
+                    )
+            except Exception:
+                pass
+            return None
 
-        # HR 基线
-        try:
-            users_res = await client.table("users").select("id, role", count="exact").execute()
-            headcount = users_res.count or 0
-            roles = {}
-            for u in users_res.data or []:
-                r = u.get("role", "employee")
-                roles[r] = roles.get(r, 0) + 1
-            baseline_data.append(f"团队规模: {headcount}人, 结构: {roles}")
-        except Exception:
-            pass
+        async def _fetch_headcount():
+            try:
+                res = await client.table("users").select("id, role", count="exact").execute()
+                headcount = res.count or 0
+                roles = {}
+                for u in res.data or []:
+                    r = u.get("role", "employee")
+                    roles[r] = roles.get(r, 0) + 1
+                return f"团队规模: {headcount}人, 结构: {roles}"
+            except Exception:
+                return None
 
-        # 薪资基线
-        try:
-            salary_res = (
-                await client.table("hr_salary_records")
-                .select("base_salary, gross_salary")
-                .order("created_at", desc=True)
-                .limit(50)
-                .execute()
-            )
-            if salary_res.data:
-                avg_salary = sum(float(s.get("gross_salary", 0)) for s in salary_res.data) / max(
-                    len(salary_res.data), 1
+        async def _fetch_salary():
+            try:
+                res = (
+                    await client.table("hr_salary_records")
+                    .select("base_salary, gross_salary")
+                    .order("created_at", desc=True)
+                    .limit(50)
+                    .execute()
                 )
-                baseline_data.append(f"人均月薪: ¥{avg_salary:,.0f}")
-        except Exception:
-            pass
+                if res.data:
+                    avg_salary = sum(float(s.get("gross_salary", 0)) for s in res.data) / max(len(res.data), 1)
+                    return f"人均月薪: ¥{avg_salary:,.0f}"
+            except Exception:
+                return None
 
-        # 合同基线
-        try:
-            contracts_res = await client.table("contracts").select("amount, status").execute()
-            if contracts_res.data:
-                active_contracts = [c for c in contracts_res.data if c.get("status") == "active"]
-                total_contract = sum(float(c.get("amount", 0)) for c in active_contracts)
-                baseline_data.append(f"活跃合同: {len(active_contracts)}份, 合同总额: ¥{total_contract:,.0f}")
-        except Exception:
-            pass
+        async def _fetch_contracts():
+            try:
+                res = await client.table("contracts").select("amount, status").limit(200).execute()
+                if res.data:
+                    active = [c for c in res.data if c.get("status") == "active"]
+                    total = sum(float(c.get("amount", 0)) for c in active)
+                    return f"活跃合同: {len(active)}份, 合同总额: ¥{total:,.0f}"
+            except Exception:
+                return None
 
-        # 商机漏斗基线
-        try:
-            leads_res = await client.table("sales_leads").select("status, estimated_value").execute()
-            if leads_res.data:
-                pipeline = {}
-                for lead in leads_res.data:
-                    s = lead.get("status", "unknown")
-                    pipeline[s] = pipeline.get(s, 0) + float(lead.get("estimated_value", 0))
-                baseline_data.append(f"销售漏斗: {pipeline}")
-        except Exception:
-            pass
+        async def _fetch_leads():
+            try:
+                res = await client.table("sales_leads").select("status, estimated_value").limit(500).execute()
+                if res.data:
+                    pipeline = {}
+                    for lead in res.data:
+                        s = lead.get("status", "unknown")
+                        pipeline[s] = pipeline.get(s, 0) + float(lead.get("estimated_value", 0))
+                    return f"销售漏斗: {pipeline}"
+            except Exception:
+                return None
 
-        # 预算基线
-        try:
-            budget_res = await client.table("finance_budgets").select("name, total_amount, used_amount").execute()
-            if budget_res.data:
-                total_budget = sum(float(b.get("total_amount", 0)) for b in budget_res.data)
-                total_used = sum(float(b.get("used_amount", 0)) for b in budget_res.data)
-                baseline_data.append(f"预算总额: ¥{total_budget:,.0f}, 已用: ¥{total_used:,.0f}")
-        except Exception:
-            pass
+        async def _fetch_budget():
+            try:
+                res = await client.table("finance_budgets").select("name, total_amount, used_amount").limit(100).execute()
+                if res.data:
+                    total_budget = sum(float(b.get("total_amount", 0)) for b in res.data)
+                    total_used = sum(float(b.get("used_amount", 0)) for b in res.data)
+                    return f"预算总额: ¥{total_budget:,.0f}, 已用: ¥{total_used:,.0f}"
+            except Exception:
+                return None
+
+        results = await asyncio.gather(
+            _fetch_metrics(), _fetch_headcount(), _fetch_salary(),
+            _fetch_contracts(), _fetch_leads(), _fetch_budget(),
+        )
+        baseline_data = [r for r in results if r]
 
         focus_names = {
             "finance": "财务",
