@@ -169,7 +169,7 @@ async def process_approval_through_chain(
 async def get_organization_members(req: Request, user_id: str = Depends(get_current_user_id)):
     """
     Get all members in the user's organization for the org chart management page.
-    Returns: id, full_name, department, role, manager_id, avatar_url
+    Returns: id, name, department, role, manager_id, avatar_url
     """
     client = req.state.db
 
@@ -182,8 +182,8 @@ async def get_organization_members(req: Request, user_id: str = Depends(get_curr
 
     # Fetch all members in the organization
     members_res = await client.table("users").select(
-        "id, full_name, name, department, role, manager_id, avatar_url"
-    ).eq("organization_id", org_id).order("full_name").execute()
+        "id, name, department, role, manager_id, avatar_url"
+    ).eq("organization_id", org_id).order("name").execute()
 
     members = []
     all_members = members_res.data or []
@@ -191,12 +191,12 @@ async def get_organization_members(req: Request, user_id: str = Depends(get_curr
     # Build a name lookup for manager display
     name_map = {}
     for m in all_members:
-        name_map[m["id"]] = m.get("full_name") or m.get("name") or "未知"
+        name_map[m["id"]] = m.get("name") or "未知"
 
     for m in all_members:
         members.append({
             "id": m["id"],
-            "full_name": m.get("full_name") or m.get("name") or "未知",
+            "full_name": m.get("name") or "未知",
             "department": m.get("department") or "",
             "role": m.get("role") or "employee",
             "manager_id": m.get("manager_id"),
