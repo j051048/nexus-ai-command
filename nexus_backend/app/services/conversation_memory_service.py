@@ -122,9 +122,20 @@ class ConversationMemoryService:
 
         if existing and existing.data:
             # Update existing memory
-            result = (
-                await client.table("conversation_memories").update(update_data).eq("id", existing.data["id"]).execute()
-            )
+            try:
+                result = (
+                    await client.table("conversation_memories").update(update_data).eq("id", existing.data["id"]).execute()
+                )
+            except Exception as update_err:
+                err_str = str(update_err)
+                if embedding and ("embedding" in err_str or "PGRST204" in err_str):
+                    logger.warning("embedding column not found in schema cache, updating without embedding")
+                    update_data.pop("embedding", None)
+                    result = (
+                        await client.table("conversation_memories").update(update_data).eq("id", existing.data["id"]).execute()
+                    )
+                else:
+                    raise
         else:
             # Insert new memory
             insert_data = {
@@ -142,7 +153,17 @@ class ConversationMemoryService:
             }
             if embedding:
                 insert_data["embedding"] = embedding
-            result = await client.table("conversation_memories").insert(insert_data).execute()
+            try:
+                result = await client.table("conversation_memories").insert(insert_data).execute()
+            except Exception as insert_err:
+                # Fallback: if embedding column doesn't exist (PGRST204), retry without it
+                err_str = str(insert_err)
+                if embedding and ("embedding" in err_str or "PGRST204" in err_str):
+                    logger.warning("embedding column not found in schema cache, saving without embedding")
+                    insert_data.pop("embedding", None)
+                    result = await client.table("conversation_memories").insert(insert_data).execute()
+                else:
+                    raise
 
         if not result.data:
             raise RuntimeError("保存记忆失败")

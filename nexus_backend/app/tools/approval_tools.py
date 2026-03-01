@@ -7,6 +7,7 @@ P0 Enhancement: Uses advance_step for chain-based approvals.
 
 import contextlib
 import logging
+import uuid
 from datetime import datetime
 from typing import Any
 
@@ -405,7 +406,7 @@ class GetEmployeeApprovalHistoryTool(BaseTool):
     parameters = {
         "type": "object",
         "properties": {
-            "employee_id": {"type": "string", "description": "员工ID"},
+            "employee_id": {"type": "string", "description": "员工ID（UUID格式），可通过 get_employee_info 工具查询获取"},
             "limit": {"type": "integer", "description": "返回记录数量，默认5条"},
         },
         "required": ["employee_id"],
@@ -414,6 +415,15 @@ class GetEmployeeApprovalHistoryTool(BaseTool):
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         employee_id = args.get("employee_id")
         limit = args.get("limit", 5)
+
+        # Validate UUID format
+        try:
+            uuid.UUID(employee_id)
+        except (ValueError, AttributeError):
+            return (
+                f"employee_id '{employee_id}' 不是有效的UUID格式。"
+                "请先使用 get_employee_info 工具通过姓名查询员工ID，再调用此工具。"
+            )
 
         client = _get_client(config)
         result = (

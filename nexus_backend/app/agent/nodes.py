@@ -241,12 +241,12 @@ def _format_validation_error(tool_name: str, error: Exception, schema: dict | No
     return f"参数校验失败 [{tool_name}]: {error}"
 
 
-def _try_extract_tool_name(concatenated_name: str) -> str | None:
+def _try_extract_tool_names(concatenated_name: str) -> list[str]:
     """
-    Gemini concatenation bug workaround: Try to extract the first valid tool name
+    Gemini concatenation bug workaround: Extract ALL valid tool names
     from a concatenated string like 'get_daily_briefingget_pending_approvals'.
 
-    Returns the matched tool name, or None if no match found.
+    Returns a list of matched tool names (may be empty).
     """
     all_schemas = get_all_tools_schema()
     # Sort by length descending to match longest tool name first
@@ -256,11 +256,20 @@ def _try_extract_tool_name(concatenated_name: str) -> str | None:
         reverse=True,
     )
 
-    for name in known_names:
-        # Tool name must be a proper prefix (not the full string, since that would mean get_tool succeeded)
-        if concatenated_name.startswith(name) and len(concatenated_name) > len(name):
-            return name
-    return None
+    found: list[str] = []
+    remaining = concatenated_name
+    while remaining:
+        matched = False
+        for name in known_names:
+            if remaining.startswith(name):
+                found.append(name)
+                remaining = remaining[len(name):]
+                matched = True
+                break
+        if not matched:
+            break  # Unrecognizable remainder, stop parsing
+
+    return found if len(found) > 1 else []  # Only useful when multiple names found
 
 
 async def _execute_single_tool(
@@ -283,14 +292,14 @@ async def _execute_single_tool(
         # Gemini concatenation bug workaround: when the model concatenates multiple
         # tool names into one (e.g. "get_daily_briefingget_pending_approvals"),
         # try to extract the first valid tool name from the concatenated string.
-        matched_name = _try_extract_tool_name(record.tool_name)
-        if matched_name:
+        extracted_names = _try_extract_tool_names(record.tool_name)
+        if extracted_names:
             logger.warning(
                 f"[Execute] Tool name '{record.tool_name}' appears concatenated, "
-                f"using extracted name '{matched_name}'"
+                f"extracted {len(extracted_names)} tools: {extracted_names}"
             )
-            record.tool_name = matched_name
-            tool = get_tool(matched_name)
+            record.tool_name = extracted_names[0]
+            tool = get_tool(extracted_names[0])
 
     if not tool:
         record.status = "error"
@@ -570,11 +579,33 @@ async def plan_node(state: AgentState, config: dict | None = None) -> dict:
     pending_tools: list[ToolCallRecord] = []
     if tool_calls_raw:
         for tc in tool_calls_raw:
+            tc_name = tc.get("name", "unknown")
+            tc_args = tc.get("args", {})
+            tc_id = tc.get("id", "")
+
+            # Gemini concatenation bug: split concatenated tool names into separate records
+            if not get_tool(tc_name):
+                extracted = _try_extract_tool_names(tc_name)
+                if extracted:
+                    logger.warning(
+                        f"[PlanNode] Splitting concatenated tool name '{tc_name}' "
+                        f"into {len(extracted)} tools: {extracted}"
+                    )
+                    for i, ename in enumerate(extracted):
+                        pending_tools.append(
+                            ToolCallRecord(
+                                tool_name=ename,
+                                tool_args=tc_args if i == 0 else {},
+                                tool_call_id=f"{tc_id}_split{i}" if tc_id else "",
+                            )
+                        )
+                    continue
+
             pending_tools.append(
                 ToolCallRecord(
-                    tool_name=tc.get("name", "unknown"),
-                    tool_args=tc.get("args", {}),
-                    tool_call_id=tc.get("id", ""),
+                    tool_name=tc_name,
+                    tool_args=tc_args,
+                    tool_call_id=tc_id,
                 )
             )
 
