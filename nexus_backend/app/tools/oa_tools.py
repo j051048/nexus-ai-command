@@ -492,6 +492,13 @@ class TaskAssignmentTool(BaseTool):
 
         assignee = assignee_res.data[0]
 
+        # 获取当前用户信息（含 org_id）
+        creator_res = (
+            await client.table("users").select("name, organization_id").eq("id", user_id).maybe_single().execute()
+        )
+        creator_name = creator_res.data.get("name", "某人") if creator_res.data else "某人"
+        org_id = creator_res.data.get("organization_id") if creator_res.data else None
+
         # 查找项目
         project_id = None
         if project_name:
@@ -513,24 +520,26 @@ class TaskAssignmentTool(BaseTool):
             "due_date": due_date,
             "priority": priority,
             "project_id": project_id,
-            "status": "todo",
+            "status": "pending",
             "ai_created": True,
         }
+        if org_id:
+            task_data["organization_id"] = org_id
 
         await client.table("oa_tasks").insert(task_data).execute()
 
-        # 通知负责人
-        creator_res = await client.table("users").select("name").eq("id", user_id).maybe_single().execute()
-        creator_name = creator_res.data.get("name", "某人") if creator_res.data else "某人"
+        # 通知负责人（带 action_url 支持点击跳转）
+        notification_data = {
+            "user_id": assignee["id"],
+            "title": "📌 新任务分配",
+            "content": f"{creator_name} 给您分配了任务: {title}\n截止日期: {due_date}",
+            "type": "info",
+            "action_url": "/oa?tab=task",
+        }
+        if org_id:
+            notification_data["organization_id"] = org_id
 
-        await client.table("notifications").insert(
-            {
-                "user_id": assignee["id"],
-                "title": "📌 新任务分配",
-                "content": f"{creator_name} 给您分配了任务: {title}\n截止日期: {due_date}",
-                "type": "info",
-            }
-        ).execute()
+        await client.table("notifications").insert(notification_data).execute()
 
         priority_icons = {"low": "🟢", "medium": "🟡", "high": "🟠", "urgent": "🔴"}
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,8 @@ import {
   CalendarOff,
   ClipboardList,
   FileText,
+  Send,
+  User,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -74,13 +77,26 @@ interface OATask {
   status: string;
   priority: string;
   assignee_id: string | null;
+  created_by: string | null;
   due_date: string | null;
+  completion_notes: string | null;
+  completed_at: string | null;
   created_at: string;
+  // joined fields
+  creator_name?: string;
+}
+
+interface OrgMember {
+  id: string;
+  name: string;
+  role: string;
 }
 
 export function OACenter() {
   const { user, profile } = useAuth();
-  const [activeTab, setActiveTab] = useState('leave');
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'leave';
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   // --- Leave tab ---
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
@@ -223,12 +239,22 @@ export function OACenter() {
     due_date: '',
   });
 
+  // --- Task completion dialog ---
+  const [completionDialogOpen, setCompletionDialogOpen] = useState(false);
+  const [completionTaskId, setCompletionTaskId] = useState<string | null>(null);
+  const [completionSubmitting, setCompletionSubmitting] = useState(false);
+  const [completionForm, setCompletionForm] = useState({
+    notes: '',
+    cc_user_id: '',
+  });
+  const [orgMembers, setOrgMembers] = useState<OrgMember[]>([]);
+
   const fetchTasks = useCallback(async () => {
     try {
       if (!profile?.organization_id) return;
       let query = supabase
         .from('oa_tasks')
-        .select('*')
+        .select('*, creator:created_by(name)')
         .eq('organization_id', profile.organization_id)
         .order('created_at', { ascending: false });
 
@@ -239,7 +265,12 @@ export function OACenter() {
 
       const { data, error } = await query;
       if (error) throw error;
-      setTasks((data as OATask[]) || []);
+      // Flatten joined creator name
+      const mapped = (data || []).map((t: Record<string, unknown>) => ({
+        ...t,
+        creator_name: (t.creator as { name?: string } | null)?.name || undefined,
+      }));
+      setTasks(mapped as OATask[]);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       toast.error('加载任务列表失败');
@@ -247,6 +278,21 @@ export function OACenter() {
       setTaskLoading(false);
     }
   }, [profile?.organization_id, user?.id]);
+
+  const fetchOrgMembers = useCallback(async () => {
+    try {
+      if (!profile?.organization_id) return;
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name, role')
+        .eq('organization_id', profile.organization_id)
+        .order('name');
+      if (error) throw error;
+      setOrgMembers((data as OrgMember[]) || []);
+    } catch {
+      // non-critical
+    }
+  }, [profile?.organization_id]);
 
   const handleSubmitTask = async () => {
     if (!taskForm.title.trim()) {
@@ -281,7 +327,8 @@ export function OACenter() {
     fetchLeaves();
     fetchMeetings();
     fetchTasks();
-  }, [fetchLeaves, fetchMeetings, fetchTasks]);
+    fetchOrgMembers();
+  }, [fetchLeaves, fetchMeetings, fetchTasks, fetchOrgMembers]);
 
   const handleCancelLeave = async (leaveId: string) => {
     if (!window.confirm('确认要撤回这条请假申请吗？')) return;
@@ -322,6 +369,13 @@ export function OACenter() {
   };
 
   const handleChangeTaskStatus = async (taskId: string, newStatus: string) => {
+    // Intercept "completed" to show completion dialog
+    if (newStatus === 'completed') {
+      setCompletionTaskId(taskId);
+      setCompletionForm({ notes: '', cc_user_id: '' });
+      setCompletionDialogOpen(true);
+      return;
+    }
     try {
       const { error } = await supabase
         .from('oa_tasks')
@@ -333,6 +387,68 @@ export function OACenter() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       toast.error(error?.message || '更新失败');
+    }
+  };
+
+  const handleCompleteTask = async () => {
+    if (!completionTaskId) return;
+    if (!completionForm.notes.trim()) {
+      toast.error('请填写完成说明');
+      return;
+    }
+    setCompletionSubmitting(true);
+    try {
+      // Update task status + completion notes
+      const { error: updateError } = await supabase
+        .from('oa_tasks')
+        .update({
+          status: 'completed',
+          completion_notes: completionForm.notes,
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', completionTaskId);
+      if (updateError) throw updateError;
+
+      // Get task details for notification
+      const task = tasks.find((t) => t.id === completionTaskId);
+      const myName = profile?.name || '某同事';
+
+      // Send notification to CC'd user (if selected)
+      if (completionForm.cc_user_id) {
+        await supabase.from('notifications').insert({
+          user_id: completionForm.cc_user_id,
+          title: '任务完成通知',
+          content: `${myName} 已完成任务「${task?.title || ''}」\n完成说明: ${completionForm.notes}`,
+          type: 'info',
+          action_url: '/oa?tab=task',
+          organization_id: profile?.organization_id,
+        });
+      }
+
+      // Also notify the task creator (if different from current user and CC'd user)
+      if (
+        task?.created_by &&
+        task.created_by !== user?.id &&
+        task.created_by !== completionForm.cc_user_id
+      ) {
+        await supabase.from('notifications').insert({
+          user_id: task.created_by,
+          title: '任务完成通知',
+          content: `${myName} 已完成您分配的任务「${task.title}」\n完成说明: ${completionForm.notes}`,
+          type: 'success',
+          action_url: '/oa?tab=task',
+          organization_id: profile?.organization_id,
+        });
+      }
+
+      toast.success('任务已标记为完成');
+      setCompletionDialogOpen(false);
+      fetchTasks();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (error: any) {
+      toast.error(error?.message || '操作失败');
+    } finally {
+      setCompletionSubmitting(false);
     }
   };
 
@@ -661,28 +777,45 @@ export function OACenter() {
                               {task.description}
                             </p>
                           )}
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {task.due_date
-                              ? `截止: ${new Date(task.due_date).toLocaleDateString()}`
-                              : '无截止日期'}
-                          </p>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                            {task.creator_name && (
+                              <span className="flex items-center gap-1">
+                                <User className="w-3 h-3" />
+                                {task.creator_name} 分配
+                              </span>
+                            )}
+                            <span>
+                              {task.due_date
+                                ? `截止: ${new Date(task.due_date).toLocaleDateString()}`
+                                : '无截止日期'}
+                            </span>
+                          </div>
+                          {task.status === 'completed' && task.completion_notes && (
+                            <p className="text-xs text-green-600 mt-1 truncate max-w-md">
+                              完成说明: {task.completion_notes}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {getPriorityBadge(task.priority)}
-                        <Select
-                          value={task.status}
-                          onValueChange={(v) => handleChangeTaskStatus(task.id, v)}
-                        >
-                          <SelectTrigger className="w-[100px] h-7 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">待办</SelectItem>
-                            <SelectItem value="in_progress">进行中</SelectItem>
-                            <SelectItem value="completed">已完成</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        {task.status === 'completed' ? (
+                          getStatusBadge('completed')
+                        ) : (
+                          <Select
+                            value={task.status}
+                            onValueChange={(v) => handleChangeTaskStatus(task.id, v)}
+                          >
+                            <SelectTrigger className="w-[100px] h-7 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pending">待办</SelectItem>
+                              <SelectItem value="in_progress">进行中</SelectItem>
+                              <SelectItem value="completed">已完成</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -894,6 +1027,77 @@ export function OACenter() {
             <Button onClick={handleSubmitTask} disabled={taskSubmitting}>
               {taskSubmitting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
               创建任务
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 任务完成 Dialog */}
+      <Dialog open={completionDialogOpen} onOpenChange={setCompletionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-green-500" />
+              完成任务
+            </DialogTitle>
+            <DialogDescription>
+              请填写完成说明，并可选择抄送通知相关人员
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>完成说明 <span className="text-red-500">*</span></Label>
+              <Textarea
+                placeholder="请描述任务完成情况、成果或备注..."
+                value={completionForm.notes}
+                onChange={(e) =>
+                  setCompletionForm({ ...completionForm, notes: e.target.value })
+                }
+                rows={4}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1">
+                <Send className="w-3.5 h-3.5" />
+                抄送通知（可选）
+              </Label>
+              <Select
+                value={completionForm.cc_user_id}
+                onValueChange={(v) =>
+                  setCompletionForm({ ...completionForm, cc_user_id: v === '_none' ? '' : v })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="选择抄送人员" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">不抄送</SelectItem>
+                  {orgMembers
+                    .filter((m) => m.id !== user?.id)
+                    .map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.name} ({m.role === 'boss' ? '老板' : m.role === 'admin' ? '管理员' : m.role === 'manager' ? '经理' : '员工'})
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                任务分配人会自动收到完成通知
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCompletionDialogOpen(false)}>
+              取消
+            </Button>
+            <Button
+              onClick={handleCompleteTask}
+              disabled={completionSubmitting}
+              className="gap-2"
+            >
+              {completionSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              <CheckCircle2 className="w-4 h-4" />
+              确认完成
             </Button>
           </DialogFooter>
         </DialogContent>

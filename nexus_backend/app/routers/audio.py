@@ -87,8 +87,8 @@ async def transcribe_audio(
     user_id: str = Depends(get_current_user_id),
 ):
     """语音转文字端点。接受音频文件，返回转写文本。"""
-    # 1. Validate audio type
-    content_type = (file.content_type or "").lower()
+    # 1. Validate audio type (strip codec params like ";codecs=opus")
+    content_type = (file.content_type or "").lower().split(";")[0].strip()
     if content_type not in ALLOWED_AUDIO_TYPES:
         raise api_error(
             ErrorCode.VALIDATION_INVALID_FORMAT,

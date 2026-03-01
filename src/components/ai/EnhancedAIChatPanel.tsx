@@ -165,7 +165,6 @@ export function EnhancedAIChatPanel({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const autoSendRef = useRef(false);
@@ -227,20 +226,18 @@ export function EnhancedAIChatPanel({
     }
   }, [isExpanded]);
 
-  // Cleanup speech recognition on unmount or panel collapse
+  // Cleanup media recorder on unmount or panel collapse
   useEffect(() => {
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.abort();
-        recognitionRef.current = null;
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
       }
     };
   }, []);
 
   useEffect(() => {
-    if (!isExpanded && recognitionRef.current) {
-      recognitionRef.current.abort();
-      recognitionRef.current = null;
+    if (!isExpanded && mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
       setIsRecording(false);
     }
   }, [isExpanded]);
@@ -425,97 +422,7 @@ export function EnhancedAIChatPanel({
     setShowQuickReplies(false);
   };
 
-  const toggleRecording = useCallback(() => {
-    // If already recording, stop
-    if (isRecording && recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsRecording(false);
-      return;
-    }
-
-    // Check browser support
-    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognitionAPI) {
-      toast.warning('您的浏览器不支持语音输入，请使用 Chrome 浏览器');
-      return;
-    }
-
-    // Create and configure recognition instance
-    const recognition = new SpeechRecognitionAPI();
-    recognition.lang = 'zh-CN';
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = () => {
-      setIsRecording(true);
-      toast.info('正在聆听，请说话...');
-    };
-
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
-      let finalTranscript = '';
-      let interimTranscript = '';
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscript += transcript;
-        } else {
-          interimTranscript += transcript;
-        }
-      }
-
-      // Append final transcript to input, or show interim results
-      if (finalTranscript) {
-        setInput((prev) => prev + finalTranscript);
-      } else if (interimTranscript) {
-        // For interim results, we show them as a preview
-        // We store the base input before speech started and append interim
-        setInput((prev) => {
-          // Remove any previous interim content by finding the base
-          const base = prev.replace(/\u200B.*$/, '');
-          return base + interimTranscript;
-        });
-      }
-    };
-
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-      setIsRecording(false);
-      recognitionRef.current = null;
-
-      switch (event.error) {
-        case 'no-speech':
-          toast.info('未检测到语音，请重试');
-          break;
-        case 'audio-capture':
-          toast.error('无法访问麦克风，请检查权限设置');
-          break;
-        case 'not-allowed':
-          toast.error('麦克风权限被拒绝，请在浏览器设置中允许访问');
-          break;
-        case 'network':
-          toast.error('网络错误，语音识别需要网络连接');
-          break;
-        default:
-          toast.error(`语音识别错误: ${event.error}`);
-      }
-    };
-
-    recognition.onend = () => {
-      setIsRecording(false);
-      recognitionRef.current = null;
-    };
-
-    recognitionRef.current = recognition;
-
-    try {
-      recognition.start();
-    } catch (err) {
-      toast.error('启动语音识别失败，请重试');
-      setIsRecording(false);
-      recognitionRef.current = null;
-    }
-  }, [isRecording]);
+  // --- Voice recording (MediaRecorder + STT API) ---
 
   // ========== Tap-toggle voice recording ==========
 
