@@ -7,6 +7,8 @@ detects this tool call and emits an SSE event that triggers a UI prompt.
 The user's answer is sent back as a new message in the next request.
 """
 
+from typing import Any
+
 from app.tools.base_tool import BaseTool
 
 
@@ -44,6 +46,6 @@ class AskUserTool(BaseTool):
     }
     requires_confirmation = False  # This is a UI interaction, not a sensitive action
 
-    async def execute(self, **kwargs) -> str:
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         """This tool should never actually execute — it's intercepted by execute_node."""
         return "[ask_user] 此工具被拦截用于前端交互，不应直接执行。"

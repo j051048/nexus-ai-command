@@ -24,6 +24,7 @@ from langchain_core.messages import (
     SystemMessage,
     ToolMessage,
 )
+from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
@@ -425,7 +426,7 @@ async def _execute_single_tool(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-async def plan_node(state: AgentState, config: dict | None = None) -> dict:
+async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> dict:
     """
     Call the LLM with the current messages + tool schemas.
     """
@@ -671,7 +672,7 @@ async def plan_node(state: AgentState, config: dict | None = None) -> dict:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-async def execute_node(state: AgentState, config: dict | None = None) -> dict:
+async def execute_node(state: AgentState, config: RunnableConfig | None = None) -> dict:
     """
     Execute all pending tool calls in parallel.
     """
