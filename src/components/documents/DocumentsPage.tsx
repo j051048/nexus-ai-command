@@ -25,6 +25,7 @@ const DOC_TYPE_OPTIONS = [
     { value: 'product',  label: '产品资料' },
     { value: 'proposal', label: '方案文档' },
     { value: 'invoice',  label: '发票' },
+    { value: 'legal',    label: '法律法规' },
     { value: 'other',    label: '其他' },
 ] as const;
 
