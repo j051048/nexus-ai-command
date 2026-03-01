@@ -90,9 +90,26 @@ async def patched_app():
 
 @pytest_asyncio.fixture(autouse=True)
 async def _reset_rate_limiter():
-    from app.core.rate_limiter import rate_limiter
+    from app.core.rate_limiter import (
+        RateLimitMiddleware,
+        _endpoint_limiters,
+        _per_ip_limiter,
+        _per_user_limiter,
+        rate_limiter,
+    )
+
+    # Clear legacy token-bucket limiter
     rate_limiter.tokens.clear()
     rate_limiter.last_update.clear()
+    # Clear sliding-window limiters (#37)
+    _per_ip_limiter._memory_store.clear()
+    _per_user_limiter._memory_store.clear()
+    for limiter in _endpoint_limiters.values():
+        limiter._memory_store.clear()
+    # Clear class-level tiered category limiters (Phase 3)
+    for cat_limiter in RateLimitMiddleware._category_limiters.values():
+        cat_limiter.tokens.clear()
+        cat_limiter.last_update.clear()
     yield
 
 
@@ -203,7 +220,6 @@ class TestChatEndpointE2E:
             patch("app.routers.chat.check_user_input", return_value=(True, None)),
             patch("app.routers.chat.validate_request_tokens", return_value=(True, 100, None)),
             patch.dict("os.environ", {"OPENAI_API_KEY": ""}, clear=False),
-            patch("app.core.rate_limiter.RateLimitMiddleware.dispatch", side_effect=lambda req, call_next: call_next(req)),
         ):
             resp = await authed_client.post(
                 "/api/chat",
