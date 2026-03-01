@@ -135,7 +135,7 @@ class InAppNotificationAdapter(BaseNotificationAdapter):
                 "title": notification.title,
                 "content": notification.content,
                 "type": notification_type,
-                "metadata": notification.metadata,
+                "data": notification.metadata,
             }
 
             # 插入数据库

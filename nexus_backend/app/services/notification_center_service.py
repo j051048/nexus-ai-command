@@ -58,7 +58,7 @@ class NotificationCenterService:
         data = {
             "user_id": user_id,
             "title": title,
-            "body": body or "",
+            "content": body or "",
             "type": type,
             "action_url": action_url,
             "is_read": False,
@@ -277,7 +277,7 @@ class NotificationCenterService:
             row: dict[str, Any] = {
                 "user_id": uid,
                 "title": title,
-                "body": body or "",
+                "content": body or "",
                 "type": type if type in VALID_NOTIFICATION_TYPES else "info",
                 "action_url": action_url,
                 "is_read": False,

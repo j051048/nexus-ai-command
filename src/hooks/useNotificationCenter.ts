@@ -8,7 +8,7 @@ export interface NotificationItem {
   user_id: string;
   organization_id?: string;
   title: string;
-  body?: string;
+  content?: string;
   type: 'info' | 'success' | 'warning' | 'error' | 'approval' | 'system';
   action_url?: string;
   is_read: boolean;

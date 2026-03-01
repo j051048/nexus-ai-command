@@ -274,9 +274,9 @@ function NotificationCenter() {
                             <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
                           )}
                         </div>
-                        {notification.body && (
+                        {notification.content && (
                           <p className="text-xs text-muted-foreground line-clamp-2">
-                            {notification.body}
+                            {notification.content}
                           </p>
                         )}
                         <div className="flex items-center gap-2 mt-1">
