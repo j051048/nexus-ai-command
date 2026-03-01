@@ -171,10 +171,7 @@ class SlidingWindowRateLimiter:
 
         # 内存清理：防止过多 key 导致内存泄漏
         if len(self._memory_store) > 50000:
-            stale_keys = [
-                k for k, v in self._memory_store.items()
-                if not v or v[-1] < window_start
-            ]
+            stale_keys = [k for k, v in self._memory_store.items() if not v or v[-1] < window_start]
             for k in stale_keys:
                 del self._memory_store[k]
 
@@ -327,12 +324,8 @@ class RateLimiter:
 rate_limiter = RateLimiter(rate=settings.RATE_LIMIT_PER_MINUTE, burst=settings.RATE_LIMIT_BURST)
 
 # #37: 各维度的滑动窗口限速器
-_per_user_limiter = SlidingWindowRateLimiter(
-    rate=RATE_LIMIT_PER_USER, window_seconds=60, prefix="rl:user"
-)
-_per_ip_limiter = SlidingWindowRateLimiter(
-    rate=RATE_LIMIT_PER_IP, window_seconds=60, prefix="rl:ip"
-)
+_per_user_limiter = SlidingWindowRateLimiter(rate=RATE_LIMIT_PER_USER, window_seconds=60, prefix="rl:user")
+_per_ip_limiter = SlidingWindowRateLimiter(rate=RATE_LIMIT_PER_IP, window_seconds=60, prefix="rl:ip")
 _endpoint_limiters: dict[str, SlidingWindowRateLimiter] = {}
 
 

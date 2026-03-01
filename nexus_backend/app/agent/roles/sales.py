@@ -8,15 +8,15 @@ SCENE_CODES = ["sales_enablement", "battlecard", "pricing_strategy", "competitor
 # ── P2: AI Position (OpenFang "Hands" inspired) ──
 GOAL = "确保所有商机在72小时内被跟进，提升赢单率到行业前30%"
 KPI_METRICS = [
-    "followup_within_72h_rate",   # 72小时跟进率
-    "win_rate",                   # 赢单率
-    "avg_deal_cycle_days",        # 平均成交周期
-    "pipeline_velocity",          # 管道流速
-    "battlecard_usage_rate",      # Battlecard使用率
+    "followup_within_72h_rate",  # 72小时跟进率
+    "win_rate",  # 赢单率
+    "avg_deal_cycle_days",  # 平均成交周期
+    "pipeline_velocity",  # 管道流速
+    "battlecard_usage_rate",  # Battlecard使用率
 ]
 SENSORS = [
-    "sensor_followup_timeout",    # 跟进超时预警
-    "sensor_sales_anomaly",       # 销售数据异常检测
+    "sensor_followup_timeout",  # 跟进超时预警
+    "sensor_sales_anomaly",  # 销售数据异常检测
     "sensor_contract_expiry_ladder",  # 合同到期阶梯提醒
 ]
 PATROL_SCHEDULE = {

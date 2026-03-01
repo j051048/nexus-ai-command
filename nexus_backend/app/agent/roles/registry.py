@@ -31,10 +31,10 @@ class RoleConfig:
     recommended_model_tier: str = "medium"  # "low", "medium", "high"
 
     # ── P2: AI Position fields (OpenFang "Hands" inspired) ──
-    goal: str = ""                         # Position objective, e.g. "确保所有商机在72小时内被跟进"
+    goal: str = ""  # Position objective, e.g. "确保所有商机在72小时内被跟进"
     kpi_metrics: list[str] = field(default_factory=list)  # KPIs this position tracks
-    sensors: list[str] = field(default_factory=list)       # Event sensors this position monitors
-    patrol_schedule: dict = field(default_factory=dict)    # Autonomous patrol schedule
+    sensors: list[str] = field(default_factory=list)  # Event sensors this position monitors
+    patrol_schedule: dict = field(default_factory=dict)  # Autonomous patrol schedule
 
     def get_tool_schemas(self) -> list[dict]:
         """Return OpenAI-format tool schemas filtered by this role's whitelist."""

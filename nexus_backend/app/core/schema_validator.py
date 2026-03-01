@@ -30,12 +30,7 @@ async def _get_table_columns(supabase, table_name: str) -> set[str] | None:
     返回 None 表示表不存在或查询失败。
     """
     try:
-        res = (
-            await supabase.table(table_name)
-            .select("*")
-            .limit(1)
-            .execute()
-        )
+        res = await supabase.table(table_name).select("*").limit(1).execute()
         # 即使表为空（data=[]），PostgREST 也会返回空数组
         # 但如果有至少一行数据，键名就是列名
         if res.data and len(res.data) > 0:
@@ -52,9 +47,7 @@ async def _get_table_columns(supabase, table_name: str) -> set[str] | None:
             ).execute()
             if rpc_res.data:
                 return {
-                    row.get("column_name")
-                    for row in rpc_res.data
-                    if isinstance(row, dict) and row.get("column_name")
+                    row.get("column_name") for row in rpc_res.data if isinstance(row, dict) and row.get("column_name")
                 }
         except Exception:
             pass
@@ -88,26 +81,19 @@ async def validate_schema() -> list[str]:
 
         if existing_columns is None:
             # 无法确定列信息（空表或表不存在），跳过
-            logger.info(
-                f"[SchemaValidator] 表 '{table_name}' 无数据或无法访问，跳过列验证"
-            )
+            logger.info(f"[SchemaValidator] 表 '{table_name}' 无数据或无法访问，跳过列验证")
             continue
 
         # 检查缺失的列
         for col in expected_columns:
             if col not in existing_columns:
-                msg = (
-                    f"[SchemaValidator] 表 '{table_name}' 缺少关键列 '{col}'"
-                )
+                msg = f"[SchemaValidator] 表 '{table_name}' 缺少关键列 '{col}'"
                 logger.warning(msg)
                 warnings.append(msg)
 
     if not warnings:
         logger.info("[SchemaValidator] 所有关键表列验证通过")
     else:
-        logger.warning(
-            f"[SchemaValidator] 发现 {len(warnings)} 个 schema 问题，"
-            "请检查数据库迁移是否完整"
-        )
+        logger.warning(f"[SchemaValidator] 发现 {len(warnings)} 个 schema 问题，" "请检查数据库迁移是否完整")
 
     return warnings

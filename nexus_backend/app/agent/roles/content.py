@@ -8,10 +8,10 @@ SCENE_CODES = ["content_creation", "whitepaper", "case_study", "seo_content", "s
 # ── P2: AI Position (OpenFang "Hands" inspired) ──
 GOAL = "持续输出高质量技术内容，月均获客线索100+"
 KPI_METRICS = [
-    "content_output_count",       # 月内容产出量
-    "content_lead_conversion",    # 内容转化线索数
-    "avg_read_rate",              # 平均阅读率
-    "seo_ranking_improvement",    # SEO排名提升数
+    "content_output_count",  # 月内容产出量
+    "content_lead_conversion",  # 内容转化线索数
+    "avg_read_rate",  # 平均阅读率
+    "seo_ranking_improvement",  # SEO排名提升数
 ]
 SENSORS = []  # 内容Agent以被动创作为主
 PATROL_SCHEDULE = {

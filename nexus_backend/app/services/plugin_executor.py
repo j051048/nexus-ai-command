@@ -65,7 +65,7 @@ def _truncate_output(result: dict) -> dict:
     if len(serialized) > PLUGIN_MAX_OUTPUT_SIZE:
         result["_truncated"] = True
         if "data" in result:
-            result["data"] = str(result["data"])[:PLUGIN_MAX_OUTPUT_SIZE // 2]
+            result["data"] = str(result["data"])[: PLUGIN_MAX_OUTPUT_SIZE // 2]
     return result
 
 

@@ -8,10 +8,10 @@ SCENE_CODES = ["ad_compliance", "content_review", "data_privacy", "industry_regu
 # ── P2: AI Position (OpenFang "Hands" inspired) ──
 GOAL = "零合规事故，所有对外内容100%过审"
 KPI_METRICS = [
-    "compliance_pass_rate",          # 合规审查通过率
-    "violation_incident_count",      # 违规事件数
-    "review_turnaround_hours",       # 审查周转时间(小时)
-    "regulation_update_coverage",    # 法规更新覆盖率
+    "compliance_pass_rate",  # 合规审查通过率
+    "violation_incident_count",  # 违规事件数
+    "review_turnaround_hours",  # 审查周转时间(小时)
+    "regulation_update_coverage",  # 法规更新覆盖率
 ]
 SENSORS = []  # 合规审查由内容提交触发
 PATROL_SCHEDULE = {

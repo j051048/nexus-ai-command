@@ -487,12 +487,7 @@ def execute_user_scheduled_tasks():
                 elif next_exec:
                     update_data["next_execution_at"] = next_exec
 
-                await (
-                    supabase.table("user_scheduled_tasks")
-                    .update(update_data)
-                    .eq("id", task["id"])
-                    .execute()
-                )
+                await supabase.table("user_scheduled_tasks").update(update_data).eq("id", task["id"]).execute()
 
                 executed += 1
                 logger.info(f"Executed user scheduled task: {task['name']} for user {task['user_id']}")
@@ -530,13 +525,7 @@ def decompose_vmd_task(task_id: str):
             return "skipped: no db"
 
         # 1. Load the main task
-        task_res = (
-            await supabase.table("vmd_main_task")
-            .select("*")
-            .eq("id", task_id)
-            .maybe_single()
-            .execute()
-        )
+        task_res = await supabase.table("vmd_main_task").select("*").eq("id", task_id).maybe_single().execute()
         if not task_res.data:
             logger.error(f"decompose_vmd_task: task {task_id} not found")
             return f"task {task_id} not found"
@@ -557,11 +546,11 @@ def decompose_vmd_task(task_id: str):
             f"任务描述: {description}\n"
             f"场景编码: {scene_code}\n\n"
             f"请返回JSON格式的子任务列表，每个子任务包含:\n"
-            f'- title: 子任务标题\n'
-            f'- agent_role: 负责的Agent角色 (如: content_creator, data_analyst, market_researcher, reviewer)\n'
-            f'- description: 子任务描述\n'
-            f'- sort_order: 执行顺序 (从1开始)\n\n'
-            f'只返回JSON数组，不要其他内容。示例:\n'
+            f"- title: 子任务标题\n"
+            f"- agent_role: 负责的Agent角色 (如: content_creator, data_analyst, market_researcher, reviewer)\n"
+            f"- description: 子任务描述\n"
+            f"- sort_order: 执行顺序 (从1开始)\n\n"
+            f"只返回JSON数组，不要其他内容。示例:\n"
             f'[{{"title": "市场调研", "agent_role": "market_researcher", "description": "...", "sort_order": 1}}]'
         )
 
@@ -628,10 +617,12 @@ def decompose_vmd_task(task_id: str):
 
         await (
             supabase.table("vmd_main_task")
-            .update({
-                "status": "executing",
-                "wbs_structure": wbs_structure,
-            })
+            .update(
+                {
+                    "status": "executing",
+                    "wbs_structure": wbs_structure,
+                }
+            )
             .eq("id", task_id)
             .execute()
         )
@@ -644,6 +635,7 @@ def decompose_vmd_task(task_id: str):
 # ---------------------------------------------------------------------------
 # P0-2: Memory Decay Cleanup
 # ---------------------------------------------------------------------------
+
 
 @celery_app.task
 def cleanup_stale_memories():
@@ -674,6 +666,7 @@ def cleanup_stale_memories():
 # ---------------------------------------------------------------------------
 # P1-2: Action Outcome Tracking — Record AI actions for effectiveness measurement
 # ---------------------------------------------------------------------------
+
 
 @celery_app.task
 def measure_action_outcomes():
@@ -773,11 +766,13 @@ def measure_action_outcomes():
                 if success is not None:
                     await (
                         supabase.table("ai_action_outcomes")
-                        .update({
-                            "success": success,
-                            "actual_outcome": actual_outcome,
-                            "measured_at": now.isoformat(),
-                        })
+                        .update(
+                            {
+                                "success": success,
+                                "actual_outcome": actual_outcome,
+                                "measured_at": now.isoformat(),
+                            }
+                        )
                         .eq("id", action["id"])
                         .execute()
                     )

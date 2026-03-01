@@ -266,7 +266,9 @@ class _MarketplaceBridgePlugin(BasePlugin):
 
     async def post_tool_sync(self, context: dict) -> dict:
         """ERP plugins: log tool execution for audit/sync purposes."""
-        logger.debug(f"[PluginBridge] ERP sync hook ({self._plugin_id}): {len(context.get('completed_tools', []))} tools")
+        logger.debug(
+            f"[PluginBridge] ERP sync hook ({self._plugin_id}): {len(context.get('completed_tools', []))} tools"
+        )
         return context
 
     async def data_export_hook(self, context: dict) -> dict:

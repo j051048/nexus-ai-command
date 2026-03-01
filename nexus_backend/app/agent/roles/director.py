@@ -8,14 +8,14 @@ SCENE_CODES = ["task_decompose", "industry_analysis", "market_strategy", "compet
 # ── P2: AI Position (OpenFang "Hands" inspired) ──
 GOAL = "统筹全局营销策略，确保各Agent协同高效，关键指标按时达成"
 KPI_METRICS = [
-    "wbs_task_completion_rate",   # WBS任务完成率
-    "cross_agent_handoff_time",   # 跨Agent协作响应时长
-    "strategy_execution_score",   # 策略执行评分
-    "monthly_goal_hit_rate",      # 月度目标达成率
+    "wbs_task_completion_rate",  # WBS任务完成率
+    "cross_agent_handoff_time",  # 跨Agent协作响应时长
+    "strategy_execution_score",  # 策略执行评分
+    "monthly_goal_hit_rate",  # 月度目标达成率
 ]
 SENSORS = [
-    "sensor_target_progress",     # 监控目标达成进度
-    "sensor_approval_backlog",    # 审批积压预警
+    "sensor_target_progress",  # 监控目标达成进度
+    "sensor_approval_backlog",  # 审批积压预警
 ]
 PATROL_SCHEDULE = {
     "daily": ["check_pending_tasks", "review_agent_outputs"],

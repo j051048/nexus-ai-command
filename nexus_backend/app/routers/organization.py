@@ -3,7 +3,6 @@ P2 Optimization: Organization Structure API Routes
 Provides endpoints for managing organizational hierarchy and approval chains.
 """
 
-
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
@@ -181,9 +180,13 @@ async def get_organization_members(req: Request, user_id: str = Depends(get_curr
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "Organization not found for current user")
 
     # Fetch all members in the organization
-    members_res = await client.table("users").select(
-        "id, name, department, role, manager_id, avatar"
-    ).eq("organization_id", org_id).order("name").execute()
+    members_res = (
+        await client.table("users")
+        .select("id, name, department, role, manager_id, avatar")
+        .eq("organization_id", org_id)
+        .order("name")
+        .execute()
+    )
 
     members = []
     all_members = members_res.data or []
@@ -194,15 +197,17 @@ async def get_organization_members(req: Request, user_id: str = Depends(get_curr
         name_map[m["id"]] = m.get("name") or "未知"
 
     for m in all_members:
-        members.append({
-            "id": m["id"],
-            "full_name": m.get("name") or "未知",
-            "department": m.get("department") or "",
-            "role": m.get("role") or "employee",
-            "manager_id": m.get("manager_id"),
-            "manager_name": name_map.get(m.get("manager_id", "")),
-            "avatar_url": m.get("avatar"),
-        })
+        members.append(
+            {
+                "id": m["id"],
+                "full_name": m.get("name") or "未知",
+                "department": m.get("department") or "",
+                "role": m.get("role") or "employee",
+                "manager_id": m.get("manager_id"),
+                "manager_name": name_map.get(m.get("manager_id", "")),
+                "avatar_url": m.get("avatar"),
+            }
+        )
 
     return api_success(data=members, message=f"Found {len(members)} members")
 
@@ -225,9 +230,7 @@ async def update_user_manager(
     client = req.state.db
 
     # Verify the requesting user is in the same org and has boss/admin role
-    user_res = await client.table("users").select(
-        "organization_id, role"
-    ).eq("id", user_id).maybe_single().execute()
+    user_res = await client.table("users").select("organization_id, role").eq("id", user_id).maybe_single().execute()
 
     if not user_res.data:
         raise api_error(ErrorCode.AUTH_UNAUTHORIZED, "User not found")
@@ -239,9 +242,9 @@ async def update_user_manager(
     caller_org = user_res.data.get("organization_id")
 
     # Verify target user is in the same org
-    target_res = await client.table("users").select(
-        "id, organization_id"
-    ).eq("id", target_user_id).maybe_single().execute()
+    target_res = (
+        await client.table("users").select("id, organization_id").eq("id", target_user_id).maybe_single().execute()
+    )
 
     if not target_res.data:
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "Target user not found")
@@ -255,9 +258,9 @@ async def update_user_manager(
 
     # If manager_id is provided, verify the manager exists in the same org
     if body.manager_id:
-        manager_res = await client.table("users").select(
-            "id, organization_id"
-        ).eq("id", body.manager_id).maybe_single().execute()
+        manager_res = (
+            await client.table("users").select("id, organization_id").eq("id", body.manager_id).maybe_single().execute()
+        )
 
         if not manager_res.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "Manager user not found")
@@ -266,11 +269,11 @@ async def update_user_manager(
             raise api_error(ErrorCode.AUTH_FORBIDDEN, "Manager must be in the same organization")
 
     # Update the manager_id
-    update_res = await client.table("users").update(
-        {"manager_id": body.manager_id}
-    ).eq("id", target_user_id).execute()
+    update_res = await client.table("users").update({"manager_id": body.manager_id}).eq("id", target_user_id).execute()
 
     if not update_res.data:
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Failed to update manager")
 
-    return api_success(data={"user_id": target_user_id, "manager_id": body.manager_id}, message="Manager updated successfully")
+    return api_success(
+        data={"user_id": target_user_id, "manager_id": body.manager_id}, message="Manager updated successfully"
+    )

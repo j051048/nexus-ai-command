@@ -126,17 +126,19 @@ async def extract_entities_from_conversation(
             source = normalize_entity(source) or source
             target = normalize_entity(target) or target
 
-            relations.append({
-                "org_id": org_id,
-                "source_entity": source,
-                "source_type": src_type,
-                "relation": relation,
-                "target_entity": target,
-                "target_type": tgt_type,
-                "confidence": 0.7,
-                "source_context": combined_text[:200],
-                "extracted_from": "conversation",
-            })
+            relations.append(
+                {
+                    "org_id": org_id,
+                    "source_entity": source,
+                    "source_type": src_type,
+                    "relation": relation,
+                    "target_entity": target,
+                    "target_type": tgt_type,
+                    "confidence": 0.7,
+                    "source_context": combined_text[:200],
+                    "extracted_from": "conversation",
+                }
+            )
 
     # Extract from tool outputs (higher confidence)
     if tool_outputs:
@@ -172,16 +174,18 @@ def _extract_from_customer_tool(result: str, org_id: str, relations: list):
                     # Customer -> stage relation
                     stage = item.get("stage") or item.get("status", "")
                     if stage:
-                        relations.append({
-                            "org_id": org_id,
-                            "source_entity": name,
-                            "source_type": "customer",
-                            "relation": "in_stage",
-                            "target_entity": stage,
-                            "target_type": "stage",
-                            "confidence": 0.95,
-                            "extracted_from": "tool_output",
-                        })
+                        relations.append(
+                            {
+                                "org_id": org_id,
+                                "source_entity": name,
+                                "source_type": "customer",
+                                "relation": "in_stage",
+                                "target_entity": stage,
+                                "target_type": "stage",
+                                "confidence": 0.95,
+                                "extracted_from": "tool_output",
+                            }
+                        )
     except (json.JSONDecodeError, TypeError, AttributeError):
         pass
 
@@ -199,16 +203,18 @@ def _extract_from_sales_tool(result: str, org_id: str, relations: list):
                 customer = item.get("customer_name", "")
                 product = item.get("product_name") or item.get("product", "")
                 if customer and product:
-                    relations.append({
-                        "org_id": org_id,
-                        "source_entity": customer,
-                        "source_type": "customer",
-                        "relation": "interested_in",
-                        "target_entity": product,
-                        "target_type": "product",
-                        "confidence": 0.9,
-                        "extracted_from": "tool_output",
-                    })
+                    relations.append(
+                        {
+                            "org_id": org_id,
+                            "source_entity": customer,
+                            "source_type": "customer",
+                            "relation": "interested_in",
+                            "target_entity": product,
+                            "target_type": "product",
+                            "confidence": 0.9,
+                            "extracted_from": "tool_output",
+                        }
+                    )
     except (json.JSONDecodeError, TypeError, AttributeError):
         pass
 
@@ -246,12 +252,8 @@ async def _upsert_relations(relations: list[dict]):
         try:
             org_id = rel["org_id"]
             # Fuzzy-match source/target against existing entities to canonicalize
-            rel["source_entity"] = _find_canonical(
-                rel["source_entity"], existing_entities.get(org_id, [])
-            )
-            rel["target_entity"] = _find_canonical(
-                rel["target_entity"], existing_entities.get(org_id, [])
-            )
+            rel["source_entity"] = _find_canonical(rel["source_entity"], existing_entities.get(org_id, []))
+            rel["target_entity"] = _find_canonical(rel["target_entity"], existing_entities.get(org_id, []))
 
             await (
                 supabase.table("entity_relations")
@@ -437,15 +439,17 @@ async def learn_tool_patterns(
         # Store current sequence (use timestamp as unique key)
         await (
             supabase.table("org_memories")
-            .insert({
-                "organization_id": org_id,
-                "scope": "organization",
-                "category": "tool_sequence",
-                "key": f"seq_{now.strftime('%Y%m%d_%H%M%S')}_{user_id[:8]}",
-                "value": json.dumps(sequence_record, ensure_ascii=False),
-                "contributed_by": user_id,
-                "metadata": {},
-            })
+            .insert(
+                {
+                    "organization_id": org_id,
+                    "scope": "organization",
+                    "category": "tool_sequence",
+                    "key": f"seq_{now.strftime('%Y%m%d_%H%M%S')}_{user_id[:8]}",
+                    "value": json.dumps(sequence_record, ensure_ascii=False),
+                    "contributed_by": user_id,
+                    "metadata": {},
+                }
+            )
             .execute()
         )
 
@@ -610,9 +614,37 @@ async def get_pattern_suggestions(
 def _extract_keywords(text: str) -> list[str]:
     """Extract meaningful keywords from text (simple Chinese-aware splitting)."""
     # Remove common stop words and short tokens
-    stop_words = {"的", "了", "吗", "呢", "吧", "啊", "是", "在", "有", "和", "与",
-                  "我", "你", "他", "她", "它", "们", "这", "那", "什么", "怎么",
-                  "请", "帮", "看", "一下", "一些", "所有", "查询", "查看"}
+    stop_words = {
+        "的",
+        "了",
+        "吗",
+        "呢",
+        "吧",
+        "啊",
+        "是",
+        "在",
+        "有",
+        "和",
+        "与",
+        "我",
+        "你",
+        "他",
+        "她",
+        "它",
+        "们",
+        "这",
+        "那",
+        "什么",
+        "怎么",
+        "请",
+        "帮",
+        "看",
+        "一下",
+        "一些",
+        "所有",
+        "查询",
+        "查看",
+    }
     words = re.split(r"[，。！？\s,.\?!\n\r]+", text)
     keywords = [w.strip() for w in words if len(w.strip()) >= 2 and w.strip() not in stop_words]
     return keywords[:10]  # Limit
@@ -621,9 +653,13 @@ def _extract_keywords(text: str) -> list[str]:
 def _translate_weekday(wd: str) -> str:
     """Translate English weekday name to Chinese."""
     mapping = {
-        "Monday": "周一", "Tuesday": "周二", "Wednesday": "周三",
-        "Thursday": "周四", "Friday": "周五",
-        "Saturday": "周六", "Sunday": "周日",
+        "Monday": "周一",
+        "Tuesday": "周二",
+        "Wednesday": "周三",
+        "Thursday": "周四",
+        "Friday": "周五",
+        "Saturday": "周六",
+        "Sunday": "周日",
     }
     return mapping.get(wd, wd)
 
@@ -665,14 +701,16 @@ async def _persist_learned_patterns(org_id: str, patterns: list[dict]):
                 # Insert new pattern
                 await (
                     supabase.table("org_memories")
-                    .insert({
-                        "organization_id": org_id,
-                        "scope": "organization",
-                        "category": "learned_pattern",
-                        "key": pattern_key,
-                        "value": json.dumps(pattern, ensure_ascii=False),
-                        "metadata": {},
-                    })
+                    .insert(
+                        {
+                            "organization_id": org_id,
+                            "scope": "organization",
+                            "category": "learned_pattern",
+                            "key": pattern_key,
+                            "value": json.dumps(pattern, ensure_ascii=False),
+                            "metadata": {},
+                        }
+                    )
                     .execute()
                 )
         except Exception as e:

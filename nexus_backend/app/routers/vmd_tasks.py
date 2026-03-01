@@ -102,6 +102,7 @@ async def create_task(
         # Trigger async WBS decomposition via Celery
         try:
             from app.tasks.scheduler import decompose_vmd_task
+
             decompose_vmd_task.delay(task.get("id", record.get("id", "")))
         except Exception as e:
             logger.warning(f"Failed to trigger async decomposition: {e}")
@@ -278,10 +279,7 @@ async def pause_task(
             raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, f"当前状态({current_status})不允许暂停")
 
         await (
-            admin.table("vmd_main_task")
-            .update({"status": "paused", "updated_by": user_id})
-            .eq("id", task_id)
-            .execute()
+            admin.table("vmd_main_task").update({"status": "paused", "updated_by": user_id}).eq("id", task_id).execute()
         )
         return api_success(data={"task_id": task_id, "status": "paused"}, message="任务已暂停")
     except Exception as e:
@@ -475,13 +473,9 @@ async def list_agent_configs(
         global_agents: dict[str, dict] = {}
         try:
             res = (
-                await admin.table("vmd_agent_config")
-                .select("*")
-                .is_("tenant_id", "null")
-                .order("sort_order")
-                .execute()
+                await admin.table("vmd_agent_config").select("*").is_("tenant_id", "null").order("sort_order").execute()
             )
-            for a in (res.data or []):
+            for a in res.data or []:
                 global_agents[a["agent_code"]] = a
         except Exception:
             pass
@@ -489,8 +483,10 @@ async def list_agent_configs(
         # 2. Query tenant-specific overrides
         tenant_agents: dict[str, dict] = {}
         try:
-            res = await admin.table("vmd_agent_config").select("*").eq("tenant_id", org_id).order("sort_order").execute()
-            for a in (res.data or []):
+            res = (
+                await admin.table("vmd_agent_config").select("*").eq("tenant_id", org_id).order("sort_order").execute()
+            )
+            for a in res.data or []:
                 tenant_agents[a["agent_code"]] = a
         except Exception:
             pass

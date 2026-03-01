@@ -58,9 +58,7 @@ async def _ensure_migration_table() -> bool:
             await supabase.table("migration_history").select("id").limit(1).execute()
             return True
         except Exception as e:
-            logger.warning(
-                f"[MigrationRunner] 无法创建或访问 migration_history 表: {e}"
-            )
+            logger.warning(f"[MigrationRunner] 无法创建或访问 migration_history 表: {e}")
             return False
 
 
@@ -72,11 +70,7 @@ async def _get_applied_migrations() -> set[str]:
         return set()
 
     try:
-        res = (
-            await supabase.table("migration_history")
-            .select("migration_name")
-            .execute()
-        )
+        res = await supabase.table("migration_history").select("migration_name").execute()
         return {row["migration_name"] for row in (res.data or [])}
     except Exception as e:
         logger.warning(f"[MigrationRunner] 无法读取已应用迁移记录: {e}")
@@ -113,7 +107,7 @@ def _get_pending_migrations(applied: set[str]) -> list[tuple[str, Path]]:
     pending = []
     for f in sorted(MIGRATIONS_DIR.iterdir()):
         if f.is_file() and f.suffix == ".sql" and f.name not in applied:
-                pending.append((f.name, f))
+            pending.append((f.name, f))
 
     return pending
 

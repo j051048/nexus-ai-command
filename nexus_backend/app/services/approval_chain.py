@@ -232,11 +232,7 @@ class ApprovalChainService:
         try:
             # P2: First try manager_id direct lookup
             user = (
-                await client.table("users")
-                .select("department, manager_id")
-                .eq("id", user_id)
-                .maybe_single()
-                .execute()
+                await client.table("users").select("department, manager_id").eq("id", user_id).maybe_single().execute()
             )
 
             if not user.data:
@@ -247,13 +243,7 @@ class ApprovalChainService:
 
             # Strategy 1: Use manager_id if available
             if manager_id:
-                manager = (
-                    await client.table("users")
-                    .select("id, name")
-                    .eq("id", manager_id)
-                    .maybe_single()
-                    .execute()
-                )
+                manager = await client.table("users").select("id, name").eq("id", manager_id).maybe_single().execute()
                 if manager.data:
                     return manager.data
 
@@ -608,13 +598,15 @@ class ApprovalChainService:
                                 next_step_type = next_step_def.get("type", "approver")
                                 has_more_steps = next_step < len(chain_steps)
                                 # Record condition jump in history
-                                history.append({
-                                    "step": current_step + 1,
-                                    "decision": "condition_evaluated",
-                                    "approver_id": "system",
-                                    "timestamp": datetime.now(UTC).isoformat(),
-                                    "comment": f"条件节点跳转到步骤 {target}",
-                                })
+                                history.append(
+                                    {
+                                        "step": current_step + 1,
+                                        "decision": "condition_evaluated",
+                                        "approver_id": "system",
+                                        "timestamp": datetime.now(UTC).isoformat(),
+                                        "comment": f"条件节点跳转到步骤 {target}",
+                                    }
+                                )
 
                     # Handle auto_approve nodes: check threshold
                     if next_step_type == "auto_approve":
@@ -623,13 +615,15 @@ class ApprovalChainService:
                         try:
                             if float(amount) <= float(threshold):
                                 # Auto-approve and finalize
-                                history.append({
-                                    "step": next_step,
-                                    "decision": "auto_approved",
-                                    "approver_id": "system",
-                                    "timestamp": datetime.now(UTC).isoformat(),
-                                    "comment": f"金额 ¥{amount} 在自动审批限额 ¥{threshold} 内",
-                                })
+                                history.append(
+                                    {
+                                        "step": next_step,
+                                        "decision": "auto_approved",
+                                        "approver_id": "system",
+                                        "timestamp": datetime.now(UTC).isoformat(),
+                                        "comment": f"金额 ¥{amount} 在自动审批限额 ¥{threshold} 内",
+                                    }
+                                )
                                 update_data = {
                                     "status": "approved",
                                     "current_step": next_step,
@@ -645,9 +639,7 @@ class ApprovalChainService:
                                     .execute()
                                 )
                                 if not result.data:
-                                    raise RuntimeError(
-                                        f"Approval {request_id} was modified concurrently, please retry"
-                                    )
+                                    raise RuntimeError(f"Approval {request_id} was modified concurrently, please retry")
                                 logger.info(
                                     f"Approval {request_id} auto-approved at step {next_step} "
                                     f"(amount={amount}, threshold={threshold})"
@@ -666,13 +658,15 @@ class ApprovalChainService:
                         notify_targets = next_step_def.get("notify_targets", [])
                         notify_message = next_step_def.get("message", "审批流程通知")
                         # Record notification in history
-                        history.append({
-                            "step": next_step,
-                            "decision": "notified",
-                            "approver_id": "system",
-                            "timestamp": datetime.now(UTC).isoformat(),
-                            "comment": f"已通知: {', '.join(notify_targets) if notify_targets else '相关人员'}",
-                        })
+                        history.append(
+                            {
+                                "step": next_step,
+                                "decision": "notified",
+                                "approver_id": "system",
+                                "timestamp": datetime.now(UTC).isoformat(),
+                                "comment": f"已通知: {', '.join(notify_targets) if notify_targets else '相关人员'}",
+                            }
+                        )
                         # Emit notification event
                         await emit(
                             EventType.APPROVAL_ESCALATED.value,
@@ -694,13 +688,15 @@ class ApprovalChainService:
                     # Handle timer nodes: set timeout and auto-advance
                     if has_more_steps and next_step_def.get("type") == "timer":
                         wait_hours = next_step_def.get("wait_hours", 24)
-                        history.append({
-                            "step": next_step,
-                            "decision": "timer_started",
-                            "approver_id": "system",
-                            "timestamp": datetime.now(UTC).isoformat(),
-                            "comment": f"等待 {wait_hours} 小时后自动推进",
-                        })
+                        history.append(
+                            {
+                                "step": next_step,
+                                "decision": "timer_started",
+                                "approver_id": "system",
+                                "timestamp": datetime.now(UTC).isoformat(),
+                                "comment": f"等待 {wait_hours} 小时后自动推进",
+                            }
+                        )
                         # For timer nodes, set timeout but move to next step
                         next_step += 1
                         has_more_steps = next_step < len(chain_steps)
@@ -713,9 +709,7 @@ class ApprovalChainService:
                         _parallel_approvers = next_step_def.get("approvers", [])
                         # Check how many parallel approvals we have at this step
                         parallel_count = sum(
-                            1
-                            for h in history
-                            if h.get("step") == next_step and h.get("decision") == "approved"
+                            1 for h in history if h.get("step") == next_step and h.get("decision") == "approved"
                         )
                         if parallel_count < required_approvals:
                             # Still waiting for more parallel approvals

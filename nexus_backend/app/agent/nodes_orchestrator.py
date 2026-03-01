@@ -151,13 +151,15 @@ async def orchestrate_node(state: AgentState) -> dict:
             total_input_tokens += lr["tokens_in"]
             total_output_tokens += lr["tokens_out"]
 
-            delegation_results.append({
-                "sub_task_id": lr["sub_task_id"],
-                "agent_code": lr["agent_code"],
-                "title": lr["title"],
-                "status": lr["status"],
-                "result": lr["result"],
-            })
+            delegation_results.append(
+                {
+                    "sub_task_id": lr["sub_task_id"],
+                    "agent_code": lr["agent_code"],
+                    "title": lr["title"],
+                    "status": lr["status"],
+                    "result": lr["result"],
+                }
+            )
 
             # Store result for dependent tasks in subsequent layers
             completed_context[f"task_{task_idx}"] = lr["result"]
@@ -364,10 +366,8 @@ async def _run_single_tool(tool_name: str, tool_args: dict, config: AgentConfig)
 
             if isinstance(ve, jsonschema.ValidationError):
                 field_path = " → ".join(str(p) for p in ve.absolute_path) if ve.absolute_path else "(root)"
-                return (
-                    f"参数校验失败 [{tool_name}]: "
-                    f"字段 {field_path} - {ve.message}"
-                    + (f" (允许值: {ve.schema['enum']})" if ve.schema and "enum" in ve.schema else "")
+                return f"参数校验失败 [{tool_name}]: " f"字段 {field_path} - {ve.message}" + (
+                    f" (允许值: {ve.schema['enum']})" if ve.schema and "enum" in ve.schema else ""
                 )
         except Exception:
             pass

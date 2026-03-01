@@ -384,7 +384,9 @@ class AgentGraph:
         async for event in self.compiled.astream(initial_state, config=config):
             yield event
 
-    async def astream_events(self, initial_state: AgentState, thread_id: str = "default", version: str = "v2", config: dict | None = None):
+    async def astream_events(
+        self, initial_state: AgentState, thread_id: str = "default", version: str = "v2", config: dict | None = None
+    ):
         """
         Async generator for granular events (token streaming, etc.).
         If config is provided, it will be merged with the default config.

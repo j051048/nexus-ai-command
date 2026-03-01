@@ -190,7 +190,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
                     if e.year < now.year - 1 or e.year > now.year + 1:
                         return f"❌ 结束日期 {end_date} 年份异常，当前日期是 {now.strftime('%Y-%m-%d')}。"
                 if start_date and end_date and e < s:
-                        return "❌ 结束日期不能早于开始日期。"
+                    return "❌ 结束日期不能早于开始日期。"
             except ValueError:
                 return "❌ 日期格式错误，请使用 YYYY-MM-DD 格式。"
 
@@ -212,7 +212,13 @@ class SubmitApprovalOnBehalfTool(BaseTool):
             pass  # 去重检查失败不应阻塞主流程
 
         # 验证员工存在
-        employee_check = await client.table("users").select("id, name, role, organization_id").eq("id", employee_id).single().execute()
+        employee_check = (
+            await client.table("users")
+            .select("id, name, role, organization_id")
+            .eq("id", employee_id)
+            .single()
+            .execute()
+        )
         if not employee_check.data:
             return f"错误：找不到您的用户信息（ID: {employee_id}）"
 
@@ -483,7 +489,9 @@ class ApprovalTool(BaseTool):
                 await client.table("approval_requests").select("amount").eq("id", req_id).maybe_single().execute()
             )
             if request_res.data and float(request_res.data.get("amount", 0)) > manager_approval_limit:
-                return f"权限不足：部门经理审批上限为 ¥{manager_approval_limit:,}，该申请金额超出限额，需要更高级别审批。"
+                return (
+                    f"权限不足：部门经理审批上限为 ¥{manager_approval_limit:,}，该申请金额超出限额，需要更高级别审批。"
+                )
 
         # Step 1: Fetch the request details first
         fetch_result = (
@@ -670,8 +678,7 @@ class ApprovalTool(BaseTool):
                 Notification(
                     title="审批已通过",
                     content=(
-                        f"您的{request_data.get('type', '')}申请"
-                        f"（¥{request_data.get('amount', 0):,.0f}）已被批准"
+                        f"您的{request_data.get('type', '')}申请" f"（¥{request_data.get('amount', 0):,.0f}）已被批准"
                     ),
                     target_user_id=request_data.get("submitted_by"),
                     channel=NotificationChannel.IN_APP,
@@ -727,7 +734,9 @@ class RejectTool(BaseTool):
                 await client.table("approval_requests").select("amount").eq("id", req_id).maybe_single().execute()
             )
             if request_res.data and float(request_res.data.get("amount", 0)) > manager_approval_limit:
-                return f"权限不足：部门经理审批上限为 ¥{manager_approval_limit:,}，该申请金额超出限额，需要更高级别审批。"
+                return (
+                    f"权限不足：部门经理审批上限为 ¥{manager_approval_limit:,}，该申请金额超出限额，需要更高级别审批。"
+                )
 
         # Step 1: Fetch the request details first
         fetch_result = (

@@ -64,11 +64,13 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     field_errors = []
     for err in exc.errors():
         loc = " -> ".join(str(part) for part in err.get("loc", []))
-        field_errors.append({
-            "field": loc,
-            "message": err.get("msg", ""),
-            "type": err.get("type", ""),
-        })
+        field_errors.append(
+            {
+                "field": loc,
+                "message": err.get("msg", ""),
+                "type": err.get("type", ""),
+            }
+        )
 
     logger.warning(
         "Validation error: path=%s method=%s fields=%s trace_id=%s",

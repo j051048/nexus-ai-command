@@ -66,13 +66,15 @@ def _sse_status(status: str) -> str:
 
 def _sse_confirmation(tool_name: str, message: str, args: dict) -> str:
     """Emit a confirmation request for a blocked tool call."""
-    return _sse_data({
-        "confirmation_required": {
-            "tool_name": tool_name,
-            "message": message,
-            "args": {k: v for k, v in args.items() if k != "api_key"},  # Strip secrets
+    return _sse_data(
+        {
+            "confirmation_required": {
+                "tool_name": tool_name,
+                "message": message,
+                "args": {k: v for k, v in args.items() if k != "api_key"},  # Strip secrets
+            }
         }
-    })
+    )
 
 
 async def run_agent_stream(
@@ -307,10 +309,7 @@ async def run_agent_stream(
     except asyncio.CancelledError:
         # Client disconnected (e.g. user clicked "Stop generating")
         duration_ms = int((time.time() - start_time) * 1000)
-        logger.info(
-            f"[Stream] Client disconnected after {duration_ms}ms "
-            f"(user={user_id}, session={session_id})"
-        )
+        logger.info(f"[Stream] Client disconnected after {duration_ms}ms " f"(user={user_id}, session={session_id})")
         if tracer:
             tracer.log_end(total_tokens=0)
         return
@@ -351,11 +350,7 @@ async def run_agent_stream(
     # Stream the final response content
     # Skip if the respond node already streamed the same content to the user.
     # streamed_plan_content is True only when respond-node tokens were yielded.
-    already_streamed = (
-        streamed_plan_content
-        and final_response
-        and final_response.strip() == streamed_plan_text.strip()
-    )
+    already_streamed = streamed_plan_content and final_response and final_response.strip() == streamed_plan_text.strip()
     if final_response and not already_streamed:
         yield _sse_status("")  # Clear status
         # Stream word by word for smooth UX
@@ -374,8 +369,7 @@ async def run_agent_stream(
 
     # ── 7.5 HITL: Emit confirmation request if any tools were blocked ──
     blocked_calls = [
-        tc for tc in accumulated_state.get("completed_tool_calls", [])
-        if getattr(tc, "status", None) == "blocked"
+        tc for tc in accumulated_state.get("completed_tool_calls", []) if getattr(tc, "status", None) == "blocked"
     ]
     if blocked_calls:
         for tc in blocked_calls:
@@ -399,16 +393,18 @@ async def run_agent_stream(
     # ── 8.5 Emit quota info for frontend quota display ──
     try:
         summary = usage_tracker.get_usage_summary(user_id)
-        yield _sse_data({
-            "quota": {
-                "tokens_used": summary.get("tokens_used", 0),
-                "tokens_limit": summary.get("tokens_limit", 0),
-                "tokens_remaining": summary.get("tokens_remaining", 0),
-                "requests": summary.get("requests", 0),
-                "requests_limit": summary.get("requests_limit", 0),
-                "cost_usd": summary.get("cost_usd", 0),
+        yield _sse_data(
+            {
+                "quota": {
+                    "tokens_used": summary.get("tokens_used", 0),
+                    "tokens_limit": summary.get("tokens_limit", 0),
+                    "tokens_remaining": summary.get("tokens_remaining", 0),
+                    "requests": summary.get("requests", 0),
+                    "requests_limit": summary.get("requests_limit", 0),
+                    "cost_usd": summary.get("cost_usd", 0),
+                }
             }
-        })
+        )
     except Exception as e:
         logger.debug(f"[Stream] Quota emission failed: {e}")
 
@@ -416,11 +412,13 @@ async def run_agent_stream(
     # Extract tool call data for knowledge graph and pattern learning
     raw_tool_calls = []
     for tc in accumulated_state.get("completed_tool_calls", []):
-        raw_tool_calls.append({
-            "tool_name": getattr(tc, "tool_name", "") or "",
-            "result": (getattr(tc, "result", "") or "")[:500],
-            "tool_args": getattr(tc, "tool_args", {}) or {},
-        })
+        raw_tool_calls.append(
+            {
+                "tool_name": getattr(tc, "tool_name", "") or "",
+                "result": (getattr(tc, "result", "") or "")[:500],
+                "tool_args": getattr(tc, "tool_args", {}) or {},
+            }
+        )
 
     asyncio.create_task(
         persist_result(

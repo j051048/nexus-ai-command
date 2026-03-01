@@ -8,10 +8,10 @@ SCENE_CODES = ["brand_monitoring", "reputation_management", "crisis_pr", "review
 # ── P2: AI Position (OpenFang "Hands" inspired) ──
 GOAL = "品牌正面提及率>85%，危机响应时间<1小时"
 KPI_METRICS = [
-    "positive_mention_rate",         # 正面提及率
-    "crisis_response_time_min",      # 危机响应时间(分钟)
-    "sentiment_score_trend",         # 情感评分趋势
-    "kol_engagement_count",          # KOL互动数
+    "positive_mention_rate",  # 正面提及率
+    "crisis_response_time_min",  # 危机响应时间(分钟)
+    "sentiment_score_trend",  # 情感评分趋势
+    "kol_engagement_count",  # KOL互动数
 ]
 SENSORS = []  # 舆情监控由外部系统触发
 PATROL_SCHEDULE = {

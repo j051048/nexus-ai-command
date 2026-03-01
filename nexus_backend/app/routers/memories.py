@@ -121,6 +121,7 @@ async def _get_org_id_and_role(request: Request, user_id: str) -> tuple[str | No
     # Fallback: query role from DB if middleware didn't set it
     if not role:
         from app.core.database import supabase
+
         if supabase:
             res = await supabase.table("users").select("role").eq("id", user_id).maybe_single().execute()
             role = res.data.get("role") if res and res.data else None

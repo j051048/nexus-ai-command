@@ -123,10 +123,7 @@ class ConversationMemoryService:
         if existing and existing.data:
             # Update existing memory
             result = (
-                await client.table("conversation_memories")
-                .update(update_data)
-                .eq("id", existing.data["id"])
-                .execute()
+                await client.table("conversation_memories").update(update_data).eq("id", existing.data["id"]).execute()
             )
         else:
             # Insert new memory
@@ -145,11 +142,7 @@ class ConversationMemoryService:
             }
             if embedding:
                 insert_data["embedding"] = embedding
-            result = (
-                await client.table("conversation_memories")
-                .insert(insert_data)
-                .execute()
-            )
+            result = await client.table("conversation_memories").insert(insert_data).execute()
 
         if not result.data:
             raise RuntimeError("保存记忆失败")
@@ -216,9 +209,7 @@ class ConversationMemoryService:
 
             # Strategy 2: Keyword fallback (supplement if semantic results insufficient)
             if len(memories) < limit:
-                keyword_results = await self._keyword_search(
-                    user_id, query, limit - len(memories), org_id, client
-                )
+                keyword_results = await self._keyword_search(user_id, query, limit - len(memories), org_id, client)
                 seen_ids = {m["id"] for m in memories}
                 for item in keyword_results:
                     if item["id"] not in seen_ids:
@@ -244,9 +235,7 @@ class ConversationMemoryService:
 
         return memories[:limit]
 
-    async def _semantic_search(
-        self, user_id: str, query: str, limit: int, org_id: str | None, client
-    ) -> list[dict]:
+    async def _semantic_search(self, user_id: str, query: str, limit: int, org_id: str | None, client) -> list[dict]:
         """Embedding-based semantic search on memories using pgvector."""
         try:
             from app.services.vector_service import vector_service
@@ -271,9 +260,7 @@ class ConversationMemoryService:
             logger.debug(f"Semantic memory search unavailable, falling back to keyword: {e}")
             return []
 
-    async def _keyword_search(
-        self, user_id: str, query: str, limit: int, org_id: str | None, client
-    ) -> list[dict]:
+    async def _keyword_search(self, user_id: str, query: str, limit: int, org_id: str | None, client) -> list[dict]:
         """Keyword-based fallback search using ILIKE."""
         memories: list[dict] = []
 
@@ -441,11 +428,7 @@ class ConversationMemoryService:
         - "报告用表格形式比较好"
         - "我负责华东区的大客户"
         """
-        user_texts = [
-            msg["content"]
-            for msg in messages
-            if msg.get("role") == "user" and msg.get("content")
-        ]
+        user_texts = [msg["content"] for msg in messages if msg.get("role") == "user" and msg.get("content")]
         if not user_texts:
             return []
 
@@ -501,12 +484,14 @@ class ConversationMemoryService:
                 value = item.get("value", "")
                 if not value or len(value) < 3:
                     continue
-                extracted.append({
-                    "key": f"llm_{key}",
-                    "value": value,
-                    "category": category,
-                    "importance": min(max(float(item.get("importance", 0.5)), 0.1), 1.0),
-                })
+                extracted.append(
+                    {
+                        "key": f"llm_{key}",
+                        "value": value,
+                        "category": category,
+                        "importance": min(max(float(item.get("importance", 0.5)), 0.1), 1.0),
+                    }
+                )
 
             if extracted:
                 logger.info(f"LLM extracted {len(extracted)} memories from conversation")
@@ -548,7 +533,9 @@ class ConversationMemoryService:
                 "metadata": metadata or {},
             }
             res = (
-                await supabase.table("org_memories").upsert(record, on_conflict="organization_id,category,key").execute()
+                await supabase.table("org_memories")
+                .upsert(record, on_conflict="organization_id,category,key")
+                .execute()
             )
             return res.data[0] if res.data else record
         except Exception as e:
@@ -851,12 +838,7 @@ class ConversationMemoryService:
             score = self._compute_decay_score(mem)
             if score < score_threshold:
                 try:
-                    await (
-                        client.table("conversation_memories")
-                        .delete()
-                        .eq("id", mem["id"])
-                        .execute()
-                    )
+                    await client.table("conversation_memories").delete().eq("id", mem["id"]).execute()
                     deleted += 1
                 except Exception as e:
                     if not (hasattr(e, "code") and str(getattr(e, "code", "")) == "204"):

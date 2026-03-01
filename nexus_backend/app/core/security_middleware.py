@@ -107,7 +107,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 # e.g. "https://*.flydao.top" -> match any subdomain
                 # Extract the suffix after the wildcard: ".flydao.top"
                 scheme_end = o.index("://")
-                suffix = o[scheme_end + 4:]  # skip "://*"
+                suffix = o[scheme_end + 4 :]  # skip "://*"
                 scheme = o[: scheme_end + 3]  # "https://"
                 self._allowed_wildcard_suffixes.append((scheme, suffix))
             else:
@@ -152,9 +152,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         normalised = origin.strip().rstrip("/").lower()
         if not self._origin_allowed(normalised):
-            logger.warning(
-                "CSRF validation failed: origin %s not in allowed list", origin
-            )
+            logger.warning("CSRF validation failed: origin %s not in allowed list", origin)
             return JSONResponse(
                 status_code=403,
                 content={"detail": "CSRF validation failed: origin not allowed"},

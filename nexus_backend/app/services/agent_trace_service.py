@@ -189,7 +189,11 @@ class AgentTraceService:
         return step
 
     def end_trace(
-        self, trace_id: str, status: TraceStatus, final_response: str = None, error: str = None,
+        self,
+        trace_id: str,
+        status: TraceStatus,
+        final_response: str = None,
+        error: str = None,
         db=None,
     ) -> AgentTrace | None:
         """End a trace and move to completed. Auto-persists to DB if db is provided."""

@@ -29,6 +29,7 @@ def _get_stripe():
     if _stripe is None and _STRIPE_SECRET_KEY:
         try:
             import stripe
+
             stripe.api_key = _STRIPE_SECRET_KEY
             _stripe = stripe
         except ImportError:
@@ -236,7 +237,13 @@ class BillingService:
         # Check DB for existing customer ID
         if db:
             try:
-                res = await db.table("subscriptions").select("stripe_customer_id").eq("org_id", org_id).maybe_single().execute()
+                res = (
+                    await db.table("subscriptions")
+                    .select("stripe_customer_id")
+                    .eq("org_id", org_id)
+                    .maybe_single()
+                    .execute()
+                )
                 if res.data and res.data.get("stripe_customer_id"):
                     return res.data["stripe_customer_id"]
             except Exception:
@@ -256,9 +263,7 @@ class BillingService:
         # Persist customer ID
         if db:
             try:
-                await db.table("subscriptions").upsert(
-                    {"org_id": org_id, "stripe_customer_id": customer_id}
-                ).execute()
+                await db.table("subscriptions").upsert({"org_id": org_id, "stripe_customer_id": customer_id}).execute()
             except Exception as e:
                 logger.warning(f"Failed to persist Stripe customer ID: {e}")
 
@@ -299,9 +304,8 @@ class BillingService:
             if webhook_secret:
                 try:
                     import stripe
-                    stripe.Webhook.construct_event(
-                        data.get("_raw_body", "{}"), signature, webhook_secret
-                    )
+
+                    stripe.Webhook.construct_event(data.get("_raw_body", "{}"), signature, webhook_secret)
                 except Exception as e:
                     logger.warning(f"Stripe webhook signature verification failed: {e}")
                     return  # Reject unverified webhooks

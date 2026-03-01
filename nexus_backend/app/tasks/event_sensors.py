@@ -38,14 +38,16 @@ async def _record_action(
             return
         await (
             supabase.table("ai_action_outcomes")
-            .insert({
-                "action_type": action_type,
-                "target_id": target_id,
-                "target_name": target_name,
-                "user_id": user_id,
-                "org_id": org_id,
-                "expected_outcome": expected_outcome,
-            })
+            .insert(
+                {
+                    "action_type": action_type,
+                    "target_id": target_id,
+                    "target_name": target_name,
+                    "user_id": user_id,
+                    "org_id": org_id,
+                    "expected_outcome": expected_outcome,
+                }
+            )
             .execute()
         )
     except Exception as e:
@@ -55,6 +57,7 @@ async def _record_action(
 # ---------------------------------------------------------------------------
 # Sensor 1: Sales Metric Anomaly Detection
 # ---------------------------------------------------------------------------
+
 
 @celery_app.task
 def sensor_sales_anomaly():
@@ -156,14 +159,9 @@ def sensor_sales_anomaly():
         alert_content = f"⚠️ 销售指标异常预警\n\n{chr(10).join(anomalies)}\n\n{analysis[:300]}"
 
         try:
-            mgr_res = (
-                await supabase.table("users")
-                .select("id")
-                .in_("role", ["founder", "boss", "manager"])
-                .execute()
-            )
+            mgr_res = await supabase.table("users").select("id").in_("role", ["founder", "boss", "manager"]).execute()
             notified = 0
-            for u in (mgr_res.data or []):
+            for u in mgr_res.data or []:
                 try:
                     await send_notification(
                         title="📉 销售指标异常预警",
@@ -185,6 +183,7 @@ def sensor_sales_anomaly():
 # ---------------------------------------------------------------------------
 # Sensor 2: Follow-up Timeout Detection
 # ---------------------------------------------------------------------------
+
 
 @celery_app.task
 def sensor_followup_timeout():
@@ -225,9 +224,9 @@ def sensor_followup_timeout():
             if not customer.get("user_id"):
                 continue
             try:
-                days_since = (datetime.now(UTC) - datetime.fromisoformat(
-                    customer["updated_at"].replace("Z", "+00:00")
-                )).days
+                days_since = (
+                    datetime.now(UTC) - datetime.fromisoformat(customer["updated_at"].replace("Z", "+00:00"))
+                ).days
 
                 # Generate follow-up suggestion
                 suggestion = ""
@@ -267,6 +266,7 @@ def sensor_followup_timeout():
 # Sensor 3: Contract Expiry Ladder Warning
 # ---------------------------------------------------------------------------
 
+
 @celery_app.task
 def sensor_contract_expiry_ladder():
     """Enhanced contract expiry with 15/7/3 day ladder warnings.
@@ -305,7 +305,7 @@ def sensor_contract_expiry_ladder():
             except Exception:
                 continue
 
-            for contract in (result.data or []):
+            for contract in result.data or []:
                 if not contract.get("user_id"):
                     continue
                 try:
@@ -352,6 +352,7 @@ def sensor_contract_expiry_ladder():
 # ---------------------------------------------------------------------------
 # Sensor 4: Approval Backlog Detection
 # ---------------------------------------------------------------------------
+
 
 @celery_app.task
 def sensor_approval_backlog():
@@ -434,6 +435,7 @@ def sensor_approval_backlog():
 # Sensor 5: Target Progress Gap Detection
 # ---------------------------------------------------------------------------
 
+
 @celery_app.task
 def sensor_target_progress():
     """Detect users falling behind on monthly targets.
@@ -452,6 +454,7 @@ def sensor_target_progress():
         today = datetime.now().date()
         day_of_month = today.day
         import calendar
+
         days_in_month = calendar.monthrange(today.year, today.month)[1]
 
         # Only trigger past mid-month

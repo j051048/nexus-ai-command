@@ -723,8 +723,7 @@ async def execute_node(state: AgentState, config: dict | None = None) -> dict:
             ExtensionPoint.POST_TOOL,
             {
                 "completed_tools": [
-                    {"name": r.tool_name, "status": r.status, "duration_ms": r.duration_ms}
-                    for r in completed
+                    {"name": r.tool_name, "status": r.status, "duration_ms": r.duration_ms} for r in completed
                 ]
             },
         )
@@ -843,9 +842,7 @@ async def reflect_node(state: AgentState) -> dict:
     # Broader pattern matching for failed/empty RAG results
     _rag_empty_patterns = ("搜索失败", "缺少", "未找到", "没有找到", "无相关", "暂无", "不存在")
     rag_search_failed = (
-        not rag_context
-        or any(p in rag_context for p in _rag_empty_patterns)
-        or len(rag_context.strip()) < 20
+        not rag_context or any(p in rag_context for p in _rag_empty_patterns) or len(rag_context.strip()) < 20
     )
 
     # Skip Layer 4 when: tools were attempted (query is tool-oriented), OR RAG returned nothing useful

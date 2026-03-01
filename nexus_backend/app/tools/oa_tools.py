@@ -224,10 +224,17 @@ class LeaveRequestTool(BaseTool):
                 "current_step": starting_step,
                 "approval_level": approval_level,
                 "approval_history": (
-                    [{"step": 0, "decision": "auto_approved", "approver_id": "system",
-                      "timestamp": datetime.now().isoformat(),
-                      "comment": f"{work_days}天以内自动批准"}]
-                    if auto_approve else []
+                    [
+                        {
+                            "step": 0,
+                            "decision": "auto_approved",
+                            "approver_id": "system",
+                            "timestamp": datetime.now().isoformat(),
+                            "comment": f"{work_days}天以内自动批准",
+                        }
+                    ]
+                    if auto_approve
+                    else []
                 ),
             }
             if chain_id:
@@ -244,6 +251,7 @@ class LeaveRequestTool(BaseTool):
         if not auto_approve:
             try:
                 from app.tools.approval_tools import _notify_next_approver
+
                 await _notify_next_approver(
                     client=client,
                     approval_level=approval_level,

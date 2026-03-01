@@ -307,14 +307,13 @@ class SemanticCache:
             # P2 Fix: Evict expired entries when approaching limit
             if len(self._embedding_cache) > self._embedding_cache_max:
                 now = time.time()
-                expired = [k for k, (_, ts) in self._embedding_cache.items()
-                           if now - ts > self._embedding_cache_ttl]
+                expired = [k for k, (_, ts) in self._embedding_cache.items() if now - ts > self._embedding_cache_ttl]
                 for k in expired:
                     del self._embedding_cache[k]
                 # If still over limit, remove oldest half
                 if len(self._embedding_cache) > self._embedding_cache_max:
                     sorted_keys = sorted(self._embedding_cache, key=lambda k: self._embedding_cache[k][1])
-                    for k in sorted_keys[:len(sorted_keys) // 2]:
+                    for k in sorted_keys[: len(sorted_keys) // 2]:
                         del self._embedding_cache[k]
 
             return embedding

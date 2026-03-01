@@ -175,9 +175,7 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
 
     raw_messages = [{"role": m.role, "content": m.content} for m in request.messages]
 
-    logger.info(
-        f"[Chat] Using LangGraph agent for user={user_id} " f"agent={request.agent} model={ai_config['model']}"
-    )
+    logger.info(f"[Chat] Using LangGraph agent for user={user_id} " f"agent={request.agent} model={ai_config['model']}")
 
     return StreamingResponse(
         run_agent_stream(

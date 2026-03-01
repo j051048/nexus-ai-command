@@ -76,9 +76,7 @@ class DataAttributionTool(BaseTool):
         # 收集各维度数据
         try:
             # 销售指标
-            current_metrics = (
-                await client.table("sales_metrics").select("*").gte("date", current_start).execute()
-            )
+            current_metrics = await client.table("sales_metrics").select("*").gte("date", current_start).execute()
             prev_metrics = (
                 await client.table("sales_metrics")
                 .select("*")
@@ -309,7 +307,9 @@ class StrategySimulationTool(BaseTool):
 
         async def _fetch_budget():
             try:
-                res = await client.table("finance_budgets").select("name, total_amount, used_amount").limit(100).execute()
+                res = (
+                    await client.table("finance_budgets").select("name, total_amount, used_amount").limit(100).execute()
+                )
                 if res.data:
                     total_budget = sum(float(b.get("total_amount", 0)) for b in res.data)
                     total_used = sum(float(b.get("used_amount", 0)) for b in res.data)
@@ -318,8 +318,12 @@ class StrategySimulationTool(BaseTool):
                 return None
 
         results = await asyncio.gather(
-            _fetch_metrics(), _fetch_headcount(), _fetch_salary(),
-            _fetch_contracts(), _fetch_leads(), _fetch_budget(),
+            _fetch_metrics(),
+            _fetch_headcount(),
+            _fetch_salary(),
+            _fetch_contracts(),
+            _fetch_leads(),
+            _fetch_budget(),
         )
         baseline_data = [r for r in results if r]
 

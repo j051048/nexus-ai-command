@@ -323,13 +323,7 @@ async def get_approval_progress(
 
     try:
         # 获取审批请求
-        req_result = (
-            await client.table("approval_requests")
-            .select("*")
-            .eq("id", request_id)
-            .maybe_single()
-            .execute()
-        )
+        req_result = await client.table("approval_requests").select("*").eq("id", request_id).maybe_single().execute()
 
         if not req_result.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, f"审批请求 {request_id} 不存在")

@@ -205,16 +205,11 @@ class DataMaskingMiddleware(BaseHTTPMiddleware):
 
                 data = json.loads(body)
                 masked_data = mask_dict_recursive(data)
-                masked_body = json.dumps(
-                    masked_data, ensure_ascii=False
-                ).encode("utf-8")
+                masked_body = json.dumps(masked_data, ensure_ascii=False).encode("utf-8")
 
                 # P0 Fix: 移除原始 Content-Length，让 Starlette 根据新 body 重新计算，
                 # 否则脱敏改变 body 长度后 h11 会报 "Too much data for declared Content-Length"
-                headers = {
-                    k: v for k, v in response.headers.items()
-                    if k.lower() != "content-length"
-                }
+                headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
                 return Response(
                     content=masked_body,
                     status_code=response.status_code,

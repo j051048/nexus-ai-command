@@ -130,10 +130,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
 
                 # Return a new response with the already-read body
                 # P0 Fix: 移除原始 Content-Length，让 Starlette 根据新 body 重新计算
-                new_headers = {
-                    k: v for k, v in response.headers.items()
-                    if k.lower() != "content-length"
-                }
+                new_headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
                 return Response(
                     content=body,
                     status_code=response.status_code,
@@ -144,10 +141,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                 logger.debug("Idempotency cache set failed: %s", e)
                 # If caching fails, we need to return the response
                 # But we already consumed body_iterator, so return what we have
-                new_headers = {
-                    k: v for k, v in response.headers.items()
-                    if k.lower() != "content-length"
-                }
+                new_headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
                 return Response(
                     content=body,
                     status_code=response.status_code,

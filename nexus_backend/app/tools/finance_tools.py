@@ -71,7 +71,13 @@ class ExpenseClaimTool(BaseTool):
             return "❌ 报销金额必须大于0"
 
         # 获取用户信息
-        user_res = await client.table("users").select("name, department, organization_id").eq("id", user_id).maybe_single().execute()
+        user_res = (
+            await client.table("users")
+            .select("name, department, organization_id")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
         if not user_res.data:
             return "❌ 无法获取用户信息"
 

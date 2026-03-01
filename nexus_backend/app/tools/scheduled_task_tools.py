@@ -16,16 +16,37 @@ logger = logging.getLogger(__name__)
 
 # Day name mapping
 _DAY_NAMES = {
-    0: "周一", 1: "周二", 2: "周三", 3: "周四",
-    4: "周五", 5: "周六", 6: "周日",
+    0: "周一",
+    1: "周二",
+    2: "周三",
+    3: "周四",
+    4: "周五",
+    5: "周六",
+    6: "周日",
 }
 _DAY_NAMES_REVERSE = {
-    "周一": 0, "周二": 1, "周三": 2, "周四": 3,
-    "周五": 4, "周六": 5, "周日": 6,
-    "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
-    "friday": 4, "saturday": 5, "sunday": 6,
-    "星期一": 0, "星期二": 1, "星期三": 2, "星期四": 3,
-    "星期五": 4, "星期六": 5, "星期日": 6, "星期天": 6,
+    "周一": 0,
+    "周二": 1,
+    "周三": 2,
+    "周四": 3,
+    "周五": 4,
+    "周六": 5,
+    "周日": 6,
+    "monday": 0,
+    "tuesday": 1,
+    "wednesday": 2,
+    "thursday": 3,
+    "friday": 4,
+    "saturday": 5,
+    "sunday": 6,
+    "星期一": 0,
+    "星期二": 1,
+    "星期三": 2,
+    "星期四": 3,
+    "星期五": 4,
+    "星期六": 5,
+    "星期日": 6,
+    "星期天": 6,
 }
 
 
@@ -146,9 +167,7 @@ class CreateScheduledTaskTool(BaseTool):
         if existing.count and existing.count >= 20:
             return "您的活跃定时任务已达上限（20个）。请先删除不需要的任务。"
 
-        next_exec = _compute_next_execution(
-            schedule_type, hour, minute, day_of_week, interval_minutes, None
-        )
+        next_exec = _compute_next_execution(schedule_type, hour, minute, day_of_week, interval_minutes, None)
 
         task_data = {
             "user_id": user_id,
@@ -208,10 +227,7 @@ class ListScheduledTasksTool(BaseTool):
     """查看用户定时任务列表"""
 
     name = "list_scheduled_tasks"
-    description = (
-        "查看当前用户的定时任务列表。当用户说'我的定时任务'、'查看提醒'、"
-        "'有哪些定时任务'时调用。"
-    )
+    description = "查看当前用户的定时任务列表。当用户说'我的定时任务'、'查看提醒'、" "'有哪些定时任务'时调用。"
     required_role = "all"
 
     parameters = {
@@ -276,8 +292,7 @@ class DeleteScheduledTaskTool(BaseTool):
 
     name = "delete_scheduled_task"
     description = (
-        "删除或停用定时任务。当用户说'删除定时任务'、'取消提醒'、"
-        "'停止定时任务'时调用。支持按名称或ID删除。"
+        "删除或停用定时任务。当用户说'删除定时任务'、'取消提醒'、" "'停止定时任务'时调用。支持按名称或ID删除。"
     )
     required_role = "all"
     is_irreversible = True
@@ -345,12 +360,7 @@ class DeleteScheduledTaskTool(BaseTool):
             await client.table("user_scheduled_tasks").delete().eq("id", task["id"]).execute()
             return f"已删除定时任务「{task['name']}」。"
         elif action == "disable":
-            await (
-                client.table("user_scheduled_tasks")
-                .update({"is_active": False})
-                .eq("id", task["id"])
-                .execute()
-            )
+            await client.table("user_scheduled_tasks").update({"is_active": False}).eq("id", task["id"]).execute()
             return f"已停用定时任务「{task['name']}」。可以随时重新启用。"
         elif action == "enable":
             next_exec = _compute_next_execution(

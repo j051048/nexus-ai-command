@@ -286,13 +286,15 @@ class PromptVersionService:
 
             async def _persist():
                 try:
-                    await db.table("prompt_metrics").insert({
-                        "test_id": test_id,
-                        "version_id": version_id,
-                        "metric_name": metric_name,
-                        "value": value,
-                        "prompt_key": test.prompt_key,
-                    }).execute()
+                    await db.table("prompt_metrics").insert(
+                        {
+                            "test_id": test_id,
+                            "version_id": version_id,
+                            "metric_name": metric_name,
+                            "value": value,
+                            "prompt_key": test.prompt_key,
+                        }
+                    ).execute()
                 except Exception as e:
                     logger.debug(f"AB metric persist skipped: {e}")
 

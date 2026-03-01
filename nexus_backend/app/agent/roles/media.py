@@ -8,13 +8,13 @@ SCENE_CODES = ["media_planning", "ad_placement", "budget_allocation", "roi_analy
 # ── P2: AI Position (OpenFang "Hands" inspired) ──
 GOAL = "优化媒介投放ROI，确保获客CPA低于行业均值"
 KPI_METRICS = [
-    "overall_roas",               # 整体广告投入产出比
-    "avg_cpa",                    # 平均获客成本
-    "budget_utilization_rate",    # 预算使用率
-    "channel_mix_efficiency",     # 渠道组合效率
+    "overall_roas",  # 整体广告投入产出比
+    "avg_cpa",  # 平均获客成本
+    "budget_utilization_rate",  # 预算使用率
+    "channel_mix_efficiency",  # 渠道组合效率
 ]
 SENSORS = [
-    "sensor_sales_anomaly",       # 投放效果异常检测
+    "sensor_sales_anomaly",  # 投放效果异常检测
 ]
 PATROL_SCHEDULE = {
     "daily": ["check_ad_spend_pacing"],

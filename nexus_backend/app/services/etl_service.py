@@ -162,9 +162,7 @@ class ETLService:
             logger.debug(f"Dedup check failed (non-fatal): {e}")
         return None
 
-    async def _check_title_similarity(
-        self, filename: str, org_id: str, threshold: float = 0.85
-    ) -> dict | None:
+    async def _check_title_similarity(self, filename: str, org_id: str, threshold: float = 0.85) -> dict | None:
         """
         Check for documents with very similar titles within the same org.
         Uses SequenceMatcher for fuzzy matching to catch renamed duplicates.

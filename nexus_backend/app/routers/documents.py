@@ -149,9 +149,7 @@ async def upload_documents(
 
             # P1 Fix #20: Multi-level deduplication (hash + title similarity)
             content_hash = etl_service.compute_content_hash(content)
-            existing_doc = await etl_service.check_duplicate(
-                content_hash, user_id, org_id=org_id, filename=filename
-            )
+            existing_doc = await etl_service.check_duplicate(content_hash, user_id, org_id=org_id, filename=filename)
 
             if existing_doc:
                 dedup_reason = existing_doc.get("dedup_reason", "exact_hash")
@@ -470,15 +468,15 @@ class BulkImportDocumentItem(BaseModel):
     )
     library_code: str | None = Field(default=None, description="目标知识库编码（如 product_lib）")
     tags: list[str] = Field(default_factory=list, description="文档标签")
-    visibility: Literal["private", "department", "organization"] = Field(
-        default="organization", description="可见性"
-    )
+    visibility: Literal["private", "department", "organization"] = Field(default="organization", description="可见性")
 
 
 class BulkImportRequest(BaseModel):
     """Bulk import request body."""
 
-    documents: list[BulkImportDocumentItem] = Field(..., min_length=1, max_length=50, description="文档列表（最多50条）")
+    documents: list[BulkImportDocumentItem] = Field(
+        ..., min_length=1, max_length=50, description="文档列表（最多50条）"
+    )
 
 
 @router.post("/bulk-import", response_model=StandardResponse)
@@ -523,21 +521,17 @@ async def bulk_import_documents(
             content_hash = hashlib.sha256(content_bytes).hexdigest()
 
             # Check if document with same name already exists (idempotent)
-            existing = (
-                await client.table("documents")
-                .select("id, name")
-                .eq("name", item.title)
-                .limit(1)
-                .execute()
-            )
+            existing = await client.table("documents").select("id, name").eq("name", item.title).limit(1).execute()
             if existing.data and len(existing.data) > 0:
                 skip_count += 1
-                results.append({
-                    "title": item.title,
-                    "status": "skipped",
-                    "existing_id": existing.data[0]["id"],
-                    "message": "同名文档已存在",
-                })
+                results.append(
+                    {
+                        "title": item.title,
+                        "status": "skipped",
+                        "existing_id": existing.data[0]["id"],
+                        "message": "同名文档已存在",
+                    }
+                )
                 continue
 
             # Build extracted_data
@@ -572,28 +566,34 @@ async def bulk_import_documents(
             if res.data:
                 doc_id = res.data[0]["id"]
                 success_count += 1
-                results.append({
-                    "title": item.title,
-                    "status": "created",
-                    "document_id": doc_id,
-                    "library_id": library_id,
-                })
+                results.append(
+                    {
+                        "title": item.title,
+                        "status": "created",
+                        "document_id": doc_id,
+                        "library_id": library_id,
+                    }
+                )
             else:
                 error_count += 1
-                results.append({
-                    "title": item.title,
-                    "status": "error",
-                    "message": "数据库未返回记录",
-                })
+                results.append(
+                    {
+                        "title": item.title,
+                        "status": "error",
+                        "message": "数据库未返回记录",
+                    }
+                )
 
         except Exception as e:
             error_count += 1
             logger.error(f"Bulk import failed for '{item.title}': {e}")
-            results.append({
-                "title": item.title,
-                "status": "error",
-                "message": str(e)[:200],
-            })
+            results.append(
+                {
+                    "title": item.title,
+                    "status": "error",
+                    "message": str(e)[:200],
+                }
+            )
 
     # Update library doc_count for affected libraries
     affected_codes = {item.library_code for item in payload.documents if item.library_code}
@@ -601,25 +601,14 @@ async def bulk_import_documents(
         lib_id = library_map.get(code)
         if lib_id:
             try:
-                count_res = (
-                    await client.table("documents")
-                    .select("id")
-                    .eq("library_id", lib_id)
-                    .execute()
-                )
+                count_res = await client.table("documents").select("id").eq("library_id", lib_id).execute()
                 doc_count = len(count_res.data) if count_res.data else 0
-                await (
-                    client.table("knowledge_library")
-                    .update({"doc_count": doc_count})
-                    .eq("id", lib_id)
-                    .execute()
-                )
+                await client.table("knowledge_library").update({"doc_count": doc_count}).eq("id", lib_id).execute()
             except Exception as e:
                 logger.warning(f"Failed to update doc_count for library {code}: {e}")
 
     logger.info(
-        f"Bulk import by user {user_id}: {success_count} created, "
-        f"{skip_count} skipped, {error_count} errors"
+        f"Bulk import by user {user_id}: {success_count} created, " f"{skip_count} skipped, {error_count} errors"
     )
 
     return api_success(
