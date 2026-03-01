@@ -3,6 +3,7 @@ Audio transcription endpoint.
 Accepts audio file upload and returns transcribed text using STT model.
 """
 
+import contextlib
 import logging
 import os
 import tempfile
@@ -153,7 +154,5 @@ async def transcribe_audio(
         )
     finally:
         if tmp_path:
-            try:
+            with contextlib.suppress(Exception):
                 os.unlink(tmp_path)
-            except Exception:
-                pass
