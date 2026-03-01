@@ -207,5 +207,60 @@ export const aiClient = {
             method: 'POST',
             body: JSON.stringify({ messages, model })
         });
+    },
+
+    /**
+     * Upload audio for STT transcription (multipart/form-data)
+     */
+    async uploadAudio(audioBlob: Blob, mimeType: string): Promise<{ data: { text: string; empty?: boolean } }> {
+        const fullUrl = buildUrl('api/audio/transcribe');
+
+        const ext = mimeType.includes('wav') ? '.wav'
+            : mimeType.includes('mp4') ? '.m4a'
+            : mimeType.includes('mp3') ? '.mp3'
+            : '.webm';
+        const formData = new FormData();
+        formData.append('file', audioBlob, `recording${ext}`);
+
+        const headers: Record<string, string> = {
+            'X-Trace-ID': getTraceId(),
+        };
+
+        const token = await getAuthToken();
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        let response: Response;
+        try {
+            response = await fetch(fullUrl, {
+                method: 'POST',
+                headers,
+                body: formData,
+            });
+        } catch (networkError) {
+            handleNetworkError(networkError as Error);
+            throw networkError;
+        }
+
+        if (!response.ok) {
+            let errorMessage = `语音识别失败 (${response.status})`;
+            try {
+                const errorData = await response.json();
+                if (errorData.error?.message) {
+                    errorMessage = errorData.error.message;
+                } else if (errorData.detail) {
+                    errorMessage = typeof errorData.detail === 'string'
+                        ? errorData.detail
+                        : JSON.stringify(errorData.detail);
+                }
+            } catch {
+                // ignore parse error
+            }
+            handleErrorResponse(response.status, errorMessage);
+            throw new Error(errorMessage);
+        }
+
+        return response.json();
     }
 };

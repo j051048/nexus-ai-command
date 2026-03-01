@@ -29,6 +29,7 @@ from app.routers import (
     api_docs,
     api_keys,
     approval,
+    audio,
     backups,
     billing,
     chat,
@@ -326,6 +327,7 @@ app.include_router(incentive.router)
 app.include_router(approval.router)
 app.include_router(kingdee.router)
 app.include_router(chat.router)
+app.include_router(audio.router)
 app.include_router(documents.router)
 app.include_router(projects.router)
 app.include_router(usage.router)

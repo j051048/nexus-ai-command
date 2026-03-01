@@ -158,11 +158,19 @@ export function EnhancedAIChatPanel({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [slideCancelling, setSlideCancelling] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const touchStartYRef = useRef(0);
+  const autoSendRef = useRef(false);
 
   const { isTyping: isAiTyping, aiStatus, streamChat, stopStream, pendingConfirmation, pendingQuestion, confirmAndResend, answerQuestion, dismissConfirmation, dismissQuestion } = useAIStream({ userId: user.id });
 
@@ -510,6 +518,86 @@ export function EnhancedAIChatPanel({
       recognitionRef.current = null;
     }
   }, [isRecording]);
+
+  // ========== WeChat-style press-to-talk recording ==========
+
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/mp4')
+          ? 'audio/mp4'
+          : 'audio/webm';
+
+      const recorder = new MediaRecorder(stream, { mimeType });
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = async () => {
+        stream.getTracks().forEach(track => track.stop());
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        if (audioBlob.size < 1000) {
+          toast.info('录音时间太短，请长按说话');
+          return;
+        }
+        setIsTranscribing(true);
+        try {
+          const result = await aiClient.uploadAudio(audioBlob, mimeType);
+          if (result.data?.text) {
+            setInput(result.data.text);
+            autoSendRef.current = true;
+          } else {
+            toast.info('未识别到语音，请重试');
+          }
+        } catch {
+          toast.error('语音识别失败，请重试');
+        } finally {
+          setIsTranscribing(false);
+        }
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start(100);
+      setIsRecording(true);
+      if (navigator.vibrate) navigator.vibrate(50);
+    } catch (err) {
+      if ((err as Error).name === 'NotAllowedError') {
+        toast.error('请允许麦克风权限后重试');
+      } else {
+        toast.error('无法访问麦克风');
+      }
+    }
+  }, []);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (navigator.vibrate) navigator.vibrate(50);
+    }
+  }, []);
+
+  const cancelRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.ondataavailable = null;
+      mediaRecorderRef.current.onstop = () => { audioChunksRef.current = []; };
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      toast.info('已取消录音');
+    }
+  }, []);
+
+  // Auto-send transcribed text
+  useEffect(() => {
+    if (autoSendRef.current && input.trim()) {
+      autoSendRef.current = false;
+      handleSend();
+    }
+  }, [input, handleSend]);
 
   const panelHeightClass = useMemo(() => {
     if (isFullscreen) return 'h-[100dvh]';
@@ -991,28 +1079,61 @@ export function EnhancedAIChatPanel({
                 </div>
               )}
 
-              <div className="flex items-center gap-2">
-                {/* Mobile-only: collapsed + menu for @agent, attachment, mic */}
-                <div className="flex sm:hidden">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-10 w-10 flex-shrink-0" data-compact>
-                        <Plus className="w-5 h-5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                      <DropdownMenuItem onClick={() => setShowAgents(!showAgents)}>
-                        <AtSign className="w-4 h-4 mr-2" /> 选择AI助手
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
-                        <Paperclip className="w-4 h-4 mr-2" /> 上传文档
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={toggleRecording}>
-                        <Mic className="w-4 h-4 mr-2" /> 语音输入
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+              {/* Mobile Menu Panel (replaces DropdownMenu for touch compatibility) */}
+              {showMobileMenu && (
+                <div className="mb-3 p-2 bg-secondary/50 rounded-lg animate-fade-slide-up sm:hidden">
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      onClick={() => { setShowAgents(!showAgents); setShowMobileMenu(false); }}
+                      className="flex flex-col items-center gap-1 p-3 rounded-lg hover:bg-secondary active:bg-secondary transition-colors"
+                    >
+                      <AtSign className="w-5 h-5 text-blue-500" />
+                      <span className="text-xs text-muted-foreground">AI助手</span>
+                    </button>
+                    <button
+                      onClick={() => { fileInputRef.current?.click(); setShowMobileMenu(false); }}
+                      className="flex flex-col items-center gap-1 p-3 rounded-lg hover:bg-secondary active:bg-secondary transition-colors"
+                    >
+                      <Paperclip className="w-5 h-5 text-green-500" />
+                      <span className="text-xs text-muted-foreground">上传文档</span>
+                    </button>
+                    <button
+                      onClick={() => { setVoiceMode(!voiceMode); setShowMobileMenu(false); }}
+                      className="flex flex-col items-center gap-1 p-3 rounded-lg hover:bg-secondary active:bg-secondary transition-colors"
+                    >
+                      <Mic className={cn("w-5 h-5", voiceMode ? "text-red-500" : "text-orange-500")} />
+                      <span className="text-xs text-muted-foreground">{voiceMode ? '文字模式' : '语音模式'}</span>
+                    </button>
+                  </div>
                 </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                {/* Mobile-only: + menu button */}
+                <div className="flex sm:hidden">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 flex-shrink-0"
+                    onClick={() => setShowMobileMenu(prev => !prev)}
+                  >
+                    <Plus className={cn("w-5 h-5 transition-transform", showMobileMenu && "rotate-45")} />
+                  </Button>
+                </div>
+
+                {/* Mobile-only: voice/text mode toggle */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 flex-shrink-0 sm:hidden"
+                  onClick={() => setVoiceMode(!voiceMode)}
+                >
+                  {voiceMode ? (
+                    <Keyboard className="w-5 h-5" />
+                  ) : (
+                    <Mic className="w-5 h-5" />
+                  )}
+                </Button>
 
                 {/* Desktop-only: @agent and attachment buttons */}
                 <div className="hidden sm:flex items-center gap-2">
@@ -1054,35 +1175,87 @@ export function EnhancedAIChatPanel({
                   accept=".pdf,.txt,.md,.csv,.json,.docx"
                 />
 
-                <div className="flex-1 relative">
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                    placeholder={
-                      currentAgent
-                        ? `向 ${currentAgent} 提问...`
-                        : '输入指令... 按 @ 选择助手'
-                    }
-                    className="w-full bg-secondary rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
-                  />
-                  {currentAgent && (
-                    <Badge
-                      variant="secondary"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px]"
-                    >
-                      {currentAgent}
-                      <button
-                        className="ml-1 hover:text-foreground"
-                        onClick={() => setCurrentAgent(undefined)}
+                {/* Middle area: text input OR press-to-talk button */}
+                {voiceMode && isMobile ? (
+                  <button
+                    className={cn(
+                      "flex-1 h-12 rounded-xl text-sm font-medium select-none transition-all",
+                      "active:scale-[0.98]",
+                      slideCancelling
+                        ? "bg-red-500/20 text-red-600 border-2 border-red-500/50"
+                        : isRecording
+                          ? "bg-red-500/10 text-red-500 border-2 border-red-500/30"
+                          : "bg-secondary text-muted-foreground border-2 border-transparent",
+                      isTranscribing && "opacity-50 pointer-events-none"
+                    )}
+                    onTouchStart={(e) => {
+                      e.preventDefault();
+                      touchStartYRef.current = e.touches[0].clientY;
+                      setSlideCancelling(false);
+                      startRecording();
+                    }}
+                    onTouchMove={(e) => {
+                      if (!isRecording) return;
+                      const delta = touchStartYRef.current - e.touches[0].clientY;
+                      setSlideCancelling(delta > 50);
+                    }}
+                    onTouchEnd={(e) => {
+                      e.preventDefault();
+                      if (slideCancelling) {
+                        cancelRecording();
+                        setSlideCancelling(false);
+                      } else {
+                        stopRecording();
+                      }
+                    }}
+                    onTouchCancel={() => { cancelRecording(); setSlideCancelling(false); }}
+                    disabled={isTranscribing || isAiTyping}
+                  >
+                    {isTranscribing ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        识别中...
+                      </span>
+                    ) : isRecording ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                        {slideCancelling ? '松开取消' : '松开发送，上滑取消'}
+                      </span>
+                    ) : (
+                      '按住说话'
+                    )}
+                  </button>
+                ) : (
+                  <div className="flex-1 relative">
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                      placeholder={
+                        currentAgent
+                          ? `向 ${currentAgent} 提问...`
+                          : '输入指令... 按 @ 选择助手'
+                      }
+                      className="w-full bg-secondary rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
+                    />
+                    {currentAgent && (
+                      <Badge
+                        variant="secondary"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px]"
                       >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </Badge>
-                  )}
-                </div>
+                        {currentAgent}
+                        <button
+                          className="ml-1 hover:text-foreground"
+                          onClick={() => setCurrentAgent(undefined)}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    )}
+                  </div>
+                )}
 
                 {/* Desktop-only: mic button */}
                 <div className="hidden sm:block">
@@ -1113,6 +1286,9 @@ export function EnhancedAIChatPanel({
                   </Tooltip>
                 </div>
 
+                {/* Send / Stop button — hidden in voice mode on mobile */}
+                {!(voiceMode && isMobile) && (
+                <>
                 {isAiTyping ? (
                   <Button
                     size="icon"
@@ -1137,6 +1313,8 @@ export function EnhancedAIChatPanel({
                 >
                   <Send className="w-5 h-5" />
                 </Button>
+                )}
+                </>
                 )}
               </div>
 

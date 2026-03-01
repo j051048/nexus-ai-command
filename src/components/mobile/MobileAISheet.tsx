@@ -49,6 +49,7 @@ export default function MobileAISheet({
 
   // 手势：拖拽把手上下拉
   const handleDragStart = useCallback((e: React.TouchEvent) => {
+    e.stopPropagation();
     dragStartY.current = e.touches[0].clientY;
     currentDragDelta.current = 0;
     isDragging.current = true;
@@ -180,7 +181,7 @@ export default function MobileAISheet({
         </div>
 
         {/* AI Chat 内容 */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden touch-manipulation">
           {isVisible && (
             <EnhancedAIChatPanel
               isExpanded={true}
