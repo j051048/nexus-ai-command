@@ -934,6 +934,8 @@ async def reflect_node(state: AgentState) -> dict:
     if rag_context and last_ai_content and not is_hallucination and not has_any_tool_attempts and not rag_search_failed:
         prompt = f"""[事实核查任务]
 请比较【参考知识】与【AI回复】，判断回复是否完全基于背景知识，是否存在编造或矛盾。
+请严格按照以下 JSON 格式返回，不要输出其他内容:
+{{"is_grounded": true, "reason": "", "score": 0.8}}
 
 参考知识:
 {rag_context[:2000]}
@@ -942,13 +944,20 @@ AI回复:
 {last_ai_content[:1000]}
 """
         try:
+            import json as _json
+            import re as _re
+
             llm = _get_llm(config, model=config.mini_model, resolved_config=resolved)
-            structured_llm = llm.with_structured_output(GroundednessCheck)
-            eval_result: GroundednessCheck = await structured_llm.ainvoke([HumanMessage(content=prompt)])
-            if not eval_result.is_grounded:
-                is_hallucination = True
-                grounded_warning = eval_result.reason or "事实偏差"
-                logger.warning(f"[Reflect] Ungrounded response: {grounded_warning}")
+            raw_resp = await llm.ainvoke([HumanMessage(content=prompt)])
+            raw_text = raw_resp.content.strip()
+            json_match = _re.search(r"\{.*\}", raw_text, _re.DOTALL)
+            if json_match:
+                parsed = _json.loads(json_match.group())
+                eval_result = GroundednessCheck(**parsed)
+                if not eval_result.is_grounded:
+                    is_hallucination = True
+                    grounded_warning = eval_result.reason or "事实偏差"
+                    logger.warning(f"[Reflect] Ungrounded response: {grounded_warning}")
         except Exception as e:
             logger.debug(f"[ReflectNode] Groundedness check failed: {e}")
     elif has_any_tool_attempts:
@@ -971,6 +980,9 @@ AI回复:
 2. 是否引用了不存在的文档或来源?
 3. 数值是否合理且有依据?
 
+请严格按照以下 JSON 格式返回，不要输出其他内容:
+{{"is_hallucination": false, "reason": "", "confidence": 0.8}}
+
 上下文摘要:
 {messages_text}
 
@@ -978,12 +990,19 @@ AI 回复:
 {last_ai_content}
 """
         try:
+            import json as _json
+            import re as _re
+
             llm = _get_llm(config, model=config.mini_model, resolved_config=resolved)
-            structured_llm = llm.with_structured_output(HallucinationCheck)
-            eval_result: HallucinationCheck = await structured_llm.ainvoke([HumanMessage(content=prompt)])
-            if eval_result.is_hallucination:
-                is_hallucination = True
-                hallucination_reason = eval_result.reason or "存在事实偏差"
+            raw_resp = await llm.ainvoke([HumanMessage(content=prompt)])
+            raw_text = raw_resp.content.strip()
+            json_match = _re.search(r"\{.*\}", raw_text, _re.DOTALL)
+            if json_match:
+                parsed = _json.loads(json_match.group())
+                eval_result = HallucinationCheck(**parsed)
+                if eval_result.is_hallucination:
+                    is_hallucination = True
+                    hallucination_reason = eval_result.reason or "存在事实偏差"
         except Exception as e:
             logger.debug(f"[ReflectNode] LLM eval failed: {e}")
 
@@ -1235,7 +1254,8 @@ async def critic_node(state: AgentState) -> dict:
 4. passed (true/false): 三项均≥0.6 且无明显错误时为 true
 5. improvement_suggestion: 如果 passed=false，给出简明改进建议（一句话）
 
-请严格按照 JSON 格式返回评估结果。"""
+请严格按照以下 JSON 格式返回，不要输出其他内容:
+{{"completeness": 0.8, "relevance": 0.9, "accuracy": 0.7, "passed": true, "improvement_suggestion": ""}}"""
 
     try:
         # P2-9: Use Gateway instead of direct ChatOpenAI construction
@@ -1266,8 +1286,19 @@ async def critic_node(state: AgentState) -> dict:
                 temperature=0.1,
                 max_tokens=300,
             )
-        critic_llm_structured = critic_llm.with_structured_output(CriticResult)
-        result: CriticResult = await critic_llm_structured.ainvoke([SystemMessage(content=critic_prompt)])
+        # Avoid with_structured_output — many proxied/non-OpenAI APIs reject
+        # additionalProperties in the JSON schema.  Parse JSON manually instead.
+        import json as _json
+        import re as _re
+
+        raw_response = await critic_llm.ainvoke([SystemMessage(content=critic_prompt)])
+        raw_text = raw_response.content.strip()
+        # Extract JSON from possible markdown fences
+        json_match = _re.search(r"\{.*\}", raw_text, _re.DOTALL)
+        if not json_match:
+            raise ValueError(f"No JSON found in critic response: {raw_text[:200]}")
+        parsed = _json.loads(json_match.group())
+        result = CriticResult(**parsed)
     except Exception as e:
         # Critic failure should never block the response — silently pass
         logger.warning(f"[CriticNode] Evaluation failed, silently passing: {e}")
