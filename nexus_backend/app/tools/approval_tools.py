@@ -5,6 +5,7 @@ All approval/reject operations now require explicit confirmation.
 P0 Enhancement: Uses advance_step for chain-based approvals.
 """
 
+import contextlib
 import logging
 from datetime import datetime
 from typing import Any
@@ -152,7 +153,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
     }
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
-        from datetime import datetime, timedelta
+        from datetime import datetime
 
         client = _get_client(config)
         # 使用当前登录用户的 ID（从 JWT 解析出来的）
@@ -188,8 +189,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
                     e = datetime.strptime(end_date, "%Y-%m-%d")
                     if e.year < now.year - 1 or e.year > now.year + 1:
                         return f"❌ 结束日期 {end_date} 年份异常，当前日期是 {now.strftime('%Y-%m-%d')}。"
-                if start_date and end_date:
-                    if e < s:
+                if start_date and end_date and e < s:
                         return "❌ 结束日期不能早于开始日期。"
             except ValueError:
                 return "❌ 日期格式错误，请使用 YYYY-MM-DD 格式。"
@@ -308,7 +308,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
 
             if auto_approve:
                 # 小额自动批准 — 通知提交人
-                try:
+                with contextlib.suppress(Exception):
                     await client.table("notifications").insert(
                         {
                             "user_id": employee_id,
@@ -317,8 +317,6 @@ class SubmitApprovalOnBehalfTool(BaseTool):
                             "type": "success",
                         }
                     ).execute()
-                except Exception:
-                    pass
                 return (
                     f"✅ 已为您（{employee_name}）提交{approval_type}申请（单号：{req_id[:8]}...）。\n"
                     f"金额 ¥{amount} 在自动审批限额内，系统已自动批准。"
@@ -779,7 +777,7 @@ class RejectTool(BaseTool):
             try:
                 from app.services.approval_chain import approval_chain_service
 
-                updated = await approval_chain_service.advance_step(
+                _updated = await approval_chain_service.advance_step(
                     request_id=req_id,
                     decision="rejected",
                     approver_id=user_id,

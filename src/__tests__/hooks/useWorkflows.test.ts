@@ -64,6 +64,7 @@ describe('useWorkflows', () => {
   beforeEach(() => {
     mockFetchFn.mockReset();
     global.fetch = mockFetchFn;
+    import.meta.env.VITE_API_BASE_URL = 'http://localhost:8000';
   });
 
   afterEach(() => {

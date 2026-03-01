@@ -112,8 +112,7 @@ def _get_pending_migrations(applied: set[str]) -> list[tuple[str, Path]]:
 
     pending = []
     for f in sorted(MIGRATIONS_DIR.iterdir()):
-        if f.is_file() and f.suffix == ".sql":
-            if f.name not in applied:
+        if f.is_file() and f.suffix == ".sql" and f.name not in applied:
                 pending.append((f.name, f))
 
     return pending
@@ -154,7 +153,7 @@ async def run_migrations() -> list[str]:
     # 在大多数 Supabase 环境中，应使用 supabase db push 而不是自动执行
     # 这里仅记录待执行迁移，实际执行需要 DBA 确认
     applied_names = []
-    for name, path in pending:
+    for name, _path in pending:
         logger.info(f"[MigrationRunner] 待执行迁移: {name}")
         # 安全起见，这里只记录不自动执行
         # 如需自动执行，取消下面注释并确保 exec_sql RPC 可用

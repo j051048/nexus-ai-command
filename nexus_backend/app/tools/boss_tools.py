@@ -13,7 +13,6 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from app.core.database import supabase
 from app.services.ai_service import AIService
 
 from .base_tool import BaseTool

@@ -229,7 +229,7 @@ async def advance_approval(
     - approved: 如果还有后续步骤则推进，否则标记为最终通过
     - rejected: 立即终止审批流程
     """
-    org_id = getattr(request.state, "org_id", None)
+    _org_id = getattr(request.state, "org_id", None)
     client = getattr(request.state, "db", None)
     if not client:
         raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库连接不可用")

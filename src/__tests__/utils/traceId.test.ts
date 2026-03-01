@@ -1,4 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: {
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
+      refreshSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+      signOut: vi.fn(),
+    },
+  },
+}));
+
 import { getTraceId, resetTraceSession } from '@/api/aiClient';
 
 describe('aiClient TraceID', () => {

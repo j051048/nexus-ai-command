@@ -128,10 +128,10 @@ class ExpenseClaimTool(BaseTool):
         starting_step = chain_result.get("starting_step", 0)
         approval_level = chain_result.get("approval_level", "manager")
         timeout_at = chain_result.get("timeout_at")
-        chain_name = chain_result.get("chain_name", "费用报销审批链")
+        _chain_name = chain_result.get("chain_name", "费用报销审批链")
 
         approval_status = "approved" if auto_approve else "pending"
-        approval_note = f"金额在自动审批限额内，已自动审批" if auto_approve else f"需{approval_level}级别审批"
+        approval_note = "金额在自动审批限额内，已自动审批" if auto_approve else f"需{approval_level}级别审批"
 
         # 查找关联项目
         project_id = None

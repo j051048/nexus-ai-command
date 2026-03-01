@@ -169,8 +169,8 @@ class ETLService:
         Check for documents with very similar titles within the same org.
         Uses SequenceMatcher for fuzzy matching to catch renamed duplicates.
         """
-        from difflib import SequenceMatcher
         import re
+        from difflib import SequenceMatcher
 
         # Normalize filename: strip extension and common prefixes/suffixes
         base_name = filename.rsplit(".", 1)[0] if "." in filename else filename

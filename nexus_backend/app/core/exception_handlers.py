@@ -12,7 +12,6 @@ Key rules:
 """
 
 import logging
-import traceback
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -64,7 +63,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     # Build field-level error details
     field_errors = []
     for err in exc.errors():
-        loc = " -> ".join(str(l) for l in err.get("loc", []))
+        loc = " -> ".join(str(part) for part in err.get("loc", []))
         field_errors.append({
             "field": loc,
             "message": err.get("msg", ""),

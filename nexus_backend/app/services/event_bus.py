@@ -539,7 +539,7 @@ async def auto_create_invoice_from_contract(event: Event):
     amount = event.payload.get("amount", 0)
     customer_name = event.payload.get("customer_name", "")
     org_id = event.payload.get("org_id")
-    user_id = event.payload.get("user_id")
+    _user_id = event.payload.get("user_id")
 
     if not contract_id or not amount:
         return
@@ -612,7 +612,7 @@ async def update_sales_metrics_on_payment(event: Event):
 
     user_id = event.payload.get("user_id")
     amount = event.payload.get("amount", 0)
-    org_id = event.payload.get("org_id")
+    _org_id = event.payload.get("org_id")
 
     if not user_id or not amount:
         return

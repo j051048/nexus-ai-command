@@ -710,7 +710,7 @@ class ApprovalChainService:
                     # Handle parallel nodes: track parallel approvals
                     if has_more_steps and next_step_def.get("type") == "parallel":
                         required_approvals = next_step_def.get("required_count", 1)
-                        parallel_approvers = next_step_def.get("approvers", [])
+                        _parallel_approvers = next_step_def.get("approvers", [])
                         # Check how many parallel approvals we have at this step
                         parallel_count = sum(
                             1

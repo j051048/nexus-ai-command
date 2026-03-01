@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # ---------------------------------------------------------------------------
 # VMD Task Response Models
 # ---------------------------------------------------------------------------

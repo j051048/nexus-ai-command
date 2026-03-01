@@ -7,12 +7,10 @@ Manages WebSocket connections per user, supports:
 - Connection lifecycle management with heartbeat
 """
 
-import asyncio
+import contextlib
 import json
 import logging
-import time
 from collections.abc import AsyncGenerator
-from typing import Any
 
 from fastapi import WebSocket, WebSocketDisconnect
 
@@ -140,7 +138,5 @@ async def stream_agent_via_ws(
         logger.info(f"[WS] Stream disconnected for user {user_id}")
     except Exception as e:
         logger.error(f"[WS] Stream error for user {user_id}: {e}")
-        try:
+        with contextlib.suppress(Exception):
             await websocket.send_json({"type": "error", "message": str(e)[:200]})
-        except Exception:
-            pass

@@ -13,10 +13,19 @@ interface HistoryDoc {
     name: string;
     doc_type: string | null;
     status: string | null;
-    extracted_data: any;
+    extracted_data: Record<string, unknown>;
     owner_id: string | null;
     created_at: string;
     ownerName: string;
+}
+
+interface ExtractedData {
+    full_analysis_markdown?: string;
+    redlines?: string[];
+    technical_deviations?: string[];
+    tags?: string[];
+    doc_type?: string;
+    summary?: string;
 }
 
 export function TenderAnalysisPage() {
@@ -55,7 +64,7 @@ export function TenderAnalysisPage() {
             if (error) throw error;
 
             // Filter to bid/tender documents (check both top-level and extracted_data.doc_type)
-            const bidDocs = (data || []).filter((doc: any) => {
+            const bidDocs = (data || []).filter((doc: Record<string, unknown>) => {
                 const ed = typeof doc.extracted_data === 'string'
                     ? JSON.parse(doc.extracted_data)
                     : doc.extracted_data;
@@ -64,7 +73,7 @@ export function TenderAnalysisPage() {
             });
 
             // Resolve owner names
-            const ownerIds = [...new Set(bidDocs.map((d: any) => d.owner_id).filter(Boolean))] as string[];
+            const ownerIds = [...new Set(bidDocs.map((d: Record<string, unknown>) => d.owner_id).filter(Boolean))] as string[];
             let nameMap: Record<string, string> = {};
 
             if (ownerIds.length > 0) {
@@ -72,11 +81,11 @@ export function TenderAnalysisPage() {
                     .select('id, name')
                     .in('id', ownerIds);
                 nameMap = Object.fromEntries(
-                    (users || []).map((u: any) => [u.id, u.name || '未知用户'])
+                    (users || []).map((u: { id: string; name?: string }) => [u.id, u.name || '未知用户'])
                 );
             }
 
-            const withNames: HistoryDoc[] = bidDocs.map((d: any) => ({
+            const withNames: HistoryDoc[] = bidDocs.map((d: Record<string, unknown>) => ({
                 ...d,
                 extracted_data: typeof d.extracted_data === 'string'
                     ? JSON.parse(d.extracted_data)
@@ -125,7 +134,7 @@ export function TenderAnalysisPage() {
         setProgress(100);
         setCurrentStep(3);
 
-        generateReport(histDoc.extracted_data, histDoc.name);
+        generateReport(histDoc.extracted_data as ExtractedData, histDoc.name);
         toast.success(`已加载「${histDoc.name}」的分析报告`);
     };
 
@@ -240,7 +249,7 @@ export function TenderAnalysisPage() {
                     if (existingDoc.status === 'ready' || existingDoc.status === 'success') {
                         setDocId(existingDocId);
                         setSelectedHistoryId(existingDocId);
-                        generateReport(ed, existingDoc.name);
+                        generateReport(ed as ExtractedData, existingDoc.name);
                         setAnalyzing(false);
                         setProgress(100);
                         setCurrentStep(3);
@@ -311,7 +320,7 @@ export function TenderAnalysisPage() {
                 else setCurrentStep(3);
 
                 if (doc.status === 'ready' || doc.status === 'success') {
-                    generateReport(doc.extracted_data);
+                    generateReport(doc.extracted_data as ExtractedData);
                     setAnalyzing(false);
                     setSelectedHistoryId(docId);
                     toast.success("AI 诊断完成");
@@ -346,7 +355,7 @@ export function TenderAnalysisPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [docId, analyzing]);
 
-    const generateReport = (data: any, docName?: string) => {
+    const generateReport = (data: ExtractedData, docName?: string) => {
         if (!data) return;
 
         // 优先使用后端生成的高质量 Markdown 报告
@@ -355,8 +364,8 @@ export function TenderAnalysisPage() {
             return;
         }
 
-        const redlines = data.redlines?.map((r: string) => `- 🚨 ${r}`).join('\n') || "- 未发现明显否决性条款";
-        const deviations = data.technical_deviations?.map((d: string) => `- ⚠️ ${d}`).join('\n') || "- 未发现明显技术偏离";
+        const redlines = data.redlines?.map((r: string) => `- \u{1F6A8} ${r}`).join('\n') || "- 未发现明显否决性条款";
+        const deviations = data.technical_deviations?.map((d: string) => `- \u26A0\uFE0F ${d}`).join('\n') || "- 未发现明显技术偏离";
         const tags = data.tags?.join(', ') || "无标签";
 
         const md = `### 📋 标书分析报告 - ${docName || file?.name || '未知文档'}\n\n` +

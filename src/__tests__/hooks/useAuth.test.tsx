@@ -38,9 +38,9 @@ vi.mock('sonner', () => ({
 
 // ─── 测试辅助 ──────────────────────────────────────────────
 
-function createWrapper() {
+async function createWrapper() {
   // Dynamic import to ensure mock is applied
-  const { AuthProvider } = require('@/components/auth/AuthContext');
+  const { AuthProvider } = await import('@/components/auth/AuthContext');
   return ({ children }: { children: React.ReactNode }) =>
     React.createElement(AuthProvider, null, children);
 }

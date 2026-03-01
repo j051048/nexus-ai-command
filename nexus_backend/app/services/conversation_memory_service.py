@@ -10,7 +10,7 @@ import contextlib
 import logging
 import re
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from app.core.database import supabase

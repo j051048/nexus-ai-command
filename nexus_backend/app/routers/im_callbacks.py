@@ -90,7 +90,7 @@ def _verify_feishu_signature(request_body: bytes, timestamp: str, nonce: str, si
         return False
 
     try:
-        content = f"{timestamp}{nonce}{encrypt_key}".encode("utf-8") + request_body
+        content = f"{timestamp}{nonce}{encrypt_key}".encode() + request_body
         expected = hashlib.sha256(content).hexdigest()
         return hmac.compare_digest(expected, signature)
     except Exception as e:

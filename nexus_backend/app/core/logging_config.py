@@ -71,10 +71,7 @@ def setup_logging(level: str | None = None, format_string: str | None = None, js
     # Default format includes timestamp, level, module, and message
     default_format = "[%(asctime)s] %(levelname)s [%(name)s:%(lineno)d] %(message)s"
 
-    if format_string:
-        log_format = format_string
-    else:
-        log_format = default_format
+    log_format = format_string if format_string else default_format
 
     # Configure root logger
     logging.basicConfig(

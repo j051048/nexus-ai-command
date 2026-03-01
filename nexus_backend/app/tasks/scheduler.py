@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import logging
 from datetime import UTC, datetime, timedelta
 
@@ -499,15 +500,13 @@ def execute_user_scheduled_tasks():
             except Exception as e:
                 logger.error(f"User scheduled task failed {task['id']}: {e}")
                 # Record failure but keep task active
-                try:
+                with contextlib.suppress(Exception):
                     await (
                         supabase.table("user_scheduled_tasks")
                         .update({"last_result": f"执行失败: {str(e)[:200]}"})
                         .eq("id", task["id"])
                         .execute()
                     )
-                except Exception:
-                    pass
 
         return f"Executed {executed}/{len(tasks)} user scheduled tasks"
 

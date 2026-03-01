@@ -11,7 +11,7 @@ warnings.filterwarnings(
 
 import sentry_sdk
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.auth import get_current_user_id
@@ -120,7 +120,6 @@ if settings.SENTRY_DSN:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager for startup/shutdown events"""
-    import asyncio
 
     # Startup
     logger.info("Starting Nexus Backend...")

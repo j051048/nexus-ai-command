@@ -13,7 +13,7 @@ import json
 import logging
 import re
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from difflib import SequenceMatcher
 
 from app.core.database import supabase
@@ -266,7 +266,7 @@ async def _upsert_relations(relations: list[dict]):
                         "confidence": rel.get("confidence", 0.8),
                         "source_context": rel.get("source_context", "")[:500],
                         "extracted_from": rel.get("extracted_from", "conversation"),
-                        "last_seen_at": datetime.now(timezone.utc).isoformat(),
+                        "last_seen_at": datetime.now(UTC).isoformat(),
                     },
                     on_conflict="org_id,source_entity,relation,target_entity",
                 )
@@ -410,7 +410,7 @@ async def learn_tool_patterns(
             return []
 
         # Store this tool sequence as a data point
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         weekday = now.strftime("%A")
         hour = now.hour
 
@@ -565,7 +565,7 @@ async def get_pattern_suggestions(
 
         # Match patterns against current query
         query_keywords = _extract_keywords(current_query)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         current_weekday = now.strftime("%A")
 
         suggestions = []

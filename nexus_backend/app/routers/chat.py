@@ -59,12 +59,12 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
 
     # 2. Content Moderation
     # P2: 对带工具调用能力的高风险 Agent 启用 LLM 深度注入检测
-    _TOOL_AGENTS = {"approval", "crm", "admin", "data", "workflow", "kingdee", "finance"}
+    _tool_agents = {"approval", "crm", "admin", "data", "workflow", "kingdee", "finance"}
     if request.messages:
         last_msg = next((m for m in reversed(request.messages) if m.role == "user"), None)
         if last_msg:
             agent_type = (request.agent or "").lower()
-            if agent_type in _TOOL_AGENTS:
+            if agent_type in _tool_agents:
                 is_safe, warning = await check_user_input_advanced(last_msg.content)
             else:
                 is_safe, warning = check_user_input(last_msg.content)

@@ -7,6 +7,7 @@ P1 Security Fix #7: Removed verify_signature=False vulnerability
 #37: Enhanced per-user + per-IP + per-endpoint rate limiting with sliding window
 """
 
+import contextlib
 import logging
 import os
 import time
@@ -132,10 +133,8 @@ class SlidingWindowRateLimiter:
                 }
 
             # 超过限制，移除刚添加的记录
-            try:
+            with contextlib.suppress(Exception):
                 await redis_client.zremrangebyscore(full_key, now, now + 1)
-            except Exception:
-                pass
 
             return False, {
                 "remaining": 0,

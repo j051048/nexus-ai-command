@@ -24,10 +24,10 @@ key: str = os.getenv("SUPABASE_SERVICE_KEY", "")
 # This ensures Core RAG functions (Table Insert / RPC) work without bloat.
 
 try:
-    from postgrest import AsyncPostgrestClient
-
     # Cache for scoped clients — P2 Fix: increased size + LRU eviction
     from collections import OrderedDict
+
+    from postgrest import AsyncPostgrestClient
 
     _scoped_client_cache: OrderedDict = OrderedDict()
     _SCOPED_CLIENT_CACHE_MAX = 200

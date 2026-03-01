@@ -3,9 +3,9 @@ P2 Optimization: Organization Structure API Routes
 Provides endpoints for managing organizational hierarchy and approval chains.
 """
 
+
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
-from typing import Optional
 
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
@@ -200,7 +200,7 @@ async def get_organization_members(req: Request, user_id: str = Depends(get_curr
             "department": m.get("department") or "",
             "role": m.get("role") or "employee",
             "manager_id": m.get("manager_id"),
-            "manager_name": name_map.get(m.get("manager_id", ""), None),
+            "manager_name": name_map.get(m.get("manager_id", "")),
             "avatar_url": m.get("avatar"),
         })
 
@@ -208,7 +208,7 @@ async def get_organization_members(req: Request, user_id: str = Depends(get_curr
 
 
 class UpdateManagerRequest(BaseModel):
-    manager_id: Optional[str] = None
+    manager_id: str | None = None
 
 
 @router.put("/members/{target_user_id}/manager", response_model=StandardResponse)

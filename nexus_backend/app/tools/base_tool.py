@@ -110,12 +110,12 @@ class BaseTool(ABC):
 
         # P2-1: Check high-value amount
         amount = args.get("amount") or args.get("value") or args.get("total")
-        if amount and isinstance(amount, (int, float)) and amount >= CONFIRMATION_THRESHOLDS["high_value_amount"]:
+        if amount and isinstance(amount, int | float) and amount >= CONFIRMATION_THRESHOLDS["high_value_amount"]:
             reasons.append(f"💰 大额操作: ¥{amount:,.0f} (超过 ¥{CONFIRMATION_THRESHOLDS['high_value_amount']:,} 阈值)")
 
         # P2-1: Check bulk operations
         items = args.get("ids") or args.get("items") or args.get("batch")
-        if isinstance(items, (list, tuple)) and len(items) >= CONFIRMATION_THRESHOLDS["bulk_record_count"]:
+        if isinstance(items, list | tuple) and len(items) >= CONFIRMATION_THRESHOLDS["bulk_record_count"]:
             reasons.append(f"📦 批量操作: 将影响 {len(items)} 条记录")
 
         if not reasons:

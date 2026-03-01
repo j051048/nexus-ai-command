@@ -13,6 +13,7 @@ Nodes:
 """
 
 import asyncio
+import contextlib
 import logging
 import time
 
@@ -229,7 +230,7 @@ def _format_validation_error(tool_name: str, error: Exception, schema: dict | No
                         desc = props.get(r, {}).get("description", "")
                         ftype = props.get(r, {}).get("type", "")
                         field_hints.append(f"    - {r} ({ftype}): {desc}" if desc else f"    - {r} ({ftype})")
-                    lines.append(f"  必填字段:")
+                    lines.append("  必填字段:")
                     lines.extend(field_hints)
 
             return "\n".join(lines)
@@ -545,15 +546,13 @@ async def plan_node(state: AgentState, config: dict | None = None) -> dict:
     _configurable = (config or {}).get("configurable", {}) if isinstance(config, dict) else {}
     trace_logger = _configurable.get("trace_logger")
     if trace_logger:
-        try:
+        with contextlib.suppress(Exception):
             trace_logger.log_generation(
                 model=model or agent_config.model,
                 input_messages=[{"role": "user", "content": str(lc_msgs[-1].content)[:500]}] if lc_msgs else [],
                 output=str(ai_msg.content or "")[:1000],
                 usage={"prompt_tokens": input_tokens, "completion_tokens": output_tokens},
             )
-        except Exception:
-            pass
 
     # P1 Plugin: POST_CHAT hook
     try:
@@ -602,10 +601,8 @@ async def plan_node(state: AgentState, config: dict | None = None) -> dict:
         # Langfuse: log tool plans
         if trace_logger:
             for t in pending_tools:
-                try:
+                with contextlib.suppress(Exception):
                     trace_logger.log_tool_plan(t.tool_name, t.tool_args)
-                except Exception:
-                    pass
 
     return result
 
@@ -715,12 +712,10 @@ async def execute_node(state: AgentState, config: dict | None = None) -> dict:
     trace_logger = _configurable.get("trace_logger")
     if trace_logger:
         for record in completed:
-            try:
+            with contextlib.suppress(Exception):
                 trace_logger.log_tool_execution(
                     record.tool_name, record.status, record.result[:500] if record.result else ""
                 )
-            except Exception:
-                pass
 
     # P1 Plugin: POST_TOOL hook
     try:

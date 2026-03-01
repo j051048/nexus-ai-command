@@ -343,7 +343,7 @@ async def execute_plugin(
             timeout=PLUGIN_TIMEOUT_SECONDS,
         )
         return _truncate_output(result)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.error(f"Plugin execution timed out ({plugin_id}/{action})")
         return {"success": False, "error": f"Plugin execution timed out after {PLUGIN_TIMEOUT_SECONDS}s"}
     except Exception as e:

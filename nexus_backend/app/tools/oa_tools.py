@@ -187,7 +187,7 @@ class LeaveRequestTool(BaseTool):
         starting_step = chain_result.get("starting_step", 0)
         approval_level = chain_result.get("approval_level", "manager")
         timeout_at = chain_result.get("timeout_at")
-        chain_name = chain_result.get("chain_name", "请假审批链")
+        _chain_name = chain_result.get("chain_name", "请假审批链")
         final_status = "approved" if auto_approve else "pending"
 
         approval_note = "系统自动批准" if auto_approve else f"需{approval_level}级别审批"

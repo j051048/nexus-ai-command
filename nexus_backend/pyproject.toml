@@ -12,6 +12,9 @@ src = ["app", "tests"]
 select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM"]
 ignore = ["E501", "B008", "B904"]
 
+[tool.ruff.lint.per-file-ignores]
+"app/main.py" = ["E402", "I001"]
+
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
 

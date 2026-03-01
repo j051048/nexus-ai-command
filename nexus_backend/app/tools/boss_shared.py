@@ -5,7 +5,6 @@ Extracted from boss_tools.py (P2-3 split).
 
 import logging
 import re
-from typing import Any
 
 from app.core.database import supabase
 
