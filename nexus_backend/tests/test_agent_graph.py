@@ -151,9 +151,9 @@ class TestAfterOrchestrate:
         state = _make_state(error="Orchestration failed")
         assert _after_orchestrate(state) == "error"
 
-    def test_success_goes_to_respond(self):
+    def test_success_goes_to_critic(self):
         state = _make_state()
-        assert _after_orchestrate(state) == "respond"
+        assert _after_orchestrate(state) == "critic"
 
 
 # ── Graph Build & Compile Tests ──

@@ -124,7 +124,10 @@ class ConversationMemoryService:
             # Update existing memory
             try:
                 result = (
-                    await client.table("conversation_memories").update(update_data).eq("id", existing.data["id"]).execute()
+                    await client.table("conversation_memories")
+                    .update(update_data)
+                    .eq("id", existing.data["id"])
+                    .execute()
                 )
             except Exception as update_err:
                 err_str = str(update_err)
@@ -132,7 +135,10 @@ class ConversationMemoryService:
                     logger.warning("embedding column not found in schema cache, updating without embedding")
                     update_data.pop("embedding", None)
                     result = (
-                        await client.table("conversation_memories").update(update_data).eq("id", existing.data["id"]).execute()
+                        await client.table("conversation_memories")
+                        .update(update_data)
+                        .eq("id", existing.data["id"])
+                        .execute()
                     )
                 else:
                     raise

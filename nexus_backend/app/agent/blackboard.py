@@ -88,7 +88,5 @@ class SharedBlackboard:
         summaries: list[str] = []
         for result in self.get_all_results():
             for tc in result.tool_calls:
-                summaries.append(
-                    f"- {result.title}/{tc['tool_name']}: {tc.get('result_summary', '')[:200]}"
-                )
+                summaries.append(f"- {result.title}/{tc['tool_name']}: {tc.get('result_summary', '')[:200]}")
         return "\n".join(summaries[:20])

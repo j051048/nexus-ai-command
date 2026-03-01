@@ -170,14 +170,16 @@ async def orchestrate_node(state: AgentState) -> dict:
                         blackboard=blackboard,
                         original_messages=state.get("messages", []),
                     )
-                    return {**_base_result, "status": "completed", "result": result,
-                            "tokens_in": tokens_in, "tokens_out": tokens_out,
-                            "tool_calls": tool_calls_data}
+                    return {
+                        **_base_result,
+                        "status": "completed",
+                        "result": result,
+                        "tokens_in": tokens_in,
+                        "tokens_out": tokens_out,
+                        "tool_calls": tool_calls_data,
+                    }
                 except Exception as e1:
-                    logger.warning(
-                        f"[Orchestrate] Sub-task {task_idx} ({agent_code}) "
-                        f"first attempt failed: {e1}"
-                    )
+                    logger.warning(f"[Orchestrate] Sub-task {task_idx} ({agent_code}) " f"first attempt failed: {e1}")
 
                 # Attempt 2: Retry
                 try:
@@ -190,9 +192,14 @@ async def orchestrate_node(state: AgentState) -> dict:
                         blackboard=blackboard,
                         original_messages=state.get("messages", []),
                     )
-                    return {**_base_result, "status": "completed", "result": result,
-                            "tokens_in": tokens_in, "tokens_out": tokens_out,
-                            "tool_calls": tool_calls_data}
+                    return {
+                        **_base_result,
+                        "status": "completed",
+                        "result": result,
+                        "tokens_in": tokens_in,
+                        "tokens_out": tokens_out,
+                        "tool_calls": tool_calls_data,
+                    }
                 except Exception as e2:
                     logger.warning(
                         f"[Orchestrate] Sub-task {task_idx} ({agent_code}) "
@@ -209,16 +216,24 @@ async def orchestrate_node(state: AgentState) -> dict:
                         blackboard=blackboard,
                         original_messages=state.get("messages", []),
                     )
-                    return {**_base_result, "status": "degraded", "result": result,
-                            "tokens_in": tokens_in, "tokens_out": tokens_out,
-                            "tool_calls": tool_calls_data}
+                    return {
+                        **_base_result,
+                        "status": "degraded",
+                        "result": result,
+                        "tokens_in": tokens_in,
+                        "tokens_out": tokens_out,
+                        "tool_calls": tool_calls_data,
+                    }
                 except Exception as e3:
-                    logger.error(
-                        f"[Orchestrate] Sub-task {task_idx} all attempts exhausted: {e3}"
-                    )
-                    return {**_base_result, "status": "failed",
-                            "result": f"执行失败(含重试和降级): {str(e3)[:200]}",
-                            "tokens_in": 0, "tokens_out": 0, "tool_calls": []}
+                    logger.error(f"[Orchestrate] Sub-task {task_idx} all attempts exhausted: {e3}")
+                    return {
+                        **_base_result,
+                        "status": "failed",
+                        "result": f"执行失败(含重试和降级): {str(e3)[:200]}",
+                        "tokens_in": 0,
+                        "tokens_out": 0,
+                        "tool_calls": [],
+                    }
 
         # Execute all tasks in this layer concurrently
         layer_results = await asyncio.gather(
@@ -247,15 +262,17 @@ async def orchestrate_node(state: AgentState) -> dict:
             )
 
             # P2-10: Write result to SharedBlackboard (replaces completed_context)
-            await blackboard.write(TaskResult(
-                task_idx=task_idx,
-                sub_task_id=lr["sub_task_id"],
-                agent_code=lr["agent_code"],
-                title=lr["title"],
-                status=lr["status"],
-                text=lr["result"],
-                tool_calls=lr.get("tool_calls", []),
-            ))
+            await blackboard.write(
+                TaskResult(
+                    task_idx=task_idx,
+                    sub_task_id=lr["sub_task_id"],
+                    agent_code=lr["agent_code"],
+                    title=lr["title"],
+                    status=lr["status"],
+                    text=lr["result"],
+                    tool_calls=lr.get("tool_calls", []),
+                )
+            )
 
             status_labels = {"completed": "完成", "degraded": "降级完成", "failed": "失败"}
             status_label = status_labels.get(lr["status"], lr["status"])
@@ -280,7 +297,7 @@ async def orchestrate_node(state: AgentState) -> dict:
                 )
 
                 remaining_indices = []
-                for future_layer in execution_layers[layer_idx + 1:]:
+                for future_layer in execution_layers[layer_idx + 1 :]:
                     remaining_indices.extend(future_layer)
 
                 if remaining_indices:
@@ -436,11 +453,13 @@ async def _execute_sub_task(
             )
 
             # P2-10: Record tool call data for blackboard
-            tool_calls_data.append({
-                "tool_name": tool_name,
-                "args_summary": str(tool_args)[:100],
-                "result_summary": tool_result[:200],
-            })
+            tool_calls_data.append(
+                {
+                    "tool_name": tool_name,
+                    "args_summary": str(tool_args)[:100],
+                    "result_summary": tool_result[:200],
+                }
+            )
 
         logger.info(
             f"[Orchestrate] Sub-task {agent_code}:{task_title} "
@@ -461,9 +480,7 @@ async def _execute_sub_task(
             result_text = ai_msg.content or ""
 
     duration = int((time.time() - start) * 1000)
-    logger.info(
-        f"[Orchestrate] Sub-task {agent_code}:{task_title} completed in {duration}ms"
-    )
+    logger.info(f"[Orchestrate] Sub-task {agent_code}:{task_title} completed in {duration}ms")
 
     return result_text, total_in, total_out, tool_calls_data
 
@@ -621,12 +638,15 @@ async def _check_and_adjust_plan(
         # P2-9: Use unified LLM factory
         llm = await _create_orchestrator_llm(config, use_mini=True, temperature=0.3, timeout=30.0)
 
-        ai_msg = await llm.ainvoke([
-            SystemMessage(content="你是任务编排专家，负责根据执行情况动态调整任务计划。只返回JSON。"),
-            HumanMessage(content=prompt),
-        ])
+        ai_msg = await llm.ainvoke(
+            [
+                SystemMessage(content="你是任务编排专家，负责根据执行情况动态调整任务计划。只返回JSON。"),
+                HumanMessage(content=prompt),
+            ]
+        )
 
         import json
+
         content = ai_msg.content or ""
         # Strip markdown code blocks
         if "```" in content:

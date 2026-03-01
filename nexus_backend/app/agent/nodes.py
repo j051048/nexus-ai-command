@@ -273,7 +273,7 @@ def _try_extract_tool_names(concatenated_name: str) -> list[str]:
         for name in known_names:
             if remaining.startswith(name):
                 found.append(name)
-                remaining = remaining[len(name):]
+                remaining = remaining[len(name) :]
                 matched = True
                 break
         if not matched:
@@ -444,9 +444,7 @@ async def plan_node(state: AgentState, config: dict | None = None) -> dict:
         scene_code = state.get("scene_code", "")
         agent_code = state.get("agent_code", "")
         complexity = state.get("complexity", QueryComplexity.MODERATE)
-        resolved = await resolve_model_config(
-            org_id, scene_code, agent_code, complexity_tier=complexity.model_tier
-        )
+        resolved = await resolve_model_config(org_id, scene_code, agent_code, complexity_tier=complexity.model_tier)
     except Exception:
         logger.debug("LLM gateway model config unavailable in plan_node, using default")
 
@@ -856,9 +854,7 @@ async def reflect_node(state: AgentState) -> dict:
         org_id = config.org_id or "default"
         scene_code = state.get("scene_code", "")
         agent_code = state.get("agent_code", "")
-        resolved = await resolve_model_config(
-            org_id, scene_code, agent_code, complexity_tier=complexity.model_tier
-        )
+        resolved = await resolve_model_config(org_id, scene_code, agent_code, complexity_tier=complexity.model_tier)
     except Exception:
         logger.debug("LLM gateway model config unavailable in reflect_node, using default")
 
@@ -1048,11 +1044,7 @@ AI 回复:
         reflection_guidance = "\n".join(guidance_parts)
 
         return {
-            "messages": [
-                HumanMessage(
-                    content=f"[自我指引] {reflection_guidance}"
-                )
-            ],
+            "messages": [HumanMessage(content=f"[自我指引] {reflection_guidance}")],
             "reflection": f"触发幻觉修正: {hallucination_reason}",
             "reflection_guidance": reflection_guidance,
             "is_hallucination": True,
@@ -1253,9 +1245,7 @@ async def critic_node(state: AgentState) -> dict:
             org_id = config.org_id or "default"
             scene_code = state.get("scene_code", "")
             agent_code = state.get("agent_code", "")
-            resolved_critic = await resolve_model_config(
-                org_id, scene_code, agent_code, complexity_tier="low"
-            )
+            resolved_critic = await resolve_model_config(org_id, scene_code, agent_code, complexity_tier="low")
         except Exception:
             logger.debug("LLM gateway unavailable in critic_node, using default mini_model")
 
@@ -1276,9 +1266,7 @@ async def critic_node(state: AgentState) -> dict:
                 max_tokens=300,
             )
         critic_llm_structured = critic_llm.with_structured_output(CriticResult)
-        result: CriticResult = await critic_llm_structured.ainvoke(
-            [SystemMessage(content=critic_prompt)]
-        )
+        result: CriticResult = await critic_llm_structured.ainvoke([SystemMessage(content=critic_prompt)])
     except Exception as e:
         # Critic failure should never block the response — silently pass
         logger.warning(f"[CriticNode] Evaluation failed, silently passing: {e}")
@@ -1295,9 +1283,7 @@ async def critic_node(state: AgentState) -> dict:
         }
 
     critic_feedback = (
-        f"完整性: {result.completeness:.0%}, "
-        f"相关性: {result.relevance:.0%}, "
-        f"准确性: {result.accuracy:.0%}"
+        f"完整性: {result.completeness:.0%}, " f"相关性: {result.relevance:.0%}, " f"准确性: {result.accuracy:.0%}"
     )
     if result.improvement_suggestion:
         critic_feedback += f" | 建议: {result.improvement_suggestion}"

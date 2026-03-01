@@ -406,7 +406,10 @@ class GetEmployeeApprovalHistoryTool(BaseTool):
     parameters = {
         "type": "object",
         "properties": {
-            "employee_id": {"type": "string", "description": "员工ID（UUID格式），可通过 get_employee_info 工具查询获取"},
+            "employee_id": {
+                "type": "string",
+                "description": "员工ID（UUID格式），可通过 get_employee_info 工具查询获取",
+            },
             "limit": {"type": "integer", "description": "返回记录数量，默认5条"},
         },
         "required": ["employee_id"],

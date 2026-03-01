@@ -208,7 +208,7 @@ class TestResolveModelPriority:
             "primary_model_code": "cached-model",
             "backup_model_code": "backup-model",
         }
-        service._schedule_cache["org-001:chat:agent"] = (cached_rule, time.time())
+        service._schedule_cache["org-001:chat:agent:_"] = (cached_rule, time.time())
 
         with (
             patch("app.services.llm_gateway_service.supabase"),
