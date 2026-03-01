@@ -124,9 +124,19 @@ async def transcribe_audio(
             tmp.write(audio_bytes)
             tmp_path = tmp.name
 
+        base_url = ai_config["base_url"]
+        # Ensure base_url ends with /v1 for OpenAI-compatible APIs
+        if not base_url.rstrip("/").endswith("/v1"):
+            base_url = base_url.rstrip("/") + "/v1"
+
+        logger.info(
+            f"[Audio] Calling STT: base_url={base_url}, "
+            f"audio_size={len(audio_bytes)}, mime={content_type}, user={user_id}"
+        )
+
         openai_client = AsyncOpenAI(
             api_key=ai_config["api_key"],
-            base_url=ai_config["base_url"],
+            base_url=base_url,
         )
 
         with open(tmp_path, "rb") as audio_file:

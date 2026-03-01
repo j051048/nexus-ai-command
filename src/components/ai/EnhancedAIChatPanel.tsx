@@ -161,7 +161,6 @@ export function EnhancedAIChatPanel({
   const [voiceMode, setVoiceMode] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [slideCancelling, setSlideCancelling] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -169,7 +168,6 @@ export function EnhancedAIChatPanel({
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const touchStartYRef = useRef(0);
   const autoSendRef = useRef(false);
 
   const { isTyping: isAiTyping, aiStatus, streamChat, stopStream, pendingConfirmation, pendingQuestion, confirmAndResend, answerQuestion, dismissConfirmation, dismissQuestion } = useAIStream({ userId: user.id });
@@ -519,7 +517,7 @@ export function EnhancedAIChatPanel({
     }
   }, [isRecording]);
 
-  // ========== WeChat-style press-to-talk recording ==========
+  // ========== Tap-toggle voice recording ==========
 
   const startRecording = useCallback(async () => {
     try {
@@ -541,7 +539,7 @@ export function EnhancedAIChatPanel({
         stream.getTracks().forEach(track => track.stop());
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         if (audioBlob.size < 1000) {
-          toast.info('录音时间太短，请长按说话');
+          toast.info('录音时间太短，请再试一次');
           return;
         }
         setIsTranscribing(true);
@@ -553,8 +551,9 @@ export function EnhancedAIChatPanel({
           } else {
             toast.info('未识别到语音，请重试');
           }
-        } catch {
-          toast.error('语音识别失败，请重试');
+        } catch (err) {
+          console.error('[Voice] STT failed:', err);
+          toast.error(`语音识别失败: ${(err as Error)?.message || '请检查网络和API配置'}`);
         } finally {
           setIsTranscribing(false);
         }
@@ -568,6 +567,7 @@ export function EnhancedAIChatPanel({
       if ((err as Error).name === 'NotAllowedError') {
         toast.error('请允许麦克风权限后重试');
       } else {
+        console.error('[Voice] getUserMedia failed:', err);
         toast.error('无法访问麦克风');
       }
     }
@@ -581,15 +581,14 @@ export function EnhancedAIChatPanel({
     }
   }, []);
 
-  const cancelRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.ondataavailable = null;
-      mediaRecorderRef.current.onstop = () => { audioChunksRef.current = []; };
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      toast.info('已取消录音');
+  /** Tap-toggle: click once to start, click again to stop */
+  const toggleRecording = useCallback(() => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
     }
-  }, []);
+  }, [isRecording, stopRecording, startRecording]);
 
   // Auto-send transcribed text
   useEffect(() => {
@@ -1175,40 +1174,18 @@ export function EnhancedAIChatPanel({
                   accept=".pdf,.txt,.md,.csv,.json,.docx"
                 />
 
-                {/* Middle area: text input OR press-to-talk button */}
+                {/* Middle area: text input OR tap-to-talk button */}
                 {voiceMode && isMobile ? (
                   <button
                     className={cn(
                       "flex-1 h-12 rounded-xl text-sm font-medium select-none transition-all",
                       "active:scale-[0.98]",
-                      slideCancelling
-                        ? "bg-red-500/20 text-red-600 border-2 border-red-500/50"
-                        : isRecording
-                          ? "bg-red-500/10 text-red-500 border-2 border-red-500/30"
-                          : "bg-secondary text-muted-foreground border-2 border-transparent",
+                      isRecording
+                        ? "bg-red-500/10 text-red-500 border-2 border-red-500/30 animate-pulse"
+                        : "bg-secondary text-muted-foreground border-2 border-transparent",
                       isTranscribing && "opacity-50 pointer-events-none"
                     )}
-                    onTouchStart={(e) => {
-                      e.preventDefault();
-                      touchStartYRef.current = e.touches[0].clientY;
-                      setSlideCancelling(false);
-                      startRecording();
-                    }}
-                    onTouchMove={(e) => {
-                      if (!isRecording) return;
-                      const delta = touchStartYRef.current - e.touches[0].clientY;
-                      setSlideCancelling(delta > 50);
-                    }}
-                    onTouchEnd={(e) => {
-                      e.preventDefault();
-                      if (slideCancelling) {
-                        cancelRecording();
-                        setSlideCancelling(false);
-                      } else {
-                        stopRecording();
-                      }
-                    }}
-                    onTouchCancel={() => { cancelRecording(); setSlideCancelling(false); }}
+                    onClick={toggleRecording}
                     disabled={isTranscribing || isAiTyping}
                   >
                     {isTranscribing ? (
@@ -1219,10 +1196,10 @@ export function EnhancedAIChatPanel({
                     ) : isRecording ? (
                       <span className="flex items-center justify-center gap-2">
                         <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                        {slideCancelling ? '松开取消' : '松开发送，上滑取消'}
+                        录音中... 点击结束
                       </span>
                     ) : (
-                      '按住说话'
+                      '点击开始说话'
                     )}
                   </button>
                 ) : (
