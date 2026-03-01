@@ -17,12 +17,17 @@ async def resolve_model_config(
     org_id: str = "default",
     scene_code: str = "",
     agent_code: str = "",
+    complexity_tier: str | None = None,
 ) -> dict:
     """
     Resolve model configuration via the LLM Gateway.
 
     Returns a dict with keys: api_key, base_url, model, temperature, timeout, supports_tools
     Falls back to settings if gateway resolution fails.
+
+    Args:
+        complexity_tier: Optional query complexity tier ("low" or "high") for
+                        complexity-aware model routing (P2-9).
     """
     try:
         from app.services.llm_gateway_service import llm_gateway
@@ -30,7 +35,9 @@ async def resolve_model_config(
         # Always try gateway resolution — use wildcards when scene/agent not specified
         resolved_scene = scene_code or "*"
         resolved_agent = agent_code or "*"
-        model_code = await llm_gateway._resolve_model(resolved_scene, resolved_agent, org_id)
+        model_code = await llm_gateway._resolve_model(
+            resolved_scene, resolved_agent, org_id, complexity_tier=complexity_tier
+        )
         if model_code:
             config = await llm_gateway._load_model_config(model_code, org_id)
             if config:

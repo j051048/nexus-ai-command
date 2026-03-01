@@ -82,6 +82,16 @@ class HallucinationCheck(BaseModel):
     confidence: float = Field(default=0.5, ge=0.0, le=1.0, description="Confidence score 0-1")
 
 
+class CriticResult(BaseModel):
+    """P1-5: Independent critic evaluation of agent response quality."""
+
+    completeness: float = Field(default=0.5, ge=0.0, le=1.0, description="回答是否完整覆盖用户问题")
+    relevance: float = Field(default=0.5, ge=0.0, le=1.0, description="回答与用户意图的相关性")
+    accuracy: float = Field(default=0.5, ge=0.0, le=1.0, description="信息准确性（基于工具结果）")
+    passed: bool = Field(default=True, description="是否通过评审")
+    improvement_suggestion: str = Field(default="", description="改进建议（未通过时提供）")
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -425,7 +435,7 @@ async def plan_node(state: AgentState, config: dict | None = None) -> dict:
     iteration = state.get("iteration", 0)
     rag_context = state.get("rag_context", "")
 
-    # Resolve model via LLM gateway
+    # Resolve model via LLM gateway (P2-9: complexity-aware routing)
     resolved = None
     try:
         from app.services.llm_helpers import resolve_model_config
@@ -433,7 +443,10 @@ async def plan_node(state: AgentState, config: dict | None = None) -> dict:
         org_id = agent_config.org_id or "default"
         scene_code = state.get("scene_code", "")
         agent_code = state.get("agent_code", "")
-        resolved = await resolve_model_config(org_id, scene_code, agent_code)
+        complexity = state.get("complexity", QueryComplexity.MODERATE)
+        resolved = await resolve_model_config(
+            org_id, scene_code, agent_code, complexity_tier=complexity.model_tier
+        )
     except Exception:
         logger.debug("LLM gateway model config unavailable in plan_node, using default")
 
@@ -463,6 +476,23 @@ async def plan_node(state: AgentState, config: dict | None = None) -> dict:
                     break
             if not injected:
                 lc_msgs.insert(0, SystemMessage(content=injection))
+
+    # P0-3: On re-planning iterations, inject reflection guidance into system prompt
+    if iteration > 0:
+        reflection_guidance = state.get("reflection_guidance", "")
+        if reflection_guidance:
+            guidance_injection = (
+                f"\n\n[重要：反思修正指令]\n{reflection_guidance}\n"
+                f"请根据以上指令调整你的回复策略。当前是第{iteration + 1}轮规划。"
+            )
+            injected_guidance = False
+            for m in lc_msgs:
+                if isinstance(m, SystemMessage):
+                    m.content += guidance_injection
+                    injected_guidance = True
+                    break
+            if not injected_guidance:
+                lc_msgs.insert(0, SystemMessage(content=guidance_injection))
 
     # ── RAG Injection ──
     # If we have retrieved context, prepend it to the history or inject into system prompt
@@ -656,6 +686,31 @@ async def execute_node(state: AgentState, config: dict | None = None) -> dict:
             "pending_tool_calls": [],
         }
 
+    # P1-7: Intercept ask_user pseudo-tool — do not execute, emit as blocked
+    ask_user_calls = [t for t in pending if t.tool_name == "ask_user"]
+    if ask_user_calls:
+        # Return ask_user calls as "blocked" with status="ask_user"
+        # so the stream layer can emit the SSE event
+        non_ask_pending = [t for t in pending if t.tool_name != "ask_user"]
+        ask_records = []
+        for tc in ask_user_calls:
+            tc.status = "ask_user"
+            tc.result = tc.tool_args.get("question", "请提供更多信息")
+            ask_records.append(tc)
+
+        return {
+            "current_phase": AgentPhase.RESPONDING,
+            "pending_tool_calls": non_ask_pending,
+            "completed_tool_calls": ask_records,
+            "final_response": "",  # Will be replaced by ask_user SSE event
+            "thinking_steps": [
+                ThinkingStep(
+                    phase=AgentPhase.EXECUTING.value,
+                    content=f"向用户提问: {ask_records[0].result}",
+                )
+            ],
+        }
+
     tool_names = ", ".join(t.tool_name for t in pending)
     thinking_step = ThinkingStep(
         phase=AgentPhase.EXECUTING.value,
@@ -793,7 +848,7 @@ async def reflect_node(state: AgentState) -> dict:
     complexity = state.get("complexity", QueryComplexity.MODERATE)
     completed_tools = state.get("completed_tool_calls", [])
 
-    # Resolve model via LLM gateway
+    # Resolve model via LLM gateway (P2-9: complexity-aware routing)
     resolved = None
     try:
         from app.services.llm_helpers import resolve_model_config
@@ -801,9 +856,11 @@ async def reflect_node(state: AgentState) -> dict:
         org_id = config.org_id or "default"
         scene_code = state.get("scene_code", "")
         agent_code = state.get("agent_code", "")
-        resolved = await resolve_model_config(org_id, scene_code, agent_code)
+        resolved = await resolve_model_config(
+            org_id, scene_code, agent_code, complexity_tier=complexity.model_tier
+        )
     except Exception:
-        logger.debug("LLM gateway model config unavailable in plan_node, using default")
+        logger.debug("LLM gateway model config unavailable in reflect_node, using default")
 
     # Extract the last AI message
     last_ai_content = ""
@@ -966,13 +1023,38 @@ AI 回复:
         else:
             thinking_content = f"⚠️ 检测到潜在事实错误: {hallucination_reason}，正在修正..."
 
+        # P0-3: Build structured correction guidance for plan_node
+        guidance_parts = [f"## 反思修正指令 (第{iteration + 1}轮)"]
+        guidance_parts.append(f"**问题类型**: {hallucination_reason}")
+
+        if "未调用工具却产出了具体数据" in hallucination_reason:
+            guidance_parts.append("**修正策略**: 必须调用相关工具获取真实数据，禁止凭空编造数值")
+            guidance_parts.append("**建议**: 根据用户查询意图选择数据查询类工具")
+        elif "工具返回不一致" in hallucination_reason:
+            guidance_parts.append("**修正策略**: 严格引用工具返回的原始数据，不做未经授权的数值修改")
+        elif "事实偏差" in hallucination_reason or "Ungrounded" in str(hallucination_reason):
+            guidance_parts.append("**修正策略**: 回复必须完全基于检索到的参考知识，移除无依据的陈述")
+        else:
+            guidance_parts.append("**修正策略**: 重新审视回复，确保所有信息有据可查")
+
+        if completed_tools:
+            tool_summary = []
+            for t in completed_tools[-3:]:
+                t_name = t.tool_name if hasattr(t, "tool_name") else t.get("tool_name", "")
+                t_result = (t.result if hasattr(t, "result") else t.get("result", ""))[:200]
+                tool_summary.append(f"  - {t_name}: {t_result}")
+            guidance_parts.append("**可用工具结果**:\n" + "\n".join(tool_summary))
+
+        reflection_guidance = "\n".join(guidance_parts)
+
         return {
             "messages": [
                 HumanMessage(
-                    content=f"[自我指引] 发现回复可能包含不实内容({hallucination_reason})。请务必核实工具返回的数据，严禁编造信息。"
+                    content=f"[自我指引] {reflection_guidance}"
                 )
             ],
             "reflection": f"触发幻觉修正: {hallucination_reason}",
+            "reflection_guidance": reflection_guidance,
             "is_hallucination": True,
             "needs_replanning": True,
             "confidence_score": confidence,
@@ -1090,6 +1172,169 @@ async def respond_node(state: AgentState) -> dict:
             ThinkingStep(
                 phase=AgentPhase.RESPONDING.value,
                 content=f"思考路径完成，正在输出回复 (置信度: {state.get('confidence_score', 0.8):.0%})",
+            )
+        ],
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  NODE: critic_node (P1-5)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def critic_node(state: AgentState) -> dict:
+    """
+    P1-5: Independent quality evaluation before final response.
+
+    Only activates for COMPLEX/CRITICAL queries. Uses mini_model with a strict
+    evaluation prompt to assess completeness, relevance, and accuracy.
+    If the critic fails the response, it sets reflection_guidance and
+    needs_replanning=True to send it back to plan_node for one correction pass.
+    """
+    config: AgentConfig = state["config"]
+    complexity = state.get("complexity", QueryComplexity.MODERATE)
+
+    # Skip critic for simple/moderate queries — not worth the extra LLM call
+    if complexity in (QueryComplexity.SIMPLE, QueryComplexity.MODERATE):
+        return {
+            "critic_passed": True,
+            "critic_feedback": "",
+            "current_phase": AgentPhase.RESPONDING,
+        }
+
+    final_response = state.get("final_response", "")
+    if not final_response:
+        for msg in reversed(state.get("messages", [])):
+            if isinstance(msg, AIMessage) and msg.content:
+                final_response = msg.content
+                break
+
+    if not final_response:
+        return {
+            "critic_passed": True,
+            "critic_feedback": "无回复内容，跳过评审",
+            "current_phase": AgentPhase.RESPONDING,
+        }
+
+    # Gather context for critic evaluation
+    intent_summary = state.get("intent_summary", "")
+    tool_results_summary = []
+    for tc in state.get("completed_tool_calls", []):
+        result_preview = (getattr(tc, "result", "") or "")[:200]
+        tool_results_summary.append(f"- {tc.tool_name}: {result_preview}")
+    tool_context = "\n".join(tool_results_summary[:5]) if tool_results_summary else "无工具调用"
+
+    critic_prompt = f"""你是一个严格的质量评审员。请评估以下AI回复的质量。
+
+## 用户意图
+{intent_summary or '未知'}
+
+## 工具调用结果摘要
+{tool_context}
+
+## AI回复
+{final_response[:2000]}
+
+## 评估标准
+1. completeness (0-1): 回答是否完整覆盖了用户的所有问题点？
+2. relevance (0-1): 回答是否紧扣用户意图，没有跑题？
+3. accuracy (0-1): 回答中的数据/事实是否与工具返回结果一致？
+4. passed (true/false): 三项均≥0.6 且无明显错误时为 true
+5. improvement_suggestion: 如果 passed=false，给出简明改进建议（一句话）
+
+请严格按照 JSON 格式返回评估结果。"""
+
+    try:
+        # P2-9: Use Gateway instead of direct ChatOpenAI construction
+        resolved_critic = None
+        try:
+            from app.services.llm_helpers import resolve_model_config
+
+            org_id = config.org_id or "default"
+            scene_code = state.get("scene_code", "")
+            agent_code = state.get("agent_code", "")
+            resolved_critic = await resolve_model_config(
+                org_id, scene_code, agent_code, complexity_tier="low"
+            )
+        except Exception:
+            logger.debug("LLM gateway unavailable in critic_node, using default mini_model")
+
+        if resolved_critic:
+            critic_llm = ChatOpenAI(
+                model=resolved_critic.get("model", config.mini_model),
+                api_key=resolved_critic.get("api_key", config.api_key),
+                base_url=resolved_critic.get("base_url", config.base_url),
+                temperature=0.1,
+                max_tokens=300,
+            )
+        else:
+            critic_llm = ChatOpenAI(
+                model=config.mini_model,
+                api_key=config.api_key,
+                base_url=config.base_url,
+                temperature=0.1,
+                max_tokens=300,
+            )
+        critic_llm_structured = critic_llm.with_structured_output(CriticResult)
+        result: CriticResult = await critic_llm_structured.ainvoke(
+            [SystemMessage(content=critic_prompt)]
+        )
+    except Exception as e:
+        # Critic failure should never block the response — silently pass
+        logger.warning(f"[CriticNode] Evaluation failed, silently passing: {e}")
+        return {
+            "critic_passed": True,
+            "critic_feedback": f"评审异常，自动通过: {e}",
+            "current_phase": AgentPhase.RESPONDING,
+            "thinking_steps": [
+                ThinkingStep(
+                    phase=AgentPhase.CRITIQUING.value,
+                    content="质量评审异常，自动通过",
+                )
+            ],
+        }
+
+    critic_feedback = (
+        f"完整性: {result.completeness:.0%}, "
+        f"相关性: {result.relevance:.0%}, "
+        f"准确性: {result.accuracy:.0%}"
+    )
+    if result.improvement_suggestion:
+        critic_feedback += f" | 建议: {result.improvement_suggestion}"
+
+    if result.passed:
+        logger.info(f"[CriticNode] ✅ Passed: {critic_feedback}")
+        return {
+            "critic_passed": True,
+            "critic_feedback": critic_feedback,
+            "confidence_score": min(result.completeness, result.relevance, result.accuracy),
+            "current_phase": AgentPhase.RESPONDING,
+            "thinking_steps": [
+                ThinkingStep(
+                    phase=AgentPhase.CRITIQUING.value,
+                    content=f"质量评审通过: {critic_feedback}",
+                )
+            ],
+        }
+
+    # Failed: send back for one correction pass
+    logger.info(f"[CriticNode] ❌ Failed: {critic_feedback}")
+    guidance = (
+        f"## Critic 评审未通过\n"
+        f"**评分**: 完整性={result.completeness:.0%} 相关性={result.relevance:.0%} 准确性={result.accuracy:.0%}\n"
+        f"**改进要求**: {result.improvement_suggestion}\n"
+        f"请根据以上反馈修正回复。"
+    )
+    return {
+        "critic_passed": False,
+        "critic_feedback": critic_feedback,
+        "reflection_guidance": guidance,
+        "needs_replanning": True,
+        "current_phase": AgentPhase.PLANNING,
+        "thinking_steps": [
+            ThinkingStep(
+                phase=AgentPhase.CRITIQUING.value,
+                content=f"质量评审未通过，需要修正: {result.improvement_suggestion}",
             )
         ],
     }

@@ -46,7 +46,7 @@ from typing import Optional
 from langgraph.graph import END, StateGraph
 
 from app.agent.checkpointer import get_checkpointer
-from app.agent.nodes import error_node, execute_node, plan_node, reflect_node, respond_node
+from app.agent.nodes import critic_node, error_node, execute_node, plan_node, reflect_node, respond_node
 from app.agent.nodes_orchestrator import orchestrate_node
 from app.agent.nodes_wbs import wbs_decompose_node
 from app.agent.router import route_node
@@ -116,6 +116,7 @@ def _after_reflect(state: AgentState) -> str:
     """
     After reflection:
       - If needs_replanning (hallucination detected) → back to plan
+      - COMPLEX/CRITICAL queries → critic (P1-5 quality gate)
       - Otherwise → respond (finalize)
     """
     if state.get("needs_replanning"):
@@ -125,6 +126,12 @@ def _after_reflect(state: AgentState) -> str:
         if iteration < max_iter:
             return "plan"
         logger.warning("[Graph] Needs replanning but max iterations reached, responding anyway")
+
+    # P1-5: Route COMPLEX/CRITICAL through critic before respond
+    complexity = state.get("complexity")
+    if complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL):
+        return "critic"
+
     return "respond"
 
 
@@ -162,10 +169,26 @@ def _after_orchestrate(state: AgentState) -> str:
     """
     After orchestration:
       - If error occurred → error
-      - Otherwise → respond (the orchestrate node already integrates results)
+      - Otherwise → critic (P1-5: quality gate before respond)
     """
     if state.get("error"):
         return "error"
+    return "critic"
+
+
+def _after_critic(state: AgentState) -> str:
+    """
+    P1-5: After critic evaluation:
+      - If critic passed → respond
+      - If critic failed → plan (one correction pass, guarded by max_iterations)
+    """
+    if not state.get("critic_passed", True):
+        config = state.get("config")
+        max_iter = config.max_iterations if config else 5
+        iteration = state.get("iteration", 0)
+        if iteration < max_iter:
+            return "plan"
+        logger.warning("[Graph] Critic failed but max iterations reached, responding anyway")
     return "respond"
 
 
@@ -207,6 +230,8 @@ def build_agent_graph() -> StateGraph:
     # VMD multi-agent nodes
     graph.add_node("wbs_decompose", wbs_decompose_node)
     graph.add_node("orchestrate", orchestrate_node)
+    # P1-5: Independent quality evaluator
+    graph.add_node("critic", critic_node)
 
     # ── Set Entry Point ──
     graph.set_entry_point("router")
@@ -233,12 +258,12 @@ def build_agent_graph() -> StateGraph:
         },
     )
 
-    # orchestrate → respond | error (conditional)
+    # orchestrate → critic | error (conditional, P1-5)
     graph.add_conditional_edges(
         "orchestrate",
         _after_orchestrate,
         {
-            "respond": "respond",
+            "critic": "critic",
             "error": "error",
         },
     )
@@ -266,13 +291,24 @@ def build_agent_graph() -> StateGraph:
         },
     )
 
-    # reflect → plan | respond (conditional)
+    # reflect → plan | respond | critic (conditional, P1-5)
     graph.add_conditional_edges(
         "reflect",
         _after_reflect,
         {
             "plan": "plan",
             "respond": "respond",
+            "critic": "critic",
+        },
+    )
+
+    # P1-5: critic → respond | plan (conditional)
+    graph.add_conditional_edges(
+        "critic",
+        _after_critic,
+        {
+            "respond": "respond",
+            "plan": "plan",
         },
     )
 

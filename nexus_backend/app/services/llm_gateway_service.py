@@ -175,16 +175,24 @@ class LLMGatewayService:
     # Internal: Schedule rule resolution
     # ------------------------------------------------------------------
 
-    async def _resolve_model(self, scene_code: str, agent_code: str, org_id: str) -> str | None:
+    async def _resolve_model(
+        self, scene_code: str, agent_code: str, org_id: str, complexity_tier: str | None = None
+    ) -> str | None:
         """
         Look up the llm_schedule_rule table to find the model assigned
-        to a given scene + agent combination.
+        to a given scene + agent combination, optionally filtered by complexity.
+
+        Resolution priority:
+        1. Exact match (scene + agent + complexity_tier)
+        2. Complexity wildcard (scene + agent + complexity_tier IS NULL)
+        3. Scene-level default (agent_code = '*')
+        4. Org-level default (scene_code = '*')
 
         Returns the primary model_code.  If the primary model's circuit
         breaker is open, returns the backup_model_code instead.
         Returns None when no matching rule exists.
         """
-        cache_key = f"{org_id}:{scene_code}:{agent_code}"
+        cache_key = f"{org_id}:{scene_code}:{agent_code}:{complexity_tier or '_'}"
         now = time.time()
 
         # Check cache
@@ -200,17 +208,45 @@ class LLMGatewayService:
         try:
             # Try tenant-specific first, then fall back to global 'default' tenant
             for tid in [org_id, "default"]:
-                # Try exact match first: scene + agent
-                res = (
-                    await supabase.table("llm_schedule_rule")
-                    .select("*")
-                    .eq("scene_code", scene_code)
-                    .eq("agent_code", agent_code)
-                    .eq("tenant_id", tid)
-                    .execute()
-                )
+                rows = []
 
-                rows = res.data or []
+                # P2-9: Try exact match with complexity_tier first
+                if complexity_tier:
+                    res = (
+                        await supabase.table("llm_schedule_rule")
+                        .select("*")
+                        .eq("scene_code", scene_code)
+                        .eq("agent_code", agent_code)
+                        .eq("complexity_tier", complexity_tier)
+                        .eq("tenant_id", tid)
+                        .execute()
+                    )
+                    rows = res.data or []
+
+                # Fallback: complexity wildcard (NULL complexity_tier)
+                if not rows:
+                    res = (
+                        await supabase.table("llm_schedule_rule")
+                        .select("*")
+                        .eq("scene_code", scene_code)
+                        .eq("agent_code", agent_code)
+                        .is_("complexity_tier", "null")
+                        .eq("tenant_id", tid)
+                        .execute()
+                    )
+                    rows = res.data or []
+
+                # Fallback: scene + agent without complexity filter (original behavior)
+                if not rows:
+                    res = (
+                        await supabase.table("llm_schedule_rule")
+                        .select("*")
+                        .eq("scene_code", scene_code)
+                        .eq("agent_code", agent_code)
+                        .eq("tenant_id", tid)
+                        .execute()
+                    )
+                    rows = res.data or []
 
                 # Fallback: scene-level default (agent_code = '*' or empty)
                 if not rows:

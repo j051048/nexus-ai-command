@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from app.core.auth import get_current_user_id
+from app.core.config import settings
 from app.core.errors import ErrorCode, api_error, api_success
 from app.core.trace_logger import TraceLogger
 from app.models.schemas import ChatRequest
@@ -14,18 +15,6 @@ from app.services.token_service import validate_request_tokens
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["Chat"])
-
-
-def _infer_mini_model(model: str) -> str:
-    """Infer the lightweight model variant for simple queries."""
-    _mini_map = {
-        "gpt-4o": "gpt-4o-mini",
-        "gpt-4": "gpt-4o-mini",
-        "gpt-4-turbo": "gpt-4o-mini",
-        "gpt-3.5-turbo": "gpt-3.5-turbo",
-        "gpt-4o-mini": "gpt-4o-mini",
-    }
-    return _mini_map.get(model, f"{model}-mini" if "mini" not in model else model)
 
 
 async def _error_stream(msg: str):
@@ -118,8 +107,8 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
     if not ai_config["api_key"]:
         return StreamingResponse(_error_stream("未配置 AI API Key"), media_type="text/event-stream; charset=utf-8")
 
-    # 3b. Infer mini_model for dynamic routing
-    ai_config["mini_model"] = _infer_mini_model(ai_config["model"])
+    # 3b. P2-9: Use settings-based mini_model (replaces fragile _infer_mini_model)
+    ai_config["mini_model"] = settings.AI_MINI_MODEL
 
     # 4. Token Validation
     messages_dicts = [{"role": m.role, "content": m.content} for m in request.messages]

@@ -49,6 +49,7 @@ import {
   Zap,
   AlertTriangle,
   Square,
+  MessageCircle,
 } from 'lucide-react';
 import { AIMessage } from '@/types/nexus';
 import { toast } from 'sonner';
@@ -163,7 +164,7 @@ export function EnhancedAIChatPanel({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
-  const { isTyping: isAiTyping, aiStatus, streamChat, stopStream, pendingConfirmation, confirmAndResend, dismissConfirmation } = useAIStream({ userId: user.id });
+  const { isTyping: isAiTyping, aiStatus, streamChat, stopStream, pendingConfirmation, pendingQuestion, confirmAndResend, answerQuestion, dismissConfirmation, dismissQuestion } = useAIStream({ userId: user.id });
 
   // Agent Trace Panel
   const { trace, startTrace, endTrace, addThinkingStep, clearTrace } = useAgentTrace();
@@ -771,6 +772,17 @@ export function EnhancedAIChatPanel({
                         <p className="text-sm text-amber-800 dark:text-amber-300">
                           {pendingConfirmation.message}
                         </p>
+                        {/* P1-7: Editable parameters */}
+                        {pendingConfirmation.modifiable && pendingConfirmation.args && Object.keys(pendingConfirmation.args).length > 0 && (
+                          <details className="pt-1">
+                            <summary className="text-xs text-amber-700 dark:text-amber-400 cursor-pointer hover:underline">
+                              查看/编辑参数
+                            </summary>
+                            <pre className="mt-1 p-2 rounded bg-amber-100 dark:bg-amber-900/30 text-xs text-amber-900 dark:text-amber-200 overflow-x-auto max-h-32">
+                              {JSON.stringify(pendingConfirmation.args, null, 2)}
+                            </pre>
+                          </details>
+                        )}
                         <div className="flex gap-2 pt-1">
                           <Button
                             size="sm"
@@ -799,6 +811,92 @@ export function EnhancedAIChatPanel({
                             onClick={dismissConfirmation}
                           >
                             取消
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* P1-7: Ask-user question card */}
+                {pendingQuestion && (
+                  <div className="mx-4 mb-2 rounded-xl border border-blue-500/30 bg-blue-50 dark:bg-blue-950/20 p-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex items-start gap-3">
+                      <MessageCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
+                          AI 需要您的输入
+                        </p>
+                        <p className="text-sm text-blue-800 dark:text-blue-300">
+                          {pendingQuestion.question}
+                        </p>
+                        {pendingQuestion.context && (
+                          <p className="text-xs text-blue-600 dark:text-blue-400 italic">
+                            {pendingQuestion.context}
+                          </p>
+                        )}
+                        {pendingQuestion.options && pendingQuestion.options.length > 0 && (
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            {pendingQuestion.options.map((option, idx) => (
+                              <Button
+                                key={idx}
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-3 text-xs border-blue-300 dark:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                                onClick={() => {
+                                  answerQuestion(option, messages, (content, assistantMsgId) => {
+                                    setMessages((prev) => {
+                                      const exists = prev.find((m) => m.id === assistantMsgId);
+                                      if (exists) {
+                                        return prev.map((m) =>
+                                          m.id === assistantMsgId ? { ...m, content } : m
+                                        );
+                                      }
+                                      return [...prev,
+                                        { id: `user-answer-${Date.now()}`, role: 'user' as const, content: option, timestamp: new Date() },
+                                        { id: assistantMsgId, role: 'assistant' as const, content, timestamp: new Date() }
+                                      ];
+                                    });
+                                  });
+                                }}
+                              >
+                                {option}
+                              </Button>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex gap-2 pt-1">
+                          <input
+                            type="text"
+                            placeholder="或输入自定义回答..."
+                            className="flex-1 h-7 px-2 text-xs rounded border border-blue-300 dark:border-blue-600 bg-white dark:bg-blue-950/30 text-blue-900 dark:text-blue-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && (e.target as HTMLInputElement).value.trim()) {
+                                const answer = (e.target as HTMLInputElement).value.trim();
+                                answerQuestion(answer, messages, (content, assistantMsgId) => {
+                                  setMessages((prev) => {
+                                    const exists = prev.find((m) => m.id === assistantMsgId);
+                                    if (exists) {
+                                      return prev.map((m) =>
+                                        m.id === assistantMsgId ? { ...m, content } : m
+                                      );
+                                    }
+                                    return [...prev,
+                                      { id: `user-answer-${Date.now()}`, role: 'user' as const, content: answer, timestamp: new Date() },
+                                      { id: assistantMsgId, role: 'assistant' as const, content, timestamp: new Date() }
+                                    ];
+                                  });
+                                });
+                              }
+                            }}
+                          />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-3 text-xs"
+                            onClick={dismissQuestion}
+                          >
+                            跳过
                           </Button>
                         </div>
                       </div>

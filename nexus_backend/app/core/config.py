@@ -73,6 +73,7 @@ class Settings(BaseSettings):
         description="Base URL for OpenAI-compatible API",
     )
     AI_DEFAULT_MODEL: str = Field(default="gpt-4o", description="Default AI model for general tasks")
+    AI_MINI_MODEL: str = Field(default="gpt-4o-mini", description="Lightweight model for simple queries")
 
     # Database (read by database.py via os.getenv, declared here for validation)
     SUPABASE_URL: str = Field(default="", description="Supabase project URL")

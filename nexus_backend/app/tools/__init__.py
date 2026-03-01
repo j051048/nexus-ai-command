@@ -81,6 +81,8 @@ _TOOL_MODULES: dict[str, tuple[str, str]] = {
     "create_scheduled_task": ("app.tools.scheduled_task_tools", "CreateScheduledTaskTool"),
     "list_scheduled_tasks": ("app.tools.scheduled_task_tools", "ListScheduledTasksTool"),
     "delete_scheduled_task": ("app.tools.scheduled_task_tools", "DeleteScheduledTaskTool"),
+    # ask_user (P1-7: agent proactive questioning)
+    "ask_user": ("app.tools.ask_user_tool", "AskUserTool"),
 }
 
 # VMD tools are optional — kept separate so ImportError is tolerated

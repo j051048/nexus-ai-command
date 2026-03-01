@@ -481,6 +481,32 @@ async def prepare_initial_state(
         except Exception as e:
             logger.debug(f"[Memory] Pattern suggestion failed: {e}")
 
+    # ── 2f. Episodic Memory Recall (P1-6) ──
+    if config.user_id and last_user_msg:
+        try:
+            from app.services.conversation_memory_service import episodic_memory_service
+
+            episodes = await episodic_memory_service.search_similar_episodes(
+                user_id=config.user_id,
+                query=last_user_msg,
+                limit=3,
+                org_id=config.org_id,
+                db=client,
+            )
+            if episodes:
+                episode_context = episodic_memory_service.build_episode_context(episodes)
+                if episode_context:
+                    raw_messages.insert(
+                        0,
+                        {
+                            "role": "system",
+                            "content": episode_context,
+                        },
+                    )
+                    logger.info(f"[Memory] Injected {len(episodes)} episode recalls for user {config.user_id}")
+        except Exception as e:
+            logger.debug(f"[Memory] Episode recall failed: {e}")
+
     # ── 3. Sliding Window with Summary ──
     if len(raw_messages) > SHORT_TERM_WINDOW:
         older = raw_messages[:-SHORT_TERM_WINDOW]
@@ -650,6 +676,34 @@ async def persist_result(
                 logger.info(f"[Memory] Detected {len(patterns)} behavior patterns for org {org_id}")
         except Exception as e:
             logger.debug(f"[Memory] Pattern learning skipped: {e}")
+
+    # ── P1-6: Save interaction episode for experience recall ──
+    if user_message and assistant_response:
+        try:
+            from app.services.conversation_memory_service import episodic_memory_service
+
+            # Extract tool names from completed calls
+            tools_used = []
+            if completed_tool_calls:
+                tools_used = list({tc.get("tool_name", "") for tc in completed_tool_calls if tc.get("tool_name")})
+
+            await episodic_memory_service.save_episode(
+                user_id=user_id,
+                user_intent=user_message[:500],
+                strategy=metadata.get("plan", "") if metadata else "",
+                tools_used=tools_used,
+                outcome=assistant_response[:500],
+                confidence_score=metadata.get("confidence_score", 0.0) if metadata else 0.0,
+                duration_ms=metadata.get("duration_ms", 0) if metadata else 0,
+                total_tokens=metadata.get("total_tokens", 0) if metadata else 0,
+                complexity=metadata.get("complexity", "moderate") if metadata else "moderate",
+                thinking_steps=metadata.get("thinking_steps", 0) if metadata else 0,
+                session_id=session_id,
+                org_id=org_id,
+                db=client,
+            )
+        except Exception as e:
+            logger.debug(f"[Memory] Episode save skipped: {e}")
 
 
 async def load_session_history(

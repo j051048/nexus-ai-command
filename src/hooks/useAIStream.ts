@@ -20,6 +20,13 @@ export interface ConfirmationRequest {
     tool_name: string;
     message: string;
     args: Record<string, unknown>;
+    modifiable?: boolean;
+}
+
+export interface AskUserRequest {
+    question: string;
+    options: string[];
+    context: string;
 }
 
 export interface QuotaInfo {
@@ -37,6 +44,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
     const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([]);
     const [isThinkingComplete, setIsThinkingComplete] = useState(false);
     const [pendingConfirmation, setPendingConfirmation] = useState<ConfirmationRequest | null>(null);
+    const [pendingQuestion, setPendingQuestion] = useState<AskUserRequest | null>(null);
     const [quotaInfo, setQuotaInfo] = useState<QuotaInfo | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
     const lastRequestRef = useRef<{ messages: Array<{ role: string; content: string }>; agent?: string } | null>(null);
@@ -165,6 +173,12 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                     // Handle HITL confirmation request from blocked tool calls
                     if (parsed.confirmation_required) {
                         setPendingConfirmation(parsed.confirmation_required as ConfirmationRequest);
+                        continue;
+                    }
+
+                    // P1-7: Handle ask_user events from agent proactive questioning
+                    if (parsed.ask_user) {
+                        setPendingQuestion(parsed.ask_user as AskUserRequest);
                         continue;
                     }
 
@@ -555,14 +569,31 @@ export function useAIStream({ userId }: UseAIStreamProps) {
     /** HITL: Resend the last request with system_confirmed=true */
     const confirmAndResend = useCallback(async (
         history: AIMessage[],
-        callbacks?: StreamCallbacks | ((content: string, id: string) => void)
+        callbacks?: StreamCallbacks | ((content: string, id: string) => void),
+        modifiedArgs?: Record<string, unknown>
     ) => {
         const lastReq = lastRequestRef.current;
         if (!lastReq) return;
 
         setPendingConfirmation(null);
         const lastUserMsg = lastReq.messages[lastReq.messages.length - 1]?.content || '';
-        await streamChat(lastUserMsg, history, lastReq.agent, callbacks, { system_confirmed: true });
+        // P1-7: If args were modified, append modification note
+        const extraContext = modifiedArgs
+            ? `\n[用户已修改参数: ${JSON.stringify(modifiedArgs)}]`
+            : '';
+        await streamChat(lastUserMsg + extraContext, history, lastReq.agent, callbacks, { system_confirmed: true });
+    }, [streamChat]);
+
+    /** P1-7: Answer an agent's proactive question */
+    const answerQuestion = useCallback(async (
+        answer: string,
+        history: AIMessage[],
+        callbacks?: StreamCallbacks | ((content: string, id: string) => void)
+    ) => {
+        setPendingQuestion(null);
+        const lastReq = lastRequestRef.current;
+        const agent = lastReq?.agent;
+        await streamChat(answer, history, agent, callbacks);
     }, [streamChat]);
 
     return {
@@ -571,11 +602,14 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         thinkingSteps,
         isThinkingComplete,
         pendingConfirmation,
+        pendingQuestion,
         quotaInfo,
         streamChat,
         stopStream,
         confirmAndResend,
+        answerQuestion,
         dismissConfirmation: () => setPendingConfirmation(null),
+        dismissQuestion: () => setPendingQuestion(null),
         clearThinkingSteps: () => setThinkingSteps([])
     };
 }

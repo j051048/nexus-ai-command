@@ -25,6 +25,7 @@ class AgentPhase(StrEnum):
     PLANNING = "planning"
     EXECUTING = "executing"
     REFLECTING = "reflecting"
+    CRITIQUING = "critiquing"
     RESPONDING = "responding"
     DONE = "done"
     ERROR = "error"
@@ -37,6 +38,11 @@ class QueryComplexity(StrEnum):
     MODERATE = "moderate"  # Single-tool lookup → gpt-4o-mini
     COMPLEX = "complex"  # Multi-tool, analysis → gpt-4o
     CRITICAL = "critical"  # Approvals, financial ops → gpt-4o + confirmation
+
+    @property
+    def model_tier(self) -> str:
+        """Map to Gateway schedule_rule complexity_tier value."""
+        return {"simple": "low", "moderate": "low", "complex": "high", "critical": "high"}[self.value]
 
 
 # ─── Thinking Step (for frontend visualization) ─────────────────────────────
@@ -170,6 +176,11 @@ class AgentState(TypedDict, total=False):
     # ── Observability ──
     # NOTE: trace_logger is passed via RunnableConfig["configurable"]["trace_logger"]
     # instead of state, because it's not serializable (contains network connections).
+
+    # ── Reflection & Critic (P0-3 / P1-5) ──
+    reflection_guidance: str  # Structured correction instructions from reflect/critic → plan
+    critic_feedback: str  # Critic evaluation summary
+    critic_passed: bool  # Whether critic approved the response
 
     # ── VMD Multi-Agent Orchestration ──
     agent_code: str  # Current agent role code (e.g., "content_agent")

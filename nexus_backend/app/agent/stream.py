@@ -72,6 +72,20 @@ def _sse_confirmation(tool_name: str, message: str, args: dict) -> str:
                 "tool_name": tool_name,
                 "message": message,
                 "args": {k: v for k, v in args.items() if k != "api_key"},  # Strip secrets
+                "modifiable": True,  # P1-7: Allow user to edit args before confirming
+            }
+        }
+    )
+
+
+def _sse_ask_user(question: str, options: list[str] | None = None, context: str = "") -> str:
+    """P1-7: Emit an ask_user event for the agent to proactively ask the user."""
+    return _sse_data(
+        {
+            "ask_user": {
+                "question": question,
+                "options": options or [],
+                "context": context,
             }
         }
     )
@@ -198,6 +212,9 @@ async def run_agent_stream(
         "is_hallucination": False,
         "needs_replanning": False,
         "confidence_score": 0.0,
+        "reflection_guidance": "",
+        "critic_feedback": "",
+        "critic_passed": True,
         "final_response": "",
         "thinking_steps": [],
         "config": agent_config,
@@ -294,6 +311,7 @@ async def run_agent_stream(
                             AgentPhase.PLANNING: "正在规划...",
                             AgentPhase.EXECUTING: "正在执行工具...",
                             AgentPhase.REFLECTING: "正在验证结果...",
+                            AgentPhase.CRITIQUING: "正在质量评审...",
                             AgentPhase.RESPONDING: "正在生成回复...",
                         }
                         # Escalating reflect status for deeper iterations
@@ -379,6 +397,19 @@ async def run_agent_stream(
                 args=tc.tool_args,
             )
 
+    # ── 7.6 P1-7: Emit ask_user events for agent proactive questioning ──
+    ask_user_calls = [
+        tc for tc in accumulated_state.get("completed_tool_calls", []) if getattr(tc, "status", None) == "ask_user"
+    ]
+    if ask_user_calls:
+        for tc in ask_user_calls:
+            args = tc.tool_args or {}
+            yield _sse_ask_user(
+                question=args.get("question", tc.result or ""),
+                options=args.get("options"),
+                context=args.get("context", ""),
+            )
+
     # ── 8. Token tracking ──
     total_in = accumulated_state.get("total_input_tokens", 0) or input_tokens
     total_out = accumulated_state.get("total_output_tokens", 0) or token_counter.count_tokens(
@@ -431,6 +462,10 @@ async def run_agent_stream(
                 "model": agent_config.model,
                 "thinking_steps": len(all_thinking_steps),
                 "duration_ms": int((time.time() - start_time) * 1000),
+                "total_tokens": total_in + total_out,
+                "confidence_score": accumulated_state.get("confidence_score", 0.0),
+                "complexity": str(accumulated_state.get("complexity", "moderate")),
+                "plan": accumulated_state.get("plan", "")[:500],
             },
             db_client=db_client,
             org_id=agent_config.org_id,
