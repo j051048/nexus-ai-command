@@ -100,6 +100,7 @@ export function OACenter() {
       const { data, error } = await supabase.from('oa_leave_requests')
         .select('*')
         .eq('user_id', user.id)
+        .neq('status', 'cancelled')
         .order('created_at', { ascending: false });
       if (error) throw error;
       setLeaves((data as LeaveRequest[]) || []);
@@ -165,6 +166,7 @@ export function OACenter() {
       const { data, error } = await supabase.from('oa_meeting_bookings')
         .select('*')
         .eq('organization_id', profile.organization_id)
+        .neq('status', 'cancelled')
         .order('start_time', { ascending: false })
         .limit(50);
       if (error) throw error;
@@ -284,12 +286,17 @@ export function OACenter() {
   const handleCancelLeave = async (leaveId: string) => {
     if (!window.confirm('确认要撤回这条请假申请吗？')) return;
     try {
+      // 乐观更新：立即从列表移除
+      setLeaves(prev => prev.filter(l => l.id !== leaveId));
       const { error } = await supabase.from('oa_leave_requests')
         .update({ status: 'cancelled' })
         .eq('id', leaveId);
-      if (error) throw error;
+      if (error) {
+        // 回滚：重新拉取
+        fetchLeaves();
+        throw error;
+      }
       toast.success('请假申请已撤回');
-      fetchLeaves();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       toast.error(error?.message || '撤回失败');
@@ -299,12 +306,15 @@ export function OACenter() {
   const handleCancelMeeting = async (meetingId: string) => {
     if (!window.confirm('确认要取消这场会议吗？')) return;
     try {
+      setMeetings(prev => prev.filter(m => m.id !== meetingId));
       const { error } = await supabase.from('oa_meeting_bookings')
         .update({ status: 'cancelled' })
         .eq('id', meetingId);
-      if (error) throw error;
+      if (error) {
+        fetchMeetings();
+        throw error;
+      }
       toast.success('会议已取消');
-      fetchMeetings();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       toast.error(error?.message || '取消失败');
