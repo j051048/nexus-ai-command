@@ -475,13 +475,13 @@ function ScoreBar({ score, max = 10, color }: { score: number | null; max?: numb
 function CompetitorDetailPanel({
   detail,
   isLoading,
-  isAdmin,
+  canEdit,
   onEditCompetitor,
   onDeleteCompetitor,
 }: {
   detail: CompetitorDetail | undefined;
   isLoading: boolean;
-  isAdmin: boolean;
+  canEdit: boolean;
   onEditCompetitor: () => void;
   onDeleteCompetitor: () => void;
 }) {
@@ -560,7 +560,7 @@ function CompetitorDetailPanel({
                 </div>
               </div>
             </div>
-            {isAdmin && (
+            {canEdit && (
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={onEditCompetitor}>
                   <Pencil className="w-3.5 h-3.5 mr-1" /> 编辑
@@ -616,7 +616,7 @@ function CompetitorDetailPanel({
               <BarChart3 className="w-4 h-4" /> 对比维度 ({features.length})
             </TabsTrigger>
           </TabsList>
-          {isAdmin && (
+          {canEdit && (
             <Tabs defaultValue="products">
               {/* Use hidden trick to get current tab for add button */}
             </Tabs>
@@ -625,7 +625,7 @@ function CompetitorDetailPanel({
 
         {/* 产品 Tab */}
         <TabsContent value="products" className="mt-4">
-          {isAdmin && (
+          {canEdit && (
             <div className="mb-4">
               <Button size="sm" variant="outline" onClick={() => setProductDialog({ open: true, product: null })}>
                 <Plus className="w-4 h-4 mr-1" /> 添加产品
@@ -635,7 +635,7 @@ function CompetitorDetailPanel({
           {products.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground text-sm">
               暂无竞品产品数据
-              {isAdmin && '，点击上方按钮添加'}
+              {canEdit && '，点击上方按钮添加'}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -650,7 +650,7 @@ function CompetitorDetailPanel({
                         </div>
                         {p.category && <p className="text-xs text-muted-foreground mt-0.5">{p.category}</p>}
                       </div>
-                      {isAdmin && (
+                      {canEdit && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100">
@@ -687,7 +687,7 @@ function CompetitorDetailPanel({
 
         {/* 对比维度 Tab */}
         <TabsContent value="features" className="mt-4">
-          {isAdmin && (
+          {canEdit && (
             <div className="mb-4">
               <Button size="sm" variant="outline" onClick={() => setFeatureDialog({ open: true, feature: null })}>
                 <Plus className="w-4 h-4 mr-1" /> 添加维度
@@ -697,7 +697,7 @@ function CompetitorDetailPanel({
           {features.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground text-sm">
               暂无对比维度数据
-              {isAdmin && '，点击上方按钮添加'}
+              {canEdit && '，点击上方按钮添加'}
             </div>
           ) : (
             <div className="space-y-3">
@@ -706,7 +706,7 @@ function CompetitorDetailPanel({
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-2">
                       <h4 className="font-semibold text-sm">{f.dimension}</h4>
-                      {isAdmin && (
+                      {canEdit && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100">
@@ -753,7 +753,8 @@ function CompetitorDetailPanel({
 // ─── 主页面 ────────────────────────────────────────
 export function BattlecardLibrary() {
   const { role } = useAuth();
-  const isAdmin = role === 'boss';
+  // 放开权限，允许业务人员（销售、员工）维护竞品库
+  const canEdit = ['boss', 'manager', 'sales', 'employee'].includes(role || 'boss');
 
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearch = useDebounce(searchTerm, 300);
@@ -820,7 +821,7 @@ export function BattlecardLibrary() {
           </h1>
           <p className="text-muted-foreground mt-1">知己知彼，维护竞品情报与打击策略</p>
         </div>
-        {isAdmin && (
+        {canEdit && (
           <Button onClick={() => setCompetitorDialog({ open: true, competitor: null })}>
             <Plus className="w-4 h-4 mr-2" /> 添加竞品
           </Button>
@@ -846,7 +847,7 @@ export function BattlecardLibrary() {
                 Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />)
               ) : filtered.length === 0 ? (
                 competitors.length === 0 ? (
-                  <NoDataYet resourceName="竞品" onAdd={isAdmin ? () => setCompetitorDialog({ open: true, competitor: null }) : undefined} />
+                  <NoDataYet resourceName="竞品" onAdd={canEdit ? () => setCompetitorDialog({ open: true, competitor: null }) : undefined} />
                 ) : (
                   <NoSearchResults query={debouncedSearch} onClear={() => setSearchTerm('')} />
                 )
@@ -896,7 +897,7 @@ export function BattlecardLibrary() {
           <CompetitorDetailPanel
             detail={detail}
             isLoading={detailLoading && !!selectedId}
-            isAdmin={isAdmin}
+            canEdit={canEdit}
             onEditCompetitor={() => {
               if (detail?.competitor) setCompetitorDialog({ open: true, competitor: detail.competitor });
             }}
