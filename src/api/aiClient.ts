@@ -148,7 +148,7 @@ export const aiClient = {
         if (response.status === 401 && !options._retried && options.requireAuth !== false) {
             const newToken = await refreshAndGetToken();
             if (newToken) {
-                return this.fetch<T>(endpoint, {
+                return this.fetch(endpoint, {
                     ...options,
                     _retried: true,
                     headers: {
@@ -187,6 +187,42 @@ export const aiClient = {
         }
 
         return response.json();
+    },
+
+    /** GET convenience */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async get(endpoint: string, options: RequestOptions = {}): Promise<{ data: any }> {
+        const data = await this.fetch(endpoint, { ...options, method: 'GET' });
+        return { data };
+    },
+
+    /** POST convenience */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async post(endpoint: string, body?: unknown, options: RequestOptions = {}): Promise<{ data: any }> {
+        const data = await this.fetch(endpoint, {
+            ...options,
+            method: 'POST',
+            body: body ? JSON.stringify(body) : undefined,
+        });
+        return { data };
+    },
+
+    /** PUT convenience */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async put(endpoint: string, body?: unknown, options: RequestOptions = {}): Promise<{ data: any }> {
+        const data = await this.fetch(endpoint, {
+            ...options,
+            method: 'PUT',
+            body: body ? JSON.stringify(body) : undefined,
+        });
+        return { data };
+    },
+
+    /** DELETE convenience */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async delete(endpoint: string, options: RequestOptions = {}): Promise<{ data: any }> {
+        const data = await this.fetch(endpoint, { ...options, method: 'DELETE' });
+        return { data };
     },
 
     /**
