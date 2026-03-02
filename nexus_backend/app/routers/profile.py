@@ -27,14 +27,15 @@ async def get_profile(
             await client.table("users")
             .select("id, name, email, role, department, position, avatar_url, employee_number, job_title, created_at")
             .eq("id", user_id)
-            .maybe_single()
+            .limit(1)
             .execute()
         )
 
-        if not res.data:
+        row = res.data[0] if res.data else None
+        if not row:
             return api_error(ErrorCode.RESOURCE_NOT_FOUND, "User not found")
 
-        return api_success(data={"profile": res.data})
+        return api_success(data={"profile": row})
     except Exception as e:
         logger.error(f"Profile fetch failed: {e}")
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
@@ -80,11 +81,11 @@ async def get_ai_settings(
             await client.table("ai_settings")
             .select("model, base_url, temperature")
             .eq("user_id", user_id)
-            .maybe_single()
+            .limit(1)
             .execute()
         )
 
-        return api_success(data={"ai_settings": res.data or {}})
+        return api_success(data={"ai_settings": res.data[0] if res.data else {}})
     except Exception as e:
         logger.error(f"AI settings fetch failed: {e}")
         return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
