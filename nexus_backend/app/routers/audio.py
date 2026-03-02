@@ -96,7 +96,13 @@ async def _try_transcribe(openai_client: AsyncOpenAI, tmp_path: str, model: str)
     except Exception as e:
         error_str = str(e)
         # Check if it's a rate limit (429), service unavailable (503), or model not found error
-        if "429" in error_str or "503" in error_str or "rate" in error_str.lower() or "负载" in error_str or "无可用渠道" in error_str:
+        if (
+            "429" in error_str
+            or "503" in error_str
+            or "rate" in error_str.lower()
+            or "负载" in error_str
+            or "无可用渠道" in error_str
+        ):
             logger.warning(f"[Audio] Model {model} unavailable/rate-limited, will try fallback")
             return None
         if "404" in error_str or "not found" in error_str.lower() or "does not exist" in error_str.lower():
@@ -204,7 +210,13 @@ async def transcribe_audio(
         logger.error(f"[Audio] Transcription failed for user={user_id}: {e}")
 
         # User-friendly error messages
-        if "429" in error_str or "503" in error_str or "rate" in error_str.lower() or "负载" in error_str or "无可用渠道" in error_str:
+        if (
+            "429" in error_str
+            or "503" in error_str
+            or "rate" in error_str.lower()
+            or "负载" in error_str
+            or "无可用渠道" in error_str
+        ):
             raise api_error(
                 ErrorCode.AI_SERVICE_UNAVAILABLE,
                 "语音识别服务繁忙，请等几秒后再试",
