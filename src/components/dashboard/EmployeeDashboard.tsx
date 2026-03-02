@@ -28,14 +28,16 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { PullToRefreshIndicator } from '@/components/common/PullToRefreshIndicator';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { lazyWithRetry } from '@/lib/lazyPreload';
+
 // Lazy load heavy components
-const SalesChart = React.lazy(() => import('@/components/charts').then(m => ({ default: m.SalesChart })));
-const WinRateChart = React.lazy(() => import('@/components/charts').then(m => ({ default: m.WinRateChart })));
-const PerformanceScoreCard = React.lazy(() => import('./employee').then(m => ({ default: m.PerformanceScoreCard })));
-const StatCards = React.lazy(() => import('./employee').then(m => ({ default: m.StatCards })));
-const PerformanceMetricsMonitor = React.lazy(() => import('./employee').then(m => ({ default: m.PerformanceMetricsMonitor })));
-const BadgePanel = React.lazy(() => import('./employee').then(m => ({ default: m.BadgePanel })));
-const WeeklyRankings = React.lazy(() => import('./employee').then(m => ({ default: m.WeeklyRankings })));
+const SalesChart = lazyWithRetry(() => import('@/components/charts').then(m => ({ default: m.SalesChart })));
+const WinRateChart = lazyWithRetry(() => import('@/components/charts').then(m => ({ default: m.WinRateChart })));
+const PerformanceScoreCard = lazyWithRetry(() => import('./employee').then(m => ({ default: m.PerformanceScoreCard })));
+const StatCards = lazyWithRetry(() => import('./employee').then(m => ({ default: m.StatCards })));
+const PerformanceMetricsMonitor = lazyWithRetry(() => import('./employee').then(m => ({ default: m.PerformanceMetricsMonitor })));
+const BadgePanel = lazyWithRetry(() => import('./employee').then(m => ({ default: m.BadgePanel })));
+const WeeklyRankings = lazyWithRetry(() => import('./employee').then(m => ({ default: m.WeeklyRankings })));
 
 const ChartSkeleton = () => (
   <div className="bg-card rounded-2xl p-6 border border-border h-[350px]">

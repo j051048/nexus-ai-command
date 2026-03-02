@@ -18,13 +18,15 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+import { lazyWithRetry } from '@/lib/lazyPreload';
+
 // Lazy load heavy components
-const TeamPerformanceChart = React.lazy(() => import('@/components/charts').then(m => ({ default: m.TeamPerformanceChart })));
-const RevenueChart = React.lazy(() => import('@/components/charts').then(m => ({ default: m.RevenueChart })));
-const AIWeeklyReport = React.lazy(() => import('./boss').then(m => ({ default: m.AIWeeklyReport })));
-const ExceptionQueue = React.lazy(() => import('./boss').then(m => ({ default: m.ExceptionQueue })));
-const TeamPerformanceHeatmap = React.lazy(() => import('./boss').then(m => ({ default: m.TeamPerformanceHeatmap })));
-const TopPerformers = React.lazy(() => import('./boss').then(m => ({ default: m.TopPerformers })));
+const TeamPerformanceChart = lazyWithRetry(() => import('@/components/charts').then(m => ({ default: m.TeamPerformanceChart })));
+const RevenueChart = lazyWithRetry(() => import('@/components/charts').then(m => ({ default: m.RevenueChart })));
+const AIWeeklyReport = lazyWithRetry(() => import('./boss').then(m => ({ default: m.AIWeeklyReport })));
+const ExceptionQueue = lazyWithRetry(() => import('./boss').then(m => ({ default: m.ExceptionQueue })));
+const TeamPerformanceHeatmap = lazyWithRetry(() => import('./boss').then(m => ({ default: m.TeamPerformanceHeatmap })));
+const TopPerformers = lazyWithRetry(() => import('./boss').then(m => ({ default: m.TopPerformers })));
 
 const ChartSkeleton = () => (
   <div className="bg-card rounded-2xl p-6 border border-border h-[350px]">

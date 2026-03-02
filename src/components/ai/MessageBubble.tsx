@@ -1,10 +1,11 @@
 import React, { useState, lazy, Suspense } from 'react';
+import { lazyWithRetry } from '@/lib/lazyPreload';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Bot, Copy, RotateCcw, ThumbsUp, ThumbsDown, User, Check, MoreHorizontal, Trash2, Download } from 'lucide-react';
 
 // Lazy-load react-syntax-highlighter (~608KB) — only loaded when code blocks appear
-const SyntaxHighlighter = lazy(() =>
+const SyntaxHighlighter = lazyWithRetry(() =>
   import('react-syntax-highlighter/dist/esm/prism').then(mod => ({ default: mod.default }))
 );
 const loadStyle = () => import('react-syntax-highlighter/dist/esm/styles/prism/vsc-dark-plus').then(mod => mod.default);

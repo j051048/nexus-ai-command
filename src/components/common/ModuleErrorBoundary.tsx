@@ -31,12 +31,32 @@ export class ModuleErrorBoundary extends React.Component<ModuleErrorBoundaryProp
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error(`[${this.props.moduleName}] Module error:`, error, errorInfo);
+
+    // Auto-reload on chunk load failure (new deployment invalidated old chunks)
+    if (this.isChunkLoadError(error)) {
+      const reloadKey = 'chunk-reload';
+      const lastReload = sessionStorage.getItem(reloadKey);
+      const now = Date.now();
+      if (!lastReload || now - Number(lastReload) > 10000) {
+        sessionStorage.setItem(reloadKey, String(now));
+        window.location.reload();
+        return;
+      }
+    }
+
     if (import.meta.env.PROD) {
       Sentry.captureException(error, {
         tags: { module: this.props.moduleName },
         extra: { componentStack: errorInfo.componentStack },
       });
     }
+  }
+
+  private isChunkLoadError(error: Error): boolean {
+    const msg = error.message || '';
+    return msg.includes('Failed to fetch dynamically imported module') ||
+           msg.includes('Loading chunk') ||
+           msg.includes('Loading CSS chunk');
   }
 
   private handleRetry = () => {

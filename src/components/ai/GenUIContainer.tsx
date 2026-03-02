@@ -1,28 +1,29 @@
 import React, { lazy, Suspense } from 'react';
+import { lazyWithRetry } from '@/lib/lazyPreload';
 import { Skeleton } from '@/components/ui/skeleton';
 
 // Registry of components available for Generative UI
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const GEN_UI_COMPONENTS: Record<string, React.ComponentType<any>> = {
   // Business components
-  BadgePanel: lazy(() => import('../dashboard/employee/BadgePanel').then(m => ({ default: m.BadgePanel }))),
-  ApprovalCenter: lazy(() => import('../approval/ApprovalCenter').then(m => ({ default: m.ApprovalCenter }))),
-  RewardsWallet: lazy(() => import('../rewards/RewardsWallet').then(m => ({ default: m.RewardsWallet }))),
-  KanbanBoard: lazy(() => import('../sales/sections/KanbanBoard').then(m => ({ default: m.KanbanBoard }))),
-  PriorityLeads: lazy(() => import('../sales/sections/PriorityLeads').then(m => ({ default: m.PriorityLeads }))),
+  BadgePanel: lazyWithRetry(() => import('../dashboard/employee/BadgePanel').then(m => ({ default: m.BadgePanel }))),
+  ApprovalCenter: lazyWithRetry(() => import('../approval/ApprovalCenter').then(m => ({ default: m.ApprovalCenter }))),
+  RewardsWallet: lazyWithRetry(() => import('../rewards/RewardsWallet').then(m => ({ default: m.RewardsWallet }))),
+  KanbanBoard: lazyWithRetry(() => import('../sales/sections/KanbanBoard').then(m => ({ default: m.KanbanBoard }))),
+  PriorityLeads: lazyWithRetry(() => import('../sales/sections/PriorityLeads').then(m => ({ default: m.PriorityLeads }))),
   // Data visualization components
-  DataChart: lazy(() => import('./genui/DataChart')),
-  DataTable: lazy(() => import('./genui/DataTable')),
-  StatCards: lazy(() => import('./genui/StatCards')),
+  DataChart: lazyWithRetry(() => import('./genui/DataChart')),
+  DataTable: lazyWithRetry(() => import('./genui/DataTable')),
+  StatCards: lazyWithRetry(() => import('./genui/StatCards')),
   // Interactive components
-  TodoList: lazy(() => import('./genui/TodoList')),
-  Timeline: lazy(() => import('./genui/Timeline')),
+  TodoList: lazyWithRetry(() => import('./genui/TodoList')),
+  Timeline: lazyWithRetry(() => import('./genui/Timeline')),
   // P1-7: Extended GenUI components
-  ProgressTracker: lazy(() => import('./genui/ProgressTracker')),
-  MetricComparison: lazy(() => import('./genui/MetricComparison')),
-  AlertList: lazy(() => import('./genui/AlertList')),
-  FormBuilder: lazy(() => import('./genui/FormBuilder')),
-  UserProfileCard: lazy(() => import('./genui/UserProfileCard')),
+  ProgressTracker: lazyWithRetry(() => import('./genui/ProgressTracker')),
+  MetricComparison: lazyWithRetry(() => import('./genui/MetricComparison')),
+  AlertList: lazyWithRetry(() => import('./genui/AlertList')),
+  FormBuilder: lazyWithRetry(() => import('./genui/FormBuilder')),
+  UserProfileCard: lazyWithRetry(() => import('./genui/UserProfileCard')),
 };
 
 interface GenUIContainerProps {

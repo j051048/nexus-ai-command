@@ -10,6 +10,7 @@ import { I18nProvider } from "@/lib/i18n";
 import { LoginPage } from "@/components/auth/LoginPage";
 import { ResetPasswordPage } from "@/components/auth/ResetPasswordPage";
 import React, { Suspense, lazy } from "react";
+import { lazyWithRetry } from "@/lib/lazyPreload";
 import * as Sentry from "@sentry/react";
 import { toast } from "sonner";
 import { ModuleErrorBoundary } from "@/components/common/ModuleErrorBoundary";
@@ -26,72 +27,72 @@ if (SENTRY_DSN && import.meta.env.PROD) {
   });
 }
 
-// Lazy load pages for better performance
-const DashboardLayout = lazy(() => import("./pages/Index"));
-const NotFound = lazy(() => import("./pages/NotFound"));
+// Lazy load pages with retry logic for deployment chunk failures
+const DashboardLayout = lazyWithRetry(() => import("./pages/Index"));
+const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
 
 // Lazy load feature pages
-const EmployeeDashboard = lazy(() => import("@/components/dashboard/EmployeeDashboard").then(m => ({ default: m.EmployeeDashboard })));
-const BossDashboard = lazy(() => import("@/components/dashboard/BossDashboard").then(m => ({ default: m.BossDashboard })));
-const ProjectManagement = lazy(() => import("@/pages/ProjectManagement").then(m => ({ default: m.ProjectManagement })));
-const ProjectDetail = lazy(() => import("@/components/projects/ProjectDetail").then(m => ({ default: m.ProjectDetail })));
-const SalesPipeline = lazy(() => import("@/components/sales/SalesPipeline").then(m => ({ default: m.SalesPipeline })));
-const ApprovalCenter = lazy(() => import("@/components/approval/ApprovalCenter").then(m => ({ default: m.ApprovalCenter })));
-const ExceptionsPage = lazy(() => import("@/pages/ExceptionsPage")); // Default export likely
-const RewardsWallet = lazy(() => import("@/components/rewards/RewardsWallet").then(m => ({ default: m.RewardsWallet })));
-const SalesTargetManager = lazy(() => import("@/components/targets/SalesTargetManager").then(m => ({ default: m.SalesTargetManager })));
-const TenderAnalysisPage = lazy(() => import("@/pages/TenderAnalysisPage").then(m => ({ default: m.TenderAnalysisPage })));
-const BattlecardLibrary = lazy(() => import("@/pages/BattlecardLibrary").then(m => ({ default: m.BattlecardLibrary })));
-const TargetDashboard = lazy(() => import("@/pages/TargetDashboard").then(m => ({ default: m.TargetDashboard })));
-const DocumentsPage = lazy(() => import("@/components/documents/DocumentsPage").then(m => ({ default: m.DocumentsPage })));
-const AISettingsPanel = lazy(() => import("@/components/settings/AISettingsPanel").then(m => ({ default: m.AISettingsPanel })));
-const EmployeeManagement = lazy(() => import("@/components/admin/EmployeeManagement").then(m => ({ default: m.EmployeeManagement })));
-const DepartmentManagement = lazy(() => import("@/pages/DepartmentManagement"));
-const AnimationShowcase = lazy(() => import("@/pages/AnimationShowcase"));
+const EmployeeDashboard = lazyWithRetry(() => import("@/components/dashboard/EmployeeDashboard").then(m => ({ default: m.EmployeeDashboard })));
+const BossDashboard = lazyWithRetry(() => import("@/components/dashboard/BossDashboard").then(m => ({ default: m.BossDashboard })));
+const ProjectManagement = lazyWithRetry(() => import("@/pages/ProjectManagement").then(m => ({ default: m.ProjectManagement })));
+const ProjectDetail = lazyWithRetry(() => import("@/components/projects/ProjectDetail").then(m => ({ default: m.ProjectDetail })));
+const SalesPipeline = lazyWithRetry(() => import("@/components/sales/SalesPipeline").then(m => ({ default: m.SalesPipeline })));
+const ApprovalCenter = lazyWithRetry(() => import("@/components/approval/ApprovalCenter").then(m => ({ default: m.ApprovalCenter })));
+const ExceptionsPage = lazyWithRetry(() => import("@/pages/ExceptionsPage"));
+const RewardsWallet = lazyWithRetry(() => import("@/components/rewards/RewardsWallet").then(m => ({ default: m.RewardsWallet })));
+const SalesTargetManager = lazyWithRetry(() => import("@/components/targets/SalesTargetManager").then(m => ({ default: m.SalesTargetManager })));
+const TenderAnalysisPage = lazyWithRetry(() => import("@/pages/TenderAnalysisPage").then(m => ({ default: m.TenderAnalysisPage })));
+const BattlecardLibrary = lazyWithRetry(() => import("@/pages/BattlecardLibrary").then(m => ({ default: m.BattlecardLibrary })));
+const TargetDashboard = lazyWithRetry(() => import("@/pages/TargetDashboard").then(m => ({ default: m.TargetDashboard })));
+const DocumentsPage = lazyWithRetry(() => import("@/components/documents/DocumentsPage").then(m => ({ default: m.DocumentsPage })));
+const AISettingsPanel = lazyWithRetry(() => import("@/components/settings/AISettingsPanel").then(m => ({ default: m.AISettingsPanel })));
+const EmployeeManagement = lazyWithRetry(() => import("@/components/admin/EmployeeManagement").then(m => ({ default: m.EmployeeManagement })));
+const DepartmentManagement = lazyWithRetry(() => import("@/pages/DepartmentManagement"));
+const AnimationShowcase = lazyWithRetry(() => import("@/pages/AnimationShowcase"));
 
 // 可视化流程设计器
-const WorkflowList = lazy(() => import("@/pages/WorkflowList"));
-const WorkflowDesigner = lazy(() => import("@/pages/WorkflowDesigner"));
+const WorkflowList = lazyWithRetry(() => import("@/pages/WorkflowList"));
+const WorkflowDesigner = lazyWithRetry(() => import("@/pages/WorkflowDesigner"));
 
 // AI-First 企业管理页面
-const OACenter = lazy(() => import("@/pages/OACenter"));
-const HRCenter = lazy(() => import("@/pages/HRCenter"));
-const FinanceCenter = lazy(() => import("@/pages/FinanceCenter"));
-const ProfileCenter = lazy(() => import("@/pages/ProfileCenter"));
-const DataImportPage = lazy(() => import("@/pages/DataImportPage"));
-const FormDesigner = lazy(() => import("@/pages/FormDesigner"));
+const OACenter = lazyWithRetry(() => import("@/pages/OACenter"));
+const HRCenter = lazyWithRetry(() => import("@/pages/HRCenter"));
+const FinanceCenter = lazyWithRetry(() => import("@/pages/FinanceCenter"));
+const ProfileCenter = lazyWithRetry(() => import("@/pages/ProfileCenter"));
+const DataImportPage = lazyWithRetry(() => import("@/pages/DataImportPage"));
+const FormDesigner = lazyWithRetry(() => import("@/pages/FormDesigner"));
 
 // P2: 可定制仪表板 + 审计面板
-const CustomDashboard = lazy(() => import("@/pages/CustomDashboard"));
-const AuditPanel = lazy(() => import("@/pages/AuditPanel"));
+const CustomDashboard = lazyWithRetry(() => import("@/pages/CustomDashboard"));
+const AuditPanel = lazyWithRetry(() => import("@/pages/AuditPanel"));
 
 // P3: 模板市场 + 消息中心 + 报表 + 支付 + CRM
-const WorkflowTemplates = lazy(() => import("@/pages/WorkflowTemplates"));
-const NotificationCenter = lazy(() => import("@/pages/NotificationCenter"));
-const ReportsPage = lazy(() => import("@/pages/ReportsPage"));
-const PaymentPage = lazy(() => import("@/pages/PaymentPage"));
-const CRMPage = lazy(() => import("@/pages/CRMPage"));
+const WorkflowTemplates = lazyWithRetry(() => import("@/pages/WorkflowTemplates"));
+const NotificationCenter = lazyWithRetry(() => import("@/pages/NotificationCenter"));
+const ReportsPage = lazyWithRetry(() => import("@/pages/ReportsPage"));
+const PaymentPage = lazyWithRetry(() => import("@/pages/PaymentPage"));
+const CRMPage = lazyWithRetry(() => import("@/pages/CRMPage"));
 
 // P4: 插件市场 + 培训中心 + 合同管理 + 超管 + API密钥
-const PluginMarketplace = lazy(() => import("@/pages/PluginMarketplace"));
-const TrainingCenter = lazy(() => import("@/pages/TrainingCenter"));
-const ContractManagement = lazy(() => import("@/pages/ContractManagement"));
-const SuperAdminDashboard = lazy(() => import("@/pages/SuperAdminDashboard"));
-const APIKeysPage = lazy(() => import("@/pages/APIKeysPage"));
+const PluginMarketplace = lazyWithRetry(() => import("@/pages/PluginMarketplace"));
+const TrainingCenter = lazyWithRetry(() => import("@/pages/TrainingCenter"));
+const ContractManagement = lazyWithRetry(() => import("@/pages/ContractManagement"));
+const SuperAdminDashboard = lazyWithRetry(() => import("@/pages/SuperAdminDashboard"));
+const APIKeysPage = lazyWithRetry(() => import("@/pages/APIKeysPage"));
 
 // VMD (Virtual Marketing Department) pages
-const VMDCenter = lazy(() => import("@/pages/VMDCenter"));
-const VMDTaskCenter = lazy(() => import("@/pages/VMDTaskCenter"));
-const VMDAgentConfig = lazy(() => import("@/pages/VMDAgentConfig"));
-const LLMModelManagement = lazy(() => import("@/pages/LLMModelManagement"));
-const VMDClueManagement = lazy(() => import("@/pages/VMDClueManagement"));
-const VMDDashboard = lazy(() => import("@/pages/VMDDashboard"));
-const VMDCompliancePage = lazy(() => import("@/pages/VMDCompliancePage"));
-const AgentDebugPanel = lazy(() => import("@/pages/AgentDebugPanel"));
-const LLMCostDashboard = lazy(() => import("@/pages/LLMCostDashboard"));
-const CompanySettingsPage = lazy(() => import("@/pages/CompanySettingsPage"));
-const AdminPanel = lazy(() => import("@/pages/AdminPanel"));
-const OrgChartPage = lazy(() => import("@/pages/OrgChartPage"));
+const VMDCenter = lazyWithRetry(() => import("@/pages/VMDCenter"));
+const VMDTaskCenter = lazyWithRetry(() => import("@/pages/VMDTaskCenter"));
+const VMDAgentConfig = lazyWithRetry(() => import("@/pages/VMDAgentConfig"));
+const LLMModelManagement = lazyWithRetry(() => import("@/pages/LLMModelManagement"));
+const VMDClueManagement = lazyWithRetry(() => import("@/pages/VMDClueManagement"));
+const VMDDashboard = lazyWithRetry(() => import("@/pages/VMDDashboard"));
+const VMDCompliancePage = lazyWithRetry(() => import("@/pages/VMDCompliancePage"));
+const AgentDebugPanel = lazyWithRetry(() => import("@/pages/AgentDebugPanel"));
+const LLMCostDashboard = lazyWithRetry(() => import("@/pages/LLMCostDashboard"));
+const CompanySettingsPage = lazyWithRetry(() => import("@/pages/CompanySettingsPage"));
+const AdminPanel = lazyWithRetry(() => import("@/pages/AdminPanel"));
+const OrgChartPage = lazyWithRetry(() => import("@/pages/OrgChartPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
