@@ -87,7 +87,7 @@ async def _transcode_to_mp3(input_path: str) -> str | None:
             return None
         logger.info(f"[Audio] Transcoded {input_path} -> {output_path} " f"({os.path.getsize(output_path)} bytes)")
         return output_path
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("[Audio] ffmpeg transcode timed out (30s)")
         return None
     except Exception as e:
