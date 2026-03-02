@@ -11,6 +11,10 @@ FROM python:3.11-slim
 # Ensure UTF-8 encoding for Chinese character support
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8 PYTHONIOENCODING=utf-8
 
+# Install ffmpeg for audio transcoding (webm -> mp3 before STT)
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 # Security: Create non-root user
 RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser
 
