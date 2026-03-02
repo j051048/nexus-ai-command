@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Popover,
     PopoverContent,
@@ -6,7 +7,7 @@ import {
 } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Bell, Check, Info, AlertTriangle, XCircle, CheckCircle2 } from 'lucide-react';
+import { Bell, Check, Info, AlertTriangle, XCircle, CheckCircle2, ExternalLink } from 'lucide-react';
 import { useNotifications, Notification } from '@/hooks/useNotifications';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
@@ -16,6 +17,7 @@ import { useAuth } from '@/components/auth/AuthContext';
 
 export function NotificationCenter() {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const { notifications, unreadCount: initialUnreadCount, markAsRead, markAllAsRead } = useNotifications();
     const [open, setOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -35,7 +37,7 @@ export function NotificationCenter() {
                     .from('notifications')
                     .select('*', { count: 'exact', head: true })
                     .eq('user_id', user.id)
-                    .eq('read', false);
+                    .eq('is_read', false);
 
                 if (error) {
                     console.error('Failed to fetch unread count:', error);
@@ -63,6 +65,22 @@ export function NotificationCenter() {
             case 'warning': return <AlertTriangle className="w-4 h-4 text-warning" />;
             case 'error': return <XCircle className="w-4 h-4 text-destructive" />;
             default: return <Info className="w-4 h-4 text-primary" />;
+        }
+    };
+
+    const handleNotificationClick = (notif: Notification) => {
+        // Mark as read
+        if (!notif.is_read) {
+            markAsRead.mutate(notif.id);
+        }
+        // Navigate if action_url exists
+        if (notif.action_url) {
+            setOpen(false);
+            if (notif.action_url.startsWith('http')) {
+                window.open(notif.action_url, '_blank');
+            } else {
+                navigate(notif.action_url);
+            }
         }
     };
 
@@ -112,23 +130,28 @@ export function NotificationCenter() {
                                     key={notif.id}
                                     className={cn(
                                         "p-4 hover:bg-secondary/50 transition-colors cursor-pointer relative group",
-                                        !notif.read && "bg-primary/5" // Highlight unread
+                                        !notif.is_read && "bg-primary/5"
                                     )}
-                                    onClick={() => !notif.read && markAsRead.mutate(notif.id)}
+                                    onClick={() => handleNotificationClick(notif)}
                                 >
                                     <div className="flex gap-3 items-start">
                                         <div className="mt-0.5 flex-shrink-0">{getIcon(notif.type)}</div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-start justify-between gap-2 mb-1">
-                                                <p className={cn("text-sm font-medium leading-none truncate", !notif.read ? "text-foreground" : "text-muted-foreground")}>
+                                                <p className={cn("text-sm font-medium leading-none truncate", !notif.is_read ? "text-foreground" : "text-muted-foreground")}>
                                                     {notif.title}
                                                 </p>
-                                                {!notif.read && (
-                                                    <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1" />
-                                                )}
+                                                <div className="flex items-center gap-1 shrink-0">
+                                                    {notif.action_url && (
+                                                        <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                    )}
+                                                    {!notif.is_read && (
+                                                        <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+                                                    )}
+                                                </div>
                                             </div>
                                             <p className="text-xs text-muted-foreground line-clamp-2 break-all mb-1.5">
-                                                {notif.message}
+                                                {notif.content}
                                             </p>
                                             <p className="text-[10px] text-muted-foreground/70">
                                                 {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true, locale: zhCN })}
@@ -140,6 +163,20 @@ export function NotificationCenter() {
                         </div>
                     )}
                 </ScrollArea>
+                {/* Footer: link to full notification center */}
+                <div className="p-2 border-t bg-muted/30 text-center">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs w-full"
+                        onClick={() => {
+                            setOpen(false);
+                            navigate('/notification-center');
+                        }}
+                    >
+                        查看全部通知
+                    </Button>
+                </div>
             </PopoverContent>
         </Popover>
     );

@@ -104,8 +104,8 @@ const categoryLabels: Record<NotificationCategory, string> = {
  */
 function guessCategory(notification: Notification): NotificationCategory {
   const title = notification.title.toLowerCase();
-  const message = notification.message.toLowerCase();
-  const combined = title + message;
+  const content = (notification.content || '').toLowerCase();
+  const combined = title + content;
 
   if (combined.includes('审批') || combined.includes('报销') || combined.includes('申请')) {
     return 'approval';
@@ -184,13 +184,13 @@ function NotificationItem({
       className={cn(
         'group relative p-3 rounded-lg transition-all cursor-pointer',
         'hover:bg-muted/50',
-        !notification.read && 'bg-primary/5',
+        !notification.is_read && 'bg-primary/5',
         selected && 'ring-2 ring-primary/50',
         getEnterAnimationClass('fade', 'fast')
       )}
       style={getStaggerStyle(index, 0, 30)}
       onClick={() => {
-        if (!notification.read) {
+        if (!notification.is_read) {
           onRead(notification.id);
         }
         onClick?.(notification);
@@ -230,17 +230,17 @@ function NotificationItem({
                 <p
                   className={cn(
                     'text-sm font-medium truncate',
-                    notification.read ? 'text-muted-foreground' : 'text-foreground'
+                    notification.is_read ? 'text-muted-foreground' : 'text-foreground'
                   )}
                 >
                   {notification.title}
                 </p>
-                {!notification.read && (
+                {!notification.is_read && (
                   <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
                 )}
               </div>
               <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
-                {notification.message}
+                {notification.content}
               </p>
             </div>
 
@@ -252,12 +252,12 @@ function NotificationItem({
               )}
               onClick={(e) => e.stopPropagation()}
             >
-              {notification.link && (
+              {notification.action_url && (
                 <Button
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
-                  onClick={() => window.open(notification.link, '_blank')}
+                  onClick={() => window.open(notification.action_url, '_blank')}
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
                 </Button>
@@ -269,7 +269,7 @@ function NotificationItem({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  {!notification.read && (
+                  {!notification.is_read && (
                     <DropdownMenuItem onClick={() => onRead(notification.id)}>
                       <Check className="w-4 h-4 mr-2" />
                       标为已读
@@ -365,7 +365,7 @@ export function EnhancedNotificationCenter({
     };
 
     notifications
-      .filter((n) => !n.read)
+      .filter((n) => !n.is_read)
       .forEach((n) => {
         counts.all++;
         counts[guessCategory(n)]++;

@@ -7,11 +7,11 @@ import { useToast } from '@/hooks/use-toast';
 export interface Notification {
     id: string;
     user_id: string;
-    type: 'info' | 'success' | 'warning' | 'error';
+    type: 'info' | 'success' | 'warning' | 'error' | 'approval' | 'system';
     title: string;
-    message: string;
-    read: boolean;
-    link?: string;
+    content: string;
+    is_read: boolean;
+    action_url?: string;
     created_at: string;
 }
 
@@ -37,10 +37,11 @@ export function useNotificationsRealtime() {
                     const newNotif = payload.new as Notification;
                     toast({
                         title: newNotif.title,
-                        description: newNotif.message,
+                        description: newNotif.content,
                         variant: newNotif.type === 'error' ? 'destructive' : 'default',
                     });
                     queryClient.invalidateQueries({ queryKey: ['notifications'] });
+                    queryClient.invalidateQueries({ queryKey: ['notification-unread-count'] });
                 }
             )
             .subscribe();
@@ -75,19 +76,20 @@ export function useNotifications() {
     });
 
     useEffect(() => {
-        setUnreadCount(notifications.filter(n => !n.read).length);
+        setUnreadCount(notifications.filter(n => !n.is_read).length);
     }, [notifications]);
 
     const markAsRead = useMutation({
         mutationFn: async (id: string) => {
             const { error } = await supabase
                 .from('notifications')
-                .update({ read: true })
+                .update({ is_read: true })
                 .eq('id', id);
             if (error) throw error;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['notifications'] });
+            queryClient.invalidateQueries({ queryKey: ['notification-unread-count'] });
         },
     });
 
@@ -96,13 +98,14 @@ export function useNotifications() {
             if (!user?.id) return;
             const { error } = await supabase
                 .from('notifications')
-                .update({ read: true })
+                .update({ is_read: true })
                 .eq('user_id', user.id)
-                .eq('read', false);
+                .eq('is_read', false);
             if (error) throw error;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['notifications'] });
+            queryClient.invalidateQueries({ queryKey: ['notification-unread-count'] });
         },
     });
 

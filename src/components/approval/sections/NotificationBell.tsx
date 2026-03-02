@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,7 +13,8 @@ import { cn } from '@/lib/utils';
 
 export function NotificationBell() {
     const [showNotifications, setShowNotifications] = useState(false);
-    const { notifications, unreadCount } = useNotifications();
+    const { notifications, unreadCount, markAsRead } = useNotifications();
+    const navigate = useNavigate();
 
     return (
         <>
@@ -43,12 +45,25 @@ export function NotificationBell() {
                                 <div
                                     key={notification.id}
                                     className={cn(
-                                        "p-3 rounded-lg border transition-all hover:bg-secondary/50",
-                                        notification.read ? "bg-secondary/10 border-border" : "bg-primary/5 border-primary/20 shadow-sm"
+                                        "p-3 rounded-lg border transition-all hover:bg-secondary/50 cursor-pointer",
+                                        notification.is_read ? "bg-secondary/10 border-border" : "bg-primary/5 border-primary/20 shadow-sm"
                                     )}
+                                    onClick={() => {
+                                        if (!notification.is_read) {
+                                            markAsRead.mutate(notification.id);
+                                        }
+                                        if (notification.action_url) {
+                                            setShowNotifications(false);
+                                            if (notification.action_url.startsWith('http')) {
+                                                window.open(notification.action_url, '_blank');
+                                            } else {
+                                                navigate(notification.action_url);
+                                            }
+                                        }
+                                    }}
                                 >
                                     <p className="font-semibold text-foreground text-sm">{notification.title}</p>
-                                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{notification.message}</p>
+                                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{notification.content}</p>
                                     <p className="text-[10px] text-muted-foreground mt-2">
                                         {new Date(notification.created_at).toLocaleString('zh-CN')}
                                     </p>
