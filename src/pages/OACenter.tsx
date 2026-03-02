@@ -335,17 +335,24 @@ export function OACenter() {
     try {
       // 乐观更新：立即从列表移除
       setLeaves(prev => prev.filter(l => l.id !== leaveId));
-      const { error } = await supabase.from('oa_leave_requests')
+      const { error, count } = await supabase.from('oa_leave_requests')
         .update({ status: 'cancelled' })
-        .eq('id', leaveId);
+        .eq('id', leaveId)
+        .select('id', { count: 'exact', head: true });
       if (error) {
-        // 回滚：重新拉取
         fetchLeaves();
         throw error;
+      }
+      // RLS 策略可能导致 update 静默失败（匹配 0 行）
+      if (count === 0) {
+        fetchLeaves();
+        toast.error('撤回失败：权限不足，请联系管理员');
+        return;
       }
       toast.success('请假申请已撤回');
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
+      fetchLeaves();
       toast.error(error?.message || '撤回失败');
     }
   };
