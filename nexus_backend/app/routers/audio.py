@@ -44,7 +44,7 @@ MIME_TO_EXT = {
 }
 
 # Models to try in order: primary -> fallback
-STT_MODELS = ["gpt-4o-mini-transcribe", "whisper-1"]
+STT_MODELS = ["gpt-4o-mini-transcribe", "gpt-4o-transcribe"]
 
 
 async def _get_ai_config(req: Request, user_id: str) -> dict:
@@ -95,9 +95,9 @@ async def _try_transcribe(openai_client: AsyncOpenAI, tmp_path: str, model: str)
         return transcript.text.strip()
     except Exception as e:
         error_str = str(e)
-        # Check if it's a rate limit (429) or model not found error
-        if "429" in error_str or "rate" in error_str.lower():
-            logger.warning(f"[Audio] Model {model} rate limited (429), will try fallback")
+        # Check if it's a rate limit (429), service unavailable (503), or model not found error
+        if "429" in error_str or "503" in error_str or "rate" in error_str.lower() or "负载" in error_str or "无可用渠道" in error_str:
+            logger.warning(f"[Audio] Model {model} unavailable/rate-limited, will try fallback")
             return None
         if "404" in error_str or "not found" in error_str.lower() or "does not exist" in error_str.lower():
             logger.warning(f"[Audio] Model {model} not available, will try fallback")
@@ -204,7 +204,7 @@ async def transcribe_audio(
         logger.error(f"[Audio] Transcription failed for user={user_id}: {e}")
 
         # User-friendly error messages
-        if "429" in error_str or "rate" in error_str.lower() or "负载" in error_str:
+        if "429" in error_str or "503" in error_str or "rate" in error_str.lower() or "负载" in error_str or "无可用渠道" in error_str:
             raise api_error(
                 ErrorCode.AI_SERVICE_UNAVAILABLE,
                 "语音识别服务繁忙，请等几秒后再试",
