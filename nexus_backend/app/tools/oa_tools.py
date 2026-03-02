@@ -432,6 +432,7 @@ class MeetingBookingTool(BaseTool):
                     "title": f"📅 会议邀请: {title}",
                     "content": f"时间: {meeting_time.strftime('%m月%d日 %H:%M')}\n地点: {room_name}",
                     "type": "info",
+                    "action_url": "/oa?tab=meeting",
                 }
             ).execute()
 
@@ -625,6 +626,7 @@ class WorkHandoverTool(BaseTool):
                 "title": "📋 工作交接通知",
                 "content": f"{user_name} 将 {transferred} 项工作交接给您。\n原因: {reason}",
                 "type": "warning",
+                "action_url": "/oa?tab=task",
             }
         ).execute()
 

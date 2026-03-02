@@ -95,8 +95,13 @@ interface OrgMember {
 export function OACenter() {
   const { user, profile } = useAuth();
   const [searchParams] = useSearchParams();
-  const initialTab = searchParams.get('tab') || 'leave';
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const tabParam = searchParams.get('tab') || 'leave';
+  const [activeTab, setActiveTab] = useState(tabParam);
+
+  // Sync tab when navigating from notifications (URL params change without remount)
+  useEffect(() => {
+    setActiveTab(tabParam);
+  }, [tabParam]);
 
   // --- Leave tab ---
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);

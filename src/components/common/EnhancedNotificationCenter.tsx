@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -165,6 +166,8 @@ interface NotificationItemProps {
   onRead: (id: string) => void;
   onDelete: (id: string) => void;
   onClick?: (notification: Notification) => void;
+  onNavigate: (url: string) => void;
+  onClose: () => void;
   index: number;
 }
 
@@ -175,6 +178,8 @@ function NotificationItem({
   onRead,
   onDelete,
   onClick,
+  onNavigate,
+  onClose,
   index,
 }: NotificationItemProps) {
   const category = guessCategory(notification);
@@ -194,6 +199,14 @@ function NotificationItem({
           onRead(notification.id);
         }
         onClick?.(notification);
+        if (notification.action_url) {
+          onClose();
+          if (notification.action_url.startsWith('http')) {
+            window.open(notification.action_url, '_blank');
+          } else {
+            onNavigate(notification.action_url);
+          }
+        }
       }}
     >
       {/* Selection Checkbox */}
@@ -257,7 +270,14 @@ function NotificationItem({
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
-                  onClick={() => window.open(notification.action_url, '_blank')}
+                  onClick={() => {
+                    onClose();
+                    if (notification.action_url!.startsWith('http')) {
+                      window.open(notification.action_url, '_blank');
+                    } else {
+                      onNavigate(notification.action_url!);
+                    }
+                  }}
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
                 </Button>
@@ -335,6 +355,7 @@ export function EnhancedNotificationCenter({
   className,
   onNotificationClick,
 }: EnhancedNotificationCenterProps) {
+  const navigate = useNavigate();
   const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification, deleteNotifications } = useNotifications();
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<NotificationCategory>('all');
@@ -592,6 +613,8 @@ export function EnhancedNotificationCenter({
                             onRead={handleRead}
                             onDelete={handleDelete}
                             onClick={onNotificationClick}
+                            onNavigate={navigate}
+                            onClose={() => setOpen(false)}
                             index={index}
                           />
                         ))}

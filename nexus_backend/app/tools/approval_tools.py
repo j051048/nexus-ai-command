@@ -90,6 +90,7 @@ async def _notify_next_approver(
                         "title": f"📋 待审批: {requester_name}的{type_label}申请",
                         "content": content,
                         "type": "warning",
+                        "action_url": "/approval",
                     }
                 ).execute()
                 notified = True
@@ -109,6 +110,7 @@ async def _notify_next_approver(
                         "title": f"📋 待审批: {requester_name}的{type_label}申请",
                         "content": content,
                         "type": "warning",
+                        "action_url": "/approval",
                     }
                 ).execute()
                 notified = True
@@ -123,6 +125,7 @@ async def _notify_next_approver(
                         "title": f"📋 待审批: {requester_name}的{type_label}申请",
                         "content": content,
                         "type": "warning",
+                        "action_url": "/approval",
                     }
                 ).execute()
 
@@ -322,6 +325,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
                             "title": "✅ 审批已自动通过",
                             "content": f"您的{approval_type}申请（¥{amount}）金额较小，已由系统自动批准。",
                             "type": "success",
+                            "action_url": "/approval",
                         }
                     ).execute()
                 return (
@@ -673,6 +677,7 @@ class ApprovalTool(BaseTool):
                     "title": "审批已通过",
                     "content": f"您的{request_data.get('type', '')}申请（¥{request_data.get('amount', 0)}）已被批准。",
                     "type": "success",
+                    "action_url": "/approval",
                 }
             ).execute()
         except Exception as e:
@@ -884,6 +889,7 @@ class RejectTool(BaseTool):
                     "title": "审批已驳回",
                     "content": f"您的{request_data.get('type', '')}申请已被驳回。原因：{reason}",
                     "type": "error",
+                    "action_url": "/approval",
                 }
             ).execute()
         except Exception as e:
