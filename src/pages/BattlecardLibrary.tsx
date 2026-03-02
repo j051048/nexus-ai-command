@@ -510,7 +510,7 @@ function CompetitorDetailPanel({
     );
   }
 
-  const { competitor: comp, products, features } = detail;
+  const { competitor: comp, products = [], features = [] } = detail;
   const threat = THREAT_LEVELS[comp.threat_level] || THREAT_LEVELS.medium;
 
   const handleDeleteProduct = async (p: CompetitorProduct) => {

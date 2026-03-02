@@ -79,7 +79,10 @@ export function useCompetitors() {
     queryKey: ['competitors'],
     queryFn: async () => {
       const res = await aiClient.get('/api/competitors');
-      return res.data || [];
+      // 后端统一格式: { success, data: [...] }  aiClient.get 再包一层 { data: ... }
+      const payload = res.data;
+      const list = payload?.data ?? payload;
+      return Array.isArray(list) ? list : [];
     },
   });
 }
@@ -91,7 +94,15 @@ export function useCompetitorDetail(competitorId: string | null) {
     queryKey: ['competitor-detail', competitorId],
     queryFn: async () => {
       const res = await aiClient.get(`/api/competitors/${competitorId}`);
-      return res.data;
+      // 后端统一格式: { success, data: { competitor, products, features, documents } }
+      const payload = res.data;
+      const detail = payload?.data ?? payload;
+      return {
+        competitor: detail?.competitor ?? detail,
+        products: Array.isArray(detail?.products) ? detail.products : [],
+        features: Array.isArray(detail?.features) ? detail.features : [],
+        documents: Array.isArray(detail?.documents) ? detail.documents : [],
+      };
     },
     enabled: !!competitorId,
   });
