@@ -460,7 +460,14 @@ export function EnhancedAIChatPanel({
           }
         } catch (err) {
           console.error('[Voice] STT failed:', err);
-          toast.error(`语音识别失败: ${(err as Error)?.message || '请检查网络和API配置'}`);
+          const errMsg = (err as Error)?.message || '';
+          if (errMsg.includes('繁忙') || errMsg.includes('429') || errMsg.includes('稍后')) {
+            toast.error('语音服务繁忙，请等几秒后再试');
+          } else if (errMsg.includes('API Key') || errMsg.includes('401')) {
+            toast.error('AI API Key 未配置或无效');
+          } else {
+            toast.error('语音识别失败，请重试');
+          }
         } finally {
           setIsTranscribing(false);
         }

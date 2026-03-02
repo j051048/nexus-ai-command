@@ -43,6 +43,9 @@ MIME_TO_EXT = {
     "audio/m4a": ".m4a",
 }
 
+# Models to try in order: primary -> fallback
+STT_MODELS = ["gpt-4o-mini-transcribe", "whisper-1"]
+
 
 async def _get_ai_config(req: Request, user_id: str) -> dict:
     """Load user AI config (base_url + api_key), same logic as chat.py."""
@@ -78,6 +81,29 @@ async def _get_ai_config(req: Request, user_id: str) -> dict:
         logger.warning(f"AI settings fetch failed for audio: {e}")
 
     return ai_config
+
+
+async def _try_transcribe(openai_client: AsyncOpenAI, tmp_path: str, model: str) -> str | None:
+    """Attempt transcription with a specific model. Returns text or None on failure."""
+    try:
+        with open(tmp_path, "rb") as audio_file:
+            transcript = await openai_client.audio.transcriptions.create(
+                model=model,
+                file=audio_file,
+                language="zh",
+            )
+        return transcript.text.strip()
+    except Exception as e:
+        error_str = str(e)
+        # Check if it's a rate limit (429) or model not found error
+        if "429" in error_str or "rate" in error_str.lower():
+            logger.warning(f"[Audio] Model {model} rate limited (429), will try fallback")
+            return None
+        if "404" in error_str or "not found" in error_str.lower() or "does not exist" in error_str.lower():
+            logger.warning(f"[Audio] Model {model} not available, will try fallback")
+            return None
+        # Other errors: re-raise
+        raise
 
 
 @router.post("/transcribe")
@@ -116,7 +142,7 @@ async def transcribe_audio(
             "未配置 AI API Key，无法进行语音转写",
         )
 
-    # 4. Write to temp file and call STT
+    # 4. Write to temp file and call STT with fallback
     ext = MIME_TO_EXT.get(content_type, ".webm")
     tmp_path = None
     try:
@@ -137,30 +163,61 @@ async def transcribe_audio(
         openai_client = AsyncOpenAI(
             api_key=ai_config["api_key"],
             base_url=base_url,
+            max_retries=3,
         )
 
-        with open(tmp_path, "rb") as audio_file:
-            transcript = await openai_client.audio.transcriptions.create(
-                model="gpt-4o-mini-transcribe",
-                file=audio_file,
-                language="zh",
+        # Try each model in order until one succeeds
+        text = None
+        last_error = None
+        for model in STT_MODELS:
+            try:
+                result = await _try_transcribe(openai_client, tmp_path, model)
+                if result is not None:
+                    text = result
+                    logger.info(f"[Audio] Model {model} succeeded")
+                    break
+                # result is None means recoverable error, try next model
+            except Exception as e:
+                last_error = e
+                logger.warning(f"[Audio] Model {model} failed: {e}")
+                continue
+
+        if text is None and last_error:
+            raise last_error
+        if text is None:
+            raise api_error(
+                ErrorCode.AI_SERVICE_UNAVAILABLE,
+                "语音识别服务暂时繁忙，请稍后再试",
             )
 
-        text = transcript.text.strip()
         if not text:
             return api_success(
                 data={"text": "", "empty": True},
                 message="未识别到语音内容",
             )
 
-        logger.info(f"[Audio] Transcribed {len(audio_bytes)} bytes -> " f"{len(text)} chars for user={user_id}")
+        logger.info(f"[Audio] Transcribed {len(audio_bytes)} bytes -> {len(text)} chars for user={user_id}")
         return api_success(data={"text": text})
 
     except Exception as e:
+        error_str = str(e)
         logger.error(f"[Audio] Transcription failed for user={user_id}: {e}")
+
+        # User-friendly error messages
+        if "429" in error_str or "rate" in error_str.lower() or "负载" in error_str:
+            raise api_error(
+                ErrorCode.AI_SERVICE_UNAVAILABLE,
+                "语音识别服务繁忙，请等几秒后再试",
+            )
+        if "401" in error_str or "auth" in error_str.lower():
+            raise api_error(
+                ErrorCode.AI_SERVICE_UNAVAILABLE,
+                "AI API Key 无效，请检查设置",
+            )
+
         raise api_error(
             ErrorCode.AI_SERVICE_UNAVAILABLE,
-            f"语音转写失败: {str(e)[:100]}",
+            f"语音转写失败: {error_str[:80]}",
         )
     finally:
         if tmp_path:
