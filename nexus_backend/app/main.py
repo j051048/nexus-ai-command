@@ -34,6 +34,7 @@ from app.routers import (
     billing,
     chat,
     compliance,
+    competitors,
     contracts,
     crm,
     dashboard,
@@ -357,6 +358,7 @@ app.include_router(data_transfer.router)
 app.include_router(plugins.router)
 app.include_router(training.router)
 app.include_router(contracts.router)
+app.include_router(competitors.router)
 app.include_router(super_admin.router)
 app.include_router(crm.router)
 app.include_router(api_docs.router)

@@ -16,6 +16,7 @@ _TOOL_MODULES: dict[str, tuple[str, str]] = {
     "analyze_tender_document": ("app.tools.tender_tool", "TenderAnalysisTool"),
     # battlecard_tool
     "get_battlecard": ("app.tools.battlecard_tool", "BattlecardTool"),
+    "list_competitors": ("app.tools.battlecard_tool", "ListCompetitorsTool"),
     # approval_tools
     "approve_request": ("app.tools.approval_tools", "ApprovalTool"),
     "reject_request": ("app.tools.approval_tools", "RejectTool"),
