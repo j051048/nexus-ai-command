@@ -12,6 +12,7 @@ graph.py and other consumers should continue importing from this module.
 """
 
 from app.agent.node_execute import execute_node  # noqa: F401
+from app.agent.node_helpers import _messages_to_lc_format  # noqa: F401
 from app.agent.node_plan import plan_node  # noqa: F401
 from app.agent.node_reflect import critic_node, reflect_node  # noqa: F401
 from app.agent.node_respond import error_node, respond_node  # noqa: F401
@@ -23,4 +24,5 @@ __all__ = [
     "respond_node",
     "critic_node",
     "error_node",
+    "_messages_to_lc_format",
 ]

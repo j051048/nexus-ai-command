@@ -457,7 +457,7 @@ class AgentGraph:
             "configurable": {
                 "thread_id": thread_id,
             },
-            "recursion_limit": settings.LANGGRAPH_MAX_ITERATIONS * 3 + 5,
+            "recursion_limit": settings.LANGGRAPH_MAX_ITERATIONS * 5 + 10,
         }
         return await self.compiled.ainvoke(initial_state, config=config)
 
@@ -470,7 +470,7 @@ class AgentGraph:
             "configurable": {
                 "thread_id": thread_id,
             },
-            "recursion_limit": settings.LANGGRAPH_MAX_ITERATIONS * 3 + 5,
+            "recursion_limit": settings.LANGGRAPH_MAX_ITERATIONS * 5 + 10,
         }
         async for event in self.compiled.astream(initial_state, config=config):
             yield event
@@ -486,7 +486,7 @@ class AgentGraph:
             "configurable": {
                 "thread_id": thread_id,
             },
-            "recursion_limit": settings.LANGGRAPH_MAX_ITERATIONS * 3 + 5,
+            "recursion_limit": settings.LANGGRAPH_MAX_ITERATIONS * 5 + 10,
         }
         if config:
             # Merge configurable keys from caller (e.g. trace_logger)

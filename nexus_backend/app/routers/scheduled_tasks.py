@@ -259,9 +259,10 @@ async def run_scheduled_task(
 
         # 调用 proactive_runner 异步执行
         try:
+            import asyncio
+
             from app.agent.proactive_runner import run_proactive_agent
 
-            import asyncio
             asyncio.create_task(
                 run_proactive_agent(
                     user_id=user_id,

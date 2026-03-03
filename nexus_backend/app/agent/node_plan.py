@@ -5,7 +5,7 @@ Graph Node: plan_node — LLM planning with tool binding.
 import contextlib
 import time
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import SystemMessage
 from langchain_core.runnables import RunnableConfig
 
 from app.agent.node_helpers import (

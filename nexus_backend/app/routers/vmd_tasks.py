@@ -5,8 +5,6 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
-from app.services.ai_service import AIService
-
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 

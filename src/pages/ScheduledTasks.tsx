@@ -140,8 +140,8 @@ export default function ScheduledTasks() {
         toast.success('定时任务创建成功');
       }
       setDialogOpen(false);
-    } catch (e: any) {
-      toast.error(e.message || '操作失败');
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : '操作失败');
     }
   };
 
@@ -149,8 +149,8 @@ export default function ScheduledTasks() {
     try {
       await updateTask.mutateAsync({ id: task.id, is_active: !task.is_active });
       toast.success(task.is_active ? '已停用' : '已启用');
-    } catch (e: any) {
-      toast.error(e.message || '操作失败');
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : '操作失败');
     }
   };
 
@@ -160,8 +160,8 @@ export default function ScheduledTasks() {
       await deleteTask.mutateAsync(deleteConfirmId);
       toast.success('已删除');
       setDeleteConfirmId(null);
-    } catch (e: any) {
-      toast.error(e.message || '删除失败');
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : '删除失败');
     }
   };
 
@@ -169,8 +169,8 @@ export default function ScheduledTasks() {
     try {
       await runTask.mutateAsync(id);
       toast.success('任务已触发执行，结果将通过通知推送');
-    } catch (e: any) {
-      toast.error(e.message || '触发失败');
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : '触发失败');
     }
   };
 

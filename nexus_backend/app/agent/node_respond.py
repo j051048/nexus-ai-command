@@ -4,7 +4,7 @@ Graph Nodes: respond_node, error_node, _mask_sensitive_fields
 
 import re as _re
 
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage  # noqa: F401
 
 from app.agent.node_helpers import (
     AgentConfig,

@@ -125,10 +125,12 @@ async def reflect_node(state: AgentState) -> dict:
 
     # ── Layer 1: Empty response check ──
     if (not last_ai_content.strip() or len(last_ai_content.strip()) < 5) and completed_tools:
+        should_replan = iteration < config.max_iterations
         return {
             "reflection": "回复内容为空，需要整合工具结果重新回答。",
-            "needs_replanning": iteration < config.max_iterations,
-            "current_phase": AgentPhase.PLANNING if iteration < config.max_iterations else AgentPhase.RESPONDING,
+            "needs_replanning": should_replan,
+            "iteration": iteration + 1 if should_replan else iteration,
+            "current_phase": AgentPhase.PLANNING if should_replan else AgentPhase.RESPONDING,
             "thinking_steps": [
                 ThinkingStep(
                     phase=AgentPhase.REFLECTING.value,
@@ -481,6 +483,7 @@ async def critic_node(state: AgentState) -> dict:
 
     # Failed: send back for one correction pass
     logger.info(f"[CriticNode] ❌ Failed: {critic_feedback}")
+    iteration = state.get("iteration", 0)
     guidance = (
         f"## Critic 评审未通过\n"
         f"**评分**: 完整性={result.completeness:.0%} 相关性={result.relevance:.0%} 准确性={result.accuracy:.0%}\n"
@@ -492,6 +495,7 @@ async def critic_node(state: AgentState) -> dict:
         "critic_feedback": critic_feedback,
         "reflection_guidance": guidance,
         "needs_replanning": True,
+        "iteration": iteration + 1,
         "current_phase": AgentPhase.PLANNING,
         "thinking_steps": [
             ThinkingStep(
