@@ -732,7 +732,7 @@ async def execute_node(state: AgentState, config: RunnableConfig | None = None) 
     )
 
     # Execute all tools in parallel with overall timeout
-    gather_timeout = agent_config.gather_timeout if hasattr(agent_config, "gather_timeout") else 60.0
+    gather_timeout = agent_config.gather_timeout if hasattr(agent_config, "gather_timeout") else 120.0
 
     # P1 Plugin: PRE_TOOL hook
     try:

@@ -107,7 +107,7 @@ class AgentConfig:
     reflect_use_llm: bool = True
     # Tool execution settings
     tool_timeout: int = 30
-    gather_timeout: int = 60
+    gather_timeout: int = 120
 
     def get_model_for_complexity(self, complexity: QueryComplexity) -> str:
         """Dynamic model routing based on query complexity."""
