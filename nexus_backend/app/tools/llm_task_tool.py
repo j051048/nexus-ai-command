@@ -82,8 +82,13 @@ class LLMTaskTool(BaseTool):
             # AIService.call_llm uses the mini model by default
             result = await AIService.call_llm(prompt, system)
             task_labels = {
-                "translate": "翻译", "summarize": "摘要", "format": "格式化",
-                "classify": "分类", "extract": "提取", "rewrite": "改写", "other": "处理",
+                "translate": "翻译",
+                "summarize": "摘要",
+                "format": "格式化",
+                "classify": "分类",
+                "extract": "提取",
+                "rewrite": "改写",
+                "other": "处理",
             }
             label = task_labels.get(task_type, "处理")
             return f"📝 **{label}结果**\n\n{result}"

@@ -111,9 +111,9 @@ class WebSearchTool(BaseTool):
         # Parse results
         web_results = data.get("web", {}).get("results", [])
         if not web_results:
-            return f"🔍 搜索 \"{query}\" 未找到相关结果。"
+            return f'🔍 搜索 "{query}" 未找到相关结果。'
 
-        lines = [f"🔍 **搜索结果 — \"{query}\"**（共 {len(web_results)} 条）\n"]
+        lines = [f'🔍 **搜索结果 — "{query}"**（共 {len(web_results)} 条）\n']
 
         for i, item in enumerate(web_results, 1):
             title = item.get("title", "无标题")

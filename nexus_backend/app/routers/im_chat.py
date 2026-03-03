@@ -128,6 +128,7 @@ async def feishu_event_handler(request: Request):
 
     # 解析文本内容
     import json
+
     try:
         content_obj = json.loads(message.get("content", "{}"))
         user_text = content_obj.get("text", "").strip()
@@ -146,7 +147,7 @@ async def feishu_event_handler(request: Request):
     # 移除可能的机器人名称前缀
     for prefix in ["AI助手", "助手", "Nexus"]:
         if user_text.startswith(prefix):
-            user_text = user_text[len(prefix):].strip()
+            user_text = user_text[len(prefix) :].strip()
             break
 
     if not user_text:

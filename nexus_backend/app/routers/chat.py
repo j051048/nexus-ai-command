@@ -274,11 +274,13 @@ async def compact_session(session_id: str, req: Request, user_id: str = Depends(
         )
         messages = response.data or []
         if len(messages) <= 6:
-            return api_success(data={
-                "message": "会话消息较少，无需压缩。",
-                "before_count": len(messages),
-                "after_count": len(messages),
-            })
+            return api_success(
+                data={
+                    "message": "会话消息较少，无需压缩。",
+                    "before_count": len(messages),
+                    "after_count": len(messages),
+                }
+            )
 
         # 2. Split: keep the last 6 messages, summarize the rest
         keep_count = 6
@@ -292,11 +294,13 @@ async def compact_session(session_id: str, req: Request, user_id: str = Depends(
         )
 
         if not older_text.strip():
-            return api_success(data={
-                "message": "没有可压缩的历史消息。",
-                "before_count": len(messages),
-                "after_count": len(messages),
-            })
+            return api_success(
+                data={
+                    "message": "没有可压缩的历史消息。",
+                    "before_count": len(messages),
+                    "after_count": len(messages),
+                }
+            )
 
         # 4. Use mini model to generate summary
         from app.services.ai_service import AIService
@@ -312,7 +316,7 @@ async def compact_session(session_id: str, req: Request, user_id: str = Depends(
         # 5. Delete older messages from DB
         older_ids = [m["id"] for m in older]
         for batch_start in range(0, len(older_ids), 50):
-            batch = older_ids[batch_start:batch_start + 50]
+            batch = older_ids[batch_start : batch_start + 50]
             await (
                 client.table("chat_messages")
                 .delete()
@@ -323,20 +327,24 @@ async def compact_session(session_id: str, req: Request, user_id: str = Depends(
             )
 
         # 6. Insert summary as a system message at the beginning
-        await client.table("chat_messages").insert({
-            "user_id": user_id,
-            "session_id": session_id,
-            "role": "system",
-            "content": f"[对话历史摘要 — {len(older)} 条早期消息已压缩]\n{summary}",
-            "agent": "system",
-        }).execute()
+        await client.table("chat_messages").insert(
+            {
+                "user_id": user_id,
+                "session_id": session_id,
+                "role": "system",
+                "content": f"[对话历史摘要 — {len(older)} 条早期消息已压缩]\n{summary}",
+                "agent": "system",
+            }
+        ).execute()
 
-        return api_success(data={
-            "message": f"已压缩 {len(older)} 条早期消息为摘要，保留最近 {keep_count} 条。",
-            "before_count": len(messages),
-            "after_count": keep_count + 1,
-            "summary_preview": summary[:200],
-        })
+        return api_success(
+            data={
+                "message": f"已压缩 {len(older)} 条早期消息为摘要，保留最近 {keep_count} 条。",
+                "before_count": len(messages),
+                "after_count": keep_count + 1,
+                "summary_preview": summary[:200],
+            }
+        )
 
     except Exception as e:
         logger.error(f"Failed to compact session: {e}")
