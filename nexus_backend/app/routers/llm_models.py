@@ -29,8 +29,8 @@ class CreateModelRequest(BaseModel):
     model_name: str = Field(..., min_length=1, max_length=200, description="模型名称")
     provider_type: str = Field(..., min_length=1, max_length=50, description="供应商类型")
     adapter_code: str = Field(..., min_length=1, max_length=100, description="适配器编码")
-    api_base_url: str = Field(..., min_length=1, max_length=500, description="API基础URL")
-    api_key: str = Field(..., min_length=1, description="API密钥")
+    api_base_url: str = Field("", max_length=500, description="API基础URL (空则使用系统默认)")
+    api_key: str = Field("", description="API密钥 (空或__SYSTEM_DEFAULT__则使用系统默认)")
     secret_key: str | None = Field(None, description="Secret Key (部分供应商需要)")
     model_id: str | None = Field(None, max_length=200, description="供应商模型ID")
     timeout_ms: int = Field(30000, ge=1000, le=300000, description="超时时间(ms)")
@@ -160,8 +160,17 @@ async def create_model(
         if not client:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
+        # Resolve system defaults for quick-add
+        actual_api_key = body.api_key
+        if not actual_api_key or actual_api_key == "__SYSTEM_DEFAULT__":
+            actual_api_key = settings.OPENAI_API_KEY
+
+        actual_base_url = body.api_base_url
+        if not actual_base_url:
+            actual_base_url = settings.AI_BASE_URL
+
         # Encrypt sensitive fields
-        encrypted_api_key = encryption_service.encrypt(body.api_key)
+        encrypted_api_key = encryption_service.encrypt(actual_api_key)
         encrypted_secret_key = encryption_service.encrypt(body.secret_key) if body.secret_key else None
 
         record = {
@@ -170,10 +179,10 @@ async def create_model(
             "model_name": body.model_name,
             "provider_type": body.provider_type,
             "adapter_code": body.adapter_code,
-            "api_base_url": body.api_base_url,
+            "api_base_url": actual_base_url,
             "api_key_encrypted": encrypted_api_key,
             "secret_key_encrypted": encrypted_secret_key,
-            "model_id": body.model_id,
+            "model_id": body.model_id or body.model_code,
             "timeout_ms": body.timeout_ms,
             "max_retries": body.max_retries,
             "max_tokens": body.max_tokens,
@@ -186,7 +195,6 @@ async def create_model(
             "default_temperature": body.default_temperature,
             "status": body.status,
             "is_deleted": False,
-            "created_by": user_id,
         }
 
         res = await client.table("llm_model_config").insert(record).execute()

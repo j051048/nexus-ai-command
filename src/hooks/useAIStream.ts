@@ -403,7 +403,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         history: AIMessage[],
         agent?: string,
         callbacks?: StreamCallbacks | ((content: string, id: string) => void),
-        options?: { system_confirmed?: boolean }
+        options?: { system_confirmed?: boolean; vmd_agent_code?: string; scene_code?: string }
     ) => {
         setIsTyping(true);
         setAiStatus(undefined);
@@ -469,6 +469,8 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                         agent: agent,
                         userId: userId,
                         system_confirmed: options?.system_confirmed || false,
+                        vmd_agent_code: options?.vmd_agent_code,
+                        scene_code: options?.scene_code,
                     }),
                     signal: abortControllerRef.current.signal,
                 });

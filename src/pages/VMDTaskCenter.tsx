@@ -47,14 +47,15 @@ import {
   type VMDSubTask,
 } from '@/hooks/useVMD';
 import { SCENES } from '@/components/vmd/SceneSelector';
+import { VMDSubTaskChat } from '@/components/vmd/VMDSubTaskChat';
 import { toast } from 'sonner';
 
 // 状态配置
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+  planning: { label: '规划中', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300', icon: Bot },
   pending: { label: '待处理', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300', icon: Clock },
-  planning: { label: '规划中', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300', icon: ListTodo },
-  executing: { label: '执行中', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300', icon: Play },
-  reviewing: { label: '审核中', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300', icon: Eye },
+  executing: { label: '执行中', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300', icon: Play },
+  reviewing: { label: '审核中', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300', icon: Eye },
   done: { label: '已完成', color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300', icon: CheckCircle2 },
   failed: { label: '失败', color: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300', icon: XCircle },
 };
@@ -85,6 +86,7 @@ export default function VMDTaskCenter() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [createOpen, setCreateOpen] = useState(searchParams.get('new') === '1');
   const [detailId, setDetailId] = useState<string | null>(searchParams.get('detail'));
+  const [chatSubTask, setChatSubTask] = useState<VMDSubTask | null>(null);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -444,6 +446,18 @@ export default function VMDTaskCenter() {
                                       </Button>
                                     </div>
                                   )}
+                                  {(sub.status === 'pending' || sub.status === 'executing') && (
+                                    <div className="flex gap-2 mt-2">
+                                      <Button
+                                        size="sm"
+                                        variant="default"
+                                        className="h-7 text-xs bg-primary/10 text-primary hover:bg-primary/20"
+                                        onClick={() => setChatSubTask(sub)}
+                                      >
+                                        <Bot className="w-3 h-3 mr-1" /> 与AI协作处理
+                                      </Button>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </CardContent>
@@ -471,6 +485,14 @@ export default function VMDTaskCenter() {
           </ScrollArea>
         </SheetContent>
       </Sheet>
+
+      {/* SubTask Chat Collaborative Mode */}
+      <VMDSubTaskChat 
+        subTask={chatSubTask} 
+        open={!!chatSubTask} 
+        onOpenChange={(op) => { if (!op) setChatSubTask(null) }} 
+        sceneCode={taskDetail?.scene_code || ''}
+      />
     </div>
   );
 }

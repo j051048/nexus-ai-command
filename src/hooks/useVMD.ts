@@ -229,6 +229,25 @@ export function useAuditSubTask() {
   });
 }
 
+export function useSubmitSubTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { subTaskId: string; output: string }) => {
+      const res = await aiClient.fetch<{ success: boolean }>(
+        `api/vmd/sub-tasks/${data.subTaskId}/submit`,
+        { method: 'POST', body: JSON.stringify({ output: data.output }) }
+      );
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vmd-task'] });
+      queryClient.invalidateQueries({ queryKey: ['vmd-tasks'] });
+      toast.success('任务输出已提交审核');
+    },
+    onError: (err: Error) => toast.error(err.message || '提交失败'),
+  });
+}
+
 // ─── VMD Agents ──────────────────────────────────────────────
 
 /** Map DB row field names to frontend VMDAgent field names */

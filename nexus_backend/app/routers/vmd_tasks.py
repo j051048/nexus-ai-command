@@ -542,6 +542,50 @@ async def audit_sub_task(
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
+class SubmitSubTaskRequest(BaseModel):
+    output: str
+
+@router.post("/sub-tasks/{sub_task_id}/submit")
+async def submit_sub_task(
+    sub_task_id: str,
+    body: SubmitSubTaskRequest,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """人工与AI协作完成后，提交子任务的最终输出结果"""
+    try:
+        admin = _get_admin_client()
+
+        # Verify sub-task exists
+        sub_res = (
+            await admin.table("vmd_sub_task")
+            .select("id, status")
+            .eq("id", sub_task_id)
+            .maybe_single()
+            .execute()
+        )
+        if not sub_res.data:
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "子任务不存在")
+
+        update_data = {
+            "status": "completed",
+            "review_status": "pending",  # Auto-push to reviewing state
+            "output": body.output,
+            "updated_by": user_id,
+            "updated_at": datetime.utcnow().isoformat(),
+        }
+
+        await admin.table("vmd_sub_task").update(update_data).eq("id", sub_task_id).execute()
+
+        return api_success(
+            data={"sub_task_id": sub_task_id, "status": "completed", "review_status": "pending"},
+            message="子任务输出已提交，等待审核",
+        )
+    except Exception as e:
+        logger.error(f"Submit sub-task error: id={sub_task_id} user={user_id} err={e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
 # ---------------------------------------------------------------------------
 # Agent config endpoints
 # ---------------------------------------------------------------------------
