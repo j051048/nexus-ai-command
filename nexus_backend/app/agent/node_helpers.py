@@ -29,7 +29,7 @@ from app.core.ai_metrics import (
     record_llm_latency,  # noqa: F401
     record_tool_execution,  # noqa: F401
 )
-from app.services.content_moderation import sanitize_output  # noqa: F401
+from app.services.content_moderation import sanitize_output, scan_content  # noqa: F401
 from app.services.error_recovery_service import llm_circuit_breaker, tool_circuit_breaker  # noqa: F401
 from app.services.plugin_system_service import ExtensionPoint, plugin_system_service  # noqa: F401
 from app.tools import get_all_tools_schema, get_tool
