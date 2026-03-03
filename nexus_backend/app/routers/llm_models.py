@@ -17,6 +17,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/llm", tags=["LLM Models"])
 
 
+def _get_admin_client():
+    """Get the global service-key Supabase client (bypasses RLS)."""
+    from app.core.database import supabase
+
+    if not supabase:
+        raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+    return supabase
+
+
 # ---------------------------------------------------------------------------
 # Pydantic request models
 # ---------------------------------------------------------------------------
@@ -156,9 +165,7 @@ async def create_model(
     """创建新模型配置"""
     try:
         org_id = getattr(req.state, "org_id", None) or "default"
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        client = _get_admin_client()
 
         # Resolve system defaults for quick-add
         actual_api_key = body.api_key
@@ -220,9 +227,7 @@ async def list_models(
     """获取模型列表（分页、筛选）"""
     try:
         org_id = getattr(req.state, "org_id", None) or "default"
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        client = _get_admin_client()
 
         # Build query for count
         count_query = (
@@ -271,9 +276,7 @@ async def get_model(
 ):
     """获取单个模型详情"""
     try:
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        client = _get_admin_client()
 
         res = (
             await client.table("llm_model_config")
@@ -301,9 +304,7 @@ async def update_model(
 ):
     """更新模型配置"""
     try:
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        client = _get_admin_client()
 
         update_data = body.model_dump(exclude_none=True)
 
@@ -345,9 +346,7 @@ async def delete_model(
 ):
     """软删除模型（设置is_deleted=true）"""
     try:
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        client = _get_admin_client()
 
         res = (
             await client.table("llm_model_config")
@@ -373,9 +372,7 @@ async def test_model_connectivity(
 ):
     """测试模型连通性"""
     try:
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        client = _get_admin_client()
 
         res = (
             await client.table("llm_model_config")
@@ -447,9 +444,7 @@ async def toggle_model_status(
 ):
     """切换模型启用/禁用状态"""
     try:
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        client = _get_admin_client()
 
         res = (
             await client.table("llm_model_config")
@@ -493,9 +488,7 @@ async def list_adapters(
 ):
     """获取可用适配器列表"""
     try:
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        client = _get_admin_client()
 
         res = await client.table("llm_adapter").select("*").order("adapter_code").execute()
         return api_success(data={"adapters": res.data or []})
@@ -518,9 +511,7 @@ async def create_schedule_rule(
     """创建调度规则"""
     try:
         org_id = getattr(req.state, "org_id", None) or "default"
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        client = _get_admin_client()
 
         record = {
             "tenant_id": org_id,
@@ -552,9 +543,7 @@ async def list_schedule_rules(
     """获取调度规则列表"""
     try:
         org_id = getattr(req.state, "org_id", None) or "default"
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        client = _get_admin_client()
 
         # Count
         count_res = (
@@ -588,9 +577,7 @@ async def update_schedule_rule(
 ):
     """更新调度规则"""
     try:
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        client = _get_admin_client()
 
         update_data = body.model_dump(exclude_none=True)
         if not update_data:
@@ -616,9 +603,7 @@ async def delete_schedule_rule(
 ):
     """删除调度规则"""
     try:
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        client = _get_admin_client()
 
         res = await client.table("llm_schedule_rule").delete().eq("id", rule_id).execute()
         if not res.data:
@@ -649,9 +634,7 @@ async def get_usage_stats(
     """多维度用量统计"""
     try:
         org_id = getattr(req.state, "org_id", None) or "default"
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        client = _get_admin_client()
 
         query = client.table("llm_call_log").select("*").eq("tenant_id", org_id)
         if start_date:
@@ -723,9 +706,7 @@ async def get_cost_report(
     """成本报告（含分类明细）"""
     try:
         org_id = getattr(req.state, "org_id", None) or "default"
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        client = _get_admin_client()
 
         query = client.table("llm_call_log").select("*").eq("tenant_id", org_id)
         if start_date:
@@ -777,9 +758,7 @@ async def get_model_ranking(
     """模型使用排行"""
     try:
         org_id = getattr(req.state, "org_id", None) or "default"
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        client = _get_admin_client()
 
         query = client.table("llm_call_log").select("*").eq("tenant_id", org_id)
         if start_date:
@@ -825,9 +804,7 @@ async def list_quota_configs(
     """获取配额配置列表"""
     try:
         org_id = getattr(req.state, "org_id", None) or "default"
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        client = _get_admin_client()
 
         res = (
             await client.table("llm_quota_config")
@@ -851,9 +828,7 @@ async def create_quota_config(
     """创建配额配置"""
     try:
         org_id = getattr(req.state, "org_id", None) or "default"
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        client = _get_admin_client()
 
         record = {
             "tenant_id": org_id,
@@ -884,9 +859,7 @@ async def update_quota_config(
 ):
     """更新配额配置"""
     try:
-        client = getattr(req.state, "db", None)
-        if not client:
-            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+        client = _get_admin_client()
 
         update_data = body.model_dump(exclude_none=True)
         if not update_data:
@@ -1069,20 +1042,19 @@ async def list_available_models(
 
         # 2. Get already-added models from DB
         already_added_codes: set[str] = set()
-        client = getattr(req.state, "db", None)
-        if client:
-            org_id = getattr(req.state, "org_id", None) or "default"
-            try:
-                res = (
-                    await client.table("llm_model_config")
-                    .select("model_code")
-                    .eq("tenant_id", org_id)
-                    .eq("is_deleted", False)
-                    .execute()
-                )
-                already_added_codes = {r["model_code"] for r in (res.data or []) if r.get("model_code")}
-            except Exception:
-                pass  # Non-critical
+        client = _get_admin_client()
+        org_id = getattr(req.state, "org_id", None) or "default"
+        try:
+            res = (
+                await client.table("llm_model_config")
+                .select("model_code")
+                .eq("tenant_id", org_id)
+                .eq("is_deleted", False)
+                .execute()
+            )
+            already_added_codes = {r["model_code"] for r in (res.data or []) if r.get("model_code")}
+        except Exception:
+            pass  # Non-critical
 
         # 3. Build enriched model list
         chat_models: list[dict] = []
