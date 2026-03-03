@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class VMDSubTaskResponse(BaseModel):
     """Sub-task within a VMD task."""
 
-    id: str
+    id: int | str
     agent_role: str = ""
     title: str = ""
     status: str = "pending"
