@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   CommandDialog,
   CommandEmpty,
@@ -117,6 +117,51 @@ const COMMAND_ITEMS: NavCommandItem[] = [
   { label: '插件市场', path: '/plugins', icon: Plug, keywords: ['插件', 'plugin', '扩展'], group: '其他' },
 ];
 
+// P2: Intent detection — ACTION_KEYWORDS trigger AI routing
+const ACTION_KEYWORDS = [
+  '帮我', '帮忙', '查一下', '查询', '分析', '生成', '总结',
+  '对比', '计算', '预测', '统计', '列出', '搜索', '找',
+  '创建', '修改', '删除', '发送', '提交', '导出',
+];
+
+// P2: Page-context-aware suggestions
+const PAGE_SUGGESTIONS: Record<string, Array<{ label: string; prompt: string }>> = {
+  '/crm': [
+    { label: '分析客户画像', prompt: '分析当前客户的画像和价值评估' },
+    { label: '推荐跟进策略', prompt: '根据客户状态推荐最佳跟进策略' },
+  ],
+  '/approval': [
+    { label: '查看待审批', prompt: '有哪些待我审批的事项？' },
+    { label: '审批趋势分析', prompt: '分析最近的审批通过率和趋势' },
+  ],
+  '/sales': [
+    { label: '本周业绩', prompt: '总结本周的销售业绩情况' },
+    { label: '商机预测', prompt: '预测本月的商机转化情况' },
+  ],
+  '/dashboard': [
+    { label: '今日概览', prompt: '帮我总结今天的工作要点' },
+    { label: '异常预警', prompt: '有哪些需要关注的异常指标？' },
+  ],
+  '/knowledge': [
+    { label: '搜索知识库', prompt: '在知识库中搜索' },
+    { label: '文档推荐', prompt: '推荐与当前工作相关的文档' },
+  ],
+  '/finance': [
+    { label: '费用统计', prompt: '统计本月的费用支出情况' },
+    { label: '报销进度', prompt: '查看我的报销审批进度' },
+  ],
+};
+
+type IntentType = 'navigation' | 'ai_action' | 'search';
+
+function detectIntent(query: string): IntentType {
+  if (!query || query.length < 2) return 'navigation';
+  const lower = query.toLowerCase();
+  if (ACTION_KEYWORDS.some(kw => lower.includes(kw))) return 'ai_action';
+  if (lower.endsWith('?') || lower.endsWith('？')) return 'ai_action';
+  return 'search';
+}
+
 // AI quick actions shown at the top of the command list
 const AI_QUICK_ACTIONS = [
   { label: '生成今日日报', prompt: '帮我生成今天的工作日报', icon: FileText },
@@ -130,7 +175,20 @@ export function GlobalCommandBar() {
   const [customerResults, setCustomerResults] = useState<CustomerResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // P2: Detect intent from current input
+  const intent = useMemo(() => detectIntent(searchQuery), [searchQuery]);
+
+  // P2: Get page-context-aware suggestions
+  const pageSuggestions = useMemo(() => {
+    const path = location.pathname;
+    for (const [prefix, suggestions] of Object.entries(PAGE_SUGGESTIONS)) {
+      if (path.startsWith(prefix)) return suggestions;
+    }
+    return [];
+  }, [location.pathname]);
 
   // Listen for Ctrl+K / Cmd+K
   useEffect(() => {
@@ -214,25 +272,63 @@ export function GlobalCommandBar() {
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
       <CommandInput
-        placeholder="搜索功能、页面，或直接提问 AI... (Ctrl+K)"
+        placeholder={intent === 'ai_action' ? '💡 AI 将处理你的请求...' : '搜索功能、页面，或直接提问 AI... (Ctrl+K)'}
         value={searchQuery}
         onValueChange={setSearchQuery}
       />
       <CommandList>
         <CommandEmpty>
           <div className="py-2 text-center">
-            <p className="text-sm text-muted-foreground">未找到匹配的功能</p>
+            <p className="text-sm text-muted-foreground">
+              {intent === 'ai_action' ? '按回车让 AI 处理' : '未找到匹配的功能'}
+            </p>
             {searchQuery.trim() && (
               <button
                 className="mt-2 inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
                 onClick={() => handleAIChat(searchQuery)}
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                问问 AI: &ldquo;{searchQuery}&rdquo;
+                {intent === 'ai_action' ? '发送给 AI' : '问问 AI'}: &ldquo;{searchQuery}&rdquo;
               </button>
             )}
           </div>
         </CommandEmpty>
+
+        {/* P2: Page context suggestions */}
+        {pageSuggestions.length > 0 && !searchQuery && (
+          <>
+            <CommandGroup heading="当前页面建议">
+              {pageSuggestions.map((s) => (
+                <CommandItem
+                  key={s.prompt}
+                  value={`建议 ${s.label} ${s.prompt}`}
+                  onSelect={() => handleAIChat(s.prompt)}
+                >
+                  <Sparkles className="mr-2 h-4 w-4 text-amber-500" />
+                  <span>{s.label}</span>
+                  <MessageSquare className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
+                </CommandItem>
+              ))}
+            </CommandGroup>
+            <CommandSeparator />
+          </>
+        )}
+
+        {/* AI 智能助手 — promoted when intent is ai_action */}
+        {(intent === 'ai_action' && searchQuery.trim()) && (
+          <>
+            <CommandGroup heading="AI 智能处理">
+              <CommandItem
+                value={`AI 执行 ${searchQuery}`}
+                onSelect={() => handleAIChat(searchQuery)}
+              >
+                <Sparkles className="mr-2 h-4 w-4 text-primary" />
+                <span>让 AI 处理: &ldquo;{searchQuery}&rdquo;</span>
+              </CommandItem>
+            </CommandGroup>
+            <CommandSeparator />
+          </>
+        )}
 
         {/* AI 智能助手 */}
         <CommandGroup heading="AI 智能助手">

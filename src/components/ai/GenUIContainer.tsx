@@ -24,6 +24,17 @@ const GEN_UI_COMPONENTS: Record<string, React.ComponentType<any>> = {
   AlertList: lazyWithRetry(() => import('./genui/AlertList')),
   FormBuilder: lazyWithRetry(() => import('./genui/FormBuilder')),
   UserProfileCard: lazyWithRetry(() => import('./genui/UserProfileCard')),
+  // P3: Extended GenUI components (10 new)
+  ApprovalFlow: lazyWithRetry(() => import('./genui/ApprovalFlow')),
+  OrgChart: lazyWithRetry(() => import('./genui/OrgChart')),
+  ComparisonTable: lazyWithRetry(() => import('./genui/ComparisonTable')),
+  StatusTimeline: lazyWithRetry(() => import('./genui/StatusTimeline')),
+  PieChart: lazyWithRetry(() => import('./genui/PieChart')),
+  FunnelChart: lazyWithRetry(() => import('./genui/FunnelChart')),
+  CalendarView: lazyWithRetry(() => import('./genui/CalendarView')),
+  QuoteCard: lazyWithRetry(() => import('./genui/QuoteCard')),
+  FileList: lazyWithRetry(() => import('./genui/FileList')),
+  KanbanMini: lazyWithRetry(() => import('./genui/KanbanMini')),
 };
 
 interface GenUIContainerProps {

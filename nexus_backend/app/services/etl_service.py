@@ -872,7 +872,7 @@ class ETLService:
         except Exception:
             pass
 
-        async def _process_batch(batch_texts):
+        async def _process_batch(batch_texts, chunk_type="child", parent_chunk_id=None):
             try:
                 payload = {"model": embedding_model, "input": batch_texts}
                 headers = {"Authorization": f"Bearer {active_api_key}"}
@@ -882,32 +882,58 @@ class ETLService:
                         embeddings_data = resp.json()["data"]
                         records = []
                         for i, item in enumerate(embeddings_data):
-                            records.append(
-                                {
-                                    "document_id": doc_id,
-                                    "content": batch_texts[i],
-                                    "embedding": item["embedding"],
-                                    "metadata": {"source": filename},
-                                    "organization_id": organization_id,
-                                }
-                            )
-                        await supabase.table("document_embeddings").insert(records).execute()
-                        return True
+                            record = {
+                                "document_id": doc_id,
+                                "content": batch_texts[i],
+                                "embedding": item["embedding"],
+                                "metadata": {"source": filename},
+                                "organization_id": organization_id,
+                                "chunk_type": chunk_type,
+                            }
+                            if parent_chunk_id:
+                                record["parent_chunk_id"] = parent_chunk_id
+                            records.append(record)
+                        res = await supabase.table("document_embeddings").insert(records).select("id").execute()
+                        # Return inserted IDs for parent chunk referencing
+                        return [r["id"] for r in (res.data or [])] if res.data else True
                     return False
             except Exception as e:
                 logger.error(f"Batch embedding failed: {e}")
                 return False
 
-        # Use new dynamic size and overlap
-        for chunk in self._semantic_chunk(text, size=self.chunk_size, overlap=self.chunk_overlap):
-            current_batch_text.append(chunk)
-            if len(current_batch_text) >= batch_size:
-                if not await _process_batch(current_batch_text):
-                    all_success = False
-                current_batch_text = []
+        # P2: Parent-Document Retriever — create parent chunks first, then children
+        from app.core.config import settings as app_settings
 
-        if current_batch_text and not await _process_batch(current_batch_text):
-            all_success = False
+        parent_chunk_size = getattr(app_settings, "RAG_PARENT_CHUNK_SIZE", 1800)
+
+        # Generate parent chunks (large context)
+        parent_chunks = list(self._semantic_chunk(text, size=parent_chunk_size, overlap=200))
+        parent_ids = []
+
+        for parent_text in parent_chunks:
+            result = await _process_batch([parent_text], chunk_type="parent")
+            if isinstance(result, list) and result:
+                parent_ids.append((result[0], parent_text))
+            else:
+                parent_ids.append((None, parent_text))
+
+        # Generate child chunks (small, precise) with parent references
+        for parent_id, parent_text in parent_ids:
+            child_chunks = list(self._semantic_chunk(parent_text, size=self.chunk_size, overlap=self.chunk_overlap))
+            for chunk in child_chunks:
+                current_batch_text.append((chunk, parent_id))
+                if len(current_batch_text) >= batch_size:
+                    texts = [c[0] for c in current_batch_text]
+                    pid = current_batch_text[0][1]  # All in same parent
+                    if not await _process_batch(texts, chunk_type="child", parent_chunk_id=pid):
+                        all_success = False
+                    current_batch_text = []
+
+        if current_batch_text:
+            texts = [c[0] for c in current_batch_text]
+            pid = current_batch_text[0][1]
+            if not await _process_batch(texts, chunk_type="child", parent_chunk_id=pid):
+                all_success = False
 
         return all_success
 

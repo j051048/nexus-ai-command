@@ -228,3 +228,40 @@ class TraceLogger:
                 )
             except Exception as e:
                 logger.debug(f"Langfuse generation failed: {e}")
+
+    def log_rag_retrieval(
+        self,
+        query: str,
+        num_results: int,
+        top_score: float = 0.0,
+        reranked: bool = False,
+        parent_expanded: bool = False,
+    ):
+        """P2: Log RAG retrieval event for observability."""
+        self._emit(
+            "rag_retrieval",
+            {
+                "query_preview": query[:200],
+                "num_results": num_results,
+                "top_score": round(top_score, 4),
+                "reranked": reranked,
+                "parent_expanded": parent_expanded,
+            },
+        )
+        if self._langfuse_trace:
+            try:
+                self._langfuse_trace.span(
+                    name="rag_retrieval",
+                    input={"query": query[:200]},
+                    output={
+                        "num_results": num_results,
+                        "top_score": round(top_score, 4),
+                    },
+                    metadata={
+                        "phase": "retrieval",
+                        "reranked": reranked,
+                        "parent_expanded": parent_expanded,
+                    },
+                )
+            except Exception as e:
+                logger.debug(f"Langfuse RAG span failed: {e}")

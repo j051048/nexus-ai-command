@@ -109,9 +109,13 @@ class VectorService:
         if len(documents) <= 3:
             return documents[:top_n]
 
+        # P2: Use configurable max docs and timeout
+        max_docs = getattr(settings, "RERANK_MAX_DOCS", 8)
+        rerank_timeout = getattr(settings, "RERANK_TIMEOUT", 8)
+
         try:
             doc_texts = []
-            for i, doc in enumerate(documents[:10]):
+            for i, doc in enumerate(documents[:max_docs]):
                 content = doc.get("content", "")[:500]
                 doc_texts.append(f"[{i}] {content}")
 
@@ -123,11 +127,16 @@ class VectorService:
 
 请直接返回排序后的文档编号（用逗号分隔），最相关的排在前面。只返回编号，例如: 2,0,4,1,3"""
 
-            response = await client.chat.completions.create(
-                model=getattr(self, "_rerank_model", "gpt-4o-mini"),
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=50,
-                temperature=0,
+            import asyncio
+
+            response = await asyncio.wait_for(
+                client.chat.completions.create(
+                    model=getattr(self, "_rerank_model", "gpt-4o-mini"),
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=50,
+                    temperature=0,
+                ),
+                timeout=rerank_timeout,
             )
 
             ranking_str = response.choices[0].message.content.strip()
@@ -353,6 +362,19 @@ class VectorService:
         results = []
         for item in top_docs:
             content = item.get("content", "").strip()
+
+            # P2: Parent-document retriever — expand to parent chunk if available
+            parent_id = item.get("parent_chunk_id")
+            if parent_id:
+                try:
+                    parent_res = await supabase.table("document_embeddings").select(
+                        "content"
+                    ).eq("id", parent_id).maybe_single().execute()
+                    if parent_res.data and parent_res.data.get("content"):
+                        content = parent_res.data["content"].strip()
+                except Exception as e:
+                    logger.debug(f"Parent chunk lookup failed for {parent_id}: {e}")
+
             meta = item.get("metadata") or item.get("doc_metadata") or {}
             source = meta.get("source") or meta.get("file_name") or "公司知识库"
             type_label = self._get_doc_type_label(item)

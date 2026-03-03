@@ -7,9 +7,9 @@ Items are categorized by area and prioritized for resolution.
 
 | ID | Description | Impact | Effort | Status |
 |----|------------|--------|--------|--------|
-| S-1 | Webhook secret validation uses in-memory store only | Medium — secrets lost on restart | Low | Open |
-| S-2 | OAuth tokens stored in memory, not DB | High — tokens lost on restart | Medium | Open |
-| S-3 | Rate limiting cache not shared across processes | Medium — limits bypass in multi-worker | Medium | Open |
+| S-1 | Webhook subscriptions use in-memory store with DB fallback | Medium — subscriptions lost on restart | Low | Resolved |
+| S-2 | OAuth clients/tokens use in-memory store with DB fallback | High — tokens lost on restart | Medium | Resolved |
+| S-3 | Rate limiting cache not shared across processes | Medium — limits bypass in multi-worker | Medium | Resolved — code already uses Redis when REDIS_URL configured |
 
 ## Performance
 

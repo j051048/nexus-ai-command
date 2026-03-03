@@ -121,6 +121,11 @@ class Settings(BaseSettings):
     # RAG Configuration
     RAG_CHUNK_SIZE: int = Field(default=600, description="Document chunk size for RAG embedding")
     RAG_CHUNK_OVERLAP: int = Field(default=100, description="Document chunk overlap for RAG embedding")
+    RAG_PARENT_CHUNK_SIZE: int = Field(default=1800, description="Parent chunk size for parent-document retriever")
+
+    # Reranker Configuration
+    RERANK_MAX_DOCS: int = Field(default=8, description="Maximum documents to send to LLM reranker")
+    RERANK_TIMEOUT: int = Field(default=8, description="Timeout in seconds for reranker LLM call")
 
     # LangGraph Agent Configuration
     LANGGRAPH_MAX_ITERATIONS: int = Field(default=5, description="Maximum plan-execute-reflect loop iterations")
@@ -256,3 +261,10 @@ if _config_errors:
         sys.exit(1)  # Fail fast in production
     else:
         _logger.warning("Running in development mode with configuration warnings")
+
+# S-3 Fix: Warn when Redis is not configured in production
+if settings.IS_PRODUCTION and not settings.REDIS_URL:
+    _logger.warning(
+        "REDIS_URL is not configured. Rate limiting and caching will use "
+        "in-memory fallback which does not share state across workers."
+    )

@@ -152,6 +152,53 @@ class OAuthService:
             "client_name": name,
         }
 
+    async def _load_client_from_db(self, client_id: str) -> OAuthClient | None:
+        """Lazily load a client from DB if not in memory."""
+        try:
+            from app.core.database import supabase
+
+            if not supabase:
+                return None
+            res = await supabase.table("oauth_clients").select("*").eq("client_id", client_id).eq("is_active", True).maybe_single().execute()
+            if res.data:
+                client = OAuthClient(
+                    client_id=res.data["client_id"],
+                    client_secret_hash=res.data["client_secret_hash"],
+                    client_name=res.data.get("client_name", ""),
+                    org_id=res.data["org_id"],
+                    redirect_uris=res.data.get("redirect_uris", []),
+                    allowed_scopes=res.data.get("allowed_scopes", []),
+                    grant_types=res.data.get("grant_types", ["authorization_code"]),
+                    is_active=res.data.get("is_active", True),
+                    created_at=res.data.get("created_at", ""),
+                )
+                self._clients[client_id] = client
+                return client
+        except Exception as e:
+            logger.debug(f"OAuth client DB lookup skipped: {e}")
+        return None
+
+    async def _load_refresh_token_from_db(self, refresh_tok: str) -> dict | None:
+        """Load refresh token metadata from DB."""
+        try:
+            from app.core.database import supabase
+
+            if not supabase:
+                return None
+            refresh_hash = hashlib.sha256(refresh_tok.encode()).hexdigest()
+            res = await supabase.table("oauth_tokens").select("*").eq("refresh_token_hash", refresh_hash).is_("revoked_at", "null").maybe_single().execute()
+            if res.data:
+                data = {
+                    "client_id": res.data.get("client_id"),
+                    "user_id": res.data.get("user_id"),
+                    "scopes": res.data.get("scopes", []),
+                }
+                self._refresh_tokens[refresh_tok] = data
+                return data
+        except Exception as e:
+            logger.debug(f"OAuth refresh token DB lookup skipped: {e}")
+        return None
+
     async def authorize(
         self,
         client_id: str,
@@ -162,6 +209,8 @@ class OAuthService:
     ) -> AuthorizationCode | None:
         """Generate an authorization code for the code grant flow."""
         client = self._clients.get(client_id)
+        if not client:
+            client = await self._load_client_from_db(client_id)
         if not client or not client.is_active:
             return None
 
@@ -210,6 +259,8 @@ class OAuthService:
         # Verify client secret
         client = self._clients.get(client_id)
         if not client:
+            client = await self._load_client_from_db(client_id)
+        if not client:
             return None
         if self._hash_secret(client_secret) != client.client_secret_hash:
             return None
@@ -252,6 +303,8 @@ class OAuthService:
     async def refresh_token(self, refresh_tok: str, client_id: str) -> OAuthToken | None:
         """Refresh an expired access token."""
         rt_data = self._refresh_tokens.get(refresh_tok)
+        if not rt_data:
+            rt_data = await self._load_refresh_token_from_db(refresh_tok)
         if not rt_data or rt_data["client_id"] != client_id:
             return None
 
@@ -297,14 +350,36 @@ class OAuthService:
         return data
 
     async def revoke_token(self, token: str) -> bool:
-        """Revoke an access or refresh token."""
+        """Revoke an access or refresh token and sync to DB."""
+        revoked = False
         if token in self._tokens:
             del self._tokens[token]
-            return True
+            revoked = True
         if token in self._refresh_tokens:
             del self._refresh_tokens[token]
-            return True
-        return False
+            revoked = True
+
+        # Sync revocation to DB
+        if revoked:
+            try:
+                from app.core.database import supabase
+
+                if supabase:
+                    token_hash = hashlib.sha256(token.encode()).hexdigest()
+                    from datetime import datetime
+
+                    now = datetime.utcnow().isoformat()
+                    # Try both hash columns
+                    await supabase.table("oauth_tokens").update(
+                        {"revoked_at": now}
+                    ).eq("token_hash", token_hash).execute()
+                    await supabase.table("oauth_tokens").update(
+                        {"revoked_at": now}
+                    ).eq("refresh_token_hash", token_hash).execute()
+            except Exception as e:
+                logger.debug(f"OAuth token DB revocation skipped: {e}")
+
+        return revoked
 
     async def _persist_token(
         self,

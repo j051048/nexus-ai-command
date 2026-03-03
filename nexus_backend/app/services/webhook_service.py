@@ -103,6 +103,36 @@ class WebhookService:
         self._subscriptions: dict[str, WebhookSubscription] = {}
         self._deliveries: list[WebhookDelivery] = []
         self._max_deliveries = 10000
+        self._db_loaded = False
+
+    async def _load_from_db(self):
+        """Lazily load subscriptions from DB on first access."""
+        if self._db_loaded:
+            return
+        self._db_loaded = True
+        try:
+            from app.core.database import supabase
+
+            if not supabase:
+                return
+            res = await supabase.table("webhook_subscriptions").select("*").eq("is_active", True).execute()
+            for row in res.data or []:
+                sub = WebhookSubscription(
+                    id=row["id"],
+                    org_id=row["org_id"],
+                    url=row["url"],
+                    events=row.get("events", []),
+                    secret=row.get("secret_hash", ""),  # stored as hash
+                    is_active=row.get("is_active", True),
+                    created_at=row.get("created_at", ""),
+                    failure_count=row.get("failure_count", 0),
+                    description=row.get("description", ""),
+                )
+                if sub.id not in self._subscriptions:
+                    self._subscriptions[sub.id] = sub
+            logger.info(f"Loaded {len(res.data or [])} webhook subscriptions from DB")
+        except Exception as e:
+            logger.warning(f"Failed to load webhook subscriptions from DB: {e}")
 
     def sign_payload(self, payload: str, secret: str) -> str:
         """Create HMAC-SHA256 signature for a payload with timestamp (replay-attack resistant)."""
@@ -188,26 +218,34 @@ class WebhookService:
 
     async def list_subscriptions(self, org_id: str, db=None) -> list[dict]:
         """List all subscriptions for an org."""
+        await self._load_from_db()
         results = [sub.to_dict() for sub in self._subscriptions.values() if sub.org_id == org_id and sub.is_active]
         return results
 
     async def deactivate_subscription(self, sub_id: str, db=None) -> bool:
         """Deactivate a webhook subscription."""
+        await self._load_from_db()
         sub = self._subscriptions.get(sub_id)
         if not sub:
             return False
         sub.is_active = False
 
-        if db:
-            try:
-                await db.table("webhook_subscriptions").update({"is_active": False}).eq("id", sub_id).execute()
-            except Exception as e:
-                logger.warning(f"Failed to deactivate webhook in DB: {e}")
+        # Always sync to DB
+        try:
+            from app.core.database import supabase
+
+            if supabase:
+                await supabase.table("webhook_subscriptions").update(
+                    {"is_active": False}
+                ).eq("id", sub_id).execute()
+        except Exception as e:
+            logger.warning(f"Failed to deactivate webhook in DB: {e}")
 
         return True
 
     async def deliver(self, event: str, payload: dict, org_id: str):
         """Find matching subscriptions and queue deliveries."""
+        await self._load_from_db()
         matching = [
             sub
             for sub in self._subscriptions.values()
