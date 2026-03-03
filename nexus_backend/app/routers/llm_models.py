@@ -882,10 +882,13 @@ async def update_quota_config(
 # ---------------------------------------------------------------------------
 
 # Upstream API-relay providers
-UPSTREAM_PROVIDERS = [
-    {"name": "APIYi", "base_url": "https://api.apiyi.com/v1"},
-    {"name": "PoloAI", "base_url": "https://poloai.top/v1"},
-]
+# Each provider uses its own API key; falls back to OPENAI_API_KEY if not set.
+def _get_upstream_providers() -> list[dict]:
+    return [
+        {"name": "APIYi", "base_url": "https://api.apiyi.com/v1", "api_key": settings.OPENAI_API_KEY},
+        *([{"name": "PoloAI", "base_url": settings.AI_FALLBACK_BASE_URL, "api_key": settings.AI_FALLBACK_API_KEY}]
+          if settings.AI_FALLBACK_API_KEY and settings.AI_FALLBACK_BASE_URL else []),
+    ]
 
 # Provider display labels
 PROVIDER_LABELS = {
@@ -1026,15 +1029,16 @@ async def list_available_models(
         if not api_key:
             raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "系统未配置 API Key，无法查询上游模型")
 
-        # 1. Concurrently fetch from all upstream providers
-        tasks = [_fetch_models_from_upstream(p["base_url"], api_key) for p in UPSTREAM_PROVIDERS]
+        # 1. Concurrently fetch from all upstream providers (each with its own key)
+        providers = _get_upstream_providers()
+        tasks = [_fetch_models_from_upstream(p["base_url"], p["api_key"]) for p in providers]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Merge & deduplicate
         all_model_ids: set[str] = set()
         upstream_sources: dict[str, list[str]] = {}
         for idx, result in enumerate(results):
-            provider_name = UPSTREAM_PROVIDERS[idx]["name"]
+            provider_name = providers[idx]["name"]
             if isinstance(result, list):
                 for mid in result:
                     all_model_ids.add(mid)
@@ -1128,7 +1132,7 @@ async def list_available_models(
                 "upstream_total": len(all_model_ids),
                 "catalog_matched": sum(1 for mid in all_model_ids if mid in MODEL_CATALOG),
                 "already_added": len(already_added_codes & all_model_ids),
-                "upstream_providers": [p["name"] for p in UPSTREAM_PROVIDERS],
+                "upstream_providers": [p["name"] for p in providers],
             }
         )
     except Exception as e:
