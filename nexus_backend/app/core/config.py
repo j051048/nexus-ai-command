@@ -78,6 +78,9 @@ class Settings(BaseSettings):
     # Brave Search (联网搜索)
     BRAVE_SEARCH_API_KEY: str = Field(default="", description="Brave Search API key for web search tool")
 
+    # APISpace 招投标数据
+    APISPACE_BIDDING_TOKEN: str = Field(default="", description="APISpace bidding data API token")
+
     # Database (read by database.py via os.getenv, declared here for validation)
     SUPABASE_URL: str = Field(default="", description="Supabase project URL")
     SUPABASE_SERVICE_KEY: str = Field(default="", description="Supabase service role key")

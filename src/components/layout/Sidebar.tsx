@@ -347,6 +347,12 @@ const NAV_CONFIG: NavItem[] = [
     roles: ["boss", "founder"],
     group: "系统管理",
   },
+  {
+    icon: <Clock size={20} />,
+    label: "定时任务",
+    href: "scheduled-tasks",
+    group: "系统管理",
+  },
 ];
 
 // 分组顺序

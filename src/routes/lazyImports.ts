@@ -67,6 +67,7 @@ export const VMDClueManagement = lazyWithRetry(() => import("@/pages/VMDClueMana
 export const VMDDashboard = lazyWithRetry(() => import("@/pages/VMDDashboard"));
 export const VMDCompliancePage = lazyWithRetry(() => import("@/pages/VMDCompliancePage"));
 export const AgentDebugPanel = lazyWithRetry(() => import("@/pages/AgentDebugPanel"));
+export const ScheduledTasks = lazyWithRetry(() => import("@/pages/ScheduledTasks"));
 
 // Dev
 export const AnimationShowcase = lazyWithRetry(() => import("@/pages/AnimationShowcase"));

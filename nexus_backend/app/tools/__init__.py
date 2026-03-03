@@ -88,6 +88,8 @@ _TOOL_MODULES: dict[str, tuple[str, str]] = {
     "web_search": ("app.tools.web_search_tool", "WebSearchTool"),
     # llm_task (P1: 轻量子任务委派)
     "llm_task": ("app.tools.llm_task_tool", "LLMTaskTool"),
+    # bidding_tool (招投标查询)
+    "search_bidding_projects": ("app.tools.bidding_tool", "BiddingSearchTool"),
 }
 
 # VMD tools are optional — kept separate so ImportError is tolerated

@@ -33,6 +33,7 @@ TOOL_WHITELIST = [
     "customer_profile",
     "strategy_simulation",
     "data_attribution",
+    "search_bidding_projects",
 ]
 
 SYSTEM_PROMPT = """# 角色：市场总监总控Agent

@@ -33,6 +33,7 @@ TOOL_WHITELIST = [
     "update_customer_stage",
     "tender_analysis",
     "data_attribution",
+    "search_bidding_projects",
 ]
 
 SYSTEM_PROMPT = """# 角色：线索获客Agent

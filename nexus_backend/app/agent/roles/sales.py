@@ -36,6 +36,7 @@ TOOL_WHITELIST = [
     "company_stats",
     "performance_report",
     "strategy_simulation",
+    "search_bidding_projects",
 ]
 
 SYSTEM_PROMPT = """# 角色：销售赋能Agent

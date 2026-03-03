@@ -98,7 +98,7 @@ export function useNotificationCenter(options?: {
       );
       return result.data ?? [];
     },
-    refetchInterval: 60_000, // Refetch every 60 seconds
+    refetchInterval: 300_000, // 5min fallback, WebSocket is primary
   });
 }
 
@@ -114,7 +114,7 @@ export function useUnreadCount() {
       );
       return result.data?.unread_count ?? 0;
     },
-    refetchInterval: 30_000, // Refetch every 30 seconds
+    refetchInterval: 300_000, // 5min fallback, WebSocket is primary
   });
 }
 

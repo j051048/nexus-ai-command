@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthContext';
+import { useWebSocketPush } from '@/hooks/useWebSocketPush';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -34,6 +35,9 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [orgName, setOrgName] = useState('企业名称');
   
   const { profile } = useAuth();
+
+  // WebSocket 实时推送连接
+  useWebSocketPush();
 
   useEffect(() => {
     const fetchOrgName = async () => {
@@ -121,6 +125,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     if (path.includes('vmd')) return '虚拟市场部';
     if (path.includes('llm/models')) return '模型管理';
     if (path.includes('agent-debug')) return 'Agent 调试面板';
+    if (path.includes('scheduled-tasks')) return '定时任务管理';
 
     return 'Nexus OS';
   };

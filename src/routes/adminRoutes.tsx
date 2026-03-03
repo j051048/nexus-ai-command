@@ -15,6 +15,7 @@ import {
   LLMCostDashboard,
   AgentDebugPanel,
   AnimationShowcase,
+  ScheduledTasks,
   OACenter,
   HRCenter,
   FinanceCenter,
@@ -68,6 +69,7 @@ export function adminRoutes(AdminRoute: React.ComponentType<{ children: React.Re
       {/* Developer Tools */}
       <Route path="dev/animations" element={<AnimationShowcase />} />
       <Route path="agent-debug" element={<AdminRoute><ModuleErrorBoundary moduleName="调试面板"><AgentDebugPanel /></ModuleErrorBoundary></AdminRoute>} />
+      <Route path="scheduled-tasks" element={<ModuleErrorBoundary moduleName="定时任务"><ScheduledTasks /></ModuleErrorBoundary>} />
     </>
   );
 }
