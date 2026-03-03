@@ -13,6 +13,32 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
+def _build_tier_fallback(tier: str) -> dict | None:
+    """Build tier-specific fallback config from env settings.
+
+    Used when the LLM Gateway has no DB schedule rules configured.
+    Maps 4 complexity tiers to different model/temperature/timeout combos.
+    """
+    _tiers = {
+        #            (settings attr,      default model,  temp, timeout, tools)
+        "economy": ("AI_MINI_MODEL", "gpt-4o-mini", 0.3, 30.0, False),
+        "balanced": ("AI_MINI_MODEL", "gpt-4o-mini", 0.5, 45.0, True),
+        "power": ("AI_DEFAULT_MODEL", "gpt-4o", 0.7, 60.0, True),
+        "flagship": ("AI_DEFAULT_MODEL", "gpt-4o", 0.5, 90.0, True),
+    }
+    if tier not in _tiers:
+        return None
+    attr, default_model, temp, timeout, tools = _tiers[tier]
+    return {
+        "api_key": settings.OPENAI_API_KEY,
+        "base_url": getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1"),
+        "model": getattr(settings, attr, default_model),
+        "temperature": temp,
+        "timeout": timeout,
+        "supports_tools": tools,
+    }
+
+
 async def resolve_model_config(
     org_id: str = "default",
     scene_code: str = "",
@@ -23,11 +49,12 @@ async def resolve_model_config(
     Resolve model configuration via the LLM Gateway.
 
     Returns a dict with keys: api_key, base_url, model, temperature, timeout, supports_tools
-    Falls back to settings if gateway resolution fails.
+    Falls back to tier-aware hardcoded map when gateway resolution fails.
 
     Args:
-        complexity_tier: Optional query complexity tier ("low" or "high") for
-                        complexity-aware model routing (P2-9).
+        complexity_tier: Optional query complexity tier
+                        ("economy"/"balanced"/"power"/"flagship")
+                        for complexity-aware model routing.
     """
     try:
         from app.services.llm_gateway_service import llm_gateway
@@ -52,7 +79,13 @@ async def resolve_model_config(
     except Exception as e:
         logger.debug("Gateway model resolution failed, using fallback: %s", e)
 
-    # Fallback to existing settings
+    # Tier-aware hardcoded fallback
+    if complexity_tier:
+        tier_fb = _build_tier_fallback(complexity_tier)
+        if tier_fb:
+            return tier_fb
+
+    # Generic fallback (no tier specified)
     return {
         "api_key": settings.OPENAI_API_KEY,
         "base_url": getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1"),

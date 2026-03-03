@@ -88,6 +88,11 @@ class CreateScheduleRuleRequest(BaseModel):
     backup_model_id: str | None = Field(None, description="备用模型ID")
     load_balance_strategy: str = Field("priority", description="负载均衡策略")
     priority: int = Field(0, ge=0, description="优先级")
+    complexity_tier: str | None = Field(
+        None,
+        description="复杂度层级: economy/balanced/power/flagship",
+        pattern=r"^(economy|balanced|power|flagship)$",
+    )
 
 
 class UpdateScheduleRuleRequest(BaseModel):
@@ -100,6 +105,11 @@ class UpdateScheduleRuleRequest(BaseModel):
     backup_model_id: str | None = None
     load_balance_strategy: str | None = None
     priority: int | None = Field(None, ge=0)
+    complexity_tier: str | None = Field(
+        None,
+        description="复杂度层级: economy/balanced/power/flagship",
+        pattern=r"^(economy|balanced|power|flagship)$",
+    )
 
 
 class CreateQuotaConfigRequest(BaseModel):
@@ -522,6 +532,7 @@ async def create_schedule_rule(
             "backup_model_id": body.backup_model_id,
             "load_balance_strategy": body.load_balance_strategy,
             "priority": body.priority,
+            "complexity_tier": body.complexity_tier,
             "created_by": user_id,
         }
 

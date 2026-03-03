@@ -137,9 +137,9 @@ class TestPlanNode:
         }
 
         with (
-            patch("app.agent.nodes._get_llm") as mock_get_llm,
-            patch("app.agent.nodes.plugin_system_service.run_hooks", new_callable=AsyncMock),
-            patch("app.agent.nodes.llm_circuit_breaker") as mock_cb,
+            patch("app.agent.node_plan._get_llm") as mock_get_llm,
+            patch("app.agent.node_plan.plugin_system_service.run_hooks", new_callable=AsyncMock),
+            patch("app.agent.node_plan.llm_circuit_breaker") as mock_cb,
         ):
             mock_cb.allow_request.return_value = True
             mock_llm = AsyncMock()
@@ -161,7 +161,7 @@ class TestPlanNode:
         mock_ai_msg = AIMessage(content="")
         mock_ai_msg.response_metadata = {"token_usage": {"prompt_tokens": 50, "completion_tokens": 30}}
         mock_ai_msg.tool_calls = [
-            {"name": "search_knowledge", "args": {"query": "销售数据"}, "id": "tc-001"},
+            {"name": "query_knowledge_base", "args": {"query": "销售数据"}, "id": "tc-001"},
         ]
 
         state = {
@@ -178,9 +178,9 @@ class TestPlanNode:
         }
 
         with (
-            patch("app.agent.nodes._get_llm") as mock_get_llm,
-            patch("app.agent.nodes.plugin_system_service.run_hooks", new_callable=AsyncMock),
-            patch("app.agent.nodes.llm_circuit_breaker") as mock_cb,
+            patch("app.agent.node_plan._get_llm") as mock_get_llm,
+            patch("app.agent.node_plan.plugin_system_service.run_hooks", new_callable=AsyncMock),
+            patch("app.agent.node_plan.llm_circuit_breaker") as mock_cb,
         ):
             mock_cb.allow_request.return_value = True
             mock_llm = AsyncMock()
@@ -193,7 +193,7 @@ class TestPlanNode:
         assert result["requires_tools"] is True
         assert result["current_phase"] == AgentPhase.EXECUTING
         assert len(result["pending_tool_calls"]) == 1
-        assert result["pending_tool_calls"][0].tool_name == "search_knowledge"
+        assert result["pending_tool_calls"][0].tool_name == "query_knowledge_base"
 
     async def test_plan_node_circuit_breaker_open(self, mock_agent_config):
         """LLM 断路器打开时应返回 ERROR 阶段"""
@@ -209,7 +209,7 @@ class TestPlanNode:
             "total_output_tokens": 0,
         }
 
-        with patch("app.agent.nodes.llm_circuit_breaker") as mock_cb:
+        with patch("app.agent.node_plan.llm_circuit_breaker") as mock_cb:
             mock_cb.allow_request.return_value = False
 
             result = await plan_node(state)
@@ -267,8 +267,8 @@ class TestExecuteNode:
             return record
 
         with (
-            patch("app.agent.nodes._execute_single_tool", side_effect=fake_execute),
-            patch("app.agent.nodes.plugin_system_service.run_hooks", new_callable=AsyncMock),
+            patch("app.agent.node_execute._execute_single_tool", side_effect=fake_execute),
+            patch("app.agent.node_execute.plugin_system_service.run_hooks", new_callable=AsyncMock),
         ):
             result = await execute_node(state)
 
@@ -302,8 +302,8 @@ class TestExecuteNode:
             return record
 
         with (
-            patch("app.agent.nodes._execute_single_tool", side_effect=fake_execute),
-            patch("app.agent.nodes.plugin_system_service.run_hooks", new_callable=AsyncMock),
+            patch("app.agent.node_execute._execute_single_tool", side_effect=fake_execute),
+            patch("app.agent.node_execute.plugin_system_service.run_hooks", new_callable=AsyncMock),
         ):
             result = await execute_node(state)
 
@@ -348,7 +348,7 @@ class TestReflectNode:
             "needs_replanning": False,
         }
 
-        with patch("app.agent.nodes.scan_content", return_value=(True, [])):
+        with patch("app.agent.node_reflect.scan_content", return_value=(True, [])):
             result = await reflect_node(state)
 
         assert result["is_hallucination"] is False
@@ -408,7 +408,7 @@ class TestReflectNode:
             "needs_replanning": False,
         }
 
-        with patch("app.agent.nodes.scan_content", return_value=(True, [])):
+        with patch("app.agent.node_reflect.scan_content", return_value=(True, [])):
             result = await reflect_node(state)
 
         assert result["is_hallucination"] is True
@@ -442,7 +442,7 @@ class TestReflectNode:
             "needs_replanning": False,
         }
 
-        with patch("app.agent.nodes.scan_content", return_value=(True, [])):
+        with patch("app.agent.node_reflect.scan_content", return_value=(True, [])):
             result = await reflect_node(state)
 
         assert result["confidence_score"] >= 0.9

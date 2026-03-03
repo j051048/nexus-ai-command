@@ -126,8 +126,8 @@ class TestToolTimeout:
         )
 
         with (
-            patch("app.agent.nodes.get_tool", return_value=SlowTool()),
-            patch("app.agent.nodes.tool_circuit_breaker") as mock_cb,
+            patch("app.agent.node_execute.get_tool", return_value=SlowTool()),
+            patch("app.agent.node_execute.tool_circuit_breaker") as mock_cb,
         ):
             mock_cb.allow_request.return_value = True
             result = await _execute_single_tool(record, config)
@@ -161,9 +161,9 @@ class TestToolException:
         )
 
         with (
-            patch("app.agent.nodes.get_tool", return_value=ErrorTool()),
-            patch("app.agent.nodes.tool_circuit_breaker") as mock_cb,
-            patch("app.agent.nodes.record_tool_execution"),
+            patch("app.agent.node_execute.get_tool", return_value=ErrorTool()),
+            patch("app.agent.node_execute.tool_circuit_breaker") as mock_cb,
+            patch("app.agent.node_execute.record_tool_execution"),
         ):
             mock_cb.allow_request.return_value = True
             mock_cb.record_failure = lambda: None
@@ -189,9 +189,9 @@ class TestToolException:
         )
 
         with (
-            patch("app.agent.nodes.get_tool", return_value=ErrorTool()),
-            patch("app.agent.nodes.tool_circuit_breaker") as mock_cb,
-            patch("app.agent.nodes.record_tool_execution"),
+            patch("app.agent.node_execute.get_tool", return_value=ErrorTool()),
+            patch("app.agent.node_execute.tool_circuit_breaker") as mock_cb,
+            patch("app.agent.node_execute.record_tool_execution"),
         ):
             mock_cb.allow_request.return_value = True
             mock_cb.record_failure = lambda: None
@@ -225,9 +225,9 @@ class TestToolNoneReturn:
         )
 
         with (
-            patch("app.agent.nodes.get_tool", return_value=NoneReturnTool()),
-            patch("app.agent.nodes.tool_circuit_breaker") as mock_cb,
-            patch("app.agent.nodes.record_tool_execution"),
+            patch("app.agent.node_execute.get_tool", return_value=NoneReturnTool()),
+            patch("app.agent.node_execute.tool_circuit_breaker") as mock_cb,
+            patch("app.agent.node_execute.record_tool_execution"),
         ):
             mock_cb.allow_request.return_value = True
             mock_cb.record_success = lambda: None
@@ -260,7 +260,7 @@ class TestToolNotFound:
             tool_call_id="tc-404-001",
         )
 
-        with patch("app.agent.nodes.get_tool", return_value=None):
+        with patch("app.agent.node_execute.get_tool", return_value=None):
             result = await _execute_single_tool(record, config)
 
         assert result.status == "error"
@@ -291,8 +291,8 @@ class TestCircuitBreaker:
         )
 
         with (
-            patch("app.agent.nodes.get_tool", return_value=SuccessTool()),
-            patch("app.agent.nodes.tool_circuit_breaker") as mock_cb,
+            patch("app.agent.node_execute.get_tool", return_value=SuccessTool()),
+            patch("app.agent.node_execute.tool_circuit_breaker") as mock_cb,
         ):
             mock_cb.allow_request.return_value = False  # 断路器打开
             result = await _execute_single_tool(record, config)
@@ -334,8 +334,8 @@ class TestIdempotency:
         }
 
         with (
-            patch("app.agent.nodes.get_tool", return_value=SuccessTool()),
-            patch("app.agent.nodes.tool_circuit_breaker") as mock_cb,
+            patch("app.agent.node_execute.get_tool", return_value=SuccessTool()),
+            patch("app.agent.node_execute.tool_circuit_breaker") as mock_cb,
         ):
             mock_cb.allow_request.return_value = True
             result = await _execute_single_tool(record, config, cache)
@@ -384,8 +384,8 @@ class TestExecuteNodeTimeout:
             return record
 
         with (
-            patch("app.agent.nodes._execute_single_tool", side_effect=slow_execute),
-            patch("app.agent.nodes.plugin_system_service.run_hooks", new_callable=AsyncMock),
+            patch("app.agent.node_execute._execute_single_tool", side_effect=slow_execute),
+            patch("app.agent.node_execute.plugin_system_service.run_hooks", new_callable=AsyncMock),
         ):
             result = await execute_node(state)
 
@@ -414,7 +414,7 @@ class TestErrorNode:
             "iteration": 1,
         }
 
-        with patch("app.agent.nodes.plugin_system_service.run_hooks", new_callable=AsyncMock):
+        with patch("app.agent.node_respond.plugin_system_service.run_hooks", new_callable=AsyncMock):
             result = await error_node(state)
 
         assert result["error_recovery_level"] == 1
@@ -433,7 +433,7 @@ class TestErrorNode:
             "iteration": 2,
         }
 
-        with patch("app.agent.nodes.plugin_system_service.run_hooks", new_callable=AsyncMock):
+        with patch("app.agent.node_respond.plugin_system_service.run_hooks", new_callable=AsyncMock):
             result = await error_node(state)
 
         assert result["error_recovery_level"] == 2
@@ -452,7 +452,7 @@ class TestErrorNode:
             "iteration": 4,
         }
 
-        with patch("app.agent.nodes.plugin_system_service.run_hooks", new_callable=AsyncMock):
+        with patch("app.agent.node_respond.plugin_system_service.run_hooks", new_callable=AsyncMock):
             result = await error_node(state)
 
         assert result["current_phase"] == AgentPhase.RESPONDING

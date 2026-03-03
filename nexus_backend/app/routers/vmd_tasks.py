@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_list, api_success
 from app.models.response_models import VMDSubTaskResponse
+from app.services.ai_service import AIService
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/vmd", tags=["VMD Tasks"])

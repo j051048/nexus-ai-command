@@ -413,7 +413,7 @@ async def critic_node(state: AgentState) -> dict:
             org_id = config.org_id or "default"
             scene_code = state.get("scene_code", "")
             agent_code = state.get("agent_code", "")
-            resolved_critic = await resolve_model_config(org_id, scene_code, agent_code, complexity_tier="low")
+            resolved_critic = await resolve_model_config(org_id, scene_code, agent_code, complexity_tier="economy")
         except Exception:
             logger.debug("LLM gateway unavailable in critic_node, using default mini_model")
 

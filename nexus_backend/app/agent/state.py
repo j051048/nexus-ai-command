@@ -41,8 +41,13 @@ class QueryComplexity(StrEnum):
 
     @property
     def model_tier(self) -> str:
-        """Map to Gateway schedule_rule complexity_tier value."""
-        return {"simple": "low", "moderate": "low", "complex": "high", "critical": "high"}[self.value]
+        """Map to Gateway schedule_rule complexity_tier value (4-tier routing)."""
+        return {
+            "simple": "economy",
+            "moderate": "balanced",
+            "complex": "power",
+            "critical": "flagship",
+        }[self.value]
 
 
 # ─── Thinking Step (for frontend visualization) ─────────────────────────────
@@ -110,10 +115,11 @@ class AgentConfig:
     gather_timeout: int = 120
 
     def get_model_for_complexity(self, complexity: QueryComplexity) -> str:
-        """Dynamic model routing based on query complexity."""
-        if complexity in (QueryComplexity.SIMPLE, QueryComplexity.MODERATE):
+        """Dynamic model routing based on query complexity (4-tier)."""
+        tier = complexity.model_tier
+        if tier in ("economy", "balanced"):
             return self.mini_model
-        return self.model
+        return self.model  # power, flagship
 
 
 # ─── Core Agent State (TypedDict for LangGraph) ─────────────────────────────

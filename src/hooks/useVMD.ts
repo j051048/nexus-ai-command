@@ -74,11 +74,14 @@ export interface LLMModel {
 
 export interface ScheduleRule {
   id: string;
+  rule_name: string;
   scene_code: string;
   agent_code: string;
   primary_model: string;
   backup_model: string;
   strategy: string;
+  complexity_tier: string | null;
+  priority: number;
 }
 
 export interface VMDClue {
@@ -417,10 +420,82 @@ export function useScheduleRules() {
   return useQuery({
     queryKey: ['llm-schedule-rules'],
     queryFn: async () => {
-      const res = await aiClient.fetch<{ success: boolean; data: ScheduleRule[] }>('api/llm/schedule-rules');
-      return res.data;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const res = await aiClient.fetch<{ success: boolean; data: any[] }>('api/llm/schedule-rules');
+      const rows = Array.isArray(res.data) ? res.data : [];
+      return rows.map((r): ScheduleRule => ({
+        id: String(r.id),
+        rule_name: r.rule_name ?? '',
+        scene_code: r.scene_code ?? '',
+        agent_code: r.agent_code ?? '',
+        primary_model: String(r.primary_model_id ?? r.primary_model_code ?? ''),
+        backup_model: String(r.backup_model_id ?? r.backup_model_code ?? ''),
+        strategy: r.load_balance_strategy ?? 'priority',
+        complexity_tier: r.complexity_tier ?? null,
+        priority: r.priority ?? 0,
+      }));
     },
     staleTime: 60_000,
+  });
+}
+
+export function useCreateScheduleRule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: {
+      rule_name: string;
+      scene_code: string;
+      agent_code?: string;
+      primary_model_id: string;
+      backup_model_id?: string;
+      load_balance_strategy?: string;
+      priority?: number;
+      complexity_tier?: string;
+    }) => {
+      const res = await aiClient.fetch<{ success: boolean; data: { rule: ScheduleRule } }>(
+        'api/llm/schedule-rules',
+        { method: 'POST', body: JSON.stringify(data) }
+      );
+      return res.data?.rule;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['llm-schedule-rules'] });
+      toast.success('调度规则创建成功');
+    },
+    onError: (err: Error) => toast.error(err.message || '创建调度规则失败'),
+  });
+}
+
+export function useUpdateScheduleRule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { id: string } & Record<string, unknown>) => {
+      const { id, ...body } = data;
+      const res = await aiClient.fetch<{ success: boolean; data: { rule: ScheduleRule } }>(
+        `api/llm/schedule-rules/${id}`,
+        { method: 'PUT', body: JSON.stringify(body) }
+      );
+      return res.data?.rule;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['llm-schedule-rules'] });
+      toast.success('调度规则已更新');
+    },
+    onError: (err: Error) => toast.error(err.message || '更新调度规则失败'),
+  });
+}
+
+export function useDeleteScheduleRule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await aiClient.fetch(`api/llm/schedule-rules/${id}`, { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['llm-schedule-rules'] });
+      toast.success('调度规则已删除');
+    },
+    onError: (err: Error) => toast.error(err.message || '删除调度规则失败'),
   });
 }
 

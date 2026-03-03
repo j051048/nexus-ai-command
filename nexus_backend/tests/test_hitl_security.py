@@ -278,8 +278,8 @@ class TestRBAC:
         from unittest.mock import patch
 
         with (
-            patch("app.agent.nodes.get_tool", return_value=MockManagerTool()),
-            patch("app.agent.nodes.tool_circuit_breaker") as mock_cb,
+            patch("app.agent.node_execute.get_tool", return_value=MockManagerTool()),
+            patch("app.agent.node_execute.tool_circuit_breaker") as mock_cb,
         ):
             mock_cb.allow_request.return_value = True
             result = await _execute_single_tool(record, config)
@@ -308,9 +308,9 @@ class TestRBAC:
         from unittest.mock import patch, AsyncMock
 
         with (
-            patch("app.agent.nodes.get_tool", return_value=MockManagerTool()),
-            patch("app.agent.nodes.tool_circuit_breaker") as mock_cb,
-            patch("app.agent.nodes.record_tool_execution"),
+            patch("app.agent.node_execute.get_tool", return_value=MockManagerTool()),
+            patch("app.agent.node_execute.tool_circuit_breaker") as mock_cb,
+            patch("app.agent.node_execute.record_tool_execution"),
         ):
             mock_cb.allow_request.return_value = True
             mock_cb.record_success = lambda: None
@@ -338,8 +338,8 @@ class TestRBAC:
         from unittest.mock import patch
 
         with (
-            patch("app.agent.nodes.get_tool", return_value=MockBossTool()),
-            patch("app.agent.nodes.tool_circuit_breaker") as mock_cb,
+            patch("app.agent.node_execute.get_tool", return_value=MockBossTool()),
+            patch("app.agent.node_execute.tool_circuit_breaker") as mock_cb,
         ):
             mock_cb.allow_request.return_value = True
             result = await _execute_single_tool(record, config)

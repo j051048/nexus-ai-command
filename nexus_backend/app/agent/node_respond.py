@@ -17,7 +17,6 @@ from app.agent.node_helpers import (
 )
 from app.services.plugin_system_service import ExtensionPoint
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 #  HELPER: Role-based Sensitive Field Masking
 # ═══════════════════════════════════════════════════════════════════════════════

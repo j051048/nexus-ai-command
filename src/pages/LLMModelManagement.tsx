@@ -40,6 +40,9 @@ import {
   MessageSquare,
   Hash,
   RefreshCw,
+  Rocket,
+  Crown,
+  Leaf,
 } from 'lucide-react';
 import {
   LineChart,
@@ -60,6 +63,9 @@ import {
   useDeleteLLMModel,
   useTestLLMModel,
   useScheduleRules,
+  useCreateScheduleRule,
+  useUpdateScheduleRule,
+  useDeleteScheduleRule,
   useModelUsageStats,
   useFetchAvailableModels,
   useQuickAddModel,
@@ -84,6 +90,14 @@ const PROVIDERS = [
 ];
 
 const PROVIDER_NAMES: Record<string, string> = Object.fromEntries(PROVIDERS.map(p => [p.value, p.label]));
+
+// 4-Tier 智能路由配置
+const TIERS = [
+  { value: 'economy', label: '经济层', icon: Leaf, color: 'text-green-600', bgColor: 'bg-green-50 dark:bg-green-950/30', description: '简单问候、FAQ — 低成本高速响应' },
+  { value: 'balanced', label: '均衡层', icon: Zap, color: 'text-blue-600', bgColor: 'bg-blue-50 dark:bg-blue-950/30', description: '单工具查询、状态查看 — 兼顾成本与能力' },
+  { value: 'power', label: '强力层', icon: Rocket, color: 'text-orange-600', bgColor: 'bg-orange-50 dark:bg-orange-950/30', description: '多步分析、报告生成 — 高级推理能力' },
+  { value: 'flagship', label: '旗舰层', icon: Crown, color: 'text-purple-600', bgColor: 'bg-purple-50 dark:bg-purple-950/30', description: '审批、财务操作 — 最高准确性保证' },
+] as const;
 
 const emptyModel: Partial<LLMModel> = {
   provider_type: 'openai',
@@ -161,6 +175,9 @@ export default function LLMModelManagement() {
   const deleteModel = useDeleteLLMModel();
   const testModel = useTestLLMModel();
   const quickAdd = useQuickAddModel();
+  const createRule = useCreateScheduleRule();
+  const updateRule = useUpdateScheduleRule();
+  const deleteRule = useDeleteScheduleRule();
 
   // All unique tags from available models for filter chips
   const allTags = useMemo(() => {
@@ -270,6 +287,47 @@ export default function LLMModelManagement() {
 
   const handleToggleActive = async (model: LLMModel) => {
     await updateModel.mutateAsync({ id: model.id, is_active: !model.is_active });
+  };
+
+  // ── Tier-based schedule rule helpers ──
+  const getRuleForTier = (tier: string) => {
+    return rules?.find((r) => r.complexity_tier === tier && r.scene_code === '*');
+  };
+
+  const handleSaveTierRule = async (tier: string, primaryModelId: string, backupModelId: string) => {
+    const existing = getRuleForTier(tier);
+    try {
+      if (existing) {
+        await updateRule.mutateAsync({
+          id: existing.id,
+          primary_model_id: primaryModelId,
+          backup_model_id: backupModelId || undefined,
+        });
+      } else {
+        await createRule.mutateAsync({
+          rule_name: `默认${TIERS.find((t) => t.value === tier)?.label || tier}规则`,
+          scene_code: '*',
+          agent_code: '*',
+          primary_model_id: primaryModelId,
+          backup_model_id: backupModelId || undefined,
+          complexity_tier: tier,
+          priority: TIERS.findIndex((t) => t.value === tier),
+        });
+      }
+    } catch {
+      // Error toast handled in mutation
+    }
+  };
+
+  const handleDeleteTierRule = async (tier: string) => {
+    const existing = getRuleForTier(tier);
+    if (existing && confirm('确定要删除该层级的模型配置吗？将回退到系统默认。')) {
+      try {
+        await deleteRule.mutateAsync(existing.id);
+      } catch {
+        // Error toast handled in mutation
+      }
+    }
   };
 
   return (
@@ -593,53 +651,169 @@ export default function LLMModelManagement() {
           </div>
         </TabsContent>
 
-        {/* Schedule Rules Tab */}
+        {/* Schedule Rules Tab - 4-Tier Model Configuration */}
         <TabsContent value="rules" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">调度规则配置</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {rulesLoading ? (
-                <div className="space-y-3">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <Skeleton key={i} className="h-12 w-full" />
-                  ))}
-                </div>
-              ) : !rules || rules.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  暂无调度规则，系统将使用默认模型
+          <div className="space-y-4">
+            {/* Header */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Settings2 className="w-4 h-4" />
+                  智能模型路由配置
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  为不同复杂度的查询配置专用模型。系统根据用户问题自动匹配合适的模型层级，选择即保存。
                 </p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b bg-muted/30">
-                        <th className="text-left p-3 text-xs font-medium text-muted-foreground">场景</th>
-                        <th className="text-left p-3 text-xs font-medium text-muted-foreground">Agent</th>
-                        <th className="text-left p-3 text-xs font-medium text-muted-foreground">主模型</th>
-                        <th className="text-left p-3 text-xs font-medium text-muted-foreground">备用模型</th>
-                        <th className="text-left p-3 text-xs font-medium text-muted-foreground">策略</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rules.map((rule) => (
-                        <tr key={rule.id} className="border-b last:border-b-0">
-                          <td className="p-3 text-sm">{rule.scene_code}</td>
-                          <td className="p-3 text-sm">{rule.agent_code}</td>
-                          <td className="p-3 text-sm font-mono text-xs">{rule.primary_model}</td>
-                          <td className="p-3 text-sm font-mono text-xs">{rule.backup_model || '-'}</td>
-                          <td className="p-3">
-                            <Badge variant="outline" className="text-xs">{rule.strategy}</Badge>
-                          </td>
+              </CardHeader>
+            </Card>
+
+            {rulesLoading || modelsLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-48 rounded-xl" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {TIERS.map((tier) => {
+                  const TierIcon = tier.icon;
+                  const rule = getRuleForTier(tier.value);
+                  const activeModels = models?.filter((m) => m.is_active && m.model_type === 'chat') || [];
+                  const primaryModel = activeModels.find(
+                    (m) => String(m.model_code) === rule?.primary_model || String(m.id) === rule?.primary_model
+                  );
+
+                  return (
+                    <Card key={tier.value} className={cn('relative overflow-hidden', tier.bgColor)}>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <TierIcon className={cn('w-5 h-5', tier.color)} />
+                            <CardTitle className="text-sm font-semibold">{tier.label}</CardTitle>
+                          </div>
+                          {rule && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-destructive hover:text-destructive"
+                              onClick={() => handleDeleteTierRule(tier.value)}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">{tier.description}</p>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {/* Primary Model Select */}
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium">主模型</Label>
+                          <Select
+                            value={rule?.primary_model || ''}
+                            onValueChange={(v) => handleSaveTierRule(tier.value, v, rule?.backup_model || '')}
+                          >
+                            <SelectTrigger className="h-8 text-xs bg-background">
+                              <SelectValue placeholder="选择主模型..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {activeModels.map((m) => (
+                                <SelectItem key={m.id} value={m.model_code || m.id}>
+                                  <span className="flex items-center gap-2">
+                                    <span>{m.model_name}</span>
+                                    <span className="text-muted-foreground font-mono text-[10px]">{m.model_code}</span>
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Backup Model Select */}
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium">备用模型</Label>
+                          <Select
+                            value={rule?.backup_model || 'none'}
+                            onValueChange={(v) =>
+                              handleSaveTierRule(tier.value, rule?.primary_model || '', v === 'none' ? '' : v)
+                            }
+                          >
+                            <SelectTrigger className="h-8 text-xs bg-background">
+                              <SelectValue placeholder="选择备用模型（可选）..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">无</SelectItem>
+                              {activeModels
+                                .filter((m) => (m.model_code || m.id) !== rule?.primary_model)
+                                .map((m) => (
+                                  <SelectItem key={m.id} value={m.model_code || m.id}>
+                                    <span className="flex items-center gap-2">
+                                      <span>{m.model_name}</span>
+                                      <span className="text-muted-foreground font-mono text-[10px]">{m.model_code}</span>
+                                    </span>
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Status indicator */}
+                        <div className="flex items-center gap-2 pt-1">
+                          {rule ? (
+                            <Badge variant="secondary" className="text-[10px] gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-green-500" />
+                              已配置 · {primaryModel?.model_name || rule.primary_model}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] gap-1 text-muted-foreground">
+                              <Info className="w-3 h-3" />
+                              使用系统默认
+                            </Badge>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Additional custom rules table (non-tier rules) */}
+            {rules && rules.filter((r) => !r.complexity_tier || !TIERS.some(t => t.value === r.complexity_tier)).length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">其他调度规则</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b bg-muted/30">
+                          <th className="text-left p-2 text-xs font-medium text-muted-foreground">规则名</th>
+                          <th className="text-left p-2 text-xs font-medium text-muted-foreground">场景</th>
+                          <th className="text-left p-2 text-xs font-medium text-muted-foreground">Agent</th>
+                          <th className="text-left p-2 text-xs font-medium text-muted-foreground">主模型</th>
+                          <th className="text-left p-2 text-xs font-medium text-muted-foreground">备用</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                      </thead>
+                      <tbody>
+                        {rules
+                          .filter((r) => !r.complexity_tier || !TIERS.some(t => t.value === r.complexity_tier))
+                          .map((rule) => (
+                            <tr key={rule.id} className="border-b last:border-b-0 text-xs">
+                              <td className="p-2">{rule.rule_name}</td>
+                              <td className="p-2">{rule.scene_code}</td>
+                              <td className="p-2">{rule.agent_code || '*'}</td>
+                              <td className="p-2 font-mono">{rule.primary_model}</td>
+                              <td className="p-2 font-mono">{rule.backup_model || '-'}</td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </TabsContent>
 
         {/* Usage Stats Tab */}
