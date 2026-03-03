@@ -14,6 +14,7 @@ from typing import Any
 from app.core.database import supabase
 from app.services.ai_service import AIService
 from app.services.vector_service import vector_service
+from app.tools.web_search_helper import search_web
 
 from .base_tool import BaseTool
 
@@ -90,12 +91,22 @@ class MonitorIndustryTrendsTool(BaseTool):
         except Exception as e:
             logger.warning(f"Knowledge base search failed for industry trends: {e}")
 
+        # 联网搜索最新行业动态
+        web_context = ""
+        try:
+            web_query = f"{industry} {category_labels.get(category, '行业')} {keywords} 最新动态 2024 2025".strip()
+            web_result = await search_web(web_query, count=5, freshness="pm")
+            if web_result:
+                web_context = f"\n\n## 互联网最新情报（实时搜索）\n{web_result}"
+        except Exception as e:
+            logger.warning(f"Web search failed for industry trends: {e}")
+
         prompt = (
             f"请生成一份{category_labels.get(category, '全面')}行业动态分析报告：\n\n"
             f"- 行业：{industry}\n"
             f"- 关注类别：{category_labels.get(category, '全面')}\n"
             f"- 关键词：{keywords or '无特定关键词'}\n"
-            f"{kb_context}\n\n"
+            f"{kb_context}\n{web_context}\n\n"
             f"请涵盖以下方面：\n"
             f"1. **政策法规** — 最新行业政策、标准更新\n"
             f"2. **技术发展** — 新技术、新方法进展\n"
@@ -104,13 +115,13 @@ class MonitorIndustryTrendsTool(BaseTool):
             f"5. **机会识别** — 值得关注的商业机会\n"
             f"6. **风险提示** — 需要警惕的行业风险\n"
             f"7. **行动建议** — 对我方的具体建议\n\n"
-            f"请基于知识库资料分析，对于知识库中未覆盖的信息，基于行业通识给出分析并标注。"
+            f"请综合知识库资料和互联网搜索结果进行分析。标注每条信息的来源（知识库/网络搜索/行业通识）。"
         )
 
         system = (
             "你是科学仪器行业分析师，擅长行业情报监测和趋势研判。"
-            "请基于知识库资料提供有价值的行业洞察。"
-            "标注信息来源（知识库/行业通识），给出可操作的建议。中文输出。"
+            "请综合内部知识库和互联网搜索结果提供有价值的行业洞察。"
+            "标注信息来源（知识库/网络搜索/行业通识），给出可操作的建议。中文输出。"
         )
 
         try:
@@ -195,12 +206,22 @@ class GenerateMarketResearchTool(BaseTool):
         except Exception as e:
             logger.warning(f"Failed to gather internal data: {e}")
 
+        # 联网搜索市场数据
+        web_context = ""
+        try:
+            web_query = f"{market_segment} 市场规模 增长率 趋势 {region}".strip()
+            web_result = await search_web(web_query, count=5, freshness="py")
+            if web_result:
+                web_context = f"\n\n## 互联网市场数据（实时搜索）\n{web_result}"
+        except Exception as e:
+            logger.warning(f"Web search failed for market research: {e}")
+
         prompt = (
             f"请生成市场需求调研报告：\n\n"
             f"- 目标市场：{market_segment}\n"
             f"- 调研重点：{research_focus or '全面调研'}\n"
             f"- 目标区域：{region}\n"
-            f"{kb_context}\n{internal_data}\n\n"
+            f"{kb_context}\n{internal_data}\n{web_context}\n\n"
             f"报告结构：\n"
             f"1. **市场概述** — 市场定义、规模估算、增长趋势\n"
             f"2. **需求分析** — 客户核心需求、痛点、采购偏好\n"
@@ -214,8 +235,8 @@ class GenerateMarketResearchTool(BaseTool):
 
         system = (
             "你是科学仪器行业的市场研究专家。"
-            "请基于知识库资料和内部数据生成结构化的调研报告。"
-            "数据标注来源，缺乏数据的部分给出合理估算并标注。中文输出。"
+            "请综合知识库资料、内部数据和互联网搜索结果生成结构化的调研报告。"
+            "标注数据来源（知识库/内部数据/网络搜索/合理估算）。中文输出。"
         )
 
         try:
@@ -288,12 +309,22 @@ class GenerateCompetitorAnalysisTool(BaseTool):
         except Exception as e:
             logger.warning(f"Knowledge base search failed for competitor analysis: {e}")
 
+        # 联网搜索竞品最新动态
+        web_context = ""
+        try:
+            web_query = f"{competitor_name} {focus_product} 新品 策略 营收 动态".strip()
+            web_result = await search_web(web_query, count=5, freshness="py")
+            if web_result:
+                web_context = f"\n\n## 互联网竞品情报（实时搜索）\n{web_result}"
+        except Exception as e:
+            logger.warning(f"Web search failed for competitor analysis: {e}")
+
         prompt = (
             f"请生成{depth_labels.get(analysis_depth, '标准')}竞品分析报告：\n\n"
             f"- 竞品：{competitor_name}\n"
             f"- 分析深度：{depth_labels.get(analysis_depth, '标准')}\n"
             f"- 重点产品：{focus_product or '全产品线'}\n"
-            f"{kb_context}\n\n"
+            f"{kb_context}\n{web_context}\n\n"
             f"分析维度：\n"
             f"1. **公司概况** — 规模、营收、发展历程\n"
             f"2. **产品矩阵** — 主要产品线、明星产品、新品动态\n"
@@ -306,8 +337,8 @@ class GenerateCompetitorAnalysisTool(BaseTool):
 
         system = (
             "你是科学仪器行业的竞争情报分析师。"
-            "请提供客观、深入的竞品分析。基于知识库资料，标注数据来源。"
-            "对于缺乏具体数据的部分，请基于行业认知给出分析并标注'行业估算'。中文输出。"
+            "请综合知识库资料和互联网搜索结果提供客观、深入的竞品分析。"
+            "标注数据来源（知识库/网络搜索/行业估算）。中文输出。"
         )
 
         try:

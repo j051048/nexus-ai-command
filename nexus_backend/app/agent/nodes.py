@@ -14,6 +14,8 @@ Nodes:
 
 import asyncio
 import contextlib
+import hashlib
+import json as _json
 import logging
 import time
 
@@ -672,6 +674,18 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+def _tool_call_fingerprint(tool_calls: list) -> str:
+    """Generate a hash fingerprint for a batch of tool calls (name + args)."""
+    if not tool_calls:
+        return ""
+    parts = []
+    for tc in sorted(tool_calls, key=lambda t: t.tool_name):
+        args_str = _json.dumps(tc.tool_args, sort_keys=True, ensure_ascii=False) if tc.tool_args else ""
+        parts.append(f"{tc.tool_name}:{args_str}")
+    combined = "|".join(parts)
+    return hashlib.md5(combined.encode()).hexdigest()
+
+
 async def execute_node(state: AgentState, config: RunnableConfig | None = None) -> dict:
     """
     Execute all pending tool calls in parallel.
@@ -822,6 +836,8 @@ async def execute_node(state: AgentState, config: RunnableConfig | None = None) 
         "completed_tool_calls": all_completed,
         "iteration": state.get("iteration", 0) + 1,
         "thinking_steps": [thinking_step] + result_steps,
+        # P2: Record tool call fingerprint for loop detection
+        "_tool_call_history": [_tool_call_fingerprint(completed)],
     }
 
 

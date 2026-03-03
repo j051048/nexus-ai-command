@@ -42,6 +42,7 @@ from app.routers import (
     documents,
     form_schemas,
     im_callbacks,
+    im_chat,
     im_oauth,
     im_settings,
     import_data,
@@ -347,6 +348,7 @@ app.include_router(form_schemas.router)
 app.include_router(push.router)
 app.include_router(im_oauth.router)
 app.include_router(im_callbacks.router)
+app.include_router(im_chat.router)
 app.include_router(im_settings.router)
 app.include_router(permissions.router)
 app.include_router(workflow_templates.router)

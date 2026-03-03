@@ -190,3 +190,6 @@ class AgentState(TypedDict, total=False):
     parent_agent_code: str | None  # Parent agent that delegated to this one
     delegation_results: list  # Results from sub-agents
     wbs_structure: dict | None  # WBS task decomposition structure
+
+    # ── Loop detection (P2) ──
+    _tool_call_history: Annotated[list[str], operator.add]  # Fingerprint hashes per execute round

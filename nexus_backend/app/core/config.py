@@ -75,6 +75,9 @@ class Settings(BaseSettings):
     AI_DEFAULT_MODEL: str = Field(default="gpt-4o", description="Default AI model for general tasks")
     AI_MINI_MODEL: str = Field(default="gpt-4o-mini", description="Lightweight model for simple queries")
 
+    # Brave Search (联网搜索)
+    BRAVE_SEARCH_API_KEY: str = Field(default="", description="Brave Search API key for web search tool")
+
     # Database (read by database.py via os.getenv, declared here for validation)
     SUPABASE_URL: str = Field(default="", description="Supabase project URL")
     SUPABASE_SERVICE_KEY: str = Field(default="", description="Supabase service role key")
@@ -172,6 +175,7 @@ class Settings(BaseSettings):
     # Feishu (飞书) - 深度集成
     FEISHU_APP_ID: str = Field(default="", description="飞书 App ID")
     FEISHU_APP_SECRET: str = Field(default="", description="飞书 App Secret")
+    FEISHU_ENCRYPT_KEY: str = Field(default="", description="飞书事件订阅 Encrypt Key（签名验证）")
 
     # Web Push VAPID
     VAPID_PUBLIC_KEY: str = Field(default="", description="VAPID public key for Web Push")

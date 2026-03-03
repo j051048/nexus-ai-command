@@ -255,6 +255,95 @@ async def archive_session(session_id: str, req: Request, user_id: str = Depends(
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
+@router.post("/sessions/{session_id}/compact")
+async def compact_session(session_id: str, req: Request, user_id: str = Depends(get_current_user_id)):
+    """
+    手动压缩会话上下文 — 将早期消息摘要化，保留最近的消息。
+    减少 token 消耗，适合长对话场景。
+    """
+    client = req.state.db
+    try:
+        # 1. Fetch all messages in the session
+        response = (
+            await client.table("chat_messages")
+            .select("id, role, content, created_at")
+            .eq("user_id", user_id)
+            .eq("session_id", session_id)
+            .order("created_at", desc=False)
+            .execute()
+        )
+        messages = response.data or []
+        if len(messages) <= 6:
+            return api_success(data={
+                "message": "会话消息较少，无需压缩。",
+                "before_count": len(messages),
+                "after_count": len(messages),
+            })
+
+        # 2. Split: keep the last 6 messages, summarize the rest
+        keep_count = 6
+        older = messages[:-keep_count]
+        recent_ids = [m["id"] for m in messages[-keep_count:]]
+
+        # 3. Build summary of older messages
+        older_text = "\n".join(
+            f"[{m['role']}]: {m['content'][:500]}"
+            for m in older
+            if m.get("content") and m["role"] in ("user", "assistant")
+        )
+
+        if not older_text.strip():
+            return api_success(data={
+                "message": "没有可压缩的历史消息。",
+                "before_count": len(messages),
+                "after_count": len(messages),
+            })
+
+        # 4. Use mini model to generate summary
+        from app.services.ai_service import AIService
+
+        summary_prompt = (
+            f"请将以下对话历史压缩为一段简洁的摘要（200字以内），保留关键信息和决策：\n\n{older_text[:3000]}"
+        )
+        summary = await AIService.call_llm(
+            summary_prompt,
+            "你是对话摘要专家。请提取关键信息，输出简洁的中文摘要。",
+        )
+
+        # 5. Delete older messages from DB
+        older_ids = [m["id"] for m in older]
+        for batch_start in range(0, len(older_ids), 50):
+            batch = older_ids[batch_start:batch_start + 50]
+            await (
+                client.table("chat_messages")
+                .delete()
+                .eq("user_id", user_id)
+                .eq("session_id", session_id)
+                .in_("id", batch)
+                .execute()
+            )
+
+        # 6. Insert summary as a system message at the beginning
+        await client.table("chat_messages").insert({
+            "user_id": user_id,
+            "session_id": session_id,
+            "role": "system",
+            "content": f"[对话历史摘要 — {len(older)} 条早期消息已压缩]\n{summary}",
+            "agent": "system",
+        }).execute()
+
+        return api_success(data={
+            "message": f"已压缩 {len(older)} 条早期消息为摘要，保留最近 {keep_count} 条。",
+            "before_count": len(messages),
+            "after_count": keep_count + 1,
+            "summary_preview": summary[:200],
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to compact session: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
 @router.get("/search")
 async def search_messages(q: str, req: Request, user_id: str = Depends(get_current_user_id), limit: int = 20):
     """Search chat messages by keyword"""

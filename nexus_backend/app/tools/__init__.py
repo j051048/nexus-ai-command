@@ -84,6 +84,10 @@ _TOOL_MODULES: dict[str, tuple[str, str]] = {
     "delete_scheduled_task": ("app.tools.scheduled_task_tools", "DeleteScheduledTaskTool"),
     # ask_user (P1-7: agent proactive questioning)
     "ask_user": ("app.tools.ask_user_tool", "AskUserTool"),
+    # web_search (P0: 联网搜索能力)
+    "web_search": ("app.tools.web_search_tool", "WebSearchTool"),
+    # llm_task (P1: 轻量子任务委派)
+    "llm_task": ("app.tools.llm_task_tool", "LLMTaskTool"),
 }
 
 # VMD tools are optional — kept separate so ImportError is tolerated

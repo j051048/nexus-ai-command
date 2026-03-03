@@ -40,6 +40,8 @@ Graph topology:
     └───────┘
 """
 
+import hashlib
+import json
 import logging
 from typing import Optional
 
@@ -71,6 +73,49 @@ def increment_tool_schema_version():
     logger.info(f"[Graph] Tool schema version incremented to {_tool_schema_version}")
 
 
+# ─── Loop Detection ──────────────────────────────────────────────────────────
+
+# Maximum consecutive identical tool-call patterns before force-termination
+_LOOP_REPEAT_THRESHOLD = 3
+
+
+def _tool_call_fingerprint(tool_calls: list) -> str:
+    """Generate a hash fingerprint for a set of tool calls (name + args)."""
+    if not tool_calls:
+        return ""
+    parts = []
+    for tc in sorted(tool_calls, key=lambda t: t.tool_name):
+        args_str = json.dumps(tc.tool_args, sort_keys=True, ensure_ascii=False) if tc.tool_args else ""
+        parts.append(f"{tc.tool_name}:{args_str}")
+    combined = "|".join(parts)
+    return hashlib.md5(combined.encode()).hexdigest()
+
+
+def _detect_loop(state: AgentState) -> bool:
+    """
+    Check if the agent is stuck in a loop by examining completed tool calls.
+
+    Detects patterns where the exact same set of tool calls (name + args)
+    is repeated _LOOP_REPEAT_THRESHOLD times consecutively.
+    """
+    completed = state.get("completed_tool_calls", [])
+    if len(completed) < _LOOP_REPEAT_THRESHOLD:
+        return False
+
+    # Group completed calls by iteration (using pending_tool_calls pattern)
+    # Since completed_tool_calls accumulates via operator.add, we look at
+    # the most recent batches. Each execute_node appends a batch.
+    # Strategy: compare fingerprints of the last N pending batches.
+    pending_history = state.get("_tool_call_history", [])
+    if len(pending_history) >= _LOOP_REPEAT_THRESHOLD:
+        # Check if the last N entries are all identical
+        recent = pending_history[-_LOOP_REPEAT_THRESHOLD:]
+        if len(set(recent)) == 1 and recent[0] != "":
+            return True
+
+    return False
+
+
 # ─── Conditional Edge Functions ──────────────────────────────────────────────
 
 
@@ -96,6 +141,7 @@ def _after_execute(state: AgentState) -> str:
     """
     After execution:
       - If error occurred → error
+      - If loop detected (same tools called repeatedly) → reflect to finalize
       - Always go back to plan so the LLM can synthesize tool results.
       - Guard: if iteration limit reached → reflect to finalize.
     """
@@ -109,6 +155,15 @@ def _after_execute(state: AgentState) -> str:
     if iteration >= max_iter:
         logger.warning(f"[Graph] Max iterations ({max_iter}) reached, forcing reflect")
         return "reflect"
+
+    # P2: Loop detection — prevent infinite plan→execute→plan cycles
+    if _detect_loop(state):
+        logger.warning(
+            f"[Graph] Loop detected after {iteration} iterations "
+            f"(same tool calls repeated {_LOOP_REPEAT_THRESHOLD}x), forcing reflect"
+        )
+        return "reflect"
+
     return "plan"
 
 

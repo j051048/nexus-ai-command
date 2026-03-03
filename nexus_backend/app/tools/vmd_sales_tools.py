@@ -13,6 +13,7 @@ from typing import Any
 
 from app.services.ai_service import AIService
 from app.services.vector_service import vector_service
+from app.tools.web_search_helper import search_web
 
 from .base_tool import BaseTool
 
@@ -181,12 +182,22 @@ class GenerateCompetitorComparisonTool(BaseTool):
         except Exception as e:
             logger.warning(f"Knowledge base search failed for competitor comparison: {e}")
 
+        # 联网搜索竞品最新参数和评价
+        web_context = ""
+        try:
+            web_query = f"{our_product} {competitors} 参数对比 评测 {comparison_focus}".strip()
+            web_result = await search_web(web_query, count=5)
+            if web_result:
+                web_context = f"\n\n## 互联网竞品数据（实时搜索）\n{web_result}"
+        except Exception as e:
+            logger.warning(f"Web search failed for competitor comparison: {e}")
+
         prompt = (
             f"请生成竞品对比分析表：\n\n"
             f"- 我方产品：{our_product}\n"
             f"- 竞品：{competitors}\n"
             f"- 对比重点：{comparison_focus or '全面对比'}\n"
-            f"{kb_context}\n\n"
+            f"{kb_context}\n{web_context}\n\n"
             f"请按以下结构输出：\n"
             f"1. **对比总览表** — Markdown表格，维度包含：核心性能、价格区间、售后服务、易用性、口碑\n"
             f"2. **我方优势** — 我方产品相对竞品的差异化优势\n"
