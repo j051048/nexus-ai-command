@@ -189,6 +189,82 @@ def _get_llm(
     )
 
 
+def _get_fallback_llm(
+    config: AgentConfig, model: str | None = None, streaming: bool = False
+):
+    """Get a fallback LLM instance when primary provider is unavailable.
+
+    Returns None if no fallback is configured.
+    """
+    from app.core.config import settings
+
+    if not settings.AI_FALLBACK_API_KEY or not settings.AI_FALLBACK_BASE_URL:
+        return None
+
+    from app.core.trace_context import get_request_id, get_trace_id
+
+    default_headers = {}
+    trace_id = get_trace_id()
+    request_id = get_request_id()
+    if trace_id:
+        default_headers["X-Trace-ID"] = trace_id
+    if request_id:
+        default_headers["X-Request-ID"] = request_id
+
+    return ChatOpenAI(
+        model=model or config.model,
+        api_key=settings.AI_FALLBACK_API_KEY,
+        base_url=settings.AI_FALLBACK_BASE_URL,
+        temperature=config.temperature,
+        streaming=streaming,
+        timeout=60.0,
+        default_headers=default_headers or None,
+    )
+
+
+async def invoke_with_fallback(
+    llm,
+    messages: list,
+    config: AgentConfig,
+    model: str | None = None,
+    streaming: bool = False,
+    tool_schemas: list | None = None,
+):
+    """Invoke LLM with automatic fallback to backup provider on failure.
+
+    Tries primary LLM first. If it fails (payment, rate limit, auth, server error),
+    automatically retries with fallback provider.
+    """
+    try:
+        return await llm.ainvoke(messages)
+    except Exception as primary_error:
+        error_str = str(primary_error).lower()
+        # Only fallback on provider-level errors, not on content/format issues
+        is_provider_error = any(
+            kw in error_str
+            for kw in [
+                "401", "402", "403", "429", "500", "502", "503",
+                "insufficient", "quota", "balance", "payment",
+                "rate limit", "rate_limit", "unauthorized",
+                "authentication", "billing", "exceeded",
+                "connection", "timeout", "connect",
+            ]
+        )
+        if not is_provider_error:
+            raise
+
+        fallback_llm = _get_fallback_llm(config, model=model, streaming=streaming)
+        if not fallback_llm:
+            raise
+
+        logger.warning(
+            f"[LLM Fallback] Primary failed: {primary_error}. Switching to fallback provider."
+        )
+        if tool_schemas:
+            fallback_llm = fallback_llm.bind_tools(tool_schemas, parallel_tool_calls=True)
+        return await fallback_llm.ainvoke(messages)
+
+
 def _messages_to_lc_format(messages) -> list[BaseMessage]:
     """Ensure messages are in LangChain format."""
     result = []

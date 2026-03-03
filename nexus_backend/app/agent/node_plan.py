@@ -20,6 +20,7 @@ from app.agent.node_helpers import (
     _messages_to_lc_format,
     _try_extract_tool_names,
     get_tool,
+    invoke_with_fallback,
     llm_circuit_breaker,
     logger,
     plugin_system_service,
@@ -143,7 +144,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     except Exception as e:
         logger.debug(f"[PlanNode] PRE_CHAT hook error: {e}")
 
-    # Call LLM via standard invoke
+    # Call LLM via standard invoke (with automatic fallback to backup provider)
     try:
         # Circuit breaker check for LLM service
         if not llm_circuit_breaker.allow_request():
@@ -157,10 +158,16 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                     )
                 ],
             }
-        # We use astream to capture tokens if needed, but for the node return we need the full message
-        # In a real heavy-streaming app, we'd use a callback handler passed via config
         _llm_start = time.time()
-        ai_msg = await llm.ainvoke(lc_msgs)
+        tool_schemas = _get_tool_schemas(agent_config.user_role) if include_tools else None
+        ai_msg = await invoke_with_fallback(
+            llm,
+            lc_msgs,
+            config=agent_config,
+            model=model,
+            streaming=True,
+            tool_schemas=tool_schemas,
+        )
         record_llm_latency(model=model or agent_config.model, duration_ms=(time.time() - _llm_start) * 1000)
         llm_circuit_breaker.record_success()
     except Exception as e:

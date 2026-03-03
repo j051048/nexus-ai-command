@@ -75,6 +75,10 @@ class Settings(BaseSettings):
     AI_DEFAULT_MODEL: str = Field(default="gpt-4o", description="Default AI model for general tasks")
     AI_MINI_MODEL: str = Field(default="gpt-4o-mini", description="Lightweight model for simple queries")
 
+    # AI Fallback (备用 AI 服务，主服务欠费/不可用时自动切换)
+    AI_FALLBACK_API_KEY: str = Field(default="", description="Fallback AI provider API key")
+    AI_FALLBACK_BASE_URL: str = Field(default="", description="Fallback AI provider base URL")
+
     # Brave Search (联网搜索)
     BRAVE_SEARCH_API_KEY: str = Field(default="", description="Brave Search API key for web search tool")
 
