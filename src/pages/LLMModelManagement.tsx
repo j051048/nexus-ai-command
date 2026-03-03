@@ -3,7 +3,7 @@
  * 模型CRUD + 连通性测试 + 调度规则 + 用量统计
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +31,15 @@ import {
   XCircle,
   Settings2,
   BarChart3,
+  ShoppingBag,
+  Search,
+  Sparkles,
+  ArrowRight,
+  Info,
+  Wrench,
+  MessageSquare,
+  Hash,
+  RefreshCw,
 } from 'lucide-react';
 import {
   LineChart,
@@ -52,8 +61,12 @@ import {
   useTestLLMModel,
   useScheduleRules,
   useModelUsageStats,
+  useFetchAvailableModels,
+  useQuickAddModel,
   type LLMModel,
   type ScheduleRule,
+  type AvailableModel,
+  type ModelCategory,
 } from '@/hooks/useVMD';
 import { chartColors, CHART_COLORS } from '@/lib/chartColors';
 import { toast } from 'sonner';
@@ -92,6 +105,32 @@ const emptyModel: Partial<LLMModel> = {
   is_default: false,
 };
 
+// Tag 配色
+const TAG_COLORS: Record<string, string> = {
+  '推荐': 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20',
+  '高性价比': 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/20',
+  '多模态': 'bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/20',
+  '深度推理': 'bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/20',
+  '推理': 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/20',
+  '国产': 'bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/20',
+  '超长上下文': 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border-cyan-500/20',
+  '长上下文': 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border-cyan-500/20',
+  '经济': 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/20',
+  '开源': 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-500/20',
+  '向量': 'bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/20',
+  '免费': 'bg-lime-500/15 text-lime-700 dark:text-lime-400 border-lime-500/20',
+  '最新': 'bg-pink-500/15 text-pink-700 dark:text-pink-400 border-pink-500/20',
+  '最强推理': 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/20',
+  '实验': 'bg-gray-500/15 text-gray-700 dark:text-gray-400 border-gray-500/20',
+};
+
+function formatContextWindow(n: number): string {
+  if (!n) return '-';
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1000) return `${Math.round(n / 1000)}K`;
+  return String(n);
+}
+
 export default function LLMModelManagement() {
   const [activeTab, setActiveTab] = useState('models');
   const [editOpen, setEditOpen] = useState(false);
@@ -100,16 +139,50 @@ export default function LLMModelManagement() {
   const [testResult, setTestResult] = useState<{ success: boolean; latency_ms: number } | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
 
+  // Model marketplace state
+  const [marketSearch, setMarketSearch] = useState('');
+  const [marketTypeFilter, setMarketTypeFilter] = useState<string | undefined>(undefined);
+  const [marketTagFilter, setMarketTagFilter] = useState<string | undefined>(undefined);
+  const [confirmAddModel, setConfirmAddModel] = useState<AvailableModel | null>(null);
+
   // Queries
   const { data: models, isLoading: modelsLoading } = useLLMModels();
   const { data: rules, isLoading: rulesLoading } = useScheduleRules();
   const { data: usageStats } = useModelUsageStats('week');
+  const { data: availableData, isLoading: marketLoading, refetch: refetchMarket } = useFetchAvailableModels({
+    search: marketSearch || undefined,
+    type: marketTypeFilter,
+    tag: marketTagFilter,
+  });
 
   // Mutations
   const createModel = useCreateLLMModel();
   const updateModel = useUpdateLLMModel();
   const deleteModel = useDeleteLLMModel();
   const testModel = useTestLLMModel();
+  const quickAdd = useQuickAddModel();
+
+  // All unique tags from available models for filter chips
+  const allTags = useMemo(() => {
+    if (!availableData?.categories) return [];
+    const tagSet = new Set<string>();
+    for (const cat of availableData.categories) {
+      for (const m of cat.models) {
+        for (const t of m.tags) tagSet.add(t);
+      }
+    }
+    return Array.from(tagSet);
+  }, [availableData]);
+
+  const handleQuickAdd = async () => {
+    if (!confirmAddModel) return;
+    try {
+      await quickAdd.mutateAsync(confirmAddModel);
+      setConfirmAddModel(null);
+    } catch {
+      // Error toast handled in mutation
+    }
+  };
 
   const handleOpenCreate = () => {
     setEditModel({ ...emptyModel });
@@ -217,6 +290,9 @@ export default function LLMModelManagement() {
         <TabsList>
           <TabsTrigger value="models" className="gap-1.5">
             <Cpu className="w-3.5 h-3.5" /> 模型列表
+          </TabsTrigger>
+          <TabsTrigger value="marketplace" className="gap-1.5">
+            <ShoppingBag className="w-3.5 h-3.5" /> 模型市场
           </TabsTrigger>
           <TabsTrigger value="rules" className="gap-1.5">
             <Settings2 className="w-3.5 h-3.5" /> 调度规则
@@ -327,6 +403,194 @@ export default function LLMModelManagement() {
               </div>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Model Marketplace Tab */}
+        <TabsContent value="marketplace" className="mt-4">
+          <div className="space-y-4">
+            {/* Header with stats */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1 min-w-[280px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    className="pl-9"
+                    placeholder="搜索模型名称或 ID..."
+                    value={marketSearch}
+                    onChange={(e) => setMarketSearch(e.target.value)}
+                  />
+                </div>
+                <Button variant="outline" size="icon" onClick={() => refetchMarket()} disabled={marketLoading}>
+                  <RefreshCw className={cn('w-4 h-4', marketLoading && 'animate-spin')} />
+                </Button>
+              </div>
+              {availableData && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>上游: {availableData.upstream_providers?.join(' + ')}</span>
+                  <span>·</span>
+                  <span>共 {availableData.upstream_total} 个模型</span>
+                  <span>·</span>
+                  <span>已添加 {availableData.already_added} 个</span>
+                </div>
+              )}
+            </div>
+
+            {/* Filter chips */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Type filters */}
+              <Badge
+                variant={!marketTypeFilter ? 'default' : 'outline'}
+                className="cursor-pointer select-none"
+                onClick={() => setMarketTypeFilter(undefined)}
+              >
+                全部
+              </Badge>
+              <Badge
+                variant={marketTypeFilter === 'chat' ? 'default' : 'outline'}
+                className="cursor-pointer select-none gap-1"
+                onClick={() => setMarketTypeFilter(marketTypeFilter === 'chat' ? undefined : 'chat')}
+              >
+                <MessageSquare className="w-3 h-3" /> 对话模型
+              </Badge>
+              <Badge
+                variant={marketTypeFilter === 'embedding' ? 'default' : 'outline'}
+                className="cursor-pointer select-none gap-1"
+                onClick={() => setMarketTypeFilter(marketTypeFilter === 'embedding' ? undefined : 'embedding')}
+              >
+                <Hash className="w-3 h-3" /> 向量模型
+              </Badge>
+              <Separator orientation="vertical" className="h-5 mx-1" />
+              {/* Tag filters */}
+              {allTags.map((tag) => (
+                <Badge
+                  key={tag}
+                  variant={marketTagFilter === tag ? 'default' : 'outline'}
+                  className={cn(
+                    'cursor-pointer select-none text-xs',
+                    marketTagFilter === tag ? '' : TAG_COLORS[tag] || 'bg-muted'
+                  )}
+                  onClick={() => setMarketTagFilter(marketTagFilter === tag ? undefined : tag)}
+                >
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+
+            {/* Model categories */}
+            {marketLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-40 rounded-xl" />
+                ))}
+              </div>
+            ) : !availableData?.categories?.length ? (
+              <div className="text-center py-20 bg-muted/10 rounded-xl border border-dashed">
+                <ShoppingBag className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium">无可用模型</h3>
+                <p className="text-muted-foreground">未能从上游转发商获取到模型列表，请检查 API Key 配置</p>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {availableData.categories.map((category) => (
+                  <div key={category.name}>
+                    <h3 className="text-base font-semibold mb-3 flex items-center gap-2">
+                      <span>{category.icon}</span> {category.name}
+                      <Badge variant="secondary" className="text-xs font-normal">{category.models.length}</Badge>
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                      {category.models.map((model) => (
+                        <Card
+                          key={model.model_id}
+                          className={cn(
+                            'group relative overflow-hidden transition-all duration-200 hover:shadow-md hover:border-primary/30',
+                            model.already_added && 'opacity-60'
+                          )}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-sm font-semibold truncate">{model.name}</h4>
+                                <p className="text-xs text-muted-foreground font-mono truncate">{model.model_id}</p>
+                              </div>
+                              <Badge variant="secondary" className="text-[10px] shrink-0 ml-2">
+                                {model.provider_label}
+                              </Badge>
+                            </div>
+
+                            {/* Tags */}
+                            {model.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mb-3">
+                                {model.tags.map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className={cn(
+                                      'inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded border',
+                                      TAG_COLORS[tag] || 'bg-muted text-muted-foreground'
+                                    )}
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Specs */}
+                            {model.has_metadata && (
+                              <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground mb-3">
+                                <div>
+                                  <span className="block text-[10px] uppercase tracking-wider">上下文</span>
+                                  <span className="font-medium text-foreground">{formatContextWindow(model.context_window)}</span>
+                                </div>
+                                <div>
+                                  <span className="block text-[10px] uppercase tracking-wider">输入价格</span>
+                                  <span className="font-medium text-foreground">${model.input_price_per_1m}/M</span>
+                                </div>
+                                <div>
+                                  <span className="block text-[10px] uppercase tracking-wider">能力</span>
+                                  <div className="flex gap-0.5">
+                                    {model.supports_tools && (
+                                      <span title="支持工具调用" className="text-emerald-500"><Wrench className="w-3 h-3" /></span>
+                                    )}
+                                    {model.supports_streaming && (
+                                      <span title="支持流式输出" className="text-blue-500"><Zap className="w-3 h-3" /></span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Source */}
+                            {model.available_from?.length > 0 && (
+                              <p className="text-[10px] text-muted-foreground mb-3">
+                                来源: {model.available_from.join(', ')}
+                              </p>
+                            )}
+
+                            {/* Action */}
+                            <div className="flex items-center justify-end">
+                              {model.already_added ? (
+                                <Badge variant="secondary" className="text-xs gap-1">
+                                  <CheckCircle2 className="w-3 h-3" /> 已添加
+                                </Badge>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  className="h-7 text-xs gap-1"
+                                  onClick={() => setConfirmAddModel(model)}
+                                >
+                                  <Plus className="w-3 h-3" /> 一键添加
+                                </Button>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </TabsContent>
 
         {/* Schedule Rules Tab */}
@@ -641,6 +905,80 @@ export default function LLMModelManagement() {
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               )}
               保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Add Confirmation Dialog */}
+      <Dialog open={!!confirmAddModel} onOpenChange={(open) => !open && setConfirmAddModel(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              一键添加模型
+            </DialogTitle>
+            <DialogDescription>
+              以下参数已从知识库自动预填充，确认后即可添加到您的模型列表
+            </DialogDescription>
+          </DialogHeader>
+          {confirmAddModel && (
+            <div className="space-y-3 py-2">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-xs text-muted-foreground block">模型名称</span>
+                  <span className="font-medium">{confirmAddModel.name}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">模型 ID</span>
+                  <span className="font-mono text-xs">{confirmAddModel.model_id}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">厂商</span>
+                  <span>{confirmAddModel.provider_label}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">类型</span>
+                  <span>{confirmAddModel.type === 'chat' ? '对话模型' : '向量模型'}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">上下文窗口</span>
+                  <span>{formatContextWindow(confirmAddModel.context_window)}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">最大输出</span>
+                  <span>{formatContextWindow(confirmAddModel.max_tokens)}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">输入价格</span>
+                  <span>${confirmAddModel.input_price_per_1m}/M tokens</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">输出价格</span>
+                  <span>${confirmAddModel.output_price_per_1m}/M tokens</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                {confirmAddModel.supports_tools && (
+                  <span className="flex items-center gap-1"><Wrench className="w-3 h-3 text-emerald-500" /> 工具调用</span>
+                )}
+                {confirmAddModel.supports_streaming && (
+                  <span className="flex items-center gap-1"><Zap className="w-3 h-3 text-blue-500" /> 流式输出</span>
+                )}
+              </div>
+              {!confirmAddModel.has_metadata && (
+                <div className="flex items-start gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded-lg p-3">
+                  <Info className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>该模型不在知识库中，部分参数为默认值，添加后可能需要手动调整。</span>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmAddModel(null)}>取消</Button>
+            <Button onClick={handleQuickAdd} disabled={quickAdd.isPending}>
+              {quickAdd.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              确认添加
             </Button>
           </DialogFooter>
         </DialogContent>

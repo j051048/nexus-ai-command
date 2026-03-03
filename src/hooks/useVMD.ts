@@ -423,6 +423,96 @@ export function useModelUsageStats(range: string = 'week') {
   });
 }
 
+// ─── Model Marketplace (可用模型市场) ─────────────────────────
+
+export interface AvailableModel {
+  model_id: string;
+  name: string;
+  provider: string;
+  provider_label: string;
+  type: 'chat' | 'embedding';
+  context_window: number;
+  max_tokens: number;
+  supports_tools: boolean;
+  supports_streaming: boolean;
+  input_price_per_1m: number;
+  output_price_per_1m: number;
+  tags: string[];
+  already_added: boolean;
+  has_metadata: boolean;
+  available_from: string[];
+}
+
+export interface ModelCategory {
+  name: string;
+  icon: string;
+  models: AvailableModel[];
+}
+
+export interface AvailableModelsResponse {
+  categories: ModelCategory[];
+  upstream_total: number;
+  catalog_matched: number;
+  already_added: number;
+  upstream_providers: string[];
+}
+
+export function useFetchAvailableModels(filters?: { search?: string; type?: string; tag?: string }) {
+  return useQuery({
+    queryKey: ['llm-available-models', filters],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filters?.search) params.set('search', filters.search);
+      if (filters?.type) params.set('type', filters.type);
+      if (filters?.tag) params.set('tag', filters.tag);
+      const qs = params.toString();
+      const res = await aiClient.fetch<{ success: boolean; data: AvailableModelsResponse }>(
+        `api/llm/available-models${qs ? '?' + qs : ''}`
+      );
+      return res.data;
+    },
+    staleTime: 300_000, // 5min — available models don't change often
+    retry: 1,
+  });
+}
+
+export function useQuickAddModel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (model: AvailableModel) => {
+      // Build the payload with pre-filled metadata from the catalog
+      const payload = {
+        model_code: model.model_id,
+        model_name: model.name,
+        provider_type: 'openai',  // All go through OpenAI-compatible relay
+        adapter_code: 'openai',
+        api_base_url: '',  // Will use system default
+        api_key: '__SYSTEM_DEFAULT__',  // Backend will recognize this sentinel
+        model_id: model.model_id,
+        model_type: model.type,
+        timeout_ms: 30000,
+        max_tokens: model.max_tokens || 4096,
+        context_window: model.context_window || 8192,
+        supports_tools: model.supports_tools,
+        supports_streaming: model.supports_streaming,
+        input_price_per_1m: model.input_price_per_1m,
+        output_price_per_1m: model.output_price_per_1m,
+        status: 'enabled',
+      };
+      const res = await aiClient.fetch<{ success: boolean; data: LLMModel }>(
+        'api/llm/models', { method: 'POST', body: JSON.stringify(payload) }
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['llm-models'] });
+      queryClient.invalidateQueries({ queryKey: ['llm-available-models'] });
+      toast.success('模型添加成功');
+    },
+    onError: (err: Error) => toast.error(err.message || '添加模型失败'),
+  });
+}
+
 // ─── VMD Clues ───────────────────────────────────────────────
 
 interface ClueFilters {

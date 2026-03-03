@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     # AI Configuration
     OPENAI_API_KEY: str = Field(default="", description="OpenAI API key (or compatible provider)")
     AI_BASE_URL: str = Field(
-        default="https://proxy.flydao.top/v1",
+        default="https://api.apiyi.com/v1",
         description="Base URL for OpenAI-compatible API",
     )
     AI_DEFAULT_MODEL: str = Field(default="gpt-4o", description="Default AI model for general tasks")
