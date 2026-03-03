@@ -283,7 +283,6 @@ async def compact_session(session_id: str, req: Request, user_id: str = Depends(
         # 2. Split: keep the last 6 messages, summarize the rest
         keep_count = 6
         older = messages[:-keep_count]
-        recent_ids = [m["id"] for m in messages[-keep_count:]]
 
         # 3. Build summary of older messages
         older_text = "\n".join(

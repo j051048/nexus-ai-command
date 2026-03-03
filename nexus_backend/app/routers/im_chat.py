@@ -17,7 +17,6 @@ IM 聊天消息通道 — 飞书/企微双向 AI 对话
 
 import hashlib
 import logging
-from typing import Any
 
 import httpx
 from fastapi import APIRouter, Request
@@ -333,4 +332,4 @@ async def _call_agent(user_id: str, message: str, session_id: str) -> str:
 
     except Exception as e:
         logger.error(f"IM agent call failed: {e}", exc_info=True)
-        return f"系统处理异常，请稍后再试。"
+        return "系统处理异常，请稍后再试。"
