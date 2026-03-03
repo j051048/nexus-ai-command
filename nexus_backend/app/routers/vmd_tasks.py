@@ -1,8 +1,11 @@
 """VMD Task Management API - Multi-agent task orchestration endpoints."""
 
+import json
 import logging
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
+
+from app.services.ai_service import AIService
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
@@ -103,10 +106,6 @@ async def create_task(
         # -------------------------------------------------------------
         # Synchronous LLM WBS Decomposition (no celery)
         # -------------------------------------------------------------
-        import json
-        from app.services.ai_service import AIService
-        from datetime import UTC, datetime
-
         decompose_prompt = (
             f"你是一个项目分解专家。请将以下任务分解为可执行的子任务列表。\n\n"
             f"任务标题: {body.title}\n"
@@ -160,7 +159,7 @@ async def create_task(
                     "main_task_id": task_id,
                     "tenant_id": org_id,
                     "title": st.get("title", "未命名子任务"),
-                    "agent_role": st.get("agent_role", "content_creator"),
+                    "agent_code": st.get("agent_role", "content_creator"),
                     "description": st.get("description", ""),
                     "sort_order": st.get("sort_order", created_count + 1),
                     "status": "pending",
@@ -570,9 +569,8 @@ async def submit_sub_task(
         update_data = {
             "status": "completed",
             "review_status": "pending",  # Auto-push to reviewing state
-            "output": body.output,
-            "updated_by": user_id,
-            "updated_at": datetime.utcnow().isoformat(),
+            "output_content": body.output,
+            "update_time": datetime.now(UTC).isoformat(),
         }
 
         await admin.table("vmd_sub_task").update(update_data).eq("id", sub_task_id).execute()

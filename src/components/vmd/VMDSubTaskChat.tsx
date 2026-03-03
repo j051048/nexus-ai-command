@@ -13,7 +13,6 @@ import { useUser } from '@/contexts/UserContext';
 import { AIMessage } from '@/types/nexus';
 import { VMDSubTask } from '@/hooks/useVMD';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
 
 interface VMDSubTaskChatProps {
   subTask: VMDSubTask | null;
@@ -59,7 +58,7 @@ export function VMDSubTaskChat({
   }, [messages]);
 
   const handleSend = async () => {
-    if (!input.trim() || isAiTyping) return;
+    if (!input.trim() || isAiTyping || !subTask) return;
 
     const userMessage: AIMessage = {
       id: Date.now().toString(),
@@ -185,7 +184,7 @@ export function VMDSubTaskChat({
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
               placeholder="发送消息与AI协作..."
               className="flex-1 bg-secondary rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
               disabled={isAiTyping || submitSubTask.isPending}
