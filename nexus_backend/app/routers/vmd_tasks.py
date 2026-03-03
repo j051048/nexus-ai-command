@@ -122,8 +122,7 @@ async def create_task(
         sub_tasks_data = []
         try:
             llm_response = await AIService.call_llm(
-                decompose_prompt,
-                "你是一个严格按JSON格式输出的项目分解助手。只输出JSON数组，不添加任何其他文字。"
+                decompose_prompt, "你是一个严格按JSON格式输出的项目分解助手。只输出JSON数组，不添加任何其他文字。"
             )
 
             # Parse LLM response - try to extract JSON array
@@ -543,6 +542,7 @@ async def audit_sub_task(
 class SubmitSubTaskRequest(BaseModel):
     output: str
 
+
 @router.post("/sub-tasks/{sub_task_id}/submit")
 async def submit_sub_task(
     sub_task_id: str,
@@ -555,13 +555,7 @@ async def submit_sub_task(
         admin = _get_admin_client()
 
         # Verify sub-task exists
-        sub_res = (
-            await admin.table("vmd_sub_task")
-            .select("id, status")
-            .eq("id", sub_task_id)
-            .maybe_single()
-            .execute()
-        )
+        sub_res = await admin.table("vmd_sub_task").select("id, status").eq("id", sub_task_id).maybe_single().execute()
         if not sub_res.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "子任务不存在")
 

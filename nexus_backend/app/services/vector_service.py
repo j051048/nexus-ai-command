@@ -367,9 +367,13 @@ class VectorService:
             parent_id = item.get("parent_chunk_id")
             if parent_id:
                 try:
-                    parent_res = await supabase.table("document_embeddings").select(
-                        "content"
-                    ).eq("id", parent_id).maybe_single().execute()
+                    parent_res = (
+                        await supabase.table("document_embeddings")
+                        .select("content")
+                        .eq("id", parent_id)
+                        .maybe_single()
+                        .execute()
+                    )
                     if parent_res.data and parent_res.data.get("content"):
                         content = parent_res.data["content"].strip()
                 except Exception as e:

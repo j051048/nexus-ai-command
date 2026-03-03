@@ -112,8 +112,12 @@ async def create_scheduled_task(
             raise api_error(ErrorCode.VALIDATION_ERROR, "活跃定时任务已达上限 (20个)")
 
         next_exec = _compute_next_execution(
-            body.schedule_type, body.hour, body.minute,
-            body.day_of_week, body.interval_minutes, None,
+            body.schedule_type,
+            body.hour,
+            body.minute,
+            body.day_of_week,
+            body.interval_minutes,
+            None,
         )
 
         task_data = {
@@ -167,8 +171,17 @@ async def update_scheduled_task(
         task = existing.data
         update_data = {}
 
-        for field_name in ("name", "prompt", "schedule_type", "hour", "minute",
-                           "day_of_week", "interval_minutes", "is_active", "notify_method"):
+        for field_name in (
+            "name",
+            "prompt",
+            "schedule_type",
+            "hour",
+            "minute",
+            "day_of_week",
+            "interval_minutes",
+            "is_active",
+            "notify_method",
+        ):
             value = getattr(body, field_name, None)
             if value is not None:
                 update_data[field_name] = value
@@ -186,17 +199,17 @@ async def update_scheduled_task(
 
         if is_active:
             update_data["next_execution_at"] = _compute_next_execution(
-                stype, hour, minute, dow, interval, None,
+                stype,
+                hour,
+                minute,
+                dow,
+                interval,
+                None,
             )
 
         update_data["update_time"] = datetime.now(UTC).isoformat()
 
-        result = (
-            await client.table("user_scheduled_tasks")
-            .update(update_data)
-            .eq("id", task_id)
-            .execute()
-        )
+        result = await client.table("user_scheduled_tasks").update(update_data).eq("id", task_id).execute()
 
         return api_success(data=result.data[0] if result.data else task, message="定时任务更新成功")
     except Exception as e:
@@ -217,11 +230,7 @@ async def delete_scheduled_task(
 
         # 确认任务属于当前用户
         existing = (
-            await client.table("user_scheduled_tasks")
-            .select("id")
-            .eq("id", task_id)
-            .eq("user_id", user_id)
-            .execute()
+            await client.table("user_scheduled_tasks").select("id").eq("id", task_id).eq("user_id", user_id).execute()
         )
         if not existing.data:
             raise api_error(ErrorCode.NOT_FOUND, "定时任务不存在")
@@ -277,10 +286,12 @@ async def run_scheduled_task(
         # 更新执行统计
         await (
             client.table("user_scheduled_tasks")
-            .update({
-                "last_executed_at": datetime.now(UTC).isoformat(),
-                "execution_count": (task.get("execution_count") or 0) + 1,
-            })
+            .update(
+                {
+                    "last_executed_at": datetime.now(UTC).isoformat(),
+                    "execution_count": (task.get("execution_count") or 0) + 1,
+                }
+            )
             .eq("id", task_id)
             .execute()
         )

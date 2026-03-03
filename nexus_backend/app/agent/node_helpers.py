@@ -189,9 +189,7 @@ def _get_llm(
     )
 
 
-def _get_fallback_llm(
-    config: AgentConfig, model: str | None = None, streaming: bool = False
-):
+def _get_fallback_llm(config: AgentConfig, model: str | None = None, streaming: bool = False):
     """Get a fallback LLM instance when primary provider is unavailable.
 
     Returns None if no fallback is configured.
@@ -243,11 +241,26 @@ async def invoke_with_fallback(
         is_provider_error = any(
             kw in error_str
             for kw in [
-                "401", "402", "403", "429", "500", "502", "503",
-                "insufficient", "quota", "balance", "payment",
-                "rate limit", "rate_limit", "unauthorized",
-                "authentication", "billing", "exceeded",
-                "connection", "timeout", "connect",
+                "401",
+                "402",
+                "403",
+                "429",
+                "500",
+                "502",
+                "503",
+                "insufficient",
+                "quota",
+                "balance",
+                "payment",
+                "rate limit",
+                "rate_limit",
+                "unauthorized",
+                "authentication",
+                "billing",
+                "exceeded",
+                "connection",
+                "timeout",
+                "connect",
             ]
         )
         if not is_provider_error:
@@ -257,9 +270,7 @@ async def invoke_with_fallback(
         if not fallback_llm:
             raise
 
-        logger.warning(
-            f"[LLM Fallback] Primary failed: {primary_error}. Switching to fallback provider."
-        )
+        logger.warning(f"[LLM Fallback] Primary failed: {primary_error}. Switching to fallback provider.")
         if tool_schemas:
             fallback_llm = fallback_llm.bind_tools(tool_schemas, parallel_tool_calls=True)
         return await fallback_llm.ainvoke(messages)
@@ -355,7 +366,7 @@ def _try_extract_tool_names(concatenated_name: str) -> list[str]:
         for name in known_names:
             if remaining.startswith(name):
                 found.append(name)
-                remaining = remaining[len(name):]
+                remaining = remaining[len(name) :]
                 matched = True
                 break
         if not matched:

@@ -154,18 +154,21 @@ class InAppNotificationAdapter(BaseNotificationAdapter):
                 user_id = notification.target_user_id
                 if ws_manager.is_connected(user_id):
                     record = result.data[0] if result.data else {}
-                    await ws_manager.send_to_user(user_id, {
-                        "type": "notification",
-                        "data": {
-                            "id": str(record.get("id", "")),
-                            "title": notification.title,
-                            "content": notification.content,
-                            "priority": notification.priority,
-                            "category": notification_type,
-                            "action_url": notification.metadata.get("action_url", ""),
-                            "created_at": str(record.get("created_at", "")),
+                    await ws_manager.send_to_user(
+                        user_id,
+                        {
+                            "type": "notification",
+                            "data": {
+                                "id": str(record.get("id", "")),
+                                "title": notification.title,
+                                "content": notification.content,
+                                "priority": notification.priority,
+                                "category": notification_type,
+                                "action_url": notification.metadata.get("action_url", ""),
+                                "created_at": str(record.get("created_at", "")),
+                            },
                         },
-                    })
+                    )
                     logger.debug(f"WebSocket push sent to user {user_id}")
             except Exception as ws_err:
                 logger.warning(f"WebSocket推送通知失败(不影响DB记录): {ws_err}")

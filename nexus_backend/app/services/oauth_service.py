@@ -159,7 +159,14 @@ class OAuthService:
 
             if not supabase:
                 return None
-            res = await supabase.table("oauth_clients").select("*").eq("client_id", client_id).eq("is_active", True).maybe_single().execute()
+            res = (
+                await supabase.table("oauth_clients")
+                .select("*")
+                .eq("client_id", client_id)
+                .eq("is_active", True)
+                .maybe_single()
+                .execute()
+            )
             if res.data:
                 client = OAuthClient(
                     client_id=res.data["client_id"],
@@ -186,7 +193,14 @@ class OAuthService:
             if not supabase:
                 return None
             refresh_hash = hashlib.sha256(refresh_tok.encode()).hexdigest()
-            res = await supabase.table("oauth_tokens").select("*").eq("refresh_token_hash", refresh_hash).is_("revoked_at", "null").maybe_single().execute()
+            res = (
+                await supabase.table("oauth_tokens")
+                .select("*")
+                .eq("refresh_token_hash", refresh_hash)
+                .is_("revoked_at", "null")
+                .maybe_single()
+                .execute()
+            )
             if res.data:
                 data = {
                     "client_id": res.data.get("client_id"),
@@ -370,12 +384,12 @@ class OAuthService:
 
                     now = datetime.utcnow().isoformat()
                     # Try both hash columns
-                    await supabase.table("oauth_tokens").update(
-                        {"revoked_at": now}
-                    ).eq("token_hash", token_hash).execute()
-                    await supabase.table("oauth_tokens").update(
-                        {"revoked_at": now}
-                    ).eq("refresh_token_hash", token_hash).execute()
+                    await supabase.table("oauth_tokens").update({"revoked_at": now}).eq(
+                        "token_hash", token_hash
+                    ).execute()
+                    await supabase.table("oauth_tokens").update({"revoked_at": now}).eq(
+                        "refresh_token_hash", token_hash
+                    ).execute()
             except Exception as e:
                 logger.debug(f"OAuth token DB revocation skipped: {e}")
 

@@ -235,9 +235,7 @@ class WebhookService:
             from app.core.database import supabase
 
             if supabase:
-                await supabase.table("webhook_subscriptions").update(
-                    {"is_active": False}
-                ).eq("id", sub_id).execute()
+                await supabase.table("webhook_subscriptions").update({"is_active": False}).eq("id", sub_id).execute()
         except Exception as e:
             logger.warning(f"Failed to deactivate webhook in DB: {e}")
 
