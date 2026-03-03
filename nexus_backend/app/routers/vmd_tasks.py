@@ -98,16 +98,104 @@ async def create_task(
 
         res = await admin.table("vmd_main_task").insert(record).execute()
         task = res.data[0] if res.data else record
+        task_id = task.get("id", record.get("id", ""))
 
-        # Trigger async WBS decomposition via Celery
+        # -------------------------------------------------------------
+        # Synchronous LLM WBS Decomposition (no celery)
+        # -------------------------------------------------------------
+        import json
+        from app.services.ai_service import AIService
+        from datetime import UTC, datetime
+
+        decompose_prompt = (
+            f"你是一个项目分解专家。请将以下任务分解为可执行的子任务列表。\n\n"
+            f"任务标题: {body.title}\n"
+            f"任务描述: {body.description}\n"
+            f"场景编码: {body.scene_code}\n\n"
+            f"请返回JSON格式的子任务列表，每个子任务包含:\n"
+            f"- title: 子任务标题\n"
+            f"- agent_role: 负责的Agent角色 (如: content_creator, data_analyst, market_researcher, reviewer)\n"
+            f"- description: 子任务描述\n"
+            f"- sort_order: 执行顺序 (从1开始)\n\n"
+            f"只返回JSON数组，不要其他内容。示例:\n"
+            f'[{{"title": "市场调研", "agent_role": "market_researcher", "description": "...", "sort_order": 1}}]'
+        )
+
+        sub_tasks_data = []
         try:
-            from app.tasks.scheduler import decompose_vmd_task
+            llm_response = await AIService.call_llm(
+                decompose_prompt,
+                "你是一个严格按JSON格式输出的项目分解助手。只输出JSON数组，不添加任何其他文字。"
+            )
 
-            decompose_vmd_task.delay(task.get("id", record.get("id", "")))
+            # Parse LLM response - try to extract JSON array
+            response_text = llm_response.strip()
+            # Handle markdown code blocks
+            if response_text.startswith("```"):
+                lines = response_text.split("\n")
+                # Remove first and last lines if they are code block markers
+                response_text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+                response_text = response_text.strip()
+
+            sub_tasks_data = json.loads(response_text)
+            if not isinstance(sub_tasks_data, list):
+                sub_tasks_data = [sub_tasks_data]
+
         except Exception as e:
-            logger.warning(f"Failed to trigger async decomposition: {e}")
+            logger.warning(f"decompose_vmd_task: LLM response parse failed: {e}, creating default sub-task")
+            sub_tasks_data = [
+                {
+                    "title": f"执行: {body.title}",
+                    "agent_role": "content_creator",
+                    "description": body.description,
+                    "sort_order": 1,
+                }
+            ]
 
-        return api_success(data={"task": task}, message="任务创建成功")
+        # Create vmd_sub_task records
+        created_count = 0
+        for st in sub_tasks_data:
+            try:
+                sub_record = {
+                    "main_task_id": task_id,
+                    "tenant_id": org_id,
+                    "title": st.get("title", "未命名子任务"),
+                    "agent_role": st.get("agent_role", "content_creator"),
+                    "description": st.get("description", ""),
+                    "sort_order": st.get("sort_order", created_count + 1),
+                    "status": "pending",
+                }
+                await admin.table("vmd_sub_task").insert(sub_record).execute()
+                created_count += 1
+            except Exception as e:
+                logger.error(f"decompose_vmd_task: failed to create sub-task: {e}")
+
+        # Update main task status and WBS structure
+        wbs_structure = {
+            "version": "1.0",
+            "decomposed_at": datetime.now(UTC).isoformat(),
+            "total_sub_tasks": created_count,
+            "sub_tasks": [
+                {"title": st.get("title", ""), "agent_role": st.get("agent_role", "")}
+                for st in sub_tasks_data[:created_count]
+            ],
+        }
+
+        update_res = await (
+            admin.table("vmd_main_task")
+            .update(
+                {
+                    "status": "executing",
+                    "wbs_structure": wbs_structure,
+                }
+            )
+            .eq("id", task_id)
+            .execute()
+        )
+        if update_res.data:
+            task = update_res.data[0]
+
+        return api_success(data={"task": task}, message="任务创建成功且子任务分解完成")
     except Exception as e:
         logger.error(f"Create task error: user={user_id} err={e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
