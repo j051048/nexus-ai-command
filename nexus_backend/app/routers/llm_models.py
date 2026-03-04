@@ -328,7 +328,6 @@ async def update_model(
         if not update_data:
             raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "无更新内容")
 
-        update_data["updated_by"] = user_id
 
         res = (
             await client.table("llm_model_config")
@@ -360,7 +359,6 @@ async def delete_model(
 
         res = (
             await client.table("llm_model_config")
-            .update({"is_deleted": True, "updated_by": user_id})
             .eq("id", model_id)
             .eq("is_deleted", False)
             .execute()
@@ -472,7 +470,6 @@ async def toggle_model_status(
 
         await (
             client.table("llm_model_config")
-            .update({"status": new_status, "updated_by": user_id})
             .eq("id", model_id)
             .execute()
         )
@@ -593,7 +590,6 @@ async def update_schedule_rule(
         if not update_data:
             raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "无更新内容")
 
-        update_data["updated_by"] = user_id
 
         res = await client.table("llm_schedule_rule").update(update_data).eq("id", rule_id).execute()
         if not res.data:
@@ -874,7 +870,6 @@ async def update_quota_config(
         if not update_data:
             raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "无更新内容")
 
-        update_data["updated_by"] = user_id
 
         res = await client.table("llm_quota_config").update(update_data).eq("id", config_id).execute()
         if not res.data:
