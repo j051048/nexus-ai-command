@@ -802,9 +802,9 @@ export default function LLMModelManagement() {
                             const allActiveModels = models?.filter((m) => m.is_active) || [];
                             return (
                             <tr key={rule.id} className="border-b last:border-b-0 text-xs">
-                              <td className="p-2">{rule.rule_name}</td>
-                              <td className="p-2">{rule.scene_code}</td>
-                              <td className="p-2">{rule.agent_code || '*'}</td>
+                              <td className="p-2 truncate max-w-[150px]">{rule.rule_name}</td>
+                              <td className="p-2 text-muted-foreground">{rule.scene_code}</td>
+                              <td className="p-2 text-muted-foreground">{rule.agent_code || '*'}</td>
                               <td className="p-2">
                                 <Select
                                   value={rule.primary_model || ''}
@@ -818,16 +818,16 @@ export default function LLMModelManagement() {
                                     } catch { /* toast handled */ }
                                   }}
                                 >
-                                  <SelectTrigger className="h-7 text-xs w-[160px] bg-background">
+                                  <SelectTrigger className="h-8 text-xs w-[220px] bg-background overflow-hidden">
                                     <SelectValue placeholder="选择模型..." />
                                   </SelectTrigger>
                                   <SelectContent>
                                     {allActiveModels.map((m) => (
                                       <SelectItem key={m.id} value={String(m.id)}>
-                                        <span className="flex items-center gap-2">
-                                          <span>{m.model_name}</span>
-                                          <span className="text-muted-foreground font-mono text-[10px]">{m.model_code}</span>
-                                        </span>
+                                        <div className="flex items-center gap-2 truncate">
+                                          <span className="truncate max-w-[100px] font-medium">{m.model_name}</span>
+                                          <span className="text-muted-foreground font-mono text-[10px] shrink-0 truncate max-w-[80px]">{m.model_code}</span>
+                                        </div>
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
@@ -846,19 +846,19 @@ export default function LLMModelManagement() {
                                     } catch { /* toast handled */ }
                                   }}
                                 >
-                                  <SelectTrigger className="h-7 text-xs w-[160px] bg-background">
+                                  <SelectTrigger className="h-8 text-xs w-[220px] bg-background overflow-hidden">
                                     <SelectValue placeholder="选择备用..." />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="none">无</SelectItem>
+                                    <SelectItem value="none">无备用模型</SelectItem>
                                     {allActiveModels
                                       .filter((m) => String(m.id) !== rule.primary_model)
                                       .map((m) => (
                                         <SelectItem key={m.id} value={String(m.id)}>
-                                          <span className="flex items-center gap-2">
-                                            <span>{m.model_name}</span>
-                                            <span className="text-muted-foreground font-mono text-[10px]">{m.model_code}</span>
-                                          </span>
+                                          <div className="flex items-center gap-2 truncate">
+                                            <span className="truncate max-w-[100px] font-medium">{m.model_name}</span>
+                                            <span className="text-muted-foreground font-mono text-[10px] shrink-0 truncate max-w-[80px]">{m.model_code}</span>
+                                          </div>
                                         </SelectItem>
                                       ))}
                                   </SelectContent>
