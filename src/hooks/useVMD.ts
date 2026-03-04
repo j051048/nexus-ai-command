@@ -56,7 +56,7 @@ export interface VMDAgent {
   system_prompt: string;
   tool_whitelist: string[];
   scene_codes: string[];
-  model_tier: 'high' | 'standard';
+  model_tier: string;
   is_active: boolean;
   icon: string;
 }
@@ -363,7 +363,7 @@ function mapAgentFromDB(row: AnyData): VMDAgent {
     system_prompt: row.system_prompt ?? '',
     tool_whitelist: row.tool_whitelist ?? [],
     scene_codes: row.scene_codes ?? [],
-    model_tier: row.recommended_model_tier === 'high' ? 'high' : 'standard',
+    model_tier: row.recommended_model_tier ?? 'standard',
     is_active: row.is_active ?? true,
     icon: row.icon ?? '',
   };
@@ -404,8 +404,8 @@ export function useUpdateVMDAgent() {
         `api/vmd/agents/config/${agentCode}`,
         { method: 'PUT', body: JSON.stringify(payload) }
       );
-      const row = res.data?.agent ?? res.data;
-      if (!row || typeof row !== 'object' || !row.id) {
+      const row = (res.data && 'agent' in res.data ? res.data.agent : res.data) as AnyData;
+      if (!row || typeof row !== 'object' || !('id' in row)) {
         throw new Error('服务端返回数据异常，请重试');
       }
       return mapAgentFromDB(row);

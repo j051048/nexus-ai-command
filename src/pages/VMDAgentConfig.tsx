@@ -23,7 +23,7 @@ import {
   Zap,
   Shield,
 } from 'lucide-react';
-import { useVMDAgents, useUpdateVMDAgent, type VMDAgent } from '@/hooks/useVMD';
+import { useVMDAgents, useUpdateVMDAgent, type VMDAgent, useLLMModels } from '@/hooks/useVMD';
 import { SCENES } from '@/components/vmd/SceneSelector';
 
 // Agent 默认配置（用于在 API 返回数据前展示占位）
@@ -65,8 +65,11 @@ const TOOL_NAMES: Record<string, string> = {
 
 export default function VMDAgentConfig() {
   const { data: agents, isLoading, isError } = useVMDAgents();
+  const { data: models } = useLLMModels();
   const updateAgent = useUpdateVMDAgent();
   const [editAgent, setEditAgent] = useState<VMDAgent | null>(null);
+
+  const allActiveModels = models?.filter((m) => m.is_active) || [];
 
   // Use API data or fallback to defaults for display
   // Note: [] is truthy — must check .length to properly fallback
@@ -78,7 +81,7 @@ export default function VMDAgentConfig() {
     system_prompt: '',
     tool_whitelist: [],
     scene_codes: [],
-    model_tier: 'standard' as const,
+    model_tier: 'standard',
     is_active: true,
     icon: a.icon || '\uD83E\uDD16',
   }));
@@ -166,14 +169,19 @@ export default function VMDAgentConfig() {
                     <Badge
                       variant="secondary"
                       className={cn(
-                        "text-[10px] gap-1",
-                        agent.model_tier === 'high'
-                          ? "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"
-                          : ""
+                        "text-[10px] gap-1 max-w-full",
+                        agent.model_tier && agent.model_tier !== 'standard' && agent.model_tier !== 'high' && agent.model_tier !== 'medium' && agent.model_tier !== 'low'
+                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                          : agent.model_tier === 'high' ? "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300" : ""
                       )}
                     >
-                      <Zap className="w-3 h-3" />
-                      {agent.model_tier === 'high' ? '高能力' : '标准'}
+                      <Zap className="w-3 h-3 shrink-0" />
+                      <span className="truncate">
+                        {agent.model_tier === 'high' ? '高能力' : 
+                         (agent.model_tier === 'standard' || agent.model_tier === 'medium') ? '标准' : 
+                         agent.model_tier === 'low' ? '低能力' : 
+                         (models?.find(m => String(m.id) === String(agent.model_tier))?.model_name || '默认')}
+                      </span>
                     </Badge>
                   </div>
                 </div>
@@ -239,23 +247,32 @@ export default function VMDAgentConfig() {
                 />
               </div>
 
-              {/* Model Tier */}
+              {/* Recommended Model */}
               <div className="space-y-2">
-                <Label>模型层级</Label>
+                <Label>建议模型</Label>
                 <Select
-                  value={editAgent?.model_tier || 'standard'}
+                  value={editAgent?.model_tier || ''}
                   onValueChange={(v) =>
-                    editAgent && setEditAgent({ ...editAgent, model_tier: v as 'high' | 'standard' })
+                    editAgent && setEditAgent({ ...editAgent, model_tier: v })
                   }
                 >
-                  <SelectTrigger>
-                    <SelectValue />
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="选择模型..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="high">高能力模型（GPT-4 级别）</SelectItem>
-                    <SelectItem value="standard">标准模型（GPT-3.5 级别）</SelectItem>
+                    <SelectItem value="high">高能力模型匹配（默认）</SelectItem>
+                    <SelectItem value="standard">标准模型匹配（默认）</SelectItem>
+                    {allActiveModels.map((m) => (
+                      <SelectItem key={m.id} value={String(m.id)}>
+                        <span className="flex items-center gap-2">
+                          <span>{m.model_name}</span>
+                          <span className="text-muted-foreground font-mono text-[10px]">{m.model_code}</span>
+                        </span>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">如果选择具体的模型，将优先使用该模型。如果不选择指定模型，系统会自动在对应的能力范围内做路由。</p>
               </div>
 
               {/* Tool Whitelist */}
