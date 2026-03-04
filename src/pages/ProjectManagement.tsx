@@ -4,11 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Bot, Plus, Briefcase, Calendar, ChevronRight, Loader2 } from "lucide-react";
+import { Bot, Plus, Briefcase, Calendar, ChevronRight, Loader2, Trash2 } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/components/auth/AuthContext";
+import { useDeleteProject } from "@/hooks/useProjects";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 
 interface Project {
     id: string;
@@ -29,6 +32,10 @@ export function ProjectManagement() {
     const [loading, setLoading] = useState(true);
     const [aiPrompt, setAiPrompt] = useState("");
     const [isAiCreating, setIsAiCreating] = useState(false);
+    const { role } = useAuth();
+    const canDelete = role === 'boss' || role === 'admin';
+    const deleteProject = useDeleteProject();
+    const { confirm, ConfirmDialogProps } = useConfirmDialog();
 
     // ... (rest of the logic remains same until card click)
 
@@ -146,6 +153,20 @@ export function ProjectManagement() {
         }
     };
 
+    const handleDeleteProject = async (e: React.MouseEvent, project: Project) => {
+        e.stopPropagation();
+        const ok = await confirm({
+            title: '确认删除项目',
+            description: `确定要删除项目「${project.name}」吗？项目将被归档。`,
+            variant: 'destructive',
+            confirmText: '删除',
+        });
+        if (ok) {
+            await deleteProject.mutateAsync(project.id);
+            await fetchProjects();
+        }
+    };
+
     const getStatusBadge = (stage: string) => {
         switch (stage) {
             case 'in_progress': return <Badge variant="default" className="bg-blue-500">进行中</Badge>;
@@ -242,15 +263,29 @@ export function ProjectManagement() {
 
                                 <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
                                     <span>负责人: {user.name}</span>
-                                    <Button variant="ghost" size="sm" className="h-6 px-2 hover:text-primary">
-                                        详情 <ChevronRight className="w-3 h-3 ml-1" />
-                                    </Button>
+                                    <div className="flex items-center gap-1">
+                                        {canDelete && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 px-2 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                                                onClick={(e) => handleDeleteProject(e, project)}
+                                            >
+                                                <Trash2 className="w-3 h-3" />
+                                            </Button>
+                                        )}
+                                        <Button variant="ghost" size="sm" className="h-6 px-2 hover:text-primary">
+                                            详情 <ChevronRight className="w-3 h-3 ml-1" />
+                                        </Button>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
                     ))}
                 </div>
             )}
+
+            <ConfirmDialog {...ConfirmDialogProps} />
         </div>
     );
 }

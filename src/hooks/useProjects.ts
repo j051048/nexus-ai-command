@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthContext';
+import { aiClient } from '@/api/aiClient';
+import { toast } from 'sonner';
 import { Project, ProjectTimeline } from '@/types/nexus';
 export type { ProjectTimeline };
 
@@ -79,4 +82,17 @@ export function useProjectDetail(projectId: string | null) {
     }, [projectId]);
 
     return { project, timeline, loading };
+}
+
+/** Delete a project (soft delete via backend API, boss role required) */
+export function useDeleteProject() {
+  return useMutation({
+    mutationFn: async (projectId: string) => {
+      await aiClient.fetch(`api/projects/${projectId}`, { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      toast.success('项目已删除');
+    },
+    onError: (err: Error) => toast.error(err.message || '删除项目失败'),
+  });
 }

@@ -223,6 +223,22 @@ export function useCreateVMDTask() {
   });
 }
 
+export function useDeleteVMDTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (taskId: string) => {
+      await aiClient.fetch(`api/vmd/tasks/${taskId}`, { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vmd-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['vmd-task'] });
+      queryClient.invalidateQueries({ queryKey: ['vmd-stats'] });
+      toast.success('任务已删除');
+    },
+    onError: (err: Error) => toast.error(err.message || '删除任务失败'),
+  });
+}
+
 export function useAuditSubTask() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -752,6 +768,20 @@ export function useUpdateVMDClue() {
   });
 }
 
+export function useDeleteVMDClue() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (clueId: string) => {
+      await aiClient.fetch(`api/vmd/clues/${clueId}`, { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vmd-clues'] });
+      toast.success('线索已删除');
+    },
+    onError: (err: Error) => toast.error(err.message || '删除线索失败'),
+  });
+}
+
 export function useBidProjects() {
   return useQuery({
     queryKey: ['vmd-bid-projects'],
@@ -955,6 +985,20 @@ export function useCreateComplianceRule() {
       toast.success('规则创建成功');
     },
     onError: (err: Error) => toast.error(err.message || '创建规则失败'),
+  });
+}
+
+export function useDeleteComplianceRule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (ruleId: string) => {
+      await aiClient.fetch(`api/vmd/compliance/rules/${ruleId}`, { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vmd-compliance-rules'] });
+      toast.success('合规规则已删除');
+    },
+    onError: (err: Error) => toast.error(err.message || '删除合规规则失败'),
   });
 }
 

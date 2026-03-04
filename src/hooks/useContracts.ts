@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthContext';
+import { aiClient } from '@/api/aiClient';
+import { toast } from 'sonner';
 
 export interface ContractEvent {
   id: string;
@@ -220,5 +222,21 @@ export function useUpdateContract() {
       queryClient.invalidateQueries({ queryKey: ['contracts'] });
       queryClient.invalidateQueries({ queryKey: ['contract-detail'] });
     },
+  });
+}
+
+/** Delete a contract (soft delete via backend API, boss role required) */
+export function useDeleteContract() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (contractId: string) => {
+      await aiClient.fetch(`api/contracts/${contractId}`, { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contracts'] });
+      queryClient.invalidateQueries({ queryKey: ['contract-detail'] });
+      toast.success('合同已删除');
+    },
+    onError: (err: Error) => toast.error(err.message || '删除合同失败'),
   });
 }

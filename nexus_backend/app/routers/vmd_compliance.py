@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id
+from app.core.dependencies import require_role
 from app.core.errors import ErrorCode, api_error, api_list, api_success
 from app.services.compliance_service import compliance_service
 
@@ -202,7 +203,7 @@ async def update_rule(
 async def delete_rule(
     rule_id: str,
     req: Request,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_role(["admin", "founder", "boss"])),
 ):
     """删除合规规则"""
     try:

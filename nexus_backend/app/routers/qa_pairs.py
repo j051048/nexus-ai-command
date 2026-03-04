@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 
 from app.core.auth import get_current_user_id
+from app.core.dependencies import require_role
 from app.core.errors import ErrorCode, api_error, api_success
 from app.models.schemas import StandardResponse
 
@@ -113,7 +114,7 @@ async def update_qa_pair(
 
 
 @router.delete("/{qa_id}", response_model=StandardResponse)
-async def delete_qa_pair(qa_id: str, req: Request, user_id: str = Depends(get_current_user_id)):
+async def delete_qa_pair(qa_id: str, req: Request, user_id: str = Depends(require_role(["admin", "founder", "boss"]))):
     """Delete a QA pair"""
     try:
         client = req.state.db

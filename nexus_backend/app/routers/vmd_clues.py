@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id
+from app.core.dependencies import require_role
 from app.core.errors import ErrorCode, api_error, api_list, api_success
 from app.services.clue_service import clue_service
 
@@ -252,7 +253,7 @@ async def update_clue(
 async def delete_clue(
     clue_id: str,
     req: Request,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_role(["admin", "founder", "boss"])),
 ):
     """删除线索（软删除 - 标记为无效状态）"""
     try:

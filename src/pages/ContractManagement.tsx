@@ -32,9 +32,13 @@ import {
   FileCheck,
   Ban,
   RotateCw,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useContracts, useContractDetail, useCreateContract, type Contract, type ContractEvent } from '@/hooks/useContracts';
+import { useContracts, useContractDetail, useCreateContract, useDeleteContract, type Contract, type ContractEvent } from '@/hooks/useContracts';
+import { useAuth } from '@/components/auth/AuthContext';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 
 // 合同类型
 const CONTRACT_TYPES: Record<string, string> = {
@@ -105,6 +109,10 @@ export function ContractManagement() {
   // Real data from Supabase
   const { data: allContracts = [], isLoading, error } = useContracts();
   const createMutation = useCreateContract();
+  const deleteContract = useDeleteContract();
+  const { role } = useAuth();
+  const canDelete = role === 'boss' || role === 'admin';
+  const { confirm, ConfirmDialogProps } = useConfirmDialog();
 
   // Events for selected contract
   const { data: selectedEvents = [] } = useContractDetail(selectedContractId);
@@ -185,6 +193,20 @@ export function ContractManagement() {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '创建失败';
       toast.error(`合同创建失败: ${message}`);
+    }
+  };
+
+  const handleDeleteContract = async (contract: Contract) => {
+    const ok = await confirm({
+      title: '确认删除合同',
+      description: `确定要删除合同「${contract.title}」吗？合同将被标记为已取消。`,
+      variant: 'destructive',
+      confirmText: '删除',
+    });
+    if (ok) {
+      await deleteContract.mutateAsync(contract.id);
+      setDetailOpen(false);
+      setSelectedContractId(null);
     }
   };
 
@@ -498,6 +520,24 @@ export function ContractManagement() {
                     <h4 className="text-sm font-semibold">合同时间线</h4>
                     {renderTimeline(selectedEvents)}
                   </div>
+
+                  {/* 删除操作 */}
+                  {canDelete && (
+                    <>
+                      <Separator />
+                      <div className="flex justify-end">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                          onClick={() => handleDeleteContract(selectedContract)}
+                          disabled={deleteContract.isPending}
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" /> 删除合同
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </ScrollArea>
             </>
@@ -606,6 +646,8 @@ export function ContractManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog {...ConfirmDialogProps} />
     </div>
   );
 }

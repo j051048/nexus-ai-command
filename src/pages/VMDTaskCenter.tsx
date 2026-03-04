@@ -31,11 +31,13 @@ import {
   FileDown,
   ChevronRight,
   Play,
+  Trash2,
 } from 'lucide-react';
 import {
   useVMDTasks,
   useVMDTaskDetail,
   useCreateVMDTask,
+  useDeleteVMDTask,
   useUpdateSubTask,
   useCreateSubTask,
   useDeleteSubTask,
@@ -46,6 +48,9 @@ import {
 import { SCENES } from '@/components/vmd/SceneSelector';
 import { VMDSubTaskChat } from '@/components/vmd/VMDSubTaskChat';
 import { VMDSubTaskCard } from '@/components/vmd/VMDSubTaskCard';
+import { useAuth } from '@/components/auth/AuthContext';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { toast } from 'sonner';
 
 // 状态配置
@@ -95,9 +100,13 @@ export default function VMDTaskCenter() {
   });
   const { data: taskDetail, isLoading: detailLoading } = useVMDTaskDetail(detailId);
   const createTask = useCreateVMDTask();
+  const deleteTask = useDeleteVMDTask();
   const updateSubTask = useUpdateSubTask();
   const createSubTask = useCreateSubTask();
   const deleteSubTask = useDeleteSubTask();
+  const { role } = useAuth();
+  const canDelete = role === 'boss' || role === 'admin';
+  const { confirm, ConfirmDialogProps } = useConfirmDialog();
 
   // Filtered tasks
   const filteredTasks = useMemo(() => {
@@ -142,6 +151,20 @@ export default function VMDTaskCenter() {
     if (!newSubTaskTitle.trim() || !detailId) return;
     createSubTask.mutate({ taskId: detailId, title: newSubTaskTitle.trim() });
     setNewSubTaskTitle('');
+  };
+
+  const handleDeleteTask = async () => {
+    if (!taskDetail) return;
+    const ok = await confirm({
+      title: '确认删除任务',
+      description: `确定要删除任务「${taskDetail.title}」吗？所有未完成的子任务也将被取消。`,
+      variant: 'destructive',
+      confirmText: '删除',
+    });
+    if (ok) {
+      await deleteTask.mutateAsync(taskDetail.id);
+      setDetailId(null);
+    }
   };
 
   return (
@@ -448,6 +471,17 @@ export default function VMDTaskCenter() {
                   <Button variant="outline" size="sm">
                     <FileDown className="w-4 h-4 mr-1" /> 导出结果
                   </Button>
+                  {canDelete && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                      onClick={handleDeleteTask}
+                      disabled={deleteTask.isPending}
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" /> 删除任务
+                    </Button>
+                  )}
                 </div>
               </div>
             ) : (
@@ -464,6 +498,7 @@ export default function VMDTaskCenter() {
         onOpenChange={(op) => { if (!op) setChatSubTask(null) }} 
         sceneCode={taskDetail?.scene_code || ''}
       />
+      <ConfirmDialog {...ConfirmDialogProps} />
     </div>
   );
 }

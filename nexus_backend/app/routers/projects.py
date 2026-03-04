@@ -1,6 +1,7 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 
 from app.core.database import supabase
+from app.core.dependencies import require_role
 from app.core.errors import ErrorCode, api_error, api_success
 from app.models.schemas import ProjectCreate, ProjectUpdate, StandardResponse
 
@@ -71,5 +72,25 @@ async def update_project(project_id: str, updates: ProjectUpdate):
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, f"Project {project_id} not found or update failed")
 
         return api_success(data=res.data[0], message="Project updated")
+    except Exception as e:
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+@router.delete("/{project_id}", response_model=StandardResponse)
+async def delete_project(
+    project_id: str,
+    user_id: str = Depends(require_role(["admin", "founder", "boss"])),
+):
+    """删除项目（软删除 - 标记为 archived 状态）"""
+    try:
+        existing = await supabase.table("projects").select("id").eq("id", project_id).maybe_single().execute()
+        if not existing.data:
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "项目不存在")
+
+        res = await supabase.table("projects").update({"stage": "archived"}).eq("id", project_id).execute()
+        if not res.data:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "删除项目失败")
+
+        return api_success(message="项目已删除")
     except Exception as e:
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

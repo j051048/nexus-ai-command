@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.auth import get_current_user_id
+from app.core.dependencies import require_role
 from app.core.errors import ErrorCode, api_error, api_list, api_success
 from app.models.response_models import VMDSubTaskResponse
 from app.services.ai_service import AIService
@@ -1008,4 +1009,60 @@ async def update_agent_config(
         raise
     except Exception as e:
         logger.error(f"Update agent config error: code={agent_code} user={user_id} err={e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+# ---------------------------------------------------------------------------
+# Delete Main Task (boss/founder/admin only)
+# ---------------------------------------------------------------------------
+
+
+@router.delete("/tasks/{task_id}")
+async def delete_task(
+    task_id: str,
+    req: Request,
+    user_id: str = Depends(require_role(["admin", "founder", "boss"])),
+):
+    """删除主任务（软删除 - 标记为 cancelled 状态，级联取消所有子任务）"""
+    try:
+        org_id = getattr(req.state, "org_id", None) or "default"
+        admin = _get_admin_client()
+
+        # Verify task exists and is not already cancelled/completed
+        existing = (
+            await admin.table("vmd_main_task")
+            .select("id, status")
+            .eq("id", task_id)
+            .eq("tenant_id", org_id)
+            .maybe_single()
+            .execute()
+        )
+        if not existing.data:
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "任务不存在")
+
+        now_iso = datetime.now(UTC).isoformat()
+
+        # Soft delete main task: set status to cancelled
+        await (
+            admin.table("vmd_main_task")
+            .update({"status": "cancelled", "updated_at": now_iso, "updated_by": user_id})
+            .eq("id", task_id)
+            .eq("tenant_id", org_id)
+            .execute()
+        )
+
+        # Cascade: cancel all non-done sub-tasks
+        await (
+            admin.table("vmd_sub_task")
+            .update({"status": "cancelled", "updated_at": now_iso})
+            .eq("main_task_id", task_id)
+            .neq("status", "done")
+            .execute()
+        )
+
+        return api_success(message="任务已删除")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Delete task error: id={task_id} user={user_id} err={e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

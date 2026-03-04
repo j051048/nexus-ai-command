@@ -5,6 +5,7 @@ import logging
 from fastapi import APIRouter, Depends, Request
 
 from app.core.auth import get_current_user_id
+from app.core.dependencies import require_role
 from app.core.errors import ErrorCode, api_error, api_success
 from app.models.schemas import ContractCreate, ContractEventCreate, ContractUpdate
 from app.services.contract_service import contract_service
@@ -163,4 +164,39 @@ async def add_contract_event(
         return api_success(data={"event": event}, message="事件已添加")
     except Exception as e:
         logger.error(f"Failed to add contract event: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+@router.delete("/{contract_id}")
+async def delete_contract(
+    contract_id: str,
+    req: Request,
+    user_id: str = Depends(require_role(["admin", "founder", "boss"])),
+):
+    """删除合同（软删除 - 标记为 cancelled 状态）"""
+    try:
+        db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+
+        # Verify contract exists
+        existing = await db.table("contracts").select("id,status").eq("id", contract_id).maybe_single().execute()
+        if not existing.data:
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "合同不存在")
+
+        # Soft delete: update status to cancelled
+        await db.table("contracts").update({"status": "cancelled"}).eq("id", contract_id).execute()
+
+        # Record deletion event
+        await contract_service.add_contract_event(
+            contract_id=contract_id,
+            event_type="deleted",
+            description="合同已被管理员删除（标记为已取消）",
+            user_id=user_id,
+            db=db,
+        )
+
+        return api_success(message="合同已删除")
+    except Exception as e:
+        logger.error(f"Failed to delete contract: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

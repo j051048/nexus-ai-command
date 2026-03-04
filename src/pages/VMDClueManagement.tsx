@@ -28,14 +28,19 @@ import {
   UserCheck,
   Building2,
   Clock,
+  Trash2,
 } from 'lucide-react';
 import {
   useVMDClues,
   useCreateVMDClue,
   useAddFollowUp,
   useConvertClue,
+  useDeleteVMDClue,
   type VMDClue,
 } from '@/hooks/useVMD';
+import { useAuth } from '@/components/auth/AuthContext';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { toast } from 'sonner';
 
 // ---------- 配置 ----------
@@ -109,6 +114,10 @@ export default function VMDClueManagement() {
   const createClue = useCreateVMDClue();
   const addFollowUp = useAddFollowUp();
   const convertClue = useConvertClue();
+  const deleteClue = useDeleteVMDClue();
+  const { role } = useAuth();
+  const canDelete = role === 'boss' || role === 'admin';
+  const { confirm, ConfirmDialogProps } = useConfirmDialog();
 
   // Local search filter
   const filteredClues = useMemo(() => {
@@ -160,9 +169,22 @@ export default function VMDClueManagement() {
   };
 
   const handleConvert = async (clue: VMDClue) => {
-    if (!confirm(`确定要将线索"${clue.company_name}"转化为正式客户吗？`)) return;
+    if (!window.confirm(`确定要将线索"${clue.company_name}"转化为正式客户吗？`)) return;
     await convertClue.mutateAsync(clue.id);
     setDetailClue(null);
+  };
+
+  const handleDeleteClue = async (clue: VMDClue) => {
+    const ok = await confirm({
+      title: '确认删除线索',
+      description: `确定要删除线索「${clue.company_name}」吗？此操作不可撤销。`,
+      variant: 'destructive',
+      confirmText: '删除',
+    });
+    if (ok) {
+      await deleteClue.mutateAsync(clue.id);
+      setDetailClue(null);
+    }
   };
 
   return (
@@ -550,6 +572,17 @@ export default function VMDClueManagement() {
                       转化为客户
                     </Button>
                   )}
+                  {canDelete && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                      onClick={() => handleDeleteClue(detailClue)}
+                      disabled={deleteClue.isPending}
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" /> 删除线索
+                    </Button>
+                  )}
                 </div>
               </div>
             )}
@@ -581,6 +614,8 @@ export default function VMDClueManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog {...ConfirmDialogProps} />
     </div>
   );
 }
