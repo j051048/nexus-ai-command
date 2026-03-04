@@ -269,7 +269,11 @@ async def update_user_manager(
             raise api_error(ErrorCode.AUTH_FORBIDDEN, "Manager must be in the same organization")
 
     # Update the manager_id
-    update_res = await client.table("users").update({"manager_id": body.manager_id}).eq("id", target_user_id).execute()
+    from app.core.database import supabase
+
+    update_res = (
+        await supabase.table("users").update({"manager_id": body.manager_id}).eq("id", target_user_id).execute()
+    )
 
     if not update_res.data:
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Failed to update manager")
