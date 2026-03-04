@@ -532,6 +532,11 @@ class ApprovalChainService:
         current_status = request_data.get("status", "pending")
         history = request_data.get("approval_history", []) or []
 
+        # Self-approval guard: the submitter cannot approve/reject their own request
+        submitted_by = request_data.get("submitted_by", "")
+        if approver_id == submitted_by:
+            raise RuntimeError("不能审批自己提交的申请")
+
         # Optimistic lock: reject if already processed
         if current_status != "pending":
             raise RuntimeError(f"Approval {request_id} already {current_status}, cannot advance")

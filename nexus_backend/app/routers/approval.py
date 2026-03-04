@@ -138,7 +138,7 @@ async def list_approvals(
                 ar_query = ar_query.eq("type", type_filter)
 
             if tab == "pending":
-                ar_query = ar_query.eq("status", "pending")
+                ar_query = ar_query.eq("status", "pending").neq("submitted_by", user_id)
             elif tab == "mine":
                 ar_query = ar_query.eq("submitted_by", user_id)
             elif tab == "handled":
@@ -176,7 +176,7 @@ async def list_approvals(
             )
 
             if tab == "pending":
-                lr_query = lr_query.eq("status", "pending")
+                lr_query = lr_query.eq("status", "pending").neq("user_id", user_id)
             elif tab == "mine":
                 lr_query = lr_query.eq("user_id", user_id)
             elif tab == "handled":
@@ -237,17 +237,22 @@ async def get_tab_counts(
         raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库连接不可用")
 
     try:
-        # pending: approval_requests
+        # pending: approval_requests (exclude self-submitted)
         ar_pending = (
             await client.table("approval_requests")
             .select("id", count="exact")
             .eq("organization_id", org_id)
             .eq("status", "pending")
+            .neq("submitted_by", user_id)
             .execute()
         )
-        # pending: oa_leave_requests (无 organization_id 列，用 user 所属 org 隐式隔离)
+        # pending: oa_leave_requests (exclude self-submitted)
         lr_pending = (
-            await client.table("oa_leave_requests").select("id", count="exact").eq("status", "pending").execute()
+            await client.table("oa_leave_requests")
+            .select("id", count="exact")
+            .eq("status", "pending")
+            .neq("user_id", user_id)
+            .execute()
         )
         pending_count = (ar_pending.count or 0) + (lr_pending.count or 0)
 

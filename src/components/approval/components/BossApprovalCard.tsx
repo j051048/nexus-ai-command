@@ -35,6 +35,7 @@ interface BossApprovalCardProps {
     onReject: () => void;
     isApproving: boolean;
     typeIcon?: React.ReactNode;
+    currentUserId?: string;
 }
 
 // ─── 表单数据只读展示组件 ────────────────────────────────────
@@ -193,9 +194,11 @@ export function BossApprovalCard({
     onReject,
     isApproving,
     typeIcon,
+    currentUserId,
 }: BossApprovalCardProps) {
     const status = statusConfig[approval.status as keyof typeof statusConfig] || statusConfig.pending;
     const isPending = approval.status === 'pending';
+    const isSelfSubmitted = currentUserId && approval.submitted_by === currentUserId;
 
     return (
         <div className={cn(
@@ -251,7 +254,7 @@ export function BossApprovalCard({
                     </div>
                 </div>
 
-                {isPending && (
+                {isPending && !isSelfSubmitted && (
                     <div className="flex gap-2 flex-shrink-0">
                         <Button
                             variant="outline"

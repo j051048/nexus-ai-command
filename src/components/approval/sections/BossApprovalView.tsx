@@ -33,6 +33,7 @@ import { BossApprovalCard } from '../components/BossApprovalCard';
 import { approvalTypes } from '../constants';
 import { useFormSchema } from '@/hooks/useFormSchemas';
 import { DynamicFormRenderer } from '@/components/forms/DynamicFormRenderer';
+import { useAuth } from '@/components/auth/AuthContext';
 
 // ─── 小型内联审批进度指示器 ──────────────────────────────────
 // 在审批列表项中显示简化的审批链进度
@@ -72,6 +73,7 @@ function MiniApprovalProgress({ requestId }: { requestId: string }) {
 }
 
 export function BossApprovalView() {
+    const { user } = useAuth();
     const [statusFilter, setStatusFilter] = useState('pending');
     const [rejectingId, setRejectingId] = useState<string | null>(null);
     const [rejectReason, setRejectReason] = useState('');
@@ -387,7 +389,7 @@ export function BossApprovalView() {
                                             <MiniApprovalProgress requestId={approval.id} />
 
                                             {/* A6: 移动端批准/驳回按钮 */}
-                                            {approval.status === 'pending' && (
+                                            {approval.status === 'pending' && approval.submitted_by !== user?.id && (
                                                 <div className="flex gap-2 pt-2">
                                                     <Button
                                                         variant="outline"
@@ -433,6 +435,7 @@ export function BossApprovalView() {
                                                     onReject={() => setRejectingId(approval.id)}
                                                     isApproving={approveRequest.isPending}
                                                     typeIcon={approvalTypes.find(t => t.id === approval.type)?.icon}
+                                                    currentUserId={user?.id}
                                                 />
                                             </div>
                                         </div>
