@@ -328,7 +328,6 @@ async def update_model(
         if not update_data:
             raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "无更新内容")
 
-
         res = (
             await client.table("llm_model_config")
             .update(update_data)
@@ -357,12 +356,7 @@ async def delete_model(
     try:
         client = _get_admin_client()
 
-        res = (
-            await client.table("llm_model_config")
-            .eq("id", model_id)
-            .eq("is_deleted", False)
-            .execute()
-        )
+        res = await client.table("llm_model_config").eq("id", model_id).eq("is_deleted", False).execute()
         if not res.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "模型不存在")
 
@@ -468,11 +462,7 @@ async def toggle_model_status(
         current_status = res.data.get("status", "enabled")
         new_status = "disabled" if current_status == "enabled" else "enabled"
 
-        await (
-            client.table("llm_model_config")
-            .eq("id", model_id)
-            .execute()
-        )
+        await client.table("llm_model_config").eq("id", model_id).execute()
 
         return api_success(
             data={"model_id": model_id, "status": new_status},
@@ -589,7 +579,6 @@ async def update_schedule_rule(
         update_data = body.model_dump(exclude_none=True)
         if not update_data:
             raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "无更新内容")
-
 
         res = await client.table("llm_schedule_rule").update(update_data).eq("id", rule_id).execute()
         if not res.data:
@@ -869,7 +858,6 @@ async def update_quota_config(
         update_data = body.model_dump(exclude_none=True)
         if not update_data:
             raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "无更新内容")
-
 
         res = await client.table("llm_quota_config").update(update_data).eq("id", config_id).execute()
         if not res.data:
