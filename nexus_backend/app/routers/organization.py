@@ -268,11 +268,9 @@ async def update_user_manager(
         if manager_res.data.get("organization_id") != caller_org:
             raise api_error(ErrorCode.AUTH_FORBIDDEN, "Manager must be in the same organization")
 
-    # Update the manager_id
-    from app.core.database import supabase
-
+    # Update the manager_id (RLS policy "users_manager_update" allows boss/admin)
     update_res = (
-        await supabase.table("users").update({"manager_id": body.manager_id}).eq("id", target_user_id).execute()
+        await client.table("users").update({"manager_id": body.manager_id}).eq("id", target_user_id).execute()
     )
 
     if not update_res.data:

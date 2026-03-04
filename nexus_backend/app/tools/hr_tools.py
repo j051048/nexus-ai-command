@@ -314,16 +314,16 @@ class PerformanceReviewTool(BaseTool):
             new_score = int(rating * 20)
 
             # Update user score in DB
+            # RLS policy "users_manager_update" allows manager+ in same org
             try:
-                from app.core.database import supabase
-
-                await supabase.table("users").update({"score": new_score}).eq("id", emp_id).execute()
+                await client.table("users").update({"score": new_score}).eq("id", emp_id).execute()
             except Exception as e:
                 return f"❌ 绩效评分更新失败: {str(e)}"
 
             # Try to record in performance_reviews table
+            # RLS policy "perf_review_insert" allows manager+ with reviewer_id = self
             with contextlib.suppress(Exception):
-                await supabase.table("performance_reviews").insert(
+                await client.table("performance_reviews").insert(
                     {
                         "user_id": emp_id,
                         "reviewer_id": user_id,

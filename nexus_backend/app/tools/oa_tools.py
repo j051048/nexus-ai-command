@@ -610,12 +610,10 @@ class WorkHandoverTool(BaseTool):
         if not items and task_list:
             items = [t["title"] for t in task_list[:5]]
 
-        # 转移任务
+        # 转移任务 (RLS policy "oa_tasks_org_isolation" allows org members)
         transferred = 0
-        from app.core.database import supabase
-
         for task in task_list:
-            await supabase.table("oa_tasks").update({"assignee_id": handover_to["id"]}).eq("id", task["id"]).execute()
+            await client.table("oa_tasks").update({"assignee_id": handover_to["id"]}).eq("id", task["id"]).execute()
             transferred += 1
 
         # 通知交接人
