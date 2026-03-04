@@ -197,5 +197,8 @@ class AgentState(TypedDict, total=False):
     delegation_results: list  # Results from sub-agents
     wbs_structure: dict | None  # WBS task decomposition structure
 
+    # ── Confirmation gate ──
+    confirmation_pending: bool  # True when tools are blocked waiting for user confirmation
+
     # ── Loop detection (P2) ──
     _tool_call_history: Annotated[list[str], operator.add]  # Fingerprint hashes per execute round

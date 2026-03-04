@@ -322,7 +322,20 @@ async def execute_node(state: AgentState, config: RunnableConfig | None = None) 
     except Exception as e:
         logger.debug(f"[ExecuteNode] POST_TOOL hook error: {e}")
 
-    return {
+    # Check for confirmation-blocked tools — stop iteration to let frontend handle
+    has_confirmation_blocked = any(r.status == "blocked" for r in completed)
+
+    # Build a meaningful final_response for confirmation-blocked tools
+    # so respond_node doesn't return "系统处理出现异常"
+    confirmation_response = ""
+    if has_confirmation_blocked:
+        blocked_tools = [r for r in completed if r.status == "blocked"]
+        parts = []
+        for r in blocked_tools:
+            parts.append(f"**{r.tool_name}**: {r.result}")
+        confirmation_response = "以下操作需要您的确认后才能执行：\n\n" + "\n\n".join(parts)
+
+    result = {
         "messages": tool_messages,
         "current_phase": AgentPhase.PLANNING,
         "pending_tool_calls": [],
@@ -331,4 +344,11 @@ async def execute_node(state: AgentState, config: RunnableConfig | None = None) 
         "thinking_steps": [thinking_step] + result_steps,
         # P2: Record tool call fingerprint for loop detection
         "_tool_call_history": [_tool_call_fingerprint(completed)],
+        # Stop graph when confirmation is needed
+        "confirmation_pending": has_confirmation_blocked,
     }
+
+    if confirmation_response:
+        result["final_response"] = confirmation_response
+
+    return result

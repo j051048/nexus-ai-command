@@ -37,7 +37,7 @@ class SmartApprovalTool(BaseTool):
 这是不可逆操作，需要人工确认。"""
     required_role = "boss"
     is_irreversible = True
-    confirmation_message = "⚠️ 审批操作不可逆。请确认后设置 confirm=true 再执行。"
+    confirmation_message = "⚠️ 审批操作不可逆。请在弹出的确认框中确认后执行。"
 
     parameters = {
         "type": "object",
@@ -895,7 +895,7 @@ class AnnouncementTool(BaseTool):
     description = "发布公司公告或通知。领导说'发个通知'、'通知全员'时调用。需要确认后执行。"
     required_role = "boss"
     is_irreversible = True
-    confirmation_message = "⚠️ 公告将发送给所有目标用户，发布后不可撤回。请确认后设置 confirm=true 再执行。"
+    confirmation_message = "⚠️ 公告将发送给所有目标用户，发布后不可撤回。请在弹出的确认框中确认后执行。"
 
     parameters = {
         "type": "object",

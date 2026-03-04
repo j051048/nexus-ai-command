@@ -141,12 +141,19 @@ def _after_execute(state: AgentState) -> str:
     """
     After execution:
       - If error occurred → error
+      - If confirmation pending (tool blocked by HITL gate) → respond (stop graph)
       - If loop detected (same tools called repeatedly) → reflect to finalize
       - Always go back to plan so the LLM can synthesize tool results.
       - Guard: if iteration limit reached → reflect to finalize.
     """
     if state.get("error"):
         return "error"
+
+    # HITL: When tools are blocked for confirmation, stop the graph immediately
+    # so the stream layer can emit SSE confirmation events to the frontend.
+    if state.get("confirmation_pending"):
+        logger.info("[Graph] Confirmation pending, routing to respond (HITL gate)")
+        return "respond"
 
     config = state.get("config")
     max_iter = config.max_iterations if config else 5
@@ -335,13 +342,14 @@ def build_agent_graph() -> StateGraph:
         },
     )
 
-    # execute → plan | reflect | error (conditional)
+    # execute → plan | reflect | respond | error (conditional)
     graph.add_conditional_edges(
         "execute",
         _after_execute,
         {
             "plan": "plan",
             "reflect": "reflect",
+            "respond": "respond",
             "error": "error",
         },
     )

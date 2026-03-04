@@ -473,7 +473,7 @@ class ApprovalTool(BaseTool):
 这是一个不可逆操作，需要人工确认。"""
     required_role = "manager"
     is_irreversible = True
-    confirmation_message = "审批操作不可逆。请确认后设置 confirm=true 再执行。"
+    confirmation_message = "审批操作不可逆。请在弹出的确认框中确认后执行。"
 
     parameters = {
         "type": "object",
@@ -719,7 +719,7 @@ class RejectTool(BaseTool):
 这是一个不可逆操作，需要人工确认。"""
     required_role = "manager"
     is_irreversible = True
-    confirmation_message = "驳回操作不可逆。请确认后设置 confirm=true 再执行。"
+    confirmation_message = "驳回操作不可逆。请在弹出的确认框中确认后执行。"
 
     parameters = {
         "type": "object",
