@@ -533,7 +533,6 @@ async def create_schedule_rule(
             "load_balance_strategy": body.load_balance_strategy,
             "priority": body.priority,
             "complexity_tier": body.complexity_tier,
-            "created_by": user_id,
         }
 
         res = await client.table("llm_schedule_rule").insert(record).execute()
@@ -850,7 +849,6 @@ async def create_quota_config(
             "daily_cost_limit": body.daily_cost_limit,
             "monthly_token_limit": body.monthly_token_limit,
             "monthly_cost_limit": body.monthly_cost_limit,
-            "created_by": user_id,
         }
 
         res = await client.table("llm_quota_config").insert(record).execute()
