@@ -121,9 +121,7 @@ async def _recalculate_main_task_progress(admin, main_task_id: str) -> dict:
     statuses = [s.get("status", "todo") for s in sub_tasks]
     if all(st == "done" for st in statuses):
         main_status = "completed"
-    elif any(st == "in_progress" for st in statuses):
-        main_status = "executing"
-    elif any(st == "done" for st in statuses):
+    elif any(st == "in_progress" for st in statuses) or any(st == "done" for st in statuses):
         main_status = "executing"
     else:
         main_status = "pending"
