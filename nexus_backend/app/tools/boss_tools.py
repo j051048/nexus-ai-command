@@ -393,8 +393,10 @@ class SmartApprovalTool(BaseTool):
             delegate_user = delegate_res.data[0]
 
             # 更新审批人 (委托不是不可逆操作，可以重新委托)
+            from app.core.database import supabase
+
             for req in selected_requests:
-                await client.table("approval_requests").update({"current_approver": delegate_user["id"]}).eq(
+                await supabase.table("approval_requests").update({"current_approver": delegate_user["id"]}).eq(
                     "id", req["id"]
                 ).eq("status", "pending").execute()
 

@@ -612,8 +612,10 @@ class WorkHandoverTool(BaseTool):
 
         # 转移任务
         transferred = 0
+        from app.core.database import supabase
+
         for task in task_list:
-            await client.table("oa_tasks").update({"assignee_id": handover_to["id"]}).eq("id", task["id"]).execute()
+            await supabase.table("oa_tasks").update({"assignee_id": handover_to["id"]}).eq("id", task["id"]).execute()
             transferred += 1
 
         # 通知交接人

@@ -315,13 +315,15 @@ class PerformanceReviewTool(BaseTool):
 
             # Update user score in DB
             try:
-                await client.table("users").update({"score": new_score}).eq("id", emp_id).execute()
+                from app.core.database import supabase
+
+                await supabase.table("users").update({"score": new_score}).eq("id", emp_id).execute()
             except Exception as e:
                 return f"❌ 绩效评分更新失败: {str(e)}"
 
             # Try to record in performance_reviews table
             with contextlib.suppress(Exception):
-                await client.table("performance_reviews").insert(
+                await supabase.table("performance_reviews").insert(
                     {
                         "user_id": emp_id,
                         "reviewer_id": user_id,
