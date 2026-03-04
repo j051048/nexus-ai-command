@@ -798,15 +798,75 @@ export default function LLMModelManagement() {
                       <tbody>
                         {rules
                           .filter((r) => !r.complexity_tier || !TIERS.some(t => t.value === r.complexity_tier))
-                          .map((rule) => (
+                          .map((rule) => {
+                            const allActiveModels = models?.filter((m) => m.is_active) || [];
+                            return (
                             <tr key={rule.id} className="border-b last:border-b-0 text-xs">
                               <td className="p-2">{rule.rule_name}</td>
                               <td className="p-2">{rule.scene_code}</td>
                               <td className="p-2">{rule.agent_code || '*'}</td>
-                              <td className="p-2 font-mono">{rule.primary_model}</td>
-                              <td className="p-2 font-mono">{rule.backup_model || '-'}</td>
+                              <td className="p-2">
+                                <Select
+                                  value={rule.primary_model || ''}
+                                  onValueChange={async (v) => {
+                                    try {
+                                      await updateRule.mutateAsync({
+                                        id: rule.id,
+                                        primary_model_id: v,
+                                        backup_model_id: rule.backup_model || undefined,
+                                      });
+                                    } catch { /* toast handled */ }
+                                  }}
+                                >
+                                  <SelectTrigger className="h-7 text-xs w-[160px] bg-background">
+                                    <SelectValue placeholder="选择模型..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {allActiveModels.map((m) => (
+                                      <SelectItem key={m.id} value={String(m.id)}>
+                                        <span className="flex items-center gap-2">
+                                          <span>{m.model_name}</span>
+                                          <span className="text-muted-foreground font-mono text-[10px]">{m.model_code}</span>
+                                        </span>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                              <td className="p-2">
+                                <Select
+                                  value={rule.backup_model || 'none'}
+                                  onValueChange={async (v) => {
+                                    try {
+                                      await updateRule.mutateAsync({
+                                        id: rule.id,
+                                        primary_model_id: rule.primary_model,
+                                        backup_model_id: v === 'none' ? undefined : v,
+                                      });
+                                    } catch { /* toast handled */ }
+                                  }}
+                                >
+                                  <SelectTrigger className="h-7 text-xs w-[160px] bg-background">
+                                    <SelectValue placeholder="选择备用..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">无</SelectItem>
+                                    {allActiveModels
+                                      .filter((m) => String(m.id) !== rule.primary_model)
+                                      .map((m) => (
+                                        <SelectItem key={m.id} value={String(m.id)}>
+                                          <span className="flex items-center gap-2">
+                                            <span>{m.model_name}</span>
+                                            <span className="text-muted-foreground font-mono text-[10px]">{m.model_code}</span>
+                                          </span>
+                                        </SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
+                              </td>
                             </tr>
-                          ))}
+                            );
+                          })}
                       </tbody>
                     </table>
                   </div>
