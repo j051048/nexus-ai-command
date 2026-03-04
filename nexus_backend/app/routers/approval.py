@@ -125,10 +125,14 @@ async def list_approvals(
 
         # --- 1. 查 approval_requests ---
         if not type_filter or type_filter != "leave":
-            ar_query = client.table("approval_requests").select(
-                "id, type, description, amount, status, submitted_by, created_at, "
-                "approval_history, approval_level, users:submitted_by(name)"
-            ).eq("organization_id", org_id)
+            ar_query = (
+                client.table("approval_requests")
+                .select(
+                    "id, type, description, amount, status, submitted_by, created_at, "
+                    "approval_history, approval_level, users:submitted_by(name)"
+                )
+                .eq("organization_id", org_id)
+            )
 
             if type_filter:
                 ar_query = ar_query.eq("type", type_filter)
@@ -151,23 +155,24 @@ async def list_approvals(
                         continue
 
                 submitter = item.get("users")
-                items.append({
-                    "id": item["id"],
-                    "source_table": "approval_requests",
-                    "type": item.get("type", ""),
-                    "description": item.get("description", ""),
-                    "amount": item.get("amount"),
-                    "status": item.get("status", ""),
-                    "submitted_by": item.get("submitted_by", ""),
-                    "submitter_name": submitter.get("name") if isinstance(submitter, dict) else None,
-                    "created_at": item.get("created_at", ""),
-                })
+                items.append(
+                    {
+                        "id": item["id"],
+                        "source_table": "approval_requests",
+                        "type": item.get("type", ""),
+                        "description": item.get("description", ""),
+                        "amount": item.get("amount"),
+                        "status": item.get("status", ""),
+                        "submitted_by": item.get("submitted_by", ""),
+                        "submitter_name": submitter.get("name") if isinstance(submitter, dict) else None,
+                        "created_at": item.get("created_at", ""),
+                    }
+                )
 
         # --- 2. 查 oa_leave_requests ---
         if not type_filter or type_filter == "leave":
             lr_query = client.table("oa_leave_requests").select(
-                "id, type, reason, status, user_id, created_at, "
-                "start_date, end_date, days, users:user_id(name)"
+                "id, type, reason, status, user_id, created_at, " "start_date, end_date, days, users:user_id(name)"
             )
 
             if tab == "pending":
@@ -182,21 +187,23 @@ async def list_approvals(
 
             for item in lr_result.data or []:
                 submitter = item.get("users")
-                items.append({
-                    "id": item["id"],
-                    "source_table": "oa_leave_requests",
-                    "type": "leave",
-                    "description": item.get("reason", ""),
-                    "amount": None,
-                    "status": item.get("status", ""),
-                    "submitted_by": item.get("user_id", ""),
-                    "submitter_name": submitter.get("name") if isinstance(submitter, dict) else None,
-                    "created_at": item.get("created_at", ""),
-                    "leave_type": item.get("type"),
-                    "start_date": item.get("start_date"),
-                    "end_date": item.get("end_date"),
-                    "days": item.get("days"),
-                })
+                items.append(
+                    {
+                        "id": item["id"],
+                        "source_table": "oa_leave_requests",
+                        "type": "leave",
+                        "description": item.get("reason", ""),
+                        "amount": None,
+                        "status": item.get("status", ""),
+                        "submitted_by": item.get("user_id", ""),
+                        "submitter_name": submitter.get("name") if isinstance(submitter, dict) else None,
+                        "created_at": item.get("created_at", ""),
+                        "leave_type": item.get("type"),
+                        "start_date": item.get("start_date"),
+                        "end_date": item.get("end_date"),
+                        "days": item.get("days"),
+                    }
+                )
 
         # --- 3. 合并排序 + 分页 ---
         items.sort(key=lambda x: x.get("created_at", ""), reverse=True)
@@ -240,10 +247,7 @@ async def get_tab_counts(
         )
         # pending: oa_leave_requests (无 organization_id 列，用 user 所属 org 隐式隔离)
         lr_pending = (
-            await client.table("oa_leave_requests")
-            .select("id", count="exact")
-            .eq("status", "pending")
-            .execute()
+            await client.table("oa_leave_requests").select("id", count="exact").eq("status", "pending").execute()
         )
         pending_count = (ar_pending.count or 0) + (lr_pending.count or 0)
 
@@ -256,12 +260,7 @@ async def get_tab_counts(
             .execute()
         )
         # mine: oa_leave_requests
-        lr_mine = (
-            await client.table("oa_leave_requests")
-            .select("id", count="exact")
-            .eq("user_id", user_id)
-            .execute()
-        )
+        lr_mine = await client.table("oa_leave_requests").select("id", count="exact").eq("user_id", user_id).execute()
         mine_count = (ar_mine.count or 0) + (lr_mine.count or 0)
 
         return api_success(
