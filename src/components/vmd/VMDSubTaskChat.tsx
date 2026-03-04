@@ -42,7 +42,7 @@ export function VMDSubTaskChat({
         {
           id: 'greeting',
           role: 'assistant',
-          content: `你好！我是负责 [${subTask.agent_role}] 岗位的虚拟员工。我看到我们要处理的子任务是：\n\n**${subTask.title}**\n\n描述: ${subTask.description}\n\n我已经准备好了。请随时给我下达具体命令或者上传补充资料，我会跟您协作完成！\n当您满意我的方案时，可以点击下方的「采纳并完结此环节」。`,
+          content: `你好！我是您的AI助手，可以在「${subTask.title}」这个环节帮您：\n\n- 提供专业建议和方案参考\n- 生成内容草稿\n- 分析和审查材料\n\n请随时告诉我您需要什么帮助！AI产出仅供参考，最终内容由您来确定。`,
           timestamp: new Date(),
           agent: subTask.agent_role,
         },
@@ -108,10 +108,10 @@ export function VMDSubTaskChat({
 
   const handleComplete = () => {
     if (!subTask) return;
-    
-    // Auto-extract the last assistant message as the final output
+
+    // Save the last assistant message as AI reference output (doesn't change sub-task status)
     const lastAssistantMessage = [...messages].reverse().find(m => m.role === 'assistant');
-    const finalOutput = lastAssistantMessage?.content || '（暂无AI最终输出记录，已手动采纳完结）';
+    const finalOutput = lastAssistantMessage?.content || '（暂无AI建议内容）';
 
     submitSubTask.mutate(
       { subTaskId: subTask.id, output: finalOutput },
@@ -132,7 +132,7 @@ export function VMDSubTaskChat({
         <DialogHeader className="p-4 md:p-6 border-b border-border bg-card/50 backdrop-blur-xl">
           <DialogTitle className="flex items-center gap-2">
             <Bot className="w-5 h-5 text-primary" />
-            <span className="font-semibold">{subTask.title} (与 {subTask.agent_role} 协作中)</span>
+            <span className="font-semibold">{subTask.title} — AI助手</span>
           </DialogTitle>
         </DialogHeader>
 
@@ -210,7 +210,7 @@ export function VMDSubTaskChat({
                className="bg-green-600 hover:bg-green-700 text-white gap-2 flex items-center"
             >
               {submitSubTask.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-              采纳并完结此环节
+              保存AI建议作为参考
             </Button>
           </div>
         </div>

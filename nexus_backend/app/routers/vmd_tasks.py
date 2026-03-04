@@ -44,6 +44,31 @@ class AuditSubTaskRequest(BaseModel):
     comment: str | None = Field(None, max_length=2000, description="审核意见")
 
 
+class UpdateSubTaskRequest(BaseModel):
+    """更新子任务（人工操作核心请求模型）"""
+
+    title: str | None = Field(None, max_length=500, description="子任务标题")
+    description: str | None = Field(None, description="子任务描述")
+    progress: int | None = Field(None, ge=0, le=100, description="进度百分比 0-100")
+    status: str | None = Field(None, description="状态: todo/in_progress/done")
+    human_notes: str | None = Field(None, description="人工笔记/交付内容")
+    assignee_id: str | None = Field(None, description="负责人 ID")
+    assignee_name: str | None = Field(None, max_length=100, description="负责人名称")
+    weight: int | None = Field(None, ge=1, le=10, description="权重(1-10)")
+    sort_order: int | None = Field(None, ge=0, description="排序序号")
+    start_date: str | None = Field(None, description="预计开始日期 (YYYY-MM-DD)")
+    due_date: str | None = Field(None, description="预计截止日期 (YYYY-MM-DD)")
+
+
+class CreateSubTaskRequest(BaseModel):
+    """手动创建子任务"""
+
+    title: str = Field(..., min_length=1, max_length=500, description="子任务标题")
+    description: str = Field("", description="子任务描述")
+    agent_role: str = Field("content_creator", description="Agent角色编码")
+    sort_order: int | None = Field(None, description="排序序号（不传则追加到末尾）")
+
+
 class UpdateAgentConfigRequest(BaseModel):
     model_config = ConfigDict(protected_namespaces=())
 
@@ -68,6 +93,48 @@ def _generate_task_code() -> str:
     date_part = datetime.utcnow().strftime("%Y%m%d")
     short_id = uuid.uuid4().hex[:6].upper()
     return f"VMD-{date_part}-{short_id}"
+
+
+async def _recalculate_main_task_progress(admin, main_task_id: str) -> dict:
+    """
+    根据子任务加权进度重算主任务整体进度和状态。
+
+    加权平均: Σ(progress × weight) / Σ(weight)
+    状态推导: 全部 done → completed, 有 in_progress → executing, 否则 pending
+    """
+    sub_res = (
+        await admin.table("vmd_sub_task")
+        .select("status, progress, weight")
+        .eq("main_task_id", main_task_id)
+        .execute()
+    )
+    sub_tasks = sub_res.data or []
+
+    if not sub_tasks:
+        return {"progress": 0.0, "status": "pending"}
+
+    total_weight = sum(s.get("weight", 1) or 1 for s in sub_tasks)
+    weighted_sum = sum((s.get("progress", 0) or 0) * (s.get("weight", 1) or 1) for s in sub_tasks)
+    progress = round(weighted_sum / total_weight, 1) if total_weight > 0 else 0.0
+
+    statuses = [s.get("status", "todo") for s in sub_tasks]
+    if all(st == "done" for st in statuses):
+        main_status = "completed"
+    elif any(st == "in_progress" for st in statuses):
+        main_status = "executing"
+    elif any(st == "done" for st in statuses):
+        main_status = "executing"
+    else:
+        main_status = "pending"
+
+    await (
+        admin.table("vmd_main_task")
+        .update({"progress": progress, "status": main_status})
+        .eq("id", main_task_id)
+        .execute()
+    )
+
+    return {"progress": progress, "status": main_status}
 
 
 # ---------------------------------------------------------------------------
@@ -160,7 +227,7 @@ async def create_task(
                     "agent_code": st.get("agent_role", "content_creator"),
                     "description": st.get("description", ""),
                     "sort_order": st.get("sort_order", created_count + 1),
-                    "status": "pending",
+                    "status": "todo",
                 }
                 await admin.table("vmd_sub_task").insert(sub_record).execute()
                 created_count += 1
@@ -182,7 +249,7 @@ async def create_task(
             admin.table("vmd_main_task")
             .update(
                 {
-                    "status": "executing",
+                    "status": "planning",
                     "wbs_structure": wbs_structure,
                 }
             )
@@ -275,10 +342,14 @@ async def get_task(
         )
         sub_tasks = sub_tasks_res.data or []
 
-        # Calculate progress as a flat number (percentage)
+        # Calculate progress using weighted average
         total_sub = len(sub_tasks)
-        completed_sub = sum(1 for s in sub_tasks if s.get("status") == "completed")
-        progress = round((completed_sub / total_sub * 100), 1) if total_sub > 0 else 0.0
+        total_weight = sum(s.get("weight", 1) or 1 for s in sub_tasks)
+        weighted_sum = sum(
+            (s.get("progress", 0) or 0) * (s.get("weight", 1) or 1) for s in sub_tasks
+        )
+        progress = round(weighted_sum / total_weight, 1) if total_weight > 0 else 0.0
+        completed_sub = sum(1 for s in sub_tasks if s.get("status") == "done")
 
         # Build flat response using response model
         flat_response = {
@@ -289,11 +360,19 @@ async def get_task(
             "sub_tasks": [
                 VMDSubTaskResponse(
                     id=s.get("id", ""),
-                    agent_role=s.get("agent_role", ""),
+                    agent_role=s.get("agent_code", s.get("agent_role", "")),
                     title=s.get("title", ""),
-                    status=s.get("status", "pending"),
-                    output=s.get("output"),
+                    description=s.get("description", ""),
+                    status=s.get("status", "todo"),
+                    progress=s.get("progress", 0) or 0,
+                    human_notes=s.get("human_notes"),
+                    output=s.get("output_content", s.get("output")),
                     sort_order=s.get("sort_order", 0),
+                    assignee_id=s.get("assignee_id"),
+                    assignee_name=s.get("assignee_name"),
+                    weight=s.get("weight", 1) or 1,
+                    start_date=str(s["start_date"]) if s.get("start_date") else None,
+                    due_date=str(s["due_date"]) if s.get("due_date") else None,
                     review_status=s.get("review_status"),
                 ).model_dump()
                 for s in sub_tasks
@@ -483,7 +562,203 @@ async def retry_task(
 
 
 # ---------------------------------------------------------------------------
-# Sub-task audit endpoint
+# Sub-task CRUD endpoints (human-centric)
+# ---------------------------------------------------------------------------
+
+
+@router.patch("/sub-tasks/{sub_task_id}")
+async def update_sub_task(
+    sub_task_id: str,
+    body: UpdateSubTaskRequest,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """更新子任务（人工操作核心端点：进度/状态/笔记/负责人/日期等）"""
+    try:
+        admin = _get_admin_client()
+
+        # Verify sub-task exists
+        sub_res = (
+            await admin.table("vmd_sub_task")
+            .select("id, main_task_id, status")
+            .eq("id", sub_task_id)
+            .maybe_single()
+            .execute()
+        )
+        if not sub_res.data:
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "子任务不存在")
+
+        main_task_id = sub_res.data["main_task_id"]
+
+        update_data = body.model_dump(exclude_none=True)
+        if not update_data:
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "无更新内容")
+
+        # Status validation
+        valid_statuses = ("todo", "in_progress", "done")
+        if "status" in update_data and update_data["status"] not in valid_statuses:
+            raise api_error(
+                ErrorCode.VALIDATION_INVALID_INPUT,
+                f"status 必须为 {'/'.join(valid_statuses)}",
+            )
+
+        # Auto-set progress to 100 when status is done
+        if update_data.get("status") == "done":
+            update_data["progress"] = 100
+
+        # Auto-set status to in_progress if progress > 0 and status is still todo
+        if "progress" in update_data and update_data["progress"] > 0:
+            current_status = update_data.get("status") or sub_res.data.get("status", "todo")
+            if current_status == "todo":
+                update_data["status"] = "in_progress"
+
+        update_data["update_time"] = datetime.now(UTC).isoformat()
+
+        await (
+            admin.table("vmd_sub_task")
+            .update(update_data)
+            .eq("id", sub_task_id)
+            .execute()
+        )
+
+        # Recalculate main task progress
+        main_progress = await _recalculate_main_task_progress(admin, main_task_id)
+
+        return api_success(
+            data={
+                "sub_task_id": sub_task_id,
+                **update_data,
+                "main_task_progress": main_progress["progress"],
+                "main_task_status": main_progress["status"],
+            },
+            message="子任务已更新",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Update sub-task error: id={sub_task_id} user={user_id} err={e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+@router.post("/tasks/{task_id}/sub-tasks")
+async def create_sub_task(
+    task_id: str,
+    body: CreateSubTaskRequest,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """手动创建子任务"""
+    try:
+        admin = _get_admin_client()
+        org_id = getattr(req.state, "org_id", None) or "default"
+
+        # Verify main task exists
+        task_res = (
+            await admin.table("vmd_main_task")
+            .select("id, tenant_id")
+            .eq("id", task_id)
+            .maybe_single()
+            .execute()
+        )
+        if not task_res.data:
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "主任务不存在")
+
+        # Determine sort_order: use provided or append to end
+        sort_order = body.sort_order
+        if sort_order is None:
+            max_res = (
+                await admin.table("vmd_sub_task")
+                .select("sort_order")
+                .eq("main_task_id", task_id)
+                .order("sort_order", desc=True)
+                .limit(1)
+                .execute()
+            )
+            current_max = max_res.data[0]["sort_order"] if max_res.data else 0
+            sort_order = current_max + 1
+
+        sub_record = {
+            "main_task_id": task_id,
+            "tenant_id": org_id,
+            "title": body.title,
+            "description": body.description,
+            "agent_code": body.agent_role,
+            "sort_order": sort_order,
+            "status": "todo",
+            "progress": 0,
+            "weight": 1,
+        }
+
+        res = await admin.table("vmd_sub_task").insert(sub_record).execute()
+        if not res.data:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "创建子任务失败")
+
+        new_sub = res.data[0]
+
+        # Recalculate main task progress
+        main_progress = await _recalculate_main_task_progress(admin, task_id)
+
+        return api_success(
+            data={
+                "sub_task": new_sub,
+                "main_task_progress": main_progress["progress"],
+                "main_task_status": main_progress["status"],
+            },
+            message="子任务已创建",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Create sub-task error: task={task_id} user={user_id} err={e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+@router.delete("/sub-tasks/{sub_task_id}")
+async def delete_sub_task(
+    sub_task_id: str,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """删除子任务"""
+    try:
+        admin = _get_admin_client()
+
+        # Get sub-task to find main_task_id
+        sub_res = (
+            await admin.table("vmd_sub_task")
+            .select("id, main_task_id")
+            .eq("id", sub_task_id)
+            .maybe_single()
+            .execute()
+        )
+        if not sub_res.data:
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "子任务不存在")
+
+        main_task_id = sub_res.data["main_task_id"]
+
+        await admin.table("vmd_sub_task").delete().eq("id", sub_task_id).execute()
+
+        # Recalculate main task progress
+        main_progress = await _recalculate_main_task_progress(admin, main_task_id)
+
+        return api_success(
+            data={
+                "sub_task_id": sub_task_id,
+                "deleted": True,
+                "main_task_progress": main_progress["progress"],
+                "main_task_status": main_progress["status"],
+            },
+            message="子任务已删除",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Delete sub-task error: id={sub_task_id} user={user_id} err={e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+# ---------------------------------------------------------------------------
+# Sub-task audit endpoint (legacy, kept for backward compatibility)
 # ---------------------------------------------------------------------------
 
 

@@ -23,6 +23,9 @@ const STATUS_MAP: Record<string, VMDTask['status']> = {
   success: 'done',
   error: 'failed',
   cancelled: 'failed',
+  // 子任务 3 态兼容
+  todo: 'pending',
+  in_progress: 'executing',
 };
 
 function normalizeStatus(raw: string | undefined | null): VMDTask['status'] {

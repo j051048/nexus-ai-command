@@ -33,8 +33,18 @@ export interface VMDSubTask {
   task_id: string;
   agent_role: string;
   title: string;
-  status: string;
+  description: string;
+  status: 'todo' | 'in_progress' | 'done';
+  progress: number;
+  human_notes: string | null;
   output: string | null;
+  sort_order: number;
+  assignee_id: string | null;
+  assignee_name: string | null;
+  weight: number;
+  start_date: string | null;
+  due_date: string | null;
+  review_status: string | null;
   created_at: string;
 }
 
@@ -248,6 +258,80 @@ export function useSubmitSubTask() {
       toast.success('任务输出已提交审核');
     },
     onError: (err: Error) => toast.error(err.message || '提交失败'),
+  });
+}
+
+// ─── Sub-task Human-centric CRUD ─────────────────────────────
+
+export interface UpdateSubTaskPayload {
+  title?: string;
+  description?: string;
+  progress?: number;
+  status?: 'todo' | 'in_progress' | 'done';
+  human_notes?: string;
+  assignee_id?: string;
+  assignee_name?: string;
+  weight?: number;
+  sort_order?: number;
+  start_date?: string | null;
+  due_date?: string | null;
+}
+
+export function useUpdateSubTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { subTaskId: string } & UpdateSubTaskPayload) => {
+      const { subTaskId, ...body } = data;
+      const res = await aiClient.fetch<{ success: boolean; data: AnyData }>(
+        `api/vmd/sub-tasks/${subTaskId}`,
+        { method: 'PATCH', body: JSON.stringify(body) }
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vmd-task'] });
+      queryClient.invalidateQueries({ queryKey: ['vmd-tasks'] });
+    },
+    onError: (err: Error) => toast.error(err.message || '更新子任务失败'),
+  });
+}
+
+export function useCreateSubTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { taskId: string; title: string; description?: string; agent_role?: string }) => {
+      const { taskId, ...body } = data;
+      const res = await aiClient.fetch<{ success: boolean; data: AnyData }>(
+        `api/vmd/tasks/${taskId}/sub-tasks`,
+        { method: 'POST', body: JSON.stringify(body) }
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vmd-task'] });
+      queryClient.invalidateQueries({ queryKey: ['vmd-tasks'] });
+      toast.success('子任务已添加');
+    },
+    onError: (err: Error) => toast.error(err.message || '添加子任务失败'),
+  });
+}
+
+export function useDeleteSubTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (subTaskId: string) => {
+      const res = await aiClient.fetch<{ success: boolean; data: AnyData }>(
+        `api/vmd/sub-tasks/${subTaskId}`,
+        { method: 'DELETE' }
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vmd-task'] });
+      queryClient.invalidateQueries({ queryKey: ['vmd-tasks'] });
+      toast.success('子任务已删除');
+    },
+    onError: (err: Error) => toast.error(err.message || '删除子任务失败'),
   });
 }
 

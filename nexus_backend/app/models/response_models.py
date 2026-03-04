@@ -20,9 +20,17 @@ class VMDSubTaskResponse(BaseModel):
     id: int | str
     agent_role: str = ""
     title: str = ""
-    status: str = "pending"
+    description: str = ""
+    status: str = "todo"
+    progress: int = 0
+    human_notes: str | None = None
     output: str | None = None
     sort_order: int = 0
+    assignee_id: str | None = None
+    assignee_name: str | None = None
+    weight: int = 1
+    start_date: str | None = None
+    due_date: str | None = None
     review_status: str | None = None
 
 

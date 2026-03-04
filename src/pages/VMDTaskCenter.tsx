@@ -1,11 +1,11 @@
 /**
  * VMD 任务中心
- * 创建任务、筛选、任务列表、任务详情（WBS树 + 审核 + 日志）
+ * 创建任务、筛选、任务列表、任务详情（可编辑 WBS 子任务列表）
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -27,27 +27,25 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  AlertCircle,
   Loader2,
   FileDown,
   ChevronRight,
   Play,
-  Eye,
-  ThumbsUp,
-  ThumbsDown,
-  Filter,
-  CalendarDays,
 } from 'lucide-react';
 import {
   useVMDTasks,
   useVMDTaskDetail,
   useCreateVMDTask,
-  useAuditSubTask,
+  useUpdateSubTask,
+  useCreateSubTask,
+  useDeleteSubTask,
   type VMDTask,
   type VMDSubTask,
+  type UpdateSubTaskPayload,
 } from '@/hooks/useVMD';
 import { SCENES } from '@/components/vmd/SceneSelector';
 import { VMDSubTaskChat } from '@/components/vmd/VMDSubTaskChat';
+import { VMDSubTaskCard } from '@/components/vmd/VMDSubTaskCard';
 import { toast } from 'sonner';
 
 // 状态配置
@@ -67,19 +65,6 @@ const PRIORITY_CONFIG: Record<string, { label: string; color: string }> = {
   urgent: { label: '紧急', color: 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-400' },
 };
 
-const AGENT_ICONS: Record<string, string> = {
-  director: '\uD83C\uDFAF',
-  content: '\u270D\uFE0F',
-  design: '\uD83C\uDFA8',
-  media: '\uD83D\uDCE2',
-  clue: '\uD83D\uDD0D',
-  compliance: '\uD83D\uDEE1\uFE0F',
-  operation: '\u2699\uFE0F',
-  synergy: '\uD83D\uDD17',
-  pr: '\uD83D\uDCF0',
-  sales: '\uD83D\uDCB0',
-};
-
 const SCENE_NAMES: Record<string, string> = Object.fromEntries(SCENES.map(s => [s.code, s.name]));
 
 export default function VMDTaskCenter() {
@@ -87,6 +72,7 @@ export default function VMDTaskCenter() {
   const [createOpen, setCreateOpen] = useState(searchParams.get('new') === '1');
   const [detailId, setDetailId] = useState<string | null>(searchParams.get('detail'));
   const [chatSubTask, setChatSubTask] = useState<VMDSubTask | null>(null);
+  const [newSubTaskTitle, setNewSubTaskTitle] = useState('');
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -109,7 +95,9 @@ export default function VMDTaskCenter() {
   });
   const { data: taskDetail, isLoading: detailLoading } = useVMDTaskDetail(detailId);
   const createTask = useCreateVMDTask();
-  const auditSubTask = useAuditSubTask();
+  const updateSubTask = useUpdateSubTask();
+  const createSubTask = useCreateSubTask();
+  const deleteSubTask = useDeleteSubTask();
 
   // Filtered tasks
   const filteredTasks = useMemo(() => {
@@ -142,8 +130,18 @@ export default function VMDTaskCenter() {
     setFormDeadline('');
   };
 
-  const handleAudit = async (subTaskId: string, action: 'approve' | 'reject') => {
-    await auditSubTask.mutateAsync({ subTaskId, action });
+  const handleSubTaskUpdate = useCallback((subTaskId: string, data: UpdateSubTaskPayload) => {
+    updateSubTask.mutate({ subTaskId, ...data });
+  }, [updateSubTask]);
+
+  const handleSubTaskDelete = useCallback((subTaskId: string) => {
+    deleteSubTask.mutate(subTaskId);
+  }, [deleteSubTask]);
+
+  const handleAddSubTask = () => {
+    if (!newSubTaskTitle.trim() || !detailId) return;
+    createSubTask.mutate({ taskId: detailId, title: newSubTaskTitle.trim() });
+    setNewSubTaskTitle('');
   };
 
   return (
@@ -355,7 +353,7 @@ export default function VMDTaskCenter() {
 
       {/* Task Detail Sheet */}
       <Sheet open={!!detailId} onOpenChange={(open) => { if (!open) setDetailId(null); }}>
-        <SheetContent className="w-full sm:max-w-xl overflow-hidden flex flex-col">
+        <SheetContent className="w-full sm:max-w-2xl overflow-hidden flex flex-col">
           <SheetHeader>
             <SheetTitle>{taskDetail?.title || '任务详情'}</SheetTitle>
             <SheetDescription>
@@ -391,9 +389,10 @@ export default function VMDTaskCenter() {
                   </div>
                 )}
 
+                {/* Overall progress bar */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">总体进度</span>
+                    <span className="text-sm font-medium">总体进度（加权平均）</span>
                     <span className="text-sm text-muted-foreground">{taskDetail.progress}%</span>
                   </div>
                   <Progress value={taskDetail.progress} className="h-2" />
@@ -401,73 +400,45 @@ export default function VMDTaskCenter() {
 
                 <Separator />
 
-                {/* WBS Sub-tasks */}
+                {/* Editable Sub-tasks */}
                 <div>
-                  <h4 className="text-sm font-medium mb-3">子任务 (WBS)</h4>
+                  <h4 className="text-sm font-medium mb-3">子任务列表</h4>
                   {taskDetail.sub_tasks && taskDetail.sub_tasks.length > 0 ? (
-                    <div className="space-y-3">
-                      {taskDetail.sub_tasks.map((sub, idx) => {
-                        const subStatus = STATUS_CONFIG[sub.status] || STATUS_CONFIG.pending;
-                        return (
-                          <Card key={sub.id} className="border-border/50">
-                            <CardContent className="p-3">
-                              <div className="flex items-start gap-3">
-                                <span className="text-lg shrink-0 mt-0.5">
-                                  {AGENT_ICONS[sub.agent_role] || '\uD83E\uDD16'}
-                                </span>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-xs text-muted-foreground">#{idx + 1}</span>
-                                    <Badge className={cn("text-[10px]", subStatus.color)}>{subStatus.label}</Badge>
-                                  </div>
-                                  <p className="text-sm font-medium">{sub.title}</p>
-                                  {sub.output && (
-                                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{sub.output}</p>
-                                  )}
-                                  {sub.status === 'reviewing' && (
-                                    <div className="flex gap-2 mt-2">
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="h-7 text-xs text-green-600 hover:bg-green-50"
-                                        onClick={() => handleAudit(sub.id, 'approve')}
-                                        disabled={auditSubTask.isPending}
-                                      >
-                                        <ThumbsUp className="w-3 h-3 mr-1" /> 通过
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="h-7 text-xs text-red-600 hover:bg-red-50"
-                                        onClick={() => handleAudit(sub.id, 'reject')}
-                                        disabled={auditSubTask.isPending}
-                                      >
-                                        <ThumbsDown className="w-3 h-3 mr-1" /> 驳回
-                                      </Button>
-                                    </div>
-                                  )}
-                                  {(sub.status === 'pending' || sub.status === 'executing') && (
-                                    <div className="flex gap-2 mt-2">
-                                      <Button
-                                        size="sm"
-                                        variant="default"
-                                        className="h-7 text-xs bg-primary/10 text-primary hover:bg-primary/20"
-                                        onClick={() => setChatSubTask(sub)}
-                                      >
-                                        <Bot className="w-3 h-3 mr-1" /> 与AI协作处理
-                                      </Button>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
+                    <div className="space-y-2">
+                      {taskDetail.sub_tasks.map((sub, idx) => (
+                        <VMDSubTaskCard
+                          key={sub.id}
+                          subTask={sub}
+                          index={idx}
+                          onUpdate={handleSubTaskUpdate}
+                          onDelete={handleSubTaskDelete}
+                          onAIChat={setChatSubTask}
+                        />
+                      ))}
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">AI 正在规划子任务...</p>
                   )}
+
+                  {/* Add sub-task inline */}
+                  <div className="flex items-center gap-2 mt-3">
+                    <Input
+                      value={newSubTaskTitle}
+                      onChange={(e) => setNewSubTaskTitle(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleAddSubTask(); }}
+                      placeholder="输入子任务标题，回车添加..."
+                      className="text-sm h-9"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-9 shrink-0"
+                      onClick={handleAddSubTask}
+                      disabled={!newSubTaskTitle.trim() || createSubTask.isPending}
+                    >
+                      <Plus className="w-4 h-4 mr-1" /> 添加
+                    </Button>
+                  </div>
                 </div>
 
                 <Separator />
