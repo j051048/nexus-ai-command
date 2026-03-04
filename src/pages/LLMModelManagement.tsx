@@ -680,7 +680,7 @@ export default function LLMModelManagement() {
                   const rule = getRuleForTier(tier.value);
                   const activeModels = models?.filter((m) => m.is_active && m.model_type === 'chat') || [];
                   const primaryModel = activeModels.find(
-                    (m) => String(m.model_code) === rule?.primary_model || String(m.id) === rule?.primary_model
+                    (m) => String(m.id) === rule?.primary_model
                   );
 
                   return (
@@ -717,7 +717,7 @@ export default function LLMModelManagement() {
                             </SelectTrigger>
                             <SelectContent>
                               {activeModels.map((m) => (
-                                <SelectItem key={m.id} value={m.model_code || m.id}>
+                                <SelectItem key={m.id} value={String(m.id)}>
                                   <span className="flex items-center gap-2">
                                     <span>{m.model_name}</span>
                                     <span className="text-muted-foreground font-mono text-[10px]">{m.model_code}</span>
@@ -743,9 +743,9 @@ export default function LLMModelManagement() {
                             <SelectContent>
                               <SelectItem value="none">无</SelectItem>
                               {activeModels
-                                .filter((m) => (m.model_code || m.id) !== rule?.primary_model)
+                                .filter((m) => String(m.id) !== rule?.primary_model)
                                 .map((m) => (
-                                  <SelectItem key={m.id} value={m.model_code || m.id}>
+                                  <SelectItem key={m.id} value={String(m.id)}>
                                     <span className="flex items-center gap-2">
                                       <span>{m.model_name}</span>
                                       <span className="text-muted-foreground font-mono text-[10px]">{m.model_code}</span>
