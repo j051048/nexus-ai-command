@@ -35,6 +35,17 @@ AGENT_CAPABILITIES: dict[str, list[str]] = {
         "opportunity",
         "lead",
         "quote",
+        # Chinese
+        "销售",
+        "商机",
+        "管道",
+        "客户",
+        "营收",
+        "预测",
+        "报价",
+        "线索",
+        "成交",
+        "订单",
     ],
     "performance": [
         "KPI",
@@ -45,6 +56,15 @@ AGENT_CAPABILITIES: dict[str, list[str]] = {
         "target",
         "incentive",
         "gamification",
+        # Chinese
+        "绩效",
+        "评分",
+        "徽章",
+        "排名",
+        "奖金",
+        "目标",
+        "激励",
+        "考核",
     ],
     "approval": [
         "expense",
@@ -54,6 +74,14 @@ AGENT_CAPABILITIES: dict[str, list[str]] = {
         "reimburse",
         "vacation",
         "overtime",
+        # Chinese
+        "报销",
+        "请假",
+        "审批",
+        "流程",
+        "加班",
+        "出差",
+        "费用",
     ],
     "knowledge": [
         "document",
@@ -64,6 +92,14 @@ AGENT_CAPABILITIES: dict[str, list[str]] = {
         "RAG",
         "embedding",
         "policy",
+        # Chinese
+        "文档",
+        "搜索",
+        "知识库",
+        "文件",
+        "制度",
+        "规章",
+        "档案",
     ],
 }
 

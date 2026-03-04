@@ -38,7 +38,27 @@ _SELF_DESCRIPTION_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# ─── Query vs Execute verb sets (for semantic distinction) ───────────────────
+# When a CRITICAL keyword is matched but only query verbs are present (and no
+# execute verbs), the complexity is downgraded to MODERATE — e.g. "查看通知"
+# should not be treated as CRITICAL, but "发通知" should.
+
+_QUERY_VERBS = {
+    "查", "看看", "查一下", "查询", "查看", "搜索",
+    "到哪了", "什么时候", "多少", "几个", "哪些", "有没有",
+    "状态", "进度", "记录", "历史", "列表", "明细",
+}
+
+_EXECUTE_VERBS = {
+    "申请", "创建", "发起", "提交", "发送", "发布",
+    "修改", "变更", "更新", "设置",
+    "批准", "拒绝", "同意", "驳回", "批了", "不批",
+    "删除", "取消", "撤销", "终止",
+    "执行", "操作", "处理", "办理",
+}
+
 _CRITICAL_KEYWORDS = {
+    # Approval actions
     "approve",
     "reject",
     "批准",
@@ -49,18 +69,36 @@ _CRITICAL_KEYWORDS = {
     "同意",
     "驳回",
     "通过",
+    # Financial mutations
     "报销",
     "付款",
     "转账",
     "发工资",
+    # Announcements / notifications
     "发公告",
     "全员通知",
     "通知",
     "公告",
+    # Destructive / data-security operations
     "删除",
+    "批量删除",
+    "数据导出",
+    # HR-sensitive operations
     "解雇",
     "开除",
     "降职",
+    "辞退",
+    "调岗",
+    "调动",
+    "离职",
+    "辞职",
+    "升职",
+    "晋升",
+    # Administrative-sensitive operations
+    "用印",
+    "盖章",
+    "签署",
+    "合同终止",
 }
 
 _COMPLEX_KEYWORDS = {
@@ -89,26 +127,59 @@ _COMPLEX_KEYWORDS = {
 }
 
 _MODERATE_KEYWORDS = {
+    # Query actions
     "查询",
     "查一下",
     "看看",
+    # Leave / attendance
     "请假",
     "考勤",
+    "出差",
+    "补卡",
+    "打卡",
+    "加班",
+    # Project / task
     "项目",
     "进度",
+    "任务",
+    # Finance / budget
     "预算",
     "剩余",
     "工资",
     "薪资",
+    "发票",
+    "开票",
+    # Scheduling
     "会议",
     "日程",
-    "任务",
+    "订餐",
+    # CRM / sales
     "商机",
     "线索",
     "客户",
     "合同",
+    # Supply chain / procurement
+    "供应商",
+    "采购",
+    # Administrative / logistics
+    "快递",
+    "寄件",
+    "设备",
+    "资产",
+    "车辆",
+    "用车",
+    "印章",
+    "访客",
+    # Document / knowledge
+    "公文",
+    "发文",
+    "收文",
+    "档案",
     "知识库",
     "搜索",
+    # HR / training
+    "培训",
+    "通讯录",
 }
 
 # ─── VMD Agent Role Detection Patterns ────────────────────────────────────────
@@ -220,7 +291,8 @@ def classify_query(query: str) -> tuple[QueryComplexity, str]:
     text = query.strip().lower()
 
     # 1. Greetings / trivial
-    if _GREETING_PATTERNS.match(text) or len(text) < 5:
+    # Note: threshold=2 because Chinese is compact — "批了"(2 chars) is a valid CRITICAL command
+    if _GREETING_PATTERNS.match(text) or len(text) < 2:
         return QueryComplexity.SIMPLE, "简单问候或闲聊"
 
     # 1b. Self-description / capability inquiry — answer from system prompt, no tools needed
@@ -232,6 +304,12 @@ def classify_query(query: str) -> tuple[QueryComplexity, str]:
     # Chinese tokenization issues (e.g., "不批准" being split into "不" + "批准")
     matched_critical = {kw for kw in _CRITICAL_KEYWORDS if kw in text}
     if matched_critical:
+        # Semantic distinction: "查看审批" (query) vs "批准审批" (execute)
+        # If only query verbs present and no execute verbs → downgrade to MODERATE
+        has_query_verb = any(v in text for v in _QUERY_VERBS)
+        has_execute_verb = any(v in text for v in _EXECUTE_VERBS)
+        if has_query_verb and not has_execute_verb:
+            return QueryComplexity.MODERATE, f"查询操作(含敏感词但为只读): {', '.join(matched_critical)}"
         return QueryComplexity.CRITICAL, f"关键操作: {', '.join(matched_critical)}"
 
     # 3. Complex (multi-step analysis)
