@@ -1056,7 +1056,7 @@ async def delete_task(
             .execute()
         )
 
-        return api_success(message="任务已删除")
+        return api_success(data={"task_id": task_id, "status": "cancelled"}, message="任务已删除")
     except HTTPException:
         raise
     except Exception as e:
