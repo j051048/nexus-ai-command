@@ -1038,12 +1038,10 @@ async def delete_task(
         if not existing.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "任务不存在")
 
-        now_iso = datetime.now(UTC).isoformat()
-
         # Soft delete main task: set status to cancelled
         await (
             admin.table("vmd_main_task")
-            .update({"status": "cancelled", "updated_at": now_iso, "updated_by": user_id})
+            .update({"status": "cancelled", "updated_by": user_id})
             .eq("id", task_id)
             .eq("tenant_id", org_id)
             .execute()
@@ -1052,7 +1050,7 @@ async def delete_task(
         # Cascade: cancel all non-done sub-tasks
         await (
             admin.table("vmd_sub_task")
-            .update({"status": "cancelled", "updated_at": now_iso})
+            .update({"status": "cancelled"})
             .eq("main_task_id", task_id)
             .neq("status", "done")
             .execute()
