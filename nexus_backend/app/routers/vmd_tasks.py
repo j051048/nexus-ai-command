@@ -281,6 +281,7 @@ async def list_tasks(
 
         # Count query
         count_query = admin.table("vmd_main_task").select("id", count="exact").eq("tenant_id", org_id)
+        count_query = count_query.neq("status", "cancelled")
         if status:
             count_query = count_query.eq("status", status)
         if priority:
@@ -297,6 +298,7 @@ async def list_tasks(
             admin.table("vmd_main_task")
             .select("*")
             .eq("tenant_id", org_id)
+            .neq("status", "cancelled")
             .order("create_time", desc=True)
             .range(offset, offset + page_size - 1)
         )
