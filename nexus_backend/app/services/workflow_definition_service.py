@@ -25,6 +25,24 @@ class WorkflowDefinitionService:
     Handles CRUD for approval_chains and validates workflow DAG structure.
     """
 
+    async def _get_valid_types(self, org_id: str, db=None) -> set[str]:
+        """从 approval_type_config 表获取有效类型，fallback 到硬编码。"""
+        client = db or supabase
+        if client:
+            try:
+                result = (
+                    await client.table("approval_type_config")
+                    .select("type_code")
+                    .eq("organization_id", org_id)
+                    .eq("is_active", True)
+                    .execute()
+                )
+                if result.data:
+                    return {r["type_code"] for r in result.data}
+            except Exception:
+                pass
+        return VALID_APPROVAL_TYPES
+
     async def create_workflow(
         self,
         org_id: str,
@@ -42,8 +60,9 @@ class WorkflowDefinitionService:
             raise ValueError("Database client unavailable")
 
         # Validate applies_to types
+        valid_types = await self._get_valid_types(org_id, db=client)
         for t in applies_to:
-            if t not in VALID_APPROVAL_TYPES:
+            if t not in valid_types:
                 raise ValueError(f"Invalid approval type: {t}")
 
         # Validate workflow structure
@@ -91,8 +110,11 @@ class WorkflowDefinitionService:
 
         # If applies_to is being updated, validate types
         if "applies_to" in updates:
+            existing_wf = await self.get_workflow(workflow_id, db=client)
+            org_id = existing_wf.get("organization_id", "") if existing_wf else ""
+            valid_types = await self._get_valid_types(org_id, db=client)
             for t in updates["applies_to"]:
-                if t not in VALID_APPROVAL_TYPES:
+                if t not in valid_types:
                     raise ValueError(f"Invalid approval type: {t}")
 
         # Increment version on structural changes

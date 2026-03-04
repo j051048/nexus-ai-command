@@ -42,7 +42,7 @@ class PerformanceResult(BaseModel):
 class ApprovalRequest(BaseModel):
     requester_id: str | None = None  # Can be inferred from token
     request_id: str | None = None
-    type: Literal["purchase", "travel", "expense", "leave", "event", "activity", "custom"]
+    type: str = Field(..., min_length=1, max_length=50, description="审批类型代码")
     amount: float = Field(..., gt=0, description="Monetary amount involved")
     details: str = Field(..., min_length=5, description="Description of the request")
 

@@ -153,7 +153,7 @@ const NAV_CONFIG: NavItem[] = [
   },
   {
     icon: <FileCheck size={20} />,
-    label: "智能审批",
+    label: "审批中心",
     href: "approval",
     roles: ["employee", "manager", "boss", "founder"],
     group: "业务与日常",

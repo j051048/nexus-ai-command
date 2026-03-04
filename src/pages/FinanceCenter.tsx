@@ -37,6 +37,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { useMyApprovals, useSubmitApproval } from '@/hooks/useApprovals';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -64,6 +65,20 @@ interface FinanceInvoice {
   due_date: string | null;
   customer_id: string | null;
   created_at: string;
+}
+
+function FinanceApprovalBanner() {
+  const navigate = useNavigate();
+  return (
+    <div className="flex items-center justify-between bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
+      <span className="text-sm text-amber-700 dark:text-amber-300">
+        报销审批已纳入统一审批中心，可在审批中心查看所有审批进度
+      </span>
+      <Button variant="link" size="sm" className="text-amber-600" onClick={() => navigate('/approval')}>
+        前往审批中心 →
+      </Button>
+    </div>
+  );
 }
 
 export function FinanceCenter() {
@@ -355,6 +370,8 @@ export function FinanceCenter() {
 
         {/* 报销管理 */}
         <TabsContent value="expense" className="space-y-4">
+          {/* 审批中心引导横幅 */}
+          <FinanceApprovalBanner />
           {/* 统计卡片 */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card>

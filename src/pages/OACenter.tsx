@@ -38,6 +38,7 @@ import {
   User,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -90,6 +91,20 @@ interface OrgMember {
   id: string;
   name: string;
   role: string;
+}
+
+function ApprovalCenterBanner() {
+  const navigate = useNavigate();
+  return (
+    <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
+      <span className="text-sm text-blue-700 dark:text-blue-300">
+        请假审批已纳入统一审批中心，可在审批中心查看所有审批进度
+      </span>
+      <Button variant="link" size="sm" className="text-blue-600" onClick={() => navigate('/approval')}>
+        前往审批中心 →
+      </Button>
+    </div>
+  );
 }
 
 export function OACenter() {
@@ -550,6 +565,8 @@ export function OACenter() {
 
         {/* 请假管理 */}
         <TabsContent value="leave" className="space-y-4">
+          {/* 审批中心引导横幅 */}
+          <ApprovalCenterBanner />
           {/* 统计卡片 */}
           <div className="grid grid-cols-3 gap-4">
             <Card>

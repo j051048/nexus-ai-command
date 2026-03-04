@@ -2,7 +2,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id
@@ -44,6 +44,240 @@ class SmartSubmitRequest(BaseModel):
 
 
 # ============== Endpoints ==============
+
+
+# ---- 统一审批门户端点 (必须在 /{request_id} 路由之前) ----
+
+
+@router.get("/type-config")
+async def get_approval_type_config(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """获取当前组织的审批类型配置列表。首次访问自动 seed 默认类型。"""
+    org_id = getattr(request.state, "org_id", None)
+    if not org_id:
+        raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "需要组织上下文")
+
+    client = getattr(request.state, "db", None)
+    if not client:
+        raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库连接不可用")
+
+    try:
+        result = (
+            await client.table("approval_type_config")
+            .select("*")
+            .eq("organization_id", org_id)
+            .eq("is_active", True)
+            .order("sort_order")
+            .execute()
+        )
+
+        # 首次访问无数据 → 自动 seed
+        if not result.data:
+            await client.rpc("seed_default_approval_types", {"p_org_id": org_id}).execute()
+            result = (
+                await client.table("approval_type_config")
+                .select("*")
+                .eq("organization_id", org_id)
+                .eq("is_active", True)
+                .order("sort_order")
+                .execute()
+            )
+
+        return api_success(data=result.data or [], message="审批类型配置获取成功")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get approval type config error: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+@router.get("/list")
+async def list_approvals(
+    request: Request,
+    tab: str = Query("pending", pattern="^(pending|mine|handled)$"),
+    type_filter: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    统一审批列表查询。
+
+    三个标签页:
+    - pending: 待我处理的审批
+    - mine: 我发起的审批
+    - handled: 我已处理的审批
+
+    同时查询 approval_requests + oa_leave_requests 两张表，归一化返回。
+    """
+    org_id = getattr(request.state, "org_id", None)
+    if not org_id:
+        raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "需要组织上下文")
+
+    client = getattr(request.state, "db", None)
+    if not client:
+        raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库连接不可用")
+
+    try:
+        items = []
+
+        # --- 1. 查 approval_requests ---
+        if not type_filter or type_filter != "leave":
+            ar_query = client.table("approval_requests").select(
+                "id, type, description, amount, status, submitted_by, created_at, "
+                "approval_history, approval_level, users:submitted_by(name)"
+            ).eq("organization_id", org_id)
+
+            if type_filter:
+                ar_query = ar_query.eq("type", type_filter)
+
+            if tab == "pending":
+                ar_query = ar_query.eq("status", "pending")
+            elif tab == "mine":
+                ar_query = ar_query.eq("submitted_by", user_id)
+            elif tab == "handled":
+                ar_query = ar_query.neq("status", "pending")
+
+            ar_query = ar_query.order("created_at", desc=True).limit(200)
+            ar_result = await ar_query.execute()
+
+            for item in ar_result.data or []:
+                # handled 标签页：过滤只包含当前用户处理过的
+                if tab == "handled":
+                    history = item.get("approval_history") or []
+                    if not any(h.get("approver_id") == user_id for h in history):
+                        continue
+
+                submitter = item.get("users")
+                items.append({
+                    "id": item["id"],
+                    "source_table": "approval_requests",
+                    "type": item.get("type", ""),
+                    "description": item.get("description", ""),
+                    "amount": item.get("amount"),
+                    "status": item.get("status", ""),
+                    "submitted_by": item.get("submitted_by", ""),
+                    "submitter_name": submitter.get("name") if isinstance(submitter, dict) else None,
+                    "created_at": item.get("created_at", ""),
+                })
+
+        # --- 2. 查 oa_leave_requests ---
+        if not type_filter or type_filter == "leave":
+            lr_query = client.table("oa_leave_requests").select(
+                "id, leave_type, reason, status, user_id, created_at, "
+                "start_date, end_date, days, users:user_id(name)"
+            ).eq("organization_id", org_id)
+
+            if tab == "pending":
+                lr_query = lr_query.eq("status", "pending")
+            elif tab == "mine":
+                lr_query = lr_query.eq("user_id", user_id)
+            elif tab == "handled":
+                lr_query = lr_query.neq("status", "pending").neq("status", "cancelled")
+
+            lr_query = lr_query.order("created_at", desc=True).limit(200)
+            lr_result = await lr_query.execute()
+
+            for item in lr_result.data or []:
+                submitter = item.get("users")
+                items.append({
+                    "id": item["id"],
+                    "source_table": "oa_leave_requests",
+                    "type": "leave",
+                    "description": item.get("reason", ""),
+                    "amount": None,
+                    "status": item.get("status", ""),
+                    "submitted_by": item.get("user_id", ""),
+                    "submitter_name": submitter.get("name") if isinstance(submitter, dict) else None,
+                    "created_at": item.get("created_at", ""),
+                    "leave_type": item.get("leave_type"),
+                    "start_date": item.get("start_date"),
+                    "end_date": item.get("end_date"),
+                    "days": item.get("days"),
+                })
+
+        # --- 3. 合并排序 + 分页 ---
+        items.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        total = len(items)
+        start = (page - 1) * page_size
+        paginated = items[start : start + page_size]
+
+        return api_success(
+            data={"items": paginated, "total": total, "page": page, "page_size": page_size},
+            message="审批列表获取成功",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"List approvals error: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+@router.get("/tab-counts")
+async def get_tab_counts(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """返回三个标签页的待处理计数。"""
+    org_id = getattr(request.state, "org_id", None)
+    if not org_id:
+        raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "需要组织上下文")
+
+    client = getattr(request.state, "db", None)
+    if not client:
+        raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库连接不可用")
+
+    try:
+        # pending: approval_requests
+        ar_pending = (
+            await client.table("approval_requests")
+            .select("id", count="exact")
+            .eq("organization_id", org_id)
+            .eq("status", "pending")
+            .execute()
+        )
+        # pending: oa_leave_requests
+        lr_pending = (
+            await client.table("oa_leave_requests")
+            .select("id", count="exact")
+            .eq("organization_id", org_id)
+            .eq("status", "pending")
+            .execute()
+        )
+        pending_count = (ar_pending.count or 0) + (lr_pending.count or 0)
+
+        # mine: approval_requests
+        ar_mine = (
+            await client.table("approval_requests")
+            .select("id", count="exact")
+            .eq("organization_id", org_id)
+            .eq("submitted_by", user_id)
+            .execute()
+        )
+        # mine: oa_leave_requests
+        lr_mine = (
+            await client.table("oa_leave_requests")
+            .select("id", count="exact")
+            .eq("organization_id", org_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        mine_count = (ar_mine.count or 0) + (lr_mine.count or 0)
+
+        return api_success(
+            data={"pending": pending_count, "mine": mine_count},
+            message="标签页计数获取成功",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get tab counts error: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+# ---- 原有端点 ----
 
 
 @router.post("/process", response_model=StandardResponse)
