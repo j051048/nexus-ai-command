@@ -316,18 +316,11 @@ class LLMGatewayService:
                     )
                     if res and res.data and res.data.get("model_code"):
                         rule[code_key] = res.data["model_code"]
-                        logger.info(
-                            f"Resolved {id_key}={rule[id_key]} → "
-                            f"{code_key}={rule[code_key]}"
-                        )
+                        logger.info(f"Resolved {id_key}={rule[id_key]} → " f"{code_key}={rule[code_key]}")
                     else:
-                        logger.warning(
-                            f"No model_code found for {id_key}={rule[id_key]}"
-                        )
+                        logger.warning(f"No model_code found for {id_key}={rule[id_key]}")
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to resolve {id_key}={rule[id_key]}: {e}"
-                    )
+                    logger.warning(f"Failed to resolve {id_key}={rule[id_key]}: {e}")
 
     def _pick_healthy_model(self, rule: dict) -> str | None:
         """
