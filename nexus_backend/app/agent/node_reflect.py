@@ -460,6 +460,16 @@ async def critic_node(state: AgentState) -> dict:
             ],
         }
 
+    # Persist critic score (non-blocking)
+    try:
+        await _persist_critic_score(
+            state=state,
+            result=result,
+            model_code=(resolved_critic or {}).get("model", config.mini_model),
+        )
+    except Exception as e:
+        logger.warning(f"[CriticNode] Failed to persist quality score: {e}")
+
     critic_feedback = (
         f"完整性: {result.completeness:.0%}, " f"相关性: {result.relevance:.0%}, " f"准确性: {result.accuracy:.0%}"
     )
@@ -504,3 +514,45 @@ async def critic_node(state: AgentState) -> dict:
             )
         ],
     }
+
+
+async def _persist_critic_score(
+    state: AgentState,
+    result: CriticResult,
+    model_code: str = "",
+) -> None:
+    """Persist critic evaluation scores to agent_quality_scores table."""
+    from app.core.database import supabase
+    from app.core.trace_context import get_trace_id
+
+    if not supabase:
+        return
+
+    config: AgentConfig = state["config"]
+    org_id = config.org_id
+
+    row = {
+        "tenant_id": org_id if org_id and org_id != "default" else None,
+        "user_id": config.user_id or None,
+        "session_id": config.session_id or None,
+        "trace_id": get_trace_id() or None,
+        "scene_code": state.get("scene_code", ""),
+        "agent_code": state.get("agent_code", ""),
+        "complexity": state.get("complexity", QueryComplexity.MODERATE).value,
+        "intent_summary": (state.get("intent_summary", "") or "")[:500],
+        "completeness": result.completeness,
+        "relevance": result.relevance,
+        "accuracy": result.accuracy,
+        "passed": result.passed,
+        "improvement_suggestion": result.improvement_suggestion or "",
+        "model_code": model_code,
+        "iteration": state.get("iteration", 0),
+        "response_length": len(state.get("final_response", "")),
+        "tool_call_count": len(state.get("completed_tool_calls", [])),
+    }
+
+    await supabase.table("agent_quality_scores").insert(row).execute()
+    logger.info(
+        f"[CriticNode] Quality score persisted: "
+        f"passed={result.passed} score={min(result.completeness, result.relevance, result.accuracy):.2f}"
+    )

@@ -150,6 +150,23 @@ class TokenCounter:
         output_cost = (output_tokens / 1_000_000) * pricing[1]
         return round(input_cost + output_cost, 6)
 
+    def estimate_prompt_tokens(
+        self,
+        system_prompt: str,
+        messages: list[dict],
+        tools: list[dict] | None = None,
+        model: str = "gpt-4o",
+    ) -> int:
+        """Estimate total prompt tokens including system prompt, messages, and tool schemas."""
+        total = self.count_tokens(system_prompt, model)
+        total += self.count_messages_tokens(messages, model)
+        if tools:
+            import json
+
+            tools_text = json.dumps(tools, ensure_ascii=False)
+            total += self.count_tokens(tools_text, model)
+        return total
+
 
 class UsageTracker:
     """

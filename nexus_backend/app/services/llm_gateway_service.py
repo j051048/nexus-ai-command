@@ -314,6 +314,82 @@ class LLMGatewayService:
         return primary
 
     # ------------------------------------------------------------------
+    # Internal: Context window upgrade
+    # ------------------------------------------------------------------
+
+    async def _find_larger_context_model(
+        self, current_model_code: str, org_id: str, required_tokens: int
+    ) -> str | None:
+        """Find an enabled chat model with a larger context window that fits required_tokens."""
+        if not supabase:
+            return None
+        try:
+            current_config = await self._load_model_config(current_model_code, org_id)
+            if not current_config:
+                return None
+            min_window = int(required_tokens / 0.8) + 1
+            res = (
+                await supabase.table("llm_model_config")
+                .select("model_code, context_window, provider_type")
+                .eq("status", "enabled")
+                .eq("is_deleted", False)
+                .eq("model_type", "chat")
+                .gte("context_window", min_window)
+                .neq("model_code", current_model_code)
+                .order("context_window", desc=False)
+                .limit(5)
+                .execute()
+            )
+            candidates = res.data or []
+            # Prefer same provider
+            for row in candidates:
+                if row.get("provider_type") == current_config.provider_type:
+                    return row["model_code"]
+            # Otherwise take smallest sufficient model
+            if candidates:
+                return candidates[0]["model_code"]
+        except Exception as e:
+            logger.warning(f"Failed to find larger context model: {e}")
+        return None
+
+    async def _maybe_upgrade_for_context(
+        self,
+        model_code: str,
+        org_id: str,
+        config: ModelConfig,
+        system_prompt: str,
+        messages: list[dict],
+        tools: list[dict] | None,
+    ) -> tuple[str, ModelConfig]:
+        """Check if prompt tokens exceed model context window; upgrade if needed."""
+        if not config.context_window:
+            return model_code, config
+        from app.services.token_service import token_counter
+
+        estimated = token_counter.estimate_prompt_tokens(
+            system_prompt, messages, tools, config.model_id or config.model_code
+        )
+        threshold = int(config.context_window * 0.8)
+        if estimated <= threshold:
+            return model_code, config
+        upgraded_code = await self._find_larger_context_model(model_code, org_id, estimated)
+        if not upgraded_code:
+            logger.warning(
+                f"Prompt tokens ({estimated}) exceed 80% of context window "
+                f"({config.context_window}) for {model_code}, but no larger model found"
+            )
+            return model_code, config
+        upgraded_config = await self._load_model_config(upgraded_code, org_id)
+        if not upgraded_config:
+            return model_code, config
+        logger.info(
+            f"Context upgrade: {model_code} -> {upgraded_code} "
+            f"(est={estimated}, old_window={config.context_window}, "
+            f"new_window={upgraded_config.context_window})"
+        )
+        return upgraded_code, upgraded_config
+
+    # ------------------------------------------------------------------
     # Internal: Adapter creation helper
     # ------------------------------------------------------------------
 
@@ -485,6 +561,15 @@ class LLMGatewayService:
                 f"Failed to load adapter for model {model_code}",
             )
 
+        # --- Context window check: auto-upgrade if prompt is too large ---
+        model_code, config = await self._maybe_upgrade_for_context(
+            model_code, org_id, config, system_prompt, messages, tools
+        )
+        if adapter.config.model_code != config.model_code:
+            adapter, config = await self._create_adapter(model_code, org_id)
+            if not adapter or not config:
+                return self._error_response(request_id, model_code, f"Failed to load upgraded model {model_code}")
+
         # --- Build request ---
         chat_request = ChatRequest(
             scene_code=scene_code,
@@ -631,6 +716,16 @@ class LLMGatewayService:
                 f"Failed to load adapter for model {model_code}",
             )
             return
+
+        # --- Context window check: auto-upgrade if prompt is too large ---
+        model_code, config = await self._maybe_upgrade_for_context(
+            model_code, org_id, config, system_prompt, messages, tools
+        )
+        if adapter.config.model_code != config.model_code:
+            adapter, config = await self._create_adapter(model_code, org_id)
+            if not adapter or not config:
+                yield self._error_response(request_id, model_code, f"Failed to load upgraded model {model_code}")
+                return
 
         # --- Build request ---
         chat_request = ChatRequest(

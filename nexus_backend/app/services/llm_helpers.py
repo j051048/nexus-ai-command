@@ -36,6 +36,7 @@ def _build_tier_fallback(tier: str) -> dict | None:
         "temperature": temp,
         "timeout": timeout,
         "supports_tools": tools,
+        "context_window": None,
     }
 
 
@@ -44,17 +45,19 @@ async def resolve_model_config(
     scene_code: str = "",
     agent_code: str = "",
     complexity_tier: str | None = None,
+    messages: list[dict] | None = None,
+    system_prompt: str = "",
+    tools: list[dict] | None = None,
 ) -> dict:
     """
     Resolve model configuration via the LLM Gateway.
 
-    Returns a dict with keys: api_key, base_url, model, temperature, timeout, supports_tools
+    Returns a dict with keys: api_key, base_url, model, temperature, timeout,
+    supports_tools, context_window.
     Falls back to tier-aware hardcoded map when gateway resolution fails.
 
-    Args:
-        complexity_tier: Optional query complexity tier
-                        ("economy"/"balanced"/"power"/"flagship")
-                        for complexity-aware model routing.
+    When *messages* is provided, estimates prompt tokens and auto-upgrades
+    to a larger context model if the current one's window is insufficient.
     """
     try:
         from app.services.llm_gateway_service import llm_gateway
@@ -68,6 +71,12 @@ async def resolve_model_config(
         if model_code:
             config = await llm_gateway._load_model_config(model_code, org_id)
             if config:
+                # Token-based context window upgrade
+                if messages and config.context_window:
+                    model_code, config = await llm_gateway._maybe_upgrade_for_context(
+                        model_code, org_id, config, system_prompt, messages, tools
+                    )
+
                 return {
                     "api_key": config.api_key,
                     "base_url": config.api_base_url,
@@ -75,6 +84,7 @@ async def resolve_model_config(
                     "temperature": config.default_temperature,
                     "timeout": config.timeout_ms / 1000,
                     "supports_tools": config.supports_tools,
+                    "context_window": config.context_window,
                 }
     except Exception as e:
         logger.debug("Gateway model resolution failed, using fallback: %s", e)
@@ -93,6 +103,7 @@ async def resolve_model_config(
         "temperature": 0.7,
         "timeout": 60.0,
         "supports_tools": True,
+        "context_window": None,
     }
 
 
