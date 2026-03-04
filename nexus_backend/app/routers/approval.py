@@ -166,9 +166,9 @@ async def list_approvals(
         # --- 2. 查 oa_leave_requests ---
         if not type_filter or type_filter == "leave":
             lr_query = client.table("oa_leave_requests").select(
-                "id, leave_type, reason, status, user_id, created_at, "
+                "id, type, reason, status, user_id, created_at, "
                 "start_date, end_date, days, users:user_id(name)"
-            ).eq("organization_id", org_id)
+            )
 
             if tab == "pending":
                 lr_query = lr_query.eq("status", "pending")
@@ -192,7 +192,7 @@ async def list_approvals(
                     "submitted_by": item.get("user_id", ""),
                     "submitter_name": submitter.get("name") if isinstance(submitter, dict) else None,
                     "created_at": item.get("created_at", ""),
-                    "leave_type": item.get("leave_type"),
+                    "leave_type": item.get("type"),
                     "start_date": item.get("start_date"),
                     "end_date": item.get("end_date"),
                     "days": item.get("days"),
@@ -238,11 +238,10 @@ async def get_tab_counts(
             .eq("status", "pending")
             .execute()
         )
-        # pending: oa_leave_requests
+        # pending: oa_leave_requests (无 organization_id 列，用 user 所属 org 隐式隔离)
         lr_pending = (
             await client.table("oa_leave_requests")
             .select("id", count="exact")
-            .eq("organization_id", org_id)
             .eq("status", "pending")
             .execute()
         )
@@ -260,7 +259,6 @@ async def get_tab_counts(
         lr_mine = (
             await client.table("oa_leave_requests")
             .select("id", count="exact")
-            .eq("organization_id", org_id)
             .eq("user_id", user_id)
             .execute()
         )
