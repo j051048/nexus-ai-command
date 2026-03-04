@@ -22,10 +22,10 @@ const ICON_MAP = {
 };
 
 const COLOR_MAP = {
-  info: 'text-blue-500 bg-blue-500/10',
-  warning: 'text-yellow-500 bg-yellow-500/10',
-  success: 'text-green-500 bg-green-500/10',
-  error: 'text-red-500 bg-red-500/10',
+  info: 'text-blue-600 dark:text-blue-400 bg-blue-500/10',
+  warning: 'text-yellow-600 dark:text-yellow-400 bg-yellow-500/10',
+  success: 'text-green-600 dark:text-green-400 bg-green-500/10',
+  error: 'text-red-600 dark:text-red-400 bg-red-500/10',
 };
 
 export default function AlertList({ title, alerts = [] }: AlertListProps) {

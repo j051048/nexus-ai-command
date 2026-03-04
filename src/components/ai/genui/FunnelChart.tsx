@@ -49,7 +49,7 @@ export default function FunnelChart({ stages, title }: FunnelChartProps) {
               {/* Stage row */}
               <div className="w-full flex items-center gap-3">
                 {/* Label */}
-                <div className="w-24 text-right flex-shrink-0">
+                <div className="w-16 sm:w-24 text-right flex-shrink-0">
                   <span className="text-xs font-medium text-muted-foreground truncate block">
                     {stage.label}
                   </span>
@@ -74,7 +74,7 @@ export default function FunnelChart({ stages, title }: FunnelChartProps) {
                 </div>
 
                 {/* Percentage */}
-                <div className="w-16 flex-shrink-0">
+                <div className="w-12 sm:w-16 flex-shrink-0">
                   <span className="text-xs tabular-nums text-muted-foreground">
                     {((stage.value / maxValue) * 100).toFixed(0)}%
                   </span>

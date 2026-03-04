@@ -15,8 +15,8 @@ interface TodoListProps {
 }
 
 const priorityColors = {
-  high: 'text-red-500',
-  medium: 'text-amber-500',
+  high: 'text-red-600 dark:text-red-400',
+  medium: 'text-amber-600 dark:text-amber-400',
   low: 'text-muted-foreground',
 };
 
@@ -62,7 +62,7 @@ export function TodoList({ title, items, interactive = true }: TodoListProps) {
             <li
               key={i}
               className={cn(
-                'flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm transition-colors',
+                'flex items-center gap-2.5 px-2.5 py-2.5 rounded-md text-sm transition-colors min-h-[44px]',
                 interactive && 'cursor-pointer hover:bg-muted/50',
                 isDone && 'opacity-60'
               )}

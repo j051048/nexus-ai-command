@@ -23,9 +23,9 @@ const COLORS = [
   'hsl(var(--chart-3, 150 60% 45%))',
   'hsl(var(--chart-4, 30 80% 55%))',
   'hsl(var(--chart-5, 280 65% 55%))',
-  '#8884d8',
-  '#82ca9d',
-  '#ffc658',
+  'hsl(var(--chart-6, 260 50% 68%))',
+  'hsl(var(--chart-7, 140 55% 62%))',
+  'hsl(var(--chart-8, 45 85% 60%))',
 ];
 
 interface DataChartProps {
@@ -113,7 +113,7 @@ export function DataChart({
   };
 
   return (
-    <div className="p-4">
+    <div className="p-4 min-h-[200px]">
       {title && <h4 className="text-sm font-semibold mb-3">{title}</h4>}
       <ResponsiveContainer width="100%" height={height}>
         {renderChart()}

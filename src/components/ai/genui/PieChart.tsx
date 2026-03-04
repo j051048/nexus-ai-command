@@ -14,16 +14,16 @@ interface PieChartProps {
 }
 
 const defaultColors = [
-  '#3b82f6', // blue-500
-  '#10b981', // emerald-500
-  '#f59e0b', // amber-500
-  '#ef4444', // red-500
-  '#8b5cf6', // violet-500
-  '#ec4899', // pink-500
-  '#06b6d4', // cyan-500
-  '#f97316', // orange-500
-  '#14b8a6', // teal-500
-  '#6366f1', // indigo-500
+  'hsl(var(--primary))',
+  'hsl(var(--chart-2, 220 70% 55%))',
+  'hsl(var(--chart-3, 150 60% 45%))',
+  'hsl(var(--chart-4, 30 80% 55%))',
+  'hsl(var(--chart-5, 280 65% 55%))',
+  'hsl(var(--chart-6, 260 50% 68%))',
+  'hsl(var(--chart-7, 140 55% 62%))',
+  'hsl(var(--chart-8, 45 85% 60%))',
+  'hsl(var(--chart-9, 170 50% 50%))',
+  'hsl(var(--chart-10, 240 60% 60%))',
 ];
 
 export default function PieChart({ data, title, donut = false }: PieChartProps) {
@@ -49,7 +49,7 @@ export default function PieChart({ data, title, donut = false }: PieChartProps) 
   };
 
   return (
-    <div className="p-4">
+    <div className="p-4 min-h-[180px]">
       {title && <h4 className="text-sm font-semibold mb-3">{title}</h4>}
       <div className="flex flex-col sm:flex-row items-center gap-4">
         {/* Chart */}

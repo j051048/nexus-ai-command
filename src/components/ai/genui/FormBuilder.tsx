@@ -40,7 +40,7 @@ export default function FormBuilder({ title, fields = [], submitLabel = '提交'
           </label>
           {field.type === 'select' ? (
             <select
-              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+              className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
               value={values[field.name] || ''}
               onChange={(e) => handleChange(field.name, e.target.value)}
               required={field.required}

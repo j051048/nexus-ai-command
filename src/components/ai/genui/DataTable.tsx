@@ -67,7 +67,7 @@ export function DataTable({
                 <th
                   key={col.key}
                   className={cn(
-                    'px-3 py-2 font-medium text-muted-foreground whitespace-nowrap',
+                    'px-3 py-3 font-medium text-muted-foreground whitespace-nowrap',
                     col.align === 'right' && 'text-right',
                     col.align === 'center' && 'text-center',
                     sortable && 'cursor-pointer hover:text-foreground select-none'
