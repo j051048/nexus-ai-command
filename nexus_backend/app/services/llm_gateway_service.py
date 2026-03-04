@@ -279,6 +279,10 @@ class LLMGatewayService:
                 return None
 
             rule = rows[0]
+
+            # Resolve model_id → model_code when code is missing
+            await self._fill_model_codes(rule)
+
             self._schedule_cache[cache_key] = (rule, now)
             return self._pick_healthy_model(rule)
 
@@ -289,13 +293,52 @@ class LLMGatewayService:
             )
             return None
 
+    async def _fill_model_codes(self, rule: dict) -> None:
+        """
+        If a schedule rule has *_model_id but not *_model_code, look up the
+        model_code from llm_model_config by ID.  Mutates the rule dict in place.
+        """
+        if not supabase:
+            return
+
+        for code_key, id_key in [
+            ("primary_model_code", "primary_model_id"),
+            ("backup_model_code", "backup_model_id"),
+        ]:
+            if not rule.get(code_key) and rule.get(id_key):
+                try:
+                    res = (
+                        await supabase.table("llm_model_config")
+                        .select("model_code")
+                        .eq("id", rule[id_key])
+                        .maybe_single()
+                        .execute()
+                    )
+                    if res and res.data and res.data.get("model_code"):
+                        rule[code_key] = res.data["model_code"]
+                        logger.info(
+                            f"Resolved {id_key}={rule[id_key]} → "
+                            f"{code_key}={rule[code_key]}"
+                        )
+                    else:
+                        logger.warning(
+                            f"No model_code found for {id_key}={rule[id_key]}"
+                        )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to resolve {id_key}={rule[id_key]}: {e}"
+                    )
+
     def _pick_healthy_model(self, rule: dict) -> str | None:
         """
         From a schedule rule row, return the primary model if its circuit
         breaker allows requests; otherwise return the backup model.
+
+        Only uses *_model_code fields (not *_model_id which are numeric FKs).
+        The _resolve_model method resolves IDs to codes before caching.
         """
-        primary = rule.get("primary_model_code") or rule.get("primary_model_id")
-        backup = rule.get("backup_model_code") or rule.get("backup_model_id")
+        primary = rule.get("primary_model_code") or None
+        backup = rule.get("backup_model_code") or None
 
         if primary and circuit_breaker_manager.is_allowed(primary):
             return primary
@@ -1002,7 +1045,7 @@ class LLMGatewayService:
         cache_key = f"{org_id}:{scene_code}:{agent_code}"
         if cache_key in self._schedule_cache:
             rule, _ = self._schedule_cache[cache_key]
-            backup = rule.get("backup_model_code") or rule.get("backup_model_id")
+            backup = rule.get("backup_model_code") or None
             if backup and backup != exclude and circuit_breaker_manager.is_allowed(backup):
                 return backup
         return None

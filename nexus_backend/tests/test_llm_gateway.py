@@ -8,7 +8,8 @@
 - 租户回退: org_id 未找到 -> 尝试 "default" 租户
 - 断路器: primary model 不健康 -> 返回 backup
 - _load_model_config: 缓存有效（第二次调用使用缓存）
-- _pick_healthy_model: 优先 primary_model_code 而非 primary_model_id
+- _pick_healthy_model: 仅使用 *_model_code 字段
+- _fill_model_codes: 从 model_id 解析 model_code
 """
 
 import time
@@ -95,15 +96,15 @@ class TestPickHealthyModel:
 
         assert result == "custom-gpt-4o"
 
-    def test_fallback_to_model_id_when_code_missing(self):
-        """primary_model_code 缺失时应回退到 primary_model_id"""
+    def test_empty_model_code_with_model_id_returns_none(self):
+        """primary_model_code 为空时，_pick_healthy_model 返回 None（ID 解析由 _fill_model_codes 处理）"""
         from app.services.llm_gateway_service import LLMGatewayService
 
         service = LLMGatewayService()
 
         rule = {
             "primary_model_code": "",
-            "primary_model_id": "fallback-model",
+            "primary_model_id": 20,
             "backup_model_code": "backup-model",
         }
 
@@ -111,7 +112,8 @@ class TestPickHealthyModel:
             mock_cb.is_allowed.return_value = True
             result = service._pick_healthy_model(rule)
 
-        assert result == "fallback-model"
+        # primary_model_code is empty, so primary is None; should fall through to backup
+        assert result == "backup-model"
 
     def test_no_models_returns_none(self):
         """无 primary 也无 backup 时返回 None"""
@@ -253,6 +255,88 @@ class TestErrorResponse:
         assert response.usage["input_tokens"] == 0
         assert response.usage["output_tokens"] == 0
         assert response.usage["total_tokens"] == 0
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  _fill_model_codes 测试
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestFillModelCodes:
+    """测试 model_id → model_code 解析"""
+
+    async def test_fills_primary_code_from_id(self):
+        """primary_model_code 为空时应从 primary_model_id 解析出 model_code"""
+        from app.services.llm_gateway_service import LLMGatewayService
+
+        service = LLMGatewayService()
+        rule = {
+            "primary_model_code": "",
+            "primary_model_id": 20,
+            "backup_model_code": "backup-model",
+        }
+
+        mock_response = MagicMock()
+        mock_response.data = {"model_code": "gpt-4o-mini"}
+
+        mock_table = MagicMock()
+        mock_table.select.return_value = mock_table
+        mock_table.eq.return_value = mock_table
+        mock_table.maybe_single.return_value = mock_table
+        mock_table.execute = AsyncMock(return_value=mock_response)
+
+        mock_db = MagicMock()
+        mock_db.table.return_value = mock_table
+
+        with patch("app.services.llm_gateway_service.supabase", new=mock_db):
+            await service._fill_model_codes(rule)
+
+        assert rule["primary_model_code"] == "gpt-4o-mini"
+        assert rule["backup_model_code"] == "backup-model"
+
+    async def test_skips_when_code_already_present(self):
+        """primary_model_code 已存在时不应查询 DB"""
+        from app.services.llm_gateway_service import LLMGatewayService
+
+        service = LLMGatewayService()
+        rule = {
+            "primary_model_code": "existing-model",
+            "primary_model_id": 20,
+            "backup_model_code": "backup-model",
+        }
+
+        with patch("app.services.llm_gateway_service.supabase") as mock_db:
+            await service._fill_model_codes(rule)
+            mock_db.table.assert_not_called()
+
+        assert rule["primary_model_code"] == "existing-model"
+
+    async def test_handles_db_not_found(self):
+        """DB 查询无结果时不应崩溃"""
+        from app.services.llm_gateway_service import LLMGatewayService
+
+        service = LLMGatewayService()
+        rule = {
+            "primary_model_code": "",
+            "primary_model_id": 999,
+        }
+
+        mock_response = MagicMock()
+        mock_response.data = None
+
+        mock_table = MagicMock()
+        mock_table.select.return_value = mock_table
+        mock_table.eq.return_value = mock_table
+        mock_table.maybe_single.return_value = mock_table
+        mock_table.execute = AsyncMock(return_value=mock_response)
+
+        mock_db = MagicMock()
+        mock_db.table.return_value = mock_table
+
+        with patch("app.services.llm_gateway_service.supabase", new=mock_db):
+            await service._fill_model_codes(rule)
+
+        assert rule["primary_model_code"] == ""
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
