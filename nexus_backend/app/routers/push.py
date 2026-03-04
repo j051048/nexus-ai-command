@@ -52,13 +52,13 @@ async def subscribe(
         if result.get("success"):
             return api_success(data={"id": result.get("id")})
         else:
-            return api_error(
+            raise api_error(
                 ErrorCode.SYSTEM_INTERNAL_ERROR,
                 result.get("error", "Failed to subscribe"),
             )
     except Exception as e:
         logger.error(f"Push subscribe error: {e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.post("/unsubscribe")
@@ -79,10 +79,10 @@ async def unsubscribe(
         if success:
             return api_success(data={"unsubscribed": True})
         else:
-            return api_error(
+            raise api_error(
                 ErrorCode.SYSTEM_INTERNAL_ERROR,
                 "Failed to unsubscribe",
             )
     except Exception as e:
         logger.error(f"Push unsubscribe error: {e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

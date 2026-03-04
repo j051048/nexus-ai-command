@@ -87,13 +87,13 @@ async def get_login_url(
         {"login_url": "https://..."}
     """
     if platform not in SUPPORTED_PLATFORMS:
-        return api_error(
+        raise api_error(
             ErrorCode.VALIDATION_INVALID_INPUT,
             f"Unsupported platform: {platform}. " f"Supported: {', '.join(SUPPORTED_PLATFORMS)}",
         )
 
     if not redirect_uri:
-        return api_error(
+        raise api_error(
             ErrorCode.VALIDATION_INVALID_INPUT,
             "redirect_uri is required",
         )
@@ -109,7 +109,7 @@ async def get_login_url(
             client = _get_global_client(platform)
 
         if not client:
-            return api_error(
+            raise api_error(
                 ErrorCode.VALIDATION_INVALID_INPUT,
                 f"{platform} is not configured. " f"Please set the required credentials.",
             )
@@ -123,7 +123,7 @@ async def get_login_url(
 
     except Exception as e:
         logger.error(f"[im_oauth] Failed to generate login URL for {platform}: {e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
     finally:
         if client:
             await client.close()
@@ -156,13 +156,13 @@ async def oauth_callback(
         {"user": {...}, "is_new_mapping": bool}
     """
     if platform not in SUPPORTED_PLATFORMS:
-        return api_error(
+        raise api_error(
             ErrorCode.VALIDATION_INVALID_INPUT,
             f"Unsupported platform: {platform}",
         )
 
     if not code:
-        return api_error(
+        raise api_error(
             ErrorCode.VALIDATION_INVALID_INPUT,
             "Authorization code is required",
         )
@@ -178,7 +178,7 @@ async def oauth_callback(
             client = _get_global_client(platform)
 
         if not client:
-            return api_error(
+            raise api_error(
                 ErrorCode.VALIDATION_INVALID_INPUT,
                 f"{platform} is not configured",
             )
@@ -189,13 +189,13 @@ async def oauth_callback(
 
         if not platform_user_id:
             logger.warning(f"[im_oauth] No userid returned from {platform} OAuth")
-            return api_error(
+            raise api_error(
                 ErrorCode.AUTH_TOKEN_INVALID,
                 "Could not resolve user identity from platform",
             )
 
         if not db:
-            return api_error(
+            raise api_error(
                 ErrorCode.SYSTEM_INTERNAL_ERROR,
                 "Database not available",
             )
@@ -256,7 +256,7 @@ async def oauth_callback(
                         logger.warning(f"[im_oauth] Failed to auto-create mapping: {e}")
 
         if not nexus_user_id:
-            return api_error(
+            raise api_error(
                 ErrorCode.RESOURCE_NOT_FOUND,
                 f"No Nexus user mapped for {platform} user {platform_user_id}. "
                 f"Please contact your administrator to set up the mapping.",
@@ -293,7 +293,7 @@ async def oauth_callback(
         raise
     except Exception as e:
         logger.error(f"[im_oauth] OAuth callback error for {platform}: {e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
     finally:
         if client:
             await client.close()

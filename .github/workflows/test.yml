@@ -54,7 +54,7 @@ jobs:
             --cov-report=term-missing \
             --cov-report=html:htmlcov \
             --tb=short \
-            -x || true
+            -x
 
       - name: Generate coverage summary
         if: always()
@@ -99,7 +99,7 @@ jobs:
 
       - name: Run vitest
         run: |
-          npx vitest run --coverage --reporter=verbose 2>&1 || true
+          npx vitest run --coverage --reporter=verbose
 
       - name: Generate frontend coverage summary
         if: always()
@@ -143,12 +143,20 @@ jobs:
           echo "| Backend | ${{ needs.backend-integration.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Frontend | ${{ needs.frontend-integration.result }} |" >> $GITHUB_STEP_SUMMARY
 
+          FAILED=0
           if [[ "${{ needs.backend-integration.result }}" == "failure" ]]; then
-            echo "::warning::Backend integration tests failed"
+            echo "::error::Backend integration tests failed"
+            FAILED=1
           fi
 
           if [[ "${{ needs.frontend-integration.result }}" == "failure" ]]; then
-            echo "::warning::Frontend integration tests failed"
+            echo "::error::Frontend integration tests failed"
+            FAILED=1
           fi
 
-          echo "Integration test gate completed"
+          if [[ "$FAILED" -eq 1 ]]; then
+            echo "Integration test gate FAILED"
+            exit 1
+          fi
+
+          echo "Integration test gate passed"

@@ -25,7 +25,7 @@ async def create_subscription(
         description = body.get("description", "")
 
         if not url:
-            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "url is required")
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "url is required")
 
         org_id = getattr(req.state, "org_id", None) or "default"
         sub = await webhook_service.register_subscription(
@@ -43,7 +43,7 @@ async def create_subscription(
         )
     except Exception as e:
         logger.error(f"Webhook subscription creation failed: {e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.get("/subscriptions")
@@ -66,7 +66,7 @@ async def delete_subscription(
     """Deactivate a webhook subscription."""
     success = await webhook_service.deactivate_subscription(sub_id, db=getattr(req.state, "db", None))
     if not success:
-        return api_error(ErrorCode.RESOURCE_NOT_FOUND, "Subscription not found")
+        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "Subscription not found")
     return api_success(data={"deactivated": sub_id})
 
 

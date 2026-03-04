@@ -28,7 +28,7 @@ async def get_overview_stats(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         today_str = datetime.now(UTC).strftime("%Y-%m-%d")
 
@@ -83,7 +83,7 @@ async def get_overview_stats(
         )
     except Exception as e:
         logger.error(f"Dashboard stats error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -102,7 +102,7 @@ async def get_task_trend(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         start_date = (datetime.now(UTC) - timedelta(days=days)).strftime("%Y-%m-%d")
 
@@ -132,7 +132,7 @@ async def get_task_trend(
         return api_success(data={"trend": trend_list, "days": days})
     except Exception as e:
         logger.error(f"Task trend error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -150,7 +150,7 @@ async def get_agent_workload(
         _org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         res = await client.table("vmd_sub_task").select("agent_code, status").execute()
         sub_tasks = res.data or []
@@ -181,7 +181,7 @@ async def get_agent_workload(
         return api_success(data={"workload": workload_list})
     except Exception as e:
         logger.error(f"Agent workload error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -199,7 +199,7 @@ async def get_scene_distribution(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         res = await client.table("vmd_main_task").select("scene_code, status").eq("tenant_id", org_id).execute()
         tasks = res.data or []
@@ -217,7 +217,7 @@ async def get_scene_distribution(
         return api_success(data={"distribution": dist_list})
     except Exception as e:
         logger.error(f"Scene distribution error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -235,7 +235,7 @@ async def get_model_usage(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         res = (
             await client.table("llm_call_log")
@@ -277,7 +277,7 @@ async def get_model_usage(
         return api_success(data={"usage": usage_list})
     except Exception as e:
         logger.error(f"Model usage error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -296,7 +296,7 @@ async def get_compliance_trend(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         start_date = (datetime.now(UTC) - timedelta(days=days)).strftime("%Y-%m-%d")
 
@@ -335,4 +335,4 @@ async def get_compliance_trend(
         return api_success(data={"trend": trend_list, "days": days})
     except Exception as e:
         logger.error(f"Compliance trend error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

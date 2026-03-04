@@ -444,13 +444,13 @@ async def update_document_category(
     try:
         res = await client.table("documents").update({"doc_type": body.doc_type}).eq("id", document_id).execute()
         if not res.data:
-            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "文档不存在")
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "文档不存在")
 
         logger.info(f"User {user_id} updated doc {document_id} category to {body.doc_type}")
         return api_success(data={"document_id": document_id, "doc_type": body.doc_type}, message="分类已更新")
     except Exception as e:
         logger.error(f"Update category failed: doc={document_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"更新分类失败: {str(e)}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"更新分类失败: {str(e)}")
 
 
 # ============== Bulk Import Endpoint ==============

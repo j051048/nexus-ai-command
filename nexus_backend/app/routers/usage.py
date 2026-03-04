@@ -127,7 +127,7 @@ async def get_cost_report(
         return api_success(data=report)
     except Exception as e:
         logger.error(f"Cost report failed: {e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 # ---------------------------------------------------------------------------

@@ -20,7 +20,7 @@ async def get_profile(
     """Get current user's profile."""
     client = getattr(req.state, "db", None)
     if not client:
-        return api_error(ErrorCode.DB_CONNECTION_ERROR, "Database unavailable")
+        raise api_error(ErrorCode.DB_CONNECTION_ERROR, "Database unavailable")
 
     try:
         res = (
@@ -33,12 +33,12 @@ async def get_profile(
 
         row = res.data[0] if res.data else None
         if not row:
-            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "User not found")
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "User not found")
 
         return api_success(data={"profile": row})
     except Exception as e:
         logger.error(f"Profile fetch failed: {e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.put("")
@@ -50,20 +50,20 @@ async def update_profile(
     """Update current user's profile."""
     client = getattr(req.state, "db", None)
     if not client:
-        return api_error(ErrorCode.DB_CONNECTION_ERROR, "Database unavailable")
+        raise api_error(ErrorCode.DB_CONNECTION_ERROR, "Database unavailable")
 
     try:
         updates = body.model_dump(exclude_none=True)
 
         if not updates:
-            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "No valid fields to update")
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "No valid fields to update")
 
         await client.table("users").update(updates).eq("id", user_id).execute()
 
         return api_success(data={"updated": True, "fields": list(updates.keys())})
     except Exception as e:
         logger.error(f"Profile update failed: {e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.get("/ai-settings")
@@ -74,7 +74,7 @@ async def get_ai_settings(
     """Get user's AI configuration settings."""
     client = getattr(req.state, "db", None)
     if not client:
-        return api_error(ErrorCode.DB_CONNECTION_ERROR, "Database unavailable")
+        raise api_error(ErrorCode.DB_CONNECTION_ERROR, "Database unavailable")
 
     try:
         res = (
@@ -88,7 +88,7 @@ async def get_ai_settings(
         return api_success(data={"ai_settings": res.data[0] if res.data else {}})
     except Exception as e:
         logger.error(f"AI settings fetch failed: {e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.put("/ai-settings")
@@ -100,13 +100,13 @@ async def update_ai_settings(
     """Update user's AI configuration settings."""
     client = getattr(req.state, "db", None)
     if not client:
-        return api_error(ErrorCode.DB_CONNECTION_ERROR, "Database unavailable")
+        raise api_error(ErrorCode.DB_CONNECTION_ERROR, "Database unavailable")
 
     try:
         updates = body.model_dump(exclude_none=True)
 
         if not updates:
-            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "No valid fields to update")
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "No valid fields to update")
 
         updates["user_id"] = user_id
         await client.table("ai_settings").upsert(updates).execute()
@@ -114,7 +114,7 @@ async def update_ai_settings(
         return api_success(data={"updated": True})
     except Exception as e:
         logger.error(f"AI settings update failed: {e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.put("/security")
@@ -132,4 +132,4 @@ async def update_security_settings(
             }
         )
     except Exception as e:
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

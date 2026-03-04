@@ -45,19 +45,19 @@ async def subscribe(
         body = await req.json()
         plan_name = body.get("plan")
         if not plan_name:
-            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "plan is required")
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "plan is required")
 
         try:
             plan = BillingPlan(plan_name)
         except ValueError:
-            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, f"Invalid plan: {plan_name}")
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, f"Invalid plan: {plan_name}")
 
         org_id = getattr(req.state, "org_id", None) or "default"
         sub = await billing_service.create_subscription(org_id, plan, db=getattr(req.state, "db", None))
         return api_success(data={"subscription": sub.__dict__})
     except Exception as e:
         logger.error(f"Subscription failed: {e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.post("/cancel")
@@ -82,7 +82,7 @@ async def billing_webhook(req: Request):
             sig_header = req.headers.get("stripe-signature", "")
             if not sig_header:
                 logger.warning("Billing webhook received without signature")
-                return api_error(ErrorCode.AUTH_PERMISSION_DENIED, "Missing webhook signature")
+                raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "Missing webhook signature")
 
             # Verify HMAC signature
             timestamp, _, sig = "", "", ""
@@ -97,7 +97,7 @@ async def billing_webhook(req: Request):
             expected = hmac.new(_STRIPE_WEBHOOK_SECRET.encode(), signed_payload.encode(), hashlib.sha256).hexdigest()
             if not hmac.compare_digest(expected, sig):
                 logger.warning("Billing webhook signature verification failed")
-                return api_error(ErrorCode.AUTH_PERMISSION_DENIED, "Invalid webhook signature")
+                raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "Invalid webhook signature")
         else:
             logger.warning("STRIPE_WEBHOOK_SECRET not set — webhook signature verification skipped (dev mode)")
 
@@ -110,7 +110,7 @@ async def billing_webhook(req: Request):
         return api_success(data={"received": True})
     except Exception as e:
         logger.error(f"Billing webhook error: {e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.post("/trial")

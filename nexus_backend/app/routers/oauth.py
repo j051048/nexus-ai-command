@@ -32,7 +32,7 @@ async def register_client(
         return api_success(data=result)
     except Exception as e:
         logger.error(f"OAuth client registration failed: {e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.get("/authorize")
@@ -54,7 +54,7 @@ async def authorize(
         code_challenge=code_challenge,
     )
     if not auth_code:
-        return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "Invalid client or redirect URI")
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "Invalid client or redirect URI")
 
     return api_success(
         data={
@@ -82,15 +82,15 @@ async def exchange_token(body: OAuthTokenRequest):
                 client_id=body.client_id or "",
             )
         else:
-            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "Unsupported grant_type")
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "Unsupported grant_type")
 
         if not token:
-            return api_error(ErrorCode.AUTH_TOKEN_EXPIRED, "Invalid or expired credentials")
+            raise api_error(ErrorCode.AUTH_TOKEN_EXPIRED, "Invalid or expired credentials")
 
         return api_success(data=token.to_dict())
     except Exception as e:
         logger.error(f"Token exchange failed: {e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.post("/revoke")
@@ -100,4 +100,4 @@ async def revoke_token(body: OAuthRevokeRequest):
         success = await oauth_service.revoke_token(body.token)
         return api_success(data={"revoked": success})
     except Exception as e:
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

@@ -30,11 +30,11 @@ async def submit_feedback(
     """提交AI回复反馈"""
     try:
         if body.rating not in ("positive", "negative"):
-            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "rating must be 'positive' or 'negative'")
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "rating must be 'positive' or 'negative'")
 
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         org_id = getattr(req.state, "org_id", None)
         record = {
@@ -55,7 +55,7 @@ async def submit_feedback(
         return api_success(data={"feedback": feedback}, message="反馈已记录")
     except Exception as e:
         logger.error("Submit feedback error: %s", e)
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.get("")
@@ -70,7 +70,7 @@ async def list_feedback(
     try:
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         org_id = getattr(req.state, "org_id", None)
         query = client.table("ai_feedback").select("*", count="exact").order("created_at", desc=True)
@@ -87,7 +87,7 @@ async def list_feedback(
         return api_list(items=res.data or [], total=total, page=page, page_size=page_size)
     except Exception as e:
         logger.error("List feedback error: %s", e)
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.get("/stats")
@@ -100,7 +100,7 @@ async def feedback_stats(
     try:
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         from datetime import UTC, datetime, timedelta
 
@@ -130,4 +130,4 @@ async def feedback_stats(
         )
     except Exception as e:
         logger.error("Feedback stats error: %s", e)
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

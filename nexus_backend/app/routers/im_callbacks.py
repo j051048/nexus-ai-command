@@ -171,7 +171,7 @@ async def handle_approval_callback(platform: str, request: Request):
         确认响应
     """
     if platform not in SUPPORTED_PLATFORMS:
-        return api_error(
+        raise api_error(
             ErrorCode.VALIDATION_INVALID_INPUT,
             f"Unsupported platform: {platform}",
         )
@@ -197,7 +197,7 @@ async def handle_approval_callback(platform: str, request: Request):
 
         if not is_valid:
             logger.warning(f"[im_callback] Invalid signature from {platform}")
-            return api_error(
+            raise api_error(
                 ErrorCode.AUTH_TOKEN_INVALID,
                 "Invalid callback signature",
             )
@@ -219,7 +219,7 @@ async def handle_approval_callback(platform: str, request: Request):
 
         if not approval_id or not action:
             logger.warning(f"[im_callback] Missing approval_id or action in " f"{platform} callback")
-            return api_error(
+            raise api_error(
                 ErrorCode.VALIDATION_INVALID_INPUT,
                 "Missing approval_id or action",
             )
@@ -231,7 +231,7 @@ async def handle_approval_callback(platform: str, request: Request):
         # 4. 调用审批链服务
         db = getattr(request.state, "db", None) or supabase
         if not db:
-            return api_error(
+            raise api_error(
                 ErrorCode.SYSTEM_INTERNAL_ERROR,
                 "Database not available",
             )
@@ -268,7 +268,7 @@ async def handle_approval_callback(platform: str, request: Request):
 
         except Exception as e:
             logger.error(f"[im_callback] Failed to advance approval {approval_id}: {e}")
-            return api_error(
+            raise api_error(
                 ErrorCode.SYSTEM_INTERNAL_ERROR,
                 f"Failed to process approval: {str(e)[:100]}",
             )
@@ -285,4 +285,4 @@ async def handle_approval_callback(platform: str, request: Request):
         raise
     except Exception as e:
         logger.error(f"[im_callback] Callback error for {platform}: {e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

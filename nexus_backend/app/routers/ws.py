@@ -41,7 +41,9 @@ async def websocket_chat(
         await websocket.close(code=4001, reason="Authentication failed")
         return
 
-    await ws_manager.connect(websocket, user_id)
+    connected = await ws_manager.connect(websocket, user_id)
+    if not connected:
+        return
 
     try:
         while True:
@@ -53,7 +55,8 @@ async def websocket_chat(
                 await websocket.send_json({"type": "error", "message": "Invalid JSON"})
                 continue
 
-            if data.get("type") == "ping":
+            if data.get("type") in ("ping", "pong"):
+                ws_manager.record_pong(websocket)
                 await websocket.send_json({"type": "pong"})
                 continue
 
@@ -119,14 +122,17 @@ async def websocket_push(
         await websocket.close(code=4001, reason="Authentication failed")
         return
 
-    await ws_manager.connect(websocket, user_id)
+    connected = await ws_manager.connect(websocket, user_id)
+    if not connected:
+        return
 
     try:
         while True:
             raw = await websocket.receive_text()
             try:
                 data = json.loads(raw)
-                if data.get("type") == "ping":
+                if data.get("type") in ("ping", "pong"):
+                    ws_manager.record_pong(websocket)
                     await websocket.send_json({"type": "pong"})
             except json.JSONDecodeError:
                 pass
@@ -139,9 +145,15 @@ async def websocket_push(
 @router.get("/api/ws/status")
 async def ws_status():
     """Get WebSocket connection statistics."""
+    from app.services.websocket_manager import MAX_CONNECTIONS_GLOBAL, MAX_CONNECTIONS_PER_USER
+
     return {
         "active_connections": ws_manager.active_connections,
         "active_users": ws_manager.active_users,
+        "limits": {
+            "per_user": MAX_CONNECTIONS_PER_USER,
+            "global": MAX_CONNECTIONS_GLOBAL,
+        },
     }
 
 

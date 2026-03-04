@@ -56,6 +56,12 @@ if REDIS_URL:
         logger.warning("[RateLimiter] redis package not installed, falling back to in-memory")
     except Exception as e:
         logger.warning(f"[RateLimiter] Redis connection failed: {e}", exc_info=True)
+elif settings.ENV == "production":
+    logger.critical(
+        "[RateLimiter] REDIS_URL not set in production! "
+        "Rate limiting will NOT share across workers. "
+        "Set REDIS_URL env var for proper distributed rate limiting."
+    )
 
 
 def _extract_client_ip(request: Request) -> str:

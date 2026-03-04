@@ -64,7 +64,7 @@ async def check_content(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         # Run compliance check via service
         result = await compliance_service.check_content(
@@ -100,7 +100,7 @@ async def check_content(
         return api_success(data={"result": asdict(result)}, message="合规检查完成")
     except Exception as e:
         logger.error(f"Compliance check error: user={user_id} err={e}")
-        return api_error(ErrorCode.COMPLIANCE_CHECK_FAILED, str(e))
+        raise api_error(ErrorCode.COMPLIANCE_CHECK_FAILED, str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -119,7 +119,7 @@ async def list_rules(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         query = client.table("compliance_rule").select("*").eq("tenant_id", org_id).order("create_time", desc=True)
         if category:
@@ -129,7 +129,7 @@ async def list_rules(
         return api_success(data={"rules": res.data or []})
     except Exception as e:
         logger.error(f"List compliance rules error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.post("/rules")
@@ -143,7 +143,7 @@ async def create_rule(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         record = {
             "id": str(uuid.uuid4()),
@@ -164,7 +164,7 @@ async def create_rule(
         return api_success(data={"rule": rule}, message="合规规则创建成功")
     except Exception as e:
         logger.error(f"Create compliance rule error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.put("/rules/{rule_id}")
@@ -178,24 +178,24 @@ async def update_rule(
     try:
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         update_data = body.model_dump(exclude_none=True)
         if not update_data:
-            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "无更新内容")
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "无更新内容")
 
         update_data["updated_by"] = user_id
 
         res = await client.table("compliance_rule").update(update_data).eq("id", rule_id).execute()
         if not res.data:
-            return api_error(ErrorCode.COMPLIANCE_RULE_NOT_FOUND, "合规规则不存在")
+            raise api_error(ErrorCode.COMPLIANCE_RULE_NOT_FOUND, "合规规则不存在")
 
         return api_success(data={"rule": res.data[0]}, message="合规规则已更新")
     except ValueError as e:
-        return api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
     except Exception as e:
         logger.error(f"Update compliance rule error: id={rule_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.delete("/rules/{rule_id}")
@@ -208,16 +208,16 @@ async def delete_rule(
     try:
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         res = await client.table("compliance_rule").delete().eq("id", rule_id).execute()
         if not res.data:
-            return api_error(ErrorCode.COMPLIANCE_RULE_NOT_FOUND, "合规规则不存在")
+            raise api_error(ErrorCode.COMPLIANCE_RULE_NOT_FOUND, "合规规则不存在")
 
         return api_success(message="合规规则已删除")
     except Exception as e:
         logger.error(f"Delete compliance rule error: id={rule_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -238,7 +238,7 @@ async def get_check_history(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         # Count query
         count_query = client.table("compliance_check_log").select("id", count="exact").eq("tenant_id", org_id)
@@ -264,4 +264,4 @@ async def get_check_history(
         return api_list(items=res.data or [], total=total, page=page, page_size=page_size)
     except Exception as e:
         logger.error(f"Get compliance history error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

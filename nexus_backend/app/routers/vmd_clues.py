@@ -67,7 +67,7 @@ async def create_clue(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         clue_data = {
             "title": body.title,
@@ -88,10 +88,10 @@ async def create_clue(
         )
         return api_success(data={"clue": result}, message="线索创建成功")
     except ValueError as e:
-        return api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
     except Exception as e:
         logger.error(f"Create clue error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.get("/clues")
@@ -111,7 +111,7 @@ async def list_clues(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         filters = {}
         if status:
@@ -141,7 +141,7 @@ async def list_clues(
         )
     except Exception as e:
         logger.error(f"List clues error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.get("/clues/stats/overview")
@@ -154,7 +154,7 @@ async def get_clue_stats(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         result = await clue_service.get_clue_stats(
             tenant_id=org_id,
@@ -164,7 +164,7 @@ async def get_clue_stats(
         return api_success(data={"stats": result})
     except Exception as e:
         logger.error(f"Get clue stats error: user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.get("/clues/{clue_id}")
@@ -178,7 +178,7 @@ async def get_clue(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         clue = await clue_service.get_clue(
             tenant_id=org_id,
@@ -186,7 +186,7 @@ async def get_clue(
             db=client,
         )
         if not clue:
-            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "线索不存在")
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "线索不存在")
 
         # Fetch follow-up history
         try:
@@ -204,7 +204,7 @@ async def get_clue(
         return api_success(data={"clue": clue, "follow_ups": follow_ups})
     except Exception as e:
         logger.error(f"Get clue error: id={clue_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.put("/clues/{clue_id}")
@@ -219,11 +219,11 @@ async def update_clue(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         update_data = body.model_dump(exclude_none=True)
         if not update_data:
-            return api_error(ErrorCode.VALIDATION_INVALID_INPUT, "无更新内容")
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "无更新内容")
 
         # Map content -> description for service layer
         if "content" in update_data:
@@ -238,14 +238,14 @@ async def update_clue(
             db=client,
         )
         if not result:
-            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "线索不存在")
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "线索不存在")
 
         return api_success(data={"clue": result}, message="线索已更新")
     except ValueError as e:
-        return api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
     except Exception as e:
         logger.error(f"Update clue error: id={clue_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.delete("/clues/{clue_id}")
@@ -259,7 +259,7 @@ async def delete_clue(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         res = (
             await client.table("business_clue")
@@ -275,12 +275,12 @@ async def delete_clue(
             .execute()
         )
         if not res.data:
-            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "线索不存在")
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "线索不存在")
 
         return api_success(message="线索已删除")
     except Exception as e:
         logger.error(f"Delete clue error: id={clue_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -300,7 +300,7 @@ async def add_follow_up(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         follow_up_data = {
             "follow_type": body.action,
@@ -320,7 +320,7 @@ async def add_follow_up(
         return api_success(data={"follow_up": result}, message="跟进记录已添加")
     except Exception as e:
         logger.error(f"Add follow-up error: clue={clue_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 # ---------------------------------------------------------------------------
@@ -339,7 +339,7 @@ async def convert_clue(
         org_id = getattr(req.state, "org_id", None) or "default"
         client = getattr(req.state, "db", None)
         if not client:
-            return api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
         # Get clue first to verify existence
         clue = await clue_service.get_clue(
@@ -348,10 +348,10 @@ async def convert_clue(
             db=client,
         )
         if not clue:
-            return api_error(ErrorCode.RESOURCE_NOT_FOUND, "线索不存在")
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "线索不存在")
 
         if clue.get("status") == "converted":
-            return api_error(ErrorCode.RESOURCE_CONFLICT, "该线索已转化")
+            raise api_error(ErrorCode.RESOURCE_CONFLICT, "该线索已转化")
 
         # Build customer data from clue
         customer_data = {
@@ -394,4 +394,4 @@ async def convert_clue(
         )
     except Exception as e:
         logger.error(f"Convert clue error: clue={clue_id} user={user_id} err={e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

@@ -46,7 +46,7 @@ async def get_im_configs(
     org_id = getattr(request.state, "org_id", None)
 
     if not db:
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Database not available")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Database not available")
 
     try:
         query = db.table("im_platform_config").select(
@@ -62,7 +62,7 @@ async def get_im_configs(
 
     except Exception as e:
         logger.error(f"[im_settings] Failed to get configs: {e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.post("")
@@ -88,7 +88,7 @@ async def upsert_im_config(
     org_id = getattr(request.state, "org_id", None)
 
     if not db:
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Database not available")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Database not available")
 
     try:
         body = await request.json()
@@ -97,13 +97,13 @@ async def upsert_im_config(
         is_active = body.get("is_active", True)
 
         if platform not in SUPPORTED_PLATFORMS:
-            return api_error(
+            raise api_error(
                 ErrorCode.VALIDATION_INVALID_INPUT,
                 f"Unsupported platform: {platform}. " f"Supported: {', '.join(SUPPORTED_PLATFORMS)}",
             )
 
         if not config:
-            return api_error(
+            raise api_error(
                 ErrorCode.VALIDATION_INVALID_INPUT,
                 "config is required",
             )
@@ -112,13 +112,13 @@ async def upsert_im_config(
         required_fields = _get_required_fields(platform)
         missing = [f for f in required_fields if not config.get(f)]
         if missing:
-            return api_error(
+            raise api_error(
                 ErrorCode.VALIDATION_INVALID_INPUT,
                 f"Missing required config fields: {', '.join(missing)}",
             )
 
         if not org_id:
-            return api_error(
+            raise api_error(
                 ErrorCode.VALIDATION_INVALID_INPUT,
                 "Organization context required",
             )
@@ -148,7 +148,7 @@ async def upsert_im_config(
 
     except Exception as e:
         logger.error(f"[im_settings] Failed to upsert config: {e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.delete("/{platform}")
@@ -167,10 +167,10 @@ async def delete_im_config(
     org_id = getattr(request.state, "org_id", None)
 
     if not db:
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Database not available")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Database not available")
 
     if platform not in SUPPORTED_PLATFORMS:
-        return api_error(
+        raise api_error(
             ErrorCode.VALIDATION_INVALID_INPUT,
             f"Unsupported platform: {platform}",
         )
@@ -184,7 +184,7 @@ async def delete_im_config(
 
     except Exception as e:
         logger.error(f"[im_settings] Failed to delete config: {e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.post("/{platform}/test")
@@ -203,7 +203,7 @@ async def test_im_connection(
     org_id = getattr(request.state, "org_id", None)
 
     if platform not in SUPPORTED_PLATFORMS:
-        return api_error(
+        raise api_error(
             ErrorCode.VALIDATION_INVALID_INPUT,
             f"Unsupported platform: {platform}",
         )
@@ -214,7 +214,7 @@ async def test_im_connection(
         client = await sync_service._get_client(org_id, platform, db)
 
         if not client:
-            return api_error(
+            raise api_error(
                 ErrorCode.VALIDATION_INVALID_INPUT,
                 f"No active {platform} configuration found for this organization",
             )
@@ -266,13 +266,13 @@ async def trigger_contact_sync(
     db = getattr(request.state, "db", None) or supabase
 
     if platform not in SUPPORTED_PLATFORMS:
-        return api_error(
+        raise api_error(
             ErrorCode.VALIDATION_INVALID_INPUT,
             f"Unsupported platform: {platform}",
         )
 
     if not org_id:
-        return api_error(
+        raise api_error(
             ErrorCode.VALIDATION_INVALID_INPUT,
             "Organization context required",
         )
@@ -288,7 +288,7 @@ async def trigger_contact_sync(
 
     except Exception as e:
         logger.error(f"[im_settings] Contact sync failed: {e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 @router.post("/{platform}/sync-attendance")
@@ -311,13 +311,13 @@ async def trigger_attendance_sync(
     sync_date = request.query_params.get("date", None)
 
     if platform not in SUPPORTED_PLATFORMS:
-        return api_error(
+        raise api_error(
             ErrorCode.VALIDATION_INVALID_INPUT,
             f"Unsupported platform: {platform}",
         )
 
     if not org_id:
-        return api_error(
+        raise api_error(
             ErrorCode.VALIDATION_INVALID_INPUT,
             "Organization context required",
         )
@@ -334,7 +334,7 @@ async def trigger_attendance_sync(
 
     except Exception as e:
         logger.error(f"[im_settings] Attendance sync failed: {e}")
-        return api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
 def _get_required_fields(platform: str) -> list:
