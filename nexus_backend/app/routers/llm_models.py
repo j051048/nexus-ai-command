@@ -76,6 +76,7 @@ class UpdateModelRequest(BaseModel):
     output_price_per_1m: float | None = Field(None, ge=0)
     default_temperature: float | None = Field(None, ge=0.0, le=2.0)
     status: str | None = None
+    is_active: bool | None = None
 
 
 class CreateScheduleRuleRequest(BaseModel):
@@ -318,6 +319,12 @@ async def update_model(
 
         update_data = body.model_dump(exclude_none=True)
 
+        # Map frontend is_active boolean → DB status string
+        if "is_active" in update_data:
+            is_active = update_data.pop("is_active")
+            if "status" not in update_data:
+                update_data["status"] = "enabled" if is_active else "disabled"
+
         # Encrypt api_key if provided
         if "api_key" in update_data and update_data["api_key"]:
             update_data["api_key_encrypted"] = encryption_service.encrypt(update_data.pop("api_key"))
@@ -356,7 +363,13 @@ async def delete_model(
     try:
         client = _get_admin_client()
 
-        res = await client.table("llm_model_config").eq("id", model_id).eq("is_deleted", False).execute()
+        res = (
+            await client.table("llm_model_config")
+            .update({"is_deleted": True, "status": "disabled"})
+            .eq("id", model_id)
+            .eq("is_deleted", False)
+            .execute()
+        )
         if not res.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "模型不存在")
 
