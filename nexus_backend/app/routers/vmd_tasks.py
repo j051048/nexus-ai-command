@@ -104,10 +104,7 @@ async def _recalculate_main_task_progress(admin, main_task_id: str) -> dict:
     状态推导: 全部 done → completed, 有 in_progress → executing, 否则 pending
     """
     sub_res = (
-        await admin.table("vmd_sub_task")
-        .select("status, progress, weight")
-        .eq("main_task_id", main_task_id)
-        .execute()
+        await admin.table("vmd_sub_task").select("status, progress, weight").eq("main_task_id", main_task_id).execute()
     )
     sub_tasks = sub_res.data or []
 
@@ -346,9 +343,7 @@ async def get_task(
         # Calculate progress using weighted average
         total_sub = len(sub_tasks)
         total_weight = sum(s.get("weight", 1) or 1 for s in sub_tasks)
-        weighted_sum = sum(
-            (s.get("progress", 0) or 0) * (s.get("weight", 1) or 1) for s in sub_tasks
-        )
+        weighted_sum = sum((s.get("progress", 0) or 0) * (s.get("weight", 1) or 1) for s in sub_tasks)
         progress = round(weighted_sum / total_weight, 1) if total_weight > 0 else 0.0
         completed_sub = sum(1 for s in sub_tasks if s.get("status") == "done")
 
@@ -615,12 +610,7 @@ async def update_sub_task(
 
         update_data["update_time"] = datetime.now(UTC).isoformat()
 
-        await (
-            admin.table("vmd_sub_task")
-            .update(update_data)
-            .eq("id", sub_task_id)
-            .execute()
-        )
+        await admin.table("vmd_sub_task").update(update_data).eq("id", sub_task_id).execute()
 
         # Recalculate main task progress
         main_progress = await _recalculate_main_task_progress(admin, main_task_id)
@@ -654,13 +644,7 @@ async def create_sub_task(
         org_id = getattr(req.state, "org_id", None) or "default"
 
         # Verify main task exists
-        task_res = (
-            await admin.table("vmd_main_task")
-            .select("id, tenant_id")
-            .eq("id", task_id)
-            .maybe_single()
-            .execute()
-        )
+        task_res = await admin.table("vmd_main_task").select("id, tenant_id").eq("id", task_id).maybe_single().execute()
         if not task_res.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "主任务不存在")
 
@@ -726,11 +710,7 @@ async def delete_sub_task(
 
         # Get sub-task to find main_task_id
         sub_res = (
-            await admin.table("vmd_sub_task")
-            .select("id, main_task_id")
-            .eq("id", sub_task_id)
-            .maybe_single()
-            .execute()
+            await admin.table("vmd_sub_task").select("id, main_task_id").eq("id", sub_task_id).maybe_single().execute()
         )
         if not sub_res.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "子任务不存在")
