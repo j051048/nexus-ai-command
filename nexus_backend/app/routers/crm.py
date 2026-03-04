@@ -242,7 +242,7 @@ async def delete_contact(
     try:
         db = getattr(req.state, "db", None)
         await crm_service.delete_contact(contact_id, db=db)
-        return api_success(message="联系人已删除")
+        return api_success(data=None, message="联系人已删除")
     except Exception as e:
         logger.error(f"Delete contact error: contact={contact_id} customer={customer_id} user={user_id} err={e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
@@ -258,7 +258,7 @@ async def delete_customer(
     try:
         db = getattr(req.state, "db", None)
         await crm_service.delete_customer(customer_id, db=db)
-        return api_success(message="客户已删除")
+        return api_success(data=None, message="客户已删除")
     except Exception as e:
         logger.error(f"Delete customer error: id={customer_id} user={user_id} err={e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
