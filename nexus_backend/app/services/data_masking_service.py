@@ -169,16 +169,12 @@ class DataMaskingService:
 
             if rule.masking_level == MaskingLevel.FULL:
                 return "*" * len(original)
-
             elif rule.masking_level == MaskingLevel.PARTIAL:
                 return self._partial_mask(original, rule.data_type)
-
             elif rule.masking_level == MaskingLevel.HASH:
                 return self._hash_mask(original)
-
             elif rule.masking_level == MaskingLevel.TOKENIZE:
                 return self._tokenize(original)
-
             elif rule.masking_level == MaskingLevel.REDACT:
                 return rule.replacement
 
@@ -283,9 +279,7 @@ class DataMaskingService:
                     (
                         self.mask_dict(item, field_rules)
                         if isinstance(item, dict)
-                        else self.mask(item)
-                        if isinstance(item, str)
-                        else item
+                        else self.mask(item) if isinstance(item, str) else item
                     )
                     for item in value
                 ]
