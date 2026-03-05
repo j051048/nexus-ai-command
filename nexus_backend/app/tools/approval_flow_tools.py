@@ -119,6 +119,7 @@ class CreateApprovalFlowTool(BaseTool):
             "steps": {
                 "type": "array",
                 "description": "审批步骤JSON数组",
+                "items": {"type": "object"},
             },
         },
         "required": ["name", "trigger_type", "steps"],
