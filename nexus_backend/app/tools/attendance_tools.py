@@ -151,9 +151,8 @@ class GetAttendanceRecordTool(BaseTool):
         if not org_id:
             return "❌ 无法获取组织信息，请确保已正确登录。"
 
-        if args.get("employee_id"):
-            if err := _validate_uuid(args["employee_id"], "employee_id"):
-                return f"❌ {err}"
+        if args.get("employee_id") and (err := _validate_uuid(args["employee_id"], "employee_id")):
+            return f"❌ {err}"
 
         try:
             records = await attendance_service.get_attendance_records(
@@ -291,9 +290,8 @@ class ListShiftSchedulesTool(BaseTool):
         if not org_id:
             return "❌ 无法获取组织信息，请确保已正确登录。"
 
-        if args.get("department_id"):
-            if err := _validate_uuid(args["department_id"], "department_id"):
-                return f"❌ {err}"
+        if args.get("department_id") and (err := _validate_uuid(args["department_id"], "department_id")):
+            return f"❌ {err}"
 
         try:
             schedules = await attendance_service.list_shift_schedules(
@@ -356,9 +354,8 @@ class AttendanceStatisticsTool(BaseTool):
         if not org_id:
             return "❌ 无法获取组织信息，请确保已正确登录。"
 
-        if args.get("department_id"):
-            if err := _validate_uuid(args["department_id"], "department_id"):
-                return f"❌ {err}"
+        if args.get("department_id") and (err := _validate_uuid(args["department_id"], "department_id")):
+            return f"❌ {err}"
 
         try:
             stats = await attendance_service.get_attendance_statistics(

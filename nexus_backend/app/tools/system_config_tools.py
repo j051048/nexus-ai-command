@@ -155,7 +155,7 @@ class UpdateSystemConfigTool(BaseTool):
             config_value["icon"] = icon
 
         try:
-            result = await system_config_service.upsert_config(
+            await system_config_service.upsert_config(
                 org_id=org_id,
                 config_type=config_type,
                 config_key=config_key,

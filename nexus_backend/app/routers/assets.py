@@ -1,7 +1,6 @@
 """资产管理 API 路由"""
 
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
@@ -21,24 +20,24 @@ class AssetCreate(BaseModel):
     asset_code: str
     name: str
     asset_type: str
-    department_id: Optional[str] = None
-    value: Optional[float] = None
-    purchase_date: Optional[str] = None
-    metadata: Optional[dict] = None
+    department_id: str | None = None
+    value: float | None = None
+    purchase_date: str | None = None
+    metadata: dict | None = None
 
 
 class AssetUpdate(BaseModel):
-    name: Optional[str] = None
-    status: Optional[str] = None
-    department_id: Optional[str] = None
-    current_user_id: Optional[str] = None
+    name: str | None = None
+    status: str | None = None
+    department_id: str | None = None
+    current_user_id: str | None = None
 
 
 class AssetTransferRequest(BaseModel):
     transfer_type: str  # allocate/return/transfer/scrap
-    to_user_id: Optional[str] = None
-    to_department_id: Optional[str] = None
-    reason: Optional[str] = None
+    to_user_id: str | None = None
+    to_department_id: str | None = None
+    reason: str | None = None
 
 
 # ── Endpoints ──

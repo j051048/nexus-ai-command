@@ -1,7 +1,6 @@
 """证照管理 API 路由"""
 
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
@@ -22,14 +21,14 @@ class CertificateCreate(BaseModel):
     cert_type: str
     holder_type: str
     holder_id: str
-    cert_no: Optional[str] = None
-    issue_date: Optional[str] = None
-    expire_date: Optional[str] = None
+    cert_no: str | None = None
+    issue_date: str | None = None
+    expire_date: str | None = None
 
 
 class CertificateRenew(BaseModel):
     new_expire_date: str
-    attachment_url: Optional[str] = None
+    attachment_url: str | None = None
 
 
 # ── Endpoints ──

@@ -1,7 +1,6 @@
 """考勤管理 API 路由"""
 
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
@@ -20,8 +19,8 @@ router = APIRouter(prefix="/api/attendance", tags=["Attendance"])
 class ClockBody(BaseModel):
     clock_type: str
     employee_id: str
-    location: Optional[str] = None
-    device_info: Optional[str] = None
+    location: str | None = None
+    device_info: str | None = None
 
 
 class ShiftScheduleCreate(BaseModel):
@@ -36,7 +35,7 @@ class LeaveRequestBody(BaseModel):
     start_date: str
     end_date: str
     days: float = 1
-    reason: Optional[str] = None
+    reason: str | None = None
 
 
 # ── Endpoints ──

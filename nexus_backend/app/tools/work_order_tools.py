@@ -95,13 +95,11 @@ class CreateWorkOrderTool(BaseTool):
         if not title or not order_type:
             return "❌ 工单标题和类型不能为空"
 
-        if args.get("assignee_id"):
-            if err := _validate_uuid(args["assignee_id"], "assignee_id"):
-                return f"❌ {err}"
+        if args.get("assignee_id") and (err := _validate_uuid(args["assignee_id"], "assignee_id")):
+            return f"❌ {err}"
 
-        if args.get("department_id"):
-            if err := _validate_uuid(args["department_id"], "department_id"):
-                return f"❌ {err}"
+        if args.get("department_id") and (err := _validate_uuid(args["department_id"], "department_id")):
+            return f"❌ {err}"
 
         data = {
             "title": title,

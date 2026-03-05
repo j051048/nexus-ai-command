@@ -269,9 +269,8 @@ class CreateAssetTool(BaseTool):
         if not asset_code or not name or not asset_type:
             return "❌ 资产编号、名称、类型不能为空"
 
-        if args.get("department_id"):
-            if err := _validate_uuid(args["department_id"], "department_id"):
-                return f"❌ {err}"
+        if args.get("department_id") and (err := _validate_uuid(args["department_id"], "department_id")):
+            return f"❌ {err}"
 
         data = {
             "asset_code": asset_code,
@@ -440,12 +439,10 @@ class TransferAssetTool(BaseTool):
         if transfer_type in ("allocate", "transfer") and not to_user_id:
             return f"❌ {transfer_type} 操作需要指定 to_user_id"
 
-        if to_user_id:
-            if err := _validate_uuid(to_user_id, "to_user_id"):
-                return f"❌ {err}"
-        if to_department_id:
-            if err := _validate_uuid(to_department_id, "to_department_id"):
-                return f"❌ {err}"
+        if to_user_id and (err := _validate_uuid(to_user_id, "to_user_id")):
+            return f"❌ {err}"
+        if to_department_id and (err := _validate_uuid(to_department_id, "to_department_id")):
+            return f"❌ {err}"
 
         type_labels = {
             "allocate": "领用",

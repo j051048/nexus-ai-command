@@ -1,7 +1,7 @@
 """费用报销 API 路由"""
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
@@ -26,7 +26,7 @@ class ExpenseSubmit(BaseModel):
 
 class ExpenseApprove(BaseModel):
     action: str
-    comment: Optional[str] = None
+    comment: str | None = None
 
 
 # ── Endpoints ──

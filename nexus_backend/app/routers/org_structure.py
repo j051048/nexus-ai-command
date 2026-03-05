@@ -1,7 +1,6 @@
 """组织架构管理 API 路由 (部门/职位/员工)"""
 
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
@@ -19,38 +18,38 @@ router = APIRouter(prefix="/api/org-structure", tags=["Organization Structure"])
 
 class DepartmentCreate(BaseModel):
     name: str
-    parent_id: Optional[str] = None
-    manager_id: Optional[str] = None
+    parent_id: str | None = None
+    manager_id: str | None = None
     sort_order: int = 0
 
 
 class DepartmentUpdate(BaseModel):
-    name: Optional[str] = None
-    manager_id: Optional[str] = None
-    status: Optional[str] = None
+    name: str | None = None
+    manager_id: str | None = None
+    status: str | None = None
 
 
 class EmployeeCreate(BaseModel):
     name: str
     department_id: str
-    position_id: Optional[str] = None
-    phone: Optional[str] = None
-    email: Optional[str] = None
-    hire_date: Optional[str] = None
+    position_id: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    hire_date: str | None = None
 
 
 class EmployeeUpdate(BaseModel):
-    department_id: Optional[str] = None
-    position_id: Optional[str] = None
-    status: Optional[str] = None
-    phone: Optional[str] = None
-    email: Optional[str] = None
+    department_id: str | None = None
+    position_id: str | None = None
+    status: str | None = None
+    phone: str | None = None
+    email: str | None = None
 
 
 class PositionCreate(BaseModel):
     name: str
     level: int = 1
-    department_id: Optional[str] = None
+    department_id: str | None = None
 
 
 # ── Department Endpoints ──

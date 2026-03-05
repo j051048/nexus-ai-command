@@ -67,9 +67,8 @@ class ListDepartmentsTool(BaseTool):
 
         parent_id = args.get("parent_id")
 
-        if parent_id:
-            if err := _validate_uuid(parent_id, "parent_id"):
-                return f"❌ {err}"
+        if parent_id and (err := _validate_uuid(parent_id, "parent_id")):
+            return f"❌ {err}"
 
         try:
             departments = await organization_service.list_departments(
@@ -139,13 +138,11 @@ class CreateDepartmentTool(BaseTool):
         if not name:
             return "❌ 部门名称不能为空"
 
-        if parent_id:
-            if err := _validate_uuid(parent_id, "parent_id"):
-                return f"❌ {err}"
+        if parent_id and (err := _validate_uuid(parent_id, "parent_id")):
+            return f"❌ {err}"
 
-        if manager_id:
-            if err := _validate_uuid(manager_id, "manager_id"):
-                return f"❌ {err}"
+        if manager_id and (err := _validate_uuid(manager_id, "manager_id")):
+            return f"❌ {err}"
 
         try:
             department = await organization_service.create_department(
@@ -448,9 +445,8 @@ class CreateEmployeeTool(BaseTool):
         if err := _validate_uuid(department_id, "department_id"):
             return f"❌ {err}"
 
-        if args.get("position_id"):
-            if err := _validate_uuid(args["position_id"], "position_id"):
-                return f"❌ {err}"
+        if args.get("position_id") and (err := _validate_uuid(args["position_id"], "position_id")):
+            return f"❌ {err}"
 
         data = {
             "name": name,

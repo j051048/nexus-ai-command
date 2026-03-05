@@ -1,7 +1,7 @@
 """审批流程 API 路由"""
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
@@ -21,7 +21,7 @@ class ApprovalFlowCreate(BaseModel):
     name: str
     trigger_type: str
     steps: list[dict[str, Any]]
-    conditions: Optional[dict[str, Any]] = None
+    conditions: dict[str, Any] | None = None
 
 
 # ── Endpoints ──

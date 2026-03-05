@@ -73,9 +73,8 @@ class SmartReportTool(BaseTool):
         report_type = args.get("report_type", "daily")
         department_id = args.get("department_id")
 
-        if department_id:
-            if err := _validate_uuid(department_id, "department_id"):
-                return f"❌ {err}"
+        if department_id and (err := _validate_uuid(department_id, "department_id")):
+            return f"❌ {err}"
 
         type_labels = {"daily": "日报", "weekly": "周报", "monthly": "月报"}
         type_label = type_labels.get(report_type, report_type)
@@ -488,9 +487,9 @@ class AutoDispatchTool(BaseTool):
             workloads.sort(key=lambda x: x["open_count"])
 
             lines = [
-                f"🎯 **工单智能派遣建议**\n",
+                "🎯 **工单智能派遣建议**\n",
                 f"工单: {order_title} (ID: {order_id[:8]}...)\n",
-                f"推荐处理人（按工作量从低到高）:\n",
+                "推荐处理人（按工作量从低到高）:\n",
             ]
 
             for i, wl in enumerate(workloads[:5], 1):
@@ -656,9 +655,8 @@ class OnboardingAssistantTool(BaseTool):
             return "❌ 员工ID不能为空"
         if err := _validate_uuid(employee_id, "employee_id"):
             return f"❌ {err}"
-        if department_id:
-            if err := _validate_uuid(department_id, "department_id"):
-                return f"❌ {err}"
+        if department_id and (err := _validate_uuid(department_id, "department_id")):
+            return f"❌ {err}"
 
         try:
             # 获取员工信息
@@ -702,7 +700,7 @@ class OnboardingAssistantTool(BaseTool):
 
             # 组装入职清单
             lines = [
-                f"📋 **新员工入职清单**\n",
+                "📋 **新员工入职清单**\n",
                 f"👤 员工: {emp_name}",
                 f"🏢 部门: {dept_name}\n",
                 "---\n",

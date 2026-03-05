@@ -140,7 +140,7 @@ class ProcessOnboardingTool(BaseTool):
                     "asset_id": asset["id"],
                     "transfer_type": "allocate",
                     "to_user_id": employee_id,
-                    "reason": f"入职自动分配",
+                    "reason": "入职自动分配",
                     "operator_id": user_id,
                 }).execute()
                 results.append(f"✅ 已分配设备: {asset.get('name')} [{asset.get('asset_code')}]")
@@ -172,7 +172,7 @@ class ProcessOnboardingTool(BaseTool):
             )
             results.append("✅ 部门负责人已通知")
 
-            return f"🎉 入职流程已完成:\n\n" + "\n".join(results)
+            return "🎉 入职流程已完成:\n\n" + "\n".join(results)
 
         except Exception as e:
             logger.error(f"入职流程失败: {e}")
@@ -279,7 +279,7 @@ class ProcessResignationTool(BaseTool):
             if closed_count:
                 results.append(f"✅ 已关闭 {closed_count} 个待处理工单")
 
-            return f"📋 离职流程已完成:\n\n" + "\n".join(results)
+            return "📋 离职流程已完成:\n\n" + "\n".join(results)
 
         except Exception as e:
             logger.error(f"离职流程失败: {e}")

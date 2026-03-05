@@ -4,7 +4,7 @@
 """
 
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 

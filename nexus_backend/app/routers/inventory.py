@@ -1,7 +1,6 @@
 """库存管理 API 路由"""
 
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
@@ -20,14 +19,14 @@ router = APIRouter(prefix="/api/inventory", tags=["Inventory"])
 class InventoryInBody(BaseModel):
     item_id: str
     quantity: int
-    reason: Optional[str] = None
+    reason: str | None = None
 
 
 class InventoryOutBody(BaseModel):
     item_id: str
     quantity: int
-    receiver_id: Optional[str] = None
-    reason: Optional[str] = None
+    receiver_id: str | None = None
+    reason: str | None = None
 
 
 # ── Endpoints ──

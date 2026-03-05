@@ -1,7 +1,6 @@
 """工单系统 API 路由"""
 
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
@@ -20,16 +19,16 @@ router = APIRouter(prefix="/api/work-orders", tags=["Work Orders"])
 class WorkOrderCreate(BaseModel):
     title: str
     order_type: str
-    description: Optional[str] = None
-    priority: Optional[str] = "medium"
-    assignee_id: Optional[str] = None
-    department_id: Optional[str] = None
+    description: str | None = None
+    priority: str | None = "medium"
+    assignee_id: str | None = None
+    department_id: str | None = None
 
 
 class WorkOrderUpdate(BaseModel):
-    status: Optional[str] = None
-    assignee_id: Optional[str] = None
-    comment: Optional[str] = None
+    status: str | None = None
+    assignee_id: str | None = None
+    comment: str | None = None
 
 
 # ── Endpoints ──

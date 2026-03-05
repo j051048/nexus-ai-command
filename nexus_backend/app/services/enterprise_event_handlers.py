@@ -127,7 +127,7 @@ async def cascade_employee_onboarding(event: Event):
             if manager_id:
                 await supabase.table("notifications").insert({
                     "user_id": manager_id,
-                    "title": f"新员工加入您的部门",
+                    "title": "新员工加入您的部门",
                     "content": f"{employee_name} 即将入职您的部门，请安排接待和培训。",
                     "type": "info",
                 }).execute()
@@ -175,7 +175,7 @@ async def cascade_asset_scrap(event: Event):
             for admin in admins.data or []:
                 await supabase.table("notifications").insert({
                     "user_id": admin["id"],
-                    "title": f"资产库存不足预警",
+                    "title": "资产库存不足预警",
                     "content": f"类型 [{asset_type}] 的闲置资产仅剩 {idle_count} 台，建议及时采购补充。",
                     "type": "warning",
                 }).execute()
@@ -233,7 +233,7 @@ async def notify_certificate_expiring(event: Event):
     org_id = event.payload.get("org_id")
     cert_name = event.payload.get("cert_name", "")
     expire_date = event.payload.get("expire_date", "")
-    holder_id = event.payload.get("holder_id")
+    event.payload.get("holder_id")
 
     if not org_id:
         return
