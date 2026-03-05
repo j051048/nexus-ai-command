@@ -130,7 +130,12 @@ class APIKeyService:
 
         try:
             result = await (
-                db.table("api_keys").select("*").eq("key_hash", key_hash).eq("is_active", True).single().execute()
+                db.table("api_keys")
+                .select("*")
+                .eq("key_hash", key_hash)
+                .eq("is_active", True)
+                .maybe_single()
+                .execute()
             )
 
             if not result.data:
@@ -179,7 +184,7 @@ class APIKeyService:
             }
 
         except Exception as e:
-            logger.error(f"验证 API Key 失败: {e}")
+            logger.debug(f"API Key 验证未匹配: {e}")
             return None
 
     async def list_api_keys(self, org_id: str, db=None) -> list[dict]:
