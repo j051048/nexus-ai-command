@@ -94,6 +94,6 @@ async def validate_schema() -> list[str]:
     if not warnings:
         logger.info("[SchemaValidator] 所有关键表列验证通过")
     else:
-        logger.warning(f"[SchemaValidator] 发现 {len(warnings)} 个 schema 问题，" "请检查数据库迁移是否完整")
+        logger.warning(f"[SchemaValidator] 发现 {len(warnings)} 个 schema 问题，请检查数据库迁移是否完整")
 
     return warnings

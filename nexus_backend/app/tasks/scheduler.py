@@ -103,7 +103,7 @@ def mine_sales_leads():
         for lead in stale_leads:
             try:
                 suggestion = await AIService.call_llm(
-                    f"商机: {lead['company_name']}, 状态: {lead['status']}, " f"最后更新: {lead['updated_at']}",
+                    f"商机: {lead['company_name']}, 状态: {lead['status']}, 最后更新: {lead['updated_at']}",
                     "你是销售顾问。这个线索已经超过7天未跟进，请给出简短的跟进建议（1-2句话）。",
                 )
                 if lead.get("assigned_to"):

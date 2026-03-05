@@ -3,9 +3,8 @@
 AI 分析合同文档，提取关键条款、识别风险点、生成摘要
 """
 
-from typing import Any
-
 import uuid as _uuid
+from typing import Any
 
 from app.core.database import supabase
 from app.services.ai_service import AIService

@@ -186,7 +186,7 @@ class ThirdPartyIntegrationService:
     and will return a development warning.
     """
 
-    _DEV_WARNING = "This connector is a stub implementation. " "Real integration is not yet available."
+    _DEV_WARNING = "This connector is a stub implementation. Real integration is not yet available."
 
     CONNECTOR_REGISTRY: dict[str, type] = {
         "slack": SlackConnector,

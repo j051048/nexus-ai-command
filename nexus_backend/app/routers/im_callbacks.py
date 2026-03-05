@@ -218,14 +218,14 @@ async def handle_approval_callback(platform: str, request: Request):
         platform_user_id = callback_data.get("user_id", "")
 
         if not approval_id or not action:
-            logger.warning(f"[im_callback] Missing approval_id or action in " f"{platform} callback")
+            logger.warning(f"[im_callback] Missing approval_id or action in {platform} callback")
             raise api_error(
                 ErrorCode.VALIDATION_INVALID_INPUT,
                 "Missing approval_id or action",
             )
 
         logger.info(
-            f"[im_callback] Received {action} for approval {approval_id} " f"from {platform} user {platform_user_id}"
+            f"[im_callback] Received {action} for approval {approval_id} from {platform} user {platform_user_id}"
         )
 
         # 4. 调用审批链服务
@@ -262,9 +262,7 @@ async def handle_approval_callback(platform: str, request: Request):
                 db=db,
             )
 
-            logger.info(
-                f"[im_callback] Approval {approval_id} {decision} " f"by user {nexus_user_id or platform_user_id}"
-            )
+            logger.info(f"[im_callback] Approval {approval_id} {decision} by user {nexus_user_id or platform_user_id}")
 
         except Exception as e:
             logger.error(f"[im_callback] Failed to advance approval {approval_id}: {e}")

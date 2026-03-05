@@ -296,7 +296,7 @@ class RateLimiter:
                 self.last_update.pop(k, None)
             if stale_keys:
                 logger.info(
-                    f"[RateLimiter] Evicted {len(stale_keys)} stale entries " f"(remaining: {len(self.last_update)})"
+                    f"[RateLimiter] Evicted {len(stale_keys)} stale entries (remaining: {len(self.last_update)})"
                 )
 
         # Refill tokens based on time passed

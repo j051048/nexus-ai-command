@@ -232,7 +232,7 @@ class CreateScheduledTaskTool(BaseTool):
 - 名称: {name}
 - 执行计划: {schedule_desc}
 - AI 将执行: {prompt}
-- 下次执行: {next_exec[:16] if next_exec else '待计算'}
+- 下次执行: {next_exec[:16] if next_exec else "待计算"}
 
 系统会按计划自动执行此任务，并通过通知推送结果给您。
 您可以随时说'查看我的定时任务'或'删除定时任务'来管理。"""
@@ -262,7 +262,7 @@ class ListScheduledTasksTool(BaseTool):
     """查看用户定时任务列表"""
 
     name = "list_scheduled_tasks"
-    description = "查看当前用户的定时任务列表。当用户说'我的定时任务'、'查看提醒'、" "'有哪些定时任务'时调用。"
+    description = "查看当前用户的定时任务列表。当用户说'我的定时任务'、'查看提醒'、'有哪些定时任务'时调用。"
     required_role = "all"
 
     parameters = {
@@ -326,9 +326,7 @@ class DeleteScheduledTaskTool(BaseTool):
     """删除或停用用户定时任务"""
 
     name = "delete_scheduled_task"
-    description = (
-        "删除或停用定时任务。当用户说'删除定时任务'、'取消提醒'、" "'停止定时任务'时调用。支持按名称或ID删除。"
-    )
+    description = "删除或停用定时任务。当用户说'删除定时任务'、'取消提醒'、'停止定时任务'时调用。支持按名称或ID删除。"
     required_role = "all"
     is_irreversible = True
     confirmation_message = "确认要删除此定时任务吗？删除后不可恢复。"

@@ -337,22 +337,26 @@ async def generate_demo_data(user_id: str, org_id: str) -> dict[str, Any]:
         for emp in _DEMO_EMPLOYEES:
             eid = str(uuid.uuid4())
             employee_ids.append(eid)
-            await db.table("users").insert(
-                {
-                    "id": eid,
-                    "name": emp["name"],
-                    "email": emp["email"],
-                    "role": emp["role"],
-                    "department": emp["department"],
-                    "title": emp.get("title", ""),
-                    "phone": emp.get("phone", ""),
-                    "organization_id": org_id,
-                    "score": 85,
-                    "rank": 5,
-                    "total_bonus": 3000,
-                    "created_at": now.isoformat(),
-                }
-            ).execute()
+            await (
+                db.table("users")
+                .insert(
+                    {
+                        "id": eid,
+                        "name": emp["name"],
+                        "email": emp["email"],
+                        "role": emp["role"],
+                        "department": emp["department"],
+                        "title": emp.get("title", ""),
+                        "phone": emp.get("phone", ""),
+                        "organization_id": org_id,
+                        "score": 85,
+                        "rank": 5,
+                        "total_bonus": 3000,
+                        "created_at": now.isoformat(),
+                    }
+                )
+                .execute()
+            )
         summary["employees"] = len(employee_ids)
         logger.info("[DemoData] Created %d employees for org=%s", len(employee_ids), org_id)
 
@@ -365,21 +369,25 @@ async def generate_demo_data(user_id: str, org_id: str) -> dict[str, Any]:
             cid = str(uuid.uuid4())
             customer_ids.append(cid)
             assigned_to = employee_ids[idx % 3]  # Assign to first 3 sales reps
-            await db.table("customers").insert(
-                {
-                    "id": cid,
-                    "organization_id": org_id,
-                    "name": cust["name"],
-                    "company": cust["company"],
-                    "industry": cust["industry"],
-                    "stage": cust["stage"],
-                    "source": cust["source"],
-                    "estimated_value": cust["estimated_value"],
-                    "assigned_to": assigned_to,
-                    "tags": ["demo"],
-                    "created_at": now.isoformat(),
-                }
-            ).execute()
+            await (
+                db.table("customers")
+                .insert(
+                    {
+                        "id": cid,
+                        "organization_id": org_id,
+                        "name": cust["name"],
+                        "company": cust["company"],
+                        "industry": cust["industry"],
+                        "stage": cust["stage"],
+                        "source": cust["source"],
+                        "estimated_value": cust["estimated_value"],
+                        "assigned_to": assigned_to,
+                        "tags": ["demo"],
+                        "created_at": now.isoformat(),
+                    }
+                )
+                .execute()
+            )
         summary["customers"] = len(customer_ids)
 
         # ------------------------------------------------------------------
@@ -391,19 +399,23 @@ async def generate_demo_data(user_id: str, org_id: str) -> dict[str, Any]:
             owner = employee_ids[idx % len(employee_ids)]
             start = now - timedelta(days=30 + idx * 15)
             end = now + timedelta(days=60 - idx * 10)
-            await db.table("projects").insert(
-                {
-                    "id": pid,
-                    "name": proj["name"],
-                    "description": proj["description"],
-                    "status": proj["status"],
-                    "progress": proj["progress"],
-                    "owner_id": owner,
-                    "start_date": start.isoformat(),
-                    "end_date": end.isoformat(),
-                    "created_at": now.isoformat(),
-                }
-            ).execute()
+            await (
+                db.table("projects")
+                .insert(
+                    {
+                        "id": pid,
+                        "name": proj["name"],
+                        "description": proj["description"],
+                        "status": proj["status"],
+                        "progress": proj["progress"],
+                        "owner_id": owner,
+                        "start_date": start.isoformat(),
+                        "end_date": end.isoformat(),
+                        "created_at": now.isoformat(),
+                    }
+                )
+                .execute()
+            )
         summary["projects"] = len(_DEMO_PROJECTS)
 
         # ------------------------------------------------------------------
@@ -413,19 +425,23 @@ async def generate_demo_data(user_id: str, org_id: str) -> dict[str, Any]:
         for idx, appr in enumerate(_DEMO_APPROVALS):
             aid = str(uuid.uuid4())
             submitter = employee_ids[idx % len(employee_ids)]
-            await db.table("approval_requests").insert(
-                {
-                    "id": aid,
-                    "submitted_by": submitter,
-                    "type": appr["type"],
-                    "amount": appr["amount"],
-                    "description": appr["description"],
-                    "status": appr["status"],
-                    "ai_decision": "manual",
-                    "organization_id": org_id,
-                    "created_at": (now - timedelta(days=idx * 2)).isoformat(),
-                }
-            ).execute()
+            await (
+                db.table("approval_requests")
+                .insert(
+                    {
+                        "id": aid,
+                        "submitted_by": submitter,
+                        "type": appr["type"],
+                        "amount": appr["amount"],
+                        "description": appr["description"],
+                        "status": appr["status"],
+                        "ai_decision": "manual",
+                        "organization_id": org_id,
+                        "created_at": (now - timedelta(days=idx * 2)).isoformat(),
+                    }
+                )
+                .execute()
+            )
         summary["approvals"] = len(_DEMO_APPROVALS)
 
         # ------------------------------------------------------------------
@@ -451,18 +467,22 @@ async def generate_demo_data(user_id: str, org_id: str) -> dict[str, Any]:
         ]
         for idx, lead in enumerate(lead_data):
             lid = str(uuid.uuid4())
-            await db.table("sales_leads").insert(
-                {
-                    "id": lid,
-                    "source_paper": lead["source_paper"],
-                    "professor": lead["professor"],
-                    "match_score": lead["match_score"],
-                    "status": lead["status"],
-                    "owner_id": employee_ids[idx % 3],
-                    "ai_win_probability": round(lead["match_score"] * 0.9, 2),
-                    "created_at": (now - timedelta(days=idx * 5)).isoformat(),
-                }
-            ).execute()
+            await (
+                db.table("sales_leads")
+                .insert(
+                    {
+                        "id": lid,
+                        "source_paper": lead["source_paper"],
+                        "professor": lead["professor"],
+                        "match_score": lead["match_score"],
+                        "status": lead["status"],
+                        "owner_id": employee_ids[idx % 3],
+                        "ai_win_probability": round(lead["match_score"] * 0.9, 2),
+                        "created_at": (now - timedelta(days=idx * 5)).isoformat(),
+                    }
+                )
+                .execute()
+            )
         summary["sales_leads"] = len(lead_data)
 
         # ------------------------------------------------------------------
@@ -474,22 +494,26 @@ async def generate_demo_data(user_id: str, org_id: str) -> dict[str, Any]:
             cust_id = customer_ids[idx % len(customer_ids)]
             start_d = today + timedelta(days=cont["days_offset"])
             end_d = start_d + timedelta(days=365)
-            await db.table("contracts").insert(
-                {
-                    "id": coid,
-                    "organization_id": org_id,
-                    "title": cont["title"],
-                    "customer_id": cust_id,
-                    "contract_number": f"CTR-{today.year}-{str(idx + 1).zfill(4)}",
-                    "contract_type": cont["contract_type"],
-                    "status": cont["status"],
-                    "amount": cont["amount"],
-                    "start_date": start_d.isoformat(),
-                    "end_date": end_d.isoformat(),
-                    "tags": ["demo"],
-                    "created_at": now.isoformat(),
-                }
-            ).execute()
+            await (
+                db.table("contracts")
+                .insert(
+                    {
+                        "id": coid,
+                        "organization_id": org_id,
+                        "title": cont["title"],
+                        "customer_id": cust_id,
+                        "contract_number": f"CTR-{today.year}-{str(idx + 1).zfill(4)}",
+                        "contract_type": cont["contract_type"],
+                        "status": cont["status"],
+                        "amount": cont["amount"],
+                        "start_date": start_d.isoformat(),
+                        "end_date": end_d.isoformat(),
+                        "tags": ["demo"],
+                        "created_at": now.isoformat(),
+                    }
+                )
+                .execute()
+            )
         summary["contracts"] = len(_DEMO_CONTRACTS)
 
         # ------------------------------------------------------------------
@@ -523,7 +547,7 @@ async def generate_demo_data(user_id: str, org_id: str) -> dict[str, Any]:
 
     except Exception:
         logger.exception(
-            "[DemoData] Failed at step '%s' for org=%s. " "Cleaning up partially created demo data.",
+            "[DemoData] Failed at step '%s' for org=%s. Cleaning up partially created demo data.",
             current_step,
             org_id,
         )

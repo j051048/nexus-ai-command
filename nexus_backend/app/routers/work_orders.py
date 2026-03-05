@@ -60,7 +60,9 @@ async def list_work_orders(
         if search:
             filters["search"] = search
         orders = await work_order_service.list_work_orders(
-            org_id=org_id, filters=filters if filters else None, db=db,
+            org_id=org_id,
+            filters=filters if filters else None,
+            db=db,
         )
         return api_success(data={"work_orders": orders})
     except Exception as e:
@@ -148,7 +150,10 @@ async def create_work_order(
         db = getattr(req.state, "db", None)
         data = body.model_dump(exclude_none=True)
         order = await work_order_service.create_work_order(
-            org_id=org_id, creator_id=user_id, data=data, db=db,
+            org_id=org_id,
+            creator_id=user_id,
+            data=data,
+            db=db,
         )
         return api_success(data={"work_order": order}, message="工单创建成功")
     except Exception as e:
@@ -171,6 +176,7 @@ async def update_work_order(
             updates["status"] = body.status
             if body.status == "resolved":
                 from datetime import UTC, datetime
+
                 updates["resolved_at"] = datetime.now(UTC).isoformat()
         if body.assignee_id:
             updates["assignee_id"] = body.assignee_id

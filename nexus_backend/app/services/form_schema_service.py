@@ -67,9 +67,14 @@ class FormSchemaService:
 
         # Deactivate existing active schema for same org+type
         try:
-            await client.table("form_schemas").update({"is_active": False}).eq("organization_id", org_id).eq(
-                "approval_type", approval_type
-            ).eq("is_active", True).execute()
+            await (
+                client.table("form_schemas")
+                .update({"is_active": False})
+                .eq("organization_id", org_id)
+                .eq("approval_type", approval_type)
+                .eq("is_active", True)
+                .execute()
+            )
         except Exception as e:
             logger.warning(f"Deactivation of previous schema skipped: {e}")
 

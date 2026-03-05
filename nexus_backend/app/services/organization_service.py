@@ -126,12 +126,7 @@ class OrganizationService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            result = await (
-                db.table("departments")
-                .update(updates)
-                .eq("id", department_id)
-                .execute()
-            )
+            result = await db.table("departments").update(updates).eq("id", department_id).execute()
 
             if result.data and len(result.data) > 0:
                 logger.info(f"部门已更新: id={department_id}")
@@ -168,12 +163,7 @@ class OrganizationService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            query = (
-                db.table("positions")
-                .select("*")
-                .eq("organization_id", org_id)
-                .order("level", desc=False)
-            )
+            query = db.table("positions").select("*").eq("organization_id", org_id).order("level", desc=False)
 
             if department_id:
                 query = query.eq("department_id", department_id)
@@ -369,12 +359,7 @@ class OrganizationService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            result = await (
-                db.table("employees")
-                .update(updates)
-                .eq("id", employee_id)
-                .execute()
-            )
+            result = await db.table("employees").update(updates).eq("id", employee_id).execute()
 
             if result.data and len(result.data) > 0:
                 logger.info(f"员工已更新: id={employee_id}")
@@ -407,10 +392,7 @@ class OrganizationService:
         try:
             # 总人数
             total_result = await (
-                db.table("employees")
-                .select("id", count="exact")
-                .eq("organization_id", org_id)
-                .execute()
+                db.table("employees").select("id", count="exact").eq("organization_id", org_id).execute()
             )
             total_count = total_result.count or 0
 

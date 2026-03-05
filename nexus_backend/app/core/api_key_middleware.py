@@ -80,9 +80,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
                     else:
                         request.state.db = supabase
 
-                    logger.debug(
-                        f"API Key 认证成功: key_id={key_info['key_id']}, " f"org_id={key_info['organization_id']}"
-                    )
+                    logger.debug(f"API Key 认证成功: key_id={key_info['key_id']}, org_id={key_info['organization_id']}")
 
                     # 执行请求
                     response = await call_next(request)

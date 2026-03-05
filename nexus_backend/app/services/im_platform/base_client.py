@@ -67,7 +67,7 @@ class IMPlatformClient(ABC):
             self._access_token = token_data["access_token"]
             expires_in = token_data.get("expires_in", 7200)
             self._token_expires_at = time.time() + expires_in
-            logger.info(f"[{self.platform_name}] Access token refreshed, " f"expires in {expires_in}s")
+            logger.info(f"[{self.platform_name}] Access token refreshed, expires in {expires_in}s")
             return self._access_token
         except Exception as e:
             logger.error(f"[{self.platform_name}] Failed to refresh token: {e}")
@@ -218,7 +218,7 @@ class IMPlatformClient(ABC):
             data = response.json()
         except httpx.HTTPStatusError as e:
             logger.error(
-                f"[{self.platform_name}] HTTP {e.response.status_code} " f"for {method} {url}: {e.response.text[:200]}"
+                f"[{self.platform_name}] HTTP {e.response.status_code} for {method} {url}: {e.response.text[:200]}"
             )
             raise
         except httpx.RequestError as e:
@@ -232,9 +232,7 @@ class IMPlatformClient(ABC):
         errcode = data.get("errcode", 0)
         if errcode != 0:
             errmsg = data.get("errmsg", "unknown error")
-            logger.error(
-                f"[{self.platform_name}] API business error: " f"errcode={errcode}, errmsg={errmsg}, url={url}"
-            )
+            logger.error(f"[{self.platform_name}] API business error: errcode={errcode}, errmsg={errmsg}, url={url}")
             raise Exception(f"{self.platform_name} API error (code={errcode}): {errmsg}")
 
         return data

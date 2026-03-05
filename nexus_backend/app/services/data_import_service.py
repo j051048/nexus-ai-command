@@ -139,7 +139,7 @@ class DataImportService:
 
         if import_type not in self.COLUMN_MAPPINGS:
             return self._error_result(
-                f"不支持的导入类型: {import_type}，" f"可选: {', '.join(self.COLUMN_MAPPINGS.keys())}"
+                f"不支持的导入类型: {import_type}，可选: {', '.join(self.COLUMN_MAPPINGS.keys())}"
             )
 
         try:
@@ -619,19 +619,23 @@ class DataImportService:
                     return "updated"
             return "skipped"
 
-        await db.table("users").insert(
-            {
-                "name": row.get("name", "").strip(),
-                "email": email,
-                "department": row.get("department", "").strip() or None,
-                "role": row.get("role", "employee").strip(),
-                "phone": row.get("phone", "").strip() or None,
-                "organization_id": org_id,
-                "password": "Nexus@123",
-                "score": 0,
-                "total_bonus": 0,
-            }
-        ).execute()
+        await (
+            db.table("users")
+            .insert(
+                {
+                    "name": row.get("name", "").strip(),
+                    "email": email,
+                    "department": row.get("department", "").strip() or None,
+                    "role": row.get("role", "employee").strip(),
+                    "phone": row.get("phone", "").strip() or None,
+                    "organization_id": org_id,
+                    "password": "Nexus@123",
+                    "score": 0,
+                    "total_bonus": 0,
+                }
+            )
+            .execute()
+        )
         return "inserted"
 
     async def _import_customer(self, row: dict[str, str], org_id: str, user_id: str, db, mode: str = "insert") -> str:
@@ -667,19 +671,23 @@ class DataImportService:
                     return "updated"
             return "skipped"
 
-        await db.table("customers").insert(
-            {
-                "name": name,
-                "contact_person": row.get("contact_person", "").strip() or None,
-                "phone": row.get("phone", "").strip() or None,
-                "email": row.get("email", "").strip() or None,
-                "company": company or None,
-                "source": row.get("source", "批量导入").strip(),
-                "notes": row.get("notes", "").strip() or None,
-                "created_by": user_id,
-                "organization_id": org_id,
-            }
-        ).execute()
+        await (
+            db.table("customers")
+            .insert(
+                {
+                    "name": name,
+                    "contact_person": row.get("contact_person", "").strip() or None,
+                    "phone": row.get("phone", "").strip() or None,
+                    "email": row.get("email", "").strip() or None,
+                    "company": company or None,
+                    "source": row.get("source", "批量导入").strip(),
+                    "notes": row.get("notes", "").strip() or None,
+                    "created_by": user_id,
+                    "organization_id": org_id,
+                }
+            )
+            .execute()
+        )
         return "inserted"
 
     async def _import_attendance(self, row: dict[str, str], org_id: str, db, mode: str = "insert") -> str:
@@ -722,17 +730,21 @@ class DataImportService:
                     return "updated"
             return "skipped"
 
-        await db.table("attendance_records").insert(
-            {
-                "user_id": user_id,
-                "date": date_str,
-                "check_in": row.get("check_in", "").strip() or None,
-                "check_out": row.get("check_out", "").strip() or None,
-                "notes": row.get("notes", "").strip() or None,
-                "status": "normal",
-                "organization_id": org_id,
-            }
-        ).execute()
+        await (
+            db.table("attendance_records")
+            .insert(
+                {
+                    "user_id": user_id,
+                    "date": date_str,
+                    "check_in": row.get("check_in", "").strip() or None,
+                    "check_out": row.get("check_out", "").strip() or None,
+                    "notes": row.get("notes", "").strip() or None,
+                    "status": "normal",
+                    "organization_id": org_id,
+                }
+            )
+            .execute()
+        )
         return "inserted"
 
     async def _import_sale(self, row: dict[str, str], org_id: str, user_id: str, db, mode: str = "insert") -> str:
@@ -749,17 +761,21 @@ class DataImportService:
             if rep_res.data:
                 sales_rep_id = rep_res.data["id"]
 
-        await db.table("sales_records").insert(
-            {
-                "customer_name": customer_name,
-                "amount": amount,
-                "product": row.get("product", "").strip() or None,
-                "sales_rep": sales_rep_id,
-                "status": row.get("status", "进行中").strip(),
-                "notes": row.get("notes", "").strip() or None,
-                "organization_id": org_id,
-            }
-        ).execute()
+        await (
+            db.table("sales_records")
+            .insert(
+                {
+                    "customer_name": customer_name,
+                    "amount": amount,
+                    "product": row.get("product", "").strip() or None,
+                    "sales_rep": sales_rep_id,
+                    "status": row.get("status", "进行中").strip(),
+                    "notes": row.get("notes", "").strip() or None,
+                    "organization_id": org_id,
+                }
+            )
+            .execute()
+        )
         return "inserted"
 
     # ============== 工具方法 ==============

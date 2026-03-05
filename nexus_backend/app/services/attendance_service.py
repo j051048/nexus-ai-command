@@ -86,10 +86,7 @@ class AttendanceService:
 
         try:
             query = (
-                db.table("attendance_records")
-                .select("*")
-                .eq("organization_id", org_id)
-                .order("clock_time", desc=True)
+                db.table("attendance_records").select("*").eq("organization_id", org_id).order("clock_time", desc=True)
             )
 
             if employee_id:
@@ -240,11 +237,7 @@ class AttendanceService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            query = (
-                db.table("attendance_records")
-                .select("*")
-                .eq("organization_id", org_id)
-            )
+            query = db.table("attendance_records").select("*").eq("organization_id", org_id)
 
             if department_id:
                 query = query.eq("department_id", department_id)

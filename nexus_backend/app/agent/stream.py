@@ -327,7 +327,7 @@ async def run_agent_stream(
     except asyncio.CancelledError:
         # Client disconnected (e.g. user clicked "Stop generating")
         duration_ms = int((time.time() - start_time) * 1000)
-        logger.info(f"[Stream] Client disconnected after {duration_ms}ms " f"(user={user_id}, session={session_id})")
+        logger.info(f"[Stream] Client disconnected after {duration_ms}ms (user={user_id}, session={session_id})")
         if tracer:
             tracer.log_end(total_tokens=0)
         return

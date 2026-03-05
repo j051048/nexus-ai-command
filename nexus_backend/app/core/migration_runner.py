@@ -85,12 +85,16 @@ async def _record_migration(migration_name: str, checksum: str = "") -> None:
         return
 
     try:
-        await supabase.table("migration_history").insert(
-            {
-                "migration_name": migration_name,
-                "checksum": checksum,
-            }
-        ).execute()
+        await (
+            supabase.table("migration_history")
+            .insert(
+                {
+                    "migration_name": migration_name,
+                    "checksum": checksum,
+                }
+            )
+            .execute()
+        )
     except Exception as e:
         logger.warning(f"[MigrationRunner] 无法记录迁移 '{migration_name}': {e}")
 

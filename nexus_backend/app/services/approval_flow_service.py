@@ -32,12 +32,7 @@ class ApprovalFlowService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            query = (
-                db.table("approval_flows")
-                .select("*")
-                .eq("organization_id", org_id)
-                .order("created_at", desc=True)
-            )
+            query = db.table("approval_flows").select("*").eq("organization_id", org_id).order("created_at", desc=True)
 
             if trigger_type:
                 query = query.eq("trigger_type", trigger_type)

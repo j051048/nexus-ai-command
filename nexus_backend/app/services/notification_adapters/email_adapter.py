@@ -85,8 +85,7 @@ class EmailNotificationAdapter(BaseNotificationAdapter):
         # 检查 SMTP 配置
         if not self._config_complete:
             logger.warning(
-                f"Cannot send email notification: SMTP not configured, "
-                f"notification_id={notification.notification_id}"
+                f"Cannot send email notification: SMTP not configured, notification_id={notification.notification_id}"
             )
             return False
 

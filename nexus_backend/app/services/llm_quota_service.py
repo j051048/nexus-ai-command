@@ -248,7 +248,7 @@ async def check_quota(
                     return QuotaCheckResult(
                         allowed=False,
                         reason=(
-                            f"Cost quota exceeded for {cfg.period} period: " f"${usage['cost']:.4f}/${cfg.max_cost:.2f}"
+                            f"Cost quota exceeded for {cfg.period} period: ${usage['cost']:.4f}/${cfg.max_cost:.2f}"
                         ),
                         usage_pct=cost_pct,
                     )
@@ -276,8 +276,7 @@ async def check_quota(
                     return QuotaCheckResult(
                         allowed=False,
                         reason=(
-                            f"Request quota exceeded for {cfg.period} period: "
-                            f"{usage['requests']}/{cfg.max_requests}"
+                            f"Request quota exceeded for {cfg.period} period: {usage['requests']}/{cfg.max_requests}"
                         ),
                         usage_pct=req_pct,
                     )

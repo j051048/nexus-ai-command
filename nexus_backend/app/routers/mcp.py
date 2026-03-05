@@ -225,7 +225,7 @@ async def execute_tool(
     )
 
     # --- Execute (with timeout protection against LLM-heavy tools) ---
-    MCP_TOOL_TIMEOUT_SECONDS = 60
+    mcp_tool_timeout_seconds = 60
     start = time.perf_counter()
     try:
         result = await asyncio.wait_for(
@@ -234,7 +234,7 @@ async def execute_tool(
                 user_id=user_id,
                 config=config,
             ),
-            timeout=MCP_TOOL_TIMEOUT_SECONDS,
+            timeout=mcp_tool_timeout_seconds,
         )
         duration_ms = round((time.perf_counter() - start) * 1000, 2)
 
@@ -260,11 +260,11 @@ async def execute_tool(
             tool_name,
             user_id,
             duration_ms,
-            MCP_TOOL_TIMEOUT_SECONDS,
+            mcp_tool_timeout_seconds,
         )
         raise api_error(
             ErrorCode.AI_SERVICE_TIMEOUT,
-            f"工具 '{tool_name}' 执行超时（{MCP_TOOL_TIMEOUT_SECONDS}秒），请稍后重试。",
+            f"工具 '{tool_name}' 执行超时（{mcp_tool_timeout_seconds}秒），请稍后重试。",
         )
     except HTTPException:
         raise
@@ -429,7 +429,7 @@ async def handle_message(
                 return {"ok": True}
 
             # Execute tool (with timeout protection)
-            MCP_SSE_TOOL_TIMEOUT = 60
+            mcp_sse_tool_timeout = 60
             start = time.perf_counter()
             try:
                 org_id = getattr(request.state, "org_id", None)
@@ -439,7 +439,7 @@ async def handle_message(
                         user_id=user_id,
                         config={"org_id": org_id, "source": "mcp-sse"},
                     ),
-                    timeout=MCP_SSE_TOOL_TIMEOUT,
+                    timeout=mcp_sse_tool_timeout,
                 )
                 duration_ms = round((time.perf_counter() - start) * 1000, 2)
 
@@ -459,7 +459,7 @@ async def handle_message(
                     "[MCP-SSE] tool_timeout tool=%s duration_ms=%.2f timeout=%ds",
                     tool_name,
                     duration_ms,
-                    MCP_SSE_TOOL_TIMEOUT,
+                    mcp_sse_tool_timeout,
                 )
                 await session.send_jsonrpc_response(
                     msg_id,
@@ -467,7 +467,7 @@ async def handle_message(
                         "content": [
                             {
                                 "type": "text",
-                                "text": f"工具 '{tool_name}' 执行超时（{MCP_SSE_TOOL_TIMEOUT}秒），请稍后重试。",
+                                "text": f"工具 '{tool_name}' 执行超时（{mcp_sse_tool_timeout}秒），请稍后重试。",
                             },
                         ],
                         "isError": True,

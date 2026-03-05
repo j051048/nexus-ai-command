@@ -32,7 +32,6 @@ MAX_HISTORY = getattr(settings, "MAX_CHAT_HISTORY", 10)
 
 
 class ChatService:
-
     @staticmethod
     async def get_system_prompt(
         agent_name: str,

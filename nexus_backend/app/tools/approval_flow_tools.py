@@ -33,10 +33,7 @@ class ListApprovalFlowsTool(BaseTool):
     """查询审批流模板列表"""
 
     name = "list_approval_flows"
-    description = (
-        "查询审批流模板列表。"
-        "当用户说'查看审批流'、'审批流列表'时调用。"
-    )
+    description = "查询审批流模板列表。当用户说'查看审批流'、'审批流列表'时调用。"
 
     parameters = {
         "type": "object",
@@ -96,10 +93,7 @@ class CreateApprovalFlowTool(BaseTool):
     """创建审批流模板"""
 
     name = "create_approval_flow"
-    description = (
-        "创建审批流模板。"
-        "当用户说'创建审批流'、'配置审批流程'时调用。"
-    )
+    description = "创建审批流模板。当用户说'创建审批流'、'配置审批流程'时调用。"
 
     required_role = "admin"
 

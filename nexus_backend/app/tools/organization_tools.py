@@ -43,10 +43,7 @@ class ListDepartmentsTool(BaseTool):
     """查询部门列表"""
 
     name = "list_departments"
-    description = (
-        "查询组织的部门列表，支持查询子部门。"
-        "当用户说'查看部门'、'部门列表'、'有哪些部门'时调用。"
-    )
+    description = "查询组织的部门列表，支持查询子部门。当用户说'查看部门'、'部门列表'、'有哪些部门'时调用。"
 
     parameters = {
         "type": "object",
@@ -84,9 +81,7 @@ class ListDepartmentsTool(BaseTool):
             for dept in departments:
                 manager = dept.get("manager")
                 manager_name = manager.get("name") if manager else "未设置"
-                lines.append(
-                    f"- **{dept.get('name')}** | 负责人: {manager_name} | ID: {dept['id'][:8]}..."
-                )
+                lines.append(f"- **{dept.get('name')}** | 负责人: {manager_name} | ID: {dept['id'][:8]}...")
 
             return "\n".join(lines)
 
@@ -99,10 +94,7 @@ class CreateDepartmentTool(BaseTool):
     """创建部门"""
 
     name = "create_department"
-    description = (
-        "创建新部门。"
-        "当用户说'创建部门'、'新建部门'、'添加部门'时调用。"
-    )
+    description = "创建新部门。当用户说'创建部门'、'新建部门'、'添加部门'时调用。"
     required_role = "admin"
 
     parameters = {
@@ -169,10 +161,7 @@ class UpdateDepartmentTool(BaseTool):
     """更新部门信息"""
 
     name = "update_department"
-    description = (
-        "更新部门信息（名称、负责人、状态等）。"
-        "当用户说'更新部门'、'修改部门'、'设置部门负责人'时调用。"
-    )
+    description = "更新部门信息（名称、负责人、状态等）。当用户说'更新部门'、'修改部门'、'设置部门负责人'时调用。"
     required_role = "admin"
 
     parameters = {
@@ -247,10 +236,7 @@ class ListEmployeesTool(BaseTool):
     """查询员工列表"""
 
     name = "list_employees"
-    description = (
-        "查询员工花名册，支持按部门、职位、状态筛选。"
-        "当用户说'查看员工'、'员工列表'、'有哪些员工'时调用。"
-    )
+    description = "查询员工花名册，支持按部门、职位、状态筛选。当用户说'查看员工'、'员工列表'、'有哪些员工'时调用。"
 
     parameters = {
         "type": "object",
@@ -331,10 +317,7 @@ class GetEmployeeDetailTool(BaseTool):
     """获取员工详情"""
 
     name = "get_employee_detail"
-    description = (
-        "获取员工详细信息。"
-        "当用户说'查看员工详情'、'员工信息'时调用。"
-    )
+    description = "获取员工详细信息。当用户说'查看员工详情'、'员工信息'时调用。"
 
     parameters = {
         "type": "object",
@@ -390,10 +373,7 @@ class CreateEmployeeTool(BaseTool):
     """创建员工"""
 
     name = "create_employee"
-    description = (
-        "创建新员工（入职登记）。"
-        "当用户说'创建员工'、'新员工入职'、'录入员工'时调用。"
-    )
+    description = "创建新员工（入职登记）。当用户说'创建员工'、'新员工入职'、'录入员工'时调用。"
     required_role = "admin"
 
     parameters = {
@@ -481,10 +461,7 @@ class UpdateEmployeeTool(BaseTool):
     """更新员工信息"""
 
     name = "update_employee"
-    description = (
-        "更新员工信息（调岗、离职、信息变更等）。"
-        "当用户说'更新员工'、'员工调岗'、'员工离职'时调用。"
-    )
+    description = "更新员工信息（调岗、离职、信息变更等）。当用户说'更新员工'、'员工调岗'、'员工离职'时调用。"
     required_role = "admin"
 
     parameters = {
@@ -565,10 +542,7 @@ class OrgStatisticsTool(BaseTool):
     """组织统计"""
 
     name = "org_statistics"
-    description = (
-        "获取组织统计数据（总人数、部门分布、在职率等）。"
-        "当用户说'组织统计'、'人员统计'、'有多少员工'时调用。"
-    )
+    description = "获取组织统计数据（总人数、部门分布、在职率等）。当用户说'组织统计'、'人员统计'、'有多少员工'时调用。"
 
     parameters = {
         "type": "object",

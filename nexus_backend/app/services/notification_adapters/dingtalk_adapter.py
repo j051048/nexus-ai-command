@@ -136,13 +136,12 @@ class DingtalkNotificationAdapter(BaseNotificationAdapter):
             return False
         except httpx.RequestError as e:
             logger.error(
-                f"Request error sending dingtalk notification: {e}, " f"notification_id={notification.notification_id}"
+                f"Request error sending dingtalk notification: {e}, notification_id={notification.notification_id}"
             )
             return False
         except Exception as e:
             logger.error(
-                f"Unexpected error sending dingtalk notification: {e}, "
-                f"notification_id={notification.notification_id}"
+                f"Unexpected error sending dingtalk notification: {e}, notification_id={notification.notification_id}"
             )
             return False
 

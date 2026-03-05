@@ -95,12 +95,7 @@ class ExpenseService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            query = (
-                db.table("expense_claims")
-                .select("*")
-                .eq("organization_id", org_id)
-                .order("created_at", desc=True)
-            )
+            query = db.table("expense_claims").select("*").eq("organization_id", org_id).order("created_at", desc=True)
 
             if filters:
                 if filters.get("employee_id"):
@@ -150,12 +145,7 @@ class ExpenseService:
             if comment:
                 updates["review_comment"] = comment
 
-            result = await (
-                db.table("expense_claims")
-                .update(updates)
-                .eq("id", expense_id)
-                .execute()
-            )
+            result = await db.table("expense_claims").update(updates).eq("id", expense_id).execute()
 
             if result.data and len(result.data) > 0:
                 logger.info(f"报销单已审批: id={expense_id}, action={action}")
@@ -188,11 +178,7 @@ class ExpenseService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            query = (
-                db.table("expense_claims")
-                .select("*")
-                .eq("organization_id", org_id)
-            )
+            query = db.table("expense_claims").select("*").eq("organization_id", org_id)
 
             if filters:
                 if filters.get("start_date"):
@@ -255,11 +241,7 @@ class ExpenseService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            query = (
-                db.table("budgets")
-                .select("*")
-                .eq("organization_id", org_id)
-            )
+            query = db.table("budgets").select("*").eq("organization_id", org_id)
 
             if department_id:
                 query = query.eq("department_id", department_id)

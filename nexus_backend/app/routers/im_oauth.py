@@ -89,7 +89,7 @@ async def get_login_url(
     if platform not in SUPPORTED_PLATFORMS:
         raise api_error(
             ErrorCode.VALIDATION_INVALID_INPUT,
-            f"Unsupported platform: {platform}. " f"Supported: {', '.join(SUPPORTED_PLATFORMS)}",
+            f"Unsupported platform: {platform}. Supported: {', '.join(SUPPORTED_PLATFORMS)}",
         )
 
     if not redirect_uri:
@@ -111,7 +111,7 @@ async def get_login_url(
         if not client:
             raise api_error(
                 ErrorCode.VALIDATION_INVALID_INPUT,
-                f"{platform} is not configured. " f"Please set the required credentials.",
+                f"{platform} is not configured. Please set the required credentials.",
             )
 
         login_url = client.get_oauth_url(
@@ -237,15 +237,19 @@ async def oauth_callback(
                                 resolved_org_id = org_result.data.get("organization_id", "")
 
                         if resolved_org_id:
-                            await db.table("im_user_mappings").insert(
-                                {
-                                    "user_id": nexus_user_id,
-                                    "organization_id": resolved_org_id,
-                                    "platform": platform,
-                                    "platform_user_id": platform_user_id,
-                                    "platform_username": platform_user.get("name", ""),
-                                }
-                            ).execute()
+                            await (
+                                db.table("im_user_mappings")
+                                .insert(
+                                    {
+                                        "user_id": nexus_user_id,
+                                        "organization_id": resolved_org_id,
+                                        "platform": platform,
+                                        "platform_user_id": platform_user_id,
+                                        "platform_username": platform_user.get("name", ""),
+                                    }
+                                )
+                                .execute()
+                            )
                             is_new_mapping = True
                             logger.info(
                                 f"[im_oauth] Auto-mapped {platform} user "

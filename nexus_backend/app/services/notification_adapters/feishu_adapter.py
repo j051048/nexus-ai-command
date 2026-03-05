@@ -114,12 +114,12 @@ class FeishuNotificationAdapter(BaseNotificationAdapter):
             return False
         except httpx.RequestError as e:
             logger.error(
-                f"Request error sending feishu notification: {e}, " f"notification_id={notification.notification_id}"
+                f"Request error sending feishu notification: {e}, notification_id={notification.notification_id}"
             )
             return False
         except Exception as e:
             logger.error(
-                f"Unexpected error sending feishu notification: {e}, " f"notification_id={notification.notification_id}"
+                f"Unexpected error sending feishu notification: {e}, notification_id={notification.notification_id}"
             )
             return False
 

@@ -76,7 +76,7 @@ class AttendanceSyncService:
             # 2. 获取该组织在该平台上的所有映射用户
             user_mappings = await self._get_user_mappings(org_id, platform, db)
             if not user_mappings:
-                logger.info(f"[AttendanceSync] No user mappings found for " f"org={org_id}, platform={platform}")
+                logger.info(f"[AttendanceSync] No user mappings found for org={org_id}, platform={platform}")
                 return stats
 
             # 3. 拉取考勤数据
@@ -88,7 +88,7 @@ class AttendanceSyncService:
             )
 
             logger.info(
-                f"[AttendanceSync] Fetched {len(raw_records)} raw records " f"from {platform} for date={target_date}"
+                f"[AttendanceSync] Fetched {len(raw_records)} raw records from {platform} for date={target_date}"
             )
 
             # 4. 标准化并存储
@@ -134,12 +134,11 @@ class AttendanceSyncService:
                         stats["records_updated"] += 1
 
                 except Exception as e:
-                    logger.warning(f"[AttendanceSync] Failed to upsert attendance " f"for user {platform_user_id}: {e}")
+                    logger.warning(f"[AttendanceSync] Failed to upsert attendance for user {platform_user_id}: {e}")
                     stats["errors"].append(f"User {platform_user_id}: {str(e)[:100]}")
 
             logger.info(
-                f"[AttendanceSync] Sync complete for org={org_id}, "
-                f"date={target_date}: synced={stats['records_synced']}"
+                f"[AttendanceSync] Sync complete for org={org_id}, date={target_date}: synced={stats['records_synced']}"
             )
 
         except Exception as e:

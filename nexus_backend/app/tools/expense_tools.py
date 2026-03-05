@@ -43,10 +43,7 @@ class SubmitExpenseTool(BaseTool):
     """提交报销申请"""
 
     name = "submit_expense"
-    description = (
-        "提交报销申请。"
-        "当用户说'报销'、'提交报销'、'报销申请'时调用。"
-    )
+    description = "提交报销申请。当用户说'报销'、'提交报销'、'报销申请'时调用。"
 
     is_irreversible = True
 
@@ -131,10 +128,7 @@ class ListExpensesTool(BaseTool):
     """查询报销记录"""
 
     name = "list_expenses"
-    description = (
-        "查询报销记录。"
-        "当用户说'查看报销'、'报销列表'、'报销记录'时调用。"
-    )
+    description = "查询报销记录。当用户说'查看报销'、'报销列表'、'报销记录'时调用。"
 
     parameters = {
         "type": "object",
@@ -213,10 +207,7 @@ class ApproveExpenseTool(BaseTool):
     """审批报销单"""
 
     name = "approve_expense"
-    description = (
-        "审批报销单（通过或驳回）。"
-        "当用户说'审批报销'、'批准报销'、'驳回报销'时调用。"
-    )
+    description = "审批报销单（通过或驳回）。当用户说'审批报销'、'批准报销'、'驳回报销'时调用。"
 
     required_role = "admin"
 
@@ -286,10 +277,7 @@ class CheckBudgetTool(BaseTool):
     """查询预算使用情况"""
 
     name = "check_budget"
-    description = (
-        "查询预算使用情况。"
-        "当用户说'预算查询'、'预算余额'、'查看预算'时调用。"
-    )
+    description = "查询预算使用情况。当用户说'预算查询'、'预算余额'、'查看预算'时调用。"
 
     parameters = {
         "type": "object",

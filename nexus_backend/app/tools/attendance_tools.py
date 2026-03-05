@@ -43,10 +43,7 @@ class ClockInOutTool(BaseTool):
     """打卡（上班/下班/外勤打卡）"""
 
     name = "clock_in_out"
-    description = (
-        "打卡（上班/下班/外勤打卡）。"
-        "当用户说'打卡'、'上班签到'、'下班打卡'时调用。"
-    )
+    description = "打卡（上班/下班/外勤打卡）。当用户说'打卡'、'上班签到'、'下班打卡'时调用。"
 
     parameters = {
         "type": "object",
@@ -80,7 +77,9 @@ class ClockInOutTool(BaseTool):
 
         # 查找当前用户对应的员工ID
         try:
-            emp_resp = client.table("employees").select("id").eq("user_id", user_id).eq("tenant_id", org_id).limit(1).execute()
+            emp_resp = (
+                client.table("employees").select("id").eq("user_id", user_id).eq("tenant_id", org_id).limit(1).execute()
+            )
             if not emp_resp.data:
                 return "❌ 未找到您的员工信息，请联系管理员。"
             employee_id = emp_resp.data[0]["id"]
@@ -121,10 +120,7 @@ class GetAttendanceRecordTool(BaseTool):
     """查询考勤记录"""
 
     name = "get_attendance_record"
-    description = (
-        "查询考勤记录。"
-        "当用户说'查看考勤'、'考勤记录'时调用。"
-    )
+    description = "查询考勤记录。当用户说'查看考勤'、'考勤记录'时调用。"
 
     parameters = {
         "type": "object",
@@ -175,10 +171,7 @@ class GetAttendanceRecordTool(BaseTool):
             lines = [f"📋 共找到 {len(records)} 条考勤记录:\n"]
             for r in records:
                 ctype = type_labels.get(r.get("clock_type", ""), r.get("clock_type", ""))
-                lines.append(
-                    f"- {str(r.get('clock_time', ''))[:16]} | 类型: {ctype} | "
-                    f"状态: {r.get('status', '正常')}"
-                )
+                lines.append(f"- {str(r.get('clock_time', ''))[:16]} | 类型: {ctype} | 状态: {r.get('status', '正常')}")
 
             return "\n".join(lines)
 
@@ -191,10 +184,7 @@ class CreateShiftScheduleTool(BaseTool):
     """创建排班计划"""
 
     name = "create_shift_schedule"
-    description = (
-        "创建排班计划。"
-        "当用户说'排班'、'创建班次'时调用。"
-    )
+    description = "创建排班计划。当用户说'排班'、'创建班次'时调用。"
 
     required_role = "admin"
 
@@ -245,10 +235,7 @@ class CreateShiftScheduleTool(BaseTool):
             )
 
             return (
-                f"✅ 排班创建成功！\n\n"
-                f"- 员工ID: {employee_id[:8]}...\n"
-                f"- 排班日期: {shift_date}\n"
-                f"- ID: {schedule['id']}"
+                f"✅ 排班创建成功！\n\n- 员工ID: {employee_id[:8]}...\n- 排班日期: {shift_date}\n- ID: {schedule['id']}"
             )
 
         except Exception as e:
@@ -260,10 +247,7 @@ class ListShiftSchedulesTool(BaseTool):
     """查询排班表"""
 
     name = "list_shift_schedules"
-    description = (
-        "查询排班表。"
-        "当用户说'查看排班'、'排班表'时调用。"
-    )
+    description = "查询排班表。当用户说'查看排班'、'排班表'时调用。"
 
     parameters = {
         "type": "object",
@@ -324,10 +308,7 @@ class AttendanceStatisticsTool(BaseTool):
     """考勤统计"""
 
     name = "attendance_statistics"
-    description = (
-        "考勤统计。"
-        "当用户说'考勤统计'、'出勤率'时调用。"
-    )
+    description = "考勤统计。当用户说'考勤统计'、'出勤率'时调用。"
 
     parameters = {
         "type": "object",
@@ -384,10 +365,7 @@ class RequestLeaveTool(BaseTool):
     """请假申请"""
 
     name = "request_leave"
-    description = (
-        "请假申请。"
-        "当用户说'请假'、'申请休假'时调用。"
-    )
+    description = "请假申请。当用户说'请假'、'申请休假'时调用。"
 
     parameters = {
         "type": "object",
@@ -432,7 +410,9 @@ class RequestLeaveTool(BaseTool):
 
         # 查找当前用户对应的员工ID
         try:
-            emp_resp = client.table("employees").select("id").eq("user_id", user_id).eq("tenant_id", org_id).limit(1).execute()
+            emp_resp = (
+                client.table("employees").select("id").eq("user_id", user_id).eq("tenant_id", org_id).limit(1).execute()
+            )
             if not emp_resp.data:
                 return "❌ 未找到您的员工信息，请联系管理员。"
             employee_id = emp_resp.data[0]["id"]

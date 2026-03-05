@@ -131,9 +131,7 @@ class GenerateDeviationTableTool(BaseTool):
     """生成技术偏离表"""
 
     name = "generate_deviation_table"
-    description = (
-        "生成技术偏离表，逐项对照招标技术要求与我方产品参数。" "当用户说'偏离表'、'技术对比'、'参数对照'时调用。"
-    )
+    description = "生成技术偏离表，逐项对照招标技术要求与我方产品参数。当用户说'偏离表'、'技术对比'、'参数对照'时调用。"
     required_role = "all"
 
     parameters = {
@@ -220,7 +218,7 @@ class CheckBidComplianceTool(BaseTool):
     """校验投标文件合规性"""
 
     name = "check_bid_compliance"
-    description = "校验投标文件合规性，识别废标风险点。" "当用户说'检查投标文件'、'合规检查'、'废标风险'时调用。"
+    description = "校验投标文件合规性，识别废标风险点。当用户说'检查投标文件'、'合规检查'、'废标风险'时调用。"
     required_role = "all"
 
     parameters = {

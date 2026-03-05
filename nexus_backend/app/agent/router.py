@@ -461,13 +461,11 @@ async def route_node(state: AgentState) -> dict:
 
     if agent_code:
         logger.info(
-            f"[Router] VMD role detected: agent_code={agent_code} scene={scene_code} "
-            f"multi_agent={needs_multi_agent}"
+            f"[Router] VMD role detected: agent_code={agent_code} scene={scene_code} multi_agent={needs_multi_agent}"
         )
 
     logger.info(
-        f"[Router] user={config.user_id} complexity={complexity.value} "
-        f"model={selected_model} intent='{intent_summary}'"
+        f"[Router] user={config.user_id} complexity={complexity.value} model={selected_model} intent='{intent_summary}'"
     )
 
     thinking_step = ThinkingStep(

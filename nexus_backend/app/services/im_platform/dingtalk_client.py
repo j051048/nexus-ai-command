@@ -113,7 +113,7 @@ class DingtalkClient(IMPlatformClient):
             response.raise_for_status()
             data = response.json()
         except httpx.HTTPStatusError as e:
-            logger.error(f"[dingtalk] HTTP {e.response.status_code} " f"for {method} {url}: {e.response.text[:200]}")
+            logger.error(f"[dingtalk] HTTP {e.response.status_code} for {method} {url}: {e.response.text[:200]}")
             raise
         except httpx.RequestError as e:
             logger.error(f"[dingtalk] Request error for {method} {url}: {e}")
@@ -123,13 +123,13 @@ class DingtalkClient(IMPlatformClient):
         errcode = data.get("errcode")
         if errcode is not None and errcode != 0:
             errmsg = data.get("errmsg", "unknown error")
-            logger.error(f"[dingtalk] API business error: " f"errcode={errcode}, errmsg={errmsg}, url={url}")
+            logger.error(f"[dingtalk] API business error: errcode={errcode}, errmsg={errmsg}, url={url}")
             raise Exception(f"dingtalk API error (code={errcode}): {errmsg}")
 
         # 新版 API 错误检查
         if "code" in data and data["code"] != "0" and data.get("code") is not None:
             message = data.get("message", "unknown error")
-            logger.error(f"[dingtalk] New API error: code={data['code']}, " f"message={message}, url={url}")
+            logger.error(f"[dingtalk] New API error: code={data['code']}, message={message}, url={url}")
             raise Exception(f"dingtalk API error (code={data['code']}): {message}")
 
         return data

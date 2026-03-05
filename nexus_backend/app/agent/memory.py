@@ -104,7 +104,7 @@ async def trim_messages_to_window(
 
     new_tokens = token_counter.count_messages_tokens(trimmed, model)
     logger.info(
-        f"[Memory] Trimmed from {total_tokens} to {new_tokens} tokens " f"({len(messages)} → {len(trimmed)} messages)"
+        f"[Memory] Trimmed from {total_tokens} to {new_tokens} tokens ({len(messages)} → {len(trimmed)} messages)"
     )
     return trimmed
 

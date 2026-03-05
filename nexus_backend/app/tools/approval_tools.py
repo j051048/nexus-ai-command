@@ -84,15 +84,19 @@ async def _notify_next_approver(
         if approval_level == "manager":
             manager = await approval_chain_service.get_direct_manager(requester_id, db=client)
             if manager:
-                await client.table("notifications").insert(
-                    {
-                        "user_id": manager["id"],
-                        "title": f"📋 待审批: {requester_name}的{type_label}申请",
-                        "content": content,
-                        "type": "warning",
-                        "action_url": "/approval",
-                    }
-                ).execute()
+                await (
+                    client.table("notifications")
+                    .insert(
+                        {
+                            "user_id": manager["id"],
+                            "title": f"📋 待审批: {requester_name}的{type_label}申请",
+                            "content": content,
+                            "type": "warning",
+                            "action_url": "/approval",
+                        }
+                    )
+                    .execute()
+                )
                 notified = True
 
         # Strategy 2: Role-based lookup
@@ -104,30 +108,38 @@ async def _notify_next_approver(
             approvers_res = await query.neq("id", requester_id).limit(5).execute()
 
             for approver in approvers_res.data or []:
-                await client.table("notifications").insert(
-                    {
-                        "user_id": approver["id"],
-                        "title": f"📋 待审批: {requester_name}的{type_label}申请",
-                        "content": content,
-                        "type": "warning",
-                        "action_url": "/approval",
-                    }
-                ).execute()
+                await (
+                    client.table("notifications")
+                    .insert(
+                        {
+                            "user_id": approver["id"],
+                            "title": f"📋 待审批: {requester_name}的{type_label}申请",
+                            "content": content,
+                            "type": "warning",
+                            "action_url": "/approval",
+                        }
+                    )
+                    .execute()
+                )
                 notified = True
 
         # Strategy 3: Ultimate fallback to any founder
         if not notified:
             founders_res = await client.table("users").select("id").eq("role", "founder").limit(3).execute()
             for f in founders_res.data or []:
-                await client.table("notifications").insert(
-                    {
-                        "user_id": f["id"],
-                        "title": f"📋 待审批: {requester_name}的{type_label}申请",
-                        "content": content,
-                        "type": "warning",
-                        "action_url": "/approval",
-                    }
-                ).execute()
+                await (
+                    client.table("notifications")
+                    .insert(
+                        {
+                            "user_id": f["id"],
+                            "title": f"📋 待审批: {requester_name}的{type_label}申请",
+                            "content": content,
+                            "type": "warning",
+                            "action_url": "/approval",
+                        }
+                    )
+                    .execute()
+                )
 
     except Exception as e:
         logger.warning(f"Failed to notify approver for {req_id}: {e}")
@@ -299,35 +311,43 @@ class SubmitApprovalOnBehalfTool(BaseTool):
         if result.data:
             req_id = result.data[0].get("id")
             # 记录审计日志
-            await client.table("audit_logs").insert(
-                {
-                    "action": "approval_submitted_via_ai",
-                    "actor_user_id": AI_ASSISTANT_ID,
-                    "target_id": req_id,
-                    "target_table": "approval_requests",
-                    "details_json": {
-                        "employee_id": employee_id,
-                        "employee_name": actual_employee.get("name"),
-                        "type": approval_type,
-                        "amount": amount,
-                        "chain_name": chain_name,
-                        "auto_approve": auto_approve,
-                    },
-                }
-            ).execute()
+            await (
+                client.table("audit_logs")
+                .insert(
+                    {
+                        "action": "approval_submitted_via_ai",
+                        "actor_user_id": AI_ASSISTANT_ID,
+                        "target_id": req_id,
+                        "target_table": "approval_requests",
+                        "details_json": {
+                            "employee_id": employee_id,
+                            "employee_name": actual_employee.get("name"),
+                            "type": approval_type,
+                            "amount": amount,
+                            "chain_name": chain_name,
+                            "auto_approve": auto_approve,
+                        },
+                    }
+                )
+                .execute()
+            )
 
             if auto_approve:
                 # 小额自动批准 — 通知提交人
                 with contextlib.suppress(Exception):
-                    await client.table("notifications").insert(
-                        {
-                            "user_id": employee_id,
-                            "title": "✅ 审批已自动通过",
-                            "content": f"您的{approval_type}申请（¥{amount}）金额较小，已由系统自动批准。",
-                            "type": "success",
-                            "action_url": "/approval",
-                        }
-                    ).execute()
+                    await (
+                        client.table("notifications")
+                        .insert(
+                            {
+                                "user_id": employee_id,
+                                "title": "✅ 审批已自动通过",
+                                "content": f"您的{approval_type}申请（¥{amount}）金额较小，已由系统自动批准。",
+                                "type": "success",
+                                "action_url": "/approval",
+                            }
+                        )
+                        .execute()
+                    )
                 return (
                     f"✅ 已为您（{employee_name}）提交{approval_type}申请（单号：{req_id[:8]}...）。\n"
                     f"金额 ¥{amount} 在自动审批限额内，系统已自动批准。"
@@ -551,10 +571,10 @@ class ApprovalTool(BaseTool):
 **申请信息**
 - 单号: {req_id[:8]}...
 - 申请人: {submitter_name}
-- 类型: {request_data.get('type', '未知')}
-- 金额: ¥{request_data.get('amount', 0):,.2f}
-- 说明: {request_data.get('description', '无')[:100]}
-- 提交时间: {request_data.get('created_at', '未知')[:10]}{chain_info}
+- 类型: {request_data.get("type", "未知")}
+- 金额: ¥{request_data.get("amount", 0):,.2f}
+- 说明: {request_data.get("description", "无")[:100]}
+- 提交时间: {request_data.get("created_at", "未知")[:10]}{chain_info}
 
 **这是一个不可逆操作**
 如确认批准，请说「确认批准」或重新调用工具并设置 confirm=true"""
@@ -581,22 +601,26 @@ class ApprovalTool(BaseTool):
                 approval_level = updated.get("approval_level", "")
 
                 # Record audit log
-                await client.table("audit_logs").insert(
-                    {
-                        "action": "approval_advanced",
-                        "actor_user_id": user_id,
-                        "target_id": req_id,
-                        "target_table": "approval_requests",
-                        "details_json": {
-                            "amount": request_data.get("amount"),
-                            "type": request_data.get("type"),
-                            "submitter": submitter_name,
-                            "chain_id": chain_id,
-                            "new_step": current_step,
-                            "new_status": new_status,
-                        },
-                    }
-                ).execute()
+                await (
+                    client.table("audit_logs")
+                    .insert(
+                        {
+                            "action": "approval_advanced",
+                            "actor_user_id": user_id,
+                            "target_id": req_id,
+                            "target_table": "approval_requests",
+                            "details_json": {
+                                "amount": request_data.get("amount"),
+                                "type": request_data.get("type"),
+                                "submitter": submitter_name,
+                                "chain_id": chain_id,
+                                "new_step": current_step,
+                                "new_status": new_status,
+                            },
+                        }
+                    )
+                    .execute()
+                )
 
                 if new_status == "approved":
                     # Send final approval notification to submitter
@@ -647,19 +671,23 @@ class ApprovalTool(BaseTool):
 
         if result.data:
             # Record audit log
-            await client.table("audit_logs").insert(
-                {
-                    "action": "approval_approved",
-                    "actor_user_id": user_id,
-                    "target_id": req_id,
-                    "target_table": "approval_requests",
-                    "details_json": {
-                        "amount": request_data.get("amount"),
-                        "type": request_data.get("type"),
-                        "submitter": submitter_name,
-                    },
-                }
-            ).execute()
+            await (
+                client.table("audit_logs")
+                .insert(
+                    {
+                        "action": "approval_approved",
+                        "actor_user_id": user_id,
+                        "target_id": req_id,
+                        "target_table": "approval_requests",
+                        "details_json": {
+                            "amount": request_data.get("amount"),
+                            "type": request_data.get("type"),
+                            "submitter": submitter_name,
+                        },
+                    }
+                )
+                .execute()
+            )
 
             # Send notification
             await self._send_approval_notification(client, request_data, submitter_name)
@@ -677,15 +705,19 @@ class ApprovalTool(BaseTool):
         """Send approval notifications (in-app + multi-channel)."""
         try:
             target_user = request_data.get("submitted_by")
-            await client.table("notifications").insert(
-                {
-                    "user_id": target_user,
-                    "title": "审批已通过",
-                    "content": f"您的{request_data.get('type', '')}申请（¥{request_data.get('amount', 0)}）已被批准。",
-                    "type": "success",
-                    "action_url": "/approval",
-                }
-            ).execute()
+            await (
+                client.table("notifications")
+                .insert(
+                    {
+                        "user_id": target_user,
+                        "title": "审批已通过",
+                        "content": f"您的{request_data.get('type', '')}申请（¥{request_data.get('amount', 0)}）已被批准。",
+                        "type": "success",
+                        "action_url": "/approval",
+                    }
+                )
+                .execute()
+            )
         except Exception as e:
             logger.warning(f"Failed to send notification: {e}")
 
@@ -702,7 +734,7 @@ class ApprovalTool(BaseTool):
                 Notification(
                     title="审批已通过",
                     content=(
-                        f"您的{request_data.get('type', '')}申请" f"（¥{request_data.get('amount', 0):,.0f}）已被批准"
+                        f"您的{request_data.get('type', '')}申请（¥{request_data.get('amount', 0):,.0f}）已被批准"
                     ),
                     target_user_id=request_data.get("submitted_by"),
                     channel=NotificationChannel.IN_APP,
@@ -797,9 +829,9 @@ class RejectTool(BaseTool):
 **申请信息**
 - 单号: {req_id[:8]}...
 - 申请人: {submitter_name}
-- 类型: {request_data.get('type', '未知')}
-- 金额: ¥{request_data.get('amount', 0):,.2f}
-- 说明: {request_data.get('description', '无')[:100]}
+- 类型: {request_data.get("type", "未知")}
+- 金额: ¥{request_data.get("amount", 0):,.2f}
+- 说明: {request_data.get("description", "无")[:100]}
 
 **驳回原因**
 {reason}
@@ -825,21 +857,25 @@ class RejectTool(BaseTool):
                 )
 
                 # Record audit log
-                await client.table("audit_logs").insert(
-                    {
-                        "action": "approval_rejected",
-                        "actor_user_id": user_id,
-                        "target_id": req_id,
-                        "target_table": "approval_requests",
-                        "details_json": {
-                            "amount": request_data.get("amount"),
-                            "type": request_data.get("type"),
-                            "submitter": submitter_name,
-                            "reason": reason,
-                            "chain_id": chain_id,
-                        },
-                    }
-                ).execute()
+                await (
+                    client.table("audit_logs")
+                    .insert(
+                        {
+                            "action": "approval_rejected",
+                            "actor_user_id": user_id,
+                            "target_id": req_id,
+                            "target_table": "approval_requests",
+                            "details_json": {
+                                "amount": request_data.get("amount"),
+                                "type": request_data.get("type"),
+                                "submitter": submitter_name,
+                                "reason": reason,
+                                "chain_id": chain_id,
+                            },
+                        }
+                    )
+                    .execute()
+                )
 
                 # Send rejection notification
                 await self._send_rejection_notification(client, request_data, reason)
@@ -868,20 +904,24 @@ class RejectTool(BaseTool):
 
         if result.data:
             # Record audit log
-            await client.table("audit_logs").insert(
-                {
-                    "action": "approval_rejected",
-                    "actor_user_id": user_id,
-                    "target_id": req_id,
-                    "target_table": "approval_requests",
-                    "details_json": {
-                        "amount": request_data.get("amount"),
-                        "type": request_data.get("type"),
-                        "submitter": submitter_name,
-                        "reason": reason,
-                    },
-                }
-            ).execute()
+            await (
+                client.table("audit_logs")
+                .insert(
+                    {
+                        "action": "approval_rejected",
+                        "actor_user_id": user_id,
+                        "target_id": req_id,
+                        "target_table": "approval_requests",
+                        "details_json": {
+                            "amount": request_data.get("amount"),
+                            "type": request_data.get("type"),
+                            "submitter": submitter_name,
+                            "reason": reason,
+                        },
+                    }
+                )
+                .execute()
+            )
 
             # Send rejection notification
             await self._send_rejection_notification(client, request_data, reason)
@@ -895,15 +935,19 @@ class RejectTool(BaseTool):
         """Send rejection notifications (in-app + multi-channel)."""
         try:
             target_user = request_data.get("submitted_by")
-            await client.table("notifications").insert(
-                {
-                    "user_id": target_user,
-                    "title": "审批已驳回",
-                    "content": f"您的{request_data.get('type', '')}申请已被驳回。原因：{reason}",
-                    "type": "error",
-                    "action_url": "/approval",
-                }
-            ).execute()
+            await (
+                client.table("notifications")
+                .insert(
+                    {
+                        "user_id": target_user,
+                        "title": "审批已驳回",
+                        "content": f"您的{request_data.get('type', '')}申请已被驳回。原因：{reason}",
+                        "type": "error",
+                        "action_url": "/approval",
+                    }
+                )
+                .execute()
+            )
         except Exception as e:
             logger.warning(f"Failed to send notification: {e}")
 

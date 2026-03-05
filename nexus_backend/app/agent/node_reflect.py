@@ -386,7 +386,7 @@ async def critic_node(state: AgentState) -> dict:
     critic_prompt = f"""你是一个严格的质量评审员。请评估以下AI回复的质量。
 
 ## 用户意图
-{intent_summary or '未知'}
+{intent_summary or "未知"}
 
 ## 工具调用结果摘要
 {tool_context}
@@ -471,7 +471,7 @@ async def critic_node(state: AgentState) -> dict:
         logger.warning(f"[CriticNode] Failed to persist quality score: {e}")
 
     critic_feedback = (
-        f"完整性: {result.completeness:.0%}, " f"相关性: {result.relevance:.0%}, " f"准确性: {result.accuracy:.0%}"
+        f"完整性: {result.completeness:.0%}, 相关性: {result.relevance:.0%}, 准确性: {result.accuracy:.0%}"
     )
     if result.improvement_suggestion:
         critic_feedback += f" | 建议: {result.improvement_suggestion}"

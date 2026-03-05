@@ -354,7 +354,7 @@ class ConversationMemoryService:
         result = await query.execute()
         count = len(result.data) if result.data else 0
 
-        logger.info(f"Cleared {count} memories for user {user_id}" f"{f' (category={category})' if category else ''}")
+        logger.info(f"Cleared {count} memories for user {user_id}{f' (category={category})' if category else ''}")
         return count
 
     # ─── 偏好自动提取（规则引擎 + LLM 增强）─────────────────────

@@ -144,7 +144,7 @@ async def _execute_single_tool(
                 }
             return record
         except TimeoutError:
-            logger.warning(f"Tool {record.tool_name} timed out after {timeout}s (attempt {attempt+1})")
+            logger.warning(f"Tool {record.tool_name} timed out after {timeout}s (attempt {attempt + 1})")
             if attempt < 2:
                 await asyncio.sleep(0.5 * (attempt + 1))
                 continue

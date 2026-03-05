@@ -50,7 +50,7 @@ class RuleEngine:
         if request.type == "purchase":
             if request.amount < settings.APPROVAL_PURCHASE_AUTO_LIMIT:
                 decision = "auto_approved"
-                reason = f"Purchase under auto-approval limit ({int(settings.APPROVAL_PURCHASE_AUTO_LIMIT/1000)}k)"
+                reason = f"Purchase under auto-approval limit ({int(settings.APPROVAL_PURCHASE_AUTO_LIMIT / 1000)}k)"
                 notify_boss = False
             elif request.amount > settings.APPROVAL_PURCHASE_AUTO_LIMIT * (
                 1 + settings.APPROVAL_PURCHASE_OVERRUN_TOLERANCE
@@ -63,7 +63,7 @@ class RuleEngine:
         elif request.type == "travel":
             if request.amount < settings.APPROVAL_TRAVEL_DAILY_LIMIT:
                 decision = "auto_approved"
-                reason = f"Travel expense under daily limit ({int(settings.APPROVAL_TRAVEL_DAILY_LIMIT/1000)}k)"
+                reason = f"Travel expense under daily limit ({int(settings.APPROVAL_TRAVEL_DAILY_LIMIT / 1000)}k)"
                 notify_boss = False
             else:
                 decision = "manual_review_required"

@@ -251,8 +251,7 @@ class NotificationService:
 
         if channel not in self._adapters:
             logger.warning(
-                f"No adapter registered for channel: {channel.value}, "
-                f"notification_id={notification.notification_id}"
+                f"No adapter registered for channel: {channel.value}, notification_id={notification.notification_id}"
             )
             return False
 

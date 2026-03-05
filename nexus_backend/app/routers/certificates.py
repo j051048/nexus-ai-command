@@ -54,7 +54,9 @@ async def list_certificates(
         if status:
             filters["status"] = status
         certs = await certificate_service.list_certificates(
-            org_id=org_id, filters=filters if filters else None, db=db,
+            org_id=org_id,
+            filters=filters if filters else None,
+            db=db,
         )
         return api_success(data={"certificates": certs})
     except Exception as e:
@@ -74,7 +76,9 @@ async def create_certificate(
         db = getattr(req.state, "db", None)
         data = body.model_dump(exclude_none=True)
         cert = await certificate_service.create_certificate(
-            org_id=org_id, data=data, db=db,
+            org_id=org_id,
+            data=data,
+            db=db,
         )
         return api_success(data={"certificate": cert}, message="证照创建成功")
     except Exception as e:
@@ -93,7 +97,9 @@ async def get_expiring_certs(
         org_id = getattr(req.state, "org_id", None) or "default"
         db = getattr(req.state, "db", None)
         certs = await certificate_service.get_expiring_certs(
-            org_id=org_id, days=days, db=db,
+            org_id=org_id,
+            days=days,
+            db=db,
         )
         return api_success(data={"certificates": certs})
     except Exception as e:

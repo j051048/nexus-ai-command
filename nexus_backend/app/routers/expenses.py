@@ -76,7 +76,9 @@ async def list_expenses(
         if end_date:
             filters["end_date"] = end_date
         expenses = await expense_service.list_expenses(
-            org_id=org_id, filters=filters if filters else None, db=db,
+            org_id=org_id,
+            filters=filters if filters else None,
+            db=db,
         )
         return api_success(data={"expenses": expenses})
     except Exception as e:
@@ -123,7 +125,9 @@ async def expense_statistics(
         if end_date:
             filters["end_date"] = end_date
         stats = await expense_service.get_expense_statistics(
-            org_id=org_id, filters=filters if filters else None, db=db,
+            org_id=org_id,
+            filters=filters if filters else None,
+            db=db,
         )
         return api_success(data=stats)
     except Exception as e:
@@ -143,7 +147,10 @@ async def budget_check(
         org_id = getattr(req.state, "org_id", None) or "default"
         db = getattr(req.state, "db", None)
         result = await expense_service.check_budget(
-            org_id=org_id, department_id=department_id, period=period, db=db,
+            org_id=org_id,
+            department_id=department_id,
+            period=period,
+            db=db,
         )
         return api_success(data=result)
     except Exception as e:

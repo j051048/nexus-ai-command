@@ -102,7 +102,7 @@ class FeishuClient(IMPlatformClient):
             response.raise_for_status()
             data = response.json()
         except httpx.HTTPStatusError as e:
-            logger.error(f"[feishu] HTTP {e.response.status_code} " f"for {method} {url}: {e.response.text[:200]}")
+            logger.error(f"[feishu] HTTP {e.response.status_code} for {method} {url}: {e.response.text[:200]}")
             raise
         except httpx.RequestError as e:
             logger.error(f"[feishu] Request error for {method} {url}: {e}")

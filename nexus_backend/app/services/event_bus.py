@@ -298,15 +298,19 @@ async def notify_badge_awarded(event: Event):
 
     if user_id and badge_name and supabase:
         try:
-            await supabase.table("notifications").insert(
-                {
-                    "user_id": user_id,
-                    "title": "🏆 恭喜获得新徽章！",
-                    "content": f"您获得了「{badge_name}」徽章，继续加油！",
-                    "type": "success",
-                    "action_url": "/gamification",
-                }
-            ).execute()
+            await (
+                supabase.table("notifications")
+                .insert(
+                    {
+                        "user_id": user_id,
+                        "title": "🏆 恭喜获得新徽章！",
+                        "content": f"您获得了「{badge_name}」徽章，继续加油！",
+                        "type": "success",
+                        "action_url": "/gamification",
+                    }
+                )
+                .execute()
+            )
         except Exception as e:
             logger.error(f"Failed to create badge notification: {e}")
 
@@ -324,15 +328,19 @@ async def notify_approval_escalated(event: Event):
         bosses = await supabase.table("users").select("id").eq("role", "founder").execute()
 
         for boss in bosses.data or []:
-            await supabase.table("notifications").insert(
-                {
-                    "user_id": boss["id"],
-                    "title": "⚠️ 审批需要您的处理",
-                    "content": f"有一个金额为 ¥{event.payload.get('amount', 0)} 的{event.payload.get('type', '申请')}需要您审批",
-                    "type": "warning",
-                    "action_url": "/approval",
-                }
-            ).execute()
+            await (
+                supabase.table("notifications")
+                .insert(
+                    {
+                        "user_id": boss["id"],
+                        "title": "⚠️ 审批需要您的处理",
+                        "content": f"有一个金额为 ¥{event.payload.get('amount', 0)} 的{event.payload.get('type', '申请')}需要您审批",
+                        "type": "warning",
+                        "action_url": "/approval",
+                    }
+                )
+                .execute()
+            )
     except Exception as e:
         logger.error(f"Failed to notify boss: {e}")
 
@@ -384,14 +392,18 @@ async def handle_system_alert(event: Event):
             admins = await supabase.table("users").select("id").eq("role", "founder").execute()
 
         for admin in admins.data or []:
-            await supabase.table("notifications").insert(
-                {
-                    "user_id": admin["id"],
-                    "title": title,
-                    "content": content,
-                    "type": notification_type,
-                }
-            ).execute()
+            await (
+                supabase.table("notifications")
+                .insert(
+                    {
+                        "user_id": admin["id"],
+                        "title": title,
+                        "content": content,
+                        "type": notification_type,
+                    }
+                )
+                .execute()
+            )
 
         logger.info(
             f"[EventBus] SYSTEM_ALERT dispatched to {len(admins.data or [])} admins: "
@@ -442,15 +454,19 @@ async def calculate_deal_bonus(event: Event):
         await supabase.rpc("increment_user_bonus", {"p_user_id": user_id, "p_amount": bonus}).execute()
 
         # Create incentive record
-        await supabase.table("incentives").insert(
-            {
-                "user_id": user_id,
-                "type": "bonus",
-                "amount": bonus,
-                "reason": f"成交奖励 (订单金额: ¥{deal_value})",
-                "status": "pending",
-            }
-        ).execute()
+        await (
+            supabase.table("incentives")
+            .insert(
+                {
+                    "user_id": user_id,
+                    "type": "bonus",
+                    "amount": bonus,
+                    "reason": f"成交奖励 (订单金额: ¥{deal_value})",
+                    "status": "pending",
+                }
+            )
+            .execute()
+        )
 
         logger.info(f"Deal bonus calculated: ¥{bonus} for user {user_id}")
     except Exception as e:
@@ -531,15 +547,19 @@ async def auto_create_contract_from_deal(event: Event):
         await supabase.table("contracts").insert(contract_data).execute()
 
         # Notify the sales rep
-        await supabase.table("notifications").insert(
-            {
-                "user_id": user_id,
-                "title": "合同已自动创建",
-                "content": f"客户「{customer_name}」的合同草稿已自动生成（金额: ¥{deal_value:,.0f}），请前往合同管理确认。",
-                "type": "info",
-                "action_url": "/contracts",
-            }
-        ).execute()
+        await (
+            supabase.table("notifications")
+            .insert(
+                {
+                    "user_id": user_id,
+                    "title": "合同已自动创建",
+                    "content": f"客户「{customer_name}」的合同草稿已自动生成（金额: ¥{deal_value:,.0f}），请前往合同管理确认。",
+                    "type": "info",
+                    "action_url": "/contracts",
+                }
+            )
+            .execute()
+        )
 
         logger.info(f"[CrossModule] Auto-created contract from deal {deal_id} for {customer_name}")
     except Exception as e:
@@ -580,15 +600,19 @@ async def auto_create_invoice_from_contract(event: Event):
         # Notify finance team (founders and managers)
         finance_roles = await supabase.table("users").select("id").in_("role", ["founder", "manager"]).execute()
         for user in finance_roles.data or []:
-            await supabase.table("notifications").insert(
-                {
-                    "user_id": user["id"],
-                    "title": "新应收款项待确认",
-                    "content": f"客户「{customer_name}」合同已签署，应收金额 ¥{amount:,.0f}，请在财务中心确认。",
-                    "type": "info",
-                    "action_url": "/finance",
-                }
-            ).execute()
+            await (
+                supabase.table("notifications")
+                .insert(
+                    {
+                        "user_id": user["id"],
+                        "title": "新应收款项待确认",
+                        "content": f"客户「{customer_name}」合同已签署，应收金额 ¥{amount:,.0f}，请在财务中心确认。",
+                        "type": "info",
+                        "action_url": "/finance",
+                    }
+                )
+                .execute()
+            )
 
         logger.info(f"[CrossModule] Auto-created invoice from contract {contract_id}")
     except Exception as e:
@@ -612,15 +636,19 @@ async def auto_trigger_tender_analysis(event: Event):
         return
 
     try:
-        await supabase.table("notifications").insert(
-            {
-                "user_id": user_id,
-                "title": "建议发起招标分析",
-                "content": f"线索「{lead_name}」预估价值 ¥{lead_value:,.0f}，建议前往标书审阅进行竞争分析。",
-                "type": "info",
-                "action_url": "/sales",
-            }
-        ).execute()
+        await (
+            supabase.table("notifications")
+            .insert(
+                {
+                    "user_id": user_id,
+                    "title": "建议发起招标分析",
+                    "content": f"线索「{lead_name}」预估价值 ¥{lead_value:,.0f}，建议前往标书审阅进行竞争分析。",
+                    "type": "info",
+                    "action_url": "/sales",
+                }
+            )
+            .execute()
+        )
 
         logger.info(f"[CrossModule] Suggested tender analysis for lead {lead_name}")
     except Exception as e:
@@ -653,15 +681,19 @@ async def update_sales_metrics_on_payment(event: Event):
         ).execute()
 
         # Notify the sales rep
-        await supabase.table("notifications").insert(
-            {
-                "user_id": user_id,
-                "title": "回款到账通知",
-                "content": f"客户回款 ¥{amount:,.0f} 已确认，佣金已自动计入您的奖励账户。",
-                "type": "success",
-                "action_url": "/finance",
-            }
-        ).execute()
+        await (
+            supabase.table("notifications")
+            .insert(
+                {
+                    "user_id": user_id,
+                    "title": "回款到账通知",
+                    "content": f"客户回款 ¥{amount:,.0f} 已确认，佣金已自动计入您的奖励账户。",
+                    "type": "success",
+                    "action_url": "/finance",
+                }
+            )
+            .execute()
+        )
 
         logger.info(f"[CrossModule] Payment received ¥{amount} → metrics updated for user {user_id}")
     except Exception as e:
@@ -688,14 +720,18 @@ async def trigger_downstream_on_approval(event: Event):
             try:
                 finance_users = await supabase.table("users").select("id").in_("role", ["founder"]).execute()
                 for user in finance_users.data or []:
-                    await supabase.table("notifications").insert(
-                        {
-                            "user_id": user["id"],
-                            "title": "费用报销已审批",
-                            "content": f"¥{event.payload.get('amount', 0):,.0f} 的报销申请已通过审批，请在财务中心处理打款。",
-                            "type": "info",
-                            "action_url": "/finance",
-                        }
-                    ).execute()
+                    await (
+                        supabase.table("notifications")
+                        .insert(
+                            {
+                                "user_id": user["id"],
+                                "title": "费用报销已审批",
+                                "content": f"¥{event.payload.get('amount', 0):,.0f} 的报销申请已通过审批，请在财务中心处理打款。",
+                                "type": "info",
+                                "action_url": "/finance",
+                            }
+                        )
+                        .execute()
+                    )
             except Exception as e:
                 logger.error(f"[CrossModule] Failed to notify finance on expense approval: {e}")

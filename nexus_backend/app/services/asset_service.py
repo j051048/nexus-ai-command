@@ -34,10 +34,7 @@ class AssetService:
         try:
             query = (
                 db.table("assets")
-                .select(
-                    "*, "
-                    "current_user:employees!current_user_id(id, name)"
-                )
+                .select("*, current_user:employees!current_user_id(id, name)")
                 .eq("organization_id", org_id)
                 .order("created_at", desc=True)
             )
@@ -83,10 +80,7 @@ class AssetService:
         try:
             result = await (
                 db.table("assets")
-                .select(
-                    "*, "
-                    "current_user:employees!current_user_id(id, name)"
-                )
+                .select("*, current_user:employees!current_user_id(id, name)")
                 .eq("id", asset_id)
                 .maybe_single()
                 .execute()
@@ -155,12 +149,7 @@ class AssetService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            result = await (
-                db.table("assets")
-                .update(updates)
-                .eq("id", asset_id)
-                .execute()
-            )
+            result = await db.table("assets").update(updates).eq("id", asset_id).execute()
 
             if result.data and len(result.data) > 0:
                 logger.info(f"资产已更新: id={asset_id}")
@@ -316,12 +305,7 @@ class AssetService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            result = await (
-                db.table("asset_types")
-                .select("*")
-                .eq("organization_id", org_id)
-                .execute()
-            )
+            result = await db.table("asset_types").select("*").eq("organization_id", org_id).execute()
 
             return result.data or []
 

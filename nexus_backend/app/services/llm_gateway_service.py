@@ -121,7 +121,7 @@ class LLMGatewayService:
                 rows = res.data or []
 
             if not rows:
-                logger.warning("No active model config found for " f"model_code={model_code}, org_id={org_id}")
+                logger.warning(f"No active model config found for model_code={model_code}, org_id={org_id}")
                 return None
 
             row = rows[0]
@@ -275,7 +275,7 @@ class LLMGatewayService:
                     break
 
             if not rows:
-                logger.warning(f"No schedule rule found for scene={scene_code}, " f"agent={agent_code}, org={org_id}")
+                logger.warning(f"No schedule rule found for scene={scene_code}, agent={agent_code}, org={org_id}")
                 return None
 
             rule = rows[0]
@@ -288,7 +288,7 @@ class LLMGatewayService:
 
         except Exception as e:
             logger.error(
-                f"Error resolving model for scene={scene_code}, " f"agent={agent_code}, org={org_id}: {e}",
+                f"Error resolving model for scene={scene_code}, agent={agent_code}, org={org_id}: {e}",
                 exc_info=True,
             )
             return None
@@ -316,7 +316,7 @@ class LLMGatewayService:
                     )
                     if res and res.data and res.data.get("model_code"):
                         rule[code_key] = res.data["model_code"]
-                        logger.info(f"Resolved {id_key}={rule[id_key]} → " f"{code_key}={rule[code_key]}")
+                        logger.info(f"Resolved {id_key}={rule[id_key]} → {code_key}={rule[code_key]}")
                     else:
                         logger.warning(f"No model_code found for {id_key}={rule[id_key]}")
                 except Exception as e:
@@ -337,13 +337,13 @@ class LLMGatewayService:
             return primary
 
         if primary:
-            logger.warning(f"Primary model '{primary}' circuit is open, " f"attempting backup model '{backup}'")
+            logger.warning(f"Primary model '{primary}' circuit is open, attempting backup model '{backup}'")
 
         if backup and circuit_breaker_manager.is_allowed(backup):
             return backup
 
         if backup:
-            logger.error(f"Both primary '{primary}' and backup '{backup}' " "circuits are open")
+            logger.error(f"Both primary '{primary}' and backup '{backup}' circuits are open")
 
         # Return primary anyway as last resort (circuit breaker may
         # transition to half-open by the time the actual call is made)
@@ -499,7 +499,7 @@ class LLMGatewayService:
             # Attempt backup model
             backup_code = await self._get_backup_model(scene_code, agent_code, org_id, exclude=model_code)
             if backup_code:
-                logger.info(f"Retrying with backup model '{backup_code}' " f"after primary '{model_code}' failed")
+                logger.info(f"Retrying with backup model '{backup_code}' after primary '{model_code}' failed")
                 backup_response = await self._try_chat_with_model(
                     model_code=backup_code,
                     org_id=org_id,
@@ -567,7 +567,7 @@ class LLMGatewayService:
             )
 
         if quota_result.warning:
-            logger.warning(f"Quota warning for org={org_id}, model={model_code}: " f"{quota_result.reason}")
+            logger.warning(f"Quota warning for org={org_id}, model={model_code}: {quota_result.reason}")
 
         # --- Circuit breaker check ---
         if not circuit_breaker_manager.is_allowed(model_code):
@@ -663,7 +663,7 @@ class LLMGatewayService:
             latency = int((time.monotonic() - start_ts) * 1000)
             error_msg = str(e)
             logger.error(
-                f"LLM call failed for model={model_code}, " f"request_id={request_id}: {error_msg}",
+                f"LLM call failed for model={model_code}, request_id={request_id}: {error_msg}",
                 exc_info=True,
             )
 
@@ -736,7 +736,7 @@ class LLMGatewayService:
             return
 
         if quota_result.warning:
-            logger.warning(f"Quota warning for org={org_id}, model={model_code}: " f"{quota_result.reason}")
+            logger.warning(f"Quota warning for org={org_id}, model={model_code}: {quota_result.reason}")
 
         # --- Circuit breaker check ---
         if not circuit_breaker_manager.is_allowed(model_code):
@@ -824,7 +824,7 @@ class LLMGatewayService:
             latency = int((time.monotonic() - start_ts) * 1000)
             error_msg = str(e)
             logger.error(
-                f"Streaming LLM call failed for model={model_code}, " f"request_id={request_id}: {error_msg}",
+                f"Streaming LLM call failed for model={model_code}, request_id={request_id}: {error_msg}",
                 exc_info=True,
             )
 

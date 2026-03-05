@@ -55,7 +55,9 @@ async def list_inventory(
         if low_stock_only is not None:
             filters["low_stock_only"] = low_stock_only
         items = await inventory_service.list_inventory(
-            org_id=org_id, filters=filters if filters else None, db=db,
+            org_id=org_id,
+            filters=filters if filters else None,
+            db=db,
         )
         return api_success(data={"items": items})
     except Exception as e:
@@ -139,7 +141,9 @@ async def inventory_statistics(
         org_id = getattr(req.state, "org_id", None) or "default"
         db = getattr(req.state, "db", None)
         stats = await inventory_service.get_inventory_statistics(
-            org_id=org_id, category=category, db=db,
+            org_id=org_id,
+            category=category,
+            db=db,
         )
         return api_success(data=stats)
     except Exception as e:

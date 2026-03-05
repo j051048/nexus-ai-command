@@ -52,35 +52,40 @@ async def cascade_employee_resignation(event: Event):
                 .execute()
             )
             # 创建转移记录
-            await supabase.table("asset_transfers").insert({
-                "organization_id": org_id,
-                "asset_id": asset["id"],
-                "transfer_type": "return",
-                "from_user_id": employee_id,
-                "reason": f"员工 {employee_name} 离职自动归还",
-                "operator_id": event.user_id,
-            }).execute()
+            await (
+                supabase.table("asset_transfers")
+                .insert(
+                    {
+                        "organization_id": org_id,
+                        "asset_id": asset["id"],
+                        "transfer_type": "return",
+                        "from_user_id": employee_id,
+                        "reason": f"员工 {employee_name} 离职自动归还",
+                        "operator_id": event.user_id,
+                    }
+                )
+                .execute()
+            )
 
         # 3. 通知管理员
         admins = await (
-            supabase.table("users")
-            .select("id")
-            .eq("org_id", org_id)
-            .in_("role", ["founder", "admin"])
-            .execute()
+            supabase.table("users").select("id").eq("org_id", org_id).in_("role", ["founder", "admin"]).execute()
         )
         for admin in admins.data or []:
-            await supabase.table("notifications").insert({
-                "user_id": admin["id"],
-                "title": f"员工离职: {employee_name}",
-                "content": f"{employee_name} 已办理离职，{len(assets)} 项资产已自动归还。",
-                "type": "warning",
-            }).execute()
+            await (
+                supabase.table("notifications")
+                .insert(
+                    {
+                        "user_id": admin["id"],
+                        "title": f"员工离职: {employee_name}",
+                        "content": f"{employee_name} 已办理离职，{len(assets)} 项资产已自动归还。",
+                        "type": "warning",
+                    }
+                )
+                .execute()
+            )
 
-        logger.info(
-            f"[Enterprise] Employee {employee_name} resigned: "
-            f"{len(assets)} assets auto-returned"
-        )
+        logger.info(f"[Enterprise] Employee {employee_name} resigned: {len(assets)} assets auto-returned")
     except Exception as e:
         logger.error(f"[Enterprise] Failed to cascade resignation: {e}")
 
@@ -103,34 +108,42 @@ async def cascade_employee_onboarding(event: Event):
 
     try:
         # 创建 IT 设备准备工单
-        await supabase.table("work_orders").insert({
-            "organization_id": org_id,
-            "title": f"新员工入职设备准备 - {employee_name}",
-            "description": f"请为新员工 {employee_name} 准备工位和办公设备。",
-            "order_type": "onboarding",
-            "priority": "high",
-            "status": "open",
-            "creator_id": event.user_id,
-            "metadata": {"employee_id": employee_id, "auto_generated": True},
-        }).execute()
+        await (
+            supabase.table("work_orders")
+            .insert(
+                {
+                    "organization_id": org_id,
+                    "title": f"新员工入职设备准备 - {employee_name}",
+                    "description": f"请为新员工 {employee_name} 准备工位和办公设备。",
+                    "order_type": "onboarding",
+                    "priority": "high",
+                    "status": "open",
+                    "creator_id": event.user_id,
+                    "metadata": {"employee_id": employee_id, "auto_generated": True},
+                }
+            )
+            .execute()
+        )
 
         # 如果有部门，通知部门负责人
         if department_id:
             dept_resp = await (
-                supabase.table("departments")
-                .select("manager_id")
-                .eq("id", department_id)
-                .maybe_single()
-                .execute()
+                supabase.table("departments").select("manager_id").eq("id", department_id).maybe_single().execute()
             )
             manager_id = dept_resp.data.get("manager_id") if dept_resp.data else None
             if manager_id:
-                await supabase.table("notifications").insert({
-                    "user_id": manager_id,
-                    "title": "新员工加入您的部门",
-                    "content": f"{employee_name} 即将入职您的部门，请安排接待和培训。",
-                    "type": "info",
-                }).execute()
+                await (
+                    supabase.table("notifications")
+                    .insert(
+                        {
+                            "user_id": manager_id,
+                            "title": "新员工加入您的部门",
+                            "content": f"{employee_name} 即将入职您的部门，请安排接待和培训。",
+                            "type": "info",
+                        }
+                    )
+                    .execute()
+                )
 
         logger.info(f"[Enterprise] Onboarding cascade for {employee_name}")
     except Exception as e:
@@ -166,19 +179,21 @@ async def cascade_asset_scrap(event: Event):
         # 如果闲置库存不足 2 台，通知采购
         if idle_count < 2:
             admins = await (
-                supabase.table("users")
-                .select("id")
-                .eq("org_id", org_id)
-                .in_("role", ["founder", "admin"])
-                .execute()
+                supabase.table("users").select("id").eq("org_id", org_id).in_("role", ["founder", "admin"]).execute()
             )
             for admin in admins.data or []:
-                await supabase.table("notifications").insert({
-                    "user_id": admin["id"],
-                    "title": "资产库存不足预警",
-                    "content": f"类型 [{asset_type}] 的闲置资产仅剩 {idle_count} 台，建议及时采购补充。",
-                    "type": "warning",
-                }).execute()
+                await (
+                    supabase.table("notifications")
+                    .insert(
+                        {
+                            "user_id": admin["id"],
+                            "title": "资产库存不足预警",
+                            "content": f"类型 [{asset_type}] 的闲置资产仅剩 {idle_count} 台，建议及时采购补充。",
+                            "type": "warning",
+                        }
+                    )
+                    .execute()
+                )
 
             logger.info(f"[Enterprise] Low asset stock alert: {asset_type} idle={idle_count}")
     except Exception as e:
@@ -203,19 +218,21 @@ async def notify_low_stock(event: Event):
 
     try:
         admins = await (
-            supabase.table("users")
-            .select("id")
-            .eq("org_id", org_id)
-            .in_("role", ["founder", "admin"])
-            .execute()
+            supabase.table("users").select("id").eq("org_id", org_id).in_("role", ["founder", "admin"]).execute()
         )
         for admin in admins.data or []:
-            await supabase.table("notifications").insert({
-                "user_id": admin["id"],
-                "title": f"库存预警: {item_name}",
-                "content": f"{item_name} 当前库存 {current_qty}，低于安全线 {min_stock}，请及时补货。",
-                "type": "warning",
-            }).execute()
+            await (
+                supabase.table("notifications")
+                .insert(
+                    {
+                        "user_id": admin["id"],
+                        "title": f"库存预警: {item_name}",
+                        "content": f"{item_name} 当前库存 {current_qty}，低于安全线 {min_stock}，请及时补货。",
+                        "type": "warning",
+                    }
+                )
+                .execute()
+            )
 
         logger.info(f"[Enterprise] Low stock alert: {item_name} qty={current_qty}")
     except Exception as e:
@@ -241,19 +258,21 @@ async def notify_certificate_expiring(event: Event):
     try:
         # 通知管理员
         admins = await (
-            supabase.table("users")
-            .select("id")
-            .eq("org_id", org_id)
-            .in_("role", ["founder", "admin"])
-            .execute()
+            supabase.table("users").select("id").eq("org_id", org_id).in_("role", ["founder", "admin"]).execute()
         )
         for admin in admins.data or []:
-            await supabase.table("notifications").insert({
-                "user_id": admin["id"],
-                "title": f"证照到期预警: {cert_name}",
-                "content": f"证照 [{cert_name}] 将于 {expire_date} 到期，请及时安排续期。",
-                "type": "warning",
-            }).execute()
+            await (
+                supabase.table("notifications")
+                .insert(
+                    {
+                        "user_id": admin["id"],
+                        "title": f"证照到期预警: {cert_name}",
+                        "content": f"证照 [{cert_name}] 将于 {expire_date} 到期，请及时安排续期。",
+                        "type": "warning",
+                    }
+                )
+                .execute()
+            )
 
         logger.info(f"[Enterprise] Certificate expiring alert: {cert_name}")
     except Exception as e:

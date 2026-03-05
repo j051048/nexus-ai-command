@@ -86,8 +86,7 @@ class ModelCircuitBreaker:
                 self._state = CircuitState.HALF_OPEN
                 self._half_open_at = time.monotonic()
                 logger.info(
-                    f"Circuit breaker HALF_OPEN for model '{self.model_code}' "
-                    f"after {self.cooldown_seconds}s cooldown"
+                    f"Circuit breaker HALF_OPEN for model '{self.model_code}' after {self.cooldown_seconds}s cooldown"
                 )
         return self._state
 

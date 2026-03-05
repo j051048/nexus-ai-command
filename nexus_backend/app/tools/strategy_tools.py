@@ -248,10 +248,7 @@ class StrategySimulationTool(BaseTool):
                     total_revenue = sum(float(m.get("revenue", 0)) for m in recent)
                     avg_leads = sum(int(m.get("leads_count", 0)) for m in recent) / max(len(recent), 1)
                     avg_conv = sum(float(m.get("win_rate", 0)) for m in recent) / max(len(recent), 1)
-                    return (
-                        f"近期营收合计: ¥{total_revenue:,.0f}, "
-                        f"日均线索: {avg_leads:.1f}, 平均转化率: {avg_conv:.1%}"
-                    )
+                    return f"近期营收合计: ¥{total_revenue:,.0f}, 日均线索: {avg_leads:.1f}, 平均转化率: {avg_conv:.1%}"
             except Exception:
                 pass
             return None

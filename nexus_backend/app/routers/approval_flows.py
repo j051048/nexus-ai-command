@@ -38,7 +38,9 @@ async def list_approval_flows(
         org_id = getattr(req.state, "org_id", None) or "default"
         db = getattr(req.state, "db", None)
         flows = await approval_flow_service.list_approval_flows(
-            org_id=org_id, trigger_type=trigger_type, db=db,
+            org_id=org_id,
+            trigger_type=trigger_type,
+            db=db,
         )
         return api_success(data={"approval_flows": flows})
     except Exception as e:

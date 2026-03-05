@@ -1,4 +1,4 @@
-﻿"""
+"""
 P1 Enhancement: Prompt Version Control Service
 
 Implements version management for AI prompts with:
@@ -286,15 +286,19 @@ class PromptVersionService:
 
             async def _persist():
                 try:
-                    await db.table("prompt_metrics").insert(
-                        {
-                            "test_id": test_id,
-                            "version_id": version_id,
-                            "metric_name": metric_name,
-                            "value": value,
-                            "prompt_key": test.prompt_key,
-                        }
-                    ).execute()
+                    await (
+                        db.table("prompt_metrics")
+                        .insert(
+                            {
+                                "test_id": test_id,
+                                "version_id": version_id,
+                                "metric_name": metric_name,
+                                "value": value,
+                                "prompt_key": test.prompt_key,
+                            }
+                        )
+                        .execute()
+                    )
                 except Exception as e:
                     logger.debug(f"AB metric persist skipped: {e}")
 
@@ -488,16 +492,20 @@ class PromptVersionService:
         # Persist to DB
         if db:
             try:
-                await db.table("prompt_metrics").insert(
-                    {
-                        "prompt_key": prompt_key,
-                        "version_id": version_id,
-                        "user_id": user_id,
-                        "response_time_ms": response_time_ms,
-                        "token_count": token_count,
-                        "user_rating": user_rating,
-                    }
-                ).execute()
+                await (
+                    db.table("prompt_metrics")
+                    .insert(
+                        {
+                            "prompt_key": prompt_key,
+                            "version_id": version_id,
+                            "user_id": user_id,
+                            "response_time_ms": response_time_ms,
+                            "token_count": token_count,
+                            "user_rating": user_rating,
+                        }
+                    )
+                    .execute()
+                )
             except Exception as e:
                 logger.debug(f"Failed to persist prompt metrics: {e}")
 
@@ -509,19 +517,23 @@ class PromptVersionService:
         try:
             for _prompt_key, versions in self._versions.items():
                 for version in versions:
-                    await db.table("prompt_versions").upsert(
-                        {
-                            "version_id": version.version_id,
-                            "prompt_key": version.prompt_key,
-                            "content": version.content,
-                            "version_number": version.version_number,
-                            "status": version.status.value,
-                            "created_by": version.created_by,
-                            "change_description": version.change_description,
-                            "tags": version.tags,
-                            "metadata": version.metadata,
-                        }
-                    ).execute()
+                    await (
+                        db.table("prompt_versions")
+                        .upsert(
+                            {
+                                "version_id": version.version_id,
+                                "prompt_key": version.prompt_key,
+                                "content": version.content,
+                                "version_number": version.version_number,
+                                "status": version.status.value,
+                                "created_by": version.created_by,
+                                "change_description": version.change_description,
+                                "tags": version.tags,
+                                "metadata": version.metadata,
+                            }
+                        )
+                        .execute()
+                    )
         except Exception as e:
             logger.error(f"Failed to persist prompt versions: {e}")
 

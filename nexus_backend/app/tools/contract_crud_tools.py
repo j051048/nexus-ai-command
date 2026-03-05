@@ -35,7 +35,7 @@ class GetContractsTool(BaseTool):
     """查询合同列表"""
 
     name = "get_contracts"
-    description = "查询合同列表，支持按状态和关键词筛选。" "当用户说'查看合同'、'合同列表'、'有哪些合同'时调用。"
+    description = "查询合同列表，支持按状态和关键词筛选。当用户说'查看合同'、'合同列表'、'有哪些合同'时调用。"
 
     parameters = {
         "type": "object",
@@ -110,7 +110,7 @@ class CreateContractTool(BaseTool):
     """创建新合同"""
 
     name = "create_contract"
-    description = "在系统中创建新合同记录。" "当用户说'创建合同'、'新建合同'、'录入合同'时调用。"
+    description = "在系统中创建新合同记录。当用户说'创建合同'、'新建合同'、'录入合同'时调用。"
     is_irreversible = True
     confirmation_message = "⚠️ 即将创建新合同记录，确认继续？"
 
@@ -224,7 +224,7 @@ class GetExpiringContractsTool(BaseTool):
 
     name = "get_expiring_contracts"
     description = (
-        "查询即将到期的合同，方便提前续约或处理。" "当用户说'到期合同'、'合同到期提醒'、'哪些合同快到期了'时调用。"
+        "查询即将到期的合同，方便提前续约或处理。当用户说'到期合同'、'合同到期提醒'、'哪些合同快到期了'时调用。"
     )
 
     parameters = {
@@ -258,7 +258,7 @@ class GetExpiringContractsTool(BaseTool):
             amount_str = f"¥{float(amount):,.0f}" if amount else "未填写"
             end_date = str(c.get("end_date", ""))[:10]
             lines.append(
-                f"- **{c.get('title', '未命名')}** | 到期日: {end_date} " f"| 金额: {amount_str} | ID: {c['id'][:8]}..."
+                f"- **{c.get('title', '未命名')}** | 到期日: {end_date} | 金额: {amount_str} | ID: {c['id'][:8]}..."
             )
 
         lines.append("\n💡 建议提前安排续约或处理事宜。")

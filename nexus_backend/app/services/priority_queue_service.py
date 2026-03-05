@@ -287,7 +287,7 @@ class PriorityQueueService:
             ) / self._stats.processed_requests
 
             logger.debug(
-                f"Processed request {request.request_id}: " f"wait={wait_time:.1f}ms, process={process_time:.1f}ms"
+                f"Processed request {request.request_id}: wait={wait_time:.1f}ms, process={process_time:.1f}ms"
             )
 
             return result

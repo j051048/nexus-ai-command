@@ -1,7 +1,6 @@
+import uuid as _uuid
 from datetime import datetime, timedelta
 from typing import Any
-
-import uuid as _uuid
 
 from app.core.database import supabase
 

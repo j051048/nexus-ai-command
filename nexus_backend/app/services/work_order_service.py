@@ -35,10 +35,7 @@ class WorkOrderService:
         try:
             query = (
                 db.table("work_orders")
-                .select(
-                    "*, "
-                    "assignee:employees!assignee_id(id, name)"
-                )
+                .select("*, assignee:employees!assignee_id(id, name)")
                 .eq("organization_id", org_id)
                 .order("created_at", desc=True)
             )
@@ -86,10 +83,7 @@ class WorkOrderService:
         try:
             result = await (
                 db.table("work_orders")
-                .select(
-                    "*, "
-                    "assignee:employees!assignee_id(id, name)"
-                )
+                .select("*, assignee:employees!assignee_id(id, name)")
                 .eq("id", order_id)
                 .maybe_single()
                 .execute()
@@ -183,12 +177,7 @@ class WorkOrderService:
 
         try:
             # 更新工单
-            result = await (
-                db.table("work_orders")
-                .update(updates)
-                .eq("id", order_id)
-                .execute()
-            )
+            result = await db.table("work_orders").update(updates).eq("id", order_id).execute()
 
             if not result.data or len(result.data) == 0:
                 raise RuntimeError("工单更新失败")
@@ -204,14 +193,10 @@ class WorkOrderService:
                 }
 
                 if updates.get("status"):
-                    comment_data["metadata"]["status_change"] = {
-                        "to": updates["status"]
-                    }
+                    comment_data["metadata"]["status_change"] = {"to": updates["status"]}
 
                 if updates.get("assignee_id"):
-                    comment_data["metadata"]["assignee_change"] = {
-                        "to": updates["assignee_id"]
-                    }
+                    comment_data["metadata"]["assignee_change"] = {"to": updates["assignee_id"]}
 
                 await db.table("work_order_comments").insert(comment_data).execute()
 
@@ -353,12 +338,7 @@ class WorkOrderService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            result = await (
-                db.table("work_order_types")
-                .select("*")
-                .eq("organization_id", org_id)
-                .execute()
-            )
+            result = await db.table("work_order_types").select("*").eq("organization_id", org_id).execute()
 
             return result.data or []
 

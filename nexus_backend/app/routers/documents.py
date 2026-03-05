@@ -381,15 +381,20 @@ async def update_document(
 
     # 4. Update document metadata
     version = (doc_res.data.get("version", 1) or 1) + 1
-    await client.table("documents").update(
-        {
-            "name": file.filename,
-            "file_size": len(content),
-            "version": version,
-            "status": "processing",
-            "updated_at": "now()",
-        }
-    ).eq("id", document_id).execute()
+    await (
+        client.table("documents")
+        .update(
+            {
+                "name": file.filename,
+                "file_size": len(content),
+                "version": version,
+                "status": "processing",
+                "updated_at": "now()",
+            }
+        )
+        .eq("id", document_id)
+        .execute()
+    )
 
     # 5. Fetch user settings for reprocessing
     api_key = None
@@ -608,9 +613,7 @@ async def bulk_import_documents(
             except Exception as e:
                 logger.warning(f"Failed to update doc_count for library {code}: {e}")
 
-    logger.info(
-        f"Bulk import by user {user_id}: {success_count} created, " f"{skip_count} skipped, {error_count} errors"
-    )
+    logger.info(f"Bulk import by user {user_id}: {success_count} created, {skip_count} skipped, {error_count} errors")
 
     return api_success(
         data={

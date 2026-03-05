@@ -1,4 +1,4 @@
-﻿"""
+"""
 P1 Enhancement: Structured Output Schema Validation
 
 Implements Pydantic-based schema validation for LLM outputs.

@@ -245,7 +245,7 @@ class ComplianceService:
         # First run standard Level-1 scan on bid-related categories
         base_result = await self.check_content(content, categories=["bidding_law"], use_llm=False)
 
-        prompt = f"请对以下投标文件内容进行专项合规审查：\n\n" f"## 投标文件\n{content[:5000]}\n\n"
+        prompt = f"请对以下投标文件内容进行专项合规审查：\n\n## 投标文件\n{content[:5000]}\n\n"
         if tender_requirements:
             prompt += f"## 招标要求\n{tender_requirements[:3000]}\n\n"
 

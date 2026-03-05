@@ -1,4 +1,4 @@
-﻿"""
+"""
 P0 Security Fix: Tenant Credit Service
 
 Implements organization-level credit/quota system and abuse prevention.

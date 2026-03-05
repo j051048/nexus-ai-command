@@ -258,16 +258,20 @@ class ContextPreservationService:
             return
 
         try:
-            await self.db.table("ai_context_store").upsert(
-                {
-                    "scope": entry.scope.value,
-                    "owner_id": entry.owner_id,
-                    "key": entry.key,
-                    "value": json.dumps(entry.value, ensure_ascii=False),
-                    "expires_at": entry.expires_at,
-                    "metadata": entry.metadata,
-                }
-            ).execute()
+            await (
+                self.db.table("ai_context_store")
+                .upsert(
+                    {
+                        "scope": entry.scope.value,
+                        "owner_id": entry.owner_id,
+                        "key": entry.key,
+                        "value": json.dumps(entry.value, ensure_ascii=False),
+                        "expires_at": entry.expires_at,
+                        "metadata": entry.metadata,
+                    }
+                )
+                .execute()
+            )
         except Exception as e:
             logger.warning(f"DB persist failed: {e}")
 
@@ -308,9 +312,14 @@ class ContextPreservationService:
             return
 
         with contextlib.suppress(Exception):
-            await self.db.table("ai_context_store").delete().eq("scope", scope.value).eq("owner_id", owner_id).eq(
-                "key", key
-            ).execute()
+            await (
+                self.db.table("ai_context_store")
+                .delete()
+                .eq("scope", scope.value)
+                .eq("owner_id", owner_id)
+                .eq("key", key)
+                .execute()
+            )
 
     # Conversation-specific helpers
 

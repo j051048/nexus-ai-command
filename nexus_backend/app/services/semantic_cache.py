@@ -160,17 +160,21 @@ class SemanticCacheService:
             org_id = u_res.data.get("organization_id") if u_res and u_res.data else None
 
             # 3. Upsert into cache (on conflict with query_hash, update response)
-            await supabase.table("semantic_cache").upsert(
-                {
-                    "query_text": query,
-                    "query_hash": self._query_hash(query),
-                    "response_text": response_text,
-                    "embedding": embedding,
-                    "user_id": user_id,
-                    "org_id": org_id,
-                },
-                on_conflict="query_hash",
-            ).execute()
+            await (
+                supabase.table("semantic_cache")
+                .upsert(
+                    {
+                        "query_text": query,
+                        "query_hash": self._query_hash(query),
+                        "response_text": response_text,
+                        "embedding": embedding,
+                        "user_id": user_id,
+                        "org_id": org_id,
+                    },
+                    on_conflict="query_hash",
+                )
+                .execute()
+            )
 
         except Exception as e:
             logger.warning(f"Failed to set semantic cache: {e}")

@@ -492,9 +492,11 @@ class AutoTriggerService:
             from app.core.database import supabase
 
             if supabase:
-                await supabase.table("notifications").insert(
-                    {"user_id": user_id, "title": title, "content": content, "type": "info"}
-                ).execute()
+                await (
+                    supabase.table("notifications")
+                    .insert({"user_id": user_id, "title": title, "content": content, "type": "info"})
+                    .execute()
+                )
         except Exception as e:
             logger.error(f"Notification insert failed: {e}")
 

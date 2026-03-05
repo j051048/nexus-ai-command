@@ -185,12 +185,12 @@ class EmployeeProfileTool(BaseTool):
         except Exception:
             pass
 
-        response = f"""👤 **{emp.get('name', employee_name)} 员工画像**
+        response = f"""👤 **{emp.get("name", employee_name)} 员工画像**
 
 **基本信息**
-- 部门: {emp.get('department', '未分配')}
-- 职级: {emp.get('role', '员工')}
-- 入职时间: {emp.get('created_at', '未知')[:10]}
+- 部门: {emp.get("department", "未分配")}
+- 职级: {emp.get("role", "员工")}
+- 入职时间: {emp.get("created_at", "未知")[:10]}
 
 **绩效表现**
 - 当前绩效分: {score} 分
@@ -264,7 +264,7 @@ class PerformanceReviewTool(BaseTool):
 """
             medals = ["🥇", "🥈", "🥉"]
             for i, member in enumerate(team_res.data or []):
-                medal = medals[i] if i < 3 else f"{i+1}."
+                medal = medals[i] if i < 3 else f"{i + 1}."
                 bar_len = int(member.get("score", 0) / 10)
                 bar = "█" * bar_len + "░" * (10 - bar_len)
                 response += f"{medal} {member['name']:<8} {bar} {member.get('score', 0)}分\n"
@@ -323,23 +323,27 @@ class PerformanceReviewTool(BaseTool):
             # Try to record in performance_reviews table
             # RLS policy "perf_review_insert" allows manager+ with reviewer_id = self
             with contextlib.suppress(Exception):
-                await client.table("performance_reviews").insert(
-                    {
-                        "user_id": emp_id,
-                        "reviewer_id": user_id,
-                        "rating": rating,
-                        "score": new_score,
-                        "comment": comment,
-                        "review_period": datetime.now().strftime("%Y-%m"),
-                    }
-                ).execute()
+                await (
+                    client.table("performance_reviews")
+                    .insert(
+                        {
+                            "user_id": emp_id,
+                            "reviewer_id": user_id,
+                            "rating": rating,
+                            "score": new_score,
+                            "comment": comment,
+                            "review_period": datetime.now().strftime("%Y-%m"),
+                        }
+                    )
+                    .execute()
+                )
 
-            return f"""✅ 已提交 {emp.get('name', employee_name)} 的绩效评分
+            return f"""✅ 已提交 {emp.get("name", employee_name)} 的绩效评分
 
 **评分详情**
 - 综合评分: {rating}/5 星 (分数: {new_score})
-- 评语: {comment or '无'}
-- 提交时间: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+- 评语: {comment or "无"}
+- 提交时间: {datetime.now().strftime("%Y-%m-%d %H:%M")}
 
 📧 评分已写入系统
 """

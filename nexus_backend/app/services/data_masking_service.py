@@ -283,7 +283,9 @@ class DataMaskingService:
                     (
                         self.mask_dict(item, field_rules)
                         if isinstance(item, dict)
-                        else self.mask(item) if isinstance(item, str) else item
+                        else self.mask(item)
+                        if isinstance(item, str)
+                        else item
                     )
                     for item in value
                 ]

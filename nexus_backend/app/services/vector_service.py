@@ -597,9 +597,12 @@ class VectorService:
                     if expires_at is not None:
                         row_data["expires_at"] = expires_at
                     if chunk_index in existing_map:
-                        await client.table("document_embeddings").update(row_data).eq(
-                            "id", existing_map[chunk_index]["id"]
-                        ).execute()
+                        await (
+                            client.table("document_embeddings")
+                            .update(row_data)
+                            .eq("id", existing_map[chunk_index]["id"])
+                            .execute()
+                        )
                         stats["updated"] += 1
                     else:
                         await client.table("document_embeddings").insert(row_data).execute()
@@ -616,9 +619,12 @@ class VectorService:
                     stats["deleted"] += 1
 
             # 6. Update last_embedded_at on the document
-            await client.table("documents").update({"last_embedded_at": datetime.utcnow().isoformat()}).eq(
-                "id", document_id
-            ).execute()
+            await (
+                client.table("documents")
+                .update({"last_embedded_at": datetime.utcnow().isoformat()})
+                .eq("id", document_id)
+                .execute()
+            )
 
             return {"status": "ok", **stats}
         except Exception as e:

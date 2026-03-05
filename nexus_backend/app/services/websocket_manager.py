@@ -52,9 +52,7 @@ class ConnectionManager:
         """
         # Global limit check
         if self.active_connections >= MAX_CONNECTIONS_GLOBAL:
-            logger.warning(
-                f"[WS] Global connection limit reached ({MAX_CONNECTIONS_GLOBAL}), " f"rejecting user {user_id}"
-            )
+            logger.warning(f"[WS] Global connection limit reached ({MAX_CONNECTIONS_GLOBAL}), rejecting user {user_id}")
             await websocket.close(code=1013, reason="Server at capacity")
             return False
 

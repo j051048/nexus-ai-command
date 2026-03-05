@@ -426,24 +426,28 @@ class MeetingBookingTool(BaseTool):
 
         # 发送会议通知
         for aid in attendee_ids:
-            await client.table("notifications").insert(
-                {
-                    "user_id": aid,
-                    "title": f"📅 会议邀请: {title}",
-                    "content": f"时间: {meeting_time.strftime('%m月%d日 %H:%M')}\n地点: {room_name}",
-                    "type": "info",
-                    "action_url": "/oa?tab=meeting",
-                }
-            ).execute()
+            await (
+                client.table("notifications")
+                .insert(
+                    {
+                        "user_id": aid,
+                        "title": f"📅 会议邀请: {title}",
+                        "content": f"时间: {meeting_time.strftime('%m月%d日 %H:%M')}\n地点: {room_name}",
+                        "type": "info",
+                        "action_url": "/oa?tab=meeting",
+                    }
+                )
+                .execute()
+            )
 
         return f"""✅ 会议已预约成功！
 
 📅 **会议详情**
 - 主题: {title}
-- 时间: {meeting_time.strftime('%Y-%m-%d %H:%M')}
+- 时间: {meeting_time.strftime("%Y-%m-%d %H:%M")}
 - 时长: {duration} 分钟
 - 地点: {room_name}
-- 参会人: {', '.join(attendee_names) if attendee_names else '待确认'}
+- 参会人: {", ".join(attendee_names) if attendee_names else "待确认"}
 
 📧 已向所有参会人发送日程邀请。
 
@@ -544,16 +548,16 @@ class TaskAssignmentTool(BaseTool):
 
         priority_icons = {"low": "🟢", "medium": "🟡", "high": "🟠", "urgent": "🔴"}
 
-        return f"""✅ 任务已创建并通知 {assignee['name']}！
+        return f"""✅ 任务已创建并通知 {assignee["name"]}！
 
 📌 **任务详情**
 - 标题: {title}
-- 负责人: {assignee['name']}
+- 负责人: {assignee["name"]}
 - 截止日期: {due_date}
-- 优先级: {priority_icons.get(priority, '🟡')} {priority}
-- 关联项目: {project_name or '无'}
+- 优先级: {priority_icons.get(priority, "🟡")} {priority}
+- 关联项目: {project_name or "无"}
 
-📧 已通知 {assignee['name']}，对方确认后会开始处理。
+📧 已通知 {assignee["name"]}，对方确认后会开始处理。
 """
 
 
@@ -620,27 +624,31 @@ class WorkHandoverTool(BaseTool):
         user_res = await client.table("users").select("name").eq("id", user_id).maybe_single().execute()
         user_name = user_res.data.get("name", "同事") if user_res.data else "同事"
 
-        await client.table("notifications").insert(
-            {
-                "user_id": handover_to["id"],
-                "title": "📋 工作交接通知",
-                "content": f"{user_name} 将 {transferred} 项工作交接给您。\n原因: {reason}",
-                "type": "warning",
-                "action_url": "/oa?tab=task",
-            }
-        ).execute()
+        await (
+            client.table("notifications")
+            .insert(
+                {
+                    "user_id": handover_to["id"],
+                    "title": "📋 工作交接通知",
+                    "content": f"{user_name} 将 {transferred} 项工作交接给您。\n原因: {reason}",
+                    "type": "warning",
+                    "action_url": "/oa?tab=task",
+                }
+            )
+            .execute()
+        )
 
         return f"""✅ 工作交接单已创建！
 
 📋 **交接详情**
-- 交接给: {handover_to['name']}
+- 交接给: {handover_to["name"]}
 - 原因: {reason}
 - 交接项目: {transferred} 项
 
 📝 **交接内容**
-{''.join(f"- {item}" + chr(10) for item in items[:5])}
+{"".join(f"- {item}" + chr(10) for item in items[:5])}
 
-📧 已通知 {handover_to['name']}，请与对方确认交接细节。
+📧 已通知 {handover_to["name"]}，请与对方确认交接细节。
 """
 
 

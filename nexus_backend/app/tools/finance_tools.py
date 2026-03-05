@@ -215,7 +215,7 @@ class ExpenseClaimTool(BaseTool):
         response = f"""✅ 报销申请已提交！
 
 💰 **报销详情**
-- 类型: {config_info['name']}
+- 类型: {config_info["name"]}
 - 金额: ¥{amount:.2f}
 - 日期: {expense_date}
 - 说明: {description or "无"}
@@ -223,7 +223,7 @@ class ExpenseClaimTool(BaseTool):
 """
 
         if expense_type == "entertainment" and attendees:
-            response += f"- 参与人员: {', '.join(attendees)} ({len(attendees)}人，人均¥{amount/len(attendees):.0f})\n"
+            response += f"- 参与人员: {', '.join(attendees)} ({len(attendees)}人，人均¥{amount / len(attendees):.0f})\n"
 
         response += f"""
 🔍 **合规检查**
@@ -379,11 +379,11 @@ class SalaryQueryTool(BaseTool):
                 d = result.data
                 return f"""💰 {month} 薪资明细:
 
-- 基本工资: ¥{d.get('base_salary', 0):,.2f}
-- 绩效奖金: ¥{d.get('bonus', 0):,.2f}
-- 扣除合计: ¥{d.get('deductions', 0):,.2f}
-- 实发工资: ¥{d.get('net_salary', 0):,.2f}
-- 发放状态: {d.get('status', '未知')}"""
+- 基本工资: ¥{d.get("base_salary", 0):,.2f}
+- 绩效奖金: ¥{d.get("bonus", 0):,.2f}
+- 扣除合计: ¥{d.get("deductions", 0):,.2f}
+- 实发工资: ¥{d.get("net_salary", 0):,.2f}
+- 发放状态: {d.get("status", "未知")}"""
             return f"💰 未找到 {month} 的薪资记录。请联系人事部门确认。"
         except Exception:
             return "💰 薪资数据表尚未配置。请联系管理员设置薪资模块。"

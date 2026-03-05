@@ -268,9 +268,12 @@ class ETLService:
         if not doc_id:
             return
         try:
-            await supabase.table("documents").update({"progress": progress, "stage": stage, "status": status}).eq(
-                "id", doc_id
-            ).execute()
+            await (
+                supabase.table("documents")
+                .update({"progress": progress, "stage": stage, "status": status})
+                .eq("id", doc_id)
+                .execute()
+            )
         except Exception as e:
             logger.error(f"Failed to update progress for {doc_id}: {e}")
 
@@ -543,13 +546,18 @@ class ETLService:
 
                         details["full_text_context"] = safe_text[:100000]
 
-                        await supabase.table("documents").update(
-                            {
-                                "extracted_data": details,
-                                "doc_type": details.get("doc_type", "other"),
-                                "status": "processing",  # Still processing embeddings
-                            }
-                        ).eq("id", doc_id).execute()
+                        await (
+                            supabase.table("documents")
+                            .update(
+                                {
+                                    "extracted_data": details,
+                                    "doc_type": details.get("doc_type", "other"),
+                                    "status": "processing",  # Still processing embeddings
+                                }
+                            )
+                            .eq("id", doc_id)
+                            .execute()
+                        )
                     else:
                         # Legacy creation if no doc_id passed
                         doc_id = await self._save_to_db(
@@ -587,12 +595,17 @@ class ETLService:
                         }
                     else:
                         # P1: Rollback/Mark failed if embeddings fail
-                        await supabase.table("documents").update(
-                            {
-                                "status": "failed",
-                                "error_log": "Embedding generation partially failed",
-                            }
-                        ).eq("id", doc_id).execute()
+                        await (
+                            supabase.table("documents")
+                            .update(
+                                {
+                                    "status": "failed",
+                                    "error_log": "Embedding generation partially failed",
+                                }
+                            )
+                            .eq("id", doc_id)
+                            .execute()
+                        )
                         return {
                             "filename": filename,
                             "status": "partial_success",
@@ -602,9 +615,12 @@ class ETLService:
                 except Exception as db_err:
                     logger.error(f"DB Error: {db_err}")
                     if doc_id:
-                        await supabase.table("documents").update({"status": "error", "error_log": str(db_err)}).eq(
-                            "id", doc_id
-                        ).execute()
+                        await (
+                            supabase.table("documents")
+                            .update({"status": "error", "error_log": str(db_err)})
+                            .eq("id", doc_id)
+                            .execute()
+                        )
                     return {
                         "filename": filename,
                         "status": "error",
@@ -781,7 +797,6 @@ class ETLService:
 
             return True, metadata
         except Exception as e:
-
             logger.warning(f"Metadata Extraction Failed: {e}")
             # Fallback metadata
             return True, {

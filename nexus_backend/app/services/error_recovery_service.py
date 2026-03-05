@@ -252,7 +252,7 @@ class ErrorRecoveryService:
 
     def _abort_recovery(self, error: Exception, context: ErrorContext) -> RecoveryResult:
         """Abort operation and return error."""
-        logger.error(f"Aborting operation {context.operation} in {context.component}: " f"{context.error_message}")
+        logger.error(f"Aborting operation {context.operation} in {context.component}: {context.error_message}")
 
         return RecoveryResult(
             success=False, strategy_used=RecoveryStrategy.ABORT, message=f"Operation aborted: {context.error_message}"
@@ -262,7 +262,7 @@ class ErrorRecoveryService:
         """Escalate error to monitoring/alerting."""
         # Log for alerting
         logger.critical(
-            f"ESCALATE: {context.error_type} in {context.component}: " f"{context.error_message}",
+            f"ESCALATE: {context.error_type} in {context.component}: {context.error_message}",
             extra={"error_context": context.__dict__, "alert_required": True},
         )
 
@@ -402,7 +402,7 @@ class CircuitBreaker:
             logger.warning(f"Circuit breaker '{self.name}' re-opened (probe failed)")
         elif self._failure_count >= self.config.failure_threshold:
             self._state = CircuitState.OPEN
-            logger.warning(f"Circuit breaker '{self.name}' opened after " f"{self._failure_count} failures")
+            logger.warning(f"Circuit breaker '{self.name}' opened after {self._failure_count} failures")
 
     def get_status(self) -> dict:
         """Get circuit breaker status for monitoring."""

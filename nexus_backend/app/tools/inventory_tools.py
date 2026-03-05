@@ -43,10 +43,7 @@ class ListInventoryTool(BaseTool):
     """查询库存列表"""
 
     name = "list_inventory"
-    description = (
-        "查询库存列表。"
-        "当用户说'查看库存'、'物资列表'、'库存查询'时调用。"
-    )
+    description = "查询库存列表。当用户说'查看库存'、'物资列表'、'库存查询'时调用。"
 
     parameters = {
         "type": "object",
@@ -101,10 +98,7 @@ class ListInventoryTool(BaseTool):
             lines = [f"📦 共找到 {len(items)} 种物品:\n"]
             for item in items:
                 stock_warning = ""
-                if (
-                    item.get("min_stock") is not None
-                    and item.get("quantity", 0) < item["min_stock"]
-                ):
+                if item.get("min_stock") is not None and item.get("quantity", 0) < item["min_stock"]:
                     stock_warning = " ⚠️低库存"
 
                 lines.append(
@@ -124,10 +118,7 @@ class InventoryInTool(BaseTool):
     """入库操作"""
 
     name = "inventory_in"
-    description = (
-        "入库操作，接收物品入库。"
-        "当用户说'入库'、'物资入库'、'收货'时调用。"
-    )
+    description = "入库操作，接收物品入库。当用户说'入库'、'物资入库'、'收货'时调用。"
 
     parameters = {
         "type": "object",
@@ -178,10 +169,7 @@ class InventoryInTool(BaseTool):
             )
 
             return (
-                f"✅ 入库成功！\n\n"
-                f"- 物品ID: {item_id[:8]}...\n"
-                f"- 入库数量: {quantity}\n"
-                f"- 记录ID: {record.get('id', '')}"
+                f"✅ 入库成功！\n\n- 物品ID: {item_id[:8]}...\n- 入库数量: {quantity}\n- 记录ID: {record.get('id', '')}"
             )
 
         except Exception as e:
@@ -193,10 +181,7 @@ class InventoryOutTool(BaseTool):
     """出库操作"""
 
     name = "inventory_out"
-    description = (
-        "出库操作，领用物品出库。"
-        "当用户说'出库'、'领用物资'、'物品出库'时调用。"
-    )
+    description = "出库操作，领用物品出库。当用户说'出库'、'领用物资'、'物品出库'时调用。"
 
     parameters = {
         "type": "object",
@@ -258,10 +243,7 @@ class InventoryOutTool(BaseTool):
             )
 
             return (
-                f"✅ 出库成功！\n\n"
-                f"- 物品ID: {item_id[:8]}...\n"
-                f"- 出库数量: {quantity}\n"
-                f"- 记录ID: {record.get('id', '')}"
+                f"✅ 出库成功！\n\n- 物品ID: {item_id[:8]}...\n- 出库数量: {quantity}\n- 记录ID: {record.get('id', '')}"
             )
 
         except Exception as e:
@@ -273,10 +255,7 @@ class InventoryStatisticsTool(BaseTool):
     """库存统计"""
 
     name = "inventory_statistics"
-    description = (
-        "获取库存统计数据。"
-        "当用户说'库存统计'、'库存概况'、'物资统计'时调用。"
-    )
+    description = "获取库存统计数据。当用户说'库存统计'、'库存概况'、'物资统计'时调用。"
 
     parameters = {
         "type": "object",

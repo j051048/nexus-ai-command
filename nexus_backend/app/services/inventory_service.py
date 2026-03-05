@@ -32,12 +32,7 @@ class InventoryService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            query = (
-                db.table("inventory_items")
-                .select("*")
-                .eq("organization_id", org_id)
-                .order("created_at", desc=True)
-            )
+            query = db.table("inventory_items").select("*").eq("organization_id", org_id).order("created_at", desc=True)
 
             if filters:
                 if filters.get("category"):
@@ -57,9 +52,9 @@ class InventoryService:
             # 应用层过滤低库存
             if filters and filters.get("low_stock_only"):
                 items = [
-                    item for item in items
-                    if item.get("min_stock") is not None
-                    and item.get("quantity", 0) < item["min_stock"]
+                    item
+                    for item in items
+                    if item.get("min_stock") is not None and item.get("quantity", 0) < item["min_stock"]
                 ]
 
             return items
@@ -99,11 +94,7 @@ class InventoryService:
         try:
             # 获取当前库存
             item_result = await (
-                db.table("inventory_items")
-                .select("id, quantity")
-                .eq("id", item_id)
-                .maybe_single()
-                .execute()
+                db.table("inventory_items").select("id, quantity").eq("id", item_id).maybe_single().execute()
             )
 
             if not item_result.data:
@@ -126,12 +117,7 @@ class InventoryService:
             transaction_result = await db.table("inventory_transactions").insert(transaction_data).execute()
 
             # 更新库存数量
-            await (
-                db.table("inventory_items")
-                .update({"quantity": new_quantity})
-                .eq("id", item_id)
-                .execute()
-            )
+            await db.table("inventory_items").update({"quantity": new_quantity}).eq("id", item_id).execute()
 
             logger.info(f"入库成功: item={item_id}, quantity={quantity}, new_total={new_quantity}")
             return transaction_result.data[0] if transaction_result.data else {}
@@ -171,11 +157,7 @@ class InventoryService:
         try:
             # 获取当前库存
             item_result = await (
-                db.table("inventory_items")
-                .select("id, quantity")
-                .eq("id", item_id)
-                .maybe_single()
-                .execute()
+                db.table("inventory_items").select("id, quantity").eq("id", item_id).maybe_single().execute()
             )
 
             if not item_result.data:
@@ -202,12 +184,7 @@ class InventoryService:
             transaction_result = await db.table("inventory_transactions").insert(transaction_data).execute()
 
             # 更新库存数量
-            await (
-                db.table("inventory_items")
-                .update({"quantity": new_quantity})
-                .eq("id", item_id)
-                .execute()
-            )
+            await db.table("inventory_items").update({"quantity": new_quantity}).eq("id", item_id).execute()
 
             logger.info(f"出库成功: item={item_id}, quantity={quantity}, new_total={new_quantity}")
             return transaction_result.data[0] if transaction_result.data else {}
@@ -246,10 +223,7 @@ class InventoryService:
             items = result.data or []
 
             # 应用层过滤: quantity < min_stock
-            low_stock_items = [
-                item for item in items
-                if item.get("quantity", 0) < item.get("min_stock", 0)
-            ]
+            low_stock_items = [item for item in items if item.get("quantity", 0) < item.get("min_stock", 0)]
 
             return low_stock_items
 
@@ -278,11 +252,7 @@ class InventoryService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            query = (
-                db.table("inventory_items")
-                .select("*")
-                .eq("organization_id", org_id)
-            )
+            query = db.table("inventory_items").select("*").eq("organization_id", org_id)
 
             if category:
                 query = query.eq("category", category)
@@ -291,14 +261,9 @@ class InventoryService:
             items = result.data or []
 
             total_items = len(items)
-            total_value = sum(
-                float(item.get("unit_price") or 0) * int(item.get("quantity") or 0)
-                for item in items
-            )
+            total_value = sum(float(item.get("unit_price") or 0) * int(item.get("quantity") or 0) for item in items)
             low_stock_count = sum(
-                1 for item in items
-                if item.get("min_stock") is not None
-                and item.get("quantity", 0) < item["min_stock"]
+                1 for item in items if item.get("min_stock") is not None and item.get("quantity", 0) < item["min_stock"]
             )
 
             return {

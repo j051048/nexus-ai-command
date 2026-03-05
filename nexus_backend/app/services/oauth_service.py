@@ -132,17 +132,21 @@ class OAuthService:
 
         if db:
             try:
-                await db.table("oauth_clients").insert(
-                    {
-                        "client_id": client_id,
-                        "client_secret_hash": client.client_secret_hash,
-                        "client_name": name,
-                        "org_id": org_id,
-                        "redirect_uris": redirect_uris,
-                        "allowed_scopes": scopes,
-                        "is_active": True,
-                    }
-                ).execute()
+                await (
+                    db.table("oauth_clients")
+                    .insert(
+                        {
+                            "client_id": client_id,
+                            "client_secret_hash": client.client_secret_hash,
+                            "client_name": name,
+                            "org_id": org_id,
+                            "redirect_uris": redirect_uris,
+                            "allowed_scopes": scopes,
+                            "is_active": True,
+                        }
+                    )
+                    .execute()
+                )
             except Exception as e:
                 logger.warning(f"Failed to persist OAuth client: {e}")
 
@@ -384,12 +388,18 @@ class OAuthService:
 
                     now = datetime.utcnow().isoformat()
                     # Try both hash columns
-                    await supabase.table("oauth_tokens").update({"revoked_at": now}).eq(
-                        "token_hash", token_hash
-                    ).execute()
-                    await supabase.table("oauth_tokens").update({"revoked_at": now}).eq(
-                        "refresh_token_hash", token_hash
-                    ).execute()
+                    await (
+                        supabase.table("oauth_tokens")
+                        .update({"revoked_at": now})
+                        .eq("token_hash", token_hash)
+                        .execute()
+                    )
+                    await (
+                        supabase.table("oauth_tokens")
+                        .update({"revoked_at": now})
+                        .eq("refresh_token_hash", token_hash)
+                        .execute()
+                    )
             except Exception as e:
                 logger.debug(f"OAuth token DB revocation skipped: {e}")
 
@@ -411,16 +421,20 @@ class OAuthService:
                 return
             token_hash = hashlib.sha256(access_token.encode()).hexdigest()
             refresh_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
-            await supabase.table("oauth_tokens").upsert(
-                {
-                    "token_hash": token_hash,
-                    "refresh_token_hash": refresh_hash,
-                    "client_id": client_id,
-                    "user_id": user_id,
-                    "scopes": scopes,
-                    "expires_at": int(time.time() + 3600),
-                }
-            ).execute()
+            await (
+                supabase.table("oauth_tokens")
+                .upsert(
+                    {
+                        "token_hash": token_hash,
+                        "refresh_token_hash": refresh_hash,
+                        "client_id": client_id,
+                        "user_id": user_id,
+                        "scopes": scopes,
+                        "expires_at": int(time.time() + 3600),
+                    }
+                )
+                .execute()
+            )
         except Exception as e:
             logger.debug(f"OAuth token persistence skipped: {e}")
 

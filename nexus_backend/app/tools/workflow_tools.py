@@ -135,28 +135,40 @@ class ProcessOnboardingTool(BaseTool):
                     .eq("id", asset["id"])
                     .execute()
                 )
-                await client.table("asset_transfers").insert({
-                    "organization_id": org_id,
-                    "asset_id": asset["id"],
-                    "transfer_type": "allocate",
-                    "to_user_id": employee_id,
-                    "reason": "入职自动分配",
-                    "operator_id": user_id,
-                }).execute()
+                await (
+                    client.table("asset_transfers")
+                    .insert(
+                        {
+                            "organization_id": org_id,
+                            "asset_id": asset["id"],
+                            "transfer_type": "allocate",
+                            "to_user_id": employee_id,
+                            "reason": "入职自动分配",
+                            "operator_id": user_id,
+                        }
+                    )
+                    .execute()
+                )
                 results.append(f"✅ 已分配设备: {asset.get('name')} [{asset.get('asset_code')}]")
             else:
                 results.append(f"⚠️ 无闲置 {asset_type} 设备可分配，请手动处理")
 
             # Step 3: 创建 IT 工单
-            await client.table("work_orders").insert({
-                "organization_id": org_id,
-                "title": f"新员工入职准备 - {name}",
-                "description": f"请为 {name} 开通邮箱、系统账号、配置工位等。",
-                "order_type": "onboarding",
-                "priority": "high",
-                "status": "open",
-                "creator_id": user_id,
-            }).execute()
+            await (
+                client.table("work_orders")
+                .insert(
+                    {
+                        "organization_id": org_id,
+                        "title": f"新员工入职准备 - {name}",
+                        "description": f"请为 {name} 开通邮箱、系统账号、配置工位等。",
+                        "order_type": "onboarding",
+                        "priority": "high",
+                        "status": "open",
+                        "creator_id": user_id,
+                    }
+                )
+                .execute()
+            )
             results.append("✅ IT 工单已创建")
 
             # Step 4: 发送事件（触发通知等级联动作）
@@ -236,12 +248,7 @@ class ProcessResignationTool(BaseTool):
             emp_name = emp.get("name", "")
 
             # Step 2: 更新员工状态为离职
-            await (
-                client.table("employees")
-                .update({"status": "resigned"})
-                .eq("id", employee_id)
-                .execute()
-            )
+            await client.table("employees").update({"status": "resigned"}).eq("id", employee_id).execute()
             results.append(f"✅ 员工状态已更新为离职: {emp_name}")
 
             # Step 3: 发送离职事件（触发级联：回收资产 + 通知）
@@ -369,14 +376,20 @@ class ProcessAssetLifecycleTool(BaseTool):
                         .eq("id", aid)
                         .execute()
                     )
-                    await client.table("asset_transfers").insert({
-                        "organization_id": org_id,
-                        "asset_id": aid,
-                        "transfer_type": "allocate",
-                        "to_user_id": to_user_id,
-                        "reason": reason or "批量分配",
-                        "operator_id": user_id,
-                    }).execute()
+                    await (
+                        client.table("asset_transfers")
+                        .insert(
+                            {
+                                "organization_id": org_id,
+                                "asset_id": aid,
+                                "transfer_type": "allocate",
+                                "to_user_id": to_user_id,
+                                "reason": reason or "批量分配",
+                                "operator_id": user_id,
+                            }
+                        )
+                        .execute()
+                    )
                     count += 1
                 return f"✅ 批量分配完成: {count} 项资产已分配"
 
@@ -388,11 +401,7 @@ class ProcessAssetLifecycleTool(BaseTool):
                 count = 0
                 for aid in asset_ids:
                     asset_resp = await (
-                        client.table("assets")
-                        .select("asset_type")
-                        .eq("id", aid)
-                        .maybe_single()
-                        .execute()
+                        client.table("assets").select("asset_type").eq("id", aid).maybe_single().execute()
                     )
                     await (
                         client.table("assets")
@@ -400,13 +409,19 @@ class ProcessAssetLifecycleTool(BaseTool):
                         .eq("id", aid)
                         .execute()
                     )
-                    await client.table("asset_transfers").insert({
-                        "organization_id": org_id,
-                        "asset_id": aid,
-                        "transfer_type": "scrap",
-                        "reason": reason or "批量报废",
-                        "operator_id": user_id,
-                    }).execute()
+                    await (
+                        client.table("asset_transfers")
+                        .insert(
+                            {
+                                "organization_id": org_id,
+                                "asset_id": aid,
+                                "transfer_type": "scrap",
+                                "reason": reason or "批量报废",
+                                "operator_id": user_id,
+                            }
+                        )
+                        .execute()
+                    )
 
                     # 触发报废事件（检查库存）
                     if asset_resp.data:

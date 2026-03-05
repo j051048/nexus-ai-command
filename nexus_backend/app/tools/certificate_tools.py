@@ -43,10 +43,7 @@ class ListCertificatesTool(BaseTool):
     """查询证照列表"""
 
     name = "list_certificates"
-    description = (
-        "查询证照列表，支持按类型、持有者筛选。"
-        "当用户说'查看证照'、'证照列表'时调用。"
-    )
+    description = "查询证照列表，支持按类型、持有者筛选。当用户说'查看证照'、'证照列表'时调用。"
 
     parameters = {
         "type": "object",
@@ -126,10 +123,7 @@ class CreateCertificateTool(BaseTool):
     """创建证照记录"""
 
     name = "create_certificate"
-    description = (
-        "创建证照记录。"
-        "当用户说'登记证照'、'添加证照'时调用。"
-    )
+    description = "创建证照记录。当用户说'登记证照'、'添加证照'时调用。"
 
     required_role = "admin"
 
@@ -225,10 +219,7 @@ class ExpiringCertsTool(BaseTool):
     """获取即将到期的证照"""
 
     name = "expiring_certificates"
-    description = (
-        "获取即将到期的证照。"
-        "当用户说'证照到期'、'哪些证照快到期了'时调用。"
-    )
+    description = "获取即将到期的证照。当用户说'证照到期'、'哪些证照快到期了'时调用。"
 
     parameters = {
         "type": "object",
@@ -286,10 +277,7 @@ class RenewCertificateTool(BaseTool):
     """续期证照"""
 
     name = "renew_certificate"
-    description = (
-        "续期证照。"
-        "当用户说'续期证照'、'更新证照有效期'时调用。"
-    )
+    description = "续期证照。当用户说'续期证照'、'更新证照有效期'时调用。"
 
     required_role = "admin"
 

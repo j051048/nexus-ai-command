@@ -383,7 +383,7 @@ class MultimodalService:
             for i, page in enumerate(reader.pages[:20]):  # Max 20 pages
                 text = page.extract_text()
                 if text:
-                    pages_text.append(f"[第{i+1}页]\n{text}")
+                    pages_text.append(f"[第{i + 1}页]\n{text}")
 
             if pages_text:
                 full_text = "\n\n".join(pages_text)

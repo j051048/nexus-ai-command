@@ -37,7 +37,7 @@ class MonitorIndustryTrendsTool(BaseTool):
 
     name = "monitor_industry_trends"
     description = (
-        "监测科学仪器行业动态、政策变化、技术趋势。" "当用户说'行业动态'、'最新趋势'、'政策变化'、'市场动态'时调用。"
+        "监测科学仪器行业动态、政策变化、技术趋势。当用户说'行业动态'、'最新趋势'、'政策变化'、'市场动态'时调用。"
     )
     required_role = "all"
 
@@ -142,7 +142,7 @@ class GenerateMarketResearchTool(BaseTool):
 
     name = "generate_market_research"
     description = (
-        "生成市场需求调研报告，分析目标市场、客户需求、竞争格局。" "当用户说'市场调研'、'市场分析'、'需求调研'时调用。"
+        "生成市场需求调研报告，分析目标市场、客户需求、竞争格局。当用户说'市场调研'、'市场分析'、'需求调研'时调用。"
     )
     required_role = "all"
 

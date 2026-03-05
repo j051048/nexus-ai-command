@@ -151,7 +151,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         # CSRF 检查失败
-        logger.warning(f"[CSRF] 拒绝请求: {request.method} {path} - " f"缺少有效的 CSRF 令牌或 AJAX 标识")
+        logger.warning(f"[CSRF] 拒绝请求: {request.method} {path} - 缺少有效的 CSRF 令牌或 AJAX 标识")
         return JSONResponse(
             status_code=403,
             content={

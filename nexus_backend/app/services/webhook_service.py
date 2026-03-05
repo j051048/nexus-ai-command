@@ -199,17 +199,21 @@ class WebhookService:
         # Persist to DB
         if db:
             try:
-                await db.table("webhook_subscriptions").insert(
-                    {
-                        "id": sub_id,
-                        "org_id": org_id,
-                        "url": url,
-                        "events": events,
-                        "secret_hash": hashlib.sha256(secret.encode()).hexdigest(),
-                        "is_active": True,
-                        "description": description,
-                    }
-                ).execute()
+                await (
+                    db.table("webhook_subscriptions")
+                    .insert(
+                        {
+                            "id": sub_id,
+                            "org_id": org_id,
+                            "url": url,
+                            "events": events,
+                            "secret_hash": hashlib.sha256(secret.encode()).hexdigest(),
+                            "is_active": True,
+                            "description": description,
+                        }
+                    )
+                    .execute()
+                )
             except Exception as e:
                 logger.warning(f"Failed to persist webhook subscription: {e}")
 

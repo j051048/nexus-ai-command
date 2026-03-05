@@ -66,7 +66,9 @@ async def list_assets(
         if search:
             filters["search"] = search
         assets = await asset_service.list_assets(
-            org_id=org_id, filters=filters if filters else None, db=db,
+            org_id=org_id,
+            filters=filters if filters else None,
+            db=db,
         )
         return api_success(data={"assets": assets})
     except Exception as e:
@@ -85,7 +87,9 @@ async def get_asset_statistics(
         org_id = getattr(req.state, "org_id", None) or "default"
         db = getattr(req.state, "db", None)
         stats = await asset_service.get_asset_statistics(
-            org_id=org_id, asset_type=asset_type, db=db,
+            org_id=org_id,
+            asset_type=asset_type,
+            db=db,
         )
         return api_success(data=stats)
     except Exception as e:

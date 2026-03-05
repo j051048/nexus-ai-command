@@ -126,11 +126,7 @@ API_TAGS_METADATA: list[dict[str, Any]] = [
     {
         "name": "Import",
         "description": (
-            "**基础数据导入**\n\n"
-            "员工和客户数据的文件上传导入:\n"
-            "- CSV/Excel 文件解析\n"
-            "- 数据预览\n"
-            "- 增量/全量导入模式"
+            "**基础数据导入**\n\n员工和客户数据的文件上传导入:\n- CSV/Excel 文件解析\n- 数据预览\n- 增量/全量导入模式"
         ),
     },
     {
@@ -146,75 +142,63 @@ API_TAGS_METADATA: list[dict[str, Any]] = [
     },
     {
         "name": "Performance",
-        "description": ("**绩效管理**\n\n" "员工绩效评估:\n" "- 考核指标定义\n" "- 团队排名\n" "- AI 辅助绩效分析"),
+        "description": ("**绩效管理**\n\n员工绩效评估:\n- 考核指标定义\n- 团队排名\n- AI 辅助绩效分析"),
     },
     {
         "name": "Incentive",
-        "description": ("**激励钱包**\n\n" "员工积分和奖金管理:\n" "- 积分发放/扣减\n" "- 奖金池管理\n" "- 排行榜"),
+        "description": ("**激励钱包**\n\n员工积分和奖金管理:\n- 积分发放/扣减\n- 奖金池管理\n- 排行榜"),
     },
     {
         "name": "Organization",
-        "description": ("**组织管理**\n\n" "多租户组织管理:\n" "- 组织信息维护\n" "- 部门结构\n" "- 成员管理"),
+        "description": ("**组织管理**\n\n多租户组织管理:\n- 组织信息维护\n- 部门结构\n- 成员管理"),
     },
     {
         "name": "Profile",
-        "description": ("**个人资料**\n\n" "用户个人信息管理:\n" "- 资料查看和编辑\n" "- 头像上传\n" "- 偏好设置"),
+        "description": ("**个人资料**\n\n用户个人信息管理:\n- 资料查看和编辑\n- 头像上传\n- 偏好设置"),
     },
     {
         "name": "Projects",
-        "description": ("**项目管理**\n\n" "项目和任务追踪:\n" "- 项目 CRUD\n" "- 任务分配\n" "- 进度跟踪"),
+        "description": ("**项目管理**\n\n项目和任务追踪:\n- 项目 CRUD\n- 任务分配\n- 进度跟踪"),
     },
     {
         "name": "Webhooks",
-        "description": (
-            "**Webhook 订阅和投递**\n\n" "外部系统集成:\n" "- Webhook 端点注册\n" "- 事件订阅\n" "- 投递日志和重试"
-        ),
+        "description": ("**Webhook 订阅和投递**\n\n外部系统集成:\n- Webhook 端点注册\n- 事件订阅\n- 投递日志和重试"),
     },
     {
         "name": "OAuth",
         "description": (
-            "**OAuth 2.0 授权服务**\n\n" "第三方应用授权:\n" "- 授权码流程\n" "- Access Token 管理\n" "- Scope 权限控制"
+            "**OAuth 2.0 授权服务**\n\n第三方应用授权:\n- 授权码流程\n- Access Token 管理\n- Scope 权限控制"
         ),
     },
     {
         "name": "Compliance",
-        "description": ("**合规管理**\n\n" "数据合规和安全:\n" "- 内容安全审核\n" "- 数据脱敏\n" "- 合规报告"),
+        "description": ("**合规管理**\n\n数据合规和安全:\n- 内容安全审核\n- 数据脱敏\n- 合规报告"),
     },
     {
         "name": "Usage",
-        "description": (
-            "**使用量统计**\n\n" "API 调用和资源使用统计:\n" "- Token 使用量\n" "- API 调用次数\n" "- 存储使用量"
-        ),
+        "description": ("**使用量统计**\n\nAPI 调用和资源使用统计:\n- Token 使用量\n- API 调用次数\n- 存储使用量"),
     },
     {
         "name": "MCP Server",
         "description": (
-            "**Model Context Protocol**\n\n"
-            "AI 模型互操作工具注册:\n"
-            "- 工具列表暴露\n"
-            "- 工具执行代理\n"
-            "- Schema 发现"
+            "**Model Context Protocol**\n\nAI 模型互操作工具注册:\n- 工具列表暴露\n- 工具执行代理\n- Schema 发现"
         ),
     },
     {
         "name": "Robot/RPA",
-        "description": ("**机器人/RPA 接口**\n\n" "设备控制和 RPA 指令:\n" "- 设备注册\n" "- 指令下发\n" "- 状态查询"),
+        "description": ("**机器人/RPA 接口**\n\n设备控制和 RPA 指令:\n- 设备注册\n- 指令下发\n- 状态查询"),
     },
     {
         "name": "Kingdee Mock",
-        "description": (
-            "**金蝶 ERP Mock 集成**\n\n" "开发环境 Mock API:\n" "- 模拟金蝶 ERP 接口\n" "- 财务数据同步模拟"
-        ),
+        "description": ("**金蝶 ERP Mock 集成**\n\n开发环境 Mock API:\n- 模拟金蝶 ERP 接口\n- 财务数据同步模拟"),
     },
     {
         "name": "QA Pairs",
-        "description": ("**QA 问答对管理**\n\n" "知识库问答对:\n" "- QA 对 CRUD\n" "- 批量导入\n" "- 与文档关联"),
+        "description": ("**QA 问答对管理**\n\n知识库问答对:\n- QA 对 CRUD\n- 批量导入\n- 与文档关联"),
     },
     {
         "name": "API Docs",
-        "description": (
-            "**API 文档增强**\n\n" "API 文档和元数据:\n" "- 增强版 OpenAPI spec\n" "- 端点统计\n" "- 变更日志"
-        ),
+        "description": ("**API 文档增强**\n\nAPI 文档和元数据:\n- 增强版 OpenAPI spec\n- 端点统计\n- 变更日志"),
     },
 ]
 

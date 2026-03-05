@@ -65,12 +65,12 @@ class ContactSyncService:
                 return stats
 
             # 1. 同步部门
-            logger.info(f"[ContactSync] Starting department sync for org={org_id}, " f"platform={platform}")
+            logger.info(f"[ContactSync] Starting department sync for org={org_id}, platform={platform}")
             dept_mapping = await self._sync_departments(client, org_id, db)
             stats["departments_synced"] = len(dept_mapping)
 
             # 2. 同步用户
-            logger.info(f"[ContactSync] Starting user sync for org={org_id}, " f"platform={platform}")
+            logger.info(f"[ContactSync] Starting user sync for org={org_id}, platform={platform}")
             user_stats = await self._sync_users(client, org_id, platform, dept_mapping, db)
             stats["users_synced"] = user_stats.get("total", 0)
             stats["users_created"] = user_stats.get("created", 0)
@@ -121,14 +121,14 @@ class ContactSyncService:
             )
 
             if not result.data:
-                logger.warning(f"[ContactSync] No active config found for " f"org={org_id}, platform={platform}")
+                logger.warning(f"[ContactSync] No active config found for org={org_id}, platform={platform}")
                 return None
 
             config = result.data.get("config", {})
             return self._create_client(platform, config)
 
         except Exception as e:
-            logger.error(f"[ContactSync] Failed to get config for " f"org={org_id}, platform={platform}: {e}")
+            logger.error(f"[ContactSync] Failed to get config for org={org_id}, platform={platform}: {e}")
             return None
 
     @staticmethod
@@ -184,7 +184,7 @@ class ContactSyncService:
         mapping = {}
         try:
             departments = await client.get_departments()
-            logger.info(f"[ContactSync] Fetched {len(departments)} departments " f"from {client.platform_name}")
+            logger.info(f"[ContactSync] Fetched {len(departments)} departments from {client.platform_name}")
 
             for dept in departments:
                 platform_dept_id = dept.get("id", "")
@@ -219,9 +219,7 @@ class ContactSyncService:
                         mapping[platform_dept_id] = nexus_dept_id
 
                 except Exception as e:
-                    logger.warning(
-                        f"[ContactSync] Failed to upsert department " f"{dept_name} ({platform_dept_id}): {e}"
-                    )
+                    logger.warning(f"[ContactSync] Failed to upsert department {dept_name} ({platform_dept_id}): {e}")
                     # 即使某个部门失败，继续处理其他部门
                     continue
 
@@ -263,7 +261,7 @@ class ContactSyncService:
             try:
                 users = await client.get_department_users(platform_dept_id)
             except Exception as e:
-                logger.warning(f"[ContactSync] Failed to get users for dept " f"{platform_dept_id}: {e}")
+                logger.warning(f"[ContactSync] Failed to get users for dept {platform_dept_id}: {e}")
                 continue
 
             for user in users:
@@ -288,12 +286,17 @@ class ContactSyncService:
                     if existing.data:
                         # 更新已有映射
                         mapping_id = existing.data[0]["id"]
-                        await db.table("im_user_mappings").update(
-                            {
-                                "platform_username": user.get("name", ""),
-                                "platform_department_id": platform_dept_id,
-                            }
-                        ).eq("id", mapping_id).execute()
+                        await (
+                            db.table("im_user_mappings")
+                            .update(
+                                {
+                                    "platform_username": user.get("name", ""),
+                                    "platform_department_id": platform_dept_id,
+                                }
+                            )
+                            .eq("id", mapping_id)
+                            .execute()
+                        )
                         stats["updated"] += 1
                     else:
                         # 尝试通过手机号找到 Nexus 用户
@@ -301,16 +304,20 @@ class ContactSyncService:
 
                         if nexus_user_id:
                             # 创建映射
-                            await db.table("im_user_mappings").insert(
-                                {
-                                    "user_id": nexus_user_id,
-                                    "organization_id": org_id,
-                                    "platform": platform,
-                                    "platform_user_id": platform_user_id,
-                                    "platform_username": user.get("name", ""),
-                                    "platform_department_id": platform_dept_id,
-                                }
-                            ).execute()
+                            await (
+                                db.table("im_user_mappings")
+                                .insert(
+                                    {
+                                        "user_id": nexus_user_id,
+                                        "organization_id": org_id,
+                                        "platform": platform,
+                                        "platform_user_id": platform_user_id,
+                                        "platform_username": user.get("name", ""),
+                                        "platform_department_id": platform_dept_id,
+                                    }
+                                )
+                                .execute()
+                            )
                             stats["created"] += 1
                         else:
                             logger.debug(
@@ -320,7 +327,7 @@ class ContactSyncService:
                             )
 
                 except Exception as e:
-                    logger.warning(f"[ContactSync] Failed to sync user " f"{platform_user_id}: {e}")
+                    logger.warning(f"[ContactSync] Failed to sync user {platform_user_id}: {e}")
                     continue
 
         return stats

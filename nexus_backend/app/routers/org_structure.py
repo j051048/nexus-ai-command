@@ -66,7 +66,9 @@ async def list_departments(
         org_id = getattr(req.state, "org_id", None) or "default"
         db = getattr(req.state, "db", None)
         departments = await organization_service.list_departments(
-            org_id=org_id, parent_id=parent_id, db=db,
+            org_id=org_id,
+            parent_id=parent_id,
+            db=db,
         )
         return api_success(data={"departments": departments})
     except Exception as e:
@@ -112,7 +114,9 @@ async def update_department(
         if not updates:
             raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "请提供至少一个要更新的字段")
         department = await organization_service.update_department(
-            department_id=department_id, updates=updates, db=db,
+            department_id=department_id,
+            updates=updates,
+            db=db,
         )
         return api_success(data={"department": department}, message="部门更新成功")
     except Exception as e:
@@ -134,7 +138,9 @@ async def list_positions(
         org_id = getattr(req.state, "org_id", None) or "default"
         db = getattr(req.state, "db", None)
         positions = await organization_service.list_positions(
-            org_id=org_id, department_id=department_id, db=db,
+            org_id=org_id,
+            department_id=department_id,
+            db=db,
         )
         return api_success(data={"positions": positions})
     except Exception as e:
@@ -188,7 +194,9 @@ async def list_employees(
         if search:
             filters["search"] = search
         employees = await organization_service.list_employees(
-            org_id=org_id, filters=filters if filters else None, db=db,
+            org_id=org_id,
+            filters=filters if filters else None,
+            db=db,
         )
         return api_success(data={"employees": employees})
     except Exception as e:
@@ -206,7 +214,8 @@ async def get_employee_detail(
     try:
         db = getattr(req.state, "db", None)
         employee = await organization_service.get_employee_detail(
-            employee_id=employee_id, db=db,
+            employee_id=employee_id,
+            db=db,
         )
         if not employee:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "员工不存在")
@@ -228,7 +237,9 @@ async def create_employee(
         db = getattr(req.state, "db", None)
         data = body.model_dump(exclude_none=True)
         employee = await organization_service.create_employee(
-            org_id=org_id, data=data, db=db,
+            org_id=org_id,
+            data=data,
+            db=db,
         )
         return api_success(data={"employee": employee}, message="员工创建成功")
     except Exception as e:
@@ -250,7 +261,9 @@ async def update_employee(
         if not updates:
             raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "请提供至少一个要更新的字段")
         employee = await organization_service.update_employee(
-            employee_id=employee_id, updates=updates, db=db,
+            employee_id=employee_id,
+            updates=updates,
+            db=db,
         )
         return api_success(data={"employee": employee}, message="员工更新成功")
     except Exception as e:

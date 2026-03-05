@@ -1,6 +1,5 @@
-from typing import Any
-
 import uuid as _uuid
+from typing import Any
 
 from app.core.database import supabase
 from app.services.vector_service import vector_service
@@ -158,14 +157,18 @@ class AwardBadgeTool(BaseTool):
         client = _get_client(config)
         try:
             await client.table("badges").insert({"user_id": target_id, "name": badge_name, "icon": icon}).execute()
-            await client.table("notifications").insert(
-                {
-                    "user_id": target_id,
-                    "title": "荣获新徽章！",
-                    "content": f"老板为你颁发了「{badge_name}」徽章，继续加油！",
-                    "type": "success",
-                }
-            ).execute()
+            await (
+                client.table("notifications")
+                .insert(
+                    {
+                        "user_id": target_id,
+                        "title": "荣获新徽章！",
+                        "content": f"老板为你颁发了「{badge_name}」徽章，继续加油！",
+                        "type": "success",
+                    }
+                )
+                .execute()
+            )
         except Exception as e:
             return f"❌ 颁发徽章失败: {str(e)}"
         return f"成功为用户 {target_id} 颁发徽章: {badge_name}"

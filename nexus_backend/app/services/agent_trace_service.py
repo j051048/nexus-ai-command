@@ -1,4 +1,4 @@
-﻿"""
+"""
 P0 Observability: Agent Trace Service
 
 Implements comprehensive agent execution tracing for debugging and monitoring.
@@ -314,25 +314,29 @@ class AgentTraceService:
             return
 
         try:
-            await db.table("agent_traces").upsert(
-                {
-                    "trace_id": trace.trace_id,
-                    "thread_id": trace.thread_id,
-                    "user_id": trace.user_id,
-                    "org_id": trace.org_id,
-                    "query": trace.query,
-                    "status": trace.status.value,
-                    "start_time": datetime.fromtimestamp(trace.start_time).isoformat(),
-                    "end_time": datetime.fromtimestamp(trace.end_time).isoformat() if trace.end_time else None,
-                    "total_duration_ms": trace.total_duration_ms,
-                    "total_tokens": trace.total_tokens,
-                    "total_cost_usd": trace.total_cost_usd,
-                    "steps_json": [s.to_dict() for s in trace.steps],
-                    "final_response": trace.final_response,
-                    "metadata_json": trace.metadata,
-                    "tags": trace.tags,
-                }
-            ).execute()
+            await (
+                db.table("agent_traces")
+                .upsert(
+                    {
+                        "trace_id": trace.trace_id,
+                        "thread_id": trace.thread_id,
+                        "user_id": trace.user_id,
+                        "org_id": trace.org_id,
+                        "query": trace.query,
+                        "status": trace.status.value,
+                        "start_time": datetime.fromtimestamp(trace.start_time).isoformat(),
+                        "end_time": datetime.fromtimestamp(trace.end_time).isoformat() if trace.end_time else None,
+                        "total_duration_ms": trace.total_duration_ms,
+                        "total_tokens": trace.total_tokens,
+                        "total_cost_usd": trace.total_cost_usd,
+                        "steps_json": [s.to_dict() for s in trace.steps],
+                        "final_response": trace.final_response,
+                        "metadata_json": trace.metadata,
+                        "tags": trace.tags,
+                    }
+                )
+                .execute()
+            )
         except Exception as e:
             logger.error(f"Failed to persist trace: {e}")
 

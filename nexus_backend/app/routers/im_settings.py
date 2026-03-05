@@ -99,7 +99,7 @@ async def upsert_im_config(
         if platform not in SUPPORTED_PLATFORMS:
             raise api_error(
                 ErrorCode.VALIDATION_INVALID_INPUT,
-                f"Unsupported platform: {platform}. " f"Supported: {', '.join(SUPPORTED_PLATFORMS)}",
+                f"Unsupported platform: {platform}. Supported: {', '.join(SUPPORTED_PLATFORMS)}",
             )
 
         if not config:
@@ -131,12 +131,16 @@ async def upsert_im_config(
             "is_active": is_active,
         }
 
-        await db.table("im_platform_config").upsert(
-            data,
-            on_conflict="organization_id,platform",
-        ).execute()
+        await (
+            db.table("im_platform_config")
+            .upsert(
+                data,
+                on_conflict="organization_id,platform",
+            )
+            .execute()
+        )
 
-        logger.info(f"[im_settings] Config upserted for org={org_id}, " f"platform={platform}")
+        logger.info(f"[im_settings] Config upserted for org={org_id}, platform={platform}")
 
         return api_success(
             data={
@@ -178,7 +182,7 @@ async def delete_im_config(
     try:
         await db.table("im_platform_config").delete().eq("organization_id", org_id).eq("platform", platform).execute()
 
-        logger.info(f"[im_settings] Config deleted for org={org_id}, " f"platform={platform}")
+        logger.info(f"[im_settings] Config deleted for org={org_id}, platform={platform}")
 
         return api_success(data={"message": f"{platform} configuration deleted"})
 

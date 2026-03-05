@@ -31,7 +31,9 @@ async def list_configs(
         org_id = getattr(req.state, "org_id", None) or "default"
         db = getattr(req.state, "db", None)
         configs = await system_config_service.list_configs(
-            org_id=org_id, config_type=config_type, db=db,
+            org_id=org_id,
+            config_type=config_type,
+            db=db,
         )
         return api_success(data={"configs": configs})
     except Exception as e:
@@ -77,7 +79,10 @@ async def delete_config(
         org_id = getattr(req.state, "org_id", None) or "default"
         db = getattr(req.state, "db", None)
         result = await system_config_service.delete_config(
-            org_id=org_id, config_type=config_type, config_key=config_key, db=db,
+            org_id=org_id,
+            config_type=config_type,
+            config_key=config_key,
+            db=db,
         )
         return api_success(data={"deleted": result})
     except Exception as e:

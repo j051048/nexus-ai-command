@@ -330,7 +330,7 @@ class WorkflowTemplateService:
             except Exception as e:
                 logger.warning(f"Failed to increment template usage count: {e}")
 
-        logger.info(f"Created workflow '{workflow_name}' from template '{template_id}' " f"for org {org_id}")
+        logger.info(f"Created workflow '{workflow_name}' from template '{template_id}' for org {org_id}")
         return created
 
     async def share_workflow_as_template(

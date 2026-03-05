@@ -242,14 +242,18 @@ class SmartApprovalTool(BaseTool):
             for req in selected_requests:
                 if req["id"] in updated_ids:
                     try:
-                        await client.table("notifications").insert(
-                            {
-                                "user_id": req["submitted_by"],
-                                "title": "✅ 您的申请已批准",
-                                "content": f"您提交的{req.get('type', '申请')}（¥{req.get('amount', 0)}）已被批准",
-                                "type": "success",
-                            }
-                        ).execute()
+                        await (
+                            client.table("notifications")
+                            .insert(
+                                {
+                                    "user_id": req["submitted_by"],
+                                    "title": "✅ 您的申请已批准",
+                                    "content": f"您提交的{req.get('type', '申请')}（¥{req.get('amount', 0)}）已被批准",
+                                    "type": "success",
+                                }
+                            )
+                            .execute()
+                        )
                     except Exception as e:
                         logger.warning(f"Failed to send approval notification: {e}")
 
@@ -280,7 +284,7 @@ class SmartApprovalTool(BaseTool):
 - 批准数量: {approved_count} 件
 - 跳过数量: {skipped_count} 件（已被他人处理）
 - 涉及金额: ¥{total_amount:,.2f}
-- 处理时间: {datetime.now().strftime('%H:%M:%S')}
+- 处理时间: {datetime.now().strftime("%H:%M:%S")}
 
 **已批准明细**
 {self._format_request_list(selected_requests[:5])}
@@ -340,14 +344,18 @@ class SmartApprovalTool(BaseTool):
             for req in selected_requests:
                 if req["id"] in updated_ids:
                     try:
-                        await client.table("notifications").insert(
-                            {
-                                "user_id": req["submitted_by"],
-                                "title": "❌ 您的申请被驳回",
-                                "content": f"您提交的{req.get('type', '申请')}被驳回。原因: {comment or '未说明'}",
-                                "type": "warning",
-                            }
-                        ).execute()
+                        await (
+                            client.table("notifications")
+                            .insert(
+                                {
+                                    "user_id": req["submitted_by"],
+                                    "title": "❌ 您的申请被驳回",
+                                    "content": f"您提交的{req.get('type', '申请')}被驳回。原因: {comment or '未说明'}",
+                                    "type": "warning",
+                                }
+                            )
+                            .execute()
+                        )
                     except Exception as e:
                         logger.warning(f"Failed to send rejection notification: {e}")
 
@@ -374,7 +382,7 @@ class SmartApprovalTool(BaseTool):
 
             return f"""❌ 已驳回 {rejected_count} 件申请
 
-驳回原因: {comment or '未说明'}
+驳回原因: {comment or "未说明"}
 跳过数量: {skipped_count} 件（已被他人处理）
 📧 已通知相关申请人
 """
@@ -395,24 +403,32 @@ class SmartApprovalTool(BaseTool):
             # 更新审批人 (委托不是不可逆操作，可以重新委托)
             # RLS policy "approval_admin_update" allows boss/admin in same org
             for req in selected_requests:
-                await client.table("approval_requests").update({"current_approver": delegate_user["id"]}).eq(
-                    "id", req["id"]
-                ).eq("status", "pending").execute()
+                await (
+                    client.table("approval_requests")
+                    .update({"current_approver": delegate_user["id"]})
+                    .eq("id", req["id"])
+                    .eq("status", "pending")
+                    .execute()
+                )
 
             # 通知被委托人
-            await client.table("notifications").insert(
-                {
-                    "user_id": delegate_user["id"],
-                    "title": "📋 收到委托审批",
-                    "content": f"领导将 {len(selected_requests)} 件审批事项委托给您处理",
-                    "type": "warning",
-                }
-            ).execute()
+            await (
+                client.table("notifications")
+                .insert(
+                    {
+                        "user_id": delegate_user["id"],
+                        "title": "📋 收到委托审批",
+                        "content": f"领导将 {len(selected_requests)} 件审批事项委托给您处理",
+                        "type": "warning",
+                    }
+                )
+                .execute()
+            )
 
-            return f"""✅ 已委托给 {delegate_user['name']}
+            return f"""✅ 已委托给 {delegate_user["name"]}
 
 委托事项: {len(selected_requests)} 件
-📧 已通知 {delegate_user['name']}
+📧 已通知 {delegate_user["name"]}
 """
 
         return "未知操作"
@@ -493,7 +509,7 @@ class DailyBriefingTool(BaseTool):
         greeting = "早上好" if now.hour < 12 else "下午好" if now.hour < 18 else "晚上好"
 
         response = f"""☀️ **{greeting}，老板！**
-📅 {now.strftime('%Y年%m月%d日 %A')}
+📅 {now.strftime("%Y年%m月%d日 %A")}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -722,8 +738,8 @@ class BusinessDashboardTool(BaseTool):
 
             # 3. Logic for "No Data"
             if not metrics and headcount == 0:
-                return f"""📊 **{period_names.get(period, '本月')}经营仪表盘**
-更新时间: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+                return f"""📊 **{period_names.get(period, "本月")}经营仪表盘**
+更新时间: {datetime.now().strftime("%Y-%m-%d %H:%M")}
 
 ⚠️ **暂无数据**
 系统中暂未录入经营数据（收入、成本、人员等）。
@@ -731,8 +747,8 @@ class BusinessDashboardTool(BaseTool):
 """
 
             # 4. Construct Authentic Report
-            response = f"""📊 **{period_names.get(period, '本月')}经营仪表盘 (实时数据)**
-更新时间: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+            response = f"""📊 **{period_names.get(period, "本月")}经营仪表盘 (实时数据)**
+更新时间: {datetime.now().strftime("%Y-%m-%d %H:%M")}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -828,7 +844,7 @@ class TeamInsightTool(BaseTool):
 
         if total_count == 0:
             return f"""👥 **团队洞察报告**
-📅 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+📅 生成时间: {datetime.now().strftime("%Y-%m-%d %H:%M")}
 
 ⚠️ **暂无数据** — 系统中暂未录入员工信息。
 """
@@ -840,14 +856,14 @@ class TeamInsightTool(BaseTool):
         c_level = [u for u in team if float(u.get("score", 0)) < 70]
 
         def pct(n):
-            return f"{n/total_count*100:.0f}%" if total_count > 0 else "0%"
+            return f"{n / total_count * 100:.0f}%" if total_count > 0 else "0%"
 
         def bar(n, total, width=10):
             filled = round(n / total * width) if total > 0 else 0
             return "█" * filled + "░" * (width - filled)
 
         response = f"""👥 **团队洞察报告**
-📅 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M')}
+📅 生成时间: {datetime.now().strftime("%Y-%m-%d %H:%M")}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -965,7 +981,7 @@ class AnnouncementTool(BaseTool):
             try:
                 await client.table("notifications").insert(batch).execute()
             except Exception as e:
-                logger.warning(f"Failed to insert notification batch {i//batch_size + 1}: {e}")
+                logger.warning(f"Failed to insert notification batch {i // batch_size + 1}: {e}")
 
         # Multi-channel notification for announcements
         try:
@@ -1008,7 +1024,7 @@ class AnnouncementTool(BaseTool):
 
 **公告详情**
 - 标题: {title}
-- 内容: {content[:50]}{'...' if len(content) > 50 else ''}
+- 内容: {content[:50]}{"..." if len(content) > 50 else ""}
 - 对象: {target_names.get(target, target)}（{len(users)}人）
 - 优先级: {priority}
 
@@ -1111,7 +1127,7 @@ class CustomerProfileTool(BaseTool):
                 for act in activities:
                     t = type_labels.get(act.get("activity_type", ""), act.get("activity_type", ""))
                     leads_summary.append(
-                        f"  - [{t}] {act.get('content', '')[:80]} " f"({str(act.get('created_at', ''))[:10]})"
+                        f"  - [{t}] {act.get('content', '')[:80]} ({str(act.get('created_at', ''))[:10]})"
                     )
         except Exception:
             pass

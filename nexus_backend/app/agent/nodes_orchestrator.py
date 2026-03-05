@@ -179,7 +179,7 @@ async def orchestrate_node(state: AgentState) -> dict:
                         "tool_calls": tool_calls_data,
                     }
                 except Exception as e1:
-                    logger.warning(f"[Orchestrate] Sub-task {task_idx} ({agent_code}) " f"first attempt failed: {e1}")
+                    logger.warning(f"[Orchestrate] Sub-task {task_idx} ({agent_code}) first attempt failed: {e1}")
 
                 # Attempt 2: Retry
                 try:
@@ -552,7 +552,7 @@ async def _run_single_tool(tool_name: str, tool_args: dict, config: AgentConfig)
 
             if isinstance(ve, jsonschema.ValidationError):
                 field_path = " → ".join(str(p) for p in ve.absolute_path) if ve.absolute_path else "(root)"
-                return f"参数校验失败 [{tool_name}]: " f"字段 {field_path} - {ve.message}" + (
+                return f"参数校验失败 [{tool_name}]: 字段 {field_path} - {ve.message}" + (
                     f" (允许值: {ve.schema['enum']})" if ve.schema and "enum" in ve.schema else ""
                 )
         except Exception:

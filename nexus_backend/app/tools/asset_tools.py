@@ -43,10 +43,7 @@ class ListAssetsTool(BaseTool):
     """查询资产列表"""
 
     name = "list_assets"
-    description = (
-        "查询资产列表，支持按类型、状态、部门筛选。"
-        "当用户说'查看资产'、'资产列表'、'有哪些设备'时调用。"
-    )
+    description = "查询资产列表，支持按类型、状态、部门筛选。当用户说'查看资产'、'资产列表'、'有哪些设备'时调用。"
 
     parameters = {
         "type": "object",
@@ -132,10 +129,7 @@ class GetAssetDetailTool(BaseTool):
     """获取资产详情"""
 
     name = "get_asset_detail"
-    description = (
-        "获取资产详细信息。"
-        "当用户说'查看资产详情'、'资产信息'时调用。"
-    )
+    description = "获取资产详细信息。当用户说'查看资产详情'、'资产信息'时调用。"
 
     parameters = {
         "type": "object",
@@ -308,10 +302,7 @@ class UpdateAssetTool(BaseTool):
     """更新资产"""
 
     name = "update_asset"
-    description = (
-        "更新资产信息或状态。"
-        "当用户说'更新资产'、'修改资产状态'、'资产维修'时调用。"
-    )
+    description = "更新资产信息或状态。当用户说'更新资产'、'修改资产状态'、'资产维修'时调用。"
     required_role = "admin"
 
     parameters = {
@@ -385,10 +376,7 @@ class TransferAssetTool(BaseTool):
     """资产转移/领用/归还"""
 
     name = "transfer_asset"
-    description = (
-        "资产转移、领用或归还。"
-        "当用户说'领用资产'、'归还设备'、'资产转移'、'资产报废'时调用。"
-    )
+    description = "资产转移、领用或归还。当用户说'领用资产'、'归还设备'、'资产转移'、'资产报废'时调用。"
     is_irreversible = True
     confirmation_message = "⚠️ 即将进行资产转移操作，确认继续？"
 
@@ -488,10 +476,7 @@ class AssetStatisticsTool(BaseTool):
     """资产统计"""
 
     name = "asset_statistics"
-    description = (
-        "获取资产统计数据（总量、在用率、价值等）。"
-        "当用户说'资产统计'、'设备利用率'、'有多少资产'时调用。"
-    )
+    description = "获取资产统计数据（总量、在用率、价值等）。当用户说'资产统计'、'设备利用率'、'有多少资产'时调用。"
 
     parameters = {
         "type": "object",

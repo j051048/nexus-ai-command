@@ -36,7 +36,7 @@ class GenerateMaintenanceReminderTool(BaseTool):
     """生成设备维护保养提醒和服务通知"""
 
     name = "generate_maintenance_reminder"
-    description = "生成设备维护保养提醒和服务通知。" "当用户说'维护提醒'、'保养通知'、'售后提醒'时调用。"
+    description = "生成设备维护保养提醒和服务通知。当用户说'维护提醒'、'保养通知'、'售后提醒'时调用。"
     required_role = "all"
 
     parameters = {
@@ -142,9 +142,7 @@ class GenerateFaqResponseTool(BaseTool):
     """智能回答产品常见问题，基于知识库生成精准FAQ回复"""
 
     name = "generate_faq_response"
-    description = (
-        "智能回答产品常见问题，基于知识库生成精准FAQ回复。" "当用户说'FAQ'、'常见问题'、'产品问题回复'时调用。"
-    )
+    description = "智能回答产品常见问题，基于知识库生成精准FAQ回复。当用户说'FAQ'、'常见问题'、'产品问题回复'时调用。"
     required_role = "all"
 
     parameters = {
@@ -245,7 +243,7 @@ class GenerateRepurchaseCampaignTool(BaseTool):
     """生成老客户复购/增购营销方案"""
 
     name = "generate_repurchase_campaign"
-    description = "生成老客户复购/增购营销方案。" "当用户说'复购方案'、'老客户营销'、'增购计划'时调用。"
+    description = "生成老客户复购/增购营销方案。当用户说'复购方案'、'老客户营销'、'增购计划'时调用。"
     required_role = "all"
 
     parameters = {
@@ -371,7 +369,7 @@ class CustomerLifecycleAnalysisTool(BaseTool):
     """分析客户生命周期价值和健康度"""
 
     name = "customer_lifecycle_analysis"
-    description = "分析客户生命周期价值和健康度。" "当用户说'客户分析'、'生命周期'、'客户健康度'、'LTV分析'时调用。"
+    description = "分析客户生命周期价值和健康度。当用户说'客户分析'、'生命周期'、'客户健康度'、'LTV分析'时调用。"
     required_role = "all"
 
     parameters = {

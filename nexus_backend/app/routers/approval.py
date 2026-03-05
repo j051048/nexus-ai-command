@@ -172,7 +172,7 @@ async def list_approvals(
         # --- 2. 查 oa_leave_requests ---
         if not type_filter or type_filter == "leave":
             lr_query = client.table("oa_leave_requests").select(
-                "id, type, reason, status, user_id, created_at, " "start_date, end_date, days, users:user_id(name)"
+                "id, type, reason, status, user_id, created_at, start_date, end_date, days, users:user_id(name)"
             )
 
             if tab == "pending":

@@ -43,10 +43,7 @@ class CreateWorkOrderTool(BaseTool):
     """创建工单"""
 
     name = "create_work_order"
-    description = (
-        "创建新工单（报修、投诉、申请等）。"
-        "当用户说'创建工单'、'提交报修'、'提交投诉'、'提交申请'时调用。"
-    )
+    description = "创建新工单（报修、投诉、申请等）。当用户说'创建工单'、'提交报修'、'提交投诉'、'提交申请'时调用。"
 
     parameters = {
         "type": "object",
@@ -148,8 +145,7 @@ class ListWorkOrdersTool(BaseTool):
 
     name = "list_work_orders"
     description = (
-        "查询工单列表，支持按类型、状态、优先级筛选。"
-        "当用户说'查看工单'、'工单列表'、'有哪些待处理工单'时调用。"
+        "查询工单列表，支持按类型、状态、优先级筛选。当用户说'查看工单'、'工单列表'、'有哪些待处理工单'时调用。"
     )
 
     parameters = {
@@ -245,10 +241,7 @@ class GetWorkOrderDetailTool(BaseTool):
     """获取工单详情"""
 
     name = "get_work_order_detail"
-    description = (
-        "获取工单详细信息。"
-        "当用户说'查看工单详情'、'工单信息'时调用。"
-    )
+    description = "获取工单详细信息。当用户说'查看工单详情'、'工单信息'时调用。"
 
     parameters = {
         "type": "object",
@@ -325,10 +318,7 @@ class UpdateWorkOrderTool(BaseTool):
     """更新工单"""
 
     name = "update_work_order"
-    description = (
-        "更新工单状态、指派处理人或添加备注。"
-        "当用户说'处理工单'、'更新工单'、'关闭工单'、'指派工单'时调用。"
-    )
+    description = "更新工单状态、指派处理人或添加备注。当用户说'处理工单'、'更新工单'、'关闭工单'、'指派工单'时调用。"
 
     parameters = {
         "type": "object",
@@ -367,6 +357,7 @@ class UpdateWorkOrderTool(BaseTool):
             updates["status"] = args["status"]
             if args["status"] == "resolved":
                 from datetime import UTC, datetime
+
                 updates["resolved_at"] = datetime.now(UTC).isoformat()
         if args.get("assignee_id"):
             if err := _validate_uuid(args["assignee_id"], "assignee_id"):
@@ -408,8 +399,7 @@ class WorkOrderStatisticsTool(BaseTool):
 
     name = "work_order_statistics"
     description = (
-        "获取工单统计数据（总量、处理率、响应时长、SLA达标率等）。"
-        "当用户说'工单统计'、'工单分析'、'处理效率'时调用。"
+        "获取工单统计数据（总量、处理率、响应时长、SLA达标率等）。当用户说'工单统计'、'工单分析'、'处理效率'时调用。"
     )
 
     parameters = {

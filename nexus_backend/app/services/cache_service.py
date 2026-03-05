@@ -298,7 +298,8 @@ class SemanticCache:
 
         try:
             response = await self._embedding_client.embeddings.create(
-                model="text-embedding-3-small", input=text[:8000]  # Limit input size
+                model="text-embedding-3-small",
+                input=text[:8000],  # Limit input size
             )
             embedding = response.data[0].embedding
 

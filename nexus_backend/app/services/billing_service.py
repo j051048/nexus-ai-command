@@ -219,13 +219,17 @@ class BillingService:
 
         if db:
             try:
-                await db.table("subscriptions").upsert(
-                    {
-                        "org_id": org_id,
-                        "plan": plan.value,
-                        "status": "active",
-                    }
-                ).execute()
+                await (
+                    db.table("subscriptions")
+                    .upsert(
+                        {
+                            "org_id": org_id,
+                            "plan": plan.value,
+                            "status": "active",
+                        }
+                    )
+                    .execute()
+                )
             except Exception as e:
                 logger.warning(f"Failed to persist subscription: {e}")
 
@@ -282,11 +286,16 @@ class BillingService:
 
         if db:
             try:
-                await db.table("subscriptions").update(
-                    {
-                        "status": "cancel_at_period_end",
-                    }
-                ).eq("org_id", org_id).execute()
+                await (
+                    db.table("subscriptions")
+                    .update(
+                        {
+                            "status": "cancel_at_period_end",
+                        }
+                    )
+                    .eq("org_id", org_id)
+                    .execute()
+                )
             except Exception as e:
                 logger.warning(f"Failed to cancel subscription in DB: {e}")
 
@@ -349,14 +358,18 @@ class BillingService:
 
         if db:
             try:
-                await db.table("subscriptions").upsert(
-                    {
-                        "org_id": org_id,
-                        "plan": plan.value,
-                        "status": "trialing",
-                        "current_period_end": trial_end.isoformat(),
-                    }
-                ).execute()
+                await (
+                    db.table("subscriptions")
+                    .upsert(
+                        {
+                            "org_id": org_id,
+                            "plan": plan.value,
+                            "status": "trialing",
+                            "current_period_end": trial_end.isoformat(),
+                        }
+                    )
+                    .execute()
+                )
             except Exception as e:
                 logger.warning(f"Failed to persist trial subscription: {e}")
 
@@ -389,13 +402,18 @@ class BillingService:
 
             if db:
                 try:
-                    await db.table("subscriptions").update(
-                        {
-                            "plan": "free",
-                            "status": "active",
-                            "current_period_end": None,
-                        }
-                    ).eq("org_id", org_id).execute()
+                    await (
+                        db.table("subscriptions")
+                        .update(
+                            {
+                                "plan": "free",
+                                "status": "active",
+                                "current_period_end": None,
+                            }
+                        )
+                        .eq("org_id", org_id)
+                        .execute()
+                    )
                 except Exception as e:
                     logger.warning(f"Failed to persist trial expiry for {org_id}: {e}")
 
@@ -415,12 +433,17 @@ class BillingService:
 
             if db:
                 try:
-                    await db.table("subscriptions").update(
-                        {
-                            "plan": "free",
-                            "status": "cancelled",
-                        }
-                    ).eq("org_id", org_id).execute()
+                    await (
+                        db.table("subscriptions")
+                        .update(
+                            {
+                                "plan": "free",
+                                "status": "cancelled",
+                            }
+                        )
+                        .eq("org_id", org_id)
+                        .execute()
+                    )
                 except Exception as e:
                     logger.warning(f"Failed to persist cancellation for {org_id}: {e}")
 

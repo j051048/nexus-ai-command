@@ -466,7 +466,7 @@ async def learn_tool_patterns(
                 seq_data = json.loads(seq_row.get("value", "{}"))
                 tools = seq_data.get("tools", [])
                 for i in range(len(tools) - 1):
-                    all_bigrams.append(f"{tools[i]} -> {tools[i+1]}")
+                    all_bigrams.append(f"{tools[i]} -> {tools[i + 1]}")
             except (json.JSONDecodeError, KeyError):
                 continue
 

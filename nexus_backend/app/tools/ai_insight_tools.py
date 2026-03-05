@@ -44,8 +44,7 @@ class SmartReportTool(BaseTool):
 
     name = "smart_report"
     description = (
-        "生成综合组织报告，聚合员工、资产、工单、考勤等数据。"
-        "当用户说'生成报告'、'组织概况'、'综合报告'时调用。"
+        "生成综合组织报告，聚合员工、资产、工单、考勤等数据。当用户说'生成报告'、'组织概况'、'综合报告'时调用。"
     )
 
     parameters = {
@@ -103,11 +102,7 @@ class SmartReportTool(BaseTool):
             emp_count = emp_result.count or 0
 
             # 2. 资产统计
-            asset_query = (
-                client.table("assets")
-                .select("id, status", count="exact")
-                .eq("organization_id", org_id)
-            )
+            asset_query = client.table("assets").select("id, status", count="exact").eq("organization_id", org_id)
             if department_id:
                 asset_query = asset_query.eq("department_id", department_id)
             asset_result = await asset_query.execute()
@@ -174,8 +169,7 @@ class AnomalyDetectionTool(BaseTool):
 
     name = "anomaly_detection"
     description = (
-        "检测组织数据中的异常情况，包括考勤、报销、库存等。"
-        "当用户说'检测异常'、'有没有异常'、'风险预警'时调用。"
+        "检测组织数据中的异常情况，包括考勤、报销、库存等。当用户说'检测异常'、'有没有异常'、'风险预警'时调用。"
     )
 
     parameters = {
@@ -222,13 +216,9 @@ class AnomalyDetectionTool(BaseTool):
 
                     frequent_late = {k: v for k, v in late_counts.items() if v >= 3}
                     if frequent_late:
-                        alerts.append(
-                            f"⏰ **考勤异常**: {len(frequent_late)} 名员工本周迟到 3 次以上"
-                        )
+                        alerts.append(f"⏰ **考勤异常**: {len(frequent_late)} 名员工本周迟到 3 次以上")
                     if len(late_records) > 10:
-                        alerts.append(
-                            f"⏰ **考勤预警**: 本周共 {len(late_records)} 次迟到记录，建议关注"
-                        )
+                        alerts.append(f"⏰ **考勤预警**: 本周共 {len(late_records)} 次迟到记录，建议关注")
 
             # 报销异常检测
             if scope in ("expense", "all"):
@@ -261,16 +251,15 @@ class AnomalyDetectionTool(BaseTool):
                 )
                 items = inv_result.data or []
                 low_stock = [
-                    item for item in items
+                    item
+                    for item in items
                     if item.get("quantity") is not None
                     and item.get("min_quantity") is not None
                     and item["quantity"] <= item["min_quantity"]
                 ]
                 if low_stock:
                     names = ", ".join(i.get("name", "未知")[:10] for i in low_stock[:5])
-                    alerts.append(
-                        f"📦 **库存预警**: {len(low_stock)} 项物资低于安全库存 ({names})"
-                    )
+                    alerts.append(f"📦 **库存预警**: {len(low_stock)} 项物资低于安全库存 ({names})")
 
             if not alerts:
                 scope_labels = {
@@ -292,10 +281,7 @@ class PredictiveMaintenanceTool(BaseTool):
     """预测资产维护需求"""
 
     name = "predictive_maintenance"
-    description = (
-        "预测资产维护需求，识别需要维护的资产。"
-        "当用户说'维护预测'、'哪些设备需要维护'、'预防性维护'时调用。"
-    )
+    description = "预测资产维护需求，识别需要维护的资产。当用户说'维护预测'、'哪些设备需要维护'、'预防性维护'时调用。"
 
     parameters = {
         "type": "object",
@@ -372,9 +358,7 @@ class PredictiveMaintenanceTool(BaseTool):
                     last_date_str = last_transfer.get("created_at", "")
                     if last_date_str:
                         try:
-                            last_date = datetime.fromisoformat(
-                                last_date_str.replace("Z", "+00:00")
-                            )
+                            last_date = datetime.fromisoformat(last_date_str.replace("Z", "+00:00"))
                             days_since = (now - last_date).days
                             if days_since > 90:
                                 needs_maintenance = True
@@ -383,19 +367,13 @@ class PredictiveMaintenanceTool(BaseTool):
                             pass
 
                 if needs_maintenance:
-                    suggestions.append(
-                        f"- 🔧 **{asset_name}** [{asset_code}] — {reason}"
-                    )
+                    suggestions.append(f"- 🔧 **{asset_name}** [{asset_code}] — {reason}")
 
             if not suggestions:
                 type_note = f"（类型: {asset_type}）" if asset_type else ""
                 return f"✅ 所有使用中的资产{type_note}暂无维护需求。"
 
-            return (
-                f"🔧 **维护预测报告**\n"
-                f"以下 {len(suggestions)} 项资产建议安排维护:\n\n"
-                + "\n".join(suggestions)
-            )
+            return f"🔧 **维护预测报告**\n以下 {len(suggestions)} 项资产建议安排维护:\n\n" + "\n".join(suggestions)
 
         except Exception as e:
             logger.error(f"维护预测失败: {e}")
@@ -407,8 +385,7 @@ class AutoDispatchTool(BaseTool):
 
     name = "auto_dispatch"
     description = (
-        "智能工单派遣建议，根据员工工作量推荐最佳处理人。"
-        "当用户说'派遣工单'、'谁来处理这个工单'、'智能分配'时调用。"
+        "智能工单派遣建议，根据员工工作量推荐最佳处理人。当用户说'派遣工单'、'谁来处理这个工单'、'智能分配'时调用。"
     )
 
     parameters = {
@@ -436,13 +413,7 @@ class AutoDispatchTool(BaseTool):
 
         try:
             # 获取工单详情
-            wo_result = await (
-                client.table("work_orders")
-                .select("*")
-                .eq("id", order_id)
-                .maybe_single()
-                .execute()
-            )
+            wo_result = await client.table("work_orders").select("*").eq("id", order_id).maybe_single().execute()
             order = wo_result.data
             if not order:
                 return f"❌ 未找到ID为 {order_id} 的工单。"
@@ -452,10 +423,7 @@ class AutoDispatchTool(BaseTool):
 
             # 查询该部门员工
             emp_query = (
-                client.table("employees")
-                .select("id, name")
-                .eq("organization_id", org_id)
-                .eq("status", "active")
+                client.table("employees").select("id, name").eq("organization_id", org_id).eq("status", "active")
             )
             if department_id:
                 emp_query = emp_query.eq("department_id", department_id)
@@ -477,11 +445,13 @@ class AutoDispatchTool(BaseTool):
                     .execute()
                 )
                 open_count = open_wo_result.count or 0
-                workloads.append({
-                    "id": emp_id,
-                    "name": emp.get("name", "未知"),
-                    "open_count": open_count,
-                })
+                workloads.append(
+                    {
+                        "id": emp_id,
+                        "name": emp.get("name", "未知"),
+                        "open_count": open_count,
+                    }
+                )
 
             # 按工作量排序，推荐最空闲的
             workloads.sort(key=lambda x: x["open_count"])
@@ -494,9 +464,7 @@ class AutoDispatchTool(BaseTool):
 
             for i, wl in enumerate(workloads[:5], 1):
                 tag = " ⭐ 推荐" if i == 1 else ""
-                lines.append(
-                    f"{i}. **{wl['name']}** — 当前待处理工单: {wl['open_count']}{tag}"
-                )
+                lines.append(f"{i}. **{wl['name']}** — 当前待处理工单: {wl['open_count']}{tag}")
 
             return "\n".join(lines)
 
@@ -509,10 +477,7 @@ class MeetingSummaryTool(BaseTool):
     """生成会议纪要"""
 
     name = "meeting_summary"
-    description = (
-        "根据会议笔记生成结构化的会议纪要。"
-        "当用户说'整理会议纪要'、'会议总结'时调用。"
-    )
+    description = "根据会议笔记生成结构化的会议纪要。当用户说'整理会议纪要'、'会议总结'时调用。"
 
     parameters = {
         "type": "object",
@@ -607,8 +572,7 @@ class MeetingSummaryTool(BaseTool):
                     result_parts.append(f"  - {line}")
                 result_parts.append("")
                 result_parts.append(
-                    "💡 提示: 建议在笔记中使用「参会人员」「决定」「行动事项」「下一步」"
-                    "等标题以获得更好的结构化效果。"
+                    "💡 提示: 建议在笔记中使用「参会人员」「决定」「行动事项」「下一步」等标题以获得更好的结构化效果。"
                 )
 
             return "\n".join(result_parts)
@@ -622,10 +586,7 @@ class OnboardingAssistantTool(BaseTool):
     """生成新员工入职清单"""
 
     name = "onboarding_assistant"
-    description = (
-        "为新员工生成入职清单，包括账号、设备、培训等。"
-        "当用户说'入职清单'、'新员工入职'、'入职准备'时调用。"
-    )
+    description = "为新员工生成入职清单，包括账号、设备、培训等。当用户说'入职清单'、'新员工入职'、'入职准备'时调用。"
 
     parameters = {
         "type": "object",
@@ -660,13 +621,7 @@ class OnboardingAssistantTool(BaseTool):
 
         try:
             # 获取员工信息
-            emp_result = await (
-                client.table("employees")
-                .select("*")
-                .eq("id", employee_id)
-                .maybe_single()
-                .execute()
-            )
+            emp_result = await client.table("employees").select("*").eq("id", employee_id).maybe_single().execute()
             employee = emp_result.data
             if not employee:
                 return f"❌ 未找到ID为 {employee_id} 的员工。"
@@ -678,11 +633,7 @@ class OnboardingAssistantTool(BaseTool):
             dept_name = "未分配"
             if dept_id:
                 dept_result = await (
-                    client.table("departments")
-                    .select("name")
-                    .eq("id", dept_id)
-                    .maybe_single()
-                    .execute()
+                    client.table("departments").select("name").eq("id", dept_id).maybe_single().execute()
                 )
                 if dept_result.data:
                     dept_name = dept_result.data.get("name", "未知")
@@ -731,25 +682,27 @@ class OnboardingAssistantTool(BaseTool):
             else:
                 lines.append("  - [ ] 暂无闲置设备，需申请采购")
 
-            lines.extend([
-                "",
-                "**三、培训计划**",
-                "  - [ ] 公司文化与制度培训（第1天）",
-                "  - [ ] 系统操作培训（第1-2天）",
-                "  - [ ] 部门业务培训（第1周）",
-                "  - [ ] 安全合规培训（第1周）",
-                "",
-                "**四、入职介绍**",
-                f"  - [ ] 部门负责人介绍会（{dept_name}）",
-                "  - [ ] 团队成员见面会",
-                "  - [ ] 办公环境导览",
-                "",
-                "**五、行政事项**",
-                "  - [ ] 录入考勤系统",
-                "  - [ ] 办理工牌/门禁卡",
-                "  - [ ] 签署劳动合同及保密协议",
-                "  - [ ] 社保公积金登记",
-            ])
+            lines.extend(
+                [
+                    "",
+                    "**三、培训计划**",
+                    "  - [ ] 公司文化与制度培训（第1天）",
+                    "  - [ ] 系统操作培训（第1-2天）",
+                    "  - [ ] 部门业务培训（第1周）",
+                    "  - [ ] 安全合规培训（第1周）",
+                    "",
+                    "**四、入职介绍**",
+                    f"  - [ ] 部门负责人介绍会（{dept_name}）",
+                    "  - [ ] 团队成员见面会",
+                    "  - [ ] 办公环境导览",
+                    "",
+                    "**五、行政事项**",
+                    "  - [ ] 录入考勤系统",
+                    "  - [ ] 办理工牌/门禁卡",
+                    "  - [ ] 签署劳动合同及保密协议",
+                    "  - [ ] 社保公积金登记",
+                ]
+            )
 
             return "\n".join(lines)
 

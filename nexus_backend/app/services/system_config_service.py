@@ -128,9 +128,7 @@ class SystemConfigService:
             }
 
             result = await (
-                db.table("system_configs")
-                .upsert(data, on_conflict="organization_id,config_type,config_key")
-                .execute()
+                db.table("system_configs").upsert(data, on_conflict="organization_id,config_type,config_key").execute()
             )
 
             if result.data and len(result.data) > 0:
@@ -223,31 +221,37 @@ class SystemConfigService:
             configs = []
 
             for i, (key, value) in enumerate(asset_statuses):
-                configs.append({
-                    "organization_id": org_id,
-                    "config_type": "asset_status",
-                    "config_key": key,
-                    "config_value": value,
-                    "sort_order": i,
-                })
+                configs.append(
+                    {
+                        "organization_id": org_id,
+                        "config_type": "asset_status",
+                        "config_key": key,
+                        "config_value": value,
+                        "sort_order": i,
+                    }
+                )
 
             for i, (key, value) in enumerate(work_order_types):
-                configs.append({
-                    "organization_id": org_id,
-                    "config_type": "work_order_type",
-                    "config_key": key,
-                    "config_value": value,
-                    "sort_order": i,
-                })
+                configs.append(
+                    {
+                        "organization_id": org_id,
+                        "config_type": "work_order_type",
+                        "config_key": key,
+                        "config_value": value,
+                        "sort_order": i,
+                    }
+                )
 
             for i, (key, value) in enumerate(priorities):
-                configs.append({
-                    "organization_id": org_id,
-                    "config_type": "priority",
-                    "config_key": key,
-                    "config_value": value,
-                    "sort_order": i,
-                })
+                configs.append(
+                    {
+                        "organization_id": org_id,
+                        "config_type": "priority",
+                        "config_key": key,
+                        "config_value": value,
+                        "sort_order": i,
+                    }
+                )
 
             await db.table("system_configs").insert(configs).execute()
             logger.info(f"租户默认配置已初始化: org={org_id}")

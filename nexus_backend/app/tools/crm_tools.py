@@ -22,6 +22,7 @@ def _validate_uuid(value: str, field_name: str = "ID") -> str | None:
     except (ValueError, TypeError, AttributeError):
         return f"{field_name} '{value}' 不是有效的UUID格式。"
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -44,7 +45,7 @@ class GetCustomersTool(BaseTool):
     """查询客户列表"""
 
     name = "get_customers"
-    description = "查询CRM客户列表，支持按阶段筛选和关键词搜索。" "当用户说'查看客户'、'客户列表'、'有哪些客户'时调用。"
+    description = "查询CRM客户列表，支持按阶段筛选和关键词搜索。当用户说'查看客户'、'客户列表'、'有哪些客户'时调用。"
 
     parameters = {
         "type": "object",
@@ -111,7 +112,7 @@ class GetCustomerDetailTool(BaseTool):
     """查询客户详情"""
 
     name = "get_customer_detail"
-    description = "查询指定客户的详细信息，包括联系人和最近跟进记录。" "当用户说'客户详情'、'查看某某客户'时调用。"
+    description = "查询指定客户的详细信息，包括联系人和最近跟进记录。当用户说'客户详情'、'查看某某客户'时调用。"
 
     parameters = {
         "type": "object",
@@ -194,7 +195,7 @@ class CreateCustomerTool(BaseTool):
     """创建新客户"""
 
     name = "create_customer"
-    description = "在CRM中创建新客户记录。" "当用户说'添加客户'、'创建客户'、'录入新客户'时调用。"
+    description = "在CRM中创建新客户记录。当用户说'添加客户'、'创建客户'、'录入新客户'时调用。"
     is_irreversible = True
     confirmation_message = "⚠️ 即将创建新客户记录，确认继续？"
 
@@ -262,7 +263,7 @@ class UpdateCustomerTool(BaseTool):
     """更新客户信息"""
 
     name = "update_customer"
-    description = "更新CRM中已有客户的信息。" "当用户说'更新客户'、'修改客户信息'时调用。"
+    description = "更新CRM中已有客户的信息。当用户说'更新客户'、'修改客户信息'时调用。"
     is_irreversible = True
     confirmation_message = "⚠️ 即将更新客户信息，确认继续？"
 
@@ -318,7 +319,7 @@ class AddFollowUpTool(BaseTool):
 
     name = "add_follow_up"
     description = (
-        "为客户添加跟进记录（电话、邮件、会议、备注等）。" "当用户说'记录跟进'、'添加跟进'、'记一下拜访情况'时调用。"
+        "为客户添加跟进记录（电话、邮件、会议、备注等）。当用户说'记录跟进'、'添加跟进'、'记一下拜访情况'时调用。"
     )
     is_irreversible = True
     confirmation_message = "⚠️ 即将添加跟进记录，确认继续？"
@@ -367,7 +368,7 @@ class GetFollowUpsTool(BaseTool):
     """查询跟进记录"""
 
     name = "get_follow_ups"
-    description = "查询客户的跟进记录时间线。" "当用户说'跟进记录'、'历史跟进'、'拜访记录'时调用。"
+    description = "查询客户的跟进记录时间线。当用户说'跟进记录'、'历史跟进'、'拜访记录'时调用。"
 
     parameters = {
         "type": "object",
@@ -499,7 +500,7 @@ class GetSalesPipelineTool(BaseTool):
 
     name = "get_sales_pipeline"
     description = (
-        "获取销售漏斗/管道视图，展示各阶段客户数量和金额分布。" "当用户说'销售漏斗'、'管道视图'、'各阶段情况'时调用。"
+        "获取销售漏斗/管道视图，展示各阶段客户数量和金额分布。当用户说'销售漏斗'、'管道视图'、'各阶段情况'时调用。"
     )
 
     parameters = {"type": "object", "properties": {}, "required": []}

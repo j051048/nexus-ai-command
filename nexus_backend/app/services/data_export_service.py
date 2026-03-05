@@ -220,7 +220,7 @@ class DataExportService:
 
         config = self.EXPORT_CONFIGS.get(export_type)
         if not config:
-            raise ValueError(f"不支持的导出类型: {export_type}，" f"可选: {', '.join(self.EXPORT_CONFIGS.keys())}")
+            raise ValueError(f"不支持的导出类型: {export_type}，可选: {', '.join(self.EXPORT_CONFIGS.keys())}")
 
         try:
             # 构建查询
@@ -545,7 +545,7 @@ class DataExportService:
         """
         template = self.IMPORT_TEMPLATES.get(template_type)
         if not template:
-            raise ValueError(f"不支持的模板类型: {template_type}，" f"可选: {', '.join(self.IMPORT_TEMPLATES.keys())}")
+            raise ValueError(f"不支持的模板类型: {template_type}，可选: {', '.join(self.IMPORT_TEMPLATES.keys())}")
 
         output = io.StringIO()
         # 添加 BOM 以支持 Excel 正确识别 UTF-8

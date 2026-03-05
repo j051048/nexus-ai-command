@@ -130,12 +130,7 @@ class APIKeyService:
 
         try:
             result = await (
-                db.table("api_keys")
-                .select("*")
-                .eq("key_hash", key_hash)
-                .eq("is_active", True)
-                .maybe_single()
-                .execute()
+                db.table("api_keys").select("*").eq("key_hash", key_hash).eq("is_active", True).maybe_single().execute()
             )
 
             if not result.data:

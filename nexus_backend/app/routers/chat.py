@@ -164,7 +164,7 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
 
     raw_messages = [{"role": m.role, "content": m.content} for m in request.messages]
 
-    logger.info(f"[Chat] Using LangGraph agent for user={user_id} " f"agent={request.agent} model={ai_config['model']}")
+    logger.info(f"[Chat] Using LangGraph agent for user={user_id} agent={request.agent} model={ai_config['model']}")
 
     return StreamingResponse(
         run_agent_stream(
@@ -327,15 +327,19 @@ async def compact_session(session_id: str, req: Request, user_id: str = Depends(
             )
 
         # 6. Insert summary as a system message at the beginning
-        await client.table("chat_messages").insert(
-            {
-                "user_id": user_id,
-                "session_id": session_id,
-                "role": "system",
-                "content": f"[对话历史摘要 — {len(older)} 条早期消息已压缩]\n{summary}",
-                "agent": "system",
-            }
-        ).execute()
+        await (
+            client.table("chat_messages")
+            .insert(
+                {
+                    "user_id": user_id,
+                    "session_id": session_id,
+                    "role": "system",
+                    "content": f"[对话历史摘要 — {len(older)} 条早期消息已压缩]\n{summary}",
+                    "agent": "system",
+                }
+            )
+            .execute()
+        )
 
         return api_success(
             data={
@@ -398,9 +402,13 @@ async def toggle_star_session(session_id: str, req: Request, user_id: str = Depe
         if existing.data:
             # Unstar
             try:
-                await client.table("starred_sessions").delete().eq("user_id", user_id).eq(
-                    "session_id", session_id
-                ).execute()
+                await (
+                    client.table("starred_sessions")
+                    .delete()
+                    .eq("user_id", user_id)
+                    .eq("session_id", session_id)
+                    .execute()
+                )
             except Exception as del_e:
                 if not (hasattr(del_e, "code") and str(getattr(del_e, "code", "")) == "204"):
                     raise

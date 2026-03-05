@@ -38,7 +38,7 @@ def get_adapter(provider_type: str, config: ModelConfig) -> BaseModelAdapter:
     adapter_class = _ADAPTER_REGISTRY.get(provider_type)
     if not adapter_class:
         available = ", ".join(_ADAPTER_REGISTRY.keys()) or "(none)"
-        raise ValueError(f"Unknown LLM adapter type: '{provider_type}'. " f"Available adapters: {available}")
+        raise ValueError(f"Unknown LLM adapter type: '{provider_type}'. Available adapters: {available}")
     return adapter_class(config)
 
 

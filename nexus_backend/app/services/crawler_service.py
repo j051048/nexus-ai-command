@@ -58,15 +58,19 @@ class CrawlerService:
             try:
                 content = f"发现高潜学术线索！\n课题：《{paper['title'][:30]}...》\n匹配度：92%\n建议跟进：该实验室可能需要采购高精度光谱仪。"
 
-                await supabase.table("notifications").insert(
-                    {
-                        "user_id": "nexus-user-1",  # Demo ID or fetch dynamic
-                        "title": "学术获客",
-                        "content": content,
-                        "type": "lead",  # Custom type for frontend mapping
-                        "is_read": False,
-                    }
-                ).execute()
+                await (
+                    supabase.table("notifications")
+                    .insert(
+                        {
+                            "user_id": "nexus-user-1",  # Demo ID or fetch dynamic
+                            "title": "学术获客",
+                            "content": content,
+                            "type": "lead",  # Custom type for frontend mapping
+                            "is_read": False,
+                        }
+                    )
+                    .execute()
+                )
                 logger.info("Pushed lead to Frontend via Supabase.")
 
             except Exception as e:

@@ -399,16 +399,20 @@ class VMDReportService:
         if not db:
             return
         try:
-            await db.table("vmd_reports").insert(
-                {
-                    "tenant_id": tenant_id,
-                    "report_type": report_type,
-                    "report_date": report_date,
-                    "report_data": report.get("data", {}),
-                    "report_content": report.get("content", ""),
-                    "created_at": report.get("generated_at", datetime.now(UTC).isoformat()),
-                }
-            ).execute()
+            await (
+                db.table("vmd_reports")
+                .insert(
+                    {
+                        "tenant_id": tenant_id,
+                        "report_type": report_type,
+                        "report_date": report_date,
+                        "report_data": report.get("data", {}),
+                        "report_content": report.get("content", ""),
+                        "created_at": report.get("generated_at", datetime.now(UTC).isoformat()),
+                    }
+                )
+                .execute()
+            )
         except Exception as e:
             logger.warning("Failed to save %s report to DB: %s", report_type, e)
 

@@ -82,10 +82,10 @@ async def _transcode_to_mp3(input_path: str) -> str | None:
         _, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
         if proc.returncode != 0:
             logger.warning(
-                f"[Audio] ffmpeg transcode failed (rc={proc.returncode}): " f"{stderr.decode(errors='ignore')[:200]}"
+                f"[Audio] ffmpeg transcode failed (rc={proc.returncode}): {stderr.decode(errors='ignore')[:200]}"
             )
             return None
-        logger.info(f"[Audio] Transcoded {input_path} -> {output_path} " f"({os.path.getsize(output_path)} bytes)")
+        logger.info(f"[Audio] Transcoded {input_path} -> {output_path} ({os.path.getsize(output_path)} bytes)")
         return output_path
     except TimeoutError:
         logger.warning("[Audio] ffmpeg transcode timed out (30s)")
