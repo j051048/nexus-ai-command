@@ -68,6 +68,22 @@ class EventType(Enum):
     SYSTEM_ALERT = "system.alert"
     CACHE_INVALIDATED = "cache.invalidated"
 
+    # Enterprise Module Events (Phase 2)
+    EMPLOYEE_ONBOARDED = "employee.onboarded"
+    EMPLOYEE_RESIGNED = "employee.resigned"
+    EMPLOYEE_TRANSFERRED = "employee.transferred"
+    LEAVE_APPROVED = "leave.approved"
+    LEAVE_REJECTED = "leave.rejected"
+    EXPENSE_SUBMITTED = "expense.submitted"
+    EXPENSE_APPROVED = "expense.approved"
+    ASSET_ALLOCATED = "asset.allocated"
+    ASSET_RETURNED = "asset.returned"
+    ASSET_SCRAPPED = "asset.scrapped"
+    WORK_ORDER_CREATED = "work_order.created"
+    WORK_ORDER_RESOLVED = "work_order.resolved"
+    INVENTORY_LOW_STOCK = "inventory.low_stock"
+    CERTIFICATE_EXPIRING = "certificate.expiring"
+
 
 @dataclass
 class Event:

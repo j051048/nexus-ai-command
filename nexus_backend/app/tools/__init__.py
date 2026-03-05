@@ -90,6 +90,67 @@ _TOOL_MODULES: dict[str, tuple[str, str]] = {
     "llm_task": ("app.tools.llm_task_tool", "LLMTaskTool"),
     # bidding_tool (招投标查询)
     "search_bidding_projects": ("app.tools.bidding_tool", "BiddingSearchTool"),
+    # system_config_tools (系统配置)
+    "list_system_configs": ("app.tools.system_config_tools", "ListSystemConfigsTool"),
+    "update_system_config": ("app.tools.system_config_tools", "UpdateSystemConfigTool"),
+    # organization_tools (组织架构)
+    "list_departments": ("app.tools.organization_tools", "ListDepartmentsTool"),
+    "create_department": ("app.tools.organization_tools", "CreateDepartmentTool"),
+    "update_department": ("app.tools.organization_tools", "UpdateDepartmentTool"),
+    "list_employees": ("app.tools.organization_tools", "ListEmployeesTool"),
+    "get_employee_detail": ("app.tools.organization_tools", "GetEmployeeDetailTool"),
+    "create_employee": ("app.tools.organization_tools", "CreateEmployeeTool"),
+    "update_employee": ("app.tools.organization_tools", "UpdateEmployeeTool"),
+    "org_statistics": ("app.tools.organization_tools", "OrgStatisticsTool"),
+    # asset_tools (资产管理)
+    "list_assets": ("app.tools.asset_tools", "ListAssetsTool"),
+    "get_asset_detail": ("app.tools.asset_tools", "GetAssetDetailTool"),
+    "create_asset": ("app.tools.asset_tools", "CreateAssetTool"),
+    "update_asset": ("app.tools.asset_tools", "UpdateAssetTool"),
+    "transfer_asset": ("app.tools.asset_tools", "TransferAssetTool"),
+    "asset_statistics": ("app.tools.asset_tools", "AssetStatisticsTool"),
+    # work_order_tools (工单系统)
+    "create_work_order": ("app.tools.work_order_tools", "CreateWorkOrderTool"),
+    "list_work_orders": ("app.tools.work_order_tools", "ListWorkOrdersTool"),
+    "get_work_order_detail": ("app.tools.work_order_tools", "GetWorkOrderDetailTool"),
+    "update_work_order": ("app.tools.work_order_tools", "UpdateWorkOrderTool"),
+    "work_order_statistics": ("app.tools.work_order_tools", "WorkOrderStatisticsTool"),
+    # attendance_tools (考勤管理)
+    "clock_in_out": ("app.tools.attendance_tools", "ClockInOutTool"),
+    "get_attendance_record": ("app.tools.attendance_tools", "GetAttendanceRecordTool"),
+    "create_shift_schedule": ("app.tools.attendance_tools", "CreateShiftScheduleTool"),
+    "list_shift_schedules": ("app.tools.attendance_tools", "ListShiftSchedulesTool"),
+    "attendance_statistics": ("app.tools.attendance_tools", "AttendanceStatisticsTool"),
+    "request_leave": ("app.tools.attendance_tools", "RequestLeaveTool"),
+    # expense_tools (报销管理)
+    "submit_expense": ("app.tools.expense_tools", "SubmitExpenseTool"),
+    "list_expenses": ("app.tools.expense_tools", "ListExpensesTool"),
+    "approve_expense": ("app.tools.expense_tools", "ApproveExpenseTool"),
+    "check_budget": ("app.tools.expense_tools", "CheckBudgetTool"),
+    # inventory_tools (库存管理)
+    "list_inventory": ("app.tools.inventory_tools", "ListInventoryTool"),
+    "inventory_in": ("app.tools.inventory_tools", "InventoryInTool"),
+    "inventory_out": ("app.tools.inventory_tools", "InventoryOutTool"),
+    "inventory_statistics": ("app.tools.inventory_tools", "InventoryStatisticsTool"),
+    # certificate_tools (证照管理)
+    "list_certificates": ("app.tools.certificate_tools", "ListCertificatesTool"),
+    "create_certificate": ("app.tools.certificate_tools", "CreateCertificateTool"),
+    "expiring_certificates": ("app.tools.certificate_tools", "ExpiringCertsTool"),
+    "renew_certificate": ("app.tools.certificate_tools", "RenewCertificateTool"),
+    # approval_flow_tools (审批流程)
+    "list_approval_flows": ("app.tools.approval_flow_tools", "ListApprovalFlowsTool"),
+    "create_approval_flow": ("app.tools.approval_flow_tools", "CreateApprovalFlowTool"),
+    # ai_insight_tools (AI智能分析 - Phase 3)
+    "smart_report": ("app.tools.ai_insight_tools", "SmartReportTool"),
+    "anomaly_detection": ("app.tools.ai_insight_tools", "AnomalyDetectionTool"),
+    "predictive_maintenance": ("app.tools.ai_insight_tools", "PredictiveMaintenanceTool"),
+    "auto_dispatch": ("app.tools.ai_insight_tools", "AutoDispatchTool"),
+    "meeting_summary": ("app.tools.ai_insight_tools", "MeetingSummaryTool"),
+    "onboarding_assistant": ("app.tools.ai_insight_tools", "OnboardingAssistantTool"),
+    # workflow_tools (复合工作流)
+    "process_onboarding": ("app.tools.workflow_tools", "ProcessOnboardingTool"),
+    "process_resignation": ("app.tools.workflow_tools", "ProcessResignationTool"),
+    "process_asset_lifecycle": ("app.tools.workflow_tools", "ProcessAssetLifecycleTool"),
 }
 
 # VMD tools are optional — kept separate so ImportError is tolerated

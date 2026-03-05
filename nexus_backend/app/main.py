@@ -69,10 +69,19 @@ from app.routers import (
     workflow_templates,
     workflows,
 )
+from app.routers import assets as assets_router
+from app.routers import org_structure as org_structure_router
+from app.routers import system_configs as system_configs_router
+from app.routers import work_orders as work_orders_router
 from app.routers import mcp as mcp_router
 from app.routers import robot as robot_router
 from app.routers import ws as ws_router
 from app.routers import scheduled_tasks as scheduled_tasks_router
+from app.routers import attendance as attendance_router
+from app.routers import expenses as expenses_router
+from app.routers import inventory as inventory_router
+from app.routers import certificates as certificates_router
+from app.routers import approval_flows as approval_flows_router
 
 # VMD (Virtual Marketing Department) routers — import individually to avoid all-or-nothing failure
 try:
@@ -106,6 +115,7 @@ except ImportError:
 from app.services.audit_logger import audit_logger
 from app.services.cache_service import cache_service
 from app.services.event_bus import event_bus
+import app.services.enterprise_event_handlers  # noqa: F401 — registers @on() handlers
 
 # P2 Enhancement: Initialize structured logging FIRST
 setup_logging()
@@ -371,6 +381,15 @@ app.include_router(onboarding.router)
 app.include_router(ws_router.router)
 app.include_router(scheduled_tasks_router.router)
 app.include_router(dashboard.router)
+app.include_router(system_configs_router.router)
+app.include_router(org_structure_router.router)
+app.include_router(assets_router.router)
+app.include_router(work_orders_router.router)
+app.include_router(attendance_router.router)
+app.include_router(expenses_router.router)
+app.include_router(inventory_router.router)
+app.include_router(certificates_router.router)
+app.include_router(approval_flows_router.router)
 
 # VMD (Virtual Marketing Department) routers
 if llm_models:
