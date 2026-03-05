@@ -3,7 +3,6 @@ import json
 import logging
 import random
 import time
-
 import httpx
 
 API_KEY = "sk-uWHkOjr0tku4Hc0rB7zYerY-Z0C_3ZfFClpg4la4lWPFmfVvCbBE68dp6XCFf6em"
@@ -14,144 +13,207 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-def get_dirty_strings():
-    return [
-        "A" * 10000, 
-        "; DROP TABLE users; --", 
-        "<script>alert(1)</script>", 
-        "\\x00", 
-        "null", 
-        "{\"broken\": json",
-        "中文生僻字龘ꖎ",
-        ""
-    ]
+# The goal is to aggressively test business logic, RLS, auth failures, missing fields, big data
+dirty_strings = [
+    "A" * 50000,           # Huge string
+    "; DROP TABLE users; --", # SQLi
+    "<script>alert(1)</script>", # XSS
+    "\x00\x01\x02",        # Null bytes and control chars
+    "null",                # String "null"
+    "{\"broken\": json",   # Broken JSON string
+    "中文生僻字龘ꖎ",         # Unicode boundary
+    "",                    # Empty string
+    "00000000-0000-0000-0000-000000000000", # Empty UUID (might bypass format but fail FK/RLS)
+    "99999999-9999-9999-9999-999999999999", # Non-existent UUID
+]
 
-errors_500 = []
-rate_limits = 0
+dirty_numbers = [
+    -9999999999999999,
+    0,
+    9999999999999999,
+    1.5e-10,
+    float('inf'),
+    float('nan')
+]
 
-async def test_health(client):
-    try:
-        r = await client.get("/health")
-        if r.status_code >= 500:
-            errors_500.append(f"Health 500: {r.text[:100]}")
-    except Exception as e:
-        errors_500.append(f"Health exception: {e}")
+dirty_booleans = [True, False, None]
 
-async def test_get_tools(client):
+errors_collected = set()
+status_codes_count = {}
+
+def record_result(status_code, context, response_text=""):
+    status_codes_count[status_code] = status_codes_count.get(status_code, 0) + 1
+    if status_code >= 500:
+        errors_collected.add(f"[{status_code}] {context} - {response_text[:150]}")
+
+async def fetch_tools(client):
     try:
         r = await client.get("/api/mcp/tools")
+        record_result(r.status_code, "GET /api/mcp/tools", r.text)
         if r.status_code == 200:
-            return r.json()
-        elif r.status_code == 429:
-            global rate_limits
-            rate_limits += 1
-            return None
-        else:
-            errors_500.append(f"Get tools failed {r.status_code}: {r.text[:100]}")
-            return None
+            return r.json().get("data", {}).get("tools", [])
     except Exception as e:
-        errors_500.append(f"Get tools exception: {e}")
-        return None
+        errors_collected.add(f"Exception GET tools: {e}")
+    return []
 
-async def invoke_tool(client, tool):
-    global rate_limits
+async def invoke_tool_chaos(client, tool):
     name = tool["name"]
     schema = tool.get("inputSchema", {}).get("properties", {})
-    
+    required = tool.get("inputSchema", {}).get("required", [])
+
+    # Test 1: Missing all required fields
+    try:
+        r = await client.post(f"/api/mcp/tools/{name}/execute", json={"arguments": {}})
+        record_result(r.status_code, f"Tool {name} (Missing Args)", r.text)
+    except Exception as e:
+        errors_collected.add(f"Exception Tool {name} (Missing Args): {e}")
+
+    # Test 2: Fuzzing fields
     args = {}
     for k, v in schema.items():
         t = v.get("type", "string")
         if t == "string":
-            args[k] = random.choice(get_dirty_strings())
+            args[k] = random.choice(dirty_strings)
         elif t in ["number", "integer"]:
-            args[k] = random.choice([-999999, 0, 999999999999, 1.5e-10])
+            args[k] = random.choice(dirty_numbers)
         elif t == "boolean":
-            args[k] = random.choice([True, False, None])
+            args[k] = random.choice(dirty_booleans)
+        elif t == "array":
+            args[k] = [random.choice(dirty_strings), random.choice(dirty_numbers)]
+        elif t == "object":
+            args[k] = {"fuzzed": random.choice(dirty_strings)}
         else:
             args[k] = None
 
-    payload = {"arguments": args}
     try:
-        r = await client.post(f"/api/mcp/tools/{name}/execute", json=payload)
-        
-        if r.status_code >= 500:
-            trace_id = r.headers.get("X-Trace-ID", "unknown")
-            errors_500.append(f"Tool {name} 500 Error [{trace_id}]: {r.text[:150]}")
-        elif r.status_code == 429:
-            rate_limits += 1
+        # Increase timeout internally for client specifically on execute to see if it triggers internal timeout 
+        r = await client.post(f"/api/mcp/tools/{name}/execute", json={"arguments": args}, timeout=70.0)
+        record_result(r.status_code, f"Tool {name} (Fuzzed)", r.text)
+    except httpx.ReadTimeout:
+        errors_collected.add(f"Timeout (HTTP Client Level) - Tool {name}")
     except Exception as e:
-        errors_500.append(f"Tool {name} exception: {e}")
+        errors_collected.add(f"Exception Tool {name} (Fuzzed): {e}")
 
-async def fuzz_tools(client, tools_data):
-    if not tools_data or "data" not in tools_data or "tools" not in tools_data["data"]:
-        return
-    
-    tools_list = tools_data["data"]["tools"]
-    # Randomize and pick 30
-    random.shuffle(tools_list)
-    tasks = [invoke_tool(client, t) for t in tools_list[:30]]
-    
-    await asyncio.gather(*tasks, return_exceptions=True)
+async def test_chat_edge_cases(client):
+    print("      -> Testing Chat Edge Cases")
+    try:
+        # Missing parameters
+        r1 = await client.post("/api/chat", json={})
+        record_result(r1.status_code, "Chat (Empty JSON)", r1.text)
+    except Exception as e:
+        errors_collected.add(f"Exception Chat Empty JSON: {e}")
 
-async def test_chat_sse(client):
-    global rate_limits
+    
+    # Huge context string
     payload = {
-        "messages": [{"role": "user", "content": "Chaos Test!"}],
+        "messages": [{"role": "user", "content": "A" * 200000}], 
         "model": "gpt-4o"
     }
     try:
-        async with client.stream("POST", "/api/chat", json=payload) as response:
-            if response.status_code >= 500:
-                trace_id = response.headers.get("X-Trace-ID", "unknown")
-                errors_500.append(f"Chat SSE 500 Error [{trace_id}]: STATUS {response.status_code} {response.read()[:50]}")
-                return
-            elif response.status_code == 429:
-                rate_limits += 1
-                return
-                
-            async for chunk in response.aiter_text():
-                pass
+        r2 = await client.post("/api/chat", json=payload)
+        record_result(r2.status_code, "Chat (Huge Payload)", r2.text)
     except Exception as e:
-        errors_500.append(f"Chat SSE Exception: {str(e)}")
+        errors_collected.add(f"Exception Chat Huge Payload: {e}")
 
-async def run_chaos():
+    # Invalid Model
+    payload_invalid_model = {
+        "messages": [{"role": "user", "content": "Hello"}], 
+        "model": "non-existent-model-12345"
+    }
+    try:
+        r3 = await client.post("/api/chat", json=payload_invalid_model)
+        record_result(r3.status_code, "Chat (Invalid Model)", r3.text)
+    except Exception as e:
+        errors_collected.add(f"Exception Chat Invalid Model: {e}")
+
+async def test_approvals_chaos(client):
+    print("      -> Testing Approvals")
+    endpoints = ["/api/approval/process", "/api/system/approvals/process"]
+    for ep in endpoints:
+        try:
+            r1 = await client.post(ep, json={})
+            record_result(r1.status_code, f"Approval {ep} (Empty JSON)", r1.text)
+        except Exception as e:
+            errors_collected.add(f"Exception Approval Empty JSON: {e}")
+        
+        # Test UUID validation / RLS mismatch
+        try:
+            r2 = await client.post(ep, json={
+                "approval_id": "00000000-0000-0000-0000-000000000000",
+                "action": "approve",
+                "comments": "; DROP TABLE;"
+            })
+            record_result(r2.status_code, f"Approval {ep} (Fake UUID)", r2.text)
+        except Exception as e:
+            errors_collected.add(f"Exception Approval Fake UUID: {e}")
+
+async def test_documents_chaos(client):
+    print("      -> Testing Documents")
+    # Invalid multipart
+    try:
+        r1 = await client.post("/api/documents/upload", json={"foo": "bar"}) # Calling multipart endpoint with JSON
+        record_result(r1.status_code, "Docs (JSON instead of Multipart)", r1.text)
+    except Exception as e:
+        errors_collected.add(f"Exception Docs Multipart: {e}")
+
+
+async def run_business_chaos():
     t0 = time.time()
-    print("🚀 Starting API Chaos Test (Fuzzing & Stress)...")
-    limits = httpx.Limits(max_connections=100, max_keepalive_connections=20)
-    async with httpx.AsyncClient(base_url=BASE_URL, headers=HEADERS, limits=limits, timeout=12.0) as client:
-        print("[*] Testing Health endpoint...")
-        await test_health(client)
+    print("🚀 Starting Advanced Business Logic & RLS Chaos Test...")
+    limits = httpx.Limits(max_connections=200, max_keepalive_connections=50)
+    
+    # Increase base timeout to 75.0 to give the server's 60s timeout a chance to respond cleanly!
+    async with httpx.AsyncClient(base_url=BASE_URL, headers=HEADERS, limits=limits, timeout=75.0) as client:
+        try:
+            print("[*] Checking Health...")
+            r = await client.get("/health")
+            print(f"    Health Status: {r.status_code}")
+            
+            print("[*] Fetching Tools...")
+            tools = await fetch_tools(client)
+            print(f"    Found {len(tools)} tools.")
+            
+            print("[*] Fuzzing Tools (Missing parameters, Bounds, UUIDs injection, Invalid Types)...")
+            if tools:
+                total_tools = len(tools)
+                # Attack in smaller chunks to avoid client connection exhaustion locally
+                for i in range(0, total_tools, 10):
+                    batch = tools[i:i+10]
+                    print(f"      -> Fuzzing tools {i} to {i+len(batch)}...")
+                    tasks = [invoke_tool_chaos(client, t) for t in batch]
+                    await asyncio.gather(*tasks)
 
-        print("[*] Fetching MCP Tools...")
-        tools = await test_get_tools(client)
-        if not tools:
-            print("Failed to get tools list. Assuming backend is unreachable or returning errors.")
+            print("[*] Fuzzing Chat Endpoint (Huge payload, Missing args, Invalid model)...")
+            await test_chat_edge_cases(client)
+            
+            print("[*] Fuzzing Approvals Endpoint (RLS checks, UUID formats)...")
+            await test_approvals_chaos(client)
 
-        print(f"[*] Fuzzing Tools (Injecting massive dirty data & Concurrent bursts)...")
-        # Run 2 bursts of 30 concurrency to test Connection Pools & RLS
-        if tools:
-            await asyncio.gather(
-                fuzz_tools(client, tools),
-                fuzz_tools(client, tools),
-                fuzz_tools(client, tools)
-            )
-
-        print("[*] Testing Chat SSE Streaming...")
-        await test_chat_sse(client)
+            print("[*] Fuzzing Documents Endpoint (Content-Type mismatch)...")
+            await test_documents_chaos(client)
+        except httpx.ReadTimeout:
+            print("\n❌ CRITICAL: The entire test suite was aborted due to a global ReadTimeout.")
+            errors_collected.add("Global HTTPX ReadTimeout")
+        except Exception as e:
+            print(f"\n❌ CRITICAL: Unexpected Global Error: {e}")
+            errors_collected.add(f"Global Error: {e}")
         
     duration = time.time() - t0
     
-    print("\n" + "="*40)
-    print("📈 Chaos Test Results")
-    print("="*40)
-    print(f"Time Taken  : {duration:.2f} s")
-    print(f"Rate Limits (429) hit : {rate_limits}")
-    if not errors_500:
-        print("✅ No Server Errors (5xx) detected. System is resilient!")
+    print("\n" + "="*50)
+    print("📈 Advanced Chaos Test Results")
+    print("="*50)
+    print(f"Time Taken       : {duration:.2f} s")
+    print("Status Codes Hit :")
+    for code, count in sorted(status_codes_count.items()):
+         print(f"   HTTP {code} : {count} times")
+         
+    if not errors_collected:
+        print("\n✅ PERFECT! No unexpected 500 errors or exceptions detected!")
     else:
-        print(f"❌ Found {len(set(errors_500))} unique Server Errors:")
-        for err in set(errors_500):
-            print(f"  - {err}")
-
+        print(f"\n❌ Found {len(errors_collected)} Server Errors / Exceptions:")
+        for err in sorted(list(errors_collected)):
+            print(f"  -> {err}")
+            
 if __name__ == "__main__":
-    asyncio.run(run_chaos())
+    asyncio.run(run_business_chaos())
