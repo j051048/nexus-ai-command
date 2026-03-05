@@ -152,7 +152,7 @@ class WebhookService:
         prevent replay attacks.
         """
         try:
-            parts = dict(p.split("=", 1) for p in signature.split(","))
+            parts = {k: v for k, v in (p.split("=", 1) for p in signature.split(","))}
             ts = parts.get("t")
             v1 = parts.get("v1")
             if not ts or not v1:
@@ -277,7 +277,7 @@ class WebhookService:
         )
         signature = self.sign_payload(payload_json, subscription.secret)
         # Extract timestamp from signed header for the HTTP header
-        sig_parts = dict(p.split("=", 1) for p in signature.split(","))
+        sig_parts = {k: v for k, v in (p.split("=", 1) for p in signature.split(","))}
 
         for attempt in range(delivery.max_attempts):
             delivery.attempts = attempt + 1
