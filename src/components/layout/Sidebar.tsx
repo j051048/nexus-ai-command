@@ -9,6 +9,11 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
+import {
   LayoutDashboard,
   Users,
   FileCheck,
@@ -21,6 +26,7 @@ import {
   Crown,
   LogOut,
   ChevronRight,
+  ChevronDown,
   User as UserIcon,
   Briefcase,
   FileSearch,
@@ -30,7 +36,6 @@ import {
   DollarSign,
   Clock,
   ChevronLeft,
-  Menu,
   Upload,
   Building2,
   Contact,
@@ -47,6 +52,7 @@ import {
   ShieldCheck,
   Cpu,
   Bug,
+  Inbox,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -64,6 +70,8 @@ import {
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { useExceptions } from "@/hooks/useExceptions";
+import { usePendingApprovalsCount } from "@/hooks/useApprovals";
+import { useUnreadCount } from "@/hooks/useNotificationCenter";
 
 type AppRole = "boss" | "manager" | "ai_assistant" | "employee" | "founder";
 
@@ -73,39 +81,50 @@ interface NavItem {
   href: string;
   badge?: string;
   badgeType?: "primary" | "success" | "warning";
-  roles?: AppRole[]; // undefined = 所有人可见
-  group: string; // 菜单分组
+  roles?: AppRole[];
+  group: string;
 }
 
-// 统一导航配置 — 单一数据源，通过 roles 和 group 控制可见性
+// ── localStorage key for collapsed groups ──
+const COLLAPSED_GROUPS_KEY = "nexus:sidebar-collapsed-groups";
+
+function loadCollapsedGroups(): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(COLLAPSED_GROUPS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveCollapsedGroups(state: Record<string, boolean>) {
+  localStorage.setItem(COLLAPSED_GROUPS_KEY, JSON.stringify(state));
+}
+
+// ── Navigation config — reorganized & merged ──
 const NAV_CONFIG: NavItem[] = [
-  // AI 核心指挥
+  // AI 核心
   {
     icon: <Crown size={20} />,
     label: "总控中心",
     href: "boss-dashboard",
     roles: ["boss", "founder"],
-    group: "AI 核心指挥",
+    group: "AI 核心",
   },
   {
     icon: <LayoutDashboard size={20} />,
     label: "战绩中心",
     href: "dashboard",
-    group: "AI 核心指挥",
+    group: "AI 核心",
   },
   {
-    icon: <FileSearch size={20} />,
-    label: "标书审阅",
-    href: "tender-analysis",
-    roles: ["employee", "manager", "boss", "founder"],
-    group: "AI 核心指挥",
+    icon: <Inbox size={20} />,
+    label: "待办中心",
+    href: "inbox",
+    group: "AI 核心",
   },
-  {
-    icon: <Swords size={20} />,
-    label: "竞品库",
-    href: "battlecards",
-    group: "AI 核心指挥",
-  },
+
+  // 销售与客关
   {
     icon: <TrendingUp size={20} />,
     label: "销售AI管理",
@@ -113,77 +132,62 @@ const NAV_CONFIG: NavItem[] = [
     badge: "5",
     badgeType: "primary",
     roles: ["employee", "manager", "boss", "founder"],
-    group: "AI 核心指挥",
+    group: "销售与客关",
   },
   {
     icon: <Contact size={20} />,
     label: "CRM管理",
     href: "crm",
     roles: ["employee", "manager", "boss", "founder"],
-    group: "AI 核心指挥",
+    group: "销售与客关",
   },
-
-  // 业务与日常
   {
-    icon: <Briefcase size={20} />,
-    label: "项目管理",
-    href: "projects",
+    icon: <FileSearch size={20} />,
+    label: "标书审阅",
+    href: "tender-analysis",
     roles: ["employee", "manager", "boss", "founder"],
-    group: "业务与日常",
+    group: "销售与客关",
   },
   {
-    icon: <Target size={20} />,
-    label: "目标看板",
-    href: "target-dashboard",
-    group: "业务与日常",
-  },
-  {
-    icon: <TrendingUp size={20} />,
-    label: "目标管理",
-    href: "targets",
-    roles: ["boss", "founder"],
-    group: "业务与日常",
-  },
-  {
-    icon: <AlertTriangle size={20} />,
-    label: "异常待办",
-    href: "exceptions",
-    roles: ["boss", "founder"],
-    group: "业务与日常",
-  },
-  {
-    icon: <FileCheck size={20} />,
-    label: "审批中心",
-    href: "approval",
-    roles: ["employee", "manager", "boss", "founder"],
-    group: "业务与日常",
-  },
-  {
-    icon: <Users size={20} />,
-    label: "团队管理",
-    href: "employees",
-    roles: ["manager", "boss", "founder"],
-    group: "业务与日常",
-  },
-  {
-    icon: <Building2 size={20} />,
-    label: "部门管理",
-    href: "departments",
-    roles: ["boss", "founder"],
-    group: "业务与日常",
+    icon: <Swords size={20} />,
+    label: "竞品库",
+    href: "battlecards",
+    group: "销售与客关",
   },
   {
     icon: <FileSignature size={20} />,
     label: "合同管理",
     href: "contracts",
     roles: ["manager", "boss", "founder"],
-    group: "业务与日常",
+    group: "销售与客关",
+  },
+
+  // 项目与目标
+  {
+    icon: <Briefcase size={20} />,
+    label: "项目管理",
+    href: "projects",
+    roles: ["employee", "manager", "boss", "founder"],
+    group: "项目与目标",
+  },
+  {
+    icon: <Target size={20} />,
+    label: "目标看板",
+    href: "target-dashboard",
+    group: "项目与目标",
+  },
+  {
+    icon: <TrendingUp size={20} />,
+    label: "目标管理",
+    href: "targets",
+    roles: ["boss", "founder"],
+    group: "项目与目标",
   },
   {
     icon: <BarChart3 size={20} />,
     label: "数据报表",
     href: "reports",
-    group: "业务与日常",
+    group: "项目与目标",
   },
 
   // OA/HR/财务
@@ -206,26 +210,26 @@ const NAV_CONFIG: NavItem[] = [
     href: "finance",
     group: "OA/HR/财务",
   },
+  {
+    icon: <FileCheck size={20} />,
+    label: "审批中心",
+    href: "approval",
+    roles: ["employee", "manager", "boss", "founder"],
+    group: "OA/HR/财务",
+  },
 
-  // 知识与个人
+  // 知识与培训
   {
     icon: <BookOpen size={20} />,
     label: "知识库",
     href: "knowledge",
-    group: "知识与个人",
-  },
-  {
-    icon: <Upload size={20} />,
-    label: "数据导入",
-    href: "import",
-    roles: ["boss", "founder"],
-    group: "知识与个人",
+    group: "知识与培训",
   },
   {
     icon: <GraduationCap size={20} />,
     label: "培训中心",
     href: "training",
-    group: "知识与个人",
+    group: "知识与培训",
   },
   {
     icon: <Gift size={20} />,
@@ -233,13 +237,7 @@ const NAV_CONFIG: NavItem[] = [
     href: "rewards",
     badge: "¥200",
     badgeType: "success",
-    group: "知识与个人",
-  },
-  {
-    icon: <Settings size={20} />,
-    label: "系统设置",
-    href: "settings",
-    group: "知识与个人",
+    group: "知识与培训",
   },
 
   // 虚拟市场部
@@ -283,19 +281,41 @@ const NAV_CONFIG: NavItem[] = [
     group: "虚拟市场部",
   },
 
-  // 系统管理
-  {
-    icon: <Building2 size={20} />,
-    label: "企业设置",
-    href: "company-settings",
-    roles: ["boss", "founder"],
-    group: "系统管理",
-  },
+  // 组织管理 (merged: 团队管理 + 部门管理 + 组织架构 + 企业设置)
   {
     icon: <Users size={20} />,
+    label: "员工管理",
+    href: "employees",
+    roles: ["manager", "boss", "founder"],
+    group: "组织管理",
+  },
+  {
+    icon: <Building2 size={20} />,
+    label: "部门管理",
+    href: "departments",
+    roles: ["boss", "founder"],
+    group: "组织管理",
+  },
+  {
+    icon: <Building2 size={20} />,
     label: "组织架构",
     href: "org-chart",
     roles: ["boss", "founder"],
+    group: "组织管理",
+  },
+  {
+    icon: <Settings size={20} />,
+    label: "企业设置",
+    href: "company-settings",
+    roles: ["boss", "founder"],
+    group: "组织管理",
+  },
+
+  // 系统管理 (merged: 原系统管理 + 系统设置 + 数据导入)
+  {
+    icon: <Settings size={20} />,
+    label: "系统设置",
+    href: "settings",
     group: "系统管理",
   },
   {
@@ -309,6 +329,13 @@ const NAV_CONFIG: NavItem[] = [
     icon: <DollarSign size={20} />,
     label: "LLM成本",
     href: "llm/costs",
+    roles: ["boss", "founder"],
+    group: "系统管理",
+  },
+  {
+    icon: <Upload size={20} />,
+    label: "数据导入",
+    href: "import",
     roles: ["boss", "founder"],
     group: "系统管理",
   },
@@ -355,18 +382,20 @@ const NAV_CONFIG: NavItem[] = [
   },
 ];
 
-// 分组顺序
+// Group order
 const NAV_GROUPS = [
-  "AI 核心指挥",
-  "业务与日常",
+  "AI 核心",
+  "销售与客关",
+  "项目与目标",
   "OA/HR/财务",
-  "知识与个人",
+  "知识与培训",
   "虚拟市场部",
+  "组织管理",
   "系统管理",
 ];
 
 interface SidebarProps {
-  onNavClick?: () => void; // For mobile close
+  onNavClick?: () => void;
 }
 
 export function Sidebar({ onNavClick }: SidebarProps) {
@@ -400,10 +429,19 @@ export function Sidebar({ onNavClick }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(loadCollapsedGroups);
+
+  // Badge data
   const { data: exceptions = [] } = useExceptions();
   const exceptionCount = exceptions.length;
+  const pendingApprovalsQuery = usePendingApprovalsCount();
+  const pendingCount = pendingApprovalsQuery.data ?? 0;
+  const unreadCountQuery = useUnreadCount();
+  const unreadCount = unreadCountQuery.data ?? 0;
 
-  // 获取角色显示名称
+  // Total inbox badge = approvals + exceptions + unread notifications
+  const inboxBadgeCount = pendingCount + exceptionCount + unreadCount;
+
   const getRoleDisplayName = (role: string) => {
     switch (role) {
       case "boss":
@@ -418,28 +456,28 @@ export function Sidebar({ onNavClick }: SidebarProps) {
     }
   };
 
-  // Helper to check if link is active
   const isActive = (href: string) => {
     if (href === "dashboard" && location.pathname === "/dashboard") return true;
     if (href === "boss-dashboard" && location.pathname === "/boss-dashboard")
       return true;
-    // Exact match for parent items that have sub-pages (e.g. 'vmd' shouldn't match 'vmd/tasks')
     if (href === "vmd" && location.pathname === "/vmd") return true;
     if (href === "vmd") return false;
     return location.pathname.startsWith("/" + href);
   };
 
-  // 动态设置异常待办 badge
+  // Inject dynamic badges
   const navWithBadges = NAV_CONFIG.map((item) => {
     if (item.href === "exceptions" && exceptionCount > 0) {
       return { ...item, badge: String(exceptionCount) };
     }
+    if (item.href === "inbox" && inboxBadgeCount > 0) {
+      return { ...item, badge: String(inboxBadgeCount), badgeType: "warning" as const };
+    }
     return item;
   });
 
-  // 基于角色过滤导航项 — 单一过滤逻辑，不再区分 boss/employee 两套数组
+  // Role-based filtering
   const currentRole = (role || user.role || "employee") as AppRole;
-  // founder 可以看到所有 boss 权限的菜单
   const effectiveRole = currentRole === "founder" ? "founder" : currentRole;
   const navItems = navWithBadges.filter(
     (item) =>
@@ -462,79 +500,66 @@ export function Sidebar({ onNavClick }: SidebarProps) {
     }
   };
 
+  const toggleGroup = (group: string) => {
+    setCollapsedGroups((prev) => {
+      const next = { ...prev, [group]: !prev[group] };
+      saveCollapsedGroups(next);
+      return next;
+    });
+  };
+
+  // Check if any item in a group is active (auto-expand active group)
+  const isGroupActive = (items: NavItem[]) =>
+    items.some((item) => isActive(item.href));
+
   const renderNavGroup = (title: string, items: NavItem[]) => {
     if (items.length === 0) return null;
-    return (
-      <div className={cn("mb-4", isCollapsed ? "px-2" : "px-4")}>
-        {!isCollapsed && (
-          <h3 className="px-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2 transition-all duration-300">
-            {title}
-          </h3>
-        )}
-        <ul className="space-y-1">
-          {items.map((item) => (
-            <li key={item.href}>
-              <TooltipProvider>
-                <Tooltip delayDuration={0}>
-                  <TooltipTrigger asChild>
-                    <Link
-                      to={`/${item.href}`}
-                      onClick={onNavClick}
-                      aria-current={isActive(item.href) ? "page" : undefined}
-                      className={cn(
-                        "flex items-center gap-3 rounded-lg text-sm font-medium transition-all group relative",
-                        isCollapsed ? "justify-center p-2" : "px-3 py-2",
-                        isActive(item.href)
-                          ? "bg-sidebar-accent text-primary shadow-sm"
-                          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground",
-                      )}
-                    >
-                      <span
+
+    const groupActive = isGroupActive(items);
+    // If collapsed by user, respect it; but if the active route is in this group, force expand
+    const isOpen = groupActive || !collapsedGroups[title];
+
+    if (isCollapsed) {
+      // When sidebar is collapsed, just render icons without groups
+      return (
+        <div key={title} className="px-2 mb-2">
+          <ul className="space-y-1">
+            {items.map((item) => (
+              <li key={item.href}>
+                <TooltipProvider>
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <Link
+                        to={`/${item.href}`}
+                        onClick={onNavClick}
+                        aria-current={isActive(item.href) ? "page" : undefined}
                         className={cn(
-                          "transition-transform duration-200",
-                          !isActive(item.href) && "group-hover:scale-110",
+                          "flex items-center justify-center p-2 rounded-lg text-sm font-medium transition-all group relative",
+                          isActive(item.href)
+                            ? "bg-sidebar-accent text-primary shadow-sm"
+                            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground",
                         )}
                       >
-                        {item.icon}
-                      </span>
-
-                      {!isCollapsed && (
-                        <span className="flex-1 text-left truncate transition-all duration-300 origin-left">
-                          {item.label}
-                        </span>
-                      )}
-
-                      {/* Badge Handling */}
-                      {item.badge && !isCollapsed && (
                         <span
                           className={cn(
-                            "px-1.5 py-0.5 rounded-full text-[10px] font-bold ml-auto",
-                            item.badgeType === "primary" &&
-                              "bg-primary/10 text-primary",
-                            item.badgeType === "success" &&
-                              "bg-success/10 text-success",
-                            item.badgeType === "warning" &&
-                              "bg-warning/10 text-warning",
+                            "transition-transform duration-200",
+                            !isActive(item.href) && "group-hover:scale-110",
                           )}
                         >
-                          {item.badge}
+                          {item.icon}
                         </span>
-                      )}
-
-                      {/* Collapsed Badge Indicator (Dot) */}
-                      {item.badge && isCollapsed && (
-                        <span
-                          className={cn(
-                            "absolute top-1 right-1 w-2 h-2 rounded-full border-2 border-background",
-                            item.badgeType === "primary" && "bg-primary",
-                            item.badgeType === "success" && "bg-success",
-                            item.badgeType === "warning" && "bg-warning",
-                          )}
-                        />
-                      )}
-                    </Link>
-                  </TooltipTrigger>
-                  {isCollapsed && (
+                        {item.badge && (
+                          <span
+                            className={cn(
+                              "absolute top-1 right-1 w-2 h-2 rounded-full border-2 border-background",
+                              item.badgeType === "primary" && "bg-primary",
+                              item.badgeType === "success" && "bg-success",
+                              item.badgeType === "warning" && "bg-warning",
+                            )}
+                          />
+                        )}
+                      </Link>
+                    </TooltipTrigger>
                     <TooltipContent side="right" className="font-medium">
                       {item.label}
                       {item.badge && (
@@ -543,13 +568,79 @@ export function Sidebar({ onNavClick }: SidebarProps) {
                         </span>
                       )}
                     </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </li>
+            ))}
+          </ul>
+        </div>
+      );
+    }
+
+    return (
+      <Collapsible
+        key={title}
+        open={isOpen}
+        onOpenChange={() => toggleGroup(title)}
+        className="mb-1 px-4"
+      >
+        <CollapsibleTrigger className="flex items-center justify-between w-full px-2 py-1.5 rounded-md hover:bg-sidebar-accent/50 transition-colors group/trigger">
+          <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+            {title}
+          </h3>
+          {isOpen ? (
+            <ChevronDown className="h-3 w-3 text-muted-foreground transition-transform" />
+          ) : (
+            <ChevronRight className="h-3 w-3 text-muted-foreground transition-transform" />
+          )}
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-1">
+          <ul className="space-y-1">
+            {items.map((item) => (
+              <li key={item.href}>
+                <Link
+                  to={`/${item.href}`}
+                  onClick={onNavClick}
+                  aria-current={isActive(item.href) ? "page" : undefined}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg text-sm font-medium transition-all group relative px-3 py-2",
+                    isActive(item.href)
+                      ? "bg-sidebar-accent text-primary shadow-sm"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground",
                   )}
-                </Tooltip>
-              </TooltipProvider>
-            </li>
-          ))}
-        </ul>
-      </div>
+                >
+                  <span
+                    className={cn(
+                      "transition-transform duration-200",
+                      !isActive(item.href) && "group-hover:scale-110",
+                    )}
+                  >
+                    {item.icon}
+                  </span>
+                  <span className="flex-1 text-left truncate">
+                    {item.label}
+                  </span>
+                  {item.badge && (
+                    <span
+                      className={cn(
+                        "px-1.5 py-0.5 rounded-full text-[10px] font-bold ml-auto",
+                        item.badgeType === "primary" &&
+                          "bg-primary/10 text-primary",
+                        item.badgeType === "success" &&
+                          "bg-success/10 text-success",
+                        item.badgeType === "warning" &&
+                          "bg-warning/10 text-warning",
+                      )}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </CollapsibleContent>
+      </Collapsible>
     );
   };
 
@@ -602,7 +693,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
         )}
       </div>
 
-      {/* Theme Toggle (Simplified when collapsed) */}
+      {/* Theme Toggle */}
       <div className={cn("py-4 transition-all", isCollapsed ? "px-2" : "px-4")}>
         <div
           className={cn(
@@ -623,7 +714,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
       <nav
         role="navigation"
         aria-label="功能菜单"
-        className="flex-1 py-4 overflow-y-auto overflow-x-hidden space-y-2 custom-scrollbar"
+        className="flex-1 py-2 overflow-y-auto overflow-x-hidden space-y-1 custom-scrollbar"
       >
         {NAV_GROUPS.map((group) => {
           const groupItems = navItems.filter((i) => i.group === group);

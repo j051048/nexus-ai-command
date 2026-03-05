@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search,
@@ -28,15 +28,16 @@ import {
   ShieldCheck,
   BarChart2,
   Cpu,
+  Inbox,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { usePendingApprovalsCount } from '@/hooks/useApprovals';
 import { useExceptions } from '@/hooks/useExceptions';
+import { useUnreadCount } from '@/hooks/useNotificationCenter';
 import { cn } from '@/lib/utils';
 
-// ── 类型定义 ──────────────────────────────────────────────
-
+// ── Types ──
 type Role = 'boss' | 'manager' | 'employee' | 'ai_assistant';
 
 interface WorkbenchItem {
@@ -44,7 +45,6 @@ interface WorkbenchItem {
   path: string;
   icon: LucideIcon;
   badge?: number | null;
-  /** 可见的角色列表，不指定则所有角色可见 */
   visibleTo?: Role[];
 }
 
@@ -53,23 +53,51 @@ interface WorkbenchGroup {
   items: WorkbenchItem[];
 }
 
-// ── 组件 ──────────────────────────────────────────────────
+// ── Recent usage tracking ──
+const RECENT_KEY = 'nexus:mobile-recent-apps';
+const MAX_RECENT = 6;
 
+function getRecentApps(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function trackAppUsage(path: string) {
+  const recent = getRecentApps().filter((p) => p !== path);
+  recent.unshift(path);
+  localStorage.setItem(RECENT_KEY, JSON.stringify(recent.slice(0, MAX_RECENT * 2)));
+}
+
+// ── Component ──
 export default function MobileWorkbenchPage() {
   const { role } = useAuth();
   const navigate = useNavigate();
   const { data: pendingCount } = usePendingApprovalsCount();
   const { data: exceptions = [] } = useExceptions();
-  const [searchFocused, setSearchFocused] = useState(false);
+  const unreadCountQuery = useUnreadCount();
+  const unreadCount = unreadCountQuery.data ?? 0;
+  const [searchQuery, setSearchQuery] = useState('');
+  const [recentPaths] = useState(getRecentApps);
 
   const currentRole: Role = (role as Role) ?? 'employee';
 
-  // ── 功能分组定义 ────────────────────────────────────────
+  const inboxBadge = (pendingCount ?? 0) + exceptions.length + unreadCount;
 
+  // ── Groups ──
   const groups: WorkbenchGroup[] = [
     {
       title: '待处理',
       items: [
+        {
+          label: '待办中心',
+          path: '/inbox',
+          icon: Inbox,
+          badge: inboxBadge || null,
+        },
         {
           label: '智能审批',
           path: '/approval',
@@ -173,36 +201,101 @@ export default function MobileWorkbenchPage() {
     },
   ];
 
-  // ── 角色过滤 ────────────────────────────────────────────
+  // ── Flatten all items for search & recent ──
+  const allItems = groups.flatMap((g) => g.items);
 
+  // ── Role filter ──
   function isVisible(item: WorkbenchItem): boolean {
     if (!item.visibleTo) return true;
     return item.visibleTo.includes(currentRole);
   }
 
-  // ── 渲染 ────────────────────────────────────────────────
+  // ── Search filter ──
+  const filteredGroups = searchQuery.trim()
+    ? [
+        {
+          title: '搜索结果',
+          items: allItems.filter(
+            (item) =>
+              isVisible(item) &&
+              item.label.toLowerCase().includes(searchQuery.toLowerCase()),
+          ),
+        },
+      ]
+    : groups;
 
+  // ── Recent apps section ──
+  const recentItems = recentPaths
+    .map((path) => allItems.find((item) => item.path === path))
+    .filter((item): item is WorkbenchItem => !!item && isVisible(item))
+    .slice(0, MAX_RECENT);
+
+  const handleNavigate = (path: string) => {
+    trackAppUsage(path);
+    navigate(path);
+  };
+
+  // ── Render ──
   return (
     <div className="flex flex-col gap-5 px-4 pb-24 pt-4">
-      {/* 搜索栏 */}
+      {/* Search bar - real filtering */}
       <div
-        role="button"
-        tabIndex={0}
         className={cn(
           'flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5 transition-colors',
-          searchFocused && 'border-primary/50 ring-2 ring-primary/20',
+          searchQuery && 'border-primary/50 ring-2 ring-primary/20',
         )}
-        onClick={() => setSearchFocused((v) => !v)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') setSearchFocused((v) => !v);
-        }}
       >
         <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <span className="text-sm text-muted-foreground">搜索功能、客户、审批…</span>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="搜索功能..."
+          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            清除
+          </button>
+        )}
       </div>
 
-      {/* 功能分组 */}
-      {groups.map((group) => {
+      {/* Recent apps (only show when not searching) */}
+      {!searchQuery && recentItems.length > 0 && (
+        <section>
+          <h3 className="mb-2 text-sm font-medium text-muted-foreground">
+            最近使用
+          </h3>
+          <div className="grid grid-cols-4 gap-3">
+            {recentItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={`recent-${item.path}`}
+                  type="button"
+                  className={cn(
+                    'relative flex flex-col items-center justify-center gap-1.5',
+                    'rounded-xl border border-primary/20 bg-primary/5 p-3',
+                    'transition-all active:scale-95 active:bg-accent',
+                  )}
+                  onClick={() => handleNavigate(item.path)}
+                >
+                  <Icon className="h-6 w-6 text-primary/80" />
+                  <span className="text-xs leading-tight text-foreground/70">
+                    {item.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Feature groups */}
+      {filteredGroups.map((group) => {
         const visibleItems = group.items.filter(isVisible);
         if (visibleItems.length === 0) return null;
 
@@ -226,9 +319,8 @@ export default function MobileWorkbenchPage() {
                       'rounded-xl border border-border bg-card p-3',
                       'transition-all active:scale-95 active:bg-accent',
                     )}
-                    onClick={() => navigate(item.path)}
+                    onClick={() => handleNavigate(item.path)}
                   >
-                    {/* Badge */}
                     {showBadge && (
                       <span
                         className={cn(
@@ -240,11 +332,7 @@ export default function MobileWorkbenchPage() {
                         {item.badge! > 99 ? '99+' : item.badge}
                       </span>
                     )}
-
-                    {/* Icon */}
                     <Icon className="h-6 w-6 text-foreground/80" />
-
-                    {/* Label */}
                     <span className="text-xs leading-tight text-foreground/70">
                       {item.label}
                     </span>
@@ -255,6 +343,15 @@ export default function MobileWorkbenchPage() {
           </section>
         );
       })}
+
+      {/* Search empty state */}
+      {searchQuery && filteredGroups[0]?.items.filter(isVisible).length === 0 && (
+        <div className="text-center py-8">
+          <p className="text-sm text-muted-foreground">
+            未找到"{searchQuery}"相关功能
+          </p>
+        </div>
+      )}
     </div>
   );
 }

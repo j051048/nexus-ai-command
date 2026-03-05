@@ -12,6 +12,7 @@ import {
   RewardsWallet,
   SalesTargetManager,
   TargetDashboard,
+  InboxPage,
 } from "./lazyImports";
 
 export function coreRoutes(AdminRoute: React.ComponentType<{ children: React.ReactNode; allowedRoles?: string[] }>) {
@@ -20,6 +21,7 @@ export function coreRoutes(AdminRoute: React.ComponentType<{ children: React.Rea
       <Route index element={<Navigate to="/dashboard" replace />} />
       <Route path="dashboard" element={<ModuleErrorBoundary moduleName="仪表盘"><EmployeeDashboard /></ModuleErrorBoundary>} />
       <Route path="boss-dashboard" element={<ModuleErrorBoundary moduleName="管理驾驶舱"><BossDashboard /></ModuleErrorBoundary>} />
+      <Route path="inbox" element={<ModuleErrorBoundary moduleName="待办中心"><InboxPage /></ModuleErrorBoundary>} />
       <Route path="approval" element={<ModuleErrorBoundary moduleName="审批中心"><ApprovalCenter /></ModuleErrorBoundary>} />
       <Route path="sales" element={<ModuleErrorBoundary moduleName="销售管道"><SalesPipeline /></ModuleErrorBoundary>} />
       <Route path="projects" element={<ModuleErrorBoundary moduleName="项目管理"><ProjectManagement /></ModuleErrorBoundary>} />

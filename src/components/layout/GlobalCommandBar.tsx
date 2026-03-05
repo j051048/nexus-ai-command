@@ -69,24 +69,34 @@ const COMMAND_ITEMS: NavCommandItem[] = [
   // 核心功能
   { label: '仪表板', path: '/dashboard', icon: LayoutDashboard, keywords: ['首页', 'home', 'dashboard'], group: '核心功能' },
   { label: '领导驾驶舱', path: '/boss-dashboard', icon: Crown, keywords: ['boss', '管理', '概览'], group: '核心功能' },
+  { label: '待办中心', path: '/inbox', icon: Bell, keywords: ['待办', 'inbox', '收件箱', '审批', '通知', '异常'], group: '核心功能' },
   { label: '审批中心', path: '/approval', icon: FileCheck, keywords: ['审批', 'approval', '请假', '报销'], group: '核心功能' },
   { label: '销售管理', path: '/sales', icon: TrendingUp, keywords: ['销售', 'sales', '商机', '客户'], group: '核心功能' },
   { label: '项目管理', path: '/projects', icon: Target, keywords: ['项目', 'project', '任务'], group: '核心功能' },
 
   // 办公协同
   { label: 'OA 办公', path: '/oa', icon: Calendar, keywords: ['办公', '请假', '会议', 'oa'], group: '办公协同' },
-  { label: '人事中心', path: '/hr', icon: Users, keywords: ['人事', 'hr', '考勤', '绩效'], group: '办公协同' },
-  { label: '财务中心', path: '/finance', icon: DollarSign, keywords: ['财务', 'finance', '报销', '发票'], group: '办公协同' },
-  { label: 'CRM 客户管理', path: '/crm', icon: Users, keywords: ['crm', '客户', '线索'], group: '办公协同' },
+  { label: '人事中心', path: '/hr', icon: Users, keywords: ['人事', 'hr', '考勤', '绩效', '打卡', '排班'], group: '办公协同' },
+  { label: '财务中心', path: '/finance', icon: DollarSign, keywords: ['财务', 'finance', '报销', '发票', '预算'], group: '办公协同' },
+  { label: 'CRM 客户管理', path: '/crm', icon: Users, keywords: ['crm', '客户', '线索', '商机'], group: '办公协同' },
   { label: '合同管理', path: '/contracts', icon: FileText, keywords: ['合同', 'contract'], group: '办公协同' },
 
   // 招投标
   { label: '标书分析', path: '/tender-analysis', icon: FileSearch, keywords: ['标书', 'tender', '招标', '投标'], group: '招投标' },
   { label: '竞标作战卡', path: '/battlecards', icon: Swords, keywords: ['竞标', 'battlecard', '竞品'], group: '招投标' },
 
-  // 知识与文档
-  { label: '知识库', path: '/knowledge', icon: BookOpen, keywords: ['知识', 'knowledge', '文档', 'rag'], group: '知识与文档' },
-  { label: '数据导入', path: '/import', icon: Upload, keywords: ['导入', 'import', 'csv', 'excel'], group: '知识与文档' },
+  // 知识与培训
+  { label: '知识库', path: '/knowledge', icon: BookOpen, keywords: ['知识', 'knowledge', '文档', 'rag'], group: '知识与培训' },
+  { label: '培训中心', path: '/training', icon: GraduationCap, keywords: ['培训', 'training', '学习'], group: '知识与培训' },
+  { label: '激励钱包', path: '/rewards', icon: Gift, keywords: ['激励', 'reward', '积分', '奖励'], group: '知识与培训' },
+
+  // 虚拟市场部
+  { label: '虚拟市场部', path: '/vmd', icon: Crown, keywords: ['vmd', '市场', '营销', '推广'], group: '虚拟市场部' },
+  { label: 'VMD 任务中心', path: '/vmd/tasks', icon: Target, keywords: ['vmd任务', '营销任务'], group: '虚拟市场部' },
+  { label: 'VMD Agent配置', path: '/vmd/agents', icon: Settings, keywords: ['vmd agent', '营销agent'], group: '虚拟市场部' },
+  { label: 'VMD 线索管理', path: '/vmd/clues', icon: Users, keywords: ['vmd线索', '营销线索'], group: '虚拟市场部' },
+  { label: 'VMD 合规校验', path: '/vmd/compliance', icon: Shield, keywords: ['vmd合规', '内容合规'], group: '虚拟市场部' },
+  { label: 'VMD 看板', path: '/vmd/dashboard', icon: BarChart3, keywords: ['vmd看板', '营销数据'], group: '虚拟市场部' },
 
   // 流程与表单
   { label: '工作流列表', path: '/workflows', icon: Workflow, keywords: ['工作流', 'workflow', '流程'], group: '流程与表单' },
@@ -99,22 +109,28 @@ const COMMAND_ITEMS: NavCommandItem[] = [
   { label: '报表中心', path: '/reports', icon: BarChart3, keywords: ['报表', 'report', '统计'], group: '数据与报表' },
   { label: '目标看板', path: '/target-dashboard', icon: Target, keywords: ['目标', 'target', 'kpi'], group: '数据与报表' },
 
-  // 管理
-  { label: '员工管理', path: '/employees', icon: UserCog, keywords: ['员工', 'employee', '人员'], group: '系统管理' },
-  { label: '角色管理', path: '/roles', icon: Shield, keywords: ['角色', 'role', '权限'], group: '系统管理' },
-  { label: '部门管理', path: '/departments', icon: Building2, keywords: ['部门', 'department'], group: '系统管理' },
+  // 组织管理
+  { label: '员工管理', path: '/employees', icon: UserCog, keywords: ['员工', 'employee', '人员'], group: '组织管理' },
+  { label: '部门管理', path: '/departments', icon: Building2, keywords: ['部门', 'department'], group: '组织管理' },
+  { label: '组织架构', path: '/org-chart', icon: Building2, keywords: ['组织', '架构', 'org'], group: '组织管理' },
+  { label: '企业设置', path: '/company-settings', icon: Building2, keywords: ['企业', 'company', '公司设置'], group: '组织管理' },
+
+  // 系统管理
   { label: '审计日志', path: '/audit', icon: Shield, keywords: ['审计', 'audit', '日志', '安全'], group: '系统管理' },
   { label: 'AI 设置', path: '/settings', icon: Settings, keywords: ['设置', 'settings', 'ai', '配置'], group: '系统管理' },
   { label: 'API 密钥', path: '/api-keys', icon: Key, keywords: ['api', 'key', '密钥'], group: '系统管理' },
+  { label: '模型管理', path: '/llm/models', icon: Settings, keywords: ['模型', 'llm', 'model', 'ai模型'], group: '系统管理' },
+  { label: 'LLM 成本', path: '/llm/costs', icon: DollarSign, keywords: ['llm成本', '模型费用', 'token'], group: '系统管理' },
+  { label: '数据导入', path: '/import', icon: Upload, keywords: ['导入', 'import', 'csv', 'excel'], group: '系统管理' },
+  { label: '插件市场', path: '/plugins', icon: Plug, keywords: ['插件', 'plugin', '扩展'], group: '系统管理' },
+  { label: 'Agent 调试', path: '/agent-debug', icon: Settings, keywords: ['agent', '调试', 'debug'], group: '系统管理' },
+  { label: '定时任务', path: '/scheduled-tasks', icon: Clock, keywords: ['定时', 'scheduled', 'cron', '任务'], group: '系统管理' },
 
   // 其他
   { label: '消息中心', path: '/notification-center', icon: Bell, keywords: ['消息', 'notification', '通知'], group: '其他' },
-  { label: '激励钱包', path: '/rewards', icon: Gift, keywords: ['激励', 'reward', '积分', '奖励'], group: '其他' },
   { label: '异常看板', path: '/exceptions', icon: Clock, keywords: ['异常', 'exception', '预警'], group: '其他' },
   { label: '个人中心', path: '/profile', icon: Users, keywords: ['个人', 'profile', '我的'], group: '其他' },
   { label: '支付管理', path: '/payments', icon: CreditCard, keywords: ['支付', 'payment', '订阅'], group: '其他' },
-  { label: '培训中心', path: '/training', icon: GraduationCap, keywords: ['培训', 'training', '学习'], group: '其他' },
-  { label: '插件市场', path: '/plugins', icon: Plug, keywords: ['插件', 'plugin', '扩展'], group: '其他' },
 ];
 
 // P2: Intent detection — ACTION_KEYWORDS trigger AI routing
@@ -149,6 +165,22 @@ const PAGE_SUGGESTIONS: Record<string, Array<{ label: string; prompt: string }>>
   '/finance': [
     { label: '费用统计', prompt: '统计本月的费用支出情况' },
     { label: '报销进度', prompt: '查看我的报销审批进度' },
+  ],
+  '/hr': [
+    { label: '考勤统计', prompt: '查看本月考勤统计' },
+    { label: '请假审批', prompt: '有待审批的请假申请吗？' },
+  ],
+  '/oa': [
+    { label: '今日打卡', prompt: '帮我打上班卡' },
+    { label: '我的审批', prompt: '我有哪些待处理的审批？' },
+  ],
+  '/inbox': [
+    { label: '待审批', prompt: '列出所有待审批事项' },
+    { label: '异常预警', prompt: '当前有哪些异常需要处理？' },
+  ],
+  '/vmd': [
+    { label: '营销任务', prompt: '查看当前营销任务进度' },
+    { label: '线索分析', prompt: '分析最近的营销线索质量' },
   ],
 };
 
