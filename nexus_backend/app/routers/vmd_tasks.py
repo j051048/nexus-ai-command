@@ -123,9 +123,17 @@ async def _recalculate_main_task_progress(admin, main_task_id: str) -> dict:
     else:
         main_status = "pending"
 
+    completed_count = sum(1 for st in statuses if st == "done")
     await (
         admin.table("vmd_main_task")
-        .update({"progress": progress, "status": main_status})
+        .update(
+            {
+                "progress": progress,
+                "status": main_status,
+                "total_sub_tasks": len(sub_tasks),
+                "completed_sub_tasks": completed_count,
+            }
+        )
         .eq("id", main_task_id)
         .execute()
     )
