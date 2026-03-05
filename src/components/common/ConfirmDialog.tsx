@@ -40,7 +40,9 @@ export function ConfirmDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="break-all">{title}</AlertDialogTitle>
-          <AlertDialogDescription className="break-all whitespace-pre-wrap">{description}</AlertDialogDescription>
+          <AlertDialogDescription className="break-all whitespace-pre-wrap max-h-[60vh] overflow-y-auto pr-2">
+            {description}
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onCancel}>{cancelText}</AlertDialogCancel>
