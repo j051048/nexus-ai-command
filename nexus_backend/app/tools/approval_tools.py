@@ -148,7 +148,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
                 "enum": ["travel", "leave", "expense", "purchase"],
                 "description": "审批类型：travel=出差, leave=请假, expense=报销, purchase=采购",
             },
-            "amount": {"type": "number", "description": "金额（如适用，默认0）"},
+            "amount": {"type": "number", "minimum": 0, "maximum": 99999999, "description": "金额（如适用，默认0）"},
             "description": {"type": "string", "description": "详细说明申请事由"},
             "start_date": {"type": "string", "description": "开始日期（如适用）"},
             "end_date": {"type": "string", "description": "结束日期（如适用）"},
@@ -414,7 +414,7 @@ class GetEmployeeApprovalHistoryTool(BaseTool):
                 "type": "string",
                 "description": "员工ID（UUID格式），可通过 get_employee_info 工具查询获取",
             },
-            "limit": {"type": "integer", "description": "返回记录数量，默认5条"},
+            "limit": {"type": "integer", "minimum": 1, "maximum": 50, "description": "返回记录数量，默认5条"},
         },
         "required": ["employee_id"],
     }
@@ -492,6 +492,12 @@ class ApprovalTool(BaseTool):
         req_id = args.get("request_id")
         reason = args.get("reason", "")
         confirm = args.get("confirm", False)
+
+        # Validate UUID format to prevent PostgreSQL 22P02 errors
+        try:
+            uuid.UUID(req_id)
+        except (ValueError, TypeError, AttributeError):
+            return f"request_id '{req_id}' 不是有效的UUID格式，请检查审批单ID。"
 
         client = _get_client(config)
 
@@ -738,6 +744,12 @@ class RejectTool(BaseTool):
         req_id = args.get("request_id")
         reason = args.get("reason", "未说明原因")
         confirm = args.get("confirm", False)
+
+        # Validate UUID format to prevent PostgreSQL 22P02 errors
+        try:
+            uuid.UUID(req_id)
+        except (ValueError, TypeError, AttributeError):
+            return f"request_id '{req_id}' 不是有效的UUID格式，请检查审批单ID。"
 
         client = _get_client(config)
 

@@ -106,10 +106,12 @@ class CreateScheduledTaskTool(BaseTool):
             "name": {
                 "type": "string",
                 "description": "任务名称，简短描述（如'检查客户回复'、'生成日报'）",
+                "maxLength": 200,
             },
             "prompt": {
                 "type": "string",
                 "description": "AI 执行此任务时使用的提示词。描述需要 AI 做什么，如'检查最近的客户跟进情况并提醒我需要回复的客户'",
+                "maxLength": 2000,
             },
             "schedule_type": {
                 "type": "string",
@@ -118,19 +120,27 @@ class CreateScheduledTaskTool(BaseTool):
             },
             "hour": {
                 "type": "integer",
+                "minimum": 0,
+                "maximum": 23,
                 "description": "执行时间的小时（0-23），如下午4点=16",
             },
             "minute": {
                 "type": "integer",
+                "minimum": 0,
+                "maximum": 59,
                 "description": "执行时间的分钟（0-59），默认0",
             },
             "day_of_week": {
                 "type": "integer",
+                "minimum": 0,
+                "maximum": 6,
                 "description": "星期几执行（0=周一, 6=周日），仅 weekly 类型需要",
             },
             "interval_minutes": {
                 "type": "integer",
-                "description": "间隔分钟数，仅 interval 类型需要",
+                "minimum": 1,
+                "maximum": 10080,
+                "description": "间隔分钟数（1-10080），仅 interval 类型需要",
             },
         },
         "required": ["name", "prompt", "schedule_type", "hour"],
@@ -149,6 +159,31 @@ class CreateScheduledTaskTool(BaseTool):
         day_of_week = args.get("day_of_week")
         interval_minutes = args.get("interval_minutes")
         org_id = config.get("org_id") if config else None
+
+        # Defensive input validation (defense-in-depth)
+        if not name or not prompt:
+            return "请提供任务名称和执行提示词。"
+        if schedule_type not in ("daily", "weekly", "once", "interval"):
+            return f"不支持的调度类型: {schedule_type}"
+        if hour is not None and not (0 <= int(hour) <= 23):
+            return "小时数必须在 0-23 之间。"
+        if not (0 <= int(minute) <= 59):
+            return "分钟数必须在 0-59 之间。"
+        if day_of_week is not None and not (0 <= int(day_of_week) <= 6):
+            return "星期几必须在 0-6 之间（0=周一, 6=周日）。"
+        if interval_minutes is not None and not (1 <= int(interval_minutes) <= 10080):
+            return "间隔分钟数必须在 1-10080 之间。"
+        # Clamp to int to prevent overflow
+        hour = int(hour) if hour is not None else None
+        minute = int(minute)
+        if day_of_week is not None:
+            day_of_week = int(day_of_week)
+        if interval_minutes is not None:
+            interval_minutes = int(interval_minutes)
+
+        # Truncate to prevent oversized DB writes
+        name = name[:200]
+        prompt = prompt[:2000]
 
         # Validation
         if schedule_type == "weekly" and day_of_week is None:
@@ -330,23 +365,35 @@ class DeleteScheduledTaskTool(BaseTool):
         if not task_id and not task_name:
             return "请提供任务名称或任务ID。您可以先说'查看我的定时任务'获取列表。"
 
+        # Validate action enum
+        if action not in ("delete", "disable", "enable"):
+            return f"不支持的操作: {action}，请使用 delete/disable/enable。"
+
         # Find the task
         if task_id:
-            # Support partial ID match
+            # Sanitize: strip LIKE wildcards from task_id
+            safe_id = task_id.replace("%", "").replace("_", "")[:36]
+            if not safe_id:
+                return "任务ID无效。"
+            # Use filter with text cast to avoid UUID ilike operator error (42883)
             result = (
                 await client.table("user_scheduled_tasks")
                 .select("*")
                 .eq("user_id", user_id)
-                .ilike("id", f"{task_id}%")
+                .filter("id::text", "ilike", f"{safe_id}%")
                 .limit(1)
                 .execute()
             )
         else:
+            # Sanitize: strip LIKE wildcards from task_name
+            safe_name = task_name.replace("%", "").replace("_", "")[:200] if task_name else ""
+            if not safe_name:
+                return "任务名称无效。"
             result = (
                 await client.table("user_scheduled_tasks")
                 .select("*")
                 .eq("user_id", user_id)
-                .ilike("name", f"%{task_name}%")
+                .ilike("name", f"%{safe_name}%")
                 .limit(1)
                 .execute()
             )

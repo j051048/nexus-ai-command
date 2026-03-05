@@ -9,6 +9,7 @@ VMD 运营工具集 (Virtual Marketing Department - Operation Tools)
 """
 
 import logging
+import uuid as _uuid
 from typing import Any
 
 from app.core.database import supabase
@@ -65,6 +66,14 @@ class GenerateMaintenanceReminderTool(BaseTool):
 
         maintenance_type = args.get("maintenance_type", "routine")
         customer_name = args.get("customer_name", "")
+
+        # Validate enum
+        if maintenance_type not in ("routine", "calibration", "repair", "upgrade"):
+            return f"不支持的维护类型: {maintenance_type}，请使用 routine/calibration/repair/upgrade。"
+
+        # Truncate to prevent oversized inputs
+        product_name = product_name[:200]
+        customer_name = customer_name[:200] if customer_name else ""
 
         type_labels = {
             "routine": "常规保养",
@@ -390,6 +399,19 @@ class CustomerLifecycleAnalysisTool(BaseTool):
         customer_id = args.get("customer_id", "")
         time_range = args.get("time_range", "last_year")
         analysis_focus = args.get("analysis_focus", "health")
+
+        # Validate customer_id UUID format if provided
+        if customer_id:
+            try:
+                _uuid.UUID(customer_id)
+            except (ValueError, TypeError, AttributeError):
+                return f"customer_id '{customer_id}' 不是有效的UUID格式，请检查客户ID。"
+
+        # Validate enum values
+        if time_range not in ("last_quarter", "last_year", "all"):
+            return f"不支持的时间范围: {time_range}，请使用 last_quarter/last_year/all。"
+        if analysis_focus not in ("health", "ltv", "churn_risk", "engagement"):
+            return f"不支持的分析重点: {analysis_focus}，请使用 health/ltv/churn_risk/engagement。"
 
         time_labels = {
             "last_quarter": "近一季度",

@@ -5,12 +5,22 @@ CRM 客户管理工具集
 """
 
 import logging
+import uuid as _uuid
 from typing import Any
 
 from app.core.database import supabase
 from app.services.crm_service import ACTIVITY_TYPES, CUSTOMER_STAGES, crm_service
 
 from .base_tool import BaseTool
+
+
+def _validate_uuid(value: str, field_name: str = "ID") -> str | None:
+    """Validate UUID format. Returns error message or None if valid."""
+    try:
+        _uuid.UUID(value)
+        return None
+    except (ValueError, TypeError, AttributeError):
+        return f"{field_name} '{value}' 不是有效的UUID格式。"
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +129,8 @@ class GetCustomerDetailTool(BaseTool):
         customer_id = args.get("customer_id", "")
         if not customer_id:
             return "❌ 请提供客户ID（customer_id）"
+        if err := _validate_uuid(customer_id, "customer_id"):
+            return f"❌ {err}"
 
         customer = await crm_service.get_customer(customer_id, db=client)
         if not customer:
@@ -273,6 +285,8 @@ class UpdateCustomerTool(BaseTool):
         customer_id = args.get("customer_id", "")
         if not customer_id:
             return "❌ 请提供客户ID（customer_id）"
+        if err := _validate_uuid(customer_id, "customer_id"):
+            return f"❌ {err}"
 
         data = {}
         for field in ("name", "company", "industry", "stage", "source", "estimated_value"):
@@ -331,6 +345,8 @@ class AddFollowUpTool(BaseTool):
 
         if not customer_id or not content:
             return "❌ 客户ID和跟进内容不能为空"
+        if err := _validate_uuid(customer_id, "customer_id"):
+            return f"❌ {err}"
 
         if activity_type not in ACTIVITY_TYPES:
             activity_type = "note"
@@ -357,7 +373,7 @@ class GetFollowUpsTool(BaseTool):
         "type": "object",
         "properties": {
             "customer_id": {"type": "string", "description": "客户ID（必填）"},
-            "limit": {"type": "integer", "description": "返回数量限制，默认20"},
+            "limit": {"type": "integer", "minimum": 1, "maximum": 100, "description": "返回数量限制，默认20"},
         },
         "required": ["customer_id"],
     }
@@ -368,6 +384,18 @@ class GetFollowUpsTool(BaseTool):
         limit = args.get("limit", 20)
         if not customer_id:
             return "❌ 请提供客户ID（customer_id）"
+
+        # Validate UUID format
+        try:
+            _uuid.UUID(customer_id)
+        except (ValueError, TypeError, AttributeError):
+            return f"customer_id '{customer_id}' 不是有效的UUID格式，请检查客户ID。"
+
+        # Clamp limit to safe range
+        try:
+            limit = max(1, min(int(limit), 100))
+        except (TypeError, ValueError):
+            limit = 20
 
         activities = await crm_service.get_activity_timeline(customer_id, limit=limit, db=client)
         if not activities:
@@ -426,6 +454,8 @@ class UpdateCustomerStageTool(BaseTool):
 
         if not customer_id or not new_stage:
             return "❌ 客户ID和新阶段不能为空"
+        if err := _validate_uuid(customer_id, "customer_id"):
+            return f"❌ {err}"
 
         if new_stage not in CUSTOMER_STAGES:
             return f"❌ 无效的阶段: {new_stage}，可选: {', '.join(CUSTOMER_STAGES)}"

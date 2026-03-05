@@ -5,6 +5,7 @@
 """
 
 import logging
+import uuid as _uuid
 from typing import Any
 
 from app.core.database import supabase
@@ -168,6 +169,12 @@ class CreateContractTool(BaseTool):
         # customer_id 存在性校验
         customer_id = args.get("customer_id")
         if customer_id:
+            # Validate UUID format
+            try:
+                _uuid.UUID(customer_id)
+            except (ValueError, TypeError, AttributeError):
+                return f"❌ customer_id '{customer_id}' 不是有效的UUID格式。"
+
             try:
                 cust_res = await client.table("customers").select("id").eq("id", customer_id).maybe_single().execute()
                 if not cust_res.data:

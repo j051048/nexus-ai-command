@@ -27,9 +27,9 @@ class TenderAnalysisTool(BaseTool):
         if not text:
             return "❌ 错误: 未提供招标文件内容。"
 
-        api_key = config.get("api_key")
-        base_url = config.get("base_url")
-        model = config.get("model") or "gpt-4o-mini"
+        api_key = config.get("api_key") if config else None
+        base_url = config.get("base_url") if config else None
+        model = (config.get("model") if config else None) or "gpt-4o-mini"
 
         if not api_key or not base_url:
             return "❌ 系统错误: 缺少 AI 配置，无法执行深度分析。"

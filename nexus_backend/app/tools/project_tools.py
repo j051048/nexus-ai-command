@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 from typing import Any
 
+import uuid as _uuid
+
 from app.core.database import supabase
 
 from .base_tool import BaseTool
@@ -109,6 +111,12 @@ class CreateEventTool(BaseTool):
         title = args.get("title")
         content = args.get("content")
         event_type = args.get("event_type")
+
+        # Validate UUID format
+        try:
+            _uuid.UUID(project_id)
+        except (ValueError, TypeError, AttributeError):
+            return f"project_id '{project_id}' 不是有效的UUID格式。"
 
         # Ensure project_timeline table exists (it might be missing in migration, so we should allow fallback or catch error)
         # Assuming table exists or we need to add it to migration.

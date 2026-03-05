@@ -1,5 +1,7 @@
 from typing import Any
 
+import uuid as _uuid
+
 from app.core.database import supabase
 from app.services.vector_service import vector_service
 
@@ -30,6 +32,13 @@ class PerformanceReportTool(BaseTool):
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
         target_id = args.get("user_id") or user_id
+
+        # Validate UUID format
+        try:
+            _uuid.UUID(target_id)
+        except (ValueError, TypeError, AttributeError):
+            return f"user_id '{target_id}' 不是有效的UUID格式。"
+
         user_res = await client.table("users").select("*").eq("id", target_id).maybe_single().execute()
         if not user_res.data:
             return f"找不到 ID 为 {target_id} 的用户绩效数据。"
@@ -123,10 +132,12 @@ class AwardBadgeTool(BaseTool):
             "user_id": {"type": "string", "description": "员工的唯一ID"},
             "badge_name": {
                 "type": "string",
+                "maxLength": 100,
                 "description": "徽章名称，如：销售冠军、拼命三郎",
             },
             "icon": {
                 "type": "string",
+                "maxLength": 50,
                 "description": "图标标识，如：trophy, rocket, fire",
             },
         },
@@ -135,16 +146,26 @@ class AwardBadgeTool(BaseTool):
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         target_id = args.get("user_id")
-        badge_name = args.get("badge_name")
-        icon = args.get("icon", "sparkles")
+        badge_name = args.get("badge_name", "")[:100]
+        icon = args.get("icon", "sparkles")[:50]
+
+        # Validate UUID format
+        try:
+            _uuid.UUID(target_id)
+        except (ValueError, TypeError, AttributeError):
+            return f"user_id '{target_id}' 不是有效的UUID格式，请检查员工ID。"
+
         client = _get_client(config)
-        await client.table("badges").insert({"user_id": target_id, "name": badge_name, "icon": icon}).execute()
-        await client.table("notifications").insert(
-            {
-                "user_id": target_id,
-                "title": "荣获新徽章！",
-                "content": f"老板为你颁发了「{badge_name}」徽章，继续加油！",
-                "type": "success",
-            }
-        ).execute()
+        try:
+            await client.table("badges").insert({"user_id": target_id, "name": badge_name, "icon": icon}).execute()
+            await client.table("notifications").insert(
+                {
+                    "user_id": target_id,
+                    "title": "荣获新徽章！",
+                    "content": f"老板为你颁发了「{badge_name}」徽章，继续加油！",
+                    "type": "success",
+                }
+            ).execute()
+        except Exception as e:
+            return f"❌ 颁发徽章失败: {str(e)}"
         return f"成功为用户 {target_id} 颁发徽章: {badge_name}"

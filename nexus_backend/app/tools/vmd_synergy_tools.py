@@ -390,6 +390,12 @@ class AggregateCustomerFeedbackTool(BaseTool):
         time_range = args.get("time_range", "last_quarter")
         feedback_type = args.get("feedback_type", "all")
 
+        # Validate enum values to prevent invalid_text_representation errors
+        if time_range not in ("last_month", "last_quarter", "last_year", "all"):
+            return f"不支持的时间范围: {time_range}，请使用 last_month/last_quarter/last_year/all。"
+        if feedback_type not in ("complaint", "suggestion", "praise", "all"):
+            return f"不支持的反馈类型: {feedback_type}，请使用 complaint/suggestion/praise/all。"
+
         time_labels = {
             "last_month": "近一个月",
             "last_quarter": "近一季度",

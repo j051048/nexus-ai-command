@@ -142,8 +142,8 @@ class BaseTool(ABC):
         except jsonschema.SchemaError as se:
             logger.error(f"Invalid schema for tool {self.name}: {se.message}")
             # Don't fail the user for a developer error, but log it
-        except jsonschema.ValidationError:
-            raise
+        except jsonschema.ValidationError as ve:
+            raise ValueError(f"工具 {self.name} 参数校验失败: {ve.message}") from ve
 
     @abstractmethod
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:

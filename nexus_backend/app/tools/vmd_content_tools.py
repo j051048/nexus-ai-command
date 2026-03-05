@@ -39,18 +39,22 @@ class GenerateProductManualTool(BaseTool):
         "properties": {
             "product_name": {
                 "type": "string",
+                "maxLength": 200,
                 "description": "产品名称",
             },
             "product_category": {
                 "type": "string",
+                "maxLength": 200,
                 "description": "产品类别（如：光谱仪器、色谱仪器、质谱仪器等）",
             },
             "target_audience": {
                 "type": "string",
+                "maxLength": 200,
                 "description": "目标读者（如：实验室技术人员、采购决策者）",
             },
             "key_features": {
                 "type": "string",
+                "maxLength": 2000,
                 "description": "需要突出的关键特性",
             },
         },

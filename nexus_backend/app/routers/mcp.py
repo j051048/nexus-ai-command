@@ -195,8 +195,17 @@ async def execute_tool(
     missing = [r for r in required_args if r not in body.arguments]
     if missing:
         raise api_error(
-            ErrorCode.SYSTEM_INTERNAL_ERROR,
+            ErrorCode.VALIDATION_MISSING_FIELD,
             f"Tool '{tool_name}' 缺少必填参数: {', '.join(missing)}",
+        )
+
+    # --- Validate arguments against JSON Schema ---
+    try:
+        await tool.validate(body.arguments)
+    except Exception as ve:
+        raise api_error(
+            ErrorCode.VALIDATION_INVALID_INPUT,
+            f"参数校验失败: {ve}",
         )
 
     # --- Build execution context ---
@@ -215,13 +224,17 @@ async def execute_tool(
         {k: (v if len(str(v)) < 100 else str(v)[:100] + "...") for k, v in body.arguments.items()},
     )
 
-    # --- Execute ---
+    # --- Execute (with timeout protection against LLM-heavy tools) ---
+    MCP_TOOL_TIMEOUT_SECONDS = 60
     start = time.perf_counter()
     try:
-        result = await tool.run(
-            args=body.arguments,
-            user_id=user_id,
-            config=config,
+        result = await asyncio.wait_for(
+            tool.run(
+                args=body.arguments,
+                user_id=user_id,
+                config=config,
+            ),
+            timeout=MCP_TOOL_TIMEOUT_SECONDS,
         )
         duration_ms = round((time.perf_counter() - start) * 1000, 2)
 
@@ -239,6 +252,19 @@ async def execute_tool(
                 result=result,
                 duration_ms=duration_ms,
             ).model_dump()
+        )
+    except TimeoutError:
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+        logger.warning(
+            "[MCP] tool_timeout tool=%s user=%s duration_ms=%.2f timeout=%ds",
+            tool_name,
+            user_id,
+            duration_ms,
+            MCP_TOOL_TIMEOUT_SECONDS,
+        )
+        raise api_error(
+            ErrorCode.AI_SERVICE_TIMEOUT,
+            f"工具 '{tool_name}' 执行超时（{MCP_TOOL_TIMEOUT_SECONDS}秒），请稍后重试。",
         )
     except HTTPException:
         raise
@@ -395,14 +421,25 @@ async def handle_message(
                 await session.send_jsonrpc_error(msg_id, -32602, f"Tool '{tool_name}' not found")
                 return {"ok": True}
 
-            # Execute tool
+            # Validate arguments against JSON Schema
+            try:
+                await tool.validate(arguments)
+            except Exception as ve:
+                await session.send_jsonrpc_error(msg_id, -32602, f"参数校验失败: {ve}")
+                return {"ok": True}
+
+            # Execute tool (with timeout protection)
+            MCP_SSE_TOOL_TIMEOUT = 60
             start = time.perf_counter()
             try:
                 org_id = getattr(request.state, "org_id", None)
-                result = await tool.run(
-                    args=arguments,
-                    user_id=user_id,
-                    config={"org_id": org_id, "source": "mcp-sse"},
+                result = await asyncio.wait_for(
+                    tool.run(
+                        args=arguments,
+                        user_id=user_id,
+                        config={"org_id": org_id, "source": "mcp-sse"},
+                    ),
+                    timeout=MCP_SSE_TOOL_TIMEOUT,
                 )
                 duration_ms = round((time.perf_counter() - start) * 1000, 2)
 
@@ -413,6 +450,27 @@ async def handle_message(
                             {"type": "text", "text": str(result)},
                         ],
                         "isError": False,
+                        "_meta": {"duration_ms": duration_ms},
+                    },
+                )
+            except TimeoutError:
+                duration_ms = round((time.perf_counter() - start) * 1000, 2)
+                logger.warning(
+                    "[MCP-SSE] tool_timeout tool=%s duration_ms=%.2f timeout=%ds",
+                    tool_name,
+                    duration_ms,
+                    MCP_SSE_TOOL_TIMEOUT,
+                )
+                await session.send_jsonrpc_response(
+                    msg_id,
+                    {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"工具 '{tool_name}' 执行超时（{MCP_SSE_TOOL_TIMEOUT}秒），请稍后重试。",
+                            },
+                        ],
+                        "isError": True,
                         "_meta": {"duration_ms": duration_ms},
                     },
                 )

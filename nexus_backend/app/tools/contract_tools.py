@@ -5,6 +5,8 @@ AI 分析合同文档，提取关键条款、识别风险点、生成摘要
 
 from typing import Any
 
+import uuid as _uuid
+
 from app.core.database import supabase
 from app.services.ai_service import AIService
 
@@ -54,6 +56,12 @@ class ContractAnalysisTool(BaseTool):
 
         # 如果提供了 contract_id，从数据库获取合同信息
         if contract_id and not contract_text:
+            # Validate UUID format
+            try:
+                _uuid.UUID(contract_id)
+            except (ValueError, TypeError, AttributeError):
+                return f"contract_id '{contract_id}' 不是有效的UUID格式。"
+
             try:
                 res = await client.table("contracts").select("*").eq("id", contract_id).maybe_single().execute()
                 if res.data:

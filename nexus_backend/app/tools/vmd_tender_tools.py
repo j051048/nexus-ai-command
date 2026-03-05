@@ -315,7 +315,9 @@ class ExtractBidRequirementsTool(BaseTool):
         if not tender_text:
             return "❌ 请提供招标文件内容。"
 
-        focus_areas = args.get("focus_areas", "")
+        # Truncate to prevent oversized LLM prompts
+        tender_text = tender_text[:8000]
+        focus_areas = args.get("focus_areas", "")[:500]
 
         prompt = (
             f"请从以下招标文件中提取关键要求清单：\n\n"
