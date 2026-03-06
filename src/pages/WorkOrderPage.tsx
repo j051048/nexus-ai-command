@@ -109,8 +109,8 @@ export default function WorkOrderPage() {
       const { data, error } = await query;
       if (error) throw error;
       setOrders((data as WorkOrder[]) || []);
-    } catch (e: any) {
-      toast.error('加载工单失败: ' + e.message);
+    } catch (e) {
+      toast.error('加载工单失败: ' + (e as Error).message);
     } finally {
       setLoading(false);
     }
@@ -122,6 +122,7 @@ export default function WorkOrderPage() {
     if (!form.title.trim()) { toast.error('请填写工单标题'); return; }
     setSubmitting(true);
     try {
+      // @ts-expect-error Types not fully generated
       const { error } = await supabase.from('work_orders').insert({
         title: form.title.trim(),
         order_type: form.order_type,
@@ -136,8 +137,8 @@ export default function WorkOrderPage() {
       setDialogOpen(false);
       setForm({ title: '', order_type: 'repair', priority: 'medium', description: '' });
       fetchOrders();
-    } catch (e: any) {
-      toast.error('创建失败: ' + e.message);
+    } catch (e) {
+      toast.error('创建失败: ' + (e as Error).message);
     } finally {
       setSubmitting(false);
     }

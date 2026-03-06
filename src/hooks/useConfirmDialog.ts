@@ -51,11 +51,13 @@ export function useConfirmDialog() {
   const handleConfirm = useCallback(() => {
     state.resolve?.(true);
     setState((prev) => ({ ...prev, isOpen: false, resolve: null }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.resolve]);
 
   const handleCancel = useCallback(() => {
     state.resolve?.(false);
     setState((prev) => ({ ...prev, isOpen: false, resolve: null }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.resolve]);
 
   return {

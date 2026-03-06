@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/contexts/UserContext';
 
@@ -97,6 +97,8 @@ export function usePermissions(checks: { resource: string; action: string }[]) {
   const [results, setResults] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
 
+  const checksStr = useMemo(() => JSON.stringify(checks), [checks]);
+
   useEffect(() => {
     if (!user?.id || checks.length === 0) {
       setLoading(false);
@@ -130,7 +132,8 @@ export function usePermissions(checks: { resource: string; action: string }[]) {
     }
     setResults(fallbackResults);
     setLoading(false);
-  }, [user?.id, user?.role, JSON.stringify(checks)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, user?.role, checksStr]);
 
   const can = useCallback((resource: string, action: string) => {
     return results[`${resource}:${action}`] ?? false;

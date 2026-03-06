@@ -2,6 +2,7 @@
  * VMD 场景选择器组件
  * 可复用的场景卡片选择网格，供多个 VMD 页面引用
  */
+/* eslint-disable react-refresh/only-export-components */
 
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';

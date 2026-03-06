@@ -95,8 +95,8 @@ export default function AssetManagement() {
       const { data, error } = await query;
       if (error) throw error;
       setAssets((data as Asset[]) || []);
-    } catch (e: any) {
-      toast.error('加载资产失败: ' + e.message);
+    } catch (e) {
+      toast.error('加载资产失败: ' + (e as Error).message);
     } finally {
       setLoading(false);
     }
@@ -111,6 +111,7 @@ export default function AssetManagement() {
     }
     setSubmitting(true);
     try {
+      // @ts-expect-error Types not fully generated
       const { error } = await supabase.from('assets').insert({
         asset_code: form.asset_code.trim(),
         name: form.name.trim(),
@@ -124,8 +125,8 @@ export default function AssetManagement() {
       setDialogOpen(false);
       setForm({ asset_code: '', name: '', asset_type: 'computer', value: '' });
       fetchAssets();
-    } catch (e: any) {
-      toast.error('创建失败: ' + e.message);
+    } catch (e) {
+      toast.error('创建失败: ' + (e as Error).message);
     } finally {
       setSubmitting(false);
     }

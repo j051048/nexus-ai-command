@@ -149,6 +149,7 @@ function AttendanceTab({ orgId, userId }: { orgId?: string; userId?: string }) {
   const handleClock = async (clockType: string) => {
     setClocking(true);
     try {
+      // @ts-expect-error Types not fully generated
       const { error } = await supabase.from('attendance_records').insert({
         user_id: userId,
         organization_id: orgId,
@@ -158,8 +159,8 @@ function AttendanceTab({ orgId, userId }: { orgId?: string; userId?: string }) {
       if (error) throw error;
       toast.success(clockType === 'clock_in' ? '上班打卡成功' : clockType === 'clock_out' ? '下班打卡成功' : '外勤打卡成功');
       fetchRecords();
-    } catch (e: any) {
-      toast.error('打卡失败: ' + e.message);
+    } catch (e) {
+      toast.error('打卡失败: ' + (e as Error).message);
     } finally {
       setClocking(false);
     }
@@ -313,6 +314,7 @@ export function OACenter() {
       const end = new Date(leaveForm.end_date);
       const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
 
+      // @ts-expect-error Types not fully generated
       const { error } = await supabase.from('oa_leave_requests').insert({
         user_id: user?.id,
         organization_id: profile?.organization_id,
@@ -376,6 +378,7 @@ export function OACenter() {
     }
     setMeetingSubmitting(true);
     try {
+      // @ts-expect-error Types not fully generated
       const { error } = await supabase.from('oa_meeting_bookings').insert({
         title: meetingForm.title,
         organizer_id: user?.id,
@@ -472,6 +475,7 @@ export function OACenter() {
     }
     setTaskSubmitting(true);
     try {
+      // @ts-expect-error Types not fully generated
       const { error } = await supabase.from('oa_tasks').insert({
         title: taskForm.title,
         description: taskForm.description || null,
@@ -507,8 +511,10 @@ export function OACenter() {
       // 乐观更新：立即从列表移除
       setLeaves(prev => prev.filter(l => l.id !== leaveId));
       const { error, count } = await supabase.from('oa_leave_requests')
+        // @ts-expect-error Types not fully generated
         .update({ status: 'cancelled' })
         .eq('id', leaveId)
+        // @ts-expect-error Types not fully generated
         .select('id', { count: 'exact', head: true });
       if (error) {
         fetchLeaves();
@@ -533,6 +539,7 @@ export function OACenter() {
     try {
       setMeetings(prev => prev.filter(m => m.id !== meetingId));
       const { error } = await supabase.from('oa_meeting_bookings')
+        // @ts-expect-error Types not fully generated
         .update({ status: 'cancelled' })
         .eq('id', meetingId);
       if (error) {
@@ -557,6 +564,7 @@ export function OACenter() {
     try {
       const { error } = await supabase
         .from('oa_tasks')
+        // @ts-expect-error Types not fully generated
         .update({ status: newStatus })
         .eq('id', taskId);
       if (error) throw error;
@@ -579,6 +587,7 @@ export function OACenter() {
       // Update task status + completion notes
       const { error: updateError } = await supabase
         .from('oa_tasks')
+        // @ts-expect-error Types not fully generated
         .update({
           status: 'completed',
           completion_notes: completionForm.notes,
@@ -593,6 +602,7 @@ export function OACenter() {
 
       // Send notification to CC'd user (if selected)
       if (completionForm.cc_user_id) {
+        // @ts-expect-error Types not fully generated
         await supabase.from('notifications').insert({
           user_id: completionForm.cc_user_id,
           title: '任务完成通知',
@@ -609,6 +619,7 @@ export function OACenter() {
         task.created_by !== user?.id &&
         task.created_by !== completionForm.cc_user_id
       ) {
+        // @ts-expect-error Types not fully generated
         await supabase.from('notifications').insert({
           user_id: task.created_by,
           title: '任务完成通知',

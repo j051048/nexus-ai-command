@@ -103,8 +103,8 @@ export default function CertificateManagement() {
       const { data, error } = await query;
       if (error) throw error;
       setCerts((data as Certificate[]) || []);
-    } catch (e: any) {
-      toast.error('加载证照失败: ' + e.message);
+    } catch (e) {
+      toast.error('加载证照失败: ' + (e as Error).message);
     } finally {
       setLoading(false);
     }
@@ -134,8 +134,8 @@ export default function CertificateManagement() {
       setDialogOpen(false);
       setForm({ cert_type: '', cert_no: '', name: '', holder_type: 'company', issue_date: '', expire_date: '' });
       fetchCerts();
-    } catch (e: any) {
-      toast.error('创建失败: ' + e.message);
+    } catch (e) {
+      toast.error('创建失败: ' + (e as Error).message);
     } finally {
       setSubmitting(false);
     }

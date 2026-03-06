@@ -90,8 +90,8 @@ export default function InventoryPage() {
       let result = (data as InventoryItem[]) || [];
       if (lowStockOnly) result = result.filter((i) => i.quantity <= i.min_stock);
       setItems(result);
-    } catch (e: any) {
-      toast.error('加载库存失败: ' + e.message);
+    } catch (e) {
+      toast.error('加载库存失败: ' + (e as Error).message);
     } finally {
       setLoading(false);
     }
@@ -106,6 +106,7 @@ export default function InventoryPage() {
     }
     setSubmitting(true);
     try {
+      // @ts-expect-error Types not fully generated
       const { error } = await supabase.from('inventory').insert({
         item_code: form.item_code.trim(),
         name: form.name.trim(),
@@ -121,8 +122,8 @@ export default function InventoryPage() {
       setDialogOpen(false);
       setForm({ item_code: '', name: '', category: 'office', quantity: '', min_stock: '10', location: '', unit: '个' });
       fetchItems();
-    } catch (e: any) {
-      toast.error('创建失败: ' + e.message);
+    } catch (e) {
+      toast.error('创建失败: ' + (e as Error).message);
     } finally {
       setSubmitting(false);
     }
@@ -143,6 +144,7 @@ export default function InventoryPage() {
       const newQty = ioType === 'in' ? selectedItem.quantity + qty : selectedItem.quantity - qty;
       const { error } = await supabase
         .from('inventory')
+        // @ts-expect-error Types not fully generated
         .update({ quantity: newQty })
         .eq('id', selectedItem.id);
       if (error) throw error;
@@ -151,8 +153,8 @@ export default function InventoryPage() {
       setIoQuantity('');
       setIoReason('');
       fetchItems();
-    } catch (e: any) {
-      toast.error('操作失败: ' + e.message);
+    } catch (e) {
+      toast.error('操作失败: ' + (e as Error).message);
     } finally {
       setSubmitting(false);
     }
@@ -194,7 +196,7 @@ export default function InventoryPage() {
           <Card key={s.label}>
             <CardContent className="pt-4 pb-3 px-4">
               <p className="text-sm text-muted-foreground">{s.label}</p>
-              <p className={cn('text-2xl font-bold', (s as any).color)}>{s.value}</p>
+              <p className={cn('text-2xl font-bold', (s as { color?: string }).color)}>{s.value}</p>
             </CardContent>
           </Card>
         ))}

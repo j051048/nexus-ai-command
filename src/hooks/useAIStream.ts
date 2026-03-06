@@ -266,7 +266,8 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                     .select('organization_id')
                     .eq('id', user.id)
                     .maybeSingle()
-                    .then(({ data: profile }) => {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    .then(({ data: profile }: { data: any }) => {
                         let query = supabase
                             .from('ai_settings')
                             .select('base_url, api_key, model')
@@ -279,8 +280,10 @@ export function useAIStream({ userId }: UseAIStreamProps) {
             })(),
         ]);
 
-        const profile = profileResult.data;
-        const aiSettings = settingsResult.data;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const profile = profileResult.data as any;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const aiSettings = settingsResult.data as any;
 
         if (!aiSettings?.api_key || !aiSettings?.base_url) {
             throw new Error('请先在设置中心配置 AI API Key 和 Base URL');
@@ -398,7 +401,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         return true;
     };
 
-    const streamChat = async (
+    const streamChat = useCallback(async (
         input: string,
         history: AIMessage[],
         agent?: string,
@@ -560,7 +563,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
             setIsTyping(false);
             setAiStatus(undefined);
         }
-    };
+    }, [userId, getBackendUrl, getEdgeFunctionUrl]);
 
     const stopStream = () => {
         if (abortControllerRef.current) {

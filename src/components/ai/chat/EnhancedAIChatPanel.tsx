@@ -286,7 +286,7 @@ export function EnhancedAIChatPanel({
     } catch (e) {
       setMessages((prev) => prev.filter((m) => m.content !== ''));
     }
-  }, [input, isAiTyping, currentAgent, messages, streamChat, onSendMessage]);
+  }, [input, isAiTyping, currentAgent, messages, streamChat, onSendMessage, addThinkingStep, endTrace, startTrace]);
 
   const commandBarSendRef = useRef(false);
   useEffect(() => {
