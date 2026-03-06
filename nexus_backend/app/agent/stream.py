@@ -372,7 +372,7 @@ async def run_agent_stream(
     # streamed_plan_content is True only when respond-node tokens were yielded.
     # Also skip if confirmation is pending — the confirmation card will display
     # the message, so streaming it as text would cause duplicate display.
-    has_confirmation_pending = any(
+    has_confirmation_pending = not system_confirmed and any(
         getattr(tc, "status", None) == "blocked" for tc in accumulated_state.get("completed_tool_calls", [])
     )
     already_streamed = streamed_plan_content and final_response and final_response.strip() == streamed_plan_text.strip()
@@ -393,9 +393,15 @@ async def run_agent_stream(
     )
 
     # ── 7.5 HITL: Emit confirmation request if any tools were blocked ──
-    blocked_calls = [
-        tc for tc in accumulated_state.get("completed_tool_calls", []) if getattr(tc, "status", None) == "blocked"
-    ]
+    # Skip when system_confirmed=True — old blocked records from the first
+    # attempt are still in accumulated state but the user already confirmed.
+    blocked_calls = (
+        []
+        if system_confirmed
+        else [
+            tc for tc in accumulated_state.get("completed_tool_calls", []) if getattr(tc, "status", None) == "blocked"
+        ]
+    )
     if blocked_calls:
         # Mark that we have confirmation events — used to suppress cache below
         has_confirmation = True
