@@ -53,8 +53,8 @@ from app.agent.nodes_orchestrator import orchestrate_node
 from app.agent.nodes_wbs import wbs_decompose_node
 from app.agent.router import route_node
 from app.agent.state import AgentState, QueryComplexity
-from app.tools import get_tool
 from app.core.config import settings
+from app.tools import get_tool
 
 logger = logging.getLogger(__name__)
 
