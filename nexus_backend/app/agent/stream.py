@@ -373,8 +373,7 @@ async def run_agent_stream(
     # Also skip if confirmation is pending — the confirmation card will display
     # the message, so streaming it as text would cause duplicate display.
     has_confirmation_pending = any(
-        getattr(tc, "status", None) == "blocked"
-        for tc in accumulated_state.get("completed_tool_calls", [])
+        getattr(tc, "status", None) == "blocked" for tc in accumulated_state.get("completed_tool_calls", [])
     )
     already_streamed = streamed_plan_content and final_response and final_response.strip() == streamed_plan_text.strip()
     if final_response and not already_streamed and not has_confirmation_pending:
