@@ -295,7 +295,7 @@ async def prepare_initial_state(
             last_user_msg = msg.get("content", "")
             break
 
-    if last_user_msg and config.user_id:
+    if last_user_msg and config.user_id and not config.system_confirmed:
         try:
             from app.services.semantic_cache import semantic_cache_service
 
@@ -557,6 +557,7 @@ async def persist_result(
     db_client: Any | None = None,
     org_id: str | None = None,
     completed_tool_calls: list[dict] | None = None,
+    skip_cache: bool = False,
 ):
     """
     Post-graph: persist messages and update caches.
@@ -591,8 +592,8 @@ async def persist_result(
     except Exception as e:
         logger.error(f"[Memory] Failed to persist messages: {e}")
 
-    # Update semantic cache
-    if user_message and assistant_response:
+    # Update semantic cache (skip for confirmation/blocked responses)
+    if user_message and assistant_response and not skip_cache:
         try:
             from app.services.semantic_cache import semantic_cache_service
 

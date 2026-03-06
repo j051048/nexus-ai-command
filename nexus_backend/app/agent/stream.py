@@ -177,7 +177,9 @@ async def run_agent_stream(
     rag_sources = prep_result["rag_sources"]
 
     # Fast path: semantic cache hit
-    if cached_response is not None:
+    # Skip cache when system_confirmed=True — user confirmed a blocked action
+    # and we must execute the tool, not return a cached response.
+    if cached_response is not None and not system_confirmed:
         logger.info("[Stream] Semantic cache hit, streaming cached response")
         words = cached_response.split(" ")
         for i, word in enumerate(words):
@@ -368,8 +370,14 @@ async def run_agent_stream(
     # Stream the final response content
     # Skip if the respond node already streamed the same content to the user.
     # streamed_plan_content is True only when respond-node tokens were yielded.
+    # Also skip if confirmation is pending — the confirmation card will display
+    # the message, so streaming it as text would cause duplicate display.
+    has_confirmation_pending = any(
+        getattr(tc, "status", None) == "blocked"
+        for tc in accumulated_state.get("completed_tool_calls", [])
+    )
     already_streamed = streamed_plan_content and final_response and final_response.strip() == streamed_plan_text.strip()
-    if final_response and not already_streamed:
+    if final_response and not already_streamed and not has_confirmation_pending:
         yield _sse_status("")  # Clear status
         # Stream word by word for smooth UX
         chunks = _chunk_text(final_response)
@@ -390,12 +398,16 @@ async def run_agent_stream(
         tc for tc in accumulated_state.get("completed_tool_calls", []) if getattr(tc, "status", None) == "blocked"
     ]
     if blocked_calls:
+        # Mark that we have confirmation events — used to suppress cache below
+        has_confirmation = True
         for tc in blocked_calls:
             yield _sse_confirmation(
                 tool_name=tc.tool_name,
                 message=tc.result or "此操作需要您的确认才能执行。",
                 args=tc.tool_args,
             )
+    else:
+        has_confirmation = False
 
     # ── 7.6 P1-7: Emit ask_user events for agent proactive questioning ──
     ask_user_calls = [
@@ -470,6 +482,7 @@ async def run_agent_stream(
             db_client=db_client,
             org_id=agent_config.org_id,
             completed_tool_calls=raw_tool_calls or None,
+            skip_cache=has_confirmation,  # Don't cache confirmation responses
         )
     )
 
