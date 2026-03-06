@@ -246,7 +246,11 @@ async def run_agent_stream(
     try:
         # P1 Security: Prefix thread_id with org_id to prevent cross-tenant
         # state leakage via the LangGraph checkpointer.
-        scoped_thread_id = f"{agent_config.org_id or 'default'}::{agent_config.session_id}"
+        # HITL: Use a unique thread_id for confirm resends so the
+        # checkpointer does NOT restore old state (including stale
+        # blocked ToolCallRecords) from the previous execution.
+        base_thread = f"{agent_config.org_id or 'default'}::{agent_config.session_id}"
+        scoped_thread_id = f"{base_thread}::confirm-{int(start_time)}" if system_confirmed else base_thread
 
         async for event in _agent_graph.astream_events(
             initial_state,
