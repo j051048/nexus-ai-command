@@ -64,7 +64,7 @@ async def update_project(project_id: str, updates: ProjectUpdate):
         data = {k: v for k, v in updates.model_dump().items() if v is not None}
 
         if not data:
-            return api_success(message="No updates provided")
+            return api_success(data=None, message="No updates provided")
 
         res = await supabase.table("projects").update(data).eq("id", project_id).execute()
 
@@ -91,6 +91,6 @@ async def delete_project(
         if not res.data:
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "删除项目失败")
 
-        return api_success(message="项目已删除")
+        return api_success(data=None, message="项目已删除")
     except Exception as e:
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
