@@ -9,6 +9,8 @@ import {
   DocumentsPage,
   DataImportPage,
   TrainingCenter,
+  WorkOrderPage,
+  InventoryPage,
 } from "./lazyImports";
 
 export function businessRoutes() {
@@ -22,6 +24,8 @@ export function businessRoutes() {
       <Route path="knowledge" element={<ModuleErrorBoundary moduleName="知识库"><DocumentsPage /></ModuleErrorBoundary>} />
       <Route path="import" element={<ModuleErrorBoundary moduleName="数据导入"><DataImportPage /></ModuleErrorBoundary>} />
       <Route path="training" element={<ModuleErrorBoundary moduleName="培训中心"><TrainingCenter /></ModuleErrorBoundary>} />
+      <Route path="work-orders" element={<ModuleErrorBoundary moduleName="工单管理"><WorkOrderPage /></ModuleErrorBoundary>} />
+      <Route path="inventory" element={<ModuleErrorBoundary moduleName="库存管理"><InventoryPage /></ModuleErrorBoundary>} />
     </>
   );
 }

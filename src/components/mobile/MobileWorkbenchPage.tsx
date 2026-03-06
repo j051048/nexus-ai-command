@@ -29,6 +29,11 @@ import {
   BarChart2,
   Cpu,
   Inbox,
+  ClipboardList,
+  Package,
+  Award,
+  Warehouse,
+  Fingerprint,
   type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
@@ -153,6 +158,7 @@ export default function MobileWorkbenchPage() {
       title: '办公协同',
       items: [
         { label: 'OA 办公', path: '/oa', icon: Calendar },
+        { label: '考勤打卡', path: '/oa?tab=attendance', icon: Fingerprint },
         {
           label: '人事中心',
           path: '/hr',
@@ -160,7 +166,26 @@ export default function MobileWorkbenchPage() {
           visibleTo: ['boss', 'manager'],
         },
         { label: '财务中心', path: '/finance', icon: DollarSign },
+        { label: '工单管理', path: '/work-orders', icon: ClipboardList },
+        {
+          label: '资产管理',
+          path: '/assets',
+          icon: Package,
+          visibleTo: ['boss', 'manager'],
+        },
         { label: '知识库', path: '/knowledge', icon: BookOpen },
+        {
+          label: '企业证照',
+          path: '/certificates',
+          icon: Award,
+          visibleTo: ['boss', 'manager'],
+        },
+        {
+          label: '库存管理',
+          path: '/inventory',
+          icon: Warehouse,
+          visibleTo: ['boss', 'manager'],
+        },
         { label: '工作流', path: '/workflows', icon: Workflow },
       ],
     },

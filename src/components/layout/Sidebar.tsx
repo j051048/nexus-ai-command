@@ -53,6 +53,11 @@ import {
   Cpu,
   Bug,
   Inbox,
+  Wrench,
+  Package,
+  Award,
+  Warehouse,
+  Fingerprint,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -161,6 +166,13 @@ const NAV_CONFIG: NavItem[] = [
     roles: ["manager", "boss", "founder"],
     group: "销售与客关",
   },
+  {
+    icon: <Warehouse size={20} />,
+    label: "库存管理",
+    href: "inventory",
+    roles: ["manager", "boss", "founder"],
+    group: "销售与客关",
+  },
 
   // 项目与目标
   {
@@ -198,6 +210,12 @@ const NAV_CONFIG: NavItem[] = [
     group: "OA/HR/财务",
   },
   {
+    icon: <Fingerprint size={20} />,
+    label: "考勤打卡",
+    href: "oa?tab=attendance",
+    group: "OA/HR/财务",
+  },
+  {
     icon: <Clock size={20} />,
     label: "人事中心",
     href: "hr",
@@ -215,6 +233,19 @@ const NAV_CONFIG: NavItem[] = [
     label: "审批中心",
     href: "approval",
     roles: ["employee", "manager", "boss", "founder"],
+    group: "OA/HR/财务",
+  },
+  {
+    icon: <Wrench size={20} />,
+    label: "工单管理",
+    href: "work-orders",
+    group: "OA/HR/财务",
+  },
+  {
+    icon: <Package size={20} />,
+    label: "资产管理",
+    href: "assets",
+    roles: ["manager", "boss", "founder"],
     group: "OA/HR/财务",
   },
 
@@ -237,6 +268,13 @@ const NAV_CONFIG: NavItem[] = [
     href: "rewards",
     badge: "¥200",
     badgeType: "success",
+    group: "知识与培训",
+  },
+  {
+    icon: <Award size={20} />,
+    label: "企业证照",
+    href: "certificates",
+    roles: ["manager", "boss", "founder"],
     group: "知识与培训",
   },
 
@@ -457,12 +495,19 @@ export function Sidebar({ onNavClick }: SidebarProps) {
   };
 
   const isActive = (href: string) => {
-    if (href === "dashboard" && location.pathname === "/dashboard") return true;
-    if (href === "boss-dashboard" && location.pathname === "/boss-dashboard")
+    // Strip query params for path matching
+    const hrefPath = href.split("?")[0];
+    if (hrefPath === "dashboard" && location.pathname === "/dashboard") return true;
+    if (hrefPath === "boss-dashboard" && location.pathname === "/boss-dashboard")
       return true;
-    if (href === "vmd" && location.pathname === "/vmd") return true;
-    if (href === "vmd") return false;
-    return location.pathname.startsWith("/" + href);
+    if (hrefPath === "vmd" && location.pathname === "/vmd") return true;
+    if (hrefPath === "vmd") return false;
+    // For items with query params, check both path and search
+    if (href.includes("?")) {
+      const [path, search] = href.split("?");
+      return location.pathname === "/" + path && location.search.includes(search);
+    }
+    return location.pathname.startsWith("/" + hrefPath);
   };
 
   // Inject dynamic badges

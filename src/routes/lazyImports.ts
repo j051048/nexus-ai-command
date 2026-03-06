@@ -26,6 +26,10 @@ export const DataImportPage = lazyWithRetry(() => import("@/pages/DataImportPage
 export const CRMPage = lazyWithRetry(() => import("@/pages/CRMPage"));
 export const ContractManagement = lazyWithRetry(() => import("@/pages/ContractManagement"));
 export const TrainingCenter = lazyWithRetry(() => import("@/pages/TrainingCenter"));
+export const WorkOrderPage = lazyWithRetry(() => import("@/pages/WorkOrderPage"));
+export const AssetManagement = lazyWithRetry(() => import("@/pages/AssetManagement"));
+export const CertificateManagement = lazyWithRetry(() => import("@/pages/CertificateManagement"));
+export const InventoryPage = lazyWithRetry(() => import("@/pages/InventoryPage"));
 
 // Inbox (unified todo center)
 export const InboxPage = lazyWithRetry(() => import("@/pages/InboxPage"));

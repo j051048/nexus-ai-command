@@ -36,6 +36,8 @@ import {
   FileText,
   Send,
   User,
+  Fingerprint,
+  MapPin,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -93,6 +95,13 @@ interface OrgMember {
   role: string;
 }
 
+interface AttendanceRecord {
+  id: string;
+  clock_type: string;
+  clock_time: string;
+  location?: string;
+}
+
 function ApprovalCenterBanner() {
   const navigate = useNavigate();
   return (
@@ -103,6 +112,148 @@ function ApprovalCenterBanner() {
       <Button variant="link" size="sm" className="text-blue-600" onClick={() => navigate('/approval')}>
         前往审批中心 →
       </Button>
+    </div>
+  );
+}
+
+function AttendanceTab({ orgId, userId }: { orgId?: string; userId?: string }) {
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [clocking, setClocking] = useState(false);
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const fetchRecords = useCallback(async () => {
+    if (!orgId || !userId) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('attendance_records')
+        .select('id, clock_type, clock_time, location')
+        .eq('user_id', userId)
+        .gte('clock_time', today + 'T00:00:00')
+        .lte('clock_time', today + 'T23:59:59')
+        .order('clock_time', { ascending: true });
+      if (error) throw error;
+      setRecords((data as AttendanceRecord[]) || []);
+    } catch {
+      // table may not exist yet — show empty
+      setRecords([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [orgId, userId, today]);
+
+  useEffect(() => { fetchRecords(); }, [fetchRecords]);
+
+  const handleClock = async (clockType: string) => {
+    setClocking(true);
+    try {
+      const { error } = await supabase.from('attendance_records').insert({
+        user_id: userId,
+        organization_id: orgId,
+        clock_type: clockType,
+        clock_time: new Date().toISOString(),
+      });
+      if (error) throw error;
+      toast.success(clockType === 'clock_in' ? '上班打卡成功' : clockType === 'clock_out' ? '下班打卡成功' : '外勤打卡成功');
+      fetchRecords();
+    } catch (e: any) {
+      toast.error('打卡失败: ' + e.message);
+    } finally {
+      setClocking(false);
+    }
+  };
+
+  const clockedIn = records.some((r) => r.clock_type === 'clock_in');
+  const clockedOut = records.some((r) => r.clock_type === 'clock_out');
+
+  return (
+    <div className="space-y-4">
+      {/* Clock buttons */}
+      <div className="grid grid-cols-3 gap-4">
+        <Card className="text-center">
+          <CardContent className="pt-6 pb-4 flex flex-col items-center gap-3">
+            <div className="p-4 rounded-full bg-green-500/10">
+              <Fingerprint className="w-8 h-8 text-green-500" />
+            </div>
+            <Button
+              className="w-full gap-2"
+              onClick={() => handleClock('clock_in')}
+              disabled={clocking || clockedIn}
+              variant={clockedIn ? 'secondary' : 'default'}
+            >
+              {clockedIn ? <CheckCircle2 className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+              {clockedIn ? '已签到' : '上班打卡'}
+            </Button>
+          </CardContent>
+        </Card>
+        <Card className="text-center">
+          <CardContent className="pt-6 pb-4 flex flex-col items-center gap-3">
+            <div className="p-4 rounded-full bg-blue-500/10">
+              <Clock className="w-8 h-8 text-blue-500" />
+            </div>
+            <Button
+              className="w-full gap-2"
+              onClick={() => handleClock('clock_out')}
+              disabled={clocking || clockedOut}
+              variant={clockedOut ? 'secondary' : 'default'}
+            >
+              {clockedOut ? <CheckCircle2 className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+              {clockedOut ? '已签退' : '下班打卡'}
+            </Button>
+          </CardContent>
+        </Card>
+        <Card className="text-center">
+          <CardContent className="pt-6 pb-4 flex flex-col items-center gap-3">
+            <div className="p-4 rounded-full bg-amber-500/10">
+              <MapPin className="w-8 h-8 text-amber-500" />
+            </div>
+            <Button
+              className="w-full gap-2"
+              variant="outline"
+              onClick={() => handleClock('field_work')}
+              disabled={clocking}
+            >
+              <MapPin className="w-4 h-4" />
+              外勤打卡
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Today's records */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">今日打卡记录</CardTitle>
+          <CardDescription>{today}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
+          ) : records.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">今日暂无打卡记录</p>
+          ) : (
+            <div className="space-y-2">
+              {records.map((r) => (
+                <div key={r.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                  <div className="flex items-center gap-3">
+                    <Badge variant={r.clock_type === 'clock_in' ? 'default' : r.clock_type === 'clock_out' ? 'secondary' : 'outline'}>
+                      {r.clock_type === 'clock_in' ? '签到' : r.clock_type === 'clock_out' ? '签退' : '外勤'}
+                    </Badge>
+                    <span className="text-sm">{new Date(r.clock_time).toLocaleTimeString('zh-CN')}</span>
+                  </div>
+                  {r.location && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <MapPin className="h-3 w-3" /> {r.location}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -539,12 +690,16 @@ export function OACenter() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">OA 办公中心</h1>
-          <p className="text-muted-foreground">管理请假、会议和任务</p>
+          <p className="text-muted-foreground">考勤打卡、请假、会议和任务</p>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="attendance" className="gap-2">
+            <Fingerprint className="w-4 h-4" />
+            考勤打卡
+          </TabsTrigger>
           <TabsTrigger value="leave" className="gap-2">
             <CalendarDays className="w-4 h-4" />
             请假管理
@@ -562,6 +717,11 @@ export function OACenter() {
             工作报告
           </TabsTrigger>
         </TabsList>
+
+        {/* 考勤打卡 */}
+        <TabsContent value="attendance" className="space-y-4">
+          <AttendanceTab orgId={profile?.organization_id} userId={user?.id} />
+        </TabsContent>
 
         {/* 请假管理 */}
         <TabsContent value="leave" className="space-y-4">

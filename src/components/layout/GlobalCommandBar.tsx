@@ -41,6 +41,11 @@ import {
   MessageSquare,
   Sparkles,
   SunMoon,
+  ClipboardList,
+  Package,
+  Award,
+  Warehouse,
+  Fingerprint,
 } from 'lucide-react';
 import { aiClient } from '@/api/aiClient';
 
@@ -76,10 +81,15 @@ const COMMAND_ITEMS: NavCommandItem[] = [
 
   // 办公协同
   { label: 'OA 办公', path: '/oa', icon: Calendar, keywords: ['办公', '请假', '会议', 'oa'], group: '办公协同' },
-  { label: '人事中心', path: '/hr', icon: Users, keywords: ['人事', 'hr', '考勤', '绩效', '打卡', '排班'], group: '办公协同' },
+  { label: '考勤打卡', path: '/oa?tab=attendance', icon: Fingerprint, keywords: ['考勤', '打卡', '签到', '签退', 'attendance'], group: '办公协同' },
+  { label: '人事中心', path: '/hr', icon: Users, keywords: ['人事', 'hr', '绩效', '排班'], group: '办公协同' },
   { label: '财务中心', path: '/finance', icon: DollarSign, keywords: ['财务', 'finance', '报销', '发票', '预算'], group: '办公协同' },
   { label: 'CRM 客户管理', path: '/crm', icon: Users, keywords: ['crm', '客户', '线索', '商机'], group: '办公协同' },
   { label: '合同管理', path: '/contracts', icon: FileText, keywords: ['合同', 'contract'], group: '办公协同' },
+  { label: '工单管理', path: '/work-orders', icon: ClipboardList, keywords: ['工单', '报修', '投诉', 'work order', '服务'], group: '办公协同' },
+  { label: '资产管理', path: '/assets', icon: Package, keywords: ['资产', '设备', '领用', '归还', 'asset'], group: '办公协同' },
+  { label: '库存管理', path: '/inventory', icon: Warehouse, keywords: ['库存', '进销存', '出入库', '盘点', 'inventory'], group: '办公协同' },
+  { label: '企业证照', path: '/certificates', icon: Award, keywords: ['证照', '资质', '证书', '许可', 'certificate'], group: '办公协同' },
 
   // 招投标
   { label: '标书分析', path: '/tender-analysis', icon: FileSearch, keywords: ['标书', 'tender', '招标', '投标'], group: '招投标' },
