@@ -244,7 +244,7 @@ async def run_agent_stream(
     streamed_plan_text = ""  # Track what was streamed during plan phase
 
     # Checkpointer corrupt state detection keywords
-    _CORRUPT_STATE_KEYWORDS = ("deserializ", "pickle", "ToolCallRecord", "unmarshal", "decode", "SerializationError")
+    corrupt_state_keywords = ("deserializ", "pickle", "ToolCallRecord", "unmarshal", "decode", "SerializationError")
 
     try:
         # P1 Security: Prefix thread_id with org_id to prevent cross-tenant
@@ -356,7 +356,7 @@ async def run_agent_stream(
         # Checkpointer corrupt state detection: if deserialization fails
         # (e.g., old ToolCallRecord types, pickle errors), retry with a
         # fresh thread_id to bypass the corrupted checkpoint.
-        if any(kw in error_str.lower() for kw in _CORRUPT_STATE_KEYWORDS):
+        if any(kw in error_str.lower() for kw in corrupt_state_keywords):
             logger.warning(
                 f"[Stream] Checkpointer state corruption detected, retrying with fresh thread: {e}"
             )
