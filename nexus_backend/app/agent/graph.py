@@ -53,6 +53,7 @@ from app.agent.nodes_orchestrator import orchestrate_node
 from app.agent.nodes_wbs import wbs_decompose_node
 from app.agent.router import route_node
 from app.agent.state import AgentState, QueryComplexity
+from app.tools import get_tool
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -116,6 +117,28 @@ def _detect_loop(state: AgentState) -> bool:
     return False
 
 
+# ─── Mutation Fast-Path Helper ───────────────────────────────────────────────
+
+
+def _is_mutation_fast_path(state_or_dict: dict) -> bool:
+    """
+    Check if all completed tool calls are successful irreversible mutations.
+
+    When True, reflect and critic are unnecessary because mutation results
+    are deterministic (success/fail) — there is nothing to hallucinate.
+    """
+    completed = state_or_dict.get("completed_tool_calls", [])
+    if not completed:
+        return False
+    for tc in completed:
+        if getattr(tc, "status", None) != "success":
+            return False
+        tool = get_tool(getattr(tc, "tool_name", ""))
+        if not tool or not tool.is_irreversible:
+            return False
+    return True
+
+
 # ─── Conditional Edge Functions ──────────────────────────────────────────────
 
 
@@ -125,6 +148,7 @@ def _after_plan(state: AgentState) -> str:
       - If error occurred → error
       - If tool calls are pending → execute
       - SIMPLE queries skip reflection → respond directly
+      - Mutation fast-path: all tools succeeded & irreversible → respond directly
       - Otherwise → reflect (validates the direct answer)
     """
     if state.get("error"):
@@ -133,6 +157,10 @@ def _after_plan(state: AgentState) -> str:
         return "execute"
     # Short-circuit: SIMPLE queries (greetings, FAQ) skip reflection
     if state.get("complexity") == QueryComplexity.SIMPLE:
+        return "respond"
+    # Fast-path: mutation-only tools with all-success → skip reflect+critic
+    if _is_mutation_fast_path(state):
+        logger.info("[Graph] Mutation fast-path: all tools succeeded & irreversible, skipping reflect+critic")
         return "respond"
     return "reflect"
 

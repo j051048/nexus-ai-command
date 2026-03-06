@@ -19,7 +19,7 @@ import time
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from app.agent.graph import get_agent_graph
+from app.agent.graph import _is_mutation_fast_path, get_agent_graph
 from app.agent.memory import persist_result, prepare_initial_state
 from app.agent.state import (
     AgentConfig,
@@ -276,9 +276,13 @@ async def run_agent_stream(
                     streamed_plan_content = True
                     streamed_plan_text += content
                 elif content and node_name == "plan":
-                    # Accumulate plan text silently; it will be used for
-                    # final_response dedup check but not shown to the user
-                    # until the agent decides it's the definitive answer.
+                    # Mutation fast-path: when all completed tools are successful
+                    # irreversible mutations, reflect+critic will be skipped, so
+                    # we can stream plan tokens directly for instant UX.
+                    if _is_mutation_fast_path(accumulated_state):
+                        yield _sse_content(content)
+                        streamed_plan_content = True
+                    # Always accumulate plan text for final_response dedup check
                     streamed_plan_text += content
 
             # B. State Updates (when a node completes)
