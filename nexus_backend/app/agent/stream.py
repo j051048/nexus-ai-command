@@ -380,6 +380,17 @@ async def run_agent_stream(
         getattr(tc, "status", None) == "blocked" for tc in accumulated_state.get("completed_tool_calls", [])
     )
     already_streamed = streamed_plan_content and final_response and final_response.strip() == streamed_plan_text.strip()
+
+    # Diagnostic logging for HITL confirmation flow
+    logger.info(
+        f"[Stream] Post-loop: system_confirmed={system_confirmed}, "
+        f"has_confirmation_pending={has_confirmation_pending}, "
+        f"already_streamed={already_streamed}, "
+        f"final_response_len={len(final_response)}, "
+        f"streamed_plan_content={streamed_plan_content}, "
+        f"completed_tool_calls_count={len(accumulated_state.get('completed_tool_calls', []))}"
+    )
+
     if final_response and not already_streamed and not has_confirmation_pending:
         yield _sse_status("")  # Clear status
         # Stream word by word for smooth UX
@@ -387,6 +398,13 @@ async def run_agent_stream(
         for chunk in chunks:
             yield _sse_content(chunk)
             await asyncio.sleep(0.01)
+    else:
+        logger.warning(
+            f"[Stream] Skipped streaming final_response! "
+            f"final_response={'yes' if final_response else 'EMPTY'}, "
+            f"already_streamed={already_streamed}, "
+            f"has_confirmation_pending={has_confirmation_pending}"
+        )
 
     # ── 7. Emit thinking chain completion ──
     yield _sse_data(
