@@ -260,6 +260,10 @@ class ConversationMemoryService:
                     .execute()
                 )
 
+        # Apply temporal decay for final ranking — older memories score lower
+        # so fresh, frequently-accessed memories surface first.
+        memories.sort(key=lambda m: self._compute_decay_score(m), reverse=True)
+
         return memories[:limit]
 
     async def _semantic_search(self, user_id: str, query: str, limit: int, org_id: str | None, client) -> list[dict]:

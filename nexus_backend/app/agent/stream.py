@@ -243,6 +243,9 @@ async def run_agent_stream(
     streamed_plan_content = False  # Track whether plan tokens were already streamed
     streamed_plan_text = ""  # Track what was streamed during plan phase
 
+    # Checkpointer corrupt state detection keywords
+    _CORRUPT_STATE_KEYWORDS = ("deserializ", "pickle", "ToolCallRecord", "unmarshal", "decode", "SerializationError")
+
     try:
         # P1 Security: Prefix thread_id with org_id to prevent cross-tenant
         # state leakage via the LangGraph checkpointer.
@@ -348,15 +351,80 @@ async def run_agent_stream(
         return
 
     except Exception as e:
-        logger.error(f"[Stream] Agent graph execution failed: {e}", exc_info=True)
-        # P1 Security: Do not expose internal error details to the client
-        yield _sse_content("\n\n⚠️ 处理请求时发生内部错误，请稍后重试。如问题持续，请联系管理员。")
-        yield _sse_data({"thinking_chain_complete": True, "total_steps": len(all_thinking_steps)})
-        yield "data: [DONE]\n\n"
-        if tracer:
-            tracer.log_error(str(e))
-            tracer.log_end()
-        return
+        error_str = str(e)
+
+        # Checkpointer corrupt state detection: if deserialization fails
+        # (e.g., old ToolCallRecord types, pickle errors), retry with a
+        # fresh thread_id to bypass the corrupted checkpoint.
+        if any(kw in error_str.lower() for kw in _CORRUPT_STATE_KEYWORDS):
+            logger.warning(
+                f"[Stream] Checkpointer state corruption detected, retrying with fresh thread: {e}"
+            )
+            try:
+                fresh_thread = f"{scoped_thread_id}::fresh-{int(time.time())}"
+                accumulated_state = dict(initial_state)
+                all_thinking_steps = []
+                streamed_plan_content = False
+                streamed_plan_text = ""
+
+                async for event in _agent_graph.astream_events(
+                    initial_state,
+                    thread_id=fresh_thread,
+                    config={"configurable": {"trace_logger": tracer}},
+                    version="v2",
+                ):
+                    kind = event.get("event")
+                    if kind == "on_chat_model_stream":
+                        node_name = event.get("metadata", {}).get("langgraph_node")
+                        content = event["data"]["chunk"].content
+                        if content and node_name == "respond":
+                            yield _sse_content(content)
+                            streamed_plan_content = True
+                            streamed_plan_text += content
+                        elif content and node_name == "plan":
+                            if _is_mutation_fast_path(accumulated_state):
+                                yield _sse_content(content)
+                                streamed_plan_content = True
+                            streamed_plan_text += content
+                    elif kind == "on_chain_end":
+                        data = event.get("data", {})
+                        output = data.get("output")
+                        if isinstance(output, dict) and any(
+                            k in output for k in ("current_phase", "thinking_steps", "messages")
+                        ):
+                            for key, value in output.items():
+                                if key == "messages" and isinstance(value, list):
+                                    accumulated_state["messages"] = accumulated_state.get("messages", []) + value
+                                elif key == "thinking_steps" and isinstance(value, list):
+                                    for step in value:
+                                        if isinstance(step, ThinkingStep):
+                                            all_thinking_steps.append(step)
+                                            yield _sse_thinking(step)
+                                elif key == "completed_tool_calls" and isinstance(value, list):
+                                    accumulated_state["completed_tool_calls"] = (
+                                        accumulated_state.get("completed_tool_calls", []) + value
+                                    )
+                                else:
+                                    accumulated_state[key] = value
+            except Exception as retry_err:
+                logger.error(f"[Stream] Retry with fresh thread also failed: {retry_err}", exc_info=True)
+                yield _sse_content("\n\n⚠️ 处理请求时发生内部错误，请稍后重试。如问题持续，请联系管理员。")
+                yield _sse_data({"thinking_chain_complete": True, "total_steps": len(all_thinking_steps)})
+                yield "data: [DONE]\n\n"
+                if tracer:
+                    tracer.log_error(str(retry_err))
+                    tracer.log_end()
+                return
+        else:
+            logger.error(f"[Stream] Agent graph execution failed: {e}", exc_info=True)
+            # P1 Security: Do not expose internal error details to the client
+            yield _sse_content("\n\n⚠️ 处理请求时发生内部错误，请稍后重试。如问题持续，请联系管理员。")
+            yield _sse_data({"thinking_chain_complete": True, "total_steps": len(all_thinking_steps)})
+            yield "data: [DONE]\n\n"
+            if tracer:
+                tracer.log_error(str(e))
+                tracer.log_end()
+            return
 
     # ── 6. Stream the final response ──
     final_response = accumulated_state.get("final_response", "")

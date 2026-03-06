@@ -28,6 +28,10 @@ logger = logging.getLogger(__name__)
 # Configurable window size
 SHORT_TERM_WINDOW = getattr(settings, "MAX_CHAT_HISTORY", 10)
 
+# Absolute turn limit — safety net before any LLM-based compaction.
+# Prevents runaway token costs on very long sessions.
+HARD_TURN_LIMIT = 40
+
 # Default context window sizes per model family (in tokens)
 _MODEL_CONTEXT_WINDOWS = {
     "gpt-4o": 128000,
@@ -507,7 +511,19 @@ async def prepare_initial_state(
         except Exception as e:
             logger.debug(f"[Memory] Episode recall failed: {e}")
 
-    # ── 3. Sliding Window with Summary ──
+    # ── 3. History Hard-Limiting (safety net) ──
+    # Absolute turn limit before any LLM-based compaction to prevent
+    # runaway token costs on very long sessions.
+    if len(raw_messages) > HARD_TURN_LIMIT:
+        system_msgs = [m for m in raw_messages if m.get("role") == "system"]
+        non_system = [m for m in raw_messages if m.get("role") != "system"]
+        raw_messages = system_msgs + non_system[-HARD_TURN_LIMIT:]
+        logger.info(
+            f"[Memory] Hard-limited to {HARD_TURN_LIMIT} non-system messages "
+            f"+ {len(system_msgs)} system messages"
+        )
+
+    # ── 3b. Sliding Window with Summary ──
     if len(raw_messages) > SHORT_TERM_WINDOW:
         older = raw_messages[:-SHORT_TERM_WINDOW]
         recent = raw_messages[-SHORT_TERM_WINDOW:]
@@ -523,7 +539,7 @@ async def prepare_initial_state(
             )
         raw_messages = recent
 
-    # ── 3b. Token Window Trim ──
+    # ── 3c. Token Window Trim ──
     # After the count-based sliding window, apply a token-budget check so
     # that the final message list never exceeds 80 % of the model context.
     raw_messages = await trim_messages_to_window(raw_messages, config)
@@ -542,6 +558,11 @@ async def prepare_initial_state(
             lc_messages.append(HumanMessage(content=content))
         elif role == "assistant":
             lc_messages.append(AIMessage(content=content))
+
+    # ── 4b. Repair orphaned tool message pairs ──
+    # After conversion, ensure no AIMessage with tool_calls is separated
+    # from its ToolMessages (can happen if checkpointer state leaks into history).
+    lc_messages = _repair_lc_message_pairs(lc_messages)
 
     # ── 5. HITL Confirmation Injection ──
     # When the user confirmed a blocked tool via the frontend confirmation card,
@@ -751,6 +772,64 @@ async def load_session_history(
 
 
 # ─── Internal Helpers ────────────────────────────────────────────────────────
+
+
+def _repair_lc_message_pairs(messages: list[BaseMessage]) -> list[BaseMessage]:
+    """
+    Repair orphaned tool message pairs in LangChain message lists.
+
+    After history truncation or checkpointer state loading, AIMessage with
+    tool_calls can be separated from their corresponding ToolMessages (or
+    vice versa). Sending such orphaned messages to the LLM API causes errors.
+
+    Rules:
+    - ToolMessage without a preceding AIMessage with tool_calls → drop
+    - AIMessage with tool_calls without subsequent ToolMessage(s) → drop
+    """
+    from langchain_core.messages import ToolMessage
+
+    if not messages:
+        return messages
+
+    repaired: list[BaseMessage] = []
+    i = 0
+    while i < len(messages):
+        msg = messages[i]
+
+        if isinstance(msg, ToolMessage):
+            # ToolMessage must follow an AIMessage with tool_calls
+            if repaired and isinstance(repaired[-1], AIMessage) and getattr(repaired[-1], "tool_calls", None):
+                repaired.append(msg)
+            else:
+                logger.debug("[Memory] Dropping orphaned ToolMessage (no preceding tool_calls AIMessage)")
+            i += 1
+            continue
+
+        if isinstance(msg, AIMessage) and getattr(msg, "tool_calls", None):
+            # Look ahead for at least one subsequent ToolMessage
+            j = i + 1
+            has_tool_response = False
+            while j < len(messages):
+                if isinstance(messages[j], ToolMessage):
+                    has_tool_response = True
+                    break
+                if not isinstance(messages[j], ToolMessage):
+                    break
+                j += 1
+
+            if not has_tool_response:
+                logger.debug("[Memory] Dropping AIMessage with orphaned tool_calls (no subsequent ToolMessages)")
+                i += 1
+                continue
+
+        repaired.append(msg)
+        i += 1
+
+    dropped = len(messages) - len(repaired)
+    if dropped:
+        logger.info(f"[Memory] Repaired message list: {len(messages)} → {len(repaired)} ({dropped} orphans removed)")
+
+    return repaired
 
 
 async def _summarize_messages(
