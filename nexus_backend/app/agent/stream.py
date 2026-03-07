@@ -159,6 +159,14 @@ async def run_agent_stream(
             yield "data: [DONE]\n\n"
             return
 
+    # ── 2b. Early SIMPLE detection — skip RAG for casual chat ──
+    if last_user_content:
+        from app.agent.router import classify_query
+
+        early_complexity, _ = classify_query(last_user_content)
+        if early_complexity == QueryComplexity.SIMPLE:
+            agent_config.enable_rag_inject = False
+
     if tracer:
         tracer.log_start(messages_dicts)
 

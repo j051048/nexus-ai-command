@@ -38,6 +38,19 @@ _SELF_DESCRIPTION_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# Chitchat / casual conversation — should be handled as SIMPLE without tools
+_CHITCHAT_PATTERNS = re.compile(
+    r"(聊聊天|闲聊|随便聊|无聊|讲个笑话|说个段子|"
+    r"你(觉得|认为|喜欢|怎么看)|"
+    r"天气怎么样|今天天气|"
+    r"心情(不错|不好|很好)|"
+    r"推荐.{0,4}(书|电影|歌|音乐)|"
+    r"早安|晚安|午安|拜拜|再见|辛苦了|加油|"
+    r"哈哈|嗯嗯|嘻嘻|呵呵|好吧|算了|"
+    r"周末.{0,6}(干嘛|做什么|计划|安排))",
+    re.IGNORECASE,
+)
+
 # ─── Query vs Execute verb sets (for semantic distinction) ───────────────────
 # When a CRITICAL keyword is matched but only query verbs are present (and no
 # execute verbs), the complexity is downgraded to MODERATE — e.g. "查看通知"
@@ -332,6 +345,10 @@ def classify_query(query: str) -> tuple[QueryComplexity, str]:
     # 1b. Self-description / capability inquiry — answer from system prompt, no tools needed
     if _SELF_DESCRIPTION_PATTERNS.search(text):
         return QueryComplexity.SIMPLE, "AI自我介绍或能力说明"
+
+    # 1c. Chitchat / casual conversation — no tools needed
+    if _CHITCHAT_PATTERNS.search(text):
+        return QueryComplexity.SIMPLE, "日常闲聊"
 
     # 2. Critical (irreversible operations)
     # P1 Fix: Use substring matching instead of word splitting to avoid
