@@ -101,4 +101,9 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.scheduler.measure_action_outcomes",
         "schedule": crontab(hour=6, minute=0),  # 每天早6:00
     },
+    # ── P0: Smart recommendation push ──
+    "push-smart-recommendations": {
+        "task": "app.tasks.scheduler.push_smart_recommendations",
+        "schedule": crontab(minute=0, hour="*/2"),  # 每2小时
+    },
 }

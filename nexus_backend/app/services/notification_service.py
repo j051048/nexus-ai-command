@@ -173,6 +173,30 @@ class InAppNotificationAdapter(BaseNotificationAdapter):
             except Exception as ws_err:
                 logger.warning(f"WebSocket推送通知失败(不影响DB记录): {ws_err}")
 
+            # P0-1: For HIGH/URGENT notifications with proactive_prompt, trigger AI chat
+            proactive_prompt = notification.metadata.get("proactive_prompt") if notification.metadata else None
+            if proactive_prompt and notification.priority in (
+                NotificationPriority.HIGH, NotificationPriority.URGENT
+            ):
+                try:
+                    from app.services.websocket_manager import ws_manager
+
+                    session_id = f"proactive_{uuid.uuid4().hex[:12]}"
+                    await ws_manager.send_to_user(notification.target_user_id, {
+                        "type": "proactive_chat",
+                        "data": {
+                            "session_id": session_id,
+                            "title": notification.title,
+                            "message": proactive_prompt,
+                            "priority": notification.priority,
+                            "source": notification.metadata.get("source", "system"),
+                            "created_at": datetime.now().isoformat(),
+                        }
+                    })
+                    logger.debug(f"Proactive chat triggered for user {notification.target_user_id}")
+                except Exception as pc_err:
+                    logger.warning(f"Proactive chat push failed: {pc_err}")
+
             return True
 
         except Exception as e:

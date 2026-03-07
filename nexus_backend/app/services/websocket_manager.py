@@ -164,6 +164,10 @@ class ConnectionManager:
         """Check if a user has any active connections."""
         return bool(self._connections.get(user_id))
 
+    def get_connected_user_ids(self) -> list[str]:
+        """Return list of currently connected user IDs."""
+        return [uid for uid, conns in self._connections.items() if conns]
+
     @property
     def active_connections(self) -> int:
         """Total number of active connections."""

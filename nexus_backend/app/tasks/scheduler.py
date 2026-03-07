@@ -633,7 +633,73 @@ def decompose_vmd_task(task_id: str):
 
 
 # ---------------------------------------------------------------------------
-# P0-2: Memory Decay Cleanup
+# P0-2: Smart Recommendation Push
+# ---------------------------------------------------------------------------
+
+
+@celery_app.task
+def push_smart_recommendations():
+    """Push smart recommendations to online users via WebSocket every 2 hours."""
+
+    async def _run():
+        from app.core.database import supabase
+
+        if not supabase:
+            return "skipped: no db"
+
+        from app.services.smart_recommendation_service import smart_recommendation_service
+        from app.services.websocket_manager import ws_manager
+
+        connected_users = ws_manager.get_connected_user_ids()
+        if not connected_users:
+            return "skipped: no online users"
+
+        pushed = 0
+        for user_id in connected_users:
+            try:
+                user_result = await supabase.table("users").select(
+                    "organization_id, role"
+                ).eq("id", user_id).maybe_single().execute()
+
+                if not user_result.data:
+                    continue
+
+                context = {
+                    "org_id": user_result.data.get("organization_id"),
+                    "role": user_result.data.get("role", "employee"),
+                }
+
+                recs = await smart_recommendation_service.get_recommendations(
+                    user_id=user_id, context=context, limit=3, db=supabase,
+                )
+
+                # Only push HIGH+ priority recommendations (priority value >= 3)
+                important_recs = [r for r in recs if r.priority.value >= 3]
+                if not important_recs:
+                    continue
+
+                await ws_manager.send_to_user(user_id, {
+                    "type": "recommendation",
+                    "data": [
+                        {
+                            "id": r.id,
+                            "type": r.type.value,
+                            "title": r.title,
+                            "description": r.description,
+                            "priority": r.priority.name.lower(),
+                            "action_url": r.action_url,
+                            "action_label": r.action_label,
+                        }
+                        for r in important_recs
+                    ],
+                })
+                pushed += 1
+            except Exception as e:
+                logger.debug(f"Recommendation push failed for {user_id}: {e}")
+
+        return f"pushed to {pushed}/{len(connected_users)} users"
+
+    return _run_async(_run())
 # ---------------------------------------------------------------------------
 
 

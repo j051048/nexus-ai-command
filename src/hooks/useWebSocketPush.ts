@@ -90,6 +90,39 @@ export function useWebSocketPush() {
               });
             }
           }
+
+          // P0-1: AI 主动发起聊天对话
+          if (msg.type === 'proactive_chat') {
+            const { session_id, title, message, priority } = msg.data;
+            toast.info(title, {
+              description: message?.slice(0, 100),
+              action: {
+                label: '打开对话',
+                onClick: () => {
+                  window.dispatchEvent(new CustomEvent('proactive-chat', {
+                    detail: { session_id, title, message }
+                  }));
+                },
+              },
+              duration: priority === 'urgent' ? 30000 : 15000,
+            });
+          }
+
+          // P0-2: 智能推荐主动推送
+          if (msg.type === 'recommendation') {
+            const recs = msg.data as Array<{
+              title: string; description: string;
+              action_url?: string; action_label?: string; priority: string;
+            }>;
+            const top = recs?.[0];
+            if (top) {
+              toast.info(top.title, {
+                description: top.description?.slice(0, 100),
+                duration: 10000,
+              });
+            }
+            queryClient.invalidateQueries({ queryKey: ['smart-recommendations'] });
+          }
         } catch {
           // 忽略解析失败
         }

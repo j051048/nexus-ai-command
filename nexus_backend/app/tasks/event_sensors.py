@@ -168,6 +168,11 @@ def sensor_sales_anomaly():
                         content=alert_content[:500],
                         target_user_id=u["id"],
                         priority=NotificationPriority.HIGH,
+                        metadata={
+                            "action_url": "/dashboard",
+                            "source": "sensor_sales_anomaly",
+                            "proactive_prompt": f"检测到销售额异常下跌。{'; '.join(anomalies)}。需要我分析可能的原因并生成恢复建议吗？",
+                        },
                     )
                     notified += 1
                 except Exception:
@@ -244,6 +249,11 @@ def sensor_followup_timeout():
                     title=f"⏰ 客户跟进提醒: {customer['name']}",
                     content=f"客户处于 {customer['stage']} 阶段，已 {days_since} 天未跟进。\n\n💡 建议: {suggestion[:200]}",
                     target_user_id=customer["user_id"],
+                    metadata={
+                        "action_url": f"/customers/{customer['id']}",
+                        "source": "sensor_followup_timeout",
+                        "proactive_prompt": f"客户「{customer['name']}」已超过{days_since}天未跟进，处于{customer['stage']}阶段。需要我帮你生成跟进话术吗？",
+                    },
                 )
                 # P1-2: Record action for outcome tracking
                 await _record_action(
@@ -331,6 +341,11 @@ def sensor_contract_expiry_ladder():
                         content=f"合同将在 {ladder['days']} 天后到期 ({target_date}){amount_str}{suggestion}",
                         target_user_id=contract["user_id"],
                         priority=ladder["priority"],
+                        metadata={
+                            "action_url": f"/contracts/{contract['id']}",
+                            "source": "sensor_contract_expiry_ladder",
+                            "proactive_prompt": f"合同「{contract.get('title', '未命名')}」将在{ladder['days']}天内到期{amount_str}。需要我帮你起草续约邮件吗？",
+                        },
                     )
                     # P1-2: Record action for outcome tracking
                     await _record_action(
@@ -421,6 +436,11 @@ def sensor_approval_backlog():
                     content="\n".join(summary_parts),
                     target_user_id=approver_id,
                     priority=NotificationPriority.HIGH,
+                    metadata={
+                        "action_url": "/approvals",
+                        "source": "sensor_approval_backlog",
+                        "proactive_prompt": f"你有 {len(items)} 笔审批待处理。需要我帮你快速审批吗？",
+                    },
                 )
                 notified += 1
             except Exception as e:
@@ -528,6 +548,11 @@ def sensor_target_progress():
                     title=f"📊 目标进度预警: 完成率 {completion_pct}%",
                     content=f"本月已过 {round(month_progress * 100)}%，但目标完成率仅 {completion_pct}%。\n\n💡 {suggestion[:300]}",
                     target_user_id=user_id,
+                    metadata={
+                        "action_url": "/dashboard",
+                        "source": "sensor_target_progress",
+                        "proactive_prompt": f"本月目标完成率 {completion_pct}%，距离月底还有 {days_in_month - day_of_month} 天。需要我帮你制定冲刺计划吗？",
+                    },
                 )
                 notified += 1
             except Exception as e:
