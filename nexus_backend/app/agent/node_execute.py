@@ -79,15 +79,16 @@ async def _execute_single_tool(
         record.result = "Error: 工具服务断路器已打开，请稍后重试。"
         return record
 
-    # 1. RBAC Check
+    # 1. RBAC Check — use role hierarchy for generic level comparison
     if tool.required_role not in ("all", "ai_assistant"):
-        if tool.required_role == "boss" and config.user_role not in ("boss", "founder"):
+        from app.agent.node_helpers import _ROLE_HIERARCHY
+
+        req_level = _ROLE_HIERARCHY.get(tool.required_role, 1)
+        user_level = _ROLE_HIERARCHY.get(config.user_role, 1)
+        if user_level < req_level:
+            role_label = {"boss": "领导", "manager": "管理者", "admin": "管理员"}.get(tool.required_role, tool.required_role)
             record.status = "blocked"
-            record.result = f"⛔ 权限不足: 工具 [{record.tool_name}] 需要领导权限，当前角色为 [{config.user_role}]。"
-            return record
-        if tool.required_role == "manager" and config.user_role not in ("manager", "boss", "founder"):
-            record.status = "blocked"
-            record.result = f"⛔ 权限不足: 工具 [{record.tool_name}] 需要管理者权限，当前角色为 [{config.user_role}]。"
+            record.result = f"⛔ 权限不足: 工具 [{record.tool_name}] 需要{role_label}权限，当前角色为 [{config.user_role}]。"
             return record
 
     # 2. Confirmation Gate (irreversible operations)

@@ -90,6 +90,7 @@ _ROLE_HIERARCHY = {
     "guest": 0,
     "employee": 1,
     "manager": 2,
+    "admin": 3,
     "boss": 3,
     "founder": 4,
 }
