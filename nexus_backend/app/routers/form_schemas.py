@@ -11,7 +11,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from app.core.auth import get_current_user_id
+from app.core.auth import get_current_user_id, require_role
 from app.core.errors import ErrorCode, api_error, api_success
 from app.services.form_schema_service import form_schema_service
 
@@ -72,10 +72,10 @@ async def list_schemas(
 async def create_schema(
     request: Request,
     body: FormSchemaCreate,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_role(["founder", "boss"])),
 ):
     """
-    Create a new form schema for an approval type.
+    Create a new form schema for an approval type. Requires boss/founder role.
 
     If an active schema already exists for the same (org, type),
     the old one will be deactivated automatically.
@@ -160,10 +160,10 @@ async def update_schema(
     request: Request,
     schema_id: str,
     body: FormSchemaUpdate,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_role(["founder", "boss"])),
 ):
     """
-    Update an existing form schema.
+    Update an existing form schema. Requires boss/founder role.
 
     Version is auto-incremented on each update.
     """
@@ -188,10 +188,10 @@ async def update_schema(
 async def delete_schema(
     request: Request,
     schema_id: str,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_role(["founder", "boss"])),
 ):
     """
-    Delete a form schema by ID.
+    Delete a form schema by ID. Requires boss/founder role.
     """
     try:
         client = getattr(request.state, "db", None)

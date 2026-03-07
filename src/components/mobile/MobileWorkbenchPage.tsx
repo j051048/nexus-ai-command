@@ -220,8 +220,8 @@ export default function MobileWorkbenchPage() {
           icon: Import,
           visibleTo: ['boss', 'manager'],
         },
-        { label: '表单设计', path: '/form-designer', icon: FileEdit },
-        { label: '流程模板', path: '/workflow-templates', icon: LayoutTemplate },
+        { label: '表单设计', path: '/form-designer', icon: FileEdit, visibleTo: ['boss', 'founder'] },
+        { label: '流程模板', path: '/workflow-templates', icon: LayoutTemplate, visibleTo: ['boss', 'founder'] },
       ],
     },
   ];

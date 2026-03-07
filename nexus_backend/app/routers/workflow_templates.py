@@ -9,7 +9,7 @@ import logging
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
-from app.core.auth import get_current_user_id
+from app.core.auth import get_current_user_id, require_role
 from app.core.errors import ErrorCode, api_error, api_success
 from app.services.workflow_template_service import workflow_template_service
 
@@ -87,9 +87,9 @@ async def create_from_template(
     request: Request,
     template_id: str,
     body: CreateFromTemplateBody = CreateFromTemplateBody(),
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_role(["founder", "boss"])),
 ):
-    """从模板创建新的工作流"""
+    """从模板创建新的工作流。需要 boss/founder 权限。"""
     try:
         org_id = getattr(request.state, "org_id", None)
         db = getattr(request.state, "db", None)
@@ -119,9 +119,9 @@ async def create_from_template(
 async def share_as_template(
     request: Request,
     workflow_id: str,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_role(["founder", "boss"])),
 ):
-    """将现有工作流分享为组织模板"""
+    """将现有工作流分享为组织模板。需要 boss/founder 权限。"""
     try:
         org_id = getattr(request.state, "org_id", None)
         db = getattr(request.state, "db", None)

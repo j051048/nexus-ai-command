@@ -8,7 +8,7 @@ import logging
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
-from app.core.auth import get_current_user_id
+from app.core.auth import get_current_user_id, require_role
 from app.core.errors import ErrorCode, api_error, api_success
 from app.services.workflow_definition_service import (
     VALID_APPROVAL_TYPES,
@@ -69,9 +69,9 @@ async def list_workflows(
 async def create_workflow(
     request: Request,
     body: WorkflowCreateBody,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_role(["founder", "boss"])),
 ):
-    """Create a new workflow definition."""
+    """Create a new workflow definition. Requires boss/founder role."""
     try:
         org_id = getattr(request.state, "org_id", None)
         db = getattr(request.state, "db", None)
@@ -132,9 +132,9 @@ async def update_workflow(
     request: Request,
     workflow_id: str,
     body: WorkflowUpdateBody,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_role(["founder", "boss"])),
 ):
-    """Update an existing workflow definition."""
+    """Update an existing workflow definition. Requires boss/founder role."""
     try:
         db = getattr(request.state, "db", None)
 
@@ -159,9 +159,9 @@ async def update_workflow(
 async def delete_workflow(
     request: Request,
     workflow_id: str,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_role(["founder", "boss"])),
 ):
-    """Delete a workflow definition."""
+    """Delete a workflow definition. Requires boss/founder role."""
     try:
         db = getattr(request.state, "db", None)
 
@@ -181,9 +181,9 @@ async def delete_workflow(
 async def toggle_workflow(
     request: Request,
     workflow_id: str,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_role(["founder", "boss"])),
 ):
-    """Toggle the active status of a workflow."""
+    """Toggle the active status of a workflow. Requires boss/founder role."""
     try:
         db = getattr(request.state, "db", None)
 
@@ -202,9 +202,9 @@ async def toggle_workflow(
 async def set_default(
     request: Request,
     workflow_id: str,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_role(["founder", "boss"])),
 ):
-    """Set a workflow as the default for the organization."""
+    """Set a workflow as the default for the organization. Requires boss/founder role."""
     try:
         org_id = getattr(request.state, "org_id", None)
         db = getattr(request.state, "db", None)
