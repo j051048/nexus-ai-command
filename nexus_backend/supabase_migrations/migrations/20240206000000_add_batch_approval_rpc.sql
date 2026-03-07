@@ -1,4 +1,4 @@
--- P1 Fix #15: Atomic batch approval via database transaction
+-- Migration: Add Batch Approval RPC Function-- P1 Fix #15: Atomic batch approval via database transaction
 -- Prevents partial approval states when processing multiple requests.
 -- The entire batch succeeds or fails as one unit.
 

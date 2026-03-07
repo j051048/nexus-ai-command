@@ -1,4 +1,4 @@
--- =============================================================================
+-- Migration: Add Organization Multi-Tenancy Support-- =============================================================================
 -- P0 Fix #7, #8, #9: Multi-tenant Organization Support
 -- Adds organization_id to all core tables and updates RLS policies
 -- =============================================================================

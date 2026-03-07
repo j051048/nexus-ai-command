@@ -1,4 +1,4 @@
--- P1 Fix #13: Token Usage Persistence Tables
+-- Migration: Add Token Usage Tables-- P1 Fix #13: Token Usage Persistence Tables
 -- Stores token usage data durably so it survives process restarts.
 
 -- 1. Append-only log of every LLM API call

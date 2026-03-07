@@ -1,4 +1,4 @@
--- Fix: Ensure handle_new_user() trigger inserts into the correct tables
+-- Migration: Fix auth trigger to use profiles + user_roles tables-- Fix: Ensure handle_new_user() trigger inserts into the correct tables
 -- The project uses public.profiles + public.user_roles (not public.users)
 -- This migration ensures the auth trigger is consistent with the actual schema.
 

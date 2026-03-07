@@ -390,21 +390,32 @@ class OrganizationService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            # 总人数
+            # 总人数 — 优先查 employees 表（HR花名册），为空则兜底查 users 表
             total_result = await (
                 db.table("employees").select("id", count="exact").eq("organization_id", org_id).execute()
             )
             total_count = total_result.count or 0
 
-            # 在职人数
-            active_result = await (
-                db.table("employees")
-                .select("id", count="exact")
-                .eq("organization_id", org_id)
-                .eq("status", "active")
-                .execute()
-            )
-            active_count = active_result.count or 0
+            if total_count > 0:
+                # HR 花名册有数据，使用 employees 表统计
+                active_result = await (
+                    db.table("employees")
+                    .select("id", count="exact")
+                    .eq("organization_id", org_id)
+                    .eq("status", "active")
+                    .execute()
+                )
+                active_count = active_result.count or 0
+            else:
+                # employees 表为空，兜底查 users 表（核心用户表）
+                users_result = await (
+                    db.table("users")
+                    .select("id", count="exact")
+                    .eq("organization_id", org_id)
+                    .execute()
+                )
+                total_count = users_result.count or 0
+                active_count = total_count  # users 表中的都视为在职
 
             # 部门数
             dept_result = await (
