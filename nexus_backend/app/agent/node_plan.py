@@ -227,6 +227,53 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     tool_calls_raw = ai_msg.tool_calls
     content = ai_msg.content or ""
 
+    # ── Empty Response Recovery ──
+    # When LLM returns empty content with no tool calls after tools have executed,
+    # inject a synthesis prompt and retry once. This prevents the empty-response
+    # loop where reflect detects empty → replans → empty again → loop until max_iter.
+    completed_tools = state.get("completed_tool_calls", [])
+    if not content.strip() and not tool_calls_raw and completed_tools and iteration > 0:
+        logger.warning("[PlanNode] LLM returned empty response after tool execution, retrying with synthesis prompt")
+        # Build a concise summary of tool results for the retry
+        tool_summaries = []
+        for tc in completed_tools[-5:]:
+            t_name = tc.tool_name if hasattr(tc, "tool_name") else tc.get("tool_name", "")
+            t_result = (tc.result if hasattr(tc, "result") else tc.get("result", ""))[:300]
+            t_status = tc.status if hasattr(tc, "status") else tc.get("status", "")
+            tool_summaries.append(f"- {t_name} ({t_status}): {t_result}")
+        synthesis_msg = SystemMessage(
+            content=(
+                "你刚才调用了工具并获得了结果，但没有生成回复。"
+                "请根据以下工具执行结果，直接用中文回答用户的问题。\n\n"
+                "工具结果:\n" + "\n".join(tool_summaries)
+            )
+        )
+        retry_msgs = lc_msgs + [synthesis_msg]
+        try:
+            retry_llm = _get_llm(agent_config, model=model, streaming=True, resolved_config=resolved)
+            # Don't bind tools — we want a text response, not more tool calls
+            ai_msg = await retry_llm.ainvoke(retry_msgs)
+            content = ai_msg.content or ""
+            tool_calls_raw = ai_msg.tool_calls
+            if content.strip():
+                logger.info("[PlanNode] Empty response recovery succeeded")
+            else:
+                # Still empty — build a fallback response from tool results
+                logger.warning("[PlanNode] Retry still empty, constructing fallback from tool results")
+                fallback_parts = ["以下是工具执行结果：\n"]
+                for tc in completed_tools:
+                    t_name = tc.tool_name if hasattr(tc, "tool_name") else tc.get("tool_name", "")
+                    t_result = (tc.result if hasattr(tc, "result") else tc.get("result", ""))[:500]
+                    fallback_parts.append(f"**{t_name}**: {t_result}")
+                content = "\n\n".join(fallback_parts)
+                from langchain_core.messages import AIMessage as _AIMessage
+
+                ai_msg = _AIMessage(content=content)
+                tool_calls_raw = []
+        except Exception as e:
+            logger.error(f"[PlanNode] Empty response recovery failed: {e}")
+            # Fall through with original empty response — let reflect handle it
+
     # Build pending tool call records
     pending_tools: list[ToolCallRecord] = []
     if tool_calls_raw:
