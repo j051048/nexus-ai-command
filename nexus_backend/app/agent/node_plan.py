@@ -58,13 +58,14 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
 
     # ── Dynamic System Prompt Injection ──
     # Inject user_role and available_tools into the system prompt
+    intent_summary = state.get("intent_summary", "")
     if iteration == 0:
         extra_lines = []
         user_role = agent_config.user_role
         if user_role:
             extra_lines.append(f"当前用户角色: {user_role}")
 
-        tool_schemas = _get_tool_schemas(agent_config.user_role)
+        tool_schemas = _get_tool_schemas(agent_config.user_role, intent_summary=intent_summary)
         if tool_schemas:
             tool_names = ", ".join(t["function"]["name"] for t in tool_schemas)
             extra_lines.append(f"可用工具: {tool_names}")
@@ -127,7 +128,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     # Use ChatOpenAI with streaming and bind_tools
     llm = _get_llm(agent_config, model=model, streaming=True, resolved_config=resolved)
     if include_tools:
-        llm = llm.bind_tools(_get_tool_schemas(agent_config.user_role), parallel_tool_calls=True)
+        llm = llm.bind_tools(_get_tool_schemas(agent_config.user_role, intent_summary=intent_summary), parallel_tool_calls=True)
 
     thinking_step = ThinkingStep(
         phase=AgentPhase.PLANNING.value,
@@ -161,7 +162,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
 
     # Retry up to 2 times on timeout/connection errors (proxy APIs can be slow)
     _llm_start = time.time()
-    tool_schemas = _get_tool_schemas(agent_config.user_role) if include_tools else None
+    tool_schemas = _get_tool_schemas(agent_config.user_role, intent_summary=state.get("intent_summary", "")) if include_tools else None
     last_error = None
     for attempt in range(3):
         try:

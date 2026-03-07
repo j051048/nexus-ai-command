@@ -278,7 +278,7 @@ async def execute_node(state: AgentState, config: RunnableConfig | None = None) 
     for record in completed:
         tool_messages.append(
             ToolMessage(
-                content=record.result or "",
+                content=(record.result or "")[:2000],
                 name=record.tool_name,
                 tool_call_id=record.tool_call_id,
             )
