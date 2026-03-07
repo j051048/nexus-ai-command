@@ -9,7 +9,8 @@ import logging
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
-from app.core.auth import get_current_user_id, require_role
+from app.core.auth import get_current_user_id
+from app.core.dependencies import require_role
 from app.core.errors import ErrorCode, api_error, api_success
 from app.services.workflow_template_service import workflow_template_service
 
