@@ -231,7 +231,20 @@ _MODERATE_KEYWORDS = {
     "通讯录",
 }
 
-# ─── VMD Agent Role Detection Patterns ────────────────────────────────────────
+# ─── Aggregate business indicators ─────────────────────────────────────────
+# Union of ALL business keywords. Queries not matching any of these are
+# treated as general conversation (SIMPLE) — no tools, no RAG.
+_ALL_BUSINESS_KEYWORDS: set[str] = (
+    _CRITICAL_KEYWORDS | _COMPLEX_KEYWORDS | _MODERATE_KEYWORDS | {
+        # From _KEYWORD_DOMAIN_MAP but missing in the above sets
+        "待办", "日报", "周报", "简报", "定时", "工单",
+        "排班", "交接", "跟进", "漏斗", "招聘", "绩效",
+        "员工", "部门", "入职", "标书", "白皮书", "文案",
+        "话术", "手册", "市场", "舆情", "证照", "通知", "公告",
+        # Document/knowledge terms that suggest RAG-worthy queries
+        "产品", "文档", "资料", "方案", "规范", "规格",
+    }
+)
 # Maps regex patterns to agent_code + scene_code.
 # Checked AFTER complexity classification; used to assign a specific agent role.
 
@@ -375,8 +388,43 @@ def classify_query(query: str) -> tuple[QueryComplexity, str]:
     if matched_moderate:
         return QueryComplexity.MODERATE, f"工具查询: {', '.join(matched_moderate)}"
 
-    # 5. Default: moderate (let the LLM decide tool usage)
-    return QueryComplexity.MODERATE, "一般业务查询"
+    # 5. Check for any business indicator not covered above
+    matched_business = {kw for kw in _ALL_BUSINESS_KEYWORDS if kw in text}
+    if matched_business:
+        return QueryComplexity.MODERATE, f"业务相关: {', '.join(matched_business)}"
+
+    # 6. No business context — general conversation, skip tools & RAG
+    return QueryComplexity.SIMPLE, "一般对话"
+
+
+# ─── RAG Relevance Gate ─────────────────────────────────────────────────────
+# Only trigger RAG (embedding API call) when the query is likely to need
+# information from uploaded documents / knowledge base.
+# This prevents unnecessary text-embedding-3-small calls for queries like
+# "帮我请假三天" or "查看客户列表" which use tools, not documents.
+
+_RAG_TRIGGER_PATTERNS = re.compile(
+    r"(文档|资料|手册|文件|知识库|规范|标准|参数|规格|说明书|"
+    r"招标|投标|标书|方案|白皮书|技术文档|"
+    r"产品.{0,4}(介绍|说明|参数|规格|对比)|"
+    r"我们的.{0,4}(产品|方案|能力|优势)|"
+    r"我方|公司.{0,4}(产品|方案|资质)|"
+    r"根据.{0,6}(文件|文档|资料|要求)|"
+    r"参考|查阅|检索|摘要|总结.{0,4}(文档|资料|文件)|"
+    r"竞品|竞争.{0,4}(对手|分析|对比)|"
+    r"行业.{0,4}(报告|分析|趋势))",
+    re.IGNORECASE,
+)
+
+
+def _should_enable_rag(query: str) -> bool:
+    """Check if a query likely needs RAG retrieval from knowledge base.
+
+    Returns True only when the query suggests the user needs information
+    from uploaded documents or company knowledge. This prevents unnecessary
+    embedding API calls for general tool-based queries.
+    """
+    return bool(_RAG_TRIGGER_PATTERNS.search(query))
 
 
 # ─── LLM-based Intent Classification ────────────────────────────────────────
@@ -468,10 +516,6 @@ async def route_node(state: AgentState) -> dict:
             break
 
     complexity, intent_summary = classify_query(last_user_msg)
-
-    # ── LLM Fallback for ambiguous queries ──
-    if intent_summary == "一般业务查询" and len(last_user_msg) > 10:
-        complexity, intent_summary = await _llm_classify_intent(last_user_msg, config)
 
     selected_model = config.get_model_for_complexity(complexity)
 
