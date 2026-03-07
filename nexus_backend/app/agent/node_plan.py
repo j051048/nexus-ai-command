@@ -2,6 +2,7 @@
 Graph Node: plan_node — LLM planning with tool binding.
 """
 
+import asyncio
 import contextlib
 import time
 
@@ -145,44 +146,57 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         logger.debug(f"[PlanNode] PRE_CHAT hook error: {e}")
 
     # Call LLM via standard invoke (with automatic fallback to backup provider)
-    try:
-        # Circuit breaker check for LLM service
-        if not llm_circuit_breaker.allow_request():
-            return {
-                "error": "LLM 服务断路器已打开，请稍后重试。",
-                "current_phase": AgentPhase.ERROR,
-                "thinking_steps": [
-                    ThinkingStep(
-                        phase=AgentPhase.PLANNING.value,
-                        content="⚠️ LLM 服务暂时不可用（断路器保护），请稍后再试",
-                    )
-                ],
-            }
-        _llm_start = time.time()
-        tool_schemas = _get_tool_schemas(agent_config.user_role) if include_tools else None
-        ai_msg = await invoke_with_fallback(
-            llm,
-            lc_msgs,
-            config=agent_config,
-            model=model,
-            streaming=True,
-            tool_schemas=tool_schemas,
-        )
-        record_llm_latency(model=model or agent_config.model, duration_ms=(time.time() - _llm_start) * 1000)
-        llm_circuit_breaker.record_success()
-    except Exception as e:
-        llm_circuit_breaker.record_failure()
-        logger.error(f"[PlanNode] LLM call failed: {e}")
+    # Circuit breaker check for LLM service
+    if not llm_circuit_breaker.allow_request():
         return {
-            "error": f"LLM 规划失败: {str(e)}",
+            "error": "LLM 服务断路器已打开，请稍后重试。",
             "current_phase": AgentPhase.ERROR,
             "thinking_steps": [
                 ThinkingStep(
                     phase=AgentPhase.PLANNING.value,
-                    content=f"⚠️ LLM 调用异常: {str(e)}",
+                    content="⚠️ LLM 服务暂时不可用（断路器保护），请稍后再试",
                 )
             ],
         }
+
+    # Retry up to 2 times on timeout/connection errors (proxy APIs can be slow)
+    _llm_start = time.time()
+    tool_schemas = _get_tool_schemas(agent_config.user_role) if include_tools else None
+    last_error = None
+    for attempt in range(3):
+        try:
+            ai_msg = await invoke_with_fallback(
+                llm,
+                lc_msgs,
+                config=agent_config,
+                model=model,
+                streaming=True,
+                tool_schemas=tool_schemas,
+            )
+            record_llm_latency(model=model or agent_config.model, duration_ms=(time.time() - _llm_start) * 1000)
+            llm_circuit_breaker.record_success()
+            break
+        except Exception as e:
+            last_error = e
+            error_str = str(e).lower()
+            is_retryable = any(kw in error_str for kw in ("timeout", "timed out", "connection", "connect"))
+            if is_retryable and attempt < 2:
+                logger.warning(f"[PlanNode] LLM call timeout (attempt {attempt + 1}/3), retrying...")
+                await asyncio.sleep(1.0 * (attempt + 1))
+                continue
+            # Non-retryable error or final attempt — give up
+            llm_circuit_breaker.record_failure()
+            logger.error(f"[PlanNode] LLM call failed after {attempt + 1} attempts: {e}")
+            return {
+                "error": f"LLM 规划失败: {str(e)}",
+                "current_phase": AgentPhase.ERROR,
+                "thinking_steps": [
+                    ThinkingStep(
+                        phase=AgentPhase.PLANNING.value,
+                        content=f"⚠️ LLM 调用异常: {str(e)}",
+                    )
+                ],
+            }
 
     # Track usage (LangChain usually provides this in additional_kwargs or response_metadata)
     usage = ai_msg.response_metadata.get("token_usage", {})

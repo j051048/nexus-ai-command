@@ -174,7 +174,7 @@ def _get_llm(
             base_url=resolved_config.get("base_url", config.base_url),
             temperature=resolved_config.get("temperature", config.temperature),
             streaming=streaming,
-            timeout=resolved_config.get("timeout", 60.0),
+            timeout=resolved_config.get("timeout", 90.0),
             default_headers=default_headers or None,
             callbacks=callbacks,
         )
@@ -184,7 +184,7 @@ def _get_llm(
         base_url=config.base_url,
         temperature=config.temperature,
         streaming=streaming,
-        timeout=60.0,
+        timeout=90.0,
         default_headers=default_headers or None,
         callbacks=callbacks,
     )
@@ -216,7 +216,7 @@ def _get_fallback_llm(config: AgentConfig, model: str | None = None, streaming: 
         base_url=settings.AI_FALLBACK_BASE_URL,
         temperature=config.temperature,
         streaming=streaming,
-        timeout=60.0,
+        timeout=90.0,
         default_headers=default_headers or None,
     )
 

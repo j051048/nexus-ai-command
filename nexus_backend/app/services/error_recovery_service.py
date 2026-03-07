@@ -427,7 +427,7 @@ error_recovery_service = ErrorRecoveryService()
 # Circuit breakers for key external services
 llm_circuit_breaker = CircuitBreaker(
     "llm_service",
-    CircuitBreakerConfig(failure_threshold=3, recovery_timeout=30.0, success_threshold=2),
+    CircuitBreakerConfig(failure_threshold=5, recovery_timeout=30.0, success_threshold=2),
 )
 tool_circuit_breaker = CircuitBreaker(
     "tool_service",
