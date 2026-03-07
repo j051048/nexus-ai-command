@@ -7,6 +7,7 @@ using a rule-based extraction engine (no LLM calls).
 """
 
 import contextlib
+import hashlib
 import logging
 import re
 import uuid
@@ -72,6 +73,14 @@ TOOL_USAGE_KEYWORDS: dict[str, str] = {
     "日程": "schedule",
     "任务": "task",
 }
+
+# Signal words that indicate a message may contain memorizable content
+# Only trigger LLM extraction when these words are present
+MEMORY_SIGNAL_WORDS = frozenset({
+    "记住", "以后", "每次", "总是", "永远", "我是", "我负责",
+    "我们公司", "规定", "偏好", "习惯", "别给我", "不要",
+    "我喜欢", "我讨厌", "我倾向", "帮我记", "请记住",
+})
 
 
 class ConversationMemoryService:
@@ -260,11 +269,11 @@ class ConversationMemoryService:
                     .execute()
                 )
 
-        # Apply temporal decay for final ranking — older memories score lower
-        # so fresh, frequently-accessed memories surface first.
+        # Apply temporal decay for final ranking, then MMR diversity reranking
         memories.sort(key=lambda m: self._compute_decay_score(m), reverse=True)
+        memories = self._mmr_rerank(memories, limit)
 
-        return memories[:limit]
+        return memories
 
     async def _semantic_search(self, user_id: str, query: str, limit: int, org_id: str | None, client) -> list[dict]:
         """Embedding-based semantic search on memories using pgvector."""
@@ -395,7 +404,8 @@ class ConversationMemoryService:
                     if len(match_text) < 2:
                         continue
 
-                    key = f"{pattern_info['key_prefix']}_{uuid.uuid4().hex[:6]}"
+                    content_hash = hashlib.md5(match_text.encode()).hexdigest()[:8]
+                    key = f"{pattern_info['key_prefix']}_{content_hash}"
                     entry = {
                         "key": key,
                         "value": match_text,
@@ -417,8 +427,14 @@ class ConversationMemoryService:
                     if not any(e["key"] == entry["key"] for e in extracted):
                         extracted.append(entry)
 
-        # 3) LLM-assisted deep extraction (catches complex semantics)
-        llm_extracted = await self._extract_with_llm(messages)
+        # 3) LLM-assisted deep extraction (only when signal words are present)
+        user_texts = " ".join(
+            msg.get("content", "") for msg in messages if msg.get("role") == "user"
+        )
+        if any(w in user_texts for w in MEMORY_SIGNAL_WORDS):
+            llm_extracted = await self._extract_with_llm(messages)
+        else:
+            llm_extracted = []
         if llm_extracted:
             existing_values = {e["value"] for e in extracted}
             for entry in llm_extracted:
@@ -648,38 +664,28 @@ class ConversationMemoryService:
         query: str | None = None,
         db: Any = None,
     ) -> str:
-        """Build organization memory context string for injection into system prompt."""
+        """Build organization memory context string for injection into system prompt.
+
+        Strategy:
+        - policy: always inject (behavioral rules, must be obeyed)
+        - preference/knowledge: only inject query-relevant ones via search
+        """
         if not org_id:
             return ""
 
         parts: list[str] = []
 
         # Always inject org behavior policies (highest priority, query-independent)
-        policies = await self.get_org_memories(org_id, category="policy", limit=20, db=db)
+        policies = await self.get_org_memories(org_id, category="policy", limit=10, db=db)
         if policies:
             parts.append("## 组织行为准则（必须遵守）")
             for m in policies:
                 parts.append(f"- {m['key']}: {m['value']}")
 
-        # Get org-wide preferences/rules
-        prefs = await self.get_org_memories(org_id, category="preference", limit=20, db=db)
-        if prefs:
-            parts.append("## 组织规则和偏好")
-            for m in prefs:
-                parts.append(f"- {m['key']}: {m['value']}")
-
-        # Get org knowledge
-        knowledge = await self.get_org_memories(org_id, category="knowledge", limit=20, db=db)
-        if knowledge:
-            parts.append("## 组织共享知识")
-            for m in knowledge:
-                parts.append(f"- {m['key']}: {m['value']}")
-
-        # If there's a query, search for relevant memories
+        # Search for query-relevant org memories (preference/knowledge/etc.)
         if query:
             relevant = await self.search_org_memories(org_id, query, limit=5, db=db)
-            # Filter out duplicates already in policies/prefs/knowledge
-            existing_keys = {m["key"] for m in policies + prefs + knowledge}
+            existing_keys = {m["key"] for m in policies}
             relevant = [m for m in relevant if m["key"] not in existing_keys]
             if relevant:
                 parts.append("## 相关组织记忆")
@@ -742,45 +748,32 @@ class ConversationMemoryService:
         构建记忆上下文，注入到 system prompt 中。
 
         策略：
-        1. 获取高重要性偏好记忆（带衰减排序）
-        2. 搜索与当前查询相关的记忆
-        3. 格式化为上下文字符串
+        1. 显式记忆无条件注入（用户主动要求记住的，量少且重要）
+        2. 其余记忆（偏好/事实等）走语义搜索，只注入与当前查询相关的
         """
         context_parts: list[str] = []
 
-        # 1) High-importance preferences (top 5, with decay scoring)
-        preferences = await self.get_memories(
-            user_id=user_id,
-            category="preference",
-            limit=5,
-            db=db,
-        )
-        if preferences:
-            pref_lines = [f"- {m['value']}" for m in preferences]
-            context_parts.append("用户偏好:\n" + "\n".join(pref_lines))
-
-        # 2) Explicit memories (top 3)
+        # 1) Explicit memories — always inject (user explicitly asked to remember)
         explicit = await self.get_memories(
             user_id=user_id,
             category="explicit_memory",
-            limit=3,
+            limit=5,
             db=db,
         )
         if explicit:
             mem_lines = [f"- {m['value']}" for m in explicit]
             context_parts.append("用户记忆:\n" + "\n".join(mem_lines))
 
-        # 3) Query-relevant memories
+        # 2) Query-relevant memories — semantic search across all categories
         if current_query and len(current_query) >= 2:
             relevant = await self.search_memories(
                 user_id=user_id,
                 query=current_query,
-                limit=3,
+                limit=5,
                 db=db,
             )
             if relevant:
-                # Deduplicate against already included memories
-                existing_ids = {m["id"] for m in preferences + explicit}
+                existing_ids = {m["id"] for m in explicit}
                 new_relevant = [m for m in relevant if m["id"] not in existing_ids]
                 if new_relevant:
                     rel_lines = [f"- {m['value']}" for m in new_relevant]
@@ -789,9 +782,64 @@ class ConversationMemoryService:
         if not context_parts:
             return ""
 
-        return "[用户记忆上下文 - 以下信息来自该用户的历史交互]\n" + "\n\n".join(context_parts) + "\n[记忆上下文结束]"
+        return "[用户记忆上下文]\n" + "\n\n".join(context_parts) + "\n[记忆上下文结束]"
 
     # ─── P0-2: Memory Decay — 记忆衰减与自动清理 ─────────────────
+
+    def _mmr_rerank(
+        self,
+        memories: list[dict],
+        limit: int,
+        lambda_param: float = 0.7,
+    ) -> list[dict]:
+        """MMR (Maximal Marginal Relevance) diversity reranking.
+
+        Balances relevance and diversity using Jaccard text similarity.
+        lambda=1.0 → pure relevance; lambda=0.0 → max diversity.
+        """
+        if len(memories) <= 1:
+            return memories
+
+        def _tokenize(text: str) -> set[str]:
+            return set(text.lower().split())
+
+        def _jaccard(a: set[str], b: set[str]) -> float:
+            if not a or not b:
+                return 0.0
+            return len(a & b) / len(a | b)
+
+        tokens = [_tokenize(m.get("value", "") + " " + m.get("key", "")) for m in memories]
+
+        scores = [self._compute_decay_score(m) for m in memories]
+        max_score = max(scores) if scores else 1.0
+        if max_score > 0:
+            scores = [s / max_score for s in scores]
+
+        selected: list[int] = []
+        candidates = list(range(len(memories)))
+
+        while len(selected) < min(limit, len(memories)):
+            best_idx = -1
+            best_mmr = -1.0
+
+            for i in candidates:
+                relevance = scores[i]
+                if selected:
+                    max_sim = max(_jaccard(tokens[i], tokens[j]) for j in selected)
+                else:
+                    max_sim = 0.0
+
+                mmr = lambda_param * relevance - (1 - lambda_param) * max_sim
+                if mmr > best_mmr:
+                    best_mmr = mmr
+                    best_idx = i
+
+            if best_idx < 0:
+                break
+            selected.append(best_idx)
+            candidates.remove(best_idx)
+
+        return [memories[i] for i in selected]
 
     def _compute_decay_score(self, memory: dict) -> float:
         """Compute a decay-weighted importance score for a memory.
@@ -821,6 +869,11 @@ class ConversationMemoryService:
 
         # Half-life of 30 days
         recency_factor = 1.0 / (1 + days_since / 30.0)
+
+        # Evergreen categories: explicit_memory and policy never decay
+        category = memory.get("category", "")
+        if category in ("explicit_memory", "policy"):
+            recency_factor = 1.0
 
         # Access frequency bonus (logarithmic)
         access_factor = math.log(access_count + 1) / math.log(10) + 0.5  # range ~0.5-2.0

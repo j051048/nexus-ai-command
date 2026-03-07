@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import re
+from collections import OrderedDict
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -60,6 +61,9 @@ class VectorService:
 
     P0 Security: org_id is MANDATORY for all search operations to prevent cross-tenant data leakage.
     """
+
+    _EMBED_CACHE_MAX = 500  # max cached embeddings (in-process LRU)
+    _embed_cache: OrderedDict[str, list[float]] = OrderedDict()
 
     _DOC_TYPE_LABELS = {
         "tender": "招标文件",
@@ -435,9 +439,17 @@ class VectorService:
 
         Used by ConversationMemoryService for memory embeddings.
         Returns None on failure so callers can gracefully degrade.
+        Uses in-process LRU cache to avoid redundant API calls.
         """
         if not text or not text.strip():
             return None
+
+        # Cache lookup by content hash
+        truncated = text.strip()[:8000]
+        cache_key = hashlib.md5(truncated.encode()).hexdigest()
+        if cache_key in self._embed_cache:
+            self._embed_cache.move_to_end(cache_key)
+            return self._embed_cache[cache_key]
 
         try:
             api_key, base_url, model = await self._get_embedding_config(org_id)
@@ -454,10 +466,17 @@ class VectorService:
 
             client = AsyncOpenAI(api_key=api_key, base_url=base_url)
             response = await client.embeddings.create(
-                input=text[:8000],  # truncate to avoid token limits
+                input=truncated,
                 model=model or _DEFAULT_EMBEDDING_MODEL,
             )
-            return response.data[0].embedding
+            embedding = response.data[0].embedding
+
+            # Cache the result (LRU eviction)
+            self._embed_cache[cache_key] = embedding
+            if len(self._embed_cache) > self._EMBED_CACHE_MAX:
+                self._embed_cache.popitem(last=False)
+
+            return embedding
         except Exception as e:
             logger.warning(f"Failed to generate embedding: {e}")
             return None

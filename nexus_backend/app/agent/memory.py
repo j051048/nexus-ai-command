@@ -396,8 +396,10 @@ async def prepare_initial_state(
         except Exception as e:
             logger.warning(f"[Memory] RAG retrieval failed: {e}", exc_info=True)
 
-    # ── 2b. Long-term Memory Injection ──
-    # Load user preferences and explicit memories from conversation_memory_service
+    # ── 2b–2f. Collect all context blocks, then inject as ONE system message ──
+    injected_contexts: list[str] = []
+
+    # 2b. Long-term Memory
     if config.user_id and last_user_msg:
         try:
             from app.services.conversation_memory_service import conversation_memory_service
@@ -408,19 +410,12 @@ async def prepare_initial_state(
                 db=client,
             )
             if memory_context:
-                # Inject as the first system-level context message
-                raw_messages.insert(
-                    0,
-                    {
-                        "role": "system",
-                        "content": memory_context,
-                    },
-                )
-                logger.info(f"[Memory] Injected long-term memory context for user {config.user_id}")
+                injected_contexts.append(memory_context)
+                logger.info(f"[Memory] Collected long-term memory context for user {config.user_id}")
         except Exception as e:
             logger.debug(f"[Memory] Long-term memory injection skipped: {e}")
 
-    # ── 2c. Organization Memory Injection ──
+    # 2c. Organization Memory
     if config.org_id and last_user_msg:
         try:
             from app.services.conversation_memory_service import conversation_memory_service
@@ -431,18 +426,12 @@ async def prepare_initial_state(
                 db=client,
             )
             if org_memory_ctx:
-                raw_messages.insert(
-                    0,
-                    {
-                        "role": "system",
-                        "content": "[组织共享记忆上下文]\n" + org_memory_ctx + "\n[组织记忆结束]",
-                    },
-                )
-                logger.info(f"[Memory] Injected org memory context for org {config.org_id}")
+                injected_contexts.append("[组织共享记忆上下文]\n" + org_memory_ctx + "\n[组织记忆结束]")
+                logger.info(f"[Memory] Collected org memory context for org {config.org_id}")
         except Exception as e:
             logger.debug(f"[Memory] Org memory context failed: {e}")
 
-    # ── 2d. Knowledge Graph Context Injection (P2-2) ──
+    # 2d. Knowledge Graph Context (P2-2)
     if config.org_id and last_user_msg:
         try:
             from app.services.knowledge_graph_service import query_entity_context
@@ -452,18 +441,12 @@ async def prepare_initial_state(
                 org_id=config.org_id,
             )
             if kg_context:
-                raw_messages.insert(
-                    0,
-                    {
-                        "role": "system",
-                        "content": kg_context,
-                    },
-                )
-                logger.info(f"[Memory] Injected knowledge graph context for org {config.org_id}")
+                injected_contexts.append(kg_context)
+                logger.info(f"[Memory] Collected knowledge graph context for org {config.org_id}")
         except Exception as e:
             logger.debug(f"[Memory] Knowledge graph context failed: {e}")
 
-    # ── 2e. Behavior Pattern Suggestions (P3) ──
+    # 2e. Behavior Pattern Suggestions (P3)
     if config.user_id and config.org_id and last_user_msg:
         try:
             from app.services.knowledge_graph_service import get_pattern_suggestions
@@ -474,18 +457,12 @@ async def prepare_initial_state(
                 current_query=last_user_msg,
             )
             if pattern_hints:
-                raw_messages.insert(
-                    0,
-                    {
-                        "role": "system",
-                        "content": pattern_hints,
-                    },
-                )
-                logger.info(f"[Memory] Injected pattern suggestions for user {config.user_id}")
+                injected_contexts.append(pattern_hints)
+                logger.info(f"[Memory] Collected pattern suggestions for user {config.user_id}")
         except Exception as e:
             logger.debug(f"[Memory] Pattern suggestion failed: {e}")
 
-    # ── 2f. Episodic Memory Recall (P1-6) ──
+    # 2f. Episodic Memory Recall (P1-6)
     if config.user_id and last_user_msg:
         try:
             from app.services.conversation_memory_service import episodic_memory_service
@@ -500,16 +477,47 @@ async def prepare_initial_state(
             if episodes:
                 episode_context = episodic_memory_service.build_episode_context(episodes)
                 if episode_context:
-                    raw_messages.insert(
-                        0,
-                        {
-                            "role": "system",
-                            "content": episode_context,
-                        },
-                    )
-                    logger.info(f"[Memory] Injected {len(episodes)} episode recalls for user {config.user_id}")
+                    injected_contexts.append(episode_context)
+                    logger.info(f"[Memory] Collected {len(episodes)} episode recalls for user {config.user_id}")
         except Exception as e:
             logger.debug(f"[Memory] Episode recall failed: {e}")
+
+    # Inject all collected contexts as a single system message
+    if injected_contexts:
+        raw_messages.insert(
+            0,
+            {
+                "role": "system",
+                "content": "\n\n".join(injected_contexts),
+            },
+        )
+        logger.info(f"[Memory] Injected {len(injected_contexts)} context blocks as one system message")
+
+    # ── 2g. Pre-compaction Memory Flush ──
+    # Before discarding old messages, extract any memorizable content
+    # so important information isn't lost during compression.
+    if config.user_id and len(raw_messages) > SHORT_TERM_WINDOW:
+        try:
+            from app.services.conversation_memory_service import conversation_memory_service
+
+            older_msgs = raw_messages[:-SHORT_TERM_WINDOW]
+            user_msgs_to_flush = [
+                m for m in older_msgs
+                if m.get("role") == "user" and m.get("content")
+            ]
+            if user_msgs_to_flush:
+                extracted = await conversation_memory_service.extract_preferences(
+                    user_id=config.user_id,
+                    messages=user_msgs_to_flush,
+                    org_id=config.org_id,
+                )
+                if extracted:
+                    logger.info(
+                        f"[Memory] Pre-compaction flush: extracted {len(extracted)} "
+                        f"memories from {len(user_msgs_to_flush)} messages about to be discarded"
+                    )
+        except Exception as e:
+            logger.debug(f"[Memory] Pre-compaction memory flush skipped: {e}")
 
     # ── 3. History Hard-Limiting (safety net) ──
     # Absolute turn limit before any LLM-based compaction to prevent
