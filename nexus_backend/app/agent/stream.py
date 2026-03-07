@@ -162,12 +162,14 @@ async def run_agent_stream(
     # ── 2b. Early SIMPLE detection — skip RAG for casual chat ──
     # Also gate RAG for MODERATE queries: only enable when query suggests
     # the user needs information from uploaded documents / knowledge base.
+    _is_simple = False
     if last_user_content:
         from app.agent.router import classify_query, _should_enable_rag
 
         early_complexity, _ = classify_query(last_user_content)
         if early_complexity == QueryComplexity.SIMPLE:
             agent_config.enable_rag_inject = False
+            _is_simple = True
         elif agent_config.enable_rag_inject and not _should_enable_rag(last_user_content):
             agent_config.enable_rag_inject = False
             logger.debug("[Stream] RAG skipped: query has no document/knowledge indicators")
@@ -183,6 +185,7 @@ async def run_agent_stream(
         system_prompt,
         agent_config,
         db_client=db_client,
+        skip_semantic=_is_simple,
     )
     lc_messages = prep_result["messages"]
     cached_response = prep_result["cached_response"]
@@ -595,6 +598,7 @@ async def run_agent_stream(
             org_id=agent_config.org_id,
             completed_tool_calls=raw_tool_calls or None,
             skip_cache=has_confirmation or bool(accumulated_state.get("error")),
+            skip_semantic=_is_simple,
         )
     )
 

@@ -270,6 +270,8 @@ async def prepare_initial_state(
     system_prompt: str,
     config: AgentConfig,
     db_client: Any | None = None,
+    *,
+    skip_semantic: bool = False,
 ) -> dict[str, Any]:
     """
     Build the initial state components for the agent graph.
@@ -299,7 +301,7 @@ async def prepare_initial_state(
             last_user_msg = msg.get("content", "")
             break
 
-    if last_user_msg and config.user_id and not config.system_confirmed:
+    if last_user_msg and config.user_id and not config.system_confirmed and not skip_semantic:
         try:
             from app.services.semantic_cache import semantic_cache_service
 
@@ -399,8 +401,8 @@ async def prepare_initial_state(
     # ── 2b–2f. Collect all context blocks, then inject as ONE system message ──
     injected_contexts: list[str] = []
 
-    # 2b. Long-term Memory
-    if config.user_id and last_user_msg:
+    # 2b. Long-term Memory (skip for SIMPLE queries — no business context to recall)
+    if config.user_id and last_user_msg and not skip_semantic:
         try:
             from app.services.conversation_memory_service import conversation_memory_service
 
@@ -415,8 +417,8 @@ async def prepare_initial_state(
         except Exception as e:
             logger.debug(f"[Memory] Long-term memory injection skipped: {e}")
 
-    # 2c. Organization Memory
-    if config.org_id and last_user_msg:
+    # 2c. Organization Memory (skip for SIMPLE queries)
+    if config.org_id and last_user_msg and not skip_semantic:
         try:
             from app.services.conversation_memory_service import conversation_memory_service
 
@@ -431,8 +433,8 @@ async def prepare_initial_state(
         except Exception as e:
             logger.debug(f"[Memory] Org memory context failed: {e}")
 
-    # 2d. Knowledge Graph Context (P2-2)
-    if config.org_id and last_user_msg:
+    # 2d. Knowledge Graph Context (P2-2, skip for SIMPLE queries)
+    if config.org_id and last_user_msg and not skip_semantic:
         try:
             from app.services.knowledge_graph_service import query_entity_context
 
@@ -446,8 +448,8 @@ async def prepare_initial_state(
         except Exception as e:
             logger.debug(f"[Memory] Knowledge graph context failed: {e}")
 
-    # 2e. Behavior Pattern Suggestions (P3)
-    if config.user_id and config.org_id and last_user_msg:
+    # 2e. Behavior Pattern Suggestions (P3, skip for SIMPLE queries)
+    if config.user_id and config.org_id and last_user_msg and not skip_semantic:
         try:
             from app.services.knowledge_graph_service import get_pattern_suggestions
 
@@ -462,8 +464,8 @@ async def prepare_initial_state(
         except Exception as e:
             logger.debug(f"[Memory] Pattern suggestion failed: {e}")
 
-    # 2f. Episodic Memory Recall (P1-6)
-    if config.user_id and last_user_msg:
+    # 2f. Episodic Memory Recall (P1-6, skip for SIMPLE queries)
+    if config.user_id and last_user_msg and not skip_semantic:
         try:
             from app.services.conversation_memory_service import episodic_memory_service
 
@@ -603,6 +605,7 @@ async def persist_result(
     org_id: str | None = None,
     completed_tool_calls: list[dict] | None = None,
     skip_cache: bool = False,
+    skip_semantic: bool = False,
 ):
     """
     Post-graph: persist messages and update caches.
@@ -637,8 +640,8 @@ async def persist_result(
     except Exception as e:
         logger.error(f"[Memory] Failed to persist messages: {e}")
 
-    # Update semantic cache (skip for confirmation/blocked responses)
-    if user_message and assistant_response and not skip_cache:
+    # Update semantic cache (skip for confirmation/blocked responses and SIMPLE queries)
+    if user_message and assistant_response and not skip_cache and not skip_semantic:
         try:
             from app.services.semantic_cache import semantic_cache_service
 
@@ -646,8 +649,8 @@ async def persist_result(
         except Exception as e:
             logger.debug(f"[Memory] Failed to update semantic cache: {e}")
 
-    # Extract and persist long-term memories from conversation
-    if user_message:
+    # Extract and persist long-term memories from conversation (skip for SIMPLE)
+    if user_message and not skip_semantic:
         try:
             from app.services.conversation_memory_service import conversation_memory_service
 
@@ -666,8 +669,8 @@ async def persist_result(
         except Exception as e:
             logger.debug(f"[Memory] Memory extraction skipped: {e}")
 
-    # Extract and persist organization-level memories
-    if user_message and org_id:
+    # Extract and persist organization-level memories (skip for SIMPLE)
+    if user_message and org_id and not skip_semantic:
         try:
             from app.services.conversation_memory_service import conversation_memory_service
 
@@ -683,8 +686,8 @@ async def persist_result(
         except Exception as e:
             logger.debug(f"[Memory] Org memory extraction skipped: {e}")
 
-    # ── P2-2: Extract entity relationships for knowledge graph ──
-    if user_message and org_id:
+    # ── P2-2: Extract entity relationships for knowledge graph (skip for SIMPLE) ──
+    if user_message and org_id and not skip_semantic:
         try:
             from app.services.knowledge_graph_service import extract_entities_from_conversation
 
@@ -723,8 +726,8 @@ async def persist_result(
         except Exception as e:
             logger.debug(f"[Memory] Pattern learning skipped: {e}")
 
-    # ── P1-6: Save interaction episode for experience recall ──
-    if user_message and assistant_response:
+    # ── P1-6: Save interaction episode for experience recall (skip for SIMPLE) ──
+    if user_message and assistant_response and not skip_semantic:
         try:
             from app.services.conversation_memory_service import episodic_memory_service
 
