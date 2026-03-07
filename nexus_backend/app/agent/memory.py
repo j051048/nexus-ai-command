@@ -352,7 +352,7 @@ async def prepare_initial_state(
                         limit=config.rag_inject_limit // len(expanded_queries),
                         org_id=config.org_id,
                     )
-                    if isinstance(docs, str) and docs:
+                    if isinstance(docs, str) and docs and "未找到" not in docs:
                         all_docs.append({"content": docs, "source": f"查询: {q[:30]}"})
 
             # Strategy 3: Original query (always included)
@@ -362,7 +362,7 @@ async def prepare_initial_state(
                 limit=config.rag_inject_limit,
                 org_id=config.org_id,
             )
-            if isinstance(original_docs, str) and original_docs:
+            if isinstance(original_docs, str) and original_docs and "未找到" not in original_docs:
                 all_docs.insert(0, {"content": original_docs, "source": "原始查询"})
 
             # Deduplicate and merge results

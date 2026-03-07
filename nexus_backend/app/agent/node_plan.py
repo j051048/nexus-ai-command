@@ -16,6 +16,7 @@ from app.agent.node_helpers import (
     QueryComplexity,
     ThinkingStep,
     ToolCallRecord,
+    _ALWAYS_INCLUDE_TOOLS,
     _get_llm,
     _get_tool_schemas,
     _messages_to_lc_format,
@@ -66,6 +67,9 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             extra_lines.append(f"当前用户角色: {user_role}")
 
         tool_schemas = _get_tool_schemas(agent_config.user_role, intent_summary=intent_summary)
+        if complexity == QueryComplexity.SIMPLE:
+            # SIMPLE: only show universal tools in system prompt
+            tool_schemas = [s for s in tool_schemas if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS]
         if tool_schemas:
             tool_names = ", ".join(t["function"]["name"] for t in tool_schemas)
             extra_lines.append(f"可用工具: {tool_names}")
@@ -122,12 +126,20 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
 
     # Decide whether to include tools
     complexity = state.get("complexity", QueryComplexity.MODERATE)
-    include_tools = complexity != QueryComplexity.SIMPLE
 
     # ── Task 1 & 2: LangChain Planning + Streaming ──
     # Use ChatOpenAI with streaming and bind_tools
     llm = _get_llm(agent_config, model=model, streaming=True, resolved_config=resolved)
-    if include_tools:
+    if complexity == QueryComplexity.SIMPLE:
+        # SIMPLE queries: only bind lightweight universal tools (web_search, llm_task)
+        # so LLM can still search the web for "推荐电影" etc., without loading 130+ business tools
+        simple_schemas = [
+            s for s in _get_tool_schemas(agent_config.user_role)
+            if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS
+        ]
+        if simple_schemas:
+            llm = llm.bind_tools(simple_schemas, parallel_tool_calls=True)
+    else:
         llm = llm.bind_tools(_get_tool_schemas(agent_config.user_role, intent_summary=intent_summary), parallel_tool_calls=True)
 
     thinking_step = ThinkingStep(
@@ -162,7 +174,13 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
 
     # Retry up to 2 times on timeout/connection errors (proxy APIs can be slow)
     _llm_start = time.time()
-    tool_schemas = _get_tool_schemas(agent_config.user_role, intent_summary=state.get("intent_summary", "")) if include_tools else None
+    if complexity == QueryComplexity.SIMPLE:
+        tool_schemas = [
+            s for s in _get_tool_schemas(agent_config.user_role)
+            if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS
+        ] or None
+    else:
+        tool_schemas = _get_tool_schemas(agent_config.user_role, intent_summary=state.get("intent_summary", ""))
     last_error = None
     for attempt in range(3):
         try:

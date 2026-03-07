@@ -33,8 +33,10 @@ _GREETING_PATTERNS = re.compile(
 # Self-description / capability inquiry patterns — should be handled as SIMPLE
 # without tool calls (the AI knows its own capabilities from system prompt)
 _SELF_DESCRIPTION_PATTERNS = re.compile(
-    r"你(能|会|可以)(做|帮|干)什么|你(有|会)哪些(技能|能力|功能)|你的(技能|能力|功能)|"
-    r"能帮我做什么|你能干嘛|介绍(一下)?你(自己|的功能|的能力)",
+    r"你(能|会|可以)(做|帮|干|写|画|搞|处理|生成|分析)什么|"
+    r"你(有|会)哪些(技能|能力|功能)|你的(技能|能力|功能)|"
+    r"能帮我做什么|你能干嘛|介绍(一下)?你(自己|的功能|的能力)|"
+    r"你(能|会|可以)(写|做|帮我写|帮我做|搞|处理|生成|画|分析).{0,10}(么|吗|嘛|不|没)",
     re.IGNORECASE,
 )
 
