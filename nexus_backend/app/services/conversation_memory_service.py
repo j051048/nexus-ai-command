@@ -842,16 +842,18 @@ class ConversationMemoryService:
         return [memories[i] for i in selected]
 
     def _compute_decay_score(self, memory: dict) -> float:
-        """Compute a decay-weighted importance score for a memory.
+        """Compute a decay-weighted importance score with surprise bonus.
 
-        Formula: score = base_importance * recency_factor * access_factor
+        Formula: score = base_importance * recency_factor * access_factor * surprise_factor
         - recency_factor decays over 30 days half-life
-        - access_factor rewards frequently accessed memories
+        - access_factor rewards frequently accessed memories (capped)
+        - surprise_factor boosts high-similarity + low-access memories (unexpected finds)
         """
         import math
 
         importance = float(memory.get("importance", 0.5) or 0.5)
         access_count = int(memory.get("access_count", 0) or 0)
+        similarity = float(memory.get("similarity", 0) or 0)
 
         # Recency: days since last access (or last update)
         last_accessed = memory.get("last_accessed_at") or memory.get("updated_at") or memory.get("created_at")
@@ -875,11 +877,21 @@ class ConversationMemoryService:
         if category in ("explicit_memory", "policy"):
             recency_factor = 1.0
 
-        # Access frequency bonus (logarithmic)
+        # Access frequency bonus (logarithmic, capped)
         access_factor = math.log(access_count + 1) / math.log(10) + 0.5  # range ~0.5-2.0
         access_factor = min(access_factor, 2.0)
 
-        return importance * recency_factor * access_factor
+        # Surprise bonus: high similarity + low access = unexpected valuable find
+        # Only applies when similarity is available (from semantic search results)
+        surprise_factor = 1.0
+        if similarity > 0.3:
+            # Novelty: rarely accessed memories are more "surprising"
+            # novelty=1.0 when access_count=0, decays toward 0.2 as access grows
+            novelty = 1.0 / (1 + access_count * 0.5)
+            # surprise = similarity * novelty, scaled to a 1.0-1.5 multiplier
+            surprise_factor = 1.0 + 0.5 * similarity * novelty
+
+        return importance * recency_factor * access_factor * surprise_factor
 
     async def cleanup_decayed_memories(
         self,
