@@ -26,10 +26,14 @@ router = APIRouter(prefix="/api/workflows", tags=["Workflows"])
 class WorkflowCreateBody(BaseModel):
     name: str = Field(..., min_length=1, max_length=200, description="Workflow name")
     description: str | None = Field(None, max_length=1000)
-    applies_to: list[str] = Field(..., min_length=1, description="Approval types this workflow handles")
-    steps: list[dict] = Field(..., min_length=1, description="Workflow step definitions (JSONB)")
+    # Backend native format
+    applies_to: list[str] | None = Field(None, description="Approval types this workflow handles")
+    steps: list[dict] | None = Field(None, description="Workflow step definitions (JSONB)")
     conditions: list[dict] | None = Field(None, description="Condition branch rules")
     canvas_layout: dict | None = Field(None, description="Frontend canvas layout data")
+    # Frontend format (accepted as alternative)
+    approval_type: str | None = Field(None, description="Single approval type (frontend format)")
+    definition: dict | None = Field(None, description="Nested {steps, conditions} (frontend format)")
 
 
 class WorkflowUpdateBody(BaseModel):
@@ -39,6 +43,92 @@ class WorkflowUpdateBody(BaseModel):
     steps: list[dict] | None = None
     conditions: list[dict] | None = None
     canvas_layout: dict | None = None
+    approval_type: str | None = None
+    definition: dict | None = None
+
+
+# --- Format Normalization ---
+
+
+def _normalize_create_body(body: WorkflowCreateBody) -> tuple[list[str], list[dict], list[dict] | None]:
+    """Transform frontend format to backend format.
+
+    Frontend sends: approval_type (str) + definition ({steps, conditions})
+    Backend needs:  applies_to (list[str]) + flat steps + flat conditions
+
+    Returns: (applies_to, steps, conditions)
+    """
+    # Steps: prefer flat 'steps', fallback to nested 'definition.steps'
+    steps = body.steps
+    conditions = body.conditions
+    if not steps and body.definition:
+        steps = body.definition.get("steps", [])
+        if conditions is None:
+            conditions = body.definition.get("conditions")
+
+    if not steps:
+        raise ValueError("Workflow must contain steps (either as 'steps' or 'definition.steps')")
+
+    # Applies_to: prefer 'applies_to', fallback to wrapping 'approval_type'
+    applies_to = body.applies_to
+    if not applies_to and body.approval_type:
+        applies_to = [body.approval_type]
+    if not applies_to:
+        applies_to = ["custom"]
+
+    return applies_to, steps, conditions
+
+
+def _normalize_update_body(body: WorkflowUpdateBody) -> dict:
+    """Transform frontend update format to backend format."""
+    updates = {}
+
+    # Direct fields
+    if body.name is not None:
+        updates["name"] = body.name
+    if body.description is not None:
+        updates["description"] = body.description
+    if body.canvas_layout is not None:
+        updates["canvas_layout"] = body.canvas_layout
+
+    # Steps: prefer flat, fallback to nested definition
+    if body.steps is not None:
+        updates["steps"] = body.steps
+        if body.conditions is not None:
+            updates["conditions"] = body.conditions
+    elif body.definition is not None:
+        updates["steps"] = body.definition.get("steps", [])
+        conditions = body.definition.get("conditions")
+        if conditions is not None:
+            updates["conditions"] = conditions
+
+    # Applies_to: prefer list, fallback to single approval_type
+    if body.applies_to is not None:
+        updates["applies_to"] = body.applies_to
+    elif body.approval_type is not None:
+        updates["applies_to"] = [body.approval_type]
+
+    return updates
+
+
+def _enrich_response(workflow: dict) -> dict:
+    """Add frontend-compatible fields to workflow response.
+
+    DB stores: applies_to (TEXT[]), steps (JSONB), conditions (JSONB)
+    Frontend expects: approval_type (str), definition ({steps, conditions})
+    """
+    wf = dict(workflow)
+    # approval_type: first element of applies_to
+    applies_to = wf.get("applies_to")
+    if applies_to and isinstance(applies_to, list) and len(applies_to) > 0:
+        wf.setdefault("approval_type", applies_to[0])
+    # definition: nest steps and conditions
+    if "steps" in wf:
+        wf.setdefault("definition", {
+            "steps": wf.get("steps", []),
+            "conditions": wf.get("conditions") or [],
+        })
+    return wf
 
 
 # --- Endpoints ---
@@ -58,7 +148,7 @@ async def list_workflows(
             raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "Organization context required")
 
         workflows = await workflow_definition_service.list_workflows(org_id=org_id, db=db)
-        return api_success(data=workflows)
+        return api_success(data=[_enrich_response(w) for w in workflows])
     except Exception as e:
         if hasattr(e, "status_code"):
             raise
@@ -80,17 +170,19 @@ async def create_workflow(
         if not org_id:
             raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "Organization context required")
 
+        applies_to, steps, conditions = _normalize_create_body(body)
+
         workflow = await workflow_definition_service.create_workflow(
             org_id=org_id,
             name=body.name,
-            applies_to=body.applies_to,
-            steps=body.steps,
-            conditions=body.conditions,
+            applies_to=applies_to,
+            steps=steps,
+            conditions=conditions,
             canvas_layout=body.canvas_layout,
             created_by=user_id,
             db=db,
         )
-        return api_success(data=workflow, message="Workflow created")
+        return api_success(data=_enrich_response(workflow), message="Workflow created")
     except ValueError as e:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
     except Exception as e:
@@ -120,7 +212,7 @@ async def get_workflow(
         if not workflow:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, f"Workflow {workflow_id} not found")
 
-        return api_success(data=workflow)
+        return api_success(data=_enrich_response(workflow))
     except Exception as e:
         if hasattr(e, "status_code"):
             raise
@@ -139,12 +231,12 @@ async def update_workflow(
     try:
         db = getattr(request.state, "db", None)
 
-        updates = {k: v for k, v in body.model_dump().items() if v is not None}
+        updates = _normalize_update_body(body)
         if not updates:
             return api_success(data=None, message="No updates provided")
 
         workflow = await workflow_definition_service.update_workflow(workflow_id=workflow_id, updates=updates, db=db)
-        return api_success(data=workflow, message="Workflow updated")
+        return api_success(data=_enrich_response(workflow), message="Workflow updated")
     except ValueError as e:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
     except RuntimeError as e:
@@ -189,7 +281,7 @@ async def toggle_workflow(
         db = getattr(request.state, "db", None)
 
         workflow = await workflow_definition_service.toggle_workflow(workflow_id=workflow_id, db=db)
-        return api_success(data=workflow, message="Workflow toggled")
+        return api_success(data=_enrich_response(workflow), message="Workflow toggled")
     except RuntimeError as e:
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, str(e))
     except Exception as e:
@@ -214,7 +306,7 @@ async def set_default(
             raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "Organization context required")
 
         workflow = await workflow_definition_service.set_default(workflow_id=workflow_id, org_id=org_id, db=db)
-        return api_success(data=workflow, message="Workflow set as default")
+        return api_success(data=_enrich_response(workflow), message="Workflow set as default")
     except RuntimeError as e:
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, str(e))
     except Exception as e:
