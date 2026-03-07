@@ -589,7 +589,7 @@ async def run_agent_stream(
             db_client=db_client,
             org_id=agent_config.org_id,
             completed_tool_calls=raw_tool_calls or None,
-            skip_cache=has_confirmation,  # Don't cache confirmation responses
+            skip_cache=has_confirmation or bool(accumulated_state.get("error")),
         )
     )
 
