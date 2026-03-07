@@ -26,7 +26,7 @@ class AttendanceService:
 
         Args:
             org_id: 组织ID
-            employee_id: 员工ID
+            employee_id: 员工ID (即 user_id)
             clock_type: 打卡类型 (clock_in/clock_out/field_work)
             location: 打卡位置
             device_info: 设备信息
@@ -39,19 +39,72 @@ class AttendanceService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            data = {
-                "organization_id": org_id,
-                "employee_id": employee_id,
-                "clock_type": clock_type,
-                "clock_time": datetime.now(UTC).isoformat(),
-                "location": location,
-                "device_info": device_info,
-            }
+            now = datetime.now(UTC)
+            today = now.date().isoformat()
 
-            result = await db.table("attendance_records").insert(data).execute()
+            # Check if a record already exists for today
+            existing = (
+                await db.table("attendance_records")
+                .select("id, check_in_time, check_out_time")
+                .eq("user_id", employee_id)
+                .eq("organization_id", org_id)
+                .eq("check_date", today)
+                .maybe_single()
+                .execute()
+            )
+
+            if existing and existing.data:
+                # Update existing record (clock_out or update)
+                update_data = {}
+                if clock_type == "clock_out":
+                    update_data["check_out_time"] = now.isoformat()
+                elif clock_type == "clock_in" and not existing.data.get("check_in_time"):
+                    update_data["check_in_time"] = now.isoformat()
+                else:
+                    update_data["check_out_time"] = now.isoformat()
+
+                if location or device_info:
+                    raw = existing.data.get("raw_data") or {}
+                    if location:
+                        raw["location"] = location
+                    if device_info:
+                        raw["device_info"] = device_info
+                    update_data["raw_data"] = raw
+
+                result = (
+                    await db.table("attendance_records")
+                    .update(update_data)
+                    .eq("id", existing.data["id"])
+                    .execute()
+                )
+            else:
+                # Insert new record for today
+                data = {
+                    "organization_id": org_id,
+                    "user_id": employee_id,
+                    "platform": "app",
+                    "check_date": today,
+                    "status": "normal",
+                }
+                if clock_type == "clock_in":
+                    data["check_in_time"] = now.isoformat()
+                elif clock_type == "clock_out":
+                    data["check_out_time"] = now.isoformat()
+                else:
+                    data["check_in_time"] = now.isoformat()
+
+                raw_data = {}
+                if location:
+                    raw_data["location"] = location
+                if device_info:
+                    raw_data["device_info"] = device_info
+                if raw_data:
+                    data["raw_data"] = raw_data
+
+                result = await db.table("attendance_records").insert(data).execute()
 
             if result.data and len(result.data) > 0:
-                logger.info(f"打卡成功: org={org_id}, employee={employee_id}, type={clock_type}")
+                logger.info(f"打卡成功: org={org_id}, user={employee_id}, type={clock_type}")
                 return result.data[0]
 
             raise RuntimeError("打卡记录创建失败")
@@ -86,15 +139,15 @@ class AttendanceService:
 
         try:
             query = (
-                db.table("attendance_records").select("*").eq("organization_id", org_id).order("clock_time", desc=True)
+                db.table("attendance_records").select("*").eq("organization_id", org_id).order("check_date", desc=True)
             )
 
             if employee_id:
-                query = query.eq("employee_id", employee_id)
+                query = query.eq("user_id", employee_id)
             if start_date:
-                query = query.gte("clock_time", start_date)
+                query = query.gte("check_date", start_date)
             if end_date:
-                query = query.lte("clock_time", end_date)
+                query = query.lte("check_date", end_date)
 
             result = await query.execute()
             return result.data or []
@@ -242,9 +295,9 @@ class AttendanceService:
             if department_id:
                 query = query.eq("department_id", department_id)
             if start_date:
-                query = query.gte("clock_time", start_date)
+                query = query.gte("check_date", start_date)
             if end_date:
-                query = query.lte("clock_time", end_date)
+                query = query.lte("check_date", end_date)
 
             result = await query.execute()
             records = result.data or []
