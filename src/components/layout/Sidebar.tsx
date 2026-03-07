@@ -58,6 +58,9 @@ import {
   Award,
   Warehouse,
   Fingerprint,
+  Workflow,
+  FileEdit,
+  LayoutTemplate,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -233,6 +236,27 @@ const NAV_CONFIG: NavItem[] = [
     label: "审批中心",
     href: "approval",
     roles: ["employee", "manager", "boss", "founder"],
+    group: "OA/HR/财务",
+  },
+  {
+    icon: <Workflow size={20} />,
+    label: "流程设计",
+    href: "workflows",
+    roles: ["manager", "boss", "founder"],
+    group: "OA/HR/财务",
+  },
+  {
+    icon: <LayoutTemplate size={20} />,
+    label: "流程模板",
+    href: "workflow-templates",
+    roles: ["manager", "boss", "founder"],
+    group: "OA/HR/财务",
+  },
+  {
+    icon: <FileEdit size={20} />,
+    label: "表单设计",
+    href: "form-designer",
+    roles: ["manager", "boss", "founder"],
     group: "OA/HR/财务",
   },
   {
