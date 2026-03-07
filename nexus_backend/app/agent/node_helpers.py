@@ -235,7 +235,7 @@ _KEYWORD_DOMAIN_MAP: dict[str, list[str]] = {
     # Admin
     "证照": ["admin"], "盖章": ["admin"], "用印": ["admin"],
     "签署": ["admin"], "公告": ["admin", "approval"],
-    "通知": ["admin", "approval"],
+    "通知": ["admin", "approval", "oa_leave", "project"],
     # Knowledge
     "知识库": ["analytics"], "搜索": [],
 }
