@@ -94,6 +94,7 @@ class WorkflowDefinitionService:
         self,
         workflow_id: str,
         updates: dict[str, Any],
+        org_id: str | None = None,
         db=None,
     ) -> dict:
         """Update an existing workflow definition."""
@@ -111,8 +112,8 @@ class WorkflowDefinitionService:
         # If applies_to is being updated, validate types
         if "applies_to" in updates:
             existing_wf = await self.get_workflow(workflow_id, db=client)
-            org_id = existing_wf.get("organization_id", "") if existing_wf else ""
-            valid_types = await self._get_valid_types(org_id, db=client)
+            wf_org_id = existing_wf.get("organization_id", "") if existing_wf else ""
+            valid_types = await self._get_valid_types(wf_org_id, db=client)
             for t in updates["applies_to"]:
                 if t not in valid_types:
                     raise ValueError(f"Invalid approval type: {t}")
@@ -129,7 +130,14 @@ class WorkflowDefinitionService:
 
         updates["updated_at"] = datetime.now(UTC).isoformat()
 
-        result = await client.table("approval_chains").update(updates).eq("id", workflow_id).execute()
+        # Use service-role client for UPDATE to avoid RLS PATCH issues.
+        # Security: router enforces require_role(["founder","boss"]) + org context.
+        # Additional safety: filter by organization_id when available.
+        write_client = supabase or client
+        query = write_client.table("approval_chains").update(updates).eq("id", workflow_id)
+        if org_id:
+            query = query.eq("organization_id", org_id)
+        result = await query.execute()
 
         if not result.data:
             raise RuntimeError(f"Workflow {workflow_id} not found or update failed")
@@ -147,7 +155,8 @@ class WorkflowDefinitionService:
         if not client:
             raise ValueError("Database client unavailable")
 
-        result = await client.table("approval_chains").delete().eq("id", workflow_id).execute()
+        write_client = supabase or client
+        result = await write_client.table("approval_chains").delete().eq("id", workflow_id).execute()
 
         deleted = bool(result.data)
         if deleted:
@@ -233,7 +242,8 @@ class WorkflowDefinitionService:
             raise RuntimeError(f"Workflow {workflow_id} not found")
 
         new_active = not existing.get("is_active", True)
-        result = await client.table("approval_chains").update({"is_active": new_active}).eq("id", workflow_id).execute()
+        write_client = supabase or client
+        result = await write_client.table("approval_chains").update({"is_active": new_active}).eq("id", workflow_id).execute()
 
         if not result.data:
             raise RuntimeError(f"Failed to toggle workflow {workflow_id}")
@@ -256,8 +266,9 @@ class WorkflowDefinitionService:
             raise ValueError("Database client unavailable")
 
         # Unset all existing defaults for this org
+        write_client = supabase or client
         await (
-            client.table("approval_chains")
+            write_client.table("approval_chains")
             .update({"is_default": False})
             .eq("organization_id", org_id)
             .eq("is_default", True)
@@ -266,7 +277,7 @@ class WorkflowDefinitionService:
 
         # Set the target workflow as default
         result = (
-            await client.table("approval_chains")
+            await write_client.table("approval_chains")
             .update({"is_default": True, "is_active": True})
             .eq("id", workflow_id)
             .execute()

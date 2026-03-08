@@ -481,6 +481,24 @@ class UpdateCustomerStageTool(BaseTool):
             db=client,
         )
 
+        # Emit business events for downstream handlers
+        try:
+            from app.services.event_bus import EventType, event_bus
+
+            event_data = {
+                "customer_id": customer_id,
+                "customer_name": customer.get("name", ""),
+                "old_stage": old_stage,
+                "new_stage": new_stage,
+                "user_id": user_id,
+            }
+            if new_stage == "customer":
+                await event_bus.emit(EventType.DEAL_WON.value, event_data)
+            elif new_stage == "opportunity":
+                await event_bus.emit(EventType.LEAD_QUALIFIED.value, event_data)
+        except Exception as e:
+            logger.debug(f"Event emission failed: {e}")
+
         stage_labels = {
             "lead": "线索",
             "prospect": "意向",

@@ -22,6 +22,42 @@ from app.tasks.scheduler import _run_async
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Configurable Thresholds (per-tenant via SystemConfigService)
+# ---------------------------------------------------------------------------
+
+_DEFAULT_THRESHOLDS = {
+    "sales_anomaly_drop_ratio": 0.7,
+    "sales_anomaly_window_days": 8,
+    "followup_timeout_days": 7,
+    "followup_limit": 30,
+    "contract_expiry_ladder": [3, 7, 15],
+    "approval_backlog_hours": 4,
+    "approval_backlog_min_count": 3,
+    "approval_backlog_amount_threshold": 1000,
+    "target_progress_ratio": 0.6,
+}
+
+
+async def _get_thresholds(org_id: str | None = None) -> dict:
+    """Read tenant-level sensor thresholds, fallback to defaults."""
+    if not org_id:
+        return dict(_DEFAULT_THRESHOLDS)
+    try:
+        from app.services.system_config_service import system_config_service
+
+        config = await system_config_service.get_config(
+            config_type="event_sensor_thresholds", org_id=org_id
+        )
+        if config and config.get("value"):
+            merged = dict(_DEFAULT_THRESHOLDS)
+            merged.update(config["value"])
+            return merged
+    except Exception:
+        pass
+    return dict(_DEFAULT_THRESHOLDS)
+
+
 async def _record_action(
     action_type: str,
     target_id: str | None,
@@ -76,7 +112,8 @@ def sensor_sales_anomaly():
 
         today = datetime.now(UTC).date()
         yesterday = today - timedelta(days=1)
-        week_ago = today - timedelta(days=8)
+        thresholds = await _get_thresholds()
+        week_ago = today - timedelta(days=thresholds["sales_anomaly_window_days"])
 
         # Get yesterday's totals
         try:
@@ -128,13 +165,14 @@ def sensor_sales_anomaly():
         avg_revenue = sum(float(r.get("revenue", 0) or 0) for r in week_data) / days_count
         avg_leads = sum(int(r.get("leads_count", 0) or 0) for r in week_data) / days_count
 
-        # Detect anomalies (>30% drop)
+        # Detect anomalies (configurable drop threshold)
+        drop_ratio = thresholds["sales_anomaly_drop_ratio"]
         anomalies = []
-        if avg_revenue > 0 and y_revenue < avg_revenue * 0.7:
+        if avg_revenue > 0 and y_revenue < avg_revenue * drop_ratio:
             drop_pct = round((1 - y_revenue / avg_revenue) * 100, 1)
             anomalies.append(f"销售额环比下跌 {drop_pct}%（昨日 ¥{y_revenue:,.0f} vs 7日均值 ¥{avg_revenue:,.0f}）")
 
-        if avg_leads > 0 and y_leads < avg_leads * 0.7:
+        if avg_leads > 0 and y_leads < avg_leads * drop_ratio:
             drop_pct = round((1 - y_leads / avg_leads) * 100, 1)
             anomalies.append(f"新增线索骤降 {drop_pct}%（昨日 {y_leads} 条 vs 7日均值 {avg_leads:.0f} 条）")
 
@@ -205,15 +243,17 @@ def sensor_followup_timeout():
         if not supabase:
             return "skipped: no db"
 
-        seven_days_ago = (datetime.now(UTC) - timedelta(days=7)).isoformat()
+        thresholds = await _get_thresholds()
+        timeout_days = thresholds["followup_timeout_days"]
+        cutoff = (datetime.now(UTC) - timedelta(days=timeout_days)).isoformat()
 
         try:
             result = (
                 await supabase.table("customers")
                 .select("id, name, stage, user_id, updated_at")
                 .in_("stage", ["opportunity", "prospect", "qualified"])
-                .lt("updated_at", seven_days_ago)
-                .limit(30)
+                .lt("updated_at", cutoff)
+                .limit(thresholds["followup_limit"])
                 .execute()
             )
         except Exception as e:
@@ -294,11 +334,13 @@ def sensor_contract_expiry_ladder():
 
         today = datetime.now().date()
 
-        # Define ladder thresholds
+        # Configurable ladder thresholds
+        thresholds = await _get_thresholds()
+        ladder_days = thresholds["contract_expiry_ladder"]
         ladders = [
-            {"days": 3, "label": "🔴 紧急", "priority": NotificationPriority.URGENT},
-            {"days": 7, "label": "🟡 重要", "priority": NotificationPriority.HIGH},
-            {"days": 15, "label": "🟢 提醒", "priority": NotificationPriority.NORMAL},
+            {"days": ladder_days[0], "label": "🔴 紧急", "priority": NotificationPriority.URGENT},
+            {"days": ladder_days[1], "label": "🟡 重要", "priority": NotificationPriority.HIGH},
+            {"days": ladder_days[2], "label": "🟢 提醒", "priority": NotificationPriority.NORMAL},
         ]
 
         notified = 0
@@ -384,7 +426,9 @@ def sensor_approval_backlog():
         if not supabase:
             return "skipped: no db"
 
-        four_hours_ago = (datetime.now(UTC) - timedelta(hours=4)).isoformat()
+        thresholds = await _get_thresholds()
+        backlog_hours = thresholds["approval_backlog_hours"]
+        cutoff_time = (datetime.now(UTC) - timedelta(hours=backlog_hours)).isoformat()
 
         try:
             result = (
@@ -399,14 +443,14 @@ def sensor_approval_backlog():
             return "skipped: approval_requests not available"
 
         pending = result.data or []
-        if len(pending) < 3:
+        if len(pending) < thresholds["approval_backlog_min_count"]:
             return f"only {len(pending)} pending approvals, below threshold"
 
-        # Check if oldest is >4 hours
+        # Check if oldest exceeds backlog hours
         oldest = pending[0]
         oldest_time = oldest.get("created_at", "")
-        if oldest_time > four_hours_ago:
-            return "oldest approval is within 4 hours, no backlog"
+        if oldest_time > cutoff_time:
+            return f"oldest approval is within {backlog_hours} hours, no backlog"
 
         # Group by approver
         approver_groups: dict[str, list] = {}
@@ -420,8 +464,8 @@ def sensor_approval_backlog():
                 continue
 
             # Build summary
-            low_amount = [i for i in items if float(i.get("amount", 0) or 0) < 1000]
-            high_amount = [i for i in items if float(i.get("amount", 0) or 0) >= 1000]
+            low_amount = [i for i in items if float(i.get("amount", 0) or 0) < thresholds["approval_backlog_amount_threshold"]]
+            high_amount = [i for i in items if float(i.get("amount", 0) or 0) >= thresholds["approval_backlog_amount_threshold"]]
 
             summary_parts = [f"您有 {len(items)} 条待审批事项积压"]
             if low_amount:
@@ -471,6 +515,7 @@ def sensor_target_progress():
         if not supabase:
             return "skipped: no db"
 
+        thresholds = await _get_thresholds()
         today = datetime.now().date()
         day_of_month = today.day
         import calendar
@@ -520,8 +565,8 @@ def sensor_target_progress():
             completion = current_val / target_val
             expected = month_progress
 
-            # Alert if significantly behind (completion < expected * 0.6)
-            if completion >= expected * 0.6:
+            # Alert if significantly behind (completion < expected * progress_ratio)
+            if completion >= expected * thresholds["target_progress_ratio"]:
                 continue
 
             user_id = target.get("user_id")

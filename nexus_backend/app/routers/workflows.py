@@ -229,13 +229,16 @@ async def update_workflow(
 ):
     """Update an existing workflow definition. Requires boss/founder role."""
     try:
+        org_id = getattr(request.state, "org_id", None)
         db = getattr(request.state, "db", None)
 
         updates = _normalize_update_body(body)
         if not updates:
             return api_success(data=None, message="No updates provided")
 
-        workflow = await workflow_definition_service.update_workflow(workflow_id=workflow_id, updates=updates, db=db)
+        workflow = await workflow_definition_service.update_workflow(
+            workflow_id=workflow_id, updates=updates, org_id=org_id, db=db,
+        )
         return api_success(data=_enrich_response(workflow), message="Workflow updated")
     except ValueError as e:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
