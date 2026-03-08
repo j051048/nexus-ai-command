@@ -43,6 +43,34 @@ logger = logging.getLogger(__name__)
 # Use the singleton agent graph instance
 _agent_graph = get_agent_graph()
 
+# SSE keepalive interval (seconds).  Reverse proxies like CloudFlare (100s)
+# and Nginx (60s default proxy_read_timeout) drop idle connections.  Sending
+# a harmless SSE comment every 15s prevents that.
+SSE_KEEPALIVE_INTERVAL = 15
+
+
+async def _with_keepalive(event_stream, interval: int = SSE_KEEPALIVE_INTERVAL):
+    """Wrap an async event stream with periodic keepalive signals.
+
+    Yields the original events unchanged.  When no event arrives within
+    *interval* seconds, yields ``None`` so the caller can emit an SSE
+    keepalive comment and keep the HTTP connection alive.
+    """
+    aiter = event_stream.__aiter__()
+    while True:
+        try:
+            event = await asyncio.wait_for(anext(aiter), timeout=interval)
+            yield event
+        except asyncio.TimeoutError:
+            yield None  # signal: emit keepalive
+        except StopAsyncIteration:
+            break
+
+
+def _sse_keepalive() -> str:
+    """SSE comment that keeps the connection alive through reverse proxies."""
+    return ": keepalive\n\n"
+
 
 def _sse_data(payload: Any) -> str:
     """Format a payload as an SSE data line."""
@@ -271,7 +299,7 @@ async def run_agent_stream(
         base_thread = f"{agent_config.org_id or 'default'}::{agent_config.session_id}"
         scoped_thread_id = f"{base_thread}::confirm-{int(start_time)}" if system_confirmed else base_thread
 
-        async for event in _agent_graph.astream_events(
+        async for event in _with_keepalive(_agent_graph.astream_events(
             initial_state,
             thread_id=scoped_thread_id,
             config={
@@ -280,7 +308,11 @@ async def run_agent_stream(
                 },
             },
             version="v2",
-        ):
+        )):
+            if event is None:
+                yield _sse_keepalive()
+                continue
+
             kind = event.get("event")
 
             # A. Continuous Token Streaming
@@ -383,12 +415,16 @@ async def run_agent_stream(
                 streamed_plan_content = False
                 streamed_plan_text = ""
 
-                async for event in _agent_graph.astream_events(
+                async for event in _with_keepalive(_agent_graph.astream_events(
                     initial_state,
                     thread_id=fresh_thread,
                     config={"configurable": {"trace_logger": tracer}},
                     version="v2",
-                ):
+                )):
+                    if event is None:
+                        yield _sse_keepalive()
+                        continue
+
                     kind = event.get("event")
                     if kind == "on_chat_model_stream":
                         node_name = event.get("metadata", {}).get("langgraph_node")
