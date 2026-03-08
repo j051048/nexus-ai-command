@@ -769,6 +769,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
             "flex items-center rounded-lg bg-secondary/50 transition-all",
             isCollapsed ? "justify-center p-2" : "justify-between p-2",
           )}
+          title={isCollapsed ? (theme === "dark" ? "夜间模式" : "日间模式") : undefined}
         >
           {!isCollapsed && (
             <span className="text-xs text-muted-foreground pl-1 whitespace-nowrap overflow-hidden">

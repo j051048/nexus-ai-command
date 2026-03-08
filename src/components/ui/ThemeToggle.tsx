@@ -5,30 +5,30 @@ import { cn } from '@/lib/utils';
 
 export function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
+  const isDark = theme === 'dark';
 
   return (
     <button
+      data-compact
       onClick={toggleTheme}
+      title={isDark ? '切换到日间模式' : '切换到夜间模式'}
       className={cn(
-        "relative w-14 h-7 rounded-full p-1 transition-all duration-300",
-        theme === 'dark' 
-          ? "bg-secondary" 
-          : "bg-primary/20"
+        "relative w-11 h-6 rounded-full transition-all duration-300 flex-shrink-0",
+        isDark ? "bg-slate-700" : "bg-sky-200"
       )}
       aria-label="Toggle theme"
     >
       <div
         className={cn(
-          "absolute top-1 w-5 h-5 rounded-full transition-all duration-300 flex items-center justify-center",
-          theme === 'dark'
-            ? "left-1 bg-primary"
-            : "left-8 bg-primary"
+          "absolute top-0.5 w-5 h-5 rounded-full shadow-sm transition-all duration-300",
+          "flex items-center justify-center bg-white",
+          isDark ? "left-0.5" : "left-[22px]"
         )}
       >
-        {theme === 'dark' ? (
-          <Moon className="w-3 h-3 text-primary-foreground" />
+        {isDark ? (
+          <Moon className="w-3 h-3 text-slate-600" />
         ) : (
-          <Sun className="w-3 h-3 text-primary-foreground" />
+          <Sun className="w-3 h-3 text-amber-500" />
         )}
       </div>
     </button>
