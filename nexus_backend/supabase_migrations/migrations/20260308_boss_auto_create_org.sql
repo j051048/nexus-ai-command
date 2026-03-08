@@ -193,3 +193,30 @@ BEGIN
   END IF;
 END;
 $$;
+
+
+-- ============================================================================
+-- 4. Fix RLS: founder must be scoped to own organization
+--
+-- The old "Users can see own documents" policy let founders see ALL documents
+-- across all organizations, causing cross-tenant data leakage.
+-- ============================================================================
+
+DROP POLICY IF EXISTS "Users can see own documents" ON public.documents;
+CREATE POLICY "Users can see own documents" ON public.documents
+FOR SELECT USING (
+  auth.uid() = owner_id
+  OR (
+    EXISTS (
+      SELECT 1 FROM users
+      WHERE users.id = auth.uid()
+        AND users.role = 'founder'
+        AND users.organization_id = documents.organization_id
+    )
+  )
+);
+
+-- 5. Sync documents.org_id from organization_id where NULL
+UPDATE public.documents
+SET org_id = organization_id
+WHERE org_id IS NULL AND organization_id IS NOT NULL;
