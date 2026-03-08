@@ -15,6 +15,7 @@ drop-in replacement.
 import asyncio
 import json
 import logging
+import re
 import time
 from collections.abc import AsyncGenerator
 from typing import Any
@@ -39,6 +40,28 @@ from app.services.token_service import (
 )
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Reasoning model <think> tag stripping
+# ---------------------------------------------------------------------------
+# Models like step-3.5-flash, DeepSeek-R1, QwQ etc. emit <think>...</think>
+# blocks containing chain-of-thought reasoning.  These must be stripped before
+# reaching the frontend.
+
+# Regex for complete <think>...</think> blocks (non-greedy, DOTALL)
+_THINK_BLOCK_RE = re.compile(r"<think>.*?</think>\s*", re.DOTALL)
+
+
+def strip_think_tags(text: str) -> str:
+    """Remove all <think>...</think> blocks from text."""
+    if not text or "<think>" not in text and "</think>" not in text:
+        return text
+    # Remove complete blocks
+    cleaned = _THINK_BLOCK_RE.sub("", text)
+    # Remove orphan opening/closing tags (partial streaming artifacts)
+    cleaned = cleaned.replace("<think>", "").replace("</think>", "")
+    return cleaned.lstrip("\n")
+
 
 # Use the singleton agent graph instance
 _agent_graph = get_agent_graph()
@@ -299,6 +322,11 @@ async def run_agent_stream(
         base_thread = f"{agent_config.org_id or 'default'}::{agent_config.session_id}"
         scoped_thread_id = f"{base_thread}::confirm-{int(start_time)}" if system_confirmed else base_thread
 
+        # Track whether we're inside a <think>...</think> block during streaming.
+        # Reasoning models (step-3.5-flash, DeepSeek-R1, QwQ, etc.) emit these
+        # tags which must be suppressed before reaching the frontend.
+        _inside_think = False
+
         async for event in _with_keepalive(_agent_graph.astream_events(
             initial_state,
             thread_id=scoped_thread_id,
@@ -320,18 +348,42 @@ async def run_agent_stream(
                 node_name = event.get("metadata", {}).get("langgraph_node")
                 content = event["data"]["chunk"].content
                 if content and node_name == "respond":
-                    # Only stream the final "respond" node tokens to the user.
-                    # Plan tokens are NOT streamed directly because reflect/replan
-                    # cycles would cause the user to see multiple drafts.
-                    yield _sse_content(content)
-                    streamed_plan_content = True
+                    # --- Filter reasoning model <think> tags ---
+                    # Handle <think>...</think> that may span multiple chunks
+                    emit = content
+                    if _inside_think:
+                        # We're inside a think block, suppress until </think>
+                        if "</think>" in content:
+                            _inside_think = False
+                            emit = content.split("</think>", 1)[1].lstrip("\n")
+                        else:
+                            emit = ""
+                    elif "<think>" in content:
+                        # Think block starts in this chunk
+                        before = content.split("<think>", 1)[0]
+                        remainder = content.split("<think>", 1)[1]
+                        if "</think>" in remainder:
+                            # Complete <think>...</think> in one chunk
+                            after = remainder.split("</think>", 1)[1].lstrip("\n")
+                            emit = before + after
+                        else:
+                            # Think block continues into next chunks
+                            _inside_think = True
+                            emit = before
+
+                    if emit:
+                        yield _sse_content(emit)
+                        streamed_plan_content = True
                     streamed_plan_text += content
                 elif content and node_name == "plan":
                     # Mutation fast-path: when all completed tools are successful
                     # irreversible mutations, reflect+critic will be skipped, so
                     # we can stream plan tokens directly for instant UX.
                     if _is_mutation_fast_path(accumulated_state):
-                        yield _sse_content(content)
+                        # Also filter think tags for plan streaming
+                        plan_filtered = strip_think_tags(content) if "<think>" in content or "</think>" in content else content
+                        if plan_filtered:
+                            yield _sse_content(plan_filtered)
                         streamed_plan_content = True
                     # Always accumulate plan text for final_response dedup check
                     streamed_plan_text += content

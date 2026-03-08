@@ -83,6 +83,10 @@ async def respond_node(state: AgentState) -> dict:
     # Final moderation filter
     final_response = sanitize_output(final_response)
 
+    # Strip reasoning model <think>...</think> tags
+    from app.agent.stream import strip_think_tags
+    final_response = strip_think_tags(final_response)
+
     # P1 Security: Role-based sensitive field masking
     # Prevents lower-privilege users from seeing sensitive data
     # that may have been retrieved by RAG or tool calls
