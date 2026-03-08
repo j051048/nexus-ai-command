@@ -374,7 +374,18 @@ async def run_agent_stream(
             # A. Continuous Token Streaming
             if kind == "on_chat_model_stream":
                 node_name = event.get("metadata", {}).get("langgraph_node")
-                content = event["data"]["chunk"].content
+                chunk = event["data"]["chunk"]
+                content = chunk.content
+
+                # --- Reasoning model detection ---
+                # Some proxy APIs merge reasoning_content into the content
+                # stream. If the chunk has reasoning_content in additional_kwargs,
+                # the real answer hasn't started yet — skip the content.
+                chunk_kwargs = getattr(chunk, "additional_kwargs", {}) or {}
+                if chunk_kwargs.get("reasoning_content"):
+                    # This chunk is reasoning, not the real answer — skip
+                    continue
+
                 if content and node_name == "respond":
                     # --- Filter reasoning model <think> tags ---
                     # Handle <think>...</think> that may span multiple chunks
@@ -508,14 +519,24 @@ async def run_agent_stream(
                     kind = event.get("event")
                     if kind == "on_chat_model_stream":
                         node_name = event.get("metadata", {}).get("langgraph_node")
-                        content = event["data"]["chunk"].content
+                        chunk = event["data"]["chunk"]
+                        content = chunk.content
+                        # Skip reasoning content from reasoning models
+                        chunk_kwargs = getattr(chunk, "additional_kwargs", {}) or {}
+                        if chunk_kwargs.get("reasoning_content"):
+                            continue
                         if content and node_name == "respond":
-                            yield _sse_content(content)
-                            streamed_plan_content = True
-                            streamed_plan_text += content
+                            # Filter <think> tags in retry path too
+                            filtered = strip_think_tags(content) if "<think>" in content or "</think>" in content else content
+                            if filtered:
+                                yield _sse_content(filtered)
+                                streamed_plan_content = True
+                            streamed_plan_text += filtered or ""
                         elif content and node_name == "plan":
                             if _is_mutation_fast_path(accumulated_state):
-                                yield _sse_content(content)
+                                plan_filtered = strip_think_tags(content) if "<think>" in content or "</think>" in content else content
+                                if plan_filtered:
+                                    yield _sse_content(plan_filtered)
                                 streamed_plan_content = True
                             streamed_plan_text += content
                     elif kind == "on_chain_end":
@@ -567,8 +588,12 @@ async def run_agent_stream(
 
         for msg in reversed(accumulated_state.get("messages", [])):
             if isinstance(msg, _AIMsg) and msg.content:
-                final_response = msg.content
+                final_response = extract_clean_content(msg)
                 break
+
+    # Belt-and-suspenders: strip any remaining reasoning artifacts
+    if final_response:
+        final_response = strip_think_tags(final_response)
 
     # Last resort fallback
     if not final_response:
