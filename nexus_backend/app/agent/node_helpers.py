@@ -184,6 +184,7 @@ _DOMAIN_TOOL_MAP: dict[str, set[str]] = {
         "expiring_certificates", "renew_certificate",
         "process_onboarding", "process_resignation",
         "process_asset_lifecycle",
+        "publish_announcement",
     },
 }
 
