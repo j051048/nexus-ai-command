@@ -75,15 +75,16 @@ async def respond_node(state: AgentState) -> dict:
     final_response = state.get("final_response", "")
 
     if not final_response:
+        from app.agent.stream import extract_clean_content
         for msg in reversed(state.get("messages", [])):
             if isinstance(msg, AIMessage) and msg.content:
-                final_response = msg.content
+                final_response = extract_clean_content(msg)
                 break
 
     # Final moderation filter
     final_response = sanitize_output(final_response)
 
-    # Strip reasoning model <think>...</think> tags
+    # Strip reasoning model <think>...</think> tags (belt-and-suspenders)
     from app.agent.stream import strip_think_tags
     final_response = strip_think_tags(final_response)
 

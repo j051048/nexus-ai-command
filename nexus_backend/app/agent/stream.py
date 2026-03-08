@@ -63,6 +63,32 @@ def strip_think_tags(text: str) -> str:
     return cleaned.lstrip("\n")
 
 
+def extract_clean_content(msg) -> str:
+    """Extract clean response content from an AIMessage, stripping reasoning.
+
+    Handles three cases:
+    1. reasoning_content in additional_kwargs (OpenAI o1, Stepfun step-3.5-flash)
+    2. <think>...</think> blocks in content (DeepSeek-R1, QwQ)
+    3. Raw reasoning merged into content by proxy APIs
+
+    For case 3, if reasoning_content is found in additional_kwargs and the main
+    content starts with it (proxy merged them), strip the reasoning prefix.
+    """
+    content = msg.content or ""
+    kwargs = getattr(msg, "additional_kwargs", {}) or {}
+
+    # Case 1 & 3: reasoning_content stored separately by LangChain
+    reasoning = kwargs.get("reasoning_content", "")
+    if reasoning and content.startswith(reasoning):
+        # Proxy API merged reasoning into content — strip the reasoning prefix
+        content = content[len(reasoning):].lstrip("\n")
+
+    # Case 2: <think> tags
+    content = strip_think_tags(content)
+
+    return content
+
+
 # Use the singleton agent graph instance
 _agent_graph = get_agent_graph()
 
@@ -374,7 +400,7 @@ async def run_agent_stream(
                     if emit:
                         yield _sse_content(emit)
                         streamed_plan_content = True
-                    streamed_plan_text += content
+                    streamed_plan_text += emit  # Use filtered content, not raw
                 elif content and node_name == "plan":
                     # Mutation fast-path: when all completed tools are successful
                     # irreversible mutations, reflect+critic will be skipped, so

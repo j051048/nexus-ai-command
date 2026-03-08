@@ -115,7 +115,9 @@ async def reflect_node(state: AgentState) -> dict:
     last_ai_content = ""
     for msg in reversed(messages):
         if isinstance(msg, AIMessage):
-            last_ai_content = msg.content or ""
+            # Use extract_clean_content to strip reasoning from reasoning models
+            from app.agent.stream import extract_clean_content
+            last_ai_content = extract_clean_content(msg)
             break
 
     thinking_step = ThinkingStep(
@@ -363,9 +365,10 @@ async def critic_node(state: AgentState) -> dict:
 
     final_response = state.get("final_response", "")
     if not final_response:
+        from app.agent.stream import extract_clean_content
         for msg in reversed(state.get("messages", [])):
             if isinstance(msg, AIMessage) and msg.content:
-                final_response = msg.content
+                final_response = extract_clean_content(msg)
                 break
 
     if not final_response:
