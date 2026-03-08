@@ -406,7 +406,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         history: AIMessage[],
         agent?: string,
         callbacks?: StreamCallbacks | ((content: string, id: string) => void),
-        options?: { system_confirmed?: boolean; vmd_agent_code?: string; scene_code?: string }
+        options?: { system_confirmed?: boolean; confirmed_tool?: { tool_name: string; args: Record<string, unknown> }; vmd_agent_code?: string; scene_code?: string }
     ) => {
         setIsTyping(true);
         setAiStatus(undefined);
@@ -472,6 +472,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                         agent: agent,
                         userId: userId,
                         system_confirmed: options?.system_confirmed || false,
+                        confirmed_tool: options?.confirmed_tool || null,
                         vmd_agent_code: options?.vmd_agent_code,
                         scene_code: options?.scene_code,
                     }),
@@ -580,14 +581,21 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         const lastReq = lastRequestRef.current;
         if (!lastReq) return;
 
+        // Capture tool info before clearing confirmation state
+        const toolInfo = pendingConfirmation
+            ? { tool_name: pendingConfirmation.tool_name, args: modifiedArgs || pendingConfirmation.args }
+            : undefined;
         setPendingConfirmation(null);
         const lastUserMsg = lastReq.messages[lastReq.messages.length - 1]?.content || '';
         // P1-7: If args were modified, append modification note
         const extraContext = modifiedArgs
             ? `\n[用户已修改参数: ${JSON.stringify(modifiedArgs)}]`
             : '';
-        await streamChat(lastUserMsg + extraContext, history, lastReq.agent, callbacks, { system_confirmed: true });
-    }, [streamChat]);
+        await streamChat(lastUserMsg + extraContext, history, lastReq.agent, callbacks, {
+            system_confirmed: true,
+            confirmed_tool: toolInfo,
+        });
+    }, [streamChat, pendingConfirmation]);
 
     /** P1-7: Answer an agent's proactive question */
     const answerQuestion = useCallback(async (

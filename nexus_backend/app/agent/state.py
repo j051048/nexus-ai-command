@@ -99,6 +99,7 @@ class AgentConfig:
     model: str = "gpt-4o"
     mini_model: str = "gpt-4o-mini"
     system_confirmed: bool = False
+    confirmed_tool: dict | None = None  # HITL: {tool_name, args} from blocked call
     org_id: str | None = None
     user_role: str = "employee"
     max_iterations: int = 5

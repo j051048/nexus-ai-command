@@ -157,6 +157,7 @@ class ChatRequest(BaseModel):
     agent: str | None = None
     userId: str | None = None  # noqa: N815  # Support legacy field
     system_confirmed: bool = False  # P0 Fix #2: Explicit user confirmation from frontend
+    confirmed_tool: dict | None = None  # HITL: {tool_name, args} of the blocked tool
     sessionId: str | None = "default"  # noqa: N815
     # VMD (Virtual Marketing Department) extensions
     scene_code: str | None = None  # Business scene code (e.g., "bid_document", "content_writing")

@@ -579,16 +579,33 @@ async def prepare_initial_state(
     # the LLM needs to know it should re-call the same tool. Without this hint,
     # it sees the previous "blocked" tool result in history and refuses to retry.
     if config.system_confirmed:
-        lc_messages.append(
-            SystemMessage(
-                content=(
-                    "[系统指令] 用户已在界面上点击「确认执行」按钮。"
-                    "请立即重新调用之前被阻止的工具（即上次返回「操作需要确认」的那个工具），"
-                    "使用与之前完全相同的参数。这次调用将被系统放行，无需再次确认。"
-                    "不要生成文字回复来询问用户是否确认，直接调用工具。"
+        confirmed = config.confirmed_tool or {}
+        tool_name = confirmed.get("tool_name", "")
+        tool_args = confirmed.get("args", {})
+        if tool_name and tool_args:
+            import json as _json
+            args_str = _json.dumps(tool_args, ensure_ascii=False)
+            lc_messages.append(
+                SystemMessage(
+                    content=(
+                        f"[系统指令] 用户已在界面上点击「确认执行」按钮。"
+                        f"请立即调用工具 {tool_name}，参数为: {args_str}，"
+                        f"并追加 confirm=true。这次调用将被系统放行，无需再次确认。"
+                        f"不要生成文字回复，直接调用工具。"
+                    )
                 )
             )
-        )
+        else:
+            lc_messages.append(
+                SystemMessage(
+                    content=(
+                        "[系统指令] 用户已在界面上点击「确认执行」按钮。"
+                        "请立即重新调用之前被阻止的工具（即上次返回「操作需要确认」的那个工具），"
+                        "使用与之前完全相同的参数。这次调用将被系统放行，无需再次确认。"
+                        "不要生成文字回复来询问用户是否确认，直接调用工具。"
+                    )
+                )
+            )
 
     result["messages"] = lc_messages
     return result

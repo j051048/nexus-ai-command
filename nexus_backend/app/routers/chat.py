@@ -174,6 +174,7 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
             system_prompt=system_prompt,
             tracer=tracer,
             system_confirmed=request.system_confirmed,
+            confirmed_tool=request.confirmed_tool,
             session_id=request.sessionId,
             db_client=client,
             agent_name=request.agent,
