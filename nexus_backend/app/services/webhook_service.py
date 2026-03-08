@@ -152,7 +152,7 @@ class WebhookService:
         prevent replay attacks.
         """
         try:
-            parts = {k: v for k, v in (p.split("=", 1) for p in signature.split(","))}
+            parts: dict[str, str] = {k: v for k, v in (p.split("=", 1) for p in signature.split(","))}
             ts = parts.get("t")
             v1 = parts.get("v1")
             if not ts or not v1:
