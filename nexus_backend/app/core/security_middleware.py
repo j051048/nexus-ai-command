@@ -189,7 +189,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 response.headers["Content-Security-Policy"] = self.FALLBACK_CSP
 
         # Allow caching for static/documentation paths
-        if request.url.path in self.STATIC_PATHS:
+        if request.url.path in self.STATIC_PATHS or request.url.path.endswith(('.png', '.ico', '.svg', '.webp', '.webmanifest')):
             response.headers["Cache-Control"] = "public, max-age=3600"
 
         return response
