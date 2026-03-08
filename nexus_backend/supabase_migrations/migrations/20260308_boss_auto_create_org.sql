@@ -81,14 +81,10 @@ BEGIN
   _member_role := CASE WHEN _raw_role = 'boss' THEN 'owner' ELSE 'member' END;
 
   -- A) public.users (the table frontend reads)
-  INSERT INTO public.users (id, name, role, department, organization_id, created_at, updated_at)
-  VALUES (NEW.id, _name, _role, _department, _org_id, now(), now())
+  --    Note: users table has BOTH org_id (used by RLS) and organization_id columns
+  INSERT INTO public.users (id, name, role, department, organization_id, org_id, created_at, updated_at)
+  VALUES (NEW.id, _name, _role, _department, _org_id, _org_id, now(), now())
   ON CONFLICT (id) DO NOTHING;
-
-  -- B) public.profiles (new schema compat)
-  INSERT INTO public.profiles (user_id, name, organization_id)
-  VALUES (NEW.id, _name, _org_id)
-  ON CONFLICT (user_id) DO NOTHING;
 
   -- C) public.user_roles (RBAC compat)
   INSERT INTO public.user_roles (user_id, role)
@@ -136,6 +132,11 @@ BEGIN
   SET role = 'owner'
   WHERE user_id = _user_id
     AND organization_id = (SELECT organization_id FROM public.users WHERE id = _user_id);
+
+  -- Sync org_id = organization_id (RLS reads org_id)
+  UPDATE public.users
+  SET org_id = organization_id
+  WHERE id = _user_id AND org_id IS DISTINCT FROM organization_id;
 END;
 $$;
 
@@ -168,14 +169,10 @@ BEGIN
 
   -- Only migrate if old org is not default-org (i.e. it was auto-created)
   IF _old_org_id IS NOT NULL AND _default_org IS NOT NULL AND _old_org_id != _default_org THEN
-    -- Move user to default org
+    -- Move user to default org (both columns)
     UPDATE public.users
-    SET organization_id = _default_org, updated_at = now()
+    SET organization_id = _default_org, org_id = _default_org, updated_at = now()
     WHERE id = _user_id;
-
-    UPDATE public.profiles
-    SET organization_id = _default_org
-    WHERE user_id = _user_id;
 
     -- Update or re-create org membership
     DELETE FROM public.organization_members
