@@ -53,6 +53,14 @@ _CHITCHAT_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# ─── Negation prefixes ──────────────────────────────────────────────────────
+# When a negation prefix immediately precedes a business keyword, the keyword
+# should be suppressed.  E.g. "不需要报销了" → "报销" should NOT trigger
+# financial intent.
+_NEGATION_PREFIX_RE = re.compile(
+    r"(不用|不需要|不要|别|没必要|取消|停止|停用|无需|不再|不想)"
+)
+
 # ─── Query vs Execute verb sets (for semantic distinction) ───────────────────
 # When a CRITICAL keyword is matched but only query verbs are present (and no
 # execute verbs), the complexity is downgraded to MODERATE — e.g. "查看通知"
@@ -350,6 +358,31 @@ def detect_agent_role(query: str, complexity: QueryComplexity) -> tuple[str, str
     return "", "", False
 
 
+def _filter_negated_keywords(text: str, keywords: set[str]) -> set[str]:
+    """Remove keywords that are immediately preceded by a negation prefix.
+
+    E.g. text="不需要报销了", keywords={"报销"} → returns empty set
+    because "不需要" negates "报销".
+    """
+    matched = {kw for kw in keywords if kw in text}
+    if not matched:
+        return matched
+    # Check each matched keyword for negation prefix
+    filtered = set()
+    for kw in matched:
+        idx = text.find(kw)
+        if idx <= 0:
+            filtered.add(kw)
+            continue
+        # Check if the text before the keyword ends with a negation prefix
+        prefix = text[:idx]
+        if _NEGATION_PREFIX_RE.search(prefix) and _NEGATION_PREFIX_RE.search(prefix).end() == len(prefix):
+            # Negated — skip this keyword
+            continue
+        filtered.add(kw)
+    return filtered
+
+
 def classify_query(query: str) -> tuple[QueryComplexity, str]:
     """
     Fast heuristic classification of user intent.
@@ -375,7 +408,8 @@ def classify_query(query: str) -> tuple[QueryComplexity, str]:
     # 2. Critical (irreversible operations)
     # P1 Fix: Use substring matching instead of word splitting to avoid
     # Chinese tokenization issues (e.g., "不批准" being split into "不" + "批准")
-    matched_critical = {kw for kw in _CRITICAL_KEYWORDS if kw in text}
+    # Negation filter: "不需要报销了" → "报销" should NOT trigger
+    matched_critical = _filter_negated_keywords(text, _CRITICAL_KEYWORDS)
     if matched_critical:
         # Semantic distinction: "查看审批" (query) vs "批准审批" (execute)
         # If only query verbs present and no execute verbs → downgrade to MODERATE
@@ -386,17 +420,17 @@ def classify_query(query: str) -> tuple[QueryComplexity, str]:
         return QueryComplexity.CRITICAL, f"关键操作: {', '.join(matched_critical)}"
 
     # 3. Complex (multi-step analysis)
-    matched_complex = {kw for kw in _COMPLEX_KEYWORDS if kw in text}
+    matched_complex = _filter_negated_keywords(text, _COMPLEX_KEYWORDS)
     if matched_complex or len(text) > 200:
         return QueryComplexity.COMPLEX, f"复杂分析: {', '.join(matched_complex) if matched_complex else '长文本'}"
 
     # 4. Moderate (single-tool operations)
-    matched_moderate = {kw for kw in _MODERATE_KEYWORDS if kw in text}
+    matched_moderate = _filter_negated_keywords(text, _MODERATE_KEYWORDS)
     if matched_moderate:
         return QueryComplexity.MODERATE, f"工具查询: {', '.join(matched_moderate)}"
 
     # 5. Check for any business indicator not covered above
-    matched_business = {kw for kw in _ALL_BUSINESS_KEYWORDS if kw in text}
+    matched_business = _filter_negated_keywords(text, _ALL_BUSINESS_KEYWORDS)
     if matched_business:
         return QueryComplexity.MODERATE, f"业务相关: {', '.join(matched_business)}"
 
@@ -419,7 +453,13 @@ _RAG_TRIGGER_PATTERNS = re.compile(
     r"根据.{0,6}(文件|文档|资料|要求)|"
     r"参考|查阅|检索|摘要|总结.{0,4}(文档|资料|文件)|"
     r"竞品|竞争.{0,4}(对手|分析|对比)|"
-    r"行业.{0,4}(报告|分析|趋势))",
+    r"行业.{0,4}(报告|分析|趋势)|"
+    # Organizational / process knowledge queries
+    r"谁负责|负责人是|归谁管|"
+    r"流程是什么|怎么(申请|操作|办理|使用)|"
+    r"怎么联系|联系方式|电话|邮箱|"
+    r"(定义|标准|制度|规则|要求|政策|条例)是什么|"
+    r"有(什么|哪些)(规定|制度|流程|要求))",
     re.IGNORECASE,
 )
 
@@ -505,6 +545,18 @@ async def _llm_classify_intent(
 # ─── Router Node ─────────────────────────────────────────────────────────────
 
 
+# ─── Multi-turn continuation patterns ────────────────────────────────────────
+# Short follow-up messages that should inherit the previous turn's complexity
+# instead of being classified as SIMPLE "一般对话".
+_CONTINUATION_PATTERNS = re.compile(
+    r"^(好的|好|可以|行|嗯|对|是的|没错|继续|就这样|就这个|确认|同意|"
+    r"ok|yes|sure|go ahead|proceed|"
+    r"然后呢|还有呢|接下来|下一步|再看看|帮我看看|"
+    r"对的|没问题|执行吧|开始吧|做吧)[。.！!？?～~\s]*$",
+    re.IGNORECASE,
+)
+
+
 async def route_node(state: AgentState) -> dict:
     """
     LangGraph node: Classify user intent and pick the optimal model.
@@ -523,6 +575,21 @@ async def route_node(state: AgentState) -> dict:
             break
 
     complexity, intent_summary = classify_query(last_user_msg)
+
+    # ── Multi-turn context: inherit previous complexity for follow-up messages ──
+    # If the current message is a short continuation ("好的"/"继续"/"就这样"),
+    # keep the previous turn's complexity instead of falling to SIMPLE.
+    prev_complexity = state.get("complexity")
+    if (
+        complexity == QueryComplexity.SIMPLE
+        and intent_summary in ("简单问候或闲聊", "一般对话")
+        and prev_complexity is not None
+        and prev_complexity != QueryComplexity.SIMPLE
+        and _CONTINUATION_PATTERNS.match(last_user_msg.strip())
+    ):
+        complexity = prev_complexity
+        intent_summary = f"多轮延续(继承上轮 {complexity.value})"
+        logger.info(f"[Router] Multi-turn continuation detected, inheriting complexity={complexity.value}")
 
     # LLM fallback: 关键词未命中但消息有实质内容时，用 LLM 二次分类
     if intent_summary == "一般对话" and len(last_user_msg.strip()) > 4:
