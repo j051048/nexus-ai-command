@@ -221,8 +221,12 @@ async def create_model(
     except ValueError as e:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
     except Exception as e:
-        logger.error(f"Create model error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        err_info = getattr(e, "details", str(e)) if hasattr(e, "code") else str(e)
+        err_code = getattr(e, "code", "")
+        if str(err_code) == "23505":
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "该模型已存在，请勿重复添加")
+        logger.error(f"Create model error: user={user_id} err={err_info}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(err_info))
 
 
 @router.get("/models")
@@ -539,6 +543,9 @@ async def create_schedule_rule(
         rule = res.data[0] if res.data else record
         return api_success(data={"rule": rule}, message="调度规则创建成功")
     except Exception as e:
+        err_code = getattr(e, "code", "")
+        if str(err_code) == "23505":
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "该调度规则已存在，请勿重复添加")
         logger.error(f"Create schedule rule error: user={user_id} err={e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
@@ -853,6 +860,9 @@ async def create_quota_config(
         config = res.data[0] if res.data else record
         return api_success(data={"config": config}, message="配额配置创建成功")
     except Exception as e:
+        err_code = getattr(e, "code", "")
+        if str(err_code) == "23505":
+            raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "该配额配置已存在，请勿重复添加")
         logger.error(f"Create quota config error: user={user_id} err={e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
