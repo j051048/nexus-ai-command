@@ -207,6 +207,13 @@ _MODERATE_KEYWORDS = {
     "线索",
     "客户",
     "合同",
+    "销售",
+    "业绩",
+    "营收",
+    "收入",
+    "成交",
+    "回款",
+    "订单",
     # Supply chain / procurement
     "供应商",
     "采购",
@@ -518,7 +525,7 @@ async def route_node(state: AgentState) -> dict:
     complexity, intent_summary = classify_query(last_user_msg)
 
     # LLM fallback: 关键词未命中但消息有实质内容时，用 LLM 二次分类
-    if intent_summary == "一般对话" and len(last_user_msg.strip()) > 10:
+    if intent_summary == "一般对话" and len(last_user_msg.strip()) > 4:
         complexity, intent_summary = await _llm_classify_intent(last_user_msg, config)
 
     selected_model = config.get_model_for_complexity(complexity)
