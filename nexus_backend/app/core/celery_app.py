@@ -96,6 +96,16 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.scheduler.cleanup_stale_memories",
         "schedule": crontab(hour=4, minute=0),  # 每天凌晨4:00
     },
+    # ── Memory consolidation ("sleep cycle") ──
+    "memory-consolidation": {
+        "task": "app.tasks.scheduler.consolidate_memories",
+        "schedule": crontab(hour=3, minute=30),  # 凌晨3:30 (在 decay cleanup 之前)
+    },
+    # ── Memory importance re-evaluation ──
+    "memory-importance-reeval": {
+        "task": "app.tasks.scheduler.reevaluate_memory_importance",
+        "schedule": crontab(hour=4, minute=30, day_of_week=0),  # 每周日4:30
+    },
     # ── P1-2: Action outcome measurement ──
     "action-outcome-measurement": {
         "task": "app.tasks.scheduler.measure_action_outcomes",

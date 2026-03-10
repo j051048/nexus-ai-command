@@ -729,6 +729,80 @@ def cleanup_stale_memories():
     return _run_async(_run())
 
 
+@celery_app.task
+def consolidate_memories():
+    """
+    记忆整合 (Sleep Cycle): 每天凌晨3:30运行。
+    对每个有未整合记忆的活跃用户，用 LLM 发现跨记忆的模式、
+    生成洞察、建立记忆间关联。在 decay cleanup (4:00) 之前运行。
+    """
+
+    async def _run():
+        from app.core.database import supabase
+        from app.services.conversation_memory_service import conversation_memory_service
+
+        if not supabase:
+            return "skipped: no db"
+
+        # Get distinct users with unconsolidated memories
+        try:
+            result = (
+                await supabase.table("conversation_memories")
+                .select("user_id")
+                .eq("is_consolidated", False)
+                .limit(500)
+                .execute()
+            )
+        except Exception as e:
+            logger.warning(f"Consolidation user query failed: {e}")
+            return f"error: {e}"
+
+        user_ids = list({r["user_id"] for r in (result.data or [])})
+        total_insights = 0
+        processed_users = 0
+
+        for uid in user_ids[:50]:  # Cap at 50 users per batch
+            try:
+                r = await conversation_memory_service.consolidate_user_memories(
+                    user_id=uid, batch_size=30, db=supabase
+                )
+                total_insights += r.get("insights_created", 0)
+                if r.get("processed", 0) > 0:
+                    processed_users += 1
+            except Exception as e:
+                logger.warning(f"Consolidation failed for user {uid}: {e}")
+
+        return (
+            f"Consolidated {total_insights} insights "
+            f"for {processed_users}/{len(user_ids[:50])} users"
+        )
+
+    return _run_async(_run())
+
+
+@celery_app.task
+def reevaluate_memory_importance():
+    """
+    记忆重要性重评估: 每周日4:30运行。
+    根据访问模式动态调整记忆的 importance 评分。
+    纯数学计算，零 LLM 成本。
+    """
+
+    async def _run():
+        from app.core.database import supabase
+        from app.services.conversation_memory_service import conversation_memory_service
+
+        if not supabase:
+            return "skipped: no db"
+
+        result = await conversation_memory_service.reevaluate_importance(
+            batch_size=200, db=supabase
+        )
+        return f"Importance reeval: boosted={result['boosted']}, decayed={result['decayed']}"
+
+    return _run_async(_run())
+
+
 # ---------------------------------------------------------------------------
 # P1-2: Action Outcome Tracking — Record AI actions for effectiveness measurement
 # ---------------------------------------------------------------------------
