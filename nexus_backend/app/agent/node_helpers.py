@@ -161,6 +161,9 @@ _DOMAIN_TOOL_MAP: dict[str, set[str]] = {
         "get_business_dashboard", "get_team_insight",
         "analyze_data_attribution", "strategy_simulation",
     },
+    "knowledge": {
+        "query_knowledge_base", "batch_analyze_documents",
+    },
     "schedule": {
         "create_scheduled_task", "list_scheduled_tasks",
         "delete_scheduled_task", "get_daily_briefing",
@@ -238,7 +241,8 @@ _KEYWORD_DOMAIN_MAP: dict[str, list[str]] = {
     "签署": ["admin"], "公告": ["admin", "approval"],
     "通知": ["admin", "approval", "oa_leave", "project"],
     # Knowledge
-    "知识库": ["analytics"], "搜索": [],
+    "知识库": ["knowledge"], "搜索": ["knowledge"], "文档": ["knowledge", "vmd_content"],
+    "RAG": ["knowledge"], "产品": ["knowledge", "crm", "vmd_content"],
 }
 
 
