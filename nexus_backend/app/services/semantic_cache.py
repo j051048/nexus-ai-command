@@ -108,7 +108,7 @@ class SemanticCacheService:
             # --- Slow path: vector similarity search ---
             # 1. Resolve embedding model and get embedding for the new query
             await self._resolve_embedding_model()
-            response = await self.openai_client.embeddings.create(input=query, model=self._embedding_model)
+            response = await self.openai_client.embeddings.create(input=query, model=self._embedding_model, dimensions=1536)
             query_embedding = response.data[0].embedding
 
             # 2. Match in Supabase via RPC (TTL-filtered)
@@ -152,7 +152,7 @@ class SemanticCacheService:
         try:
             # 1. Resolve embedding model and get embedding
             await self._resolve_embedding_model()
-            response = await self.openai_client.embeddings.create(input=query, model=self._embedding_model)
+            response = await self.openai_client.embeddings.create(input=query, model=self._embedding_model, dimensions=1536)
             embedding = response.data[0].embedding
 
             # 2. Get org_id for multi-tenancy

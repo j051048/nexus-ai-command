@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_MODEL_VERSION = "2024-01"
 _DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
+# All DB vector columns are vector(1536); force this dimension to avoid mismatch
+_EMBEDDING_DIMENSIONS = 1536
 
 # Reranker configuration
 RERANK_ENABLED = getattr(settings, "RERANK_ENABLED", True)
@@ -266,7 +268,7 @@ class VectorService:
 
         async def run_vector_search():
             try:
-                response = await client.embeddings.create(input=query, model=_embedding_model)
+                response = await client.embeddings.create(input=query, model=_embedding_model, dimensions=_EMBEDDING_DIMENSIONS)
                 embedding = response.data[0].embedding
                 params = {
                     "query_embedding": embedding,
@@ -468,6 +470,7 @@ class VectorService:
             response = await client.embeddings.create(
                 input=truncated,
                 model=model or _DEFAULT_EMBEDDING_MODEL,
+                dimensions=_EMBEDDING_DIMENSIONS,
             )
             embedding = response.data[0].embedding
 
@@ -600,7 +603,7 @@ class VectorService:
             # 4. Embed changed chunks
             if to_embed:
                 texts = [t[1] for t in to_embed]
-                response = await oai_client.embeddings.create(input=texts, model=embedding_model)
+                response = await oai_client.embeddings.create(input=texts, model=embedding_model, dimensions=_EMBEDDING_DIMENSIONS)
                 for idx, (chunk_index, chunk_text) in enumerate(to_embed):
                     embedding = response.data[idx].embedding
                     row_data = {

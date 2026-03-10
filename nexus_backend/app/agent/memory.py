@@ -13,6 +13,7 @@ message list, and AFTER the graph runs to persist results.
 """
 
 import logging
+import re
 from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
@@ -31,6 +32,25 @@ SHORT_TERM_WINDOW = getattr(settings, "MAX_CHAT_HISTORY", 10)
 # Absolute turn limit — safety net before any LLM-based compaction.
 # Prevents runaway token costs on very long sessions.
 HARD_TURN_LIMIT = 40
+
+# Regex to strip <think>...</think> blocks from historical assistant messages
+_THINK_BLOCK_RE = re.compile(r"<think>[\s\S]*?</think>", re.DOTALL)
+
+
+def _strip_reasoning_from_history(content: str) -> str:
+    """Remove reasoning/thinking artifacts from historical assistant messages.
+
+    Handles:
+    - <think>...</think> blocks (DeepSeek-R1, QwQ)
+    - Orphan <think> or </think> tags (partial streaming artifacts)
+    """
+    if not content:
+        return content
+    if "<think>" not in content and "</think>" not in content:
+        return content
+    cleaned = _THINK_BLOCK_RE.sub("", content)
+    cleaned = cleaned.replace("<think>", "").replace("</think>", "")
+    return cleaned.lstrip("\n")
 
 # Default context window sizes per model family (in tokens)
 _MODEL_CONTEXT_WINDOWS = {
@@ -293,6 +313,13 @@ async def prepare_initial_state(
     """
     client = db_client or supabase
     result = {"messages": [], "cached_response": None, "rag_context": "", "rag_sources": []}
+
+    # ── 0. Filter out system messages from frontend ──
+    # The frontend sends the full conversation history including system messages
+    # from previous turns. Since system_prompt and context injection are always
+    # re-added below, keeping old system messages causes duplication and massive
+    # token waste. Only keep user/assistant messages.
+    raw_messages = [m for m in raw_messages if m.get("role") != "system"]
 
     # ── 1. Semantic Cache Lookup ──
     last_user_msg = ""
@@ -567,6 +594,9 @@ async def prepare_initial_state(
         elif role == "user":
             lc_messages.append(HumanMessage(content=content))
         elif role == "assistant":
+            # Strip reasoning artifacts (<think> tags) from historical messages
+            # to avoid wasting tokens and leaking chain-of-thought in context
+            content = _strip_reasoning_from_history(content)
             lc_messages.append(AIMessage(content=content))
 
     # ── 4b. Repair orphaned tool message pairs ──
@@ -632,6 +662,10 @@ async def persist_result(
     3. Extract user-level and org-level long-term memories
     """
     client = db_client or supabase
+
+    # Belt-and-suspenders: ensure no reasoning artifacts leak to DB
+    if assistant_response:
+        assistant_response = _strip_reasoning_from_history(assistant_response)
 
     # Save to DB (fire-and-forget)
     try:
