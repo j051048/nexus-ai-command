@@ -277,6 +277,20 @@ class ETLService:
         except Exception as e:
             logger.error(f"Failed to update progress for {doc_id}: {e}")
 
+    async def _mark_doc_error(self, doc_id: str, reason: str):
+        """Mark a document as failed in the database so it doesn't stay stuck in 'processing'."""
+        if not doc_id or not supabase:
+            return
+        try:
+            await (
+                supabase.table("documents")
+                .update({"status": "error", "stage": "failed", "error_log": reason[:500]})
+                .eq("id", doc_id)
+                .execute()
+            )
+        except Exception as e:
+            logger.error(f"Failed to mark doc {doc_id} as error: {e}")
+
     async def process_file(
         self,
         content: bytes,
@@ -346,6 +360,7 @@ class ETLService:
                 try:
                     text = await self._call_ai_raw(payload, endpoint="/chat/completions")
                 except Exception as e:
+                    await self._mark_doc_error(doc_id, f"OCR Failed: {str(e)}")
                     return {
                         "filename": filename,
                         "status": "skipped",
@@ -364,15 +379,14 @@ class ETLService:
                 except Exception as e:
                     error_str = str(e)
                     if "Bad magic number" in error_str or "File is not a zip file" in error_str:
-                        return {
-                            "filename": filename,
-                            "status": "error",
-                            "reason": "文件格式错误。请确认这是标准的 .docx 文件（OpenXML）。",
-                        }
+                        reason = "文件格式错误。请确认这是标准的 .docx 文件（OpenXML）。"
+                    else:
+                        reason = f"DOCX 解析失败: {error_str}"
+                    await self._mark_doc_error(doc_id, reason)
                     return {
                         "filename": filename,
                         "status": "error",
-                        "reason": f"DOCX 解析失败: {error_str}",
+                        "reason": reason,
                     }
             elif filename.lower().endswith((".xlsx", ".xls")):
 
@@ -416,12 +430,14 @@ class ETLService:
                 try:
                     text = await asyncio.to_thread(_parse_excel)
                 except ImportError as e:
+                    await self._mark_doc_error(doc_id, str(e))
                     return {
                         "filename": filename,
                         "status": "error",
                         "reason": str(e),
                     }
                 except ValueError as e:
+                    await self._mark_doc_error(doc_id, str(e))
                     return {
                         "filename": filename,
                         "status": "error",
@@ -430,15 +446,14 @@ class ETLService:
                 except Exception as e:
                     error_str = str(e)
                     if "File is not a zip file" in error_str:
-                        return {
-                            "filename": filename,
-                            "status": "error",
-                            "reason": "文件格式错误。请确认这是标准的 .xlsx 文件（OpenXML）。",
-                        }
+                        reason = "文件格式错误。请确认这是标准的 .xlsx 文件（OpenXML）。"
+                    else:
+                        reason = f"Excel 解析失败: {error_str}"
+                    await self._mark_doc_error(doc_id, reason)
                     return {
                         "filename": filename,
                         "status": "error",
-                        "reason": f"Excel 解析失败: {error_str}",
+                        "reason": reason,
                     }
             elif filename.lower().endswith((".pptx", ".ppt")):
 
@@ -487,12 +502,14 @@ class ETLService:
                 try:
                     text = await asyncio.to_thread(_parse_pptx)
                 except ImportError as e:
+                    await self._mark_doc_error(doc_id, str(e))
                     return {
                         "filename": filename,
                         "status": "error",
                         "reason": str(e),
                     }
                 except ValueError as e:
+                    await self._mark_doc_error(doc_id, str(e))
                     return {
                         "filename": filename,
                         "status": "error",
@@ -501,17 +518,17 @@ class ETLService:
                 except Exception as e:
                     error_str = str(e)
                     if "File is not a zip file" in error_str or "Package not found" in error_str:
-                        return {
-                            "filename": filename,
-                            "status": "error",
-                            "reason": "文件格式错误。请确认这是标准的 .pptx 文件（OpenXML）。",
-                        }
+                        reason = "文件格式错误。请确认这是标准的 .pptx 文件（OpenXML）。"
+                    else:
+                        reason = f"PPT 解析失败: {error_str}"
+                    await self._mark_doc_error(doc_id, reason)
                     return {
                         "filename": filename,
                         "status": "error",
-                        "reason": f"PPT 解析失败: {error_str}",
+                        "reason": reason,
                     }
             else:
+                await self._mark_doc_error(doc_id, "Unsupported format")
                 return {
                     "filename": filename,
                     "status": "skipped",
@@ -519,6 +536,7 @@ class ETLService:
                 }
 
             if not text.strip():
+                await self._mark_doc_error(doc_id, "No text content found")
                 return {
                     "filename": filename,
                     "status": "error",
@@ -627,6 +645,7 @@ class ETLService:
                         "reason": f"数据库写入失败: {str(db_err)}",
                     }
             else:
+                await self._mark_doc_error(doc_id, f"AI 解析失败: {details.get('error')}")
                 return {
                     "filename": filename,
                     "status": "error",

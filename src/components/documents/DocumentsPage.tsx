@@ -91,6 +91,18 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
         fetchDocuments();
     }, []);
 
+    // 轮询机制：当有文档处于 processing 状态时，每 5 秒自动刷新
+    useEffect(() => {
+        const hasProcessing = documents.some(d => d.status === 'processing');
+        if (!hasProcessing) return;
+
+        const pollInterval = setInterval(() => {
+            fetchDocuments();
+        }, 5000);
+
+        return () => clearInterval(pollInterval);
+    }, [documents]);
+
     const toggleSelect = (id: string) => {
         const newSet = new Set(selectedIds);
         if (newSet.has(id)) {
