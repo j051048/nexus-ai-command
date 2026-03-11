@@ -25,6 +25,7 @@ from app.agent.node_helpers import (
     logger,
     record_hallucination,
 )
+from app.core.prompts_registry import GEN_UI_PROTOCOL
 
 # ── Inline grounding check (ported from reflect_node Layer 3) ────────────────
 
@@ -75,7 +76,8 @@ def _verify_grounding(ai_response: str, tool_results: list) -> str | None:
 _SIMPLE_SYSTEM_PROMPT = (
     "你是企业AI助手。根据工具执行结果，直接回答用户的问题。\n"
     "要求：先说结论，简洁准确，数据原封不动引用工具结果。\n"
-    "禁止：不要说'根据查询结果'、'让我为您'等废话。直接给答案。"
+    "禁止：不要说'根据查询结果'、'让我为您'等废话。直接给答案。\n\n"
+    + GEN_UI_PROTOCOL
 )
 
 _COMPLEX_SYSTEM_PROMPT = (
@@ -91,7 +93,8 @@ _COMPLEX_SYSTEM_PROMPT = (
     "- 准确性：所有数值是否与工具返回完全一致？\n"
     "- 相关性：是否紧扣用户意图，没有跑题？\n"
     "如有不达标项，立即修正后再输出。\n\n"
-    "禁止：不要说'根据查询结果'、'让我为您'等废话。直接给答案。"
+    "禁止：不要说'根据查询结果'、'让我为您'等废话。直接给答案。\n\n"
+    + GEN_UI_PROTOCOL
 )
 
 
