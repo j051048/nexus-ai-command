@@ -50,6 +50,6 @@ pytest-asyncio==0.24.0
 pytest-cov==6.0.0
 httpx==0.28.1
 
-# RAG Evaluation (optional — simple metrics work without these)
-ragas>=0.2.14
-datasets>=3.0.0
+# RAG Evaluation (optional — pull massive ML libs, keep commented for production/Zeabur!)
+# ragas>=0.2.14
+# datasets>=3.0.0
