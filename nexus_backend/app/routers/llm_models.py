@@ -224,6 +224,32 @@ async def create_model(
         err_info = getattr(e, "details", str(e)) if hasattr(e, "code") else str(e)
         err_code = getattr(e, "code", "")
         if str(err_code) == "23505":
+            # Check if there's a soft-deleted record with the same key — restore it instead of erroring
+            try:
+                deleted_res = (
+                    await client.table("llm_model_config")
+                    .select("id")
+                    .eq("tenant_id", org_id)
+                    .eq("model_code", body.model_code)
+                    .eq("is_deleted", True)
+                    .limit(1)
+                    .execute()
+                )
+                if deleted_res.data:
+                    # Restore the soft-deleted record with updated fields
+                    restore_id = deleted_res.data[0]["id"]
+                    record["is_deleted"] = False
+                    record["status"] = body.status or "enabled"
+                    restore_res = (
+                        await client.table("llm_model_config")
+                        .update(record)
+                        .eq("id", restore_id)
+                        .execute()
+                    )
+                    model = restore_res.data[0] if restore_res.data else record
+                    return api_success(data={"model": _mask_model_record(model)}, message="模型配置已恢复")
+            except Exception:
+                pass
             raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "该模型已存在，请勿重复添加")
         logger.error(f"Create model error: user={user_id} err={err_info}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(err_info))
