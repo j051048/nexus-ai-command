@@ -54,6 +54,10 @@ TOOL_KEYWORD_MAP: dict[str, list[str]] = {
     # 销售/竞品
     "analyze_tender_document": ["标书", "投标", "招标"],
     "get_battlecard": ["竞品", "竞争对手", "打击卡"],
+    # 定时任务
+    "create_scheduled_task": ["定时", "提醒我", "每天.*提醒", "每周.*提醒", "每月.*提醒", "定期"],
+    "list_scheduled_tasks": ["定时任务", "有哪些.*提醒", "提醒列表", "查看.*定时"],
+    "delete_scheduled_task": ["取消.*提醒", "删除.*定时", "取消.*定时", "不用.*提醒"],
 }
 
 

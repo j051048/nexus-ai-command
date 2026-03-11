@@ -52,6 +52,11 @@ pytest_output*.txt
 playwright-report/
 test-results/
 
+# Coverage reports
+coverage/
+htmlcov/
+*.lcov
+
 # AI Tools
 .claude/
 .agent/
