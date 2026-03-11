@@ -50,7 +50,19 @@ const statusConfig = {
 };
 
 export default function ApprovalFlow({ steps, title }: ApprovalFlowProps) {
-  if (!steps || steps.length === 0) return null;
+  // Defensive: AI may pass malformed props
+  if (!steps || !Array.isArray(steps) || steps.length === 0) return null;
+
+  // Sanitize each step: ensure status is a valid key
+  const validStatuses = new Set<string>(['pending', 'approved', 'rejected', 'current']);
+  const safeSteps = steps
+    .filter((s): s is ApprovalStep => !!s && typeof s === 'object' && typeof s.name === 'string')
+    .map(s => ({
+      ...s,
+      status: (validStatuses.has(s.status) ? s.status : 'pending') as ApprovalStep['status'],
+    }));
+
+  if (safeSteps.length === 0) return null;
 
   return (
     <div className="p-4">
@@ -58,10 +70,10 @@ export default function ApprovalFlow({ steps, title }: ApprovalFlowProps) {
 
       {/* Horizontal layout for large screens */}
       <div className="hidden sm:flex items-start">
-        {steps.map((step, i) => {
+        {safeSteps.map((step, i) => {
           const config = statusConfig[step.status];
           const Icon = config.icon;
-          const isLast = i === steps.length - 1;
+          const isLast = i === safeSteps.length - 1;
 
           return (
             <div key={i} className="flex items-start flex-1 min-w-0">
@@ -98,10 +110,10 @@ export default function ApprovalFlow({ steps, title }: ApprovalFlowProps) {
 
       {/* Vertical layout for small screens */}
       <div className="sm:hidden flex flex-col gap-0">
-        {steps.map((step, i) => {
+        {safeSteps.map((step, i) => {
           const config = statusConfig[step.status];
           const Icon = config.icon;
-          const isLast = i === steps.length - 1;
+          const isLast = i === safeSteps.length - 1;
 
           return (
             <div key={i} className="flex items-stretch gap-3">
