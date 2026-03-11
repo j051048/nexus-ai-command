@@ -419,74 +419,90 @@ async def root():
     return {"message": "Project Nexus Backend is Running", "docs": "/docs"}
 
 
+# Health check cache: avoid thundering herd on /health under load balancer polling
+_health_cache: dict = {"result": None, "expires": 0.0}
+_HEALTH_CACHE_TTL = 5.0  # seconds
+
+
 @app.get("/health")
 async def health_check():
     """
     Health check endpoint for load balancers and monitoring.
-    P2 Enhancement: Added database connectivity check.
+
+    Cached for 5 seconds to prevent connection pool exhaustion under
+    high-frequency polling (load balancer, k8s liveness probe, monitoring).
+    Each downstream check has an independent 2s timeout to avoid cascade.
     """
+    import asyncio
+    import time
+
+    # Return cached result if still fresh
+    now = time.monotonic()
+    if _health_cache["result"] and now < _health_cache["expires"]:
+        return _health_cache["result"]
+
     import httpx
 
     from app.core.config import settings
     from app.core.database import supabase
     from app.services.cache_service import cache_service
 
-    db_status = "unknown"
-    cache_status = "unknown"
-    ai_status = "unknown"
+    async def check_db() -> str:
+        try:
+            if not supabase:
+                return "not_configured"
+            await asyncio.wait_for(
+                supabase.table("users").select("count", count="exact").limit(1).execute(),
+                timeout=2.0,
+            )
+            return "connected"
+        except Exception as e:
+            logger.warning(f"Health check DB error: {e}")
+            return "error" if settings.IS_PRODUCTION else f"error: {str(e)[:50]}"
 
-    # NOTE: Health check intentionally uses global service-key client (not RLS-scoped)
-    # because it runs without user auth context and needs unrestricted DB access to verify connectivity.
-    # 1. Database Check
-    try:
-        if supabase:
-            # Quick check - just verify connection
-            await supabase.table("users").select("count", count="exact").limit(1).execute()
-            db_status = "connected"
-        else:
-            db_status = "not_configured"
-    except Exception as e:
-        db_status = "error" if settings.IS_PRODUCTION else f"error: {str(e)[:50]}"
-        logger.warning(f"Health check DB error: {e}")
+    async def check_cache() -> str:
+        try:
+            ok = await asyncio.wait_for(cache_service.ping(), timeout=2.0)
+            return "connected" if ok else "error"
+        except Exception as e:
+            return "error" if settings.IS_PRODUCTION else f"error: {str(e)[:50]}"
 
-    # 2. Redis/Cache Check
-    try:
-        cache_status = "connected" if await cache_service.ping() else "error"
-    except Exception as e:
-        cache_status = "error" if settings.IS_PRODUCTION else f"error: {str(e)[:50]}"
+    async def check_ai() -> str:
+        try:
+            base_url = settings.AI_BASE_URL or "https://api.openai.com/v1"
+            domain = base_url.split("/v1")[0].split("/chat")[0]
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                resp = await client.get(domain)
+                return f"reachable ({resp.status_code})"
+        except Exception as e:
+            return "unreachable" if settings.IS_PRODUCTION else f"unreachable: {str(e)[:50]}"
 
-    # 3. AI Connectivity Check
-    try:
-        base_url = settings.AI_BASE_URL or "https://api.openai.com/v1"
-        # Extract domain for ping
-        domain = base_url.split("/v1")[0].split("/chat")[0]
-        async with httpx.AsyncClient(timeout=2.0) as client:
-            # Simple GET request to root or health of AI provider
-            resp = await client.get(domain)
-            ai_status = f"reachable ({resp.status_code})"
-    except Exception as e:
-        ai_status = "unreachable" if settings.IS_PRODUCTION else f"unreachable: {str(e)[:50]}"
-
-    # 4. LLM Model Gateway Check (VMD)
-    llm_gateway_status = "not_configured"
-    try:
-        if supabase:
-            model_res = (
-                await supabase.table("llm_model_config")
+    async def check_llm_gateway() -> str:
+        try:
+            if not supabase:
+                return "not_configured"
+            model_res = await asyncio.wait_for(
+                supabase.table("llm_model_config")
                 .select("id", count="exact")
                 .eq("status", "enabled")
                 .eq("is_deleted", False)
-                .execute()
+                .execute(),
+                timeout=2.0,
             )
             enabled_count = model_res.count if model_res.count is not None else len(model_res.data or [])
-            llm_gateway_status = f"ok ({enabled_count} models)" if enabled_count > 0 else "no_models_enabled"
-    except Exception:
-        llm_gateway_status = "available"  # Table may not exist yet, that's ok
+            return f"ok ({enabled_count} models)" if enabled_count > 0 else "no_models_enabled"
+        except Exception:
+            return "available"
+
+    # Run all checks concurrently with individual timeouts
+    db_status, cache_status, ai_status, llm_gateway_status = await asyncio.gather(
+        check_db(), check_cache(), check_ai(), check_llm_gateway()
+    )
 
     is_healthy = db_status == "connected" and cache_status == "connected"
     status_code = 200 if is_healthy else 503
 
-    return UTF8JSONResponse(
+    response = UTF8JSONResponse(
         status_code=status_code,
         content={
             "status": "healthy" if is_healthy else "degraded",
@@ -500,6 +516,12 @@ async def health_check():
             },
         },
     )
+
+    # Cache the result
+    _health_cache["result"] = response
+    _health_cache["expires"] = now + _HEALTH_CACHE_TTL
+
+    return response
 
 
 if __name__ == "__main__":
