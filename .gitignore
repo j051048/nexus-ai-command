@@ -66,3 +66,7 @@ nul
 NUL
 **/nul
 **/NUL
+
+# Test repositories
+test_openclaw/
+test_openfang/

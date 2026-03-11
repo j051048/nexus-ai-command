@@ -1,5 +1,7 @@
 import importlib
+import inspect
 import logging
+import pkgutil
 
 from .base_tool import BaseTool
 
@@ -233,7 +235,43 @@ def _load_all():
     for name in _VMD_TOOL_MODULES:
         _load_tool(name)
 
+    _auto_discover()
     _all_loaded = True
+
+
+def _auto_discover():
+    """Scan app/tools/*.py for BaseTool subclasses not in _TOOL_MODULES.
+
+    This allows new tools to be added by simply placing a .py file in
+    app/tools/ without touching __init__.py or _TOOL_MODULES.
+    """
+    import app.tools as tools_pkg
+
+    known = set(_TOOL_MODULES) | set(_VMD_TOOL_MODULES)
+    for _importer, modname, ispkg in pkgutil.iter_modules(
+        tools_pkg.__path__, "app.tools."
+    ):
+        if ispkg or modname.endswith(("__init__", "base_tool")):
+            continue
+        try:
+            mod = importlib.import_module(modname)
+        except Exception:
+            continue  # optional modules may fail — skip silently
+        for attr_name in dir(mod):
+            obj = getattr(mod, attr_name)
+            if (
+                isinstance(obj, type)
+                and issubclass(obj, BaseTool)
+                and obj is not BaseTool
+                and not inspect.isabstract(obj)
+            ):
+                try:
+                    instance = obj()
+                    if instance.name not in TOOL_REGISTRY and instance.name not in known:
+                        TOOL_REGISTRY[instance.name] = instance
+                        logger.debug("Auto-discovered tool: %s from %s", instance.name, modname)
+                except Exception:
+                    pass  # skip tools that fail to instantiate
 
 
 def get_tool(name: str) -> BaseTool | None:

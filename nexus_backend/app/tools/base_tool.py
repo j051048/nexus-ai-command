@@ -63,6 +63,12 @@ class BaseTool(ABC):
         pass
 
     @property
+    def domain(self) -> str | None:
+        """Tool domain for intent-based filtering (e.g. 'finance', 'crm', 'hr').
+        If set, auto-registered into _DOMAIN_TOOL_MAP during discovery."""
+        return None
+
+    @property
     def required_role(self) -> str:
         """
         Optional: user role required to execute this tool.

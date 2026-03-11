@@ -364,6 +364,36 @@ def _resolve_domains_from_intent(intent_summary: str) -> set[str]:
     return domains
 
 
+# ── Auto-sync tool domains from BaseTool.domain attribute ───────────────────
+_domains_synced = False
+
+
+def _sync_tool_domains():
+    """Populate _DOMAIN_TOOL_MAP from tool.domain attributes (additive).
+
+    Called once on first _get_tool_schemas() invocation.  Tools that declare
+    a ``domain`` property are automatically added to the corresponding domain
+    set, so new tools only need to set ``domain = "finance"`` instead of
+    manually editing _DOMAIN_TOOL_MAP.
+    """
+    global _domains_synced
+    if _domains_synced:
+        return
+    _domains_synced = True
+
+    from app.tools import TOOL_REGISTRY, _load_all
+
+    _load_all()
+    for name, tool in TOOL_REGISTRY.items():
+        domain = getattr(tool, "domain", None)
+        if not domain:
+            continue
+        if domain in _DOMAIN_TOOL_MAP:
+            _DOMAIN_TOOL_MAP[domain].add(name)
+        else:
+            _DOMAIN_TOOL_MAP[domain] = {name}
+
+
 def _get_tool_schemas(
     user_role: str | None = None,
     intent_summary: str | None = None,
@@ -377,6 +407,7 @@ def _get_tool_schemas(
       3) Intent domain — keyword-based relevance filtering
     """
     global _tool_schemas_cache, _tool_schemas_count
+    _sync_tool_domains()
     schemas = get_all_tools_schema()
     if _tool_schemas_cache is None or len(schemas) != _tool_schemas_count:
         _tool_schemas_cache = schemas
