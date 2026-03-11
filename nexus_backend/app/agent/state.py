@@ -112,7 +112,7 @@ class AgentConfig:
     # Reflect node settings
     reflect_use_llm: bool = True
     # Tool execution settings
-    tool_timeout: int = 30
+    tool_timeout: int = 15
     gather_timeout: int = 120
 
     def get_model_for_complexity(self, complexity: QueryComplexity) -> str:

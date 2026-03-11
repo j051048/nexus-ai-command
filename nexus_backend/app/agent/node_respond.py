@@ -1,16 +1,19 @@
 """
-Graph Nodes: respond_node, error_node, _mask_sensitive_fields, response post-processing
+Graph Nodes: respond_node, simple_respond_node, error_node, _mask_sensitive_fields, response post-processing
 """
 
 import re as _re
 
-from langchain_core.messages import AIMessage, HumanMessage  # noqa: F401
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage  # noqa: F401
 
 from app.agent.node_helpers import (
     AgentConfig,
     AgentPhase,
     AgentState,
     ThinkingStep,
+    _get_llm,
+    _messages_to_lc_format,
+    invoke_with_fallback,
     logger,
     plugin_system_service,
     sanitize_output,
@@ -170,6 +173,53 @@ def _enhance_formatting(text: str) -> str:
     text = _CONSECUTIVE_ITEMS.sub(_list_convert, text)
 
     return text
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  NODE: simple_respond_node (SIMPLE fast-path, skips Plan→Execute→Reflect)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def simple_respond_node(state: AgentState) -> dict:
+    """
+    Fast-path for SIMPLE queries (greetings, chitchat, FAQ).
+
+    Directly calls mini_model without tool binding, skipping the full
+    Plan→Execute→Reflect pipeline. Saves 2-3 LLM round-trips.
+    """
+    config: AgentConfig = state["config"]
+    messages = state.get("messages", [])
+    lc_msgs = _messages_to_lc_format(messages)
+
+    # Use mini_model for speed
+    llm = _get_llm(config, model=config.mini_model, streaming=True)
+
+    try:
+        ai_msg = await invoke_with_fallback(
+            llm, lc_msgs, config=config, model=config.mini_model, streaming=True,
+        )
+        content = ai_msg.content or ""
+    except Exception as e:
+        logger.error(f"[SimpleRespond] LLM call failed: {e}")
+        content = ""
+
+    # Apply post-processing pipeline
+    content = sanitize_output(content)
+    from app.agent.stream import strip_think_tags
+    content = strip_think_tags(content)
+    content = _mask_sensitive_fields(content, config.user_role)
+    content = _strip_redundant_phrases(content)
+
+    return {
+        "final_response": content or "你好，有什么可以帮您？",
+        "current_phase": AgentPhase.DONE,
+        "thinking_steps": [
+            ThinkingStep(
+                phase=AgentPhase.RESPONDING.value,
+                content="简单问答直出（跳过工具规划）",
+            )
+        ],
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

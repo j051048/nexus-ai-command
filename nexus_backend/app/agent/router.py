@@ -591,9 +591,18 @@ async def route_node(state: AgentState) -> dict:
         intent_summary = f"多轮延续(继承上轮 {complexity.value})"
         logger.info(f"[Router] Multi-turn continuation detected, inheriting complexity={complexity.value}")
 
-    # LLM fallback: 关键词未命中但消息有实质内容时，用 LLM 二次分类
-    if intent_summary == "一般对话" and len(last_user_msg.strip()) > 4:
-        complexity, intent_summary = await _llm_classify_intent(last_user_msg, config)
+    # LLM fallback: only for genuinely ambiguous queries that passed all keyword checks.
+    # Skip LLM classification when:
+    # - Message is short (≤15 chars) — unlikely to be complex business query
+    # - Message is pure Chinese without any business context clues
+    # This saves ~500ms per SIMPLE query by avoiding an extra LLM round-trip.
+    if intent_summary == "一般对话" and len(last_user_msg.strip()) > 15:
+        # Additional heuristic: check if message contains any CJK characters mixed with
+        # question patterns that suggest potential business relevance
+        has_question_mark = any(c in last_user_msg for c in "？?吗么呢")
+        has_numbers = bool(re.search(r"\d+", last_user_msg))
+        if has_question_mark or has_numbers:
+            complexity, intent_summary = await _llm_classify_intent(last_user_msg, config)
 
     selected_model = config.get_model_for_complexity(complexity)
 

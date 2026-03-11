@@ -29,6 +29,44 @@ from app.agent.node_helpers import (
 )
 from app.services.plugin_system_service import ExtensionPoint
 
+# ── Session-level Query Result Cache ─────────────────────────────────────────
+# Caches read-only (non-mutation) tool results within a session to avoid
+# redundant API calls when the LLM re-requests the same data.
+# Key: tool_name + args_hash, Value: (result_str, timestamp)
+_QUERY_CACHE_TTL = 300  # 5 minutes
+_query_result_cache: dict[str, tuple[str, float]] = {}
+_QUERY_CACHE_MAX = 200
+
+
+def _query_cache_key(tool_name: str, tool_args: dict) -> str:
+    """Generate a stable cache key from tool name + sorted args."""
+    args_str = _json.dumps(tool_args, sort_keys=True, ensure_ascii=False) if tool_args else ""
+    return f"{tool_name}:{hashlib.md5(args_str.encode()).hexdigest()}"
+
+
+def _get_cached_result(tool_name: str, tool_args: dict) -> str | None:
+    """Return cached result if available and not expired."""
+    key = _query_cache_key(tool_name, tool_args)
+    entry = _query_result_cache.get(key)
+    if entry is None:
+        return None
+    result, ts = entry
+    if time.time() - ts > _QUERY_CACHE_TTL:
+        del _query_result_cache[key]
+        return None
+    return result
+
+
+def _set_cached_result(tool_name: str, tool_args: dict, result: str) -> None:
+    """Cache a query tool result."""
+    if len(_query_result_cache) >= _QUERY_CACHE_MAX:
+        # Evict oldest entries
+        sorted_keys = sorted(_query_result_cache, key=lambda k: _query_result_cache[k][1])
+        for k in sorted_keys[: _QUERY_CACHE_MAX // 2]:
+            del _query_result_cache[k]
+    key = _query_cache_key(tool_name, tool_args)
+    _query_result_cache[key] = (result, time.time())
+
 
 async def _execute_single_tool(
     record: ToolCallRecord,
@@ -99,6 +137,16 @@ async def _execute_single_tool(
         record.result = confirmation_msg
         return record
 
+    # 2a. Query Result Cache — skip execution for read-only tools with same args
+    if not tool.is_irreversible and record.tool_name not in LONG_RUNNING_TOOLS:
+        cached = _get_cached_result(record.tool_name, record.tool_args)
+        if cached is not None:
+            record.status = "success"
+            record.result = cached
+            record.duration_ms = 0
+            logger.info(f"[QueryCache] Hit for {record.tool_name}, skipping execution")
+            return record
+
     # 2b. Schema Validation — 强制验证 LLM 生成的参数符合工具声明的 JSON Schema
     try:
         await tool.validate(record.tool_args)
@@ -167,6 +215,9 @@ async def _execute_single_tool(
                     "result": record.result,
                     "duration_ms": record.duration_ms,
                 }
+            # Cache query tool results for session-level dedup
+            if not tool.is_irreversible and record.result:
+                _set_cached_result(record.tool_name, record.tool_args, record.result)
             return record
         except TimeoutError:
             logger.warning(f"Tool {record.tool_name} timed out after {timeout}s (attempt {attempt + 1})")

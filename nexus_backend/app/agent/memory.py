@@ -442,91 +442,110 @@ async def prepare_initial_state(
         except Exception as e:
             logger.warning(f"[Memory] RAG retrieval failed: {e}", exc_info=True)
 
-    # ── 2b–2f. Collect all context blocks, then inject as ONE system message ──
+    # ── 2b–2f. Collect all context blocks in parallel, then inject as ONE system message ──
     injected_contexts: list[str] = []
 
-    # 2b. Long-term Memory (skip for SIMPLE queries — no business context to recall)
-    if config.user_id and last_user_msg and not skip_semantic:
-        try:
-            from app.services.conversation_memory_service import conversation_memory_service
+    if last_user_msg and not skip_semantic:
+        # All 5 context lookups are independent — run them concurrently
+        import asyncio
 
-            memory_context = await conversation_memory_service.build_memory_context(
-                user_id=config.user_id,
-                current_query=last_user_msg,
-                db=client,
-            )
-            if memory_context:
-                injected_contexts.append(memory_context)
-                logger.info(f"[Memory] Collected long-term memory context for user {config.user_id}")
-        except Exception as e:
-            logger.debug(f"[Memory] Long-term memory injection skipped: {e}")
+        async def _fetch_long_term_memory():
+            """2b. Long-term Memory"""
+            if not config.user_id:
+                return None
+            try:
+                from app.services.conversation_memory_service import conversation_memory_service
+                ctx = await conversation_memory_service.build_memory_context(
+                    user_id=config.user_id, current_query=last_user_msg, db=client,
+                )
+                if ctx:
+                    logger.info(f"[Memory] Collected long-term memory context for user {config.user_id}")
+                return ctx
+            except Exception as e:
+                logger.debug(f"[Memory] Long-term memory injection skipped: {e}")
+                return None
 
-    # 2c. Organization Memory (skip for SIMPLE queries)
-    if config.org_id and last_user_msg and not skip_semantic:
-        try:
-            from app.services.conversation_memory_service import conversation_memory_service
+        async def _fetch_org_memory():
+            """2c. Organization Memory"""
+            if not config.org_id:
+                return None
+            try:
+                from app.services.conversation_memory_service import conversation_memory_service
+                ctx = await conversation_memory_service.build_org_memory_context(
+                    org_id=config.org_id, query=last_user_msg, db=client,
+                )
+                if ctx:
+                    logger.info(f"[Memory] Collected org memory context for org {config.org_id}")
+                    return "[组织共享记忆上下文]\n" + ctx + "\n[组织记忆结束]"
+                return None
+            except Exception as e:
+                logger.debug(f"[Memory] Org memory context failed: {e}")
+                return None
 
-            org_memory_ctx = await conversation_memory_service.build_org_memory_context(
-                org_id=config.org_id,
-                query=last_user_msg,
-                db=client,
-            )
-            if org_memory_ctx:
-                injected_contexts.append("[组织共享记忆上下文]\n" + org_memory_ctx + "\n[组织记忆结束]")
-                logger.info(f"[Memory] Collected org memory context for org {config.org_id}")
-        except Exception as e:
-            logger.debug(f"[Memory] Org memory context failed: {e}")
+        async def _fetch_kg_context():
+            """2d. Knowledge Graph Context"""
+            if not config.org_id:
+                return None
+            try:
+                from app.services.knowledge_graph_service import query_entity_context
+                ctx = await query_entity_context(query=last_user_msg, org_id=config.org_id)
+                if ctx:
+                    logger.info(f"[Memory] Collected knowledge graph context for org {config.org_id}")
+                return ctx
+            except Exception as e:
+                logger.debug(f"[Memory] Knowledge graph context failed: {e}")
+                return None
 
-    # 2d. Knowledge Graph Context (P2-2, skip for SIMPLE queries)
-    if config.org_id and last_user_msg and not skip_semantic:
-        try:
-            from app.services.knowledge_graph_service import query_entity_context
+        async def _fetch_pattern_suggestions():
+            """2e. Behavior Pattern Suggestions"""
+            if not config.user_id or not config.org_id:
+                return None
+            try:
+                from app.services.knowledge_graph_service import get_pattern_suggestions
+                ctx = await get_pattern_suggestions(
+                    user_id=config.user_id, org_id=config.org_id, current_query=last_user_msg,
+                )
+                if ctx:
+                    logger.info(f"[Memory] Collected pattern suggestions for user {config.user_id}")
+                return ctx
+            except Exception as e:
+                logger.debug(f"[Memory] Pattern suggestion failed: {e}")
+                return None
 
-            kg_context = await query_entity_context(
-                query=last_user_msg,
-                org_id=config.org_id,
-            )
-            if kg_context:
-                injected_contexts.append(kg_context)
-                logger.info(f"[Memory] Collected knowledge graph context for org {config.org_id}")
-        except Exception as e:
-            logger.debug(f"[Memory] Knowledge graph context failed: {e}")
+        async def _fetch_episodic_memory():
+            """2f. Episodic Memory Recall"""
+            if not config.user_id:
+                return None
+            try:
+                from app.services.conversation_memory_service import episodic_memory_service
+                episodes = await episodic_memory_service.search_similar_episodes(
+                    user_id=config.user_id, query=last_user_msg, limit=3,
+                    org_id=config.org_id, db=client,
+                )
+                if episodes:
+                    ctx = episodic_memory_service.build_episode_context(episodes)
+                    if ctx:
+                        logger.info(f"[Memory] Collected {len(episodes)} episode recalls for user {config.user_id}")
+                    return ctx
+                return None
+            except Exception as e:
+                logger.debug(f"[Memory] Episode recall failed: {e}")
+                return None
 
-    # 2e. Behavior Pattern Suggestions (P3, skip for SIMPLE queries)
-    if config.user_id and config.org_id and last_user_msg and not skip_semantic:
-        try:
-            from app.services.knowledge_graph_service import get_pattern_suggestions
-
-            pattern_hints = await get_pattern_suggestions(
-                user_id=config.user_id,
-                org_id=config.org_id,
-                current_query=last_user_msg,
-            )
-            if pattern_hints:
-                injected_contexts.append(pattern_hints)
-                logger.info(f"[Memory] Collected pattern suggestions for user {config.user_id}")
-        except Exception as e:
-            logger.debug(f"[Memory] Pattern suggestion failed: {e}")
-
-    # 2f. Episodic Memory Recall (P1-6, skip for SIMPLE queries)
-    if config.user_id and last_user_msg and not skip_semantic:
-        try:
-            from app.services.conversation_memory_service import episodic_memory_service
-
-            episodes = await episodic_memory_service.search_similar_episodes(
-                user_id=config.user_id,
-                query=last_user_msg,
-                limit=3,
-                org_id=config.org_id,
-                db=client,
-            )
-            if episodes:
-                episode_context = episodic_memory_service.build_episode_context(episodes)
-                if episode_context:
-                    injected_contexts.append(episode_context)
-                    logger.info(f"[Memory] Collected {len(episodes)} episode recalls for user {config.user_id}")
-        except Exception as e:
-            logger.debug(f"[Memory] Episode recall failed: {e}")
+        # Fire all 5 lookups concurrently
+        results = await asyncio.gather(
+            _fetch_long_term_memory(),
+            _fetch_org_memory(),
+            _fetch_kg_context(),
+            _fetch_pattern_suggestions(),
+            _fetch_episodic_memory(),
+            return_exceptions=True,
+        )
+        for r in results:
+            if isinstance(r, str) and r:
+                injected_contexts.append(r)
+            elif isinstance(r, Exception):
+                logger.debug(f"[Memory] Parallel context fetch error: {r}")
 
     # Inject all collected contexts as a single system message
     if injected_contexts:

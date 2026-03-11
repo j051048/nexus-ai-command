@@ -48,7 +48,7 @@ from typing import Optional
 from langgraph.graph import END, StateGraph
 
 from app.agent.checkpointer import get_checkpointer
-from app.agent.nodes import critic_node, error_node, execute_node, plan_node, reflect_node, respond_node
+from app.agent.nodes import critic_node, error_node, execute_node, plan_node, reflect_node, respond_node, simple_respond_node
 from app.agent.nodes_orchestrator import orchestrate_node
 from app.agent.nodes_wbs import wbs_decompose_node
 from app.agent.router import route_node
@@ -185,6 +185,7 @@ def _after_plan(state: AgentState) -> str:
       - If error occurred → error
       - If tool calls are pending → execute
       - SIMPLE queries skip reflection → respond directly
+      - MODERATE with no tools (direct text answer) → respond directly
       - Mutation fast-path: all tools succeeded & irreversible → respond directly
       - Otherwise → reflect (validates the direct answer)
     """
@@ -194,6 +195,9 @@ def _after_plan(state: AgentState) -> str:
         return "execute"
     # Short-circuit: SIMPLE queries (greetings, FAQ) skip reflection
     if state.get("complexity") == QueryComplexity.SIMPLE:
+        return "respond"
+    # MODERATE with direct text (no tools needed) — skip reflect for speed
+    if state.get("complexity") == QueryComplexity.MODERATE and not state.get("completed_tool_calls"):
         return "respond"
     # Fast-path: mutation-only tools with all-success → skip reflect+critic
     if _is_mutation_fast_path(state):
@@ -243,7 +247,8 @@ def _after_reflect(state: AgentState) -> str:
     """
     After reflection:
       - If needs_replanning (hallucination detected) → back to plan
-      - COMPLEX/CRITICAL queries → critic (P1-5 quality gate)
+      - COMPLEX/CRITICAL with tool results (reflect skipped LLM layers) → critic
+      - COMPLEX/CRITICAL without tools (reflect already did LLM check) → respond (skip critic)
       - Otherwise → respond (finalize)
     """
     if state.get("needs_replanning"):
@@ -254,10 +259,16 @@ def _after_reflect(state: AgentState) -> str:
             return "plan"
         logger.warning("[Graph] Needs replanning but max iterations reached, responding anyway")
 
-    # P1-5: Route COMPLEX/CRITICAL through critic before respond
+    # P1-5: Route COMPLEX/CRITICAL through critic, but only when reflect
+    # skipped its LLM layers (i.e., tools were involved). When reflect
+    # already did LLM-based fact-checking, the extra critic call is redundant.
     complexity = state.get("complexity")
     if complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL):
-        return "critic"
+        completed_tools = state.get("completed_tool_calls", [])
+        if completed_tools:
+            # Tools were used → reflect skipped Layer 4/5, critic needed
+            return "critic"
+        # No tools → reflect already did thorough LLM check, skip critic
 
     return "respond"
 
@@ -276,16 +287,19 @@ def _after_error(state: AgentState) -> str:
 def _after_router(state: AgentState) -> str:
     """
     After routing:
-      - If the router detected a multi-agent orchestration scenario
-        (agent_code is set AND scene_code indicates decomposition needed
-         AND complexity is COMPLEX) → wbs_decompose
+      - SIMPLE queries → simple_respond (fast-path, skip Plan→Execute→Reflect)
+      - If the router detected a multi-agent orchestration scenario → wbs_decompose
       - Otherwise → plan (standard single-agent flow)
     """
+    # SIMPLE fast-path: greetings/chitchat → direct mini_model response
+    complexity = state.get("complexity")
+    if complexity == QueryComplexity.SIMPLE:
+        return "simple_respond"
+
     agent_code = state.get("agent_code", "")
     scene_code = state.get("scene_code", "")
 
     # Check if this needs multi-agent WBS decomposition
-    # Trigger conditions: agent_code is set AND it's a complex task needing orchestration
     if agent_code and scene_code == "task_decompose":
         return "wbs_decompose"
 
@@ -353,6 +367,7 @@ def build_agent_graph() -> StateGraph:
     graph.add_node("execute", execute_node)
     graph.add_node("reflect", reflect_node)
     graph.add_node("respond", respond_node)
+    graph.add_node("simple_respond", simple_respond_node)  # SIMPLE fast-path
     graph.add_node("error", error_node)
     # VMD multi-agent nodes
     graph.add_node("wbs_decompose", wbs_decompose_node)
@@ -364,13 +379,14 @@ def build_agent_graph() -> StateGraph:
     graph.set_entry_point("router")
 
     # ── Add Edges ──
-    # router → plan | wbs_decompose (conditional: multi-agent or standard)
+    # router → plan | wbs_decompose | simple_respond (conditional)
     graph.add_conditional_edges(
         "router",
         _after_router,
         {
             "plan": "plan",
             "wbs_decompose": "wbs_decompose",
+            "simple_respond": "simple_respond",
         },
     )
 
@@ -452,6 +468,9 @@ def build_agent_graph() -> StateGraph:
 
     # respond → END
     graph.add_edge("respond", END)
+
+    # simple_respond → END (fast-path)
+    graph.add_edge("simple_respond", END)
 
     return graph
 
