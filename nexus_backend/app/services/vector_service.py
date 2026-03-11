@@ -13,15 +13,14 @@ from app.core.database import supabase
 logger = logging.getLogger(__name__)
 
 # P1: Embedding Model Versioning — Track model changes to detect stale embeddings
-EMBEDDING_MODEL = "text-embedding-3-small"
-EMBEDDING_MODEL_VERSION = "2024-01"
-_DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
+EMBEDDING_MODEL = "text-embedding-3-large"
+EMBEDDING_MODEL_VERSION = "2026-03"
+_DEFAULT_EMBEDDING_MODEL = "text-embedding-3-large"
 # All DB vector columns are vector(1536); force this dimension to avoid mismatch
 _EMBEDDING_DIMENSIONS = 1536
 
-# Reranker configuration
-RERANK_ENABLED = getattr(settings, "RERANK_ENABLED", True)
-RERANK_TOP_N = getattr(settings, "RERANK_TOP_N", 5)
+# Reranker configuration — read from settings at call time, not import time
+# (settings.RERANK_ENABLED, settings.RERANK_PROVIDER, settings.RERANK_MODEL, etc.)
 
 # Timeout for OpenAI API calls (embedding + rerank)
 _OPENAI_TIMEOUT = float(getattr(settings, "VECTOR_OPENAI_TIMEOUT", 15))
@@ -99,6 +98,68 @@ class VectorService:
             meta = item.get("metadata") or item.get("doc_metadata") or {}
             doc_type = meta.get("doc_type", "")
         return VectorService._DOC_TYPE_LABELS.get(doc_type, "")
+
+    async def _rerank_with_api(
+        self, query: str, documents: list[dict], top_n: int = 5
+    ) -> list[dict]:
+        """
+        Use dedicated reranker model (bge-reranker-v2-m3) via API proxy.
+        Expected latency: ~100ms vs 2-8s for LLM reranking.
+        Falls back gracefully — caller should catch exceptions.
+        """
+        if not documents or len(documents) <= 1:
+            return documents
+        if len(documents) <= 3:
+            return documents[:top_n]
+
+        import httpx
+
+        max_docs = settings.RERANK_MAX_DOCS
+        rerank_timeout = settings.RERANK_TIMEOUT
+        rerank_model = settings.RERANK_MODEL
+
+        # Build rerank API URL from base URL
+        base_url = (settings.AI_BASE_URL or "https://api.openai.com/v1").rstrip("/")
+        # Strip /v1 suffix to get the root, then append /v1/rerank
+        base_root = base_url.rsplit("/v1", 1)[0] if base_url.endswith("/v1") else base_url
+        url = f"{base_root}/v1/rerank"
+
+        doc_texts = [doc.get("content", "")[:500] for doc in documents[:max_docs]]
+
+        payload = {
+            "model": rerank_model,
+            "query": query,
+            "documents": doc_texts,
+            "top_n": min(top_n, len(doc_texts)),
+        }
+        headers = {
+            "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
+            "Content-Type": "application/json",
+        }
+
+        async with httpx.AsyncClient(timeout=rerank_timeout) as http_client:
+            resp = await http_client.post(url, json=payload, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+
+        # Parse Cohere-compatible response: {results: [{index, relevance_score}, ...]}
+        results = data.get("results", [])
+        reranked = []
+        seen = set()
+        for item in results:
+            idx = item.get("index", 0)
+            if idx < len(documents) and idx not in seen:
+                doc = documents[idx].copy()
+                doc["rerank_score"] = item.get("relevance_score", 0)
+                reranked.append(doc)
+                seen.add(idx)
+
+        # Backfill unseen docs to meet top_n
+        for i, doc in enumerate(documents):
+            if i not in seen and len(reranked) < top_n:
+                reranked.append(doc)
+
+        return reranked[:top_n]
 
     async def _rerank_with_llm(
         self, query: str, documents: list[dict], client: AsyncOpenAI, top_n: int = 5
@@ -350,12 +411,23 @@ class VectorService:
         top_docs_unsorted = sorted(fused_docs.values(), key=lambda x: x["score"], reverse=True)[: limit * 2]
 
         # Reranking (if enabled and enough documents)
-        if RERANK_ENABLED and len(top_docs_unsorted) > 1:
+        # Cascade: api_reranker (bge-reranker-v2-m3) → llm (gpt-4o-mini) → RRF scores
+        if settings.RERANK_ENABLED and len(top_docs_unsorted) > 1:
+            rerank_top_n = settings.RERANK_TOP_N
             try:
-                top_docs = await self._rerank_with_llm(query, top_docs_unsorted, client, top_n=limit)
-                logger.info(f"Reranked {len(top_docs_unsorted)} docs to {len(top_docs)}")
+                if settings.RERANK_PROVIDER == "api_reranker":
+                    try:
+                        top_docs = await self._rerank_with_api(query, top_docs_unsorted, top_n=rerank_top_n)
+                        logger.info(f"API reranked {len(top_docs_unsorted)} docs to {len(top_docs)}")
+                    except Exception as api_err:
+                        logger.warning(f"API reranker failed, falling back to LLM: {api_err}")
+                        top_docs = await self._rerank_with_llm(query, top_docs_unsorted, client, top_n=rerank_top_n)
+                        logger.info(f"LLM reranked {len(top_docs_unsorted)} docs to {len(top_docs)}")
+                else:
+                    top_docs = await self._rerank_with_llm(query, top_docs_unsorted, client, top_n=rerank_top_n)
+                    logger.info(f"LLM reranked {len(top_docs_unsorted)} docs to {len(top_docs)}")
             except Exception as e:
-                logger.warning(f"Reranking failed: {e}")
+                logger.warning(f"All reranking failed, using RRF scores: {e}")
                 top_docs = top_docs_unsorted[:limit]
         else:
             top_docs = top_docs_unsorted[:limit]

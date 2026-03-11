@@ -142,11 +142,11 @@ async def resolve_embedding_config(org_id: str = "default") -> dict:
     except Exception as e:
         logger.debug("Gateway embedding resolution failed, using fallback: %s", e)
 
-    # Fallback — use small model which defaults to 1536 dimensions, matching DB vector(1536)
+    # Fallback — use large model with dimensions=1536 (MRL), matching DB vector(1536)
     return {
         "api_key": settings.OPENAI_API_KEY,
         "base_url": getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1"),
-        "model": "text-embedding-3-small",
+        "model": "text-embedding-3-large",
     }
 
 

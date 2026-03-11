@@ -24,7 +24,7 @@ class ETLService:
     """
 
     # Default embedding model (can be overridden by gateway resolution)
-    _DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
+    _DEFAULT_EMBEDDING_MODEL = "text-embedding-3-large"
 
     def __init__(self):
         self.api_key = settings.OPENAI_API_KEY

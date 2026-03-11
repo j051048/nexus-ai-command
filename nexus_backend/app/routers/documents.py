@@ -652,3 +652,64 @@ async def list_knowledge_libraries(
     except Exception as e:
         logger.error(f"Failed to list knowledge libraries: {e}")
         raise api_error(ErrorCode.DB_QUERY_ERROR, f"获取知识库列表失败: {str(e)}")
+
+
+@router.post("/admin/re-embed", response_model=StandardResponse)
+async def trigger_re_embed(
+    background_tasks: BackgroundTasks,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+    _=Depends(require_role("admin")),
+):
+    """
+    Trigger incremental re-embedding for documents still using old embedding model.
+    Runs in background — returns immediately with count of queued documents.
+    """
+    from app.core.database import supabase as global_supabase
+    from app.services.vector_service import EMBEDDING_MODEL, vector_service
+
+    client = getattr(req.state, "db", global_supabase)
+    if not client:
+        raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库服务不可用")
+
+    try:
+        # Find documents with outdated embeddings
+        res = (
+            await client.table("document_embeddings")
+            .select("document_id")
+            .neq("embedding_model", EMBEDDING_MODEL)
+            .limit(500)
+            .execute()
+        )
+        doc_ids = list({row["document_id"] for row in (res.data or []) if row.get("document_id")})
+
+        if not doc_ids:
+            return api_success(data={"queued": 0}, message="所有文档已使用最新嵌入模型")
+
+        async def _re_embed_docs(document_ids: list[str]):
+            for doc_id in document_ids:
+                try:
+                    # Fetch document text
+                    doc_res = await global_supabase.table("documents").select("id, organization_id").eq("id", doc_id).single().execute()
+                    if not doc_res.data:
+                        continue
+                    org_id = doc_res.data.get("organization_id", "default")
+
+                    # Fetch existing chunks to re-embed
+                    chunks_res = (
+                        await global_supabase.table("document_embeddings")
+                        .select("content")
+                        .eq("document_id", doc_id)
+                        .execute()
+                    )
+                    chunks = [row["content"] for row in (chunks_res.data or []) if row.get("content")]
+                    if chunks:
+                        await vector_service.incremental_update(doc_id, chunks, org_id)
+                except Exception as e:
+                    logger.error(f"Re-embed failed for doc {doc_id}: {e}")
+
+        background_tasks.add_task(_re_embed_docs, doc_ids)
+        return api_success(data={"queued": len(doc_ids)}, message=f"已排队 {len(doc_ids)} 个文档进行重新嵌入")
+    except Exception as e:
+        logger.error(f"Failed to trigger re-embed: {e}")
+        raise api_error(ErrorCode.DB_QUERY_ERROR, f"触发重新嵌入失败: {str(e)}")

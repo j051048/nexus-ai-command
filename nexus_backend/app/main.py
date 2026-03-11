@@ -109,6 +109,10 @@ try:
 except ImportError:
     admin_traces = None
 try:
+    from app.routers import admin_rag
+except ImportError:
+    admin_rag = None
+try:
     from app.routers import ai_feedback
 except ImportError:
     ai_feedback = None
@@ -404,6 +408,8 @@ if vmd_dashboard:
     app.include_router(vmd_dashboard.router)
 if admin_traces:
     app.include_router(admin_traces.router)
+if admin_rag:
+    app.include_router(admin_rag.router)
 if ai_feedback:
     app.include_router(ai_feedback.router)
 

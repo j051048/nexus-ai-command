@@ -131,8 +131,12 @@ class Settings(BaseSettings):
     RAG_PARENT_CHUNK_SIZE: int = Field(default=1800, description="Parent chunk size for parent-document retriever")
 
     # Reranker Configuration
-    RERANK_MAX_DOCS: int = Field(default=8, description="Maximum documents to send to LLM reranker")
-    RERANK_TIMEOUT: int = Field(default=8, description="Timeout in seconds for reranker LLM call")
+    RERANK_ENABLED: bool = Field(default=True, description="Enable reranking in hybrid search")
+    RERANK_PROVIDER: str = Field(default="api_reranker", description="Reranker provider: 'api_reranker' or 'llm'")
+    RERANK_MODEL: str = Field(default="bge-reranker-v2-m3", description="Model name for API-based reranker")
+    RERANK_TOP_N: int = Field(default=5, description="Number of top results to return from reranker")
+    RERANK_MAX_DOCS: int = Field(default=8, description="Maximum documents to send to reranker")
+    RERANK_TIMEOUT: int = Field(default=8, description="Timeout in seconds for reranker call")
 
     # LangGraph Agent Configuration
     LANGGRAPH_MAX_ITERATIONS: int = Field(default=5, description="Maximum plan-execute-reflect loop iterations")
