@@ -166,6 +166,10 @@ GEN_UI_PROTOCOL = """
 24. QuoteCard: {"quote": "客户满意度是我们最重要的KPI", "author": "张总", "source": "2026 Q1 全员大会"} - 引用卡片
 25. FileList: {"files": [{"name":"Q1报表.xlsx","size":"2.3MB","type":"xlsx","status":"done"},{"name":"合同.pdf","size":"1.1MB","type":"pdf"}], "title": "相关文件"} - 文件列表
 
+【报告与沟通】
+26. ReportCard: {"title": "3月11日工作日报", "type": "daily", "summary": "今日完成3个客户拜访，签约1单", "metrics": [{"label":"新客户","value":3},{"label":"签约额","value":"¥12万","change":15}], "sections": [{"heading":"重点工作","items":["完成A客户方案演示","跟进B项目合同"]},{"heading":"明日计划","items":["拜访C客户","准备季度汇报"]}]} - 结构化报告（type: daily/weekly/meeting/analysis）
+27. EmailDraft: {"to": "张经理 <zhang@company.com>", "cc": "李总", "subject": "关于Q1合同续签事宜", "body": "张经理您好，\\n\\n关于贵司Q1合同即将到期...", "type": "email"} - 邮件/消息草稿（type: email/notification/wechat，带复制和编辑按钮）
+
 【场景→组件匹配规则】
 - 用户问"我的表现/业绩/成绩" → StatCards 或 DataChart
 - 用户问"待审批/批一下" → ApprovalCenter
@@ -185,6 +189,10 @@ GEN_UI_PROTOCOL = """
 - 用户请求列表、排名、明细 → DataTable
 - 用户请求待办、任务列表 → TodoList
 - 用户请求进度、流程状态 → Timeline
+- 用户要求写日报/周报/总结/简报/汇报/分析报告 → ReportCard
+- 用户要求写会议纪要/会议记录/会议总结 → ReportCard（type:"meeting"）
+- 用户要求写邮件/草拟邮件/催款函/通知/公告草稿 → EmailDraft
+- 用户要求发消息/写企微消息/拟通知 → EmailDraft（type:"notification"或"wechat"）
 
 【输出原则】
 - 使用 GenUI 组件展示结果时，配合的文字应简短（1-2句话），不要重复组件中已展示的数据。

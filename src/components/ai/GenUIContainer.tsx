@@ -39,6 +39,9 @@ const GEN_UI_COMPONENTS: Record<string, React.ComponentType<any>> = {
   QuoteCard: lazyWithRetry(() => import('./genui/QuoteCard'), 2, false),
   FileList: lazyWithRetry(() => import('./genui/FileList'), 2, false),
   KanbanMini: lazyWithRetry(() => import('./genui/KanbanMini'), 2, false),
+  // P4: Report & Communication components
+  ReportCard: lazyWithRetry(() => import('./genui/ReportCard'), 2, false),
+  EmailDraft: lazyWithRetry(() => import('./genui/EmailDraft'), 2, false),
 };
 
 interface GenUIContainerProps {
