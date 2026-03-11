@@ -151,6 +151,34 @@ export const MessageBubble = React.memo(function MessageBubble({
                         if (config.component && typeof config.component === 'string') {
                           return <GenUIContainer componentName={config.component} props={config.props || {}} />;
                         }
+                        
+                        // Fallback for LLMs generating generic JSON without "component"
+                        if (config.title && Array.isArray(config.content)) {
+                           return (
+                             <div className="my-4 w-full overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                               <div className="bg-muted/50 px-4 py-3 border-b border-border flex items-center gap-2">
+                                 <div className="h-5 w-1 bg-primary rounded-full"></div>
+                                 <h3 className="font-medium text-sm">{config.title}</h3>
+                               </div>
+                               <div className="p-4 space-y-2 text-sm text-muted-foreground leading-relaxed">
+                                 {config.content.map((item: any, i: number) => (
+                                   <div key={i}>{String(item)}</div>
+                                 ))}
+                               </div>
+                             </div>
+                           );
+                        }
+                        
+                        // If it is explicitly tagged gen-ui but invalid format, show error instead of raw json
+                        if (isGenUITag) {
+                          console.warn("GenUI Missing Component or Prop structure:", raw);
+                          return (
+                            <div className="my-4 w-full rounded-xl border border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 p-4 text-sm text-amber-700 dark:text-amber-400">
+                              组件数据格式异常，无法渲染卡片，正在以文本形式展示...
+                              <pre className="mt-2 text-xs overflow-auto opacity-70 bg-black/5 dark:bg-white/5 p-2 rounded">{raw}</pre>
+                            </div>
+                          );
+                        }
                       } catch {
                         // During streaming, JSON may be incomplete — show skeleton instead of error
                         if (isTyping) {
@@ -169,7 +197,7 @@ export const MessageBubble = React.memo(function MessageBubble({
                           console.error("GenUI Parse Error:", raw);
                           return (
                             <div className="my-4 w-full rounded-xl border border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 p-4 text-sm text-amber-700 dark:text-amber-400">
-                              组件加载失败，正在以文本形式展示...
+                              组件加载失败，正在尝试解析...
                             </div>
                           );
                         }
