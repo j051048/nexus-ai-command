@@ -1,5 +1,5 @@
 """
-Graph Nodes: respond_node, error_node, _mask_sensitive_fields
+Graph Nodes: respond_node, error_node, _mask_sensitive_fields, response post-processing
 """
 
 import re as _re
@@ -63,6 +63,116 @@ def _mask_sensitive_fields(content: str, user_role: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+#  HELPER: Response Post-Processing Pipeline
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Redundant opening phrases to strip (LLM habits)
+_REDUNDANT_OPENINGS = _re.compile(
+    r"^(?:"
+    r"好的[，,\s]*|"
+    r"当然[，,\s]*(?:可以[，,\s]*)?|"
+    r"没问题[，,\s]*|"
+    r"我来帮您[，,\s]*|"
+    r"让我(?:来)?为您[^\n。，]{0,10}[，,\s]*|"
+    r"我(?:已经)?(?:帮您|为您)[^\n。，]{0,10}[，,\s]*|"
+    r"我明白了[，,\s]*|"
+    r"收到[，,\s]*|"
+    r"嗯[，,\s]*"
+    r")",
+    _re.MULTILINE,
+)
+
+# Redundant closing phrases to strip
+_REDUNDANT_CLOSINGS = _re.compile(
+    r"(?:"
+    r"如(?:果)?(?:您)?(?:还)?需要.*(?:帮助|协助).*|"
+    r"还有什么.*(?:帮|问|需要).*|"
+    r"希望(?:以上)?(?:内容)?(?:对您)?有所帮助.*|"
+    r"如有(?:任何)?(?:疑问|问题).*(?:联系|告知|咨询).*|"
+    r"祝您?工作顺利.*"
+    r")[。！!]?\s*$",
+    _re.MULTILINE,
+)
+
+# AI self-reference phrases to strip mid-text
+_AI_SELF_REFS = _re.compile(
+    r"作为(?:一[个位])?(?:AI|人工智能)?助手[，,\s]*"
+)
+
+# Pattern: key metric with number + unit (for bolding)
+_KEY_METRIC = _re.compile(
+    r"(?<!\*\*)("  # Not already bolded
+    r"[¥￥$]?\s*[\d,]+(?:\.\d+)?\s*(?:万|亿|千|百|元|%|件|次|人|单|笔|天|个月|家)"
+    r")(?!\*\*)"
+)
+
+# Pattern: consecutive items separated by 、(for list conversion)
+_CONSECUTIVE_ITEMS = _re.compile(
+    r"(?:(?:[\u4e00-\u9fff\w]+)(?:、))+(?:[\u4e00-\u9fff\w]+)"
+)
+
+
+def _strip_redundant_phrases(text: str) -> str:
+    """Remove common LLM verbose opening/closing phrases.
+
+    Strips: "好的，我来帮您...", "如需其他帮助...", "作为AI助手..." etc.
+    Preserves content between gen-ui code blocks.
+    """
+    if not text:
+        return text
+
+    # Don't process gen-ui blocks
+    if "```gen-ui" in text:
+        # Split around gen-ui blocks, only process non-block parts
+        parts = _re.split(r"(```gen-ui[\s\S]*?```)", text)
+        processed = []
+        for i, part in enumerate(parts):
+            if part.startswith("```gen-ui"):
+                processed.append(part)
+            else:
+                part = _REDUNDANT_OPENINGS.sub("", part, count=1)
+                part = _REDUNDANT_CLOSINGS.sub("", part)
+                part = _AI_SELF_REFS.sub("", part)
+                processed.append(part)
+        return "".join(processed).strip()
+
+    text = _REDUNDANT_OPENINGS.sub("", text, count=1)
+    text = _REDUNDANT_CLOSINGS.sub("", text)
+    text = _AI_SELF_REFS.sub("", text)
+    return text.strip()
+
+
+def _enhance_formatting(text: str) -> str:
+    """Enhance response formatting for readability.
+
+    - Bold key metrics (numbers with units)
+    - Convert long comma/顿号 lists into markdown bullet lists
+    Only applies to longer responses (>200 chars) without existing formatting.
+    """
+    if not text or len(text) < 200:
+        return text
+
+    # Skip if already has rich formatting (markdown headers, lists, gen-ui)
+    if _re.search(r"^#{1,3}\s|^\s*[-*]\s|```gen-ui", text, _re.MULTILINE):
+        return text
+
+    # Bold key metrics (numbers with units like ¥428万, 95.2%, 15人)
+    text = _KEY_METRIC.sub(r"**\1**", text)
+
+    # Convert consecutive 顿号-separated items (≥4 items) to bullet list
+    def _list_convert(match):
+        items_str = match.group(0)
+        items = items_str.split("、")
+        if len(items) >= 4:
+            return "\n" + "\n".join(f"- {item}" for item in items) + "\n"
+        return items_str
+
+    text = _CONSECUTIVE_ITEMS.sub(_list_convert, text)
+
+    return text
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 #  NODE: respond_node
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -93,6 +203,10 @@ async def respond_node(state: AgentState) -> dict:
     # that may have been retrieved by RAG or tool calls
     config: AgentConfig = state["config"]
     final_response = _mask_sensitive_fields(final_response, config.user_role)
+
+    # Post-processing: strip verbose LLM habits and enhance formatting
+    final_response = _strip_redundant_phrases(final_response)
+    final_response = _enhance_formatting(final_response)
 
     return {
         "final_response": final_response or "抱歉，系统处理出现异常，请重试。",

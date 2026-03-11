@@ -100,6 +100,20 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             if not injected:
                 lc_msgs.insert(0, SystemMessage(content=injection))
 
+        # Few-shot example injection — scene/intent-aware style demonstrations
+        try:
+            from app.core.prompts.few_shot_examples import get_few_shot_examples
+
+            scene_code = state.get("scene_code", "")
+            few_shot = get_few_shot_examples(scene_code, intent_summary)
+            if few_shot:
+                for m in lc_msgs:
+                    if isinstance(m, SystemMessage):
+                        m.content += f"\n\n{few_shot}"
+                        break
+        except Exception:
+            pass  # Few-shot injection is optional, never block planning
+
     # P0-3: On re-planning iterations, inject reflection guidance into system prompt
     if iteration > 0:
         reflection_guidance = state.get("reflection_guidance", "")
