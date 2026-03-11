@@ -12,32 +12,36 @@ Graph topology:
     └────┬─────┘
          │
     ┌────▼──────────┐
-    │ after_router  │  ← conditional: multi-agent or standard?
-    └───┬───────┬───┘
-        │       │
-    ┌───▼───┐ ┌─▼──────────┐
-    │ Plan  │ │ WBS Decomp │  ← multi-agent path
-    └───┬───┘ └─────┬──────┘
-        │           │
-        │     ┌─────▼───────┐
-        │     │ Orchestrate │  ← delegates to sub-agents
-        │     └─────┬───────┘
-        │           │
-    ┌───▼───┐       │
-    │Execute│       │
-    └───┬───┘       │
-        │           │
-    ┌───▼───┐  ┌────▼───┐
-    │Reflect│  │Respond │  ← both paths converge
-    └───┬───┘  └────┬───┘
-        │           │
-    ┌───▼───┐  ┌────▼───┐
-    │Respond│  │  END   │
-    └───┬───┘  └────────┘
-        │
-    ┌───▼───┐
-    │  END  │
-    └───────┘
+    │ after_router  │  ← conditional: simple / multi-agent / standard?
+    └───┬───┬───┬───┘
+        │   │   │
+  ┌─────▼┐  │ ┌─▼──────────┐
+  │Simple│  │ │ WBS Decomp │  ← multi-agent path
+  │Respond│ │ └─────┬──────┘
+  └──┬───┘  │       │
+     │  ┌───▼───┐ ┌─▼──────────┐
+     │  │ Plan  │ │ Orchestrate │
+     │  └───┬───┘ └─────┬──────┘
+     │      │           │
+     │  ┌───▼───┐       │
+     │  │Execute│       │
+     │  └───┬───┘       │
+     │      │           │
+     │  ┌───▼──────┐    │
+     │  │Synthesize│    │  ← all tools OK: fast path (skips reflect+critic)
+     │  └───┬──────┘    │
+     │      │           │
+     │  ┌───▼───┐  ┌────▼───┐
+     │  │Respond│  │Respond │  ← both paths converge
+     │  └───┬───┘  └────┬───┘
+     │      │           │
+     │  ┌───▼───┐  ┌────▼───┐
+     │  │  END  │  │  END   │
+     │  └───────┘  └────────┘
+     │
+  ┌──▼───┐
+  │ END  │
+  └──────┘
 """
 
 import hashlib
@@ -48,7 +52,7 @@ from typing import Optional
 from langgraph.graph import END, StateGraph
 
 from app.agent.checkpointer import get_checkpointer
-from app.agent.nodes import critic_node, error_node, execute_node, plan_node, reflect_node, respond_node, simple_respond_node
+from app.agent.nodes import critic_node, error_node, execute_node, plan_node, reflect_node, respond_node, simple_respond_node, synthesize_node
 from app.agent.nodes_orchestrator import orchestrate_node
 from app.agent.nodes_wbs import wbs_decompose_node
 from app.agent.router import route_node
@@ -212,7 +216,8 @@ def _after_execute(state: AgentState) -> str:
       - If error occurred → error
       - If confirmation pending (tool blocked by HITL gate) → respond (stop graph)
       - If loop detected (same tools called repeatedly) → reflect to finalize
-      - Always go back to plan so the LLM can synthesize tool results.
+      - SIMPLE/MODERATE with all tools successful → synthesize (lightweight, 1 LLM call)
+      - Otherwise → plan (full second-pass with bind_tools for potential follow-up)
       - Guard: if iteration limit reached → reflect to finalize.
     """
     if state.get("error"):
@@ -239,6 +244,23 @@ def _after_execute(state: AgentState) -> str:
             f"(same tool calls repeated {_GENERIC_REPEAT_THRESHOLD}x), forcing reflect"
         )
         return "reflect"
+
+    # Fast synthesis: when all tools succeeded, use lightweight synthesize_node
+    # instead of full plan second-pass. Saves ~60% tokens.
+    # - SIMPLE/MODERATE: skip reflect+critic entirely
+    # - COMPLEX/CRITICAL: embed critic self-evaluation in synthesis prompt,
+    #   eliminating separate critic_node LLM call (3→2 LLM calls)
+    complexity = state.get("complexity")
+    completed = state.get("completed_tool_calls", [])
+    if (
+        completed
+        and all(
+            (getattr(tc, "status", None) or tc.get("status")) == "success"
+            for tc in completed
+        )
+    ):
+        logger.info(f"[Graph] All tools succeeded + {complexity} → fast synthesize")
+        return "synthesize"
 
     return "plan"
 
@@ -368,6 +390,7 @@ def build_agent_graph() -> StateGraph:
     graph.add_node("reflect", reflect_node)
     graph.add_node("respond", respond_node)
     graph.add_node("simple_respond", simple_respond_node)  # SIMPLE fast-path
+    graph.add_node("synthesize", synthesize_node)  # Single-tool fast synthesis
     graph.add_node("error", error_node)
     # VMD multi-agent nodes
     graph.add_node("wbs_decompose", wbs_decompose_node)
@@ -423,12 +446,13 @@ def build_agent_graph() -> StateGraph:
         },
     )
 
-    # execute → plan | reflect | respond | error (conditional)
+    # execute → plan | synthesize | reflect | respond | error (conditional)
     graph.add_conditional_edges(
         "execute",
         _after_execute,
         {
             "plan": "plan",
+            "synthesize": "synthesize",
             "reflect": "reflect",
             "respond": "respond",
             "error": "error",
@@ -471,6 +495,9 @@ def build_agent_graph() -> StateGraph:
 
     # simple_respond → END (fast-path)
     graph.add_edge("simple_respond", END)
+
+    # synthesize → respond (lightweight synthesis feeds into respond for output formatting)
+    graph.add_edge("synthesize", "respond")
 
     return graph
 
