@@ -377,7 +377,7 @@ async def delete_model(
         if not res.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "模型不存在")
 
-        return api_success(message="模型已删除")
+        return api_success(data={"deleted": True}, message="模型已删除")
     except Exception as e:
         logger.error(f"Delete model error: id={model_id} user={user_id} err={e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
@@ -624,7 +624,7 @@ async def delete_schedule_rule(
         if not res.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "调度规则不存在")
 
-        return api_success(message="调度规则已删除")
+        return api_success(data={"deleted": True}, message="调度规则已删除")
     except Exception as e:
         logger.error(f"Delete schedule rule error: id={rule_id} user={user_id} err={e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
