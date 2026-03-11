@@ -924,7 +924,8 @@ class ETLService:
                         the parent chunk that text belongs to.
                 """
                 try:
-                    payload = {"model": embedding_model, "input": batch_texts}
+                    # Force dimensions=1536 to match DB vector(1536) column definition
+                    payload = {"model": embedding_model, "input": batch_texts, "dimensions": 1536}
                     headers = {"Authorization": f"Bearer {active_api_key}"}
                     resp = await shared_client.post(f"{active_base_url}/embeddings", headers=headers, json=payload)
                     if resp.status_code == 200:
