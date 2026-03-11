@@ -344,11 +344,17 @@ async def run_agent_stream(
     try:
         # P1 Security: Prefix thread_id with org_id to prevent cross-tenant
         # state leakage via the LangGraph checkpointer.
-        # HITL: Use a unique thread_id for confirm resends so the
-        # checkpointer does NOT restore old state (including stale
-        # blocked ToolCallRecords) from the previous execution.
+        # CRITICAL FIX: Always use a unique thread_id per message to prevent
+        # the checkpointer from merging old state into new runs.
+        # AgentState.messages uses operator.add (accumulator), so reusing
+        # the same thread_id causes the checkpoint's old messages to be
+        # APPENDED to the new input messages, creating massive duplication.
+        # The frontend already sends the full conversation history, so the
+        # checkpointer provides no value for multi-turn context — it only
+        # causes confusion (LLM sees duplicated messages and may repeat
+        # old responses).
         base_thread = f"{agent_config.org_id or 'default'}::{agent_config.session_id}"
-        scoped_thread_id = f"{base_thread}::confirm-{int(start_time)}" if system_confirmed else base_thread
+        scoped_thread_id = f"{base_thread}::msg-{int(start_time)}"
 
         # Track whether we're inside a <think>...</think> block during streaming.
         # Reasoning models (step-3.5-flash, DeepSeek-R1, QwQ, etc.) emit these
