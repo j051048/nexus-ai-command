@@ -122,6 +122,28 @@ class AgentConfig:
             return self.mini_model
         return self.model  # power, flagship
 
+    def get_tier_config(self, complexity: QueryComplexity) -> dict:
+        """Return full tier-aware config (model + temperature + timeout + tools).
+
+        Used by nodes that need more than just the model name — e.g. when
+        creating LLM instances with tier-specific temperature/timeout.
+        """
+        _tier_overrides = {
+            "economy":  {"temperature": 0.3, "timeout": 30, "supports_tools": False},
+            "balanced": {"temperature": 0.5, "timeout": 45, "supports_tools": True},
+            "power":    {"temperature": 0.7, "timeout": 60, "supports_tools": True},
+            "flagship": {"temperature": 0.5, "timeout": 90, "supports_tools": True},
+        }
+        tier = complexity.model_tier
+        overrides = _tier_overrides.get(tier, {})
+        return {
+            "model": self.get_model_for_complexity(complexity),
+            "temperature": overrides.get("temperature", self.temperature),
+            "timeout": overrides.get("timeout", self.tool_timeout),
+            "supports_tools": overrides.get("supports_tools", True),
+            "tier": tier,
+        }
+
 
 # ─── Core Agent State (TypedDict for LangGraph) ─────────────────────────────
 

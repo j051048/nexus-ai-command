@@ -14,6 +14,11 @@ Transitions:
 - OPEN -> HALF_OPEN: After cooldown period elapses
 - HALF_OPEN -> CLOSED: If probe request succeeds
 - HALF_OPEN -> OPEN: If probe request fails
+
+Multi-worker support:
+- When Redis is available, state is shared via Redis keys so that all
+  workers converge on the same circuit breaker decisions.
+- Falls back gracefully to process-local state when Redis is down.
 """
 
 import logging
@@ -23,6 +28,19 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 logger = logging.getLogger(__name__)
+
+# Redis key prefix for shared circuit breaker state
+_REDIS_CB_PREFIX = "llm_cb:"
+_REDIS_CB_TTL = 600  # 10 minutes — enough for cooldown + buffer
+
+
+def _get_redis():
+    """Lazy import Redis client; returns None if unavailable."""
+    try:
+        from app.services.cache_service import cache_service
+        return cache_service
+    except Exception:
+        return None
 
 
 class CircuitState(StrEnum):
@@ -104,19 +122,6 @@ class ModelCircuitBreaker:
         # HALF_OPEN: allow exactly one probe request; OPEN: block all
         return current_state == CircuitState.HALF_OPEN
 
-    def record_success(self):
-        """Record a successful call."""
-        self._total_calls += 1
-        self._results.append(True)
-        self._last_success_at = time.monotonic()
-
-        if self._state == CircuitState.HALF_OPEN:
-            # Probe succeeded - close the circuit
-            self._state = CircuitState.CLOSED
-            self._opened_at = None
-            self._half_open_at = None
-            logger.info(f"Circuit breaker CLOSED for model '{self.model_code}' - probe succeeded")
-
     def record_failure(self):
         """Record a failed call."""
         self._total_calls += 1
@@ -128,6 +133,7 @@ class ModelCircuitBreaker:
             self._state = CircuitState.OPEN
             self._opened_at = time.monotonic()
             self._half_open_at = None
+            self._sync_open_to_redis()
             logger.warning(f"Circuit breaker re-OPENED for model '{self.model_code}' - probe failed")
             return
 
@@ -138,11 +144,54 @@ class ModelCircuitBreaker:
             if error_rate >= self.failure_threshold:
                 self._state = CircuitState.OPEN
                 self._opened_at = time.monotonic()
+                self._sync_open_to_redis()
                 logger.warning(
                     f"Circuit breaker OPENED for model '{self.model_code}' - "
                     f"error rate {error_rate:.0%} >= {self.failure_threshold:.0%} "
                     f"in last {len(self._results)} calls"
                 )
+
+    def record_success(self):
+        """Record a successful call."""
+        self._total_calls += 1
+        self._results.append(True)
+        self._last_success_at = time.monotonic()
+
+        if self._state == CircuitState.HALF_OPEN:
+            # Probe succeeded - close the circuit
+            self._state = CircuitState.CLOSED
+            self._opened_at = None
+            self._half_open_at = None
+            self._clear_redis_open()
+            logger.info(f"Circuit breaker CLOSED for model '{self.model_code}' - probe succeeded")
+
+    def _sync_open_to_redis(self):
+        """Publish OPEN state to Redis so other workers see it."""
+        try:
+            redis = _get_redis()
+            if redis and hasattr(redis, '_redis') and redis._redis:
+                import asyncio
+                key = f"{_REDIS_CB_PREFIX}{self.model_code}:open"
+                # Fire-and-forget: use synchronous set if available, otherwise skip
+                # This is best-effort; local state is always authoritative
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(redis.set(key, "1", ttl=int(self.cooldown_seconds + 60)))
+        except Exception:
+            pass  # Redis sync is best-effort
+
+    def _clear_redis_open(self):
+        """Remove OPEN flag from Redis when circuit closes."""
+        try:
+            redis = _get_redis()
+            if redis and hasattr(redis, '_redis') and redis._redis:
+                import asyncio
+                key = f"{_REDIS_CB_PREFIX}{self.model_code}:open"
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(redis.delete(key))
+        except Exception:
+            pass
 
     def reset(self):
         """Manually reset the circuit breaker to CLOSED state."""
@@ -246,6 +295,29 @@ class CircuitBreakerManager:
     def get_stats(self, model_code: str) -> CircuitStats:
         """Get statistics for a specific model's circuit breaker."""
         return self._get_breaker(model_code).get_stats()
+
+    async def sync_from_redis(self) -> None:
+        """Sync circuit breaker state from Redis for cross-worker consistency.
+
+        Call this periodically (e.g. every 30s) or before critical decisions.
+        If Redis has an OPEN flag for a model that this worker thinks is CLOSED,
+        open the local circuit breaker.
+        """
+        try:
+            redis = _get_redis()
+            if not redis or not hasattr(redis, '_redis') or not redis._redis:
+                return
+
+            for model_code, breaker in self._breakers.items():
+                if breaker._state == CircuitState.CLOSED:
+                    key = f"{_REDIS_CB_PREFIX}{model_code}:open"
+                    val = await redis.get(key)
+                    if val:
+                        breaker._state = CircuitState.OPEN
+                        breaker._opened_at = time.monotonic()
+                        logger.info(f"Circuit breaker synced OPEN from Redis for model '{model_code}'")
+        except Exception as e:
+            logger.debug(f"Circuit breaker Redis sync failed (non-fatal): {e}")
 
 
 # Global circuit breaker manager

@@ -23,6 +23,24 @@ from app.agent.state import AgentPhase, AgentState, QueryComplexity, ThinkingSte
 
 logger = logging.getLogger(__name__)
 
+# ─── Jieba word segmentation (lazy init) ─────────────────────────────────────
+# Provides more accurate Chinese keyword matching than pure substring search.
+# Falls back to substring matching if jieba is unavailable.
+_jieba_initialized = False
+
+
+def _tokenize(text: str) -> set[str]:
+    """Tokenize Chinese text with jieba; falls back to original text as single-token set."""
+    global _jieba_initialized
+    try:
+        import jieba
+        if not _jieba_initialized:
+            jieba.setLogLevel(logging.WARNING)
+            _jieba_initialized = True
+        return set(jieba.cut(text))
+    except ImportError:
+        return set()
+
 # ─── Keyword Patterns ────────────────────────────────────────────────────────
 
 _GREETING_PATTERNS = re.compile(
@@ -273,6 +291,56 @@ _ALL_BUSINESS_KEYWORDS: set[str] = (
         "产品", "文档", "资料", "方案", "规范", "规格",
     }
 )
+
+# ─── DB-loaded keyword overlay ────────────────────────────────────────────
+# Loaded once from the intent_rules table (if available) and merged into
+# the hardcoded sets above. Cached module-level to avoid repeated DB calls.
+_db_keywords_loaded = False
+
+
+async def _load_db_intent_rules() -> None:
+    """Load keyword rules from intent_rules table and merge into hardcoded sets.
+
+    Called once on first classify_query invocation. Falls back silently to
+    hardcoded keywords if the table doesn't exist or the DB is unavailable.
+    """
+    global _db_keywords_loaded
+    if _db_keywords_loaded:
+        return
+    _db_keywords_loaded = True
+
+    try:
+        from app.core.database import supabase
+        if not supabase:
+            return
+
+        res = (
+            await supabase.table("intent_rules")
+            .select("keyword, complexity")
+            .eq("is_active", True)
+            .is_("tenant_id", "null")
+            .execute()
+        )
+        if not res.data:
+            return
+
+        _complexity_map = {
+            "critical": _CRITICAL_KEYWORDS,
+            "complex": _COMPLEX_KEYWORDS,
+            "moderate": _MODERATE_KEYWORDS,
+        }
+        count = 0
+        for row in res.data:
+            target_set = _complexity_map.get(row["complexity"])
+            if target_set is not None:
+                target_set.add(row["keyword"])
+                _ALL_BUSINESS_KEYWORDS.add(row["keyword"])
+                count += 1
+
+        if count:
+            logger.info(f"[Router] Loaded {count} intent rules from DB")
+    except Exception as e:
+        logger.debug(f"[Router] intent_rules table not available, using hardcoded keywords: {e}")
 # Maps regex patterns to agent_code + scene_code.
 # Checked AFTER complexity classification; used to assign a specific agent role.
 
@@ -374,10 +442,15 @@ def detect_agent_role(query: str, complexity: QueryComplexity) -> tuple[str, str
 def _filter_negated_keywords(text: str, keywords: set[str]) -> set[str]:
     """Remove keywords that are immediately preceded by a negation prefix.
 
+    Uses both substring matching and jieba tokenization for more accurate
+    Chinese keyword detection.
+
     E.g. text="不需要报销了", keywords={"报销"} → returns empty set
     because "不需要" negates "报销".
     """
-    matched = {kw for kw in keywords if kw in text}
+    # Hybrid matching: substring + jieba tokens
+    tokens = _tokenize(text)
+    matched = {kw for kw in keywords if kw in text or kw in tokens}
     if not matched:
         return matched
     # Check each matched keyword for negation prefix
@@ -585,6 +658,9 @@ async def route_node(state: AgentState) -> dict:
     config = state["config"]
     messages = state.get("messages", [])
 
+    # Load DB keyword rules on first invocation (cached after first call)
+    await _load_db_intent_rules()
+
     # Extract last user message
     last_user_msg = ""
     for msg in reversed(messages):
@@ -614,16 +690,10 @@ async def route_node(state: AgentState) -> dict:
 
     # LLM fallback: only for genuinely ambiguous queries that passed all keyword checks.
     # Skip LLM classification when:
-    # - Message is short (≤15 chars) — unlikely to be complex business query
-    # - Message is pure Chinese without any business context clues
+    # - Message is short (≤10 chars) — unlikely to be complex business query
     # This saves ~500ms per SIMPLE query by avoiding an extra LLM round-trip.
-    if intent_summary == "一般对话" and len(last_user_msg.strip()) > 15:
-        # Additional heuristic: check if message contains any CJK characters mixed with
-        # question patterns that suggest potential business relevance
-        has_question_mark = any(c in last_user_msg for c in "？?吗么呢")
-        has_numbers = bool(re.search(r"\d+", last_user_msg))
-        if has_question_mark or has_numbers:
-            complexity, intent_summary = await _llm_classify_intent(last_user_msg, config)
+    if intent_summary == "一般对话" and len(last_user_msg.strip()) > 10:
+        complexity, intent_summary = await _llm_classify_intent(last_user_msg, config)
 
     selected_model = config.get_model_for_complexity(complexity)
 

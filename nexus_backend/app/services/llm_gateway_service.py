@@ -43,11 +43,18 @@ class LLMGatewayService:
     manages caching, quota enforcement, circuit breaking, and logging.
     """
 
+    # Batch log buffer settings
+    _LOG_BATCH_SIZE = 10
+    _LOG_FLUSH_INTERVAL = 5.0  # seconds
+
     def __init__(self):
         # Cache: key -> (value, loaded_at_timestamp)
         self._model_cache: dict[str, tuple[ModelConfig, float]] = {}
         self._schedule_cache: dict[str, tuple[dict, float]] = {}
         self._CACHE_TTL: int = 300  # 5 minutes
+        # Batch log buffer
+        self._log_buffer: list[dict] = []
+        self._log_last_flush: float = time.time()
 
     # ------------------------------------------------------------------
     # Internal: Model config loading
@@ -845,6 +852,35 @@ class LLMGatewayService:
                 error_msg=error_msg,
             )
 
+            # --- Backup model retry (mirrors chat() behavior) ---
+            backup_code = await self._get_backup_model(scene_code, agent_code, org_id, exclude=model_code)
+            if backup_code:
+                logger.info(f"Stream retrying with backup model '{backup_code}' after primary '{model_code}' failed")
+                backup_adapter, backup_config = await self._create_adapter(backup_code, org_id)
+                if backup_adapter and backup_config:
+                    backup_request = ChatRequest(
+                        scene_code=scene_code,
+                        agent_code=agent_code,
+                        user_id=user_id,
+                        system_prompt=system_prompt,
+                        messages=messages,
+                        tools=tools if backup_config.supports_tools else None,
+                        temperature=temperature or backup_config.default_temperature,
+                        max_tokens=max_tokens or backup_config.max_tokens,
+                        stream=True,
+                        request_id=request_id,
+                    )
+                    try:
+                        backup_start = time.monotonic()
+                        async for chunk in backup_adapter.stream_chat(backup_request):
+                            chunk.exec_time_ms = int((time.monotonic() - backup_start) * 1000)
+                            yield chunk
+                        circuit_breaker_manager.record_success(backup_code)
+                        return
+                    except Exception as backup_e:
+                        logger.error(f"Backup stream also failed for model={backup_code}: {backup_e}")
+                        circuit_breaker_manager.record_failure(backup_code)
+
             yield self._error_response(request_id, model_code, error_msg)
 
     # ------------------------------------------------------------------
@@ -988,37 +1024,56 @@ class LLMGatewayService:
         error_msg: str | None = None,
     ) -> None:
         """
-        Insert a record into the llm_call_log table for auditing and
-        analytics.  Failures are logged but never propagated.
+        Buffer a log record and flush to DB in batches.
+
+        Flushes when the buffer reaches _LOG_BATCH_SIZE or when
+        _LOG_FLUSH_INTERVAL seconds have elapsed since the last flush.
+        Failures are logged but never propagated.
         """
-        if not supabase:
+        row = {
+            "id": str(uuid.uuid4()),
+            "tenant_id": org_id,
+            "model_code": model_code,
+            "scene_code": scene_code,
+            "agent_code": agent_code,
+            "user_id": user_id,
+            "request_id": request_id,
+            "status": status,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": input_tokens + output_tokens,
+            "cost": cost,
+            "latency_ms": latency_ms,
+            "error_msg": error_msg,
+        }
+        # #25: 添加 trace_id 用于全链路追踪
+        trace_id = get_trace_id()
+        if trace_id:
+            row["trace_id"] = trace_id
+
+        self._log_buffer.append(row)
+
+        now = time.time()
+        should_flush = (
+            len(self._log_buffer) >= self._LOG_BATCH_SIZE
+            or (now - self._log_last_flush) >= self._LOG_FLUSH_INTERVAL
+        )
+        if should_flush:
+            await self._flush_log_buffer()
+
+    async def _flush_log_buffer(self) -> None:
+        """Flush buffered log records to the database in a single insert."""
+        if not self._log_buffer or not supabase:
             return
 
+        batch = self._log_buffer[:]
+        self._log_buffer.clear()
+        self._log_last_flush = time.time()
+
         try:
-            row = {
-                "id": str(uuid.uuid4()),
-                "tenant_id": org_id,
-                "model_code": model_code,
-                "scene_code": scene_code,
-                "agent_code": agent_code,
-                "user_id": user_id,
-                "request_id": request_id,
-                "status": status,
-                "input_tokens": input_tokens,
-                "output_tokens": output_tokens,
-                "total_tokens": input_tokens + output_tokens,
-                "cost": cost,
-                "latency_ms": latency_ms,
-                "error_msg": error_msg,
-            }
-            # #25: 添加 trace_id 用于全链路追踪
-            trace_id = get_trace_id()
-            if trace_id:
-                row["trace_id"] = trace_id
-            await supabase.table("llm_call_log").insert(row).execute()
+            await supabase.table("llm_call_log").insert(batch).execute()
         except Exception as e:
-            # Logging failures must never break the main flow
-            logger.warning(f"Failed to log LLM call to database: {e}")
+            logger.warning(f"Failed to batch-insert {len(batch)} LLM call logs: {e}")
 
     # ------------------------------------------------------------------
     # Internal: Backup model lookup
@@ -1034,13 +1089,16 @@ class LLMGatewayService:
         """
         Look up the backup model from the cached schedule rule,
         excluding the already-failed model.
+
+        Searches all complexity_tier variants in the cache since the
+        caller may not know which tier was used for the original resolution.
         """
-        cache_key = f"{org_id}:{scene_code}:{agent_code}"
-        if cache_key in self._schedule_cache:
-            rule, _ = self._schedule_cache[cache_key]
-            backup = rule.get("backup_model_code") or None
-            if backup and backup != exclude and circuit_breaker_manager.is_allowed(backup):
-                return backup
+        prefix = f"{org_id}:{scene_code}:{agent_code}:"
+        for key, (rule, _) in self._schedule_cache.items():
+            if key.startswith(prefix):
+                backup = rule.get("backup_model_code") or None
+                if backup and backup != exclude and circuit_breaker_manager.is_allowed(backup):
+                    return backup
         return None
 
     # ------------------------------------------------------------------
