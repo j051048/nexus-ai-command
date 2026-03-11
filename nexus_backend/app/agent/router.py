@@ -143,11 +143,12 @@ _CRITICAL_KEYWORDS = {
     "付款",
     "转账",
     "发工资",
-    # Announcements / notifications
+    # Announcements / notifications — only actionable phrases
+    # NOTE: bare "通知" and "公告" removed — too ambiguous. "通知全体员工停水"
+    # is a SIMPLE instruction, not an irreversible mutation requiring HITL.
     "发公告",
     "全员通知",
-    "通知",
-    "公告",
+    "发通知",
     # Destructive / data-security operations
     "删除",
     "批量删除",
@@ -433,6 +434,10 @@ def classify_query(query: str) -> tuple[QueryComplexity, str]:
         has_execute_verb = any(v in text for v in _EXECUTE_VERBS)
         if has_query_verb and not has_execute_verb:
             return QueryComplexity.MODERATE, f"查询操作(含敏感词但为只读): {', '.join(matched_critical)}"
+        # No action verb at all → ambiguous, downgrade to MODERATE to avoid
+        # over-triggering HITL / RAG for vague matches like "通知停水"
+        if not has_query_verb and not has_execute_verb:
+            return QueryComplexity.MODERATE, f"业务相关(含敏感词但无明确动作): {', '.join(matched_critical)}"
         return QueryComplexity.CRITICAL, f"关键操作: {', '.join(matched_critical)}"
 
     # 3. Complex (multi-step analysis)
