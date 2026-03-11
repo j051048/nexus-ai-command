@@ -384,18 +384,27 @@ async def prepare_initial_state(
                     if isinstance(docs, str) and "检索到" in docs:
                         all_docs.append({"content": docs, "source": "HyDE搜索"})
 
-            # Strategy 2: Multi-Query Expansion
+            # Strategy 2: Multi-Query Expansion (parallel searches)
             if use_multi_query:
                 expanded_queries = await transformer.expand_multi_query(last_user_msg, num_queries=3)
-                for q in expanded_queries:
-                    docs = await vector_service.search(
-                        query=q,
-                        user_id=config.user_id,
-                        limit=config.rag_inject_limit // len(expanded_queries),
-                        org_id=config.org_id,
+                if expanded_queries:
+                    import asyncio as _asyncio
+
+                    async def _search_expanded(q):
+                        return await vector_service.search(
+                            query=q,
+                            user_id=config.user_id,
+                            limit=config.rag_inject_limit // len(expanded_queries),
+                            org_id=config.org_id,
+                        )
+
+                    expanded_results = await _asyncio.gather(
+                        *[_search_expanded(q) for q in expanded_queries],
+                        return_exceptions=True,
                     )
-                    if isinstance(docs, str) and docs and "未找到" not in docs:
-                        all_docs.append({"content": docs, "source": f"查询: {q[:30]}"})
+                    for i, docs in enumerate(expanded_results):
+                        if isinstance(docs, str) and docs and "未找到" not in docs:
+                            all_docs.append({"content": docs, "source": f"查询: {expanded_queries[i][:30]}"})
 
             # Strategy 3: Original query (always included)
             original_docs = await vector_service.search(

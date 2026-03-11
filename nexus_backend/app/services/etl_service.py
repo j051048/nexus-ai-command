@@ -686,7 +686,7 @@ class ETLService:
         文件名: {filename}
         文件名预分类提示: {_filename_hint}（仅供参考，请根据实际内容判断）
         文件内容片段:
-        {text}
+        {text[:80000]}
 
         # Output Format (输出格式)
         请输出两个独立的部分，严禁将 Markdown 报告包含在 JSON 字段中。
@@ -863,9 +863,13 @@ class ETLService:
     ) -> bool:
         """
         Batch Embeddings with partial success tracking.
+
+        Performance optimizations:
+        - Reuse a single httpx.AsyncClient across all batches (avoids TCP+TLS per batch)
+        - Batch parent chunk embeddings (was serial 1-by-1, now batched like children)
+        - Correctly assign parent_id per-record when a batch spans multiple parents
         """
         batch_size = 50
-        current_batch_text = []
         all_success = True
 
         # Resolve embedding model dynamically via gateway
@@ -885,14 +889,25 @@ class ETLService:
                 if "/v1" not in active_base_url and "api.openai.com" not in active_base_url:
                     active_base_url = f"{active_base_url}/v1"
         except Exception:
-            pass
+            logger.debug("[ETL] Embedding config resolution failed, using defaults")
 
-        async def _process_batch(batch_texts, chunk_type="child", parent_chunk_id=None):
-            try:
-                payload = {"model": embedding_model, "input": batch_texts}
-                headers = {"Authorization": f"Bearer {active_api_key}"}
-                async with httpx.AsyncClient(timeout=45.0) as client:
-                    resp = await client.post(f"{active_base_url}/embeddings", headers=headers, json=payload)
+        # Reuse a single httpx client for all embedding requests within this document
+        async with httpx.AsyncClient(timeout=60.0) as shared_client:
+
+            async def _process_batch(batch_texts, chunk_type="child", parent_chunk_ids=None):
+                """Embed a batch of texts and insert into DB.
+
+                Args:
+                    batch_texts: List of text strings to embed.
+                    chunk_type: "parent" or "child".
+                    parent_chunk_ids: Per-record parent IDs (same length as batch_texts).
+                        None for parent chunks. For child chunks, each entry maps to
+                        the parent chunk that text belongs to.
+                """
+                try:
+                    payload = {"model": embedding_model, "input": batch_texts}
+                    headers = {"Authorization": f"Bearer {active_api_key}"}
+                    resp = await shared_client.post(f"{active_base_url}/embeddings", headers=headers, json=payload)
                     if resp.status_code == 200:
                         embeddings_data = resp.json()["data"]
                         records = []
@@ -905,50 +920,59 @@ class ETLService:
                                 "organization_id": organization_id,
                                 "chunk_type": chunk_type,
                             }
-                            if parent_chunk_id:
-                                record["parent_chunk_id"] = parent_chunk_id
+                            # Per-record parent_id assignment (fixes cross-parent batch bug)
+                            if parent_chunk_ids and i < len(parent_chunk_ids) and parent_chunk_ids[i]:
+                                record["parent_chunk_id"] = parent_chunk_ids[i]
                             records.append(record)
                         res = await supabase.table("document_embeddings").insert(records).execute()
                         # Return inserted IDs for parent chunk referencing
                         return [r["id"] for r in (res.data or [])] if res.data else True
+                    logger.warning(f"[ETL] Embedding API returned {resp.status_code}: {resp.text[:200]}")
                     return False
-            except Exception as e:
-                logger.error(f"Batch embedding failed: {e}")
-                return False
+                except Exception as e:
+                    logger.error(f"Batch embedding failed: {e}")
+                    return False
 
-        # P2: Parent-Document Retriever — create parent chunks first, then children
-        from app.core.config import settings as app_settings
+            # P2: Parent-Document Retriever — create parent chunks first, then children
+            from app.core.config import settings as app_settings
 
-        parent_chunk_size = getattr(app_settings, "RAG_PARENT_CHUNK_SIZE", 1800)
+            parent_chunk_size = getattr(app_settings, "RAG_PARENT_CHUNK_SIZE", 1800)
 
-        # Generate parent chunks (large context)
-        parent_chunks = list(self._semantic_chunk(text, size=parent_chunk_size, overlap=200))
-        parent_ids = []
+            # Generate parent chunks (large context)
+            parent_chunks = list(self._semantic_chunk(text, size=parent_chunk_size, overlap=200))
+            parent_ids = []  # list of (db_id, parent_text) tuples
 
-        for parent_text in parent_chunks:
-            result = await _process_batch([parent_text], chunk_type="parent")
-            if isinstance(result, list) and result:
-                parent_ids.append((result[0], parent_text))
-            else:
-                parent_ids.append((None, parent_text))
+            # Batch parent chunk embeddings (was serial 1-by-1, now batched)
+            for batch_start in range(0, len(parent_chunks), batch_size):
+                batch = parent_chunks[batch_start : batch_start + batch_size]
+                result = await _process_batch(batch, chunk_type="parent")
+                if isinstance(result, list):
+                    for idx, db_id in enumerate(result):
+                        parent_ids.append((db_id, batch[idx]))
+                else:
+                    # Batch failed — record None IDs so children still get created
+                    all_success = False
+                    for pt in batch:
+                        parent_ids.append((None, pt))
 
-        # Generate child chunks (small, precise) with parent references
-        for parent_id, parent_text in parent_ids:
-            child_chunks = list(self._semantic_chunk(parent_text, size=self.chunk_size, overlap=self.chunk_overlap))
-            for chunk in child_chunks:
-                current_batch_text.append((chunk, parent_id))
-                if len(current_batch_text) >= batch_size:
-                    texts = [c[0] for c in current_batch_text]
-                    pid = current_batch_text[0][1]  # All in same parent
-                    if not await _process_batch(texts, chunk_type="child", parent_chunk_id=pid):
-                        all_success = False
-                    current_batch_text = []
+            # Generate child chunks (small, precise) with per-record parent references
+            current_batch_text = []  # list of (chunk_text, parent_id)
+            for parent_id, parent_text in parent_ids:
+                child_chunks = list(self._semantic_chunk(parent_text, size=self.chunk_size, overlap=self.chunk_overlap))
+                for chunk in child_chunks:
+                    current_batch_text.append((chunk, parent_id))
+                    if len(current_batch_text) >= batch_size:
+                        texts = [c[0] for c in current_batch_text]
+                        pids = [c[1] for c in current_batch_text]
+                        if not await _process_batch(texts, chunk_type="child", parent_chunk_ids=pids):
+                            all_success = False
+                        current_batch_text = []
 
-        if current_batch_text:
-            texts = [c[0] for c in current_batch_text]
-            pid = current_batch_text[0][1]
-            if not await _process_batch(texts, chunk_type="child", parent_chunk_id=pid):
-                all_success = False
+            if current_batch_text:
+                texts = [c[0] for c in current_batch_text]
+                pids = [c[1] for c in current_batch_text]
+                if not await _process_batch(texts, chunk_type="child", parent_chunk_ids=pids):
+                    all_success = False
 
         return all_success
 

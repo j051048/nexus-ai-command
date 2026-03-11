@@ -366,24 +366,36 @@ class VectorService:
             )
 
         results = []
+        # P2: Parent-document retriever — batch-fetch parent chunks to avoid N+1 queries
+        parent_id_set = {
+            item.get("parent_chunk_id")
+            for item in top_docs
+            if item.get("parent_chunk_id")
+        }
+        parent_content_map: dict[str, str] = {}
+        if parent_id_set:
+            try:
+                parent_res = (
+                    await supabase.table("document_embeddings")
+                    .select("id, content")
+                    .in_("id", list(parent_id_set))
+                    .execute()
+                )
+                if parent_res.data:
+                    for row in parent_res.data:
+                        parent_content_map[str(row["id"])] = row.get("content", "").strip()
+            except Exception as e:
+                logger.debug(f"Batch parent chunk lookup failed: {e}")
+
         for item in top_docs:
             content = item.get("content", "").strip()
 
             # P2: Parent-document retriever — expand to parent chunk if available
             parent_id = item.get("parent_chunk_id")
-            if parent_id:
-                try:
-                    parent_res = (
-                        await supabase.table("document_embeddings")
-                        .select("content")
-                        .eq("id", parent_id)
-                        .maybe_single()
-                        .execute()
-                    )
-                    if parent_res.data and parent_res.data.get("content"):
-                        content = parent_res.data["content"].strip()
-                except Exception as e:
-                    logger.debug(f"Parent chunk lookup failed for {parent_id}: {e}")
+            if parent_id and str(parent_id) in parent_content_map:
+                parent_content = parent_content_map[str(parent_id)]
+                if parent_content:
+                    content = parent_content
 
             meta = item.get("metadata") or item.get("doc_metadata") or {}
             source = meta.get("source") or meta.get("file_name") or "公司知识库"
