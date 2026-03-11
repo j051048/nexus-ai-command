@@ -117,19 +117,27 @@ GEN_UI_PROTOCOL = """
 格式要求（严格遵守）：
 - 代码块的语言标识必须是 gen-ui（三个反引号后紧跟 gen-ui）
 - 绝对禁止使用 gen、json、genui 或其他变体作为语言标识
+- JSON 必须包含 "component" 和 "props" 两个顶层字段
+- 绝对禁止直接输出组件的 props JSON，必须包裹在 {"component": "...", "props": {...}} 结构中
 - JSON 必须是完整的单行或多行 JSON，禁止省略或截断
 
 正确示例：
 ```gen-ui
 {
-  "component": "ComponentName",
-  "props": { ... }
+  "component": "ReportCard",
+  "props": {
+    "title": "3月工作日报",
+    "type": "daily",
+    "summary": "今日完成3个客户拜访",
+    "sections": [{"heading": "重点工作", "items": ["完成A客户方案"]}]
+  }
 }
 ```
 
 错误示例（禁止使用）：
 ```gen  ← 错误！必须用 gen-ui
 ```json ← 错误！不会被渲染为组件
+{"title": "日报", "sections": [...]} ← 错误！缺少 "component" 和 "props" 包装层
 
 可用组件清单：
 

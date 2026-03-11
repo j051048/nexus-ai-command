@@ -44,6 +44,58 @@ import { AIMessage } from '@/types/nexus';
 import { getEnterAnimationClass } from '@/lib/animations';
 import { GenUIContainer } from './GenUIContainer';
 
+// ---------------------------------------------------------------------------
+// Layer 3: Infer GenUI component name from props structure
+// When LLM outputs just the props JSON without {"component": "...", "props": ...}
+// wrapper, we try to match known prop signatures to auto-detect the component.
+// ---------------------------------------------------------------------------
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function inferGenUIComponent(obj: any): string | null {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
+  // EmailDraft: must have to + subject + body
+  if (obj.to && obj.subject && obj.body) return 'EmailDraft';
+  // ReportCard: must have title + sections array
+  if (obj.title && Array.isArray(obj.sections) && obj.sections.length > 0 &&
+      obj.sections[0].heading && Array.isArray(obj.sections[0].items)) return 'ReportCard';
+  // StatCards: cards array with label+value
+  if (Array.isArray(obj.cards) && obj.cards.length > 0 && obj.cards[0].label != null) return 'StatCards';
+  // DataTable: columns + rows arrays
+  if (Array.isArray(obj.columns) && Array.isArray(obj.rows)) return 'DataTable';
+  // TodoList: items array with label field
+  if (Array.isArray(obj.items) && obj.items.length > 0 && obj.items[0].label != null && obj.items[0].done !== undefined) return 'TodoList';
+  // AlertList: alerts array
+  if (Array.isArray(obj.alerts) && obj.alerts.length > 0 && obj.alerts[0].level) return 'AlertList';
+  // Timeline: items with time+title+status
+  if (Array.isArray(obj.items) && obj.items.length > 0 && obj.items[0].time && obj.items[0].title) return 'Timeline';
+  // ApprovalFlow: steps array with status
+  if (Array.isArray(obj.steps) && obj.steps.length > 0 && obj.steps[0].status) return 'ApprovalFlow';
+  // FunnelChart: stages array
+  if (Array.isArray(obj.stages) && obj.stages.length > 0 && obj.stages[0].value != null) return 'FunnelChart';
+  // PieChart: data array with label+value
+  if (Array.isArray(obj.data) && obj.data.length > 0 && obj.data[0].label && obj.data[0].value != null) return 'PieChart';
+  // DataChart: data + dataKeys
+  if (Array.isArray(obj.data) && Array.isArray(obj.dataKeys)) return 'DataChart';
+  return null;
+}
+
+// Try to extract a bare JSON object from message text that looks like GenUI props.
+// Handles the case where LLM outputs raw JSON without ```gen-ui fencing.
+function tryExtractBareGenUI(text: string): { component: string; props: Record<string, unknown> } | null {
+  const trimmed = text.trim();
+  // Must start with { and end with } — entire message is JSON
+  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return null;
+  // Quick guard: reject very short or very long blobs
+  if (trimmed.length < 20 || trimmed.length > 8000) return null;
+  try {
+    const obj = JSON.parse(trimmed);
+    // If it already has "component", use standard path
+    if (obj.component) return { component: obj.component, props: obj.props || {} };
+    const name = inferGenUIComponent(obj);
+    if (name) return { component: name, props: obj };
+  } catch { /* not valid JSON */ }
+  return null;
+}
+
 interface MessageBubbleProps {
   message: AIMessage;
   onCopy: (content: string) => void;
@@ -127,6 +179,17 @@ export const MessageBubble = React.memo(function MessageBubble({
               <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
           ) : (
+            (() => {
+              // Layer 0: Detect bare JSON in message body (no code fence, no "component" wrapper)
+              // This catches LLM outputs like raw {"title":"...","sections":[...]} without gen-ui fencing
+              if (!isUser && message.content) {
+                const bareGenUI = tryExtractBareGenUI(message.content);
+                if (bareGenUI) {
+                  return <GenUIContainer componentName={bareGenUI.component} props={bareGenUI.props} />;
+                }
+              }
+              return null;
+            })() ||
             <div className={cn("prose prose-sm max-w-none dark:prose-invert break-words", isUser && "text-primary-foreground prose-headings:text-primary-foreground prose-a:text-primary-foreground prose-strong:text-primary-foreground prose-code:text-primary-foreground/90")}>
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
@@ -150,6 +213,13 @@ export const MessageBubble = React.memo(function MessageBubble({
                         const config = JSON.parse(raw);
                         if (config.component && typeof config.component === 'string') {
                           return <GenUIContainer componentName={config.component} props={config.props || {}} />;
+                        }
+
+                        // Layer 3: Auto-detect component from props structure when "component" field is missing
+                        // LLMs sometimes output just the props JSON without the wrapper
+                        const inferred = inferGenUIComponent(config);
+                        if (inferred) {
+                          return <GenUIContainer componentName={inferred} props={config} />;
                         }
                         
                         // Fallback for LLMs generating generic JSON without "component"
