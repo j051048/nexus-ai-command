@@ -908,7 +908,7 @@ class ETLService:
                             if parent_chunk_id:
                                 record["parent_chunk_id"] = parent_chunk_id
                             records.append(record)
-                        res = await supabase.table("document_embeddings").insert(records).select("id").execute()
+                        res = await supabase.table("document_embeddings").insert(records).execute()
                         # Return inserted IDs for parent chunk referencing
                         return [r["id"] for r in (res.data or [])] if res.data else True
                     return False
