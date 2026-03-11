@@ -44,12 +44,24 @@ _SELF_DESCRIPTION_PATTERNS = re.compile(
 _CHITCHAT_PATTERNS = re.compile(
     r"(聊聊天|闲聊|随便聊|无聊|讲个笑话|说个段子|"
     r"你(觉得|认为|喜欢|怎么看)|"
-    r"天气怎么样|今天天气|"
     r"心情(不错|不好|很好)|"
-    r"推荐.{0,4}(书|电影|歌|音乐)|"
     r"早安|晚安|午安|拜拜|再见|辛苦了|加油|"
     r"哈哈|嗯嗯|嘻嘻|呵呵|好吧|算了|"
     r"周末.{0,6}(干嘛|做什么|计划|安排))",
+    re.IGNORECASE,
+)
+
+# Queries that need real-time/web information — should use web_search tool (MODERATE)
+# These look like casual chat but the LLM will hallucinate without current data
+_REALTIME_INFO_PATTERNS = re.compile(
+    r"(推荐.{0,4}(书|电影|歌|音乐|片|剧|综艺|游戏|小说)|"
+    r"(电影|片子|剧|综艺|动漫).{0,6}(推荐|好看|上映|上线|新出|热门|排行|评分)|"
+    r"(新上|最近|最新|热映|正在播|刚出|好看).{0,6}(电影|片|剧|综艺|动漫|游戏|歌|小说)|"
+    r"(今天|明天|后天|这周|本周|周末).{0,4}天气|天气.{0,4}(怎么样|如何|好不好|预报)|"
+    r"(新闻|时事|热点|热搜|头条)|"
+    r"(搜一下|搜一搜|搜索一下|查一下|查一查|帮我搜|帮我查|百度|谷歌|google)|"
+    r"(股价|股票|行情|大盘|指数|涨|跌).{0,4}(多少|怎么样|如何|最新)|"
+    r"(比赛|赛事|比分|战绩|赛程).{0,4}(结果|怎么样|谁赢))",
     re.IGNORECASE,
 )
 
@@ -404,6 +416,10 @@ def classify_query(query: str) -> tuple[QueryComplexity, str]:
     # 1c. Chitchat / casual conversation — no tools needed
     if _CHITCHAT_PATTERNS.search(text):
         return QueryComplexity.SIMPLE, "日常闲聊"
+
+    # 1d. Real-time info queries — need web_search tool, NOT hallucination
+    if _REALTIME_INFO_PATTERNS.search(text):
+        return QueryComplexity.MODERATE, "需要联网搜索的实时信息"
 
     # 2. Critical (irreversible operations)
     # P1 Fix: Use substring matching instead of word splitting to avoid

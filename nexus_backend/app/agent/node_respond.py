@@ -191,6 +191,17 @@ async def simple_respond_node(state: AgentState) -> dict:
     messages = state.get("messages", [])
     lc_msgs = _messages_to_lc_format(messages)
 
+    # Inject anti-hallucination guard for time-sensitive topics
+    # Even in SIMPLE mode, the LLM should not fabricate current events
+    lc_msgs = list(lc_msgs)  # make mutable copy
+    if lc_msgs and isinstance(lc_msgs[0], SystemMessage):
+        lc_msgs[0] = SystemMessage(
+            content=lc_msgs[0].content
+            + "\n\n【重要】你没有联网能力，不知道当前的电影、新闻、天气、股价等实时信息。"
+            "如果用户询问此类信息，请坦诚说明你无法获取实时数据，建议用户使用搜索引擎或相关APP查看。"
+            "严禁编造具体的电影名、新闻事件、天气数据或股价数字。"
+        )
+
     # Use mini_model for speed
     llm = _get_llm(config, model=config.mini_model, streaming=True)
 
