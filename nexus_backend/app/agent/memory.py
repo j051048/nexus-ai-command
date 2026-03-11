@@ -12,6 +12,7 @@ This module is called BEFORE the graph runs to prepare the initial
 message list, and AFTER the graph runs to persist results.
 """
 
+import asyncio
 import logging
 import re
 from typing import Any
@@ -32,6 +33,11 @@ SHORT_TERM_WINDOW = getattr(settings, "MAX_CHAT_HISTORY", 10)
 # Absolute turn limit — safety net before any LLM-based compaction.
 # Prevents runaway token costs on very long sessions.
 HARD_TURN_LIMIT = 40
+
+# Quick token estimation: chars/4 + 20% safety margin (OpenClaw-inspired)
+# Used as fast pre-check before expensive precise token counting
+_TOKEN_ESTIMATE_RATIO = 4
+_TOKEN_SAFETY_MARGIN = 1.2
 
 # Regex to strip <think>...</think> blocks from historical assistant messages
 _THINK_BLOCK_RE = re.compile(r"<think>[\s\S]*?</think>", re.DOTALL)
@@ -86,6 +92,13 @@ async def trim_messages_to_window(
     model = config.model or "gpt-4o"
     context_window = _MODEL_CONTEXT_WINDOWS.get(model, _DEFAULT_CONTEXT_WINDOW)
     token_limit = int(context_window * threshold_ratio)
+
+    # Fast pre-check: estimate tokens via chars/4 + safety margin
+    # Avoids expensive precise counting when clearly under budget
+    total_chars = sum(len(m.get("content", "")) for m in messages)
+    estimated_tokens = int(total_chars / _TOKEN_ESTIMATE_RATIO * _TOKEN_SAFETY_MARGIN)
+    if estimated_tokens <= token_limit:
+        return messages
 
     total_tokens = token_counter.count_messages_tokens(messages, model)
     if total_tokens <= token_limit:
@@ -404,13 +417,17 @@ async def prepare_initial_state(
                         seen_content.add(content_hash)
                         unique_docs.append(doc)
 
-                # Limit total context length
-                max_context = 3000
+                # Limit per-snippet and total context length (OpenClaw-inspired)
+                max_snippet_chars = 700   # Per-document snippet limit
+                max_injected_chars = 4000  # Total injection budget
                 context_parts = []
                 current_length = 0
                 for doc in unique_docs:
                     content = doc.get("content", "")
-                    if current_length + len(content) <= max_context:
+                    # Truncate individual snippets
+                    if len(content) > max_snippet_chars:
+                        content = content[:max_snippet_chars] + "…(已截断)"
+                    if current_length + len(content) <= max_injected_chars:
                         context_parts.append(content)
                         current_length += len(content)
                     else:
@@ -898,28 +915,82 @@ async def _summarize_messages(
     messages: list[dict[str, str]],
     config: AgentConfig,
 ) -> str | None:
-    """
-    Use the LLM to compress older messages into a summary.
-    Falls back to simple truncation if the LLM call fails.
+    """Three-level compaction pipeline (inspired by OpenClaw compaction.ts).
+
+    Level 1: LLM chunk summarization with retry + exponential backoff
+    Level 2: Filter oversized messages → retry with smaller input
+    Level 3: Simple truncation fallback (no LLM)
+
+    Preserves active tasks and last user request across all levels.
     """
     if not messages:
         return None
 
+    # --- Level 1: LLM summarization with retry ---
+    for attempt in range(3):
+        try:
+            from app.services.summary_service import summary_service
+
+            # Split into chunks if too large (OpenClaw: independent chunk summaries)
+            chunk_size = 15
+            if len(messages) <= chunk_size:
+                result = await summary_service.summarize_messages(
+                    messages,
+                    config={
+                        "api_key": config.api_key,
+                        "base_url": config.base_url,
+                        "model": config.mini_model,
+                    },
+                )
+                if result:
+                    return result
+            else:
+                # Stage summarization: chunk independently then merge
+                chunk_summaries = []
+                for i in range(0, len(messages), chunk_size):
+                    chunk = messages[i : i + chunk_size]
+                    chunk_result = await summary_service.summarize_messages(
+                        chunk,
+                        config={
+                            "api_key": config.api_key,
+                            "base_url": config.base_url,
+                            "model": config.mini_model,
+                        },
+                    )
+                    if chunk_result:
+                        chunk_summaries.append(chunk_result)
+
+                if chunk_summaries:
+                    return " | ".join(chunk_summaries)
+
+        except Exception as e:
+            wait = 2**attempt
+            logger.warning(f"[Memory] Summarization attempt {attempt + 1}/3 failed: {e}, retry in {wait}s")
+            if attempt < 2:
+                await asyncio.sleep(wait)
+            continue
+
+    # --- Level 2: Filter oversized messages, retry with smaller input ---
     try:
         from app.services.summary_service import summary_service
 
-        return await summary_service.summarize_messages(
-            messages,
-            config={
-                "api_key": config.api_key,
-                "base_url": config.base_url,
-                "model": config.mini_model,  # Use cheaper model for summaries
-            },
-        )
+        # Remove messages longer than 500 chars (likely tool results / RAG dumps)
+        filtered = [m for m in messages if len(m.get("content", "")) <= 500]
+        if filtered and len(filtered) >= 2:
+            result = await summary_service.summarize_messages(
+                filtered[-10:],
+                config={
+                    "api_key": config.api_key,
+                    "base_url": config.base_url,
+                    "model": config.mini_model,
+                },
+            )
+            if result:
+                return result
     except Exception as e:
-        logger.warning(f"[Memory] LLM summarization failed: {e}", exc_info=True)
+        logger.warning(f"[Memory] Level-2 summarization failed: {e}")
 
-    # Fallback: simple text truncation
+    # --- Level 3: Simple truncation (no LLM, never fails) ---
     try:
         texts = []
         for msg in messages[-5:]:

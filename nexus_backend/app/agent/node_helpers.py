@@ -4,7 +4,9 @@ Shared imports, helpers, constants and Pydantic models for graph nodes.
 All node modules import from here to avoid circular dependencies.
 """
 
+import asyncio
 import logging
+import time
 
 from langchain_core.messages import (
     AIMessage,
@@ -81,6 +83,63 @@ class CriticResult(BaseModel):
     improvement_suggestion: str = Field(default="", description="改进建议（未通过时提供）")
 
 
+# ─── Agent Lifecycle Hooks (inspired by OpenClaw agent-hooks.ts) ──────────────
+# Lightweight interceptor system for: before_tool_call, after_tool_call,
+# before_prompt_build. Hooks can modify args, log telemetry, or block execution.
+
+from typing import Callable
+
+# Hook type: async (context_dict) -> context_dict | None
+# Return None to signal "block this action"
+_hooks: dict[str, list[Callable]] = {
+    "before_tool_call": [],
+    "after_tool_call": [],
+    "before_prompt_build": [],
+}
+
+
+def register_hook(event: str, fn: Callable):
+    """Register a lifecycle hook.
+
+    Supported events: before_tool_call, after_tool_call, before_prompt_build.
+    Hook fn receives a context dict and returns a (possibly modified) dict or None to block.
+    """
+    if event not in _hooks:
+        raise ValueError(f"Unknown hook event: {event}. Must be one of {list(_hooks.keys())}")
+    _hooks[event].append(fn)
+    logger.info(f"[Hook] Registered {event} hook: {fn.__name__}")
+
+
+def unregister_hook(event: str, fn: Callable):
+    """Remove a previously registered hook."""
+    if event in _hooks:
+        _hooks[event] = [h for h in _hooks[event] if h is not fn]
+
+
+async def run_hooks(event: str, context: dict) -> dict | None:
+    """Run all hooks for an event in registration order.
+
+    Returns the (possibly modified) context dict, or None if any hook blocked.
+    Hooks are async-safe: sync hooks are also supported.
+    """
+    import asyncio as _asyncio
+
+    for hook in _hooks.get(event, []):
+        try:
+            if _asyncio.iscoroutinefunction(hook):
+                result = await hook(context)
+            else:
+                result = hook(context)
+            if result is None:
+                logger.info(f"[Hook] {event} blocked by {hook.__name__}")
+                return None
+            context = result
+        except Exception as e:
+            logger.warning(f"[Hook] {event} hook {hook.__name__} raised: {e}")
+            # Hooks should not crash the pipeline — log and continue
+    return context
+
+
 # P1 Fix: Cache tool schemas to avoid rebuilding on every request
 _tool_schemas_cache = None
 _tool_schemas_count = None
@@ -100,6 +159,49 @@ _ROLE_HIERARCHY = {
 # Always included regardless of intent
 _ALWAYS_INCLUDE_TOOLS: set[str] = {
     "ask_user", "web_search", "llm_task",
+}
+
+# ─── Scene-based Tool Policy (inspired by OpenClaw tool-policy-pipeline) ────
+# Per-scene allow/deny overrides. If a scene_code is listed here, ONLY
+# the allowed tools (+ always-include) are available. Deny lists are applied
+# after allow lists. This prevents agents from calling irrelevant tools.
+
+_SCENE_TOOL_POLICY: dict[str, dict] = {
+    # Leave/OA scenes: restrict to OA-related tools only
+    "leave_request": {
+        "allow_domains": ["oa_leave", "attendance", "schedule"],
+    },
+    "attendance_check": {
+        "allow_domains": ["attendance", "oa_leave"],
+    },
+    # CRM scenes: focus on customer-facing tools
+    "crm_followup": {
+        "allow_domains": ["crm", "knowledge", "analytics", "vmd_content"],
+    },
+    "sales_pipeline": {
+        "allow_domains": ["crm", "analytics", "finance"],
+    },
+    # Tender/bid scenes: focus on competitive analysis
+    "tender_analysis": {
+        "allow_domains": ["tender", "knowledge", "analytics", "crm"],
+    },
+    # Finance scenes
+    "expense_claim": {
+        "allow_domains": ["finance", "approval"],
+    },
+    # Content generation scenes: broad creative access
+    "content_generation": {
+        "allow_domains": ["vmd_content", "vmd_market", "knowledge", "crm"],
+    },
+    # Admin scenes: restricted to admin tools
+    "system_admin": {
+        "allow_domains": ["admin", "hr", "asset"],
+        "deny_tools": {"create_leave_request", "create_expense_claim"},
+    },
+    # Task decomposition: needs all tools for sub-agent dispatch
+    "task_decompose": {
+        # No restrictions — full access for orchestration
+    },
 }
 
 # Domain → tool name sets
@@ -262,10 +364,17 @@ def _resolve_domains_from_intent(intent_summary: str) -> set[str]:
     return domains
 
 
-def _get_tool_schemas(user_role: str | None = None, intent_summary: str | None = None):
-    """Get tool schemas with caching.
+def _get_tool_schemas(
+    user_role: str | None = None,
+    intent_summary: str | None = None,
+    scene_code: str | None = None,
+):
+    """Get tool schemas with multi-layer filtering pipeline.
 
-    Filters by: 1) user role (RBAC), 2) intent domain (token reduction).
+    Filter layers (applied in order):
+      1) User role (RBAC) — exclude tools above user's permission level
+      2) Scene policy — allow/deny overrides per business scene
+      3) Intent domain — keyword-based relevance filtering
     """
     global _tool_schemas_cache, _tool_schemas_count
     schemas = get_all_tools_schema()
@@ -276,7 +385,7 @@ def _get_tool_schemas(user_role: str | None = None, intent_summary: str | None =
     if not user_role:
         filtered = list(_tool_schemas_cache)
     else:
-        # Filter schemas by user role — exclude tools the user cannot execute
+        # Layer 1: Filter schemas by user role — exclude tools the user cannot execute
         user_level = _ROLE_HIERARCHY.get(user_role, 1)
         filtered = []
         for schema in _tool_schemas_cache:
@@ -292,7 +401,28 @@ def _get_tool_schemas(user_role: str | None = None, intent_summary: str | None =
                 if user_level >= req_level:
                     filtered.append(schema)
 
-    # Intent-based filtering — only when intent detected a specific domain
+    # Layer 2: Scene-based policy — allow/deny per scene_code
+    if scene_code and scene_code in _SCENE_TOOL_POLICY:
+        policy = _SCENE_TOOL_POLICY[scene_code]
+        allow_domains = policy.get("allow_domains")
+        deny_tools = policy.get("deny_tools", set())
+
+        if allow_domains:
+            allowed_tools = _ALWAYS_INCLUDE_TOOLS.copy()
+            for d in allow_domains:
+                allowed_tools |= _DOMAIN_TOOL_MAP.get(d, set())
+            before_count = len(filtered)
+            filtered = [s for s in filtered if s["function"]["name"] in allowed_tools]
+            logger.debug(
+                f"[ToolPolicy] Scene '{scene_code}' allow_domains={allow_domains} "
+                f"→ {len(filtered)} tools (from {before_count})"
+            )
+
+        if deny_tools:
+            filtered = [s for s in filtered if s["function"]["name"] not in deny_tools]
+            logger.debug(f"[ToolPolicy] Scene '{scene_code}' denied {len(deny_tools)} tools")
+
+    # Layer 3: Intent-based filtering — only when intent detected a specific domain
     if intent_summary:
         domains = _resolve_domains_from_intent(intent_summary)
         if domains:
@@ -405,6 +535,64 @@ def _get_fallback_llm(config: AgentConfig, model: str | None = None, streaming: 
     )
 
 
+# ─── Model Cascade Fallback (inspired by OpenClaw model-fallback.ts) ──────────
+
+# Provider-level error keywords that warrant fallback (not content/format issues)
+_PROVIDER_ERROR_KEYWORDS: set[str] = {
+    "401", "402", "403", "429", "500", "502", "503",
+    "insufficient", "quota", "balance", "payment",
+    "rate limit", "rate_limit", "unauthorized", "authentication",
+    "billing", "exceeded", "connection", "timeout", "connect",
+}
+
+# Auth errors should NOT retry same provider (skip to next)
+_AUTH_ERROR_KEYWORDS: set[str] = {
+    "401", "403", "unauthorized", "authentication", "invalid api key",
+}
+
+# Rate-limit errors can benefit from a short delay before next attempt
+_RATE_LIMIT_KEYWORDS: set[str] = {
+    "429", "rate limit", "rate_limit", "too many requests",
+}
+
+# Cooldown: track failed providers to avoid hammering them
+# {provider_key: cooldown_until_timestamp}
+_provider_cooldowns: dict[str, float] = {}
+_COOLDOWN_SECONDS = 60  # Skip provider for 60s after failure
+
+
+def _classify_error(error: Exception) -> str:
+    """Classify an LLM error into: auth | rate_limit | provider | content."""
+    error_str = str(error).lower()
+    if any(kw in error_str for kw in _AUTH_ERROR_KEYWORDS):
+        return "auth"
+    if any(kw in error_str for kw in _RATE_LIMIT_KEYWORDS):
+        return "rate_limit"
+    if any(kw in error_str for kw in _PROVIDER_ERROR_KEYWORDS):
+        return "provider"
+    return "content"
+
+
+def _provider_key(llm) -> str:
+    """Extract a unique key for a provider instance."""
+    base_url = getattr(llm, "openai_api_base", "") or ""
+    model = getattr(llm, "model_name", "") or ""
+    return f"{base_url}|{model}"
+
+
+def _is_provider_cooled_down(key: str) -> bool:
+    """Check if a provider is still in cooldown."""
+    until = _provider_cooldowns.get(key, 0)
+    if until and time.time() < until:
+        return True
+    return False
+
+
+def _set_provider_cooldown(key: str):
+    """Put a provider into cooldown after failure."""
+    _provider_cooldowns[key] = time.time() + _COOLDOWN_SECONDS
+
+
 async def invoke_with_fallback(
     llm,
     messages: list,
@@ -413,52 +601,69 @@ async def invoke_with_fallback(
     streaming: bool = False,
     tool_schemas: list | None = None,
 ):
-    """Invoke LLM with automatic fallback to backup provider on failure.
+    """Invoke LLM with cascade fallback on provider-level failures.
 
-    Tries primary LLM first. If it fails (payment, rate limit, auth, server error),
-    automatically retries with fallback provider.
+    Cascade order:
+      1. Primary LLM (provided)
+      2. Fallback provider (from settings)
+      3. Rate-limit retry: if error is 429, wait 2s and retry primary once
+
+    Error-type-aware decisions:
+      - auth errors: skip immediately to next provider (no retry)
+      - rate_limit: short delay then retry once, then cascade
+      - provider errors: cascade immediately
+      - content errors: raise (not a provider issue)
+
+    Cooldown: failed providers are skipped for 60s to avoid hammering.
     """
-    try:
-        return await llm.ainvoke(messages)
-    except Exception as primary_error:
-        error_str = str(primary_error).lower()
-        # Only fallback on provider-level errors, not on content/format issues
-        is_provider_error = any(
-            kw in error_str
-            for kw in [
-                "401",
-                "402",
-                "403",
-                "429",
-                "500",
-                "502",
-                "503",
-                "insufficient",
-                "quota",
-                "balance",
-                "payment",
-                "rate limit",
-                "rate_limit",
-                "unauthorized",
-                "authentication",
-                "billing",
-                "exceeded",
-                "connection",
-                "timeout",
-                "connect",
-            ]
-        )
-        if not is_provider_error:
-            raise
+    candidates = [("primary", llm)]
 
-        fallback_llm = _get_fallback_llm(config, model=model, streaming=streaming)
-        if not fallback_llm:
-            raise
-
-        logger.warning(f"[LLM Fallback] Primary failed: {primary_error}. Switching to fallback provider.")
+    # Build fallback candidate
+    fallback_llm = _get_fallback_llm(config, model=model, streaming=streaming)
+    if fallback_llm:
         if tool_schemas:
             fallback_llm = fallback_llm.bind_tools(tool_schemas, parallel_tool_calls=True)
-        return await fallback_llm.ainvoke(messages)
+        candidates.append(("fallback", fallback_llm))
+
+    last_error = None
+
+    for label, candidate_llm in candidates:
+        pkey = _provider_key(candidate_llm)
+
+        # Skip providers in cooldown
+        if _is_provider_cooled_down(pkey):
+            logger.info(f"[LLM Cascade] Skipping {label} (cooldown active)")
+            continue
+
+        try:
+            result = await candidate_llm.ainvoke(messages)
+            return result
+        except Exception as err:
+            last_error = err
+            error_type = _classify_error(err)
+
+            if error_type == "content":
+                # Content/format errors are not provider issues — raise immediately
+                raise
+
+            logger.warning(f"[LLM Cascade] {label} failed ({error_type}): {err}")
+            _set_provider_cooldown(pkey)
+
+            # Rate-limit: wait briefly and retry same provider once
+            if error_type == "rate_limit" and label == "primary":
+                logger.info("[LLM Cascade] Rate-limited, waiting 2s before retry...")
+                await asyncio.sleep(2)
+                try:
+                    return await candidate_llm.ainvoke(messages)
+                except Exception as retry_err:
+                    logger.warning(f"[LLM Cascade] Retry after rate-limit also failed: {retry_err}")
+                    last_error = retry_err
+                    # Continue to next candidate
+
+    # All candidates exhausted
+    if last_error:
+        raise last_error
+    raise RuntimeError("[LLM Cascade] No LLM providers available")
 
 
 def _messages_to_lc_format(messages) -> list[BaseMessage]:

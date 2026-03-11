@@ -24,6 +24,7 @@ from app.agent.node_helpers import (
     logger,
     plugin_system_service,
     record_tool_execution,
+    run_hooks,
     tool_circuit_breaker,
 )
 from app.services.plugin_system_service import ExtensionPoint
@@ -107,7 +108,21 @@ async def _execute_single_tool(
         logger.warning(f"[Execute] Tool {record.tool_name} schema validation failed: {ve}")
         return record
 
-    # 3. Execute with configurable timeout and retry
+    # 3. Lifecycle Hook: before_tool_call
+    hook_ctx = await run_hooks("before_tool_call", {
+        "tool_name": record.tool_name,
+        "tool_args": record.tool_args,
+        "user_id": config.user_id,
+        "org_id": config.org_id,
+    })
+    if hook_ctx is None:
+        record.status = "blocked"
+        record.result = f"⛔ 工具 [{record.tool_name}] 被生命周期钩子拦截。"
+        return record
+    # Allow hooks to modify args
+    record.tool_args = hook_ctx.get("tool_args", record.tool_args)
+
+    # 4. Execute with configurable timeout and retry
     start_time = time.time()
     last_error = None
     timeout = config.tool_timeout if hasattr(config, "tool_timeout") else 30.0
@@ -136,6 +151,15 @@ async def _execute_single_tool(
             record.duration_ms = int((time.time() - start_time) * 1000)
             record_tool_execution(record.tool_name, True, record.duration_ms)
             tool_circuit_breaker.record_success()
+            # Lifecycle Hook: after_tool_call
+            await run_hooks("after_tool_call", {
+                "tool_name": record.tool_name,
+                "tool_args": record.tool_args,
+                "result": record.result,
+                "status": record.status,
+                "duration_ms": record.duration_ms,
+                "user_id": config.user_id,
+            })
             # Cache successful result for idempotency
             if idempotency_key:
                 _idempotency_cache[idempotency_key] = {

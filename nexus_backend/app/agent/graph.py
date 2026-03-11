@@ -74,10 +74,20 @@ def increment_tool_schema_version():
     logger.info(f"[Graph] Tool schema version incremented to {_tool_schema_version}")
 
 
-# ─── Loop Detection ──────────────────────────────────────────────────────────
+# ─── Loop Detection (inspired by OpenClaw tool-loop-detection.ts) ────────────
 
-# Maximum consecutive identical tool-call patterns before force-termination
-_LOOP_REPEAT_THRESHOLD = 3
+# Sliding window size for tool call history analysis
+_LOOP_WINDOW_SIZE = 30
+# Thresholds for different detection strategies
+_GENERIC_REPEAT_THRESHOLD = 3     # Same tool+args N times → force reflect
+_POLL_NO_PROGRESS_THRESHOLD = 5   # Polling tools with no progress → block
+_GLOBAL_CIRCUIT_BREAKER = 15      # Absolute safety net: any single tool N times → block
+
+# Tools known to cause polling loops (status checks, process waits)
+_POLL_TOOLS: set[str] = {
+    "get_company_stats", "query_leave_status", "query_expense_status",
+    "query_attendance", "get_pending_approvals",
+}
 
 
 def _tool_call_fingerprint(tool_calls: list) -> str:
@@ -94,25 +104,52 @@ def _tool_call_fingerprint(tool_calls: list) -> str:
 
 def _detect_loop(state: AgentState) -> bool:
     """
-    Check if the agent is stuck in a loop by examining completed tool calls.
+    Multi-strategy loop detection (4 detectors, inspired by OpenClaw).
 
-    Detects patterns where the exact same set of tool calls (name + args)
-    is repeated _LOOP_REPEAT_THRESHOLD times consecutively.
+    1. Generic Repeat: same tool+args fingerprint N times consecutively
+    2. Known Poll No-Progress: polling tools called repeatedly
+    3. Ping-Pong: A-B-A-B alternating pattern
+    4. Global Circuit Breaker: any single tool exceeds absolute limit
     """
-    completed = state.get("completed_tool_calls", [])
-    if len(completed) < _LOOP_REPEAT_THRESHOLD:
+    history = state.get("_tool_call_history", [])
+    if len(history) < 2:
         return False
 
-    # Group completed calls by iteration (using pending_tool_calls pattern)
-    # Since completed_tool_calls accumulates via operator.add, we look at
-    # the most recent batches. Each execute_node appends a batch.
-    # Strategy: compare fingerprints of the last N pending batches.
-    pending_history = state.get("_tool_call_history", [])
-    if len(pending_history) >= _LOOP_REPEAT_THRESHOLD:
-        # Check if the last N entries are all identical
-        recent = pending_history[-_LOOP_REPEAT_THRESHOLD:]
+    window = history[-_LOOP_WINDOW_SIZE:]
+
+    # --- Detector 1: Generic Repeat (same fingerprint N consecutive times) ---
+    if len(window) >= _GENERIC_REPEAT_THRESHOLD:
+        recent = window[-_GENERIC_REPEAT_THRESHOLD:]
         if len(set(recent)) == 1 and recent[0] != "":
+            logger.warning(f"[LoopDetect] Generic repeat detected: {recent[0][:16]}...")
             return True
+
+    # --- Detector 2: Ping-Pong (A-B-A-B alternating) ---
+    if len(window) >= 4:
+        last4 = window[-4:]
+        if last4[0] == last4[2] and last4[1] == last4[3] and last4[0] != last4[1]:
+            logger.warning("[LoopDetect] Ping-pong pattern detected")
+            return True
+
+    # --- Detector 3: Known Poll No-Progress ---
+    completed = state.get("completed_tool_calls", [])
+    if completed:
+        recent_completed = completed[-_LOOP_WINDOW_SIZE:]
+        for poll_tool in _POLL_TOOLS:
+            count = sum(1 for tc in recent_completed if tc.tool_name == poll_tool)
+            if count >= _POLL_NO_PROGRESS_THRESHOLD:
+                logger.warning(f"[LoopDetect] Poll no-progress: {poll_tool} called {count} times")
+                return True
+
+    # --- Detector 4: Global Circuit Breaker ---
+    if completed:
+        recent_completed = completed[-_LOOP_WINDOW_SIZE:]
+        from collections import Counter
+        tool_counts = Counter(tc.tool_name for tc in recent_completed)
+        for tool_name, count in tool_counts.items():
+            if count >= _GLOBAL_CIRCUIT_BREAKER:
+                logger.warning(f"[LoopDetect] Circuit breaker: {tool_name} called {count} times")
+                return True
 
     return False
 
@@ -195,7 +232,7 @@ def _after_execute(state: AgentState) -> str:
     if _detect_loop(state):
         logger.warning(
             f"[Graph] Loop detected after {iteration} iterations "
-            f"(same tool calls repeated {_LOOP_REPEAT_THRESHOLD}x), forcing reflect"
+            f"(same tool calls repeated {_GENERIC_REPEAT_THRESHOLD}x), forcing reflect"
         )
         return "reflect"
 

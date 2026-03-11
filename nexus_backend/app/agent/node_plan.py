@@ -27,6 +27,7 @@ from app.agent.node_helpers import (
     logger,
     plugin_system_service,
     record_llm_latency,
+    run_hooks,
 )
 from app.services.plugin_system_service import ExtensionPoint
 
@@ -40,6 +41,20 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     messages = state.get("messages", [])
     iteration = state.get("iteration", 0)
     rag_context = state.get("rag_context", "")
+
+    # Lifecycle Hook: before_prompt_build
+    hook_ctx = await run_hooks("before_prompt_build", {
+        "messages": messages,
+        "model": model,
+        "iteration": iteration,
+        "rag_context": rag_context,
+        "user_id": agent_config.user_id,
+        "scene_code": state.get("scene_code", ""),
+    })
+    if hook_ctx:
+        # Allow hooks to inject extra context or modify messages
+        messages = hook_ctx.get("messages", messages)
+        rag_context = hook_ctx.get("rag_context", rag_context)
 
     # Resolve model via LLM gateway (P2-9: complexity-aware routing)
     resolved = None
@@ -66,7 +81,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         if user_role:
             extra_lines.append(f"当前用户角色: {user_role}")
 
-        tool_schemas = _get_tool_schemas(agent_config.user_role, intent_summary=intent_summary)
+        tool_schemas = _get_tool_schemas(agent_config.user_role, intent_summary=intent_summary, scene_code=state.get("scene_code"))
         if complexity == QueryComplexity.SIMPLE:
             # SIMPLE: only show universal tools in system prompt
             tool_schemas = [s for s in tool_schemas if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS]
@@ -134,13 +149,13 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         # SIMPLE queries: only bind lightweight universal tools (web_search, llm_task)
         # so LLM can still search the web for "推荐电影" etc., without loading 130+ business tools
         simple_schemas = [
-            s for s in _get_tool_schemas(agent_config.user_role)
+            s for s in _get_tool_schemas(agent_config.user_role, scene_code=state.get("scene_code"))
             if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS
         ]
         if simple_schemas:
             llm = llm.bind_tools(simple_schemas, parallel_tool_calls=True)
     else:
-        llm = llm.bind_tools(_get_tool_schemas(agent_config.user_role, intent_summary=intent_summary), parallel_tool_calls=True)
+        llm = llm.bind_tools(_get_tool_schemas(agent_config.user_role, intent_summary=intent_summary, scene_code=state.get("scene_code")), parallel_tool_calls=True)
 
     thinking_step = ThinkingStep(
         phase=AgentPhase.PLANNING.value,
@@ -176,11 +191,11 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     _llm_start = time.time()
     if complexity == QueryComplexity.SIMPLE:
         tool_schemas = [
-            s for s in _get_tool_schemas(agent_config.user_role)
+            s for s in _get_tool_schemas(agent_config.user_role, scene_code=state.get("scene_code"))
             if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS
         ] or None
     else:
-        tool_schemas = _get_tool_schemas(agent_config.user_role, intent_summary=state.get("intent_summary", ""))
+        tool_schemas = _get_tool_schemas(agent_config.user_role, intent_summary=state.get("intent_summary", ""), scene_code=state.get("scene_code"))
     last_error = None
     for attempt in range(3):
         try:
