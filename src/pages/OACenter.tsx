@@ -129,13 +129,28 @@ function AttendanceTab({ orgId, userId }: { orgId?: string; userId?: string }) {
     try {
       const { data, error } = await supabase
         .from('attendance_records')
-        .select('id, clock_type, clock_time, location')
+        .select('id, check_date, check_in_time, check_out_time, location')
         .eq('user_id', userId)
-        .gte('clock_time', today + 'T00:00:00')
-        .lte('clock_time', today + 'T23:59:59')
-        .order('clock_time', { ascending: true });
+        .eq('check_date', today);
+        
       if (error) throw error;
-      setRecords((data as AttendanceRecord[]) || []);
+      
+      const uiRecords: AttendanceRecord[] = [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows = data as any[];
+      if (rows && rows.length > 0) {
+        const row = rows[0];
+        if (row.check_in_time) {
+          uiRecords.push({ id: row.id + '_in', clock_type: 'clock_in', clock_time: row.check_in_time, location: row.location });
+        }
+        if (row.check_out_time) {
+          uiRecords.push({ id: row.id + '_out', clock_type: 'clock_out', clock_time: row.check_out_time, location: row.location });
+        }
+        if (row.location === '外勤' && !row.check_in_time && !row.check_out_time) {
+           uiRecords.push({ id: row.id + '_field', clock_type: 'field_work', clock_time: new Date().toISOString(), location: row.location });
+        }
+      }
+      setRecords(uiRecords);
     } catch {
       // table may not exist yet — show empty
       setRecords([]);
@@ -149,14 +164,57 @@ function AttendanceTab({ orgId, userId }: { orgId?: string; userId?: string }) {
   const handleClock = async (clockType: string) => {
     setClocking(true);
     try {
-      // @ts-expect-error Types not fully generated
-      const { error } = await supabase.from('attendance_records').insert({
-        user_id: userId,
-        organization_id: orgId,
-        clock_type: clockType,
-        clock_time: new Date().toISOString(),
-      });
-      if (error) throw error;
+      const nowTime = new Date().toISOString();
+      const { data: existingData, error: fetchErr } = await supabase
+        .from('attendance_records')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('check_date', today)
+        .maybeSingle();
+        
+      if (fetchErr) throw fetchErr;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const existing = existingData as any;
+
+      if (existing) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const updates: any = {};
+        if (clockType === 'clock_in') updates.check_in_time = nowTime;
+        else if (clockType === 'clock_out') updates.check_out_time = nowTime;
+        else if (clockType === 'field_work') {
+           updates.location = '外勤';
+           // If they haven't clocked in yet, count this as clock in too
+           if (!records.some(r => r.clock_type === 'clock_in')) {
+             updates.check_in_time = nowTime;
+           }
+        }
+        
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const queryBuilder = supabase.from('attendance_records') as any;
+        const { error } = await queryBuilder
+          .update(updates)
+          .eq('id', existing.id);
+        if (error) throw error;
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const record: any = {
+          user_id: userId,
+          organization_id: orgId,
+          platform: 'wecom', // Need required platform value
+          check_date: today,
+        };
+        if (clockType === 'clock_in') record.check_in_time = nowTime;
+        else if (clockType === 'clock_out') record.check_out_time = nowTime;
+        else if (clockType === 'field_work') {
+           record.check_in_time = nowTime;
+           record.location = '外勤';
+        }
+        
+        const { error } = await supabase.from('attendance_records').insert(record);
+        if (error) throw error;
+      }
+      
       toast.success(clockType === 'clock_in' ? '上班打卡成功' : clockType === 'clock_out' ? '下班打卡成功' : '外勤打卡成功');
       fetchRecords();
     } catch (e) {
