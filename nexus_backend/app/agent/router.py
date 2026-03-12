@@ -34,12 +34,14 @@ def _tokenize(text: str) -> set[str]:
     global _jieba_initialized
     try:
         import jieba
+
         if not _jieba_initialized:
             jieba.setLogLevel(logging.WARNING)
             _jieba_initialized = True
         return set(jieba.cut(text))
     except ImportError:
         return set()
+
 
 # ─── Keyword Patterns ────────────────────────────────────────────────────────
 
@@ -87,9 +89,7 @@ _REALTIME_INFO_PATTERNS = re.compile(
 # When a negation prefix immediately precedes a business keyword, the keyword
 # should be suppressed.  E.g. "不需要报销了" → "报销" should NOT trigger
 # financial intent.
-_NEGATION_PREFIX_RE = re.compile(
-    r"(不用|不需要|不要|别|没必要|取消|停止|停用|无需|不再|不想)"
-)
+_NEGATION_PREFIX_RE = re.compile(r"(不用|不需要|不要|别|没必要|取消|停止|停用|无需|不再|不想)")
 
 # ─── Query vs Execute verb sets (for semantic distinction) ───────────────────
 # When a CRITICAL keyword is matched but only query verbs are present (and no
@@ -281,14 +281,43 @@ _MODERATE_KEYWORDS = {
 # Union of ALL business keywords. Queries not matching any of these are
 # treated as general conversation (SIMPLE) — no tools, no RAG.
 _ALL_BUSINESS_KEYWORDS: set[str] = (
-    _CRITICAL_KEYWORDS | _COMPLEX_KEYWORDS | _MODERATE_KEYWORDS | {
+    _CRITICAL_KEYWORDS
+    | _COMPLEX_KEYWORDS
+    | _MODERATE_KEYWORDS
+    | {
         # From _KEYWORD_DOMAIN_MAP but missing in the above sets
-        "待办", "日报", "周报", "简报", "定时", "工单",
-        "排班", "交接", "跟进", "漏斗", "招聘", "绩效",
-        "员工", "部门", "入职", "标书", "白皮书", "文案",
-        "话术", "手册", "市场", "舆情", "证照", "通知", "公告",
+        "待办",
+        "日报",
+        "周报",
+        "简报",
+        "定时",
+        "工单",
+        "排班",
+        "交接",
+        "跟进",
+        "漏斗",
+        "招聘",
+        "绩效",
+        "员工",
+        "部门",
+        "入职",
+        "标书",
+        "白皮书",
+        "文案",
+        "话术",
+        "手册",
+        "市场",
+        "舆情",
+        "证照",
+        "通知",
+        "公告",
         # Document/knowledge terms that suggest RAG-worthy queries
-        "产品", "文档", "资料", "方案", "规范", "规格",
+        "产品",
+        "文档",
+        "资料",
+        "方案",
+        "规范",
+        "规格",
     }
 )
 
@@ -311,6 +340,7 @@ async def _load_db_intent_rules() -> None:
 
     try:
         from app.core.database import supabase
+
         if not supabase:
             return
 
@@ -341,6 +371,8 @@ async def _load_db_intent_rules() -> None:
             logger.info(f"[Router] Loaded {count} intent rules from DB")
     except Exception as e:
         logger.debug(f"[Router] intent_rules table not available, using hardcoded keywords: {e}")
+
+
 # Maps regex patterns to agent_code + scene_code.
 # Checked AFTER complexity classification; used to assign a specific agent role.
 
@@ -495,36 +527,40 @@ def classify_query(query: str) -> tuple[QueryComplexity, str]:
     if _REALTIME_INFO_PATTERNS.search(text):
         return QueryComplexity.MODERATE, "需要联网搜索的实时信息"
 
+    # Get all matched business keywords first to avoid missing lower tier keywords
+    # when constructing the intent_summary, which is used for domain tool matching.
+    matched_business = _filter_negated_keywords(text, _ALL_BUSINESS_KEYWORDS)
+    if not matched_business and len(text) <= 200:
+        return QueryComplexity.SIMPLE, "一般对话"
+
     # 2. Critical (irreversible operations)
-    # P1 Fix: Use substring matching instead of word splitting to avoid
-    # Chinese tokenization issues (e.g., "不批准" being split into "不" + "批准")
-    # Negation filter: "不需要报销了" → "报销" should NOT trigger
-    matched_critical = _filter_negated_keywords(text, _CRITICAL_KEYWORDS)
+    matched_critical = matched_business.intersection(_CRITICAL_KEYWORDS)
     if matched_critical:
         # Semantic distinction: "查看审批" (query) vs "批准审批" (execute)
         # If only query verbs present and no execute verbs → downgrade to MODERATE
         has_query_verb = any(v in text for v in _QUERY_VERBS)
         has_execute_verb = any(v in text for v in _EXECUTE_VERBS)
+        summary_str = ", ".join(matched_business)
         if has_query_verb and not has_execute_verb:
-            return QueryComplexity.MODERATE, f"查询操作(含敏感词但为只读): {', '.join(matched_critical)}"
+            return QueryComplexity.MODERATE, f"查询操作(含敏感词但为只读): {summary_str}"
         # No action verb at all → ambiguous, downgrade to MODERATE to avoid
         # over-triggering HITL / RAG for vague matches like "通知停水"
         if not has_query_verb and not has_execute_verb:
-            return QueryComplexity.MODERATE, f"业务相关(含敏感词但无明确动作): {', '.join(matched_critical)}"
-        return QueryComplexity.CRITICAL, f"关键操作: {', '.join(matched_critical)}"
+            return QueryComplexity.MODERATE, f"业务相关(含敏感词但无明确动作): {summary_str}"
+        return QueryComplexity.CRITICAL, f"关键操作: {summary_str}"
 
     # 3. Complex (multi-step analysis)
-    matched_complex = _filter_negated_keywords(text, _COMPLEX_KEYWORDS)
+    matched_complex = matched_business.intersection(_COMPLEX_KEYWORDS)
     if matched_complex or len(text) > 200:
-        return QueryComplexity.COMPLEX, f"复杂分析: {', '.join(matched_complex) if matched_complex else '长文本'}"
+        summary_str = ", ".join(matched_business) if matched_business else "长文本"
+        return QueryComplexity.COMPLEX, f"复杂分析: {summary_str}"
 
     # 4. Moderate (single-tool operations)
-    matched_moderate = _filter_negated_keywords(text, _MODERATE_KEYWORDS)
+    matched_moderate = matched_business.intersection(_MODERATE_KEYWORDS)
     if matched_moderate:
-        return QueryComplexity.MODERATE, f"工具查询: {', '.join(matched_moderate)}"
+        return QueryComplexity.MODERATE, f"工具查询: {', '.join(matched_business)}"
 
     # 5. Check for any business indicator not covered above
-    matched_business = _filter_negated_keywords(text, _ALL_BUSINESS_KEYWORDS)
     if matched_business:
         return QueryComplexity.MODERATE, f"业务相关: {', '.join(matched_business)}"
 
