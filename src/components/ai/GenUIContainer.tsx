@@ -43,6 +43,13 @@ const GEN_UI_COMPONENTS: Record<string, React.ComponentType<any>> = {
   ReportCard: lazyWithRetry(() => import('./genui/ReportCard'), 2, false),
   DailyReport: lazyWithRetry(() => import('./genui/ReportCard'), 2, false),
   EmailDraft: lazyWithRetry(() => import('./genui/EmailDraft'), 2, false),
+  // P5: Business Logic & Data Visualization
+  ContractPreview: lazyWithRetry(() => import('./genui/ContractPreview'), 2, false),
+  InvoiceCard: lazyWithRetry(() => import('./genui/InvoiceCard'), 2, false),
+  GeoChart: lazyWithRetry(() => import('./genui/GeoChart'), 2, false),
+  GanttChart: lazyWithRetry(() => import('./genui/GanttChart'), 2, false),
+  DataGrid: lazyWithRetry(() => import('./genui/DataGrid'), 2, false),
+  Heatmap: lazyWithRetry(() => import('./genui/Heatmap'), 2, false),
 };
 
 interface GenUIContainerProps {

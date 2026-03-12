@@ -178,6 +178,14 @@ GEN_UI_PROTOCOL = """
 26. ReportCard: {"title": "3月11日工作日报", "type": "daily", "summary": "今日完成3个客户拜访，签约1单", "metrics": [{"label":"新客户","value":3},{"label":"签约额","value":"¥12万","change":15}], "sections": [{"heading":"重点工作","items":["完成A客户方案演示","跟进B项目合同"]},{"heading":"明日计划","items":["拜访C客户","准备季度汇报"]}]} - 结构化报告（type: daily/weekly/meeting/analysis）
 27. EmailDraft: {"to": "张经理 <zhang@company.com>", "cc": "李总", "subject": "关于Q1合同续签事宜", "body": "张经理您好，\\n\\n关于贵司Q1合同即将到期...", "type": "email"} - 邮件/消息草稿（type: email/notification/wechat，带复制和编辑按钮）
 
+【高级业务视图】
+28. ContractPreview: {"title": "年度采购协议框架", "partyA": "XXX有限公司", "partyB": "YYY科技有限公司", "amount": 1500000, "date": "2026-03-12", "risks": [{"severity":"high","clause":"延迟交货违约金按日千分之五计算","suggestion":"建议修改为千分之一且设上限"}]} - 合同红线/违约风险审查
+29. InvoiceCard: {"invoiceNumber": "INV-20260312", "vendor": "京东企业购", "amount": 12500, "date": "2026-03-12", "status": "verified", "items": [{"name":"办公电脑","quantity":2,"amount":12500}]} - 报销发票/财务单据验真凭证
+30. GeoChart: {"title": "各省份销售大区分布", "valueLabel": "台", "data": [{"region":"广东","value":520,"percentage":40},{"region":"北京","value":310,"percentage":25}]} - 区域数据分布/热度排名
+31. GanttChart: {"title": "XRF-500产品全国推广排期", "projects": [{"name":"华东展会筹备","startDate":"2026-03-15","endDate":"2026-04-10","progress":30,"assignee":"李静"},{"name":"样机生产跟进","startDate":"2026-03-10","endDate":"2026-03-25","progress":80,"assignee":"王工"}]} - 项目排班/任务时间排期（支持并行展示）
+32. DataGrid: {"title": "大客户跟进名单", "columns": [{"key":"name","label":"客户名"},{"key":"stage","label":"阶段","editable":true}], "rows": [{"name":"A公司","stage":"商务谈判"}]} - 可编辑数据网格/类似Excel（支持用户修改和导出CSV）
+33. Heatmap: {"title": "销售部30天打卡热力图/日志提交频次", "data": [{"date":"2026-03-01","count":5},{"date":"2026-03-02","count":12}]} - GitHub风格贡献图/活跃度热力图
+
 【场景→组件匹配规则】
 - 用户问"我的表现/业绩/成绩" → StatCards 或 DataChart
 - 用户问"待审批/批一下" → ApprovalCenter
@@ -201,6 +209,12 @@ GEN_UI_PROTOCOL = """
 - 用户要求写会议纪要/会议记录/会议总结 → ReportCard（type:"meeting"）
 - 用户要求写邮件/草拟邮件/催款函/通知/公告草稿 → EmailDraft
 - 用户要求发消息/写企微消息/拟通知 → EmailDraft（type:"notification"或"wechat"）
+- 用户要求审合同/看条款风险/法务审核 → ContractPreview
+- 用户要求看发票/单据详情/报销凭证 → InvoiceCard
+- 用户问省份分布/地理分布/各区销量/区域数据 → GeoChart
+- 用户问项目排期/项目规划/甘特图/交付时间线/排班表 → GanttChart
+- 用户要求生成一份可供编辑的清单/可导出的表/数据台账 → DataGrid
+- 用户问提交频率/打卡记录图/活跃度图表/热力分布 → Heatmap
 
 【输出原则】
 - 使用 GenUI 组件展示结果时，配合的文字应简短（1-2句话），不要重复组件中已展示的数据。
