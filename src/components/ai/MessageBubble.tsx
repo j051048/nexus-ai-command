@@ -1,4 +1,4 @@
-import React, { useState, lazy, Suspense } from 'react';
+import React, { useState, useMemo, lazy, Suspense } from 'react';
 import { lazyWithRetry } from '@/lib/lazyPreload';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -119,6 +119,12 @@ export const MessageBubble = React.memo(function MessageBubble({
   const [feedback, setFeedback] = useState<'positive' | 'negative' | null>(null);
   const isUser = message.role === 'user';
 
+  // Memoize bare GenUI extraction to avoid re-parsing JSON on every render
+  const bareGenUI = useMemo(
+    () => (!isUser && message.content) ? tryExtractBareGenUI(message.content) : null,
+    [isUser, message.content]
+  );
+
   const handleCopy = () => {
     onCopy(message.content);
     setCopied(true);
@@ -180,13 +186,9 @@ export const MessageBubble = React.memo(function MessageBubble({
             </div>
           ) : (
             (() => {
-              // Layer 0: Detect bare JSON in message body (no code fence, no "component" wrapper)
-              // This catches LLM outputs like raw {"title":"...","sections":[...]} without gen-ui fencing
-              if (!isUser && message.content) {
-                const bareGenUI = tryExtractBareGenUI(message.content);
-                if (bareGenUI) {
-                  return <GenUIContainer componentName={bareGenUI.component} props={bareGenUI.props} />;
-                }
+              // Layer 0: Use memoized bare JSON detection result
+              if (bareGenUI) {
+                return <GenUIContainer componentName={bareGenUI.component} props={bareGenUI.props} />;
               }
               return null;
             })() ||

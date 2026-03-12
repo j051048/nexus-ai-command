@@ -59,7 +59,7 @@ interface ChatInputAreaProps {
   setQuotaAlert: (v: QuotaAlert | null) => void;
 }
 
-export function ChatInputArea({
+export const ChatInputArea = React.memo(function ChatInputArea({
   input,
   setInput,
   handleSend,
@@ -361,4 +361,4 @@ export function ChatInputArea({
       </div>
     </>
   );
-}
+});

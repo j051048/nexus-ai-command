@@ -99,6 +99,10 @@ export function EnhancedAIChatPanel({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const autoSendRef = useRef(false);
+  const inputValueRef = useRef('');
+
+  // Keep ref in sync with state so handleSend reads latest value without re-creating
+  inputValueRef.current = input;
 
   const { isTyping: isAiTyping, aiStatus, streamChat, stopStream, pendingConfirmation, pendingQuestion, confirmAndResend, answerQuestion, dismissConfirmation, dismissQuestion } = useAIStream({ userId: user.id });
 
@@ -144,7 +148,7 @@ export function EnhancedAIChatPanel({
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages.length]);
 
   useEffect(() => {
     if (isExpanded && inputRef.current) {
@@ -222,17 +226,18 @@ export function EnhancedAIChatPanel({
   };
 
   const handleSend = useCallback(async () => {
-    if (!input.trim() || isAiTyping) return;
+    const currentInput = inputValueRef.current;
+    if (!currentInput.trim() || isAiTyping) return;
 
     const userMessage: AIMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: input,
+      content: currentInput,
       timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    const messageToSend = input;
+    const messageToSend = currentInput;
     setInput('');
     setShowQuickReplies(false);
 
@@ -286,7 +291,7 @@ export function EnhancedAIChatPanel({
     } catch (e) {
       setMessages((prev) => prev.filter((m) => m.content !== ''));
     }
-  }, [input, isAiTyping, currentAgent, messages, streamChat, onSendMessage, addThinkingStep, endTrace, startTrace]);
+  }, [isAiTyping, currentAgent, messages, streamChat, onSendMessage, addThinkingStep, endTrace, startTrace]);
 
   const commandBarSendRef = useRef(false);
   useEffect(() => {

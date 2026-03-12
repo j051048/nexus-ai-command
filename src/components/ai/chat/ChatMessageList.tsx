@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -43,7 +43,7 @@ interface ChatMessageListProps {
   messagesEndRef: React.RefObject<HTMLDivElement>;
 }
 
-export function ChatMessageList({
+export const ChatMessageList = React.memo(function ChatMessageList({
   messages,
   setMessages,
   isAiTyping,
@@ -63,39 +63,45 @@ export function ChatMessageList({
   trace,
   messagesEndRef,
 }: ChatMessageListProps) {
+  // Stable feedback callback — avoids creating new function per message per render
+  const handleFeedback = useCallback((type: 'positive' | 'negative', msg: AIMessage, index: number) => {
+    const sessionId = `chat_${userId}_${Date.now()}`;
+    const aiMsg = msg.role === 'assistant' ? msg : undefined;
+    const prevUserMsg = index > 0 && messages[index - 1]?.role === 'user' ? messages[index - 1] : undefined;
+    aiClient.fetch('/api/v1/ai/feedback', {
+      method: 'POST',
+      body: JSON.stringify({
+        session_id: sessionId,
+        message_index: index,
+        rating: type,
+        ai_response_snippet: aiMsg?.content?.slice(0, 500),
+        query_snippet: prevUserMsg?.content?.slice(0, 500),
+      }),
+    }).catch(() => { /* silent — toast already shown by MessageBubble */ });
+  }, [userId, messages]);
+
   return (
     <ScrollArea className="flex-1 px-4 md:px-6">
       <div className="py-4 space-y-4">
-        {messages.map((msg, index) => (
+        {messages.map((msg, index) => {
+          const isLast = index === messages.length - 1;
+          return (
           <MessageBubble
             key={msg.id}
             message={msg}
             onCopy={handleCopy}
             onRegenerate={
-              index === messages.length - 1 && msg.role === 'assistant'
+              isLast && msg.role === 'assistant'
                 ? handleRegenerate
                 : undefined
             }
-            onFeedback={(type) => {
-              const sessionId = `chat_${userId}_${Date.now()}`;
-              const aiMsg = msg.role === 'assistant' ? msg : undefined;
-              const prevUserMsg = index > 0 && messages[index - 1]?.role === 'user' ? messages[index - 1] : undefined;
-              aiClient.fetch('/api/v1/ai/feedback', {
-                method: 'POST',
-                body: JSON.stringify({
-                  session_id: sessionId,
-                  message_index: index,
-                  rating: type,
-                  ai_response_snippet: aiMsg?.content?.slice(0, 500),
-                  query_snippet: prevUserMsg?.content?.slice(0, 500),
-                }),
-              }).catch(() => { /* silent — toast already shown by MessageBubble */ });
-            }}
+            onFeedback={(type) => handleFeedback(type, msg, index)}
             onDelete={() => handleDeleteMessage(msg.id)}
-            isLatest={index === messages.length - 1}
-            isTyping={isAiTyping}
+            isLatest={isLast}
+            isTyping={isLast && isAiTyping}
           />
-        ))}
+          );
+        })}
 
         {isAiTyping && aiStatus && (
            <div className="flex items-center gap-2 px-4 py-2 mb-2 text-xs text-muted-foreground bg-secondary/30 rounded-lg mx-4 animate-pulse w-fit">
@@ -259,4 +265,4 @@ export function ChatMessageList({
       </div>
     </ScrollArea>
   );
-}
+});
