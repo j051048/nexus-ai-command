@@ -41,6 +41,7 @@ const GEN_UI_COMPONENTS: Record<string, React.ComponentType<any>> = {
   KanbanMini: lazyWithRetry(() => import('./genui/KanbanMini'), 2, false),
   // P4: Report & Communication components
   ReportCard: lazyWithRetry(() => import('./genui/ReportCard'), 2, false),
+  DailyReport: lazyWithRetry(() => import('./genui/ReportCard'), 2, false),
   EmailDraft: lazyWithRetry(() => import('./genui/EmailDraft'), 2, false),
 };
 
