@@ -48,6 +48,8 @@ export function useAIStream({ userId }: UseAIStreamProps) {
     const [quotaInfo, setQuotaInfo] = useState<QuotaInfo | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
     const lastRequestRef = useRef<{ messages: Array<{ role: string; content: string }>; agent?: string } | null>(null);
+    const pendingConfirmationRef = useRef<ConfirmationRequest | null>(null);
+    pendingConfirmationRef.current = pendingConfirmation;
 
     /** Tier 1 primary: Zeabur backend directly */
     const getBackendUrl = useCallback(() => {
@@ -566,11 +568,11 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         }
     }, [userId, getBackendUrl, getEdgeFunctionUrl]);
 
-    const stopStream = () => {
+    const stopStream = useCallback(() => {
         if (abortControllerRef.current) {
             abortControllerRef.current.abort();
         }
-    };
+    }, []);
 
     /** HITL: Resend the last request with system_confirmed=true */
     const confirmAndResend = useCallback(async (
@@ -581,9 +583,10 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         const lastReq = lastRequestRef.current;
         if (!lastReq) return;
 
-        // Capture tool info before clearing confirmation state
-        const toolInfo = pendingConfirmation
-            ? { tool_name: pendingConfirmation.tool_name, args: modifiedArgs || pendingConfirmation.args }
+        // Read from ref to avoid depending on pendingConfirmation state
+        const confirmation = pendingConfirmationRef.current;
+        const toolInfo = confirmation
+            ? { tool_name: confirmation.tool_name, args: modifiedArgs || confirmation.args }
             : undefined;
         setPendingConfirmation(null);
         const lastUserMsg = lastReq.messages[lastReq.messages.length - 1]?.content || '';
@@ -595,7 +598,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
             system_confirmed: true,
             confirmed_tool: toolInfo,
         });
-    }, [streamChat, pendingConfirmation]);
+    }, [streamChat]);
 
     /** P1-7: Answer an agent's proactive question */
     const answerQuestion = useCallback(async (
@@ -609,6 +612,10 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         await streamChat(answer, history, agent, callbacks);
     }, [streamChat]);
 
+    const dismissConfirmation = useCallback(() => setPendingConfirmation(null), []);
+    const dismissQuestion = useCallback(() => setPendingQuestion(null), []);
+    const clearThinkingSteps = useCallback(() => setThinkingSteps([]), []);
+
     return {
         isTyping,
         aiStatus,
@@ -621,8 +628,8 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         stopStream,
         confirmAndResend,
         answerQuestion,
-        dismissConfirmation: () => setPendingConfirmation(null),
-        dismissQuestion: () => setPendingQuestion(null),
-        clearThinkingSteps: () => setThinkingSteps([])
+        dismissConfirmation,
+        dismissQuestion,
+        clearThinkingSteps,
     };
 }
