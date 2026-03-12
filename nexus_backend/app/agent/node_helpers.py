@@ -210,6 +210,7 @@ _DOMAIN_TOOL_MAP: dict[str, set[str]] = {
         "create_leave_request", "query_leave_status", "request_leave",
         "book_meeting", "assign_task", "create_work_handover",
         "generate_onboarding_checklist",
+        "send_notification",
     },
     "attendance": {
         "clock_in_out", "get_attendance_record", "attendance_statistics",

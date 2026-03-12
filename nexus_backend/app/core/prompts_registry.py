@@ -207,8 +207,10 @@ GEN_UI_PROTOCOL = """
 - 用户请求进度、流程状态 → Timeline
 - 用户要求写日报/周报/总结/简报/汇报/分析报告 → ReportCard
 - 用户要求写会议纪要/会议记录/会议总结 → ReportCard（type:"meeting"）
-- 用户要求写邮件/草拟邮件/催款函/通知/公告草稿 → EmailDraft
-- 用户要求发消息/写企微消息/拟通知 → EmailDraft（type:"notification"或"wechat"）
+- 用户要求写邮件/草拟邮件/催款函/起草通知稿/拟公告草稿 → EmailDraft
+- 用户要求写企微消息/拟微信消息 → EmailDraft（type:"notification"或"wechat"）
+- 用户要求实际发送通知/通知某人/提醒某人/给某人发消息 → 调用 send_notification 工具（不要用 EmailDraft）
+- 用户要求发公告/通知全员/全员通知 → 调用 publish_announcement 工具（不要用 EmailDraft）
 - 用户要求审合同/看条款风险/法务审核 → ContractPreview
 - 用户要求看发票/单据详情/报销凭证 → InvoiceCard
 - 用户问省份分布/地理分布/各区销量/区域数据 → GeoChart
@@ -243,6 +245,7 @@ ENTERPRISE_CAPABILITIES = (
 - 会议预约：用户说"约个会"、"明天下午3点开会"即可预约
 - 任务分配：用户说"让小王做XX"、"@张三 处理YY"即可创建任务
 - 工作交接：用户说"把工作交给小李"即可创建交接单
+- 发通知：用户说"通知小王明天开会"、"提醒张三交报告"即可直接发送站内通知
 
 【财务报销】
 - 费用报销：用户说"报销800"、"昨天请客户吃饭花了1000"即可创建

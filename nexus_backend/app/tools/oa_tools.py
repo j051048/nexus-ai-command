@@ -740,3 +740,76 @@ class OnboardingChecklistTool(BaseTool):
             return f"📋 AI 生成的入职清单:\n\n{checklist_text}"
         except Exception as e:
             return f"❌ 入职清单生成失败: {str(e)}"
+
+
+class SendNotificationTool(BaseTool):
+    """给指定同事发送站内通知（所有角色可用）"""
+
+    name = "send_notification"
+    domain = "oa_leave"
+    description = "给指定同事发送站内通知。用户说'通知小王'、'提醒张三'、'给李经理发个消息'时调用。"
+    required_role = "all"
+
+    parameters = {
+        "type": "object",
+        "properties": {
+            "recipient_name": {"type": "string", "description": "收件人姓名"},
+            "title": {"type": "string", "description": "通知标题（可选，默认自动生成）"},
+            "content": {"type": "string", "description": "通知内容"},
+            "priority": {
+                "type": "string",
+                "enum": ["normal", "important"],
+                "description": "优先级",
+            },
+        },
+        "required": ["recipient_name", "content"],
+    }
+
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+        recipient_name = args.get("recipient_name", "")
+        content = args.get("content", "")
+        title = args.get("title", "来自同事的通知")
+        priority = args.get("priority", "normal")
+
+        if not recipient_name or not content:
+            return "❌ 请提供收件人姓名和通知内容"
+
+        client = _get_client(config)
+        org_id = config.get("org_id") if config else None
+
+        # 查找收件人
+        query = client.table("users").select("id, name").ilike("name", f"%{recipient_name}%")
+        if org_id:
+            query = query.eq("organization_id", org_id)
+        res = await query.execute()
+        users = res.data or []
+
+        if not users:
+            return f"❌ 未找到名为「{recipient_name}」的同事"
+        if len(users) > 5:
+            names = "、".join(u["name"] for u in users[:5])
+            return f"找到多位匹配的同事（{names}…），请提供更精确的姓名"
+
+        # 查发送者姓名
+        sender_res = await client.table("users").select("name").eq("id", user_id).single().execute()
+        sender_name = sender_res.data.get("name", "同事") if sender_res.data else "同事"
+
+        # 发送通知
+        icon = "📢" if priority == "normal" else "⚠️"
+        for user in users:
+            notification_data = {
+                "user_id": user["id"],
+                "title": f"{icon} {title}",
+                "content": f"{sender_name}: {content}",
+                "type": "info" if priority == "normal" else "warning",
+            }
+            if org_id:
+                notification_data["organization_id"] = org_id
+            try:
+                await client.table("notifications").insert(notification_data).execute()
+            except Exception as e:
+                logger.warning(f"Failed to send notification to {user['name']}: {e}")
+                return f"❌ 发送通知失败: {str(e)}"
+
+        names = "、".join(u["name"] for u in users)
+        return f"✅ 已通知 {names}"

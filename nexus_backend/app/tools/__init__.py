@@ -43,6 +43,7 @@ _TOOL_MODULES: dict[str, tuple[str, str]] = {
     "assign_task": ("app.tools.oa_tools", "TaskAssignmentTool"),
     "create_work_handover": ("app.tools.oa_tools", "WorkHandoverTool"),
     "generate_onboarding_checklist": ("app.tools.oa_tools", "OnboardingChecklistTool"),
+    "send_notification": ("app.tools.oa_tools", "SendNotificationTool"),
     # finance_tools
     "create_expense_claim": ("app.tools.finance_tools", "ExpenseClaimTool"),
     "query_expense_status": ("app.tools.finance_tools", "ExpenseQueryTool"),

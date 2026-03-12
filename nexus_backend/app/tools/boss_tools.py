@@ -909,10 +909,8 @@ class AnnouncementTool(BaseTool):
     """公告发布工具"""
 
     name = "publish_announcement"
-    description = "发布公司公告或通知。领导说'发个通知'、'通知全员'时调用。需要确认后执行。"
+    description = "发布公司公告或通知。领导说'发个通知'、'通知全员'时调用。"
     required_role = "boss"
-    is_irreversible = True
-    confirmation_message = "⚠️ 公告将发送给所有目标用户，发布后不可撤回。请在弹出的确认框中确认后执行。"
 
     parameters = {
         "type": "object",
@@ -932,6 +930,17 @@ class AnnouncementTool(BaseTool):
         },
         "required": ["title", "content"],
     }
+
+    def check_confirmation(self, args: dict[str, Any], system_confirmed: bool = False) -> str | None:
+        """Only require confirmation for all-staff or urgent announcements."""
+        target = args.get("target", "all")
+        priority = args.get("priority", "normal")
+        if target == "all" or priority == "urgent":
+            if system_confirmed:
+                return None
+            scope = "全员" if target == "all" else "紧急"
+            return f"⚠️ 操作需要确认:\n🔒 {scope}通知将发送给所有目标用户，发布后不可撤回。\n请确认后再执行。"
+        return None
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         title = args.get("title")
