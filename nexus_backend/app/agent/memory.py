@@ -541,13 +541,67 @@ async def prepare_initial_state(
                 logger.debug(f"[Memory] Episode recall failed: {e}")
                 return None
 
-        # Fire all 5 lookups concurrently
+        async def _fetch_user_profile_context():
+            """2g. User Profile Context — name, role, department, recent activity"""
+            if not config.user_id or not config.org_id:
+                return None
+            try:
+                parts: list[str] = []
+                # User basic info
+                user_res = await client.table("users").select(
+                    "full_name, role"
+                ).eq("id", config.user_id).maybe_single().execute()
+
+                dept_name = None
+                try:
+                    emp_res = await client.table("employees").select(
+                        "departments(name)"
+                    ).eq("user_id", config.user_id).eq(
+                        "organization_id", config.org_id
+                    ).maybe_single().execute()
+                    if emp_res.data:
+                        dept_info = emp_res.data.get("departments")
+                        if isinstance(dept_info, dict):
+                            dept_name = dept_info.get("name")
+                except Exception:
+                    pass
+
+                if user_res.data:
+                    name = user_res.data.get("full_name", "")
+                    role = user_res.data.get("role", "employee")
+                    dept_str = f"，{dept_name}" if dept_name else ""
+                    parts.append(f"当前用户: {name}（{role}{dept_str}）")
+
+                # Recent notifications as activity signal
+                notif_res = await client.table("notifications").select(
+                    "title, type, created_at"
+                ).eq("user_id", config.user_id).order(
+                    "created_at", desc=True
+                ).limit(3).execute()
+
+                if notif_res.data:
+                    recent = "; ".join(
+                        f"{n.get('title', '')}({n.get('type', '')})"
+                        for n in notif_res.data[:3]
+                    )
+                    parts.append(f"近期动态: {recent}")
+
+                if parts:
+                    logger.info(f"[Memory] Collected user profile context for {config.user_id}")
+                    return "[用户画像上下文]\n" + "\n".join(parts) + "\n[用户画像结束]"
+                return None
+            except Exception as e:
+                logger.debug(f"[Memory] User profile context failed: {e}")
+                return None
+
+        # Fire all 6 lookups concurrently
         results = await asyncio.gather(
             _fetch_long_term_memory(),
             _fetch_org_memory(),
             _fetch_kg_context(),
             _fetch_pattern_suggestions(),
             _fetch_episodic_memory(),
+            _fetch_user_profile_context(),
             return_exceptions=True,
         )
         for r in results:

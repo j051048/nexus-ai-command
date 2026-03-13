@@ -292,6 +292,10 @@ _DOMAIN_TOOL_MAP: dict[str, set[str]] = {
         "process_asset_lifecycle",
         "publish_announcement",
     },
+    "inventory": {
+        "list_inventory", "inventory_in", "inventory_out",
+        "inventory_statistics",
+    },
 }
 
 # Keyword → domain(s) mapping — reuses router.py keyword vocabulary
@@ -299,6 +303,8 @@ _KEYWORD_DOMAIN_MAP: dict[str, list[str]] = {
     # OA / Leave
     "请假": ["oa_leave"], "出差": ["oa_leave"], "会议": ["oa_leave"],
     "日程": ["oa_leave", "schedule"], "交接": ["oa_leave"],
+    "调休": ["oa_leave", "attendance"], "年假": ["oa_leave"],
+    "提醒": ["oa_leave", "schedule"],
     # Attendance
     "考勤": ["attendance"], "打卡": ["attendance"], "补卡": ["attendance"],
     "加班": ["attendance"], "排班": ["attendance"],
@@ -310,9 +316,10 @@ _KEYWORD_DOMAIN_MAP: dict[str, list[str]] = {
     "报销": ["finance"], "预算": ["finance"], "工资": ["finance"],
     "薪资": ["finance"], "发票": ["finance"], "开票": ["finance"],
     "付款": ["finance"], "转账": ["finance"], "发工资": ["finance"],
+    "费用": ["finance"], "收入": ["finance", "analytics"],
     # Project
     "项目": ["project"], "进度": ["project"], "任务": ["project", "schedule"],
-    "工单": ["project"],
+    "工单": ["project"], "维修": ["project", "asset"], "派工": ["project"],
     # CRM / Sales
     "客户": ["crm"], "合同": ["crm"], "商机": ["crm"],
     "线索": ["crm"], "跟进": ["crm"], "漏斗": ["crm"],
@@ -320,6 +327,7 @@ _KEYWORD_DOMAIN_MAP: dict[str, list[str]] = {
     "员工": ["hr"], "通讯录": ["hr"], "培训": ["hr"],
     "招聘": ["hr"], "绩效": ["hr", "analytics"], "部门": ["hr"],
     "入职": ["hr", "admin"], "离职": ["hr", "admin"],
+    "组织架构": ["hr"], "人事": ["hr"],
     # Asset
     "设备": ["asset"], "资产": ["asset"], "车辆": ["asset"],
     "快递": ["asset"], "印章": ["asset"],
@@ -346,6 +354,10 @@ _KEYWORD_DOMAIN_MAP: dict[str, list[str]] = {
     # Knowledge
     "知识库": ["knowledge"], "搜索": ["knowledge"], "文档": ["knowledge", "vmd_content"],
     "RAG": ["knowledge"], "产品": ["knowledge", "crm", "vmd_content"],
+    # Inventory
+    "库存": ["inventory"], "出库": ["inventory"], "入库": ["inventory"],
+    # General high-frequency
+    "查询": ["analytics", "knowledge"], "怎么样": ["analytics"],
 }
 
 
@@ -466,6 +478,21 @@ def _get_tool_schemas(
             logger.debug(
                 f"[ToolFilter] Intent '{intent_summary}' → domains={domains} "
                 f"→ {len(filtered)} tools (from {before_count})"
+            )
+        elif not scene_code:
+            # Fallback: no keyword match + no scene policy → use high-frequency domains
+            _FALLBACK_DOMAINS = [
+                "oa_leave", "crm", "approval", "finance",
+                "hr", "analytics", "knowledge",
+            ]
+            relevant_tools = _ALWAYS_INCLUDE_TOOLS.copy()
+            for d in _FALLBACK_DOMAINS:
+                relevant_tools |= _DOMAIN_TOOL_MAP.get(d, set())
+            before_count = len(filtered)
+            filtered = [s for s in filtered if s["function"]["name"] in relevant_tools]
+            logger.debug(
+                f"[ToolFilter] No domain match for '{intent_summary}', "
+                f"fallback → {len(filtered)} tools (from {before_count})"
             )
 
     return filtered

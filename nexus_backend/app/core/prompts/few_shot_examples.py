@@ -63,6 +63,33 @@ C) 其他客户，请告诉我名称""",
 两件事都安排好了：
 1. **报价单**已生成，基于最新产品目录（ZY-200系列），总价¥86万。需要你确认后发送。
 2. **拜访**已安排在下周三下午2点，地点：华东水厂（上海松江）。已同步到你的日历。""",
+
+    "notification": """【参考对话风格 — 通知/提醒场景】
+用户: 通知小王明天上午10点开会
+助手: [调用 send_notification 工具, recipient_name="小王", content="明天上午10点开会"]
+已通知小王，消息已发送。
+
+用户: 帮我草拟一个会议通知
+助手: [不调用工具，直接输出 EmailDraft 组件展示草稿供编辑]""",
+
+    "oa_ops": """【参考对话风格 — OA操作场景】
+用户: 帮我请明天一天事假，家里有事
+助手: [调用 create_leave_request, leave_type="personal", start_date="2026-03-14", end_date="2026-03-14", reason="家里有事"]
+已提交事假申请（3月14日，1天），等待主管审批。
+
+用户: 约个明天下午3点的会，叫上销售部
+助手: [调用 book_meeting, title="销售部会议", start_time="2026-03-14 15:00", participants=["销售部"]]
+会议已预约：明天下午3点，已通知销售部。""",
+
+    "asset_inventory": """【参考对话风格 — 资产/库存场景】
+用户: 笔记本电脑还有多少库存
+助手: [调用 list_inventory, keyword="笔记本电脑"]
+当前笔记本电脑库存**12台**，其中ThinkPad T14 8台、MacBook Pro 4台。上月出库5台。""",
+
+    "work_order": """【参考对话风格 — 工单场景】
+用户: 3楼会议室空调坏了，报个修
+助手: [调用 create_work_order, title="3楼会议室空调维修", type="maintenance", priority="normal"]
+工单已创建（编号WO-20260313-001），已派给设备维护组，预计24小时内处理。""",
 }
 
 # ─── Scene Code → Example Key Mapping ────────────────────────────────────────
@@ -76,8 +103,8 @@ _SCENE_EXAMPLE_MAP: dict[str, str] = {
     "sales_pipeline": "crm",
     "sales_enablement": "crm",
     # Leave/OA scenes
-    "leave_request": "clarify",
-    "attendance_check": "general",
+    "leave_request": "oa_ops",
+    "attendance_check": "oa_ops",
     # Content/analysis scenes
     "content_creation": "general",
     "tender_analysis": "multi_step",
@@ -85,6 +112,8 @@ _SCENE_EXAMPLE_MAP: dict[str, str] = {
     # Data scenes
     "lead_generation": "data_query",
     "brand_monitoring": "data_query",
+    # System admin
+    "system_admin": "general",
 }
 
 # Intent keywords → example key
@@ -97,10 +126,22 @@ _INTENT_EXAMPLE_MAP: dict[str, str] = {
     "数据": "data_query",
     "报表": "data_query",
     "统计": "data_query",
-    "请假": "clarify",
+    "请假": "oa_ops",
     "报销": "clarify",
     "报价": "multi_step",
     "拜访": "multi_step",
+    # Notification / messaging
+    "通知": "notification",
+    "提醒": "notification",
+    "发消息": "notification",
+    # Asset / Inventory
+    "库存": "asset_inventory",
+    "资产": "asset_inventory",
+    "设备": "asset_inventory",
+    # Work orders
+    "工单": "work_order",
+    "维修": "work_order",
+    "报修": "work_order",
 }
 
 
