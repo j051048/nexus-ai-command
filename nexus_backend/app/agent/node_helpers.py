@@ -411,13 +411,14 @@ def _get_tool_schemas(
     user_role: str | None = None,
     intent_summary: str | None = None,
     scene_code: str | None = None,
+    intent_domains: list[str] | None = None,
 ):
     """Get tool schemas with multi-layer filtering pipeline.
 
     Filter layers (applied in order):
       1) User role (RBAC) — exclude tools above user's permission level
       2) Scene policy — allow/deny overrides per business scene
-      3) Intent domain — keyword-based relevance filtering
+      3) Intent domain — Router LLM domains preferred, fallback to keyword matching
     """
     global _tool_schemas_cache, _tool_schemas_count
     _sync_tool_domains()
@@ -466,8 +467,19 @@ def _get_tool_schemas(
             filtered = [s for s in filtered if s["function"]["name"] not in deny_tools]
             logger.debug(f"[ToolPolicy] Scene '{scene_code}' denied {len(deny_tools)} tools")
 
-    # Layer 3: Intent-based filtering — only when intent detected a specific domain
-    if intent_summary:
+    # Layer 3: Intent-based filtering — Router LLM domains preferred, then keyword match
+    if intent_domains:
+        # Router LLM has explicitly identified business domains
+        relevant_tools = _ALWAYS_INCLUDE_TOOLS.copy()
+        for d in intent_domains:
+            relevant_tools |= _DOMAIN_TOOL_MAP.get(d, set())
+        before_count = len(filtered)
+        filtered = [s for s in filtered if s["function"]["name"] in relevant_tools]
+        logger.debug(
+            f"[ToolFilter] Router LLM domains={intent_domains} "
+            f"→ {len(filtered)} tools (from {before_count})"
+        )
+    elif intent_summary:
         domains = _resolve_domains_from_intent(intent_summary)
         if domains:
             relevant_tools = _ALWAYS_INCLUDE_TOOLS.copy()

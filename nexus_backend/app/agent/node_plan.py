@@ -81,7 +81,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         if user_role:
             extra_lines.append(f"当前用户角色: {user_role}")
 
-        tool_schemas = _get_tool_schemas(agent_config.user_role, intent_summary=intent_summary, scene_code=state.get("scene_code"))
+        tool_schemas = _get_tool_schemas(agent_config.user_role, intent_summary=intent_summary, scene_code=state.get("scene_code"), intent_domains=state.get("intent_domains"))
         if complexity == QueryComplexity.SIMPLE:
             # SIMPLE: only show universal tools in system prompt
             tool_schemas = [s for s in tool_schemas if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS]
@@ -169,7 +169,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         if simple_schemas:
             llm = llm.bind_tools(simple_schemas, parallel_tool_calls=True)
     else:
-        llm = llm.bind_tools(_get_tool_schemas(agent_config.user_role, intent_summary=intent_summary, scene_code=state.get("scene_code")), parallel_tool_calls=True)
+        llm = llm.bind_tools(_get_tool_schemas(agent_config.user_role, intent_summary=intent_summary, scene_code=state.get("scene_code"), intent_domains=state.get("intent_domains")), parallel_tool_calls=True)
 
     thinking_step = ThinkingStep(
         phase=AgentPhase.PLANNING.value,
@@ -209,7 +209,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS
         ] or None
     else:
-        tool_schemas = _get_tool_schemas(agent_config.user_role, intent_summary=state.get("intent_summary", ""), scene_code=state.get("scene_code"))
+        tool_schemas = _get_tool_schemas(agent_config.user_role, intent_summary=state.get("intent_summary", ""), scene_code=state.get("scene_code"), intent_domains=state.get("intent_domains"))
     last_error = None
     for attempt in range(3):
         try:

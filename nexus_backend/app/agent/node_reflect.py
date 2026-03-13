@@ -315,6 +315,29 @@ AI 回复:
 
         reflection_guidance = "\n".join(guidance_parts)
 
+        # ── Log hallucination failure ──
+        try:
+            from app.services.failure_log_service import failure_log_service
+
+            user_message = ""
+            for msg in reversed(messages):
+                if hasattr(msg, "type") and msg.type == "human":
+                    user_message = msg.content
+                    break
+            await failure_log_service.log_failure(
+                org_id=getattr(config, "org_id", None),
+                user_id=getattr(config, "user_id", None),
+                conversation_id=getattr(config, "conversation_id", None),
+                user_message=user_message or last_ai_content[:200],
+                intent_summary=state.get("intent_summary"),
+                complexity=complexity.value if complexity else None,
+                error_type="hallucination",
+                error_detail=hallucination_reason[:2000],
+                severity="high",
+            )
+        except Exception as e:
+            logger.debug(f"[ReflectNode] Failed to log hallucination: {e}")
+
         return {
             "messages": [HumanMessage(content=f"[自我指引] {reflection_guidance}")],
             "reflection": f"触发幻觉修正: {hallucination_reason}",

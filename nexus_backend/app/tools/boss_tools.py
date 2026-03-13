@@ -32,7 +32,7 @@ class SmartApprovalTool(BaseTool):
     """
 
     name = "smart_approve"
-    description = """智能审批工具。支持批量审批、按条件审批、委托审批等。
+    description = """智能审批工具。支持批量审批、按条件审批、委托审批等。当领导说'批量审批'、'5000以下的都批'、'一键通过'时调用。注意：单条审批用 approve_request 或 reject_request。
 首次调用返回预览信息，需要确认后设置 confirm=true 才会真正执行。
 这是不可逆操作，需要人工确认。"""
     required_role = "boss"
@@ -909,7 +909,7 @@ class AnnouncementTool(BaseTool):
     """公告发布工具"""
 
     name = "publish_announcement"
-    description = "发布公司公告或通知。领导说'发个通知'、'通知全员'时调用。"
+    description = "发布公司公告或通知。领导说'发个通知'、'通知全员'时调用。注意：给特定个人发消息请用 send_notification，此工具仅用于全员/部门级公告。"
     required_role = "boss"
 
     parameters = {

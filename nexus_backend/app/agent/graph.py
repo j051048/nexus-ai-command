@@ -243,6 +243,29 @@ def _after_execute(state: AgentState) -> str:
             f"[Graph] Loop detected after {iteration} iterations "
             f"(same tool calls repeated {_GENERIC_REPEAT_THRESHOLD}x), forcing reflect"
         )
+        # Persist loop failure for analytics
+        try:
+            import asyncio
+            from app.services.failure_log_service import failure_log_service
+
+            config = state.get("config")
+            user_message = ""
+            for msg in reversed(state.get("messages", [])):
+                if hasattr(msg, "type") and msg.type == "human":
+                    user_message = msg.content
+                    break
+            asyncio.create_task(failure_log_service.log_failure(
+                org_id=getattr(config, "org_id", None) if config else None,
+                user_id=getattr(config, "user_id", None) if config else None,
+                user_message=user_message or "loop detected",
+                intent_summary=state.get("intent_summary"),
+                complexity=state.get("complexity", "").value if state.get("complexity") else None,
+                error_type="loop",
+                error_detail=f"Loop after {iteration} iterations",
+                severity="medium",
+            ))
+        except Exception:
+            pass
         return "reflect"
 
     # Fast synthesis: when all tools succeeded, use lightweight synthesize_node

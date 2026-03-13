@@ -17,6 +17,7 @@ class EvalDimension(Enum):
     HALLUCINATION = "hallucination"
     TASK_COMPLETION = "task_completion"
     SAFETY = "safety"
+    ROUTER_ACCURACY = "router_accuracy"
 
 
 @dataclass

@@ -365,7 +365,7 @@ class RequestLeaveTool(BaseTool):
     """请假申请"""
 
     name = "request_leave"
-    description = "请假申请。当用户说'请假'、'申请休假'时调用。"
+    description = "考勤模块请假申请（支持与排班系统联动）。当用户说'请假'、'申请休假'时调用。注意：此工具与 create_leave_request 功能相同，系统会自动选择其一。"
 
     parameters = {
         "type": "object",

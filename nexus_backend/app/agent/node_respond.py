@@ -301,6 +301,42 @@ async def error_node(state: AgentState) -> dict:
 
     logger.error(f"[ErrorNode] Handling error: {error_msg} (level={recovery_level}, iter={iteration})")
 
+    # ── Persist failure for analytics ──
+    try:
+        from app.services.failure_log_service import failure_log_service
+
+        config = state.get("config")
+        # Classify error type from message content
+        error_type = "unknown"
+        msg_lower = str(error_msg).lower()
+        if "timeout" in msg_lower:
+            error_type = "timeout"
+        elif "permission" in msg_lower or "权限" in str(error_msg):
+            error_type = "permission"
+        elif "loop" in msg_lower or "循环" in str(error_msg):
+            error_type = "loop"
+
+        # Extract user message
+        user_message = ""
+        for msg in reversed(state.get("messages", [])):
+            if hasattr(msg, "type") and msg.type == "human":
+                user_message = msg.content
+                break
+
+        await failure_log_service.log_failure(
+            org_id=getattr(config, "org_id", None) if config else None,
+            user_id=getattr(config, "user_id", None) if config else None,
+            conversation_id=getattr(config, "conversation_id", None) if config else None,
+            user_message=user_message or str(error_msg),
+            intent_summary=state.get("intent_summary"),
+            complexity=state.get("complexity", "").value if state.get("complexity") else None,
+            error_type=error_type,
+            error_detail=str(error_msg)[:2000],
+            severity="high" if recovery_level >= 2 else "medium",
+        )
+    except Exception as e:
+        logger.debug(f"[ErrorNode] Failed to log failure: {e}")
+
     # P1 Plugin: ON_ERROR hook
     try:
         await plugin_system_service.run_hooks(

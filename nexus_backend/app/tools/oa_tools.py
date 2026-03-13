@@ -565,7 +565,7 @@ class WorkHandoverTool(BaseTool):
     """工作交接工具"""
 
     name = "create_work_handover"
-    description = "创建工作交接单，将任务批量转交给其他同事"
+    description = "创建工作交接单，将任务批量转交给其他同事。当用户说'交接工作'、'把工作转给某人'时调用。"
     required_role = "all"
 
     parameters = {

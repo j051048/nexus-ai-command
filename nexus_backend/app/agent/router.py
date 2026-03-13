@@ -531,6 +531,9 @@ def classify_query(query: str) -> tuple[QueryComplexity, str]:
     # when constructing the intent_summary, which is used for domain tool matching.
     matched_business = _filter_negated_keywords(text, _ALL_BUSINESS_KEYWORDS)
     if not matched_business and len(text) <= 200:
+        # Short message with action intent verbs → upgrade to MODERATE for tool access
+        if len(text) > 15 and any(v in text for v in ("帮我", "帮忙", "能不能", "可以", "怎么")):
+            return QueryComplexity.MODERATE, "一般对话"
         return QueryComplexity.SIMPLE, "一般对话"
 
     # 2. Critical (irreversible operations)
@@ -610,23 +613,23 @@ def _should_enable_rag(query: str) -> bool:
 async def _llm_classify_intent(
     query: str,
     config,
-) -> tuple[QueryComplexity, str]:
+) -> tuple[QueryComplexity, str, list[str]]:
     """
     Use LLM for ambiguous query classification.
 
     Falls back to MODERATE if LLM fails.
+    Returns: (complexity, intent_summary, domains)
     """
     from langchain_openai import ChatOpenAI
 
-    prompt = f"""请分析以下用户输入的复杂度提示，并将其分类为:
-- simple: 闲聊、简单问候
-- moderate: 单一工具查询、简单指令
-- complex: 多步骤分析、综合报告、长文本处理
-- critical: 涉及审批、金钱、敏感人事操作
+    prompt = f"""请分析以下用户输入，返回 JSON：
+- complexity: simple(闲聊问候) / moderate(单一工具查询) / complex(多步骤分析) / critical(审批、金钱、敏感人事操作)
+- reason: 一句话原因
+- domains: 相关的业务域列表（可选值：oa_leave, attendance, approval, finance, project, crm, hr, asset, tender, analytics, knowledge, schedule, inventory, admin, vmd_content, vmd_market）
 
 用户输入: {query}
 
-返回格式示例: {{"complexity": "moderate", "reason": "查询单个项目进度"}}
+返回示例: {{"complexity": "moderate", "reason": "查询客户信息", "domains": ["crm"]}}
 """
 
     try:
@@ -664,12 +667,15 @@ async def _llm_classify_intent(
         if json_match:
             data = json.loads(json_match.group())
             complexity_str = data.get("complexity", "moderate")
+            domains = data.get("domains", [])
+            if not isinstance(domains, list):
+                domains = []
             if complexity_str in [c.value for c in QueryComplexity]:
-                return QueryComplexity(complexity_str), f"LLM 识别: {data.get('reason', '未知原因')}"
+                return QueryComplexity(complexity_str), f"LLM 识别: {data.get('reason', '未知原因')}", domains
     except Exception as e:
         logger.debug(f"[Router] LLM intent classification failed: {e}")
 
-    return QueryComplexity.MODERATE, "一般业务查询 (LLM 分类失败)"
+    return QueryComplexity.MODERATE, "一般业务查询 (LLM 分类失败)", []
 
 
 # ─── Router Node ─────────────────────────────────────────────────────────────
@@ -728,8 +734,9 @@ async def route_node(state: AgentState) -> dict:
     # Skip LLM classification when:
     # - Message is short (≤10 chars) — unlikely to be complex business query
     # This saves ~500ms per SIMPLE query by avoiding an extra LLM round-trip.
+    intent_domains: list[str] = []
     if intent_summary == "一般对话" and len(last_user_msg.strip()) > 10:
-        complexity, intent_summary = await _llm_classify_intent(last_user_msg, config)
+        complexity, intent_summary, intent_domains = await _llm_classify_intent(last_user_msg, config)
 
     selected_model = config.get_model_for_complexity(complexity)
 
@@ -755,6 +762,7 @@ async def route_node(state: AgentState) -> dict:
         "complexity": complexity,
         "selected_model": selected_model,
         "intent_summary": intent_summary,
+        "intent_domains": intent_domains,
         "current_phase": AgentPhase.PLANNING,
         "thinking_steps": [thinking_step],
     }

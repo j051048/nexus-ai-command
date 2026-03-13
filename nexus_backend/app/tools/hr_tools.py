@@ -22,7 +22,7 @@ class AttendanceQueryTool(BaseTool):
     """考勤查询工具"""
 
     name = "query_attendance"
-    description = "查询员工考勤记录、迟到早退情况、出勤统计等"
+    description = "查询员工考勤记录、迟到早退情况、出勤统计。当用户说'我的考勤'、'出勤情况'时调用。注意：查个人考勤用此工具，查团队考勤用 query_team_attendance。"
     required_role = "all"
 
     parameters = {
@@ -65,7 +65,7 @@ class TeamAttendanceTool(BaseTool):
     """团队考勤管理工具（管理者专用）"""
 
     name = "query_team_attendance"
-    description = "查询团队整体考勤情况、异常预警等（管理者专用）"
+    description = "查询团队整体考勤情况、异常预警等。当管理者说'团队考勤'、'谁迟到了'时调用。仅限管理者使用。"
     required_role = "manager"
 
     parameters = {
@@ -102,7 +102,7 @@ class EmployeeProfileTool(BaseTool):
     """员工画像工具（管理者专用）"""
 
     name = "get_employee_profile"
-    description = "获取员工综合画像，包括绩效、考勤、成长轨迹、风险评估等"
+    description = "获取员工综合画像，包括绩效、考勤、成长轨迹、风险评估等。当用户说'某某人怎么样'、'员工档案'时调用。注意：仅需查ID用 get_employee_info。"
     required_role = "manager"
 
     parameters = {
@@ -226,7 +226,7 @@ class PerformanceReviewTool(BaseTool):
     """绩效评估工具"""
 
     name = "create_performance_review"
-    description = "发起或查看绩效评估"
+    description = "发起绩效评估或查看团队绩效排行。当用户说'绩效考核'、'发起考评'、'团队绩效排名'时调用。"
     required_role = "manager"
 
     parameters = {
@@ -355,7 +355,7 @@ class RecruitmentTool(BaseTool):
     """招聘管理工具"""
 
     name = "manage_recruitment"
-    description = "管理招聘需求、查看候选人、安排面试等"
+    description = "招聘管理：创建职位需求、查看候选人、安排面试、解析简历。当用户说'招人'、'招聘'、'面试安排'时调用。"
     required_role = "manager"
 
     parameters = {

@@ -153,3 +153,181 @@ test_cases:
     user_message: "每周一早上9点帮我生成上周的销售周报"
     expected_tools: ["create_scheduled_task"]
     context: {}
+
+  # ── 通知场景 ──
+  - id: ts_025
+    description: "发送通知给个人应使用 send_notification"
+    user_message: "通知小王明天上午10点开会"
+    expected_tools: ["send_notification"]
+    context: {}
+
+  - id: ts_026
+    description: "草拟邮件不应调用工具（应输出 EmailDraft 组件）"
+    user_message: "帮我草拟一封催款邮件给华东水厂"
+    expected_tools: []
+    context: {}
+
+  - id: ts_027
+    description: "发布公告应使用 publish_announcement"
+    user_message: "发个通知全员下周五团建"
+    expected_tools: ["publish_announcement"]
+    context: {}
+
+  # ── CRM 客户管理 ──
+  - id: ts_028
+    description: "查询客户列表"
+    user_message: "华东区的客户有哪些？"
+    expected_tools: ["get_customers"]
+    context: {}
+
+  - id: ts_029
+    description: "查看客户详情"
+    user_message: "帮我看看华东水厂的详细信息"
+    expected_tools: ["get_customer_detail"]
+    context: {}
+
+  - id: ts_030
+    description: "添加客户跟进记录"
+    user_message: "记一下今天拜访了深圳光伏科技，对方有合作意向"
+    expected_tools: ["add_follow_up"]
+    context: {}
+
+  - id: ts_031
+    description: "查看销售漏斗"
+    user_message: "看看这个月的销售漏斗数据"
+    expected_tools: ["get_sales_pipeline"]
+    context: {}
+
+  # ── 资产/库存 ──
+  - id: ts_032
+    description: "查询库存"
+    user_message: "笔记本电脑还有多少库存？"
+    expected_tools: ["list_inventory"]
+    context: {}
+
+  - id: ts_033
+    description: "资产转移"
+    user_message: "把张三的笔记本电脑转给李四"
+    expected_tools: ["transfer_asset"]
+    context: {}
+
+  - id: ts_034
+    description: "库存入库"
+    user_message: "今天到了20台新电脑，帮我入库"
+    expected_tools: ["inventory_in"]
+    context: {}
+
+  # ── 工单 ──
+  - id: ts_035
+    description: "创建维修工单"
+    user_message: "3楼会议室空调坏了，报个修"
+    expected_tools: ["create_work_order"]
+    context: {}
+
+  - id: ts_036
+    description: "工单统计"
+    user_message: "这个月工单的处理情况怎么样？"
+    expected_tools: ["work_order_statistics"]
+    context: {}
+
+  # ── 跨域多步骤 ──
+  - id: ts_037
+    description: "跨域：考勤+绩效查询"
+    user_message: "看看小王最近的考勤和业绩怎么样"
+    expected_tools: ["query_attendance", "get_performance_report"]
+    context: {}
+
+  - id: ts_038
+    description: "跨域：请假+通知"
+    user_message: "帮我请明天一天假，顺便通知领导"
+    expected_tools: ["create_leave_request", "send_notification"]
+    context: {}
+
+  - id: ts_039
+    description: "跨域：客户跟进+阶段更新"
+    user_message: "华东水厂项目已经报价了，帮我更新进度并记录跟进"
+    expected_tools: ["update_customer_stage", "add_follow_up"]
+    context: {}
+
+  # ── 模糊意图（应追问） ──
+  - id: ts_040
+    description: "模糊意图：帮我办个事 → 应追问"
+    user_message: "帮我办个事"
+    expected_tools: ["ask_user"]
+    context: {}
+
+  - id: ts_041
+    description: "模糊意图：那个客户怎么样了 → 应追问"
+    user_message: "那个客户怎么样了"
+    expected_tools: ["ask_user"]
+    context: {}
+
+  - id: ts_042
+    description: "模糊意图：帮我查一下 → 应追问"
+    user_message: "帮我查一下"
+    expected_tools: ["ask_user"]
+    context: {}
+
+  # ── 易混淆工具区分 ──
+  - id: ts_043
+    description: "个人考勤用 query_attendance 而非 get_attendance_record"
+    user_message: "我这个月迟到了几次？"
+    expected_tools: ["query_attendance"]
+    context: {}
+
+  - id: ts_044
+    description: "智能批量审批用 smart_approve"
+    user_message: "5000以下的报销都批了"
+    expected_tools: ["smart_approve"]
+    context: {}
+
+  - id: ts_045
+    description: "单条审批用 approve_request"
+    user_message: "批准这个报销申请"
+    expected_tools: ["approve_request"]
+    context: {}
+
+  - id: ts_046
+    description: "员工画像用 get_employee_profile 而非 get_employee_info"
+    user_message: "小张这个人表现怎么样？能力如何？"
+    expected_tools: ["get_employee_profile"]
+    context: {}
+
+  # ── 知识库查询 ──
+  - id: ts_047
+    description: "公司政策问题应查知识库"
+    user_message: "公司年假制度是怎样的？"
+    expected_tools: ["query_knowledge_base"]
+    context: {}
+
+  - id: ts_048
+    description: "产品参数问题应查知识库"
+    user_message: "XRF-500的技术参数是多少？"
+    expected_tools: ["query_knowledge_base"]
+    context: {}
+
+  # ── 合同管理 ──
+  - id: ts_049
+    description: "查看即将到期的合同"
+    user_message: "下个月有哪些合同快到期了？"
+    expected_tools: ["get_expiring_contracts"]
+    context: {}
+
+  - id: ts_050
+    description: "合同风险审查"
+    user_message: "帮我看看这份合同有没有条款风险"
+    expected_tools: ["analyze_contract"]
+    context: {}
+
+  # ── 联网搜索 ──
+  - id: ts_051
+    description: "需要联网搜索的实时信息"
+    user_message: "最近仪器行业有什么新政策？"
+    expected_tools: ["web_search"]
+    context: {}
+
+  - id: ts_052
+    description: "招投标搜索"
+    user_message: "帮我搜一下最近有没有光谱仪相关的招标"
+    expected_tools: ["search_bidding_projects"]
+    context: {}

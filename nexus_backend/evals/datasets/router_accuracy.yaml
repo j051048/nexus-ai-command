@@ -1,0 +1,131 @@
+# Router 分类准确性评测数据集
+# 测试 classify_query() 的纯启发式复杂度分类是否正确
+# 注意：此测试仅覆盖启发式分类层，不含 LLM fallback
+
+test_cases:
+  # ── SIMPLE: 问候/闲聊 ──
+  - id: rt_001
+    user_message: "你好"
+    expected_complexity: "simple"
+
+  - id: rt_002
+    user_message: "早上好"
+    expected_complexity: "simple"
+
+  - id: rt_003
+    user_message: "谢谢"
+    expected_complexity: "simple"
+
+  - id: rt_004
+    user_message: "你能做什么？"
+    expected_complexity: "simple"
+
+  - id: rt_005
+    user_message: "你觉得996好不好？"
+    expected_complexity: "simple"
+
+  - id: rt_006
+    user_message: "哈哈哈"
+    expected_complexity: "simple"
+
+  - id: rt_007
+    user_message: "好的"
+    expected_complexity: "simple"
+
+  # ── MODERATE: 单一工具查询（使用精确关键词）──
+  - id: rt_008
+    user_message: "查一下我的考勤记录"
+    expected_complexity: "moderate"
+
+  - id: rt_009
+    user_message: "华东区的客户列表"
+    expected_complexity: "moderate"
+
+  - id: rt_010
+    user_message: "我这个月工资多少？"
+    expected_complexity: "moderate"
+
+  - id: rt_011
+    user_message: "报销上周的出差费用"
+    expected_complexity: "moderate"
+
+  - id: rt_012
+    user_message: "帮我请假三天"
+    expected_complexity: "moderate"
+
+  - id: rt_013
+    user_message: "查看公司资产清单"
+    expected_complexity: "moderate"
+
+  - id: rt_014
+    user_message: "帮我提个工单"
+    expected_complexity: "moderate"
+
+  - id: rt_015
+    user_message: "查看定时任务列表"
+    expected_complexity: "moderate"
+
+  - id: rt_016
+    user_message: "查一下预算还剩多少"
+    expected_complexity: "moderate"
+
+  - id: rt_017
+    user_message: "看看绩效报告"
+    expected_complexity: "complex"
+
+  - id: rt_018
+    user_message: "今天有什么待办？"
+    expected_complexity: "moderate"
+
+  - id: rt_019
+    user_message: "看看待审批的申请"
+    expected_complexity: "critical"
+
+  # ── COMPLEX: 多步骤分析 ──
+  - id: rt_020
+    user_message: "分析一下华东区本月的销售漏斗数据，对比上月，找出下降最大的环节"
+    expected_complexity: "complex"
+
+  - id: rt_021
+    user_message: "帮我生成一份Q1季度经营分析报告，包含各区域的业绩对比和趋势预测"
+    expected_complexity: "complex"
+
+  - id: rt_022
+    user_message: "对比竞品分析和客户满意度调查数据"
+    expected_complexity: "complex"
+
+  - id: rt_023
+    user_message: "做一份招标书技术偏离表"
+    expected_complexity: "complex"
+
+  # ── CRITICAL: 审批/金钱/敏感操作 ──
+  - id: rt_024
+    user_message: "批准张三的报销申请"
+    expected_complexity: "critical"
+
+  - id: rt_025
+    user_message: "5000以下的报销都批了"
+    expected_complexity: "critical"
+
+  - id: rt_026
+    user_message: "驳回这个出差申请"
+    expected_complexity: "critical"
+
+  - id: rt_027
+    user_message: "批了"
+    expected_complexity: "critical"
+
+  # ── 边界 case：含"通知"关键词但无执行动词 → MODERATE ──
+  - id: rt_028
+    user_message: "通知的内容是什么？"
+    expected_complexity: "moderate"
+
+  # ── 实时搜索 ──
+  - id: rt_029
+    user_message: "今天的天气预报怎么说？"
+    expected_complexity: "moderate"
+
+  # ── 短消息含动词 → MODERATE (新规则) ──
+  - id: rt_030
+    user_message: "帮我看看那个项目怎么样了"
+    expected_complexity: "moderate"

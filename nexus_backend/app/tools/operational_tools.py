@@ -15,7 +15,7 @@ def _get_client(config: dict = None):
 
 class PerformanceReportTool(BaseTool):
     name = "get_performance_report"
-    description = "获取指定用户的详细绩效报告"
+    description = "获取指定用户的详细绩效报告。当用户说'绩效报告'、'绩效数据'时调用。注意：此工具查个人绩效详情，团队整体用 get_team_insight。"
 
     parameters = {
         "type": "object",
@@ -70,7 +70,7 @@ class PerformanceReportTool(BaseTool):
 
 class CompanyStatsTool(BaseTool):
     name = "get_company_stats"
-    description = "获取公司整体统计数据，如员工总人数、部门分布概况等"
+    description = "获取公司整体统计数据，如员工总人数、部门分布概况等。当用户说'公司有多少人'、'员工总数'、'部门人数'时调用。注意：查经营数据（收入利润）用 get_business_dashboard。"
 
     parameters = {"type": "object", "properties": {}, "required": []}
 
@@ -105,7 +105,7 @@ class CompanyStatsTool(BaseTool):
 
 class KnowledgeBaseTool(BaseTool):
     name = "query_knowledge_base"
-    description = "查询企业知识库/向量数据库，获取公司政策、业务流程、文档等非结构化数据环境数据"
+    description = "查询企业知识库，检索公司政策、产品手册、业务文档等内容。当用户问公司规定、产品参数、流程制度等事实性问题时调用。"
 
     parameters = {
         "type": "object",

@@ -149,7 +149,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
     """AI助手代员工提交审批申请 - 自动使用当前登录用户的身份"""
 
     name = "submit_approval_on_behalf"
-    description = "代表当前用户提交审批申请（出差、请假、报销等）。无需传入员工ID，系统会自动使用当前登录用户的身份。"
+    description = "代表当前用户提交审批申请（出差、请假、报销等）。当用户说'提交审批'、'发起申请'时调用。注意：如果用户明确说'请假'请用 create_leave_request，明确说'报销'请用 create_expense_claim。"
     required_role = "ai_assistant"  # 允许通过 AI 调用
 
     parameters = {
@@ -387,7 +387,7 @@ class GetEmployeeInfoTool(BaseTool):
     """AI助手查询员工信息"""
 
     name = "get_employee_info"
-    description = "根据员工姓名查询其ID和基本信息，用于后续代理操作"
+    description = "根据员工姓名查询其ID和基本信息。当需要将姓名转换为员工ID时使用。注意：如需完整员工画像请用 get_employee_profile。"
     required_role = "ai_assistant"
 
     parameters = {
@@ -424,7 +424,7 @@ class GetEmployeeApprovalHistoryTool(BaseTool):
     """AI助手查询员工的审批历史"""
 
     name = "get_employee_approval_history"
-    description = "查询指定员工的审批申请历史记录"
+    description = "查询指定员工的审批申请历史记录。当用户说'审批记录'、'审批历史'时调用。"
     required_role = "ai_assistant"
 
     parameters = {
@@ -975,7 +975,7 @@ class RejectTool(BaseTool):
 
 class PendingApprovalsTool(BaseTool):
     name = "get_pending_approvals"
-    description = "获取当前所有待处理的异常审批列表"
+    description = "获取当前所有待处理的审批列表。当用户说'待审批'、'有什么要审的'、'审批列表'时调用。"
 
     parameters = {"type": "object", "properties": {}, "required": []}
 

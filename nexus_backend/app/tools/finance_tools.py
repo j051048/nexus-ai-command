@@ -241,7 +241,7 @@ class ExpenseQueryTool(BaseTool):
     """报销查询工具"""
 
     name = "query_expense_status"
-    description = "查询报销申请状态、报销历史、到账情况等"
+    description = "查询报销申请状态、报销历史、到账情况。当用户说'报销到哪了'、'报销进度'、'到账了吗'时调用。"
     required_role = "all"
 
     parameters = {
@@ -312,7 +312,7 @@ class BudgetQueryTool(BaseTool):
     """预算查询工具"""
 
     name = "query_budget"
-    description = "查询部门或项目的预算使用情况"
+    description = "查询部门或项目的预算使用情况。当用户说'预算还剩多少'、'部门预算'时调用。"
     required_role = "manager"
 
     parameters = {
@@ -344,7 +344,7 @@ class SalaryQueryTool(BaseTool):
     """薪资查询工具"""
 
     name = "query_salary"
-    description = "查询个人薪资明细、到账记录等（仅能查询自己的薪资）"
+    description = "查询个人薪资明细、到账记录等（仅能查询自己的薪资）。当用户说'这个月工资'、'薪资明细'、'工资条'时调用。"
     required_role = "all"
 
     parameters = {
@@ -393,7 +393,7 @@ class InvoiceOCRTool(BaseTool):
     """发票识别工具"""
 
     name = "recognize_invoice"
-    description = "识别上传的发票图片，自动提取金额、日期、类型等信息"
+    description = "识别上传的发票图片，自动提取金额、日期、类型等信息。当用户上传发票图片或说'识别发票'、'发票OCR'时调用。"
     required_role = "all"
 
     parameters = {

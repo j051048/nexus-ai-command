@@ -167,6 +167,7 @@ class AgentState(TypedDict, total=False):
     complexity: QueryComplexity
     selected_model: str  # Model chosen for this turn
     intent_summary: str  # One-line description of user intent
+    intent_domains: list[str]  # Business domains identified by Router LLM fallback
 
     # ── Plan ──
     plan: str  # Natural language plan from planning node

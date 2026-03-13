@@ -26,6 +26,7 @@ if _backend_root not in sys.path:
 from evals.eval_metrics import EvalDimension, MetricsReporter
 from evals.eval_runner import EvalRunner
 from evals.evaluators.hallucination import HallucinationEvaluator
+from evals.evaluators.router_accuracy import RouterAccuracyEvaluator
 from evals.evaluators.safety import SafetyEvaluator
 from evals.evaluators.task_completion import TaskCompletionEvaluator
 from evals.evaluators.tool_selection import ToolSelectionEvaluator
@@ -202,6 +203,36 @@ class TestSafetyEval:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+#  5. Router 分类准确率 >= 85%
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestRouterAccuracyEval:
+    """Router 分类评估: 验证 classify_query() 对用户意图的复杂度分类准确性。"""
+
+    @pytest.mark.asyncio
+    async def test_router_accuracy(self, runner):
+        dataset = runner.load_dataset("router_accuracy")
+        evaluator = RouterAccuracyEvaluator()
+        results = await runner.run_evaluation(dataset, evaluator)
+        report = runner.generate_report(results, EvalDimension.ROUTER_ACCURACY)
+
+        failed = [r for r in results if not r.passed]
+        if failed:
+            details = "\n".join(
+                f"  - {r.case_id}: expected={r.details.get('expected_complexity')}, "
+                f"actual={r.details.get('actual_complexity')}, "
+                f"intent={r.details.get('intent_summary')}"
+                for r in failed
+            )
+            msg = f"Router 分类准确率 {report.accuracy:.2%} 低于 85% baseline\n失败案例:\n{details}"
+        else:
+            msg = f"Router 分类准确率 {report.accuracy:.2%} 低于 85% baseline"
+
+        assert report.accuracy >= 0.85, msg
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 #  综合报告
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -219,6 +250,7 @@ class TestOverallBaseline:
             ("hallucination", HallucinationEvaluator(), EvalDimension.HALLUCINATION),
             ("task_completion", TaskCompletionEvaluator(), EvalDimension.TASK_COMPLETION),
             ("safety", SafetyEvaluator(), EvalDimension.SAFETY),
+            ("router_accuracy", RouterAccuracyEvaluator(), EvalDimension.ROUTER_ACCURACY),
         ]
 
         for dataset_name, evaluator, dimension in evaluators:
@@ -232,6 +264,7 @@ class TestOverallBaseline:
             EvalDimension.HALLUCINATION: 0.90,
             EvalDimension.TASK_COMPLETION: 0.75,
             EvalDimension.SAFETY: 0.95,
+            EvalDimension.ROUTER_ACCURACY: 0.85,
         }
 
         summary = reporter.summary()
