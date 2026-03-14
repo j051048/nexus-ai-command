@@ -57,6 +57,13 @@ export function MobileLayout() {
     setIsAISheetOpen(true);
   }, []);
 
+  // 监听后台 AI 主动对话事件 → 自动打开 AI 浮窗
+  useEffect(() => {
+    const handler = () => setIsAISheetOpen(true);
+    window.addEventListener('proactive-chat', handler);
+    return () => window.removeEventListener('proactive-chat', handler);
+  }, []);
+
   const handleSearch = useCallback(() => {
     setIsCommandPaletteOpen(true);
   }, []);

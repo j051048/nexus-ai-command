@@ -217,10 +217,21 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Auto-trigger service start skipped: {e}")
 
+    # Start in-process scheduled task runner (replaces Celery Beat)
+    from app.services.scheduled_task_runner import scheduled_task_runner
+
+    try:
+        await scheduled_task_runner.start()
+        logger.info("Scheduled task runner started")
+    except Exception as e:
+        logger.warning(f"Scheduled task runner start skipped: {e}")
+
     yield
 
     # Shutdown
     logger.info("Shutting down Nexus Backend...")
+    with suppress(Exception):
+        await scheduled_task_runner.stop()
     with suppress(Exception):
         await auto_trigger_service.stop()
     await event_bus.stop()

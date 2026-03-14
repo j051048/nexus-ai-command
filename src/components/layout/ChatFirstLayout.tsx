@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import EnhancedAIChatPanel from '@/components/ai/EnhancedAIChatPanel';
@@ -67,6 +67,13 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
             setIsCanvasOpen(true);
         }
     }, [location.pathname, isPageRoute]);
+
+    // 监听后台 AI 主动对话事件 → 确保 Chat 面板展开
+    useEffect(() => {
+        const handler = () => setIsChatOpen(true);
+        window.addEventListener('proactive-chat', handler);
+        return () => window.removeEventListener('proactive-chat', handler);
+    }, []);
 
     return (
         <div className="flex h-[100dvh] w-full bg-background overflow-hidden">
