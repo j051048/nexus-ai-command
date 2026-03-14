@@ -100,8 +100,8 @@ interface MessageBubbleProps {
   message: AIMessage;
   onCopy: (content: string) => void;
   onRegenerate?: () => void;
-  onFeedback?: (type: 'positive' | 'negative') => void;
-  onDelete?: () => void;
+  onFeedback?: (type: 'positive' | 'negative', messageId: string) => void;
+  onDelete?: (messageId: string) => void;
   isLatest?: boolean;
   isTyping?: boolean;
 }
@@ -133,7 +133,7 @@ export const MessageBubble = React.memo(function MessageBubble({
 
   const handleFeedback = (type: 'positive' | 'negative') => {
     setFeedback(type);
-    onFeedback?.(type);
+    onFeedback?.(type, message.id);
     toast.success(type === 'positive' ? '感谢您的反馈！' : '我们会继续改进');
   };
 
@@ -432,7 +432,7 @@ export const MessageBubble = React.memo(function MessageBubble({
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={onDelete}
+                  onClick={() => onDelete?.(message.id)}
                   className="text-destructive focus:text-destructive"
                 >
                   <Trash2 className="w-4 h-4 mr-2" />

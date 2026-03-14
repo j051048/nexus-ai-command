@@ -9,6 +9,7 @@ import { WelcomeTour } from '@/components/common/WelcomeTour';
 import { NotificationCenter } from '@/components/common/NotificationCenter';
 import { PanelRightClose, PanelRightOpen, Clock, PanelLeftOpen } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
+import { useWebSocketPush } from '@/hooks/useWebSocketPush';
 
 // Interface for props
 interface ChatFirstLayoutProps {
@@ -24,6 +25,9 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
     const [isChatOpen, setIsChatOpen] = useState(true);
     const location = useLocation();
     const { isPendingBoss } = useAuth();
+
+    // 实时推送连接（WebSocket + 自动重连）
+    useWebSocketPush();
 
     // Dynamic page title
     const getPageTitle = useCallback(() => {

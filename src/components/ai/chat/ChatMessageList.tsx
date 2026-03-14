@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -63,11 +63,19 @@ export const ChatMessageList = React.memo(function ChatMessageList({
   trace,
   messagesEndRef,
 }: ChatMessageListProps) {
-  // Stable feedback callback — avoids creating new function per message per render
-  const handleFeedback = useCallback((type: 'positive' | 'negative', msg: AIMessage, index: number) => {
+  // Use ref for messages to avoid re-creating callback on every messages change
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+
+  // Stable feedback callback — uses ref to avoid messages dependency
+  const handleFeedback = useCallback((type: 'positive' | 'negative', messageId: string) => {
+    const msgs = messagesRef.current;
+    const index = msgs.findIndex(m => m.id === messageId);
+    if (index < 0) return;
+    const msg = msgs[index];
     const sessionId = `chat_${userId}_${Date.now()}`;
     const aiMsg = msg.role === 'assistant' ? msg : undefined;
-    const prevUserMsg = index > 0 && messages[index - 1]?.role === 'user' ? messages[index - 1] : undefined;
+    const prevUserMsg = index > 0 && msgs[index - 1]?.role === 'user' ? msgs[index - 1] : undefined;
     aiClient.fetch('/api/v1/ai/feedback', {
       method: 'POST',
       body: JSON.stringify({
@@ -78,7 +86,7 @@ export const ChatMessageList = React.memo(function ChatMessageList({
         query_snippet: prevUserMsg?.content?.slice(0, 500),
       }),
     }).catch(() => { /* silent — toast already shown by MessageBubble */ });
-  }, [userId, messages]);
+  }, [userId]);
 
   return (
     <ScrollArea className="flex-1 px-4 md:px-6">
@@ -95,8 +103,8 @@ export const ChatMessageList = React.memo(function ChatMessageList({
                 ? handleRegenerate
                 : undefined
             }
-            onFeedback={(type) => handleFeedback(type, msg, index)}
-            onDelete={() => handleDeleteMessage(msg.id)}
+            onFeedback={handleFeedback}
+            onDelete={handleDeleteMessage}
             isLatest={isLast}
             isTyping={isLast && isAiTyping}
           />

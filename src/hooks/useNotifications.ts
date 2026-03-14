@@ -41,6 +41,7 @@ export function useNotificationsRealtime() {
                         variant: newNotif.type === 'error' ? 'destructive' : 'default',
                     });
                     queryClient.invalidateQueries({ queryKey: ['notifications'] });
+                    queryClient.invalidateQueries({ queryKey: ['notification-center'] });
                     queryClient.invalidateQueries({ queryKey: ['notification-unread-count'] });
                 }
             )

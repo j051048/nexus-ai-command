@@ -25,6 +25,7 @@ import MobileProfilePage from '@/components/mobile/MobileProfilePage';
 // Badge 数据
 import { usePendingApprovalsCount } from '@/hooks/useApprovals';
 import { useUnreadCount } from '@/hooks/useNotificationCenter';
+import { useWebSocketPush } from '@/hooks/useWebSocketPush';
 
 export function MobileLayout() {
   const location = useLocation();
@@ -37,6 +38,9 @@ export function MobileLayout() {
   const pendingCount = pendingApprovalsQuery.data ?? 0;
   const unreadCountQuery = useUnreadCount();
   const unreadCount = unreadCountQuery.data ?? 0;
+
+  // 实时推送连接（WebSocket + 自动重连）
+  useWebSocketPush();
 
   // 页面转场动画
   const prevPathRef = useRef(location.pathname);

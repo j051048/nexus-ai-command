@@ -35,6 +35,7 @@ import {
   useNotificationPreferences,
   useUpdateNotificationPreferences,
 } from '@/hooks/useNotificationCenter';
+import { useNotificationsRealtime } from '@/hooks/useNotifications';
 import type { NotificationItem } from '@/hooks/useNotificationCenter';
 
 // ─── Constants ──────────────────────────────────────────────
@@ -90,6 +91,9 @@ function NotificationCenter() {
   const [filterType, setFilterType] = useState<string | undefined>(undefined);
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
 
+  // Realtime subscription — instantly refresh on new notifications
+  useNotificationsRealtime();
+
   // Data hooks
   const { data: notifications = [], isLoading } = useNotificationCenter({
     unreadOnly: showUnreadOnly,
@@ -138,9 +142,9 @@ function NotificationCenter() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-3 md:space-y-6 px-4 md:px-0 py-2 md:py-0">
+      {/* Page Header — hidden on mobile (MobilePageHeader already shows title) */}
+      <div className="hidden md:flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Bell className="w-6 h-6" />
@@ -187,23 +191,44 @@ function NotificationCenter() {
         </TabsList>
 
         {/* ─── Notifications Tab ──────────────────────────── */}
-        <TabsContent value="notifications" className="space-y-4 mt-4">
-          {/* Filters */}
-          <div className="flex items-center gap-2 flex-wrap">
+        <TabsContent value="notifications" className="space-y-3 md:space-y-4 mt-2 md:mt-4">
+          {/* Mobile: mark-all-read button (desktop has it in page header) */}
+          {unreadCount > 0 && (
+            <div className="flex md:hidden justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleMarkAllRead}
+                disabled={markAllRead.isPending}
+                className="gap-1.5 h-8 text-xs"
+              >
+                {markAllRead.isPending ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <CheckCheck className="w-3 h-3" />
+                )}
+                全部已读
+              </Button>
+            </div>
+          )}
+
+          {/* Filters — horizontally scrollable on mobile */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 flex-nowrap md:flex-wrap" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
             <Button
               variant={showUnreadOnly ? 'default' : 'outline'}
               size="sm"
               onClick={() => setShowUnreadOnly(!showUnreadOnly)}
-              className="gap-1.5"
+              className="gap-1.5 shrink-0"
             >
               {showUnreadOnly ? <BellOff className="w-3 h-3" /> : <Bell className="w-3 h-3" />}
               {showUnreadOnly ? '仅未读' : '全部'}
             </Button>
-            <Separator orientation="vertical" className="h-6" />
+            <Separator orientation="vertical" className="h-6 shrink-0" />
             <Button
               variant={!filterType ? 'default' : 'outline'}
               size="sm"
               onClick={() => setFilterType(undefined)}
+              className="shrink-0"
             >
               全部类型
             </Button>
@@ -213,7 +238,7 @@ function NotificationCenter() {
                 variant={filterType === type ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setFilterType(type)}
-                className="gap-1"
+                className="gap-1 shrink-0"
               >
                 {TYPE_ICONS[type]}
                 {TYPE_LABELS[type]}
