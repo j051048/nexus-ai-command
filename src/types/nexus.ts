@@ -88,6 +88,7 @@ export interface AIMessage {
   thinkingSteps?: ThinkingStep[];
   toolCalls?: ToolCall[];
   isStreaming?: boolean;
+  isProactive?: boolean;
 }
 
 // Agent thinking chain types for AI-first experience

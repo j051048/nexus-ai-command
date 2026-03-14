@@ -154,6 +154,11 @@ export const MessageBubble = React.memo(function MessageBubble({
       <div className={cn('flex flex-col max-w-[85%] md:max-w-2xl', isUser && 'items-end')}>
         {!isUser && message.agent && (
           <div className="flex items-center gap-2 mb-1 pl-1">
+            {message.isProactive && (
+              <span className="text-[10px] font-medium text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded">
+                主动推送
+              </span>
+            )}
             <span className="text-xs font-medium text-foreground">{message.agent}</span>
             <span className="text-[10px] text-muted-foreground">
               {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

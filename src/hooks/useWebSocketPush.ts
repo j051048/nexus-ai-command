@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { enqueueProactiveMessage } from '@/lib/proactiveMessageStore';
 
 /**
  * WebSocket 实时推送 hook
@@ -94,6 +95,17 @@ export function useWebSocketPush() {
           // P0-1: AI 主动发起聊天对话
           if (msg.type === 'proactive_chat') {
             const { session_id, title, message, priority } = msg.data;
+
+            // 入队 → ChatPanel 自动消费并显示在对话列表中
+            enqueueProactiveMessage({
+              sessionId: session_id,
+              title,
+              message,
+              priority,
+              receivedAt: new Date(),
+            });
+
+            // Toast 通知（移动端面板关闭时的备用入口）
             toast.info(title, {
               description: message?.slice(0, 100),
               action: {

@@ -13,6 +13,7 @@ import { useAIStream } from '@/hooks/useAIStream';
 import { useAgentTrace } from '@/hooks/useAgentTrace';
 import { aiClient } from '@/api/aiClient';
 import { supabase } from '@/integrations/supabase/client';
+import { drainProactiveMessages, PROACTIVE_MSG_EVENT } from '@/lib/proactiveMessageStore';
 import { ChatHeader } from './ChatHeader';
 import { ChatMessageList } from './ChatMessageList';
 import { ChatInputArea } from './ChatInputArea';
@@ -145,6 +146,34 @@ export function EnhancedAIChatPanel({
         };
     setMessages([greeting]);
   }, [user.role, user.name]);
+
+  // 注入 AI 主动推送消息（定时任务结果、事件告警等）
+  useEffect(() => {
+    const injectProactive = () => {
+      const pending = drainProactiveMessages();
+      if (pending.length === 0) return;
+      setMessages(prev => {
+        const existingIds = new Set(prev.map(m => m.id));
+        const newMsgs = pending
+          .filter(pm => !existingIds.has(`proactive-${pm.sessionId}`))
+          .map(pm => ({
+            id: `proactive-${pm.sessionId}`,
+            role: 'assistant' as const,
+            content: pm.message,
+            timestamp: pm.receivedAt,
+            agent: `${pm.title}`,
+            isProactive: true,
+          }));
+        return newMsgs.length > 0 ? [...prev, ...newMsgs] : prev;
+      });
+    };
+
+    // Drain on mount (handles mobile panel opening after WS message arrived)
+    injectProactive();
+
+    window.addEventListener(PROACTIVE_MSG_EVENT, injectProactive);
+    return () => window.removeEventListener(PROACTIVE_MSG_EVENT, injectProactive);
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
