@@ -161,21 +161,76 @@ async def ws_status():
 
 
 async def _authenticate_ws(token: str) -> str | None:
-    """Authenticate a WebSocket connection via JWT token (same logic as auth.py)."""
+    """Authenticate a WebSocket connection via JWT token.
+
+    Reuses the same two-stage strategy as auth.py:
+    1. ES256/RS256 → JWKS public key from Supabase
+    2. HS256 → shared secret (SUPABASE_JWT_SECRET / JWT_SECRET)
+    """
     import os
 
     import jwt as pyjwt
+    from jwt import PyJWKClient
 
     try:
         supabase_jwt_secret = os.getenv("SUPABASE_JWT_SECRET")
         jwt_secret = os.getenv("JWT_SECRET")
-        secret = supabase_jwt_secret or jwt_secret
+        supabase_url = os.getenv("SUPABASE_URL", "")
 
-        if not secret:
-            logger.warning("[WS] No JWT secret configured")
+        # Read token header to determine algorithm
+        claimed_alg = None
+        try:
+            unverified_header = pyjwt.get_unverified_header(token)
+            claimed_alg = unverified_header.get("alg")
+        except Exception:
+            pass
+
+        payload = None
+
+        # Strategy 1: JWKS for ES256/RS256 tokens
+        if supabase_url and claimed_alg in ("ES256", "RS256"):
+            try:
+                jwks_url = f"{supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+                jwks_client = PyJWKClient(jwks_url, cache_keys=True, lifespan=600)
+                signing_key = jwks_client.get_signing_key_from_jwt(token)
+                payload = pyjwt.decode(
+                    token,
+                    signing_key.key,
+                    algorithms=["ES256", "RS256"],
+                    audience="authenticated",
+                    options={"verify_exp": True, "require": ["sub", "exp"]},
+                )
+                logger.debug(f"[WS] JWT verified via JWKS ({claimed_alg})")
+            except pyjwt.ExpiredSignatureError:
+                logger.debug("[WS] Token expired")
+                return None
+            except Exception as e:
+                logger.debug(f"[WS] JWKS verification failed: {e}")
+
+        # Strategy 2: HS256 shared secret
+        if not payload:
+            secrets = [s for s in [supabase_jwt_secret, jwt_secret] if s]
+            for secret in secrets:
+                try:
+                    payload = pyjwt.decode(
+                        token,
+                        secret,
+                        algorithms=["HS256"],
+                        audience="authenticated",
+                        options={"verify_exp": True, "require": ["sub", "exp"]},
+                    )
+                    logger.debug("[WS] JWT verified via shared secret (HS256)")
+                    break
+                except pyjwt.ExpiredSignatureError:
+                    logger.debug("[WS] Token expired")
+                    return None
+                except Exception:
+                    continue
+
+        if not payload:
+            logger.warning("[WS] All JWT verification strategies failed")
             return None
 
-        payload = pyjwt.decode(token, secret, algorithms=["HS256", "RS256", "ES256"])
         user_id = payload.get("sub")
         return user_id
     except Exception as e:
