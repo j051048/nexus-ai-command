@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import {
   Bell,
   BellOff,
@@ -142,7 +143,7 @@ function NotificationCenter() {
   };
 
   return (
-    <div className="space-y-3 md:space-y-6 px-4 md:px-0 py-2 md:py-0">
+    <div className="flex flex-col gap-3 md:gap-6 px-4 md:px-0 py-2 md:py-0">
       {/* Page Header — hidden on mobile (MobilePageHeader already shows title) */}
       <div className="hidden md:flex items-center justify-between">
         <div>
@@ -191,7 +192,7 @@ function NotificationCenter() {
         </TabsList>
 
         {/* ─── Notifications Tab ──────────────────────────── */}
-        <TabsContent value="notifications" className="space-y-3 md:space-y-4 mt-2 md:mt-4">
+        <TabsContent value="notifications" className="flex flex-col gap-3 md:gap-4 mt-2 md:mt-4">
           {/* Mobile: mark-all-read button (desktop has it in page header) */}
           {unreadCount > 0 && (
             <div className="flex md:hidden justify-end">
@@ -213,7 +214,7 @@ function NotificationCenter() {
           )}
 
           {/* Filters — horizontally scrollable on mobile */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 flex-nowrap md:flex-wrap" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 flex-nowrap md:flex-wrap" style={{ scrollbarWidth: 'none' }}>
             <Button
               variant={showUnreadOnly ? 'default' : 'outline'}
               size="sm"
@@ -268,14 +269,14 @@ function NotificationCenter() {
 
           {/* Notification List (Timeline) */}
           {!isLoading && notifications.length > 0 && (
-            <div className="space-y-2">
+            <div className="flex flex-col gap-2">
               {notifications.map((notification) => (
                 <Card
                   key={notification.id}
-                  className={`
-                    group cursor-pointer transition-all hover:shadow-sm
-                    ${!notification.is_read ? 'border-l-4 border-l-primary bg-primary/[0.02]' : 'opacity-75'}
-                  `}
+                  className={cn(
+                    'group cursor-pointer transition-colors hover:shadow-sm duration-200',
+                    !notification.is_read ? 'border-l-4 border-l-primary bg-primary/[0.02]' : 'opacity-75'
+                  )}
                   onClick={() => handleNotificationClick(notification)}
                 >
                   <CardContent className="py-3 px-4">
@@ -327,7 +328,7 @@ function NotificationCenter() {
         </TabsContent>
 
         {/* ─── Preferences Tab ────────────────────────────── */}
-        <TabsContent value="preferences" className="space-y-6 mt-4">
+        <TabsContent value="preferences" className="flex flex-col gap-6 mt-4">
           {/* Channel Toggles */}
           <Card>
             <CardContent className="py-5 space-y-4">
