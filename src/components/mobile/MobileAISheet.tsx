@@ -53,6 +53,10 @@ export default function MobileAISheet({
     dragStartY.current = e.touches[0].clientY;
     currentDragDelta.current = 0;
     isDragging.current = true;
+    // 开启 GPU 硬件加速
+    if (sheetRef.current) {
+      sheetRef.current.style.willChange = 'transform';
+    }
   }, []);
 
   const handleDragMove = useCallback((e: React.TouchEvent) => {
@@ -63,7 +67,7 @@ export default function MobileAISheet({
     // 实时拖拽反馈
     if (sheetRef.current) {
       const clampedDelta = Math.max(0, delta); // 只允许向下拖
-      sheetRef.current.style.transform = `translateY(${clampedDelta}px)`;
+      sheetRef.current.style.transform = `translate3d(0, ${clampedDelta}px, 0)`;
       sheetRef.current.style.transition = 'none';
     }
   }, []);
@@ -72,10 +76,11 @@ export default function MobileAISheet({
     if (!isDragging.current) return;
     isDragging.current = false;
 
-    // 恢复 transition
+    // 恢复 transition，清除 will-change
     if (sheetRef.current) {
       sheetRef.current.style.transform = '';
       sheetRef.current.style.transition = '';
+      sheetRef.current.style.willChange = '';
     }
 
     const delta = currentDragDelta.current;

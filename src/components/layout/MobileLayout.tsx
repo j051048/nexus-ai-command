@@ -22,9 +22,6 @@ import MobileWorkbenchPage from '@/components/mobile/MobileWorkbenchPage';
 // Sprint 4: 个人中心
 import MobileProfilePage from '@/components/mobile/MobileProfilePage';
 
-// Badge 数据
-import { usePendingApprovalsCount } from '@/hooks/useApprovals';
-import { useUnreadCount } from '@/hooks/useNotificationCenter';
 import { useWebSocketPush } from '@/hooks/useWebSocketPush';
 
 export function MobileLayout() {
@@ -32,12 +29,6 @@ export function MobileLayout() {
   const [isAISheetOpen, setIsAISheetOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const { activeTab, isSubPage, getPageTitle, navigateToTab, goBack } = useMobileNavigation();
-
-  // Badge 数据
-  const pendingApprovalsQuery = usePendingApprovalsCount();
-  const pendingCount = pendingApprovalsQuery.data ?? 0;
-  const unreadCountQuery = useUnreadCount();
-  const unreadCount = unreadCountQuery.data ?? 0;
 
   // 实时推送连接（WebSocket + 自动重连）
   useWebSocketPush();
@@ -118,8 +109,6 @@ export function MobileLayout() {
         activeTab={activeTab}
         onTabChange={navigateToTab}
         onAIPress={handleAIPress}
-        pendingCount={pendingCount}
-        unreadCount={unreadCount}
       />
 
       {/* AI 半屏浮窗 */}

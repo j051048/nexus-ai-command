@@ -199,7 +199,7 @@ export default function MobileHomePage() {
 
       <div className="px-4 pb-24 space-y-4">
         {/* ===== AI 摘要卡片 ===== */}
-        <section className="relative mt-4 overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-5 text-white shadow-lg">
+        <section className="relative mt-4 overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-primary/70 p-5 text-white shadow-lg">
           {/* 装饰元素 */}
           <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/10" />
           <div className="absolute -bottom-4 -left-4 h-16 w-16 rounded-full bg-white/10" />
@@ -243,7 +243,7 @@ export default function MobileHomePage() {
             {metrics.map((m) => (
               <div
                 key={m.id}
-                className="flex items-center gap-3 rounded-xl bg-white dark:bg-card p-4 shadow-sm"
+                className="flex items-center gap-3 rounded-xl bg-white dark:bg-card p-4 border border-border/40"
               >
                 <div
                   className={cn(
@@ -254,7 +254,7 @@ export default function MobileHomePage() {
                   <m.icon className={cn('h-5 w-5', m.color)} />
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-lg font-bold text-gray-900 dark:text-foreground">
+                  <p className="truncate text-xl font-bold text-gray-900 dark:text-foreground">
                     {m.value}
                     {m.unit && (
                       <span className="text-xs font-normal text-gray-400 dark:text-muted-foreground">
@@ -278,7 +278,7 @@ export default function MobileHomePage() {
                 key={entry.id}
                 type="button"
                 onClick={() => navigate(entry.path)}
-                className="flex flex-col items-center gap-2 rounded-xl bg-white dark:bg-card p-4 shadow-sm transition-transform active:scale-95"
+                className="flex flex-col items-center gap-2 rounded-xl bg-white dark:bg-card p-4 border border-border/40 transition-all active:opacity-80"
               >
                 <div
                   className={cn(
@@ -306,7 +306,7 @@ export default function MobileHomePage() {
                   key={item.id}
                   type="button"
                   onClick={() => navigate(item.path)}
-                  className="flex w-full items-center justify-between rounded-xl bg-white dark:bg-card px-4 py-3 shadow-sm transition-colors active:bg-gray-50 dark:active:bg-muted"
+                  className="flex w-full items-center justify-between rounded-xl bg-white dark:bg-card px-4 py-3.5 border border-border/40 transition-colors active:bg-gray-50 dark:active:bg-muted"
                 >
                   <div className="flex items-center gap-3">
                     <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50">
@@ -326,7 +326,7 @@ export default function MobileHomePage() {
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center rounded-xl bg-white dark:bg-card py-8 shadow-sm">
+            <div className="flex flex-col items-center justify-center rounded-xl bg-white dark:bg-card py-8 border border-border/40">
               <ClipboardCheck className="mb-2 h-8 w-8 text-gray-300 dark:text-muted-foreground" />
               <p className="text-sm text-gray-400 dark:text-muted-foreground">暂无待办事项</p>
             </div>

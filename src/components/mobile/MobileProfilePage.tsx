@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
@@ -219,6 +219,7 @@ export default function MobileProfilePage() {
 
   /** 头像首字母 fallback */
   const avatarInitial = user.name?.charAt(0) || '?';
+  const [avatarError, setAvatarError] = useState(false);
 
   /** 处理菜单项点击 */
   const handleItemClick = (item: MenuItem) => {
@@ -248,17 +249,19 @@ export default function MobileProfilePage() {
     <div className="h-full overflow-y-auto bg-gray-50 dark:bg-background">
       <div className="px-4 pb-24 space-y-4">
         {/* ===== 用户信息卡片 ===== */}
-        <section className="relative mt-4 overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-5 text-white shadow-lg">
+        <section className="relative mt-4 overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-primary/70 p-5 text-white shadow-lg">
           {/* 装饰元素 */}
           <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/10" />
           <div className="absolute -bottom-4 -left-4 h-16 w-16 rounded-full bg-white/10" />
 
           <div className="relative z-10 flex items-center gap-4">
             {/* 头像 */}
-            {user.avatar ? (
+            {user.avatar && !avatarError ? (
               <img
                 src={user.avatar}
                 alt={user.name}
+                loading="lazy"
+                onError={() => setAvatarError(true)}
                 className="h-16 w-16 shrink-0 rounded-full border-2 border-white/30 object-cover"
               />
             ) : (
@@ -287,7 +290,7 @@ export default function MobileProfilePage() {
           {stats.map((s) => (
             <div
               key={s.id}
-              className="flex flex-col items-center gap-1.5 rounded-xl bg-white p-4 shadow-sm dark:bg-card"
+              className="flex flex-col items-center gap-1.5 rounded-xl bg-white p-4 border border-border/40 dark:bg-card"
             >
               <div
                 className={cn(
@@ -308,7 +311,7 @@ export default function MobileProfilePage() {
         </section>
 
         {/* ===== 功能列表 ===== */}
-        <section className="overflow-hidden rounded-xl bg-white shadow-sm dark:bg-card">
+        <section className="overflow-hidden rounded-xl bg-white border border-border/40 dark:bg-card">
           {visibleItems.map((item, index) => (
             <button
               key={item.id}
@@ -349,7 +352,7 @@ export default function MobileProfilePage() {
           <button
             type="button"
             onClick={handleSignOut}
-            className="flex w-full items-center justify-center rounded-xl bg-white py-3.5 shadow-sm transition-colors active:bg-gray-50 dark:bg-card dark:active:bg-muted"
+            className="flex w-full items-center justify-center rounded-xl bg-white py-3.5 border border-border/40 transition-colors active:bg-gray-50 dark:bg-card dark:active:bg-muted"
           >
             <LogOut className="mr-2 h-4 w-4 text-red-500" />
             <span className="text-sm font-medium text-red-500">退出登录</span>

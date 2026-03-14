@@ -266,8 +266,8 @@ export default function MobileWorkbenchPage() {
       {/* Search bar - real filtering */}
       <div
         className={cn(
-          'flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5 transition-colors',
-          searchQuery && 'border-primary/50 ring-2 ring-primary/20',
+          'flex items-center gap-2 rounded-full bg-muted/50 px-3 py-2.5 transition-colors',
+          searchQuery && 'ring-2 ring-primary/20',
         )}
       >
         <Search className="h-4 w-4 shrink-0 text-muted-foreground" />

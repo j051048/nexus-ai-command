@@ -6,6 +6,8 @@
 
 import { Home, LayoutGrid, Bot, Bell, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { usePendingApprovalsCount } from '@/hooks/useApprovals';
+import { useUnreadCount } from '@/hooks/useNotificationCenter';
 
 interface TabDef {
   id: string;
@@ -26,17 +28,16 @@ interface MobileTabBarProps {
   activeTab: string;
   onTabChange: (tabId: string) => void;
   onAIPress: () => void;
-  pendingCount?: number;
-  unreadCount?: number;
 }
 
 export default function MobileTabBar({
   activeTab,
   onTabChange,
   onAIPress,
-  pendingCount = 0,
-  unreadCount = 0,
 }: MobileTabBarProps) {
+  // Badge 数据直接在 TabBar 内获取，避免更新时重渲染整个 MobileLayout
+  const pendingCount = usePendingApprovalsCount().data ?? 0;
+  const unreadCount = useUnreadCount().data ?? 0;
   const handlePress = (tab: TabDef) => {
     if (tab.id === 'ai') {
       onAIPress();
@@ -81,7 +82,7 @@ export default function MobileTabBar({
               >
                 <div
                   className={cn(
-                    'w-11 h-11 rounded-full flex items-center justify-center shadow-lg transition-all',
+                    'w-11 h-11 rounded-full flex items-center justify-center shadow-lg ring-4 ring-background transition-all',
                     'bg-primary text-primary-foreground hover:bg-primary/90'
                   )}
                 >

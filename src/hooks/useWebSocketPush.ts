@@ -169,8 +169,32 @@ export function useWebSocketPush() {
     unmountedRef.current = false;
     connect();
 
+    // Page Visibility API：后台时断开 WS 省电，前台时重连
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        // 进入后台：主动断开，停止心跳
+        if (reconnectTimerRef.current) {
+          clearTimeout(reconnectTimerRef.current);
+        }
+        cleanup();
+        if (wsRef.current) {
+          wsRef.current.close();
+          wsRef.current = null;
+        }
+      } else {
+        // 回到前台：立即重连 + 刷新数据
+        reconnectAttemptRef.current = 0;
+        connect();
+        queryClient.invalidateQueries({ queryKey: ['notification-center'] });
+        queryClient.invalidateQueries({ queryKey: ['notification-unread-count'] });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       unmountedRef.current = true;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
       }
