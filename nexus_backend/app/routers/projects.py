@@ -19,7 +19,7 @@ async def get_projects(user_id: str):
         user_res = await supabase.table("users").select("role").eq("id", user_id).maybe_single().execute()
         role = user_res.data.get("role") if user_res.data else "employee"
 
-        query = supabase.table("projects").select("*")
+        query = supabase.table("projects").select("*").neq("stage", "archived")
 
         # Security Policy: Non-founders only see their own projects
         if role not in ("founder", "boss"):

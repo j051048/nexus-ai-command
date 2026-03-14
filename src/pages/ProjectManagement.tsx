@@ -47,6 +47,7 @@ export function ProjectManagement() {
             const query = supabase
                 .from('projects')
                 .select('*')
+                .neq('stage', 'archived')
                 .order('created_at', { ascending: false });
 
             if (user.role !== 'boss' && user.role !== 'admin') {

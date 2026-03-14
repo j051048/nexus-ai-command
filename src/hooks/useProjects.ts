@@ -21,6 +21,7 @@ export function useProjects() {
             .select('*')
             // Filter by organization_id
             .eq('organization_id', profile.organization_id)
+            .neq('stage', 'archived')
             .order('updated_at', { ascending: false });
 
         if (!error && data) {
