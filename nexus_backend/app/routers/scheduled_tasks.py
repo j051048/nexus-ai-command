@@ -276,7 +276,6 @@ async def run_scheduled_task(
                 run_proactive_agent(
                     user_id=user_id,
                     prompt=task["prompt"],
-                    trigger_source=f"manual_run:{task['name']}",
                 )
             )
         except Exception as run_err:
