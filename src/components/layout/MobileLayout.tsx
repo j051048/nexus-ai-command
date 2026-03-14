@@ -95,8 +95,10 @@ export function MobileLayout() {
       />
 
       {/* 主内容区 */}
-      <main className={cn('flex-1 overflow-auto pb-[calc(3.5rem+env(safe-area-inset-bottom))]', transitionClass)}>
-        {renderContent()}
+      <main className="flex-1 overflow-auto pb-[calc(3.5rem+env(safe-area-inset-bottom))]">
+        <div className={cn("min-h-full", transitionClass)}>
+          {renderContent()}
+        </div>
       </main>
 
       {/* AI 浮动按钮（仅在子页面时显示） */}

@@ -143,7 +143,7 @@ function NotificationCenter() {
   };
 
   return (
-    <div className="grid gap-3 md:gap-6 px-4 md:px-0 py-2 md:py-0">
+    <div className="block px-4 md:px-0 py-2 md:py-4">
       {/* Page Header — hidden on mobile (MobilePageHeader already shows title) */}
       <div className="hidden md:flex items-center justify-between">
         <div>
@@ -192,7 +192,7 @@ function NotificationCenter() {
         </TabsList>
 
         {/* ─── Notifications Tab ──────────────────────────── */}
-        <TabsContent value="notifications" className="grid gap-3 md:gap-4 mt-2 md:mt-4">
+        <TabsContent value="notifications" className="block mt-2 md:mt-4">
           {/* Mobile: mark-all-read button (desktop has it in page header) */}
           {unreadCount > 0 && (
             <div className="flex md:hidden justify-end">
@@ -214,7 +214,7 @@ function NotificationCenter() {
           )}
 
           {/* Filters — horizontally scrollable on mobile */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 flex-nowrap md:flex-wrap" style={{ scrollbarWidth: 'none' }}>
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 mb-3 flex-nowrap md:flex-wrap" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
             <Button
               variant={showUnreadOnly ? 'default' : 'outline'}
               size="sm"
@@ -269,14 +269,15 @@ function NotificationCenter() {
 
           {/* Notification List (Timeline) */}
           {!isLoading && notifications.length > 0 && (
-            <div className="grid gap-2">
+            <div className="block pb-6">
               {notifications.map((notification) => (
                 <Card
                   key={notification.id}
                   className={cn(
-                    'group cursor-pointer transition-colors hover:shadow-sm duration-200',
+                    'group cursor-pointer transition-colors hover:shadow-sm duration-200 block mb-2 last:mb-0 relative',
                     !notification.is_read ? 'border-l-4 border-l-primary bg-primary/[0.02]' : 'opacity-75'
                   )}
+                  style={{ transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)', minHeight: 'max-content' }}
                   onClick={() => handleNotificationClick(notification)}
                 >
                   <CardContent className="py-3 px-4">
@@ -328,9 +329,9 @@ function NotificationCenter() {
         </TabsContent>
 
         {/* ─── Preferences Tab ────────────────────────────── */}
-        <TabsContent value="preferences" className="grid gap-6 mt-4">
+        <TabsContent value="preferences" className="block mt-4">
           {/* Channel Toggles */}
-          <Card>
+          <Card className="mb-6" style={{ transform: 'translateZ(0)' }}>
             <CardContent className="py-5 space-y-4">
               <h3 className="text-base font-semibold mb-3">通知渠道</h3>
 
