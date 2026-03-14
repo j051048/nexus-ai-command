@@ -7,6 +7,7 @@ for background tasks like report generation, data analysis, and proactive notifi
 
 import asyncio
 import logging
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
 from app.agent.graph import get_agent_graph
@@ -60,9 +61,11 @@ async def run_proactive_agent(
 
     from langchain_core.messages import HumanMessage, SystemMessage
 
+    now_str = datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S")
+
     initial_state = {
         "messages": [
-            SystemMessage(content="你是 Nexus AI 系统的后台分析助手。请根据指令完成分析任务并给出简洁的结论。"),
+            SystemMessage(content=f"你是 Nexus AI 系统的后台分析助手。请根据指令完成分析任务并给出简洁的结论。\n\n当前时间：{now_str}"),
             HumanMessage(content=prompt),
         ],
         "current_phase": AgentPhase.ROUTING,

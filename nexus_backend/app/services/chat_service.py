@@ -9,7 +9,7 @@ Provides shared helpers used by the LangGraph agent pipeline:
 import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
 from app.core.config import settings
@@ -42,7 +42,7 @@ class ChatService:
         """Get formatted system prompt for agent (P1 Fix #29: Fetch from DB with local fallback)
         #24: Integrates A/B test variant selection when user_id is provided.
         """
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now_str = datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S")
 
         prompt_key = "default_fallback"
         if agent_name in ["@销售指挥官", "sales_commander"]:

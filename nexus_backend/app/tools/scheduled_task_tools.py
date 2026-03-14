@@ -5,7 +5,7 @@
 """
 
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
 from app.core.database import supabase
@@ -58,8 +58,13 @@ def _compute_next_execution(
     interval_minutes: int | None,
     execute_at: str | None,
 ) -> str | None:
-    """Compute the next execution time based on schedule parameters."""
-    now = datetime.now(UTC)
+    """Compute the next execution time based on schedule parameters.
+
+    Uses UTC+8 (Asia/Shanghai) since users input hours in local time,
+    then converts result back to UTC for storage.
+    """
+    CN_TZ = timezone(timedelta(hours=8))
+    now = datetime.now(CN_TZ)
 
     if schedule_type == "once" and execute_at:
         return execute_at
