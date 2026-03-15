@@ -108,14 +108,9 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
 
         if extra_lines:
             injection = "\n".join(extra_lines)
-            injected = False
-            for _i, m in enumerate(lc_msgs):
-                if isinstance(m, SystemMessage):
-                    m.content += f"\n\n{injection}"
-                    injected = True
-                    break
-            if not injected:
-                lc_msgs.insert(0, SystemMessage(content=injection))
+            # 独立 SystemMessage，避免 Prompt Bloat（不再 append 到主 system prompt）
+            lc_msgs.insert(1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
+                           SystemMessage(content=f"[角色与工具]\n{injection}"))
 
         # Few-shot example injection — scene/intent-aware style demonstrations
         try:
@@ -124,10 +119,9 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             scene_code = state.get("scene_code", "")
             few_shot = get_few_shot_examples(scene_code, intent_summary)
             if few_shot:
-                for m in lc_msgs:
-                    if isinstance(m, SystemMessage):
-                        m.content += f"\n\n{few_shot}"
-                        break
+                # 独立 SystemMessage，与主 system prompt 分离
+                lc_msgs.insert(2 if len(lc_msgs) > 1 else len(lc_msgs),
+                               SystemMessage(content=f"[参考示例]\n{few_shot}"))
         except Exception:
             pass  # Few-shot injection is optional, never block planning
 
@@ -135,40 +129,51 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     if iteration > 0:
         reflection_guidance = state.get("reflection_guidance", "")
         if reflection_guidance:
-            guidance_injection = (
-                f"\n\n[重要：反思修正指令]\n{reflection_guidance}\n"
+            guidance_content = (
+                f"[重要：反思修正指令]\n{reflection_guidance}\n"
                 f"请根据以上指令调整你的回复策略。当前是第{iteration + 1}轮规划。"
             )
-            injected_guidance = False
-            for m in lc_msgs:
-                if isinstance(m, SystemMessage):
-                    m.content += guidance_injection
-                    injected_guidance = True
-                    break
-            if not injected_guidance:
-                lc_msgs.insert(0, SystemMessage(content=guidance_injection))
+            # 独立 SystemMessage，紧接在主 system prompt 之后
+            lc_msgs.insert(1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
+                           SystemMessage(content=guidance_content))
 
-    # ── RAG Injection ──
-    # If we have retrieved context, prepend it to the history or inject into system prompt
-    if rag_context and iteration == 0:
-        rag_disclaimer = (
-            "【重要：文档来源区分】\n"
-            "以下检索结果可能来自不同类型的文档，请注意区分：\n"
-            "- [招标文件]: 客户/甲方发布的采购需求，其中提到的产品规格是客户要求，不代表我方产品\n"
-            "- [投标文件]: 我方编写的投标响应文档\n"
-            "- [产品资料]: 我方的产品说明、规格书等，代表我方实际能力\n"
-            "- 无标签的内容请根据上下文自行判断来源\n"
-            "回答时务必区分「客户要求」和「我方能力」，切勿将招标文件中的需求当作我方产品参数。\n"
-        )
-        rag_block = f"\n\n{rag_disclaimer}\n[检索到的参考知识]:\n{rag_context}"
-        found_sys = False
-        for _i, m in enumerate(lc_msgs):
-            if isinstance(m, SystemMessage):
-                m.content += rag_block
-                found_sys = True
-                break
-        if not found_sys:
-            lc_msgs.insert(0, SystemMessage(content=f"你可以参考以下背景知识来回答问题:{rag_block}"))
+    # ── Context Engine 集成：统一上下文组装 ──
+    # 替代硬编码 RAG 注入，通过 ContextEngine 按优先级和 token 预算获取上下文
+    if iteration == 0:
+        try:
+            from app.agent.context_engine import context_engine
+
+            engine_ctx = await context_engine.build_context(
+                user_id=agent_config.user_id,
+                org_id=agent_config.org_id,
+                query=state.get("intent_summary") or (messages[-1].content if messages else ""),
+                session_id=agent_config.session_id,
+            )
+            if engine_ctx:
+                lc_msgs.insert(
+                    1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
+                    SystemMessage(content=f"[上下文引擎检索结果]\n{engine_ctx}"),
+                )
+        except Exception as e:
+            logger.debug(f"[PlanNode] ContextEngine failed, falling back to raw RAG: {e}")
+            engine_ctx = ""
+
+        # RAG 上下文（来自 rag_inject 节点的预检索结果）作为补充
+        if rag_context:
+            rag_disclaimer = (
+                "【重要：文档来源区分】\n"
+                "以下检索结果可能来自不同类型的文档，请注意区分：\n"
+                "- [招标文件]: 客户/甲方发布的采购需求，其中提到的产品规格是客户要求，不代表我方产品\n"
+                "- [投标文件]: 我方编写的投标响应文档\n"
+                "- [产品资料]: 我方的产品说明、规格书等，代表我方实际能力\n"
+                "- 无标签的内容请根据上下文自行判断来源\n"
+                "回答时务必区分「客户要求」和「我方能力」，切勿将招标文件中的需求当作我方产品参数。\n"
+            )
+            rag_block = f"{rag_disclaimer}\n[检索到的参考知识]\n{rag_context}"
+            lc_msgs.insert(
+                1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
+                SystemMessage(content=rag_block),
+            )
 
     # Decide whether to include tools
     complexity = state.get("complexity", QueryComplexity.MODERATE)
