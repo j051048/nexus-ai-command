@@ -543,28 +543,30 @@ async def prepare_initial_state(
 
         async def _fetch_user_profile_context():
             """2g. User Profile Context — name, role, department, recent activity"""
-            if not config.user_id or not config.org_id:
+            if not config.user_id:
                 return None
             try:
                 parts: list[str] = []
-                # User basic info
+                # User basic info (only needs user_id)
                 user_res = await client.table("users").select(
                     "full_name, role"
                 ).eq("id", config.user_id).maybe_single().execute()
 
                 dept_name = None
-                try:
-                    emp_res = await client.table("employees").select(
-                        "departments(name)"
-                    ).eq("user_id", config.user_id).eq(
-                        "organization_id", config.org_id
-                    ).maybe_single().execute()
-                    if emp_res.data:
-                        dept_info = emp_res.data.get("departments")
-                        if isinstance(dept_info, dict):
-                            dept_name = dept_info.get("name")
-                except Exception:
-                    pass
+                # Department lookup requires org_id
+                if config.org_id:
+                    try:
+                        emp_res = await client.table("employees").select(
+                            "departments(name)"
+                        ).eq("user_id", config.user_id).eq(
+                            "organization_id", config.org_id
+                        ).maybe_single().execute()
+                        if emp_res.data:
+                            dept_info = emp_res.data.get("departments")
+                            if isinstance(dept_info, dict):
+                                dept_name = dept_info.get("name")
+                    except Exception:
+                        pass
 
                 if user_res.data:
                     name = user_res.data.get("full_name", "")
@@ -604,13 +606,26 @@ async def prepare_initial_state(
             _fetch_user_profile_context(),
             return_exceptions=True,
         )
+
+        # Separate user profile from other contexts:
+        # profile goes into system_prompt directly (higher priority),
+        # other contexts go as an independent system message.
+        user_profile_ctx = None
         for r in results:
             if isinstance(r, str) and r:
-                injected_contexts.append(r)
+                if "[用户画像上下文]" in r:
+                    user_profile_ctx = r
+                else:
+                    injected_contexts.append(r)
             elif isinstance(r, Exception):
                 logger.debug(f"[Memory] Parallel context fetch error: {r}")
 
-    # Inject all collected contexts as a single system message
+    # Embed user profile directly into system_prompt (highest priority)
+    if user_profile_ctx:
+        system_prompt = system_prompt + "\n\n" + user_profile_ctx
+        logger.info("[Memory] User profile embedded into system prompt")
+
+    # Inject remaining contexts as a single system message
     if injected_contexts:
         raw_messages.insert(
             0,

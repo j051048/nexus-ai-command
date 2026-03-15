@@ -236,6 +236,17 @@ async def delete_scheduled_task(
             raise api_error(ErrorCode.NOT_FOUND, "定时任务不存在")
 
         await client.table("user_scheduled_tasks").delete().eq("id", task_id).execute()
+        # 清理该任务产生的推送消息，防止登录/刷新时重复显示
+        try:
+            await (
+                client.table("chat_messages")
+                .delete()
+                .eq("user_id", user_id)
+                .eq("metadata->>task_id", task_id)
+                .execute()
+            )
+        except Exception:
+            pass  # 非关键路径，静默失败
         return api_success(data=None, message="定时任务已删除")
     except Exception as e:
         if hasattr(e, "status_code"):

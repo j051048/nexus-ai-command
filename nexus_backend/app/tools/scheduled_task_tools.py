@@ -435,6 +435,17 @@ class DeleteScheduledTaskTool(BaseTool):
 
         if action == "delete":
             await client.table("user_scheduled_tasks").delete().eq("id", task["id"]).execute()
+            # 清理该任务产生的推送消息，防止登录/刷新时重复显示
+            try:
+                await (
+                    client.table("chat_messages")
+                    .delete()
+                    .eq("user_id", user_id)
+                    .eq("metadata->>task_id", task["id"])
+                    .execute()
+                )
+            except Exception:
+                pass  # 非关键路径，静默失败
             return f"已删除定时任务「{task['name']}」。"
         elif action == "disable":
             await client.table("user_scheduled_tasks").update({"is_active": False}).eq("id", task["id"]).execute()
