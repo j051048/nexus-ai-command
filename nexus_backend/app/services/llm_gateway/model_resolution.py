@@ -70,13 +70,13 @@ class ModelResolutionMixin:
                 )
                 rows = res.data or []
 
-            # 2. Fall back to global defaults
+            # 2. Fall back to global defaults (tenant_id IS NULL = global config)
             if not rows:
                 res = (
                     await supabase.table("llm_model_config")
                     .select("*")
                     .eq("model_code", model_code)
-                    .eq("tenant_id", "default")
+                    .is_("tenant_id", "null")
                     .eq("status", "enabled")
                     .eq("is_deleted", False)
                     .execute()
@@ -150,69 +150,69 @@ class ModelResolutionMixin:
             return None
 
         try:
-            # Try tenant-specific first, then fall back to global 'default' tenant
-            for tid in [org_id, "default"]:
+            # Try tenant-specific first, then fall back to global (NULL tenant_id)
+            for tid in [org_id, None]:
                 rows = []
 
                 # P2-9: Try exact match with complexity_tier first
                 if complexity_tier:
-                    res = (
-                        await supabase.table("llm_schedule_rule")
+                    q = (
+                        supabase.table("llm_schedule_rule")
                         .select("*")
                         .eq("scene_code", scene_code)
                         .eq("agent_code", agent_code)
                         .eq("complexity_tier", complexity_tier)
-                        .eq("tenant_id", tid)
-                        .execute()
                     )
+                    q = q.eq("tenant_id", tid) if tid else q.is_("tenant_id", "null")
+                    res = await q.execute()
                     rows = res.data or []
 
                 # Fallback: complexity wildcard (NULL complexity_tier)
                 if not rows:
-                    res = (
-                        await supabase.table("llm_schedule_rule")
+                    q = (
+                        supabase.table("llm_schedule_rule")
                         .select("*")
                         .eq("scene_code", scene_code)
                         .eq("agent_code", agent_code)
                         .is_("complexity_tier", "null")
-                        .eq("tenant_id", tid)
-                        .execute()
                     )
+                    q = q.eq("tenant_id", tid) if tid else q.is_("tenant_id", "null")
+                    res = await q.execute()
                     rows = res.data or []
 
                 # Fallback: scene + agent without complexity filter
                 if not rows:
-                    res = (
-                        await supabase.table("llm_schedule_rule")
+                    q = (
+                        supabase.table("llm_schedule_rule")
                         .select("*")
                         .eq("scene_code", scene_code)
                         .eq("agent_code", agent_code)
-                        .eq("tenant_id", tid)
-                        .execute()
                     )
+                    q = q.eq("tenant_id", tid) if tid else q.is_("tenant_id", "null")
+                    res = await q.execute()
                     rows = res.data or []
 
                 # Fallback: scene-level default (agent_code = '*' or empty)
                 if not rows:
-                    res = (
-                        await supabase.table("llm_schedule_rule")
+                    q = (
+                        supabase.table("llm_schedule_rule")
                         .select("*")
                         .eq("scene_code", scene_code)
-                        .eq("tenant_id", tid)
                         .in_("agent_code", ["*", ""])
-                        .execute()
                     )
+                    q = q.eq("tenant_id", tid) if tid else q.is_("tenant_id", "null")
+                    res = await q.execute()
                     rows = res.data or []
 
                 # Fallback: org-level default (scene_code = '*')
                 if not rows:
-                    res = (
-                        await supabase.table("llm_schedule_rule")
+                    q = (
+                        supabase.table("llm_schedule_rule")
                         .select("*")
-                        .eq("tenant_id", tid)
                         .in_("scene_code", ["*", ""])
-                        .execute()
                     )
+                    q = q.eq("tenant_id", tid) if tid else q.is_("tenant_id", "null")
+                    res = await q.execute()
                     rows = res.data or []
 
                 if rows:
