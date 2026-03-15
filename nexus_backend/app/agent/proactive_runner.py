@@ -43,7 +43,7 @@ async def run_proactive_agent(
     """
     agent_config = AgentConfig(
         user_id=user_id,
-        session_id=f"proactive_{agent_name}",
+        session_id="default",
         agent_name=agent_name,
         api_key=settings.OPENAI_API_KEY or "",
         base_url=settings.AI_BASE_URL or "https://api.openai.com/v1",
@@ -63,9 +63,28 @@ async def run_proactive_agent(
 
     now_str = datetime.now(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S")
 
+    # 注入用户记忆，让主动任务结果更个性化
+    memory_ctx = ""
+    try:
+        from app.services.conversation_memory_service import conversation_memory_service
+        from app.core.database import supabase as db_client
+
+        memory_ctx = await conversation_memory_service.build_memory_context(
+            user_id=user_id, current_query=prompt, db=db_client,
+        )
+    except Exception as mem_err:
+        logger.debug("[ProactiveRunner] Memory injection skipped: %s", mem_err)
+
+    system_parts = [
+        "你是 Nexus AI 系统的智能助手，正在为用户执行后台任务。请根据指令完成任务并给出简洁、友好的结论。",
+        f"\n当前时间：{now_str}",
+    ]
+    if memory_ctx:
+        system_parts.append(f"\n{memory_ctx}")
+
     initial_state = {
         "messages": [
-            SystemMessage(content=f"你是 Nexus AI 系统的后台分析助手。请根据指令完成分析任务并给出简洁的结论。\n\n当前时间：{now_str}"),
+            SystemMessage(content="\n".join(system_parts)),
             HumanMessage(content=prompt),
         ],
         "current_phase": AgentPhase.ROUTING,

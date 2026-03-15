@@ -134,7 +134,7 @@ class ScheduledTaskRunner:
                 await ws_manager.send_to_user(user_id, {
                     "type": "proactive_chat",
                     "data": {
-                        "session_id": f"scheduled_{task_id[:8]}",
+                        "session_id": "default",
                         "title": f"定时任务: {task_name}",
                         "message": response,
                         "task_id": task_id,
@@ -149,7 +149,7 @@ class ScheduledTaskRunner:
 
             await ChatService.save_message(
                 user_id=user_id,
-                session_id=f"scheduled_{task_id[:8]}",
+                session_id="default",
                 role="assistant",
                 content=response,
                 agent="proactive_agent",

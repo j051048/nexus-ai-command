@@ -473,6 +473,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                         messages: chatMessages,
                         agent: agent,
                         userId: userId,
+                        sessionId: 'default',
                         system_confirmed: options?.system_confirmed || false,
                         confirmed_tool: options?.confirmed_tool || null,
                         vmd_agent_code: options?.vmd_agent_code,
@@ -517,6 +518,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                         messages: chatMessages,
                         agent: agent,
                         userId: userId,
+                        sessionId: 'default',
                     }),
                     signal: abortControllerRef.current.signal,
                 });
