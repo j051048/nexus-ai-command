@@ -242,7 +242,7 @@ async def delete_scheduled_task(
                 client.table("chat_messages")
                 .delete()
                 .eq("user_id", user_id)
-                .eq("metadata->>task_id", task_id)
+                .filter("metadata->>task_id", "eq", task_id)
                 .execute()
             )
         except Exception:

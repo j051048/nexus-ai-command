@@ -441,7 +441,7 @@ class DeleteScheduledTaskTool(BaseTool):
                     client.table("chat_messages")
                     .delete()
                     .eq("user_id", user_id)
-                    .eq("metadata->>task_id", task["id"])
+                    .filter("metadata->>task_id", "eq", task["id"])
                     .execute()
                 )
             except Exception:

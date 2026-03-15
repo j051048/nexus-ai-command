@@ -215,28 +215,52 @@ export function EnhancedAIChatPanel({
         type ProactiveRow = { id: string; created_at: string; content?: string; metadata?: Record<string, any> };
 
         // 过滤掉已删除的定时任务产生的消息
+        const scheduledRows = data.filter(
+          (r: ProactiveRow) => r.metadata?.source === 'scheduled_task'
+        );
         const taskIds = [...new Set(
-          data
-            .filter((r: ProactiveRow) => r.metadata?.task_id && r.metadata?.source === 'scheduled_task')
+          scheduledRows
+            .filter((r: ProactiveRow) => r.metadata?.task_id)
             .map((r: ProactiveRow) => r.metadata!.task_id as string)
+        )];
+        const taskNames = [...new Set(
+          scheduledRows
+            .filter((r: ProactiveRow) => r.metadata?.task_name && !r.metadata?.task_id)
+            .map((r: ProactiveRow) => r.metadata!.task_name as string)
         )];
 
         let deletedTaskIds = new Set<string>();
-        if (taskIds.length > 0) {
-          try {
+        let orphanTaskNames = new Set<string>();
+
+        try {
+          if (taskIds.length > 0) {
             const { data: existingTasks } = await supabase
               .from('user_scheduled_tasks')
               .select('id')
               .in('id', taskIds);
             const existingIds = new Set((existingTasks || []).map((t: { id: string }) => t.id));
             deletedTaskIds = new Set(taskIds.filter(id => !existingIds.has(id)));
-          } catch {
-            // 查询失败时不过滤，降级为原有行为
           }
+          if (taskNames.length > 0) {
+            // 旧数据没有 task_id，按 task_name 检查任务是否仍存在
+            const { data: existingByName } = await supabase
+              .from('user_scheduled_tasks')
+              .select('name')
+              .in('name', taskNames);
+            const existingNames = new Set((existingByName || []).map((t: { name: string }) => t.name));
+            orphanTaskNames = new Set(taskNames.filter(n => !existingNames.has(n)));
+          }
+        } catch {
+          // 查询失败时不过滤，降级为原有行为
         }
 
-        const validData = deletedTaskIds.size > 0
-          ? data.filter((r: ProactiveRow) => !(r.metadata?.task_id && deletedTaskIds.has(r.metadata.task_id)))
+        const validData = (deletedTaskIds.size > 0 || orphanTaskNames.size > 0)
+          ? data.filter((r: ProactiveRow) => {
+              if (r.metadata?.source !== 'scheduled_task') return true;
+              if (r.metadata?.task_id && deletedTaskIds.has(r.metadata.task_id)) return false;
+              if (!r.metadata?.task_id && r.metadata?.task_name && orphanTaskNames.has(r.metadata.task_name)) return false;
+              return true;
+            })
           : data;
 
         if (!validData.length) return;
