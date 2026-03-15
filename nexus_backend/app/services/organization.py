@@ -3,6 +3,8 @@ P2 Optimization: Organization Structure Management Service
 Manages departments, teams, and organizational hierarchy.
 """
 
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass, field
 from typing import Any
