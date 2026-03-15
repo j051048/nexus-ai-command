@@ -766,7 +766,6 @@ class AutoTriggerService:
                 l for l in all_leads
                 if (l.get("stage") or l.get("status") or "").lower() not in terminal
             ][:50]
-            leads = result.data or []
             if not leads:
                 return
 
@@ -839,7 +838,7 @@ class AutoTriggerService:
                 title=title,
                 message=message,
                 agent_name="smart_reminder",
-                metadata={"source": "scheduled_task", "task_name": title, "reminder_type": reminder_type},
+                metadata={"source": "smart_reminder", "task_name": title, "reminder_type": reminder_type},
             )
 
             # Set both memory and Redis cooldowns

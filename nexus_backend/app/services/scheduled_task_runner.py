@@ -100,6 +100,7 @@ class ScheduledTaskRunner:
             await supabase.table("user_scheduled_tasks")
             .select("*")
             .eq("locked_by", _INSTANCE_ID)
+            .eq("is_active", True)
             .order("next_execution_at")
             .limit(20)
             .execute()

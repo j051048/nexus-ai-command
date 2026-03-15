@@ -185,7 +185,7 @@ export function EnhancedAIChatPanel({
           .select('id, session_id, role, content, metadata, created_at')
           .eq('user_id', user.id)
           .eq('role', 'assistant')
-          .filter('metadata->>source', 'eq', 'scheduled_task')
+          .filter('metadata->>source', 'in', '("scheduled_task","smart_reminder")')
           .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
           .order('created_at', { ascending: false })
           .limit(20);
@@ -219,7 +219,7 @@ export function EnhancedAIChatPanel({
               content: row.content,
               timestamp: new Date(row.created_at),
               agent: row.metadata?.task_name
-                ? `定时任务: ${row.metadata.task_name}`
+                ? `${row.metadata?.source === 'smart_reminder' ? '智能提醒' : '定时任务'}: ${row.metadata.task_name}`
                 : '主动推送',
               isProactive: true,
             }));
