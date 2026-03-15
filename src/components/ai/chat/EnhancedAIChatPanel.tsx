@@ -152,6 +152,14 @@ export function EnhancedAIChatPanel({
     const injectProactive = () => {
       const pending = drainProactiveMessages();
       if (pending.length === 0) return;
+      
+      // Update last seen to the newest live message
+      const maxTime = Math.max(...pending.map(p => p.receivedAt.getTime()));
+      const lastSeenStr = localStorage.getItem(`nexus_last_seen_proactive_${user.id}`);
+      if (!lastSeenStr || maxTime > new Date(lastSeenStr).getTime()) {
+        localStorage.setItem(`nexus_last_seen_proactive_${user.id}`, new Date(maxTime).toISOString());
+      }
+      
       setMessages(prev => {
         const existingIds = new Set(prev.map(m => m.id));
         const newMsgs = pending
@@ -173,28 +181,46 @@ export function EnhancedAIChatPanel({
 
     window.addEventListener(PROACTIVE_MSG_EVENT, injectProactive);
     return () => window.removeEventListener(PROACTIVE_MSG_EVENT, injectProactive);
-  }, []);
+  }, [user.id]);
 
   // 从 DB 拉取离线期间的主动消息（WS 断开时的兜底）
   // 按 task_name 去重，同类提醒只显示最新一条，避免重复刷屏
   useEffect(() => {
     const loadProactiveFromDB = async () => {
       try {
+        const lastSeenStr = localStorage.getItem(`nexus_last_seen_proactive_${user.id}`);
+        const fallbackTime = new Date(Date.now() - 24 * 60 * 60 * 1000).getTime();
+        let queryTime = fallbackTime;
+
+        if (lastSeenStr) {
+          const lastSeenTime = new Date(lastSeenStr).getTime();
+          // Use last seen time if it's within the last 24h
+          if (lastSeenTime > fallbackTime) {
+            queryTime = lastSeenTime;
+          }
+        }
+
         const { data, error } = await supabase
           .from('chat_messages')
           .select('id, session_id, role, content, metadata, created_at')
           .eq('user_id', user.id)
           .eq('role', 'assistant')
           .filter('metadata->>source', 'in', '("scheduled_task","smart_reminder")')
-          .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .gt('created_at', new Date(queryTime).toISOString())
           .order('created_at', { ascending: false })
           .limit(20);
 
         if (error || !data?.length) return;
 
+        type ProactiveRow = { id: string; created_at: string; content?: string; metadata?: Record<string, any> };
+
+        // Update last seen to the newest message fetched
+        const maxTime = Math.max(...data.map((r: ProactiveRow) => new Date(r.created_at).getTime()));
+        localStorage.setItem(`nexus_last_seen_proactive_${user.id}`, new Date(maxTime).toISOString());
+
         // Deduplicate by task_name + content: keep only the latest per unique combination
         const seen = new Set<string>();
-        const deduplicated = data.filter((row: any) => {
+        const deduplicated = data.filter((row: ProactiveRow) => {
           const taskName = row.metadata?.task_name || '';
           const contentKey = `${taskName}::${row.content?.slice(0, 100) || ''}`;
           if (seen.has(contentKey)) return false;
@@ -209,14 +235,14 @@ export function EnhancedAIChatPanel({
             prev.filter(m => (m as any).isProactive).map(m => m.content?.slice(0, 100))
           );
           const newMsgs = deduplicated
-            .filter((row: any) =>
+            .filter((row: ProactiveRow) =>
               !existingIds.has(`db-proactive-${row.id}`) &&
-              !existingContents.has(row.content?.slice(0, 100))
+              !existingContents.has(row.content?.slice(0, 100) || '')
             )
-            .map((row: any) => ({
+            .map((row: ProactiveRow) => ({
               id: `db-proactive-${row.id}`,
               role: 'assistant' as const,
-              content: row.content,
+              content: row.content || '',
               timestamp: new Date(row.created_at),
               agent: row.metadata?.task_name
                 ? `${row.metadata?.source === 'smart_reminder' ? '智能提醒' : '定时任务'}: ${row.metadata.task_name}`
