@@ -453,6 +453,7 @@ async def prepare_initial_state(
 
     # ── 2b–2f. Collect all context blocks in parallel, then inject as ONE system message ──
     injected_contexts: list[str] = []
+    user_profile_ctx = None  # initialized here so it's always defined for line 624+
 
     if last_user_msg and not skip_semantic:
         # All 5 context lookups are independent — run them concurrently
@@ -610,7 +611,6 @@ async def prepare_initial_state(
         # Separate user profile from other contexts:
         # profile goes into system_prompt directly (higher priority),
         # other contexts go as an independent system message.
-        user_profile_ctx = None
         for r in results:
             if isinstance(r, str) and r:
                 if "[用户画像上下文]" in r:
