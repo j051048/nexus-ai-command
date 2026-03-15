@@ -174,7 +174,7 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
                                                 </div>
                                                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                                                     <Clock className="w-3 h-3" />
-                                                    {new Date(event.occurred_at).toLocaleDateString()}
+                                                    {new Date(event.occurred_at || Date.now()).toLocaleDateString()}
                                                 </span>
                                             </div>
                                             <div className="bg-secondary/30 rounded-xl p-4 border border-border/50 group-hover:border-primary/30 transition-colors">
@@ -205,7 +205,7 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
                             <div className="flex-1">
                                 <h4 className="text-sm font-bold text-foreground mb-1">AI 提议制成中</h4>
                                 <p className="text-xs text-muted-foreground">
-                                    您可以直接在下方 AI 指挥中心输入：<span className="text-primary font-medium">"在项目达成阶段帮我创建一个请客吃饭的事件，地点在北京路"</span>，AI 将为您自动记录并安排。
+                                    您可以直接在下方企业助手输入：<span className="text-primary font-medium">"在项目达成阶段帮我创建一个请客吃饭的事件，地点在北京路"</span>，AI 将为您自动记录并安排。
                                 </p>
                             </div>
                         </div>

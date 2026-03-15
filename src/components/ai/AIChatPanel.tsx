@@ -228,7 +228,7 @@ export function AIChatPanel({ isExpanded, onToggle }: AIChatPanelProps) {
             </div>
             <div>
               <h3 className="font-semibold text-foreground flex items-center gap-2">
-                AI 指挥中心
+                企业助手
                 <Sparkles className="w-4 h-4 text-primary" />
               </h3>
               <p className="text-xs text-muted-foreground flex items-center gap-2">
