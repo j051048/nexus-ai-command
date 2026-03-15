@@ -124,9 +124,8 @@ class AgentConfig(BaseModel):
     @field_validator("user_role")
     @classmethod
     def validate_user_role(cls, v: str) -> str:
-        allowed = {"admin", "manager", "employee", "viewer"}
-        if v not in allowed:
-            raise ValueError(f"user_role must be one of {allowed}, got '{v}'")
+        if not v or not isinstance(v, str):
+            return "employee"
         return v
 
     def get_model_for_complexity(self, complexity: QueryComplexity) -> str:
