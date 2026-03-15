@@ -540,7 +540,6 @@ async def run_agent_stream(
             )
             # Log corruption event to Langfuse for observability
             try:
-                from app.core.config import settings
                 if settings.LANGFUSE_ENABLED:
                     from langfuse import Langfuse
                     langfuse = Langfuse()
