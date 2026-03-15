@@ -55,6 +55,7 @@ def register_routers(app: FastAPI) -> None:
         workflow_templates,
         workflows,
     )
+    from app.routers import notification_preferences as notification_preferences_router
     from app.routers import approval_flows as approval_flows_router
     from app.routers import assets as assets_router
     from app.routers import attendance as attendance_router
@@ -102,6 +103,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(memories.router)
     app.include_router(reports.router)
     app.include_router(notifications.router)
+    app.include_router(notification_preferences_router.router)
     app.include_router(payments.router)
     app.include_router(data_transfer.router)
     app.include_router(plugins.router)

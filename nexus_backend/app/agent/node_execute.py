@@ -6,10 +6,120 @@ import asyncio
 import contextlib
 import hashlib
 import json as _json
+import re
 import time
+from enum import StrEnum
 
 from langchain_core.messages import ToolMessage
 from langchain_core.runnables import RunnableConfig
+
+
+# ── Error Classification for Structured Retry ────────────────────────────────
+
+
+class ErrorType(StrEnum):
+    """Tool error classification for retry decisions."""
+    RETRYABLE = "retryable"      # Network, timeout, rate-limit, temporary unavailable
+    PARAM_ERROR = "param_error"  # Wrong args, missing fields, type mismatch
+    FATAL = "fatal"              # Permission denied, not found, business rule conflict
+
+
+# Patterns for error classification (compiled once)
+_RETRYABLE_PATTERNS = [
+    re.compile(p, re.IGNORECASE) for p in [
+        r"timeout",
+        r"timed?\s*out",
+        r"connection\s*(refused|reset|error|aborted)",
+        r"network\s*(error|unreachable)",
+        r"429",
+        r"rate.?limit",
+        r"too many requests",
+        r"503",
+        r"service\s*unavailable",
+        r"502",
+        r"bad\s*gateway",
+        r"temporarily\s*unavailable",
+        r"ECONNREFUSED",
+        r"ECONNRESET",
+        r"retry",
+        r"database.*connection",
+        r"pool.*exhausted",
+    ]
+]
+
+_PARAM_ERROR_PATTERNS = [
+    re.compile(p, re.IGNORECASE) for p in [
+        r"column.*does\s*not\s*exist",
+        r"field.*not\s*found",
+        r"missing\s*(required\s*)?field",
+        r"required.*missing",
+        r"invalid\s*(type|value|argument|parameter|format)",
+        r"type\s*error",
+        r"validation\s*error",
+        r"PGRST\d+",
+        r"unknown\s*column",
+        r"unexpected\s*(keyword\s*)?argument",
+        r"expected.*got",
+        r"must\s*be\s*(a|an|of\s*type)",
+        r"cannot\s*(cast|convert)",
+    ]
+]
+
+_FATAL_PATTERNS = [
+    re.compile(p, re.IGNORECASE) for p in [
+        r"403",
+        r"forbidden",
+        r"permission\s*denied",
+        r"unauthorized",
+        r"401",
+        r"404",
+        r"not\s*found",
+        r"does\s*not\s*exist",
+        r"conflict",
+        r"409",
+        r"duplicate\s*key",
+        r"unique.*violation",
+        r"already\s*exists",
+    ]
+]
+
+
+def _classify_error(error: str) -> ErrorType:
+    """Classify a tool error string to determine retry strategy."""
+    if not error:
+        return ErrorType.RETRYABLE  # Default: try again
+
+    # Check retryable first (network/infra issues take priority)
+    for pat in _RETRYABLE_PATTERNS:
+        if pat.search(error):
+            return ErrorType.RETRYABLE
+
+    # Then check parameter errors
+    for pat in _PARAM_ERROR_PATTERNS:
+        if pat.search(error):
+            return ErrorType.PARAM_ERROR
+
+    # Then check fatal errors
+    for pat in _FATAL_PATTERNS:
+        if pat.search(error):
+            return ErrorType.FATAL
+
+    # Unknown errors default to retryable (give it one more chance)
+    return ErrorType.RETRYABLE
+
+
+def _build_param_error_hint(error: str) -> str:
+    """Build a concise hint for parameter errors to help LLM fix args."""
+    hints = []
+    if re.search(r"column.*does\s*not\s*exist|unknown\s*column|PGRST", error, re.IGNORECASE):
+        hints.append("请检查字段名是否正确，可能存在拼写错误或该字段不存在于目标表中")
+    if re.search(r"missing\s*(required\s*)?field|required.*missing", error, re.IGNORECASE):
+        hints.append("缺少必填字段，请补充所有必需的参数")
+    if re.search(r"invalid\s*(type|value)|type\s*error|cannot\s*(cast|convert)", error, re.IGNORECASE):
+        hints.append("参数类型不匹配，请检查数据类型（如字符串/数字/布尔值）")
+    if re.search(r"unexpected.*argument", error, re.IGNORECASE):
+        hints.append("传入了不支持的参数，请移除多余的字段")
+    return "；".join(hints) if hints else "请检查参数是否正确"
 
 from app.agent.node_helpers import (
     LONG_RUNNING_TOOLS,
@@ -171,16 +281,18 @@ async def _execute_single_tool(
     # Allow hooks to modify args
     record.tool_args = hook_ctx.get("tool_args", record.tool_args)
 
-    # 4. Execute with configurable timeout and retry
+    # 4. Execute with configurable timeout and structured retry
     start_time = time.time()
     last_error = None
     timeout = config.tool_timeout if hasattr(config, "tool_timeout") else 30.0
+    max_retries = config.tool_max_retries if hasattr(config, "tool_max_retries") else 2
+    max_attempts = max_retries + 1  # total attempts = retries + 1
 
     # Use longer timeout for known long-running tools
     if record.tool_name in LONG_RUNNING_TOOLS:
         timeout = max(timeout, 120.0)
 
-    for attempt in range(3):
+    for attempt in range(max_attempts):
         try:
             result = await asyncio.wait_for(
                 tool.run(
@@ -221,23 +333,36 @@ async def _execute_single_tool(
                 _set_cached_result(record.tool_name, record.tool_args, record.result, config.org_id)
             return record
         except TimeoutError:
-            logger.warning(f"Tool {record.tool_name} timed out after {timeout}s (attempt {attempt + 1})")
-            if attempt < 2:
-                await asyncio.sleep(0.5 * (attempt + 1))
+            error_str = f"Tool '{record.tool_name}' timed out after {timeout}s"
+            error_type = ErrorType.RETRYABLE
+            last_error = error_str
+            logger.warning(f"[Execute] Tool {record.tool_name} failed (attempt {attempt + 1}/{max_attempts}), type={error_type}: {error_str}")
+            if attempt < max_attempts - 1:
+                await asyncio.sleep(1.0 * (attempt + 1))
                 continue
-            record.status = "error"
-            record.result = f"Error: Tool '{record.tool_name}' timed out after {timeout}s."
-            record.duration_ms = int((time.time() - start_time) * 1000)
-            return record
         except Exception as e:
-            last_error = e
-            logger.error(f"Tool {record.tool_name} failed: {e}")
-            if attempt < 2:
-                await asyncio.sleep(0.5 * (attempt + 1))
+            error_str = str(e)
+            error_type = _classify_error(error_str)
+            last_error = error_str
+            logger.warning(f"[Execute] Tool {record.tool_name} failed (attempt {attempt + 1}/{max_attempts}), type={error_type}: {error_str}")
+
+            if error_type == ErrorType.FATAL:
+                # Fatal errors: stop immediately, no retry
+                break
+
+            if error_type == ErrorType.PARAM_ERROR:
+                # Parameter errors: no retry (LLM needs to fix args), but add hint
+                hint = _build_param_error_hint(error_str)
+                last_error = f"{error_str}\n[修正建议] {hint}"
+                break
+
+            # RETRYABLE: wait and retry
+            if attempt < max_attempts - 1:
+                await asyncio.sleep(1.0 * (attempt + 1))
                 continue
 
     record.status = "error"
-    record.result = f"Error: Tool '{record.tool_name}' failed after 3 attempts: {str(last_error)}"
+    record.result = f"Error: Tool '{record.tool_name}' failed: {str(last_error)}"
     record.duration_ms = int((time.time() - start_time) * 1000)
     record_tool_execution(record.tool_name, False, record.duration_ms)
     tool_circuit_breaker.record_failure()

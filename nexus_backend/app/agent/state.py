@@ -118,6 +118,7 @@ class AgentConfig(BaseModel):
     # Tool execution settings
     tool_timeout: int = Field(default=15, gt=0, description="Seconds, must be > 0")
     gather_timeout: int = Field(default=120, gt=0, description="Seconds, must be > 0")
+    tool_max_retries: int = Field(default=2, ge=0, le=5, description="Max retry attempts for retryable tool errors")
 
     @field_validator("user_role")
     @classmethod
