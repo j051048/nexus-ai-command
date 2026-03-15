@@ -66,7 +66,7 @@ class ConnectionManager:
             # Evict the oldest connection instead of rejecting
             oldest = user_conns[0]
             with contextlib.suppress(Exception):
-                await oldest.close(code=4002, reason="Replaced by new connection")
+                await oldest.close(code=4001, reason="Replaced by new connection")
             self.disconnect(oldest, user_id)
 
         await websocket.accept()
