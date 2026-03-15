@@ -121,6 +121,55 @@ def _build_param_error_hint(error: str) -> str:
         hints.append("传入了不支持的参数，请移除多余的字段")
     return "；".join(hints) if hints else "请检查参数是否正确"
 
+async def _llm_fix_params(
+    tool_name: str,
+    tool_args: dict,
+    error_msg: str,
+    tool_schema: dict | None,
+    config: "AgentConfig",
+) -> dict | None:
+    """Use a lightweight LLM to fix tool parameters locally, avoiding a full replan cycle.
+
+    Returns corrected args dict on success, None on failure.
+    """
+    try:
+        from app.agent.node_helpers import _get_llm
+
+        schema_hint = ""
+        if tool_schema:
+            # Only include properties and required fields to keep prompt small
+            props = tool_schema.get("properties", {})
+            required = tool_schema.get("required", [])
+            schema_hint = f"\n工具参数 Schema:\n- 属性: {_json.dumps(props, ensure_ascii=False)}\n- 必填: {required}"
+
+        prompt = (
+            f"工具 `{tool_name}` 调用失败。\n"
+            f"原始参数: {_json.dumps(tool_args, ensure_ascii=False)}\n"
+            f"错误信息: {error_msg}\n"
+            f"{schema_hint}\n\n"
+            f"请仅输出修正后的 JSON 参数对象（不要解释），例如: {{\"key\": \"value\"}}"
+        )
+
+        llm = _get_llm(config, model=config.mini_model, streaming=False)
+        resp = await asyncio.wait_for(llm.ainvoke(prompt), timeout=8.0)
+        content = (resp.content or "").strip()
+
+        # Extract JSON from response (handle markdown code blocks)
+        if "```" in content:
+            # Extract from ```json ... ``` or ``` ... ```
+            match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", content, re.DOTALL)
+            if match:
+                content = match.group(1).strip()
+
+        fixed_args = _json.loads(content)
+        if isinstance(fixed_args, dict):
+            logger.info(f"[SelfHeal] LLM fixed params for {tool_name}: {list(fixed_args.keys())}")
+            return fixed_args
+    except Exception as e:
+        logger.debug(f"[SelfHeal] LLM param fix failed for {tool_name}: {e}")
+    return None
+
+
 from app.agent.node_helpers import (
     LONG_RUNNING_TOOLS,
     AgentConfig,
@@ -351,10 +400,58 @@ async def _execute_single_tool(
                 break
 
             if error_type == ErrorType.PARAM_ERROR:
-                # Parameter errors: no retry (LLM needs to fix args), but add hint
+                # Parameter errors: try lightweight LLM self-healing before giving up
                 hint = _build_param_error_hint(error_str)
-                last_error = f"{error_str}\n[修正建议] {hint}"
-                break
+                tool_schema = tool.parameters if tool else None
+                fixed_args = await _llm_fix_params(
+                    record.tool_name, record.tool_args, error_str, tool_schema, config,
+                )
+                if fixed_args and fixed_args != record.tool_args:
+                    logger.info(f"[SelfHeal] Retrying {record.tool_name} with LLM-corrected params")
+                    record.tool_args = fixed_args
+                    # Re-validate fixed args
+                    try:
+                        await tool.validate(fixed_args)
+                    except Exception:
+                        last_error = f"{error_str}\n[修正建议] {hint}"
+                        break
+                    # Retry with fixed args (one shot, no further retry)
+                    try:
+                        result = await asyncio.wait_for(
+                            tool.run(
+                                fixed_args,
+                                config.user_id,
+                                config={
+                                    "api_key": config.api_key,
+                                    "base_url": config.base_url,
+                                    "model": config.model,
+                                    "org_id": config.org_id,
+                                },
+                            ),
+                            timeout=timeout,
+                        )
+                        record.result = str(result)
+                        record.status = "success"
+                        record.duration_ms = int((time.time() - start_time) * 1000)
+                        record_tool_execution(record.tool_name, True, record.duration_ms)
+                        tool_circuit_breaker.record_success()
+                        logger.info(f"[SelfHeal] {record.tool_name} succeeded after param fix")
+                        if idempotency_key:
+                            _idempotency_cache[idempotency_key] = {
+                                "status": record.status,
+                                "result": record.result,
+                                "duration_ms": record.duration_ms,
+                            }
+                        if not tool.is_irreversible and record.result:
+                            _set_cached_result(record.tool_name, record.tool_args, record.result, config.org_id)
+                        return record
+                    except Exception as heal_err:
+                        logger.warning(f"[SelfHeal] Retry with fixed params also failed: {heal_err}")
+                        last_error = f"{error_str}\n[自愈重试失败] {heal_err}\n[修正建议] {hint}"
+                        break
+                else:
+                    last_error = f"{error_str}\n[修正建议] {hint}"
+                    break
 
             # RETRYABLE: wait and retry
             if attempt < max_attempts - 1:
