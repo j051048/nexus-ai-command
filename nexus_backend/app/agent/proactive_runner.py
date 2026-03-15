@@ -73,7 +73,7 @@ async def run_proactive_agent(
             user_id=user_id, current_query=prompt, db=db_client,
         )
     except Exception as mem_err:
-        logger.debug("[ProactiveRunner] Memory injection skipped: %s", mem_err)
+        logger.warning("[ProactiveRunner] Memory injection skipped: %s", mem_err)
 
     system_parts = [
         "你是 Nexus AI 系统的智能助手，正在为用户执行后台任务。请根据指令完成任务并给出简洁、友好的结论。",

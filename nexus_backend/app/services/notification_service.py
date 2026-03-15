@@ -181,7 +181,7 @@ class InAppNotificationAdapter(BaseNotificationAdapter):
                 try:
                     from app.services.websocket_manager import ws_manager
 
-                    session_id = f"proactive_{uuid.uuid4().hex[:12]}"
+                    session_id = "default"
                     await ws_manager.send_to_user(notification.target_user_id, {
                         "type": "proactive_chat",
                         "data": {
