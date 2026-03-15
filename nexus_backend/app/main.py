@@ -145,8 +145,10 @@ def create_app() -> FastAPI:
         from app.core.health_cache import health_cache
 
         cached = health_cache.get_cached_health()
-        http_status = cached.pop("_http_status", 200)
-        return UTF8JSONResponse(status_code=http_status, content=cached)
+        http_status = cached.get("_http_status", 200)
+        # Return without the internal _http_status field
+        content = {k: v for k, v in cached.items() if k != "_http_status"}
+        return UTF8JSONResponse(status_code=http_status, content=content)
 
     @application.get("/health/deep")
     async def health_deep():
