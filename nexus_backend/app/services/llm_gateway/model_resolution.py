@@ -99,17 +99,15 @@ class ModelResolutionMixin:
 
             config = ModelConfig(
                 model_code=row.get("model_code", model_code),
+                model_name=row.get("model_name", model_code),
                 provider_type=row.get("provider_type", "openai_compatible"),
                 api_key=api_key,
-                base_url=row.get("base_url", ""),
-                model_type=row.get("model_type", "chat"),
+                api_base_url=row.get("base_url", ""),
+                model_id=str(row.get("id", "")),
                 context_window=row.get("context_window", 4096),
                 max_tokens=row.get("max_output_tokens") or row.get("max_tokens", 4096),
                 supports_tools=row.get("supports_tools", False),
-                supports_vision=row.get("supports_vision", False),
                 default_temperature=row.get("default_temperature", 0.7),
-                input_price_per_1m=row.get("input_price_per_1m", 0.0),
-                output_price_per_1m=row.get("output_price_per_1m", 0.0),
             )
 
             self._model_cache[cache_key] = (config, now)
