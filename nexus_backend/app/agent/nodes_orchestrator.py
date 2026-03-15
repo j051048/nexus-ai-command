@@ -20,6 +20,7 @@ from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 
 from app.agent.blackboard import SharedBlackboard, TaskResult
+from app.agent.node_helpers import _get_langfuse_callbacks
 from app.agent.roles.registry import get_role_config_sync
 from app.agent.state import (
     AgentConfig,
@@ -82,6 +83,7 @@ async def _create_orchestrator_llm(
             base_url=resolved.get("base_url", config.base_url),
             temperature=temperature,
             timeout=resolved.get("timeout", timeout),
+            callbacks=_get_langfuse_callbacks(),
         )
     return ChatOpenAI(
         model=fallback_model,
@@ -89,6 +91,7 @@ async def _create_orchestrator_llm(
         base_url=config.base_url,
         temperature=temperature,
         timeout=timeout,
+        callbacks=_get_langfuse_callbacks(),
     )
 
 

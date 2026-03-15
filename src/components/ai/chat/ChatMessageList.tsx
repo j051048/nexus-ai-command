@@ -118,6 +118,16 @@ export const ChatMessageList = React.memo(function ChatMessageList({
            </div>
         )}
 
+        {isAiTyping && trace.steps.length > 0 && !showTrace && (
+          <button
+            onClick={() => setShowTrace(true)}
+            className="mx-4 mb-2 px-3 py-1.5 text-xs text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1.5"
+          >
+            <Zap className="w-3 h-3" />
+            已完成 {trace.steps.length} 个推理步骤 · 点击查看
+          </button>
+        )}
+
         {pendingConfirmation && (
           <div className="mx-4 mb-2 rounded-xl border border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 p-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
             <div className="flex items-start gap-3">
@@ -257,6 +267,16 @@ export const ChatMessageList = React.memo(function ChatMessageList({
               </div>
             </div>
           </div>
+        )}
+
+        {!isAiTyping && trace.steps.length > 0 && !showTrace && (
+          <button
+            onClick={() => setShowTrace(true)}
+            className="mx-4 mb-2 px-3 py-1.5 text-xs text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1.5"
+          >
+            <Zap className="w-3 h-3" />
+            查看思考过程 ({trace.steps.length} 步)
+          </button>
         )}
 
         {showTrace && (

@@ -762,37 +762,13 @@ class AutoTriggerService:
             return
 
         try:
-            # 1. Send notification
-            from app.services.notification_service import send_notification
+            from app.services.agent_result_pusher import push_agent_result
 
-            await send_notification(
-                title=title,
-                content=message[:500],
-                target_user_id=user_id,
-            )
-
-            # 2. Push to chat via WebSocket
-            from app.services.websocket_manager import ws_manager
-
-            if ws_manager.is_connected(user_id):
-                await ws_manager.send_to_user(user_id, {
-                    "type": "proactive_chat",
-                    "data": {
-                        "session_id": "default",
-                        "title": title,
-                        "message": message,
-                    },
-                })
-
-            # 3. Save to chat_messages for offline retrieval
-            from app.services.chat_service import ChatService
-
-            await ChatService.save_message(
+            await push_agent_result(
                 user_id=user_id,
-                session_id="default",
-                role="assistant",
-                content=message,
-                agent="smart_reminder",
+                title=title,
+                message=message,
+                agent_name="smart_reminder",
                 metadata={"source": "scheduled_task", "task_name": title, "reminder_type": reminder_type},
             )
 

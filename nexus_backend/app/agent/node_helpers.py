@@ -513,6 +513,29 @@ def _get_tool_schemas(
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 
+def _get_langfuse_callbacks() -> list | None:
+    """Return Langfuse CallbackHandler list if enabled, else None.
+
+    Shared across all LLM construction sites to ensure complete observability.
+    """
+    try:
+        from app.core.config import settings
+
+        if settings.LANGFUSE_ENABLED:
+            from langfuse.callback import CallbackHandler as LangfuseCallbackHandler
+
+            return [
+                LangfuseCallbackHandler(
+                    public_key=settings.LANGFUSE_PUBLIC_KEY,
+                    secret_key=settings.LANGFUSE_SECRET_KEY,
+                    host=settings.LANGFUSE_HOST,
+                )
+            ]
+    except Exception:
+        pass
+    return None
+
+
 def _get_llm(
     config: AgentConfig, model: str | None = None, streaming: bool = False, resolved_config: dict | None = None
 ):
@@ -534,23 +557,7 @@ def _get_llm(
     if request_id:
         default_headers["X-Request-ID"] = request_id
 
-    # Langfuse CallbackHandler injection
-    callbacks = None
-    try:
-        from app.core.config import settings
-
-        if settings.LANGFUSE_ENABLED:
-            from langfuse.callback import CallbackHandler as LangfuseCallbackHandler
-
-            callbacks = [
-                LangfuseCallbackHandler(
-                    public_key=settings.LANGFUSE_PUBLIC_KEY,
-                    secret_key=settings.LANGFUSE_SECRET_KEY,
-                    host=settings.LANGFUSE_HOST,
-                )
-            ]
-    except Exception:
-        pass  # Langfuse not available, skip
+    callbacks = _get_langfuse_callbacks()
 
     if resolved_config:
         return ChatOpenAI(
@@ -603,6 +610,7 @@ def _get_fallback_llm(config: AgentConfig, model: str | None = None, streaming: 
         streaming=streaming,
         timeout=90.0,
         default_headers=default_headers or None,
+        callbacks=_get_langfuse_callbacks(),
     )
 
 

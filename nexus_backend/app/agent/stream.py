@@ -238,6 +238,19 @@ async def run_agent_stream(
             yield "data: [DONE]\n\n"
             return
 
+    # ── 2a. PII sanitization before LLM ──
+    if last_user_content:
+        from app.services.content_moderation import sanitize_pii_for_llm
+
+        sanitized = sanitize_pii_for_llm(last_user_content)
+        if sanitized != last_user_content:
+            last_user_content = sanitized
+            # Sync back to messages so the LLM never sees raw PII
+            for msg in reversed(messages):
+                if msg.get("role") == "user":
+                    msg["content"] = sanitized
+                    break
+
     # ── 2b. Early SIMPLE detection — skip RAG for casual chat ──
     # Also gate RAG for MODERATE queries: only enable when query suggests
     # the user needs information from uploaded documents / knowledge base.

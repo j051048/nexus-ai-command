@@ -82,6 +82,11 @@ async def run_proactive_agent(
     if memory_ctx:
         system_parts.append(f"\n{memory_ctx}")
 
+    # PII sanitization before sending to LLM
+    from app.services.content_moderation import sanitize_pii_for_llm
+
+    prompt = sanitize_pii_for_llm(prompt)
+
     initial_state = {
         "messages": [
             SystemMessage(content="\n".join(system_parts)),

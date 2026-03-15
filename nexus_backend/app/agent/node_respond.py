@@ -347,6 +347,20 @@ async def error_node(state: AgentState) -> dict:
         logger.debug(f"[ErrorNode] ON_ERROR hook error: {e}")
 
     if recovery_level == 0 and iteration < 5:
+        # Extract failed tool names from recent ToolMessages for better recovery guidance
+        failed_tool_names = set()
+        for msg in reversed(state.get("messages", [])):
+            if hasattr(msg, "type") and msg.type == "tool":
+                tool_name = getattr(msg, "name", None)
+                if tool_name:
+                    failed_tool_names.add(tool_name)
+                break  # Only look at the most recent tool message(s)
+
+        tool_hint = ""
+        if failed_tool_names:
+            names_str = ", ".join(failed_tool_names)
+            tool_hint = f" 失败的工具: {names_str}。请尝试不涉及此工具的替代方案。"
+
         # Level 1: Clear failed tools, ask LLM to try alternative approach
         return {
             "error": None,
@@ -355,7 +369,7 @@ async def error_node(state: AgentState) -> dict:
             "pending_tool_calls": [],
             "current_phase": AgentPhase.PLANNING,
             "messages": [
-                HumanMessage(content=f"[错误恢复L1] 前序操作失败: {error_msg}。请尝试一个不涉及此错误的替代方案。")
+                HumanMessage(content=f"[错误恢复L1] 前序操作失败: {error_msg}。{tool_hint or '请尝试一个不涉及此错误的替代方案。'}")
             ],
             "thinking_steps": [
                 ThinkingStep(

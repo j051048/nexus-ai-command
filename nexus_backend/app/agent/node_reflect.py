@@ -17,6 +17,7 @@ from app.agent.node_helpers import (
     HallucinationCheck,
     QueryComplexity,
     ThinkingStep,
+    _get_langfuse_callbacks,
     _get_llm,
     logger,
     record_hallucination,
@@ -450,6 +451,7 @@ async def critic_node(state: AgentState) -> dict:
                 base_url=resolved_critic.get("base_url", config.base_url),
                 temperature=0.1,
                 max_tokens=300,
+                callbacks=_get_langfuse_callbacks(),
             )
         else:
             critic_llm = ChatOpenAI(
@@ -458,6 +460,7 @@ async def critic_node(state: AgentState) -> dict:
                 base_url=config.base_url,
                 temperature=0.1,
                 max_tokens=300,
+                callbacks=_get_langfuse_callbacks(),
             )
         # Avoid with_structured_output — many proxied/non-OpenAI APIs reject
         # additionalProperties in the JSON schema.  Parse JSON manually instead.

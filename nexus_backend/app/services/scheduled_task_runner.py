@@ -68,6 +68,7 @@ class ScheduledTaskRunner:
             .select("*")
             .eq("is_active", True)
             .lte("next_execution_at", now_iso)
+            .or_("consecutive_failures.lt.3,consecutive_failures.is.null")
             .order("next_execution_at")
             .limit(20)
             .execute()
@@ -89,18 +90,34 @@ class ScheduledTaskRunner:
                     e,
                     exc_info=True,
                 )
-                # Record failure but keep task active
+                # Record failure with backoff and auto-disable
                 with contextlib.suppress(Exception):
+                    failures = (task.get("consecutive_failures") or 0) + 1
+                    fail_update: dict = {
+                        "consecutive_failures": failures,
+                        "last_error": str(e)[:500],
+                        "last_result": f"执行失败: {str(e)[:200]}",
+                    }
+                    if failures >= 3:
+                        fail_update["is_active"] = False
+                        logger.warning(
+                            "[ScheduledTaskRunner] Task %s auto-disabled after %d consecutive failures",
+                            task.get("id", "?"), failures,
+                        )
+                    else:
+                        # Backoff: push next_execution_at forward by failures*5 minutes
+                        backoff_time = now + timedelta(minutes=failures * 5)
+                        fail_update["next_execution_at"] = backoff_time.isoformat()
                     await (
                         supabase.table("user_scheduled_tasks")
-                        .update({"last_result": f"执行失败: {str(e)[:200]}"})
+                        .update(fail_update)
                         .eq("id", task["id"])
                         .execute()
                     )
 
     async def _execute_single(self, task: dict, supabase, now: datetime):
         from app.agent.proactive_runner import run_proactive_agent
-        from app.services.notification_service import send_notification
+        from app.services.agent_result_pusher import push_agent_result
 
         task_id = task["id"]
         user_id = task["user_id"]
@@ -119,45 +136,14 @@ class ScheduledTaskRunner:
 
         response = agent_result.get("response", "任务执行完成，但未生成结果。")
 
-        # 1. Send notification
-        await send_notification(
+        # Unified push: notification + WS + chat
+        await push_agent_result(
+            user_id=user_id,
             title=f"定时任务: {task_name}",
-            content=response[:500],
-            target_user_id=user_id,
+            message=response,
+            metadata={"source": "scheduled_task", "task_name": task_name, "task_id": task_id},
+            org_id=task.get("organization_id"),
         )
-
-        # 2. Push to chat via WebSocket so it appears in the conversation
-        try:
-            from app.services.websocket_manager import ws_manager
-
-            if ws_manager.is_connected(user_id):
-                await ws_manager.send_to_user(user_id, {
-                    "type": "proactive_chat",
-                    "data": {
-                        "session_id": "default",
-                        "title": f"定时任务: {task_name}",
-                        "message": response,
-                        "task_id": task_id,
-                    },
-                })
-        except Exception as ws_err:
-            logger.debug("[ScheduledTaskRunner] WS push failed: %s", ws_err)
-
-        # 3. Save as chat message for persistence
-        try:
-            from app.services.chat_service import ChatService
-
-            await ChatService.save_message(
-                user_id=user_id,
-                session_id="default",
-                role="assistant",
-                content=response,
-                agent="proactive_agent",
-                metadata={"source": "scheduled_task", "task_name": task_name},
-                org_id=task.get("organization_id"),
-            )
-        except Exception as save_err:
-            logger.debug("[ScheduledTaskRunner] Chat save failed: %s", save_err)
 
         # 4. Compute next execution time
         from app.tools.scheduled_task_tools import _compute_next_execution
@@ -178,6 +164,8 @@ class ScheduledTaskRunner:
             "last_executed_at": now.isoformat(),
             "execution_count": (task.get("execution_count", 0) or 0) + 1,
             "last_result": response[:1000],
+            "consecutive_failures": 0,
+            "last_error": None,
         }
 
         if task["schedule_type"] == "once":
