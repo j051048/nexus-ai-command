@@ -269,7 +269,7 @@ export function AgentTracePanel({
             </div>
           )}
 
-          <ScrollArea className="max-h-64">
+          <div className="max-h-72 overflow-y-auto overscroll-contain">
             <div className="p-3 pt-2">
               {trace.steps.map((step, index) => (
                 <TraceStepItem key={`${index}-${step.timestamp}`} step={step} index={index} />
@@ -286,7 +286,7 @@ export function AgentTracePanel({
                 </div>
               )}
             </div>
-          </ScrollArea>
+          </div>
         </div>
       )}
     </div>
