@@ -66,7 +66,7 @@ class ConnectionManager:
             # Evict the oldest connection instead of rejecting
             oldest = user_conns[0]
             with contextlib.suppress(Exception):
-                await oldest.close(code=1000, reason="Replaced by new connection")
+                await oldest.close(code=4002, reason="Replaced by new connection")
             self.disconnect(oldest, user_id)
 
         await websocket.accept()
@@ -122,7 +122,7 @@ class ConnectionManager:
             for user_id, ws in stale_pairs:
                 logger.info(f"[WS] Evicting stale connection for user {user_id}")
                 with contextlib.suppress(Exception):
-                    await ws.close(code=1000, reason="Heartbeat timeout")
+                    await ws.close(code=4003, reason="Heartbeat timeout")
                 self.disconnect(ws, user_id)
 
         logger.debug("[WS] Heartbeat loop ended — no active connections")

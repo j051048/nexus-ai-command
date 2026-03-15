@@ -16,7 +16,16 @@ import { enqueueProactiveMessage } from '@/lib/proactiveMessageStore';
  * - 指数退避重连（1s → 2s → 4s → ... → 30s）
  * - 心跳保活（每 25 秒发送 ping）
  * - 组件卸载时优雅断开
+ * - 防重复连接（connect 前关闭已有连接）
  */
+
+// Close codes that should NOT trigger reconnection
+const NO_RECONNECT_CODES = new Set([
+  4001, // Authentication failure
+  4002, // Evicted by server (newer connection exists)
+  4003, // Heartbeat timeout (stale connection)
+]);
+
 export function useWebSocketPush() {
   const queryClient = useQueryClient();
   const wsRef = useRef<WebSocket | null>(null);
@@ -24,9 +33,21 @@ export function useWebSocketPush() {
   const heartbeatTimerRef = useRef<ReturnType<typeof setInterval>>();
   const reconnectAttemptRef = useRef(0);
   const unmountedRef = useRef(false);
+  // Guard against visibility-triggered close racing with onclose reconnect
+  const intentionalCloseRef = useRef(false);
 
   const connect = useCallback(async () => {
     if (unmountedRef.current) return;
+
+    // Close existing connection before creating a new one
+    if (wsRef.current) {
+      const existing = wsRef.current;
+      wsRef.current = null;
+      intentionalCloseRef.current = true;
+      if (existing.readyState === WebSocket.OPEN || existing.readyState === WebSocket.CONNECTING) {
+        existing.close(4001, 'Superseded by new connect call');
+      }
+    }
 
     // 获取 JWT token
     const { data: { session } } = await supabase.auth.getSession();
@@ -76,6 +97,14 @@ export function useWebSocketPush() {
           const msg = JSON.parse(event.data);
 
           if (msg.type === 'pong') return; // 心跳响应
+
+          // Reply to server-initiated ping
+          if (msg.type === 'ping') {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'pong' }));
+            }
+            return;
+          }
 
           if (msg.type === 'notification') {
             // 刷新通知列表和未读数
@@ -143,9 +172,16 @@ export function useWebSocketPush() {
       ws.onclose = (event) => {
         console.log(`[WS Push] Closed (code=${event.code})`);
         cleanup();
-        if (!unmountedRef.current && event.code !== 4001) {
-          scheduleReconnect();
+
+        // Don't reconnect if:
+        // - component unmounted
+        // - server explicitly told us not to (4001/4002/4003)
+        // - we intentionally closed this connection (visibility change / superseded)
+        if (unmountedRef.current || NO_RECONNECT_CODES.has(event.code) || intentionalCloseRef.current) {
+          intentionalCloseRef.current = false;
+          return;
         }
+        scheduleReconnect();
       };
 
       ws.onerror = () => {
@@ -190,6 +226,7 @@ export function useWebSocketPush() {
         }
         cleanup();
         if (wsRef.current) {
+          intentionalCloseRef.current = true;
           wsRef.current.close();
           wsRef.current = null;
         }
