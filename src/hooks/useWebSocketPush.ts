@@ -21,6 +21,7 @@ import { enqueueProactiveMessage } from '@/lib/proactiveMessageStore';
 
 // Close codes that should NOT trigger reconnection
 const NO_RECONNECT_CODES = new Set([
+  1013, // Server at capacity / too many connections per user
   4001, // Authentication failure
   4002, // Evicted by server (newer connection exists)
   4003, // Heartbeat timeout (stale connection)

@@ -53,6 +53,10 @@ class ConnectionManager:
         # Global limit check
         if self.active_connections >= MAX_CONNECTIONS_GLOBAL:
             logger.warning(f"[WS] Global connection limit reached ({MAX_CONNECTIONS_GLOBAL}), rejecting user {user_id}")
+            # Must accept() first so the close code (1013) actually reaches the client.
+            # Without accept(), the browser only sees HTTP 403 → onclose code=1006,
+            # which the client treats as a transient error and retries forever.
+            await websocket.accept()
             await websocket.close(code=1013, reason="Server at capacity")
             return False
 
@@ -71,13 +75,12 @@ class ConnectionManager:
             # Re-check after cleanup
             user_conns = self._connections.get(user_id, [])
             if len(user_conns) >= MAX_CONNECTIONS_PER_USER:
-                # All connections are fresh — reject the NEW connection (don't evict old ones).
-                # This breaks the evict→reconnect→evict storm. The client's exponential
-                # backoff will naturally dampen retries since onopen never fires.
                 logger.warning(
                     f"[WS] Per-user limit reached ({MAX_CONNECTIONS_PER_USER}) "
                     f"for user {user_id}, rejecting new connection"
                 )
+                # Accept first so the client receives the 1013 close code
+                await websocket.accept()
                 await websocket.close(code=1013, reason="Too many connections per user")
                 return False
 
