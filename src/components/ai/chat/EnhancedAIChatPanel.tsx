@@ -175,6 +175,46 @@ export function EnhancedAIChatPanel({
     return () => window.removeEventListener(PROACTIVE_MSG_EVENT, injectProactive);
   }, []);
 
+  // 从 DB 拉取离线期间的主动消息（WS 断开时的兜底）
+  useEffect(() => {
+    const loadProactiveFromDB = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('chat_messages')
+          .select('id, session_id, role, content, metadata, created_at')
+          .eq('user_id', user.id)
+          .eq('role', 'assistant')
+          .filter('metadata->>source', 'eq', 'scheduled_task')
+          .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .order('created_at', { ascending: true })
+          .limit(20);
+
+        if (error || !data?.length) return;
+
+        setMessages(prev => {
+          const existingIds = new Set(prev.map(m => m.id));
+          const newMsgs = data
+            .filter((row: any) => !existingIds.has(`db-proactive-${row.id}`))
+            .map((row: any) => ({
+              id: `db-proactive-${row.id}`,
+              role: 'assistant' as const,
+              content: row.content,
+              timestamp: new Date(row.created_at),
+              agent: row.metadata?.task_name
+                ? `定时任务: ${row.metadata.task_name}`
+                : '主动推送',
+              isProactive: true,
+            }));
+          return newMsgs.length > 0 ? [...prev, ...newMsgs] : prev;
+        });
+      } catch {
+        // silent — 非关键路径
+      }
+    };
+
+    loadProactiveFromDB();
+  }, [user.id]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
