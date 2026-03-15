@@ -3,17 +3,21 @@ P2 Enhancement: Auto Trigger Service
 
 Implements automatic AI feature triggering without manual activation.
 Fixes Issue #4: Users need to manually trigger AI features.
+
+Enhanced with smart business reminders (heartbeat-style data patrol).
 """
 
 import asyncio
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+CN_TZ = timezone(timedelta(hours=8))
 
 
 class TriggerType(Enum):
@@ -196,7 +200,10 @@ class AutoTriggerService:
         logger.info("Auto-trigger service stopped")
 
     async def _scheduler_loop(self):
-        """Main scheduler loop for time-based triggers."""
+        """Main scheduler loop for time-based triggers + smart reminders."""
+        # Wait a bit after startup
+        await asyncio.sleep(30)
+
         while self._running:
             try:
                 now = datetime.utcnow()
@@ -205,6 +212,9 @@ class AutoTriggerService:
                 for _trigger_id, trigger in self._triggers.items():
                     if trigger.trigger_type == TriggerType.TIME_BASED and trigger.enabled:
                         await self._check_time_trigger(trigger, now)
+
+                # Smart business reminders (heartbeat)
+                await self._check_smart_reminders()
 
                 # Sleep for 1 minute before next check
                 await asyncio.sleep(60)
@@ -529,6 +539,258 @@ class AutoTriggerService:
             }
             for t in triggers
         ]
+
+    # ── Smart Business Reminders (Heartbeat) ──
+
+    _REMINDER_COOLDOWN = 7200  # 2 hours between reminder rounds
+
+    async def _check_smart_reminders(self):
+        """Heartbeat-style smart reminder: patrol business data and proactively notify users."""
+        from app.core.database import supabase
+
+        if not supabase:
+            return
+
+        now = datetime.now(CN_TZ)
+
+        # Only during business hours (8:00-21:00)
+        if not (8 <= now.hour <= 21):
+            return
+
+        # Global cooldown for smart reminders
+        last = self._last_triggered.get("_smart_reminders")
+        if last and (datetime.utcnow() - last).total_seconds() < self._REMINDER_COOLDOWN:
+            return
+
+        try:
+            await self._remind_pending_approvals(supabase, now)
+            await self._remind_due_tasks(supabase, now)
+            await self._remind_stale_leads(supabase, now)
+            self._last_triggered["_smart_reminders"] = datetime.utcnow()
+        except Exception as e:
+            logger.error("[SmartReminder] Check failed: %s", e, exc_info=True)
+
+    async def _remind_pending_approvals(self, supabase, now: datetime):
+        """Remind boss/manager about approvals pending > 4 hours."""
+        threshold = (now - timedelta(hours=4)).isoformat()
+
+        try:
+            result = await (
+                supabase.table("approval_requests")
+                .select("id, type, description, amount, submitted_at, organization_id")
+                .eq("status", "pending")
+                .lte("submitted_at", threshold)
+                .order("submitted_at")
+                .limit(50)
+                .execute()
+            )
+            pending = result.data or []
+            if not pending:
+                return
+
+            # Group by organization
+            org_map: dict[str, list] = {}
+            for item in pending:
+                org_id = item.get("organization_id") or "default"
+                org_map.setdefault(org_id, []).append(item)
+
+            # Find boss/manager users per org to notify
+            for org_id, items in org_map.items():
+                users_result = await (
+                    supabase.table("users")
+                    .select("id")
+                    .in_("role", ["boss", "manager", "admin"])
+                    .eq("organization_id", org_id)
+                    .limit(10)
+                    .execute()
+                )
+                reviewers = users_result.data or []
+
+                count = len(items)
+                oldest = items[0]
+                hours_ago = max(1, int((now - datetime.fromisoformat(oldest["submitted_at"].replace("Z", "+00:00")).astimezone(CN_TZ)).total_seconds() / 3600))
+
+                summary_lines = []
+                for item in items[:3]:
+                    desc = (item.get("description") or item.get("type", ""))[:30]
+                    amt = item.get("amount")
+                    line = f"• {desc}" + (f"（¥{amt:,.0f}）" if amt else "")
+                    summary_lines.append(line)
+                if count > 3:
+                    summary_lines.append(f"• ...还有 {count - 3} 项")
+
+                message = (
+                    f"📋 您有 {count} 个审批申请待处理（最早已等待 {hours_ago} 小时）：\n\n"
+                    + "\n".join(summary_lines)
+                    + "\n\n请及时处理，避免影响业务进度。"
+                )
+
+                for user in reviewers:
+                    await self._push_proactive_reminder(
+                        user_id=user["id"],
+                        title="审批超时提醒",
+                        message=message,
+                        reminder_type="approval_timeout",
+                    )
+        except Exception as e:
+            logger.debug("[SmartReminder] Approval check failed: %s", e)
+
+    async def _remind_due_tasks(self, supabase, now: datetime):
+        """Remind users about tasks due today or overdue."""
+        today = now.strftime("%Y-%m-%d")
+
+        try:
+            result = await (
+                supabase.table("oa_tasks")
+                .select("id, title, priority, due_date, assignee_id")
+                .in_("status", ["todo", "in_progress"])
+                .not_.is_("due_date", "null")
+                .lte("due_date", today)
+                .order("due_date")
+                .limit(50)
+                .execute()
+            )
+            tasks = result.data or []
+            if not tasks:
+                return
+
+            # Group by assignee
+            user_map: dict[str, list] = {}
+            for task in tasks:
+                uid = task.get("assignee_id")
+                if uid:
+                    user_map.setdefault(uid, []).append(task)
+
+            for user_id, user_tasks in user_map.items():
+                overdue = [t for t in user_tasks if t["due_date"] < today]
+                due_today = [t for t in user_tasks if t["due_date"] == today]
+
+                lines = []
+                if overdue:
+                    lines.append(f"🔴 已逾期 {len(overdue)} 项：")
+                    for t in overdue[:3]:
+                        lines.append(f"  • {t['title'][:30]}（截止 {t['due_date']}）")
+                if due_today:
+                    lines.append(f"🟡 今日到期 {len(due_today)} 项：")
+                    for t in due_today[:3]:
+                        lines.append(f"  • {t['title'][:30]}")
+
+                total = len(user_tasks)
+                if total > 6:
+                    lines.append(f"  ...共 {total} 项待处理")
+
+                message = "⏰ 任务到期提醒\n\n" + "\n".join(lines) + "\n\n请及时完成或调整截止日期。"
+
+                await self._push_proactive_reminder(
+                    user_id=user_id,
+                    title="任务到期提醒",
+                    message=message,
+                    reminder_type="task_due",
+                )
+        except Exception as e:
+            logger.debug("[SmartReminder] Task due check failed: %s", e)
+
+    async def _remind_stale_leads(self, supabase, now: datetime):
+        """Remind sales reps about leads not updated in 7+ days."""
+        threshold = (now - timedelta(days=7)).isoformat()
+
+        try:
+            result = await (
+                supabase.table("sales_leads")
+                .select("id, company_name, contact_name, status, score, user_id, updated_at")
+                .not_.in_("status", ["won", "lost"])
+                .lte("updated_at", threshold)
+                .order("updated_at")
+                .limit(50)
+                .execute()
+            )
+            leads = result.data or []
+            if not leads:
+                return
+
+            # Group by owner
+            user_map: dict[str, list] = {}
+            for lead in leads:
+                uid = lead.get("user_id")
+                if uid:
+                    user_map.setdefault(uid, []).append(lead)
+
+            for user_id, user_leads in user_map.items():
+                lines = []
+                for lead in user_leads[:5]:
+                    name = lead.get("company_name") or lead.get("contact_name") or "未命名"
+                    days = max(1, int((now - datetime.fromisoformat(lead["updated_at"].replace("Z", "+00:00")).astimezone(CN_TZ)).total_seconds() / 86400))
+                    score = lead.get("score", 0)
+                    lines.append(f"  • {name[:20]}（{days}天未跟进，评分{score}）")
+
+                count = len(user_leads)
+                if count > 5:
+                    lines.append(f"  ...共 {count} 个商机需关注")
+
+                message = (
+                    f"🔔 商机跟进提醒：您有 {count} 个商机超过 7 天未跟进\n\n"
+                    + "\n".join(lines)
+                    + "\n\n建议及时联系客户，避免商机流失。"
+                )
+
+                await self._push_proactive_reminder(
+                    user_id=user_id,
+                    title="商机跟进提醒",
+                    message=message,
+                    reminder_type="lead_followup",
+                )
+        except Exception as e:
+            logger.debug("[SmartReminder] Lead followup check failed: %s", e)
+
+    async def _push_proactive_reminder(
+        self, user_id: str, title: str, message: str, reminder_type: str
+    ):
+        """Push a smart reminder as proactive chat message + notification."""
+        # Per-user per-type cooldown (4 hours)
+        cooldown_key = f"_reminder_{reminder_type}_{user_id}"
+        last = self._last_triggered.get(cooldown_key)
+        if last and (datetime.utcnow() - last).total_seconds() < 14400:
+            return
+
+        try:
+            # 1. Send notification
+            from app.services.notification_service import send_notification
+
+            await send_notification(
+                title=title,
+                content=message[:500],
+                target_user_id=user_id,
+            )
+
+            # 2. Push to chat via WebSocket
+            from app.services.websocket_manager import ws_manager
+
+            if ws_manager.is_connected(user_id):
+                await ws_manager.send_to_user(user_id, {
+                    "type": "proactive_chat",
+                    "data": {
+                        "session_id": "default",
+                        "title": title,
+                        "message": message,
+                    },
+                })
+
+            # 3. Save to chat_messages for offline retrieval
+            from app.services.chat_service import ChatService
+
+            await ChatService.save_message(
+                user_id=user_id,
+                session_id="default",
+                role="assistant",
+                content=message,
+                agent="smart_reminder",
+                metadata={"source": "scheduled_task", "task_name": title, "reminder_type": reminder_type},
+            )
+
+            self._last_triggered[cooldown_key] = datetime.utcnow()
+            logger.info("[SmartReminder] Sent '%s' to user %s", reminder_type, user_id[:8])
+        except Exception as e:
+            logger.debug("[SmartReminder] Push failed for %s: %s", user_id[:8], e)
 
 
 # Global instance
