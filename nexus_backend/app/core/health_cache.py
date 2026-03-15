@@ -31,6 +31,7 @@ class HealthCache:
             "checks": {},
         }
         self._last_check: float = 0.0
+        self._last_status: str = "starting"
         self._task: asyncio.Task | None = None
         self._running = False
 
@@ -150,7 +151,11 @@ class HealthCache:
             "_http_status": 200 if is_healthy else 503,
         }
         self._last_check = time.monotonic()
-        logger.debug("[HealthCache] Refreshed: %s", "healthy" if is_healthy else "degraded")
+        current_status = "healthy" if is_healthy else "degraded"
+        # Only log on status change to avoid spamming logs every 10s
+        if current_status != self._last_status:
+            logger.info("[HealthCache] Status changed: %s -> %s", self._last_status, current_status)
+            self._last_status = current_status
 
 
 # Module-level singleton
