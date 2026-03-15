@@ -101,7 +101,9 @@ class CreateScheduledTaskTool(BaseTool):
     name = "create_scheduled_task"
     description = (
         "创建定时任务/提醒。当用户说'每天X点提醒我...'、'每周一帮我...'、"
-        "'定时执行...'、'设个提醒...'、'帮我定时...'时调用此工具。"
+        "'定时执行...'、'设个提醒...'、'帮我定时...'、'X分钟后提醒我...'时调用此工具。"
+        "\n【重要】当用户说'X分钟后'、'半小时后'、'一小时后'等相对时间时，"
+        "请使用 schedule_type='once' + delay_minutes 参数，不要自己计算 hour/minute。"
     )
     required_role = "all"
 
@@ -147,8 +149,14 @@ class CreateScheduledTaskTool(BaseTool):
                 "maximum": 10080,
                 "description": "间隔分钟数（1-10080），仅 interval 类型需要",
             },
+            "delay_minutes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10080,
+                "description": "延迟分钟数，仅 once 类型使用。用户说'X分钟后'、'半小时后'(30)、'一小时后'(60)时使用此参数，系统自动计算目标时间，无需手动填 hour/minute。",
+            },
         },
-        "required": ["name", "prompt", "schedule_type", "hour"],
+        "required": ["name", "prompt", "schedule_type"],
     }
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
@@ -163,6 +171,7 @@ class CreateScheduledTaskTool(BaseTool):
         minute = args.get("minute", 0)
         day_of_week = args.get("day_of_week")
         interval_minutes = args.get("interval_minutes")
+        delay_minutes = args.get("delay_minutes")
         org_id = config.get("org_id") if config else None
 
         # Defensive input validation (defense-in-depth)
@@ -185,6 +194,10 @@ class CreateScheduledTaskTool(BaseTool):
             day_of_week = int(day_of_week)
         if interval_minutes is not None:
             interval_minutes = int(interval_minutes)
+        if delay_minutes is not None:
+            delay_minutes = int(delay_minutes)
+            if not (1 <= delay_minutes <= 10080):
+                return "延迟分钟数必须在 1-10080 之间。"
 
         # Truncate to prevent oversized DB writes
         name = name[:200]
@@ -195,6 +208,20 @@ class CreateScheduledTaskTool(BaseTool):
             return "每周任务需要指定星期几（day_of_week: 0=周一 到 6=周日）"
         if schedule_type == "interval" and not interval_minutes:
             return "间隔任务需要指定间隔分钟数（interval_minutes）"
+
+        # Handle delay_minutes for once-type tasks (e.g. "3分钟后提醒我")
+        execute_at = None
+        if schedule_type == "once" and delay_minutes:
+            CN_TZ = timezone(timedelta(hours=8))
+            target_time = datetime.now(CN_TZ) + timedelta(minutes=delay_minutes)
+            execute_at = target_time.isoformat()
+            # Backfill hour/minute for display and DB storage
+            hour = target_time.hour
+            minute = target_time.minute
+
+        # For non-delay once/daily/weekly, hour is required
+        if hour is None and execute_at is None:
+            return "请提供执行时间的小时数（hour），或使用 delay_minutes 指定延迟。"
 
         # Check user task limit (max 20 active tasks per user)
         existing = (
@@ -207,7 +234,7 @@ class CreateScheduledTaskTool(BaseTool):
         if existing.count and existing.count >= 20:
             return "您的活跃定时任务已达上限（20个）。请先删除不需要的任务。"
 
-        next_exec = _compute_next_execution(schedule_type, hour, minute, day_of_week, interval_minutes, None)
+        next_exec = _compute_next_execution(schedule_type, hour, minute, day_of_week, interval_minutes, execute_at)
 
         task_data = {
             "user_id": user_id,
