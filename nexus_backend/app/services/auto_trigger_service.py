@@ -695,15 +695,22 @@ class AutoTriggerService:
         threshold = (now - timedelta(days=7)).isoformat()
 
         try:
+            # Live DB uses "stage" not "status"; filter in Python to avoid schema drift
             result = await (
                 supabase.table("sales_leads")
                 .select("*")
-                .not_.in_("status", ["won", "lost"])
                 .lte("updated_at", threshold)
                 .order("updated_at")
-                .limit(50)
+                .limit(100)
                 .execute()
             )
+            all_leads = result.data or []
+            # Exclude terminal stages regardless of column name
+            terminal = {"won", "lost", "closed", "converted"}
+            leads = [
+                l for l in all_leads
+                if (l.get("stage") or l.get("status") or "").lower() not in terminal
+            ][:50]
             leads = result.data or []
             if not leads:
                 return
