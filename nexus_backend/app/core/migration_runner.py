@@ -6,7 +6,9 @@
 
 配置:
 - AUTO_MIGRATE=true 环境变量启用自动迁移（默认关闭）
-- 迁移文件目录: nexus_backend/supabase_migrations/migrations/
+- 主迁移目录: nexus_backend/supabase_migrations/migrations/
+- 同时扫描: supabase/migrations/ 和 nexus_backend/supabase/migrations/
+  (Items 9/23: 统一扫描所有迁移目录，避免遗漏)
 """
 
 import logging
@@ -16,8 +18,18 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# 迁移文件目录（相对于项目根目录）
-MIGRATIONS_DIR = Path(__file__).parent.parent.parent / "supabase_migrations" / "migrations"
+# 项目根目录
+_PROJECT_ROOT = Path(__file__).parent.parent.parent
+
+# 迁移文件目录 — 统一扫描所有3个历史目录 (Item 9/23)
+MIGRATIONS_DIRS = [
+    _PROJECT_ROOT / "supabase_migrations" / "migrations",  # 主目录 (52 files)
+    _PROJECT_ROOT.parent / "supabase" / "migrations",      # 顶层 supabase (25 files)
+    _PROJECT_ROOT / "supabase" / "migrations",             # 后端 supabase (7 files)
+]
+
+# 向后兼容
+MIGRATIONS_DIR = MIGRATIONS_DIRS[0]
 
 # 是否启用自动迁移
 AUTO_MIGRATE = os.environ.get("AUTO_MIGRATE", "false").lower() in ("true", "1", "yes")
@@ -101,18 +113,25 @@ async def _record_migration(migration_name: str, checksum: str = "") -> None:
 
 def _get_pending_migrations(applied: set[str]) -> list[tuple[str, Path]]:
     """
-    扫描迁移目录，返回未应用的迁移文件列表。
-    按文件名排序以确保执行顺序。
+    扫描所有迁移目录，返回未应用的迁移文件列表。
+    按文件名排序以确保执行顺序。(Item 9/23: 统一扫描3个目录)
     """
-    if not MIGRATIONS_DIR.exists():
-        logger.warning(f"[MigrationRunner] 迁移目录不存在: {MIGRATIONS_DIR}")
-        return []
-
     pending = []
-    for f in sorted(MIGRATIONS_DIR.iterdir()):
-        if f.is_file() and f.suffix == ".sql" and f.name not in applied:
-            pending.append((f.name, f))
+    seen_names: set[str] = set()
 
+    for migrations_dir in MIGRATIONS_DIRS:
+        if not migrations_dir.exists():
+            continue
+        for f in sorted(migrations_dir.iterdir()):
+            if f.is_file() and f.suffix == ".sql" and f.name not in applied and f.name not in seen_names:
+                pending.append((f.name, f))
+                seen_names.add(f.name)
+
+    if not seen_names and not pending:
+        logger.warning(f"[MigrationRunner] 所有迁移目录均不存在或为空: {MIGRATIONS_DIRS}")
+
+    # 全局按文件名排序
+    pending.sort(key=lambda x: x[0])
     return pending
 
 

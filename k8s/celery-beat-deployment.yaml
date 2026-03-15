@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nexus-celery-beat
+  namespace: nexus-ai
+  labels:
+    app: nexus-celery-beat
+    component: beat
+spec:
+  # IMPORTANT: Only 1 replica allowed for Beat scheduler.
+  # Multiple Beat instances would cause duplicate task scheduling.
+  # Distributed lock (BeatLockScheduler) provides additional safety.
+  replicas: 1
+  strategy:
+    type: Recreate  # Ensure old pod is fully terminated before new one starts
+  selector:
+    matchLabels:
+      app: nexus-celery-beat
+  template:
+    metadata:
+      labels:
+        app: nexus-celery-beat
+        component: beat
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: celery-beat
+          image: nexus-ai-command/backend:latest
+          command:
+            - celery
+            - -A
+            - app.core.celery_app
+            - beat
+            - --loglevel=info
+          envFrom:
+            - secretRef:
+                name: nexus-backend-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "celery -A app.core.celery_app inspect ping --timeout=10 2>/dev/null || pgrep -f 'celery.*beat'"
+            initialDelaySeconds: 30
+            periodSeconds: 60
+            timeoutSeconds: 15
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "pgrep -f 'celery.*beat'"
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3

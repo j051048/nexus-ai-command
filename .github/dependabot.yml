@@ -1,14 +1,5 @@
 version: 2
 updates:
-  - package-ecosystem: "pip"
-    directory: "/nexus_backend"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "python"
-
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
@@ -17,6 +8,27 @@ updates:
     labels:
       - "dependencies"
       - "javascript"
+    # 安全更新优先级更高
+    groups:
+      security-patches:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  - package-ecosystem: "pip"
+    directory: "/nexus_backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "python"
+    # 安全更新优先级更高
+    groups:
+      security-patches:
+        applies-to: security-updates
+        patterns:
+          - "*"
 
   - package-ecosystem: "github-actions"
     directory: "/"

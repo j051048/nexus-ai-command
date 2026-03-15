@@ -25,6 +25,7 @@ from app.core.security_middleware import (
     TenantContextMiddleware,
 )
 from app.core.exception_handlers import register_exception_handlers
+from app.core.metrics import generate_metrics_text, observe_http_request
 from app.routers import (
     api_docs,
     api_keys,
@@ -82,6 +83,20 @@ from app.routers import expenses as expenses_router
 from app.routers import inventory as inventory_router
 from app.routers import certificates as certificates_router
 from app.routers import approval_flows as approval_flows_router
+from app.routers import stripe_webhooks as stripe_webhooks_router
+
+# Item 45: Agent Replay Engine
+try:
+    from app.routers import agent_replay as agent_replay_router
+except ImportError:
+    agent_replay_router = None
+
+# Item 54: Onboarding Agent
+try:
+    from app.routers import onboarding_agent as onboarding_agent_router
+except ImportError:
+    onboarding_agent_router = None
+from app.routers import dsar as dsar_router
 
 # VMD (Virtual Marketing Department) routers — import individually to avoid all-or-nothing failure
 try:
@@ -125,14 +140,26 @@ import app.services.enterprise_event_handlers  # noqa: F401 — registers @on() 
 setup_logging()
 logger = get_logger(__name__)
 
-# Sentry Initialization
+# Sentry Initialization (Item 26: security endpoints get 100% sampling)
 if settings.SENTRY_DSN:
+    _security_paths = ("/api/auth/", "/api/approval/", "/api/billing/", "/api/payments/", "/api/permissions/")
+
+    def _sentry_traces_sampler(sampling_context):
+        """100% sampling for security-critical endpoints, 10% for the rest."""
+        try:
+            path = sampling_context.get("asgi_scope", {}).get("path", "")
+            if any(path.startswith(p) for p in _security_paths):
+                return settings.SENTRY_SECURITY_SAMPLE_RATE  # default 1.0
+        except Exception:
+            pass
+        return 0.1
+
     sentry_sdk.init(
         dsn=settings.SENTRY_DSN,
-        traces_sample_rate=0.1,  # P1 Optimization: Don't sample 100% in production
-        profiles_sample_rate=0.1,  # P0 Fix: Reduced from 1.0 to avoid production overhead
+        traces_sampler=_sentry_traces_sampler,
+        profiles_sample_rate=0.1,
     )
-    logger.info("✅ Sentry Initialized")
+    logger.info("Sentry initialized (security endpoints: 100% sampling)")
 
 
 @asynccontextmanager
@@ -164,6 +191,15 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Checkpointer initialization skipped: {e}")
 
+    # Cold start optimization: pre-compile LangGraph agent graph
+    try:
+        from app.agent.graph import warmup_agent_graph
+
+        warmup_agent_graph()
+        logger.info("LangGraph agent graph pre-compiled")
+    except Exception as e:
+        logger.warning(f"Agent graph warmup skipped: {e}")
+
     # Cold start optimization: Initialize connection pools
     from app.services.connection_pool_service import connection_pool_service
 
@@ -183,15 +219,24 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Schema validation skipped: {e}")
 
-    # #18: 自动执行数据库迁移（需要 AUTO_MIGRATE=true）
-    from app.core.migration_runner import run_migrations
+    # #18: 自动执行数据库迁移
+    # Item 19: Production默认不执行迁移，使用CI/CD管线；开发环境保持自动
+    _run_migrations = os.environ.get(
+        "RUN_MIGRATIONS_ON_STARTUP",
+        "false" if settings.IS_PRODUCTION else "true",
+    ).lower() in ("true", "1", "yes")
 
-    try:
-        applied = await run_migrations()
-        if applied:
-            logger.info(f"Migration runner: {len(applied)} migrations processed")
-    except Exception as e:
-        logger.warning(f"Migration runner skipped: {e}")
+    if _run_migrations:
+        from app.core.migration_runner import run_migrations
+
+        try:
+            applied = await run_migrations()
+            if applied:
+                logger.info(f"Migration runner: {len(applied)} migrations processed")
+        except Exception as e:
+            logger.warning(f"Migration runner skipped: {e}")
+    else:
+        logger.info("Migrations skipped (production). Run via CI/CD pipeline.")
 
     # Warm up tiktoken encoders (prevents first-request latency)
     try:
@@ -288,6 +333,16 @@ async def favicon():
     return Response(status_code=204)
 
 
+# Item 44: Prometheus /metrics endpoint (no auth required)
+@app.get("/metrics", include_in_schema=False)
+async def prometheus_metrics():
+    """Prometheus-compatible metrics endpoint."""
+    return Response(
+        content=generate_metrics_text(),
+        media_type="text/plain; version=0.0.4; charset=utf-8",
+    )
+
+
 # CORS Configuration
 origins = settings.all_cors_origins
 
@@ -311,26 +366,31 @@ async def test_ai_connectivity(user_id: str = Depends(get_current_user_id)):
 
 # P0 Security Fix: Middleware order matters - last added runs first (outermost).
 # Execution order (outermost -> innermost):
-#   CORS -> RateLimit -> SecurityHeaders -> RequestID -> DataMasking -> CSRF -> APIKey -> Idempotency -> TenantContext
+#   CORS -> Metrics -> RateLimit -> SecurityHeaders -> RequestID -> DataMasking -> CSRF -> APIKey -> Idempotency -> TenantContext
 #
 # CORS MUST be outermost so browser preflight (OPTIONS) is handled immediately
 # before any auth/rate-limit middleware rejects the request.
-app.add_middleware(TenantContextMiddleware)  # 9th: innermost, sets up tenant DB scope
+app.add_middleware(TenantContextMiddleware)  # 10th: innermost, sets up tenant DB scope
 from app.core.idempotency_middleware import IdempotencyMiddleware  # noqa: E402
 
-app.add_middleware(IdempotencyMiddleware)  # 8th: idempotency dedup for write operations
+app.add_middleware(IdempotencyMiddleware)  # 9th: idempotency dedup for write operations
 from app.core.api_key_middleware import APIKeyMiddleware  # noqa: E402
 
-app.add_middleware(APIKeyMiddleware)  # 7th: API Key auth sets org_id before tenant context
+app.add_middleware(APIKeyMiddleware)  # 8th: API Key auth sets org_id before tenant context
 from app.core.csrf_middleware import CSRFMiddleware  # noqa: E402
 
-app.add_middleware(CSRFMiddleware)  # 6th: CSRF protection for cookie-based auth
+app.add_middleware(CSRFMiddleware)  # 7th: CSRF protection for cookie-based auth
 from app.core.data_masking import DataMaskingMiddleware  # noqa: E402
 
-app.add_middleware(DataMaskingMiddleware)  # 5th: auto-mask sensitive fields in responses
-app.add_middleware(RequestIDMiddleware)  # 4th: adds request tracing ID + sets contextvars
-app.add_middleware(SecurityHeadersMiddleware)  # 3rd: security response headers
-app.add_middleware(RateLimitMiddleware)  # 2nd: blocks abuse BEFORE DB queries
+app.add_middleware(DataMaskingMiddleware)  # 6th: auto-mask sensitive fields in responses
+app.add_middleware(RequestIDMiddleware)  # 5th: adds request tracing ID + sets contextvars
+app.add_middleware(SecurityHeadersMiddleware)  # 4th: security response headers
+app.add_middleware(RateLimitMiddleware)  # 3rd: blocks abuse BEFORE DB queries
+
+# Item 44: Prometheus HTTP metrics collection middleware
+from app.core.metrics_middleware import PrometheusMiddleware  # noqa: E402
+
+app.add_middleware(PrometheusMiddleware)  # 2nd: collects HTTP request metrics
 app.add_middleware(
     CORSMiddleware,  # 1st: outermost — handles OPTIONS preflight immediately
     allow_origins=origins,
@@ -405,6 +465,15 @@ app.include_router(expenses_router.router)
 app.include_router(inventory_router.router)
 app.include_router(certificates_router.router)
 app.include_router(approval_flows_router.router)
+app.include_router(stripe_webhooks_router.router)
+
+# Item 45: Agent Replay Engine
+if agent_replay_router:
+    app.include_router(agent_replay_router.router)
+# Item 54: Onboarding Agent
+if onboarding_agent_router:
+    app.include_router(onboarding_agent_router.router)
+app.include_router(dsar_router.router)
 
 # VMD (Virtual Marketing Department) routers
 if llm_models:

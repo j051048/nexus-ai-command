@@ -39,13 +39,22 @@ filterwarnings = [
 
 [tool.coverage.run]
 source = ["app"]
-omit = ["tests/*", "app/__pycache__/*"]
+omit = [
+    "tests/*",
+    "app/__pycache__/*",
+    "*/migrations/*",
+    "*/alembic/*",
+    "app/main.py",
+]
 
 [tool.coverage.report]
-fail_under = 28
+fail_under = 50
 show_missing = true
 exclude_lines = [
     "pragma: no cover",
     "if __name__ == .__main__.",
     "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "pass",
+    "\\.\\.\\.",
 ]

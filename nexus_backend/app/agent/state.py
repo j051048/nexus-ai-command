@@ -13,6 +13,8 @@ from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import Annotated, Any, TypedDict
 
+from pydantic import BaseModel, Field, field_validator
+
 from langchain_core.messages import BaseMessage
 
 # ─── Enums ───────────────────────────────────────────────────────────────────
@@ -84,12 +86,16 @@ class ToolCallRecord:
     duration_ms: int | None = None
 
 
-# ─── Agent Configuration (immutable per-request) ────────────────────────────
+# ─── Agent Configuration (immutable per-request, Pydantic-validated) ─────────
 
 
-@dataclass
-class AgentConfig:
-    """Per-request configuration injected at graph invocation time."""
+class AgentConfig(BaseModel):
+    """Per-request configuration injected at graph invocation time.
+
+    Uses Pydantic BaseModel for runtime validation of field constraints.
+    """
+
+    model_config = {"frozen": False}  # Allow mutation for backward compat
 
     user_id: str
     session_id: str = "default"
@@ -102,18 +108,26 @@ class AgentConfig:
     confirmed_tool: dict | None = None  # HITL: {tool_name, args} from blocked call
     org_id: str | None = None
     user_role: str = "employee"
-    max_iterations: int = 5
-    max_tokens_per_day: int = 1_000_000
-    temperature: float = 0.5
+    max_iterations: int = Field(default=5, gt=0, description="Must be > 0")
+    max_tokens_per_day: int = Field(default=1_000_000, gt=0, description="Must be > 0")
+    temperature: float = Field(default=0.5, ge=0.0, le=2.0, description="0.0-2.0")
     # RAG auto-injection settings
     enable_rag_inject: bool = True
-    rag_inject_threshold: float = 0.5
-    rag_inject_limit: int = 3
+    rag_inject_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
+    rag_inject_limit: int = Field(default=3, gt=0)
     # Reflect node settings
     reflect_use_llm: bool = True
     # Tool execution settings
-    tool_timeout: int = 15
-    gather_timeout: int = 120
+    tool_timeout: int = Field(default=15, gt=0, description="Seconds, must be > 0")
+    gather_timeout: int = Field(default=120, gt=0, description="Seconds, must be > 0")
+
+    @field_validator("user_role")
+    @classmethod
+    def validate_user_role(cls, v: str) -> str:
+        allowed = {"admin", "manager", "employee", "viewer"}
+        if v not in allowed:
+            raise ValueError(f"user_role must be one of {allowed}, got '{v}'")
+        return v
 
     def get_model_for_complexity(self, complexity: QueryComplexity) -> str:
         """Dynamic model routing based on query complexity (4-tier)."""
@@ -223,6 +237,9 @@ class AgentState(TypedDict, total=False):
 
     # ── Confirmation gate ──
     confirmation_pending: bool  # True when tools are blocked waiting for user confirmation
+
+    # ── Reflection budget (Item 33) ──
+    reflection_count: int  # Number of reflect-node invocations this turn (budget: max 2)
 
     # ── Loop detection (P2) ──
     _tool_call_history: Annotated[list[str], operator.add]  # Fingerprint hashes per execute round

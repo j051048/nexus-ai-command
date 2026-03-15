@@ -238,7 +238,15 @@ class InMemoryEventBus:
 
 
 # Global event bus instance
-event_bus = InMemoryEventBus()
+# #36/49: Use Redis-backed event bus when Redis is available, otherwise in-memory
+try:
+    from app.services.redis_event_bus import redis_event_bus
+
+    event_bus = redis_event_bus
+    logger.info("[EventBus] Using RedisEventBus (Redis Pub/Sub when available)")
+except Exception as _e:
+    event_bus = InMemoryEventBus()
+    logger.info(f"[EventBus] Using InMemoryEventBus (RedisEventBus init failed: {_e})")
 
 
 # ============== Convenience Functions ==============

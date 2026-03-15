@@ -1,0 +1,308 @@
+"""Memory extraction from conversations: regex patterns + LLM-assisted extraction."""
+
+import hashlib
+import logging
+import re
+import uuid
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+
+# --- Preference extraction patterns ---
+
+PREFERENCE_PATTERNS: list[dict[str, Any]] = [
+    # "我喜欢..." / "我偏好..." / "我倾向..."
+    {
+        "pattern": re.compile(r"我(?:喜欢|偏好|倾向于?|习惯)(.{2,50})"),
+        "category": "preference",
+        "key_prefix": "likes",
+    },
+    # "以后都..." / "之后都..." / "每次都..."
+    {
+        "pattern": re.compile(r"(?:以后|之后|今后|每次)(?:都|请)?(.{2,50})"),
+        "category": "preference",
+        "key_prefix": "routine",
+    },
+    # "记住..." / "请记住..." / "帮我记..."
+    {
+        "pattern": re.compile(r"(?:请?记住|帮我记|记一下)(.{2,80})"),
+        "category": "explicit_memory",
+        "key_prefix": "remember",
+    },
+    # "我是..." / "我的...是..."
+    {
+        "pattern": re.compile(r"我(?:是|叫|的名字是)(.{2,30})"),
+        "category": "preference",
+        "key_prefix": "identity",
+    },
+    # "不要..." / "别给我..." / "我不喜欢..."
+    {
+        "pattern": re.compile(r"(?:不要|别给我|我不喜欢|我讨厌)(.{2,50})"),
+        "category": "preference",
+        "key_prefix": "dislikes",
+    },
+    # "我的邮箱/电话/工号是..."
+    {
+        "pattern": re.compile(r"我的(?:邮箱|邮件|电话|手机|工号|员工号)(?:是|为)?\s*([^\s,，。.]{3,40})"),
+        "category": "preference",
+        "key_prefix": "contact",
+    },
+]
+
+# Tool/action usage patterns for tracking
+TOOL_USAGE_KEYWORDS: dict[str, str] = {
+    "审批": "approval",
+    "报销": "expense",
+    "请假": "leave",
+    "采购": "purchase",
+    "报表": "report",
+    "数据分析": "analytics",
+    "出差": "travel",
+    "合同": "contract",
+    "日程": "schedule",
+    "任务": "task",
+}
+
+# Signal words that indicate a message may contain memorizable content
+# Only trigger LLM extraction when these words are present
+MEMORY_SIGNAL_WORDS = frozenset({
+    "记住", "以后", "每次", "总是", "永远", "我是", "我负责",
+    "我们公司", "规定", "偏好", "习惯", "别给我", "不要",
+    "我喜欢", "我讨厌", "我倾向", "帮我记", "请记住",
+})
+
+
+async def extract_preferences(
+    user_id: str,
+    messages: list[dict[str, str]],
+    org_id: str | None = None,
+    db: Any = None,
+    *,
+    save_memory_fn=None,
+) -> list[dict]:
+    """
+    从对话中自动提取用户偏好。
+
+    双引擎策略：
+    1. 规则引擎（快速路径）：正则匹配明确的偏好表达
+    2. LLM 增强（深度提取）：捕获复杂语义中的隐含偏好
+
+    save_memory_fn: async callable used to persist each extracted entry.
+    """
+    extracted: list[dict] = []
+
+    for msg in messages:
+        role = msg.get("role", "")
+        content = msg.get("content", "")
+
+        # Only extract from user messages
+        if role != "user" or not content:
+            continue
+
+        # 1) Pattern-based preference extraction (fast path)
+        for pattern_info in PREFERENCE_PATTERNS:
+            matches = pattern_info["pattern"].findall(content)
+            for match in matches:
+                match_text = match.strip().rstrip("。，,.")
+                if len(match_text) < 2:
+                    continue
+
+                content_hash = hashlib.md5(match_text.encode()).hexdigest()[:8]
+                key = f"{pattern_info['key_prefix']}_{content_hash}"
+                entry = {
+                    "key": key,
+                    "value": match_text,
+                    "category": pattern_info["category"],
+                    "importance": 0.7 if pattern_info["category"] == "explicit_memory" else 0.5,
+                }
+                extracted.append(entry)
+
+        # 2) Tool/action usage pattern detection
+        for keyword, action in TOOL_USAGE_KEYWORDS.items():
+            if keyword in content:
+                entry = {
+                    "key": f"usage_{action}",
+                    "value": f"用户经常使用{keyword}相关功能",
+                    "category": "usage_pattern",
+                    "importance": 0.3,
+                }
+                # Avoid duplicates within this batch
+                if not any(e["key"] == entry["key"] for e in extracted):
+                    extracted.append(entry)
+
+    # 3) LLM-assisted deep extraction (only when signal words are present)
+    user_texts = " ".join(
+        msg.get("content", "") for msg in messages if msg.get("role") == "user"
+    )
+    if any(w in user_texts for w in MEMORY_SIGNAL_WORDS):
+        llm_extracted = await extract_with_llm(messages)
+    else:
+        llm_extracted = []
+    if llm_extracted:
+        existing_values = {e["value"] for e in extracted}
+        for entry in llm_extracted:
+            if entry["value"] not in existing_values:
+                extracted.append(entry)
+
+    # Save all extracted memories
+    saved: list[dict] = []
+    if save_memory_fn is None:
+        from .storage import save_memory as save_memory_fn  # noqa: N811
+
+    for entry in extracted:
+        try:
+            result = await save_memory_fn(
+                user_id=user_id,
+                key=entry["key"],
+                value=entry["value"],
+                category=entry["category"],
+                importance=entry.get("importance", 0.5),
+                org_id=org_id,
+                db=db,
+            )
+            saved.append(result)
+        except Exception as e:
+            logger.warning(f"Failed to save extracted memory: {e}")
+
+    if saved:
+        logger.info(f"Extracted {len(saved)} memories from conversation for user {user_id}")
+
+    return saved
+
+
+async def extract_with_llm(
+    messages: list[dict[str, str]],
+) -> list[dict]:
+    """Use LLM to extract implicit preferences and facts from conversation.
+
+    Only processes user messages, returns structured memory entries.
+    Designed to catch semantics that regex patterns miss, such as:
+    - "我们的主要客户群体是制造业中大型企业"
+    - "报告用表格形式比较好"
+    - "我负责华东区的大客户"
+    """
+    user_texts = [msg["content"] for msg in messages if msg.get("role") == "user" and msg.get("content")]
+    if not user_texts:
+        return []
+
+    # Only process if there's substantial content
+    combined = "\n".join(user_texts[-5:])  # last 5 user messages
+    if len(combined) < 10:
+        return []
+
+    try:
+        import json as _json
+
+        from app.services.ai_service import AIService
+
+        prompt = f"以下是用户在对话中说的话：\n\n{combined}"
+        system = (
+            "你是记忆提取专家。从用户的对话中提取值得长期记住的信息。\n"
+            "提取以下类型的信息：\n"
+            "- 用户的身份、职位、负责区域等个人信息\n"
+            "- 用户的工作习惯和偏好（如报告格式、沟通方式）\n"
+            "- 用户提到的重要事实（如客户群体、业务方向）\n"
+            "- 用户的明确要求和指令（如'以后都用表格'）\n\n"
+            "不要提取：临时性的问题、一次性的查询、礼貌用语。\n"
+            "如果没有值得提取的信息，返回空数组 []。\n\n"
+            "严格以JSON数组格式返回，每个元素包含：\n"
+            '- "category": "preference" 或 "explicit_memory" 或 "fact"\n'
+            '- "key": 简短的标识键（如 "role_region"、"report_format"）\n'
+            '- "value": 提取的完整信息\n'
+            '- "importance": 0.0-1.0 的重要性评分，评分标准:\n'
+            "  * 0.8-1.0: 身份信息、核心偏好、明确指令（如'以后都用表格'）\n"
+            "  * 0.5-0.7: 工作习惯、常用功能、业务方向\n"
+            "  * 0.3-0.4: 一般性事实、临时偏好、单次提及\n\n"
+            "只返回JSON数组，不要其他文字。最多提取5条。"
+        )
+
+        result_text = await AIService.call_llm(prompt, system)
+
+        # Parse JSON from LLM response
+        clean = result_text.strip()
+        if "```json" in clean:
+            clean = clean.split("```json")[1].split("```")[0].strip()
+        elif "```" in clean:
+            clean = clean.split("```")[1].split("```")[0].strip()
+
+        items = _json.loads(clean)
+        if not isinstance(items, list):
+            return []
+
+        extracted = []
+        for item in items[:5]:
+            if not isinstance(item, dict):
+                continue
+            category = item.get("category", "preference")
+            if category not in ("preference", "explicit_memory", "fact"):
+                category = "preference"
+            key = item.get("key", f"llm_{uuid.uuid4().hex[:6]}")
+            value = item.get("value", "")
+            if not value or len(value) < 3:
+                continue
+            extracted.append(
+                {
+                    "key": f"llm_{key}",
+                    "value": value,
+                    "category": category,
+                    "importance": min(max(float(item.get("importance", 0.5)), 0.1), 1.0),
+                }
+            )
+
+        if extracted:
+            logger.info(f"LLM extracted {len(extracted)} memories from conversation")
+        return extracted
+
+    except Exception as e:
+        logger.debug(f"LLM memory extraction skipped: {e}")
+        return []
+
+
+async def extract_org_memories(
+    org_id: str,
+    user_id: str,
+    message: str,
+    ai_response: str,
+    db: Any = None,
+    *,
+    save_org_memory_fn=None,
+) -> list[dict]:
+    """
+    Extract potential organization-level knowledge from conversations.
+    Rules-based extraction for common patterns.
+
+    save_org_memory_fn: async callable used to persist each extracted entry.
+    """
+    extracted: list[dict] = []
+
+    # Pattern: "我们公司..." / "公司规定..." / "组织要求..."
+    org_patterns = [
+        (re.compile(r"(?:我们公司|公司规定|组织要求|团队规则|部门规定)[：:是]?\s*(.{5,100})"), "preference"),
+        (re.compile(r"(?:记住|请记住|注意)[：:，,]\s*(?:我们|公司|组织)(.{5,100})"), "preference"),
+        (re.compile(r"(?:客户|供应商|合作伙伴)\s*[\w\u4e00-\u9fff]+\s*(?:的|是).{5,80}"), "knowledge"),
+        (re.compile(r"(?:以后|今后|从现在起).{3,50}(?:都要|必须|应该|需要).{5,50}"), "preference"),
+    ]
+
+    if save_org_memory_fn is None:
+        from .org_memory import save_org_memory as save_org_memory_fn  # noqa: N811
+
+    for pattern, category in org_patterns:
+        matches = pattern.findall(message)
+        for match in matches[:3]:  # Max 3 per pattern
+            clean = match.strip().rstrip("。.!！")
+            if len(clean) >= 5:
+                key = clean[:100]
+                saved = await save_org_memory_fn(
+                    org_id=org_id,
+                    category=category,
+                    key=key,
+                    value=clean,
+                    user_id=user_id,
+                    metadata={"source": "auto_extract"},
+                    db=db,
+                )
+                if saved:
+                    extracted.append(saved)
+
+    return extracted

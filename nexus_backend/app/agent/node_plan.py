@@ -17,6 +17,7 @@ from app.agent.node_helpers import (
     ThinkingStep,
     ToolCallRecord,
     _ALWAYS_INCLUDE_TOOLS,
+    _format_validation_error,
     _get_llm,
     _get_tool_schemas,
     _messages_to_lc_format,
@@ -71,6 +72,22 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
 
     # Convert to LC format
     lc_msgs = _messages_to_lc_format(messages)
+
+    # ── Item 48: Prompt Compression ──
+    # Compress conversation history when it exceeds thresholds to reduce token usage.
+    # Applied before system prompt injection so the compression operates on raw history.
+    try:
+        from app.agent.prompt_compression import compress_conversation_history
+
+        lc_msgs = await compress_conversation_history(
+            lc_msgs,
+            max_tokens=6000,
+            model=agent_config.mini_model,
+            max_turns=8,
+            keep_recent=3,
+        )
+    except Exception as e:
+        logger.debug(f"[PlanNode] Prompt compression failed, using full history: {e}")
 
     # ── Dynamic System Prompt Injection ──
     # Inject user_role and available_tools into the system prompt
@@ -159,6 +176,15 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     # ── Task 1 & 2: LangChain Planning + Streaming ──
     # Use ChatOpenAI with streaming and bind_tools
     llm = _get_llm(agent_config, model=model, streaming=True, resolved_config=resolved)
+
+    # Determine if any pending tools are irreversible (for tool_choice enforcement)
+    _has_irreversible_context = False
+    if iteration > 0 and state.get("completed_tool_calls"):
+        # On re-planning after blocked irreversible tools, force tool usage
+        _has_irreversible_context = any(
+            getattr(tc, "status", None) == "blocked" for tc in state.get("completed_tool_calls", [])
+        )
+
     if complexity == QueryComplexity.SIMPLE:
         # SIMPLE queries: only bind lightweight universal tools (web_search, llm_task)
         # so LLM can still search the web for "推荐电影" etc., without loading 130+ business tools
@@ -169,7 +195,15 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         if simple_schemas:
             llm = llm.bind_tools(simple_schemas, parallel_tool_calls=True)
     else:
-        llm = llm.bind_tools(_get_tool_schemas(agent_config.user_role, intent_summary=intent_summary, scene_code=state.get("scene_code"), intent_domains=state.get("intent_domains")), parallel_tool_calls=True)
+        bind_kwargs = {"parallel_tool_calls": True}
+        # For re-planning after irreversible tool confirmation, force tool usage
+        # to prevent the LLM from hallucinating a response instead of calling tools
+        if _has_irreversible_context and agent_config.system_confirmed:
+            bind_kwargs["tool_choice"] = "required"
+        llm = llm.bind_tools(
+            _get_tool_schemas(agent_config.user_role, intent_summary=intent_summary, scene_code=state.get("scene_code"), intent_domains=state.get("intent_domains")),
+            **bind_kwargs,
+        )
 
     thinking_step = ThinkingStep(
         phase=AgentPhase.PLANNING.value,
@@ -322,8 +356,9 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             logger.error(f"[PlanNode] Empty response recovery failed: {e}")
             # Fall through with original empty response — let reflect handle it
 
-    # Build pending tool call records
+    # Build pending tool call records with pre-execution schema validation
     pending_tools: list[ToolCallRecord] = []
+    validation_errors: list[str] = []
     if tool_calls_raw:
         for tc in tool_calls_raw:
             tc_name = tc.get("name", "unknown")
@@ -348,6 +383,27 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                         )
                     continue
 
+            # Pre-execution schema validation: catch bad args before execute_node
+            tool_obj = get_tool(tc_name)
+            if tool_obj and tool_obj.parameters and tc_args:
+                try:
+                    import jsonschema
+                    jsonschema.validate(instance=tc_args, schema=tool_obj.parameters)
+                except Exception as ve:
+                    error_msg = _format_validation_error(tc_name, ve, tool_obj.parameters)
+                    validation_errors.append(error_msg)
+                    logger.warning(f"[PlanNode] Pre-exec validation failed for {tc_name}: {ve}")
+                    # Still add to pending — execute_node will catch it too,
+                    # but we collect errors to give LLM a chance to self-correct
+                    pending_tools.append(
+                        ToolCallRecord(
+                            tool_name=tc_name,
+                            tool_args=tc_args,
+                            tool_call_id=tc_id,
+                        )
+                    )
+                    continue
+
             pending_tools.append(
                 ToolCallRecord(
                     tool_name=tc_name,
@@ -355,6 +411,37 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                     tool_call_id=tc_id,
                 )
             )
+
+    # If validation errors were found, inject guidance into next iteration
+    # so LLM can self-correct parameters before execution
+    if validation_errors and iteration < (agent_config.max_iterations - 1):
+        error_feedback = "\n\n".join(validation_errors)
+        logger.info(f"[PlanNode] {len(validation_errors)} tool arg validation errors, requesting LLM correction")
+        # Clear invalid tools and return to planning with error feedback
+        from langchain_core.messages import AIMessage as _AIMessage
+
+        correction_msg = _AIMessage(
+            content=f"[参数校验错误] 以下工具调用参数不符合要求，请修正后重试:\n\n{error_feedback}"
+        )
+        return {
+            "messages": [correction_msg],
+            "current_phase": AgentPhase.PLANNING,
+            "plan": content or "(参数校验失败，需修正)",
+            "requires_tools": False,
+            "pending_tool_calls": [],
+            "thinking_steps": [
+                thinking_step,
+                ThinkingStep(
+                    phase=AgentPhase.PLANNING.value,
+                    content=f"工具参数校验失败 ({len(validation_errors)} 个错误)，请求 LLM 修正参数",
+                ),
+            ],
+            "reflection_guidance": f"工具参数校验失败，请修正以下问题:\n{error_feedback}",
+            "needs_replanning": True,
+            "iteration": iteration + 1,
+            "total_input_tokens": state.get("total_input_tokens", 0) + input_tokens,
+            "total_output_tokens": state.get("total_output_tokens", 0) + output_tokens,
+        }
 
     # Construct the AIMessage to append to history
     # LangChain's ai_msg already is a BaseMessage

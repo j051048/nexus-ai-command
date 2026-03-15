@@ -6,11 +6,15 @@
     "paths": {
       "@/*": ["./src/*"]
     },
-    "noImplicitAny": false,
+    /* Item 56: 逐步开启 strict 模式
+     * 当前先开启三个关键检查项，待全部类型错误修复后
+     * 可直接替换为 "strict": true 以开启完整严格模式 */
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "strictFunctionTypes": true,
     "noUnusedParameters": false,
     "skipLibCheck": true,
     "allowJs": true,
-    "noUnusedLocals": false,
-    "strictNullChecks": false
+    "noUnusedLocals": false
   }
 }

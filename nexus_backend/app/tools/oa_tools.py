@@ -749,6 +749,7 @@ class SendNotificationTool(BaseTool):
     domain = "oa_leave"
     description = "给指定同事发送站内通知。用户说'通知小王'、'提醒张三'、'给李经理发个消息'时调用。"
     required_role = "all"
+    is_irreversible = True  # HITL: 发送通知后无法撤回，属于外部副作用操作
 
     parameters = {
         "type": "object",

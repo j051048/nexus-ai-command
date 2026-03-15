@@ -99,6 +99,40 @@ async def reflect_node(state: AgentState) -> dict:
     iteration = state.get("iteration", 0)
     complexity = state.get("complexity", QueryComplexity.MODERATE)
     completed_tools = state.get("completed_tool_calls", [])
+    reflection_count = state.get("reflection_count", 0)
+
+    # ── Item 33: Reflection Budget ──
+    # SIMPLE queries should never reach reflect (router skips them),
+    # but guard here as belt-and-suspenders.
+    max_reflections = 2
+    if complexity == QueryComplexity.SIMPLE:
+        max_reflections = 0
+    if reflection_count >= max_reflections:
+        logger.info(
+            f"[ReflectNode] Reflection budget exhausted "
+            f"({reflection_count}/{max_reflections}), skipping to respond"
+        )
+        # Extract last AI content for final_response
+        last_content = ""
+        for msg in reversed(messages):
+            if isinstance(msg, AIMessage):
+                from app.agent.stream import extract_clean_content
+                last_content = extract_clean_content(msg)
+                break
+        return {
+            "reflection": f"反思预算耗尽 ({reflection_count}/{max_reflections})，直接输出",
+            "is_hallucination": False,
+            "needs_replanning": False,
+            "confidence_score": 0.7,
+            "final_response": last_content,
+            "current_phase": AgentPhase.RESPONDING,
+            "thinking_steps": [
+                ThinkingStep(
+                    phase=AgentPhase.REFLECTING.value,
+                    content=f"反思预算已用完 ({reflection_count}/{max_reflections})，跳过反思直接输出",
+                )
+            ],
+        }
 
     # Resolve model via LLM gateway (P2-9: complexity-aware routing)
     resolved = None
@@ -348,11 +382,8 @@ AI 回复:
             "confidence_score": confidence,
             "current_phase": AgentPhase.PLANNING,
             "iteration": iteration + 1,
+            "reflection_count": reflection_count + 1,
             "thinking_steps": [
-                ThinkingStep(
-                    phase=AgentPhase.REFLECTING.value,
-                    content=thinking_content,
-                )
             ],
         }
 
@@ -363,6 +394,7 @@ AI 回复:
         "confidence_score": confidence,
         "final_response": last_ai_content,
         "current_phase": AgentPhase.RESPONDING,
+        "reflection_count": reflection_count + 1,
         "thinking_steps": [thinking_step],
     }
 

@@ -210,6 +210,7 @@ class ApproveExpenseTool(BaseTool):
     description = "审批报销单（通过或驳回）。当用户说'审批报销'、'批准报销'、'驳回报销'时调用。"
 
     required_role = "admin"
+    is_irreversible = True  # HITL: 审批/驳回报销是不可逆财务操作
 
     parameters = {
         "type": "object",

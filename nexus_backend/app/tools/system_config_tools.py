@@ -99,6 +99,7 @@ class UpdateSystemConfigTool(BaseTool):
     name = "update_system_config"
     description = "创建或更新系统配置项。当用户说'添加资产状态'、'修改工单类型'、'更新配置'时调用。"
     required_role = "admin"
+    is_irreversible = True  # HITL: 系统配置变更影响全局行为
 
     parameters = {
         "type": "object",

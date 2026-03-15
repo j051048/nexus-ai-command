@@ -265,6 +265,240 @@ async def get_quota_alert(
     )
 
 
+# ---------------------------------------------------------------------------
+# Per-Model Cost Breakdown from llm_call_log (Item 62)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/model-breakdown", response_model=StandardResponse)
+async def get_model_breakdown(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+    days: int = 30,
+):
+    """
+    Real-time per-model cost breakdown from llm_call_log.
+
+    Returns aggregated token usage, cost, latency, and error rate
+    grouped by model_code for the requested period.
+    """
+    org_id = getattr(req.state, "org_id", None) or "default"
+    client = getattr(req.state, "db", None)
+
+    if not client:
+        try:
+            from app.core.database import supabase
+
+            client = supabase
+        except Exception:
+            pass
+
+    if not client:
+        return api_success(
+            data={
+                "models": [],
+                "total_cost": 0.0,
+                "total_tokens": 0,
+                "total_requests": 0,
+                "period_days": days,
+                "note": "Database unavailable.",
+            }
+        )
+
+    import time
+
+    days = min(max(1, days), 90)
+    start_date = time.strftime(
+        "%Y-%m-%d",
+        time.gmtime(time.time() - days * 86400),
+    )
+
+    try:
+        res = (
+            await client.table("llm_call_log")
+            .select("model_code, status, input_tokens, output_tokens, total_tokens, cost, latency_ms, created_at")
+            .eq("tenant_id", org_id)
+            .gte("created_at", f"{start_date}T00:00:00")
+            .order("created_at", desc=True)
+            .limit(5000)
+            .execute()
+        )
+
+        rows = res.data or []
+
+        # Aggregate by model
+        model_map: dict[str, dict] = {}
+        total_cost = 0.0
+        total_tokens = 0
+        total_requests = 0
+
+        for row in rows:
+            model = row.get("model_code") or "unknown"
+            cost_val = float(row.get("cost", 0) or 0)
+            tokens = int(row.get("total_tokens", 0) or 0)
+            latency = int(row.get("latency_ms", 0) or 0)
+            status = row.get("status", "")
+            is_error = status in ("error", "circuit_open", "quota_blocked")
+
+            if model not in model_map:
+                model_map[model] = {
+                    "model_code": model,
+                    "requests": 0,
+                    "success_count": 0,
+                    "error_count": 0,
+                    "total_tokens": 0,
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "total_cost": 0.0,
+                    "avg_latency_ms": 0,
+                    "_latency_sum": 0,
+                    "_latency_count": 0,
+                }
+
+            m = model_map[model]
+            m["requests"] += 1
+            m["total_tokens"] += tokens
+            m["input_tokens"] += int(row.get("input_tokens", 0) or 0)
+            m["output_tokens"] += int(row.get("output_tokens", 0) or 0)
+            m["total_cost"] += cost_val
+
+            if is_error:
+                m["error_count"] += 1
+            else:
+                m["success_count"] += 1
+
+            if latency > 0:
+                m["_latency_sum"] += latency
+                m["_latency_count"] += 1
+
+            total_cost += cost_val
+            total_tokens += tokens
+            total_requests += 1
+
+        # Finalize averages and build result
+        models = []
+        for m in model_map.values():
+            if m["_latency_count"] > 0:
+                m["avg_latency_ms"] = round(m["_latency_sum"] / m["_latency_count"])
+            m["total_cost"] = round(m["total_cost"], 6)
+            m["error_rate"] = round(m["error_count"] / m["requests"] * 100, 1) if m["requests"] > 0 else 0
+            # Remove internal fields
+            del m["_latency_sum"]
+            del m["_latency_count"]
+            models.append(m)
+
+        # Sort by cost descending
+        models.sort(key=lambda x: x["total_cost"], reverse=True)
+
+        return api_success(
+            data={
+                "models": models,
+                "total_cost": round(total_cost, 4),
+                "total_tokens": total_tokens,
+                "total_requests": total_requests,
+                "period_days": days,
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Model breakdown query failed: {e}")
+        return api_success(
+            data={
+                "models": [],
+                "total_cost": 0.0,
+                "total_tokens": 0,
+                "total_requests": 0,
+                "period_days": days,
+                "note": f"Query failed: {str(e)}",
+            }
+        )
+
+
+# ---------------------------------------------------------------------------
+# Daily trend from llm_call_log (Item 62)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/daily-model-trend", response_model=StandardResponse)
+async def get_daily_model_trend(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+    days: int = 30,
+):
+    """
+    Daily cost trend broken down by model, sourced from llm_call_log.
+    """
+    org_id = getattr(req.state, "org_id", None) or "default"
+    client = getattr(req.state, "db", None)
+
+    if not client:
+        try:
+            from app.core.database import supabase
+
+            client = supabase
+        except Exception:
+            pass
+
+    if not client:
+        return api_success(data={"days": [], "note": "Database unavailable."})
+
+    import time
+
+    days = min(max(1, days), 90)
+    start_date = time.strftime(
+        "%Y-%m-%d",
+        time.gmtime(time.time() - days * 86400),
+    )
+
+    try:
+        res = (
+            await client.table("llm_call_log")
+            .select("model_code, total_tokens, cost, created_at")
+            .eq("tenant_id", org_id)
+            .eq("status", "success")
+            .gte("created_at", f"{start_date}T00:00:00")
+            .order("created_at", desc=False)
+            .limit(10000)
+            .execute()
+        )
+
+        # Group by date
+        day_map: dict[str, dict[str, dict]] = {}  # date -> model -> {tokens, cost, requests}
+
+        for row in res.data or []:
+            created = row.get("created_at", "")
+            date_str = created[:10] if created else "unknown"
+            model = row.get("model_code") or "unknown"
+
+            if date_str not in day_map:
+                day_map[date_str] = {}
+            if model not in day_map[date_str]:
+                day_map[date_str][model] = {"tokens": 0, "cost": 0.0, "requests": 0}
+
+            entry = day_map[date_str][model]
+            entry["tokens"] += int(row.get("total_tokens", 0) or 0)
+            entry["cost"] += float(row.get("cost", 0) or 0)
+            entry["requests"] += 1
+
+        # Build sorted output
+        result = []
+        for date_str in sorted(day_map.keys()):
+            models = {}
+            for model, stats in day_map[date_str].items():
+                models[model] = {
+                    "tokens": stats["tokens"],
+                    "cost": round(stats["cost"], 6),
+                    "requests": stats["requests"],
+                }
+            result.append({"date": date_str, "models": models})
+
+        return api_success(data={"days": result, "period_days": days})
+
+    except Exception as e:
+        logger.error(f"Daily model trend query failed: {e}")
+        return api_success(data={"days": [], "note": f"Query failed: {str(e)}"})
+
+
 def _get_alert_message(level: str, pct: float) -> str | None:
     """Generate a user-facing alert message based on quota level."""
     if level == "exhausted":

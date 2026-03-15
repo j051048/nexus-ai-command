@@ -12,33 +12,37 @@ Graph topology:
     └────┬─────┘
          │
     ┌────▼──────────┐
-    │ after_router  │  ← conditional: simple / multi-agent / standard?
-    └───┬───┬───┬───┘
-        │   │   │
-  ┌─────▼┐  │ ┌─▼──────────┐
-  │Simple│  │ │ WBS Decomp │  ← multi-agent path
-  │Respond│ │ └─────┬──────┘
-  └──┬───┘  │       │
-     │  ┌───▼───┐ ┌─▼──────────┐
-     │  │ Plan  │ │ Orchestrate │
-     │  └───┬───┘ └─────┬──────┘
-     │      │           │
-     │  ┌───▼───┐       │
-     │  │Execute│       │
-     │  └───┬───┘       │
-     │      │           │
-     │  ┌───▼──────┐    │
-     │  │Synthesize│    │  ← all tools OK: fast path (skips reflect+critic)
-     │  └───┬──────┘    │
-     │      │           │
-     │  ┌───▼───┐  ┌────▼───┐
-     │  │Respond│  │Respond │  ← both paths converge
-     │  └───┬───┘  └────┬───┘
-     │      │           │
-     │  ┌───▼───┐  ┌────▼───┐
-     │  │  END  │  │  END   │
-     │  └───────┘  └────────┘
-     │
+    │ after_router  │  ← conditional: simple / multi-agent / standard / parallel?
+    └─┬───┬───┬──┬──┘
+      │   │   │  │
+  ┌───▼┐  │   │ ┌▼────────────┐
+  │Smpl│  │   │ │ WBS Decomp  │  ← multi-agent path
+  │Rspd│  │   │ └─────┬───────┘
+  └─┬──┘  │   │       │
+    │  ┌──▼─┐ │ ┌─────▼───────┐
+    │  │Plan│ │ │ Orchestrate  │
+    │  └──┬─┘ │ └─────┬───────┘
+    │     │   │       │
+    │     │  ┌▼──────────────┐
+    │     │  │Parallel Plan  │  ← RAG + Plan in parallel (COMPLEX + RAG)
+    │     │  └───────┬───────┘
+    │     │          │
+    │  ┌──▼──────────▼──┐
+    │  │    Execute     │
+    │  └───────┬────────┘
+    │          │
+    │  ┌───▼──────┐
+    │  │Synthesize│    ← all tools OK: fast path (skips reflect+critic)
+    │  └───┬──────┘
+    │      │
+    │  ┌───▼───┐  ┌────▼───┐
+    │  │Respond│  │Respond │  ← all paths converge
+    │  └───┬───┘  └────┬───┘
+    │      │           │
+    │  ┌───▼───┐  ┌────▼───┐
+    │  │  END  │  │  END   │
+    │  └───────┘  └────────┘
+    │
   ┌──▼───┐
   │ END  │
   └──────┘
@@ -53,6 +57,7 @@ from langgraph.graph import END, StateGraph
 
 from app.agent.checkpointer import get_checkpointer
 from app.agent.nodes import critic_node, error_node, execute_node, plan_node, reflect_node, respond_node, simple_respond_node, synthesize_node
+from app.agent.node_parallel_context import parallel_context_and_plan
 from app.agent.nodes_orchestrator import orchestrate_node
 from app.agent.nodes_wbs import wbs_decompose_node
 from app.agent.router import route_node
@@ -200,6 +205,11 @@ def _after_plan(state: AgentState) -> str:
     # Short-circuit: SIMPLE queries (greetings, FAQ) skip reflection
     if state.get("complexity") == QueryComplexity.SIMPLE:
         return "respond"
+    # Item 33: Reflection budget — skip reflect when budget exhausted
+    reflection_count = state.get("reflection_count", 0)
+    if reflection_count >= 2:
+        logger.info(f"[Graph] Reflection budget exhausted ({reflection_count}/2), skipping to respond")
+        return "respond"
     # MODERATE with direct text (no tools needed) — skip reflect for speed
     if state.get("complexity") == QueryComplexity.MODERATE and not state.get("completed_tool_calls"):
         return "respond"
@@ -334,6 +344,7 @@ def _after_router(state: AgentState) -> str:
     After routing:
       - SIMPLE queries → simple_respond (fast-path, skip Plan→Execute→Reflect)
       - If the router detected a multi-agent orchestration scenario → wbs_decompose
+      - COMPLEX/CRITICAL with RAG enabled → parallel_context_and_plan
       - Otherwise → plan (standard single-agent flow)
     """
     # SIMPLE fast-path: greetings/chitchat → direct mini_model response
@@ -347,6 +358,16 @@ def _after_router(state: AgentState) -> str:
     # Check if this needs multi-agent WBS decomposition
     if agent_code and scene_code == "task_decompose":
         return "wbs_decompose"
+
+    # Parallel optimization: for COMPLEX/CRITICAL queries with RAG enabled,
+    # run context retrieval concurrently with planning
+    if (
+        complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL)
+        and settings.LANGGRAPH_ENABLE_RAG_INJECT
+    ):
+        config = state.get("config")
+        if config and config.enable_rag_inject:
+            return "parallel_plan"
 
     return "plan"
 
@@ -409,6 +430,7 @@ def build_agent_graph() -> StateGraph:
     # ── Add Nodes ──
     graph.add_node("router", route_node)
     graph.add_node("plan", plan_node)
+    graph.add_node("parallel_plan", parallel_context_and_plan)  # RAG + Plan in parallel
     graph.add_node("execute", execute_node)
     graph.add_node("reflect", reflect_node)
     graph.add_node("respond", respond_node)
@@ -425,12 +447,13 @@ def build_agent_graph() -> StateGraph:
     graph.set_entry_point("router")
 
     # ── Add Edges ──
-    # router → plan | wbs_decompose | simple_respond (conditional)
+    # router → plan | parallel_plan | wbs_decompose | simple_respond (conditional)
     graph.add_conditional_edges(
         "router",
         _after_router,
         {
             "plan": "plan",
+            "parallel_plan": "parallel_plan",
             "wbs_decompose": "wbs_decompose",
             "simple_respond": "simple_respond",
         },
@@ -460,6 +483,18 @@ def build_agent_graph() -> StateGraph:
     # plan → execute | reflect | respond | error (conditional)
     graph.add_conditional_edges(
         "plan",
+        _after_plan,
+        {
+            "execute": "execute",
+            "reflect": "reflect",
+            "respond": "respond",
+            "error": "error",
+        },
+    )
+
+    # parallel_plan → execute | reflect | respond | error (same edges as plan)
+    graph.add_conditional_edges(
+        "parallel_plan",
         _after_plan,
         {
             "execute": "execute",
@@ -560,7 +595,10 @@ class AgentGraph:
         """
         Lazy-compile the graph on first access.
         Auto-recompiles if tool schema version changed.
+        Logs compilation duration for observability.
         """
+        import time as _time
+
         current_version = get_tool_schema_version()
 
         if self._compiled is not None and self._compiled_version == current_version:
@@ -570,14 +608,19 @@ class AgentGraph:
             self._checkpointer = get_checkpointer()
 
         logger.info(f"[AgentGraph] Compiling LangGraph state machine (version {current_version})...")
+        t0 = _time.monotonic()
         graph = build_agent_graph()
 
         # Compile with checkpointer for state persistence and HITL
         self._compiled = graph.compile(checkpointer=self._checkpointer)
         self._compiled_version = current_version
+        elapsed_ms = int((_time.monotonic() - t0) * 1000)
 
         checkpointer_type = type(self._checkpointer).__name__
-        logger.info(f"[AgentGraph] ✅ Graph compiled with {checkpointer_type}")
+        logger.info(
+            "[AgentGraph] Graph compiled with %s in %d ms (version %d)",
+            checkpointer_type, elapsed_ms, current_version,
+        )
 
         return self._compiled
 
@@ -658,3 +701,31 @@ class AgentGraph:
 def get_agent_graph() -> AgentGraph:
     """Get the singleton AgentGraph instance."""
     return AgentGraph()
+
+
+# ─── Cold Start Optimization ─────────────────────────────────────────────────
+# Pre-compile graph at module load time so the first request doesn't pay
+# the compilation cost. The AgentGraph singleton lazily compiles on first
+# .compiled access, so we trigger that eagerly here.
+
+_precompiled_graph: AgentGraph | None = None
+
+
+def warmup_agent_graph() -> AgentGraph:
+    """
+    Eagerly compile the agent graph (called during app startup).
+    Returns the warmed-up AgentGraph instance.
+    Logs compilation duration for cold-start monitoring.
+    """
+    import time as _time
+
+    global _precompiled_graph
+    if _precompiled_graph is None:
+        logger.info("[Graph] Warming up: pre-compiling agent graph at startup...")
+        t0 = _time.monotonic()
+        _precompiled_graph = get_agent_graph()
+        # Trigger lazy compilation by accessing .compiled
+        _ = _precompiled_graph.compiled
+        elapsed_ms = int((_time.monotonic() - t0) * 1000)
+        logger.info("[Graph] Warm-up complete: agent graph pre-compiled in %d ms", elapsed_ms)
+    return _precompiled_graph

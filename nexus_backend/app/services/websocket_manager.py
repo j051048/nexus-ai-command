@@ -6,6 +6,7 @@ Manages WebSocket connections per user, supports:
 - Real-time agent streaming via WebSocket (alternative to SSE)
 - Connection lifecycle management with heartbeat
 - Per-user and global connection limits
+- Cross-instance broadcasting via Redis Pub/Sub (when available)
 """
 
 import asyncio
@@ -33,6 +34,9 @@ class ConnectionManager:
     Thread-safe for asyncio: all mutations happen in the event loop.
     Supports multiple connections per user (e.g., multiple browser tabs).
 
+    When Redis is available, uses Redis Pub/Sub to broadcast messages
+    across multiple backend instances (see ws_redis_pubsub.py).
+
     Limits:
     - Per-user: MAX_CONNECTIONS_PER_USER (default 5)
     - Global: MAX_CONNECTIONS_GLOBAL (default 1000)
@@ -43,6 +47,41 @@ class ConnectionManager:
         self._connections: dict[str, list[WebSocket]] = {}
         self._last_pong: dict[int, float] = {}  # ws id -> last pong time
         self._heartbeat_task: asyncio.Task | None = None
+        self._redis_bridge = None  # RedisWebSocketBridge (lazy init)
+
+    # ── Redis Pub/Sub Integration ──────────────────────────────────────
+
+    async def init_redis_bridge(self) -> None:
+        """
+        Initialize Redis Pub/Sub bridge for cross-instance messaging.
+
+        Call once at application startup (e.g., in lifespan).
+        Safe to skip — the manager works local-only without it.
+        """
+        try:
+            from app.services.ws_redis_pubsub import RedisWebSocketBridge
+
+            bridge = RedisWebSocketBridge()
+            ok = await bridge.start()
+            if ok:
+                self._redis_bridge = bridge
+                # Register broadcast callback so messages from other
+                # instances get delivered to local connections.
+                bridge.set_broadcast_callback(self._local_broadcast)
+                await bridge.subscribe_broadcast()
+                logger.info("[WS] Redis Pub/Sub bridge enabled")
+            else:
+                logger.info("[WS] Redis unavailable, using local-only mode")
+        except Exception as e:
+            logger.warning(f"[WS] Failed to init Redis bridge: {e}")
+
+    async def shutdown_redis_bridge(self) -> None:
+        """Stop the Redis bridge. Call at application shutdown."""
+        if self._redis_bridge:
+            await self._redis_bridge.stop()
+            self._redis_bridge = None
+
+    # ── Connection Lifecycle ─────────────────────────────────────────────
 
     async def connect(self, websocket: WebSocket, user_id: str) -> bool:
         """
@@ -94,6 +133,12 @@ class ConnectionManager:
             f"(user: {len(self._connections[user_id])}, global: {self.active_connections})"
         )
 
+        # Subscribe to this user's Redis channel (first local connection)
+        if len(self._connections[user_id]) == 1 and self._redis_bridge:
+            await self._redis_bridge.subscribe(
+                user_id, self._make_redis_deliver(user_id)
+            )
+
         # Start heartbeat if not running
         if self._heartbeat_task is None or self._heartbeat_task.done():
             self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
@@ -106,6 +151,9 @@ class ConnectionManager:
             self._connections[user_id] = [ws for ws in self._connections[user_id] if ws is not websocket]
             if not self._connections[user_id]:
                 del self._connections[user_id]
+                # Unsubscribe from Redis when last connection for user drops
+                if self._redis_bridge:
+                    asyncio.ensure_future(self._redis_bridge.unsubscribe(user_id))
         self._last_pong.pop(id(websocket), None)
         logger.info(f"[WS] User {user_id} disconnected (global: {self.active_connections})")
 
@@ -142,12 +190,27 @@ class ConnectionManager:
 
         logger.debug("[WS] Heartbeat loop ended — no active connections")
 
+    # ── Message Delivery ─────────────────────────────────────────────────
+
     async def send_to_user(self, user_id: str, message: dict) -> int:
         """
         Send a JSON message to all connections of a specific user.
 
-        Returns the number of connections that received the message.
+        Delivers locally AND publishes to Redis so other instances
+        can also deliver to the same user's connections.
+
+        Returns the number of local connections that received the message.
         """
+        local_sent = await self._local_send_to_user(user_id, message)
+
+        # Also publish to Redis for cross-instance delivery
+        if self._redis_bridge:
+            await self._redis_bridge.publish(user_id, message)
+
+        return local_sent
+
+    async def _local_send_to_user(self, user_id: str, message: dict) -> int:
+        """Deliver a message to local connections only (no Redis publish)."""
         connections = self._connections.get(user_id, [])
         if not connections:
             return 0
@@ -168,12 +231,34 @@ class ConnectionManager:
         return sent
 
     async def broadcast(self, message: dict, exclude_user: str | None = None) -> int:
-        """Broadcast a message to all connected users."""
+        """
+        Broadcast a message to all connected users.
+
+        Delivers locally AND publishes to Redis broadcast channel.
+        """
+        local_sent = await self._local_broadcast(message, exclude_user)
+
+        # Publish to Redis for other instances
+        if self._redis_bridge:
+            await self._redis_bridge.publish_broadcast(message, exclude_user)
+
+        return local_sent
+
+    async def _local_broadcast(self, message: dict, exclude_user: str | None = None) -> int:
+        """Broadcast to local connections only (callback for Redis bridge)."""
         sent = 0
         for user_id in list(self._connections.keys()):
             if user_id != exclude_user:
-                sent += await self.send_to_user(user_id, message)
+                sent += await self._local_send_to_user(user_id, message)
         return sent
+
+    def _make_redis_deliver(self, user_id: str):
+        """Create a callback for delivering Redis messages to local connections."""
+        async def _deliver(message: dict) -> None:
+            await self._local_send_to_user(user_id, message)
+        return _deliver
+
+    # ── Query Methods ────────────────────────────────────────────────────
 
     def is_connected(self, user_id: str) -> bool:
         """Check if a user has any active connections."""
@@ -192,6 +277,13 @@ class ConnectionManager:
     def active_users(self) -> int:
         """Number of unique connected users."""
         return len(self._connections)
+
+    @property
+    def redis_bridge_status(self) -> dict | None:
+        """Return Redis bridge status for health checks, or None if not enabled."""
+        if self._redis_bridge:
+            return self._redis_bridge.status()
+        return None
 
 
 # Global singleton

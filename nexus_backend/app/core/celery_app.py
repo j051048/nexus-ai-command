@@ -1,7 +1,10 @@
+import logging
 import os
 
 from celery import Celery
 from celery.schedules import crontab
+
+logger = logging.getLogger(__name__)
 
 # Get Redis URL from env or default to localhost
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -26,6 +29,20 @@ celery_app.conf.update(
     worker_reject_on_worker_lost=True,
     worker_max_tasks_per_child=1000,
 )
+
+# ── Distributed Beat Lock ────────────────────────────────────────────────────
+# Use Redis-based distributed lock so only one Beat instance runs across
+# multiple deployments. Falls back to default scheduler if Redis unavailable.
+try:
+    import redis as _redis
+
+    _r = _redis.from_url(REDIS_URL, socket_connect_timeout=3)
+    _r.ping()
+    _r.close()
+    celery_app.conf.beat_scheduler = "app.core.beat_lock.BeatLockScheduler"
+    logger.info("[Celery] Using distributed BeatLockScheduler")
+except Exception:
+    logger.info("[Celery] Redis unavailable for Beat lock, using default scheduler")
 
 # Periodic Tasks (Beat)
 celery_app.conf.beat_schedule = {

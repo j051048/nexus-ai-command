@@ -42,6 +42,27 @@ interface CostReport {
   period_days?: number;
 }
 
+interface ModelBreakdownItem {
+  model_code: string;
+  requests: number;
+  success_count: number;
+  error_count: number;
+  total_tokens: number;
+  input_tokens: number;
+  output_tokens: number;
+  total_cost: number;
+  avg_latency_ms: number;
+  error_rate: number;
+}
+
+interface ModelBreakdown {
+  models: ModelBreakdownItem[];
+  total_cost: number;
+  total_tokens: number;
+  total_requests: number;
+  period_days: number;
+}
+
 const COLORS = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#ddd6fe', '#ede9fe'];
 
 const ALERT_CONFIG: Record<string, { color: string; label: string }> = {
@@ -58,15 +79,17 @@ export default function LLMCostDashboard() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [quota, setQuota] = useState<QuotaAlert | null>(null);
   const [costReport, setCostReport] = useState<CostReport | null>(null);
+  const [modelBreakdown, setModelBreakdown] = useState<ModelBreakdown | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [currentRes, historyRes, quotaRes, costRes] = await Promise.all([
+      const [currentRes, historyRes, quotaRes, costRes, modelRes] = await Promise.all([
         aiClient.fetch<{ success?: boolean; data?: UsageSummary }>('/api/usage/current'),
         aiClient.fetch<{ success?: boolean; data?: { history?: HistoryItem[] } }>(`/api/usage/history?days=${days}`),
         aiClient.fetch<{ success?: boolean; data?: QuotaAlert }>('/api/usage/quota-alert'),
         aiClient.fetch<{ success?: boolean; data?: CostReport }>(`/api/usage/cost-report?days=${days}`),
+        aiClient.fetch<{ success?: boolean; data?: ModelBreakdown }>(`/api/usage/model-breakdown?days=${days}`),
       ]);
 
       if (currentRes?.success) setCurrent(currentRes.data ?? null);
@@ -76,6 +99,7 @@ export default function LLMCostDashboard() {
       }
       if (quotaRes?.success) setQuota(quotaRes.data ?? null);
       if (costRes?.success) setCostReport(costRes.data ?? null);
+      if (modelRes?.success) setModelBreakdown(modelRes.data ?? null);
     } catch {
       toast.error('加载用量数据失败');
     } finally {
@@ -315,6 +339,52 @@ export default function LLMCostDashboard() {
                 </CardContent>
               </Card>
             </div>
+          )}
+
+          {/* Model Cost Breakdown (Item 62: Real data from llm_call_log) */}
+          {modelBreakdown && modelBreakdown.models.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4" /> 模型成本明细
+                </CardTitle>
+                <CardDescription>
+                  过去 {days} 天 | 总计 {formatCost(modelBreakdown.total_cost)} / {formatTokens(modelBreakdown.total_tokens)} tokens / {modelBreakdown.total_requests} 次调用
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-muted-foreground">
+                        <th className="pb-2 pr-4">模型</th>
+                        <th className="pb-2 pr-4 text-right">调用次数</th>
+                        <th className="pb-2 pr-4 text-right">总 Token</th>
+                        <th className="pb-2 pr-4 text-right">费用</th>
+                        <th className="pb-2 pr-4 text-right">平均延迟</th>
+                        <th className="pb-2 text-right">错误率</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {modelBreakdown.models.map((m) => (
+                        <tr key={m.model_code} className="border-b border-secondary/50 hover:bg-secondary/20">
+                          <td className="py-2.5 pr-4 font-medium">{m.model_code}</td>
+                          <td className="py-2.5 pr-4 text-right">{m.requests.toLocaleString()}</td>
+                          <td className="py-2.5 pr-4 text-right">{formatTokens(m.total_tokens)}</td>
+                          <td className="py-2.5 pr-4 text-right font-semibold">{formatCost(m.total_cost)}</td>
+                          <td className="py-2.5 pr-4 text-right">{m.avg_latency_ms}ms</td>
+                          <td className="py-2.5 text-right">
+                            <Badge variant={m.error_rate > 5 ? 'destructive' : 'secondary'} className="text-xs">
+                              {m.error_rate}%
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </>
       )}

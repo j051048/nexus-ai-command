@@ -1,0 +1,566 @@
+"""
+LLM Gateway - Chat Dispatch Module
+
+Contains the public chat(), stream_chat(), and embedding() methods that
+orchestrate model resolution, quota checks, circuit breakers, adapter
+calls, and usage recording.
+"""
+
+import logging
+import time
+import uuid
+from collections.abc import AsyncIterator
+
+from app.services.llm_adapters.base import (
+    ChatRequest,
+    ChatResponse,
+    EmbeddingResponse,
+    ModelConfig,
+)
+from app.services.llm_circuit_breaker import circuit_breaker_manager
+from app.services.llm_quota_service import check_quota, record_usage
+
+logger = logging.getLogger(__name__)
+
+
+class ChatDispatchMixin:
+    """
+    Mixin providing chat(), stream_chat(), and embedding() public methods.
+
+    Requires (from ModelResolutionMixin):
+        _resolve_model, _create_adapter, _maybe_upgrade_for_context,
+        _get_backup_model
+
+    Requires (from CallLoggingMixin):
+        _log_call
+
+    Requires:
+        _error_response (static method)
+    """
+
+    async def chat(
+        self,
+        scene_code: str,
+        agent_code: str,
+        user_id: str,
+        org_id: str,
+        system_prompt: str,
+        messages: list[dict],
+        tools: list[dict] | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        stream: bool = False,
+        request_id: str | None = None,
+    ) -> ChatResponse:
+        """
+        Main entry point for chat completions.
+
+        Resolves the target model via schedule rules, checks quota,
+        verifies the circuit breaker, dispatches through the adapter,
+        records usage, and logs the call.  On failure the backup model
+        is attempted automatically.
+        """
+        request_id = request_id or str(uuid.uuid4())
+        start_ts = time.monotonic()
+
+        # --- Resolve model ---
+        model_code = await self._resolve_model(scene_code, agent_code, org_id)
+        if not model_code:
+            return self._error_response(request_id, "", "No model configured for this scene/agent")
+
+        # --- Try primary model, then backup on failure ---
+        response = await self._try_chat_with_model(
+            model_code=model_code,
+            org_id=org_id,
+            user_id=user_id,
+            scene_code=scene_code,
+            agent_code=agent_code,
+            system_prompt=system_prompt,
+            messages=messages,
+            tools=tools,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            stream=stream,
+            request_id=request_id,
+            start_ts=start_ts,
+        )
+
+        if response.finish_reason == "error":
+            # Attempt backup model
+            backup_code = await self._get_backup_model(scene_code, agent_code, org_id, exclude=model_code)
+            if backup_code:
+                logger.info(f"Retrying with backup model '{backup_code}' after primary '{model_code}' failed")
+                backup_response = await self._try_chat_with_model(
+                    model_code=backup_code,
+                    org_id=org_id,
+                    user_id=user_id,
+                    scene_code=scene_code,
+                    agent_code=agent_code,
+                    system_prompt=system_prompt,
+                    messages=messages,
+                    tools=tools,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    stream=stream,
+                    request_id=request_id,
+                    start_ts=start_ts,
+                )
+                if backup_response.finish_reason != "error":
+                    return backup_response
+
+        return response
+
+    async def _try_chat_with_model(
+        self,
+        model_code: str,
+        org_id: str,
+        user_id: str,
+        scene_code: str,
+        agent_code: str,
+        system_prompt: str,
+        messages: list[dict],
+        tools: list[dict] | None,
+        temperature: float | None,
+        max_tokens: int | None,
+        stream: bool,
+        request_id: str,
+        start_ts: float,
+    ) -> ChatResponse:
+        """Execute a chat call against a single model with all guardrails."""
+
+        # --- Quota check ---
+        quota_result = await check_quota(
+            tenant_id=org_id,
+            model_code=model_code,
+            user_id=user_id,
+        )
+        if not quota_result.allowed:
+            latency = int((time.monotonic() - start_ts) * 1000)
+            await self._log_call(
+                org_id=org_id,
+                model_code=model_code,
+                scene_code=scene_code,
+                agent_code=agent_code,
+                user_id=user_id,
+                request_id=request_id,
+                status="quota_blocked",
+                input_tokens=0,
+                output_tokens=0,
+                cost=0.0,
+                latency_ms=latency,
+                error_msg=quota_result.reason,
+            )
+            return self._error_response(
+                request_id,
+                model_code,
+                f"Quota exceeded: {quota_result.reason}",
+            )
+
+        if quota_result.warning:
+            logger.warning(f"Quota warning for org={org_id}, model={model_code}: {quota_result.reason}")
+
+        # --- Circuit breaker check ---
+        if not circuit_breaker_manager.is_allowed(model_code):
+            latency = int((time.monotonic() - start_ts) * 1000)
+            await self._log_call(
+                org_id=org_id,
+                model_code=model_code,
+                scene_code=scene_code,
+                agent_code=agent_code,
+                user_id=user_id,
+                request_id=request_id,
+                status="circuit_open",
+                input_tokens=0,
+                output_tokens=0,
+                cost=0.0,
+                latency_ms=latency,
+                error_msg="Circuit breaker is open",
+            )
+            return self._error_response(request_id, model_code, "Model circuit breaker is open")
+
+        # --- Create adapter ---
+        adapter, config = await self._create_adapter(model_code, org_id)
+        if not adapter or not config:
+            return self._error_response(
+                request_id,
+                model_code,
+                f"Failed to load adapter for model {model_code}",
+            )
+
+        # --- Context window check: auto-upgrade if prompt is too large ---
+        model_code, config = await self._maybe_upgrade_for_context(
+            model_code, org_id, config, system_prompt, messages, tools
+        )
+        if adapter.config.model_code != config.model_code:
+            adapter, config = await self._create_adapter(model_code, org_id)
+            if not adapter or not config:
+                return self._error_response(request_id, model_code, f"Failed to load upgraded model {model_code}")
+
+        # --- Build request ---
+        chat_request = ChatRequest(
+            scene_code=scene_code,
+            agent_code=agent_code,
+            user_id=user_id,
+            system_prompt=system_prompt,
+            messages=messages,
+            tools=tools if config.supports_tools else None,
+            temperature=temperature or config.default_temperature,
+            max_tokens=max_tokens or config.max_tokens,
+            stream=stream,
+            request_id=request_id,
+        )
+
+        # --- Call adapter ---
+        try:
+            response = await adapter.chat(chat_request)
+            latency = int((time.monotonic() - start_ts) * 1000)
+            response.exec_time_ms = latency
+
+            # Record success with circuit breaker
+            circuit_breaker_manager.record_success(model_code)
+
+            input_tokens = response.usage.get("input_tokens", 0)
+            output_tokens = response.usage.get("output_tokens", 0)
+            cost = response.usage.get("call_cost", 0.0)
+
+            # Record quota usage
+            await record_usage(
+                tenant_id=org_id,
+                model_code=model_code,
+                user_id=user_id,
+                tokens=input_tokens + output_tokens,
+                cost=cost,
+            )
+
+            # Log the call
+            await self._log_call(
+                org_id=org_id,
+                model_code=model_code,
+                scene_code=scene_code,
+                agent_code=agent_code,
+                user_id=user_id,
+                request_id=request_id,
+                status="success",
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cost=cost,
+                latency_ms=latency,
+            )
+
+            return response
+
+        except Exception as e:
+            latency = int((time.monotonic() - start_ts) * 1000)
+            error_msg = str(e)
+            logger.error(
+                f"LLM call failed for model={model_code}, request_id={request_id}: {error_msg}",
+                exc_info=True,
+            )
+
+            # Record failure with circuit breaker
+            circuit_breaker_manager.record_failure(model_code)
+
+            await self._log_call(
+                org_id=org_id,
+                model_code=model_code,
+                scene_code=scene_code,
+                agent_code=agent_code,
+                user_id=user_id,
+                request_id=request_id,
+                status="error",
+                input_tokens=0,
+                output_tokens=0,
+                cost=0.0,
+                latency_ms=latency,
+                error_msg=error_msg,
+            )
+
+            return self._error_response(request_id, model_code, error_msg)
+
+    async def stream_chat(
+        self,
+        scene_code: str,
+        agent_code: str,
+        user_id: str,
+        org_id: str,
+        system_prompt: str,
+        messages: list[dict],
+        tools: list[dict] | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        stream: bool = True,
+        request_id: str | None = None,
+    ) -> AsyncIterator[ChatResponse]:
+        """
+        Streaming chat completion.
+
+        Yields partial ChatResponse objects as they arrive from the
+        provider.  Quota is checked up front; usage is recorded after
+        the stream completes.
+        """
+        request_id = request_id or str(uuid.uuid4())
+        start_ts = time.monotonic()
+
+        # --- Resolve model ---
+        model_code = await self._resolve_model(scene_code, agent_code, org_id)
+        if not model_code:
+            yield self._error_response(request_id, "", "No model configured for this scene/agent")
+            return
+
+        # --- Quota check ---
+        quota_result = await check_quota(
+            tenant_id=org_id,
+            model_code=model_code,
+            user_id=user_id,
+        )
+        if not quota_result.allowed:
+            yield self._error_response(
+                request_id,
+                model_code,
+                f"Quota exceeded: {quota_result.reason}",
+            )
+            return
+
+        if quota_result.warning:
+            logger.warning(f"Quota warning for org={org_id}, model={model_code}: {quota_result.reason}")
+
+        # --- Circuit breaker check ---
+        if not circuit_breaker_manager.is_allowed(model_code):
+            yield self._error_response(request_id, model_code, "Model circuit breaker is open")
+            return
+
+        # --- Create adapter ---
+        adapter, config = await self._create_adapter(model_code, org_id)
+        if not adapter or not config:
+            yield self._error_response(
+                request_id,
+                model_code,
+                f"Failed to load adapter for model {model_code}",
+            )
+            return
+
+        # --- Context window check: auto-upgrade if prompt is too large ---
+        model_code, config = await self._maybe_upgrade_for_context(
+            model_code, org_id, config, system_prompt, messages, tools
+        )
+        if adapter.config.model_code != config.model_code:
+            adapter, config = await self._create_adapter(model_code, org_id)
+            if not adapter or not config:
+                yield self._error_response(request_id, model_code, f"Failed to load upgraded model {model_code}")
+                return
+
+        # --- Build request ---
+        chat_request = ChatRequest(
+            scene_code=scene_code,
+            agent_code=agent_code,
+            user_id=user_id,
+            system_prompt=system_prompt,
+            messages=messages,
+            tools=tools if config.supports_tools else None,
+            temperature=temperature or config.default_temperature,
+            max_tokens=max_tokens or config.max_tokens,
+            stream=True,
+            request_id=request_id,
+        )
+
+        # --- Stream from adapter ---
+        total_input_tokens = 0
+        total_output_tokens = 0
+        total_cost = 0.0
+
+        try:
+            async for chunk in adapter.stream_chat(chat_request):
+                chunk.exec_time_ms = int((time.monotonic() - start_ts) * 1000)
+
+                total_input_tokens = chunk.usage.get("input_tokens", total_input_tokens)
+                total_output_tokens = chunk.usage.get("output_tokens", total_output_tokens)
+                total_cost = chunk.usage.get("call_cost", total_cost)
+
+                yield chunk
+
+            # --- Post-stream bookkeeping ---
+            circuit_breaker_manager.record_success(model_code)
+
+            await record_usage(
+                tenant_id=org_id,
+                model_code=model_code,
+                user_id=user_id,
+                tokens=total_input_tokens + total_output_tokens,
+                cost=total_cost,
+            )
+
+            latency = int((time.monotonic() - start_ts) * 1000)
+            await self._log_call(
+                org_id=org_id,
+                model_code=model_code,
+                scene_code=scene_code,
+                agent_code=agent_code,
+                user_id=user_id,
+                request_id=request_id,
+                status="success",
+                input_tokens=total_input_tokens,
+                output_tokens=total_output_tokens,
+                cost=total_cost,
+                latency_ms=latency,
+            )
+
+        except Exception as e:
+            latency = int((time.monotonic() - start_ts) * 1000)
+            error_msg = str(e)
+            logger.error(
+                f"Streaming LLM call failed for model={model_code}, request_id={request_id}: {error_msg}",
+                exc_info=True,
+            )
+
+            circuit_breaker_manager.record_failure(model_code)
+
+            await self._log_call(
+                org_id=org_id,
+                model_code=model_code,
+                scene_code=scene_code,
+                agent_code=agent_code,
+                user_id=user_id,
+                request_id=request_id,
+                status="error",
+                input_tokens=total_input_tokens,
+                output_tokens=total_output_tokens,
+                cost=total_cost,
+                latency_ms=latency,
+                error_msg=error_msg,
+            )
+
+            # --- Backup model retry ---
+            backup_code = await self._get_backup_model(scene_code, agent_code, org_id, exclude=model_code)
+            if backup_code:
+                logger.info(f"Stream retrying with backup model '{backup_code}' after primary '{model_code}' failed")
+                backup_adapter, backup_config = await self._create_adapter(backup_code, org_id)
+                if backup_adapter and backup_config:
+                    backup_request = ChatRequest(
+                        scene_code=scene_code,
+                        agent_code=agent_code,
+                        user_id=user_id,
+                        system_prompt=system_prompt,
+                        messages=messages,
+                        tools=tools if backup_config.supports_tools else None,
+                        temperature=temperature or backup_config.default_temperature,
+                        max_tokens=max_tokens or backup_config.max_tokens,
+                        stream=True,
+                        request_id=request_id,
+                    )
+                    try:
+                        backup_start = time.monotonic()
+                        async for chunk in backup_adapter.stream_chat(backup_request):
+                            chunk.exec_time_ms = int((time.monotonic() - backup_start) * 1000)
+                            yield chunk
+                        circuit_breaker_manager.record_success(backup_code)
+                        return
+                    except Exception as backup_e:
+                        logger.error(f"Backup stream also failed for model={backup_code}: {backup_e}")
+                        circuit_breaker_manager.record_failure(backup_code)
+
+            yield self._error_response(request_id, model_code, error_msg)
+
+    async def embedding(
+        self,
+        texts: list[str],
+        org_id: str,
+        model_code: str | None = None,
+    ) -> EmbeddingResponse:
+        """
+        Generate embeddings for a list of texts.
+
+        If model_code is not provided, looks for a schedule rule with
+        scene_code='embedding'.
+        """
+        request_id = str(uuid.uuid4())
+        start_ts = time.monotonic()
+
+        # Resolve model code
+        if not model_code:
+            model_code = await self._resolve_model("embedding", "*", org_id)
+        if not model_code:
+            logger.error(f"No embedding model configured for org={org_id}")
+            return EmbeddingResponse(
+                request_id=request_id,
+                model_code="",
+                embeddings=[],
+                usage={"input_tokens": 0, "total_tokens": 0, "call_cost": 0.0},
+            )
+
+        # Create adapter
+        adapter, config = await self._create_adapter(model_code, org_id)
+        if not adapter or not config:
+            logger.error(f"Failed to create embedding adapter for {model_code}")
+            return EmbeddingResponse(
+                request_id=request_id,
+                model_code=model_code,
+                embeddings=[],
+                usage={"input_tokens": 0, "total_tokens": 0, "call_cost": 0.0},
+            )
+
+        try:
+            response = await adapter.embedding(texts)
+            response.request_id = request_id
+            response.exec_time_ms = int((time.monotonic() - start_ts) * 1000)
+
+            circuit_breaker_manager.record_success(model_code)
+
+            total_tokens = response.usage.get("total_tokens", 0)
+            cost = response.usage.get("call_cost", 0.0)
+
+            await record_usage(
+                tenant_id=org_id,
+                model_code=model_code,
+                user_id="system",
+                tokens=total_tokens,
+                cost=cost,
+            )
+
+            await self._log_call(
+                org_id=org_id,
+                model_code=model_code,
+                scene_code="embedding",
+                agent_code="*",
+                user_id="system",
+                request_id=request_id,
+                status="success",
+                input_tokens=response.usage.get("input_tokens", 0),
+                output_tokens=0,
+                cost=cost,
+                latency_ms=response.exec_time_ms,
+            )
+
+            return response
+
+        except Exception as e:
+            latency = int((time.monotonic() - start_ts) * 1000)
+            error_msg = str(e)
+            logger.error(
+                f"Embedding call failed for model={model_code}: {error_msg}",
+                exc_info=True,
+            )
+
+            circuit_breaker_manager.record_failure(model_code)
+
+            await self._log_call(
+                org_id=org_id,
+                model_code=model_code,
+                scene_code="embedding",
+                agent_code="*",
+                user_id="system",
+                request_id=request_id,
+                status="error",
+                input_tokens=0,
+                output_tokens=0,
+                cost=0.0,
+                latency_ms=latency,
+                error_msg=error_msg,
+            )
+
+            return EmbeddingResponse(
+                request_id=request_id,
+                model_code=model_code,
+                embeddings=[],
+                usage={"input_tokens": 0, "total_tokens": 0, "call_cost": 0.0},
+                exec_time_ms=latency,
+            )

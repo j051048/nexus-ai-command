@@ -108,6 +108,13 @@ class Settings(BaseSettings):
     RATE_LIMIT_PER_MINUTE: int = Field(default=60, description="API rate limit per minute")
     RATE_LIMIT_BURST: int = Field(default=10, description="Rate limit burst size")
 
+    # Tenant-level rate limiting (#35)
+    TENANT_RATE_LIMIT_PER_MINUTE: int = Field(default=1000, description="Max requests per tenant per minute")
+    TENANT_RATE_LIMIT_PER_HOUR: int = Field(default=10000, description="Max requests per tenant per hour")
+
+    # Noisy-neighbor throttle (#59)
+    MAX_CONCURRENT_LLM_PER_TENANT: int = Field(default=10, description="Max concurrent LLM requests per tenant")
+
     # File upload
     MAX_FILE_SIZE_MB: int = Field(default=50, description="Maximum file upload size in MB")
     MAX_CHAT_HISTORY: int = Field(default=10, description="Maximum chat message history window size")
@@ -138,6 +145,8 @@ class Settings(BaseSettings):
     RERANK_TOP_N: int = Field(default=5, description="Number of top results to return from reranker")
     RERANK_MAX_DOCS: int = Field(default=8, description="Maximum documents to send to reranker")
     RERANK_TIMEOUT: int = Field(default=8, description="Timeout in seconds for reranker call")
+    COHERE_API_KEY: str = Field(default="", description="Cohere API key for Cohere Rerank backend")
+    RERANKER_BACKEND: str = Field(default="", description="Reranker backend override: 'cohere', 'bge', or 'llm'. Empty = auto-detect")
 
     # LangGraph Agent Configuration
     LANGGRAPH_MAX_ITERATIONS: int = Field(default=5, description="Maximum plan-execute-reflect loop iterations")
@@ -152,11 +161,31 @@ class Settings(BaseSettings):
         default=True, description="Use LLM for grounded hallucination detection in reflect node"
     )
     LANGGRAPH_CHECKPOINTER: str = Field(default="memory", description="Checkpointer backend: 'memory' or 'postgres'")
-    SEMANTIC_CACHE_THRESHOLD: float = Field(default=0.95, description="Similarity threshold for semantic cache hits")
+    SEMANTIC_CACHE_THRESHOLD: float = Field(default=0.90, description="Similarity threshold for semantic cache hits (lowered from 0.95 to improve hit rate)")
+
+    # SLO Definitions (Item 16)
+    SLO_AI_RESPONSE_P95_MS: int = Field(default=5000, description="SLO: AI response P95 latency in ms")
+    SLO_API_RESPONSE_P99_MS: int = Field(default=1000, description="SLO: API response P99 latency in ms")
+    SLO_AVAILABILITY_TARGET: float = Field(default=99.5, description="SLO: target availability percentage")
+    SLO_ERROR_BUDGET_WINDOW_DAYS: int = Field(default=30, description="SLO: error budget rolling window in days")
+
+    # Sentry per-endpoint sampling (Item 26)
+    SENTRY_SECURITY_SAMPLE_RATE: float = Field(default=1.0, description="Sentry trace sample rate for security-critical endpoints (auth/approval/billing)")
+
+    # Migration control (Item 19)
+    RUN_MIGRATIONS_ON_STARTUP: bool = Field(default=False, description="Run DB migrations on app startup. Use CI/CD pipeline in production.")
 
     # Security
     # P1 Fix #42: Key for encryption
     ENCRYPTION_KEY: str = Field(default="", description="Master key for encrypting API keys")
+
+    # Stripe Payment Gateway
+    STRIPE_SECRET_KEY: str = Field(default="", description="Stripe secret key")
+    STRIPE_PUBLISHABLE_KEY: str = Field(default="", description="Stripe publishable key")
+    STRIPE_WEBHOOK_SECRET: str = Field(default="", description="Stripe webhook signing secret")
+    STRIPE_PRICE_BASIC: str = Field(default="", description="Stripe Price ID for Basic plan")
+    STRIPE_PRICE_PREMIUM: str = Field(default="", description="Stripe Price ID for Premium plan")
+    STRIPE_PRICE_ENTERPRISE: str = Field(default="", description="Stripe Price ID for Enterprise plan")
 
     # Observability (OpenTelemetry)
     OTEL_ENABLED: bool = Field(default=False, description="Enable OpenTelemetry distributed tracing")

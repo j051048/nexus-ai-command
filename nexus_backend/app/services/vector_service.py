@@ -411,23 +411,20 @@ class VectorService:
         top_docs_unsorted = sorted(fused_docs.values(), key=lambda x: x["score"], reverse=True)[: limit * 2]
 
         # Reranking (if enabled and enough documents)
-        # Cascade: api_reranker (bge-reranker-v2-m3) → llm (gpt-4o-mini) → RRF scores
+        # Item 42: Use unified RerankerService with cohere/bge/llm backends
         if settings.RERANK_ENABLED and len(top_docs_unsorted) > 1:
             rerank_top_n = settings.RERANK_TOP_N
             try:
-                if settings.RERANK_PROVIDER == "api_reranker":
-                    try:
-                        top_docs = await self._rerank_with_api(query, top_docs_unsorted, top_n=rerank_top_n)
-                        logger.info(f"API reranked {len(top_docs_unsorted)} docs to {len(top_docs)}")
-                    except Exception as api_err:
-                        logger.warning(f"API reranker failed, falling back to LLM: {api_err}")
-                        top_docs = await self._rerank_with_llm(query, top_docs_unsorted, client, top_n=rerank_top_n)
-                        logger.info(f"LLM reranked {len(top_docs_unsorted)} docs to {len(top_docs)}")
-                else:
-                    top_docs = await self._rerank_with_llm(query, top_docs_unsorted, client, top_n=rerank_top_n)
-                    logger.info(f"LLM reranked {len(top_docs_unsorted)} docs to {len(top_docs)}")
+                from app.services.reranker_service import reranker_service
+
+                result = await reranker_service.rerank(query, top_docs_unsorted, top_k=rerank_top_n)
+                top_docs = result.documents
+                logger.info(
+                    f"Reranked {len(top_docs_unsorted)} docs to {len(top_docs)} "
+                    f"via {result.backend_used} in {result.latency_ms:.0f}ms"
+                )
             except Exception as e:
-                logger.warning(f"All reranking failed, using RRF scores: {e}")
+                logger.warning(f"RerankerService failed, using RRF scores: {e}")
                 top_docs = top_docs_unsorted[:limit]
         else:
             top_docs = top_docs_unsorted[:limit]

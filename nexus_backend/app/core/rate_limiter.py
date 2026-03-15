@@ -334,6 +334,14 @@ _per_user_limiter = SlidingWindowRateLimiter(rate=RATE_LIMIT_PER_USER, window_se
 _per_ip_limiter = SlidingWindowRateLimiter(rate=RATE_LIMIT_PER_IP, window_seconds=60, prefix="rl:ip")
 _endpoint_limiters: dict[str, SlidingWindowRateLimiter] = {}
 
+# #35: 租户级别限速器 (per-minute + per-hour)
+_per_tenant_minute_limiter = SlidingWindowRateLimiter(
+    rate=settings.TENANT_RATE_LIMIT_PER_MINUTE, window_seconds=60, prefix="rl:tenant:min"
+)
+_per_tenant_hour_limiter = SlidingWindowRateLimiter(
+    rate=settings.TENANT_RATE_LIMIT_PER_HOUR, window_seconds=3600, prefix="rl:tenant:hr"
+)
+
 
 def _get_endpoint_limiter(path: str) -> SlidingWindowRateLimiter | None:
     """获取端点级别限速器（懒加载）。"""
@@ -372,7 +380,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     """
 
     # Endpoints exempt from rate limiting
-    EXEMPT_PATHS = {"/", "/health", "/favicon.ico", "/docs", "/openapi.json", "/redoc"}
+    EXEMPT_PATHS = {"/", "/health", "/favicon.ico", "/docs", "/openapi.json", "/redoc", "/metrics"}
 
     # P1-8: Endpoint category mapping for tiered limits
     ENDPOINT_CATEGORIES = {
@@ -443,7 +451,56 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Phase 2: Post-auth per-user rate check (user_id now available)
         user_id = getattr(request.state, "user_id", None) if hasattr(request, "state") else None
+        tenant_id = getattr(request.state, "org_id", None) if hasattr(request, "state") else None
         user_meta = ip_meta  # 默认使用 IP 限速的 metadata
+
+        # #35: Tenant-level rate limiting (org_id available after auth)
+        if tenant_id:
+            # Check per-minute tenant quota
+            t_min_allowed, t_min_meta = await _per_tenant_minute_limiter.is_allowed(
+                f"tenant:{tenant_id}"
+            )
+            if not t_min_allowed:
+                return UTF8JSONResponse(
+                    status_code=429,
+                    content={
+                        "success": False,
+                        "error": {
+                            "code": "TENANT_RATE_LIMIT_EXCEEDED",
+                            "message": "贵组织的请求已达到每分钟配额上限，请稍后再试",
+                            "retry_after": t_min_meta.get("retry_after", 60),
+                        },
+                    },
+                    headers={
+                        "X-RateLimit-Limit": str(t_min_meta["limit"]),
+                        "X-RateLimit-Remaining": str(t_min_meta["remaining"]),
+                        "X-RateLimit-Reset": str(t_min_meta["reset"]),
+                        "Retry-After": str(t_min_meta.get("retry_after", 60)),
+                    },
+                )
+
+            # Check per-hour tenant quota
+            t_hr_allowed, t_hr_meta = await _per_tenant_hour_limiter.is_allowed(
+                f"tenant:{tenant_id}"
+            )
+            if not t_hr_allowed:
+                return UTF8JSONResponse(
+                    status_code=429,
+                    content={
+                        "success": False,
+                        "error": {
+                            "code": "TENANT_HOURLY_LIMIT_EXCEEDED",
+                            "message": "贵组织的请求已达到每小时配额上限，请稍后再试",
+                            "retry_after": t_hr_meta.get("retry_after", 3600),
+                        },
+                    },
+                    headers={
+                        "X-RateLimit-Limit": str(t_hr_meta["limit"]),
+                        "X-RateLimit-Remaining": str(t_hr_meta["remaining"]),
+                        "X-RateLimit-Reset": str(t_hr_meta["reset"]),
+                        "Retry-After": str(t_hr_meta.get("retry_after", 3600)),
+                    },
+                )
 
         if user_id:
             user_allowed, user_meta = await _per_user_limiter.is_allowed(f"user:{user_id}")

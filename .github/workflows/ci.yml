@@ -50,8 +50,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm run test
+      - name: Run tests with coverage
+        run: npm run test -- --coverage
+
+      - name: Check frontend coverage
+        if: always()
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            TOTAL=$(node -e "const c=require('./coverage/coverage-summary.json'); console.log(c.total.lines.pct)")
+            echo "## Frontend Test Coverage: ${TOTAL}%" >> $GITHUB_STEP_SUMMARY
+            if (( $(echo "$TOTAL < 50" | bc -l) )); then
+              echo "::warning::Frontend test coverage is ${TOTAL}%, below 50% threshold."
+            fi
+          fi
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -169,7 +180,40 @@ jobs:
           pip install pytest pytest-asyncio pytest-cov pytest-retry httpx
 
       - name: Run tests with coverage
-        run: pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing --retries 2 --retry-delay 1
+        run: pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing --cov-report=json --retries 2 --retry-delay 1
+
+      - name: Check coverage threshold
+        if: always()
+        run: |
+          if [ -f coverage.json ]; then
+            TOTAL=$(python3 -c "import json; data=json.load(open('coverage.json')); print(round(data['totals']['percent_covered'], 1))")
+            echo "## Backend Test Coverage: ${TOTAL}%" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Warning threshold at 50% (non-blocking)
+            if (( $(echo "$TOTAL < 50" | bc -l) )); then
+              echo "::warning::Backend test coverage is ${TOTAL}%, below 50% threshold. Consider adding more tests."
+              echo "Coverage is below 50% target. Please improve test coverage." >> $GITHUB_STEP_SUMMARY
+            else
+              echo "Coverage meets the 50% minimum threshold." >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "::warning::Coverage report not generated"
+          fi
+
+      - name: Generate coverage badge
+        if: always() && github.ref == 'refs/heads/main'
+        run: |
+          if [ -f coverage.json ]; then
+            TOTAL=$(python3 -c "import json; data=json.load(open('coverage.json')); print(int(data['totals']['percent_covered']))")
+            if [ "$TOTAL" -ge 80 ]; then COLOR="brightgreen";
+            elif [ "$TOTAL" -ge 60 ]; then COLOR="green";
+            elif [ "$TOTAL" -ge 50 ]; then COLOR="yellow";
+            else COLOR="red"; fi
+            echo "Coverage: ${TOTAL}% (${COLOR})"
+            echo "COVERAGE_PCT=${TOTAL}" >> $GITHUB_ENV
+            echo "COVERAGE_COLOR=${COLOR}" >> $GITHUB_ENV
+          fi
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -266,7 +310,50 @@ jobs:
         with:
           fail-on-severity: high
 
-  # ============== E2E Tests (Optional) ==============
+  # ============== E2E Smoke Tests (PRs) ==============
+  e2e-smoke:
+    name: E2E Smoke Tests
+    runs-on: ubuntu-latest
+    needs: [frontend-build]
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: dist/
+
+      - name: Run E2E smoke tests (critical path only)
+        run: npx playwright test --project=chromium --grep="@smoke|@critical" --timeout=30000
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'placeholder-key' }}
+          E2E_MODE: smoke
+
+      - name: Upload smoke test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-smoke-report
+          path: playwright-report/
+          retention-days: 3
+
+  # ============== E2E Full Tests (main push) ==============
   e2e-test:
     name: E2E Tests
     runs-on: ubuntu-latest
@@ -294,7 +381,7 @@ jobs:
           name: frontend-build
           path: dist/
 
-      - name: Run E2E tests
+      - name: Run full E2E tests
         run: npx playwright test --project=chromium
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}

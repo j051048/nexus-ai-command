@@ -219,6 +219,17 @@ async def simple_respond_node(state: AgentState) -> dict:
     content = await sanitize_output_advanced_safe(content)
     from app.agent.stream import strip_think_tags
     content = strip_think_tags(content)
+
+    # P0 Security: LLM output scanner (indirect prompt injection, PII, SQLi, XSS)
+    from app.core.output_scanner import output_scanner
+    scan_result = await output_scanner.scan(content)
+    if not scan_result.is_safe:
+        logger.warning(
+            f"[SimpleRespond] Output scanner found {len(scan_result.violations)} violation(s): "
+            f"{scan_result.violations[:3]}"
+        )
+        content = scan_result.sanitized_text
+
     content = _mask_sensitive_fields(content, config.user_role)
     content = _strip_redundant_phrases(content)
 
@@ -260,6 +271,16 @@ async def respond_node(state: AgentState) -> dict:
     # Strip reasoning model <think>...</think> tags (belt-and-suspenders)
     from app.agent.stream import strip_think_tags
     final_response = strip_think_tags(final_response)
+
+    # P0 Security: LLM output scanner (indirect prompt injection, PII, SQLi, XSS)
+    from app.core.output_scanner import output_scanner
+    scan_result = await output_scanner.scan(final_response)
+    if not scan_result.is_safe:
+        logger.warning(
+            f"[RespondNode] Output scanner found {len(scan_result.violations)} violation(s): "
+            f"{scan_result.violations[:3]}"
+        )
+        final_response = scan_result.sanitized_text
 
     # P1 Security: Role-based sensitive field masking
     # Prevents lower-privilege users from seeing sensitive data
