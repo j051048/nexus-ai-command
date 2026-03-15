@@ -166,21 +166,45 @@ def _detect_loop(state: AgentState) -> bool:
 # ─── Mutation Fast-Path Helper ───────────────────────────────────────────────
 
 
+def _has_irreversible_tool(state_or_dict: dict) -> bool:
+    """
+    Check if any completed tool call used an irreversible (high-risk) tool.
+
+    G1: Irreversible tools (financial approvals, destructive ops, etc.) must
+    always go through Critic review — they should NEVER take a fast path.
+    """
+    completed = state_or_dict.get("completed_tool_calls", [])
+    for tc in completed:
+        tool = get_tool(getattr(tc, "tool_name", "") or tc.get("tool_name", ""))
+        if tool and tool.is_irreversible:
+            return True
+    return False
+
+
 def _is_mutation_fast_path(state_or_dict: dict) -> bool:
     """
-    Check if all completed tool calls are successful irreversible mutations.
+    Check if all completed tool calls are successful mutations that can
+    safely skip reflect+critic.
 
-    When True, reflect and critic are unnecessary because mutation results
-    are deterministic (success/fail) — there is nothing to hallucinate.
+    Returns False (no fast path) when:
+    - No completed tools
+    - Any tool failed
+    - Any tool is irreversible (G1: high-risk tools must go through Critic)
     """
     completed = state_or_dict.get("completed_tool_calls", [])
     if not completed:
+        return False
+    # G1: irreversible tools MUST go through Critic — never fast-path
+    if _has_irreversible_tool(state_or_dict):
+        logger.info(
+            "[Graph] Irreversible tool detected, blocking mutation fast-path → forcing Critic review"
+        )
         return False
     for tc in completed:
         if getattr(tc, "status", None) != "success":
             return False
         tool = get_tool(getattr(tc, "tool_name", ""))
-        if not tool or not tool.is_irreversible:
+        if not tool:
             return False
     return True
 
@@ -283,6 +307,7 @@ def _after_execute(state: AgentState) -> str:
     # - SIMPLE/MODERATE: skip reflect+critic entirely
     # - COMPLEX/CRITICAL: embed critic self-evaluation in synthesis prompt,
     #   eliminating separate critic_node LLM call (3→2 LLM calls)
+    # G1: irreversible tools MUST go through reflect→critic, never fast synthesize
     complexity = state.get("complexity")
     completed = state.get("completed_tool_calls", [])
     if (
@@ -292,6 +317,11 @@ def _after_execute(state: AgentState) -> str:
             for tc in completed
         )
     ):
+        if _has_irreversible_tool(state):
+            logger.info(
+                "[Graph] All tools succeeded but irreversible tool detected → reflect (G1: Critic review required)"
+            )
+            return "reflect"
         logger.info(f"[Graph] All tools succeeded + {complexity} → fast synthesize")
         return "synthesize"
 

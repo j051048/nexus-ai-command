@@ -115,6 +115,12 @@ class Settings(BaseSettings):
     # Noisy-neighbor throttle (#59)
     MAX_CONCURRENT_LLM_PER_TENANT: int = Field(default=10, description="Max concurrent LLM requests per tenant")
 
+    # G5: Token budget / cost circuit-breaker
+    TOKEN_BUDGET_MAX_PER_SESSION: int = Field(default=50000, description="Max tokens per single chat session")
+    TOKEN_BUDGET_MAX_PER_HOUR_PER_USER: int = Field(default=200000, description="Max tokens per user per hour")
+    TOKEN_BUDGET_MAX_COST_PER_SESSION: float = Field(default=5.0, description="Max cost (USD) per single chat session")
+    TOKEN_BUDGET_MAX_COST_PER_DAY_PER_TENANT: float = Field(default=100.0, description="Max cost (USD) per tenant per day")
+
     # File upload
     MAX_FILE_SIZE_MB: int = Field(default=50, description="Maximum file upload size in MB")
     MAX_CHAT_HISTORY: int = Field(default=10, description="Maximum chat message history window size")
@@ -186,6 +192,11 @@ class Settings(BaseSettings):
     STRIPE_PRICE_BASIC: str = Field(default="", description="Stripe Price ID for Basic plan")
     STRIPE_PRICE_PREMIUM: str = Field(default="", description="Stripe Price ID for Premium plan")
     STRIPE_PRICE_ENTERPRISE: str = Field(default="", description="Stripe Price ID for Enterprise plan")
+
+    # G4: Prompt Firewall
+    PROMPT_FIREWALL_ENABLED: bool = Field(
+        default=True, description="Enable Prompt Firewall pre-agent input protection"
+    )
 
     # Observability (OpenTelemetry)
     OTEL_ENABLED: bool = Field(default=False, description="Enable OpenTelemetry distributed tracing")

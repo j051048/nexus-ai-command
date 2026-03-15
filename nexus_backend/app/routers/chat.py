@@ -10,6 +10,7 @@ from app.core.errors import ErrorCode, api_error, api_success
 from app.core.trace_logger import TraceLogger
 from app.models.schemas import ChatRequest
 from app.services.chat_service import ChatService
+from app.core.prompt_firewall import prompt_firewall
 from app.services.content_moderation import check_user_input, check_user_input_advanced
 from app.services.token_service import validate_request_tokens
 
@@ -46,7 +47,24 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
 
     user_role = user_res.data.get("role", "employee")
 
-    # 2. Content Moderation
+    # 2. Prompt Firewall — pre-agent input protection (G4)
+    if request.messages:
+        last_msg = next((m for m in reversed(request.messages) if m.role == "user"), None)
+        if last_msg:
+            fw_result = await prompt_firewall.scan_input(
+                last_msg.content, user_id=user_id, context={"agent": request.agent}
+            )
+            if not fw_result.is_safe:
+                return StreamingResponse(
+                    _error_stream(
+                        f"\u26a0\ufe0f \u5b89\u5168\u9632\u706b\u5899\u62e6\u622a: "
+                        f"\u68c0\u6d4b\u5230\u98ce\u9669\u7b49\u7ea7 {fw_result.risk_level.value} "
+                        f"\u7684\u5f02\u5e38\u8f93\u5165\uff0c\u8bf7\u4fee\u6539\u540e\u91cd\u8bd5\u3002"
+                    ),
+                    media_type="text/event-stream; charset=utf-8",
+                )
+
+    # 2b. Content Moderation (existing)
     # P2: 对带工具调用能力的高风险 Agent 启用 LLM 深度注入检测
     _tool_agents = {"approval", "crm", "admin", "data", "workflow", "kingdee", "finance"}
     if request.messages:

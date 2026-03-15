@@ -30,6 +30,7 @@ from app.agent.state import (
     ThinkingStep,
 )
 from app.core.config import settings
+from app.core.token_budget import BudgetVerdict, token_budget_manager
 from app.core.trace_logger import TraceLogger
 from app.services.content_moderation import check_user_input
 from app.services.token_service import (
@@ -223,6 +224,22 @@ async def run_agent_stream(
         yield _sse_content(f"⛔ 请求被拒绝 (超出限制): {reason}")
         yield "data: [DONE]\n\n"
         return
+
+    # ── 1b. G5: Session/user/tenant cost circuit-breaker ──
+    try:
+        budget_status = await token_budget_manager.check_budget(
+            session_id=session_id or "default",
+            user_id=user_id,
+            tenant_id=org_id,
+        )
+        if budget_status.verdict == BudgetVerdict.EXCEEDED:
+            yield _sse_content(f"⛔ {budget_status.message}")
+            yield "data: [DONE]\n\n"
+            return
+        if budget_status.verdict == BudgetVerdict.WARNING:
+            logger.warning(f"[Stream] Token budget warning: {budget_status.message}")
+    except Exception as e:
+        logger.warning(f"[Stream] Token budget check failed (non-blocking): {e}")
 
     # ── 2. Input moderation ──
     last_user_content = ""
@@ -722,6 +739,19 @@ async def run_agent_stream(
         await record_completion(user_id, total_in, total_out, agent_config.model)
     except Exception as e:
         logger.warning(f"[Stream] Token recording failed: {e}", exc_info=True)
+
+    # ── 8.1 G5: Record usage to token budget manager ──
+    try:
+        await token_budget_manager.record_usage(
+            session_id=session_id or "default",
+            user_id=user_id,
+            tenant_id=agent_config.org_id,
+            input_tokens=total_in,
+            output_tokens=total_out,
+            model=agent_config.model,
+        )
+    except Exception as e:
+        logger.warning(f"[Stream] Token budget recording failed: {e}")
 
     # ── 8.5 Emit quota info for frontend quota display ──
     try:

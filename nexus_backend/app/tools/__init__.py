@@ -4,6 +4,13 @@ import logging
 import pkgutil
 
 from .base_tool import BaseTool
+from .registry import (
+    auto_discover_tools,
+    get_all_tool_infos,
+    get_tool_info,
+    get_tools_by_category,
+    is_registered,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -226,16 +233,41 @@ def _load_tool(name: str) -> BaseTool | None:
 
 
 def _load_all():
-    """Force-load every registered tool module (called once at agent init)."""
+    """Force-load every registered tool module (called once at agent init).
+
+    加载顺序：
+    1. 旧的硬编码字典 (_TOOL_MODULES / _VMD_TOOL_MODULES) — 向后兼容
+    2. @register_tool 装饰器注册的工具 — 新基础设施
+    3. _auto_discover() — 兜底扫描未注册的 BaseTool 子类
+    """
     global _all_loaded
     if _all_loaded:
         return
 
+    # Step 1: 加载旧字典中的工具
     for name in _TOOL_MODULES:
         _load_tool(name)
     for name in _VMD_TOOL_MODULES:
         _load_tool(name)
 
+    # Step 2: 触发装饰器注册（import 所有模块，让 @register_tool 生效）
+    decorator_registry = auto_discover_tools("app.tools")
+
+    # 合并装饰器注册的工具到 TOOL_REGISTRY（旧字典优先，不覆盖已有的）
+    for tool_name, tool_info in decorator_registry.items():
+        if tool_name not in TOOL_REGISTRY:
+            try:
+                instance = tool_info.get_instance()
+                TOOL_REGISTRY[instance.name] = instance
+                logger.debug(
+                    "从装饰器注册表合并工具: %s (category=%s)",
+                    tool_name,
+                    tool_info.category,
+                )
+            except Exception:
+                logger.warning("装饰器注册的工具 %s 实例化失败，已跳过", tool_name, exc_info=True)
+
+    # Step 3: 兜底扫描（捕获既没在字典里也没用装饰器的 BaseTool 子类）
     _auto_discover()
     _all_loaded = True
 
@@ -276,8 +308,29 @@ def _auto_discover():
 
 
 def get_tool(name: str) -> BaseTool | None:
-    """Return a tool by name, lazily importing it if needed."""
-    return TOOL_REGISTRY.get(name) or _load_tool(name)
+    """Return a tool by name, lazily importing it if needed.
+
+    查找顺序：TOOL_REGISTRY → 旧字典 _load_tool → 装饰器注册表
+    """
+    if name in TOOL_REGISTRY:
+        return TOOL_REGISTRY[name]
+
+    # 尝试从旧字典懒加载
+    tool = _load_tool(name)
+    if tool is not None:
+        return tool
+
+    # 尝试从装饰器注册表获取
+    tool_info = get_tool_info(name)
+    if tool_info is not None:
+        try:
+            instance = tool_info.get_instance()
+            TOOL_REGISTRY[instance.name] = instance
+            return instance
+        except Exception:
+            logger.warning("从装饰器注册表加载工具 %s 失败", name, exc_info=True)
+
+    return None
 
 
 def _sanitize_schema(properties: dict) -> dict:
