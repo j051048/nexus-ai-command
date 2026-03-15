@@ -453,11 +453,51 @@ async def prepare_initial_state(
 
     # ── 2b–2f. Collect all context blocks in parallel, then inject as ONE system message ──
     injected_contexts: list[str] = []
-    user_profile_ctx = None  # initialized here so it's always defined for line 624+
+    user_profile_ctx = None  # initialized here so it's always defined
+
+    # ── 2g-profile. User profile — ALWAYS fetched regardless of skip_semantic ──
+    # Knowing who the user is is essential even for simple queries.
+    import asyncio
+
+    if config.user_id:
+        try:
+            parts: list[str] = []
+            user_res = await client.table("users").select(
+                "name, role, department"
+            ).eq("id", config.user_id).maybe_single().execute()
+
+            dept_name = None
+            if config.org_id:
+                try:
+                    emp_res = await client.table("employees").select(
+                        "departments(name)"
+                    ).eq("user_id", config.user_id).eq(
+                        "organization_id", config.org_id
+                    ).maybe_single().execute()
+                    if emp_res.data:
+                        dept_info = emp_res.data.get("departments")
+                        if isinstance(dept_info, dict):
+                            dept_name = dept_info.get("name")
+                except Exception:
+                    pass
+
+            if user_res.data:
+                name = user_res.data.get("name", "")
+                role = user_res.data.get("role", "employee")
+                # Fallback to department column on users table if employees lookup didn't find one
+                if not dept_name:
+                    dept_name = user_res.data.get("department")
+                dept_str = f"，{dept_name}" if dept_name else ""
+                parts.append(f"当前用户: {name}（{role}{dept_str}）")
+
+            if parts:
+                user_profile_ctx = "[用户画像上下文]\n" + "\n".join(parts) + "\n[用户画像结束]"
+                logger.info(f"[Memory] Collected user profile context for {config.user_id}")
+        except Exception as e:
+            logger.debug(f"[Memory] User profile context failed: {e}")
 
     if last_user_msg and not skip_semantic:
         # All 5 context lookups are independent — run them concurrently
-        import asyncio
 
         async def _fetch_long_term_memory():
             """2b. Long-term Memory"""
@@ -542,81 +582,20 @@ async def prepare_initial_state(
                 logger.debug(f"[Memory] Episode recall failed: {e}")
                 return None
 
-        async def _fetch_user_profile_context():
-            """2g. User Profile Context — name, role, department, recent activity"""
-            if not config.user_id:
-                return None
-            try:
-                parts: list[str] = []
-                # User basic info (only needs user_id)
-                user_res = await client.table("users").select(
-                    "full_name, role"
-                ).eq("id", config.user_id).maybe_single().execute()
-
-                dept_name = None
-                # Department lookup requires org_id
-                if config.org_id:
-                    try:
-                        emp_res = await client.table("employees").select(
-                            "departments(name)"
-                        ).eq("user_id", config.user_id).eq(
-                            "organization_id", config.org_id
-                        ).maybe_single().execute()
-                        if emp_res.data:
-                            dept_info = emp_res.data.get("departments")
-                            if isinstance(dept_info, dict):
-                                dept_name = dept_info.get("name")
-                    except Exception:
-                        pass
-
-                if user_res.data:
-                    name = user_res.data.get("full_name", "")
-                    role = user_res.data.get("role", "employee")
-                    dept_str = f"，{dept_name}" if dept_name else ""
-                    parts.append(f"当前用户: {name}（{role}{dept_str}）")
-
-                # Recent notifications as activity signal
-                notif_res = await client.table("notifications").select(
-                    "title, type, created_at"
-                ).eq("user_id", config.user_id).order(
-                    "created_at", desc=True
-                ).limit(3).execute()
-
-                if notif_res.data:
-                    recent = "; ".join(
-                        f"{n.get('title', '')}({n.get('type', '')})"
-                        for n in notif_res.data[:3]
-                    )
-                    parts.append(f"近期动态: {recent}")
-
-                if parts:
-                    logger.info(f"[Memory] Collected user profile context for {config.user_id}")
-                    return "[用户画像上下文]\n" + "\n".join(parts) + "\n[用户画像结束]"
-                return None
-            except Exception as e:
-                logger.debug(f"[Memory] User profile context failed: {e}")
-                return None
-
-        # Fire all 6 lookups concurrently
+        # Fire all 5 lookups concurrently (profile already fetched above)
         results = await asyncio.gather(
             _fetch_long_term_memory(),
             _fetch_org_memory(),
             _fetch_kg_context(),
             _fetch_pattern_suggestions(),
             _fetch_episodic_memory(),
-            _fetch_user_profile_context(),
             return_exceptions=True,
         )
 
-        # Separate user profile from other contexts:
-        # profile goes into system_prompt directly (higher priority),
-        # other contexts go as an independent system message.
+        # Collect context results (profile already handled above)
         for r in results:
             if isinstance(r, str) and r:
-                if "[用户画像上下文]" in r:
-                    user_profile_ctx = r
-                else:
-                    injected_contexts.append(r)
+                injected_contexts.append(r)
             elif isinstance(r, Exception):
                 logger.debug(f"[Memory] Parallel context fetch error: {r}")
 
