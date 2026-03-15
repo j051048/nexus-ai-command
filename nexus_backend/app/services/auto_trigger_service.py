@@ -141,6 +141,13 @@ class AutoTriggerService:
         self._running = False
         self._scheduler_task = None
 
+        # In-memory cooldown fallback (when Redis is unavailable)
+        # key -> expiry datetime
+        self._memory_cooldowns: dict[str, datetime] = {}
+        # Content-hash dedup: avoid pushing identical reminder text within 8 hours
+        # key = hash(user_id + content), value = expiry datetime
+        self._recent_push_hashes: dict[str, datetime] = {}
+
         # Register default triggers
         self._register_default_triggers()
 
@@ -545,6 +552,36 @@ class AutoTriggerService:
 
     _REMINDER_COOLDOWN = 7200  # 2 hours between reminder rounds
 
+    def _check_memory_cooldown(self, key: str) -> bool:
+        """Check in-memory cooldown. Returns True if still on cooldown."""
+        expiry = self._memory_cooldowns.get(key)
+        if expiry and datetime.utcnow() < expiry:
+            return True
+        return False
+
+    def _set_memory_cooldown(self, key: str, ttl_seconds: int) -> None:
+        """Set in-memory cooldown."""
+        self._memory_cooldowns[key] = datetime.utcnow() + timedelta(seconds=ttl_seconds)
+        # Lazy cleanup: remove expired keys when dict gets large
+        if len(self._memory_cooldowns) > 500:
+            now = datetime.utcnow()
+            self._memory_cooldowns = {k: v for k, v in self._memory_cooldowns.items() if v > now}
+
+    def _check_push_dedup(self, user_id: str, content: str) -> bool:
+        """Check if identical content was already pushed recently. Returns True if duplicate."""
+        import hashlib
+        content_hash = hashlib.md5(f"{user_id}:{content}".encode()).hexdigest()
+        expiry = self._recent_push_hashes.get(content_hash)
+        if expiry and datetime.utcnow() < expiry:
+            return True
+        # Mark as pushed, 8 hours dedup window
+        self._recent_push_hashes[content_hash] = datetime.utcnow() + timedelta(hours=8)
+        # Lazy cleanup
+        if len(self._recent_push_hashes) > 1000:
+            now = datetime.utcnow()
+            self._recent_push_hashes = {k: v for k, v in self._recent_push_hashes.items() if v > now}
+        return False
+
     async def _check_smart_reminders(self):
         """Heartbeat-style smart reminder: patrol business data and proactively notify users."""
         from app.core.database import supabase
@@ -558,19 +595,32 @@ class AutoTriggerService:
         if not (8 <= now.hour <= 21):
             return
 
-        # Global cooldown for smart reminders (Redis-backed)
-        from app.services.cache_service import cache_service
+        # Global cooldown: check in-memory first, then Redis
         sr_cooldown_key = "auto_trigger:cooldown:_smart_reminders"
-        cached = await cache_service.get(sr_cooldown_key)
-        if cached:
+        if self._check_memory_cooldown(sr_cooldown_key):
             return
+
+        from app.services.cache_service import cache_service
+        try:
+            cached = await cache_service.get(sr_cooldown_key)
+            if cached:
+                # Sync memory cooldown from Redis
+                self._set_memory_cooldown(sr_cooldown_key, self._REMINDER_COOLDOWN)
+                return
+        except Exception:
+            pass  # Redis unavailable, proceed with memory-only cooldown
 
         try:
             await self._remind_pending_approvals(supabase, now)
             await self._remind_due_tasks(supabase, now)
             await self._remind_stale_leads(supabase, now)
-            # Set Redis cooldown for multi-instance safety
-            await cache_service.set(sr_cooldown_key, "1", ttl=self._REMINDER_COOLDOWN)
+
+            # Set both Redis and in-memory cooldowns
+            self._set_memory_cooldown(sr_cooldown_key, self._REMINDER_COOLDOWN)
+            try:
+                await cache_service.set(sr_cooldown_key, "1", ttl=self._REMINDER_COOLDOWN)
+            except Exception:
+                pass  # Redis unavailable, memory cooldown is our safety net
             self._last_triggered["_smart_reminders"] = datetime.utcnow()
         except Exception as e:
             logger.error("[SmartReminder] Check failed: %s", e, exc_info=True)
@@ -760,12 +810,26 @@ class AutoTriggerService:
         self, user_id: str, title: str, message: str, reminder_type: str
     ):
         """Push a smart reminder as proactive chat message + notification."""
-        # Per-user per-type cooldown (4 hours, Redis-backed for multi-instance safety)
-        from app.services.cache_service import cache_service
         cooldown_key = f"auto_trigger:cooldown:_reminder_{reminder_type}_{user_id}"
-        cached = await cache_service.get(cooldown_key)
-        if cached:
+
+        # Layer 1: In-memory cooldown (always available)
+        if self._check_memory_cooldown(cooldown_key):
             return
+
+        # Layer 2: Content-based dedup (prevent identical messages)
+        if self._check_push_dedup(user_id, message):
+            logger.debug("[SmartReminder] Skipped duplicate content for %s", user_id[:8])
+            return
+
+        # Layer 3: Redis cooldown (for multi-instance safety)
+        from app.services.cache_service import cache_service
+        try:
+            cached = await cache_service.get(cooldown_key)
+            if cached:
+                self._set_memory_cooldown(cooldown_key, 14400)
+                return
+        except Exception:
+            pass  # Redis unavailable, memory cooldown is our safety net
 
         try:
             from app.services.agent_result_pusher import push_agent_result
@@ -778,8 +842,13 @@ class AutoTriggerService:
                 metadata={"source": "scheduled_task", "task_name": title, "reminder_type": reminder_type},
             )
 
+            # Set both memory and Redis cooldowns
+            self._set_memory_cooldown(cooldown_key, 14400)
             self._last_triggered[cooldown_key] = datetime.utcnow()
-            await cache_service.set(cooldown_key, "1", ttl=14400)  # 4 hours
+            try:
+                await cache_service.set(cooldown_key, "1", ttl=14400)  # 4 hours
+            except Exception:
+                pass  # Redis unavailable
             logger.info("[SmartReminder] Sent '%s' to user %s", reminder_type, user_id[:8])
         except Exception as e:
             logger.debug("[SmartReminder] Push failed for %s: %s", user_id[:8], e)

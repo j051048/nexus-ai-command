@@ -176,6 +176,7 @@ export function EnhancedAIChatPanel({
   }, []);
 
   // 从 DB 拉取离线期间的主动消息（WS 断开时的兜底）
+  // 按 task_name 去重，同类提醒只显示最新一条，避免重复刷屏
   useEffect(() => {
     const loadProactiveFromDB = async () => {
       try {
@@ -186,15 +187,32 @@ export function EnhancedAIChatPanel({
           .eq('role', 'assistant')
           .filter('metadata->>source', 'eq', 'scheduled_task')
           .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-          .order('created_at', { ascending: true })
+          .order('created_at', { ascending: false })
           .limit(20);
 
         if (error || !data?.length) return;
 
+        // Deduplicate by task_name + content: keep only the latest per unique combination
+        const seen = new Set<string>();
+        const deduplicated = data.filter((row: any) => {
+          const taskName = row.metadata?.task_name || '';
+          const contentKey = `${taskName}::${row.content?.slice(0, 100) || ''}`;
+          if (seen.has(contentKey)) return false;
+          seen.add(contentKey);
+          return true;
+        });
+
         setMessages(prev => {
           const existingIds = new Set(prev.map(m => m.id));
-          const newMsgs = data
-            .filter((row: any) => !existingIds.has(`db-proactive-${row.id}`))
+          // Also check for duplicate content already in chat
+          const existingContents = new Set(
+            prev.filter(m => (m as any).isProactive).map(m => m.content?.slice(0, 100))
+          );
+          const newMsgs = deduplicated
+            .filter((row: any) =>
+              !existingIds.has(`db-proactive-${row.id}`) &&
+              !existingContents.has(row.content?.slice(0, 100))
+            )
             .map((row: any) => ({
               id: `db-proactive-${row.id}`,
               role: 'assistant' as const,
