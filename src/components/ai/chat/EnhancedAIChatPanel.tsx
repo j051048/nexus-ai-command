@@ -375,6 +375,13 @@ export function EnhancedAIChatPanel({
     return () => window.removeEventListener('nexus:command-bar-chat', handler);
   }, []);
 
+  // Listen for "new chat" command from Ctrl+K command bar
+  useEffect(() => {
+    const handler = () => handleClearChat();
+    window.addEventListener('nexus:command-bar-new-chat', handler);
+    return () => window.removeEventListener('nexus:command-bar-new-chat', handler);
+  }, [handleClearChat]);
+
   useEffect(() => {
     if (commandBarSendRef.current && input.trim()) {
       commandBarSendRef.current = false;

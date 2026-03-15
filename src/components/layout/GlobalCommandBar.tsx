@@ -47,6 +47,7 @@ import {
   Award,
   Warehouse,
   Fingerprint,
+  PlusCircle,
 } from 'lucide-react';
 import { aiClient } from '@/api/aiClient';
 
@@ -66,9 +67,14 @@ interface CustomerResult {
 
 // Custom event for Command Bar → Chat Panel bridge
 export const COMMAND_BAR_CHAT_EVENT = 'nexus:command-bar-chat';
+export const COMMAND_BAR_NEW_CHAT_EVENT = 'nexus:command-bar-new-chat';
 
 export function dispatchAIChatMessage(message: string) {
   window.dispatchEvent(new CustomEvent(COMMAND_BAR_CHAT_EVENT, { detail: { message } }));
+}
+
+export function dispatchNewChat() {
+  window.dispatchEvent(new CustomEvent(COMMAND_BAR_NEW_CHAT_EVENT));
 }
 
 const COMMAND_ITEMS: NavCommandItem[] = [
@@ -300,6 +306,11 @@ export function GlobalCommandBar() {
     dispatchAIChatMessage(message);
   }, []);
 
+  const handleNewChat = useCallback(() => {
+    setOpen(false);
+    dispatchNewChat();
+  }, []);
+
   const handleThemeToggle = useCallback(() => {
     setOpen(false);
     document.documentElement.classList.toggle('dark');
@@ -375,6 +386,14 @@ export function GlobalCommandBar() {
 
         {/* AI 智能助手 */}
         <CommandGroup heading="AI 智能助手">
+          <CommandItem
+            value="新建对话 new chat 清空"
+            onSelect={handleNewChat}
+          >
+            <PlusCircle className="mr-2 h-4 w-4" />
+            <span>新建对话</span>
+            <CommandShortcut>/new</CommandShortcut>
+          </CommandItem>
           {AI_QUICK_ACTIONS.map((action) => (
             <CommandItem
               key={action.prompt}
