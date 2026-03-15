@@ -18,7 +18,7 @@ async def get_memories(
     limit: int = 20,
     db: Any = None,
 ) -> list[dict]:
-    """获取用户记忆列表"""
+    """获取用户记忆列表（仅最新版本）"""
     client = db or supabase
     if not client:
         return []
@@ -27,6 +27,9 @@ async def get_memories(
 
     if category:
         query = query.eq("category", category)
+
+    # P0: 只返回未被取代的最新版本
+    query = query.is_("superseded_by", "null")
 
     result = await query.order("importance", desc=True).order("updated_at", desc=True).limit(limit).execute()
 
@@ -102,16 +105,34 @@ async def search_memories(
 
 
 async def _semantic_search(user_id: str, query: str, limit: int, org_id: str | None, client) -> list[dict]:
-    """Embedding-based semantic search on memories using pgvector."""
+    """Embedding-based semantic search on memories using pgvector.
+    P1: 优先使用 search_memories_hybrid（向量+FTS 融合+时间衰减），
+    降级到 search_memories_by_embedding。
+    """
     try:
         from app.services.vector_service import vector_service
 
-        # Generate embedding for the query
         query_embedding = await vector_service.embed_text(query)
         if not query_embedding:
             return []
 
-        # Use RPC for cosine similarity search on conversation_memories
+        # P1: Try hybrid search first (vector + FTS + time decay)
+        try:
+            params = {
+                "p_user_id": user_id,
+                "p_query_embedding": query_embedding,
+                "p_query_text": query,
+                "p_limit": limit,
+            }
+            if org_id:
+                params["p_org_id"] = org_id
+            result = await client.rpc("search_memories_hybrid", params).execute()
+            if result.data:
+                return result.data
+        except Exception as e:
+            logger.debug(f"Hybrid memory search unavailable, falling back: {e}")
+
+        # Fallback: original embedding-only RPC
         params = {
             "query_embedding": query_embedding,
             "match_user_id": user_id,
@@ -128,11 +149,16 @@ async def _semantic_search(user_id: str, query: str, limit: int, org_id: str | N
 
 
 async def _keyword_search(user_id: str, query: str, limit: int, org_id: str | None, client) -> list[dict]:
-    """Keyword-based fallback search using ILIKE."""
+    """Keyword-based fallback search using ILIKE (P0: only latest versions)."""
     memories: list[dict] = []
 
-    # Build base query with mandatory tenant isolation
-    base_query = client.table("conversation_memories").select("*").eq("user_id", user_id)
+    # Build base query with mandatory tenant isolation + version filter
+    base_query = (
+        client.table("conversation_memories")
+        .select("*")
+        .eq("user_id", user_id)
+        .is_("superseded_by", "null")
+    )
     if org_id:
         base_query = base_query.eq("organization_id", org_id)
 
@@ -144,7 +170,12 @@ async def _keyword_search(user_id: str, query: str, limit: int, org_id: str | No
     # Search in value field
     if len(memories) < limit:
         seen_ids = {m["id"] for m in memories}
-        val_query = client.table("conversation_memories").select("*").eq("user_id", user_id)
+        val_query = (
+            client.table("conversation_memories")
+            .select("*")
+            .eq("user_id", user_id)
+            .is_("superseded_by", "null")
+        )
         if org_id:
             val_query = val_query.eq("organization_id", org_id)
         result_value = await val_query.ilike("value", f"%{query}%").limit(limit).execute()

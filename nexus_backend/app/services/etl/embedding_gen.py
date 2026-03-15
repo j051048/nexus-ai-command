@@ -1,9 +1,10 @@
 """
 ETL - Embedding Generation Module
 
-Contains semantic chunking and batch embedding generation logic.
+Contains semantic chunking, chunk enrichment, and batch embedding generation logic.
 """
 
+import json
 import logging
 import re
 
@@ -49,6 +50,82 @@ def semantic_chunk(text: str, size: int = 600, overlap: int = 100):
         yield current_chunk
 
 
+async def _enrich_chunks(
+    chunks: list[str],
+    parent_text: str,
+    api_key: str,
+    base_url: str,
+    client: httpx.AsyncClient,
+) -> list[str]:
+    """P2: 对 child chunks 做滑动窗口上下文增强。
+
+    用 mini 模型批量处理：代词消解 + 隐含上下文补全。
+    增强后的文本用于生成 embedding，提高检索命中率。
+    失败时返回原始 chunks（非致命）。
+    """
+    if not chunks:
+        return chunks
+
+    # Only enrich chunks that are likely to have pronoun/context issues
+    # Skip very short chunks or chunks that are self-contained
+    enrichable = [(i, c) for i, c in enumerate(chunks) if len(c) > 80]
+    if not enrichable:
+        return chunks
+
+    # Batch: group into batches of 10 to avoid token limits
+    enriched = list(chunks)  # copy
+    batch_size = 10
+    parent_summary = parent_text[:500] if len(parent_text) > 500 else parent_text
+
+    for batch_start in range(0, len(enrichable), batch_size):
+        batch = enrichable[batch_start:batch_start + batch_size]
+        chunks_text = "\n---\n".join(
+            f"[chunk_{idx}]\n{text}" for idx, text in batch
+        )
+
+        prompt = (
+            "你是文档预处理助手。下面是一篇文档的摘要和若干片段。"
+            "请对每个片段做最小改动，使其独立可理解：\n"
+            "1. 将代词（他/她/它/该/这个/那个）替换为具体名词\n"
+            "2. 如果片段开头缺少主语或上下文，从摘要中补充一句简短背景\n"
+            "3. 不要改变原意、不要添加新信息、不要翻译\n\n"
+            f"[文档摘要]\n{parent_summary}\n\n"
+            f"[片段列表]\n{chunks_text}\n\n"
+            "按JSON数组返回增强后的片段，格式: [\"chunk_0增强文本\", \"chunk_1增强文本\", ...]"
+        )
+
+        try:
+            from app.core.config import settings as app_settings
+            mini_model = getattr(app_settings, "AI_MINI_MODEL", "gpt-4o-mini")
+
+            resp = await client.post(
+                f"{base_url}/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}"},
+                json={
+                    "model": mini_model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.1,
+                    "max_tokens": 4000,
+                },
+                timeout=30.0,
+            )
+            if resp.status_code == 200:
+                content = resp.json()["choices"][0]["message"]["content"]
+                # Extract JSON array from response
+                json_match = re.search(r'\[.*\]', content, re.DOTALL)
+                if json_match:
+                    results = json.loads(json_match.group())
+                    for j, (orig_idx, _) in enumerate(batch):
+                        if j < len(results) and isinstance(results[j], str) and len(results[j]) > 20:
+                            enriched[orig_idx] = results[j]
+            else:
+                logger.debug(f"[ETL] Chunk enrichment API returned {resp.status_code}")
+        except Exception as e:
+            logger.debug(f"[ETL] Chunk enrichment batch failed (non-fatal): {e}")
+
+    return enriched
+
+
 async def generate_embeddings(
     text: str,
     doc_id: str,
@@ -92,10 +169,12 @@ async def generate_embeddings(
 
     async with httpx.AsyncClient(timeout=60.0) as shared_client:
 
-        async def _process_batch(batch_texts, chunk_type="child", parent_chunk_ids=None):
+        async def _process_batch(batch_texts, chunk_type="child", parent_chunk_ids=None, enriched_texts=None):
             """Embed a batch of texts and insert into DB."""
             try:
-                payload = {"model": embedding_model, "input": batch_texts, "dimensions": 1536}
+                # Use enriched texts for embedding if available, original for content
+                embed_inputs = enriched_texts if enriched_texts else batch_texts
+                payload = {"model": embedding_model, "input": embed_inputs, "dimensions": 1536}
                 headers = {"Authorization": f"Bearer {active_api_key}"}
                 resp = await shared_client.post(f"{active_base_url}/embeddings", headers=headers, json=payload)
                 if resp.status_code == 200:
@@ -104,16 +183,28 @@ async def generate_embeddings(
                     for i, item in enumerate(embeddings_data):
                         record = {
                             "document_id": doc_id,
-                            "content": batch_texts[i],
+                            "content": batch_texts[i],  # Always store original content
                             "embedding": item["embedding"],
                             "metadata": {"source": filename},
                             "organization_id": organization_id,
                             "chunk_type": chunk_type,
                         }
+                        # P2: Store enriched content if different from original
+                        if enriched_texts and i < len(enriched_texts) and enriched_texts[i] != batch_texts[i]:
+                            record["enriched_content"] = enriched_texts[i]
                         if parent_chunk_ids and i < len(parent_chunk_ids) and parent_chunk_ids[i]:
                             record["parent_chunk_id"] = parent_chunk_ids[i]
                         records.append(record)
-                    res = await supabase.table("document_embeddings").insert(records).execute()
+                    try:
+                        res = await supabase.table("document_embeddings").insert(records).execute()
+                    except Exception as insert_err:
+                        # Fallback: if enriched_content column doesn't exist
+                        if "enriched_content" in str(insert_err):
+                            for r in records:
+                                r.pop("enriched_content", None)
+                            res = await supabase.table("document_embeddings").insert(records).execute()
+                        else:
+                            raise
                     return [r["id"] for r in (res.data or [])] if res.data else True
                 logger.warning(f"[ETL] Embedding API returned {resp.status_code}: {resp.text[:200]}")
                 return False
@@ -141,23 +232,35 @@ async def generate_embeddings(
                 for pt in batch:
                     parent_ids.append((None, pt))
 
-        # Generate child chunks with per-record parent references
+        # Generate child chunks with per-record parent references + P2 enrichment
         current_batch_text = []
         for parent_id, parent_text in parent_ids:
             child_chunks = list(semantic_chunk(parent_text, size=chunk_size, overlap=chunk_overlap))
-            for chunk in child_chunks:
-                current_batch_text.append((chunk, parent_id))
+
+            # P2: Enrich child chunks with parent context before embedding
+            try:
+                enriched_chunks = await _enrich_chunks(
+                    child_chunks, parent_text, active_api_key, active_base_url, shared_client
+                )
+            except Exception:
+                enriched_chunks = child_chunks
+
+            for i, chunk in enumerate(child_chunks):
+                enriched = enriched_chunks[i] if i < len(enriched_chunks) else chunk
+                current_batch_text.append((chunk, parent_id, enriched))
                 if len(current_batch_text) >= batch_size:
                     texts = [c[0] for c in current_batch_text]
                     pids = [c[1] for c in current_batch_text]
-                    if not await _process_batch(texts, chunk_type="child", parent_chunk_ids=pids):
+                    enr_texts = [c[2] for c in current_batch_text]
+                    if not await _process_batch(texts, chunk_type="child", parent_chunk_ids=pids, enriched_texts=enr_texts):
                         all_success = False
                     current_batch_text = []
 
         if current_batch_text:
             texts = [c[0] for c in current_batch_text]
             pids = [c[1] for c in current_batch_text]
-            if not await _process_batch(texts, chunk_type="child", parent_chunk_ids=pids):
+            enr_texts = [c[2] for c in current_batch_text]
+            if not await _process_batch(texts, chunk_type="child", parent_chunk_ids=pids, enriched_texts=enr_texts):
                 all_success = False
 
     return all_success
