@@ -214,13 +214,40 @@ export function EnhancedAIChatPanel({
 
         type ProactiveRow = { id: string; created_at: string; content?: string; metadata?: Record<string, any> };
 
+        // 过滤掉已删除的定时任务产生的消息
+        const taskIds = [...new Set(
+          data
+            .filter((r: ProactiveRow) => r.metadata?.task_id && r.metadata?.source === 'scheduled_task')
+            .map((r: ProactiveRow) => r.metadata!.task_id as string)
+        )];
+
+        let deletedTaskIds = new Set<string>();
+        if (taskIds.length > 0) {
+          try {
+            const { data: existingTasks } = await supabase
+              .from('user_scheduled_tasks')
+              .select('id')
+              .in('id', taskIds);
+            const existingIds = new Set((existingTasks || []).map((t: { id: string }) => t.id));
+            deletedTaskIds = new Set(taskIds.filter(id => !existingIds.has(id)));
+          } catch {
+            // 查询失败时不过滤，降级为原有行为
+          }
+        }
+
+        const validData = deletedTaskIds.size > 0
+          ? data.filter((r: ProactiveRow) => !(r.metadata?.task_id && deletedTaskIds.has(r.metadata.task_id)))
+          : data;
+
+        if (!validData.length) return;
+
         // Update last seen to the newest message fetched
-        const maxTime = Math.max(...data.map((r: ProactiveRow) => new Date(r.created_at).getTime()));
+        const maxTime = Math.max(...validData.map((r: ProactiveRow) => new Date(r.created_at).getTime()));
         localStorage.setItem(`nexus_last_seen_proactive_${user.id}`, new Date(maxTime).toISOString());
 
         // Deduplicate by task_name + content: keep only the latest per unique combination
         const seen = new Set<string>();
-        const deduplicated = data.filter((row: ProactiveRow) => {
+        const deduplicated = validData.filter((row: ProactiveRow) => {
           const taskName = row.metadata?.task_name || '';
           const contentKey = `${taskName}::${row.content?.slice(0, 100) || ''}`;
           if (seen.has(contentKey)) return false;
