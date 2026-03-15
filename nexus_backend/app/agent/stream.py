@@ -288,6 +288,9 @@ async def run_agent_stream(
     # Skip cache when system_confirmed=True — user confirmed a blocked action
     # and we must execute the tool, not return a cached response.
     if cached_response is not None and not system_confirmed:
+        # Cache poisoning defense: sanitize cached content before returning
+        from app.services.content_moderation import sanitize_output
+        cached_response = sanitize_output(cached_response)
         logger.info("[Stream] Semantic cache hit, streaming cached response")
         words = cached_response.split(" ")
         for i, word in enumerate(words):
@@ -518,6 +521,18 @@ async def run_agent_stream(
             logger.warning(
                 f"[Stream] Checkpointer state corruption detected, retrying with fresh thread: {e}"
             )
+            # Log corruption event to Langfuse for observability
+            try:
+                from app.core.config import settings
+                if settings.LANGFUSE_ENABLED:
+                    from langfuse import Langfuse
+                    langfuse = Langfuse()
+                    langfuse.event(
+                        name="checkpointer_corruption",
+                        metadata={"thread_id": scoped_thread_id, "error": error_str[:200]},
+                    )
+            except Exception:
+                pass
             try:
                 fresh_thread = f"{scoped_thread_id}::fresh-{int(time.time())}"
                 accumulated_state = dict(initial_state)
@@ -760,6 +775,20 @@ async def run_agent_stream(
             skip_cache=has_confirmation or bool(accumulated_state.get("error")),
             skip_semantic=_is_simple,
         )
+    )
+
+    # Structured metrics log for observability
+    duration_ms = int((time.time() - start_time) * 1000)
+    completed_tools = accumulated_state.get("completed_tool_calls", [])
+    logger.info(
+        "[AgentMetrics] session=%s complexity=%s tools=%d cache_hit=%s nodes=%d duration=%dms tokens=%d",
+        session_id or "default",
+        str(accumulated_state.get("complexity", "unknown")),
+        len(completed_tools),
+        cached_response is not None,
+        len(all_thinking_steps),
+        duration_ms,
+        total_in + total_out,
     )
 
     # ── 10. Finalize trace ──

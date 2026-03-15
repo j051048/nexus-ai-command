@@ -214,8 +214,9 @@ async def simple_respond_node(state: AgentState) -> dict:
         logger.error(f"[SimpleRespond] LLM call failed: {e}")
         content = ""
 
-    # Apply post-processing pipeline
-    content = sanitize_output(content)
+    # Apply post-processing pipeline (full 5-stage output scan)
+    from app.services.content_moderation import sanitize_output_advanced_safe
+    content = await sanitize_output_advanced_safe(content)
     from app.agent.stream import strip_think_tags
     content = strip_think_tags(content)
     content = _mask_sensitive_fields(content, config.user_role)
@@ -252,8 +253,9 @@ async def respond_node(state: AgentState) -> dict:
                 final_response = extract_clean_content(msg)
                 break
 
-    # Final moderation filter
-    final_response = sanitize_output(final_response)
+    # Final moderation filter (full 5-stage output scan)
+    from app.services.content_moderation import sanitize_output_advanced_safe
+    final_response = await sanitize_output_advanced_safe(final_response)
 
     # Strip reasoning model <think>...</think> tags (belt-and-suspenders)
     from app.agent.stream import strip_think_tags

@@ -328,13 +328,13 @@ class AutoTriggerService:
 
     async def _execute_trigger(self, trigger: AutoTrigger, context: dict = None):
         """Execute a trigger's action."""
-        # Check cooldown
-        if trigger.trigger_id in self._last_triggered:
-            last = self._last_triggered[trigger.trigger_id]
-            elapsed = (datetime.utcnow() - last).total_seconds()
-            if elapsed < trigger.cooldown_seconds:
-                logger.debug(f"Trigger {trigger.trigger_id} on cooldown")
-                return
+        # Check cooldown (Redis-backed for multi-instance safety)
+        from app.services.cache_service import cache_service
+        cooldown_key = f"auto_trigger:cooldown:{trigger.trigger_id}"
+        cached = await cache_service.get(cooldown_key)
+        if cached:
+            logger.debug(f"Trigger {trigger.trigger_id} on cooldown (Redis)")
+            return
 
         # Get handler
         handler = self._action_handlers.get(trigger.action)
@@ -351,7 +351,8 @@ class AutoTriggerService:
             else:
                 result = handler(params)
 
-            # Record trigger
+            # Record trigger — Redis cooldown for multi-instance safety
+            await cache_service.set(cooldown_key, "1", ttl=trigger.cooldown_seconds)
             self._last_triggered[trigger.trigger_id] = datetime.utcnow()
             self._trigger_history.append(
                 TriggerEvent(
@@ -557,15 +558,19 @@ class AutoTriggerService:
         if not (8 <= now.hour <= 21):
             return
 
-        # Global cooldown for smart reminders
-        last = self._last_triggered.get("_smart_reminders")
-        if last and (datetime.utcnow() - last).total_seconds() < self._REMINDER_COOLDOWN:
+        # Global cooldown for smart reminders (Redis-backed)
+        from app.services.cache_service import cache_service
+        sr_cooldown_key = "auto_trigger:cooldown:_smart_reminders"
+        cached = await cache_service.get(sr_cooldown_key)
+        if cached:
             return
 
         try:
             await self._remind_pending_approvals(supabase, now)
             await self._remind_due_tasks(supabase, now)
             await self._remind_stale_leads(supabase, now)
+            # Set Redis cooldown for multi-instance safety
+            await cache_service.set(sr_cooldown_key, "1", ttl=self._REMINDER_COOLDOWN)
             self._last_triggered["_smart_reminders"] = datetime.utcnow()
         except Exception as e:
             logger.error("[SmartReminder] Check failed: %s", e, exc_info=True)
@@ -755,10 +760,11 @@ class AutoTriggerService:
         self, user_id: str, title: str, message: str, reminder_type: str
     ):
         """Push a smart reminder as proactive chat message + notification."""
-        # Per-user per-type cooldown (4 hours)
-        cooldown_key = f"_reminder_{reminder_type}_{user_id}"
-        last = self._last_triggered.get(cooldown_key)
-        if last and (datetime.utcnow() - last).total_seconds() < 14400:
+        # Per-user per-type cooldown (4 hours, Redis-backed for multi-instance safety)
+        from app.services.cache_service import cache_service
+        cooldown_key = f"auto_trigger:cooldown:_reminder_{reminder_type}_{user_id}"
+        cached = await cache_service.get(cooldown_key)
+        if cached:
             return
 
         try:
@@ -773,6 +779,7 @@ class AutoTriggerService:
             )
 
             self._last_triggered[cooldown_key] = datetime.utcnow()
+            await cache_service.set(cooldown_key, "1", ttl=14400)  # 4 hours
             logger.info("[SmartReminder] Sent '%s' to user %s", reminder_type, user_id[:8])
         except Exception as e:
             logger.debug("[SmartReminder] Push failed for %s: %s", user_id[:8], e)

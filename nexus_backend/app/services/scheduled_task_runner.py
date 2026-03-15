@@ -4,16 +4,25 @@ In-process Scheduled Task Runner
 Replaces Celery Beat for user_scheduled_tasks execution.
 Runs as an asyncio background loop inside the FastAPI process,
 checking every 60 seconds for due tasks.
+
+Distributed safety: uses DB-level locking (locked_by/locked_at columns)
+to prevent duplicate execution across multiple FastAPI instances.
 """
 
 import asyncio
 import contextlib
 import logging
+import os
+import socket
+import time
 from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 
 CN_TZ = timezone(timedelta(hours=8))
+
+# Unique instance identifier for distributed locking
+_INSTANCE_ID = f"{socket.gethostname()}-{os.getpid()}"
 
 
 class ScheduledTaskRunner:
@@ -29,7 +38,7 @@ class ScheduledTaskRunner:
             return
         self._running = True
         self._task = asyncio.create_task(self._loop())
-        logger.info("[ScheduledTaskRunner] Started (interval=%ds)", self._check_interval)
+        logger.info("[ScheduledTaskRunner] Started (interval=%ds, instance=%s)", self._check_interval, _INSTANCE_ID)
 
     async def stop(self):
         self._running = False
@@ -63,12 +72,34 @@ class ScheduledTaskRunner:
         now = datetime.now(CN_TZ)
         now_iso = now.isoformat()
 
+        # Step 1: Clean up stale locks (locked > 5 minutes ago = assumed dead)
+        stale_cutoff = (now - timedelta(minutes=5)).isoformat()
+        with contextlib.suppress(Exception):
+            await (
+                supabase.table("user_scheduled_tasks")
+                .update({"locked_by": None, "locked_at": None})
+                .eq("is_active", True)
+                .not_.is_("locked_by", "null")
+                .lt("locked_at", stale_cutoff)
+                .execute()
+            )
+
+        # Step 2: Atomically claim unlocked due tasks by setting locked_by
+        await (
+            supabase.table("user_scheduled_tasks")
+            .update({"locked_by": _INSTANCE_ID, "locked_at": now_iso})
+            .eq("is_active", True)
+            .is_("locked_by", "null")
+            .lte("next_execution_at", now_iso)
+            .or_("consecutive_failures.lt.3,consecutive_failures.is.null")
+            .execute()
+        )
+
+        # Step 3: Fetch only tasks locked by THIS instance
         result = (
             await supabase.table("user_scheduled_tasks")
             .select("*")
-            .eq("is_active", True)
-            .lte("next_execution_at", now_iso)
-            .or_("consecutive_failures.lt.3,consecutive_failures.is.null")
+            .eq("locked_by", _INSTANCE_ID)
             .order("next_execution_at")
             .limit(20)
             .execute()
@@ -78,7 +109,7 @@ class ScheduledTaskRunner:
         if not tasks:
             return
 
-        logger.info("[ScheduledTaskRunner] Found %d due task(s)", len(tasks))
+        logger.info("[ScheduledTaskRunner] Claimed %d due task(s)", len(tasks))
 
         for task in tasks:
             try:
@@ -97,6 +128,8 @@ class ScheduledTaskRunner:
                         "consecutive_failures": failures,
                         "last_error": str(e)[:500],
                         "last_result": f"执行失败: {str(e)[:200]}",
+                        "locked_by": None,
+                        "locked_at": None,
                     }
                     if failures >= 3:
                         fail_update["is_active"] = False
@@ -122,6 +155,7 @@ class ScheduledTaskRunner:
         task_id = task["id"]
         user_id = task["user_id"]
         task_name = task["name"]
+        task_start = time.time()
 
         logger.info("[ScheduledTaskRunner] Executing '%s' for user %s", task_name, user_id)
 
@@ -159,13 +193,15 @@ class ScheduledTaskRunner:
                 None,
             )
 
-        # 5. Update task record
+        # 5. Update task record and release lock
         update_data = {
             "last_executed_at": now.isoformat(),
             "execution_count": (task.get("execution_count", 0) or 0) + 1,
             "last_result": response[:1000],
             "consecutive_failures": 0,
             "last_error": None,
+            "locked_by": None,
+            "locked_at": None,
         }
 
         if task["schedule_type"] == "once":
@@ -175,11 +211,13 @@ class ScheduledTaskRunner:
 
         await supabase.table("user_scheduled_tasks").update(update_data).eq("id", task_id).execute()
 
+        duration_ms = int((time.time() - task_start) * 1000)
         logger.info(
-            "[ScheduledTaskRunner] Completed '%s' for user %s (next: %s)",
+            "[ScheduledTaskRunner] Completed '%s' for user %s (next: %s, %dms)",
             task_name,
             user_id,
             next_exec[:16] if next_exec else "done",
+            duration_ms,
         )
 
 

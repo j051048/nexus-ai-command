@@ -102,6 +102,7 @@ class Settings(BaseSettings):
     LANGFUSE_PUBLIC_KEY: str = Field(default="", description="Langfuse public key")
     LANGFUSE_SECRET_KEY: str = Field(default="", description="Langfuse secret key")
     LANGFUSE_HOST: str = Field(default="https://cloud.langfuse.com", description="Langfuse host URL")
+    LANGFUSE_SAMPLE_RATE: float = Field(default=1.0, description="Langfuse trace sample rate 0.0-1.0. Set <1.0 in production to reduce overhead.")
 
     # Rate limiting
     RATE_LIMIT_PER_MINUTE: int = Field(default=60, description="API rate limit per minute")

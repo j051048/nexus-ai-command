@@ -21,6 +21,10 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="Asia/Shanghai",
     enable_utc=True,
+    # Distributed safety: ack after execution, reject on worker crash
+    task_acks_late=True,
+    worker_reject_on_worker_lost=True,
+    worker_max_tasks_per_child=1000,
 )
 
 # Periodic Tasks (Beat)
@@ -66,10 +70,8 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.scheduler.sync_im_platforms",
         "schedule": 3600.0,  # 每小时
     },
-    "user-scheduled-tasks": {
-        "task": "app.tasks.scheduler.execute_user_scheduled_tasks",
-        "schedule": 60.0,  # 每分钟检查用户自定义定时任务
-    },
+    # user-scheduled-tasks: 已由 ScheduledTaskRunner 进程内循环调度，
+    # 删除 Beat 条目避免双重调度导致任务重复执行
     # ── P0-1: Event Sensors (proactive anomaly detection) ──
     "sensor-sales-anomaly": {
         "task": "app.tasks.event_sensors.sensor_sales_anomaly",

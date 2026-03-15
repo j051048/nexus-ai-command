@@ -535,6 +535,89 @@ async def health_check():
     return response
 
 
+@app.get("/health/deep")
+async def health_deep():
+    """
+    Deep health check — covers Redis, DB, LLM provider, and Celery broker.
+
+    Use for readiness probes and operational dashboards.
+    Not cached (each call does live checks).
+    """
+    import asyncio
+
+    from app.core.config import settings
+    from app.core.database import supabase
+    from app.services.cache_service import cache_service
+
+    checks = {}
+
+    # 1. Database
+    try:
+        if not supabase:
+            checks["database"] = {"status": "not_configured"}
+        else:
+            await asyncio.wait_for(
+                supabase.table("users").select("count", count="exact").limit(1).execute(),
+                timeout=3.0,
+            )
+            checks["database"] = {"status": "connected"}
+    except Exception as e:
+        checks["database"] = {"status": "error", "detail": str(e)[:100]}
+
+    # 2. Redis/Cache
+    try:
+        ok = await asyncio.wait_for(cache_service.ping(), timeout=3.0)
+        checks["redis"] = {"status": "connected" if ok else "error"}
+    except Exception as e:
+        checks["redis"] = {"status": "error", "detail": str(e)[:100]}
+
+    # 3. LLM Provider (check API key is configured)
+    llm_status = "not_configured"
+    if settings.AI_API_KEY:
+        llm_status = "configured"
+        try:
+            import httpx
+            base_url = settings.AI_BASE_URL or "https://api.openai.com/v1"
+            domain = base_url.split("/v1")[0].split("/chat")[0]
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                resp = await client.get(domain)
+                llm_status = f"reachable ({resp.status_code})"
+        except Exception:
+            llm_status = "configured_but_unreachable"
+    checks["llm_provider"] = {"status": llm_status}
+
+    # 4. Celery broker
+    try:
+        import os
+        broker_url = os.getenv("CELERY_BROKER_URL")
+        if broker_url:
+            checks["celery_broker"] = {"status": "configured"}
+        else:
+            checks["celery_broker"] = {"status": "not_configured"}
+    except Exception as e:
+        checks["celery_broker"] = {"status": "error", "detail": str(e)[:100]}
+
+    # Overall status
+    critical = [checks.get("database", {}).get("status"), checks.get("redis", {}).get("status")]
+    if all(s == "connected" for s in critical):
+        overall = "healthy"
+    elif any(s == "error" for s in critical):
+        overall = "unhealthy"
+    else:
+        overall = "degraded"
+
+    status_code = 200 if overall == "healthy" else 503
+    return UTF8JSONResponse(
+        status_code=status_code,
+        content={
+            "status": overall,
+            "version": settings.VERSION,
+            "environment": settings.ENV,
+            "checks": checks,
+        },
+    )
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
     uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=True)

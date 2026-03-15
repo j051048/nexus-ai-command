@@ -517,11 +517,15 @@ def _get_langfuse_callbacks() -> list | None:
     """Return Langfuse CallbackHandler list if enabled, else None.
 
     Shared across all LLM construction sites to ensure complete observability.
+    Respects LANGFUSE_SAMPLE_RATE for production cost control.
     """
     try:
         from app.core.config import settings
 
         if settings.LANGFUSE_ENABLED:
+            import random
+            if random.random() > settings.LANGFUSE_SAMPLE_RATE:
+                return None
             from langfuse.callback import CallbackHandler as LangfuseCallbackHandler
 
             return [

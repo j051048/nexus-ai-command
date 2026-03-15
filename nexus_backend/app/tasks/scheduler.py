@@ -1,7 +1,9 @@
 import asyncio
 import contextlib
 import logging
+import os
 from datetime import UTC, datetime, timedelta
+from functools import wraps
 
 from app.core.celery_app import celery_app
 from app.services.crawler_service import crawler_service
@@ -18,7 +20,36 @@ def _run_async(coro):
         loop.close()
 
 
+def _with_redis_lock(task_name: str, lock_ttl: int = 300):
+    """Decorator: acquire a Redis lock before executing. Skip if already locked."""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            redis_client = None
+            lock_key = f"celery_lock:{task_name}"
+            try:
+                import redis as _redis
+                redis_url = os.getenv("REDIS_URL")
+                if redis_url:
+                    redis_client = _redis.from_url(redis_url)
+                    if not redis_client.set(lock_key, "1", nx=True, ex=lock_ttl):
+                        logger.info("[%s] Another worker is executing, skipped", task_name)
+                        return f"skipped: locked by another worker"
+            except Exception as e:
+                logger.debug("[%s] Redis lock unavailable, proceeding: %s", task_name, e)
+
+            try:
+                return func(*args, **kwargs)
+            finally:
+                if redis_client:
+                    with contextlib.suppress(Exception):
+                        redis_client.delete(lock_key)
+        return wrapper
+    return decorator
+
+
 @celery_app.task
+@_with_redis_lock("crawl_arxiv_leads", lock_ttl=600)
 def crawl_arxiv_leads():
     """
     Scheduled task to run the Crawler Service.
@@ -31,6 +62,7 @@ def crawl_arxiv_leads():
 
 
 @celery_app.task
+@_with_redis_lock("push_daily_briefing", lock_ttl=600)
 def push_daily_briefing():
     """
     3.1 每日晨报推送
@@ -70,6 +102,7 @@ def push_daily_briefing():
 
 
 @celery_app.task
+@_with_redis_lock("mine_sales_leads", lock_ttl=600)
 def mine_sales_leads():
     """
     3.3 商机线索挖掘
@@ -122,6 +155,7 @@ def mine_sales_leads():
 
 
 @celery_app.task
+@_with_redis_lock("monitor_competitors", lock_ttl=600)
 def monitor_competitors():
     """
     3.4 竞品监控
@@ -182,6 +216,7 @@ def monitor_competitors():
 
 
 @celery_app.task
+@_with_redis_lock("cleanup_stale_embeddings", lock_ttl=600)
 def cleanup_stale_embeddings():
     """
     知识库GC: 检测过期文档embedding并清理
@@ -253,6 +288,7 @@ def cleanup_stale_embeddings():
 
 
 @celery_app.task
+@_with_redis_lock("aggregate_ai_quality_metrics", lock_ttl=600)
 def aggregate_ai_quality_metrics():
     """每日聚合AI质量指标"""
 
@@ -285,6 +321,7 @@ def aggregate_ai_quality_metrics():
 
 
 @celery_app.task
+@_with_redis_lock("monitor_tenants", lock_ttl=240)
 def monitor_tenants():
     """
     租户信用监控 + 试用到期检查（原 main.py asyncio 循环）
@@ -307,6 +344,7 @@ def monitor_tenants():
 
 
 @celery_app.task
+@_with_redis_lock("check_approval_timeouts", lock_ttl=240)
 def check_approval_timeouts():
     """
     审批超时升级检查（原 main.py asyncio 循环）
@@ -323,6 +361,7 @@ def check_approval_timeouts():
 
 
 @celery_app.task
+@_with_redis_lock("sync_im_platforms", lock_ttl=600)
 def sync_im_platforms():
     """
     IM平台通讯录+考勤同步（原 main.py asyncio 循环）
@@ -356,6 +395,7 @@ def sync_im_platforms():
 
 
 @celery_app.task
+@_with_redis_lock("check_contract_expiry", lock_ttl=600)
 def check_contract_expiry():
     """
     3.5 合同到期预警
@@ -409,103 +449,9 @@ def check_contract_expiry():
     return _run_async(_run())
 
 
-@celery_app.task
-def execute_user_scheduled_tasks():
-    """
-    用户自定义定时任务执行器
-    每分钟检查是否有到期的用户定时任务，执行并推送结果通知
-    """
-
-    async def _run():
-        from app.agent.proactive_runner import run_proactive_agent
-        from app.core.database import supabase
-        from app.services.notification_service import send_notification
-
-        if not supabase:
-            return "skipped: no db"
-
-        now = datetime.now(UTC)
-        result = (
-            await supabase.table("user_scheduled_tasks")
-            .select("*")
-            .eq("is_active", True)
-            .lte("next_execution_at", now.isoformat())
-            .order("next_execution_at")
-            .limit(20)
-            .execute()
-        )
-
-        tasks = result.data or []
-        if not tasks:
-            return "No user tasks due"
-
-        executed = 0
-        for task in tasks:
-            try:
-                # Run AI agent with the user's prompt
-                agent_result = await run_proactive_agent(
-                    prompt=task["prompt"],
-                    user_id=task["user_id"],
-                    org_id=task.get("organization_id"),
-                    agent_name=f"scheduled_{task['id'][:8]}",
-                    timeout=60.0,
-                )
-
-                response = agent_result.get("response", "任务执行完成，但未生成结果。")
-
-                # Send notification to user
-                if task.get("notify_method") == "notification":
-                    await send_notification(
-                        title=f"定时任务: {task['name']}",
-                        content=response[:500],
-                        target_user_id=task["user_id"],
-                    )
-
-                # Compute next execution time
-                from app.tools.scheduled_task_tools import _compute_next_execution
-
-                next_exec = None
-                if task["schedule_type"] != "once":
-                    next_exec = _compute_next_execution(
-                        task["schedule_type"],
-                        task.get("hour"),
-                        task.get("minute", 0),
-                        task.get("day_of_week"),
-                        task.get("interval_minutes"),
-                        None,
-                    )
-
-                # Update task record
-                update_data = {
-                    "last_executed_at": now.isoformat(),
-                    "execution_count": (task.get("execution_count", 0) or 0) + 1,
-                    "last_result": response[:1000],
-                }
-
-                if task["schedule_type"] == "once":
-                    update_data["is_active"] = False
-                elif next_exec:
-                    update_data["next_execution_at"] = next_exec
-
-                await supabase.table("user_scheduled_tasks").update(update_data).eq("id", task["id"]).execute()
-
-                executed += 1
-                logger.info(f"Executed user scheduled task: {task['name']} for user {task['user_id']}")
-
-            except Exception as e:
-                logger.error(f"User scheduled task failed {task['id']}: {e}")
-                # Record failure but keep task active
-                with contextlib.suppress(Exception):
-                    await (
-                        supabase.table("user_scheduled_tasks")
-                        .update({"last_result": f"执行失败: {str(e)[:200]}"})
-                        .eq("id", task["id"])
-                        .execute()
-                    )
-
-        return f"Executed {executed}/{len(tasks)} user scheduled tasks"
-
-    return _run_async(_run())
+# execute_user_scheduled_tasks: REMOVED — unified into ScheduledTaskRunner
+# (FastAPI in-process async loop) to eliminate double-scheduling.
+# See scheduled_task_runner.py for the single authoritative executor.
 
 
 @celery_app.task
@@ -638,6 +584,7 @@ def decompose_vmd_task(task_id: str):
 
 
 @celery_app.task
+@_with_redis_lock("push_smart_recommendations", lock_ttl=600)
 def push_smart_recommendations():
     """Push smart recommendations to online users via WebSocket every 2 hours."""
 
@@ -704,6 +651,7 @@ def push_smart_recommendations():
 
 
 @celery_app.task
+@_with_redis_lock("cleanup_stale_memories", lock_ttl=600)
 def cleanup_stale_memories():
     """
     P0-2: 记忆衰减清理
@@ -730,6 +678,7 @@ def cleanup_stale_memories():
 
 
 @celery_app.task
+@_with_redis_lock("consolidate_memories", lock_ttl=600)
 def consolidate_memories():
     """
     记忆整合 (Sleep Cycle): 每天凌晨3:30运行。
@@ -781,6 +730,7 @@ def consolidate_memories():
 
 
 @celery_app.task
+@_with_redis_lock("reevaluate_memory_importance", lock_ttl=600)
 def reevaluate_memory_importance():
     """
     记忆重要性重评估: 每周日4:30运行。
@@ -809,6 +759,7 @@ def reevaluate_memory_importance():
 
 
 @celery_app.task
+@_with_redis_lock("measure_action_outcomes", lock_ttl=600)
 def measure_action_outcomes():
     """
     P1-2: 操作效果追踪
