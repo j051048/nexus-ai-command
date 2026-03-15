@@ -59,15 +59,27 @@ class ConnectionManager:
         # Per-user limit check
         user_conns = self._connections.get(user_id, [])
         if len(user_conns) >= MAX_CONNECTIONS_PER_USER:
-            logger.warning(
-                f"[WS] Per-user limit reached ({MAX_CONNECTIONS_PER_USER}) "
-                f"for user {user_id}, closing oldest connection"
-            )
-            # Evict the oldest connection instead of rejecting
-            oldest = user_conns[0]
-            with contextlib.suppress(Exception):
-                await oldest.close(code=4001, reason="Replaced by new connection")
-            self.disconnect(oldest, user_id)
+            # First, try to clean up stale connections (no pong for 2× heartbeat)
+            now = time.time()
+            stale_threshold = HEARTBEAT_INTERVAL * 2
+            stale = [ws for ws in user_conns if now - self._last_pong.get(id(ws), 0) > stale_threshold]
+            for ws in stale:
+                self.disconnect(ws, user_id)
+                with contextlib.suppress(Exception):
+                    await ws.close(code=4003, reason="Stale connection cleaned")
+
+            # Re-check after cleanup
+            user_conns = self._connections.get(user_id, [])
+            if len(user_conns) >= MAX_CONNECTIONS_PER_USER:
+                # All connections are fresh — reject the NEW connection (don't evict old ones).
+                # This breaks the evict→reconnect→evict storm. The client's exponential
+                # backoff will naturally dampen retries since onopen never fires.
+                logger.warning(
+                    f"[WS] Per-user limit reached ({MAX_CONNECTIONS_PER_USER}) "
+                    f"for user {user_id}, rejecting new connection"
+                )
+                await websocket.close(code=1013, reason="Too many connections per user")
+                return False
 
         await websocket.accept()
         if user_id not in self._connections:
