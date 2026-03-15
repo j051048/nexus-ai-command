@@ -697,7 +697,7 @@ class AutoTriggerService:
         try:
             result = await (
                 supabase.table("sales_leads")
-                .select("id, source_paper, professor, status, match_score, owner_id, updated_at")
+                .select("*")
                 .not_.in_("status", ["won", "lost"])
                 .lte("updated_at", threshold)
                 .order("updated_at")
@@ -708,19 +708,21 @@ class AutoTriggerService:
             if not leads:
                 return
 
-            # Group by owner
+            # Group by owner — try common column names for owner field
             user_map: dict[str, list] = {}
             for lead in leads:
-                uid = lead.get("owner_id")
+                uid = lead.get("owner_id") or lead.get("user_id") or lead.get("assigned_to")
                 if uid:
                     user_map.setdefault(uid, []).append(lead)
 
             for user_id, user_leads in user_map.items():
                 lines = []
                 for lead in user_leads[:5]:
-                    name = lead.get("professor") or lead.get("source_paper") or "未命名"
+                    # Graceful label: try multiple possible name columns
+                    name = (lead.get("professor") or lead.get("company_name")
+                            or lead.get("source_paper") or lead.get("name") or "未命名")
                     days = max(1, int((now - datetime.fromisoformat(lead["updated_at"].replace("Z", "+00:00")).astimezone(CN_TZ)).total_seconds() / 86400))
-                    score = lead.get("match_score", 0)
+                    score = lead.get("match_score") or lead.get("score") or 0
                     lines.append(f"  • {name[:20]}（{days}天未跟进，匹配度{score}）")
 
                 count = len(user_leads)
