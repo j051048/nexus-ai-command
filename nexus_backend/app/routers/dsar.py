@@ -9,6 +9,7 @@ Provides:
 """
 
 import logging
+import time
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -17,22 +18,51 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id
-from app.core.errors import api_error, api_success
+from app.core.errors import api_success
 from app.services.dsar_service import DSARService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/dsar", tags=["DSAR (GDPR)"])
 
-# In-memory request tracking (production should use a persistent store)
+# P0 Fix: TTL cache with maxsize to prevent unbounded memory growth
+_DSAR_CACHE_MAXSIZE = 1000
+_DSAR_CACHE_TTL = 86400  # 24 hours
 _dsar_requests: dict[str, dict[str, Any]] = {}
+
+
+def _dsar_cache_cleanup() -> None:
+    """Evict expired entries from the DSAR request cache."""
+    if len(_dsar_requests) <= _DSAR_CACHE_MAXSIZE:
+        return
+    now = time.time()
+    expired_keys = [
+        k for k, v in _dsar_requests.items()
+        if now - v.get("_ts", 0) > _DSAR_CACHE_TTL
+    ]
+    for k in expired_keys:
+        del _dsar_requests[k]
+    # If still over limit after TTL eviction, remove oldest entries
+    if len(_dsar_requests) > _DSAR_CACHE_MAXSIZE:
+        sorted_keys = sorted(_dsar_requests, key=lambda k: _dsar_requests[k].get("_ts", 0))
+        for k in sorted_keys[: len(_dsar_requests) - _DSAR_CACHE_MAXSIZE]:
+            del _dsar_requests[k]
+
+
+def _dsar_cache_set(request_id: str, data: dict[str, Any]) -> None:
+    """Insert into the DSAR cache with automatic cleanup."""
+    _dsar_cache_cleanup()
+    data["_ts"] = time.time()
+    _dsar_requests[request_id] = data
 
 
 def _get_dsar_service() -> DSARService:
     """Factory for DSARService — injects Supabase client."""
-    from app.core.supabase_client import get_supabase_client
+    from app.core.database import supabase
 
-    return DSARService(get_supabase_client())
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Database not configured")
+    return DSARService(supabase)
 
 
 # ── Request/Response Models ──
@@ -70,7 +100,7 @@ async def initiate_export(
     Collects all user data across system tables and returns a downloadable JSON.
     """
     request_id = str(uuid.uuid4())
-    _dsar_requests[request_id] = {
+    _dsar_cache_set(request_id, {
         "request_id": request_id,
         "type": "export",
         "user_id": user_id,
@@ -79,7 +109,7 @@ async def initiate_export(
         "created_at": datetime.now(UTC).isoformat(),
         "completed_at": None,
         "result": None,
-    }
+    })
 
     try:
         service = _get_dsar_service()
@@ -147,7 +177,7 @@ async def initiate_delete(
         )
 
     request_id = str(uuid.uuid4())
-    _dsar_requests[request_id] = {
+    _dsar_cache_set(request_id, {
         "request_id": request_id,
         "type": "delete",
         "user_id": user_id,
@@ -156,7 +186,7 @@ async def initiate_delete(
         "created_at": datetime.now(UTC).isoformat(),
         "completed_at": None,
         "result": None,
-    }
+    })
 
     try:
         service = _get_dsar_service()

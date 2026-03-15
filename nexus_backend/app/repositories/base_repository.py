@@ -21,8 +21,6 @@ Usage:
     await project_repo.delete("proj-123", tenant_id="org-1")
 """
 
-from __future__ import annotations
-
 import logging
 from typing import Any
 

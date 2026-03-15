@@ -5,6 +5,7 @@
 备份数据以 JSON 格式存储在 backup_records 表中。
 """
 
+import asyncio
 import json
 import logging
 from datetime import UTC, datetime, timedelta
@@ -56,15 +57,22 @@ class BackupService:
         total_size = 0
 
         try:
-            for table_name in tables_to_backup:
+            async def _query_table(table_name: str):
                 try:
                     result = await db.table(table_name).select("*").eq("organization_id", org_id).execute()
-                    table_data = result.data or []
-                    backup_data[table_name] = table_data
-                    total_size += len(json.dumps(table_data, default=str).encode("utf-8"))
+                    return table_name, result.data or [], None
                 except Exception as e:
-                    logger.warning(f"备份表 {table_name} 失败: {e}")
-                    backup_data[table_name] = {"error": str(e), "rows": []}
+                    return table_name, [], e
+
+            results = await asyncio.gather(*[_query_table(t) for t in tables_to_backup])
+
+            for table_name, table_data, error in results:
+                if error:
+                    logger.warning(f"备份表 {table_name} 失败: {error}")
+                    backup_data[table_name] = {"error": str(error), "rows": []}
+                else:
+                    backup_data[table_name] = table_data
+                total_size += len(json.dumps(backup_data[table_name], default=str).encode("utf-8"))
 
             # 设置过期时间（默认30天）
             expires_at = (datetime.now(UTC) + timedelta(days=30)).isoformat()

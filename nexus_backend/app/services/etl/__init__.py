@@ -17,7 +17,6 @@ import re
 from typing import Any
 
 import httpx
-from pypdf import PdfReader
 
 from app.core.config import settings
 from app.core.database import supabase

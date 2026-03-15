@@ -12,7 +12,6 @@ from enum import StrEnum
 from typing import Any
 
 from fastapi import HTTPException
-from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -211,20 +210,6 @@ ERROR_MESSAGES: dict[ErrorCode, str] = {
     ErrorCode.INTEGRATION_SYNC_FAILED: "数据同步失败",
 }
 
-
-class APIError(BaseModel):
-    """Standard API error response format"""
-
-    success: bool = False
-    error: dict[str, Any]
-
-
-class APISuccess(BaseModel):
-    """Standard API success response format"""
-
-    success: bool = True
-    data: Any
-    meta: dict[str, Any] | None = None
 
 
 def api_error(

@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from functools import wraps
 from typing import Any
 
+import numpy as np
+
 logger = logging.getLogger(__name__)
 
 # Try to import redis, fall back to in-memory if unavailable
@@ -176,8 +178,15 @@ class CacheService:
         try:
             keys = await self._client.keys(pattern)
             if keys:
-                for key in keys:
-                    await self._client.delete(key)
+                if self._use_redis:
+                    # Use pipeline for batch deletion
+                    pipe = self._client.pipeline()
+                    for key in keys:
+                        pipe.delete(key)
+                    await pipe.execute()
+                else:
+                    for key in keys:
+                        await self._client.delete(key)
                 return len(keys)
         except Exception as e:
             logger.debug(f"Cache delete_pattern error: {e}")
@@ -323,18 +332,16 @@ class SemanticCache:
             return None
 
     def _cosine_similarity(self, a: list[float], b: list[float]) -> float:
-        """Calculate cosine similarity between two vectors."""
+        """Calculate cosine similarity between two vectors using numpy."""
         if len(a) != len(b):
             return 0.0
 
-        dot_product = sum(x * y for x, y in zip(a, b, strict=False))
-        norm_a = sum(x * x for x in a) ** 0.5
-        norm_b = sum(x * x for x in b) ** 0.5
+        a_arr = np.array(a, dtype=np.float32)
+        b_arr = np.array(b, dtype=np.float32)
+        dot = np.dot(a_arr, b_arr)
+        norm = np.linalg.norm(a_arr) * np.linalg.norm(b_arr)
 
-        if norm_a == 0 or norm_b == 0:
-            return 0.0
-
-        return dot_product / (norm_a * norm_b)
+        return float(dot / norm) if norm > 0 else 0.0
 
     async def get(self, query: str, context_hash: str = None) -> tuple[str | None, dict[str, Any]]:
         """

@@ -4,19 +4,16 @@ Phase 4 战略分析工具集
 4.2 复杂战略指令推演大脑（What-if 沙盘模拟）
 """
 
+import logging
 from datetime import datetime, timedelta
 from typing import Any
 
-from app.core.database import supabase
 from app.services.ai_service import AIService
 
 from .base_tool import BaseTool
+from ._shared import _get_client
 
-
-def _get_client(config: dict = None):
-    """Get scoped DB client if user token available, else fallback to service client."""
-    token = config.get("token") if config else None
-    return supabase.get_scoped_client(token) if token and supabase else supabase
+logger = logging.getLogger(__name__)
 
 
 class DataAttributionTool(BaseTool):
@@ -110,8 +107,8 @@ class DataAttributionTool(BaseTool):
                     s = lead.get("status", "unknown")
                     status_counts[s] = status_counts.get(s, 0) + 1
                 data_context.append(f"商机分布: {status_counts}")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("商机数据查询失败: %s", e)
 
         # HR 数据
         try:
@@ -130,8 +127,8 @@ class DataAttributionTool(BaseTool):
             )
             anomaly_count = att_res.count or 0
             data_context.append(f"近7天考勤异常: {anomaly_count}次")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("HR数据查询失败: %s", e)
 
         # 合同数据
         try:
@@ -140,8 +137,8 @@ class DataAttributionTool(BaseTool):
                 active = [c for c in contracts_res.data if c.get("status") == "active"]
                 total_amount = sum(float(c.get("amount", 0)) for c in active)
                 data_context.append(f"活跃合同: {len(active)}份, 总金额 ¥{total_amount:,.0f}")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("合同数据查询失败: %s", e)
 
         # 请求审批数据
         try:
@@ -157,8 +154,8 @@ class DataAttributionTool(BaseTool):
                     float(a.get("amount", 0)) for a in approvals_res.data if a.get("status") == "approved"
                 )
                 data_context.append(f"审批: 待处理{pending}笔, 本期已批准支出 ¥{total_spend:,.0f}")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("审批数据查询失败: %s", e)
 
         if not data_context:
             return "📊 暂无足够数据进行归因分析。请确保相关业务数据已录入系统。"
@@ -249,8 +246,8 @@ class StrategySimulationTool(BaseTool):
                     avg_leads = sum(int(m.get("leads_count", 0)) for m in recent) / max(len(recent), 1)
                     avg_conv = sum(float(m.get("win_rate", 0)) for m in recent) / max(len(recent), 1)
                     return f"近期营收合计: ¥{total_revenue:,.0f}, 日均线索: {avg_leads:.1f}, 平均转化率: {avg_conv:.1%}"
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("销售指标基线查询失败: %s", e)
             return None
 
         async def _fetch_headcount():
@@ -262,7 +259,8 @@ class StrategySimulationTool(BaseTool):
                     r = u.get("role", "employee")
                     roles[r] = roles.get(r, 0) + 1
                 return f"团队规模: {headcount}人, 结构: {roles}"
-            except Exception:
+            except Exception as e:
+                logger.debug("团队规模查询失败: %s", e)
                 return None
 
         async def _fetch_salary():
@@ -277,7 +275,8 @@ class StrategySimulationTool(BaseTool):
                 if res.data:
                     avg_salary = sum(float(s.get("gross_salary", 0)) for s in res.data) / max(len(res.data), 1)
                     return f"人均月薪: ¥{avg_salary:,.0f}"
-            except Exception:
+            except Exception as e:
+                logger.debug("薪资数据查询失败: %s", e)
                 return None
 
         async def _fetch_contracts():
@@ -287,7 +286,8 @@ class StrategySimulationTool(BaseTool):
                     active = [c for c in res.data if c.get("status") == "active"]
                     total = sum(float(c.get("amount", 0)) for c in active)
                     return f"活跃合同: {len(active)}份, 合同总额: ¥{total:,.0f}"
-            except Exception:
+            except Exception as e:
+                logger.debug("合同基线查询失败: %s", e)
                 return None
 
         async def _fetch_leads():
@@ -299,7 +299,8 @@ class StrategySimulationTool(BaseTool):
                         s = lead.get("status", "unknown")
                         pipeline[s] = pipeline.get(s, 0) + float(lead.get("estimated_value", 0))
                     return f"销售漏斗: {pipeline}"
-            except Exception:
+            except Exception as e:
+                logger.debug("销售漏斗查询失败: %s", e)
                 return None
 
         async def _fetch_budget():
@@ -311,7 +312,8 @@ class StrategySimulationTool(BaseTool):
                     total_budget = sum(float(b.get("total_amount", 0)) for b in res.data)
                     total_used = sum(float(b.get("used_amount", 0)) for b in res.data)
                     return f"预算总额: ¥{total_budget:,.0f}, 已用: ¥{total_used:,.0f}"
-            except Exception:
+            except Exception as e:
+                logger.debug("预算数据查询失败: %s", e)
                 return None
 
         results = await asyncio.gather(

@@ -4,34 +4,18 @@
 """
 
 import logging
-import uuid as _uuid
 from typing import Any
 
-from app.core.database import supabase
 from app.services.inventory_service import inventory_service
 
 from .base_tool import BaseTool
+from ._shared import _get_client, _validate_uuid
 
 logger = logging.getLogger(__name__)
 
 
-def _get_client(config: dict = None):
-    """Get scoped DB client if user token available, else fallback to service client."""
-    token = config.get("token") if config else None
-    return supabase.get_scoped_client(token) if token and supabase else supabase
-
-
 def _get_org_id(config: dict = None) -> str | None:
     return config.get("org_id") if config else None
-
-
-def _validate_uuid(value: str, field_name: str = "ID") -> str | None:
-    """验证UUID格式"""
-    try:
-        _uuid.UUID(value)
-        return None
-    except (ValueError, TypeError, AttributeError):
-        return f"{field_name} '{value}' 不是有效的UUID格式。"
 
 
 # ============================================================================

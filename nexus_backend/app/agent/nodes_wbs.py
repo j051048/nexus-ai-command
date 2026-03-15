@@ -6,8 +6,6 @@ It uses the LLM to produce a WBS (Work Breakdown Structure) in JSON format, wher
 each sub-task is assigned to a specific agent role.
 """
 
-from __future__ import annotations
-
 import json
 import logging
 import time

@@ -11,17 +11,10 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from app.core.database import supabase
-
 from .base_tool import BaseTool
+from ._shared import _get_client
 
 logger = logging.getLogger(__name__)
-
-
-def _get_client(config: dict = None):
-    """Get scoped DB client if user token available, else fallback to service client."""
-    token = config.get("token") if config else None
-    return supabase.get_scoped_client(token) if token and supabase else supabase
 
 
 # AI Assistant 固定 UUID

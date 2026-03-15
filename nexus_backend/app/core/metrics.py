@@ -14,9 +14,7 @@ Exposed metrics:
 """
 
 import logging
-import time
 from collections import defaultdict
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -102,31 +100,6 @@ def observe_http_request(method: str, path: str, status: int, duration_s: float)
         _mem_counters[f"http_requests_total|{method}|{normalized}|{status}"] += 1
         _hist_add(f"http_request_duration_seconds|{method}|{normalized}", duration_s)
 
-
-def observe_llm_request(model: str, status: str, duration_s: float) -> None:
-    """Record an LLM API request metric."""
-    if _prom_available:
-        LLM_REQUESTS_TOTAL.labels(model=model, status=status).inc()
-        LLM_REQUEST_DURATION.labels(model=model).observe(duration_s)
-    else:
-        _mem_counters[f"llm_requests_total|{model}|{status}"] += 1
-        _hist_add(f"llm_request_duration_seconds|{model}", duration_s)
-
-
-def set_websocket_connections(count: int) -> None:
-    """Set the current number of active WebSocket connections."""
-    if _prom_available:
-        ACTIVE_WS_CONNECTIONS.set(count)
-    else:
-        _mem_gauges["active_websocket_connections"] = count
-
-
-def observe_agent_execution(complexity: str, status: str) -> None:
-    """Record an agent execution event."""
-    if _prom_available:
-        AGENT_EXECUTIONS_TOTAL.labels(complexity=complexity, status=status).inc()
-    else:
-        _mem_counters[f"agent_executions_total|{complexity}|{status}"] += 1
 
 
 # ---------------------------------------------------------------------------

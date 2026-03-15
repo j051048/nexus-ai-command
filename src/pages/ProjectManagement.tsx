@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Bot, Plus, Briefcase, Calendar, ChevronRight, Loader2, Trash2 } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { supabase } from "@/integrations/supabase/client";
+import { getApiBaseUrl } from '@/lib/apiConfig';
 import { toast } from "sonner";
 import { useAuth } from "@/components/auth/AuthContext";
 import { useDeleteProject } from "@/hooks/useProjects";
@@ -94,16 +95,7 @@ export function ProjectManagement() {
         setIsAiCreating(true);
 
         try {
-            // Robust URL Discovery
-            let url = '';
-            const configuredUrl = import.meta.env.VITE_API_BASE_URL;
-
-            if (configuredUrl) {
-                url = configuredUrl.startsWith('http') ? configuredUrl : `https://${configuredUrl}`;
-            } else {
-                url = window.location.hostname === 'localhost' ? 'http://localhost:8000' : window.location.origin;
-            }
-            const endpoint = `${url.replace(/\/$/, '')}/api/chat`;
+            const endpoint = `${getApiBaseUrl()}/api/chat`;
 
             // Get real session token
             const { data: { session } } = await supabase.auth.getSession();

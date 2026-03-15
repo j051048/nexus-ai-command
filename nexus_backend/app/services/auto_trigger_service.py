@@ -607,8 +607,8 @@ class AutoTriggerService:
                 # Sync memory cooldown from Redis
                 self._set_memory_cooldown(sr_cooldown_key, self._REMINDER_COOLDOWN)
                 return
-        except Exception:
-            pass  # Redis unavailable, proceed with memory-only cooldown
+        except Exception as e:
+            logger.debug("Redis cooldown check unavailable: %s", e)  # proceed with memory-only cooldown
 
         try:
             await self._remind_pending_approvals(supabase, now)
@@ -619,8 +619,8 @@ class AutoTriggerService:
             self._set_memory_cooldown(sr_cooldown_key, self._REMINDER_COOLDOWN)
             try:
                 await cache_service.set(sr_cooldown_key, "1", ttl=self._REMINDER_COOLDOWN)
-            except Exception:
-                pass  # Redis unavailable, memory cooldown is our safety net
+            except Exception as e:
+                logger.debug("Redis cooldown set unavailable: %s", e)  # memory cooldown is our safety net
             self._last_triggered["_smart_reminders"] = datetime.utcnow()
         except Exception as e:
             logger.error("[SmartReminder] Check failed: %s", e, exc_info=True)
@@ -828,8 +828,8 @@ class AutoTriggerService:
             if cached:
                 self._set_memory_cooldown(cooldown_key, 14400)
                 return
-        except Exception:
-            pass  # Redis unavailable, memory cooldown is our safety net
+        except Exception as e:
+            logger.debug("Redis cooldown check unavailable: %s", e)  # memory cooldown is our safety net
 
         try:
             from app.services.agent_result_pusher import push_agent_result
@@ -847,8 +847,8 @@ class AutoTriggerService:
             self._last_triggered[cooldown_key] = datetime.utcnow()
             try:
                 await cache_service.set(cooldown_key, "1", ttl=14400)  # 4 hours
-            except Exception:
-                pass  # Redis unavailable
+            except Exception as e:
+                logger.debug("Redis cooldown set unavailable: %s", e)
             logger.info("[SmartReminder] Sent '%s' to user %s", reminder_type, user_id[:8])
         except Exception as e:
             logger.debug("[SmartReminder] Push failed for %s: %s", user_id[:8], e)

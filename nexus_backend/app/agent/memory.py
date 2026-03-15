@@ -905,32 +905,6 @@ async def persist_result(
             logger.debug(f"[Memory] Episode save skipped: {e}")
 
 
-async def load_session_history(
-    user_id: str,
-    session_id: str,
-    limit: int = SHORT_TERM_WINDOW,
-    db_client: Any | None = None,
-) -> list[dict[str, str]]:
-    """
-    Load recent chat history from the database for a session.
-    Returns list of {"role": ..., "content": ...} dicts.
-    """
-    client = db_client or supabase
-    try:
-        response = (
-            await client.table("chat_messages")
-            .select("role, content")
-            .eq("user_id", user_id)
-            .eq("session_id", session_id)
-            .order("created_at", desc=False)
-            .limit(limit)
-            .execute()
-        )
-        return [{"role": msg["role"], "content": msg["content"]} for msg in (response.data or [])]
-    except Exception as e:
-        logger.warning(f"[Memory] Failed to load session history: {e}", exc_info=True)
-        return []
-
 
 # ─── Internal Helpers ────────────────────────────────────────────────────────
 

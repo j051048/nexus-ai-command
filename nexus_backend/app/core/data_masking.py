@@ -174,6 +174,14 @@ class DataMaskingMiddleware(BaseHTTPMiddleware):
         "/favicon.ico",
     }
 
+    # 流式/SSE 路径前缀 — 不能缓冲整个 body
+    STREAMING_PATH_PREFIXES: tuple[str, ...] = (
+        "/api/chat",
+        "/api/ws",
+        "/api/agent",
+        "/api/sse",
+    )
+
     # 管理员路径前缀（可选跳过）
     ADMIN_PATH_PREFIX = "/api/super-admin"
 
@@ -192,45 +200,41 @@ class DataMaskingMiddleware(BaseHTTPMiddleware):
         if path.startswith(self.ADMIN_PATH_PREFIX):
             return response
 
-        # 对于 StreamingResponse，需要读取并修改
-        if isinstance(response, StreamingResponse):
-            try:
-                body_chunks = []
-                async for chunk in response.body_iterator:
-                    if isinstance(chunk, bytes):
-                        body_chunks.append(chunk)
-                    else:
-                        body_chunks.append(chunk.encode("utf-8"))
-                body = b"".join(body_chunks)
+        # P0 Fix: 跳过流式/SSE 路径，避免破坏 SSE 流 + 内存激增
+        if path.startswith(self.STREAMING_PATH_PREFIXES):
+            return response
 
-                data = json.loads(body)
-                masked_data = mask_dict_recursive(data)
-                masked_body = json.dumps(masked_data, ensure_ascii=False).encode("utf-8")
+        # 对非流式 JSON 响应进行脱敏处理
+        # 注意: BaseHTTPMiddleware 的 call_next 总是返回 StreamingResponse，
+        # 所以需要读取 body 再重建 Response
+        try:
+            body_chunks = []
+            async for chunk in response.body_iterator:
+                if isinstance(chunk, bytes):
+                    body_chunks.append(chunk)
+                else:
+                    body_chunks.append(chunk.encode("utf-8"))
+            body = b"".join(body_chunks)
 
-                # P0 Fix: 移除原始 Content-Length，让 Starlette 根据新 body 重新计算，
-                # 否则脱敏改变 body 长度后 h11 会报 "Too much data for declared Content-Length"
-                headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
-                return Response(
-                    content=masked_body,
-                    status_code=response.status_code,
-                    headers=headers,
-                    media_type=response.media_type,
-                )
-            except (json.JSONDecodeError, UnicodeDecodeError):
-                # 解析失败，返回原响应（body 未修改，保留原始 headers）
-                return Response(
-                    content=body,
-                    status_code=response.status_code,
-                    headers=dict(response.headers),
-                    media_type=response.media_type,
-                )
-            except Exception as e:
-                logger.debug(f"[DataMasking] 脱敏处理异常: {e}")
-                return Response(
-                    content=body,
-                    status_code=response.status_code,
-                    headers=dict(response.headers),
-                    media_type=response.media_type,
-                )
+            data = json.loads(body)
+            masked_data = mask_dict_recursive(data)
+            masked_body = json.dumps(masked_data, ensure_ascii=False).encode("utf-8")
 
-        return response
+            # 移除原始 Content-Length，让 Starlette 根据新 body 重新计算
+            headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
+            return Response(
+                content=masked_body,
+                status_code=response.status_code,
+                headers=headers,
+                media_type=response.media_type,
+            )
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return Response(
+                content=body,
+                status_code=response.status_code,
+                headers=dict(response.headers),
+                media_type=response.media_type,
+            )
+        except Exception as e:
+            logger.debug(f"[DataMasking] 脱敏处理异常: {e}")
+            return response

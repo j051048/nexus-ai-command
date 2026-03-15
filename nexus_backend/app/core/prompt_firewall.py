@@ -12,8 +12,6 @@ Layers:
   4. Context overflow detection (abnormally long input to dilute system prompt)
 """
 
-from __future__ import annotations
-
 import base64
 import logging
 import re

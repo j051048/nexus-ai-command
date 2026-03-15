@@ -5,14 +5,11 @@ Provides standardized pagination for list endpoints.
 """
 
 import logging
-from dataclasses import dataclass
-from typing import Any, Generic, TypeVar
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
 logger = logging.getLogger(__name__)
-
-T = TypeVar("T")
 
 
 class PaginationParams(BaseModel):
@@ -68,52 +65,6 @@ class SearchParams(BaseModel):
     def clean_query(self) -> str:
         return self.q.strip() if self.q else ""
 
-
-@dataclass
-class PaginatedResult(Generic[T]):
-    """
-    Paginated result container.
-
-    Usage:
-        result = PaginatedResult(
-            items=users,
-            total=100,
-            page=1,
-            page_size=20
-        )
-    """
-
-    items: list[T]
-    total: int
-    page: int
-    page_size: int
-
-    @property
-    def total_pages(self) -> int:
-        return (self.total + self.page_size - 1) // self.page_size if self.page_size > 0 else 0
-
-    @property
-    def has_next(self) -> bool:
-        return self.page < self.total_pages
-
-    @property
-    def has_prev(self) -> bool:
-        return self.page > 1
-
-    def to_response(self) -> dict[str, Any]:
-        """Convert to standard API response format"""
-        return {
-            "success": True,
-            "data": self.items,
-            "meta": {
-                "page": self.page,
-                "page_size": self.page_size,
-                "total": self.total,
-                "total_pages": self.total_pages,
-                "has_next": self.has_next,
-                "has_prev": self.has_prev,
-            },
-        }
 
 
 class DateRangeParams(BaseModel):

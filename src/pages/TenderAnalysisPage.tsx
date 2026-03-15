@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ListChecks, Bot, Loader2, Upload, AlertCircle, CheckCircle2, FileText, ArrowRight, ChevronUp, ChevronDown, Clock, Eye, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getApiBaseUrl } from '@/lib/apiConfig';
 import { toast } from "sonner";
 import { useUser } from "@/contexts/UserContext";
 import { AICopilotInsight } from '@/components/common/AICopilotInsight';
@@ -178,15 +179,7 @@ export function TenderAnalysisPage() {
                 formData.append('userId', user.id);
             }
 
-            // Robust URL Discovery
-            let url = '';
-            const configuredUrl = import.meta.env.VITE_API_BASE_URL;
-            if (configuredUrl) {
-                url = configuredUrl.startsWith('http') ? configuredUrl : `https://${configuredUrl}`;
-            } else {
-                url = window.location.hostname === 'localhost' ? 'http://localhost:8000' : window.location.origin;
-            }
-            const endpoint = `${url.replace(/\/$/, '')}/api/documents/upload`;
+            const endpoint = `${getApiBaseUrl()}/api/documents/upload`;
 
             const { data: { session } } = await supabase.auth.getSession();
             const token = session?.access_token;

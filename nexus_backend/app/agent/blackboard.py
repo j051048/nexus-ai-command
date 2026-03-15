@@ -6,8 +6,6 @@ thread-safe, structured result store that preserves tool call data and avoids
 key collisions between sub-tasks with the same agent_code.
 """
 
-from __future__ import annotations
-
 import asyncio
 from dataclasses import dataclass, field
 

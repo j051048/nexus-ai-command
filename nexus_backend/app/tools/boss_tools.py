@@ -638,8 +638,8 @@ class DailyBriefingTool(BaseTool):
                 days_stale = (now - updated).days
                 display_name = cust.get("company") or cust.get("name", "未知客户")
                 risk_alerts.append(f"- {display_name}：{days_stale}天未推进，建议跟进")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("客户跟进风险查询失败: %s", e)
 
         try:
             expiring_res = (
@@ -653,8 +653,8 @@ class DailyBriefingTool(BaseTool):
             for c in expiring_res.data or []:
                 days_left = (datetime.strptime(c["end_date"][:10], "%Y-%m-%d") - now).days
                 risk_alerts.append(f"- {c['title']}：合同即将到期（剩{days_left}天）")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("合同到期风险查询失败: %s", e)
 
         if risk_alerts:
             response += "\n**⚠️ 风险预警**\n"
@@ -823,18 +823,18 @@ class TeamInsightTool(BaseTool):
             user_dept = dept_res.data.get("department") if dept_res.data else None
             if user_dept:
                 # Filter team to same department
-                team_query = client.table("users").select("*").eq("department", user_dept)
+                team_query = client.table("users").select("id, name, role, department, position, status, score").eq("department", user_dept)
                 if org_id:
                     team_query = team_query.eq("organization_id", org_id)
                 team_res = await team_query.execute()
             else:
-                team_query = client.table("users").select("*")
+                team_query = client.table("users").select("id, name, role, department, position, status, score")
                 if org_id:
                     team_query = team_query.eq("organization_id", org_id)
                 team_res = await team_query.execute()
         else:
             # Boss/founder sees all within their organization
-            team_query = client.table("users").select("*")
+            team_query = client.table("users").select("id, name, role, department, position, status, score")
             if org_id:
                 team_query = team_query.eq("organization_id", org_id)
             team_res = await team_query.execute()
@@ -1138,8 +1138,8 @@ class CustomerProfileTool(BaseTool):
                     leads_summary.append(
                         f"  - [{t}] {act.get('content', '')[:80]} ({str(act.get('created_at', ''))[:10]})"
                     )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("客户跟进记录查询失败: %s", e)
 
         prompt = (
             "客户数据:\n"

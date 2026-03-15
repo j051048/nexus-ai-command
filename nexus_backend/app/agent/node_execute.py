@@ -38,15 +38,16 @@ _query_result_cache: dict[str, tuple[str, float]] = {}
 _QUERY_CACHE_MAX = 200
 
 
-def _query_cache_key(tool_name: str, tool_args: dict) -> str:
-    """Generate a stable cache key from tool name + sorted args."""
+def _query_cache_key(tool_name: str, tool_args: dict, org_id: str | None = None) -> str:
+    """Generate a stable cache key from tool name + sorted args + org_id for tenant isolation."""
     args_str = _json.dumps(tool_args, sort_keys=True, ensure_ascii=False) if tool_args else ""
-    return f"{tool_name}:{hashlib.md5(args_str.encode()).hexdigest()}"
+    prefix = f"{org_id}:" if org_id else ""
+    return f"{prefix}{tool_name}:{hashlib.md5(args_str.encode()).hexdigest()}"
 
 
-def _get_cached_result(tool_name: str, tool_args: dict) -> str | None:
+def _get_cached_result(tool_name: str, tool_args: dict, org_id: str | None = None) -> str | None:
     """Return cached result if available and not expired."""
-    key = _query_cache_key(tool_name, tool_args)
+    key = _query_cache_key(tool_name, tool_args, org_id)
     entry = _query_result_cache.get(key)
     if entry is None:
         return None
@@ -57,14 +58,14 @@ def _get_cached_result(tool_name: str, tool_args: dict) -> str | None:
     return result
 
 
-def _set_cached_result(tool_name: str, tool_args: dict, result: str) -> None:
+def _set_cached_result(tool_name: str, tool_args: dict, result: str, org_id: str | None = None) -> None:
     """Cache a query tool result."""
     if len(_query_result_cache) >= _QUERY_CACHE_MAX:
         # Evict oldest entries
         sorted_keys = sorted(_query_result_cache, key=lambda k: _query_result_cache[k][1])
         for k in sorted_keys[: _QUERY_CACHE_MAX // 2]:
             del _query_result_cache[k]
-    key = _query_cache_key(tool_name, tool_args)
+    key = _query_cache_key(tool_name, tool_args, org_id)
     _query_result_cache[key] = (result, time.time())
 
 
@@ -139,7 +140,7 @@ async def _execute_single_tool(
 
     # 2a. Query Result Cache — skip execution for read-only tools with same args
     if not tool.is_irreversible and record.tool_name not in LONG_RUNNING_TOOLS:
-        cached = _get_cached_result(record.tool_name, record.tool_args)
+        cached = _get_cached_result(record.tool_name, record.tool_args, config.org_id)
         if cached is not None:
             record.status = "success"
             record.result = cached
@@ -217,7 +218,7 @@ async def _execute_single_tool(
                 }
             # Cache query tool results for session-level dedup
             if not tool.is_irreversible and record.result:
-                _set_cached_result(record.tool_name, record.tool_args, record.result)
+                _set_cached_result(record.tool_name, record.tool_args, record.result, config.org_id)
             return record
         except TimeoutError:
             logger.warning(f"Tool {record.tool_name} timed out after {timeout}s (attempt {attempt + 1})")

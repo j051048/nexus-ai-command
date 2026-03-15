@@ -15,7 +15,6 @@ Usage:
 
 import asyncio
 import logging
-import time
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 

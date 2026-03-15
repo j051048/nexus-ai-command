@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
-import { MobileSidebar } from './MobileSidebar';
 import { ActiveCardStream } from '../cards/ActiveCardStream';
 import { AIChatPanel } from '../ai/AIChatPanel';
 import { CopilotSidebar } from '../ai/CopilotSidebar';
@@ -142,7 +141,10 @@ export function MainLayout({ children }: MainLayoutProps) {
       {/* Mobile Header */}
       {isMobile && (
         <div className="fixed top-0 left-0 right-0 h-14 bg-card/95 backdrop-blur-sm border-b border-border z-40 flex items-center justify-between px-4">
-          <MobileSidebar />
+          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={toggleSidebar}>
+            <Menu className="w-5 h-5" />
+            <span className="sr-only">菜单</span>
+          </Button>
           <span className="font-semibold text-foreground">{orgName}</span>
           <div className="flex items-center gap-2">
             <Button

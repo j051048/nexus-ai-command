@@ -4,18 +4,14 @@ HR 人力资源工具集
 """
 
 import contextlib
+import logging
 from datetime import datetime
 from typing import Any
 
-from app.core.database import supabase
-
 from .base_tool import BaseTool
+from ._shared import _get_client
 
-
-def _get_client(config: dict = None):
-    """Get scoped DB client if user token available, else fallback to service client."""
-    token = config.get("token") if config else None
-    return supabase.get_scoped_client(token) if token and supabase else supabase
+logger = logging.getLogger(__name__)
 
 
 class AttendanceQueryTool(BaseTool):
@@ -149,8 +145,8 @@ class EmployeeProfileTool(BaseTool):
                 absent_days = sum(1 for a in att_res.data if a.get("status") == "absent")
                 rate = round(normal_days / max(total_days, 1) * 100, 1)
                 attendance_info = f"出勤率 {rate}% (正常{normal_days}天, 迟到{late_days}天, 缺勤{absent_days}天)"
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("考勤数据查询失败: %s", e)
 
         # 获取销售业绩 (if sales role)
         sales_info = ""
@@ -162,8 +158,8 @@ class EmployeeProfileTool(BaseTool):
                 total_rev = sum(float(s.get("revenue", 0)) for s in sales_res.data)
                 total_leads = sum(int(s.get("leads_count", 0)) for s in sales_res.data)
                 sales_info = f"\n**销售业绩**\n- 累计营收: ¥{total_rev:,.0f}\n- 累计线索: {total_leads}条"
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("销售业绩查询失败: %s", e)
 
         # 获取近期任务
         tasks_info = ""
@@ -182,8 +178,8 @@ class EmployeeProfileTool(BaseTool):
                     status_icon = "✅" if t.get("status") == "completed" else "🔄"
                     task_lines.append(f"  {status_icon} {t.get('title', '未命名')} [{t.get('priority', 'medium')}]")
                 tasks_info = "\n**近期任务**\n" + "\n".join(task_lines)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("近期任务查询失败: %s", e)
 
         response = f"""👤 **{emp.get("name", employee_name)} 员工画像**
 

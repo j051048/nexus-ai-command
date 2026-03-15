@@ -15,7 +15,6 @@ from app.services.llm_adapters.base import (
     ChatRequest,
     ChatResponse,
     EmbeddingResponse,
-    ModelConfig,
 )
 from app.services.llm_circuit_breaker import circuit_breaker_manager
 from app.services.llm_quota_service import check_quota, record_usage

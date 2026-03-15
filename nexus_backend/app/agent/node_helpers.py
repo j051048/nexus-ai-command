@@ -98,23 +98,6 @@ _hooks: dict[str, list[Callable]] = {
 }
 
 
-def register_hook(event: str, fn: Callable):
-    """Register a lifecycle hook.
-
-    Supported events: before_tool_call, after_tool_call, before_prompt_build.
-    Hook fn receives a context dict and returns a (possibly modified) dict or None to block.
-    """
-    if event not in _hooks:
-        raise ValueError(f"Unknown hook event: {event}. Must be one of {list(_hooks.keys())}")
-    _hooks[event].append(fn)
-    logger.info(f"[Hook] Registered {event} hook: {fn.__name__}")
-
-
-def unregister_hook(event: str, fn: Callable):
-    """Remove a previously registered hook."""
-    if event in _hooks:
-        _hooks[event] = [h for h in _hooks[event] if h is not fn]
-
 
 async def run_hooks(event: str, context: dict) -> dict | None:
     """Run all hooks for an event in registration order.

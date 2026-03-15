@@ -5,8 +5,6 @@ Provides typed, validated response models to prevent frontend breakage
 from unexpected data shapes (e.g., nested objects where flat values expected).
 """
 
-from __future__ import annotations
-
 from pydantic import BaseModel, ConfigDict, Field
 
 # ---------------------------------------------------------------------------

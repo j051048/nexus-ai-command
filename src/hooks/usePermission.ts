@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/contexts/UserContext';
+import { getApiBaseUrl } from '@/lib/apiConfig';
 
 interface PermissionCheck {
   resource: string;
@@ -47,10 +48,7 @@ export function usePermission(resource: string, action: string): PermissionCheck
           return;
         }
 
-        const baseUrl = import.meta.env.VITE_API_BASE_URL || (
-          window.location.hostname === 'localhost' ? 'http://localhost:8000' : window.location.origin
-        );
-        const url = `${baseUrl.replace(/\/$/, '')}/api/permissions/check`;
+        const url = `${getApiBaseUrl()}/api/permissions/check`;
 
         const resp = await fetch(url, {
           method: 'POST',

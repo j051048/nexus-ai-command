@@ -531,24 +531,31 @@ def decompose_vmd_task(task_id: str):
                 }
             ]
 
-        # 3. Create vmd_sub_task records
+        # 3. Create vmd_sub_task records (批量插入替代逐条 INSERT)
         tenant_id = task.get("tenant_id", "default")
-        created_count = 0
-        for st in sub_tasks_data:
-            try:
-                sub_record = {
-                    "main_task_id": task_id,
-                    "tenant_id": tenant_id,
-                    "title": st.get("title", "未命名子任务"),
-                    "agent_role": st.get("agent_role", "content_creator"),
-                    "description": st.get("description", ""),
-                    "sort_order": st.get("sort_order", created_count + 1),
-                    "status": "pending",
-                }
-                await supabase.table("vmd_sub_task").insert(sub_record).execute()
-                created_count += 1
-            except Exception as e:
-                logger.error(f"decompose_vmd_task: failed to create sub-task: {e}")
+        records = []
+        for idx, st in enumerate(sub_tasks_data):
+            records.append({
+                "main_task_id": task_id,
+                "tenant_id": tenant_id,
+                "title": st.get("title", "未命名子任务"),
+                "agent_role": st.get("agent_role", "content_creator"),
+                "description": st.get("description", ""),
+                "sort_order": st.get("sort_order", idx + 1),
+                "status": "pending",
+            })
+        try:
+            await supabase.table("vmd_sub_task").insert(records).execute()
+            created_count = len(records)
+        except Exception as e:
+            logger.error(f"decompose_vmd_task: batch insert failed: {e}, falling back to individual inserts")
+            created_count = 0
+            for sub_record in records:
+                try:
+                    await supabase.table("vmd_sub_task").insert(sub_record).execute()
+                    created_count += 1
+                except Exception as e2:
+                    logger.error(f"decompose_vmd_task: failed to create sub-task: {e2}")
 
         # 4. Update main task status and WBS structure
         wbs_structure = {

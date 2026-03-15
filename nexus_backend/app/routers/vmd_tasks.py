@@ -864,8 +864,8 @@ async def list_agent_configs(
             )
             for a in res.data or []:
                 global_agents[a["agent_code"]] = a
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("全局agent配置查询失败: %s", e)
 
         # 2. Query tenant-specific overrides
         tenant_agents: dict[str, dict] = {}
@@ -875,8 +875,8 @@ async def list_agent_configs(
             )
             for a in res.data or []:
                 tenant_agents[a["agent_code"]] = a
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("租户agent配置查询失败: %s", e)
 
         # 3. Merge: tenant overrides take priority over global defaults
         if global_agents:
@@ -962,8 +962,8 @@ async def update_agent_config(
                 )
                 if global_res.data:
                     base = global_res.data[0]
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("全局默认agent配置查询失败: %s", e)
 
             # If DB global default not found, use Python role registry
             if not base:

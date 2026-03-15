@@ -1,16 +1,12 @@
+import logging
 import uuid as _uuid
 from datetime import datetime, timedelta
 from typing import Any
 
-from app.core.database import supabase
-
 from .base_tool import BaseTool
+from ._shared import _get_client
 
-
-def _get_client(config: dict = None):
-    """Get scoped DB client if user token available, else fallback to service client."""
-    token = config.get("token") if config else None
-    return supabase.get_scoped_client(token) if token and supabase else supabase
+logger = logging.getLogger(__name__)
 
 
 class ProjectListTool(BaseTool):
@@ -189,8 +185,8 @@ class WeeklyReportTool(BaseTool):
                 .execute()
             )
             tasks_data = tasks_res.data or []
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("任务数据查询失败: %s", e)
 
         # 聚合项目事件
         events_data = []
@@ -203,16 +199,16 @@ class WeeklyReportTool(BaseTool):
                 .execute()
             )
             events_data = events_res.data or []
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("项目事件查询失败: %s", e)
 
         # 查询用户项目
         projects_data = []
         try:
             proj_res = await client.table("projects").select("name, stage, progress").eq("user_id", user_id).execute()
             projects_data = proj_res.data or []
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("用户项目查询失败: %s", e)
 
         prompt = (
             f"请根据以下工作数据生成{report_type_name}:\n\n"

@@ -53,9 +53,8 @@ async def _get_thresholds(org_id: str | None = None) -> dict:
             merged = dict(_DEFAULT_THRESHOLDS)
             merged.update(config["value"])
             return merged
-    except Exception:
-        pass
-    return dict(_DEFAULT_THRESHOLDS)
+    except Exception as e:
+        logger.debug("tenant sensor thresholds query failed: %s", e)
 
 
 async def _record_action(
@@ -156,7 +155,8 @@ def sensor_sales_anomaly():
                 .execute()
             )
             week_data = week_res.data or []
-        except Exception:
+        except Exception as e:
+            logger.debug("historical sales_metrics query failed: %s", e)
             week_data = []
 
         if not week_data:
@@ -214,8 +214,8 @@ def sensor_sales_anomaly():
                         },
                     )
                     notified += 1
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("anomaly notification send failed for user: %s", e)
             return f"Sales anomaly alert sent to {notified} users: {'; '.join(anomalies)}"
         except Exception as e:
             logger.error(f"Failed to send anomaly alerts: {e}")
@@ -357,7 +357,8 @@ def sensor_contract_expiry_ladder():
                     .eq("status", "active")
                     .execute()
                 )
-            except Exception:
+            except Exception as e:
+                logger.debug("contract expiry query failed for %d-day ladder: %s", ladder["days"], e)
                 continue
 
             for contract in result.data or []:
@@ -378,8 +379,8 @@ def sensor_contract_expiry_ladder():
                                 "你是合同管理顾问。用2句话给出续签策略建议。",
                             )
                             suggestion = f"\n\n💡 续签建议: {suggestion[:200]}"
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.debug("contract renewal suggestion generation failed: %s", e)
 
                     await send_notification(
                         title=f"{ladder['label']} 合同到期: {contract.get('title', '未命名')}",

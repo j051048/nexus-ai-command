@@ -10,8 +10,6 @@ This node reads the wbs_structure from state, then for each sub-task:
 6. Collects and aggregates all results via SharedBlackboard (P2-10)
 """
 
-from __future__ import annotations
-
 import asyncio
 import logging
 import time

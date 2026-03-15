@@ -102,10 +102,74 @@ class TenantCreditService:
         self._behavior_tracker: dict[str, dict] = {}
         self._ip_tracker: dict[str, dict] = {}
         self._credit_locks: dict[str, asyncio.Lock] = {}  # P0 Fix: per-org locks
+        self._cleanup_counter: int = 0  # P0 Fix: periodic cleanup trigger
         # P1 Note: asyncio.Lock is single-process only.
         # For multi-instance deployments, consume_credit should use DB-level
         # atomic operations (the RPC `consume_tenant_credit` already handles this).
         # The local lock prevents duplicate calls within the same process.
+
+        # P0 Fix: maxsize limits for bounded memory
+        self._RATE_LIMIT_MAX = 5000
+        self._CREDIT_CACHE_MAX = 500
+        self._BEHAVIOR_TRACKER_MAX = 2000
+        self._IP_TRACKER_MAX = 5000
+
+    def _periodic_cleanup(self) -> None:
+        """Run cleanup every 100 calls to prevent unbounded memory growth."""
+        self._cleanup_counter += 1
+        if self._cleanup_counter < 100:
+            return
+        self._cleanup_counter = 0
+        now = time.time()
+        current_minute = int(now / 60)
+
+        # Clean rate_limit_cache: remove keys from old minutes
+        expired_rate_keys = [
+            k for k in self._rate_limit_cache
+            if not k.endswith(f":{current_minute}")
+        ]
+        for k in expired_rate_keys:
+            del self._rate_limit_cache[k]
+        # Hard cap
+        if len(self._rate_limit_cache) > self._RATE_LIMIT_MAX:
+            keys = list(self._rate_limit_cache.keys())
+            for k in keys[: len(keys) - self._RATE_LIMIT_MAX]:
+                del self._rate_limit_cache[k]
+
+        # Clean credit_cache: hard cap with LRU-like eviction (oldest first)
+        if len(self._credit_cache) > self._CREDIT_CACHE_MAX:
+            keys = list(self._credit_cache.keys())
+            for k in keys[: len(keys) - self._CREDIT_CACHE_MAX]:
+                del self._credit_cache[k]
+
+        # Clean behavior_tracker: remove stale users (no activity in 1 hour)
+        stale_users = [
+            uid for uid, data in self._behavior_tracker.items()
+            if now - data.get("last_action_time", 0) > 3600
+        ]
+        for uid in stale_users:
+            del self._behavior_tracker[uid]
+        if len(self._behavior_tracker) > self._BEHAVIOR_TRACKER_MAX:
+            sorted_keys = sorted(
+                self._behavior_tracker,
+                key=lambda k: self._behavior_tracker[k].get("last_action_time", 0),
+            )
+            for k in sorted_keys[: len(sorted_keys) - self._BEHAVIOR_TRACKER_MAX]:
+                del self._behavior_tracker[k]
+
+        # Clean ip_tracker: remove expired blocks and stale entries
+        stale_ips = []
+        for ip, data in self._ip_tracker.items():
+            failure_times = data.get("failure_times", [])
+            recent = [t for t in failure_times if now - t < 3600]
+            if not recent and data.get("blocked_until", 0) < now:
+                stale_ips.append(ip)
+        for ip in stale_ips:
+            del self._ip_tracker[ip]
+        if len(self._ip_tracker) > self._IP_TRACKER_MAX:
+            keys = list(self._ip_tracker.keys())
+            for k in keys[: len(keys) - self._IP_TRACKER_MAX]:
+                del self._ip_tracker[k]
 
     def _get_lock(self, org_id: str) -> asyncio.Lock:
         """Get or create a per-org asyncio lock for atomic credit operations."""
@@ -151,6 +215,7 @@ class TenantCreditService:
 
     async def check_rate_limit(self, org_id: str, user_id: str) -> tuple[bool, int | None]:
         """Check rate limit. Returns (is_allowed, retry_after_seconds)."""
+        self._periodic_cleanup()
         quota = await self._get_tenant_quota(org_id)
         current_minute = int(time.time() / 60)
 

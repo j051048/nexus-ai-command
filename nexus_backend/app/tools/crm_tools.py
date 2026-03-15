@@ -5,31 +5,15 @@ CRM 客户管理工具集
 """
 
 import logging
-import uuid as _uuid
 from typing import Any
 
-from app.core.database import supabase
 from app.services.crm_service import ACTIVITY_TYPES, CUSTOMER_STAGES, crm_service
 
 from .base_tool import BaseTool
-
-
-def _validate_uuid(value: str, field_name: str = "ID") -> str | None:
-    """Validate UUID format. Returns error message or None if valid."""
-    try:
-        _uuid.UUID(value)
-        return None
-    except (ValueError, TypeError, AttributeError):
-        return f"{field_name} '{value}' 不是有效的UUID格式。"
+from ._shared import _get_client, _validate_uuid
 
 
 logger = logging.getLogger(__name__)
-
-
-def _get_client(config: dict = None):
-    """Get scoped DB client if user token available, else fallback to service client."""
-    token = config.get("token") if config else None
-    return supabase.get_scoped_client(token) if token and supabase else supabase
 
 
 def _get_org_id(config: dict = None) -> str | None:

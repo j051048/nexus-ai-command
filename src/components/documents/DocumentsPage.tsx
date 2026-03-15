@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { getApiBaseUrl } from '@/lib/apiConfig';
 import {
     FileText,
     Upload,
@@ -122,15 +123,7 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
 
         setIsDeleting(true);
         try {
-            // Robust URL Discovery
-            let url = '';
-            const configuredUrl = import.meta.env.VITE_API_BASE_URL;
-            if (configuredUrl) {
-                url = configuredUrl.startsWith('http') ? configuredUrl : `https://${configuredUrl}`;
-            } else {
-                url = window.location.hostname === 'localhost' ? 'http://localhost:8000' : window.location.origin;
-            }
-            const endpoint = `${url.replace(/\/$/, '')}/api/documents/batch-delete`;
+            const endpoint = `${getApiBaseUrl()}/api/documents/batch-delete`;
 
             const { data: { session } } = await supabase.auth.getSession();
             const token = session?.access_token;
@@ -210,18 +203,7 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
                 formData.append('userId', user.id);
             }
 
-            // Robust URL Discovery
-            let url = '';
-            const configuredUrl = import.meta.env.VITE_API_BASE_URL;
-
-            if (configuredUrl) {
-                url = configuredUrl.startsWith('http') ? configuredUrl : `https://${configuredUrl}`;
-            } else {
-                url = window.location.hostname === 'localhost' ? 'http://localhost:8000' : window.location.origin;
-            }
-
-            // Append endpoint
-            const endpoint = `${url.replace(/\/$/, '')}/api/documents/upload`;
+            const endpoint = `${getApiBaseUrl()}/api/documents/upload`;
 
             // P0: Secure Identity Verification
             const { data: { session } } = await supabase.auth.getSession();
@@ -306,15 +288,7 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
                 throw new Error('JSON 格式无效：需要包含 documents 数组');
             }
 
-            // Build API URL
-            let url = '';
-            const configuredUrl = import.meta.env.VITE_API_BASE_URL;
-            if (configuredUrl) {
-                url = configuredUrl.startsWith('http') ? configuredUrl : `https://${configuredUrl}`;
-            } else {
-                url = window.location.hostname === 'localhost' ? 'http://localhost:8000' : window.location.origin;
-            }
-            const endpoint = `${url.replace(/\/$/, '')}/api/documents/bulk-import`;
+            const endpoint = `${getApiBaseUrl()}/api/documents/bulk-import`;
 
             const { data: { session } } = await supabase.auth.getSession();
             const token = session?.access_token;

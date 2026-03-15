@@ -16,7 +16,6 @@ from app.agent.node_helpers import (
     invoke_with_fallback,
     logger,
     plugin_system_service,
-    sanitize_output,
 )
 from app.services.plugin_system_service import ExtensionPoint
 

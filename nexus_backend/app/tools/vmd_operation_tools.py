@@ -12,19 +12,13 @@ import logging
 import uuid as _uuid
 from typing import Any
 
-from app.core.database import supabase
 from app.services.ai_service import AIService
 from app.services.vector_service import vector_service
 
 from .base_tool import BaseTool
+from ._shared import _get_client
 
 logger = logging.getLogger(__name__)
-
-
-def _get_client(config: dict = None):
-    """Get scoped DB client if user token available, else fallback to service client."""
-    token = config.get("token") if config else None
-    return supabase.get_scoped_client(token) if token and supabase else supabase
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

@@ -4,34 +4,17 @@ AI智能分析工具集
 """
 
 import logging
-import uuid as _uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from app.core.database import supabase
-
 from .base_tool import BaseTool
+from ._shared import _get_client, _validate_uuid
 
 logger = logging.getLogger(__name__)
 
 
-def _get_client(config: dict = None):
-    """Get scoped DB client if user token available, else fallback to service client."""
-    token = config.get("token") if config else None
-    return supabase.get_scoped_client(token) if token and supabase else supabase
-
-
 def _get_org_id(config: dict = None) -> str | None:
     return config.get("org_id") if config else None
-
-
-def _validate_uuid(value: str, field_name: str = "ID") -> str | None:
-    """验证UUID格式"""
-    try:
-        _uuid.UUID(value)
-        return None
-    except (ValueError, TypeError, AttributeError):
-        return f"{field_name} '{value}' 不是有效的UUID格式。"
 
 
 # ============================================================================
@@ -433,23 +416,28 @@ class AutoDispatchTool(BaseTool):
             if not employees:
                 return "❌ 当前部门暂无可用员工进行分配。"
 
-            # 统计每个员工的未完成工单数
+            # 统计每个员工的未完成工单数（批量查询替代 N+1）
+            all_emp_ids = [emp["id"] for emp in employees]
+            all_wo_result = await (
+                client.table("work_orders")
+                .select("assignee_id")
+                .in_("assignee_id", all_emp_ids)
+                .in_("status", ["pending", "open", "in_progress"])
+                .execute()
+            )
+            wo_counts: dict[str, int] = {}
+            for wo in (all_wo_result.data or []):
+                aid = wo["assignee_id"]
+                wo_counts[aid] = wo_counts.get(aid, 0) + 1
+
             workloads: list[dict] = []
             for emp in employees:
                 emp_id = emp["id"]
-                open_wo_result = await (
-                    client.table("work_orders")
-                    .select("id", count="exact")
-                    .eq("assignee_id", emp_id)
-                    .in_("status", ["pending", "open", "in_progress"])
-                    .execute()
-                )
-                open_count = open_wo_result.count or 0
                 workloads.append(
                     {
                         "id": emp_id,
                         "name": emp.get("name", "未知"),
-                        "open_count": open_count,
+                        "open_count": wo_counts.get(emp_id, 0),
                     }
                 )
 

@@ -6,18 +6,12 @@ Extracted from boss_tools.py (P2-3 split).
 import logging
 import re
 
-from app.core.database import supabase
+from ._shared import _get_client  # noqa: F401 — re-exported for boss_tools.py
 
 logger = logging.getLogger(__name__)
 
 # P0 Security: Maximum batch size to prevent mass operations
 MAX_BATCH_SIZE = 10
-
-
-def _get_client(config: dict = None):
-    """Get scoped DB client if user token available, else fallback to service client."""
-    token = config.get("token") if config else None
-    return supabase.get_scoped_client(token) if token and supabase else supabase
 
 
 def _parse_amount_from_condition(condition: str) -> float:

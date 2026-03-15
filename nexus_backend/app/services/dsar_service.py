@@ -11,6 +11,7 @@ Covered tables:
   documents, audit_logs (retained but anonymized)
 """
 
+import asyncio
 import json
 import logging
 import uuid
@@ -76,10 +77,11 @@ class DSARService:
 
         errors: list[str] = []
 
-        for table in _USER_DATA_TABLES:
+        # Parallel query across all 6 tables via asyncio.gather
+        async def _fetch_table(table: str) -> tuple[str, dict]:
             uid_col = _USER_ID_COLUMNS.get(table, "user_id")
             try:
-                resp = (
+                resp = await (
                     self.db.table(table)
                     .select("*")
                     .eq(uid_col, user_id)
@@ -87,14 +89,18 @@ class DSARService:
                     .execute()
                 )
                 rows = resp.data if resp.data else []
-                export_data["tables"][table] = {
-                    "count": len(rows),
-                    "records": rows,
-                }
+                return table, {"count": len(rows), "records": rows}
             except Exception as e:
                 logger.warning(f"DSAR export: failed to read table {table}: {e}")
                 errors.append(f"{table}: {e}")
-                export_data["tables"][table] = {"count": 0, "records": [], "error": str(e)}
+                return table, {"count": 0, "records": [], "error": str(e)}
+
+        results = await asyncio.gather(
+            *[_fetch_table(t) for t in _USER_DATA_TABLES],
+            return_exceptions=False,
+        )
+        for table_name, table_data in results:
+            export_data["tables"][table_name] = table_data
 
         export_data["errors"] = errors
         export_data["status"] = "completed" if not errors else "completed_with_errors"
@@ -142,7 +148,7 @@ class DSARService:
                     update_data = {field: _ANON_PLACEHOLDER for field in pii_fields}
                     update_data["email"] = f"deleted_{request_id[:8]}@gdpr.invalid"
                     update_data["status"] = "deleted"
-                    resp = (
+                    resp = await (
                         self.db.table(table)
                         .update(update_data)
                         .eq(uid_col, user_id)
@@ -157,7 +163,7 @@ class DSARService:
 
                 elif table == "audit_logs":
                     # Audit logs are RETAINED (legal requirement) but user ref anonymized
-                    resp = (
+                    resp = await (
                         self.db.table(table)
                         .update({"user_id": f"anon_{request_id[:8]}"})
                         .eq(uid_col, user_id)
@@ -173,7 +179,7 @@ class DSARService:
                 elif pii_fields:
                     # Anonymize PII fields in other tables
                     update_data = {field: _ANON_PLACEHOLDER for field in pii_fields}
-                    resp = (
+                    resp = await (
                         self.db.table(table)
                         .update(update_data)
                         .eq(uid_col, user_id)
@@ -216,7 +222,7 @@ class DSARService:
     async def _log_audit(self, user_id: str, action: str, details: dict[str, Any]) -> None:
         """Write a DSAR audit record."""
         try:
-            self.db.table("audit_logs").insert(
+            await self.db.table("audit_logs").insert(
                 {
                     "user_id": user_id,
                     "action": action,

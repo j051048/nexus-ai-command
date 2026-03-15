@@ -7,8 +7,6 @@ Provides:
 - ROLE_REGISTRY: dict[str, RoleConfig]
 """
 
-from __future__ import annotations
-
 import importlib
 import logging
 from dataclasses import dataclass, field

@@ -83,7 +83,7 @@ export function useWebSocketPush() {
 
       ws.onopen = () => {
         reconnectAttemptRef.current = 0;
-        console.log('[WS Push] Connected');
+        if (import.meta.env.DEV) console.log('[WS Push] Connected');
 
         // 启动心跳
         heartbeatTimerRef.current = setInterval(() => {
@@ -171,7 +171,7 @@ export function useWebSocketPush() {
       };
 
       ws.onclose = (event) => {
-        console.log(`[WS Push] Closed (code=${event.code})`);
+        if (import.meta.env.DEV) console.log(`[WS Push] Closed (code=${event.code})`);
         cleanup();
 
         // Don't reconnect if:
@@ -208,7 +208,7 @@ export function useWebSocketPush() {
     const delay = Math.min(1000 * Math.pow(2, attempt), 30_000);
     reconnectAttemptRef.current = attempt + 1;
 
-    console.log(`[WS Push] Reconnecting in ${delay}ms (attempt ${attempt + 1})`);
+    if (import.meta.env.DEV) console.log(`[WS Push] Reconnecting in ${delay}ms (attempt ${attempt + 1})`);
     reconnectTimerRef.current = setTimeout(() => {
       connect();
     }, delay);

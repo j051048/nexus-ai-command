@@ -5,8 +5,6 @@ Uses TypedDict so LangGraph can checkpoint, serialize, and replay states.
 Every node reads from and writes to this state dict.
 """
 
-from __future__ import annotations
-
 import operator
 import time
 from dataclasses import asdict, dataclass, field
