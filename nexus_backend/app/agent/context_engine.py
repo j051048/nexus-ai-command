@@ -156,6 +156,22 @@ class ChatHistoryProvider(ContextProvider):
             if not rows:
                 return ""
 
+            # Filter out error/failure assistant responses — they pollute context
+            # and make the LLM more likely to output short/refusal responses too.
+            _ERROR_PHRASES = ("抱歉，处理您的请求时遇到了问题", "抱歉，系统处理出现异常", "无法满足该请求")
+            cleaned_rows = []
+            for r in rows:
+                content = r.get("content") or ""
+                if r.get("role") == "assistant" and any(p in content for p in _ERROR_PHRASES):
+                    # Also remove the preceding user message if it exists
+                    if cleaned_rows and cleaned_rows[-1].get("role") == "user":
+                        cleaned_rows.pop()
+                    continue
+                cleaned_rows.append(r)
+            rows = cleaned_rows
+            if not rows:
+                return ""
+
             # Deduplicate repeated conversation turns (user→assistant pairs).
             # Common pattern: user retries same question → gets same cached answer.
             # Previous code only caught consecutive assistant messages, but NOT

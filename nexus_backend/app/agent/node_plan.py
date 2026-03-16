@@ -290,6 +290,17 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     input_tokens = usage.get("prompt_tokens", 0)
     output_tokens = usage.get("completion_tokens", 0)
 
+    # Diagnostic: log LLM response details for debugging empty/short responses
+    finish_reason = ai_msg.response_metadata.get("finish_reason", "unknown")
+    content_len = len(ai_msg.content or "")
+    tool_call_count = len(ai_msg.tool_calls or [])
+    logger.info(
+        "[PlanNode] LLM response: model=%s finish_reason=%s content_len=%d tool_calls=%d "
+        "input_tokens=%d output_tokens=%d",
+        model or agent_config.model, finish_reason, content_len, tool_call_count,
+        input_tokens, output_tokens,
+    )
+
     # Langfuse: log LLM generation
     _configurable = (config or {}).get("configurable", {}) if isinstance(config, dict) else {}
     trace_logger = _configurable.get("trace_logger")

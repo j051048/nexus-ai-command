@@ -645,10 +645,27 @@ async def run_agent_stream(
     if final_response:
         final_response = strip_think_tags(final_response)
 
-    # Last resort fallback
+    # Last resort fallback — provide actionable guidance instead of generic error
     if not final_response:
-        logger.warning("[Stream] No final_response found in accumulated state")
-        final_response = "抱歉，处理您的请求时遇到了问题。请稍后重试。"
+        complexity = accumulated_state.get("complexity")
+        intent = accumulated_state.get("intent_summary", "")
+        logger.warning(
+            "[Stream] No final_response found in accumulated state "
+            "(complexity=%s intent=%s model=%s)",
+            complexity, intent, accumulated_state.get("selected_model", "?"),
+        )
+        # If the user asked for long-form content, suggest shorter or split approach
+        if complexity and complexity.value in ("complex", "critical") and any(
+            kw in intent for kw in ("写作", "创作", "软文", "文章", "报告", "方案")
+        ):
+            final_response = (
+                "抱歉，这次内容生成未能成功完成。可能是因为内容篇幅较大或模型处理超时。\n\n"
+                "建议您：\n"
+                "1. 尝试重新发送请求（系统会自动优化上下文）\n"
+                "2. 拆分为多次请求，例如先写大纲，再逐节展开"
+            )
+        else:
+            final_response = "抱歉，处理您的请求时遇到了问题。请稍后重试。"
 
     # Stream the final response content
     # Skip if the respond node already streamed the same content to the user.
