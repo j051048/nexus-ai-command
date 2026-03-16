@@ -156,12 +156,37 @@ class ChatHistoryProvider(ContextProvider):
             if not rows:
                 return ""
 
+            # Deduplicate consecutive identical assistant responses to prevent
+            # context pollution (LLM repeats patterns it sees in history).
             lines: list[str] = []
+            prev_assistant_content: str | None = None
+            dup_count = 0
             for r in rows:
                 role_label = "用户" if r.get("role") == "user" else "助手"
                 content = (r.get("content") or "")[:300]
-                if content:
-                    lines.append(f"{role_label}: {content}")
+                if not content:
+                    continue
+
+                if r.get("role") == "assistant":
+                    if prev_assistant_content is not None and content == prev_assistant_content:
+                        dup_count += 1
+                        continue  # skip duplicate assistant message
+                    else:
+                        if dup_count > 0:
+                            lines.append(f"（上方助手回复重复了{dup_count}次，已折叠，请勿重复相同回答）")
+                            dup_count = 0
+                        prev_assistant_content = content
+                else:
+                    if dup_count > 0:
+                        lines.append(f"（上方助手回复重复了{dup_count}次，已折叠，请勿重复相同回答）")
+                        dup_count = 0
+                    prev_assistant_content = None
+
+                lines.append(f"{role_label}: {content}")
+
+            if dup_count > 0:
+                lines.append(f"（上方助手回复重复了{dup_count}次，已折叠，请勿重复相同回答）")
+
             return "\n".join(lines)
         except Exception as e:
             logger.debug(f"[ChatHistoryProvider] Failed: {e}")
