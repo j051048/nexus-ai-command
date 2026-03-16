@@ -155,20 +155,11 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
     # Trace Logger
     tracer = TraceLogger(user_id=user_id, agent=request.agent or "default")
 
-    # 5b. P1 Fix: Semantic Cache Check — skip LLM if high-similarity hit
-    # Skip cache for long-form creative writing requests (users expect unique output)
+    # 5b. Semantic Cache Check — skip LLM if high-similarity hit
+    # Cache bypass logic (creative writing, error responses) is handled inside
+    # SemanticCacheService.get_cache() via should_use_cache() classification.
     last_user_msg = next((m.content for m in reversed(request.messages) if m.role == "user"), None)
-    _skip_cache = False
     if last_user_msg:
-        import re as _re
-        if _re.search(
-            r"\d{3,}\s*字|千字|万字|长文|软文|推广文|文章|方案书|策划案|写一[篇份]",
-            last_user_msg,
-        ):
-            _skip_cache = True
-            logger.info("[Chat] Skipping semantic cache for long-form writing request")
-
-    if last_user_msg and not _skip_cache:
         try:
             from app.services.semantic_cache import semantic_cache_service
 
