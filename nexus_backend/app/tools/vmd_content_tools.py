@@ -377,22 +377,23 @@ class GenerateSocialPostTool(BaseTool):
             "promotional": "推广导向",
         }
 
-        # Search knowledge base for product info
+        # Search knowledge base for relevant context — always attempt
+        # When product_name is specified, search with it; otherwise use topic alone
         kb_context = ""
-        if product_name:
-            try:
-                org_id = config.get("org_id") if config else None
-                kb_result = await vector_service.search(
-                    f"{product_name} {topic}",
-                    user_id,
-                    limit=3,
-                    config=config,
-                    org_id=org_id,
-                )
-                if kb_result and "No relevant documents" not in kb_result:
-                    kb_context = f"\n\n## 产品参考资料\n{kb_result}"
-            except Exception as e:
-                logger.warning(f"Knowledge base search failed for social post: {e}")
+        try:
+            org_id = config.get("org_id") if config else None
+            search_query = f"{product_name} {topic}" if product_name else topic
+            kb_result = await vector_service.search(
+                search_query,
+                user_id,
+                limit=3,
+                config=config,
+                org_id=org_id,
+            )
+            if kb_result and "No relevant documents" not in kb_result and "未找到" not in kb_result:
+                kb_context = f"\n\n## 参考资料（来自知识库）\n{kb_result}"
+        except Exception as e:
+            logger.warning(f"Knowledge base search failed for social post: {e}")
 
         prompt = (
             f"请生成一篇科学仪器行业自媒体文案：\n\n"

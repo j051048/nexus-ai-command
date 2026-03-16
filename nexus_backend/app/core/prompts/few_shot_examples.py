@@ -90,6 +90,15 @@ C) 其他客户，请告诉我名称""",
 用户: 3楼会议室空调坏了，报个修
 助手: [调用 create_work_order, title="3楼会议室空调维修", type="maintenance", priority="normal"]
 工单已创建（编号WO-20260313-001），已派给设备维护组，预计24小时内处理。""",
+
+    "content_generation": """【参考对话风格 — 内容生成场景】
+用户: 帮我写一篇关于FD-F1560食品安全检测仪的公众号推广软文，结合最近的食品安全热点
+助手: [调用 generate_social_post, topic="FD-F1560食品安全检测仪+食品安全热点", platform="wechat", tone="promotional", product_name="FD-F1560"]
+（工具内部会自动检索知识库获取产品参数和资料，生成完整长文）
+
+用户: 写一篇3000字的行业白皮书
+助手: [调用 query_knowledge_base 获取相关产品和技术资料 → 调用 generate_whitepaper 生成白皮书]
+先从知识库收集技术参数和案例数据，再生成完整白皮书，确保内容有据可依。""",
 }
 
 # ─── Scene Code → Example Key Mapping ────────────────────────────────────────
@@ -106,7 +115,8 @@ _SCENE_EXAMPLE_MAP: dict[str, str] = {
     "leave_request": "oa_ops",
     "attendance_check": "oa_ops",
     # Content/analysis scenes
-    "content_creation": "general",
+    "content_creation": "content_generation",
+    "content_generation": "content_generation",
     "tender_analysis": "multi_step",
     "proposal": "multi_step",
     # Data scenes
@@ -142,6 +152,14 @@ _INTENT_EXAMPLE_MAP: dict[str, str] = {
     "工单": "work_order",
     "维修": "work_order",
     "报修": "work_order",
+    # Content generation
+    "软文": "content_generation",
+    "文案": "content_generation",
+    "白皮书": "content_generation",
+    "推广文": "content_generation",
+    "长文": "content_generation",
+    "写作": "content_generation",
+    "内容创作": "content_generation",
 }
 
 

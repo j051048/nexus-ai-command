@@ -331,12 +331,12 @@ _KEYWORD_DOMAIN_MAP: dict[str, list[str]] = {
     "周报": ["project"], "简报": ["schedule", "analytics"],
     "定时": ["schedule"],
     # VMD
-    "白皮书": ["vmd_content"], "文案": ["vmd_content"],
-    "话术": ["vmd_content"], "手册": ["vmd_content"],
-    "软文": ["vmd_content"], "推广文": ["vmd_content"],
-    "长文": ["vmd_content"], "文章": ["vmd_content"],
-    "写作": ["vmd_content"], "内容创作": ["vmd_content"],
-    "策划案": ["vmd_content"], "方案书": ["vmd_content"],
+    "白皮书": ["vmd_content", "knowledge"], "文案": ["vmd_content", "knowledge"],
+    "话术": ["vmd_content", "knowledge"], "手册": ["vmd_content", "knowledge"],
+    "软文": ["vmd_content", "knowledge"], "推广文": ["vmd_content", "knowledge"],
+    "长文": ["vmd_content", "knowledge"], "文章": ["vmd_content", "knowledge"],
+    "写作": ["vmd_content", "knowledge"], "内容创作": ["vmd_content", "knowledge"],
+    "策划案": ["vmd_content", "knowledge"], "方案书": ["vmd_content", "knowledge"],
     "市场": ["vmd_market"], "舆情": ["vmd_market"],
     # Admin
     "证照": ["admin"], "盖章": ["admin"], "用印": ["admin"],
