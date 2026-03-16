@@ -21,8 +21,10 @@ class LLMTaskTool(BaseTool):
     name = "llm_task"
     description = (
         "将简单的文本处理子任务委派给轻量级AI模型，节省主模型token。"
-        "适用场景：翻译、摘要提炼、格式转换、数据清洗、文本分类等。"
-        "不适用于需要工具调用或复杂推理的任务。"
+        "适用场景：翻译、摘要提炼、格式转换、数据清洗、文本分类等短文本任务。"
+        "⚠️ 严禁用于：长文创作（超过500字的文章、软文、报告等）、"
+        "需要创意写作的任务、需要工具调用或复杂推理的任务。"
+        "长文创作请直接由你自己完成，不要委派给此工具。"
     )
     required_role = "all"
 
@@ -58,6 +60,19 @@ class LLMTaskTool(BaseTool):
         content = args.get("content", "").strip()
         if not instruction or not content:
             return "❌ 请提供任务指令和待处理内容。"
+
+        # Guard: reject long-form content creation tasks
+        combined_text = instruction + content
+        import re as _re
+        long_form_pattern = _re.search(
+            r"(\d{3,})\s*字|千字|万字|长文|软文|推广文|文章|方案书|策划案",
+            combined_text,
+        )
+        if long_form_pattern:
+            return (
+                "⚠️ 此任务涉及长文创作，不适合委派给轻量模型。"
+                "请你（主模型）直接完成此写作任务，不要使用 llm_task 工具。"
+            )
 
         task_type = args.get("task_type", "other")
         output_format = args.get("output_format", "")

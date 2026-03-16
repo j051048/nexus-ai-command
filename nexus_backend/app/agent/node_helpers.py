@@ -51,6 +51,7 @@ LONG_RUNNING_TOOLS: set[str] = {
     "query_knowledge_base",
     "strategy_simulation",
     "get_company_stats",
+    "llm_task",
 }
 
 

@@ -213,6 +213,15 @@ _COMPLEX_KEYWORDS = {
     "团队表现",
     "环比",
     "同比",
+    # Long-form content creation — needs power model, not mini
+    "软文",
+    "长文",
+    "文章",
+    "方案书",
+    "策划案",
+    "推广文",
+    "千字",
+    "万字",
 }
 
 _MODERATE_KEYWORDS = {
