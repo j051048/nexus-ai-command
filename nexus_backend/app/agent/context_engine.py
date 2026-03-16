@@ -156,36 +156,62 @@ class ChatHistoryProvider(ContextProvider):
             if not rows:
                 return ""
 
-            # Deduplicate consecutive identical assistant responses to prevent
-            # context pollution (LLM repeats patterns it sees in history).
+            # Deduplicate repeated conversation turns (user→assistant pairs).
+            # Common pattern: user retries same question → gets same cached answer.
+            # Previous code only caught consecutive assistant messages, but NOT
+            # the more common "same user+assistant pair repeated N times" pattern.
             lines: list[str] = []
-            prev_assistant_content: str | None = None
+            prev_turn_key: tuple[str, str] | None = None
             dup_count = 0
-            for r in rows:
-                role_label = "用户" if r.get("role") == "user" else "助手"
+            i = 0
+            while i < len(rows):
+                r = rows[i]
                 content = (r.get("content") or "")[:300]
                 if not content:
+                    i += 1
                     continue
 
-                if r.get("role") == "assistant":
-                    if prev_assistant_content is not None and content == prev_assistant_content:
-                        dup_count += 1
-                        continue  # skip duplicate assistant message
-                    else:
-                        if dup_count > 0:
-                            lines.append(f"（上方助手回复重复了{dup_count}次，已折叠，请勿重复相同回答）")
-                            dup_count = 0
-                        prev_assistant_content = content
-                else:
-                    if dup_count > 0:
-                        lines.append(f"（上方助手回复重复了{dup_count}次，已折叠，请勿重复相同回答）")
-                        dup_count = 0
-                    prev_assistant_content = None
+                role = r.get("role", "")
 
-                lines.append(f"{role_label}: {content}")
+                if role == "user":
+                    # Look ahead for assistant response to form a (user, assistant) pair
+                    assistant_content = None
+                    if i + 1 < len(rows) and rows[i + 1].get("role") == "assistant":
+                        assistant_content = (rows[i + 1].get("content") or "")[:300]
+
+                    if assistant_content:
+                        turn_key = (content, assistant_content)
+                        if prev_turn_key is not None and turn_key == prev_turn_key:
+                            dup_count += 1
+                            i += 2  # Skip both user and assistant
+                            continue
+                        # Flush pending duplicates
+                        if dup_count > 0:
+                            lines.append(f"（上方对话重复了{dup_count}次，已折叠，请勿重复相同回答）")
+                            dup_count = 0
+                        lines.append(f"用户: {content}")
+                        lines.append(f"助手: {assistant_content}")
+                        prev_turn_key = turn_key
+                        i += 2
+                    else:
+                        # User message without following assistant (incomplete turn)
+                        if dup_count > 0:
+                            lines.append(f"（上方对话重复了{dup_count}次，已折叠，请勿重复相同回答）")
+                            dup_count = 0
+                        lines.append(f"用户: {content}")
+                        prev_turn_key = None
+                        i += 1
+                else:
+                    # Standalone assistant message
+                    if dup_count > 0:
+                        lines.append(f"（上方对话重复了{dup_count}次，已折叠，请勿重复相同回答）")
+                        dup_count = 0
+                    lines.append(f"助手: {content}")
+                    prev_turn_key = None
+                    i += 1
 
             if dup_count > 0:
-                lines.append(f"（上方助手回复重复了{dup_count}次，已折叠，请勿重复相同回答）")
+                lines.append(f"（上方对话重复了{dup_count}次，已折叠，请勿重复相同回答）")
 
             return "\n".join(lines)
         except Exception as e:

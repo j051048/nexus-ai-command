@@ -314,6 +314,38 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     tool_calls_raw = ai_msg.tool_calls
     content = ai_msg.content or ""
 
+    # ── Short/Useless Response Recovery (First Iteration) ──
+    # When a COMPLEX/CRITICAL query gets a very short response with NO tool calls
+    # on the first iteration, the LLM likely failed silently (wrong model, context
+    # overflow, etc.). Retry with fallback LLM to avoid returning garbage.
+    if (
+        iteration == 0
+        and not tool_calls_raw
+        and len(content.strip()) < 100
+        and complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL)
+    ):
+        logger.warning(
+            f"[PlanNode] Short response ({len(content.strip())} chars) with no tool calls "
+            f"for {complexity.value} query — retrying with fallback LLM"
+        )
+        try:
+            from app.agent.node_helpers import _get_fallback_llm
+            fallback_llm = _get_fallback_llm(agent_config, model=model, streaming=True)
+            if fallback_llm:
+                if tool_schemas:
+                    fallback_llm = fallback_llm.bind_tools(tool_schemas, parallel_tool_calls=True)
+                ai_msg = await fallback_llm.ainvoke(lc_msgs)
+                content = ai_msg.content or ""
+                tool_calls_raw = ai_msg.tool_calls
+                if tool_calls_raw or len(content.strip()) >= 100:
+                    logger.info("[PlanNode] Short response recovery succeeded via fallback LLM")
+                else:
+                    logger.warning("[PlanNode] Fallback LLM also returned short response")
+            else:
+                logger.info("[PlanNode] No fallback LLM available for short response recovery")
+        except Exception as e:
+            logger.error(f"[PlanNode] Short response recovery failed: {e}")
+
     # ── Empty Response Recovery ──
     # When LLM returns empty content with no tool calls after tools have executed,
     # inject a synthesis prompt and retry once. This prevents the empty-response

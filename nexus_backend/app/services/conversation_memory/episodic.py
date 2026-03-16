@@ -103,12 +103,21 @@ class EpisodicMemoryService:
             return []
 
     def build_episode_context(self, episodes: list[dict]) -> str:
-        """Build injection text from retrieved episodes."""
+        """Build injection text from retrieved episodes.
+
+        Filters out failed episodes (confidence_score=0) to avoid
+        poisoning the LLM into thinking a task is impossible.
+        """
         if not episodes:
             return ""
 
+        # Only include episodes with positive outcomes
+        useful = [ep for ep in episodes if ep.get("confidence_score", 0) > 0.1]
+        if not useful:
+            return ""
+
         parts = ["[历史经验回忆 - 以下是处理类似问题的历史记录]"]
-        for i, ep in enumerate(episodes[:3], 1):
+        for i, ep in enumerate(useful[:3], 1):
             tools = ", ".join(ep.get("tools_used", [])[:5]) or "无"
             parts.append(
                 f"经验{i}: 用户意图「{ep.get('user_intent', '')}」→ "
