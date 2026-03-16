@@ -147,7 +147,7 @@ class AgentConfig(BaseModel):
         _weak = {"mini", "flash", "turbo", "haiku", "lite"}
         if any(w in model.lower() for w in _weak):
             from app.core.config import settings as _settings
-            fallback = getattr(_settings, "AI_DEFAULT_MODEL", "gpt-4o")
+            fallback = getattr(_settings, "AI_STRONG_MODEL", "") or getattr(_settings, "AI_DEFAULT_MODEL", "gpt-4o")
             logger.info(
                 "Weak model '%s' for %s tier, upgrading to '%s'",
                 model, tier, fallback,

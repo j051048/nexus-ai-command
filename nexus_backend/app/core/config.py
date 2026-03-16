@@ -74,6 +74,11 @@ class Settings(BaseSettings):
     )
     AI_DEFAULT_MODEL: str = Field(default="gpt-4o", description="Default AI model for general tasks")
     AI_MINI_MODEL: str = Field(default="gpt-4o-mini", description="Lightweight model for simple queries")
+    AI_STRONG_MODEL: str = Field(
+        default="",
+        description="Strong model for complex/flagship tasks. When user's saved model is weak (mini/flash/turbo), "
+        "power/flagship tier auto-upgrades to this. Falls back to AI_DEFAULT_MODEL if empty.",
+    )
 
     # AI Fallback (备用 AI 服务，主服务欠费/不可用时自动切换)
     AI_FALLBACK_API_KEY: str = Field(default="", description="Fallback AI provider API key")
