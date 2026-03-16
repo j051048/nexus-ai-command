@@ -30,21 +30,26 @@ def _build_tier_fallback(tier: str) -> dict | None:
 
     Used when the LLM Gateway has no DB schedule rules configured.
     Maps 4 complexity tiers to different model/temperature/timeout combos.
+
+    For power/flagship tiers, prefers AI_STRONG_MODEL (e.g. gemini-3.1-pro-preview)
+    over AI_DEFAULT_MODEL to ensure complex tasks get the strongest available model.
     """
     _tiers = {
-        #            (settings attr,      default model,  temp, timeout, tools)
-        "economy": ("AI_MINI_MODEL", "gpt-4o-mini", 0.3, 30.0, False),
-        "balanced": ("AI_MINI_MODEL", "gpt-4o-mini", 0.5, 45.0, True),
-        "power": ("AI_DEFAULT_MODEL", "gpt-4o", 0.7, 60.0, True),
-        "flagship": ("AI_DEFAULT_MODEL", "gpt-4o", 0.5, 90.0, True),
+        #            (settings attr,           temp, timeout, tools)
+        "economy":  ("AI_MINI_MODEL",          0.3, 30.0, False),
+        "balanced": ("AI_MINI_MODEL",          0.5, 45.0, True),
+        "power":    ("AI_STRONG_MODEL",        0.7, 60.0, True),
+        "flagship": ("AI_STRONG_MODEL",        0.5, 90.0, True),
     }
     if tier not in _tiers:
         return None
-    attr, default_model, temp, timeout, tools = _tiers[tier]
+    attr, temp, timeout, tools = _tiers[tier]
+    # Resolve model: prefer the tier's attr, fallback chain → AI_DEFAULT_MODEL → "gpt-4o"
+    model = getattr(settings, attr, "") or getattr(settings, "AI_DEFAULT_MODEL", "gpt-4o")
     return {
         "api_key": settings.OPENAI_API_KEY,
         "base_url": getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1"),
-        "model": getattr(settings, attr, default_model),
+        "model": model,
         "temperature": temp,
         "timeout": timeout,
         "supports_tools": tools,

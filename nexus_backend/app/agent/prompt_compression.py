@@ -157,6 +157,69 @@ async def _summarize_messages(
         return " | ".join(fallback_parts)
 
 
+def _deduplicate_consecutive_replies(messages: list[BaseMessage]) -> list[BaseMessage]:
+    """Collapse consecutive identical AI responses into one.
+
+    When the LLM sees 3+ identical responses in history, it tends to repeat
+    the same output (context pollution).  This function keeps only the last
+    occurrence plus a short note, breaking the repetition pattern.
+    """
+    if len(messages) < 4:
+        return messages
+
+    result: list[BaseMessage] = []
+    dup_count = 0
+    prev_ai_content: str | None = None
+
+    for msg in messages:
+        if isinstance(msg, AIMessage):
+            content = msg.content if isinstance(msg.content, str) else str(msg.content)
+            # Normalize whitespace for comparison
+            normalized = content.strip()
+            if prev_ai_content is not None and normalized == prev_ai_content:
+                dup_count += 1
+                # Replace the previously appended duplicate with a skip note
+                # (keep appending nothing — we'll add the final one at the end)
+                continue
+            else:
+                if dup_count > 0:
+                    # Insert a note about skipped duplicates before this new message
+                    result.append(
+                        SystemMessage(
+                            content=f"[系统提示：上方助手回复重复了{dup_count}次，已折叠。请勿重复相同内容，需要生成不同的回答。]"
+                        )
+                    )
+                    dup_count = 0
+                prev_ai_content = normalized
+        else:
+            # Non-AI message — flush any pending duplicates
+            if dup_count > 0:
+                result.append(
+                    SystemMessage(
+                        content=f"[系统提示：上方助手回复重复了{dup_count}次，已折叠。请勿重复相同内容，需要生成不同的回答。]"
+                    )
+                )
+                dup_count = 0
+            prev_ai_content = None
+
+        result.append(msg)
+
+    # Flush trailing duplicates
+    if dup_count > 0:
+        result.append(
+            SystemMessage(
+                content=f"[系统提示：上方助手回复重复了{dup_count}次，已折叠。请勿重复相同内容，需要生成不同的回答。]"
+            )
+        )
+
+    if len(result) < len(messages):
+        logger.info(
+            f"[PromptCompression] Deduplicated {len(messages) - len(result)} repeated AI messages"
+        )
+
+    return result
+
+
 async def compress_conversation_history(
     messages: list[BaseMessage],
     max_tokens: int = DEFAULT_MAX_TOKENS_BEFORE_COMPRESS,
@@ -166,6 +229,9 @@ async def compress_conversation_history(
 ) -> list[BaseMessage]:
     """
     Compress conversation history when it exceeds thresholds.
+
+    Also deduplicates consecutive identical AI responses to prevent
+    context pollution (where the LLM repeats a cached bad response).
 
     Args:
         messages: Full conversation message list
@@ -179,6 +245,9 @@ async def compress_conversation_history(
     """
     if not messages:
         return messages
+
+    # Step 0: Deduplicate consecutive identical AI responses
+    messages = _deduplicate_consecutive_replies(messages)
 
     turn_count = _count_turns(messages)
     token_count = _count_messages_tokens(messages)
