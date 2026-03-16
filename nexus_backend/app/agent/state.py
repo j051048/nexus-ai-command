@@ -5,6 +5,7 @@ Uses TypedDict so LangGraph can checkpoint, serialize, and replay states.
 Every node reads from and writes to this state dict.
 """
 
+import logging
 import operator
 import time
 from dataclasses import asdict, dataclass, field
@@ -14,6 +15,8 @@ from typing import Annotated, Any, TypedDict
 from pydantic import BaseModel, Field, field_validator
 
 from langchain_core.messages import BaseMessage
+
+logger = logging.getLogger(__name__)
 
 # ─── Enums ───────────────────────────────────────────────────────────────────
 
@@ -128,11 +131,29 @@ class AgentConfig(BaseModel):
         return v
 
     def get_model_for_complexity(self, complexity: QueryComplexity) -> str:
-        """Dynamic model routing based on query complexity (4-tier)."""
+        """Dynamic model routing based on query complexity (4-tier).
+
+        For power/flagship tiers, guards against weak models (mini/flash/turbo
+        etc.) that the user may have saved as their default.  Falls back to
+        the env-level AI_DEFAULT_MODEL so complex tasks get a capable model
+        while still using the user's API key and proxy.
+        """
         tier = complexity.model_tier
         if tier in ("economy", "balanced"):
             return self.mini_model
-        return self.model  # power, flagship
+
+        # power / flagship — ensure a capable model
+        model = self.model
+        _weak = {"mini", "flash", "turbo", "haiku", "lite"}
+        if any(w in model.lower() for w in _weak):
+            from app.core.config import settings as _settings
+            fallback = getattr(_settings, "AI_DEFAULT_MODEL", "gpt-4o")
+            logger.info(
+                "Weak model '%s' for %s tier, upgrading to '%s'",
+                model, tier, fallback,
+            )
+            return fallback
+        return model
 
     def get_tier_config(self, complexity: QueryComplexity) -> dict:
         """Return full tier-aware config (model + temperature + timeout + tools).
