@@ -390,7 +390,7 @@ _AGENT_ROLE_PATTERNS: list[tuple[re.Pattern, str, str]] = [
     # (pattern, agent_code, scene_code)
     # Content marketing
     (
-        re.compile(r"白皮书|案例文章|内容营销|SEO|文案|公众号|社交媒体|技术文档|软文", re.IGNORECASE),
+        re.compile(r"白皮书|案例文章|内容营销|SEO|文案|公众号|社交媒体|技术文档|软文|推广文|长文|方案书|策划案", re.IGNORECASE),
         "content_agent",
         "content_creation",
     ),

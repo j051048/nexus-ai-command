@@ -12,6 +12,18 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Model codes too weak for power/flagship complexity tasks
+_WEAK_MODEL_PATTERNS = {"mini", "flash", "turbo", "haiku", "lite"}
+_WEAK_MODEL_CODES = {"deepseek-chat", "qwen-plus-latest"}
+
+
+def _is_weak_model(model_name: str) -> bool:
+    """Check if a model is too weak for power/flagship tier tasks."""
+    lower = model_name.lower()
+    if any(p in lower for p in _WEAK_MODEL_PATTERNS):
+        return True
+    return model_name in _WEAK_MODEL_CODES
+
 
 def _build_tier_fallback(tier: str) -> dict | None:
     """Build tier-specific fallback config from env settings.
@@ -77,15 +89,25 @@ async def resolve_model_config(
                         model_code, org_id, config, system_prompt, messages, tools
                     )
 
-                return {
-                    "api_key": config.api_key,
-                    "base_url": config.api_base_url,
-                    "model": config.model_id or config.model_code,
-                    "temperature": config.default_temperature,
-                    "timeout": config.timeout_ms / 1000,
-                    "supports_tools": config.supports_tools,
-                    "context_window": config.context_window,
-                }
+                resolved_model = config.model_id or config.model_code
+
+                # Guard: if power/flagship tier but Gateway returned a weak model,
+                # fall through to tier-aware hardcoded fallback instead.
+                if complexity_tier in ("power", "flagship") and _is_weak_model(resolved_model):
+                    logger.info(
+                        "Gateway returned weak model %s for %s tier, using tier fallback",
+                        resolved_model, complexity_tier,
+                    )
+                else:
+                    return {
+                        "api_key": config.api_key,
+                        "base_url": config.api_base_url,
+                        "model": resolved_model,
+                        "temperature": config.default_temperature,
+                        "timeout": config.timeout_ms / 1000,
+                        "supports_tools": config.supports_tools,
+                        "context_window": config.context_window,
+                    }
     except Exception as e:
         logger.debug("Gateway model resolution failed, using fallback: %s", e)
 
