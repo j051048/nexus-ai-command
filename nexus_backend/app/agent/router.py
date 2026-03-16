@@ -72,6 +72,21 @@ _CHITCHAT_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# Long-form writing / content creation patterns — COMPLEX tier.
+# Must be checked BEFORE _REALTIME_INFO_PATTERNS because queries like
+# "写一篇3000字FD-F1560食品安全推广软文" can accidentally match realtime
+# patterns (推荐 regex) and get misclassified as MODERATE.
+_LONGFORM_WRITING_RE = re.compile(
+    r"(\d{3,}\s*字|千字|万字|长文)"           # word-count indicators
+    r"|写一[篇份个]"                           # "写一篇..."
+    r"|(软文|推广文|公众号文案|营销文案)"       # content types
+    r"|(方案书|策划案|策划书)"                  # formal documents
+    r"|编写.{0,10}(报告|方案|计划|总结)"        # "编写XX报告"
+    r"|撰写.{0,10}(文章|报告|方案)"            # "撰写XX文章"
+    r"|(写|生成|创作).{0,6}(文章|报告|文案|剧本|小说|故事)",  # "写/生成XX文章"
+    re.IGNORECASE,
+)
+
 # Queries that need real-time/web information — should use web_search tool (MODERATE)
 # These look like casual chat but the LLM will hallucinate without current data
 _REALTIME_INFO_PATTERNS = re.compile(
@@ -533,7 +548,13 @@ def classify_query(query: str) -> tuple[QueryComplexity, str]:
     if _CHITCHAT_PATTERNS.search(text):
         return QueryComplexity.SIMPLE, "日常闲聊"
 
-    # 1d. Real-time info queries — need web_search tool, NOT hallucination
+    # 1d. Long-form writing / content creation — MUST be checked BEFORE realtime
+    #     info patterns, because queries like "写3000字推广软文" can accidentally
+    #     match realtime patterns (e.g. "推" in "推荐") and get misclassified.
+    if _LONGFORM_WRITING_RE.search(text):
+        return QueryComplexity.COMPLEX, "长文写作/内容创作"
+
+    # 1e. Real-time info queries — need web_search tool, NOT hallucination
     if _REALTIME_INFO_PATTERNS.search(text):
         return QueryComplexity.MODERATE, "需要联网搜索的实时信息"
 

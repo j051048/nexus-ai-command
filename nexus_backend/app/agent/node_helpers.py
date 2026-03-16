@@ -335,6 +335,7 @@ _KEYWORD_DOMAIN_MAP: dict[str, list[str]] = {
     "话术": ["vmd_content"], "手册": ["vmd_content"],
     "软文": ["vmd_content"], "推广文": ["vmd_content"],
     "长文": ["vmd_content"], "文章": ["vmd_content"],
+    "写作": ["vmd_content"], "内容创作": ["vmd_content"],
     "策划案": ["vmd_content"], "方案书": ["vmd_content"],
     "市场": ["vmd_market"], "舆情": ["vmd_market"],
     # Admin
