@@ -18,7 +18,7 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 # Configuration
-DEFAULT_TIMEOUT = 30.0
+DEFAULT_TIMEOUT = 90.0
 MAX_RETRIES = 2
 
 
@@ -56,7 +56,7 @@ class AIService:
             headers["X-Request-ID"] = request_id
 
         payload = {
-            "model": (settings.AI_DEFAULT_MODEL if hasattr(settings, "AI_DEFAULT_MODEL") else "gpt-4o"),
+            "model": (getattr(settings, "AI_STRONG_MODEL", "") or settings.AI_DEFAULT_MODEL if hasattr(settings, "AI_DEFAULT_MODEL") else "gpt-4o"),
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt},
