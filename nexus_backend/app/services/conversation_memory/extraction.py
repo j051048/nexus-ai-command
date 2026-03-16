@@ -1,6 +1,7 @@
 """Memory extraction from conversations: regex patterns + LLM-assisted extraction."""
 
 import hashlib
+import json as _json
 import logging
 import re
 import uuid
@@ -23,18 +24,21 @@ PREFERENCE_PATTERNS: list[dict[str, Any]] = [
         "pattern": re.compile(r"(?:以后|之后|今后|每次)(?:都|请)?(.{2,50})"),
         "category": "preference",
         "key_prefix": "routine",
+        "importance": 0.65,
     },
     # "记住..." / "请记住..." / "帮我记..."
     {
         "pattern": re.compile(r"(?:请?记住|帮我记|记一下)(.{2,80})"),
         "category": "explicit_memory",
         "key_prefix": "remember",
+        "importance": 0.85,
     },
     # "我是..." / "我的...是..."
     {
         "pattern": re.compile(r"我(?:是|叫|的名字是)(.{2,30})"),
         "category": "preference",
         "key_prefix": "identity",
+        "importance": 0.8,
     },
     # "不要..." / "别给我..." / "我不喜欢..."
     {
@@ -47,6 +51,7 @@ PREFERENCE_PATTERNS: list[dict[str, Any]] = [
         "pattern": re.compile(r"我的(?:邮箱|邮件|电话|手机|工号|员工号)(?:是|为)?\s*([^\s,，。.]{3,40})"),
         "category": "preference",
         "key_prefix": "contact",
+        "importance": 0.75,
     },
 ]
 
@@ -71,6 +76,77 @@ MEMORY_SIGNAL_WORDS = frozenset({
     "我们公司", "规定", "偏好", "习惯", "别给我", "不要",
     "我喜欢", "我讨厌", "我倾向", "帮我记", "请记住",
 })
+
+
+async def _enrich_memory_values(
+    entries: list[dict],
+    messages: list[dict[str, str]],
+) -> list[dict]:
+    """P0 滑动窗口预处理：对提取的记忆做上下文补全，使每条记忆自包含。
+
+    用 mini 模型做代词消解和缺失主语补全。
+    例如 "他觉得方案不行" → "华为的张总觉得微服务迁移方案不可行"
+    失败时返回原始 entries（非致命）。
+    """
+    # 只处理长度 > 10 的 value（太短的无需补全）
+    enrichable = [(i, e) for i, e in enumerate(entries) if len(e.get("value", "")) > 10]
+    if not enrichable:
+        return entries
+
+    # 构建对话上下文摘要（最近 5 条消息，截取前 500 字符）
+    recent_msgs = [
+        f"{m.get('role', 'user')}: {m.get('content', '')}"
+        for m in messages[-5:]
+        if m.get("content")
+    ]
+    context_summary = "\n".join(recent_msgs)[:500]
+
+    # 构建待补全列表
+    values_text = "\n".join(
+        f"[{i}] {entries[idx]['value']}" for i, (idx, _) in enumerate(enrichable)
+    )
+
+    prompt = (
+        f"以下是对话上下文和从中提取的记忆片段。\n"
+        f"请对每条记忆做最小改动，使其脱离对话上下文后仍可独立理解：\n"
+        f"1. 将代词（他/她/它/该/这个/那个）替换为具体名词\n"
+        f"2. 如果片段缺少主语或关键背景，从上下文中补充\n"
+        f"3. 不要改变原意、不要添加新信息\n\n"
+        f"[对话上下文]\n{context_summary}\n\n"
+        f"[记忆片段]\n{values_text}\n\n"
+        f"按JSON数组返回补全后的文本，格式: [\"补全后的片段0\", \"补全后的片段1\", ...]"
+    )
+
+    try:
+        from app.services.ai_service import AIService
+
+        result_text = await AIService.call_llm(prompt, "你是记忆预处理助手。")
+
+        # Parse JSON array
+        clean = result_text.strip()
+        if "```json" in clean:
+            clean = clean.split("```json")[1].split("```")[0].strip()
+        elif "```" in clean:
+            clean = clean.split("```")[1].split("```")[0].strip()
+
+        json_match = re.search(r'\[.*\]', clean, re.DOTALL)
+        if json_match:
+            results = _json.loads(json_match.group())
+            enriched_count = 0
+            for j, (orig_idx, _) in enumerate(enrichable):
+                if j < len(results) and isinstance(results[j], str) and len(results[j]) > 5:
+                    enriched_val = results[j]
+                    # 保存原始 value 和补全后的 enriched_value
+                    entries[orig_idx]["enriched_value"] = enriched_val
+                    enriched_count += 1
+
+            if enriched_count > 0:
+                logger.info(f"[Memory] Enriched {enriched_count} memory values with context")
+
+    except Exception as e:
+        logger.debug(f"[Memory] Memory value enrichment skipped (non-fatal): {e}")
+
+    return entries
 
 
 async def extract_preferences(
@@ -110,11 +186,13 @@ async def extract_preferences(
 
                 content_hash = hashlib.md5(match_text.encode()).hexdigest()[:8]
                 key = f"{pattern_info['key_prefix']}_{content_hash}"
+                # Use pattern-specific importance if defined, else category defaults
+                default_imp = 0.7 if pattern_info["category"] == "explicit_memory" else 0.5
                 entry = {
                     "key": key,
                     "value": match_text,
                     "category": pattern_info["category"],
-                    "importance": 0.7 if pattern_info["category"] == "explicit_memory" else 0.5,
+                    "importance": pattern_info.get("importance", default_imp),
                 }
                 extracted.append(entry)
 
@@ -150,6 +228,10 @@ async def extract_preferences(
     if save_memory_fn is None:
         from .storage import save_memory as save_memory_fn  # noqa: N811
 
+    # P0: 滑动窗口预处理 — 上下文补全
+    if extracted:
+        extracted = await _enrich_memory_values(extracted, messages)
+
     for entry in extracted:
         try:
             result = await save_memory_fn(
@@ -160,6 +242,8 @@ async def extract_preferences(
                 importance=entry.get("importance", 0.5),
                 org_id=org_id,
                 db=db,
+                enriched_value=entry.get("enriched_value"),
+                valid_from=entry.get("valid_from"),
             )
             saved.append(result)
         except Exception as e:
@@ -213,7 +297,10 @@ async def extract_with_llm(
             '- "importance": 0.0-1.0 的重要性评分，评分标准:\n'
             "  * 0.8-1.0: 身份信息、核心偏好、明确指令（如'以后都用表格'）\n"
             "  * 0.5-0.7: 工作习惯、常用功能、业务方向\n"
-            "  * 0.3-0.4: 一般性事实、临时偏好、单次提及\n\n"
+            "  * 0.3-0.4: 一般性事实、临时偏好、单次提及\n"
+            '- "valid_from": (可选) 如果信息涉及具体时间点（如"上个月搬了新办公室"、'
+            '"去年加入公司"），输出该事实的大致生效日期，ISO格式如 "2026-02-01"。'
+            "无明确时间信息则不输出此字段。\n\n"
             "只返回JSON数组，不要其他文字。最多提取5条。"
         )
 
@@ -247,6 +334,7 @@ async def extract_with_llm(
                     "value": value,
                     "category": category,
                     "importance": min(max(float(item.get("importance", 0.5)), 0.1), 1.0),
+                    **({"valid_from": item["valid_from"]} if item.get("valid_from") else {}),
                 }
             )
 

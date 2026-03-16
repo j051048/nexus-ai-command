@@ -192,7 +192,7 @@ async def reevaluate_importance(
         boost_res = (
             await client.table("conversation_memories")
             .select("id, importance, access_count")
-            .gt("access_count", 3)
+            .gt("access_count", 2)
             .lt("importance", 0.7)
             .limit(batch_size)
             .execute()
@@ -200,7 +200,7 @@ async def reevaluate_importance(
         for mem in boost_res.data or []:
             count = int(mem.get("access_count", 0) or 0)
             old_imp = float(mem.get("importance", 0.5) or 0.5)
-            boost = min(0.1 * math.log(count + 1), 0.3)
+            boost = min(0.15 * math.log(count + 1), 0.4)
             new_imp = min(old_imp + boost, 1.0)
             if new_imp > old_imp + 0.01:
                 await client.table("conversation_memories").update(
@@ -209,22 +209,40 @@ async def reevaluate_importance(
                 boosted += 1
 
         # Decay: never-accessed old memories with moderate importance
-        cutoff_14d = (datetime.now(UTC) - timedelta(days=14)).isoformat()
+        cutoff_10d = (datetime.now(UTC) - timedelta(days=10)).isoformat()
         decay_res = (
             await client.table("conversation_memories")
             .select("id, importance, category")
             .eq("access_count", 0)
             .gt("importance", 0.3)
-            .lt("created_at", cutoff_14d)
+            .lt("created_at", cutoff_10d)
             .not_.in_("category", ["explicit_memory", "policy"])
             .limit(batch_size)
             .execute()
         )
         for mem in decay_res.data or []:
             old_imp = float(mem.get("importance", 0.5) or 0.5)
-            new_imp = max(old_imp - 0.1, 0.1)
+            new_imp = max(old_imp - 0.15, 0.1)
             await client.table("conversation_memories").update(
                 {"importance": round(new_imp, 3)}
+            ).eq("id", mem["id"]).execute()
+            decayed += 1
+
+        # Deep decay: zero access + 30+ days + still moderate -> drop to floor
+        cutoff_30d = (datetime.now(UTC) - timedelta(days=30)).isoformat()
+        deep_decay_res = (
+            await client.table("conversation_memories")
+            .select("id, importance, category")
+            .eq("access_count", 0)
+            .gt("importance", 0.2)
+            .lt("created_at", cutoff_30d)
+            .not_.in_("category", ["explicit_memory", "policy"])
+            .limit(batch_size)
+            .execute()
+        )
+        for mem in deep_decay_res.data or []:
+            await client.table("conversation_memories").update(
+                {"importance": 0.15}
             ).eq("id", mem["id"]).execute()
             decayed += 1
 

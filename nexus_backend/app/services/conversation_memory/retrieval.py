@@ -12,6 +12,20 @@ from .cleanup import compute_decay_score, mmr_rerank
 logger = logging.getLogger(__name__)
 
 
+def _format_memory_line(mem: dict) -> str:
+    """Format a memory entry for context injection, with optional temporal annotation."""
+    value = mem.get("value", "")
+    valid_from = mem.get("valid_from")
+    if valid_from:
+        # Extract YYYY-MM for concise display
+        try:
+            date_str = str(valid_from)[:7]  # "2026-02-01T..." -> "2026-02"
+            return f"- [{date_str}] {value}"
+        except Exception:
+            pass
+    return f"- {value}"
+
+
 async def get_memories(
     user_id: str,
     category: str | None = None,
@@ -282,7 +296,7 @@ async def build_memory_context(
         db=db,
     )
     if explicit:
-        mem_lines = [f"- {m['value']}" for m in explicit]
+        mem_lines = [_format_memory_line(m) for m in explicit]
         context_parts.append("用户记忆:\n" + "\n".join(mem_lines))
 
     # 2) Query-relevant memories -- semantic search across all categories
@@ -297,7 +311,7 @@ async def build_memory_context(
             existing_ids = {m["id"] for m in explicit}
             new_relevant = [m for m in relevant if m["id"] not in existing_ids]
             if new_relevant:
-                rel_lines = [f"- {m['value']}" for m in new_relevant]
+                rel_lines = [_format_memory_line(m) for m in new_relevant]
                 context_parts.append("相关记忆:\n" + "\n".join(rel_lines))
 
     # 3) Consolidated insights -- semantic search for cross-memory patterns

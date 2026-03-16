@@ -20,6 +20,8 @@ async def save_memory(
     importance: float = 0.5,
     org_id: str | None = None,
     db: Any = None,
+    enriched_value: str | None = None,
+    valid_from: str | None = None,
 ) -> dict:
     """保存用户记忆条目（upsert by user_id + key），同时生成 embedding 向量"""
     client = db or supabase
@@ -28,8 +30,9 @@ async def save_memory(
 
     now = datetime.now(UTC).isoformat()
 
-    # Generate embedding for semantic search
-    embedding = await generate_embedding(f"{key}: {value}", org_id)
+    # Generate embedding for semantic search (prefer enriched_value for better semantics)
+    embed_text = enriched_value or f"{key}: {value}"
+    embedding = await generate_embedding(embed_text, org_id)
 
     # Check if key already exists for this user (latest version only)
     existing = (
@@ -65,11 +68,28 @@ async def save_memory(
     }
     if embedding:
         insert_data["embedding"] = embedding
+    if enriched_value:
+        insert_data["enriched_value"] = enriched_value
+    if valid_from:
+        insert_data["valid_from"] = valid_from
     try:
         result = await client.table("conversation_memories").insert(insert_data).execute()
     except Exception as insert_err:
         err_str = str(insert_err)
-        if embedding and ("embedding" in err_str or "PGRST204" in err_str):
+        if "enriched_value" in err_str or "valid_from" in err_str:
+            logger.warning("enriched_value/valid_from columns not found, saving without them")
+            insert_data.pop("enriched_value", None)
+            insert_data.pop("valid_from", None)
+            try:
+                result = await client.table("conversation_memories").insert(insert_data).execute()
+            except Exception as retry_err:
+                err_str = str(retry_err)
+                if embedding and ("embedding" in err_str or "PGRST204" in err_str):
+                    insert_data.pop("embedding", None)
+                    result = await client.table("conversation_memories").insert(insert_data).execute()
+                else:
+                    raise retry_err
+        elif embedding and ("embedding" in err_str or "PGRST204" in err_str):
             logger.warning("embedding column not found, saving without embedding")
             insert_data.pop("embedding", None)
             result = await client.table("conversation_memories").insert(insert_data).execute()
