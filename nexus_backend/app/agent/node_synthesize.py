@@ -44,8 +44,13 @@ def _strip_dates(text: str) -> str:
     return text
 
 
-def _verify_grounding(ai_response: str, tool_results: list) -> str | None:
-    """Quick grounding check: verify numbers in response match tool results."""
+def _verify_grounding(ai_response: str, tool_results: list, user_question: str = "") -> str | None:
+    """Quick grounding check: verify numbers in response match tool results.
+
+    Numbers that also appear in the user's original question (e.g. product
+    model numbers like "1560", requested word counts like "3000") are excluded
+    from the check to avoid false positives.
+    """
     clean_ai = _strip_dates(ai_response)
     ai_numbers = re.findall(r"\d+(?:\.\d+)?", clean_ai)
 
@@ -55,12 +60,19 @@ def _verify_grounding(ai_response: str, tool_results: list) -> str | None:
         if result_text:
             tool_numbers.extend(re.findall(r"\d+(?:\.\d+)?", _strip_dates(str(result_text))))
 
+    # Numbers from the user's question are NOT hallucinated — exclude them
+    user_numbers = set()
+    if user_question:
+        user_numbers = set(re.findall(r"\d+(?:\.\d+)?", _strip_dates(user_question)))
+
     if not tool_numbers:
         return None
 
     issues = []
     for num in ai_numbers:
         if float(num) < 10:
+            continue
+        if num in user_numbers:
             continue
         found = any(abs(float(num) - float(tn)) / max(float(tn), 1.0) < 0.10 for tn in tool_numbers)
         if not found:
@@ -105,7 +117,7 @@ async def synthesize_node(state: AgentState) -> dict:
     Unlike plan_node's second pass, this node:
     - Does NOT bind tools (no chance of triggering more tool calls)
     - Does NOT inject full system prompt / RAG / few-shot
-    - Uses mini_model regardless of complexity
+    - Uses mini_model for simple/moderate, selected_model for complex/critical
     - Only sends: brief system instruction + user question + tool results
 
     For COMPLEX/CRITICAL queries, the prompt includes critic self-evaluation
@@ -155,9 +167,10 @@ async def synthesize_node(state: AgentState) -> dict:
     ]
 
     try:
-        llm = _get_llm(config, model=config.mini_model, streaming=True)
+        synth_model = state.get("selected_model", config.model) if is_complex else config.mini_model
+        llm = _get_llm(config, model=synth_model, streaming=True)
         ai_msg = await invoke_with_fallback(
-            llm, synthesis_msgs, config=config, model=config.mini_model, streaming=True,
+            llm, synthesis_msgs, config=config, model=synth_model, streaming=True,
         )
         content = ai_msg.content or ""
     except Exception as e:
@@ -168,7 +181,7 @@ async def synthesize_node(state: AgentState) -> dict:
     # ── Inline grounding check (replaces reflect Layer 3 + critic for this path) ──
     is_hallucination = False
     if content and completed_tools:
-        grounding_issue = _verify_grounding(content, completed_tools)
+        grounding_issue = _verify_grounding(content, completed_tools, user_question=user_question)
         if grounding_issue:
             is_hallucination = True
             logger.warning(f"[Synthesize] Grounding issue detected: {grounding_issue}")
