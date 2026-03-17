@@ -292,14 +292,22 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
 
     # Diagnostic: log LLM response details for debugging empty/short responses
     finish_reason = ai_msg.response_metadata.get("finish_reason", "unknown")
+    # Detect API provider silently downgrading the model
+    actual_api_model = ai_msg.response_metadata.get("model_name") or ai_msg.response_metadata.get("model", "")
     content_len = len(ai_msg.content or "")
     tool_call_count = len(ai_msg.tool_calls or [])
+    requested_model = model or agent_config.model
     logger.info(
-        "[PlanNode] LLM response: model=%s finish_reason=%s content_len=%d tool_calls=%d "
-        "input_tokens=%d output_tokens=%d",
-        model or agent_config.model, finish_reason, content_len, tool_call_count,
-        input_tokens, output_tokens,
+        "[PlanNode] LLM response: requested=%s actual=%s finish=%s content_len=%d "
+        "tool_calls=%d in_tok=%d out_tok=%d",
+        requested_model, actual_api_model or "?", finish_reason, content_len,
+        tool_call_count, input_tokens, output_tokens,
     )
+    if actual_api_model and actual_api_model != requested_model and requested_model not in actual_api_model:
+        logger.warning(
+            "[PlanNode] MODEL MISMATCH: requested '%s' but API returned '%s' — provider may have downgraded",
+            requested_model, actual_api_model,
+        )
 
     # Langfuse: log LLM generation
     _configurable = (config or {}).get("configurable", {}) if isinstance(config, dict) else {}

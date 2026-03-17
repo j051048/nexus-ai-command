@@ -747,12 +747,15 @@ async def run_agent_stream(
 
     # ── 8. Token tracking ──
     total_in = accumulated_state.get("total_input_tokens", 0) or input_tokens
+    # Use the tier-selected model (from router) for accurate tracking, not the base config model
+    actual_model = accumulated_state.get("selected_model") or agent_config.model
+
     total_out = accumulated_state.get("total_output_tokens", 0) or token_counter.count_tokens(
-        final_response, agent_config.model
+        final_response, actual_model
     )
 
     try:
-        await record_completion(user_id, total_in, total_out, agent_config.model)
+        await record_completion(user_id, total_in, total_out, actual_model)
     except Exception as e:
         logger.warning(f"[Stream] Token recording failed: {e}", exc_info=True)
 
@@ -764,7 +767,7 @@ async def run_agent_stream(
             tenant_id=agent_config.org_id,
             input_tokens=total_in,
             output_tokens=total_out,
-            model=agent_config.model,
+            model=actual_model,
         )
     except Exception as e:
         logger.warning(f"[Stream] Token budget recording failed: {e}")

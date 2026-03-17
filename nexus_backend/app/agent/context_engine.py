@@ -156,9 +156,17 @@ class ChatHistoryProvider(ContextProvider):
             if not rows:
                 return ""
 
-            # Filter out error/failure assistant responses — they pollute context
-            # and make the LLM more likely to output short/refusal responses too.
-            _ERROR_PHRASES = ("抱歉，处理您的请求时遇到了问题", "抱歉，系统处理出现异常", "无法满足该请求")
+            # Filter out error/failure/refusal assistant responses — they pollute
+            # context and make the LLM copy the refusal pattern instead of working.
+            _ERROR_PHRASES = (
+                "抱歉，处理您的请求时遇到了问题",
+                "抱歉，系统处理出现异常",
+                "无法满足该请求",
+                "抱歉，我无法提供",       # generic refusals
+                "抱歉，我无法执行",
+                "抱歉，我目前无法",
+                "请稍后重试",
+            )
             cleaned_rows = []
             for r in rows:
                 content = r.get("content") or ""
