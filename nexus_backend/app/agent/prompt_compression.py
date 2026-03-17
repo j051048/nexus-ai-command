@@ -11,6 +11,7 @@ Strategy:
 """
 
 import logging
+import re
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
@@ -20,6 +21,94 @@ logger = logging.getLogger(__name__)
 DEFAULT_MAX_TURNS_BEFORE_COMPRESS = 8
 DEFAULT_MAX_TOKENS_BEFORE_COMPRESS = 6000
 DEFAULT_KEEP_RECENT_TURNS = 3
+
+# Micro-compaction thresholds for LangChain messages (P0)
+_LC_TOOL_RESULT_THRESHOLD = 2000
+_LC_ASSISTANT_MSG_THRESHOLD = 3000
+_LC_CODE_BLOCK_RE = re.compile(r"```(\w*)\n(.*?)```", re.DOTALL)
+_LC_MICRO_COMPACT_RECENT_TURNS = 3
+
+
+def _micro_compact_lc_messages(messages: list[BaseMessage]) -> list[BaseMessage]:
+    """Micro-compact LangChain BaseMessage list (P0).
+
+    Shrinks old tool outputs and long assistant messages while preserving
+    the most recent N turns intact.  Operates on LangChain message types.
+    """
+    if len(messages) < _LC_MICRO_COMPACT_RECENT_TURNS * 2:
+        return messages
+
+    # Find boundary: protect last N turns
+    turns_found = 0
+    boundary = len(messages)
+    for idx in range(len(messages) - 1, -1, -1):
+        if isinstance(messages[idx], HumanMessage):
+            turns_found += 1
+            if turns_found >= _LC_MICRO_COMPACT_RECENT_TURNS:
+                boundary = idx
+                break
+
+    result: list[BaseMessage] = []
+    original_chars = 0
+    compacted_chars = 0
+
+    for i, msg in enumerate(messages):
+        content = msg.content if isinstance(msg.content, str) else str(msg.content)
+        original_chars += len(content)
+
+        if i >= boundary:
+            # Recent window — keep as-is
+            result.append(msg)
+            compacted_chars += len(content)
+            continue
+
+        # Older messages — compact
+        if isinstance(msg, (SystemMessage,)) and len(content) > _LC_TOOL_RESULT_THRESHOLD:
+            # Tool result / context injection — summarize
+            lines = content.split("\n", 3)
+            first_line = lines[0][:120] if lines else content[:120]
+            line_count = content.count("\n") + 1
+            new_content = f"[已执行, {line_count} 行 / {len(content)} 字符] {first_line}..."
+            result.append(SystemMessage(content=new_content))
+            compacted_chars += len(new_content)
+        elif isinstance(msg, AIMessage) and len(content) > _LC_ASSISTANT_MSG_THRESHOLD:
+            # Long assistant message — compact code blocks + truncate
+            new_content = _LC_CODE_BLOCK_RE.sub(_lc_code_replacer, content)
+            if len(new_content) > _LC_ASSISTANT_MSG_THRESHOLD:
+                head = _LC_ASSISTANT_MSG_THRESHOLD * 2 // 3
+                tail = _LC_ASSISTANT_MSG_THRESHOLD // 3
+                new_content = (
+                    new_content[:head]
+                    + f"\n...(原文 {len(content)} 字符, 已省略)...\n"
+                    + new_content[-tail:]
+                )
+            result.append(AIMessage(content=new_content))
+            compacted_chars += len(new_content)
+        else:
+            result.append(msg)
+            compacted_chars += len(content)
+
+    if compacted_chars < original_chars:
+        saved = original_chars - compacted_chars
+        logger.info(
+            f"[MicroCompact-LC] {len(messages)} msgs: "
+            f"{original_chars} → {compacted_chars} chars (saved {saved})"
+        )
+
+    return result
+
+
+def _lc_code_replacer(match):
+    """Replace large code blocks with compact placeholders."""
+    lang = match.group(1) or "code"
+    code = match.group(2)
+    if len(code) <= 1500:
+        return match.group(0)
+    line_count = code.count("\n") + 1
+    code_lines = code.split("\n")
+    preview = "\n".join(code_lines[:3])
+    tail = "\n".join(code_lines[-2:])
+    return f"```{lang}\n{preview}\n... ({line_count} 行, 已省略) ...\n{tail}\n```"
 
 
 def _count_tokens_approx(text: str) -> int:
@@ -248,6 +337,10 @@ async def compress_conversation_history(
 
     # Step 0: Deduplicate consecutive identical AI responses
     messages = _deduplicate_consecutive_replies(messages)
+
+    # Step 0b: Micro-compact old tool outputs and long assistant messages
+    # (P0: lightweight first pass before expensive LLM summarization)
+    messages = _micro_compact_lc_messages(messages)
 
     turn_count = _count_turns(messages)
     token_count = _count_messages_tokens(messages)

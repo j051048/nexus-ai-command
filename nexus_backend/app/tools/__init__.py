@@ -37,6 +37,8 @@ _TOOL_MODULES: dict[str, tuple[str, str]] = {
     "get_performance_report": ("app.tools.operational_tools", "PerformanceReportTool"),
     "get_company_stats": ("app.tools.operational_tools", "CompanyStatsTool"),
     "query_knowledge_base": ("app.tools.operational_tools", "KnowledgeBaseTool"),
+    # load_knowledge_tool (P1b: on-demand knowledge loading)
+    "load_knowledge": ("app.tools.load_knowledge_tool", "LoadKnowledgeTool"),
     "award_badge": ("app.tools.operational_tools", "AwardBadgeTool"),
     # project_tools
     "get_projects": ("app.tools.project_tools", "ProjectListTool"),
@@ -92,6 +94,10 @@ _TOOL_MODULES: dict[str, tuple[str, str]] = {
     "create_scheduled_task": ("app.tools.scheduled_task_tools", "CreateScheduledTaskTool"),
     "list_scheduled_tasks": ("app.tools.scheduled_task_tools", "ListScheduledTasksTool"),
     "delete_scheduled_task": ("app.tools.scheduled_task_tools", "DeleteScheduledTaskTool"),
+    # agent_task_tools (P1a: external persistent task system)
+    "create_task": ("app.tools.agent_task_tools", "CreateTaskTool"),
+    "update_task": ("app.tools.agent_task_tools", "UpdateTaskTool"),
+    "list_tasks": ("app.tools.agent_task_tools", "ListTasksTool"),
     # ask_user (P1-7: agent proactive questioning)
     "ask_user": ("app.tools.ask_user_tool", "AskUserTool"),
     # web_search (P0: 联网搜索能力)

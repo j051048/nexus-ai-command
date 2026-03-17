@@ -253,6 +253,8 @@ def _after_execute(state: AgentState) -> str:
       - SIMPLE/MODERATE with all tools successful → synthesize (lightweight, 1 LLM call)
       - Otherwise → plan (full second-pass with bind_tools for potential follow-up)
       - Guard: if iteration limit reached → reflect to finalize.
+
+    P2 Enhancement: Rich observation logging for debugging and model awareness.
     """
     if state.get("error"):
         return "error"
@@ -266,6 +268,20 @@ def _after_execute(state: AgentState) -> str:
     config = state.get("config")
     max_iter = config.max_iterations if config else 5
     iteration = state.get("iteration", 0)
+
+    # P2: Rich observation layer — log comprehensive state for debugging
+    completed = state.get("completed_tool_calls", [])
+    tool_summary = ", ".join(
+        f"{getattr(tc, 'tool_name', '?')}={'ok' if getattr(tc, 'status', '') == 'success' else getattr(tc, 'status', '?')}"
+        for tc in completed[-5:]  # last 5 tools
+    ) if completed else "none"
+    complexity = state.get("complexity")
+    logger.info(
+        f"[Graph:Observe] after_execute: iter={iteration}/{max_iter} "
+        f"complexity={complexity} tools=[{tool_summary}] "
+        f"pending={len(state.get('pending_tool_calls', []))} "
+        f"has_plan={'yes' if state.get('plan') else 'no'}"
+    )
 
     if iteration >= max_iter:
         logger.warning(f"[Graph] Max iterations ({max_iter}) reached, forcing reflect")
@@ -335,8 +351,22 @@ def _after_reflect(state: AgentState) -> str:
       - COMPLEX/CRITICAL with tool results (reflect skipped LLM layers) → critic
       - COMPLEX/CRITICAL without tools (reflect already did LLM check) → respond (skip critic)
       - Otherwise → respond (finalize)
+
+    P2 Enhancement: Observation logging + iteration guard on replanning.
     """
-    if state.get("needs_replanning"):
+    needs_replan = state.get("needs_replanning")
+    complexity = state.get("complexity")
+    confidence = state.get("confidence_score", 0.0)
+    completed_tools = state.get("completed_tool_calls", [])
+
+    logger.info(
+        f"[Graph:Observe] after_reflect: needs_replan={needs_replan} "
+        f"complexity={complexity} confidence={confidence:.2f} "
+        f"tools_used={len(completed_tools)} "
+        f"is_hallucination={state.get('is_hallucination', False)}"
+    )
+
+    if needs_replan:
         config = state.get("config")
         max_iter = config.max_iterations if config else 5
         iteration = state.get("iteration", 0)
@@ -362,11 +392,38 @@ def _after_error(state: AgentState) -> str:
     """
     After error recovery attempt:
       - If recovery worked (error cleared) → plan
+      - If max recovery level reached → respond (graceful degradation)
       - Otherwise → respond (with error message)
+
+    P2 Enhancement: Multi-level fallback with observation logging.
     """
-    if state.get("error"):
-        return "respond"
-    return "plan"
+    error = state.get("error")
+    recovery_level = state.get("error_recovery_level", 0)
+    iteration = state.get("iteration", 0)
+    config = state.get("config")
+    max_iter = config.max_iterations if config else 5
+
+    logger.info(
+        f"[Graph:Observe] after_error: error={'yes' if error else 'cleared'} "
+        f"recovery_level={recovery_level} iter={iteration}/{max_iter}"
+    )
+
+    if not error:
+        # Recovery succeeded — but guard against infinite recovery loops
+        if iteration >= max_iter:
+            logger.warning("[Graph] Error cleared but max iterations reached, responding")
+            return "respond"
+        return "plan"
+
+    # P2: Graduated fallback — don't give up on first error
+    # Level 0→1: first error, try recovery (already attempted by error_node)
+    # Level 2+: recovery exhausted, respond with best-effort
+    if recovery_level >= 2:
+        logger.warning(
+            f"[Graph] Error recovery exhausted (level={recovery_level}), "
+            f"responding with graceful degradation"
+        )
+    return "respond"
 
 
 def _after_router(state: AgentState) -> str:
@@ -376,14 +433,24 @@ def _after_router(state: AgentState) -> str:
       - If the router detected a multi-agent orchestration scenario → wbs_decompose
       - COMPLEX/CRITICAL with RAG enabled → parallel_context_and_plan
       - Otherwise → plan (standard single-agent flow)
+
+    P2 Enhancement: Observation logging for routing decisions.
     """
     # SIMPLE fast-path: greetings/chitchat → direct mini_model response
     complexity = state.get("complexity")
-    if complexity == QueryComplexity.SIMPLE:
-        return "simple_respond"
-
+    intent = state.get("intent_summary", "")
     agent_code = state.get("agent_code", "")
     scene_code = state.get("scene_code", "")
+
+    logger.info(
+        f"[Graph:Observe] after_router: complexity={complexity} "
+        f"intent='{intent[:50]}' agent={agent_code or 'none'} "
+        f"scene={scene_code or 'none'} "
+        f"model={state.get('selected_model', '?')}"
+    )
+
+    if complexity == QueryComplexity.SIMPLE:
+        return "simple_respond"
 
     # Check if this needs multi-agent WBS decomposition
     if agent_code and scene_code == "task_decompose":

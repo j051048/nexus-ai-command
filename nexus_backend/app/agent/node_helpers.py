@@ -253,11 +253,13 @@ _DOMAIN_TOOL_MAP: dict[str, set[str]] = {
     },
     "knowledge": {
         "query_knowledge_base", "batch_analyze_documents",
+        "load_knowledge",
     },
     "schedule": {
         "create_scheduled_task", "list_scheduled_tasks",
         "delete_scheduled_task", "get_daily_briefing",
         "get_pending_approvals", "assign_task",
+        "create_task", "update_task", "list_tasks",
     },
     "vmd_content": {
         "generate_product_manual", "generate_whitepaper",

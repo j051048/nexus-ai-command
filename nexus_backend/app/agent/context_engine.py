@@ -326,7 +326,16 @@ class SemanticMemoryProvider(ContextProvider):
 
 
 class KnowledgeBaseProvider(ContextProvider):
-    """当查询涉及知识库时，做 RAG 召回。"""
+    """P1b: Two-layer knowledge loading.
+
+    Layer 1 (this provider): Injects a lightweight skill index into context,
+    telling the agent WHAT knowledge domains are available.
+
+    Layer 2 (load_knowledge tool): Agent actively loads full content on demand.
+
+    This replaces the old approach of eagerly injecting RAG results into
+    every request, which wasted tokens when the query didn't need KB content.
+    """
 
     name = "knowledge_base"
     priority = 50
@@ -335,31 +344,21 @@ class KnowledgeBaseProvider(ContextProvider):
         self._search_limit = search_limit
 
     def max_tokens(self) -> int:
-        return 1000
+        return 200  # Reduced from 1000 — index is much smaller than full RAG
 
     async def get_context(
         self, user_id: str, org_id: str | None, query: str, **kwargs: Any
     ) -> str:
         if not user_id or not query:
             return ""
-        # 只在有 org_id 时才做知识库检索（安全要求）
+        # Only inject index when org has a knowledge base
         if not org_id:
             return ""
         try:
-            from app.services.vector_service import vector_service
-
-            result = await vector_service.search(
-                query=query,
-                user_id=user_id,
-                limit=self._search_limit,
-                org_id=org_id,
-            )
-            # vector_service.search 在没有结果时返回 "未找到" 类文本
-            if isinstance(result, str) and "未找到" not in result:
-                return result
-            return ""
+            from app.tools.load_knowledge_tool import build_skill_index_prompt
+            return build_skill_index_prompt()
         except Exception as e:
-            logger.debug(f"[KnowledgeBaseProvider] Failed: {e}")
+            logger.debug(f"[KnowledgeBaseProvider] Failed to build skill index: {e}")
             return ""
 
 
