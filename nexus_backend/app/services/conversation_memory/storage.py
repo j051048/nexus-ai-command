@@ -126,6 +126,33 @@ async def save_memory(
 
     saved = result.data[0] if isinstance(result.data, list) else result.data
     logger.info(f"Saved memory for user {user_id}: key={key}, category={category}")
+
+    # Non-fatal audit logging
+    try:
+        from .audit import log_memory_change
+        if old_id:
+            await log_memory_change(
+                memory_id=str(saved.get("id", "")),
+                user_id=user_id,
+                action="UPDATE",
+                old_value=None,  # old value not readily available here
+                new_value=value,
+                reason="Version update via save_memory",
+                actor="system",
+                db=client,
+            )
+        else:
+            await log_memory_change(
+                memory_id=str(saved.get("id", "")),
+                user_id=user_id,
+                action="ADD",
+                new_value=value,
+                actor="system",
+                db=client,
+            )
+    except Exception:
+        pass  # audit is non-fatal
+
     return saved
 
 
@@ -139,6 +166,22 @@ async def delete_memory(
     if not client:
         return False
 
+    # Fetch value before deletion for audit trail
+    old_value = None
+    try:
+        existing = (
+            await client.table("conversation_memories")
+            .select("value")
+            .eq("id", memory_id)
+            .eq("user_id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        if existing and existing.data:
+            old_value = existing.data.get("value")
+    except Exception:
+        pass
+
     result = (
         await client.table("conversation_memories").delete().eq("id", memory_id).eq("user_id", user_id).execute()
     )
@@ -146,6 +189,20 @@ async def delete_memory(
     deleted = bool(result.data)
     if deleted:
         logger.info(f"Deleted memory {memory_id} for user {user_id}")
+        # Non-fatal audit logging
+        try:
+            from .audit import log_memory_change
+            await log_memory_change(
+                memory_id=memory_id,
+                user_id=user_id,
+                action="DELETE",
+                old_value=old_value,
+                reason="User-initiated deletion",
+                actor="user_explicit",
+                db=client,
+            )
+        except Exception:
+            pass  # audit is non-fatal
     return deleted
 
 

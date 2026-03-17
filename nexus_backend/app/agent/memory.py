@@ -785,19 +785,21 @@ async def persist_result(
         logger.error(f"[Memory] Failed to persist messages: {e}")
 
     # Update semantic cache (skip for confirmation/blocked responses and SIMPLE queries)
+    # ── Phase 2: Parallel extraction tasks (mutually independent) ──
+    # All these tasks are independent — run in parallel for ~3-5x speedup
+    extraction_tasks: list[tuple[str, Any]] = []
+
+    # Task: Semantic cache update
     if user_message and assistant_response and not skip_cache and not skip_semantic:
-        try:
+        async def _update_semantic_cache():
             from app.services.semantic_cache import semantic_cache_service
-
             await semantic_cache_service.set_cache(user_message, assistant_response, user_id)
-        except Exception as e:
-            logger.debug(f"[Memory] Failed to update semantic cache: {e}")
+        extraction_tasks.append(("semantic_cache", _update_semantic_cache()))
 
-    # Extract and persist long-term memories from conversation (skip for SIMPLE)
+    # Task: Extract user-level long-term memories (with conflict resolution)
     if user_message and not skip_semantic:
-        try:
+        async def _extract_user_memories():
             from app.services.conversation_memory_service import conversation_memory_service
-
             messages_for_extraction = [
                 {"role": "user", "content": user_message},
             ]
@@ -810,14 +812,12 @@ async def persist_result(
             )
             if extracted:
                 logger.info(f"[Memory] Extracted {len(extracted)} long-term memories for user {user_id}")
-        except Exception as e:
-            logger.debug(f"[Memory] Memory extraction skipped: {e}")
+        extraction_tasks.append(("user_memories", _extract_user_memories()))
 
-    # Extract and persist organization-level memories (skip for SIMPLE)
+    # Task: Extract organization-level memories
     if user_message and org_id and not skip_semantic:
-        try:
+        async def _extract_org_memories():
             from app.services.conversation_memory_service import conversation_memory_service
-
             org_extracted = await conversation_memory_service.extract_org_memories(
                 org_id=org_id,
                 user_id=user_id,
@@ -827,38 +827,35 @@ async def persist_result(
             )
             if org_extracted:
                 logger.info(f"[Memory] Extracted {len(org_extracted)} org memories for org {org_id} by user {user_id}")
-        except Exception as e:
-            logger.debug(f"[Memory] Org memory extraction skipped: {e}")
+        extraction_tasks.append(("org_memories", _extract_org_memories()))
 
-    # ── P2-2: Extract entity relationships for knowledge graph (skip for SIMPLE) ──
+    # Task: Extract entity relationships for knowledge graph
     if user_message and org_id and not skip_semantic:
-        try:
-            from app.services.knowledge_graph_service import extract_entities_from_conversation
-
-            tool_outputs = []
+        async def _extract_graph():
+            from app.services.conversation_memory.graph_extraction import extract_graph_entities
+            tool_output_list = []
             if completed_tool_calls:
-                tool_outputs = [
+                tool_output_list = [
                     {"tool_name": tc.get("tool_name", ""), "result": tc.get("result", "")}
                     for tc in completed_tool_calls
                     if tc.get("tool_name")
                 ]
-
-            entities = await extract_entities_from_conversation(
+            entities = await extract_graph_entities(
                 user_message=user_message,
                 ai_response=assistant_response or "",
                 org_id=org_id,
-                tool_outputs=tool_outputs,
+                user_id=user_id,
+                tool_outputs=tool_output_list,
+                db=client,
             )
             if entities:
                 logger.info(f"[Memory] Extracted {len(entities)} entity relations for org {org_id}")
-        except Exception as e:
-            logger.debug(f"[Memory] Entity extraction skipped: {e}")
+        extraction_tasks.append(("graph_entities", _extract_graph()))
 
-    # ── P3: Behavior pattern learning from tool usage ──
+    # Task: Behavior pattern learning from tool usage
     if completed_tool_calls and org_id:
-        try:
+        async def _learn_patterns():
             from app.services.knowledge_graph_service import learn_tool_patterns
-
             patterns = await learn_tool_patterns(
                 user_id=user_id,
                 org_id=org_id,
@@ -867,19 +864,15 @@ async def persist_result(
             )
             if patterns:
                 logger.info(f"[Memory] Detected {len(patterns)} behavior patterns for org {org_id}")
-        except Exception as e:
-            logger.debug(f"[Memory] Pattern learning skipped: {e}")
+        extraction_tasks.append(("tool_patterns", _learn_patterns()))
 
-    # ── P1-6: Save interaction episode for experience recall (skip for SIMPLE) ──
+    # Task: Save interaction episode for experience recall
     if user_message and assistant_response and not skip_semantic:
-        try:
+        async def _save_episode():
             from app.services.conversation_memory_service import episodic_memory_service
-
-            # Extract tool names from completed calls
             tools_used = []
             if completed_tool_calls:
                 tools_used = list({tc.get("tool_name", "") for tc in completed_tool_calls if tc.get("tool_name")})
-
             await episodic_memory_service.save_episode(
                 user_id=user_id,
                 user_intent=user_message[:500],
@@ -895,8 +888,20 @@ async def persist_result(
                 org_id=org_id,
                 db=client,
             )
-        except Exception as e:
-            logger.debug(f"[Memory] Episode save skipped: {e}")
+        extraction_tasks.append(("episode", _save_episode()))
+
+    # Execute all extraction tasks in parallel
+    if extraction_tasks:
+        task_names = [name for name, _ in extraction_tasks]
+        coros = [coro for _, coro in extraction_tasks]
+        results = await asyncio.gather(*coros, return_exceptions=True)
+
+        # Log any failures (non-fatal)
+        for name, result in zip(task_names, results):
+            if isinstance(result, Exception):
+                logger.debug(f"[Memory] Parallel task '{name}' failed: {result}")
+
+
 
 
 

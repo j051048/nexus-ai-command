@@ -25,9 +25,9 @@ async def consolidate_user_memories(
 
     Returns: {"user_id": str, "processed": int, "insights_created": int}
     """
-    import json as _json
-
     from app.services.ai_service import AIService
+
+    from .llm_utils import parse_llm_json
 
     client = db or supabase
     if not client:
@@ -76,17 +76,11 @@ async def consolidate_user_memories(
         logger.warning(f"Consolidation LLM call failed: {e}")
         return {"user_id": user_id, "processed": len(memories), "insights_created": 0}
 
-    # Parse LLM response
-    try:
-        clean = result_text.strip()
-        if "```json" in clean:
-            clean = clean.split("```json")[1].split("```")[0].strip()
-        elif "```" in clean:
-            clean = clean.split("```")[1].split("```")[0].strip()
-        insights = _json.loads(clean)
-        if not isinstance(insights, list):
-            insights = []
-    except Exception:
+    # Parse LLM response (using shared utility)
+    parsed = parse_llm_json(result_text)
+    if isinstance(parsed, list):
+        insights = parsed
+    else:
         logger.warning("Failed to parse consolidation LLM response")
         insights = []
 

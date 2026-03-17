@@ -223,31 +223,64 @@ async def extract_preferences(
             if entry["value"] not in existing_values:
                 extracted.append(entry)
 
-    # Save all extracted memories
-    saved: list[dict] = []
-    if save_memory_fn is None:
-        from .storage import save_memory as save_memory_fn  # noqa: N811
-
     # P0: 滑动窗口预处理 — 上下文补全
     if extracted:
         extracted = await _enrich_memory_values(extracted, messages)
 
-    for entry in extracted:
+    # Save extracted memories — with conflict resolution if possible
+    saved: list[dict] = []
+
+    if save_memory_fn is not None:
+        # Custom save function provided (e.g. tests) — use it directly
+        for entry in extracted:
+            try:
+                result = await save_memory_fn(
+                    user_id=user_id,
+                    key=entry["key"],
+                    value=entry["value"],
+                    category=entry["category"],
+                    importance=entry.get("importance", 0.5),
+                    org_id=org_id,
+                    db=db,
+                    enriched_value=entry.get("enriched_value"),
+                    valid_from=entry.get("valid_from"),
+                )
+                saved.append(result)
+            except Exception as e:
+                logger.warning(f"Failed to save extracted memory: {e}")
+    else:
+        # Default path: use conflict resolution for smarter save
         try:
-            result = await save_memory_fn(
+            from .conflict_resolution import resolve_memory_conflicts
+
+            results = await resolve_memory_conflicts(
                 user_id=user_id,
-                key=entry["key"],
-                value=entry["value"],
-                category=entry["category"],
-                importance=entry.get("importance", 0.5),
+                new_memories=extracted,
                 org_id=org_id,
                 db=db,
-                enriched_value=entry.get("enriched_value"),
-                valid_from=entry.get("valid_from"),
             )
-            saved.append(result)
+            saved = [r for r in results if r.get("event") in ("ADD", "UPDATE")]
         except Exception as e:
-            logger.warning(f"Failed to save extracted memory: {e}")
+            logger.warning(f"Conflict resolution failed, falling back to direct save: {e}")
+            # Fallback: direct save without conflict resolution
+            from .storage import save_memory as _save_memory_fn
+
+            for entry in extracted:
+                try:
+                    result = await _save_memory_fn(
+                        user_id=user_id,
+                        key=entry["key"],
+                        value=entry["value"],
+                        category=entry["category"],
+                        importance=entry.get("importance", 0.5),
+                        org_id=org_id,
+                        db=db,
+                        enriched_value=entry.get("enriched_value"),
+                        valid_from=entry.get("valid_from"),
+                    )
+                    saved.append(result)
+                except Exception as e2:
+                    logger.warning(f"Fallback save failed: {e2}")
 
     if saved:
         logger.info(f"Extracted {len(saved)} memories from conversation for user {user_id}")
@@ -276,9 +309,9 @@ async def extract_with_llm(
         return []
 
     try:
-        import json as _json
-
         from app.services.ai_service import AIService
+
+        from .llm_utils import parse_llm_json
 
         prompt = f"以下是用户在对话中说的话：\n\n{combined}"
         system = (
@@ -306,14 +339,8 @@ async def extract_with_llm(
 
         result_text = await AIService.call_llm(prompt, system)
 
-        # Parse JSON from LLM response
-        clean = result_text.strip()
-        if "```json" in clean:
-            clean = clean.split("```json")[1].split("```")[0].strip()
-        elif "```" in clean:
-            clean = clean.split("```")[1].split("```")[0].strip()
-
-        items = _json.loads(clean)
+        # Parse JSON from LLM response (using shared utility)
+        items = parse_llm_json(result_text)
         if not isinstance(items, list):
             return []
 
