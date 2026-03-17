@@ -42,3 +42,6 @@ class CompactContextTool(BaseTool):
         # compact_context calls as a pseudo-tool.  If we get here, return
         # a harmless acknowledgement.
         return "[compact_context] 上下文压缩已完成。"
+
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+        return await self.execute(args)

@@ -156,6 +156,16 @@ class ChatHistoryProvider(ContextProvider):
             if not rows:
                 return ""
 
+            # Deduplicate rows — DB may contain duplicate messages from retries or multi-org overlap
+            seen = set()
+            deduped_rows = []
+            for r in rows:
+                key = (r.get("role", ""), (r.get("content") or "")[:200])
+                if key not in seen:
+                    seen.add(key)
+                    deduped_rows.append(r)
+            rows = deduped_rows
+
             # Filter out error/failure/refusal assistant responses — they pollute
             # context and make the LLM copy the refusal pattern instead of working.
             _ERROR_PHRASES = (
@@ -185,7 +195,6 @@ class ChatHistoryProvider(ContextProvider):
                     if residue in content:
                         content = content.replace(residue, "")
                         r = {**r, "content": content}
-                cleaned_rows.append(r)
                 cleaned_rows.append(r)
             rows = cleaned_rows
             if not rows:
@@ -283,13 +292,13 @@ class UserProfileProvider(ContextProvider):
 
             user_res = (
                 await supabase.table("users")
-                .select("full_name, role")
+                .select("name, role")
                 .eq("id", user_id)
                 .limit(1)
                 .execute()
             )
             if user_res.data:
-                name = user_res.data[0].get("full_name", "")
+                name = user_res.data[0].get("name", "")
                 role = user_res.data[0].get("role", "employee")
                 parts.append(f"用户: {name}（{role}）")
 

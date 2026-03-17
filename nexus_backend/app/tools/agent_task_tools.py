@@ -87,6 +87,9 @@ class CreateTaskTool(BaseTool):
             logger.error(f"[CreateTask] Failed: {e}", exc_info=True)
             return f"创建任务失败: {e}"
 
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+        return await self.execute(args, {"user_id": user_id, **(config or {})})
+
 
 # ---------------------------------------------------------------------------
 # update_task
@@ -155,6 +158,9 @@ class UpdateTaskTool(BaseTool):
         except Exception as e:
             logger.error(f"[UpdateTask] Failed: {e}", exc_info=True)
             return f"更新任务失败: {e}"
+
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+        return await self.execute(args, {"user_id": user_id, **(config or {})})
 
 
 # ---------------------------------------------------------------------------
@@ -242,3 +248,6 @@ class ListTasksTool(BaseTool):
         except Exception as e:
             logger.error(f"[ListTasks] Failed: {e}", exc_info=True)
             return f"获取任务列表失败: {e}"
+
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+        return await self.execute(args, {"user_id": user_id, **(config or {})})
