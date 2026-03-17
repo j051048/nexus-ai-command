@@ -564,12 +564,12 @@ def _get_llm(
 
     if resolved_config:
         return ChatOpenAI(
-            model=resolved_config.get("model", model or config.model),
-            api_key=resolved_config.get("api_key", config.api_key),
-            base_url=resolved_config.get("base_url", config.base_url),
+            model=resolved_config.get("model") or model or config.model,
+            api_key=resolved_config.get("api_key") or config.api_key,
+            base_url=resolved_config.get("base_url") or config.base_url,
             temperature=resolved_config.get("temperature", config.temperature),
             streaming=streaming,
-            timeout=resolved_config.get("timeout", 300.0),
+            timeout=resolved_config.get("timeout") or 300.0,
             default_headers=default_headers or None,
             callbacks=callbacks,
         )
