@@ -591,15 +591,24 @@ class ContentModerator:
         return sanitized, violations
 
     def _scan_harmful_content(self, content: str) -> tuple[str, list[Violation]]:
-        """Scan for harmful or inappropriate content."""
+        """Scan for harmful or inappropriate content.
+
+        Uses targeted patterns to avoid false positives on news/regulatory content.
+        Patterns like "非法" and "暴力" are excluded because they frequently appear
+        in legitimate business contexts (news reports, legal documents, compliance).
+        """
         violations = []
 
-        # Basic harmful content patterns
+        # Targeted harmful content patterns — only match genuinely dangerous content
         harmful_patterns = [
+            # Self-harm / suicide — always critical
             (r"自杀|self-harm|kill yourself", "critical", "[内容已过滤]"),
-            (r"暴力|violent|攻击", "high", "[内容已过滤]"),
-            (r"非法|illegal|毒品|drugs", "critical", "[内容已过滤]"),
+            # Drug manufacturing/dealing instructions — exclude regulatory context
+            (r"(?<!打击)(?<!禁止)(?<!查处)(?<!缉)(?<!涉)毒品|(?<!anti-)drugs", "high", "[内容已过滤]"),
         ]
+        # NOTE: Removed overly broad patterns that caused false positives:
+        # - "暴力|violent|攻击" — triggers on news, security reports, sports
+        # - "非法|illegal" — triggers on regulatory/compliance/news content
 
         for pattern_str, severity, replacement in harmful_patterns:
             for match in re.finditer(pattern_str, content, re.IGNORECASE):

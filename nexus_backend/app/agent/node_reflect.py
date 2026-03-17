@@ -480,10 +480,13 @@ async def critic_node(state: AgentState) -> dict:
             logger.debug("LLM gateway unavailable in critic_node, using default mini_model")
 
         if resolved_critic:
+            # Validate api_key — Gateway may return empty key for misconfigured models
+            critic_api_key = resolved_critic.get("api_key") or config.api_key
+            critic_base_url = resolved_critic.get("base_url") or config.base_url
             critic_llm = ChatOpenAI(
                 model=resolved_critic.get("model", config.mini_model),
-                api_key=resolved_critic.get("api_key", config.api_key),
-                base_url=resolved_critic.get("base_url", config.base_url),
+                api_key=critic_api_key,
+                base_url=critic_base_url,
                 temperature=0.1,
                 max_tokens=300,
                 callbacks=_get_langfuse_callbacks(),

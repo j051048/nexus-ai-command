@@ -430,13 +430,41 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                         f"into {len(extracted)} tools: {extracted}"
                     )
                     for i, ename in enumerate(extracted):
-                        pending_tools.append(
-                            ToolCallRecord(
-                                tool_name=ename,
-                                tool_args=tc_args if i == 0 else {},
-                                tool_call_id=f"{tc_id}_split{i}" if tc_id else "",
+                        if i == 0:
+                            # First tool gets the original args
+                            pending_tools.append(
+                                ToolCallRecord(
+                                    tool_name=ename,
+                                    tool_args=tc_args,
+                                    tool_call_id=f"{tc_id}_split{i}" if tc_id else "",
+                                )
                             )
-                        )
+                        else:
+                            # Subsequent tools: try to extract matching args from schema
+                            split_tool = get_tool(ename)
+                            if split_tool and hasattr(split_tool, "parameters") and split_tool.parameters:
+                                required = set(split_tool.parameters.get("required", []))
+                                all_props = set(split_tool.parameters.get("properties", {}).keys())
+                                split_args = {k: v for k, v in tc_args.items() if k in all_props}
+                                if required and required.issubset(split_args.keys()):
+                                    pending_tools.append(
+                                        ToolCallRecord(
+                                            tool_name=ename,
+                                            tool_args=split_args,
+                                            tool_call_id=f"{tc_id}_split{i}" if tc_id else "",
+                                        )
+                                    )
+                                else:
+                                    logger.warning(
+                                        "[PlanNode] Skipping split tool '%s': "
+                                        "required args %s not found in available %s",
+                                        ename, required, set(tc_args.keys()),
+                                    )
+                            else:
+                                logger.warning(
+                                    "[PlanNode] Skipping split tool '%s': tool not found or no schema",
+                                    ename,
+                                )
                     continue
 
             # Pre-execution schema validation: catch bad args before execute_node
