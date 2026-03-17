@@ -167,6 +167,11 @@ class ChatHistoryProvider(ContextProvider):
                 "抱歉，我目前无法",
                 "请稍后重试",
             )
+            # Clean up output_scanner false positive residue in DB
+            _SCANNER_RESIDUE = (
+                "[检测到提示注入]",
+                "[prompt injection detected]",
+            )
             cleaned_rows = []
             for r in rows:
                 content = r.get("content") or ""
@@ -175,6 +180,12 @@ class ChatHistoryProvider(ContextProvider):
                     if cleaned_rows and cleaned_rows[-1].get("role") == "user":
                         cleaned_rows.pop()
                     continue
+                # Strip scanner residue from content (don't discard the whole message)
+                for residue in _SCANNER_RESIDUE:
+                    if residue in content:
+                        content = content.replace(residue, "")
+                        r = {**r, "content": content}
+                cleaned_rows.append(r)
                 cleaned_rows.append(r)
             rows = cleaned_rows
             if not rows:

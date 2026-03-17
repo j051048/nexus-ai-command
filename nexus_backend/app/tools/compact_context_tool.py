@@ -10,10 +10,8 @@ use, effectively replacing verbose history with a compact digest.
 from typing import Any
 
 from app.tools.base_tool import BaseTool
-from app.tools.registry import register_tool
 
 
-@register_tool
 class CompactContextTool(BaseTool):
     name = "compact_context"
     description = (

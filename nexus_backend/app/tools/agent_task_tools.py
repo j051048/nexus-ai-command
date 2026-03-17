@@ -10,7 +10,6 @@ import logging
 from typing import Any
 
 from app.tools.base_tool import BaseTool
-from app.tools.registry import register_tool
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +23,6 @@ async def _get_db():
 # create_task
 # ---------------------------------------------------------------------------
 
-@register_tool
 class CreateTaskTool(BaseTool):
     name = "create_task"
     description = (
@@ -94,7 +92,6 @@ class CreateTaskTool(BaseTool):
 # update_task
 # ---------------------------------------------------------------------------
 
-@register_tool
 class UpdateTaskTool(BaseTool):
     name = "update_task"
     description = (
@@ -164,7 +161,6 @@ class UpdateTaskTool(BaseTool):
 # list_tasks
 # ---------------------------------------------------------------------------
 
-@register_tool
 class ListTasksTool(BaseTool):
     name = "list_tasks"
     description = (
