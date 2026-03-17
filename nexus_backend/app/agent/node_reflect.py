@@ -179,8 +179,11 @@ async def reflect_node(state: AgentState) -> dict:
     # ── Layer 2: Keyword-based hallucination detection ──
     is_hallucination = False
     hallucination_reason = ""
+    
+    intent = state.get("intent_summary", "")
+    is_creative_writing = any(kw in intent for kw in ("写作", "创作", "软文", "文章", "报告", "方案", "推广"))
 
-    if complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL) and not completed_tools:
+    if not is_creative_writing and complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL) and not completed_tools:
         hallucination_keywords = ["查询到", "系统显示", "数据显示", "结果是", "找到", "检索到", "发现"]
         if any(kw in last_ai_content for kw in hallucination_keywords):
             # Additional check: does it contain specific numbers/data?
@@ -191,7 +194,7 @@ async def reflect_node(state: AgentState) -> dict:
 
     # ── Layer 3: Tool result grounding verification ──
     # P1 Fix: Verify that numerical data in response matches tool results
-    if completed_tools and last_ai_content:
+    if not is_creative_writing and completed_tools and last_ai_content:
         grounding_issues = await _verify_tool_grounding(last_ai_content, completed_tools)
         if grounding_issues:
             is_hallucination = True
@@ -259,7 +262,7 @@ AI回复:
 
     # ── Layer 5: LLM-based reflection ──
     # Skip LLM reflection if tools were involved — tool results are ground truth.
-    if config.reflect_use_llm and last_ai_content and not is_hallucination and not has_any_tool_attempts:
+    if not is_creative_writing and config.reflect_use_llm and last_ai_content and not is_hallucination and not has_any_tool_attempts:
         messages_text = "\n".join([f"{m.type}: {m.content[:200]}" for m in messages[-3:]])
         prompt = f"""请评估 AI 的最新回复是否包含编造的信息（幻觉）。
 

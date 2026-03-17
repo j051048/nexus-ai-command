@@ -266,12 +266,12 @@ class UserProfileProvider(ContextProvider):
                 await supabase.table("users")
                 .select("full_name, role")
                 .eq("id", user_id)
-                .maybe_single()
+                .limit(1)
                 .execute()
             )
             if user_res.data:
-                name = user_res.data.get("full_name", "")
-                role = user_res.data.get("role", "employee")
+                name = user_res.data[0].get("full_name", "")
+                role = user_res.data[0].get("role", "employee")
                 parts.append(f"用户: {name}（{role}）")
 
             # 部门信息
@@ -282,11 +282,11 @@ class UserProfileProvider(ContextProvider):
                         .select("departments(name)")
                         .eq("user_id", user_id)
                         .eq("organization_id", org_id)
-                        .maybe_single()
+                        .limit(1)
                         .execute()
                     )
                     if emp_res.data:
-                        dept = emp_res.data.get("departments")
+                        dept = emp_res.data[0].get("departments")
                         if isinstance(dept, dict) and dept.get("name"):
                             parts.append(f"部门: {dept['name']}")
                 except Exception:

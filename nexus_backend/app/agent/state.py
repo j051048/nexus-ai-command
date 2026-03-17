@@ -162,17 +162,17 @@ class AgentConfig(BaseModel):
         creating LLM instances with tier-specific temperature/timeout.
         """
         _tier_overrides = {
-            "economy":  {"temperature": 0.3, "timeout": 30, "supports_tools": False},
-            "balanced": {"temperature": 0.5, "timeout": 45, "supports_tools": True},
-            "power":    {"temperature": 0.7, "timeout": 60, "supports_tools": True},
-            "flagship": {"temperature": 0.5, "timeout": 90, "supports_tools": True},
+            "economy":  {"temperature": 0.3, "timeout": 120, "supports_tools": False},
+            "balanced": {"temperature": 0.5, "timeout": 180, "supports_tools": True},
+            "power":    {"temperature": 0.7, "timeout": 300, "supports_tools": True},
+            "flagship": {"temperature": 0.5, "timeout": 600, "supports_tools": True},
         }
         tier = complexity.model_tier
         overrides = _tier_overrides.get(tier, {})
         return {
             "model": self.get_model_for_complexity(complexity),
             "temperature": overrides.get("temperature", self.temperature),
-            "timeout": overrides.get("timeout", self.tool_timeout),
+            "timeout": overrides.get("timeout", self.tool_timeout * 10),  # fallback to higher limit
             "supports_tools": overrides.get("supports_tools", True),
             "tier": tier,
         }
