@@ -134,17 +134,20 @@ async def reflect_node(state: AgentState) -> dict:
             ],
         }
 
-    # Resolve model via LLM gateway (P2-9: complexity-aware routing)
+    # Resolve model via pre-resolved configs (Step 2: centralized resolution)
     resolved = None
-    try:
-        from app.services.llm_helpers import resolve_model_config
+    if config.resolved_configs:
+        resolved = config.resolved_configs.get(complexity.model_tier)
+    if not resolved:
+        try:
+            from app.services.llm_helpers import resolve_model_config
 
-        org_id = config.org_id or "default"
-        scene_code = state.get("scene_code", "")
-        agent_code = state.get("agent_code", "")
-        resolved = await resolve_model_config(org_id, scene_code, agent_code, complexity_tier=complexity.model_tier)
-    except Exception:
-        logger.debug("LLM gateway model config unavailable in reflect_node, using default")
+            org_id = config.org_id or "default"
+            scene_code = state.get("scene_code", "")
+            agent_code = state.get("agent_code", "")
+            resolved = await resolve_model_config(org_id, scene_code, agent_code, complexity_tier=complexity.model_tier)
+        except Exception:
+            logger.debug("LLM gateway model config unavailable in reflect_node, using default")
 
     # Extract the last AI message
     last_ai_content = ""
@@ -467,17 +470,20 @@ async def critic_node(state: AgentState) -> dict:
 {{"completeness": 0.8, "relevance": 0.9, "accuracy": 0.7, "passed": true, "improvement_suggestion": ""}}"""
 
     try:
-        # P2-9: Use Gateway instead of direct ChatOpenAI construction
+        # Resolve model via pre-resolved configs (Step 2: centralized resolution)
         resolved_critic = None
-        try:
-            from app.services.llm_helpers import resolve_model_config
+        if config.resolved_configs:
+            resolved_critic = config.resolved_configs.get("economy")
+        if not resolved_critic:
+            try:
+                from app.services.llm_helpers import resolve_model_config
 
-            org_id = config.org_id or "default"
-            scene_code = state.get("scene_code", "")
-            agent_code = state.get("agent_code", "")
-            resolved_critic = await resolve_model_config(org_id, scene_code, agent_code, complexity_tier="economy")
-        except Exception:
-            logger.debug("LLM gateway unavailable in critic_node, using default mini_model")
+                org_id = config.org_id or "default"
+                scene_code = state.get("scene_code", "")
+                agent_code = state.get("agent_code", "")
+                resolved_critic = await resolve_model_config(org_id, scene_code, agent_code, complexity_tier="economy")
+            except Exception:
+                logger.debug("LLM gateway unavailable in critic_node, using default mini_model")
 
         if resolved_critic:
             # Validate api_key — Gateway may return empty key for misconfigured models

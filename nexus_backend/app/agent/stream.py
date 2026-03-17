@@ -254,6 +254,27 @@ async def run_agent_stream(
     except Exception:
         logger.debug("[Stream] Failed to start agent trace", exc_info=True)
 
+    # ── 0c. Pre-resolve model configs for all tiers (Step 2: centralized resolution) ──
+    try:
+        from app.services.llm_helpers import resolve_model_config
+
+        _resolved_configs = {}
+        for _tier in ("economy", "balanced", "power", "flagship"):
+            try:
+                _rc = await resolve_model_config(
+                    org_id=org_id or "default",
+                    scene_code=scene_code or "",
+                    complexity_tier=_tier,
+                )
+                _resolved_configs[_tier] = _rc
+            except Exception:
+                pass
+        if _resolved_configs:
+            agent_config.resolved_configs = _resolved_configs
+            logger.info(f"[Stream] Pre-resolved model configs for tiers: {list(_resolved_configs.keys())}")
+    except Exception:
+        logger.debug("[Stream] Failed to pre-resolve model configs", exc_info=True)
+
     # ── 1. Token budget check ──
     await usage_tracker.ensure_loaded(user_id)
     messages_dicts = [{"role": m.get("role", "user"), "content": m.get("content", "")} for m in messages]

@@ -17,7 +17,7 @@ _WEAK_MODEL_PATTERNS = {"mini", "flash", "turbo", "haiku", "lite"}
 _WEAK_MODEL_CODES = {"deepseek-chat", "qwen-plus-latest"}
 
 
-def _is_weak_model(model_name: str) -> bool:
+def is_weak_model(model_name: str) -> bool:
     """Check if a model is too weak for power/flagship tier tasks."""
     lower = model_name.lower()
     if any(p in lower for p in _WEAK_MODEL_PATTERNS):
@@ -98,7 +98,7 @@ async def resolve_model_config(
 
                 # Guard: if power/flagship tier but Gateway returned a weak model,
                 # fall through to tier-aware hardcoded fallback instead.
-                if complexity_tier in ("power", "flagship") and _is_weak_model(resolved_model):
+                if complexity_tier in ("power", "flagship") and is_weak_model(resolved_model):
                     logger.info(
                         "Gateway returned weak model %s for %s tier, using tier fallback",
                         resolved_model, complexity_tier,

@@ -57,18 +57,21 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         messages = hook_ctx.get("messages", messages)
         rag_context = hook_ctx.get("rag_context", rag_context)
 
-    # Resolve model via LLM gateway (P2-9: complexity-aware routing)
+    # Resolve model via pre-resolved configs (Step 2: centralized resolution)
     resolved = None
-    try:
-        from app.services.llm_helpers import resolve_model_config
+    complexity = state.get("complexity", QueryComplexity.MODERATE)
+    if agent_config.resolved_configs:
+        resolved = agent_config.resolved_configs.get(complexity.model_tier)
+    if not resolved:
+        try:
+            from app.services.llm_helpers import resolve_model_config
 
-        org_id = agent_config.org_id or "default"
-        scene_code = state.get("scene_code", "")
-        agent_code = state.get("agent_code", "")
-        complexity = state.get("complexity", QueryComplexity.MODERATE)
-        resolved = await resolve_model_config(org_id, scene_code, agent_code, complexity_tier=complexity.model_tier)
-    except Exception:
-        logger.debug("LLM gateway model config unavailable in plan_node, using default")
+            org_id = agent_config.org_id or "default"
+            scene_code = state.get("scene_code", "")
+            agent_code = state.get("agent_code", "")
+            resolved = await resolve_model_config(org_id, scene_code, agent_code, complexity_tier=complexity.model_tier)
+        except Exception:
+            logger.debug("LLM gateway model config unavailable in plan_node, using default")
 
     # Convert to LC format
     lc_msgs = _messages_to_lc_format(messages)
@@ -303,6 +306,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                 model=model,
                 streaming=True,
                 tool_schemas=tool_schemas,
+                complexity_tier=complexity.model_tier,
             )
             record_llm_latency(model=model or agent_config.model, duration_ms=(time.time() - _llm_start) * 1000)
             llm_circuit_breaker.record_success()

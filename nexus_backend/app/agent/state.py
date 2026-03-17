@@ -112,6 +112,8 @@ class AgentConfig(BaseModel):
     max_iterations: int = Field(default=5, gt=0, description="Must be > 0")
     max_tokens_per_day: int = Field(default=1_000_000, gt=0, description="Must be > 0")
     temperature: float = Field(default=0.5, ge=0.0, le=2.0, description="0.0-2.0")
+    # Pre-resolved model configs per tier (populated once at stream.py entry)
+    resolved_configs: dict = Field(default_factory=dict)  # tier -> {api_key, base_url, model, ...}
     # RAG auto-injection settings
     enable_rag_inject: bool = True
     rag_inject_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
@@ -144,8 +146,8 @@ class AgentConfig(BaseModel):
 
         # power / flagship — ensure a capable model
         model = self.model
-        _weak = {"mini", "flash", "turbo", "haiku", "lite"}
-        if any(w in model.lower() for w in _weak):
+        from app.services.llm_helpers import is_weak_model
+        if is_weak_model(model):
             from app.core.config import settings as _settings
             fallback = getattr(_settings, "AI_STRONG_MODEL", "") or getattr(_settings, "AI_DEFAULT_MODEL", "gpt-4o")
             logger.info(
@@ -158,9 +160,22 @@ class AgentConfig(BaseModel):
     def get_tier_config(self, complexity: QueryComplexity) -> dict:
         """Return full tier-aware config (model + temperature + timeout + tools).
 
-        Used by nodes that need more than just the model name — e.g. when
-        creating LLM instances with tier-specific temperature/timeout.
+        Uses pre-resolved Gateway configs when available, otherwise falls back
+        to local tier overrides.
         """
+        tier = complexity.model_tier
+
+        # Prefer pre-resolved Gateway config
+        if self.resolved_configs and tier in self.resolved_configs:
+            rc = self.resolved_configs[tier]
+            return {
+                "model": rc.get("model", self.get_model_for_complexity(complexity)),
+                "temperature": rc.get("temperature", self.temperature),
+                "timeout": rc.get("timeout", 300),
+                "supports_tools": rc.get("supports_tools", True),
+                "tier": tier,
+            }
+
         _tier_overrides = {
             "economy":  {"temperature": 0.3, "timeout": 120, "supports_tools": False},
             "balanced": {"temperature": 0.5, "timeout": 180, "supports_tools": True},

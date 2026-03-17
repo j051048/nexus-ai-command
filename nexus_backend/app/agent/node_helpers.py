@@ -534,16 +534,22 @@ def _get_langfuse_callbacks() -> list | None:
 
 
 def _get_llm(
-    config: AgentConfig, model: str | None = None, streaming: bool = False, resolved_config: dict | None = None
+    config: AgentConfig, model: str | None = None, streaming: bool = False,
+    resolved_config: dict | None = None, complexity_tier: str | None = None,
 ):
     """Get a LangChain ChatOpenAI instance with the provided config.
 
     If resolved_config is provided (from LLM gateway), use it.
+    If complexity_tier is provided, look up from config.resolved_configs.
     Otherwise fall back to AgentConfig settings.
 
     #25: Injects trace_id as default header for full-chain propagation.
     """
     from app.core.trace_context import get_request_id, get_trace_id
+
+    # Auto-resolve from pre-resolved configs if tier specified but no explicit resolved_config
+    if not resolved_config and complexity_tier and config.resolved_configs:
+        resolved_config = config.resolved_configs.get(complexity_tier)
 
     # 构建追踪头
     default_headers = {}
@@ -676,6 +682,7 @@ async def invoke_with_fallback(
     model: str | None = None,
     streaming: bool = False,
     tool_schemas: list | None = None,
+    complexity_tier: str | None = None,
 ):
     """Invoke LLM with cascade fallback on provider-level failures.
 
@@ -683,6 +690,7 @@ async def invoke_with_fallback(
       1. Primary LLM (provided)
       2. Fallback provider (from settings)
       3. Rate-limit retry: if error is 429, wait 2s and retry primary once
+      4. Model-tier downgrade: if auth errors on both providers, try next lower tier
 
     Error-type-aware decisions:
       - auth errors: skip immediately to next provider (no retry)
@@ -702,6 +710,7 @@ async def invoke_with_fallback(
         candidates.append(("fallback", fallback_llm))
 
     last_error = None
+    all_auth_errors = True  # Track if all failures are auth-related
 
     for label, candidate_llm in candidates:
         pkey = _provider_key(candidate_llm)
@@ -722,6 +731,9 @@ async def invoke_with_fallback(
                 # Content/format errors are not provider issues — raise immediately
                 raise
 
+            if error_type != "auth":
+                all_auth_errors = False
+
             logger.warning(f"[LLM Cascade] {label} failed ({error_type}): {err}")
             _set_provider_cooldown(pkey)
 
@@ -735,6 +747,29 @@ async def invoke_with_fallback(
                     logger.warning(f"[LLM Cascade] Retry after rate-limit also failed: {retry_err}")
                     last_error = retry_err
                     # Continue to next candidate
+
+    # ── Model-tier downgrade: try a lower-tier model when auth errors exhaust all providers ──
+    _TIER_DOWNGRADE = {"flagship": "power", "power": "balanced", "balanced": "economy"}
+    if all_auth_errors and complexity_tier and config.resolved_configs:
+        next_tier = _TIER_DOWNGRADE.get(complexity_tier)
+        while next_tier:
+            downgrade_cfg = config.resolved_configs.get(next_tier)
+            if downgrade_cfg:
+                logger.warning(
+                    f"[LLM Cascade] All providers failed with auth errors for tier '{complexity_tier}', "
+                    f"downgrading to tier '{next_tier}' model '{downgrade_cfg.get('model', '?')}'"
+                )
+                try:
+                    downgrade_llm = _get_llm(config, streaming=streaming, resolved_config=downgrade_cfg)
+                    if tool_schemas:
+                        downgrade_llm = downgrade_llm.bind_tools(tool_schemas, parallel_tool_calls=True)
+                    result = await downgrade_llm.ainvoke(messages)
+                    logger.info(f"[LLM Cascade] Model-tier downgrade to '{next_tier}' succeeded")
+                    return result
+                except Exception as dg_err:
+                    logger.warning(f"[LLM Cascade] Downgrade to '{next_tier}' also failed: {dg_err}")
+                    last_error = dg_err
+            next_tier = _TIER_DOWNGRADE.get(next_tier)
 
     # All candidates exhausted
     if last_error:
