@@ -533,15 +533,34 @@ async def prepare_initial_state(
                 return None
 
         async def _fetch_kg_context():
-            """2d. Knowledge Graph Context"""
+            """2d. Knowledge Graph Context — hybrid search (FTS + entity match)."""
             if not config.org_id:
                 return None
             try:
+                # Primary: use new hybrid search (FTS + ILIKE + RRF)
+                from app.services.conversation_memory.graph_extraction import search_kg_hybrid
+                triples = await search_kg_hybrid(
+                    org_id=config.org_id, query=last_user_msg, limit=10,
+                )
+                parts: list[str] = []
+                if triples:
+                    for t in triples:
+                        src = t.get("source_entity", "")
+                        rel = t.get("relationship", "")
+                        dst = t.get("destination_entity", "")
+                        parts.append(f"{src} —{rel}→ {dst}")
+
+                # Supplement: legacy entity_relations graph
                 from app.services.knowledge_graph_service import query_entity_context
-                ctx = await query_entity_context(query=last_user_msg, org_id=config.org_id)
-                if ctx:
+                legacy_ctx = await query_entity_context(query=last_user_msg, org_id=config.org_id)
+                if legacy_ctx:
+                    parts.append(legacy_ctx)
+
+                if parts:
+                    ctx = "\n".join(parts)
                     logger.info(f"[Memory] Collected knowledge graph context for org {config.org_id}")
-                return ctx
+                    return ctx
+                return None
             except Exception as e:
                 logger.debug(f"[Memory] Knowledge graph context failed: {e}")
                 return None
@@ -847,6 +866,7 @@ async def persist_result(
                 user_id=user_id,
                 tool_outputs=tool_output_list,
                 db=client,
+                session_id=session_id,
             )
             if entities:
                 logger.info(f"[Memory] Extracted {len(entities)} entity relations for org {org_id}")

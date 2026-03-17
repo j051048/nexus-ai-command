@@ -362,30 +362,90 @@ async def _update_existing_memory(
     new_value: str,
     user_id: str,
     db: Any = None,
-) -> None:
-    """Update an existing memory's value and re-generate its embedding."""
+) -> str | None:
+    """Soft-expire the old memory and INSERT a new version.
+
+    Instead of overwriting, this preserves the history chain:
+    old record gets superseded_by → new record, keeping the full timeline.
+    Returns the new memory ID if created, None otherwise.
+    """
     from datetime import UTC, datetime
 
     client = db or supabase
     if not client:
-        return
+        return None
 
+    # 1. Read the old memory to clone its metadata
+    try:
+        old_result = (
+            await client.table("conversation_memories")
+            .select("user_id, organization_id, category, key, importance, version, metadata")
+            .eq("id", memory_id)
+            .maybe_single()
+            .execute()
+        )
+        old = old_result.data if old_result else None
+    except Exception:
+        old = None
+
+    # 2. Generate embedding for the new value
     embedding = await generate_embedding(new_value)
 
-    update_data: dict[str, Any] = {
+    now_iso = datetime.now(UTC).isoformat()
+    new_version = (old.get("version", 1) + 1) if old else 2
+
+    # 3. INSERT new version
+    insert_data: dict[str, Any] = {
+        "user_id": user_id,
+        "organization_id": old.get("organization_id") if old else None,
+        "category": old.get("category", "general") if old else "general",
+        "key": old.get("key", "") if old else "",
         "value": new_value,
-        "updated_at": datetime.now(UTC).isoformat(),
+        "importance": old.get("importance", 0.5) if old else 0.5,
+        "version": new_version,
+        "metadata": old.get("metadata") if old else None,
+        "valid_from": now_iso,
+        "created_at": now_iso,
+        "updated_at": now_iso,
     }
     if embedding:
-        update_data["embedding"] = embedding
+        insert_data["embedding"] = embedding
 
-    await (
-        client.table("conversation_memories")
-        .update(update_data)
-        .eq("id", memory_id)
-        .eq("user_id", user_id)
-        .execute()
-    )
+    new_id = None
+    try:
+        new_result = await client.table("conversation_memories").insert(insert_data).execute()
+        if new_result.data:
+            row = new_result.data[0] if isinstance(new_result.data, list) else new_result.data
+            new_id = row.get("id")
+    except Exception as e:
+        logger.warning(f"[ConflictRes] Failed to insert new memory version: {e}")
+        # Fallback: in-place update if INSERT fails (e.g., column not yet migrated)
+        update_data: dict[str, Any] = {"value": new_value, "updated_at": now_iso}
+        if embedding:
+            update_data["embedding"] = embedding
+        await (
+            client.table("conversation_memories")
+            .update(update_data)
+            .eq("id", memory_id)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        return None
+
+    # 4. Soft-expire old record: set superseded_by → new ID
+    if new_id:
+        try:
+            await (
+                client.table("conversation_memories")
+                .update({"superseded_by": new_id, "updated_at": now_iso})
+                .eq("id", memory_id)
+                .eq("user_id", user_id)
+                .execute()
+            )
+        except Exception as e:
+            logger.warning(f"[ConflictRes] Failed to soft-expire old memory: {e}")
+
+    return new_id
 
 
 async def _delete_existing_memory(

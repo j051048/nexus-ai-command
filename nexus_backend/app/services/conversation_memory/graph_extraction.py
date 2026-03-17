@@ -124,6 +124,7 @@ async def extract_graph_entities(
     user_id: str | None = None,
     tool_outputs: list[dict] | None = None,
     db: Any = None,
+    session_id: str | None = None,
 ) -> list[dict]:
     """从对话中提取实体和关系，存储为知识图谱三元组。
 
@@ -181,6 +182,7 @@ async def extract_graph_entities(
             user_id=user_id,
             source_context=user_message[:200],
             db=client,
+            session_id=session_id,
         )
 
         if saved:
@@ -251,6 +253,7 @@ async def _store_triples(
     user_id: str | None,
     source_context: str,
     db: Any,
+    session_id: str | None = None,
 ) -> list[dict]:
     """Store extracted triples in the knowledge_graph_triples table."""
     saved: list[dict] = []
@@ -267,7 +270,7 @@ async def _store_triples(
             )
 
             if existing:
-                # Update strength (more frequent = stronger)
+                # Exact same triple re-mentioned → reinforce strength (no state change)
                 try:
                     new_strength = min(float(existing.get("strength", 0.5)) + 0.1, 1.0)
                     await (
@@ -279,6 +282,32 @@ async def _store_triples(
                 except Exception:
                     pass
                 continue
+
+            # 方案3: Check for conflicting triple (same source + relationship, different destination)
+            # e.g., "张三-在-Google" already exists, new triple is "张三-在-Apple"
+            # → soft-expire the old one, then INSERT the new one below
+            try:
+                conflict = await _find_conflicting_triple(
+                    org_id=org_id,
+                    source=rel["source"],
+                    relationship=rel["relationship"],
+                    db=db,
+                )
+                if conflict and conflict.get("destination_entity") != rel["destination"]:
+                    # Soft-expire: set valid_to instead of DELETE
+                    await (
+                        db.table("knowledge_graph_triples")
+                        .update({"valid_to": "now()"})
+                        .eq("id", conflict["id"])
+                        .execute()
+                    )
+                    logger.info(
+                        "[KG] Soft-expired triple: %s -%s-> %s (replaced by -> %s)",
+                        rel["source"], rel["relationship"],
+                        conflict.get("destination_entity"), rel["destination"],
+                    )
+            except Exception as e:
+                logger.debug(f"[KG] Conflict check failed (non-critical): {e}")
 
             # Insert new triple
             insert_data = {
@@ -294,6 +323,8 @@ async def _store_triples(
             }
             if user_id:
                 insert_data["created_by"] = user_id
+            if session_id:
+                insert_data["source_session_id"] = session_id
 
             result = await db.table("knowledge_graph_triples").insert(insert_data).execute()
             if result.data:
@@ -325,6 +356,33 @@ async def _find_existing_triple(
             .eq("source_entity", source)
             .eq("relationship", relationship)
             .eq("destination_entity", destination)
+            .is_("valid_to", "null")
+            .maybe_single()
+            .execute()
+        )
+        return result.data if result and result.data else None
+    except Exception:
+        return None
+
+
+async def _find_conflicting_triple(
+    org_id: str,
+    source: str,
+    relationship: str,
+    db: Any,
+) -> dict | None:
+    """Find an active triple with same source+relationship but potentially different destination.
+
+    Used for temporal evolution: "张三-在-Google" → "张三-在-Apple".
+    """
+    try:
+        result = (
+            await db.table("knowledge_graph_triples")
+            .select("id, destination_entity, strength")
+            .eq("organization_id", org_id)
+            .eq("source_entity", source)
+            .eq("relationship", relationship)
+            .is_("valid_to", "null")
             .maybe_single()
             .execute()
         )
@@ -382,3 +440,47 @@ async def query_entity_relations(
     except Exception as e:
         logger.debug(f"Failed to query entity relations: {e}")
         return []
+
+
+async def search_kg_hybrid(
+    org_id: str,
+    query: str,
+    limit: int = 10,
+    db: Any = None,
+) -> list[dict]:
+    """Search knowledge graph triples using hybrid FTS + entity match with RRF fusion.
+
+    Falls back to simple ILIKE query if the RPC is not yet deployed.
+    """
+    client = db or supabase
+    if not client or not query:
+        return []
+
+    try:
+        result = await client.rpc(
+            "search_kg_triples_hybrid",
+            {"p_org_id": org_id, "p_query_text": query, "p_limit": limit},
+        ).execute()
+        return result.data or []
+    except Exception as e:
+        # RPC not deployed yet — fallback to simple ILIKE
+        logger.debug(f"[KG] Hybrid search RPC failed, falling back to ILIKE: {e}")
+        try:
+            pattern = f"%{query}%"
+            result = (
+                await client.table("knowledge_graph_triples")
+                .select("*")
+                .eq("organization_id", org_id)
+                .is_("valid_to", "null")
+                .or_(
+                    f"source_entity.ilike.{pattern},"
+                    f"destination_entity.ilike.{pattern},"
+                    f"relationship.ilike.{pattern}"
+                )
+                .order("strength", desc=True)
+                .limit(limit)
+                .execute()
+            )
+            return result.data or []
+        except Exception:
+            return []
