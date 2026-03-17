@@ -260,6 +260,14 @@ async def _store_triples(
 
     for rel in relations:
         try:
+            # Entity Resolution: normalize synonymous entities before storage
+            try:
+                from .entity_resolution import resolve_triple, get_entity_embedding
+
+                rel = await resolve_triple(org_id, rel, db)
+            except Exception as e:
+                logger.debug(f"[KG] Entity resolution skipped: {e}")
+
             # Check for existing duplicate
             existing = await _find_existing_triple(
                 org_id=org_id,
@@ -270,12 +278,17 @@ async def _store_triples(
             )
 
             if existing:
-                # Exact same triple re-mentioned → reinforce strength (no state change)
+                # Exact same triple re-mentioned → reinforce strength + reset decay clock
                 try:
                     new_strength = min(float(existing.get("strength", 0.5)) + 0.1, 1.0)
+                    from datetime import UTC, datetime
                     await (
                         db.table("knowledge_graph_triples")
-                        .update({"strength": new_strength, "occurrences": existing.get("occurrences", 1) + 1})
+                        .update({
+                            "strength": new_strength,
+                            "occurrences": existing.get("occurrences", 1) + 1,
+                            "last_reinforced_at": datetime.now(UTC).isoformat(),
+                        })
                         .eq("id", existing["id"])
                         .execute()
                     )
@@ -309,7 +322,7 @@ async def _store_triples(
             except Exception as e:
                 logger.debug(f"[KG] Conflict check failed (non-critical): {e}")
 
-            # Insert new triple
+            # Insert new triple (with entity embeddings for similarity search)
             insert_data = {
                 "organization_id": org_id,
                 "source_entity": rel["source"],
@@ -325,6 +338,17 @@ async def _store_triples(
                 insert_data["created_by"] = user_id
             if session_id:
                 insert_data["source_session_id"] = session_id
+
+            # Attach entity embeddings for future similarity search
+            try:
+                src_emb = await get_entity_embedding(rel["source"], org_id)
+                dst_emb = await get_entity_embedding(rel["destination"], org_id)
+                if src_emb:
+                    insert_data["source_embedding"] = src_emb
+                if dst_emb:
+                    insert_data["dest_embedding"] = dst_emb
+            except Exception:
+                pass  # Embeddings are optional enhancement
 
             result = await db.table("knowledge_graph_triples").insert(insert_data).execute()
             if result.data:
@@ -395,47 +419,126 @@ async def query_entity_relations(
     org_id: str,
     entity_name: str,
     limit: int = 20,
+    hops: int = 2,
     db: Any = None,
 ) -> list[dict]:
-    """查询某个实体的所有关系（出边和入边）。
+    """查询某个实体的关系，支持多跳扩散。
 
     Args:
         org_id: 组织 ID
         entity_name: 实体名称
         limit: 最大返回条数
+        hops: 跳数 (1=直接关系, 2=含邻居关系)
 
     Returns:
-        关系三元组列表
+        关系三元组列表，含 hop 标记
     """
     client = db or supabase
     if not client:
         return []
 
+    # Resolve entity alias first
     try:
-        # 查询出边 (entity as source)
+        from .entity_resolution import resolve_entity
+        entity_name = await resolve_entity(org_id, entity_name, db=client)
+    except Exception:
+        pass
+
+    # Try 2-hop RPC first
+    if hops >= 2:
+        try:
+            result = await client.rpc(
+                "query_entity_relations_2hop",
+                {
+                    "p_org_id": org_id,
+                    "p_entity_name": entity_name,
+                    "p_limit": limit,
+                },
+            ).execute()
+            if result.data:
+                return result.data
+        except Exception as e:
+            logger.debug(f"[KG] 2-hop RPC unavailable, falling back: {e}")
+
+    # Fallback: Python-side multi-hop
+    try:
+        # Hop 1: direct relations
         outgoing = (
             await client.table("knowledge_graph_triples")
             .select("*")
             .eq("organization_id", org_id)
             .eq("source_entity", entity_name)
+            .is_("valid_to", "null")
             .order("strength", desc=True)
             .limit(limit)
             .execute()
         )
-
-        # 查询入边 (entity as destination)
         incoming = (
             await client.table("knowledge_graph_triples")
             .select("*")
             .eq("organization_id", org_id)
             .eq("destination_entity", entity_name)
+            .is_("valid_to", "null")
             .order("strength", desc=True)
             .limit(limit)
             .execute()
         )
 
-        results = (outgoing.data or []) + (incoming.data or [])
-        return results[:limit]
+        hop1 = (outgoing.data or []) + (incoming.data or [])
+        for t in hop1:
+            t["hop"] = 1
+
+        if hops < 2 or not hop1:
+            return hop1[:limit]
+
+        # Hop 2: neighbor expansion
+        seen_ids = {t["id"] for t in hop1}
+        neighbors = set()
+        for t in hop1:
+            src = t.get("source_entity", "")
+            dst = t.get("destination_entity", "")
+            if src != entity_name:
+                neighbors.add(src)
+            if dst != entity_name:
+                neighbors.add(dst)
+
+        hop2: list[dict] = []
+        for neighbor in list(neighbors)[:10]:  # Cap neighbor expansion
+            try:
+                n_out = (
+                    await client.table("knowledge_graph_triples")
+                    .select("*")
+                    .eq("organization_id", org_id)
+                    .eq("source_entity", neighbor)
+                    .is_("valid_to", "null")
+                    .neq("destination_entity", entity_name)
+                    .order("strength", desc=True)
+                    .limit(5)
+                    .execute()
+                )
+                n_in = (
+                    await client.table("knowledge_graph_triples")
+                    .select("*")
+                    .eq("organization_id", org_id)
+                    .eq("destination_entity", neighbor)
+                    .is_("valid_to", "null")
+                    .neq("source_entity", entity_name)
+                    .order("strength", desc=True)
+                    .limit(5)
+                    .execute()
+                )
+                for t in (n_out.data or []) + (n_in.data or []):
+                    if t["id"] not in seen_ids:
+                        t["hop"] = 2
+                        t["strength"] = float(t.get("strength", 0.5)) * 0.6
+                        hop2.append(t)
+                        seen_ids.add(t["id"])
+            except Exception:
+                continue
+
+        combined = hop1 + hop2
+        combined.sort(key=lambda t: (-t.get("hop", 1) == 1, -float(t.get("strength", 0))))
+        return combined[:limit]
 
     except Exception as e:
         logger.debug(f"Failed to query entity relations: {e}")
@@ -446,22 +549,35 @@ async def search_kg_hybrid(
     org_id: str,
     query: str,
     limit: int = 10,
+    expand_hops: bool = True,
     db: Any = None,
 ) -> list[dict]:
     """Search knowledge graph triples using hybrid FTS + entity match with RRF fusion.
 
+    When expand_hops=True, expands 1-hop neighbors from initial results for richer context.
     Falls back to simple ILIKE query if the RPC is not yet deployed.
     """
     client = db or supabase
     if not client or not query:
         return []
 
+    # Resolve query entities through alias table
+    try:
+        from .entity_resolution import resolve_entity
+        resolved_query = await resolve_entity(org_id, query, db=client)
+        if resolved_query != query:
+            query = resolved_query
+    except Exception:
+        pass
+
+    direct_results: list[dict] = []
+
     try:
         result = await client.rpc(
             "search_kg_triples_hybrid",
             {"p_org_id": org_id, "p_query_text": query, "p_limit": limit},
         ).execute()
-        return result.data or []
+        direct_results = result.data or []
     except Exception as e:
         # RPC not deployed yet — fallback to simple ILIKE
         logger.debug(f"[KG] Hybrid search RPC failed, falling back to ILIKE: {e}")
@@ -481,6 +597,50 @@ async def search_kg_hybrid(
                 .limit(limit)
                 .execute()
             )
-            return result.data or []
+            direct_results = result.data or []
         except Exception:
             return []
+
+    if not direct_results or not expand_hops:
+        return direct_results[:limit]
+
+    # 1-hop expansion: find neighbors of top results
+    seen_ids = {t["id"] for t in direct_results}
+    entities_in_results = set()
+    for t in direct_results[:5]:  # Expand from top 5 only
+        entities_in_results.add(t.get("source_entity", ""))
+        entities_in_results.add(t.get("destination_entity", ""))
+    entities_in_results.discard("")
+
+    expanded: list[dict] = []
+    for entity in list(entities_in_results)[:6]:
+        try:
+            neighbors = (
+                await client.table("knowledge_graph_triples")
+                .select("*")
+                .eq("organization_id", org_id)
+                .is_("valid_to", "null")
+                .or_(
+                    f"source_entity.eq.{entity},"
+                    f"destination_entity.eq.{entity}"
+                )
+                .order("strength", desc=True)
+                .limit(3)
+                .execute()
+            )
+            for t in (neighbors.data or []):
+                if t["id"] not in seen_ids:
+                    t["hop"] = 2
+                    t["strength"] = float(t.get("strength", 0.5)) * 0.6
+                    expanded.append(t)
+                    seen_ids.add(t["id"])
+        except Exception:
+            continue
+
+    # Mark direct results as hop 1
+    for t in direct_results:
+        t["hop"] = 1
+
+    combined = direct_results + expanded
+    combined.sort(key=lambda t: (-float(t.get("strength", 0))))
+    return combined[:limit]

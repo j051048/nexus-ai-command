@@ -125,6 +125,11 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.scheduler.reevaluate_memory_importance",
         "schedule": crontab(hour=4, minute=30, day_of_week=0),  # 每周日4:30
     },
+    # ── KG strength time decay ──
+    "kg-strength-decay": {
+        "task": "app.tasks.scheduler.decay_kg_strength",
+        "schedule": crontab(hour=4, minute=15, day_of_week=3),  # 每周三4:15
+    },
     # ── P1-2: Action outcome measurement ──
     "action-outcome-measurement": {
         "task": "app.tasks.scheduler.measure_action_outcomes",

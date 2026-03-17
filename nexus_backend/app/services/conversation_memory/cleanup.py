@@ -253,3 +253,106 @@ async def reevaluate_importance(
         logger.info(f"Memory importance reeval: boosted={boosted}, decayed={decayed}")
 
     return {"boosted": boosted, "decayed": decayed}
+
+
+async def decay_kg_strength(
+    decay_rate: float = 0.95,
+    archive_threshold: float = 0.15,
+    protect_occurrences: int = 5,
+    batch_size: int = 500,
+    db: Any = None,
+) -> dict:
+    """Decay knowledge graph triple strength based on time since last reinforcement.
+
+    Formula: new_strength = strength * decay_rate ^ weeks_since_last_reinforced
+    - Triples below archive_threshold get soft-expired (valid_to = now)
+    - High-occurrence triples (>= protect_occurrences) are protected from archival
+
+    Returns: {"scanned": int, "decayed": int, "archived": int}
+    """
+    client = db or supabase
+    if not client:
+        return {"scanned": 0, "decayed": 0, "archived": 0}
+
+    decayed_count = 0
+    archived = 0
+
+    try:
+        # Fetch active triples with their reinforcement timestamps
+        result = (
+            await client.table("knowledge_graph_triples")
+            .select("id, strength, occurrences, last_reinforced_at, updated_at, created_at")
+            .is_("valid_to", "null")
+            .order("updated_at", desc=False)
+            .limit(batch_size)
+            .execute()
+        )
+
+        triples = result.data or []
+        now = datetime.now(UTC)
+
+        for triple in triples:
+            # Determine last activity time
+            last_active = (
+                triple.get("last_reinforced_at")
+                or triple.get("updated_at")
+                or triple.get("created_at")
+            )
+            if not last_active:
+                continue
+
+            try:
+                if isinstance(last_active, str):
+                    last_dt = datetime.fromisoformat(last_active.replace("Z", "+00:00"))
+                else:
+                    last_dt = last_active
+                weeks_since = max((now - last_dt).days / 7.0, 0)
+            except Exception:
+                weeks_since = 4  # Default to ~1 month
+
+            if weeks_since < 1:
+                continue  # Skip recently active triples
+
+            old_strength = float(triple.get("strength", 0.5))
+            new_strength = old_strength * (decay_rate ** weeks_since)
+            new_strength = round(new_strength, 4)
+
+            if new_strength >= old_strength - 0.001:
+                continue  # No meaningful change
+
+            occurrences = int(triple.get("occurrences", 1))
+
+            if new_strength < archive_threshold and occurrences < protect_occurrences:
+                # Archive: soft-expire the triple
+                try:
+                    await (
+                        client.table("knowledge_graph_triples")
+                        .update({"strength": new_strength, "valid_to": now.isoformat()})
+                        .eq("id", triple["id"])
+                        .execute()
+                    )
+                    archived += 1
+                except Exception as e:
+                    logger.debug(f"[KG Decay] Archive failed for {triple['id']}: {e}")
+            else:
+                # Just decay the strength
+                try:
+                    await (
+                        client.table("knowledge_graph_triples")
+                        .update({"strength": new_strength})
+                        .eq("id", triple["id"])
+                        .execute()
+                    )
+                    decayed_count += 1
+                except Exception as e:
+                    logger.debug(f"[KG Decay] Update failed for {triple['id']}: {e}")
+
+    except Exception as e:
+        logger.warning(f"[KG Decay] Scan failed: {e}")
+
+    if decayed_count or archived:
+        logger.info(
+            f"[KG Decay] scanned={len(triples)}, decayed={decayed_count}, archived={archived}"
+        )
+
+    return {"scanned": len(triples) if 'triples' in dir() else 0, "decayed": decayed_count, "archived": archived}

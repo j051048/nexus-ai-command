@@ -107,14 +107,30 @@ async def _with_keepalive(event_stream, interval: int = SSE_KEEPALIVE_INTERVAL):
     keepalive comment and keep the HTTP connection alive.
     """
     aiter = event_stream.__aiter__()
-    while True:
-        try:
-            event = await asyncio.wait_for(anext(aiter), timeout=interval)
-            yield event
-        except asyncio.TimeoutError:
-            yield None  # signal: emit keepalive
-        except StopAsyncIteration:
-            break
+    fetch_task = None
+
+    async def _get_next():
+        return await anext(aiter)
+
+    try:
+        while True:
+            if fetch_task is None:
+                fetch_task = asyncio.create_task(_get_next())
+                
+            done, pending = await asyncio.wait([fetch_task], timeout=interval)
+            
+            if done:
+                try:
+                    event = fetch_task.result()
+                    fetch_task = None
+                    yield event
+                except StopAsyncIteration:
+                    break
+            else:
+                yield None
+    finally:
+        if fetch_task and not fetch_task.done():
+            fetch_task.cancel()
 
 
 def _sse_keepalive() -> str:

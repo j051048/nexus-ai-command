@@ -760,6 +760,38 @@ def reevaluate_memory_importance():
     return _run_async(_run())
 
 
+@celery_app.task
+@_with_redis_lock("decay_kg_strength", lock_ttl=600)
+def decay_kg_strength():
+    """
+    知识图谱 strength 时间衰减: 每周三凌晨4:15运行。
+    对长期未被提及的三元组降低 strength，低于阈值的归档（soft-expire）。
+    保护高 occurrences 的核心三元组不被误删。
+    纯数学计算，零 LLM 成本。
+    """
+
+    async def _run():
+        from app.core.database import supabase
+        from app.services.conversation_memory.cleanup import decay_kg_strength as _decay
+
+        if not supabase:
+            return "skipped: no db"
+
+        result = await _decay(
+            decay_rate=0.95,
+            archive_threshold=0.15,
+            protect_occurrences=5,
+            batch_size=500,
+            db=supabase,
+        )
+        return (
+            f"KG decay: scanned={result['scanned']}, "
+            f"decayed={result['decayed']}, archived={result['archived']}"
+        )
+
+    return _run_async(_run())
+
+
 # ---------------------------------------------------------------------------
 # P1-2: Action Outcome Tracking — Record AI actions for effectiveness measurement
 # ---------------------------------------------------------------------------
