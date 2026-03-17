@@ -1081,6 +1081,42 @@ async def persist_result(
             )
         extraction_tasks.append(("episode", _save_episode()))
 
+    # Task: Save completed task summary as long-term memory (P1 memory fix)
+    # Only when meaningful work was done: tool calls executed OR long response generated
+    _has_tools = bool(completed_tool_calls and len(completed_tool_calls) > 0)
+    _is_long_response = bool(assistant_response and len(assistant_response) > 300)
+    if user_message and assistant_response and (_has_tools or _is_long_response) and not skip_semantic:
+        async def _save_task_memory():
+            from app.services.conversation_memory_service import conversation_memory_service
+            # Build a concise task summary
+            tool_names = []
+            if completed_tool_calls:
+                tool_names = list({tc.get("tool_name", "") for tc in completed_tool_calls if tc.get("tool_name")})
+            tool_part = f"（使用了工具: {', '.join(tool_names)}）" if tool_names else ""
+            # Truncate for storage
+            task_summary = (
+                f"用户请求: {user_message[:200]}\n"
+                f"完成结果: {assistant_response[:300]}{tool_part}"
+            )
+            import hashlib
+            task_key = f"task_{hashlib.md5(user_message[:100].encode()).hexdigest()[:10]}"
+            await conversation_memory_service.save_memory(
+                user_id=user_id,
+                key=task_key,
+                value=task_summary,
+                category="completed_task",
+                importance=0.7,
+                org_id=org_id,
+                db=client,
+                metadata={
+                    "session_id": session_id,
+                    "tools_used": tool_names,
+                    "response_length": len(assistant_response),
+                },
+            )
+            logger.info(f"[Memory] Saved completed_task memory for user {user_id}: {task_key}")
+        extraction_tasks.append(("task_memory", _save_task_memory()))
+
     # Execute all extraction tasks in parallel
     if extraction_tasks:
         task_names = [name for name, _ in extraction_tasks]

@@ -356,6 +356,32 @@ async def orchestrate_node(state: AgentState) -> dict:
 
 # ─── Sub-task Execution ──────────────────────────────────────────────────────
 
+# P2: Sub-agent context isolation — independent token budget per sub-task
+_SUB_TASK_TOKEN_BUDGET = 4000  # max tokens per sub-task before forced synthesis
+_RESULT_COMPRESS_THRESHOLD = 1500  # chars — compress result if longer
+
+
+async def _compress_sub_result(config: AgentConfig, task_title: str, text: str) -> str:
+    """Compress a verbose sub-task result into a concise summary using mini_model."""
+    try:
+        llm = await _create_orchestrator_llm(config, use_mini=True, temperature=0.2, timeout=20.0)
+        prompt = (
+            f"请将以下子任务「{task_title}」的执行结果精炼为不超过500字的摘要。\n"
+            f"保留：关键数据点、结论、数字指标。删除：冗余描述、重复信息、格式装饰。\n\n"
+            f"原始结果:\n{text[:3000]}"
+        )
+        from langchain_core.messages import HumanMessage as _HM, SystemMessage as _SM
+        resp = await llm.ainvoke([
+            _SM(content="你是信息压缩专家，擅长提炼关键信息。只输出摘要，不加前缀。"),
+            _HM(content=prompt),
+        ])
+        compressed = resp.content or text
+        logger.debug(f"[Orchestrate] Compressed result for '{task_title}': {len(text)} -> {len(compressed)} chars")
+        return compressed
+    except Exception as e:
+        logger.warning(f"[Orchestrate] Result compression failed for '{task_title}': {e}")
+        return text[:_RESULT_COMPRESS_THRESHOLD] + "..."
+
 
 async def _execute_sub_task(
     config: AgentConfig,
@@ -431,6 +457,21 @@ async def _execute_sub_task(
         total_in += usage.get("prompt_tokens", 0)
         total_out += usage.get("completion_tokens", 0)
 
+        # P2: Token budget check — force synthesis if budget exceeded
+        if total_in + total_out >= _SUB_TASK_TOKEN_BUDGET:
+            logger.info(
+                f"[Orchestrate] Sub-task {agent_code}:{task_title} "
+                f"hit token budget ({total_in + total_out}/{_SUB_TASK_TOKEN_BUDGET}), forcing synthesis"
+            )
+            result_text = ai_msg.content or ""
+            if not result_text:
+                final_msg = await llm.ainvoke(messages)
+                usage2 = final_msg.response_metadata.get("token_usage", {})
+                total_in += usage2.get("prompt_tokens", 0)
+                total_out += usage2.get("completion_tokens", 0)
+                result_text = final_msg.content or ""
+            break
+
         if not ai_msg.tool_calls:
             # No tool calls — LLM has produced final content
             result_text = ai_msg.content or ""
@@ -482,6 +523,10 @@ async def _execute_sub_task(
 
     duration = int((time.time() - start) * 1000)
     logger.info(f"[Orchestrate] Sub-task {agent_code}:{task_title} completed in {duration}ms")
+
+    # P2: Compress verbose results before returning to blackboard
+    if result_text and len(result_text) > _RESULT_COMPRESS_THRESHOLD:
+        result_text = await _compress_sub_result(config, task_title, result_text)
 
     return result_text, total_in, total_out, tool_calls_data
 

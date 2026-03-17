@@ -137,6 +137,14 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             lc_msgs.insert(1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
                            SystemMessage(content=guidance_content))
 
+    # P0: Inject compacted context summary if agent previously compressed context
+    compacted_summary = state.get("context_compacted_summary", "")
+    if compacted_summary:
+        lc_msgs.insert(
+            1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
+            SystemMessage(content=f"[上下文摘要 — 之前的对话和工具结果已压缩]\n{compacted_summary}"),
+        )
+
     # ── Context Engine 集成：统一上下文组装 ──
     # 替代硬编码 RAG 注入，通过 ContextEngine 按优先级和 token 预算获取上下文
     if iteration == 0:
@@ -174,6 +182,42 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                 1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
                 SystemMessage(content=rag_block),
             )
+
+    # P1: Task decomposition — inject step-focused plan for active step
+    _task_steps = state.get("_task_steps", [])
+    _active_idx = state.get("_active_step_index", 0)
+    _decomp_done = state.get("_task_decomposition_done", False)
+
+    if _decomp_done and _task_steps and _active_idx < len(_task_steps):
+        current_step = _task_steps[_active_idx]
+        step_instruction = (
+            f"[当前执行步骤 {_active_idx + 1}/{len(_task_steps)}]\n"
+            f"标题: {current_step.get('title', '')}\n"
+            f"描述: {current_step.get('description', '')}\n"
+            f"请专注完成此步骤，不要跳到其他步骤。"
+        )
+        lc_msgs.insert(
+            1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
+            SystemMessage(content=step_instruction),
+        )
+
+    # P1: On first iteration for COMPLEX+ queries, request task decomposition
+    if (
+        iteration == 0
+        and not _decomp_done
+        and complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL)
+    ):
+        decomp_hint = (
+            "\n\n[任务分解指令] 如果此任务涉及多个独立步骤（如先查询再分析再生成），"
+            "请在回复开头用以下JSON格式输出任务分解（用```json包裹）：\n"
+            '```json\n{"task_steps": [{"title": "步骤标题", "description": "步骤描述"}]}\n```\n'
+            "如果任务简单无需分解，直接正常回复即可。"
+        )
+        # Append to last user message context
+        if lc_msgs and hasattr(lc_msgs[-1], "content"):
+            from langchain_core.messages import HumanMessage as _HM
+            if isinstance(lc_msgs[-1], _HM):
+                lc_msgs[-1] = _HM(content=lc_msgs[-1].content + decomp_hint)
 
     # Decide whether to include tools
     complexity = state.get("complexity", QueryComplexity.MODERATE)
@@ -527,6 +571,31 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             "total_output_tokens": state.get("total_output_tokens", 0) + output_tokens,
         }
 
+    # P1: Parse task decomposition from LLM response
+    _new_task_steps = None
+    if (
+        iteration == 0
+        and not _decomp_done
+        and complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL)
+        and content
+        and "task_steps" in content
+    ):
+        import json as _json
+        import re as _re
+        json_match = _re.search(r"```json\s*(\{.*?\"task_steps\".*?\})\s*```", content, _re.DOTALL)
+        if json_match:
+            try:
+                parsed = _json.loads(json_match.group(1))
+                steps = parsed.get("task_steps", [])
+                if isinstance(steps, list) and 2 <= len(steps) <= 8:
+                    _new_task_steps = steps
+                    # Remove the JSON block from content so it doesn't appear in the response
+                    content = content[:json_match.start()] + content[json_match.end():]
+                    content = content.strip()
+                    logger.info(f"[PlanNode] Task decomposed into {len(steps)} steps: {[s.get('title') for s in steps]}")
+            except (_json.JSONDecodeError, KeyError):
+                pass  # Not valid JSON, ignore
+
     # Construct the AIMessage to append to history
     # LangChain's ai_msg already is a BaseMessage
     result = {
@@ -539,6 +608,30 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         "total_input_tokens": state.get("total_input_tokens", 0) + input_tokens,
         "total_output_tokens": state.get("total_output_tokens", 0) + output_tokens,
     }
+
+    # P1: Store task decomposition in state
+    if _new_task_steps:
+        result["_task_decomposition_done"] = True
+        result["_task_steps"] = _new_task_steps
+        result["_active_step_index"] = 0
+        result["thinking_steps"] = [
+            thinking_step,
+            ThinkingStep(
+                phase=AgentPhase.PLANNING.value,
+                content=f"任务已分解为 {len(_new_task_steps)} 个步骤: {', '.join(s.get('title', '') for s in _new_task_steps)}",
+            ),
+        ]
+    elif _decomp_done and _task_steps and _active_idx < len(_task_steps):
+        # Advance to next step (current step was just planned/executed)
+        result["_active_step_index"] = _active_idx + 1
+        if _active_idx + 1 >= len(_task_steps):
+            result["thinking_steps"] = [
+                thinking_step,
+                ThinkingStep(
+                    phase=AgentPhase.PLANNING.value,
+                    content=f"所有 {len(_task_steps)} 个步骤已完成，正在生成最终回复",
+                ),
+            ]
 
     if pending_tools:
         tool_names = ", ".join(t.tool_name for t in pending_tools)

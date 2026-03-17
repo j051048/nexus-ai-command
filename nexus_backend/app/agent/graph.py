@@ -378,6 +378,17 @@ def _after_reflect(state: AgentState) -> str:
     # skipped its LLM layers (i.e., tools were involved). When reflect
     # already did LLM-based fact-checking, the extra critic call is redundant.
     complexity = state.get("complexity")
+
+    # P1: Task decomposition — if more steps remain, loop back to plan
+    _task_steps = state.get("_task_steps", [])
+    _active_idx = state.get("_active_step_index", 0)
+    if _task_steps and _active_idx < len(_task_steps):
+        logger.info(
+            f"[Graph] Task decomposition: step {_active_idx + 1}/{len(_task_steps)} pending, "
+            f"looping back to plan"
+        )
+        return "plan"
+
     if complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL):
         completed_tools = state.get("completed_tool_calls", [])
         if completed_tools:

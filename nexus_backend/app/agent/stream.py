@@ -17,6 +17,7 @@ import json
 import logging
 import re
 import time
+import uuid
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -30,9 +31,11 @@ from app.agent.state import (
     ThinkingStep,
 )
 from app.core.config import settings
+from app.core.database import supabase
 from app.core.token_budget import BudgetVerdict, token_budget_manager
 from app.core.trace_logger import TraceLogger
 from app.services.content_moderation import check_user_input
+from app.services.agent_trace_service import TraceStatus, agent_trace_service
 from app.services.token_service import (
     record_completion,
     token_counter,
@@ -232,6 +235,25 @@ async def run_agent_stream(
         reflect_use_llm=settings.LANGGRAPH_REFLECT_USE_LLM,
     )
 
+    # ── 0b. Start agent trace for observability (P3) ──
+    _trace_id = str(uuid.uuid4())
+    _user_query = ""
+    for _m in reversed(messages):
+        if _m.get("role") == "user":
+            _user_query = (_m.get("content") or "")[:500]
+            break
+    try:
+        agent_trace_service.start_trace(
+            trace_id=_trace_id,
+            thread_id=f"{org_id or 'default'}::{session_id or 'default'}",
+            user_id=user_id,
+            query=_user_query,
+            org_id=org_id,
+            metadata={"agent_name": agent_name, "scene_code": scene_code},
+        )
+    except Exception:
+        logger.debug("[Stream] Failed to start agent trace", exc_info=True)
+
     # ── 1. Token budget check ──
     await usage_tracker.ensure_loaded(user_id)
     messages_dicts = [{"role": m.get("role", "user"), "content": m.get("content", "")} for m in messages]
@@ -379,6 +401,12 @@ async def run_agent_stream(
         "parent_agent_code": None,
         "delegation_results": [],
         "wbs_structure": None,
+        # P0: Context compaction
+        "context_compacted_summary": "",
+        # P1: Task decomposition
+        "_task_decomposition_done": False,
+        "_task_steps": [],
+        "_active_step_index": 0,
     }
 
     # ── 5. Run graph with granular event streaming (astream_events) ──
@@ -531,17 +559,51 @@ async def run_agent_stream(
                             if status_text:
                                 yield _sse_status(status_text)
 
+                    # P3: Record step in agent trace
+                    try:
+                        _node_name = event.get("metadata", {}).get("langgraph_node", "unknown")
+                        _step_tools = []
+                        for _tc in state_delta.get("completed_tool_calls", []):
+                            _step_tools.append({
+                                "name": getattr(_tc, "tool_name", ""),
+                                "status": getattr(_tc, "status", ""),
+                            })
+                        agent_trace_service.add_step(
+                            trace_id=_trace_id,
+                            step_id=f"{_node_name}_{accumulated_state.get('iteration', 0)}",
+                            node_type=_node_name,
+                            input_data={"phase": str(phase) if phase else ""},
+                            output_data={
+                                "has_plan": bool(state_delta.get("plan")),
+                                "has_response": bool(state_delta.get("final_response")),
+                                "confidence": state_delta.get("confidence_score"),
+                            },
+                            tokens_used=(state_delta.get("total_input_tokens", 0) or 0)
+                            + (state_delta.get("total_output_tokens", 0) or 0),
+                            tool_calls=_step_tools or None,
+                        )
+                    except Exception:
+                        pass  # trace failure must never break the stream
+
     except asyncio.CancelledError:
         # Client disconnected (e.g. user clicked "Stop generating")
         duration_ms = int((time.time() - start_time) * 1000)
         logger.info(f"[Stream] Client disconnected after {duration_ms}ms (user={user_id}, session={session_id})")
         if tracer:
             tracer.log_end(total_tokens=0)
+        try:
+            agent_trace_service.end_trace(_trace_id, TraceStatus.CANCELLED)
+        except Exception:
+            pass
         return
 
     except GeneratorExit:
         # Generator closed by framework on client disconnect
         logger.info(f"[Stream] Generator closed (user={user_id})")
+        try:
+            agent_trace_service.end_trace(_trace_id, TraceStatus.CANCELLED)
+        except Exception:
+            pass
         return
 
     except Exception as e:
@@ -633,6 +695,10 @@ async def run_agent_stream(
                 if tracer:
                     tracer.log_error(str(retry_err))
                     tracer.log_end()
+                try:
+                    agent_trace_service.end_trace(_trace_id, TraceStatus.FAILED, error=str(retry_err)[:500])
+                except Exception:
+                    pass
                 return
         else:
             logger.error(f"[Stream] Agent graph execution failed: {e}", exc_info=True)
@@ -643,6 +709,10 @@ async def run_agent_stream(
             if tracer:
                 tracer.log_error(str(e))
                 tracer.log_end()
+            try:
+                agent_trace_service.end_trace(_trace_id, TraceStatus.FAILED, error=str(e)[:500])
+            except Exception:
+                pass
             return
 
     # ── 6. Stream the final response ──
@@ -859,6 +929,17 @@ async def run_agent_stream(
     # ── 10. Finalize trace ──
     if tracer:
         tracer.log_end(total_tokens=total_in + total_out)
+
+    # P3: End agent trace and persist to DB
+    try:
+        agent_trace_service.end_trace(
+            _trace_id,
+            TraceStatus.COMPLETED,
+            final_response=(final_response or "")[:500],
+            db=db_client or supabase,
+        )
+    except Exception:
+        logger.debug("[Stream] Failed to end agent trace", exc_info=True)
 
     yield "data: [DONE]\n\n"
 

@@ -516,6 +516,33 @@ async def execute_node(state: AgentState, config: RunnableConfig | None = None) 
             ],
         }
 
+    # P0: Intercept compact_context pseudo-tool — compress context in-place
+    compact_calls = [t for t in pending if t.tool_name == "compact_context"]
+    if compact_calls:
+        summary = compact_calls[0].tool_args.get("summary", "")
+        non_compact = [t for t in pending if t.tool_name != "compact_context"]
+        compact_calls[0].status = "success"
+        compact_calls[0].result = "[上下文已压缩]"
+        compact_msg = ToolMessage(
+            content="[上下文已压缩] 摘要已保存，后续对话基于此摘要继续。",
+            name="compact_context",
+            tool_call_id=compact_calls[0].tool_call_id,
+        )
+        return {
+            "messages": [compact_msg],
+            "current_phase": AgentPhase.PLANNING,
+            "context_compacted_summary": summary,
+            "pending_tool_calls": non_compact,
+            "completed_tool_calls": [compact_calls[0]],
+            "iteration": state.get("iteration", 0) + 1,
+            "thinking_steps": [
+                ThinkingStep(
+                    phase=AgentPhase.EXECUTING.value,
+                    content=f"主动压缩上下文，摘要长度: {len(summary)}字",
+                )
+            ],
+        }
+
     tool_names = ", ".join(t.tool_name for t in pending)
     thinking_step = ThinkingStep(
         phase=AgentPhase.EXECUTING.value,

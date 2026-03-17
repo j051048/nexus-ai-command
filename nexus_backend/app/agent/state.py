@@ -262,3 +262,11 @@ class AgentState(TypedDict, total=False):
 
     # ── Loop detection (P2) ──
     _tool_call_history: Annotated[list[str], operator.add]  # Fingerprint hashes per execute round
+
+    # ── Context compaction (P0) ──
+    context_compacted_summary: str  # Summary produced by compact_context pseudo-tool
+
+    # ── Task decomposition (P1) ──
+    _task_decomposition_done: bool   # Whether complex query has been decomposed
+    _task_steps: list[dict]          # Decomposed steps: [{title, description, tools}]
+    _active_step_index: int          # Current step being executed (0-based)

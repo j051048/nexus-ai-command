@@ -100,6 +100,8 @@ _TOOL_MODULES: dict[str, tuple[str, str]] = {
     "list_tasks": ("app.tools.agent_task_tools", "ListTasksTool"),
     # ask_user (P1-7: agent proactive questioning)
     "ask_user": ("app.tools.ask_user_tool", "AskUserTool"),
+    # compact_context (P0: agent-initiated context compression)
+    "compact_context": ("app.tools.compact_context_tool", "CompactContextTool"),
     # web_search (P0: 联网搜索能力)
     "web_search": ("app.tools.web_search_tool", "WebSearchTool"),
     # llm_task (P1: 轻量子任务委派)

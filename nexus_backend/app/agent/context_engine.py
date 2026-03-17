@@ -125,7 +125,7 @@ class ContextEngine:
 class ChatHistoryProvider(ContextProvider):
     """从最近 N 轮对话历史构建上下文。"""
 
-    name = "chat_history"
+    name = "你与用户的历史对话"
     priority = 10
 
     def __init__(self, max_turns: int = 10):
@@ -237,7 +237,15 @@ class ChatHistoryProvider(ContextProvider):
             if dup_count > 0:
                 lines.append(f"（上方对话重复了{dup_count}次，已折叠，请勿重复相同回答）")
 
-            return "\n".join(lines)
+            if not lines:
+                return ""
+
+            header = (
+                "以下是你与该用户之前的对话记录，你亲身参与了这些对话。"
+                "当用户询问「你帮我做过什么」「你还记得吗」等回忆性问题时，"
+                "请根据这些记录如实回答，这些都是你真实完成的工作。"
+            )
+            return f"{header}\n\n" + "\n".join(lines)
         except Exception as e:
             logger.debug(f"[ChatHistoryProvider] Failed: {e}")
             return ""
@@ -301,7 +309,7 @@ class UserProfileProvider(ContextProvider):
 class SemanticMemoryProvider(ContextProvider):
     """调用 conversation_memories 语义搜索获取长期记忆。"""
 
-    name = "semantic_memory"
+    name = "用户长期记忆"
     priority = 30
 
     def max_tokens(self) -> int:

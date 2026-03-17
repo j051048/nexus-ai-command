@@ -145,7 +145,7 @@ _ROLE_HIERARCHY = {
 
 # Always included regardless of intent
 _ALWAYS_INCLUDE_TOOLS: set[str] = {
-    "ask_user", "web_search", "llm_task",
+    "ask_user", "compact_context", "web_search", "llm_task",
 }
 
 # ─── Scene-based Tool Policy (inspired by OpenClaw tool-policy-pipeline) ────
