@@ -90,7 +90,7 @@ _PROMPT_INJECTION_PATTERNS: list[tuple[str, str]] = [
      "[prompt injection detected]"),
     # Chinese indirect injection
     (r"忽略(之前|以上|所有|先前)(的)?(指令|命令|提示|规则)", "[检测到提示注入]"),
-    (r"你(现在|从现在开始)?是", "[检测到提示注入]"),
+    (r"你(现在|从现在开始)是(?!.*负责人|.*员工|.*用户|.*同事)", "[检测到提示注入]"),
     (r"进入(开发者|调试|管理员|上帝)模式", "[检测到提示注入]"),
     (r"(显示|输出|透露|泄露)(你的)?(系统|原始)?(提示词|指令|prompt)", "[检测到提示注入]"),
     # Special delimiters often used in injection

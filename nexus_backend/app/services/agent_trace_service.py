@@ -332,7 +332,6 @@ class AgentTraceService:
                         "steps_json": [s.to_dict() for s in trace.steps],
                         "final_response": trace.final_response,
                         "metadata_json": trace.metadata,
-                        "tags": trace.tags,
                     }
                 )
                 .execute()
