@@ -140,6 +140,37 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             lc_msgs.insert(1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
                            SystemMessage(content=guidance_content))
 
+        # Inject current task board state so AI doesn't drift across iterations
+        try:
+            from app.core.database import supabase as _db
+            _session_id = agent_config.session_id or "default"
+            _tasks_res = (
+                await _db.table("agent_tasks")
+                .select("title, status, context_summary")
+                .eq("user_id", agent_config.user_id)
+                .eq("conversation_id", _session_id)
+                .order("sort_order")
+                .order("created_at")
+                .limit(15)
+                .execute()
+            )
+            _tasks = _tasks_res.data or []
+            if _tasks:
+                _icons = {"pending": "⬜", "in_progress": "🔄", "done": "✅", "blocked": "🚫"}
+                _lines = [f"[当前任务板 — 第{iteration + 1}轮规划，请据此决定下一步]"]
+                for _t in _tasks:
+                    _icon = _icons.get(_t["status"], "❓")
+                    _line = f"{_icon} {_t['title']}"
+                    if _t.get("context_summary"):
+                        _line += f"（{_t['context_summary'][:60]}）"
+                    _lines.append(_line)
+                lc_msgs.insert(
+                    1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
+                    SystemMessage(content="\n".join(_lines)),
+                )
+        except Exception:
+            pass  # Task board injection is optional
+
     # P0: Inject compacted context summary if agent previously compressed context
     compacted_summary = state.get("context_compacted_summary", "")
     if compacted_summary:
