@@ -18,7 +18,7 @@ class ProjectListTool(BaseTool):
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
         # Check role to filter projects? For now, list all accessible via RLS
-        result = await client.table("projects").select("id, name, stage, progress").execute()
+        result = await client.table("projects").select("id, name, stage, progress").neq("stage", "archived").execute()
         if not result.data:
             return "暂无进行中的项目。"
         items = [
@@ -205,7 +205,7 @@ class WeeklyReportTool(BaseTool):
         # 查询用户项目
         projects_data = []
         try:
-            proj_res = await client.table("projects").select("name, stage, progress").eq("user_id", user_id).execute()
+            proj_res = await client.table("projects").select("name, stage, progress").eq("user_id", user_id).neq("stage", "archived").execute()
             projects_data = proj_res.data or []
         except Exception as e:
             logger.debug("用户项目查询失败: %s", e)
