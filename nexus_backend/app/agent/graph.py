@@ -341,6 +341,20 @@ def _after_execute(state: AgentState) -> str:
         logger.info(f"[Graph] All tools succeeded + {complexity} → fast synthesize")
         return "synthesize"
 
+    # Some tools failed → back to plan with structured error guidance
+    failed_tools = [
+        tc for tc in completed
+        if (getattr(tc, "status", None) or tc.get("status")) == "error"
+    ]
+    if failed_tools:
+        lines = ["以下工具执行失败，请调整策略重试："]
+        for ft in failed_tools[:5]:
+            name = getattr(ft, "tool_name", None) or ft.get("tool_name", "unknown")
+            result = (getattr(ft, "result", "") or ft.get("result", "") or "")[:200]
+            lines.append(f"- {name}: {result}")
+        lines.append("请分析失败原因，考虑：换用其他工具、修正参数、或改变方案。")
+        state["reflection_guidance"] = "\n".join(lines)
+
     return "plan"
 
 

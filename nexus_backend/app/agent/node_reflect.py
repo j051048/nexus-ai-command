@@ -448,6 +448,23 @@ async def critic_node(state: AgentState) -> dict:
         tool_results_summary.append(f"- {tc.tool_name}: {result_preview}")
     tool_context = "\n".join(tool_results_summary[:5]) if tool_results_summary else "无工具调用"
 
+    # Inject historical failure lessons into critic prompt (few-shot from failure_log)
+    history_lessons = ""
+    try:
+        from app.services.failure_log_service import get_top_failures
+        _org_id = getattr(config, "org_id", None)
+        if _org_id:
+            failures = await get_top_failures(_org_id, days=7, limit=3)
+            if failures:
+                lesson_lines = ["## 历史教训（近期常见错误，请重点检查）"]
+                for f in failures:
+                    err_type = f.get("error_type", "unknown")
+                    err_detail = (f.get("error_detail") or "")[:100]
+                    lesson_lines.append(f"- [{err_type}] {err_detail}")
+                history_lessons = "\n".join(lesson_lines) + "\n\n"
+    except Exception:
+        pass  # 非关键路径
+
     critic_prompt = f"""你是一个严格的质量评审员。请评估以下AI回复的质量。
 
 ## 用户意图
@@ -459,7 +476,7 @@ async def critic_node(state: AgentState) -> dict:
 ## AI回复
 {final_response[:2000]}
 
-## 评估标准
+{history_lessons}## 评估标准
 1. completeness (0-1): 回答是否完整覆盖了用户的所有问题点？
 2. relevance (0-1): 回答是否紧扣用户意图，没有跑题？
 3. accuracy (0-1): 回答中的数据/事实是否与工具返回结果一致？

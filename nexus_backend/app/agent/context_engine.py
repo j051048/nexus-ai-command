@@ -390,10 +390,59 @@ class KnowledgeBaseProvider(ContextProvider):
             return ""
 
 
+class CompletedTasksProvider(ContextProvider):
+    """跨会话已完成任务注入，让 AI 记住"帮用户做过什么"。"""
+
+    name = "已完成任务"
+    priority = 15  # ChatHistory(10) 之后, UserProfile(20) 之前
+
+    def max_tokens(self) -> int:
+        return 300
+
+    async def get_context(
+        self, user_id: str, org_id: str | None, query: str, **kwargs: Any
+    ) -> str:
+        if not user_id:
+            return ""
+        try:
+            from datetime import datetime, timedelta, timezone
+            from app.core.database import supabase
+
+            since = (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()
+            result = (
+                await supabase.table("agent_tasks")
+                .select("title, context_summary, updated_at")
+                .eq("user_id", user_id)
+                .eq("status", "done")
+                .gte("updated_at", since)
+                .order("updated_at", desc=True)
+                .limit(10)
+                .execute()
+            )
+            tasks = result.data or []
+            if not tasks:
+                return ""
+
+            lines = ["以下是你近期为该用户完成的任务，当用户询问「你帮我做过什么」时请据实回答："]
+            for t in tasks:
+                date_str = (t.get("updated_at") or "")[:10]
+                title = t.get("title", "")
+                summary = (t.get("context_summary") or "")[:80]
+                line = f"- [{date_str}] {title}"
+                if summary:
+                    line += f"（{summary}）"
+                lines.append(line)
+            return "\n".join(lines)
+        except Exception as e:
+            logger.debug(f"[CompletedTasksProvider] Failed: {e}")
+            return ""
+
+
 # 模块级单例
 context_engine = ContextEngine(total_budget=4000)
 
 context_engine.register(ChatHistoryProvider())
+context_engine.register(CompletedTasksProvider())
 context_engine.register(UserProfileProvider())
 context_engine.register(SemanticMemoryProvider())
 context_engine.register(KnowledgeBaseProvider())
