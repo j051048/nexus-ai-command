@@ -129,6 +129,7 @@ class ProjectUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     status: str | None = None
+    stage: str | None = None
     progress: int | None = None
 
 

@@ -63,6 +63,10 @@ async def update_project(project_id: str, updates: ProjectUpdate):
         # Filter out None values
         data = {k: v for k, v in updates.model_dump().items() if v is not None}
 
+        # Map 'status' to DB column 'stage' (frontend sends status, DB uses stage)
+        if "status" in data:
+            data["stage"] = data.pop("status")
+
         if not data:
             return api_success(data=None, message="No updates provided")
 

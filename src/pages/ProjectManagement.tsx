@@ -4,15 +4,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Bot, Plus, Briefcase, Calendar, ChevronRight, Loader2, Trash2 } from "lucide-react";
+import { Bot, Plus, Briefcase, Calendar, ChevronRight, Loader2, Trash2, LayoutGrid, Columns3 } from "lucide-react";
 import { useUser } from "@/contexts/UserContext";
 import { supabase } from "@/integrations/supabase/client";
 import { getApiBaseUrl } from '@/lib/apiConfig';
 import { toast } from "sonner";
 import { useAuth } from "@/components/auth/AuthContext";
-import { useDeleteProject } from "@/hooks/useProjects";
+import { useDeleteProject, STAGE_OPTIONS } from "@/hooks/useProjects";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
 interface Project {
     id: string;
@@ -24,7 +26,7 @@ interface Project {
     owner_id: string;
 }
 
-import { useNavigate } from "react-router-dom";
+type ViewMode = 'grid' | 'kanban';
 
 export function ProjectManagement() {
     const { user } = useUser();
@@ -33,18 +35,15 @@ export function ProjectManagement() {
     const [loading, setLoading] = useState(true);
     const [aiPrompt, setAiPrompt] = useState("");
     const [isAiCreating, setIsAiCreating] = useState(false);
+    const [viewMode, setViewMode] = useState<ViewMode>('grid');
     const { role } = useAuth();
     const canDelete = role === 'boss' || role === 'admin';
     const deleteProject = useDeleteProject();
     const { confirm, ConfirmDialogProps } = useConfirmDialog();
 
-    // ... (rest of the logic remains same until card click)
-
     const fetchProjects = useCallback(async () => {
         try {
             if (!user) return;
-            // Use our API or Supabase directly. Let's use Supabase directly for simplicity in this component
-            // matching the migration policies.
             const query = supabase
                 .from('projects')
                 .select('*')
@@ -56,7 +55,6 @@ export function ProjectManagement() {
             }
 
             const { data, error } = await query;
-
             if (error) throw error;
             setProjects(data as Project[] || []);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,11 +65,9 @@ export function ProjectManagement() {
         }
     }, [user]);
 
-
     useEffect(() => {
         fetchProjects();
 
-        // Subscribe to realtime changes
         const channel = supabase
             .channel('projects-changes')
             .on('postgres_changes', {
@@ -84,11 +80,8 @@ export function ProjectManagement() {
             })
             .subscribe();
 
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [user, fetchProjects]); // depend on user object and fetchProjects function
-
+        return () => { supabase.removeChannel(channel); };
+    }, [user, fetchProjects]);
 
     const handleAiCreate = async () => {
         if (!aiPrompt.trim()) return;
@@ -96,8 +89,6 @@ export function ProjectManagement() {
 
         try {
             const endpoint = `${getApiBaseUrl()}/api/chat`;
-
-            // Get real session token
             const { data: { session } } = await supabase.auth.getSession();
             const token = session?.access_token;
 
@@ -117,11 +108,8 @@ export function ProjectManagement() {
                 })
             });
 
-            if (!response.ok) {
-                throw new Error("AI Request Failed");
-            }
+            if (!response.ok) throw new Error("AI Request Failed");
 
-            // Consume the stream to ensure tool execution happens
             const reader = response.body?.getReader();
             if (reader) {
                 while (true) {
@@ -134,12 +122,9 @@ export function ProjectManagement() {
                 description: "项目创建成功后将自动出现在列表中"
             });
             setAiPrompt("");
-
-            // Stream consumed — DB write should be complete, refresh immediately
             await fetchProjects();
             toast.success("项目列表已刷新");
-
-        } catch (error) {
+        } catch {
             toast.error("AI 服务连接失败，请稍后重试");
         } finally {
             setIsAiCreating(false);
@@ -160,6 +145,16 @@ export function ProjectManagement() {
         }
     };
 
+    const handleStageChange = async (projectId: string, newStage: string) => {
+        const { error } = await supabase
+            .from('projects')
+            .update({ stage: newStage } as never)
+            .eq('id', projectId);
+        if (error) { toast.error('更新阶段失败'); return; }
+        toast.success('阶段已更新');
+        fetchProjects();
+    };
+
     const getStatusBadge = (stage: string) => {
         switch (stage) {
             case 'in_progress': return <Badge variant="default" className="bg-blue-500">进行中</Badge>;
@@ -169,12 +164,120 @@ export function ProjectManagement() {
         }
     };
 
+    // ── Stats ──
+    const stats = {
+        total: projects.length,
+        planning: projects.filter(p => p.stage === 'planning').length,
+        in_progress: projects.filter(p => p.stage === 'in_progress').length,
+        completed: projects.filter(p => p.stage === 'completed').length,
+        on_hold: projects.filter(p => p.stage === 'on_hold').length,
+    };
+
+    const renderProjectCard = (project: Project) => (
+        <Card
+            key={project.id}
+            onClick={() => navigate(`/projects/${project.id}`)}
+            className="group hover:shadow-lg transition-all border-border/50 hover:border-primary/50 cursor-pointer overflow-hidden relative"
+        >
+            <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-primary to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <CardHeader className="pb-2">
+                <div className="flex justify-between items-start">
+                    <div className="space-y-1">
+                        <CardTitle className="text-lg leading-tight flex items-center gap-2">
+                            {project.name}
+                        </CardTitle>
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Calendar className="w-3 h-3" /> {new Date(project.created_at).toLocaleDateString()}
+                        </span>
+                    </div>
+                    {getStatusBadge(project.stage)}
+                </div>
+            </CardHeader>
+            <CardContent>
+                <p className="text-sm text-muted-foreground line-clamp-2 mb-4 h-10">
+                    {project.description || "暂无描述"}
+                </p>
+
+                <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>完成进度</span>
+                        <span>{project.progress}%</span>
+                    </div>
+                    <Progress value={project.progress} className="h-2" />
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-end text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                        {canDelete && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                                onClick={(e) => handleDeleteProject(e, project)}
+                            >
+                                <Trash2 className="w-3 h-3" />
+                            </Button>
+                        )}
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 hover:text-primary"
+                            onClick={(e) => { e.stopPropagation(); navigate(`/projects/${project.id}`); }}
+                        >
+                            详情 <ChevronRight className="w-3 h-3 ml-1" />
+                        </Button>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+
     return (
         <div className="space-y-6 max-w-[1400px] mx-auto pb-20">
-            <div className="flex flex-col gap-2">
-                <h1 className="text-2xl font-bold tracking-tight">项目管理</h1>
-                <p className="text-muted-foreground">全生命周期项目追踪与协作</p>
+            <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-2">
+                    <h1 className="text-2xl font-bold tracking-tight">项目管理</h1>
+                    <p className="text-muted-foreground">全生命周期项目追踪与协作</p>
+                </div>
+                {projects.length > 0 && (
+                    <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+                        <Button
+                            variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                            size="sm"
+                            className="h-8 px-3"
+                            onClick={() => setViewMode('grid')}
+                        >
+                            <LayoutGrid className="w-4 h-4 mr-1" /> 卡片
+                        </Button>
+                        <Button
+                            variant={viewMode === 'kanban' ? 'default' : 'ghost'}
+                            size="sm"
+                            className="h-8 px-3"
+                            onClick={() => setViewMode('kanban')}
+                        >
+                            <Columns3 className="w-4 h-4 mr-1" /> 看板
+                        </Button>
+                    </div>
+                )}
             </div>
+
+            {/* Stats Bar */}
+            {projects.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    {[
+                        { label: '全部', count: stats.total, color: 'text-foreground' },
+                        { label: '规划中', count: stats.planning, color: 'text-muted-foreground' },
+                        { label: '进行中', count: stats.in_progress, color: 'text-blue-500' },
+                        { label: '已完成', count: stats.completed, color: 'text-green-500' },
+                        { label: '已暂停', count: stats.on_hold, color: 'text-yellow-500' },
+                    ].map(s => (
+                        <div key={s.label} className="bg-card rounded-xl p-3 border border-border text-center">
+                            <div className={cn("text-2xl font-bold", s.color)}>{s.count}</div>
+                            <div className="text-xs text-muted-foreground">{s.label}</div>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {/* AI Quick Action */}
             <Card className="bg-gradient-to-r from-primary/10 to-transparent border-primary/20">
@@ -204,7 +307,7 @@ export function ProjectManagement() {
                 </CardContent>
             </Card>
 
-            {/* Project Grid */}
+            {/* Project Views */}
             {loading ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {[1, 2, 3].map(i => <div key={i} className="h-48 bg-muted/20 animate-pulse rounded-xl" />)}
@@ -219,62 +322,76 @@ export function ProjectManagement() {
                         新建项目
                     </Button>
                 </div>
-            ) : (
+            ) : viewMode === 'grid' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {projects.map((project) => (
-                        <Card
-                            key={project.id}
-                            onClick={() => navigate(`/projects/${project.id}`)}
-                            className="group hover:shadow-lg transition-all border-border/50 hover:border-primary/50 cursor-pointer overflow-hidden relative"
-                        >
-                            <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-primary to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                            <CardHeader className="pb-2">
-                                <div className="flex justify-between items-start">
-                                    <div className="space-y-1">
-                                        <CardTitle className="text-lg leading-tight flex items-center gap-2">
-                                            {project.name}
-                                        </CardTitle>
-                                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                            <Calendar className="w-3 h-3" /> {new Date(project.created_at).toLocaleDateString()}
-                                        </span>
-                                    </div>
-                                    {getStatusBadge(project.stage)}
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                <p className="text-sm text-muted-foreground line-clamp-2 mb-4 h-10">
-                                    {project.description || "暂无描述"}
-                                </p>
+                    {projects.map(renderProjectCard)}
+                </div>
+            ) : (
+                /* Kanban View */
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 min-h-[400px]">
+                    {STAGE_OPTIONS.map(stage => {
+                        const stageProjects = projects.filter(p => p.stage === stage.value);
+                        const stageColor = {
+                            planning: 'border-t-gray-400',
+                            in_progress: 'border-t-blue-500',
+                            completed: 'border-t-green-500',
+                            on_hold: 'border-t-yellow-500',
+                        }[stage.value] || 'border-t-gray-400';
 
-                                <div className="space-y-1">
-                                    <div className="flex justify-between text-xs text-muted-foreground">
-                                        <span>完成进度</span>
-                                        <span>{project.progress}%</span>
-                                    </div>
-                                    <Progress value={project.progress} className="h-2" />
+                        return (
+                            <div
+                                key={stage.value}
+                                className={cn("bg-muted/30 rounded-xl border-t-4 p-3 space-y-3", stageColor)}
+                                onDragOver={(e) => e.preventDefault()}
+                                onDrop={(e) => {
+                                    const projectId = e.dataTransfer.getData('projectId');
+                                    if (projectId) handleStageChange(projectId, stage.value);
+                                }}
+                            >
+                                <div className="flex items-center justify-between px-1">
+                                    <h4 className="text-sm font-semibold text-foreground">{stage.label}</h4>
+                                    <Badge variant="outline" className="text-xs">{stageProjects.length}</Badge>
                                 </div>
 
-                                <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
-                                    <span>负责人: {user.name}</span>
-                                    <div className="flex items-center gap-1">
-                                        {canDelete && (
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-6 px-2 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
-                                                onClick={(e) => handleDeleteProject(e, project)}
-                                            >
-                                                <Trash2 className="w-3 h-3" />
-                                            </Button>
-                                        )}
-                                        <Button variant="ghost" size="sm" className="h-6 px-2 hover:text-primary">
-                                            详情 <ChevronRight className="w-3 h-3 ml-1" />
-                                        </Button>
-                                    </div>
+                                <div className="space-y-2">
+                                    {stageProjects.map(project => (
+                                        <div
+                                            key={project.id}
+                                            draggable
+                                            onDragStart={(e) => e.dataTransfer.setData('projectId', project.id)}
+                                            onClick={() => navigate(`/projects/${project.id}`)}
+                                            className="bg-card rounded-lg p-3 border border-border hover:border-primary/50 cursor-pointer transition-all hover:shadow-md"
+                                        >
+                                            <h5 className="text-sm font-medium text-foreground mb-1 line-clamp-1">{project.name}</h5>
+                                            <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{project.description || '暂无描述'}</p>
+                                            <div className="flex items-center justify-between">
+                                                <Progress value={project.progress} className="h-1.5 flex-1 mr-2" />
+                                                <span className="text-xs text-muted-foreground">{project.progress}%</span>
+                                            </div>
+                                            {canDelete && (
+                                                <div className="mt-2 flex justify-end">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-5 px-1 text-red-500 hover:text-red-600 text-xs"
+                                                        onClick={(e) => handleDeleteProject(e, project)}
+                                                    >
+                                                        <Trash2 className="w-3 h-3" />
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+
+                                    {stageProjects.length === 0 && (
+                                        <div className="text-center py-8 text-xs text-muted-foreground border border-dashed rounded-lg">
+                                            拖拽项目到此列
+                                        </div>
+                                    )}
                                 </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+                            </div>
+                        );
+                    })}
                 </div>
             )}
 
