@@ -171,6 +171,8 @@ export function ProjectManagement() {
         in_progress: projects.filter(p => p.stage === 'in_progress').length,
         completed: projects.filter(p => p.stage === 'completed').length,
         on_hold: projects.filter(p => p.stage === 'on_hold').length,
+        avgProgress: projects.length > 0 ? Math.round(projects.reduce((sum, p) => sum + (p.progress || 0), 0) / projects.length) : 0,
+        completionRate: projects.length > 0 ? Math.round((projects.filter(p => p.stage === 'completed').length / projects.length) * 100) : 0,
     };
 
     const renderProjectCard = (project: Project) => (
@@ -261,21 +263,31 @@ export function ProjectManagement() {
                 )}
             </div>
 
-            {/* Stats Bar */}
+            {/* Stats Dashboard */}
             {projects.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
                     {[
-                        { label: '全部', count: stats.total, color: 'text-foreground' },
-                        { label: '规划中', count: stats.planning, color: 'text-muted-foreground' },
-                        { label: '进行中', count: stats.in_progress, color: 'text-blue-500' },
-                        { label: '已完成', count: stats.completed, color: 'text-green-500' },
-                        { label: '已暂停', count: stats.on_hold, color: 'text-yellow-500' },
+                        { label: '全部项目', count: stats.total, color: 'text-foreground', bg: 'bg-card' },
+                        { label: '规划中', count: stats.planning, color: 'text-gray-500', bg: 'bg-gray-500/5' },
+                        { label: '进行中', count: stats.in_progress, color: 'text-blue-500', bg: 'bg-blue-500/5' },
+                        { label: '已完成', count: stats.completed, color: 'text-green-500', bg: 'bg-green-500/5' },
+                        { label: '已暂停', count: stats.on_hold, color: 'text-yellow-500', bg: 'bg-yellow-500/5' },
                     ].map(s => (
-                        <div key={s.label} className="bg-card rounded-xl p-3 border border-border text-center">
+                        <div key={s.label} className={cn("rounded-xl p-3 border border-border text-center", s.bg)}>
                             <div className={cn("text-2xl font-bold", s.color)}>{s.count}</div>
                             <div className="text-xs text-muted-foreground">{s.label}</div>
                         </div>
                     ))}
+                    <div className="rounded-xl p-3 border border-border text-center bg-primary/5">
+                        <div className="text-2xl font-bold text-primary">{stats.avgProgress}%</div>
+                        <div className="text-xs text-muted-foreground">平均进度</div>
+                        <Progress value={stats.avgProgress} className="h-1 mt-1.5" />
+                    </div>
+                    <div className="rounded-xl p-3 border border-border text-center bg-green-500/5">
+                        <div className="text-2xl font-bold text-green-600">{stats.completionRate}%</div>
+                        <div className="text-xs text-muted-foreground">完成率</div>
+                        <Progress value={stats.completionRate} className="h-1 mt-1.5" />
+                    </div>
                 </div>
             )}
 

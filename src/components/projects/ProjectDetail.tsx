@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import {
     useProjectDetail, useOrgMembers, useUpdateProjectMembers,
     useUpdateProjectStage, useAddTimelineEvent, useAiAnalyzeProgress,
-    useRecalcProgress, STAGE_OPTIONS, EVENT_TYPE_OPTIONS,
+    useRecalcProgress, useAiPredictNextStep, STAGE_OPTIONS, EVENT_TYPE_OPTIONS,
     TeamMember, ProjectTimeline,
 } from '@/hooks/useProjects';
 import { useQuery } from '@tanstack/react-query';
@@ -114,6 +114,9 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
 
     // ── Recalc Progress ──
     const recalcProgress = useRecalcProgress();
+
+    // ── AI Predict Next Step ──
+    const { predict, predicting, prediction } = useAiPredictNextStep();
 
     if (!projectId) return <div>Error: Project ID missing</div>;
 
@@ -315,6 +318,32 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
                                         </div>
                                     </div>
                                 ))}
+
+                                {/* AI Predict Next Step */}
+                                <div className="relative pl-12">
+                                    <div className="absolute left-[13px] top-1 w-3 h-3 rounded-full border-2 border-dashed border-primary bg-card" />
+                                    <div className="space-y-2">
+                                        {prediction ? (
+                                            <>
+                                                <h4 className="text-sm font-medium text-primary flex items-center gap-1">
+                                                    <Zap className="w-3 h-3" /> AI 预测下一步
+                                                </h4>
+                                                <p className="text-xs text-muted-foreground italic">{prediction}</p>
+                                            </>
+                                        ) : predicting ? (
+                                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                <Loader2 className="w-3 h-3 animate-spin" /> AI 正在预测下一个节点...
+                                            </div>
+                                        ) : (
+                                            <button
+                                                className="text-xs text-primary hover:underline flex items-center gap-1"
+                                                onClick={() => project && predict(project, timeline)}
+                                            >
+                                                <Zap className="w-3 h-3" /> 点击让 AI 预测下一个节点
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
