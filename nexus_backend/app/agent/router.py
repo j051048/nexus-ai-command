@@ -676,9 +676,9 @@ async def _llm_classify_intent(
 
         if resolved:
             llm = ChatOpenAI(
-                model=resolved.get("model", config.mini_model),
-                api_key=resolved["api_key"],
-                base_url=resolved["base_url"],
+                model=resolved.get("model") or config.mini_model,
+                api_key=resolved.get("api_key") or config.api_key,
+                base_url=resolved.get("base_url") or config.base_url,
                 temperature=0.0,
                 timeout=10.0,
                 callbacks=_get_langfuse_callbacks(),

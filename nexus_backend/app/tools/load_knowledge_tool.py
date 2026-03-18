@@ -14,7 +14,6 @@ import logging
 from typing import Any
 
 from app.tools.base_tool import BaseTool
-from app.tools.registry import register_tool
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +80,6 @@ def _query_hash(query: str) -> str:
     return hashlib.md5(query.encode()).hexdigest()[:12]
 
 
-@register_tool
 class LoadKnowledgeTool(BaseTool):
     name = "load_knowledge"
     description = (
@@ -148,3 +146,6 @@ class LoadKnowledgeTool(BaseTool):
         except Exception as e:
             logger.error(f"[LoadKnowledge] Failed: {e}", exc_info=True)
             return f"知识库检索失败: {e}"
+
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+        return await self.execute(args, {"user_id": user_id, **(config or {})})
