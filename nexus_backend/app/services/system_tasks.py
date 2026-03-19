@@ -16,7 +16,7 @@ CN_TZ = timezone(timedelta(hours=8))
 async def run_all_system_tasks():
     """Entry point called by ScheduledTaskRunner once per day at ~09:00 CN."""
     logger.info("[SystemTasks] Starting daily system tasks")
-    for task_fn in [check_expiring_contracts, check_inactive_customers, check_data_consistency, promote_memories]:
+    for task_fn in [check_expiring_contracts, check_inactive_customers, check_data_consistency, check_pending_approvals, promote_memories]:
         try:
             await task_fn()
         except Exception as e:
@@ -269,6 +269,121 @@ async def check_data_consistency():
         logger.info("[SystemTasks] Sent %d consistency alerts to %d admins", len(alerts), len(admins))
     except Exception as e:
         logger.warning("[SystemTasks] Failed to notify admins: %s", e)
+
+
+# ─── Pending Approval Timeout Reminder ───────────────────────────
+
+
+async def check_pending_approvals():
+    """Find approval requests pending for too long, remind the approver.
+
+    Rules:
+    - pending > 4 hours during work hours (09:00-18:00 CN) → notify
+    - pending > 24 hours → urgent notify
+    - Dedup: one notification per approval per day
+    """
+    from app.core.database import supabase
+
+    if not supabase:
+        return
+
+    now = datetime.now(CN_TZ)
+
+    # Only check during work hours (09:00-18:00)
+    if now.hour < 9 or now.hour >= 18:
+        return
+
+    # Find pending approvals older than 4 hours
+    cutoff_4h = (now - timedelta(hours=4)).isoformat()
+    cutoff_24h = (now - timedelta(hours=24)).isoformat()
+
+    result = await (
+        supabase.table("approval_requests")
+        .select("id, type, description, amount, submitted_by, submitted_at, organization_id")
+        .eq("status", "pending")
+        .lte("submitted_at", cutoff_4h)
+        .execute()
+    )
+
+    approvals = result.data or []
+    if not approvals:
+        return
+
+    logger.info("[SystemTasks] Found %d pending approvals older than 4h", len(approvals))
+
+    # Get org admins (boss/founder) as approvers
+    org_ids = {a["organization_id"] for a in approvals if a.get("organization_id")}
+    org_admins: dict[str, list[str]] = {}  # org_id -> [user_ids]
+
+    for org_id in org_ids:
+        try:
+            admin_res = await (
+                supabase.table("users")
+                .select("id")
+                .eq("organization_id", org_id)
+                .in_("role", ["boss", "founder"])
+                .execute()
+            )
+            org_admins[org_id] = [a["id"] for a in (admin_res.data or [])]
+        except Exception:
+            pass
+
+    notified = 0
+    for approval in approvals:
+        org_id = approval.get("organization_id")
+        if not org_id or org_id not in org_admins:
+            continue
+
+        admins = org_admins[org_id]
+        if not admins:
+            continue
+
+        # Determine urgency
+        submitted_at = approval.get("submitted_at", "")
+        is_urgent = submitted_at and submitted_at <= cutoff_24h
+        urgency = "紧急" if is_urgent else "提醒"
+
+        # Calculate hours pending
+        try:
+            sub_dt = datetime.fromisoformat(submitted_at.replace("Z", "+00:00"))
+            hours_pending = int((datetime.now(CN_TZ).astimezone(sub_dt.tzinfo) - sub_dt).total_seconds() / 3600)
+        except Exception:
+            hours_pending = 4
+
+        desc = (approval.get("description") or approval.get("type") or "未知")[:50]
+        amount_str = f"，金额 ¥{approval['amount']:,.0f}" if approval.get("amount") else ""
+
+        for admin_id in admins:
+            try:
+                # Dedup: one notification per approval per day
+                today_start = now.replace(hour=0, minute=0, second=0).isoformat()
+                existing = await (
+                    supabase.table("notifications")
+                    .select("id")
+                    .eq("user_id", admin_id)
+                    .eq("action_url", f"/approvals/{approval['id']}")
+                    .gte("created_at", today_start)
+                    .limit(1)
+                    .execute()
+                )
+                if existing.data:
+                    continue
+
+                await supabase.table("notifications").insert({
+                    "user_id": admin_id,
+                    "title": f"[{urgency}] 审批待处理",
+                    "content": f"「{desc}」{amount_str} 已等待 {hours_pending} 小时未审批，请及时处理。",
+                    "type": "warning" if is_urgent else "info",
+                    "action_url": f"/approvals/{approval['id']}",
+                    "organization_id": org_id,
+                }).execute()
+
+                notified += 1
+            except Exception as e:
+                logger.warning("[SystemTasks] Failed to notify for approval %s: %s", approval.get("id"), e)
+
+    if notified:
+        logger.info("[SystemTasks] Sent %d pending approval reminders", notified)
 
 
 # ─── Memory Auto-Promotion ──────────────────────────────────────
