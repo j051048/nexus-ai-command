@@ -69,7 +69,7 @@ async def cascade_employee_resignation(event: Event):
 
         # 3. 通知管理员
         admins = await (
-            supabase.table("users").select("id").eq("org_id", org_id).in_("role", ["founder", "admin"]).execute()
+            supabase.table("users").select("id").eq("org_id", org_id).in_("role", ["founder", "boss"]).execute()
         )
         for admin in admins.data or []:
             await (
@@ -179,7 +179,7 @@ async def cascade_asset_scrap(event: Event):
         # 如果闲置库存不足 2 台，通知采购
         if idle_count < 2:
             admins = await (
-                supabase.table("users").select("id").eq("org_id", org_id).in_("role", ["founder", "admin"]).execute()
+                supabase.table("users").select("id").eq("org_id", org_id).in_("role", ["founder", "boss"]).execute()
             )
             for admin in admins.data or []:
                 await (
@@ -218,7 +218,7 @@ async def notify_low_stock(event: Event):
 
     try:
         admins = await (
-            supabase.table("users").select("id").eq("org_id", org_id).in_("role", ["founder", "admin"]).execute()
+            supabase.table("users").select("id").eq("org_id", org_id).in_("role", ["founder", "boss"]).execute()
         )
         for admin in admins.data or []:
             await (
@@ -258,7 +258,7 @@ async def notify_certificate_expiring(event: Event):
     try:
         # 通知管理员
         admins = await (
-            supabase.table("users").select("id").eq("org_id", org_id).in_("role", ["founder", "admin"]).execute()
+            supabase.table("users").select("id").eq("org_id", org_id).in_("role", ["founder", "boss"]).execute()
         )
         for admin in admins.data or []:
             await (

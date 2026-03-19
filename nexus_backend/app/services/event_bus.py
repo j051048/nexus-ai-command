@@ -393,7 +393,7 @@ async def handle_system_alert(event: Event):
                 await supabase.table("users")
                 .select("id")
                 .eq("org_id", org_id)
-                .in_("role", ["founder", "admin"])
+                .in_("role", ["founder", "boss"])
                 .execute()
             )
         else:

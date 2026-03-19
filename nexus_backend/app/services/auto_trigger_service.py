@@ -654,7 +654,7 @@ class AutoTriggerService:
                 users_result = await (
                     supabase.table("users")
                     .select("id")
-                    .in_("role", ["boss", "manager", "admin"])
+                    .in_("role", ["boss", "manager", "founder"])
                     .eq("organization_id", org_id)
                     .limit(10)
                     .execute()

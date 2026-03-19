@@ -250,7 +250,7 @@ async def check_data_consistency():
         admin_res = await (
             supabase.table("users")
             .select("id, organization_id")
-            .in_("role", ["boss", "admin", "founder"])
+            .in_("role", ["boss", "founder"])
             .execute()
         )
         admins = admin_res.data or []
