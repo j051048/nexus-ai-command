@@ -264,7 +264,6 @@ async def check_data_consistency():
                     "type": "warning",
                     "action_url": "/dashboard",
                     "organization_id": admin.get("organization_id"),
-                    "metadata": {"alert_type": alert["type"], "count": len(alert.get("items", []))},
                 }).execute()
 
         logger.info("[SystemTasks] Sent %d consistency alerts to %d admins", len(alerts), len(admins))
