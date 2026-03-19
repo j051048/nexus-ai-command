@@ -40,6 +40,7 @@ class SmartApprovalTool(BaseTool):
     confirmation_message = "⚠️ 审批操作不可逆。请在弹出的确认框中确认后执行。"
     gotchas = "仅boss/founder角色可用。approval_id必须是待审批状态的记录。action可选: approve/reject。批量审批时需逐个确认。"
     related_tools = ["get_pending_approvals", "get_daily_briefing"]
+    depends_on = ["get_pending_approvals"]
 
     parameters = {
         "type": "object",

@@ -30,6 +30,7 @@ class SubmitExpenseTool(BaseTool):
     description = "提交报销申请。当用户说'报销'、'提交报销'、'报销申请'时调用。"
     gotchas = "amount必须大于0。category可选值见参数schema。需要附件时传attachment_urls数组。提交后状态为pending。"
     related_tools = ["list_expenses", "check_budget"]
+    depends_on = ["check_budget"]
 
     is_irreversible = True
 

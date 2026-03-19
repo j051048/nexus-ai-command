@@ -85,6 +85,7 @@ class ToolCallRecord:
     result: str | None = None
     status: str = "pending"  # pending | success | error | blocked
     duration_ms: int | None = None
+    error_type: str | None = None  # retryable | param_error | fatal
 
 
 # ─── Agent Configuration (immutable per-request, Pydantic-validated) ─────────

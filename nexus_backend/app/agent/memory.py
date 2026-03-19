@@ -896,6 +896,30 @@ async def prepare_initial_state(
     # When the user confirmed a blocked tool via the frontend confirmation card,
     # the LLM needs to know it should re-call the same tool. Without this hint,
     # it sees the previous "blocked" tool result in history and refuses to retry.
+    #
+    # P2-1: Also record the confirmed tool usage as memory so the LLM can
+    # reference user-approved parameter patterns in future conversations.
+    if config.system_confirmed and config.confirmed_tool:
+        _ct_name = config.confirmed_tool.get("tool_name", "")
+        _ct_args = config.confirmed_tool.get("args", {})
+        if _ct_name and _ct_args:
+            try:
+                import json as _json
+                from app.services.conversation_memory.storage import conversation_memory_service
+                import asyncio
+                asyncio.create_task(
+                    conversation_memory_service.save_memory(
+                        user_id=config.user_id,
+                        key=f"tool_confirmed_usage_{_ct_name}",
+                        value=f"用户确认调用 {_ct_name} 的正确参数: {_json.dumps(_ct_args, ensure_ascii=False)[:300]}",
+                        category="tool_correction",
+                        importance=0.8,
+                        org_id=config.org_id,
+                    )
+                )
+            except Exception:
+                logger.debug("Failed to record HITL correction memory", exc_info=True)
+
     if config.system_confirmed:
         confirmed = config.confirmed_tool or {}
         tool_name = confirmed.get("tool_name", "")

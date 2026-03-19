@@ -112,6 +112,12 @@ class BaseTool(ABC):
         Helps LLM self-correct when it picks the wrong tool."""
         return []
 
+    @property
+    def depends_on(self) -> list[str]:
+        """Optional: tool names that should be called before this tool.
+        Execute node returns a guidance error if prerequisites are missing."""
+        return []
+
     def check_confirmation(self, args: dict[str, Any], system_confirmed: bool = False) -> str | None:
         """
         System-level confirmation gate.

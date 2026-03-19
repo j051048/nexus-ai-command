@@ -232,6 +232,7 @@ async def _execute_single_tool(
     record: ToolCallRecord,
     config: AgentConfig,
     _idempotency_cache: dict = None,
+    prior_completed_tools: set[str] | None = None,
 ) -> ToolCallRecord:
     """Execute a single tool with RBAC, confirmation gates, circuit breaker, idempotency, and retry."""
     # Evict old cache entries to prevent unbounded memory growth
@@ -315,6 +316,19 @@ async def _execute_single_tool(
         record.result = _format_validation_error(record.tool_name, ve, tool.parameters)
         logger.warning(f"[Execute] Tool {record.tool_name} schema validation failed: {ve}")
         return record
+
+    # 2c. Dependency Check — ensure prerequisite tools have been called
+    if tool.depends_on and prior_completed_tools is not None:
+        missing = [dep for dep in tool.depends_on if dep not in prior_completed_tools]
+        if missing:
+            record.status = "error"
+            record.error_type = "param_error"
+            record.result = (
+                f"前置依赖未满足: 请先调用 {', '.join(missing)}，"
+                f"获取必要数据后再调用 {record.tool_name}。"
+            )
+            logger.info(f"[Execute] Tool {record.tool_name} blocked by missing deps: {missing}")
+            return record
 
     # 3. Lifecycle Hook: before_tool_call
     hook_ctx = await run_hooks("before_tool_call", {
@@ -459,6 +473,7 @@ async def _execute_single_tool(
                 continue
 
     record.status = "error"
+    record.error_type = _classify_error(str(last_error)).value
     record.result = f"Error: Tool '{record.tool_name}' failed: {str(last_error)}"
     record.duration_ms = int((time.time() - start_time) * 1000)
     record_tool_execution(record.tool_name, False, record.duration_ms)
@@ -566,8 +581,15 @@ async def execute_node(state: AgentState, config: RunnableConfig | None = None) 
     # P1 Fix: Share a single idempotency cache across all parallel tool executions
     shared_idempotency_cache: dict = {}
 
+    # Collect previously completed tool names for dependency checking
+    prior_completed = {
+        getattr(tc, "tool_name", "")
+        for tc in state.get("completed_tool_calls", [])
+        if getattr(tc, "status", None) == "success"
+    }
+
     try:
-        tasks = [_execute_single_tool(record, agent_config, shared_idempotency_cache) for record in pending]
+        tasks = [_execute_single_tool(record, agent_config, shared_idempotency_cache, prior_completed) for record in pending]
         completed: list[ToolCallRecord] = await asyncio.wait_for(
             asyncio.gather(*tasks, return_exceptions=False),
             timeout=gather_timeout,
