@@ -247,10 +247,13 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
 
     if _decomp_done and _task_steps and _active_idx < len(_task_steps):
         current_step = _task_steps[_active_idx]
+        criteria = current_step.get('acceptance_criteria', '')
+        criteria_line = f"\n验收标准: {criteria}\n请确保满足验收标准后再结束此步骤。" if criteria else ""
         step_instruction = (
             f"[当前执行步骤 {_active_idx + 1}/{len(_task_steps)}]\n"
             f"标题: {current_step.get('title', '')}\n"
-            f"描述: {current_step.get('description', '')}\n"
+            f"描述: {current_step.get('description', '')}"
+            f"{criteria_line}\n"
             f"请专注完成此步骤，不要跳到其他步骤。"
         )
         lc_msgs.insert(
@@ -267,7 +270,8 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         decomp_hint = (
             "\n\n[任务分解指令] 如果此任务涉及多个独立步骤（如先查询再分析再生成），"
             "请在回复开头用以下JSON格式输出任务分解（用```json包裹）：\n"
-            '```json\n{"task_steps": [{"title": "步骤标题", "description": "步骤描述"}]}\n```\n'
+            '```json\n{"task_steps": [{"title": "步骤标题", "description": "步骤描述", '
+            '"acceptance_criteria": "该步骤完成的客观判定条件，如：成功获取到数据/生成了包含X的报告"}]}\n```\n'
             "如果任务简单无需分解，直接正常回复即可。"
         )
         # Append to last user message context
@@ -680,16 +684,21 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             ),
         ]
     elif _decomp_done and _task_steps and _active_idx < len(_task_steps):
-        # Advance to next step (current step was just planned/executed)
-        result["_active_step_index"] = _active_idx + 1
-        if _active_idx + 1 >= len(_task_steps):
-            result["thinking_steps"] = [
-                thinking_step,
-                ThinkingStep(
-                    phase=AgentPhase.PLANNING.value,
-                    content=f"所有 {len(_task_steps)} 个步骤已完成，正在生成最终回复",
-                ),
-            ]
+        # Advance to next step only if not a step retry (goal-driven acceptance check)
+        reflection_guidance = state.get("reflection_guidance", "")
+        is_step_retry = "未完成" in reflection_guidance and f"步骤 {_active_idx + 1}" in reflection_guidance
+        if not is_step_retry:
+            result["_active_step_index"] = _active_idx + 1
+            if _active_idx + 1 >= len(_task_steps):
+                result["thinking_steps"] = [
+                    thinking_step,
+                    ThinkingStep(
+                        phase=AgentPhase.PLANNING.value,
+                        content=f"所有 {len(_task_steps)} 个步骤已完成，正在生成最终回复",
+                    ),
+                ]
+        else:
+            logger.info(f"[PlanNode] Step {_active_idx + 1} retry, not advancing index")
 
     if pending_tools:
         tool_names = ", ".join(t.tool_name for t in pending_tools)

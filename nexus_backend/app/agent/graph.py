@@ -423,13 +423,42 @@ def _after_reflect(state: AgentState) -> str:
     # already did LLM-based fact-checking, the extra critic call is redundant.
     complexity = state.get("complexity")
 
-    # P1: Task decomposition — if more steps remain, loop back to plan
+    # P1: Task decomposition — check step acceptance before advancing
     _task_steps = state.get("_task_steps", [])
     _active_idx = state.get("_active_step_index", 0)
     if _task_steps and _active_idx < len(_task_steps):
+        current_step = _task_steps[_active_idx]
+        criteria = current_step.get("acceptance_criteria", "")
+
+        # Rule-based check: did any tool succeed in this step?
+        completed_tools = state.get("completed_tool_calls", [])
+        has_success = any(
+            (getattr(tc, "status", None) or tc.get("status")) == "success"
+            for tc in completed_tools
+        )
+        has_failure = any(
+            (getattr(tc, "status", None) or tc.get("status")) == "error"
+            for tc in completed_tools
+        )
+
+        if has_failure and not has_success:
+            # Step not met: all tools failed, retry without advancing
+            logger.info(
+                f"[Graph] Step {_active_idx + 1}/{len(_task_steps)} not met: "
+                f"all tools failed, retrying without advancing"
+            )
+            state["reflection_guidance"] = (
+                f"步骤 {_active_idx + 1}「{current_step.get('title', '')}」未完成: "
+                f"工具调用全部失败。"
+                + (f"\n验收标准: {criteria}" if criteria else "")
+                + "\n请分析失败原因，修正参数或换用其他工具重试此步骤。"
+            )
+            state["needs_replanning"] = False
+            return "plan"
+
         logger.info(
-            f"[Graph] Task decomposition: step {_active_idx + 1}/{len(_task_steps)} pending, "
-            f"looping back to plan"
+            f"[Graph] Task decomposition: step {_active_idx + 1}/{len(_task_steps)} "
+            f"{'passed' if has_success else 'no tools needed'}, advancing to next"
         )
         return "plan"
 
