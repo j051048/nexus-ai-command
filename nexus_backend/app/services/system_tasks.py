@@ -255,8 +255,26 @@ async def check_data_consistency():
         )
         admins = admin_res.data or []
 
+        week_ago = (datetime.now(CN_TZ) - timedelta(days=7)).isoformat()
+        
         for alert in alerts:
             for admin in admins:
+                # 限制此类预警最多7天发送一次
+                try:
+                    existing = await (
+                        supabase.table("notifications")
+                        .select("id")
+                        .eq("user_id", admin["id"])
+                        .eq("title", "数据一致性预警")
+                        .gte("created_at", week_ago)
+                        .limit(1)
+                        .execute()
+                    )
+                    if existing.data:
+                        continue
+                except Exception:
+                    pass
+
                 await supabase.table("notifications").insert({
                     "user_id": admin["id"],
                     "title": "数据一致性预警",
