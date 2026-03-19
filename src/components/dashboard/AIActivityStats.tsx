@@ -12,7 +12,7 @@ export function AIActivityStats() {
   const [stats, setStats] = useState<AIStats | null>(null);
 
   useEffect(() => {
-    aiClient('/api/dashboard/ai-stats')
+    aiClient.get('/api/dashboard/ai-stats')
       .then((res) => {
         const data = (res as { data?: AIStats })?.data;
         if (data) setStats(data);

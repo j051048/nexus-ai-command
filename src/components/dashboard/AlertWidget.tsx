@@ -23,7 +23,7 @@ export function AlertWidget() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    aiClient('/api/dashboard/alerts')
+    aiClient.get('/api/dashboard/alerts')
       .then((res) => {
         const data = (res as { data?: AlertItem[] })?.data || [];
         setAlerts(data);
