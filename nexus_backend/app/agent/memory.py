@@ -790,6 +790,11 @@ async def prepare_initial_state(
 
     # Inject remaining contexts as a single system message
     if injected_contexts:
+        # Add save_memory tool guidance at the end of context blocks
+        injected_contexts.append(
+            '[记忆工具提示] 当用户明确要求"记住"某事, 或你发现重要的用户偏好/事实时, '
+            "立即调用 save_memory 工具保存, 不要等到对话结束。"
+        )
         raw_messages.insert(
             0,
             {
