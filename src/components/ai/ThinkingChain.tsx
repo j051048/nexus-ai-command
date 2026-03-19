@@ -182,11 +182,36 @@ export function ThinkingChain({
   isStreaming,
   className
 }: ThinkingChainProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   if (!steps || steps.length === 0) {
     return null;
   }
+
+  // Calculate total duration from first step to last step
+  const totalDuration = steps.length > 1
+    ? steps[steps.length - 1].timestamp - steps[0].timestamp
+    : steps[0].duration_ms || 0;
+
+  // Compute per-step duration from timestamps if duration_ms not set
+  const stepsWithDuration = steps.map((step, i) => {
+    if (step.duration_ms) return step;
+    if (i < steps.length - 1) {
+      return { ...step, duration_ms: steps[i + 1].timestamp - step.timestamp };
+    }
+    return step;
+  });
+
+  // Summary line for collapsed state
+  const lastStep = steps[steps.length - 1];
+  const summaryText = isStreaming
+    ? `${phaseConfig[lastStep.phase]?.label || '处理'}中...`
+    : `${steps.length} 步完成`;
+
+  const formatDuration = (ms: number) => {
+    if (ms < 1000) return `${ms}ms`;
+    return `${(ms / 1000).toFixed(1)}s`;
+  };
 
   return (
     <div className={cn('rounded-lg border bg-card/50 overflow-hidden', className)}>
@@ -199,8 +224,13 @@ export function ThinkingChain({
           <Brain className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium">思考过程</span>
           <span className="text-xs text-muted-foreground">
-            ({steps.length} 步)
+            {summaryText}
           </span>
+          {totalDuration > 0 && (
+            <span className="text-xs text-muted-foreground/70 font-mono">
+              {formatDuration(totalDuration)}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {isStreaming && (
@@ -217,7 +247,35 @@ export function ThinkingChain({
         </div>
       </button>
 
-      {/* Steps */}
+      {/* Collapsed summary: show phase badges */}
+      {isCollapsed && (
+        <div className="px-4 pb-2.5 flex flex-wrap gap-1.5">
+          {stepsWithDuration.map((step, i) => {
+            const config = phaseConfig[step.phase] || phaseConfig.planning;
+            const Icon = config.icon;
+            const isActive = isStreaming && i === steps.length - 1;
+            return (
+              <span
+                key={`${step.timestamp}-${i}`}
+                className={cn(
+                  'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border',
+                  config.bgColor, config.borderColor, config.color,
+                )}
+              >
+                {isActive ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Icon className="w-3 h-3" />
+                )}
+                {step.tool_name || config.label}
+                {step.duration_ms ? ` ${formatDuration(step.duration_ms)}` : ''}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Steps (expanded) */}
       <AnimatePresence>
         {!isCollapsed && (
           <motion.div
@@ -228,12 +286,12 @@ export function ThinkingChain({
             className="overflow-hidden"
           >
             <div className="px-4 pb-4 pt-2">
-              {steps.map((step, index) => (
+              {stepsWithDuration.map((step, index) => (
                 <ThinkingStepItem
                   key={`${step.timestamp}-${index}`}
                   step={step}
-                  isLast={index === steps.length - 1}
-                  isActive={isStreaming && index === steps.length - 1}
+                  isLast={index === stepsWithDuration.length - 1}
+                  isActive={isStreaming && index === stepsWithDuration.length - 1}
                 />
               ))}
             </div>

@@ -5,6 +5,10 @@ from app.core.dependencies import require_role
 from app.core.errors import ErrorCode, api_error, api_success
 from app.models.schemas import ProjectCreate, ProjectUpdate, StandardResponse
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/api/projects", tags=["Projects"])
 
 
@@ -97,4 +101,118 @@ async def delete_project(
 
         return api_success(data=None, message="项目已删除")
     except Exception as e:
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+@router.post("/{project_id}/weekly-report")
+async def generate_weekly_report(
+    project_id: str,
+    user_id: str = Depends(require_role(["employee", "admin", "founder", "boss"])),
+):
+    """AI 生成项目周报 — 收集本周 timeline + 任务统计，调用 AI 生成四板块周报。"""
+    from datetime import datetime, timedelta, timezone
+
+    try:
+        CN_TZ = timezone(timedelta(hours=8))
+        now = datetime.now(CN_TZ)
+        week_ago = (now - timedelta(days=7)).isoformat()
+
+        # 1. 获取项目基本信息
+        proj_res = await supabase.table("projects").select("*").eq("id", project_id).maybe_single().execute()
+        if not proj_res.data:
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "项目不存在")
+        project = proj_res.data
+
+        # 2. 获取本周 timeline 事件
+        timeline_res = await (
+            supabase.table("project_timeline")
+            .select("event_type, title, content, created_at")
+            .eq("project_id", project_id)
+            .gte("created_at", week_ago)
+            .order("created_at", desc=True)
+            .limit(30)
+            .execute()
+        )
+        events = timeline_res.data or []
+
+        # 3. 获取关联任务统计
+        tasks_res = await (
+            supabase.table("oa_tasks")
+            .select("status, title")
+            .contains("metadata", {"project_id": project_id})
+            .execute()
+        )
+        tasks = tasks_res.data or []
+        total_tasks = len(tasks)
+        done_tasks = sum(1 for t in tasks if t.get("status") == "done")
+        in_progress = sum(1 for t in tasks if t.get("status") == "in_progress")
+
+        # 4. 构建 AI prompt
+        event_lines = "\n".join(
+            f"- [{e.get('created_at', '')[:10]}] [{e.get('event_type', '')}] {e.get('title', '')}: {(e.get('content') or '')[:100]}"
+            for e in events
+        ) or "本周无事件记录"
+
+        prompt = f"""请为以下项目生成一份简洁的周报，包含四个板块：
+1. 本周进展摘要
+2. 关键里程碑与风险
+3. 下周计划建议
+4. 数据概览
+
+项目信息：
+- 名称：{project.get('name', '')}
+- 描述：{project.get('description', '')[:200]}
+- 当前阶段：{project.get('stage', '')}
+- 进度：{project.get('progress', 0)}%
+
+任务统计：总计 {total_tasks} 个任务，已完成 {done_tasks}，进行中 {in_progress}
+
+本周事件：
+{event_lines}
+
+请用中文输出，格式清晰，每个板块用标题分隔。"""
+
+        # 5. 调用 AI 生成
+        from app.services.llm_helpers import resolve_model_config, get_langchain_llm_sync
+
+        config = await resolve_model_config(
+            scene_code="content_generation",
+            complexity_tier="balanced",
+        )
+        llm = get_langchain_llm_sync(
+            api_key=config["api_key"],
+            base_url=config["base_url"],
+            model=config["model"],
+            temperature=0.7,
+            timeout=config.get("timeout", 60.0),
+        )
+
+        result = await llm.ainvoke(prompt)
+        report_text = result.content if hasattr(result, "content") else str(result)
+
+        # 6. 写入 timeline 作为记录
+        await supabase.table("project_timeline").insert({
+            "project_id": project_id,
+            "event_type": "ai_report",
+            "title": f"AI 周报 ({now.strftime('%m/%d')})",
+            "content": report_text[:2000],
+            "user_id": user_id,
+        }).execute()
+
+        return api_success(
+            data={
+                "report": report_text,
+                "stats": {
+                    "total_tasks": total_tasks,
+                    "done_tasks": done_tasks,
+                    "in_progress": in_progress,
+                    "events_count": len(events),
+                },
+            },
+            message="周报生成成功",
+        )
+    except Exception as e:
+        if hasattr(e, "status_code"):
+            raise
+        logger.error("Generate weekly report error: %s", e)
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

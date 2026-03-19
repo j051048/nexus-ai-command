@@ -260,7 +260,14 @@ export const ChatInputArea = React.memo(function ChatInputArea({
                 ref={inputRef}
                 type="text"
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                const val = e.target.value;
+                setInput(val);
+                // Auto-trigger agent picker when user types @
+                if (val.endsWith('@') && !showAgents) {
+                  setShowAgents(true);
+                }
+              }}
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
                 placeholder={
                   currentAgent

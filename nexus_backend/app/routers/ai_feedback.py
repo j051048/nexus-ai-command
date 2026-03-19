@@ -21,6 +21,13 @@ class FeedbackRequest(BaseModel):
     query_snippet: str | None = Field(None, max_length=500, description="用户问题片段")
 
 
+class CorrectionRequest(BaseModel):
+    trace_id: str = Field(..., description="Agent执行轨迹ID")
+    step_index: int = Field(..., description="出错步骤索引")
+    correction_text: str = Field(..., max_length=2000, description="纠正说明")
+    session_id: str | None = Field(None, description="关联会话ID")
+
+
 @router.post("")
 async def submit_feedback(
     body: FeedbackRequest,
@@ -130,4 +137,47 @@ async def feedback_stats(
         )
     except Exception as e:
         logger.error("Feedback stats error: %s", e)
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+@router.post("/correction")
+async def submit_correction(
+    body: CorrectionRequest,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """提交 Agent 执行步骤纠偏反馈"""
+    try:
+        client = getattr(req.state, "db", None)
+        if not client:
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+
+        org_id = getattr(req.state, "org_id", None)
+        record = {
+            "tenant_id": org_id,
+            "user_id": user_id,
+            "session_id": body.session_id or "",
+            "message_index": body.step_index,
+            "rating": "negative",
+            "comment": body.correction_text,
+            "metadata": {
+                "type": "step_correction",
+                "trace_id": body.trace_id,
+                "step_index": body.step_index,
+                "correction_text": body.correction_text,
+            },
+        }
+
+        res = await client.table("ai_feedback").insert(record).execute()
+        feedback = res.data[0] if res.data else record
+
+        logger.info(
+            "Step correction received: user=%s trace=%s step=%d",
+            user_id, body.trace_id, body.step_index,
+        )
+        return api_success(data={"correction": feedback}, message="纠偏反馈已记录")
+    except Exception as e:
+        if hasattr(e, "status_code"):
+            raise
+        logger.error("Submit correction error: %s", e)
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

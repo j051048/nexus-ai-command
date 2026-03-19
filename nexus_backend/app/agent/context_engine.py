@@ -438,11 +438,98 @@ class CompletedTasksProvider(ContextProvider):
             return ""
 
 
+class BusinessRuleProvider(ContextProvider):
+    """注入组织级业务规则，让 Agent 在执行工具前自动遵守企业约束。"""
+
+    name = "业务规则"
+    priority = 12  # ChatHistory(10) 之后, CompletedTasks(15) 之前
+
+    def max_tokens(self) -> int:
+        return 400
+
+    async def get_context(
+        self, user_id: str, org_id: str | None, query: str, **kwargs: Any
+    ) -> str:
+        if not org_id:
+            return ""
+        try:
+            from app.core.database import supabase
+
+            result = (
+                await supabase.table("conversation_memories")
+                .select("key, value")
+                .eq("organization_id", org_id)
+                .eq("category", "business_rule")
+                .order("importance", desc=True)
+                .limit(10)
+                .execute()
+            )
+            rules = result.data or []
+            if not rules:
+                return ""
+
+            lines = ["以下是本组织的业务规则，你在执行任何操作时必须遵守："]
+            for r in rules:
+                lines.append(f"- {r['key']}: {r['value']}")
+            return "\n".join(lines)
+        except Exception as e:
+            logger.debug(f"[BusinessRuleProvider] Failed: {e}")
+            return ""
+
+
+class CorrectionHistoryProvider(ContextProvider):
+    """注入用户对 Agent 步骤的纠偏历史，避免重复犯错。"""
+
+    name = "历史纠偏"
+    priority = 25  # UserProfile(20) 之后, SemanticMemory(30) 之前
+
+    def max_tokens(self) -> int:
+        return 300
+
+    async def get_context(
+        self, user_id: str, org_id: str | None, query: str, **kwargs: Any
+    ) -> str:
+        if not user_id:
+            return ""
+        try:
+            from app.core.database import supabase
+
+            result = (
+                await supabase.table("ai_feedback")
+                .select("metadata, created_at")
+                .eq("user_id", user_id)
+                .eq("rating", "negative")
+                .not_.is_("metadata", "null")
+                .order("created_at", desc=True)
+                .limit(10)
+                .execute()
+            )
+            rows = result.data or []
+            corrections = []
+            for r in rows:
+                meta = r.get("metadata") or {}
+                if meta.get("type") == "step_correction":
+                    corrections.append(meta)
+
+            if not corrections:
+                return ""
+
+            lines = ["以下是用户之前对你执行步骤的纠偏记录，请避免重复同类错误："]
+            for c in corrections[:5]:
+                lines.append(f"- 步骤{c.get('step_index', '?')}: {c.get('correction_text', '')}")
+            return "\n".join(lines)
+        except Exception as e:
+            logger.debug(f"[CorrectionHistoryProvider] Failed: {e}")
+            return ""
+
+
 # 模块级单例
 context_engine = ContextEngine(total_budget=4000)
 
 context_engine.register(ChatHistoryProvider())
+context_engine.register(BusinessRuleProvider())
 context_engine.register(CompletedTasksProvider())
 context_engine.register(UserProfileProvider())
+context_engine.register(CorrectionHistoryProvider())
 context_engine.register(SemanticMemoryProvider())
 context_engine.register(KnowledgeBaseProvider())

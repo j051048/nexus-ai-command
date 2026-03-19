@@ -742,3 +742,106 @@ async def submit_smart_approval(
     except Exception as e:
         logger.error(f"Smart submit approval error: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+# ============== Auto Approval Rules (#16) ==============
+
+
+class AutoApprovalRuleCreate(BaseModel):
+    name: str
+    approval_type: str
+    condition_field: str = "amount"
+    condition_op: str = "lte"
+    condition_value: float
+
+
+@router.get("/auto-rules")
+async def list_auto_rules(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """获取组织自动审批规则列表"""
+    try:
+        org_id = getattr(request.state, "org_id", None)
+        if not org_id:
+            return api_success(data=[], message="未关联组织")
+
+        from app.core.database import supabase
+        res = await (
+            supabase.table("auto_approval_rules")
+            .select("*")
+            .eq("organization_id", org_id)
+            .eq("is_active", True)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return api_success(data=res.data or [])
+    except Exception as e:
+        logger.error("List auto rules error: %s", e)
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+@router.post("/auto-rules")
+async def create_auto_rule(
+    body: AutoApprovalRuleCreate,
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """创建自动审批规则（仅管理员）"""
+    try:
+        org_id = getattr(request.state, "org_id", None)
+        role = getattr(request.state, "role", None)
+        if role not in ("boss", "founder", "super_admin"):
+            raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "仅管理员可管理自动审批规则")
+        if not org_id:
+            raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "未关联组织")
+
+        from app.core.database import supabase
+        res = await supabase.table("auto_approval_rules").insert({
+            "organization_id": org_id,
+            "name": body.name,
+            "approval_type": body.approval_type,
+            "condition_field": body.condition_field,
+            "condition_op": body.condition_op,
+            "condition_value": body.condition_value,
+            "created_by": user_id,
+        }).execute()
+
+        return api_success(data=res.data[0] if res.data else None, message="自动审批规则已创建")
+    except Exception as e:
+        if hasattr(e, "status_code"):
+            raise
+        logger.error("Create auto rule error: %s", e)
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+@router.delete("/auto-rules/{rule_id}")
+async def delete_auto_rule(
+    rule_id: str,
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """删除自动审批规则（软删除）"""
+    try:
+        org_id = getattr(request.state, "org_id", None)
+        role = getattr(request.state, "role", None)
+        if role not in ("boss", "founder", "super_admin"):
+            raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "仅管理员可管理自动审批规则")
+
+        from app.core.database import supabase
+        res = await (
+            supabase.table("auto_approval_rules")
+            .update({"is_active": False})
+            .eq("id", rule_id)
+            .eq("organization_id", org_id)
+            .execute()
+        )
+        if not res.data:
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "规则不存在")
+
+        return api_success(data={"deleted": rule_id}, message="规则已删除")
+    except Exception as e:
+        if hasattr(e, "status_code"):
+            raise
+        logger.error("Delete auto rule error: %s", e)
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useMemo } from 'react';
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend } from 'recharts';
 import { useAuth } from '@/components/auth/AuthContext';
 import { useDebounce } from '@/hooks/useDebounce';
 import {
@@ -700,7 +701,30 @@ function CompetitorDetailPanel({
               {canEdit && '，点击上方按钮添加'}
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
+              {/* Radar Chart Overview */}
+              {features.filter(f => f.competitor_score && f.our_score).length >= 3 && (
+                <Card>
+                  <CardContent className="p-4">
+                    <ResponsiveContainer width="100%" height={280}>
+                      <RadarChart data={features.filter(f => f.competitor_score && f.our_score).map(f => ({
+                        dimension: f.dimension.length > 6 ? f.dimension.slice(0, 6) + '…' : f.dimension,
+                        competitor: f.competitor_score,
+                        ours: f.our_score,
+                      }))}>
+                        <PolarGrid strokeDasharray="3 3" />
+                        <PolarAngleAxis dataKey="dimension" tick={{ fontSize: 11 }} />
+                        <PolarRadiusAxis angle={90} domain={[0, 10]} tick={{ fontSize: 10 }} />
+                        <Radar name="对手" dataKey="competitor" stroke="#f97316" fill="#f97316" fillOpacity={0.2} />
+                        <Radar name="我方" dataKey="ours" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.2} />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Detail Cards */}
               {features.map(f => (
                 <Card key={f.id} className="group">
                   <CardContent className="p-4">

@@ -296,6 +296,42 @@ class ApprovalChainService:
         """
         chain_data = await self.load_chain_from_db(org_id, approval_type, db=db)
 
+        # #16: Check organization auto-approval rules first
+        try:
+            from app.core.database import supabase as _sb
+            _db = db or _sb
+            if _db and org_id:
+                rules_res = await (
+                    _db.table("auto_approval_rules")
+                    .select("name, condition_field, condition_op, condition_value")
+                    .eq("organization_id", org_id)
+                    .eq("approval_type", approval_type)
+                    .eq("is_active", True)
+                    .execute()
+                )
+                for rule in (rules_res.data or []):
+                    op = rule.get("condition_op", "lte")
+                    val = float(rule.get("condition_value", 0))
+                    matched = (
+                        (op == "lte" and amount <= val) or
+                        (op == "lt" and amount < val) or
+                        (op == "gte" and amount >= val) or
+                        (op == "gt" and amount > val) or
+                        (op == "eq" and amount == val)
+                    )
+                    if matched:
+                        return {
+                            "chain_id": None,
+                            "chain_name": rule.get("name", "自动审批规则"),
+                            "starting_step": 0,
+                            "approval_level": "auto",
+                            "timeout_at": None,
+                            "auto_approve": True,
+                            "source": "auto_rule",
+                        }
+        except Exception as e:
+            logger.debug("Auto-approval rules check failed (non-blocking): %s", e)
+
         if not chain_data:
             # Ultimate fallback
             return {

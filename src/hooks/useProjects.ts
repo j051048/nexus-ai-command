@@ -402,3 +402,15 @@ ${timeline.slice(0, 10).map(t => `- [${t.event_type}] ${t.title}: ${t.content} (
 
   return { predict, predicting, prediction };
 }
+
+export function useGenerateWeeklyReport() {
+  return useMutation({
+    mutationFn: async (projectId: string) => {
+      const res = await aiClient(`/api/projects/${projectId}/weekly-report`, {
+        method: 'POST',
+      }) as { data?: { report: string; stats: Record<string, number> } };
+      return res?.data;
+    },
+    onError: () => toast.error('周报生成失败'),
+  });
+}

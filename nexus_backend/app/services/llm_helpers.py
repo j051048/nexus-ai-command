@@ -25,6 +25,50 @@ def is_weak_model(model_name: str) -> bool:
     return model_name in _WEAK_MODEL_CODES
 
 
+# ─── Auto Tier Detection ─────────────────────────────────────────────────────
+
+# Scenes that always require higher-tier models
+_POWER_SCENES = {"tender_analysis", "content_generation", "contract_review", "data_analysis"}
+_FLAGSHIP_SCENES = {"task_decompose", "compliance_check"}
+
+
+def auto_detect_tier(
+    messages: list[dict] | None = None,
+    tools_count: int = 0,
+    scene_code: str = "",
+    iteration: int = 0,
+) -> str:
+    """Auto-detect complexity tier based on request characteristics.
+
+    Pure rule-based (no LLM call), used to optimize model selection
+    when the router hasn't explicitly set complexity.
+
+    Returns: economy | balanced | power | flagship
+    """
+    # Flagship: multi-round complex reasoning or critical scenes
+    if iteration > 2 or scene_code in _FLAGSHIP_SCENES:
+        return "flagship"
+
+    # Power: many tools, long context, or complex scenes
+    if tools_count > 3 or scene_code in _POWER_SCENES:
+        return "power"
+
+    # Estimate message length
+    total_chars = 0
+    if messages:
+        for m in messages:
+            content = m.get("content", "")
+            if isinstance(content, str):
+                total_chars += len(content)
+
+    # Economy: short messages, no tools, first iteration
+    if total_chars < 500 and tools_count == 0 and iteration == 0:
+        return "economy"
+
+    # Balanced: default for moderate workloads
+    return "balanced"
+
+
 def _build_tier_fallback(tier: str) -> dict | None:
     """Build tier-specific fallback config from env settings.
 

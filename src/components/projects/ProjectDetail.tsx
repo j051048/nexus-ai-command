@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import {
     useProjectDetail, useOrgMembers, useUpdateProjectMembers,
     useUpdateProjectStage, useAddTimelineEvent, useAiAnalyzeProgress,
-    useRecalcProgress, useAiPredictNextStep, STAGE_OPTIONS, EVENT_TYPE_OPTIONS,
+    useRecalcProgress, useAiPredictNextStep, useGenerateWeeklyReport, STAGE_OPTIONS, EVENT_TYPE_OPTIONS,
     TeamMember, ProjectTimeline,
 } from '@/hooks/useProjects';
 import { useQuery } from '@tanstack/react-query';
@@ -64,6 +64,10 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
     // ── AI Analysis Dialog ──
     const [aiDialogOpen, setAiDialogOpen] = useState(false);
     const { analyze, analyzing, result: aiResult, clearResult } = useAiAnalyzeProgress();
+
+    // ── Weekly Report ──
+    const [reportDialogOpen, setReportDialogOpen] = useState(false);
+    const weeklyReport = useGenerateWeeklyReport();
 
     const { data: subtasks = [] } = useQuery({
         queryKey: ['project-subtasks', projectId],
@@ -177,6 +181,10 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
                     <Button variant="premium" size="sm" onClick={handleAiAnalyze} disabled={analyzing}>
                         {analyzing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
                         AI 分析进度
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => { setReportDialogOpen(true); weeklyReport.mutate(projectId); }} disabled={weeklyReport.isPending}>
+                        {weeklyReport.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Flag className="w-4 h-4 mr-2" />}
+                        AI 周报
                     </Button>
                 </div>
             </div>
@@ -430,6 +438,39 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
                             }}>
                                 重新分析
                             </Button>
+                        )}
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ── Weekly Report Dialog ── */}
+            <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+                <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Flag className="w-5 h-5 text-primary" /> AI 项目周报
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="min-h-[120px]">
+                        {weeklyReport.isPending ? (
+                            <div className="flex flex-col items-center justify-center py-8 gap-3">
+                                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                                <span className="text-sm text-muted-foreground">AI 正在生成周报...</span>
+                            </div>
+                        ) : weeklyReport.data?.report ? (
+                            <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap bg-muted/30 rounded-lg p-4">
+                                {weeklyReport.data.report}
+                            </div>
+                        ) : weeklyReport.isError ? (
+                            <div className="text-center py-8 text-sm text-destructive">周报生成失败，请重试</div>
+                        ) : (
+                            <div className="text-center py-8 text-sm text-muted-foreground">等待生成...</div>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setReportDialogOpen(false)}>关闭</Button>
+                        {!weeklyReport.isPending && (
+                            <Button onClick={() => weeklyReport.mutate(projectId)}>重新生成</Button>
                         )}
                     </DialogFooter>
                 </DialogContent>

@@ -19,6 +19,8 @@ import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { lazyWithRetry } from '@/lib/lazyPreload';
+import { AlertWidget } from './AlertWidget';
+import { AIActivityStats } from './AIActivityStats';
 
 // Lazy load heavy components
 const TeamPerformanceChart = lazyWithRetry(() => import('@/components/charts').then(m => ({ default: m.TeamPerformanceChart })));
@@ -185,6 +187,12 @@ export function BossDashboard() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 sm:space-y-8 mt-6">
+          {/* 跨域数据预警 */}
+          <AlertWidget />
+
+          {/* AI 活跃度统计 */}
+          <AIActivityStats />
+
           <div className="animate-fade-slide-up" style={{ animationDelay: '100ms', opacity: 0, animationFillMode: 'forwards' }}>
              <React.Suspense fallback={<SectionSkeleton />}>
                <AIWeeklyReport report={weeklyReport} />

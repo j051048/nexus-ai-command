@@ -53,15 +53,39 @@ class ScheduledTaskRunner:
         # Wait a short while after startup to let DB connections stabilize
         await asyncio.sleep(10)
 
+        self._last_system_task_date: str | None = None  # track daily execution
+
         while self._running:
             try:
                 await self._check_and_execute()
+                await self._maybe_run_system_tasks()
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.error("[ScheduledTaskRunner] Loop error: %s", e, exc_info=True)
 
             await asyncio.sleep(self._check_interval)
+
+    async def _maybe_run_system_tasks(self):
+        """Run system-level tasks once per day at ~09:00 CN time."""
+        now_cn = datetime.now(CN_TZ)
+        today_str = now_cn.strftime("%Y-%m-%d")
+
+        # Already ran today
+        if self._last_system_task_date == today_str:
+            return
+
+        # Only trigger after 09:00 CN
+        if now_cn.hour < 9:
+            return
+
+        self._last_system_task_date = today_str
+
+        try:
+            from app.services.system_tasks import run_all_system_tasks
+            await run_all_system_tasks()
+        except Exception as e:
+            logger.error("[ScheduledTaskRunner] System tasks failed: %s", e, exc_info=True)
 
     async def _check_and_execute(self):
         from app.core.database import supabase

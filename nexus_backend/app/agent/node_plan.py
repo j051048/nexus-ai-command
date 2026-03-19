@@ -60,6 +60,29 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     # Resolve model via pre-resolved configs (Step 2: centralized resolution)
     resolved = None
     complexity = state.get("complexity", QueryComplexity.MODERATE)
+
+    # Auto-detect tier when router didn't explicitly set complexity (default MODERATE)
+    if complexity == QueryComplexity.MODERATE and "complexity" not in state:
+        try:
+            from app.services.llm_helpers import auto_detect_tier
+            tool_schemas_for_tier = _get_tool_schemas(agent_config.user_role, scene_code=state.get("scene_code"))
+            detected_tier = auto_detect_tier(
+                messages=messages,
+                tools_count=len(tool_schemas_for_tier) if tool_schemas_for_tier else 0,
+                scene_code=state.get("scene_code", ""),
+                iteration=iteration,
+            )
+            _tier_to_complexity = {
+                "economy": QueryComplexity.SIMPLE,
+                "balanced": QueryComplexity.MODERATE,
+                "power": QueryComplexity.COMPLEX,
+                "flagship": QueryComplexity.CRITICAL,
+            }
+            complexity = _tier_to_complexity.get(detected_tier, complexity)
+            logger.debug("Auto-detected tier=%s → complexity=%s", detected_tier, complexity.value)
+        except Exception:
+            pass  # Fall through to default MODERATE
+
     if agent_config.resolved_configs:
         resolved = agent_config.resolved_configs.get(complexity.model_tier)
     if not resolved:
