@@ -370,18 +370,19 @@ async def promote_high_recurrence_memories(
     - first_seen_at 在 window_days 天内
     - 当前 category 不是 business_rule（避免重复晋升）
 
-    晋升操作：
-    - importance 提升至 0.9
-    - category 改为 business_rule
-    - 写审计日志
+    风险分级（借鉴 capability-evolver 的变异风险评估）：
+    - low: preference/usage_pattern → 直接晋升为 business_rule
+    - medium: fact → 提升 importance 到 0.8，不改 category
+    - high: explicit_memory/policy → 仅提升 importance 到 0.75，需人工确认晋升
 
-    Returns: {"scanned": int, "promoted": int}
+    Returns: {"scanned": int, "promoted": int, "boosted": int}
     """
     client = db or supabase
     if not client:
-        return {"scanned": 0, "promoted": 0}
+        return {"scanned": 0, "promoted": 0, "boosted": 0}
 
     promoted = 0
+    boosted = 0
     try:
         cutoff = (datetime.now(UTC) - timedelta(days=window_days)).isoformat()
 
@@ -399,19 +400,65 @@ async def promote_high_recurrence_memories(
         candidates = result.data or []
         now = datetime.now(UTC).isoformat()
 
+        # Risk classification by category
+        LOW_RISK = {"preference", "usage_pattern"}       # safe to auto-promote
+        MEDIUM_RISK = {"fact"}                            # boost importance only
+        # HIGH_RISK: everything else (explicit_memory, policy, etc.)
+
         for mem in candidates:
+            category = mem.get("category", "")
+            old_imp = float(mem.get("importance", 0.5) or 0.5)
+
             try:
-                await (
-                    client.table("conversation_memories")
-                    .update({
-                        "category": "business_rule",
-                        "importance": 0.9,
-                        "updated_at": now,
-                    })
-                    .eq("id", mem["id"])
-                    .execute()
-                )
-                promoted += 1
+                if category in LOW_RISK:
+                    # Low risk: full promotion to business_rule
+                    await (
+                        client.table("conversation_memories")
+                        .update({
+                            "category": "business_rule",
+                            "importance": 0.9,
+                            "updated_at": now,
+                        })
+                        .eq("id", mem["id"])
+                        .execute()
+                    )
+                    promoted += 1
+                    action = "PROMOTE"
+                    new_desc = "category=business_rule, importance=0.9"
+
+                elif category in MEDIUM_RISK:
+                    # Medium risk: boost importance but keep category
+                    new_imp = max(old_imp, 0.8)
+                    await (
+                        client.table("conversation_memories")
+                        .update({
+                            "importance": new_imp,
+                            "updated_at": now,
+                        })
+                        .eq("id", mem["id"])
+                        .execute()
+                    )
+                    boosted += 1
+                    action = "BOOST"
+                    new_desc = f"importance={old_imp}->{new_imp} (medium risk, category unchanged)"
+
+                else:
+                    # High risk: gentle boost only, needs manual review
+                    new_imp = max(old_imp, 0.75)
+                    if new_imp <= old_imp:
+                        continue
+                    await (
+                        client.table("conversation_memories")
+                        .update({
+                            "importance": new_imp,
+                            "updated_at": now,
+                        })
+                        .eq("id", mem["id"])
+                        .execute()
+                    )
+                    boosted += 1
+                    action = "BOOST"
+                    new_desc = f"importance={old_imp}->{new_imp} (high risk, manual review needed)"
 
                 # Audit log
                 try:
@@ -419,10 +466,10 @@ async def promote_high_recurrence_memories(
                     await log_memory_change(
                         memory_id=mem["id"],
                         user_id=mem.get("user_id", ""),
-                        action="PROMOTE",
-                        old_value=f"category={mem['category']}, importance={mem.get('importance')}",
-                        new_value=f"category=business_rule, importance=0.9",
-                        reason=f"Auto-promoted: recurrence_count={mem.get('recurrence_count')} >= {recurrence_threshold}",
+                        action=action,
+                        old_value=f"category={category}, importance={old_imp}",
+                        new_value=new_desc,
+                        reason=f"recurrence_count={mem.get('recurrence_count')} >= {recurrence_threshold}, risk={category}",
                         actor="system_promote",
                         db=client,
                     )
@@ -430,12 +477,12 @@ async def promote_high_recurrence_memories(
                     pass  # audit is non-fatal
 
             except Exception as e:
-                logger.warning(f"[Promote] Failed to promote memory {mem['id']}: {e}")
+                logger.warning(f"[Promote] Failed to process memory {mem['id']}: {e}")
 
-        if promoted:
-            logger.info(f"[Promote] Promoted {promoted}/{len(candidates)} high-recurrence memories to business_rule")
+        if promoted or boosted:
+            logger.info(f"[Promote] Processed {len(candidates)} candidates: promoted={promoted}, boosted={boosted}")
 
     except Exception as e:
         logger.warning(f"[Promote] Scan failed: {e}")
 
-    return {"scanned": len(candidates) if 'candidates' in dir() else 0, "promoted": promoted}
+    return {"scanned": len(candidates) if 'candidates' in dir() else 0, "promoted": promoted, "boosted": boosted}

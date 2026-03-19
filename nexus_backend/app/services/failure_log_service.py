@@ -164,8 +164,17 @@ class FailureLogService:
                         "error_detail": (r.get("error_detail") or "")[:200],
                         "count": 0,
                         "latest": r.get("created_at", ""),
+                        "saturated": False,
                     }
                 pattern_groups[pk]["count"] += 1
+
+            # Signal saturation detection: if a pattern appears >= 10 times
+            # in the window, it's "saturated" — likely a systemic issue that
+            # repeating in the prompt won't help fix. Deprioritize it.
+            SATURATION_THRESHOLD = 10
+            for pg in pattern_groups.values():
+                if pg["count"] >= SATURATION_THRESHOLD:
+                    pg["saturated"] = True
 
             # Sort by count desc, return top N
             sorted_patterns = sorted(pattern_groups.values(), key=lambda x: x["count"], reverse=True)
