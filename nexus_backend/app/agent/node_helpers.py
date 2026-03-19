@@ -260,6 +260,7 @@ _DOMAIN_TOOL_MAP: dict[str, set[str]] = {
         "delete_scheduled_task", "get_daily_briefing",
         "get_pending_approvals", "assign_task",
         "create_task", "update_task", "list_tasks",
+        "get_user_preferences", "update_user_preferences",
     },
     "vmd_content": {
         "generate_product_manual", "generate_whitepaper",
@@ -280,6 +281,7 @@ _DOMAIN_TOOL_MAP: dict[str, set[str]] = {
         "process_onboarding", "process_resignation",
         "process_asset_lifecycle",
         "publish_announcement",
+        "query_audit_logs",
     },
     "inventory": {
         "list_inventory", "inventory_in", "inventory_out",
@@ -333,6 +335,7 @@ _KEYWORD_DOMAIN_MAP: dict[str, list[str]] = {
     "待办": ["schedule", "approval"], "日报": ["schedule"],
     "周报": ["project"], "简报": ["schedule", "analytics"],
     "定时": ["schedule"],
+    "偏好": ["schedule"], "设置": ["schedule"], "通知设置": ["schedule"],
     # VMD
     "白皮书": ["vmd_content", "knowledge"], "文案": ["vmd_content", "knowledge"],
     "话术": ["vmd_content", "knowledge"], "手册": ["vmd_content", "knowledge"],
@@ -345,6 +348,8 @@ _KEYWORD_DOMAIN_MAP: dict[str, list[str]] = {
     "证照": ["admin"], "盖章": ["admin"], "用印": ["admin"],
     "签署": ["admin"], "公告": ["admin", "approval"],
     "通知": ["admin", "approval", "oa_leave", "project"],
+    "审计": ["admin"], "审计日志": ["admin"], "安全审计": ["admin"],
+    "异常登录": ["admin"], "数据导出": ["admin"],
     # Knowledge
     "知识库": ["knowledge"], "搜索": ["knowledge"], "文档": ["knowledge", "vmd_content"],
     "RAG": ["knowledge"], "产品": ["knowledge", "crm", "vmd_content"],

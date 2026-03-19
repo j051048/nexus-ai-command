@@ -300,6 +300,13 @@ _MODERATE_KEYWORDS = {
     # HR / training
     "培训",
     "通讯录",
+    # Audit / security
+    "审计",
+    "审计日志",
+    "安全审计",
+    # User preferences
+    "偏好",
+    "通知设置",
 }
 
 # ─── Aggregate business indicators ─────────────────────────────────────────

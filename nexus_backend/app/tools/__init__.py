@@ -169,6 +169,11 @@ _TOOL_MODULES: dict[str, tuple[str, str]] = {
     "process_onboarding": ("app.tools.workflow_tools", "ProcessOnboardingTool"),
     "process_resignation": ("app.tools.workflow_tools", "ProcessResignationTool"),
     "process_asset_lifecycle": ("app.tools.workflow_tools", "ProcessAssetLifecycleTool"),
+    # audit_tools (审计日志查询)
+    "query_audit_logs": ("app.tools.audit_tools", "QueryAuditLogsTool"),
+    # user_preference_tools (用户偏好管理)
+    "get_user_preferences": ("app.tools.user_preference_tools", "GetUserPreferencesTool"),
+    "update_user_preferences": ("app.tools.user_preference_tools", "UpdateUserPreferencesTool"),
 }
 
 # VMD tools are optional — kept separate so ImportError is tolerated
