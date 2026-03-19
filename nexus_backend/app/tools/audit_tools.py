@@ -54,6 +54,8 @@ class QueryAuditLogsTool(BaseTool):
 
     domain = "admin"
     required_role = "boss"
+    gotchas = "仅boss/founder角色可用。days默认7天，最大90天。返回结果包含异常检测摘要。"
+    related_tools = ["get_company_stats"]
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         from app.services.audit_logger import audit_logger

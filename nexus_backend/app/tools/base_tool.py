@@ -94,6 +94,24 @@ class BaseTool(ABC):
         """
         return "⚠️ 这是一个不可逆操作。请确认后再执行。"
 
+    @property
+    def examples(self) -> list[dict]:
+        """Optional: example invocations [{input: {...}, output_summary: "..."}].
+        Appended to description in tool schema to help LLM pick correct params."""
+        return []
+
+    @property
+    def gotchas(self) -> str:
+        """Optional: common pitfalls or constraints for this tool.
+        Appended to description in tool schema to prevent LLM mistakes."""
+        return ""
+
+    @property
+    def related_tools(self) -> list[str]:
+        """Optional: names of related tools the LLM should consider.
+        Helps LLM self-correct when it picks the wrong tool."""
+        return []
+
     def check_confirmation(self, args: dict[str, Any], system_confirmed: bool = False) -> str | None:
         """
         System-level confirmation gate.

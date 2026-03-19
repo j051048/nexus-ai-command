@@ -16,7 +16,7 @@ CN_TZ = timezone(timedelta(hours=8))
 async def run_all_system_tasks():
     """Entry point called by ScheduledTaskRunner once per day at ~09:00 CN."""
     logger.info("[SystemTasks] Starting daily system tasks")
-    for task_fn in [check_expiring_contracts, check_inactive_customers, check_data_consistency]:
+    for task_fn in [check_expiring_contracts, check_inactive_customers, check_data_consistency, promote_memories]:
         try:
             await task_fn()
         except Exception as e:
@@ -269,3 +269,15 @@ async def check_data_consistency():
         logger.info("[SystemTasks] Sent %d consistency alerts to %d admins", len(alerts), len(admins))
     except Exception as e:
         logger.warning("[SystemTasks] Failed to notify admins: %s", e)
+
+
+# ─── Memory Auto-Promotion ──────────────────────────────────────
+
+
+async def promote_memories():
+    """Auto-promote high-recurrence memories to business_rule category."""
+    from app.services.conversation_memory.cleanup import promote_high_recurrence_memories
+
+    result = await promote_high_recurrence_memories()
+    if result.get("promoted"):
+        logger.info("[SystemTasks] Memory promotion: %s", result)

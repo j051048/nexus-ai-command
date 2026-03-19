@@ -52,6 +52,8 @@ class CreateTaskTool(BaseTool):
     }
     category = "system"
     domain = "schedule"
+    gotchas = "title不能为空。priority可选: low/medium/high。创建后status为pending。用于跨会话持久化任务。"
+    related_tools = ["list_tasks", "update_task"]
 
     async def execute(self, arguments: dict[str, Any], context: dict[str, Any] | None = None) -> str:
         ctx = context or {}

@@ -35,6 +35,8 @@ class WebSearchTool(BaseTool):
         "招投标/采购/招标公告信息请使用专用的 search_bidding_projects 工具，不要用本工具搜索。"
     )
     required_role = "all"
+    gotchas = "仅用于需要实时外部信息的查询（如行业动态、竞品信息）。内部数据查询请用对应业务工具，不要用web_search。"
+    related_tools = ["query_knowledge_base", "load_knowledge"]
 
     parameters = {
         "type": "object",

@@ -79,6 +79,7 @@ async def resolve_memory_conflicts(
     """对新提取的记忆执行冲突解决，返回处理结果列表。
 
     流程:
+    0. Pattern-Key 快速去重：同 pattern_key 的记忆直接 UPDATE（recurrence_count++）
     1. 对每条新记忆，向量搜索 top-5 相似旧记忆
     2. 如无相似旧记忆 → 直接 ADD
     3. 有相似旧记忆 → LLM 批量判断 ADD/UPDATE/DELETE/NONE
@@ -86,7 +87,7 @@ async def resolve_memory_conflicts(
 
     Args:
         user_id: 用户 ID
-        new_memories: 新提取的记忆列表 [{key, value, category, importance, ...}]
+        new_memories: 新提取的记忆列表 [{key, value, category, importance, pattern_key, ...}]
         org_id: 组织 ID (用于 embedding 模型选择)
         db: 数据库客户端
 
@@ -101,11 +102,66 @@ async def resolve_memory_conflicts(
 
     results: list[dict] = []
 
+    # ── Step 0: Pattern-Key fast dedup ──────────────────────────────
+    # Memories with a pattern_key that already exists → bump recurrence_count
+    remaining_memories: list[dict] = []
+    for mem in new_memories:
+        pk = mem.get("pattern_key")
+        if not pk:
+            remaining_memories.append(mem)
+            continue
+
+        try:
+            existing = await (
+                client.table("conversation_memories")
+                .select("id, recurrence_count, value")
+                .eq("user_id", user_id)
+                .eq("pattern_key", pk)
+                .is_("superseded_by", "null")
+                .order("recurrence_count", desc=True)
+                .limit(1)
+                .execute()
+            )
+            if existing.data:
+                # Bump recurrence_count on existing record
+                old = existing.data[0]
+                new_count = (old.get("recurrence_count") or 1) + 1
+                from datetime import UTC, datetime
+                await (
+                    client.table("conversation_memories")
+                    .update({
+                        "recurrence_count": new_count,
+                        "updated_at": datetime.now(UTC).isoformat(),
+                    })
+                    .eq("id", old["id"])
+                    .execute()
+                )
+                results.append({
+                    "id": old["id"],
+                    "event": "DEDUP",
+                    "text": old.get("value", ""),
+                    "recurrence_count": new_count,
+                })
+                logger.debug(
+                    "[ConflictResolve] Pattern-key dedup: %s (count=%d)", pk, new_count
+                )
+                continue
+        except Exception as e:
+            logger.debug(f"Pattern-key dedup lookup failed for {pk}: {e}")
+
+        remaining_memories.append(mem)
+
+    if not remaining_memories:
+        if results:
+            logger.info(f"[ConflictResolve] user={user_id} all {len(results)} memories deduped by pattern_key")
+        return results
+
+    # ── Step 1+: Original vector-based conflict resolution ──────────
     # Collect all new facts and search for similar existing memories
     all_similar: list[dict] = []
     new_facts_text: list[str] = []
 
-    for mem in new_memories:
+    for mem in remaining_memories:
         value = mem.get("value", "")
         if not value:
             continue
@@ -122,7 +178,7 @@ async def resolve_memory_conflicts(
 
     # Fast path: no similar memories → all are ADDs, use standard save
     if not all_similar:
-        for mem in new_memories:
+        for mem in remaining_memories:
             try:
                 saved = await _save_memory(
                     user_id=user_id,
@@ -134,6 +190,7 @@ async def resolve_memory_conflicts(
                     db=client,
                     enriched_value=mem.get("enriched_value"),
                     valid_from=mem.get("valid_from"),
+                    pattern_key=mem.get("pattern_key"),
                 )
                 results.append({"id": saved.get("id"), "event": "ADD", "text": mem["value"]})
                 # Audit log
@@ -155,7 +212,7 @@ async def resolve_memory_conflicts(
     except Exception as e:
         logger.warning(f"LLM conflict resolution failed, falling back to ADD-all: {e}")
         # Fallback: save all as new memories without conflict resolution
-        for mem in new_memories:
+        for mem in remaining_memories:
             try:
                 saved = await _save_memory(
                     user_id=user_id,
@@ -167,6 +224,7 @@ async def resolve_memory_conflicts(
                     db=client,
                     enriched_value=mem.get("enriched_value"),
                     valid_from=mem.get("valid_from"),
+                    pattern_key=mem.get("pattern_key"),
                 )
                 results.append({"id": saved.get("id"), "event": "ADD", "text": mem["value"]})
             except Exception as e2:
@@ -185,7 +243,7 @@ async def resolve_memory_conflicts(
         try:
             if event == "ADD":
                 # Find the matching new memory entry for key/category info
-                matching_new = _find_matching_new_mem(text, new_memories)
+                matching_new = _find_matching_new_mem(text, remaining_memories)
                 saved = await _save_memory(
                     user_id=user_id,
                     key=matching_new.get("key", f"resolved_{hash(text) % 10000:04d}"),
@@ -196,6 +254,7 @@ async def resolve_memory_conflicts(
                     db=client,
                     enriched_value=matching_new.get("enriched_value"),
                     valid_from=matching_new.get("valid_from"),
+                    pattern_key=matching_new.get("pattern_key"),
                 )
                 results.append({"id": saved.get("id"), "event": "ADD", "text": text})
                 await log_memory_change(

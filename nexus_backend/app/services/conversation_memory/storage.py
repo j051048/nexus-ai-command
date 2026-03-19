@@ -22,6 +22,7 @@ async def save_memory(
     db: Any = None,
     enriched_value: str | None = None,
     valid_from: str | None = None,
+    pattern_key: str | None = None,
 ) -> dict:
     """保存用户记忆条目（upsert by user_id + key），同时生成 embedding 向量"""
     client = db or supabase
@@ -72,6 +73,10 @@ async def save_memory(
         insert_data["enriched_value"] = enriched_value
     if valid_from:
         insert_data["valid_from"] = valid_from
+    if pattern_key:
+        insert_data["pattern_key"] = pattern_key
+        insert_data["first_seen_at"] = now
+        insert_data["recurrence_count"] = 1
     try:
         result = await client.table("conversation_memories").insert(insert_data).execute()
     except Exception as insert_err:

@@ -381,12 +381,30 @@ def get_all_tools_schema():
         # 防御性清洗 properties
         if isinstance(params, dict) and "properties" in params:
             params = {**params, "properties": _sanitize_schema(params["properties"])}
+
+        # Build enriched description from optional structured docs
+        desc = tool.description
+        extras: list[str] = []
+        if tool.gotchas:
+            extras.append(f"【注意】{tool.gotchas}")
+        if tool.examples:
+            ex_lines = []
+            for ex in tool.examples[:3]:
+                inp = ex.get("input", {})
+                out = ex.get("output_summary", "")
+                ex_lines.append(f"  输入: {inp} → {out}")
+            extras.append("【示例】\n" + "\n".join(ex_lines))
+        if tool.related_tools:
+            extras.append(f"【相关工具】{', '.join(tool.related_tools)}")
+        if extras:
+            desc = desc + "\n\n" + "\n".join(extras)
+
         schemas.append(
             {
                 "type": "function",
                 "function": {
                     "name": tool.name,
-                    "description": tool.description,
+                    "description": desc,
                     "parameters": params,
                 },
             }

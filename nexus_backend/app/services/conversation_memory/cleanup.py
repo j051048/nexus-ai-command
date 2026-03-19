@@ -356,3 +356,86 @@ async def decay_kg_strength(
         )
 
     return {"scanned": len(triples) if 'triples' in dir() else 0, "decayed": decayed_count, "archived": archived}
+
+
+async def promote_high_recurrence_memories(
+    recurrence_threshold: int = 3,
+    window_days: int = 30,
+    db: Any = None,
+) -> dict:
+    """自动晋升高频记忆为业务规则。
+
+    晋升条件（借鉴 self-improving-agent 的量化门槛）：
+    - recurrence_count >= threshold（默认 3）
+    - first_seen_at 在 window_days 天内
+    - 当前 category 不是 business_rule（避免重复晋升）
+
+    晋升操作：
+    - importance 提升至 0.9
+    - category 改为 business_rule
+    - 写审计日志
+
+    Returns: {"scanned": int, "promoted": int}
+    """
+    client = db or supabase
+    if not client:
+        return {"scanned": 0, "promoted": 0}
+
+    promoted = 0
+    try:
+        cutoff = (datetime.now(UTC) - timedelta(days=window_days)).isoformat()
+
+        result = (
+            await client.table("conversation_memories")
+            .select("id, user_id, key, value, category, importance, recurrence_count")
+            .gte("recurrence_count", recurrence_threshold)
+            .gte("first_seen_at", cutoff)
+            .neq("category", "business_rule")
+            .is_("superseded_by", "null")
+            .limit(50)
+            .execute()
+        )
+
+        candidates = result.data or []
+        now = datetime.now(UTC).isoformat()
+
+        for mem in candidates:
+            try:
+                await (
+                    client.table("conversation_memories")
+                    .update({
+                        "category": "business_rule",
+                        "importance": 0.9,
+                        "updated_at": now,
+                    })
+                    .eq("id", mem["id"])
+                    .execute()
+                )
+                promoted += 1
+
+                # Audit log
+                try:
+                    from .audit import log_memory_change
+                    await log_memory_change(
+                        memory_id=mem["id"],
+                        user_id=mem.get("user_id", ""),
+                        action="PROMOTE",
+                        old_value=f"category={mem['category']}, importance={mem.get('importance')}",
+                        new_value=f"category=business_rule, importance=0.9",
+                        reason=f"Auto-promoted: recurrence_count={mem.get('recurrence_count')} >= {recurrence_threshold}",
+                        actor="system_promote",
+                        db=client,
+                    )
+                except Exception:
+                    pass  # audit is non-fatal
+
+            except Exception as e:
+                logger.warning(f"[Promote] Failed to promote memory {mem['id']}: {e}")
+
+        if promoted:
+            logger.info(f"[Promote] Promoted {promoted}/{len(candidates)} high-recurrence memories to business_rule")
+
+    except Exception as e:
+        logger.warning(f"[Promote] Scan failed: {e}")
+
+    return {"scanned": len(candidates) if 'candidates' in dir() else 0, "promoted": promoted}

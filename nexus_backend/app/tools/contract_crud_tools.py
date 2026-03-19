@@ -107,6 +107,8 @@ class CreateContractTool(BaseTool):
     description = "在系统中创建新合同记录。当用户说'创建合同'、'新建合同'、'录入合同'时调用。"
     is_irreversible = True
     confirmation_message = "⚠️ 即将创建新合同记录，确认继续？"
+    gotchas = "start_date和end_date格式为YYYY-MM-DD。amount为数字（元）。customer_id必须已存在。status默认draft。"
+    related_tools = ["get_contracts", "get_expiring_contracts"]
 
     parameters = {
         "type": "object",

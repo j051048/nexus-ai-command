@@ -156,6 +156,7 @@ async def extract_preferences(
     db: Any = None,
     *,
     save_memory_fn=None,
+    is_subtask: bool = False,
 ) -> list[dict]:
     """
     从对话中自动提取用户偏好。
@@ -165,6 +166,8 @@ async def extract_preferences(
     2. LLM 增强（深度提取）：捕获复杂语义中的隐含偏好
 
     save_memory_fn: async callable used to persist each extracted entry.
+    is_subtask: if True, skip LLM deep extraction (subtask outputs may pollute).
+                Regex extraction still runs since it only scans user messages.
     """
     extracted: list[dict] = []
 
@@ -188,11 +191,14 @@ async def extract_preferences(
                 key = f"{pattern_info['key_prefix']}_{content_hash}"
                 # Use pattern-specific importance if defined, else category defaults
                 default_imp = 0.7 if pattern_info["category"] == "explicit_memory" else 0.5
+                # Generate stable pattern_key for dedup
+                pattern_key = f"{pattern_info['category']}:{pattern_info['key_prefix']}"
                 entry = {
                     "key": key,
                     "value": match_text,
                     "category": pattern_info["category"],
                     "importance": pattern_info.get("importance", default_imp),
+                    "pattern_key": pattern_key,
                 }
                 extracted.append(entry)
 
@@ -204,16 +210,19 @@ async def extract_preferences(
                     "value": f"用户经常使用{keyword}相关功能",
                     "category": "usage_pattern",
                     "importance": 0.3,
+                    "pattern_key": f"usage_pattern:{action}",
                 }
                 # Avoid duplicates within this batch
                 if not any(e["key"] == entry["key"] for e in extracted):
                     extracted.append(entry)
 
     # 3) LLM-assisted deep extraction (only when signal words are present)
+    #    Skip for subtask conversations — assistant response contains delegated
+    #    tool output that may be misinterpreted as user preferences.
     user_texts = " ".join(
         msg.get("content", "") for msg in messages if msg.get("role") == "user"
     )
-    if any(w in user_texts for w in MEMORY_SIGNAL_WORDS):
+    if not is_subtask and any(w in user_texts for w in MEMORY_SIGNAL_WORDS):
         llm_extracted = await extract_with_llm(messages)
     else:
         llm_extracted = []
@@ -259,7 +268,7 @@ async def extract_preferences(
                 org_id=org_id,
                 db=db,
             )
-            saved = [r for r in results if r.get("event") in ("ADD", "UPDATE")]
+            saved = [r for r in results if r.get("event") in ("ADD", "UPDATE", "DEDUP")]
         except Exception as e:
             logger.warning(f"Conflict resolution failed, falling back to direct save: {e}")
             # Fallback: direct save without conflict resolution
@@ -277,6 +286,7 @@ async def extract_preferences(
                         db=db,
                         enriched_value=entry.get("enriched_value"),
                         valid_from=entry.get("valid_from"),
+                        pattern_key=entry.get("pattern_key"),
                     )
                     saved.append(result)
                 except Exception as e2:
@@ -327,6 +337,8 @@ async def extract_with_llm(
             '- "category": "preference" 或 "explicit_memory" 或 "fact"\n'
             '- "key": 简短的标识键（如 "role_region"、"report_format"）\n'
             '- "value": 提取的完整信息\n'
+            '- "pattern_key": 稳定的模式标识（如 "preference:report_format"、"fact:role_region"），'
+            "格式为 category:主题，同类信息应使用相同的 pattern_key\n"
             '- "importance": 0.0-1.0 的重要性评分，评分标准:\n'
             "  * 0.8-1.0: 身份信息、核心偏好、明确指令（如'以后都用表格'）\n"
             "  * 0.5-0.7: 工作习惯、常用功能、业务方向\n"
@@ -361,6 +373,7 @@ async def extract_with_llm(
                     "value": value,
                     "category": category,
                     "importance": min(max(float(item.get("importance", 0.5)), 0.1), 1.0),
+                    "pattern_key": item.get("pattern_key") or f"{category}:{key}",
                     **({"valid_from": item["valid_from"]} if item.get("valid_from") else {}),
                 }
             )

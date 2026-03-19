@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 class ProjectListTool(BaseTool):
     name = "get_projects"
     description = "获取当前所有进行中的项目列表，用于关联后续的事件记录"
+    gotchas = "默认只返回未归档项目。status可选: planning/active/completed/archived。结果包含member_ids数组。"
+    related_tools = ["create_project", "generate_weekly_report"]
 
     parameters = {"type": "object", "properties": {}, "required": []}
 

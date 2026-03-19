@@ -100,10 +100,13 @@ class ConversationMemoryService:
         messages: list[dict[str, str]],
         org_id: str | None = None,
         db: Any = None,
+        *,
+        is_subtask: bool = False,
     ) -> list[dict]:
         """从对话中自动提取用户偏好。"""
         return await extraction.extract_preferences(
             user_id=user_id, messages=messages, org_id=org_id, db=db,
+            is_subtask=is_subtask,
         )
 
     async def _extract_with_llm(

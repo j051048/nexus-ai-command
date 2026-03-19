@@ -30,6 +30,8 @@ class GetCustomersTool(BaseTool):
 
     name = "get_customers"
     description = "查询CRM客户列表，支持按阶段筛选和关键词搜索。当用户说'查看客户'、'客户列表'、'有哪些客户'时调用。"
+    gotchas = "stage参数可选值: lead/prospect/customer/churned。不传则返回全部。结果按updated_at倒序，默认limit=20。"
+    related_tools = ["get_customer_detail", "get_sales_pipeline"]
 
     parameters = {
         "type": "object",
@@ -307,6 +309,8 @@ class AddFollowUpTool(BaseTool):
     )
     is_irreversible = True
     confirmation_message = "⚠️ 即将添加跟进记录，确认继续？"
+    gotchas = "customer_id必须是有效UUID。follow_type可选: call/visit/email/wechat/other。content不能为空。"
+    related_tools = ["get_follow_ups", "get_customer_detail"]
 
     parameters = {
         "type": "object",

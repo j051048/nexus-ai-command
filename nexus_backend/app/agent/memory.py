@@ -988,6 +988,17 @@ async def persist_result(
 
     # Task: Extract user-level long-term memories (with conflict resolution)
     if user_message and not skip_semantic:
+        # Detect if this conversation used llm_task (subtask delegation)
+        # — subtask outputs should not be extracted as user preferences
+        _has_subtask = bool(
+            completed_tool_calls
+            and any(
+                (tc.get("tool_name") or tc.get("name")) == "llm_task"
+                for tc in completed_tool_calls
+                if isinstance(tc, dict)
+            )
+        )
+
         async def _extract_user_memories():
             from app.services.conversation_memory_service import conversation_memory_service
             messages_for_extraction = [
@@ -999,6 +1010,7 @@ async def persist_result(
                 user_id=user_id,
                 messages=messages_for_extraction,
                 db=client,
+                is_subtask=_has_subtask,
             )
             if extracted:
                 logger.info(f"[Memory] Extracted {len(extracted)} long-term memories for user {user_id}")

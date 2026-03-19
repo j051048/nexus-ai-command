@@ -451,16 +451,18 @@ async def critic_node(state: AgentState) -> dict:
     # Inject historical failure lessons into critic prompt (few-shot from failure_log)
     history_lessons = ""
     try:
-        from app.services.failure_log_service import get_top_failures
+        from app.services.failure_log_service import failure_log_service
         _org_id = getattr(config, "org_id", None)
         if _org_id:
-            failures = await get_top_failures(_org_id, days=7, limit=3)
+            failures = await failure_log_service.get_top_failures(_org_id, days=7, limit=3)
             if failures:
                 lesson_lines = ["## 历史教训（近期常见错误，请重点检查）"]
                 for f in failures:
                     err_type = f.get("error_type", "unknown")
+                    pattern = f.get("pattern_key", "")
+                    count = f.get("count", 1)
                     err_detail = (f.get("error_detail") or "")[:100]
-                    lesson_lines.append(f"- [{err_type}] {err_detail}")
+                    lesson_lines.append(f"- [{err_type}] {err_detail} (模式: {pattern}, 出现{count}次)")
                 history_lessons = "\n".join(lesson_lines) + "\n\n"
     except Exception:
         pass  # 非关键路径

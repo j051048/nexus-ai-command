@@ -457,10 +457,12 @@ class BusinessRuleProvider(ContextProvider):
 
             result = (
                 await supabase.table("conversation_memories")
-                .select("key, value")
+                .select("key, value, recurrence_count")
                 .eq("organization_id", org_id)
                 .eq("category", "business_rule")
+                .is_("superseded_by", "null")
                 .order("importance", desc=True)
+                .order("recurrence_count", desc=True)
                 .limit(10)
                 .execute()
             )
@@ -470,7 +472,9 @@ class BusinessRuleProvider(ContextProvider):
 
             lines = ["以下是本组织的业务规则，你在执行任何操作时必须遵守："]
             for r in rules:
-                lines.append(f"- {r['key']}: {r['value']}")
+                count = r.get("recurrence_count") or 1
+                prefix = f"[验证×{count}] " if count >= 3 else ""
+                lines.append(f"- {prefix}{r['key']}: {r['value']}")
             return "\n".join(lines)
         except Exception as e:
             logger.debug(f"[BusinessRuleProvider] Failed: {e}")

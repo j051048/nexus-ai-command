@@ -454,6 +454,8 @@ class TaskAssignmentTool(BaseTool):
     name = "assign_task"
     description = "创建并分配任务给指定人员。当用户说'安排个任务'、'让XX做YY'、'@某人 做某事'时调用。"
     required_role = "all"
+    gotchas = "assignee_id必须是同组织内的有效用户ID。due_date格式YYYY-MM-DD。priority可选: low/medium/high/urgent。"
+    related_tools = ["list_tasks", "update_task"]
 
     parameters = {
         "type": "object",
