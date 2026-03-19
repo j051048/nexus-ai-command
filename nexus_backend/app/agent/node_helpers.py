@@ -312,6 +312,7 @@ _KEYWORD_DOMAIN_MAP: dict[str, list[str]] = {
     # CRM / Sales
     "客户": ["crm"], "合同": ["crm"], "商机": ["crm"],
     "线索": ["crm"], "跟进": ["crm"], "漏斗": ["crm"],
+    "转化率": ["crm", "analytics"], "跟进率": ["crm", "analytics"],
     # HR
     "员工": ["hr"], "通讯录": ["hr"], "培训": ["hr"],
     "招聘": ["hr"], "绩效": ["hr", "analytics"], "部门": ["hr"],

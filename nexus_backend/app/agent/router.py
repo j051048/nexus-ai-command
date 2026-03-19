@@ -242,8 +242,6 @@ _COMPLEX_KEYWORDS = {
 _MODERATE_KEYWORDS = {
     # Query actions
     "查询",
-    "查一下",
-    "看看",
     # Leave / attendance
     "请假",
     "考勤",
@@ -278,6 +276,8 @@ _MODERATE_KEYWORDS = {
     "成交",
     "回款",
     "订单",
+    "转化率",
+    "跟进率",
     # Supply chain / procurement
     "供应商",
     "采购",
@@ -555,8 +555,13 @@ def classify_query(query: str) -> tuple[QueryComplexity, str]:
         return QueryComplexity.COMPLEX, "长文写作/内容创作"
 
     # 1e. Real-time info queries — need web_search tool, NOT hallucination
+    #     BUT: "查一下"/"帮我查" are too generic — if the message also contains
+    #     business keywords (项目/客户/合同/线索 etc.), it's an internal data query,
+    #     not a web search request.  Let it fall through to business keyword matching.
     if _REALTIME_INFO_PATTERNS.search(text):
-        return QueryComplexity.MODERATE, "需要联网搜索的实时信息"
+        _biz_peek = _filter_negated_keywords(text, _ALL_BUSINESS_KEYWORDS)
+        if not _biz_peek:
+            return QueryComplexity.MODERATE, "需要联网搜索的实时信息"
 
     # Get all matched business keywords first to avoid missing lower tier keywords
     # when constructing the intent_summary, which is used for domain tool matching.
