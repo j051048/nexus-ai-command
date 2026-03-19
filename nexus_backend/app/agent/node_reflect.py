@@ -379,6 +379,9 @@ AI 回复:
         except Exception as e:
             logger.debug(f"[ReflectNode] Failed to log hallucination: {e}")
 
+        from app.core.ai_metrics import record_hallucination
+        record_hallucination("reflect_grounding_check")
+
         return {
             "messages": [HumanMessage(content=f"[自我指引] {reflection_guidance}")],
             "reflection": f"触发幻觉修正: {hallucination_reason}",

@@ -29,6 +29,11 @@ export interface AskUserRequest {
     context: string;
 }
 
+export interface CircuitBreakInfo {
+    reason: string;
+    suggestion: string;
+}
+
 export interface QuotaInfo {
     tokens_used: number;
     tokens_limit: number;
@@ -45,6 +50,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
     const [isThinkingComplete, setIsThinkingComplete] = useState(false);
     const [pendingConfirmation, setPendingConfirmation] = useState<ConfirmationRequest | null>(null);
     const [pendingQuestion, setPendingQuestion] = useState<AskUserRequest | null>(null);
+    const [circuitBreak, setCircuitBreak] = useState<CircuitBreakInfo | null>(null);
     const [quotaInfo, setQuotaInfo] = useState<QuotaInfo | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
     const lastRequestRef = useRef<{ messages: Array<{ role: string; content: string }>; agent?: string } | null>(null);
@@ -181,6 +187,12 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                     // P1-7: Handle ask_user events from agent proactive questioning
                     if (parsed.ask_user) {
                         setPendingQuestion(parsed.ask_user as AskUserRequest);
+                        continue;
+                    }
+
+                    // Handle circuit break events (loop detection / max iterations)
+                    if (parsed.circuit_break) {
+                        setCircuitBreak(parsed.circuit_break as CircuitBreakInfo);
                         continue;
                     }
 
@@ -625,6 +637,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         isThinkingComplete,
         pendingConfirmation,
         pendingQuestion,
+        circuitBreak,
         quotaInfo,
         streamChat,
         stopStream,
@@ -633,5 +646,6 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         dismissConfirmation,
         dismissQuestion,
         clearThinkingSteps,
+        dismissCircuitBreak: useCallback(() => setCircuitBreak(null), []),
     };
 }

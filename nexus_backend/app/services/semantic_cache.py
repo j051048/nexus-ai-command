@@ -3,7 +3,9 @@ Semantic Cache Service - Cache AI responses for similar queries
 """
 
 import hashlib
+import json as _json
 import logging
+import os
 import re
 from datetime import UTC, datetime, timedelta
 
@@ -18,6 +20,9 @@ logger = logging.getLogger(__name__)
 DEFAULT_CACHE_TTL_HOURS = 24
 _DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 
+# Redis hot-cache TTL: 1 hour (most repeated queries happen within short windows)
+_REDIS_HOT_CACHE_TTL = 3600
+
 # Queries matching these patterns should bypass cache entirely
 # (creative writing, long-form content — users expect unique output each time)
 _CACHE_BYPASS_RE = re.compile(
@@ -27,6 +32,11 @@ _CACHE_BYPASS_RE = re.compile(
 
 # Error/rejection prefixes — never cache these responses
 _ERROR_PREFIXES = ("❌", "⚠️", "抱歉", "对不起", "很抱歉", "Error")
+
+
+def _redis_cache_key(query_hash: str, user_id: str) -> str:
+    """Build a namespaced Redis key for hot cache."""
+    return f"sem_cache:{user_id}:{query_hash}"
 
 
 class SemanticCacheService:
@@ -50,6 +60,9 @@ class SemanticCacheService:
         # Embedding model (will be dynamically resolved on first use)
         self._embedding_model = _DEFAULT_EMBEDDING_MODEL
         self._embedding_resolved = False
+        # Redis client (lazy init)
+        self._redis = None
+        self._redis_init_attempted = False
 
     async def _resolve_embedding_model(self):
         """Resolve embedding model via gateway (cached after first call)."""
@@ -68,6 +81,25 @@ class SemanticCacheService:
         except Exception as e:
             logger.debug(f"Semantic cache embedding resolution failed, using default: {e}")
         self._embedding_resolved = True
+
+    async def _get_redis(self):
+        """Lazy-init async Redis client for hot cache layer."""
+        if self._redis_init_attempted:
+            return self._redis
+        self._redis_init_attempted = True
+        redis_url = os.getenv("REDIS_URL")
+        if not redis_url:
+            return None
+        try:
+            import redis.asyncio as aioredis
+
+            self._redis = aioredis.from_url(redis_url, decode_responses=True)
+            await self._redis.ping()
+            logger.info("[SemanticCache] Redis hot-cache layer connected")
+        except Exception as e:
+            logger.debug(f"[SemanticCache] Redis unavailable, hot-cache disabled: {e}")
+            self._redis = None
+        return self._redis
 
     def should_use_cache(self, query: str) -> bool:
         """判断该查询是否应使用缓存。
@@ -129,12 +161,15 @@ class SemanticCacheService:
 
         Lookup order:
         1. Query classification check (bypass creative/long-form queries)
-        2. Exact hash match (fast, no embedding needed)
-        3. Semantic similarity via vector search (requires embedding)
+        2. Redis hot-cache (exact hash, fastest — ~1ms)
+        3. DB exact hash match (fast, no embedding needed)
+        4. Semantic similarity via vector search (requires embedding)
 
         Only entries within the TTL window are considered.
         Returns the cached response if found, otherwise None.
         """
+        from app.core.ai_metrics import record_cache_hit, record_cache_miss
+
         if not supabase or not settings.OPENAI_API_KEY:
             return None
 
@@ -146,7 +181,19 @@ class SemanticCacheService:
         query_hash = self._query_hash(query)
 
         try:
-            # --- Fast path: exact hash match (skip embedding generation) ---
+            # --- Fastest path: Redis hot-cache (exact hash) ---
+            r = await self._get_redis()
+            if r:
+                try:
+                    cached_val = await r.get(_redis_cache_key(query_hash, user_id))
+                    if cached_val:
+                        logger.info(f"Semantic Cache Redis-Hit: query='{query[:30]}...'")
+                        record_cache_hit()
+                        return cached_val
+                except Exception:
+                    pass  # Redis failure is non-fatal
+
+            # --- Fast path: exact hash match in DB (skip embedding generation) ---
             hash_res = (
                 await supabase.table("semantic_cache")
                 .select("id, response_text")
@@ -163,6 +210,17 @@ class SemanticCacheService:
                 import asyncio
 
                 asyncio.create_task(self._update_hit_count(hash_res.data["id"]))
+                # Backfill Redis hot-cache
+                if r:
+                    try:
+                        await r.setex(
+                            _redis_cache_key(query_hash, user_id),
+                            _REDIS_HOT_CACHE_TTL,
+                            hash_res.data["response_text"],
+                        )
+                    except Exception:
+                        pass
+                record_cache_hit()
                 return hash_res.data["response_text"]
 
             # --- Slow path: vector similarity search ---
@@ -191,11 +249,24 @@ class SemanticCacheService:
 
                 asyncio.create_task(self._update_hit_count(match["id"]))
 
+                # Backfill Redis hot-cache for this query hash
+                if r:
+                    try:
+                        await r.setex(
+                            _redis_cache_key(query_hash, user_id),
+                            _REDIS_HOT_CACHE_TTL,
+                            match["response_text"],
+                        )
+                    except Exception:
+                        pass
+                record_cache_hit()
                 return match["response_text"]
 
+            record_cache_miss()
             return None
         except Exception as e:
             logger.warning(f"Semantic cache lookup failed: {e}")
+            record_cache_miss()
             return None
 
     async def set_cache(self, query: str, response_text: str, user_id: str):
@@ -204,9 +275,6 @@ class SemanticCacheService:
         Includes a query_hash column for fast exact-match lookups.
         Applies quality gate to prevent caching low-quality/error responses.
         """
-        # NOTE: Uses global supabase (service key) intentionally for cache writes.
-        # Cache entries are scoped by user_id/org_id columns and filtered by RPC on read.
-        # Using scoped client here would prevent writing due to RLS insert restrictions.
         if not supabase or not settings.OPENAI_API_KEY or not response_text:
             return
 
@@ -214,6 +282,8 @@ class SemanticCacheService:
         if not self._passes_quality_gate(query, response_text):
             logger.info("[Cache] Response failed quality gate, skipping cache write")
             return
+
+        query_hash = self._query_hash(query)
 
         try:
             # 1. Resolve embedding model and get embedding
@@ -231,7 +301,7 @@ class SemanticCacheService:
                 .upsert(
                     {
                         "query_text": query,
-                        "query_hash": self._query_hash(query),
+                        "query_hash": query_hash,
                         "response_text": response_text,
                         "embedding": embedding,
                         "user_id": user_id,
@@ -241,6 +311,18 @@ class SemanticCacheService:
                 )
                 .execute()
             )
+
+            # 4. Write-through to Redis hot-cache
+            r = await self._get_redis()
+            if r:
+                try:
+                    await r.setex(
+                        _redis_cache_key(query_hash, user_id),
+                        _REDIS_HOT_CACHE_TTL,
+                        response_text,
+                    )
+                except Exception:
+                    pass  # Redis failure is non-fatal
 
         except Exception as e:
             logger.warning(f"Failed to set semantic cache: {e}")

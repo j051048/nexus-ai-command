@@ -285,6 +285,7 @@ def _after_execute(state: AgentState) -> str:
 
     if iteration >= max_iter:
         logger.warning(f"[Graph] Max iterations ({max_iter}) reached, forcing reflect")
+        state["circuit_break_reason"] = "max_iterations"
         return "reflect"
 
     # P2: Loop detection — prevent infinite plan→execute→plan cycles
@@ -293,6 +294,8 @@ def _after_execute(state: AgentState) -> str:
             f"[Graph] Loop detected after {iteration} iterations "
             f"(same tool calls repeated {_GENERIC_REPEAT_THRESHOLD}x), forcing reflect"
         )
+        # Set structured circuit break reason for frontend event
+        state["circuit_break_reason"] = "loop_detected"
         # Persist loop failure for analytics
         try:
             import asyncio
@@ -358,6 +361,22 @@ def _after_execute(state: AgentState) -> str:
     return "plan"
 
 
+def _proactive_compress(state: AgentState) -> None:
+    """Proactively micro-compact messages mid-reasoning to save tokens.
+
+    Called when iteration >= 3 during replanning loops. Uses sync-safe
+    micro-compaction (no LLM call) to shrink tool outputs and long messages.
+    """
+    from app.agent.prompt_compression import _micro_compact_lc_messages
+
+    messages = state.get("messages", [])
+    if len(messages) < 6:
+        return
+    compacted = _micro_compact_lc_messages(messages)
+    state["messages"] = compacted
+    logger.info(f"[Graph] Proactive mid-reasoning compress applied ({len(messages)} messages)")
+
+
 def _after_reflect(state: AgentState) -> str:
     """
     After reflection:
@@ -385,6 +404,9 @@ def _after_reflect(state: AgentState) -> str:
         max_iter = config.max_iterations if config else 5
         iteration = state.get("iteration", 0)
         if iteration < max_iter:
+            # Proactive compression: shrink messages mid-reasoning to save tokens
+            if iteration >= 3:
+                _proactive_compress(state)
             return "plan"
         logger.warning("[Graph] Needs replanning but max iterations reached, responding anyway")
 

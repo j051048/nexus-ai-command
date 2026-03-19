@@ -18,12 +18,12 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 logger = logging.getLogger(__name__)
 
 # Default thresholds for triggering compression
-DEFAULT_MAX_TURNS_BEFORE_COMPRESS = 8
-DEFAULT_MAX_TOKENS_BEFORE_COMPRESS = 6000
+DEFAULT_MAX_TURNS_BEFORE_COMPRESS = 6
+DEFAULT_MAX_TOKENS_BEFORE_COMPRESS = 4500
 DEFAULT_KEEP_RECENT_TURNS = 3
 
 # Micro-compaction thresholds for LangChain messages (P0)
-_LC_TOOL_RESULT_THRESHOLD = 2000
+_LC_TOOL_RESULT_THRESHOLD = 1200
 _LC_ASSISTANT_MSG_THRESHOLD = 3000
 _LC_CODE_BLOCK_RE = re.compile(r"```(\w*)\n(.*?)```", re.DOTALL)
 _LC_MICRO_COMPACT_RECENT_TURNS = 3

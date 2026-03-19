@@ -105,7 +105,7 @@ export function EnhancedAIChatPanel({
   // Keep ref in sync with state so handleSend reads latest value without re-creating
   inputValueRef.current = input;
 
-  const { isTyping: isAiTyping, aiStatus, streamChat, stopStream, pendingConfirmation, pendingQuestion, confirmAndResend, answerQuestion, dismissConfirmation, dismissQuestion } = useAIStream({ userId: user.id });
+  const { isTyping: isAiTyping, aiStatus, streamChat, stopStream, pendingConfirmation, pendingQuestion, circuitBreak, confirmAndResend, answerQuestion, dismissConfirmation, dismissQuestion, dismissCircuitBreak } = useAIStream({ userId: user.id });
 
   const { trace, startTrace, endTrace, addThinkingStep, clearTrace } = useAgentTrace();
   const [showTrace, setShowTrace] = useState(false);
@@ -668,6 +668,8 @@ export function EnhancedAIChatPanel({
               pendingQuestion={pendingQuestion}
               answerQuestion={answerQuestion}
               dismissQuestion={dismissQuestion}
+              circuitBreak={circuitBreak}
+              dismissCircuitBreak={dismissCircuitBreak}
               showTrace={showTrace}
               setShowTrace={setShowTrace}
               trace={trace}

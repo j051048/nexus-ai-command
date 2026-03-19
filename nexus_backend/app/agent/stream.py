@@ -188,6 +188,24 @@ def _sse_ask_user(question: str, options: list[str] | None = None, context: str 
     )
 
 
+_CIRCUIT_BREAK_SUGGESTIONS = {
+    "loop_detected": "AI 检测到重复操作模式，请尝试用更具体的描述重新提问。",
+    "max_iterations": "本次推理已达到最大步数限制，请简化问题或拆分为多个小任务。",
+}
+
+
+def _sse_circuit_break(reason: str) -> str:
+    """Emit a circuit break event when the agent hits a safety limit."""
+    return _sse_data(
+        {
+            "circuit_break": {
+                "reason": reason,
+                "suggestion": _CIRCUIT_BREAK_SUGGESTIONS.get(reason, "请尝试重新描述您的需求。"),
+            }
+        }
+    )
+
+
 async def run_agent_stream(
     messages: list[dict],
     config: dict,
@@ -435,6 +453,7 @@ async def run_agent_stream(
     all_thinking_steps: list[ThinkingStep] = []
     streamed_plan_content = False  # Track whether plan tokens were already streamed
     streamed_plan_text = ""  # Track what was streamed during plan phase
+    _graph_start_time = time.time()
 
     # Checkpointer corrupt state detection keywords
     corrupt_state_keywords = ("deserializ", "pickle", "ToolCallRecord", "unmarshal", "decode", "SerializationError")
@@ -810,12 +829,21 @@ async def run_agent_stream(
         )
 
     # ── 7. Emit thinking chain completion ──
+    from app.core.ai_metrics import record_llm_latency
+    _graph_elapsed_ms = (time.time() - _graph_start_time) * 1000
+    record_llm_latency(agent_config.model, _graph_elapsed_ms)
+
     yield _sse_data(
         {
             "thinking_chain_complete": True,
             "total_steps": len(all_thinking_steps),
         }
     )
+
+    # ── 7.1 Circuit break event — structured notification for frontend ──
+    _cb_reason = accumulated_state.get("circuit_break_reason")
+    if _cb_reason:
+        yield _sse_circuit_break(_cb_reason)
 
     # ── 7.5 HITL: Emit confirmation request if any tools were blocked ──
     # Skip when system_confirmed=True — old blocked records from the first
@@ -929,7 +957,7 @@ async def run_agent_stream(
             org_id=agent_config.org_id,
             completed_tool_calls=raw_tool_calls or None,
             skip_cache=has_confirmation or bool(accumulated_state.get("error")),
-            skip_semantic=_is_simple,
+            skip_semantic=False,  # SIMPLE queries are ideal cache candidates
         )
     )
 
