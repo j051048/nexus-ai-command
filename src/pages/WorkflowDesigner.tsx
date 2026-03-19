@@ -113,7 +113,7 @@ export function WorkflowDesigner() {
 
     const definition = canvasRef.current.getWorkflowData();
 
-    if (definition.steps.length === 0) {
+    if (definition.steps.filter((s) => s.type !== 'initiator' && s.type !== 'end').length === 0) {
       toast.error('请至少添加一个流程节点');
       return;
     }

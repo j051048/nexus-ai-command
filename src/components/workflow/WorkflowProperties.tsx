@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { Node } from '@xyflow/react';
-import { Settings2 } from 'lucide-react';
+import { Settings2, UserCircle2, CircleCheckBig } from 'lucide-react';
 import { useWorkflows } from '@/hooks/useWorkflows';
 
 interface WorkflowPropertiesProps {
@@ -56,7 +56,48 @@ export function WorkflowProperties({ selectedNode, onNodeUpdate }: WorkflowPrope
         <CardTitle className="text-sm font-medium">节点属性</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 pt-0">
-        {/* 通用: 标签名称 */}
+        {/* 发起人节点 — 只读说明 */}
+        {nodeType === 'initiator' && (
+          <div className="flex flex-col items-center text-center py-4 space-y-3">
+            <div className="p-3 rounded-full bg-green-500/10">
+              <UserCircle2 className="w-8 h-8 text-green-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">发起人节点</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                流程的起始点。员工提交审批申请后，流程从此节点开始流转。
+              </p>
+            </div>
+            <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 w-full text-left space-y-1">
+              <p>· 此节点不可删除</p>
+              <p>· 从底部连接点拖出连线到下一个节点</p>
+              <p>· 支持通过 AI 助手语音发起审批</p>
+            </div>
+          </div>
+        )}
+
+        {/* 结束节点 — 只读说明 */}
+        {nodeType === 'end' && (
+          <div className="flex flex-col items-center text-center py-4 space-y-3">
+            <div className="p-3 rounded-full bg-red-500/10">
+              <CircleCheckBig className="w-8 h-8 text-red-500" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">结束节点</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                流程的终止点。审批流转到此节点后，整个流程完成。
+              </p>
+            </div>
+            <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 w-full text-left space-y-1">
+              <p>· 此节点不可删除</p>
+              <p>· 将最后一个审批/通知节点连线到此处</p>
+              <p>· 流程结束后会自动通知发起人</p>
+            </div>
+          </div>
+        )}
+
+        {/* 通用: 标签名称（起止节点不显示） */}
+        {nodeType !== 'initiator' && nodeType !== 'end' && (
         <div className="space-y-1.5">
           <Label className="text-xs">节点名称</Label>
           <Input
@@ -66,6 +107,7 @@ export function WorkflowProperties({ selectedNode, onNodeUpdate }: WorkflowPrope
             className="h-8 text-sm"
           />
         </div>
+        )}
 
         {/* 审批人节点 */}
         {nodeType === 'approver' && (

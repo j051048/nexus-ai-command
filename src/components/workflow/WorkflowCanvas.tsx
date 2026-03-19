@@ -31,12 +31,15 @@ import { NotifyNode } from './nodes/NotifyNode';
 import { CcNotifyNode } from './nodes/CcNotifyNode';
 import { TimerNode } from './nodes/TimerNode';
 import { SubWorkflowNode } from './nodes/SubWorkflowNode';
+import { InitiatorNode } from './nodes/InitiatorNode';
+import { EndNode } from './nodes/EndNode';
 
 import type { WorkflowStep, WorkflowCondition, WorkflowDefinition } from '@/hooks/useWorkflows';
 
 // ---- Custom node type mapping ----
 
 const nodeTypes: NodeTypes = {
+  initiator: InitiatorNode,
   approver: ApproverNode,
   condition: ConditionNode,
   parallel: ParallelNode,
@@ -45,7 +48,29 @@ const nodeTypes: NodeTypes = {
   cc_notify: CcNotifyNode,
   timer: TimerNode,
   sub_workflow: SubWorkflowNode,
+  end: EndNode,
 };
+
+// Fixed node types that cannot be deleted or created via drag
+const FIXED_NODE_TYPES = new Set(['initiator', 'end']);
+
+// Default initial nodes for new workflows
+const INITIAL_NODES: Node[] = [
+  {
+    id: 'initiator',
+    type: 'initiator',
+    position: { x: 250, y: 30 },
+    data: { label: '发起人' },
+    deletable: false,
+  },
+  {
+    id: 'end',
+    type: 'end',
+    position: { x: 250, y: 500 },
+    data: { label: '结束' },
+    deletable: false,
+  },
+];
 
 // ---- Default data for new nodes ----
 
@@ -165,7 +190,7 @@ function getNodeId() {
 export const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>(
   function WorkflowCanvas({ onNodeSelect, onNodeUpdate }, ref) {
     const reactFlowWrapper = useRef<HTMLDivElement>(null);
-    const [nodes, setNodes, onNodesChange] = useNodesState([]);
+    const [nodes, setNodes, onNodesChange] = useNodesState(INITIAL_NODES);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
     const reactFlowInstance = useRef<ReturnType<typeof import('@xyflow/react').useReactFlow> | null>(null);
 
@@ -177,7 +202,17 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>
       }),
       loadWorkflowData: (definition: WorkflowDefinition) => {
         if (definition?.steps) {
-          setNodes(stepsToNodes(definition.steps));
+          const loaded = stepsToNodes(definition.steps);
+          // Ensure initiator and end nodes exist (backward compat)
+          const hasInitiator = loaded.some((n) => n.type === 'initiator');
+          const hasEnd = loaded.some((n) => n.type === 'end');
+          if (!hasInitiator) loaded.unshift({ ...INITIAL_NODES[0] });
+          if (!hasEnd) loaded.push({ ...INITIAL_NODES[1] });
+          // Mark fixed nodes as non-deletable
+          for (const n of loaded) {
+            if (FIXED_NODE_TYPES.has(n.type || '')) n.deletable = false;
+          }
+          setNodes(loaded);
         }
         if (definition?.conditions) {
           setEdges(conditionsToEdges(definition.conditions));
@@ -212,10 +247,21 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>
     const isValidConnection = useCallback(
       (connection: Connection) => {
         const sourceNode = nodes.find((n) => n.id === connection.source);
-        if (!sourceNode) return false;
+        const targetNode = nodes.find((n) => n.id === connection.target);
+        if (!sourceNode || !targetNode) return false;
+
+        // End node cannot be a source
+        if (sourceNode.type === 'end') return false;
+        // Initiator node cannot be a target
+        if (targetNode.type === 'initiator') return false;
 
         // Count existing edges from source
         const sourceEdges = edges.filter((e) => e.source === connection.source);
+
+        // Initiator: max 1 outgoing
+        if (sourceNode.type === 'initiator' && sourceEdges.length >= 1) {
+          return false;
+        }
 
         // Condition nodes: max 2 outgoing (yes/no)
         if (sourceNode.type === 'condition' && sourceEdges.length >= 2) {
@@ -279,7 +325,7 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>
         event.preventDefault();
 
         const nodeType = event.dataTransfer.getData('application/reactflow');
-        if (!nodeType || !DEFAULT_NODE_DATA[nodeType]) return;
+        if (!nodeType || !DEFAULT_NODE_DATA[nodeType] || FIXED_NODE_TYPES.has(nodeType)) return;
 
         const wrapperBounds = reactFlowWrapper.current?.getBoundingClientRect();
         if (!wrapperBounds) return;
@@ -309,8 +355,23 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>
     // But since the parent already has access to setNodes indirectly via this
     // component, we'll handle it by watching for external node update calls.
 
+    // Whether canvas only has fixed nodes (empty state)
+    const isEmptyCanvas = nodes.every((n) => FIXED_NODE_TYPES.has(n.type || ''));
+
     return (
-      <div ref={reactFlowWrapper} className="flex-1 h-full">
+      <div ref={reactFlowWrapper} className="flex-1 h-full relative">
+        {isEmptyCanvas && (
+          <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+            <div className="border-2 border-dashed border-muted-foreground/25 rounded-xl px-8 py-6 text-center bg-background/60 backdrop-blur-sm">
+              <p className="text-sm font-medium text-muted-foreground mb-1">
+                从左侧拖入节点，连线构建审批流程
+              </p>
+              <p className="text-xs text-muted-foreground/70">
+                将发起人节点连接到审批节点，最后连接到结束节点
+              </p>
+            </div>
+          </div>
+        )}
         <ReactFlow
           nodes={nodes}
           edges={edges}

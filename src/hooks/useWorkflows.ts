@@ -7,7 +7,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export interface WorkflowStep {
   id: string;
-  type: 'approver' | 'condition' | 'parallel' | 'auto_approve' | 'notify' | 'cc_notify' | 'timer' | 'sub_workflow';
+  type: 'initiator' | 'approver' | 'condition' | 'parallel' | 'auto_approve' | 'notify' | 'cc_notify' | 'timer' | 'sub_workflow' | 'end';
   label: string;
   config: Record<string, unknown>;
   position: { x: number; y: number };
