@@ -91,7 +91,7 @@ async def check_expiring_contracts():
             await supabase.table("notifications").insert({
                 "user_id": notify_user_id,
                 "title": f"[{urgency}] 合同即将到期",
-                "body": f"合同「{contract['title']}」将于 {contract['end_date']} 到期（剩余 {days_left} 天），请及时跟进续约。",
+                "content": f"合同「{contract['title']}」将于 {contract['end_date']} 到期（剩余 {days_left} 天），请及时跟进续约。",
                 "type": "warning",
                 "action_url": f"/contracts/{contract['id']}",
                 "organization_id": contract.get("organization_id"),
@@ -168,7 +168,7 @@ async def check_inactive_customers():
             await supabase.table("notifications").insert({
                 "user_id": customer["assigned_to"],
                 "title": "客户跟进提醒",
-                "body": f"客户「{customer['name']}」已超过 {days_inactive} 天无跟进记录，建议尽快联系维护关系。",
+                "content": f"客户「{customer['name']}」已超过 {days_inactive} 天无跟进记录，建议尽快联系维护关系。",
                 "type": "info",
                 "action_url": f"/crm/customers/{customer['id']}",
                 "organization_id": customer.get("organization_id"),
@@ -260,7 +260,7 @@ async def check_data_consistency():
                 await supabase.table("notifications").insert({
                     "user_id": admin["id"],
                     "title": "数据一致性预警",
-                    "body": alert["message"],
+                    "content": alert["message"],
                     "type": "warning",
                     "action_url": "/dashboard",
                     "organization_id": admin.get("organization_id"),
