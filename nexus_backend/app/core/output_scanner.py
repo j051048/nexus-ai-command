@@ -135,7 +135,7 @@ _SQL_INJECTION_PATTERNS: list[tuple[str, str]] = [
     (r"(?i)(?:UNION\s+(?:ALL\s+)?SELECT)", "[SQL注入已过滤]"),
     (r"(?i)(?:;\s*DROP\s+TABLE)", "[SQL注入已过滤]"),
     (r"(?i)(?:;\s*DELETE\s+FROM\s+\w+\s*(?:;|$|WHERE\s+1\s*=\s*1))", "[SQL注入已过滤]"),
-    (r"(?i)(?:--\s*$|/\*.*?\*/)", "[SQL注入已过滤]"),
+    (r"(?i)(?:['\)]\s*--\s*$|/\*.*?\*/)", "[SQL注入已过滤]"),
     (r"(?i)(?:'\s*;\s*(?:INSERT|UPDATE|ALTER|CREATE|EXEC))", "[SQL注入已过滤]"),
 ]
 
