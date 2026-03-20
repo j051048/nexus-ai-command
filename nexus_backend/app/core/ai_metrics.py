@@ -134,6 +134,20 @@ def record_hallucination(detection_layer: str) -> None:
     _hallucination_detected.add(1, attributes={"detection_layer": detection_layer})
 
 
+def record_cache_hit(cache_type: str = "semantic") -> None:
+    """Increment the cache hit counter."""
+    if not _otel_available:
+        return
+    _cache_hit.add(1, attributes={"type": cache_type})
+
+
+def record_cache_miss(cache_type: str = "semantic") -> None:
+    """Increment the cache miss counter."""
+    if not _otel_available:
+        return
+    _cache_miss.add(1, attributes={"type": cache_type})
+
+
 # ---------------------------------------------------------------------------
 # Tool success rate sliding window alert
 # ---------------------------------------------------------------------------

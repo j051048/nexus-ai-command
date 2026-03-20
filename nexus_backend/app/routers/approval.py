@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
@@ -22,9 +22,18 @@ router = APIRouter(prefix="/api/approval", tags=["Approval"])
 
 class SubmitWithFormRequest(BaseModel):
     type: str  # 审批类型
-    amount: float
+    amount: float = Field(default=0.0, ge=0)
     details: str
     form_data: dict[str, Any] = {}
+
+    @field_validator("amount", mode="before")
+    @classmethod
+    def validate_amount(cls, v):
+        if v is None or v == "": return 0.0
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return 0.0
 
 
 class AdvanceDecisionRequest(BaseModel):
@@ -38,9 +47,18 @@ class SmartSubmitRequest(BaseModel):
     """智能提交审批请求 - 自动匹配工作流链"""
 
     type: str = Field(..., description="审批类型")
-    amount: float = Field(..., gt=0, description="金额")
+    amount: float = Field(default=0.0, ge=0, description="金额")
     description: str = Field(..., min_length=1, description="申请说明")
     form_data: dict[str, Any] = Field(default_factory=dict, description="表单数据")
+    
+    @field_validator("amount", mode="before")
+    @classmethod
+    def validate_amount(cls, v):
+        if v is None or v == "": return 0.0
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return 0.0
 
 
 # ============== Endpoints ==============

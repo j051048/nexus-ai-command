@@ -43,15 +43,21 @@ class ApprovalRequest(BaseModel):
     requester_id: str | None = None  # Can be inferred from token
     request_id: str | None = None
     type: str = Field(..., min_length=1, max_length=50, description="审批类型代码")
-    amount: float = Field(..., gt=0, description="Monetary amount involved")
+    amount: float = Field(default=0.0, ge=0, description="Monetary amount involved")
     details: str = Field(..., min_length=5, description="Description of the request")
 
-    @field_validator("amount")
+    @field_validator("amount", mode="before")
     @classmethod
     def validate_amount(cls, v):
-        if v <= 0:
-            raise ValueError("Amount must be positive")
-        return v
+        if v is None or v == "":
+            return 0.0
+        try:
+            val = float(v)
+            if val < 0:
+                raise ValueError("Amount cannot be negative")
+            return val
+        except (TypeError, ValueError):
+            return 0.0
 
 
 class ApprovalDecision(BaseModel):

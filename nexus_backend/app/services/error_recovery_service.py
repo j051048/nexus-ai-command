@@ -362,6 +362,7 @@ class CircuitBreaker:
         # #18: Optional Redis state sharing across workers
         self._redis_sync = redis_sync
         self._redis_key = f"tool_cb:{name}" if redis_sync else None
+        self._pending_remote_state: dict | None = None  # buffered Redis fetch result
 
     @property
     def state(self) -> CircuitState:
@@ -422,32 +423,60 @@ class CircuitBreaker:
             from app.services.cache_service import cache_service
             if cache_service and self._redis_key:
                 import json as _json
+                import asyncio
                 data = _json.dumps({
                     "state": self._state.value,
                     "failure_count": self._failure_count,
                     "last_failure_time": self._last_failure_time,
                 })
-                cache_service.set(self._redis_key, data, ttl=600)
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(cache_service.set(self._redis_key, data, ttl=600))
+                except RuntimeError:
+                    pass
         except Exception:
             pass  # Redis unavailable — degrade to process-local
 
     def _pull_from_redis(self):
-        """Pull latest state from Redis (other workers may have updated)."""
+        """Pull latest state from Redis (other workers may have updated).
+
+        Uses a two-phase pattern because this is called from a sync property:
+        1. Apply any previously fetched remote state (synchronous, instant)
+        2. Schedule a background fetch for the NEXT call (fire-and-forget)
+        This means data lags by one call, which is acceptable for circuit breakers.
+        """
+        # Phase 1: Apply buffered result from previous background fetch
+        pending = self._pending_remote_state
+        if pending is not None:
+            self._pending_remote_state = None
+            remote_failures = pending.get("failure_count", 0)
+            if remote_failures > self._failure_count:
+                self._failure_count = remote_failures
+                self._last_failure_time = pending.get("last_failure_time", self._last_failure_time)
+                remote_state = pending.get("state", "closed")
+                if remote_state == "open" and self._state == CircuitState.CLOSED:
+                    self._state = CircuitState.OPEN
+
+        # Phase 2: Schedule background fetch for next call
         try:
             from app.services.cache_service import cache_service
             if cache_service and self._redis_key:
                 import json as _json
-                raw = cache_service.get(self._redis_key)
-                if raw:
-                    data = _json.loads(raw)
-                    remote_failures = data.get("failure_count", 0)
-                    # Only update if remote has MORE failures (converge on worst case)
-                    if remote_failures > self._failure_count:
-                        self._failure_count = remote_failures
-                        self._last_failure_time = data.get("last_failure_time", self._last_failure_time)
-                        remote_state = data.get("state", "closed")
-                        if remote_state == "open" and self._state == CircuitState.CLOSED:
-                            self._state = CircuitState.OPEN
+                import asyncio
+
+                async def _fetch():
+                    try:
+                        raw = await cache_service.get(self._redis_key)
+                        if raw:
+                            self._pending_remote_state = _json.loads(raw)
+                    except Exception:
+                        pass
+
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(_fetch())
+                except RuntimeError:
+                    pass  # No event loop — skip Redis sync
         except Exception:
             pass  # Redis unavailable — use local state
 
