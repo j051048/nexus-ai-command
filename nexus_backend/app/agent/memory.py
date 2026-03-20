@@ -401,24 +401,39 @@ class QueryTransformer:
             logger.warning(f"Multi-query expansion failed: {e}", exc_info=True)
             return [query]
 
-    async def rewrite_query(self, query: str) -> str:
+    async def rewrite_query(self, query: str, messages: list[dict] | None = None) -> str:
         """
         Rewrite query for better semantic matching.
+        Supports context-aware rewriting with recent conversation history.
         """
         llm = await self._get_llm()
         if not llm:
             return query
 
-        prompt = f"""请将以下问题重写为更适合检索的形式。
+        # 构建对话上下文（最近 3 轮）用于代词消解
+        context_block = ""
+        if messages:
+            recent = messages[-6:]  # 最近 3 轮（每轮 user+assistant）
+            context_lines = []
+            for msg in recent:
+                role = msg.get("role", "")
+                content = (msg.get("content") or "")[:150]
+                if role in ("user", "assistant") and content:
+                    context_lines.append(f"{'用户' if role == 'user' else 'AI'}: {content}")
+            if context_lines:
+                context_block = "\n对话上下文:\n" + "\n".join(context_lines) + "\n"
 
+        prompt = f"""请将以下问题重写为更适合检索的形式。
+{context_block}
 原问题: {query}
 
 要求:
 1. 保留核心信息需求
 2. 使用更标准、更清晰的表达
 3. 移除口语化表达
-4. 添加可能的关键词
-5. 直接输出重写后的问题
+4. 如果问题中有代词（那个/这个/上次/之前），根据上下文替换为具体指代内容
+5. 添加可能的关键词
+6. 直接输出重写后的问题
 
 重写后的问题:"""
 
@@ -437,6 +452,51 @@ class QueryTransformer:
             return query
 
 
+async def _llm_rerank(query: str, docs: list[dict], config: "AgentConfig", top_k: int = 3) -> list[dict]:
+    """用 mini_model 对 RAG 文档打相关性分（0-10），取 top_k。
+
+    超时 5s，失败返回原始 docs。
+    """
+    if len(docs) <= top_k:
+        return docs
+
+    import asyncio as _asyncio
+    from openai import AsyncOpenAI
+
+    try:
+        client = AsyncOpenAI(api_key=config.api_key, base_url=config.base_url)
+        doc_list = "\n".join(
+            f"[{i}] {doc.get('content', '')[:200]}"
+            for i, doc in enumerate(docs)
+        )
+        prompt = (
+            f"用户问题: {query}\n\n"
+            f"以下是检索到的文档片段，请对每个片段与用户问题的相关性打分（0-10），"
+            f"只输出 JSON 数组，格式如 [8, 3, 7, ...]:\n\n{doc_list}"
+        )
+        resp = await _asyncio.wait_for(
+            client.chat.completions.create(
+                model=config.mini_model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=100,
+                temperature=0,
+            ),
+            timeout=5.0,
+        )
+        import json as _json, re as _re
+        raw = resp.choices[0].message.content.strip()
+        arr_match = _re.search(r"\[[\d\s,\.]+\]", raw)
+        if arr_match:
+            scores = _json.loads(arr_match.group())
+            if len(scores) == len(docs):
+                ranked = sorted(zip(scores, docs), key=lambda x: x[0], reverse=True)
+                return [doc for _, doc in ranked[:top_k]]
+    except Exception as e:
+        logger.debug(f"[LLMRerank] Failed, returning original docs: {e}")
+
+    return docs[:top_k]
+
+
 async def prepare_initial_state(
     raw_messages: list[dict[str, str]],
     system_prompt: str,
@@ -444,6 +504,7 @@ async def prepare_initial_state(
     db_client: Any | None = None,
     *,
     skip_semantic: bool = False,
+    state: dict | None = None,
 ) -> dict[str, Any]:
     """
     Build the initial state components for the agent graph.
@@ -501,11 +562,36 @@ async def prepare_initial_state(
             # Initialize query transformer
             transformer = QueryTransformer(config)
 
-            # Determine transformation strategy based on config
-            # HyDE is expensive; only enable by default for the knowledge agent
+            # Determine transformation strategy — adaptive by complexity
             is_knowledge_agent = getattr(config, "agent_name", "") in ("knowledge", "knowledge_base")
             use_hyde = getattr(config, "use_hyde", is_knowledge_agent)
             use_multi_query = getattr(config, "use_multi_query", is_knowledge_agent)
+
+            # 按复杂度自动升级（config 显式设置优先）
+            complexity = state.get("complexity") if state else None
+            if not getattr(config, "_query_transform_override", False) and complexity:
+                from app.agent.node_helpers import QueryComplexity
+                if complexity == QueryComplexity.CRITICAL:
+                    use_hyde = True
+                    use_multi_query = True
+                elif complexity == QueryComplexity.COMPLEX:
+                    use_multi_query = True
+                # SIMPLE/MODERATE: 保持默认，跳过变换以降低延迟
+
+            # ── 上下文感知 Query Rewriting（COMPLEX/CRITICAL + 含代词） ──
+            _pronoun_hints = ("那个", "这个", "上次", "之前", "它", "他们", "她")
+            _needs_rewrite = (
+                complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL)
+                and (len(last_user_msg) >= 10 or any(p in last_user_msg for p in _pronoun_hints))
+            ) if complexity else False
+            if _needs_rewrite:
+                try:
+                    rewritten = await transformer.rewrite_query(last_user_msg, messages=raw_messages)
+                    if rewritten and rewritten != last_user_msg:
+                        logger.info(f"[Memory] Query rewritten: '{last_user_msg[:40]}' → '{rewritten[:40]}'")
+                        last_user_msg = rewritten
+                except Exception as e:
+                    logger.debug(f"[Memory] Query rewrite failed: {e}")
 
             all_docs = []
 
@@ -564,6 +650,14 @@ async def prepare_initial_state(
                     if content_hash not in seen_content:
                         seen_content.add(content_hash)
                         unique_docs.append(doc)
+
+                # LLM Reranking: COMPLEX/CRITICAL 查询用 mini_model 重排
+                if complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL) and len(unique_docs) > 3:
+                    try:
+                        unique_docs = await _llm_rerank(last_user_msg, unique_docs, config, top_k=5)
+                        logger.info(f"[Memory] LLM reranked {len(unique_docs)} docs")
+                    except Exception as e:
+                        logger.debug(f"[Memory] LLM rerank skipped: {e}")
 
                 # Limit per-snippet and total context length (OpenClaw-inspired)
                 max_snippet_chars = 700   # Per-document snippet limit

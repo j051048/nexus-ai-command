@@ -349,6 +349,7 @@ async def run_agent_stream(
     # Also gate RAG for MODERATE queries: only enable when query suggests
     # the user needs information from uploaded documents / knowledge base.
     _is_simple = False
+    early_complexity = None
     if last_user_content:
         from app.agent.router import classify_query, _should_enable_rag
 
@@ -372,6 +373,7 @@ async def run_agent_stream(
         agent_config,
         db_client=db_client,
         skip_semantic=_is_simple,
+        state={"complexity": early_complexity} if early_complexity else None,
     )
     lc_messages = prep_result["messages"]
     cached_response = prep_result["cached_response"]

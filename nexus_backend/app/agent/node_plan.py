@@ -33,6 +33,66 @@ from app.agent.node_helpers import (
 from app.services.plugin_system_service import ExtensionPoint
 
 
+async def _plan_with_self_consistency(
+    lc_msgs: list,
+    config: "AgentConfig",
+    model: str | None,
+    tool_schemas: list | None,
+    resolved_config: dict | None = None,
+    n: int = 3,
+):
+    """CRITICAL 查询多次采样 + 工具组合投票，选最一致的方案。
+
+    使用 temperature=0.7 多次调用，提取每次的 tool_calls 列表，
+    用 Counter 投票选工具组合一致性最高的方案。
+    """
+    from collections import Counter
+    from langchain_openai import ChatOpenAI
+
+    samples = []
+    for i in range(n):
+        try:
+            # 直接创建 LLM 实例，覆盖 temperature 为 0.7
+            sample_llm = ChatOpenAI(
+                model=(resolved_config or {}).get("model") or model or config.model,
+                api_key=(resolved_config or {}).get("api_key") or config.api_key,
+                base_url=(resolved_config or {}).get("base_url") or config.base_url,
+                temperature=0.7,
+                streaming=False,
+                timeout=30.0,
+            )
+            if tool_schemas:
+                sample_llm = sample_llm.bind_tools(tool_schemas, parallel_tool_calls=True)
+            result = await asyncio.wait_for(
+                sample_llm.ainvoke(lc_msgs),
+                timeout=30,
+            )
+            samples.append(result)
+        except Exception as e:
+            logger.debug(f"[SelfConsistency] Sample {i+1}/{n} failed: {e}")
+
+    if not samples:
+        return None  # 全部失败，退回单次调用
+
+    # 按工具组合签名投票
+    def _tool_signature(msg) -> str:
+        calls = getattr(msg, "tool_calls", None) or []
+        names = sorted(tc.get("name", "") if isinstance(tc, dict) else getattr(tc, "name", "") for tc in calls)
+        return "|".join(names) if names else "__no_tools__"
+
+    sigs = [_tool_signature(s) for s in samples]
+    counter = Counter(sigs)
+    best_sig, _count = counter.most_common(1)[0]
+
+    # 选该签名的第一个样本
+    for s, sig in zip(samples, sigs):
+        if sig == best_sig:
+            logger.info(f"[SelfConsistency] Selected tool combination: {best_sig} (votes: {_count}/{n})")
+            return s
+
+    return samples[0]
+
+
 async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> dict:
     """
     Call the LLM with the current messages + tool schemas.
@@ -137,6 +197,21 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             # 独立 SystemMessage，避免 Prompt Bloat（不再 append 到主 system prompt）
             lc_msgs.insert(1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
                            SystemMessage(content=f"[角色与工具]\n{injection}"))
+
+        # ── CoT 推理框架: 仅 COMPLEX/CRITICAL 注入，降低简单查询延迟 ──
+        if complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL):
+            cot_prompt = (
+                "[推理框架]\n"
+                "在调用任何工具之前，请先在内心完成以下推理步骤：\n"
+                "1. 意图解析：用户真正想要什么？有无隐含需求？\n"
+                "2. 信息缺口：回答这个问题还缺哪些数据？\n"
+                "3. 工具规划：需要调用哪些工具、以什么顺序？\n"
+                "4. 风险评估：操作是否不可逆？是否需要用户确认？\n"
+                "5. 验收标准：怎样的回复才算完整解决了用户问题？\n"
+                "请直接执行，无需在回复中展示推理过程。"
+            )
+            insert_pos = 2 if len(lc_msgs) > 1 else len(lc_msgs)
+            lc_msgs.insert(insert_pos, SystemMessage(content=cot_prompt))
 
         # Few-shot example injection — scene/intent-aware style demonstrations
         try:
@@ -355,41 +430,57 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     else:
         tool_schemas = _get_tool_schemas(agent_config.user_role, intent_summary=state.get("intent_summary", ""), scene_code=state.get("scene_code"), intent_domains=state.get("intent_domains"))
     last_error = None
-    for attempt in range(3):
-        try:
-            ai_msg = await invoke_with_fallback(
-                llm,
-                lc_msgs,
-                config=agent_config,
-                model=model,
-                streaming=True,
-                tool_schemas=tool_schemas,
-                complexity_tier=complexity.model_tier,
-            )
+    _sc_succeeded = False
+
+    # ── CRITICAL Self-Consistency: 多次采样投票（仅首轮） ──
+    if complexity == QueryComplexity.CRITICAL and iteration == 0:
+        sc_result = await _plan_with_self_consistency(
+            lc_msgs, agent_config, model, tool_schemas, resolved_config=resolved,
+        )
+        if sc_result is not None:
+            ai_msg = sc_result
             record_llm_latency(model=model or agent_config.model, duration_ms=(time.time() - _llm_start) * 1000)
             llm_circuit_breaker.record_success()
-            break
-        except Exception as e:
-            last_error = e
-            error_str = str(e).lower()
-            is_retryable = any(kw in error_str for kw in ("timeout", "timed out", "connection", "connect"))
-            if is_retryable and attempt < 2:
-                logger.warning(f"[PlanNode] LLM call timeout (attempt {attempt + 1}/3), retrying...")
-                await asyncio.sleep(1.0 * (attempt + 1))
-                continue
-            # Non-retryable error or final attempt — give up
-            llm_circuit_breaker.record_failure()
-            logger.error(f"[PlanNode] LLM call failed after {attempt + 1} attempts: {e}")
-            return {
-                "error": f"LLM 规划失败: {str(e)}",
-                "current_phase": AgentPhase.ERROR,
-                "thinking_steps": [
-                    ThinkingStep(
-                        phase=AgentPhase.PLANNING.value,
-                        content=f"⚠️ LLM 调用异常: {str(e)}",
-                    )
-                ],
-            }
+            _sc_succeeded = True
+        else:
+            logger.warning("[PlanNode] Self-Consistency failed, falling back to single invoke")
+
+    if not _sc_succeeded:
+        for attempt in range(3):
+            try:
+                ai_msg = await invoke_with_fallback(
+                    llm,
+                    lc_msgs,
+                    config=agent_config,
+                    model=model,
+                    streaming=True,
+                    tool_schemas=tool_schemas,
+                    complexity_tier=complexity.model_tier,
+                )
+                record_llm_latency(model=model or agent_config.model, duration_ms=(time.time() - _llm_start) * 1000)
+                llm_circuit_breaker.record_success()
+                break
+            except Exception as e:
+                last_error = e
+                error_str = str(e).lower()
+                is_retryable = any(kw in error_str for kw in ("timeout", "timed out", "connection", "connect"))
+                if is_retryable and attempt < 2:
+                    logger.warning(f"[PlanNode] LLM call timeout (attempt {attempt + 1}/3), retrying...")
+                    await asyncio.sleep(1.0 * (attempt + 1))
+                    continue
+                # Non-retryable error or final attempt — give up
+                llm_circuit_breaker.record_failure()
+                logger.error(f"[PlanNode] LLM call failed after {attempt + 1} attempts: {e}")
+                return {
+                    "error": f"LLM 规划失败: {str(e)}",
+                    "current_phase": AgentPhase.ERROR,
+                    "thinking_steps": [
+                        ThinkingStep(
+                            phase=AgentPhase.PLANNING.value,
+                            content=f"⚠️ LLM 调用异常: {str(e)}",
+                        )
+                    ],
+                }
 
     # Track usage (LangChain usually provides this in additional_kwargs or response_metadata)
     usage = ai_msg.response_metadata.get("token_usage", {})

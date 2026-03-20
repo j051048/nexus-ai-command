@@ -24,6 +24,38 @@ class ErrorType(StrEnum):
     FATAL = "fatal"              # Permission denied, not found, business rule conflict
 
 
+def _smart_truncate(result: str, max_chars: int = 2000) -> str:
+    """智能截断工具结果，保留结构完整性。
+
+    - 短文本直接返回
+    - 列表格式（>=5 条）: 保留前 5 条 + 摘要
+    - 其他: 保留首尾各一段 + 省略标记
+    """
+    if len(result) <= max_chars:
+        return result
+
+    # 检测列表格式: "- item" 或 "1. item"
+    list_pattern = re.compile(r"^(?:\s*[-•]\s+|\s*\d+\.\s+)", re.MULTILINE)
+    items = list_pattern.findall(result)
+    if len(items) >= 5:
+        lines = result.split("\n")
+        kept: list[str] = []
+        count = 0
+        for line in lines:
+            kept.append(line)
+            if list_pattern.match(line):
+                count += 1
+            if count >= 5:
+                break
+        total = len(items)
+        return "\n".join(kept) + f"\n\n... 共 {total} 条记录，已省略其余内容"
+
+    # 非列表: 首 1200 + 尾 600
+    head = max_chars * 3 // 5  # 1200
+    tail = max_chars - head     # 800
+    return result[:head] + f"\n\n[... 已省略 {len(result) - head - tail} 字符 ...]\n\n" + result[-tail:]
+
+
 # Patterns for error classification (compiled once)
 _RETRYABLE_PATTERNS = [
     re.compile(p, re.IGNORECASE) for p in [
@@ -187,6 +219,60 @@ from app.agent.node_helpers import (
     tool_circuit_breaker,
 )
 from app.services.plugin_system_service import ExtensionPoint
+
+
+def _topological_sort(pending: list) -> list[list]:
+    """按工具依赖关系分层排序（Kahn 算法）。
+
+    无依赖时退化为单层（行为不变）。
+    返回 list[list[ToolCallRecord]]，每层内部可并行执行。
+    """
+    if not pending:
+        return []
+
+    # 构建依赖图
+    name_to_records: dict[str, list] = {}
+    for r in pending:
+        name_to_records.setdefault(r.tool_name, []).append(r)
+
+    pending_names = {r.tool_name for r in pending}
+    in_degree: dict[str, int] = {r.tool_name: 0 for r in pending}
+    dependents: dict[str, set[str]] = {r.tool_name: set() for r in pending}
+
+    for r in pending:
+        tool = get_tool(r.tool_name)
+        if tool and tool.depends_on:
+            for dep in tool.depends_on:
+                if dep in pending_names:
+                    in_degree[r.tool_name] = in_degree.get(r.tool_name, 0) + 1
+                    dependents.setdefault(dep, set()).add(r.tool_name)
+
+    # Kahn 算法分层
+    layers: list[list] = []
+    queue = [name for name, deg in in_degree.items() if deg == 0]
+
+    visited: set[str] = set()
+    while queue:
+        layer_records = []
+        for name in queue:
+            layer_records.extend(name_to_records.get(name, []))
+            visited.add(name)
+        layers.append(layer_records)
+
+        next_queue = []
+        for name in queue:
+            for dep_name in dependents.get(name, set()):
+                in_degree[dep_name] -= 1
+                if in_degree[dep_name] == 0:
+                    next_queue.append(dep_name)
+        queue = next_queue
+
+    # 处理循环依赖：把未访问的放最后一层
+    remaining = [r for r in pending if r.tool_name not in visited]
+    if remaining:
+        layers.append(remaining)
+
+    return layers
 
 # ── Session-level Query Result Cache ─────────────────────────────────────────
 # Caches read-only (non-mutation) tool results within a session to avoid
@@ -589,11 +675,17 @@ async def execute_node(state: AgentState, config: RunnableConfig | None = None) 
     }
 
     try:
-        tasks = [_execute_single_tool(record, agent_config, shared_idempotency_cache, prior_completed) for record in pending]
-        completed: list[ToolCallRecord] = await asyncio.wait_for(
-            asyncio.gather(*tasks, return_exceptions=False),
-            timeout=gather_timeout,
-        )
+        layers = _topological_sort(pending)
+        completed: list[ToolCallRecord] = []
+        for layer in layers:
+            tasks = [_execute_single_tool(record, agent_config, shared_idempotency_cache, prior_completed) for record in layer]
+            layer_results: list[ToolCallRecord] = await asyncio.wait_for(
+                asyncio.gather(*tasks, return_exceptions=False),
+                timeout=gather_timeout,
+            )
+            completed.extend(layer_results)
+            # 更新 prior_completed 供下一层依赖检查
+            prior_completed.update(r.tool_name for r in layer_results if r.status == "success")
     except TimeoutError:
         logger.error(f"[ExecuteNode] Tool gather timed out after {gather_timeout}s")
         return {
@@ -625,7 +717,7 @@ async def execute_node(state: AgentState, config: RunnableConfig | None = None) 
     tool_messages = []
     result_steps = []
     for record in completed:
-        tool_content = (record.result or "")[:2000]
+        tool_content = _smart_truncate(record.result or "")
         # Indirect injection defense: scan tool output for injected instructions
         is_safe, _ = check_user_input(tool_content)
         if not is_safe:

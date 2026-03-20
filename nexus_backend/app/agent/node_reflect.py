@@ -26,6 +26,39 @@ from app.agent.node_helpers import (
 )
 
 
+def _normalize_number(text: str) -> float | None:
+    """将中文数字表达归一化为浮点数。
+
+    支持: 428万 → 4280000, 3.5亿 → 350000000, 4,280,000 → 4280000,
+          95.2% → 95.2, 12.5k → 12500, 2.1M → 2100000
+    """
+    text = text.strip().replace(",", "").replace("，", "")
+    _CN_UNITS = {"万": 1e4, "亿": 1e8, "千": 1e3, "百": 1e2}
+    _EN_UNITS = {"k": 1e3, "K": 1e3, "M": 1e6, "m": 1e6}
+
+    # 百分比: 95.2% → 95.2
+    m = re.match(r"^(\d+(?:\.\d+)?)%$", text)
+    if m:
+        return float(m.group(1))
+
+    # 中文单位: 428万
+    m = re.match(r"^(\d+(?:\.\d+)?)\s*([万亿千百])$", text)
+    if m:
+        return float(m.group(1)) * _CN_UNITS[m.group(2)]
+
+    # 英文缩写: 12.5k / 2.1M
+    m = re.match(r"^(\d+(?:\.\d+)?)\s*([kKmM])$", text)
+    if m:
+        return float(m.group(1)) * _EN_UNITS[m.group(2)]
+
+    # 纯数字
+    m = re.match(r"^(\d+(?:\.\d+)?)$", text)
+    if m:
+        return float(m.group(1))
+
+    return None
+
+
 async def _verify_tool_grounding(ai_response: str, tool_results: list) -> str | None:
     """
     P1 Fix: Verify that numerical data in AI response matches tool results.
@@ -51,30 +84,35 @@ async def _verify_tool_grounding(ai_response: str, tool_results: list) -> str | 
 
     clean_ai_response = _strip_dates(ai_response)
 
-    # Extract all numbers from AI response
-    ai_numbers = re.findall(r"\d+(?:\.\d+)?", clean_ai_response)
+    # Extract numbers from AI response — support Chinese units like 428万
+    _num_pattern = re.compile(r"\d+(?:,\d{3})*(?:\.\d+)?(?:[万亿千百kKmM%])?")
+    ai_raw_numbers = _num_pattern.findall(clean_ai_response)
+    ai_numbers = [(_normalize_number(n), n) for n in ai_raw_numbers if _normalize_number(n) is not None]
 
     # Get all numbers from tool results (also strip dates to avoid false positives)
-    tool_numbers = []
+    tool_numbers: list[float] = []
     for tool in tool_results:
         # P1 fix: Handle both ToolCallRecord objects and dicts
         result_text = tool.get("result", "") if isinstance(tool, dict) else getattr(tool, "result", "")
         if result_text:
             clean_result = _strip_dates(str(result_text))
-            tool_numbers.extend(re.findall(r"\d+(?:\.\d+)?", clean_result))
+            for raw in _num_pattern.findall(clean_result):
+                val = _normalize_number(raw)
+                if val is not None:
+                    tool_numbers.append(val)
 
     if not tool_numbers:
         return None  # No tool numbers to compare against
 
-    # Check if AI mentions numbers not in tool results
-    for num in ai_numbers:
+    # Check if AI mentions numbers not in tool results (semantic comparison)
+    for val, raw in ai_numbers:
         # Skip small numbers — commonly used in formatting, list indices, etc.
-        if float(num) < 10:
+        if val < 10:
             continue
         # Use ±10% relative tolerance for comparison
-        found = any(abs(float(num) - float(tn)) / max(float(tn), 1.0) < 0.10 for tn in tool_numbers)
+        found = any(abs(val - tn) / max(tn, 1.0) < 0.10 for tn in tool_numbers)
         if not found:
-            issues.append(f"数值 {num} 未见工具返回")
+            issues.append(f"数值 {raw} 未见工具返回")
 
     # Require at least 3 ungrounded numbers to flag (avoids noise from IDs, etc.)
     if len(issues) >= 3:
@@ -101,12 +139,17 @@ async def reflect_node(state: AgentState) -> dict:
     completed_tools = state.get("completed_tool_calls", [])
     reflection_count = state.get("reflection_count", 0)
 
-    # ── Item 33: Reflection Budget ──
-    # SIMPLE queries should never reach reflect (router skips them),
-    # but guard here as belt-and-suspenders.
-    max_reflections = 2
-    if complexity == QueryComplexity.SIMPLE:
-        max_reflections = 0
+    # ── Item 33: Adaptive Reflection Budget ──
+    _REFLECTION_BUDGET = {
+        QueryComplexity.SIMPLE: 0,
+        QueryComplexity.MODERATE: 1,
+        QueryComplexity.COMPLEX: 2,
+        QueryComplexity.CRITICAL: 3,
+    }
+    max_reflections = _REFLECTION_BUDGET.get(complexity, 2)
+    # 涉及不可逆操作时 +1（上限 4）
+    if any(getattr(tc, "is_irreversible", False) for tc in completed_tools):
+        max_reflections = min(max_reflections + 1, 4)
     if reflection_count >= max_reflections:
         logger.info(
             f"[ReflectNode] Reflection budget exhausted "
