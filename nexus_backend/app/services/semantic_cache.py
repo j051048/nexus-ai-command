@@ -357,4 +357,119 @@ class SemanticCacheService:
             logger.warning(f"Failed to atomically update cache hit count: {e}")
 
 
+    # ── Event-driven cache invalidation ──
+
+    async def invalidate_by_org(self, org_id: str) -> int:
+        """按 org_id 批量删除语义缓存条目（文档/业务数据变更时调用）。
+
+        Returns:
+            删除的缓存条目数量
+        """
+        if not supabase or not org_id:
+            return 0
+
+        deleted = 0
+        try:
+            # 1. 查出该 org 下的缓存条目（需要 user_ids 来清 Redis）
+            rows = (
+                await supabase.table("semantic_cache")
+                .select("id, query_text, user_id")
+                .eq("org_id", org_id)
+                .execute()
+            )
+            entries = rows.data or []
+            if not entries:
+                return 0
+
+            # 2. 批量删除 DB 中该 org 的所有缓存
+            await supabase.table("semantic_cache").delete().eq("org_id", org_id).execute()
+            deleted = len(entries)
+
+            # 3. 清除 Redis 热缓存
+            r = await self._get_redis()
+            if r:
+                try:
+                    keys_to_del = []
+                    for entry in entries:
+                        uid = entry.get("user_id")
+                        qt = entry.get("query_text")
+                        if uid and qt:
+                            qh = self._query_hash(qt)
+                            keys_to_del.append(_redis_cache_key(qh, uid))
+                    if keys_to_del:
+                        await r.delete(*keys_to_del)
+                except Exception:
+                    pass  # Redis failure is non-fatal
+
+            logger.info(f"[SemanticCache] Invalidated {deleted} entries for org={org_id}")
+
+        except Exception as e:
+            logger.warning(f"Failed to invalidate semantic cache for org={org_id}: {e}")
+
+        return deleted
+
+    async def invalidate_by_keywords(self, org_id: str, keywords: list[str]) -> int:
+        """按关键词靶向清理：删除 query_text 包含指定关键词的缓存条目。
+
+        用于特定业务实体变更（如合同金额更新）时精准失效相关查询。
+
+        Returns:
+            删除的缓存条目数量
+        """
+        if not supabase or not org_id or not keywords:
+            return 0
+
+        deleted = 0
+        try:
+            # 查出该 org 的缓存并在 Python 端过滤关键词
+            rows = (
+                await supabase.table("semantic_cache")
+                .select("id, query_text, user_id")
+                .eq("org_id", org_id)
+                .execute()
+            )
+            entries = rows.data or []
+            if not entries:
+                return 0
+
+            # 筛选包含任意关键词的条目
+            kw_lower = [k.lower() for k in keywords]
+            matched = [
+                e for e in entries
+                if any(k in (e.get("query_text") or "").lower() for k in kw_lower)
+            ]
+            if not matched:
+                return 0
+
+            # 逐条删除匹配的缓存
+            matched_ids = [e["id"] for e in matched]
+            await supabase.table("semantic_cache").delete().in_("id", matched_ids).execute()
+            deleted = len(matched_ids)
+
+            # 清除 Redis 热缓存
+            r = await self._get_redis()
+            if r:
+                try:
+                    keys_to_del = []
+                    for entry in matched:
+                        uid = entry.get("user_id")
+                        qt = entry.get("query_text")
+                        if uid and qt:
+                            keys_to_del.append(_redis_cache_key(self._query_hash(qt), uid))
+                    if keys_to_del:
+                        await r.delete(*keys_to_del)
+                except Exception:
+                    pass
+
+            logger.info(
+                f"[SemanticCache] Keyword-invalidated {deleted} entries "
+                f"for org={org_id}, keywords={keywords[:3]}"
+            )
+
+        except Exception as e:
+            logger.warning(f"Failed to keyword-invalidate cache: {e}")
+
+        return deleted
+
+
 semantic_cache_service = SemanticCacheService()

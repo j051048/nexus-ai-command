@@ -262,7 +262,7 @@ class AgentState(TypedDict, total=False):
       Config (1)   → config
       Error (3)    → error, error_recovery_attempted, error_recovery_level
       Token (2)    → total_input_tokens, total_output_tokens
-      Control (6)  → confirmation_pending, _tool_call_history,
+      Control (6)  → confirmation_pending, _tool_call_history, _loop_escape_attempted,
                       context_compacted_summary, _task_decomposition_done,
                       _task_steps, _active_step_index
       SLO (1)      → wall_clock_start
@@ -341,6 +341,7 @@ class AgentState(TypedDict, total=False):
 
     # ── Loop detection (P2) ──
     _tool_call_history: Annotated[list[str], operator.add]  # Fingerprint hashes per execute round
+    _loop_escape_attempted: bool  # True after first loop → strategy reset before circuit break
 
     # ── Context compaction (P0) ──
     context_compacted_summary: str  # Summary produced by compact_context pseudo-tool

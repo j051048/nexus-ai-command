@@ -11,6 +11,7 @@ This node reads the wbs_structure from state, then for each sub-task:
 """
 
 import asyncio
+import copy
 import logging
 import time
 
@@ -151,7 +152,8 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
         async def _run_task_with_semaphore(task_idx: int) -> dict:
             """Execute a single sub-task with retry, degradation, and concurrency control."""
             async with semaphore:
-                task = sub_tasks[task_idx]
+                # State isolation: deepcopy task dict to prevent concurrent mutation
+                task = copy.deepcopy(sub_tasks[task_idx])
                 agent_code = task.get("agent_code", "director_agent")
                 task_title = task.get("title", f"子任务{task_idx + 1}")
                 task_description = task.get("description", "")
@@ -164,6 +166,9 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
                     "title": task_title,
                 }
 
+                # State isolation: shallow-copy messages list (Message objects are immutable)
+                _messages_copy = list(state.get("messages", []))
+
                 # Attempt 1: Normal execution
                 try:
                     result, tokens_in, tokens_out, tool_calls_data = await _execute_sub_task(
@@ -173,7 +178,7 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
                         task_description=task_description,
                         dependencies=task.get("dependencies", []),
                         blackboard=blackboard,
-                        original_messages=state.get("messages", []),
+                        original_messages=_messages_copy,
                     )
                     return {
                         **_base_result,
@@ -195,7 +200,7 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
                         task_description=task_description,
                         dependencies=task.get("dependencies", []),
                         blackboard=blackboard,
-                        original_messages=state.get("messages", []),
+                        original_messages=_messages_copy,
                     )
                     return {
                         **_base_result,
@@ -219,7 +224,7 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
                         task_description=task_description,
                         dependencies=task.get("dependencies", []),
                         blackboard=blackboard,
-                        original_messages=state.get("messages", []),
+                        original_messages=_messages_copy,
                     )
                     return {
                         **_base_result,

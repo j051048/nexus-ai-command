@@ -184,9 +184,24 @@ def _after_execute(state: AgentState) -> str:
 
     # P2: Loop detection — prevent infinite plan→execute→plan cycles
     if _detect_loop(state):
+        if not state.get("_loop_escape_attempted"):
+            # First loop: inject strategy-reset guidance, give LLM one chance to try differently
+            logger.warning(
+                f"[Graph] Loop detected after {iteration} iterations, "
+                f"attempting strategy reset (escape chance)"
+            )
+            state["_loop_escape_attempted"] = True
+            state["reflection_guidance"] = (
+                "⚠️ 检测到工具调用循环。你之前的方案陷入了重复，请：\n"
+                "1. 分析为什么之前的工具调用没有取得进展\n"
+                "2. 尝试完全不同的方法或工具\n"
+                "3. 如果任务无法通过工具完成，直接基于已有信息生成回答"
+            )
+            return "plan"
+
+        # Second loop: real circuit break
         logger.warning(
-            f"[Graph] Loop detected after {iteration} iterations "
-            f"(same tool calls repeated {_GENERIC_REPEAT_THRESHOLD}x), forcing reflect"
+            f"[Graph] Loop persists after strategy reset (iter={iteration}), forcing circuit break"
         )
         # Set structured circuit break reason for frontend event
         state["circuit_break_reason"] = "loop_detected"

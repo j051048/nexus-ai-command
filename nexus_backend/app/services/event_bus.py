@@ -440,6 +440,48 @@ async def invalidate_org_cache(event: Event):
         logger.debug(f"org_id cache invalidation skipped: {e}")
 
 
+# ============== Event-driven Semantic Cache Invalidation ==============
+
+
+@on(EventType.DOCUMENT_PROCESSED.value)
+async def invalidate_cache_on_document_change(event: Event):
+    """文档处理完成后，失效该租户的语义缓存（防止旧知识库数据被缓存吐出）。"""
+    org_id = event.payload.get("org_id")
+    if not org_id:
+        return
+    try:
+        from app.services.semantic_cache import semantic_cache_service
+
+        count = await semantic_cache_service.invalidate_by_org(org_id)
+        logger.info(f"[EventBus] Semantic cache invalidated on document change: org={org_id}, deleted={count}")
+    except Exception as e:
+        logger.warning(f"[EventBus] Semantic cache invalidation failed: {e}")
+
+
+@on(EventType.CACHE_INVALIDATED.value)
+async def handle_cache_invalidation(event: Event):
+    """通用缓存失效事件处理器（供其他服务主动触发 emit('cache.invalidated', ...)）。
+
+    payload 支持:
+        org_id (str): 必需，要失效的租户 ID
+        keywords (list[str]): 可选，靶向关键词（精准失效包含这些词的缓存）
+    """
+    org_id = event.payload.get("org_id")
+    if not org_id:
+        return
+    try:
+        from app.services.semantic_cache import semantic_cache_service
+
+        keywords = event.payload.get("keywords", [])
+        if keywords:
+            count = await semantic_cache_service.invalidate_by_keywords(org_id, keywords)
+        else:
+            count = await semantic_cache_service.invalidate_by_org(org_id)
+        logger.info(f"[EventBus] Cache invalidation handled: org={org_id}, keywords={keywords[:3] if keywords else 'all'}, deleted={count}")
+    except Exception as e:
+        logger.warning(f"[EventBus] Cache invalidation handler failed: {e}")
+
+
 @on(EventType.DEAL_WON.value)
 async def calculate_deal_bonus(event: Event):
     """Calculate and award bonus when a deal is won"""
