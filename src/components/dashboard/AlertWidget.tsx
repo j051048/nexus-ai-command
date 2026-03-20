@@ -25,8 +25,9 @@ export function AlertWidget() {
   useEffect(() => {
     aiClient.get('/api/dashboard/alerts')
       .then((res) => {
-        const data = (res as { data?: AlertItem[] })?.data || [];
-        setAlerts(data);
+        const payload = (res as { data?: { data?: AlertItem[] } | AlertItem[] })?.data;
+        const actualData = (payload && 'data' in payload) ? payload.data : payload;
+        setAlerts(Array.isArray(actualData) ? actualData : []);
       })
       .catch(() => setAlerts([]))
       .finally(() => setLoading(false));

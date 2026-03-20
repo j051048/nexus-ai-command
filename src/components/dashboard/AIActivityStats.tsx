@@ -14,8 +14,9 @@ export function AIActivityStats() {
   useEffect(() => {
     aiClient.get('/api/dashboard/ai-stats')
       .then((res) => {
-        const data = (res as { data?: AIStats })?.data;
-        if (data) setStats(data);
+        const payload = (res as { data?: { data?: AIStats } | AIStats })?.data;
+        const actualData = (payload && 'data' in payload) ? payload.data : payload;
+        if (actualData) setStats(actualData as AIStats);
       })
       .catch(() => {});
   }, []);
