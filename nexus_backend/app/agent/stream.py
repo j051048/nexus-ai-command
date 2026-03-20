@@ -36,6 +36,8 @@ from app.core.token_budget import BudgetVerdict, token_budget_manager
 from app.core.trace_logger import TraceLogger
 from app.services.content_moderation import check_user_input
 from app.services.agent_trace_service import TraceStatus, agent_trace_service
+from app.core.tenant_throttle import tenant_throttle
+from app.services.tenant_credit_service import CreditType, tenant_credit_service
 from app.services.token_service import (
     record_completion,
     token_counter,
@@ -329,6 +331,19 @@ async def run_agent_stream(
     except Exception as e:
         logger.warning(f"[Stream] Token budget check failed (non-blocking): {e}")
 
+    # ── 1c. Tenant credit quota check ──
+    if org_id:
+        try:
+            has_credit, credit_error = await tenant_credit_service.check_credit(
+                org_id, CreditType.API_CALLS, 1
+            )
+            if not has_credit:
+                yield _sse_content(f"⚠️ 组织配额不足: {credit_error}")
+                yield "data: [DONE]\n\n"
+                return
+        except Exception as e:
+            logger.warning(f"[Stream] Tenant credit check failed (non-blocking): {e}")
+
     # ── 2. Input moderation ──
     last_user_content = ""
     for msg in reversed(messages):
@@ -491,6 +506,10 @@ async def run_agent_stream(
         # tags which must be suppressed before reaching the frontend.
         _inside_think = False
 
+        # ── Tenant-level concurrency throttle (fair-share) ──
+        _throttle_ctx = tenant_throttle.acquire(org_id or "default")
+        await _throttle_ctx.__aenter__()
+
         async for event in _with_keepalive(_agent_graph.astream_events(
             initial_state,
             thread_id=scoped_thread_id,
@@ -646,8 +665,12 @@ async def run_agent_stream(
                     except Exception:
                         pass  # trace failure must never break the stream
 
+        # Release tenant throttle after graph execution completes normally
+        await _throttle_ctx.__aexit__(None, None, None)
+
     except asyncio.CancelledError:
         # Client disconnected (e.g. user clicked "Stop generating")
+        await _throttle_ctx.__aexit__(None, None, None)
         duration_ms = int((time.time() - start_time) * 1000)
         logger.info(f"[Stream] Client disconnected after {duration_ms}ms (user={user_id}, session={session_id})")
         if tracer:
@@ -660,6 +683,7 @@ async def run_agent_stream(
 
     except GeneratorExit:
         # Generator closed by framework on client disconnect
+        await _throttle_ctx.__aexit__(None, None, None)
         logger.info(f"[Stream] Generator closed (user={user_id})")
         try:
             agent_trace_service.end_trace(_trace_id, TraceStatus.CANCELLED)
@@ -668,6 +692,7 @@ async def run_agent_stream(
         return
 
     except Exception as e:
+        await _throttle_ctx.__aexit__(None, None, None)
         error_str = str(e)
 
         # Checkpointer corrupt state detection: if deserialization fails

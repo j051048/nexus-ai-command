@@ -46,6 +46,14 @@ Graph topology:
   ┌──▼───┐
   │ END  │
   └──────┘
+
+Architecture Evolution Roadmap (2026-03):
+  Current: Flat graph with WBS decomposition for multi-agent scenarios.
+  Future:  Supervisor-Worker pattern (LangGraph multi-agent) where director_agent
+           acts as a true supervisor node that dynamically spawns worker sub-graphs
+           (content_agent, media_agent, etc.) and aggregates their results.
+           This enables true parallel sub-agent execution, independent retries,
+           and cleaner state isolation per worker.
 """
 
 import hashlib

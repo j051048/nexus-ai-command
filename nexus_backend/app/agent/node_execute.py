@@ -24,26 +24,51 @@ class ErrorType(StrEnum):
     FATAL = "fatal"              # Permission denied, not found, business rule conflict
 
 
+_LIST_PATTERN = re.compile(r"^(?:\s*[-•]\s+|\s*\d+\.\s+)", re.MULTILINE)
+
+
 def _smart_truncate(result: str, max_chars: int = 2000) -> str:
     """智能截断工具结果，保留结构完整性。
 
     - 短文本直接返回
+    - JSON 数组: 保留前 N 个完整对象 + 总数摘要
     - 列表格式（>=5 条）: 保留前 5 条 + 摘要
     - 其他: 保留首尾各一段 + 省略标记
     """
     if len(result) <= max_chars:
         return result
 
+    # JSON 数组检测: [{...}, {...}, ...] — 保留完整对象避免截断破坏结构
+    stripped = result.strip()
+    if stripped.startswith("[") and stripped.endswith("]"):
+        try:
+            import json
+            arr = json.loads(stripped)
+            if isinstance(arr, list) and len(arr) > 1:
+                total = len(arr)
+                # 逐步增加保留数量直到逼近 max_chars
+                kept_count = 1
+                for i in range(1, total):
+                    candidate = json.dumps(arr[:i + 1], ensure_ascii=False, indent=2)
+                    if len(candidate) > max_chars - 80:  # 留出摘要空间
+                        break
+                    kept_count = i + 1
+                truncated = json.dumps(arr[:kept_count], ensure_ascii=False, indent=2)
+                if kept_count < total:
+                    truncated += f"\n\n... 共 {total} 条记录，已展示前 {kept_count} 条"
+                return truncated
+        except (json.JSONDecodeError, TypeError):
+            pass  # 非有效 JSON，走后续逻辑
+
     # 检测列表格式: "- item" 或 "1. item"
-    list_pattern = re.compile(r"^(?:\s*[-•]\s+|\s*\d+\.\s+)", re.MULTILINE)
-    items = list_pattern.findall(result)
+    items = _LIST_PATTERN.findall(result)
     if len(items) >= 5:
         lines = result.split("\n")
         kept: list[str] = []
         count = 0
         for line in lines:
             kept.append(line)
-            if list_pattern.match(line):
+            if _LIST_PATTERN.match(line):
                 count += 1
             if count >= 5:
                 break

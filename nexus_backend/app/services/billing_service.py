@@ -53,6 +53,16 @@ class BillingPlan(Enum):
     PROFESSIONAL = "professional"
     ENTERPRISE = "enterprise"
 
+    @property
+    def rate_tier(self) -> str:
+        """Map billing plan to rate_limiting_service RateTier value."""
+        return {
+            "free": "free",
+            "starter": "basic",
+            "professional": "premium",
+            "enterprise": "enterprise",
+        }[self.value]
+
 
 @dataclass
 class PlanDetails:
@@ -234,7 +244,27 @@ class BillingService:
                 logger.warning(f"Failed to persist subscription: {e}")
 
         logger.info(f"Subscription created (local): {org_id} -> {plan.value}")
+
+        # Sync billing plan to rate limiting tier
+        self._sync_tier_to_rate_limiter(org_id, plan)
+
         return sub
+
+    @staticmethod
+    def _sync_tier_to_rate_limiter(org_id: str, plan: BillingPlan):
+        """Sync billing plan change to rate_limiting_service tier cache.
+
+        Invalidates the cached tier so next rate-limit check picks up the new plan.
+        """
+        try:
+            from app.services.rate_limiting_service import rate_limiting_service
+            # Invalidate all cached users for this org so they re-resolve on next request
+            stale_keys = [uid for uid, _ in rate_limiting_service._tier_cache.items()]
+            for uid in stale_keys:
+                rate_limiting_service.invalidate_cache(uid)
+            logger.info(f"Rate limiter cache invalidated for org {org_id} (plan={plan.value}, tier={plan.rate_tier})")
+        except Exception as e:
+            logger.debug(f"Rate limiter tier sync failed (non-critical): {e}")
 
     async def _get_or_create_stripe_customer(self, org_id: str, db=None) -> str:
         """Get existing Stripe customer ID or create a new one."""
