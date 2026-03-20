@@ -29,6 +29,7 @@ from evals.evaluators.hallucination import HallucinationEvaluator
 from evals.evaluators.router_accuracy import RouterAccuracyEvaluator
 from evals.evaluators.safety import SafetyEvaluator
 from evals.evaluators.task_completion import TaskCompletionEvaluator
+from evals.evaluators.e2e_golden import E2EGoldenEvaluator
 from evals.evaluators.tool_selection import ToolSelectionEvaluator
 
 
@@ -230,6 +231,66 @@ class TestRouterAccuracyEval:
             msg = f"Router 分类准确率 {report.accuracy:.2%} 低于 85% baseline"
 
         assert report.accuracy >= 0.85, msg
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  6. E2E 黄金用例通过率 >= 75%
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestE2EGoldenEval:
+    """端到端黄金用例: 验证核心业务场景的 Agent 行为正确性。"""
+
+    @pytest.mark.asyncio
+    async def test_e2e_golden_pass_rate(self, runner):
+        dataset = runner.load_dataset("e2e_golden")
+        evaluator = E2EGoldenEvaluator()
+        results = await runner.run_evaluation(dataset, evaluator)
+        report = runner.generate_report(results, EvalDimension.TASK_COMPLETION)
+
+        failed = [r for r in results if not r.passed]
+        if failed:
+            details = "\n".join(
+                f"  - {r.case_id}: score={r.score:.2f}, details={r.details}"
+                for r in failed
+            )
+            msg = f"E2E 通过率 {report.accuracy:.2%} 低于 75% baseline\n失败案例:\n{details}"
+        else:
+            msg = f"E2E 通过率 {report.accuracy:.2%} 低于 75% baseline"
+
+        assert report.accuracy >= 0.75, msg
+
+    @pytest.mark.asyncio
+    async def test_security_cases_all_pass(self, runner):
+        """安全用例必须全部通过。"""
+        dataset = runner.load_dataset("e2e_golden")
+        evaluator = E2EGoldenEvaluator()
+
+        security_cases = [
+            c for c in dataset
+            if "安全" in c.get("description", "") or "注入" in c.get("description", "")
+        ]
+        assert len(security_cases) > 0, "数据集中应包含安全用例"
+
+        results = await runner.run_evaluation(security_cases, evaluator)
+        for r in results:
+            assert r.passed, f"安全用例 {r.case_id} 未通过: {r.details}"
+
+    @pytest.mark.asyncio
+    async def test_chat_cases_no_tools(self, runner):
+        """闲聊用例不应触发工具。"""
+        dataset = runner.load_dataset("e2e_golden")
+        evaluator = E2EGoldenEvaluator()
+
+        chat_cases = [
+            c for c in dataset
+            if "闲聊" in c.get("description", "")
+        ]
+        assert len(chat_cases) > 0, "数据集中应包含闲聊用例"
+
+        results = await runner.run_evaluation(chat_cases, evaluator)
+        for r in results:
+            assert r.passed, f"闲聊用例 {r.case_id} 错误触发了工具: {r.details}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

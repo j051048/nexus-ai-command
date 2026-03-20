@@ -665,6 +665,43 @@ async def execute_node(state: AgentState, config: RunnableConfig | None = None) 
                     record.tool_name, record.status, record.result[:500] if record.result else ""
                 )
 
+    # Audit trail: log each tool execution for compliance
+    try:
+        from app.services.audit_logger import audit_logger
+
+        for record in completed:
+            try:
+                await audit_logger.log_ai_operation(
+                    user_id=agent_config.user_id,
+                    operation="tool_execute",
+                    model=agent_config.model,
+                    tool_name=record.tool_name,
+                    success=record.status == "success",
+                    error=record.result[:500] if record.status == "error" and record.result else None,
+                )
+                await audit_logger.log(
+                    action="ai.tool_decision",
+                    actor_user_id=agent_config.user_id,
+                    org_id=agent_config.org_id,
+                    details={
+                        "tool_name": record.tool_name,
+                        "tool_args": {k: str(v)[:200] for k, v in (record.tool_args or {}).items()},
+                        "status": record.status,
+                        "error_type": record.error_type,
+                        "duration_ms": record.duration_ms,
+                        "session_id": agent_config.session_id,
+                        "complexity": str(state.get("complexity", "")),
+                        "intent_summary": (state.get("intent_summary") or "")[:200],
+                        "iteration": state.get("iteration", 0),
+                    },
+                    status="success" if record.status == "success" else "failed",
+                    error_message=record.result[:300] if record.status == "error" and record.result else None,
+                )
+            except Exception:
+                logger.debug(f"[ExecuteNode] Audit log failed for {record.tool_name}", exc_info=True)
+    except ImportError:
+        pass
+
     # P1 Plugin: POST_TOOL hook
     try:
         await plugin_system_service.run_hooks(
