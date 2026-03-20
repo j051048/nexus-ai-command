@@ -19,7 +19,7 @@ import re
 
 from langchain_core.messages import HumanMessage
 
-from app.agent.node_helpers import _get_langfuse_callbacks
+from app.agent.node_helpers import _get_langfuse_callbacks, _get_trace_context
 from app.agent.state import AgentPhase, AgentState, QueryComplexity, ThinkingStep
 
 logger = logging.getLogger(__name__)
@@ -693,7 +693,7 @@ async def _llm_classify_intent(
                 base_url=resolved.get("base_url") or config.base_url,
                 temperature=0.0,
                 timeout=10.0,
-                callbacks=_get_langfuse_callbacks(),
+                callbacks=_get_langfuse_callbacks(**_get_trace_context(config), tags=["router"]),
             )
         else:
             llm = ChatOpenAI(
@@ -702,7 +702,7 @@ async def _llm_classify_intent(
                 base_url=config.base_url,
                 temperature=0.0,
                 timeout=10.0,
-                callbacks=_get_langfuse_callbacks(),
+                callbacks=_get_langfuse_callbacks(**_get_trace_context(config), tags=["router"]),
             )
         response = await llm.ainvoke([HumanMessage(content=prompt)])
         content = response.content or "{}"

@@ -19,7 +19,7 @@ from langchain_openai import ChatOpenAI
 
 from app.agent.blackboard import SharedBlackboard, TaskResult
 from app.agent.dependency_resolver import resolve_execution_layers
-from app.agent.node_helpers import _get_langfuse_callbacks
+from app.agent.node_helpers import _get_langfuse_callbacks, _get_trace_context
 from app.agent.roles.registry import get_role_config_sync
 from app.agent.state import (
     AgentConfig,
@@ -59,6 +59,7 @@ async def _create_orchestrator_llm(
     use_mini: bool = False,
     temperature: float = 0.5,
     timeout: float = 60.0,
+    trace_ctx: dict | None = None,
 ) -> ChatOpenAI:
     """Create a ChatOpenAI instance, resolving via LLM Gateway when available.
 
@@ -82,7 +83,7 @@ async def _create_orchestrator_llm(
             base_url=resolved.get("base_url", config.base_url),
             temperature=temperature,
             timeout=resolved.get("timeout", timeout),
-            callbacks=_get_langfuse_callbacks(),
+            callbacks=_get_langfuse_callbacks(**(trace_ctx or {}), tags=["orchestrator"]),
         )
     return ChatOpenAI(
         model=fallback_model,
@@ -90,11 +91,11 @@ async def _create_orchestrator_llm(
         base_url=config.base_url,
         temperature=temperature,
         timeout=timeout,
-        callbacks=_get_langfuse_callbacks(),
+        callbacks=_get_langfuse_callbacks(**(trace_ctx or {}), tags=["orchestrator"]),
     )
 
 
-async def orchestrate_node(state: AgentState) -> dict:
+async def orchestrate_node(state: AgentState, runnable_config: dict | None = None) -> dict:
     """
     LangGraph node: Execute WBS sub-tasks by delegating to appropriate agent roles.
 
@@ -105,6 +106,8 @@ async def orchestrate_node(state: AgentState) -> dict:
     - P2-10: SharedBlackboard for structured data sharing
     """
     config: AgentConfig = state["config"]
+    _configurable = (runnable_config or {}).get("configurable", {})
+    trace_ctx = _get_trace_context(config, _configurable)
     wbs_structure = state.get("wbs_structure")
 
     if not wbs_structure or "sub_tasks" not in wbs_structure:
@@ -365,7 +368,7 @@ _RESULT_COMPRESS_THRESHOLD = 1500  # chars — compress result if longer
 async def _compress_sub_result(config: AgentConfig, task_title: str, text: str) -> str:
     """Compress a verbose sub-task result into a concise summary using mini_model."""
     try:
-        llm = await _create_orchestrator_llm(config, use_mini=True, temperature=0.2, timeout=20.0)
+        llm = await _create_orchestrator_llm(config, use_mini=True, temperature=0.2, timeout=20.0, trace_ctx=_get_trace_context(config))
         prompt = (
             f"请将以下子任务「{task_title}」的执行结果精炼为不超过500字的摘要。\n"
             f"保留：关键数据点、结论、数字指标。删除：冗余描述、重复信息、格式装饰。\n\n"
@@ -440,7 +443,7 @@ async def _execute_sub_task(
     tool_schemas = role_config.get_tool_schemas()
 
     # 4. P2-9: Create LLM via unified factory
-    llm = await _create_orchestrator_llm(config, agent_code=agent_code)
+    llm = await _create_orchestrator_llm(config, agent_code=agent_code, trace_ctx=_get_trace_context(config))
     llm_with_tools = llm.bind_tools(tool_schemas) if tool_schemas else llm
 
     # 5. P0-1: Multi-round tool calling loop
@@ -571,7 +574,7 @@ async def _execute_sub_task_degraded(
     ]
 
     # P2-9: Use unified LLM factory
-    llm = await _create_orchestrator_llm(config, use_mini=True, temperature=0.7, timeout=30.0)
+    llm = await _create_orchestrator_llm(config, use_mini=True, temperature=0.7, timeout=30.0, trace_ctx=_get_trace_context(config))
 
     ai_msg = await llm.ainvoke(messages)
     usage = ai_msg.response_metadata.get("token_usage", {})
@@ -683,7 +686,7 @@ async def _check_and_adjust_plan(
 
     try:
         # P2-9: Use unified LLM factory
-        llm = await _create_orchestrator_llm(config, use_mini=True, temperature=0.3, timeout=30.0)
+        llm = await _create_orchestrator_llm(config, use_mini=True, temperature=0.3, timeout=30.0, trace_ctx=_get_trace_context(config))
 
         ai_msg = await llm.ainvoke(
             [
@@ -771,7 +774,7 @@ async def _integrate_results(
             integration_prompt += f"\n### 工具调用数据摘要\n{tool_summary}\n"
 
     # P2-9: Use unified LLM factory
-    llm = await _create_orchestrator_llm(config, timeout=90.0)
+    llm = await _create_orchestrator_llm(config, timeout=90.0, trace_ctx=_get_trace_context(config))
 
     try:
         ai_msg = await llm.ainvoke(

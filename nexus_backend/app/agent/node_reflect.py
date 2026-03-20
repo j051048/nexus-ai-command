@@ -19,6 +19,7 @@ from app.agent.node_helpers import (
     ThinkingStep,
     _get_langfuse_callbacks,
     _get_llm,
+    _get_trace_context,
     logger,
     record_hallucination,
     sanitize_output,
@@ -564,7 +565,7 @@ async def critic_node(state: AgentState) -> dict:
                 base_url=critic_base_url,
                 temperature=0.1,
                 max_tokens=300,
-                callbacks=_get_langfuse_callbacks(),
+                callbacks=_get_langfuse_callbacks(**_get_trace_context(config), tags=["reflect"]),
             )
         else:
             critic_llm = ChatOpenAI(
@@ -573,7 +574,7 @@ async def critic_node(state: AgentState) -> dict:
                 base_url=config.base_url,
                 temperature=0.1,
                 max_tokens=300,
-                callbacks=_get_langfuse_callbacks(),
+                callbacks=_get_langfuse_callbacks(**_get_trace_context(config), tags=["reflect"]),
             )
         # Avoid with_structured_output — many proxied/non-OpenAI APIs reject
         # additionalProperties in the JSON schema.  Parse JSON manually instead.

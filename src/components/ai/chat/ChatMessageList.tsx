@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useEffect } from 'react';
+import React, { useCallback, useRef, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -30,7 +30,8 @@ interface ChatMessageListProps {
   pendingConfirmation: ConfirmationRequest | null;
   confirmAndResend: (
     messages: AIMessage[],
-    onUpdate: (content: string, assistantMsgId: string) => void
+    onUpdate: (content: string, assistantMsgId: string) => void,
+    modifiedArgs?: Record<string, unknown>
   ) => void;
   dismissConfirmation: () => void;
   pendingQuestion: AskUserRequest | null;
@@ -73,6 +74,14 @@ export const ChatMessageList = React.memo(function ChatMessageList({
   // Use ref for messages to avoid re-creating callback on every messages change
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
+
+  // HITL editable args state
+  const [editedArgs, setEditedArgs] = useState<Record<string, unknown>>({});
+  useEffect(() => {
+    if (pendingConfirmation?.args) {
+      setEditedArgs({ ...pendingConfirmation.args });
+    }
+  }, [pendingConfirmation]);
 
   // Stable feedback callback — uses ref to avoid messages dependency
   const handleFeedback = useCallback((type: 'positive' | 'negative', messageId: string) => {
@@ -144,14 +153,66 @@ export const ChatMessageList = React.memo(function ChatMessageList({
               <p className="text-sm text-amber-800 dark:text-amber-300">
                 {pendingConfirmation.message}
               </p>
-              {pendingConfirmation.modifiable && pendingConfirmation.args && Object.keys(pendingConfirmation.args).length > 0 && (
-                <details className="pt-1">
+              {pendingConfirmation.args && Object.keys(pendingConfirmation.args).length > 0 && (
+                <details className="pt-1" open={!!pendingConfirmation.modifiable}>
                   <summary className="text-xs text-amber-700 dark:text-amber-400 cursor-pointer hover:underline">
-                    查看/编辑参数
+                    {pendingConfirmation.modifiable ? '编辑参数' : '查看参数'}
                   </summary>
-                  <pre className="mt-1 p-2 rounded bg-amber-100 dark:bg-amber-900/30 text-xs text-amber-900 dark:text-amber-200 overflow-x-auto max-h-32">
-                    {JSON.stringify(pendingConfirmation.args, null, 2)}
-                  </pre>
+                  {pendingConfirmation.modifiable ? (
+                    <div className="mt-1 space-y-2">
+                      {Object.entries(editedArgs).map(([key, value]) => {
+                        const valType = typeof value;
+                        return (
+                          <div key={key} className="flex items-center gap-2">
+                            <label className="text-xs text-amber-800 dark:text-amber-300 min-w-[80px] font-medium shrink-0">
+                              {key}
+                            </label>
+                            {valType === 'boolean' ? (
+                              <select
+                                className="flex-1 h-7 px-2 rounded border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/40 text-xs text-amber-900 dark:text-amber-200"
+                                value={String(value)}
+                                onChange={(e) => setEditedArgs(prev => ({ ...prev, [key]: e.target.value === 'true' }))}
+                              >
+                                <option value="true">true</option>
+                                <option value="false">false</option>
+                              </select>
+                            ) : valType === 'number' ? (
+                              <input
+                                type="number"
+                                className="flex-1 h-7 px-2 rounded border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/40 text-xs text-amber-900 dark:text-amber-200"
+                                value={value as number}
+                                onChange={(e) => setEditedArgs(prev => ({ ...prev, [key]: Number(e.target.value) }))}
+                              />
+                            ) : valType === 'string' ? (
+                              <input
+                                type="text"
+                                className="flex-1 h-7 px-2 rounded border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/40 text-xs text-amber-900 dark:text-amber-200"
+                                value={value as string}
+                                onChange={(e) => setEditedArgs(prev => ({ ...prev, [key]: e.target.value }))}
+                              />
+                            ) : (
+                              <textarea
+                                className="flex-1 min-h-[56px] px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/40 text-xs text-amber-900 dark:text-amber-200 font-mono"
+                                value={typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value ?? '')}
+                                onChange={(e) => {
+                                  try {
+                                    setEditedArgs(prev => ({ ...prev, [key]: JSON.parse(e.target.value) }));
+                                  } catch {
+                                    // Keep raw string if not valid JSON
+                                    setEditedArgs(prev => ({ ...prev, [key]: e.target.value }));
+                                  }
+                                }}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <pre className="mt-1 p-2 rounded bg-amber-100 dark:bg-amber-900/30 text-xs text-amber-900 dark:text-amber-200 overflow-x-auto max-h-32">
+                      {JSON.stringify(pendingConfirmation.args, null, 2)}
+                    </pre>
+                  )}
                 </details>
               )}
               <div className="flex gap-2 pt-1">
@@ -169,7 +230,7 @@ export const ChatMessageList = React.memo(function ChatMessageList({
                         }
                         return [...prev, { id: assistantMsgId, role: 'assistant' as const, content, timestamp: new Date() }];
                       });
-                    });
+                    }, pendingConfirmation.modifiable ? editedArgs : undefined);
                   }}
                 >
                   <Zap className="w-3 h-3 mr-1" />

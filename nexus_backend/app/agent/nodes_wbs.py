@@ -14,7 +14,7 @@ import uuid
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
-from app.agent.node_helpers import _get_langfuse_callbacks
+from app.agent.node_helpers import _get_langfuse_callbacks, _get_trace_context
 from app.agent.state import (
     AgentConfig,
     AgentPhase,
@@ -194,7 +194,7 @@ async def wbs_decompose_node(state: AgentState) -> dict:
             base_url=resolved.get("base_url", config.base_url),
             temperature=0.3,
             timeout=resolved.get("timeout", 60.0),
-            callbacks=_get_langfuse_callbacks(),
+            callbacks=_get_langfuse_callbacks(**_get_trace_context(config), tags=["wbs"]),
         )
     else:
         llm = ChatOpenAI(
@@ -203,7 +203,7 @@ async def wbs_decompose_node(state: AgentState) -> dict:
             base_url=config.base_url,
             temperature=0.3,
             timeout=60.0,
-            callbacks=_get_langfuse_callbacks(),
+            callbacks=_get_langfuse_callbacks(**_get_trace_context(config), tags=["wbs"]),
         )
 
     try:

@@ -513,11 +513,18 @@ def _get_tool_schemas(
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 
-def _get_langfuse_callbacks() -> list | None:
+def _get_langfuse_callbacks(
+    *,
+    trace_id: str | None = None,
+    session_id: str | None = None,
+    user_id: str | None = None,
+    tags: list[str] | None = None,
+) -> list | None:
     """Return Langfuse CallbackHandler list if enabled, else None.
 
     Shared across all LLM construction sites to ensure complete observability.
     Respects LANGFUSE_SAMPLE_RATE for production cost control.
+    When trace_id is provided, all LLM spans are grouped under the same trace.
     """
     try:
         from app.core.config import settings
@@ -528,16 +535,47 @@ def _get_langfuse_callbacks() -> list | None:
                 return None
             from langfuse.callback import CallbackHandler as LangfuseCallbackHandler
 
-            return [
-                LangfuseCallbackHandler(
-                    public_key=settings.LANGFUSE_PUBLIC_KEY,
-                    secret_key=settings.LANGFUSE_SECRET_KEY,
-                    host=settings.LANGFUSE_HOST,
-                )
-            ]
+            kwargs: dict = {
+                "public_key": settings.LANGFUSE_PUBLIC_KEY,
+                "secret_key": settings.LANGFUSE_SECRET_KEY,
+                "host": settings.LANGFUSE_HOST,
+            }
+            if trace_id:
+                kwargs["trace_id"] = trace_id
+            if session_id:
+                kwargs["session_id"] = session_id
+            if user_id:
+                kwargs["user_id"] = user_id
+            if tags:
+                kwargs["tags"] = tags
+            return [LangfuseCallbackHandler(**kwargs)]
     except Exception:
         pass
     return None
+
+
+def _get_trace_context(
+    config: AgentConfig | None = None,
+    configurable: dict | None = None,
+) -> dict:
+    """Extract Langfuse trace context from configurable's trace_logger.
+
+    Returns kwargs suitable for passing to _get_langfuse_callbacks(**ctx).
+    """
+    ctx: dict = {}
+    trace_logger = (configurable or {}).get("trace_logger")
+    if trace_logger and hasattr(trace_logger, "trace_id"):
+        ctx["trace_id"] = trace_logger.trace_id
+        sid = getattr(trace_logger, "session_id", None)
+        if sid:
+            ctx["session_id"] = sid
+        uid = getattr(trace_logger, "user_id", None)
+        if uid:
+            ctx["user_id"] = uid
+    elif config:
+        if config.user_id:
+            ctx["user_id"] = config.user_id
+    return ctx
 
 
 def _get_llm(
@@ -567,7 +605,7 @@ def _get_llm(
     if request_id:
         default_headers["X-Request-ID"] = request_id
 
-    callbacks = _get_langfuse_callbacks()
+    callbacks = _get_langfuse_callbacks(user_id=config.user_id)
 
     if resolved_config:
         return ChatOpenAI(
@@ -620,7 +658,7 @@ def _get_fallback_llm(config: AgentConfig, model: str | None = None, streaming: 
         streaming=streaming,
         timeout=300.0,  # Increased fallback timeout for complex queries
         default_headers=default_headers or None,
-        callbacks=_get_langfuse_callbacks(),
+        callbacks=_get_langfuse_callbacks(user_id=config.user_id),
     )
 
 
