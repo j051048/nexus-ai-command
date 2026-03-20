@@ -191,9 +191,41 @@ class SensitiveDataHook(AgentHook):
         return _mask_value(result)
 
 
+# ─── 内置 Hook: LLM 入站 PII 脱敏 ─────────────────────────────
+
+
+class PIISanitizeHook(AgentHook):
+    """before_llm_call: 扫描发送给 LLM 的消息，对 PII 做脱敏。
+
+    覆盖所有 graph 内部的 LLM 调用点（plan/execute/reflect/respond/synthesize/orchestrate），
+    确保用户消息、工具返回结果和 RAG context 中的 PII 不会泄露给外部模型。
+    """
+
+    priority = 20  # 在权限校验之后、审计之前
+
+    async def before_llm_call(self, messages: list[dict], context: dict) -> list[dict]:
+        from app.services.content_moderation import sanitize_pii_for_llm
+
+        for msg in messages:
+            content = msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", None)
+            if isinstance(content, str) and content:
+                sanitized = sanitize_pii_for_llm(content)
+                if sanitized != content:
+                    if isinstance(msg, dict):
+                        msg["content"] = sanitized
+                    elif hasattr(msg, "content"):
+                        # LangChain BaseMessage — content is a writable property
+                        try:
+                            msg.content = sanitized
+                        except AttributeError:
+                            pass  # Frozen message, skip
+        return messages
+
+
 # ─── 模块级单例 ─────────────────────────────────────────────
 
 hook_registry = HookRegistry()
 hook_registry.register(PermissionHook())
+hook_registry.register(PIISanitizeHook())
 hook_registry.register(AuditLogHook())
 hook_registry.register(SensitiveDataHook())

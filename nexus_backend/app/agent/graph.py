@@ -65,12 +65,14 @@ from typing import Optional
 from langgraph.graph import END, StateGraph
 
 from app.agent.checkpointer import get_checkpointer
+from app.agent.loop_detector import detect_loop, tool_call_fingerprint
 from app.agent.nodes import critic_node, error_node, execute_node, plan_node, reflect_node, respond_node, simple_respond_node, synthesize_node
 from app.agent.node_parallel_context import parallel_context_and_plan
 from app.agent.nodes_orchestrator import orchestrate_node
 from app.agent.nodes_wbs import wbs_decompose_node
 from app.agent.router import route_node
-from app.agent.state import AgentState, QueryComplexity
+from app.agent.safety_guards import SLO_THRESHOLDS, has_irreversible_tool, is_mutation_fast_path, check_slo_budget
+from app.agent.state import AgentState, QueryComplexity, get_completed_tools, get_config, get_task_steps
 from app.core.config import settings
 from app.tools import get_tool
 
@@ -92,130 +94,13 @@ def increment_tool_schema_version():
     logger.info(f"[Graph] Tool schema version incremented to {_tool_schema_version}")
 
 
-# ─── Loop Detection (inspired by OpenClaw tool-loop-detection.ts) ────────────
-
-# Sliding window size for tool call history analysis
-_LOOP_WINDOW_SIZE = 30
-# Thresholds for different detection strategies
-_GENERIC_REPEAT_THRESHOLD = 3     # Same tool+args N times → force reflect
-_POLL_NO_PROGRESS_THRESHOLD = 5   # Polling tools with no progress → block
-_GLOBAL_CIRCUIT_BREAKER = 15      # Absolute safety net: any single tool N times → block
-
-# Tools known to cause polling loops (status checks, process waits)
-_POLL_TOOLS: set[str] = {
-    "get_company_stats", "query_leave_status", "query_expense_status",
-    "query_attendance", "get_pending_approvals",
-}
-
-
-def _tool_call_fingerprint(tool_calls: list) -> str:
-    """Generate a hash fingerprint for a set of tool calls (name + args)."""
-    if not tool_calls:
-        return ""
-    parts = []
-    for tc in sorted(tool_calls, key=lambda t: t.tool_name):
-        args_str = json.dumps(tc.tool_args, sort_keys=True, ensure_ascii=False) if tc.tool_args else ""
-        parts.append(f"{tc.tool_name}:{args_str}")
-    combined = "|".join(parts)
-    return hashlib.md5(combined.encode()).hexdigest()
-
-
-def _detect_loop(state: AgentState) -> bool:
-    """
-    Multi-strategy loop detection (4 detectors, inspired by OpenClaw).
-
-    1. Generic Repeat: same tool+args fingerprint N times consecutively
-    2. Known Poll No-Progress: polling tools called repeatedly
-    3. Ping-Pong: A-B-A-B alternating pattern
-    4. Global Circuit Breaker: any single tool exceeds absolute limit
-    """
-    history = state.get("_tool_call_history", [])
-    if len(history) < 2:
-        return False
-
-    window = history[-_LOOP_WINDOW_SIZE:]
-
-    # --- Detector 1: Generic Repeat (same fingerprint N consecutive times) ---
-    if len(window) >= _GENERIC_REPEAT_THRESHOLD:
-        recent = window[-_GENERIC_REPEAT_THRESHOLD:]
-        if len(set(recent)) == 1 and recent[0] != "":
-            logger.warning(f"[LoopDetect] Generic repeat detected: {recent[0][:16]}...")
-            return True
-
-    # --- Detector 2: Ping-Pong (A-B-A-B alternating) ---
-    if len(window) >= 4:
-        last4 = window[-4:]
-        if last4[0] == last4[2] and last4[1] == last4[3] and last4[0] != last4[1]:
-            logger.warning("[LoopDetect] Ping-pong pattern detected")
-            return True
-
-    # --- Detector 3: Known Poll No-Progress ---
-    completed = state.get("completed_tool_calls", [])
-    if completed:
-        recent_completed = completed[-_LOOP_WINDOW_SIZE:]
-        for poll_tool in _POLL_TOOLS:
-            count = sum(1 for tc in recent_completed if tc.tool_name == poll_tool)
-            if count >= _POLL_NO_PROGRESS_THRESHOLD:
-                logger.warning(f"[LoopDetect] Poll no-progress: {poll_tool} called {count} times")
-                return True
-
-    # --- Detector 4: Global Circuit Breaker ---
-    if completed:
-        recent_completed = completed[-_LOOP_WINDOW_SIZE:]
-        from collections import Counter
-        tool_counts = Counter(tc.tool_name for tc in recent_completed)
-        for tool_name, count in tool_counts.items():
-            if count >= _GLOBAL_CIRCUIT_BREAKER:
-                logger.warning(f"[LoopDetect] Circuit breaker: {tool_name} called {count} times")
-                return True
-
-    return False
-
-
-# ─── Mutation Fast-Path Helper ───────────────────────────────────────────────
-
-
-def _has_irreversible_tool(state_or_dict: dict) -> bool:
-    """
-    Check if any completed tool call used an irreversible (high-risk) tool.
-
-    G1: Irreversible tools (financial approvals, destructive ops, etc.) must
-    always go through Critic review — they should NEVER take a fast path.
-    """
-    completed = state_or_dict.get("completed_tool_calls", [])
-    for tc in completed:
-        tool = get_tool(getattr(tc, "tool_name", "") or tc.get("tool_name", ""))
-        if tool and tool.is_irreversible:
-            return True
-    return False
-
-
-def _is_mutation_fast_path(state_or_dict: dict) -> bool:
-    """
-    Check if all completed tool calls are successful mutations that can
-    safely skip reflect+critic.
-
-    Returns False (no fast path) when:
-    - No completed tools
-    - Any tool failed
-    - Any tool is irreversible (G1: high-risk tools must go through Critic)
-    """
-    completed = state_or_dict.get("completed_tool_calls", [])
-    if not completed:
-        return False
-    # G1: irreversible tools MUST go through Critic — never fast-path
-    if _has_irreversible_tool(state_or_dict):
-        logger.info(
-            "[Graph] Irreversible tool detected, blocking mutation fast-path → forcing Critic review"
-        )
-        return False
-    for tc in completed:
-        if getattr(tc, "status", None) != "success":
-            return False
-        tool = get_tool(getattr(tc, "tool_name", ""))
-        if not tool:
-            return False
-    return True
+# ─── Loop Detection & Safety Guards (extracted to loop_detector.py, safety_guards.py) ──
+# Backward-compat aliases for internal references:
+_tool_call_fingerprint = tool_call_fingerprint
+_detect_loop = detect_loop
+_has_irreversible_tool = has_irreversible_tool
+_is_mutation_fast_path = is_mutation_fast_path
+_SLO_THRESHOLDS = SLO_THRESHOLDS
 
 
 # ─── Conditional Edge Functions ──────────────────────────────────────────────
@@ -244,7 +129,7 @@ def _after_plan(state: AgentState) -> str:
         logger.info(f"[Graph] Reflection budget exhausted ({reflection_count}/2), skipping to respond")
         return "respond"
     # MODERATE with direct text (no tools needed) — skip reflect for speed
-    if state.get("complexity") == QueryComplexity.MODERATE and not state.get("completed_tool_calls"):
+    if state.get("complexity") == QueryComplexity.MODERATE and not get_completed_tools(state):
         return "respond"
     # Fast-path: mutation-only tools with all-success → skip reflect+critic
     if _is_mutation_fast_path(state):
@@ -279,9 +164,9 @@ def _after_execute(state: AgentState) -> str:
     iteration = state.get("iteration", 0)
 
     # P2: Rich observation layer — log comprehensive state for debugging
-    completed = state.get("completed_tool_calls", [])
+    completed = get_completed_tools(state)
     tool_summary = ", ".join(
-        f"{getattr(tc, 'tool_name', '?')}={'ok' if getattr(tc, 'status', '') == 'success' else getattr(tc, 'status', '?')}"
+        f"{tc.tool_name}={'ok' if tc.status == 'success' else tc.status}"
         for tc in completed[-5:]  # last 5 tools
     ) if completed else "none"
     complexity = state.get("complexity")
@@ -337,11 +222,11 @@ def _after_execute(state: AgentState) -> str:
     #   eliminating separate critic_node LLM call (3→2 LLM calls)
     # G1: irreversible tools MUST go through reflect→critic, never fast synthesize
     complexity = state.get("complexity")
-    completed = state.get("completed_tool_calls", [])
+    completed = get_completed_tools(state)
     if (
         completed
         and all(
-            (getattr(tc, "status", None) or tc.get("status")) == "success"
+            tc.status == "success"
             for tc in completed
         )
     ):
@@ -394,15 +279,6 @@ def _proactive_compress(state: AgentState) -> None:
     logger.info(f"[Graph] Proactive mid-reasoning compress applied ({len(messages)} messages)")
 
 
-# ── SLO thresholds (seconds) per complexity level ──
-_SLO_THRESHOLDS = {
-    QueryComplexity.SIMPLE: 5.0,
-    QueryComplexity.MODERATE: 10.0,
-    QueryComplexity.COMPLEX: 20.0,
-    QueryComplexity.CRITICAL: 30.0,
-}
-
-
 def _after_reflect(state: AgentState) -> str:
     """
     After reflection:
@@ -425,7 +301,7 @@ def _after_reflect(state: AgentState) -> str:
     needs_replan = state.get("needs_replanning")
     complexity = state.get("complexity")
     confidence = state.get("confidence_score", 0.0)
-    completed_tools = state.get("completed_tool_calls", [])
+    completed_tools = get_completed_tools(state)
 
     logger.info(
         f"[Graph:Observe] after_reflect: needs_replan={needs_replan} "
@@ -451,22 +327,16 @@ def _after_reflect(state: AgentState) -> str:
     complexity = state.get("complexity")
 
     # P1: Task decomposition — check step acceptance before advancing
-    _task_steps = state.get("_task_steps", [])
+    _task_steps = get_task_steps(state)
     _active_idx = state.get("_active_step_index", 0)
     if _task_steps and _active_idx < len(_task_steps):
         current_step = _task_steps[_active_idx]
-        criteria = current_step.get("acceptance_criteria", "")
+        criteria = current_step.acceptance_criteria
 
         # Rule-based check: did any tool succeed in this step?
-        completed_tools = state.get("completed_tool_calls", [])
-        has_success = any(
-            (getattr(tc, "status", None) or tc.get("status")) == "success"
-            for tc in completed_tools
-        )
-        has_failure = any(
-            (getattr(tc, "status", None) or tc.get("status")) == "error"
-            for tc in completed_tools
-        )
+        completed_tools = get_completed_tools(state)
+        has_success = any(tc.status == "success" for tc in completed_tools)
+        has_failure = any(tc.status == "error" for tc in completed_tools)
 
         if has_failure and not has_success:
             # Step not met: all tools failed, retry without advancing
@@ -475,7 +345,7 @@ def _after_reflect(state: AgentState) -> str:
                 f"all tools failed, retrying without advancing"
             )
             state["reflection_guidance"] = (
-                f"步骤 {_active_idx + 1}「{current_step.get('title', '')}」未完成: "
+                f"步骤 {_active_idx + 1}「{current_step.title}」未完成: "
                 f"工具调用全部失败。"
                 + (f"\n验收标准: {criteria}" if criteria else "")
                 + "\n请分析失败原因，修正参数或换用其他工具重试此步骤。"
@@ -490,7 +360,7 @@ def _after_reflect(state: AgentState) -> str:
         return "plan"
 
     if complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL):
-        completed_tools = state.get("completed_tool_calls", [])
+        completed_tools = get_completed_tools(state)
         if completed_tools:
             # Tools were used → reflect skipped Layer 4/5, critic needed
             return "critic"

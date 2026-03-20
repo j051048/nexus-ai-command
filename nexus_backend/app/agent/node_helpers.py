@@ -719,6 +719,16 @@ async def invoke_with_fallback(
     last_error = None
     all_auth_errors = True  # Track if all failures are auth-related
 
+    # ── Run before_llm_call hooks (PII sanitization, etc.) ──
+    try:
+        from app.agent.hooks import hook_registry
+        messages = await hook_registry.run_before_llm(
+            messages,
+            {"user_id": config.user_id, "org_id": config.org_id, "model": model},
+        )
+    except Exception:
+        logger.debug("[LLM Hooks] before_llm_call failed, continuing with original messages", exc_info=True)
+
     for label, candidate_llm in candidates:
         pkey = _provider_key(candidate_llm)
 

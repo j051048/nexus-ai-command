@@ -21,7 +21,8 @@ import uuid
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from app.agent.graph import _is_mutation_fast_path, get_agent_graph
+from app.agent.graph import get_agent_graph
+from app.agent.safety_guards import is_mutation_fast_path as _is_mutation_fast_path
 from app.agent.memory import persist_result, prepare_initial_state
 from app.agent.state import (
     AgentConfig,
@@ -370,6 +371,15 @@ async def run_agent_stream(
                 if msg.get("role") == "user":
                     msg["content"] = sanitized
                     break
+
+    # 2a-ext. Sanitize PII in ALL user messages (not just the last one)
+    # This catches PII in conversation history that may be sent to the LLM.
+    if messages:
+        from app.services.content_moderation import sanitize_pii_for_llm as _sanitize_pii
+
+        for msg in messages:
+            if msg.get("role") == "user" and isinstance(msg.get("content"), str):
+                msg["content"] = _sanitize_pii(msg["content"])
 
     # ── 2b. Early SIMPLE detection — skip RAG for casual chat ──
     # Also gate RAG for MODERATE queries: only enable when query suggests

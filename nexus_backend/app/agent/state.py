@@ -12,7 +12,7 @@ from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import Annotated, Any, TypedDict
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ValidationError
 
 from langchain_core.messages import BaseMessage
 
@@ -87,6 +87,49 @@ class ToolCallRecord:
     duration_ms: int | None = None
     error_type: str | None = None  # retryable | param_error | fatal
     tool_version: str | None = None  # #17: tool version for audit
+
+
+# ─── Pydantic Models for Complex State Fields ────────────────────────────────
+# These provide type-safe access to dict-based structures in AgentState,
+# especially when deserializing from JSON checkpoints.
+
+
+class WBSSubTask(BaseModel):
+    """WBS sub-task structure produced by wbs_decompose_node."""
+
+    title: str
+    agent_code: str = ""
+    description: str = ""
+    dependencies: list[int] = []
+    priority: int = 3
+    sub_task_id: str = ""
+    status: str = "pending"
+
+
+class WBSStructure(BaseModel):
+    """WBS decomposition structure (top-level)."""
+
+    title: str
+    summary: str = ""
+    sub_tasks: list[WBSSubTask] = []
+
+
+class DelegationResult(BaseModel):
+    """Result from a sub-agent delegation in orchestrate_node."""
+
+    sub_task_id: str
+    agent_code: str
+    title: str
+    status: str  # completed | degraded | failed
+    result: str = ""
+
+
+class TaskStep(BaseModel):
+    """Decomposed step from task decomposition in plan_node."""
+
+    title: str
+    description: str = ""
+    acceptance_criteria: str = ""
 
 
 # ─── Agent Configuration (immutable per-request, Pydantic-validated) ─────────
@@ -309,3 +352,88 @@ class AgentState(TypedDict, total=False):
 
     # ── SLO tracking ──
     wall_clock_start: float          # time.time() at plan_node entry for dynamic SLO degradation
+
+    # ── Circuit breaker (set by _after_execute on loop/iteration limit) ──
+    circuit_break_reason: str | None
+
+
+# ─── State Access Helpers ─────────────────────────────────────────────────────
+# Type-safe accessors that handle dict/dataclass duality from checkpoint
+# deserialization.  Use these instead of raw state.get("field", []).
+
+
+def get_completed_tools(state: "AgentState") -> list[ToolCallRecord]:
+    """Type-safe access to completed_tool_calls.
+
+    Handles both ToolCallRecord instances and raw dicts (from JSON checkpoint
+    deserialization) transparently.
+    """
+    raw = state.get("completed_tool_calls", [])
+    result: list[ToolCallRecord] = []
+    _fields = set(ToolCallRecord.__dataclass_fields__)
+    for item in raw:
+        if isinstance(item, ToolCallRecord):
+            result.append(item)
+        elif isinstance(item, dict):
+            filtered = {k: v for k, v in item.items() if k in _fields}
+            try:
+                result.append(ToolCallRecord(**filtered))
+            except TypeError:
+                logger.warning("[State] Skipping malformed tool call record: %s", filtered)
+        # silently skip other types
+    return result
+
+
+def get_wbs(state: "AgentState") -> WBSStructure | None:
+    """Type-safe access to wbs_structure."""
+    raw = state.get("wbs_structure")
+    if not raw:
+        return None
+    if isinstance(raw, WBSStructure):
+        return raw
+    if isinstance(raw, dict):
+        try:
+            return WBSStructure(**raw)
+        except (ValidationError, TypeError):
+            logger.warning("[State] Malformed wbs_structure, returning None")
+            return None
+    return None
+
+
+def get_task_steps(state: "AgentState") -> list[TaskStep]:
+    """Type-safe access to _task_steps."""
+    raw = state.get("_task_steps", [])
+    result: list[TaskStep] = []
+    for item in raw:
+        if isinstance(item, TaskStep):
+            result.append(item)
+        elif isinstance(item, dict):
+            try:
+                result.append(TaskStep(**item))
+            except (ValidationError, TypeError):
+                logger.warning("[State] Skipping malformed task step: %s", item)
+        # silently skip other types
+    return result
+
+
+def get_delegation_results(state: "AgentState") -> list[DelegationResult]:
+    """Type-safe access to delegation_results."""
+    raw = state.get("delegation_results", [])
+    result: list[DelegationResult] = []
+    for item in raw:
+        if isinstance(item, DelegationResult):
+            result.append(item)
+        elif isinstance(item, dict):
+            try:
+                result.append(DelegationResult(**item))
+            except (ValidationError, TypeError):
+                logger.warning("[State] Skipping malformed delegation result: %s", item)
+    return result
+
+
+def get_config(state: "AgentState") -> "AgentConfig":
+    """Safe config access — raises ValueError instead of KeyError."""
+    config = state.get("config")
+    if config is None:
+        raise ValueError("AgentState missing required 'config' field")
+    return config
