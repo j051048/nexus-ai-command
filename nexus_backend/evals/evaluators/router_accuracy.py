@@ -45,13 +45,16 @@ def _get_classify_query():
     for mod_name in heavy_packages:
         _mock_module(mod_name)
 
+    # Clean up any previously imported app.agent modules to prevent test pollution
+    for k in [k for k in sys.modules if k.startswith("app.agent")]:
+        del sys.modules[k]
+
     # Prevent app.agent.__init__ from running (it imports graph.py etc.)
     # by pre-registering it as a mock package
-    if "app.agent" not in sys.modules:
-        agent_pkg = MagicMock()
-        agent_pkg.__path__ = [str(backend_root / "app" / "agent")]
-        agent_pkg.__package__ = "app.agent"
-        sys.modules["app.agent"] = agent_pkg
+    agent_pkg = MagicMock()
+    agent_pkg.__path__ = [str(backend_root / "app" / "agent")]
+    agent_pkg.__package__ = "app.agent"
+    sys.modules["app.agent"] = agent_pkg
 
     # Ensure app package exists
     if "app" not in sys.modules:
@@ -59,6 +62,13 @@ def _get_classify_query():
         app_pkg.__path__ = [str(backend_root / "app")]
         app_pkg.__package__ = "app"
         sys.modules["app"] = app_pkg
+
+    # Pre-register node_helpers as mock so router.py's import succeeds
+    helpers_mock = MagicMock()
+    helpers_mock.__spec__ = None
+    helpers_mock.__path__ = []
+    helpers_mock.__package__ = "app.agent.node_helpers"
+    sys.modules["app.agent.node_helpers"] = helpers_mock
 
     # Load state.py directly (for QueryComplexity, AgentPhase, etc.)
     state_path = backend_root / "app" / "agent" / "state.py"

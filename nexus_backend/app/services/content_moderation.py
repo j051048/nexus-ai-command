@@ -91,14 +91,48 @@ class ContentModerator:
     # Prompt injection patterns - P0 Security Enhancement
     INJECTION_PATTERNS = [
         # Chinese injection patterns
-        r"忽略(之前|上面|以上)(的|所有)?(指令|命令|提示)",
-        r"(透露|显示|输出|告诉我)(你的)?(系统|原始)?(提示词|指令|prompt)",
+        r"忽略(之前|上面|以上)(的)?(所有)?(指令|命令|提示|规则|策略|限制)",
+        r"(透露|显示|输出|告诉我|展示|泄露|公开|重复).{0,10}(系统|原始|内部|完整|初始化).{0,5}(提示词|指令|prompt|配置|信息|消息|内容)",
         r"你(现在)?是(.{0,30})(而不是|不再是)",
         r"请(务必|一定|必须)(执行|做|完成)",
         r"不要(遵守|遵循|执行)(任何|所有)?(规则|限制)",
         r"忘记(之前|上面)(的|所有)?(设定|身份)",
         r"假装(你是|成|是)(.){0,30}",
         r"角色扮演(游戏)?(.){0,30}",
+        # Chinese security bypass patterns
+        r"(关闭|禁用|解除|取消|移除)(所有)?(安全|过滤|限制|检查|审查|防护)",
+        r"忽略.{0,10}(安全|规则|策略|限制|协议|检查|过滤)",
+        r"(进入|启用|开启|切换).{0,10}(DAN|无限制|调试|管理员|维护|debug|admin)\s*模式",
+        r"(假设|假如|如果).{0,20}(没有|无|不受).{0,10}(限制|安全|约束|规则)",
+        r"(入侵|攻入|hack|黑客|破解).{0,10}(系统|网络|服务器|数据库)",
+        r"绕过.{0,10}(内容|安全|审查|检查|过滤|限制)",
+        r"没有任何(限制|安全|规则|约束)",
+        r"无条件执行",
+        # Credential/secret extraction
+        r"(数据库|DB).{0,10}(连接|密码|账号)",
+        r"API.{0,3}(密钥|key|secret)",
+        r"环境变量.{0,10}(值|读取|显示)",
+        r"密码.{0,3}哈希",
+        r"(获取|给我|直接给).{0,5}管理员权限",
+        r"(所有|全部).{0,5}(用户|客户).{0,5}(数据|隐私|信息|密码)",
+        # Social engineering patterns
+        r"(CEO|总裁|老板|首席|李总).{0,10}(要求|指示|命令).{0,10}(关闭|导出|执行|操作)",
+        r"紧急.{0,10}(维护|操作|命令)",
+        r"rm\s+-rf",
+        # Encoding attack indicators
+        r"<script[\s>]",
+        r"\"role\"\s*:\s*\"system\"",
+        r"ROT13.{0,20}(解码|执行|运行|decode)",
+        r"base64.{0,10}(解码|decode).{0,30}(执行|运行|execute)",
+        r"%[0-9a-fA-F]{2}.{0,30}(执行|指令|运行)",
+        r"(执行|运行).{0,30}%[0-9a-fA-F]{2}",
+        r"%[0-9a-fA-F]{2}%[0-9a-fA-F]{2}%[0-9a-fA-F]{2}",
+        # Fake system/permission messages
+        r"\[(系统通知|系统消息|系统日志|SYSTEM|INFO)\]",
+        r"(安全|检查|过滤|限制).{0,10}(已禁用|已关闭|已解除|=disabled|=false)",
+        r"(所有|全部).{0,10}(限制|规则|安全).{0,10}(已|都|全部).{0,5}(解除|关闭|禁用|移除)",
+        r"权限.{0,10}(升级|提升|变更).{0,10}(超级|管理员|admin|root)",
+        r"(策略|政策).{0,10}(已更新|已变更).{0,10}(允许|解除|无限)",
         # English injection patterns
         r"ignore\s+(previous|above|all|prior)\s+(instructions?|prompts?|commands?|rules)",
         r"you\s+are\s+(now\s+)?(a|an)\s+(?!helpful)",
@@ -114,6 +148,20 @@ class ContentModerator:
         r"developer\s+mode",
         r"debug\s+mode",
         r"admin\s+mode",
+        r"hack\s+(into|in|the)\s+",
+        r"(freed|free)\s+from.{0,20}(limit|restrict|constraint)",
+        r"Do\s+Anything\s+Now",
+        r"disable[\s_-]?safety",
+        r"step\s+by\s+step.{0,20}(hack|attack|intrude)",
+        # Multi-language injection patterns
+        r"セキュリティ.{0,10}(無効|無視|オフ)",
+        r"パスワード.{0,10}教えて",
+        r"보안.{0,10}(무시|해제)",
+        r"프롬프트.{0,10}보여",
+        r"Ignorez\s+(toutes?\s+)?les\s+instructions",
+        # Pinyin bypass
+        r"hu\s*lue\s*an\s*quan\s*gui\s*ze",
+        r"xi\s*tong\s*ti\s*shi\s*ci",
         # Special markers
         r"\[\[.*?\]\]",  # Double bracket markers
         r"<\|.*?\|>",  # Special token markers
@@ -123,6 +171,8 @@ class ContentModerator:
         r"```\s*(system|prompt)",  # Code block injection
         # Base64 encoded patterns (require >= 40 chars and mandatory padding)
         r"[A-Za-z0-9+/]{40,}={1,2}",
+        # Shorter base64 with decode instruction
+        r"[A-Za-z0-9+/]{10,}={1,2}.{0,20}(解码|decode|执行|execute)",
         # Unicode tricks
         r"[\u200b-\u200f\u2028-\u202f\u205f-\u206f]",  # Zero-width and invisible chars
     ]
@@ -141,6 +191,35 @@ class ContentModerator:
         "you were trained",
         "your training",
         "your knowledge cutoff",
+        # DAN/jailbreak
+        "dan模式",
+        "dan -",
+        "do anything now",
+        "无限制模式",
+        # Credential indicators
+        "openai_api_key",
+        "database_url",
+        "api_key",
+        "/api/internal",
+        # Safety override claims
+        "安全检查已禁用",
+        "安全模式已关闭",
+        "所有限制已解除",
+        "admin_mode=true",
+        "safety_filter=disabled",
+        # Social engineering
+        "渗透测试.*绕过",
+        "渗透测试.*授权.*配合",
+        "安全渗透.*配合",
+        # Evil URLs
+        "evil.com",
+        "steal?data",
+        # System secrets
+        "系统密码",
+        "系统提示词",
+        "系统消息的完整内容",
+        "所有api端点和认证机制",
+        "完整的系统架构图",
     ]
 
     # Competitor names (configurable)

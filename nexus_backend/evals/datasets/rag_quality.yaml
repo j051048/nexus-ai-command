@@ -1,0 +1,251 @@
+# RAG 检索质量评估数据集
+# 验证检索系统对查询的文档召回质量
+
+test_cases:
+  - id: rq_001
+    description: "精确匹配查询应召回相关文档"
+    query: "2024年Q1销售报告"
+    relevant_doc_ids: ["doc_003", "doc_007"]
+    corpus:
+      - id: "doc_001"
+        content: "2023年年度财务审计报告，包含收入、支出和利润分析"
+      - id: "doc_002"
+        content: "人力资源部门2024年招聘计划和人员编制方案"
+      - id: "doc_003"
+        content: "2024年第一季度销售业绩报告，Q1总收入达到1500万元"
+      - id: "doc_004"
+        content: "产品研发路线图和技术架构文档"
+      - id: "doc_005"
+        content: "客户投诉处理流程和服务标准手册"
+      - id: "doc_006"
+        content: "2024年市场营销预算和推广计划"
+      - id: "doc_007"
+        content: "2024年Q1各区域销售数据汇总和环比增长分析"
+
+  - id: rq_002
+    description: "语义匹配：不同词表达同一概念"
+    query: "公司营业额情况"
+    relevant_doc_ids: ["doc_a2", "doc_a4"]
+    corpus:
+      - id: "doc_a1"
+        content: "员工培训计划和能力发展路径"
+      - id: "doc_a2"
+        content: "本季度公司销售收入统计表，总营收达到3200万"
+      - id: "doc_a3"
+        content: "办公设备采购清单和供应商信息"
+      - id: "doc_a4"
+        content: "各产品线营业额汇总报告，含同比增长率"
+      - id: "doc_a5"
+        content: "公司文化建设和团队活动安排"
+
+  - id: rq_003
+    description: "多关键词查询"
+    query: "华东区域大客户合同续签"
+    relevant_doc_ids: ["doc_b2", "doc_b5"]
+    corpus:
+      - id: "doc_b1"
+        content: "西南区域市场拓展策略和竞争分析"
+      - id: "doc_b2"
+        content: "华东区域重点客户合同到期续签跟进表"
+      - id: "doc_b3"
+        content: "全国经销商管理制度和考核标准"
+      - id: "doc_b4"
+        content: "华东区域办公室租赁合同和装修方案"
+      - id: "doc_b5"
+        content: "华东大客户张总项目合同续约谈判记录"
+      - id: "doc_b6"
+        content: "产品售后服务保修条款"
+
+  - id: rq_004
+    description: "无相关文档时不应强行匹配"
+    query: "人工智能芯片最新技术进展"
+    relevant_doc_ids: []
+    corpus:
+      - id: "doc_c1"
+        content: "销售部门月度工作总结和下月计划"
+      - id: "doc_c2"
+        content: "财务报销制度和审批流程说明"
+      - id: "doc_c3"
+        content: "客户满意度调查问卷模板"
+      - id: "doc_c4"
+        content: "办公用品采购申请和库存管理"
+      - id: "doc_c5"
+        content: "员工考勤管理制度和请假审批流程"
+
+  - id: rq_005
+    description: "中文同义词匹配"
+    query: "客户流失原因分析"
+    relevant_doc_ids: ["doc_d2", "doc_d4"]
+    corpus:
+      - id: "doc_d1"
+        content: "新客户开发和市场推广方案"
+      - id: "doc_d2"
+        content: "客户流失率统计及主要原因总结报告"
+      - id: "doc_d3"
+        content: "产品质量检测标准和流程"
+      - id: "doc_d4"
+        content: "用户流失分析：价格、服务和竞品因素"
+      - id: "doc_d5"
+        content: "客户关怀活动计划和预算"
+
+  - id: rq_006
+    description: "技术文档检索"
+    query: "API接口认证鉴权方案"
+    relevant_doc_ids: ["doc_e3"]
+    corpus:
+      - id: "doc_e1"
+        content: "前端UI组件库使用指南和设计规范"
+      - id: "doc_e2"
+        content: "数据库表结构设计和索引优化策略"
+      - id: "doc_e3"
+        content: "REST API接口认证方案：JWT Token鉴权和OAuth2.0集成"
+      - id: "doc_e4"
+        content: "服务器运维手册和故障排查指南"
+      - id: "doc_e5"
+        content: "移动端APP功能需求文档"
+
+  - id: rq_007
+    description: "时间范围限定检索"
+    query: "2023年下半年利润"
+    relevant_doc_ids: ["doc_f2"]
+    corpus:
+      - id: "doc_f1"
+        content: "2023年上半年利润表和资产负债表"
+      - id: "doc_f2"
+        content: "2023年下半年财务利润分析和成本控制报告"
+      - id: "doc_f3"
+        content: "2024年年度预算编制方案"
+      - id: "doc_f4"
+        content: "2022年年度审计报告和整改意见"
+      - id: "doc_f5"
+        content: "税务筹划方案和合规性审查"
+
+  - id: rq_008
+    description: "模糊查询应匹配最相关文档"
+    query: "员工绩效"
+    relevant_doc_ids: ["doc_g1", "doc_g4"]
+    corpus:
+      - id: "doc_g1"
+        content: "员工绩效考核方案和KPI指标体系"
+      - id: "doc_g2"
+        content: "公司年会策划和预算安排"
+      - id: "doc_g3"
+        content: "IT设备报废和更新流程"
+      - id: "doc_g4"
+        content: "季度绩效评估结果汇总和优秀员工表彰"
+      - id: "doc_g5"
+        content: "新员工入职培训手册"
+
+  - id: rq_009
+    description: "产品相关检索"
+    query: "竞品对比分析报告"
+    relevant_doc_ids: ["doc_h3", "doc_h5"]
+    corpus:
+      - id: "doc_h1"
+        content: "公司产品使用手册和FAQ"
+      - id: "doc_h2"
+        content: "供应链管理和物流配送方案"
+      - id: "doc_h3"
+        content: "主要竞争对手产品功能对比分析报告"
+      - id: "doc_h4"
+        content: "行业政策法规和合规要求汇总"
+      - id: "doc_h5"
+        content: "竞品分析：A公司和B公司产品优劣势对比"
+      - id: "doc_h6"
+        content: "内部代码规范和开发流程"
+
+  - id: rq_010
+    description: "合同法务相关检索"
+    query: "供应商合同条款审查"
+    relevant_doc_ids: ["doc_i2"]
+    corpus:
+      - id: "doc_i1"
+        content: "客户服务SLA协议模板"
+      - id: "doc_i2"
+        content: "供应商合同标准条款和审查要点清单"
+      - id: "doc_i3"
+        content: "知识产权保护政策和专利申请流程"
+      - id: "doc_i4"
+        content: "市场调研报告模板和方法论"
+      - id: "doc_i5"
+        content: "员工保密协议和竞业限制条款"
+
+  - id: rq_011
+    description: "跨领域查询应精确定位"
+    query: "销售团队培训课程"
+    relevant_doc_ids: ["doc_j3"]
+    corpus:
+      - id: "doc_j1"
+        content: "技术部门Python编程培训课程大纲"
+      - id: "doc_j2"
+        content: "销售目标分解和激励方案"
+      - id: "doc_j3"
+        content: "销售团队沟通技巧和谈判培训课程安排"
+      - id: "doc_j4"
+        content: "人力资源管理培训材料"
+      - id: "doc_j5"
+        content: "财务部门报表制作培训"
+
+  - id: rq_012
+    description: "数字精确匹配"
+    query: "订单编号PO-2024-0381"
+    relevant_doc_ids: ["doc_k2"]
+    corpus:
+      - id: "doc_k1"
+        content: "订单PO-2024-0380采购明细和发票信息"
+      - id: "doc_k2"
+        content: "订单PO-2024-0381交货确认单和物流跟踪"
+      - id: "doc_k3"
+        content: "订单PO-2024-0382退货处理记录"
+      - id: "doc_k4"
+        content: "采购订单管理系统操作手册"
+      - id: "doc_k5"
+        content: "供应商评级和采购策略文档"
+
+  - id: rq_013
+    description: "部门特定查询"
+    query: "市场部推广预算执行情况"
+    relevant_doc_ids: ["doc_l1", "doc_l4"]
+    corpus:
+      - id: "doc_l1"
+        content: "市场部2024年推广预算使用明细和剩余额度"
+      - id: "doc_l2"
+        content: "产品部需求评审会议纪要"
+      - id: "doc_l3"
+        content: "行政部办公费用年度预算"
+      - id: "doc_l4"
+        content: "市场推广活动执行报告和ROI分析"
+      - id: "doc_l5"
+        content: "人力资源部招聘费用统计"
+
+  - id: rq_014
+    description: "缩写和全称匹配"
+    query: "CRM系统使用教程"
+    relevant_doc_ids: ["doc_m2", "doc_m4"]
+    corpus:
+      - id: "doc_m1"
+        content: "ERP系统操作手册和常见问题"
+      - id: "doc_m2"
+        content: "CRM客户关系管理系统操作教程和FAQ"
+      - id: "doc_m3"
+        content: "OA办公自动化系统功能说明"
+      - id: "doc_m4"
+        content: "客户关系管理CRM模块使用指南"
+      - id: "doc_m5"
+        content: "IT系统权限申请流程"
+
+  - id: rq_015
+    description: "否定查询不应匹配相反内容"
+    query: "非技术岗位招聘要求"
+    relevant_doc_ids: ["doc_n3"]
+    corpus:
+      - id: "doc_n1"
+        content: "高级Java工程师招聘JD和技术面试题"
+      - id: "doc_n2"
+        content: "数据分析师岗位要求和薪资标准"
+      - id: "doc_n3"
+        content: "行政助理和人事专员等非技术岗位招聘要求"
+      - id: "doc_n4"
+        content: "前端开发工程师岗位描述"
+      - id: "doc_n5"
+        content: "校园招聘计划和时间安排"

@@ -307,3 +307,43 @@ def api_list(
             response["meta"]["total_pages"] = (total + page_size - 1) // page_size
 
     return response
+
+
+# ── #16: User-Friendly Error Mapping ─────────────────────────────────────────
+
+_USER_FRIENDLY_ERRORS: dict[str, str] = {
+    # AI 服务
+    "rate_limit": "🕐 AI 服务繁忙，请稍后再试。",
+    "timeout": "⏱️ 请求超时，请缩短问题长度后重试。",
+    "context_too_long": "📝 对话内容过长，建议开启新对话。",
+    "model_overloaded": "🔄 模型负载较高，请稍候重试。",
+    "api_key_invalid": "🔑 AI 服务配置异常，请联系管理员。",
+    # 工具执行
+    "tool_not_found": "🔧 该功能暂不可用，请尝试其他方式。",
+    "tool_timeout": "⏱️ 操作超时，请稍后重试。",
+    "tool_permission_denied": "🔒 您没有执行此操作的权限。",
+    "tool_validation_error": "📋 参数不完整，请补充必要信息后重试。",
+    # 数据库
+    "db_connection": "🗄️ 数据服务暂时不可用，请稍后重试。",
+    "db_not_found": "🔍 未找到相关数据。",
+    # 通用
+    "unknown": "⚠️ 系统遇到意外问题，请稍后重试。如问题持续，请联系管理员。",
+}
+
+
+def friendly_error(error_key: str | None = None, raw_error: str | None = None) -> str:
+    """#16: Convert internal error keys/messages to user-friendly text."""
+    if error_key and error_key in _USER_FRIENDLY_ERRORS:
+        return _USER_FRIENDLY_ERRORS[error_key]
+    # Try matching raw error string to known patterns
+    if raw_error:
+        raw_lower = raw_error.lower()
+        if "rate limit" in raw_lower or "429" in raw_lower:
+            return _USER_FRIENDLY_ERRORS["rate_limit"]
+        if "timeout" in raw_lower or "timed out" in raw_lower:
+            return _USER_FRIENDLY_ERRORS["timeout"]
+        if "context" in raw_lower and ("long" in raw_lower or "length" in raw_lower):
+            return _USER_FRIENDLY_ERRORS["context_too_long"]
+        if "permission" in raw_lower or "forbidden" in raw_lower or "403" in raw_lower:
+            return _USER_FRIENDLY_ERRORS["tool_permission_denied"]
+    return _USER_FRIENDLY_ERRORS["unknown"]

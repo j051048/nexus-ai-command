@@ -134,3 +134,39 @@ def record_hallucination(detection_layer: str) -> None:
     _hallucination_detected.add(1, attributes={"detection_layer": detection_layer})
 
 
+# ---------------------------------------------------------------------------
+# Tool success rate sliding window alert
+# ---------------------------------------------------------------------------
+
+from collections import deque as _deque
+
+_tool_call_window: dict[str, _deque] = {}
+_WINDOW_SIZE = 100
+_CONSECUTIVE_FAIL_THRESHOLD = 3
+
+
+def check_tool_alert(tool_name: str, success: bool) -> bool:
+    """Track tool call outcome and alert on consecutive failures.
+
+    Returns True if an alert was triggered (last N calls all failed).
+    """
+    if tool_name not in _tool_call_window:
+        _tool_call_window[tool_name] = _deque(maxlen=_WINDOW_SIZE)
+    _tool_call_window[tool_name].append(success)
+
+    window = _tool_call_window[tool_name]
+    if len(window) < _CONSECUTIVE_FAIL_THRESHOLD:
+        return False
+
+    # Check if last N calls all failed
+    recent = list(window)[-_CONSECUTIVE_FAIL_THRESHOLD:]
+    if not any(recent):  # all False
+        logger.warning(
+            "[ToolAlert] %s failed %d consecutive times — potential issue",
+            tool_name,
+            _CONSECUTIVE_FAIL_THRESHOLD,
+        )
+        return True
+    return False
+
+

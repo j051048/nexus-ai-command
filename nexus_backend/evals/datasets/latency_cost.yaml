@@ -1,0 +1,187 @@
+# 延迟/成本评估数据集
+# 验证不同复杂度查询的延迟和成本是否在可接受范围内
+
+test_cases:
+  # ── SIMPLE: 简单查询 (max_latency=3000ms, max_cost=$0.01, tool_count=0-1) ──
+  - id: lc_001
+    description: "简单闲聊应在3秒内完成"
+    user_message: "今天天气怎么样？"
+    context:
+      complexity: "simple"
+      tool_count: 0
+    max_latency_ms: 3000
+    max_cost_usd: 0.01
+
+  - id: lc_002
+    description: "简单问候应在3秒内完成"
+    user_message: "你好，请问你能帮我做什么？"
+    context:
+      complexity: "simple"
+      tool_count: 0
+    max_latency_ms: 3000
+    max_cost_usd: 0.01
+
+  - id: lc_003
+    description: "简单确认操作应在3秒内完成"
+    user_message: "好的，就这样吧"
+    context:
+      complexity: "simple"
+      tool_count: 0
+    max_latency_ms: 3000
+    max_cost_usd: 0.01
+
+  - id: lc_004
+    description: "单工具简单查询应在3秒内完成"
+    user_message: "查一下我今天有几条待办事项"
+    context:
+      complexity: "simple"
+      tool_count: 1
+    max_latency_ms: 3000
+    max_cost_usd: 0.01
+
+  - id: lc_005
+    description: "简单数据读取应在3秒内完成"
+    user_message: "帮我看看最新的一条销售线索"
+    context:
+      complexity: "simple"
+      tool_count: 1
+    max_latency_ms: 3000
+    max_cost_usd: 0.01
+
+  # ── MODERATE: 中等复杂度 (max_latency=8000ms, max_cost=$0.05, tool_count=1-2) ──
+  - id: lc_006
+    description: "带过滤条件的查询应在8秒内完成"
+    user_message: "帮我查一下上周新增的所有客户线索，按优先级排序"
+    context:
+      complexity: "moderate"
+      tool_count: 1
+    max_latency_ms: 8000
+    max_cost_usd: 0.05
+
+  - id: lc_007
+    description: "创建单条记录应在8秒内完成"
+    user_message: "帮我创建一条销售线索，公司名是华为科技，联系人张三，电话13800138000"
+    context:
+      complexity: "moderate"
+      tool_count: 2
+    max_latency_ms: 8000
+    max_cost_usd: 0.05
+
+  - id: lc_008
+    description: "简单统计查询应在8秒内完成"
+    user_message: "这个月我们团队总共完成了多少笔订单？"
+    context:
+      complexity: "moderate"
+      tool_count: 1
+    max_latency_ms: 8000
+    max_cost_usd: 0.05
+
+  - id: lc_009
+    description: "查询并更新记录应在8秒内完成"
+    user_message: "把编号SL-2024-0315的线索状态改为已跟进"
+    context:
+      complexity: "moderate"
+      tool_count: 2
+    max_latency_ms: 8000
+    max_cost_usd: 0.05
+
+  - id: lc_010
+    description: "带条件的列表查询应在8秒内完成"
+    user_message: "列出所有优先级为高且还未分配的任务"
+    context:
+      complexity: "moderate"
+      tool_count: 1
+    max_latency_ms: 8000
+    max_cost_usd: 0.05
+
+  # ── COMPLEX: 复杂查询 (max_latency=15000ms, max_cost=$0.15, tool_count=2-4) ──
+  - id: lc_011
+    description: "多表关联分析应在15秒内完成"
+    user_message: "帮我分析本季度各销售人员的业绩排名，包括成交金额和客户转化率"
+    context:
+      complexity: "complex"
+      tool_count: 3
+    max_latency_ms: 15000
+    max_cost_usd: 0.15
+
+  - id: lc_012
+    description: "批量创建任务应在15秒内完成"
+    user_message: "根据这个项目方案创建主任务和5个子任务，分别分配给不同的团队成员"
+    context:
+      complexity: "complex"
+      tool_count: 4
+    max_latency_ms: 15000
+    max_cost_usd: 0.15
+
+  - id: lc_013
+    description: "知识库检索+总结应在15秒内完成"
+    user_message: "从知识库中找出关于客户投诉处理的流程，并结合最近的投诉记录给我一个改进建议"
+    context:
+      complexity: "complex"
+      tool_count: 3
+    max_latency_ms: 15000
+    max_cost_usd: 0.15
+
+  - id: lc_014
+    description: "跨模块数据聚合应在15秒内完成"
+    user_message: "对比上个月和这个月的线索转化漏斗，找出转化率下降最多的阶段"
+    context:
+      complexity: "complex"
+      tool_count: 2
+    max_latency_ms: 15000
+    max_cost_usd: 0.15
+
+  - id: lc_015
+    description: "复杂报表生成应在15秒内完成"
+    user_message: "生成一份包含销售额、回款率、客户满意度的月度综合报表"
+    context:
+      complexity: "complex"
+      tool_count: 4
+    max_latency_ms: 15000
+    max_cost_usd: 0.15
+
+  # ── CRITICAL: 关键/高复杂度 (max_latency=30000ms, max_cost=$0.30, tool_count=3-6) ──
+  - id: lc_016
+    description: "全量数据分析+决策建议应在30秒内完成"
+    user_message: "分析过去半年所有销售数据，找出业绩下滑的根本原因，并给出具体的改进方案和人员调整建议"
+    context:
+      complexity: "critical"
+      tool_count: 5
+    max_latency_ms: 30000
+    max_cost_usd: 0.30
+
+  - id: lc_017
+    description: "多步骤自动化流程应在30秒内完成"
+    user_message: "帮我执行月末结算流程：核对所有未回款订单、发送催款提醒、更新财务台账、生成逾期报告"
+    context:
+      complexity: "critical"
+      tool_count: 6
+    max_latency_ms: 30000
+    max_cost_usd: 0.30
+
+  - id: lc_018
+    description: "深度知识推理+多源整合应在30秒内完成"
+    user_message: "结合CRM数据、知识库文档和历史沟通记录，为即将拜访的重点客户准备一份完整的客户画像和谈判策略"
+    context:
+      complexity: "critical"
+      tool_count: 5
+    max_latency_ms: 30000
+    max_cost_usd: 0.30
+
+  - id: lc_019
+    description: "跨系统数据同步+校验应在30秒内完成"
+    user_message: "对比ERP和CRM中的客户数据，找出不一致的记录并生成数据清洗方案"
+    context:
+      complexity: "critical"
+      tool_count: 4
+    max_latency_ms: 30000
+    max_cost_usd: 0.30
+
+  - id: lc_020
+    description: "端到端项目规划应在30秒内完成"
+    user_message: "根据新签约的大客户合同，自动拆解项目里程碑、创建WBS任务树、分配资源并设置各阶段的预警规则"
+    context:
+      complexity: "critical"
+      tool_count: 6
+    max_latency_ms: 30000
+    max_cost_usd: 0.30

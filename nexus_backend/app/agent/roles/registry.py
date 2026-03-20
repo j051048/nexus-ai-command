@@ -28,6 +28,10 @@ class RoleConfig:
     scene_codes: list[str] = field(default_factory=list)
     recommended_model_tier: str = "medium"  # "low", "medium", "high"
 
+    # ── #13: Few-shot examples for role-specific reasoning ──
+    few_shot_examples: list[dict] = field(default_factory=list)
+    # Format: [{"user": "...", "assistant": "...", "tools_used": ["..."]}]
+
     # ── P2: AI Position fields (OpenFang "Hands" inspired) ──
     goal: str = ""  # Position objective, e.g. "确保所有商机在72小时内被跟进"
     kpi_metrics: list[str] = field(default_factory=list)  # KPIs this position tracks
@@ -72,6 +76,8 @@ def _load_role_from_module(module_path: str) -> RoleConfig:
         tool_whitelist=getattr(mod, "TOOL_WHITELIST", []),
         scene_codes=getattr(mod, "SCENE_CODES", []),
         recommended_model_tier=getattr(mod, "RECOMMENDED_MODEL_TIER", "medium"),
+        # #13: Few-shot examples
+        few_shot_examples=getattr(mod, "FEW_SHOT_EXAMPLES", []),
         # P2: AI Position fields
         goal=getattr(mod, "GOAL", ""),
         kpi_metrics=getattr(mod, "KPI_METRICS", []),

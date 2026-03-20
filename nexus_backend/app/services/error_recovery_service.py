@@ -351,7 +351,7 @@ class CircuitBreaker:
         HALF_OPEN → After recovery_timeout, allow probe calls to test recovery.
     """
 
-    def __init__(self, name: str, config: CircuitBreakerConfig = None):
+    def __init__(self, name: str, config: CircuitBreakerConfig = None, redis_sync: bool = False):
         self.name = name
         self.config = config or CircuitBreakerConfig()
         self._state = CircuitState.CLOSED
@@ -359,9 +359,15 @@ class CircuitBreaker:
         self._success_count = 0
         self._last_failure_time: float = 0.0
         self._half_open_calls = 0  # P1 Fix: track probe calls in half-open
+        # #18: Optional Redis state sharing across workers
+        self._redis_sync = redis_sync
+        self._redis_key = f"tool_cb:{name}" if redis_sync else None
 
     @property
     def state(self) -> CircuitState:
+        # #18: Pull from Redis before checking state
+        if self._redis_sync:
+            self._pull_from_redis()
         if self._state == CircuitState.OPEN and time.time() - self._last_failure_time >= self.config.recovery_timeout:
             self._state = CircuitState.HALF_OPEN
             self._success_count = 0
@@ -392,6 +398,8 @@ class CircuitBreaker:
                 logger.info(f"Circuit breaker '{self.name}' closed (service recovered)")
         else:
             self._failure_count = 0
+        if self._redis_sync:
+            self._sync_to_redis()
 
     def record_failure(self):
         """Record a failed call."""
@@ -403,6 +411,45 @@ class CircuitBreaker:
         elif self._failure_count >= self.config.failure_threshold:
             self._state = CircuitState.OPEN
             logger.warning(f"Circuit breaker '{self.name}' opened after {self._failure_count} failures")
+        if self._redis_sync:
+            self._sync_to_redis()
+
+    # ── #18: Redis state sync helpers ──
+
+    def _sync_to_redis(self):
+        """Push current state to Redis for cross-worker consistency."""
+        try:
+            from app.services.cache_service import cache_service
+            if cache_service and self._redis_key:
+                import json as _json
+                data = _json.dumps({
+                    "state": self._state.value,
+                    "failure_count": self._failure_count,
+                    "last_failure_time": self._last_failure_time,
+                })
+                cache_service.set(self._redis_key, data, ttl=600)
+        except Exception:
+            pass  # Redis unavailable — degrade to process-local
+
+    def _pull_from_redis(self):
+        """Pull latest state from Redis (other workers may have updated)."""
+        try:
+            from app.services.cache_service import cache_service
+            if cache_service and self._redis_key:
+                import json as _json
+                raw = cache_service.get(self._redis_key)
+                if raw:
+                    data = _json.loads(raw)
+                    remote_failures = data.get("failure_count", 0)
+                    # Only update if remote has MORE failures (converge on worst case)
+                    if remote_failures > self._failure_count:
+                        self._failure_count = remote_failures
+                        self._last_failure_time = data.get("last_failure_time", self._last_failure_time)
+                        remote_state = data.get("state", "closed")
+                        if remote_state == "open" and self._state == CircuitState.CLOSED:
+                            self._state = CircuitState.OPEN
+        except Exception:
+            pass  # Redis unavailable — use local state
 
     def get_status(self) -> dict:
         """Get circuit breaker status for monitoring."""
@@ -432,4 +479,5 @@ llm_circuit_breaker = CircuitBreaker(
 tool_circuit_breaker = CircuitBreaker(
     "tool_service",
     CircuitBreakerConfig(failure_threshold=5, recovery_timeout=60.0, success_threshold=2),
+    redis_sync=True,  # #18: Share state across workers
 )

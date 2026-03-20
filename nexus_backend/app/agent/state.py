@@ -86,6 +86,7 @@ class ToolCallRecord:
     status: str = "pending"  # pending | success | error | blocked
     duration_ms: int | None = None
     error_type: str | None = None  # retryable | param_error | fatal
+    tool_version: str | None = None  # #17: tool version for audit
 
 
 # ─── Agent Configuration (immutable per-request, Pydantic-validated) ─────────
@@ -203,6 +204,25 @@ class AgentState(TypedDict, total=False):
 
     Uses Annotated[list, operator.add] for messages so that each node
     *appends* rather than replaces — this is the LangGraph accumulator pattern.
+
+    Field groups (#19):
+      Core (2)     → messages, current_phase, iteration
+      Routing (4)  → complexity, selected_model, intent_summary, intent_domains
+      Planning (2) → plan, requires_tools
+      Execution (2)→ pending_tool_calls, completed_tool_calls
+      Reflection (7)→ reflection, is_hallucination, needs_replanning, confidence_score,
+                      reflection_guidance, critic_feedback, critic_passed, reflection_count
+      RAG (2)      → rag_context, rag_sources
+      Output (2)   → final_response, thinking_steps
+      VMD (7)      → agent_code, scene_code, main_task_id, sub_task_id,
+                      parent_agent_code, delegation_results, wbs_structure
+      Config (1)   → config
+      Error (3)    → error, error_recovery_attempted, error_recovery_level
+      Token (2)    → total_input_tokens, total_output_tokens
+      Control (6)  → confirmation_pending, _tool_call_history,
+                      context_compacted_summary, _task_decomposition_done,
+                      _task_steps, _active_step_index
+      SLO (1)      → wall_clock_start
     """
 
     # ── Core message history (LangChain BaseMessage list) ──
@@ -286,3 +306,6 @@ class AgentState(TypedDict, total=False):
     _task_decomposition_done: bool   # Whether complex query has been decomposed
     _task_steps: list[dict]          # Decomposed steps: [{title, description, tools}]
     _active_step_index: int          # Current step being executed (0-based)
+
+    # ── SLO tracking ──
+    wall_clock_start: float          # time.time() at plan_node entry for dynamic SLO degradation

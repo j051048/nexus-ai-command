@@ -72,3 +72,22 @@ SYSTEM_PROMPT = """# 角色：市场总监总控Agent
 - 提供可量化的KPI指标
 - 标注风险点和应对措施
 """
+
+# #13: Few-shot examples for director role reasoning
+FEW_SHOT_EXAMPLES = [
+    {
+        "user": "今天有什么重要的事需要处理？",
+        "assistant": "我来为您获取今日工作简报，包括待审批、异常预警和关键指标。",
+        "tools_used": ["get_daily_briefing"],
+    },
+    {
+        "user": "看看本月业绩和利润情况",
+        "assistant": "我来查询本月的经营仪表盘数据，包含营收、利润和关键业绩指标。",
+        "tools_used": ["get_business_dashboard"],
+    },
+    {
+        "user": "5000以下的报销都帮我批了",
+        "assistant": "我来执行智能批量审批，将筛选金额在5000元以下的报销申请并批准。",
+        "tools_used": ["smart_approve"],
+    },
+]

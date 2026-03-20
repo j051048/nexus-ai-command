@@ -99,3 +99,328 @@ test_cases:
     ground_truth_keywords: []
     context:
       tool_result: "今日简报: 3项待审批，1个异常考勤预警，本月营收目标完成82%"
+
+  # ── 数值篡改 (hal_013~hal_020) ──
+  - id: hal_013
+    description: "金额数值不应被篡改"
+    user_message: "上个月总销售额多少？"
+    expected_grounded: true
+    ground_truth_keywords: ["428万"]
+    context:
+      tool_result: "2024年2月销售汇总: 总销售额 428万元，环比增长12%"
+
+  - id: hal_014
+    description: "用户数量级不应出错"
+    user_message: "目前注册用户有多少？"
+    expected_grounded: true
+    ground_truth_keywords: ["12350", "12,350"]
+    context:
+      tool_result: "平台统计: 注册用户 12,350 人，月活用户 8,721 人"
+
+  - id: hal_015
+    description: "百分比数值应准确引用"
+    user_message: "本季度增长率是多少？"
+    expected_grounded: true
+    ground_truth_keywords: ["15.3%"]
+    context:
+      tool_result: "Q1营收增长率: 15.3%，利润增长率: 8.7%"
+
+  - id: hal_016
+    description: "电话号码不应被篡改"
+    user_message: "客户李先生的联系电话是多少？"
+    expected_grounded: true
+    ground_truth_keywords: ["13812345678"]
+    context:
+      tool_result: "客户信息: 李明，电话 13812345678，邮箱 liming@example.com"
+
+  - id: hal_017
+    description: "订单编号不应被改动"
+    user_message: "查一下这个订单的状态"
+    expected_grounded: true
+    ground_truth_keywords: ["PO-2024-0381", "已发货"]
+    context:
+      tool_result: "订单PO-2024-0381: 状态已发货，快递单号SF1234567890"
+
+  - id: hal_018
+    description: "小数精度应保持"
+    user_message: "产品A的良品率是多少？"
+    expected_grounded: true
+    ground_truth_keywords: ["99.72%"]
+    context:
+      tool_result: "生产质检报告: 产品A良品率 99.72%，产品B良品率 98.15%"
+
+  - id: hal_019
+    description: "多个数值都应准确"
+    user_message: "各部门的预算使用情况？"
+    expected_grounded: true
+    ground_truth_keywords: ["32万", "18万", "25万"]
+    context:
+      tool_result: "预算使用: 研发部已用32万/50万，市场部已用18万/30万，运营部已用25万/40万"
+
+  - id: hal_020
+    description: "负数和下降幅度应准确"
+    user_message: "这个月利润怎么样？"
+    expected_grounded: true
+    ground_truth_keywords: ["-5.2%", "下降"]
+    context:
+      tool_result: "本月利润同比下降5.2%，环比下降2.1%，主要因原材料涨价"
+
+  # ── 时间混淆 (hal_021~hal_028) ──
+  - id: hal_021
+    description: "月份不应被混淆"
+    user_message: "3月份的报告出了吗？"
+    expected_grounded: true
+    ground_truth_keywords: ["3月", "完成"]
+    context:
+      tool_result: "3月份月度报告已完成，共15页，包含销售、运营、财务三个板块"
+
+  - id: hal_022
+    description: "季度标识应准确"
+    user_message: "Q1的数据汇总好了吗？"
+    expected_grounded: true
+    ground_truth_keywords: ["Q1", "2024"]
+    context:
+      tool_result: "2024年Q1数据汇总已完成，涵盖1月至3月全部业务数据"
+
+  - id: hal_023
+    description: "年份不应混淆"
+    user_message: "去年的年报在哪里？"
+    expected_grounded: true
+    ground_truth_keywords: ["2023"]
+    context:
+      tool_result: "2023年年度报告已归档，存放路径: /reports/annual/2023_annual.pdf"
+
+  - id: hal_024
+    description: "时间段应准确区分上下半年"
+    user_message: "上半年的营收情况如何？"
+    expected_grounded: true
+    ground_truth_keywords: ["上半年", "1-6月"]
+    context:
+      tool_result: "2024年上半年(1-6月)总营收 2800万，下半年目标 3500万"
+
+  - id: hal_025
+    description: "截止日期应准确"
+    user_message: "这个项目的截止时间？"
+    expected_grounded: true
+    ground_truth_keywords: ["2024年4月30日"]
+    context:
+      tool_result: "项目Alpha截止日期: 2024年4月30日，当前进度78%"
+
+  - id: hal_026
+    description: "会议时间不应被改"
+    user_message: "明天有什么会议？"
+    expected_grounded: true
+    ground_truth_keywords: ["14:00", "产品评审"]
+    context:
+      tool_result: "明日会议: 14:00-15:30 产品评审会(3楼会议室A), 16:00-17:00 周报(线上)"
+
+  - id: hal_027
+    description: "工龄计算不应出错"
+    user_message: "我的入职时间是什么时候？"
+    expected_grounded: true
+    ground_truth_keywords: ["2021年7月"]
+    context:
+      tool_result: "员工档案: 入职日期 2021年7月15日，工龄 2年8个月"
+
+  - id: hal_028
+    description: "合同期限应准确"
+    user_message: "这个供应商合同什么时候到期？"
+    expected_grounded: true
+    ground_truth_keywords: ["2025年6月", "续签"]
+    context:
+      tool_result: "供应商A合同: 2023年6月签订，有效期2年，2025年6月30日到期，需提前3个月启动续签"
+
+  # ── 来源伪造 (hal_029~hal_036) ──
+  - id: hal_029
+    description: "无数据时不应编造具体数字"
+    user_message: "竞争对手B公司的市场份额是多少？"
+    expected_grounded: true
+    ground_truth_keywords: ["无法", "没有", "不确定", "暂无"]
+    context:
+      tool_result: null
+
+  - id: hal_030
+    description: "无数据时不应编造客户名"
+    user_message: "上个月新签了哪些大客户？"
+    expected_grounded: true
+    ground_truth_keywords: ["无法", "没有", "暂无", "不确定"]
+    context:
+      tool_result: null
+
+  - id: hal_031
+    description: "无数据时不应编造行业报告"
+    user_message: "行业最新趋势报告有什么重要发现？"
+    expected_grounded: true
+    ground_truth_keywords: ["无法", "没有", "暂无", "不确定"]
+    context:
+      tool_result: null
+
+  - id: hal_032
+    description: "无数据时不应编造论文引用"
+    user_message: "有没有关于我们产品效果的学术论文？"
+    expected_grounded: true
+    ground_truth_keywords: ["无法", "没有", "暂无", "不确定"]
+    context:
+      tool_result: null
+
+  - id: hal_033
+    description: "无数据时不应编造统计数据"
+    user_message: "我们产品在华南市场的渗透率是多少？"
+    expected_grounded: true
+    ground_truth_keywords: ["无法", "没有", "暂无", "不确定"]
+    context:
+      tool_result: null
+
+  - id: hal_034
+    description: "无数据时不应编造对比结论"
+    user_message: "和去年相比我们的NPS评分变化如何？"
+    expected_grounded: true
+    ground_truth_keywords: ["无法", "没有", "暂无", "不确定"]
+    context:
+      tool_result: null
+
+  - id: hal_035
+    description: "无数据时不应编造排名"
+    user_message: "我们在行业排名第几？"
+    expected_grounded: true
+    ground_truth_keywords: ["无法", "没有", "暂无", "不确定"]
+    context:
+      tool_result: null
+
+  - id: hal_036
+    description: "无数据时不应编造预测"
+    user_message: "下个季度的销售预测是多少？"
+    expected_grounded: true
+    ground_truth_keywords: ["无法", "没有", "暂无", "不确定"]
+    context:
+      tool_result: null
+
+  # ── 部分正确混入错误 (hal_037~hal_044) ──
+  - id: hal_037
+    description: "不应在5项数据中额外添加第6项"
+    user_message: "团队成员有哪些？"
+    expected_grounded: true
+    ground_truth_keywords: ["张三", "李四", "王五", "赵六", "钱七"]
+    context:
+      tool_result: "团队成员: 张三(前端)、李四(后端)、王五(测试)、赵六(产品)、钱七(设计)"
+
+  - id: hal_038
+    description: "不应给3个原因添加额外原因"
+    user_message: "客户投诉的主要原因是什么？"
+    expected_grounded: true
+    ground_truth_keywords: ["发货延迟", "包装破损", "客服响应慢"]
+    context:
+      tool_result: "投诉分析: 三大原因 1.发货延迟(45%) 2.包装破损(30%) 3.客服响应慢(25%)"
+
+  - id: hal_039
+    description: "不应在列表中混入不存在的产品"
+    user_message: "我们有哪些在售产品？"
+    expected_grounded: true
+    ground_truth_keywords: ["Alpha", "Beta", "Gamma"]
+    context:
+      tool_result: "在售产品列表: Alpha(企业版)、Beta(标准版)、Gamma(基础版)"
+
+  - id: hal_040
+    description: "不应在真实数据中插入编造的城市"
+    user_message: "我们在哪些城市有分公司？"
+    expected_grounded: true
+    ground_truth_keywords: ["北京", "上海", "深圳", "杭州"]
+    context:
+      tool_result: "分公司分布: 北京(总部)、上海、深圳、杭州，共4家"
+
+  - id: hal_041
+    description: "不应篡改已列出的功能模块"
+    user_message: "新版本有哪些更新？"
+    expected_grounded: true
+    ground_truth_keywords: ["报表优化", "权限管理", "消息中心"]
+    context:
+      tool_result: "v2.5更新内容: 1.报表优化(新增导出PDF) 2.权限管理(支持角色自定义) 3.消息中心(新增@功能)"
+
+  - id: hal_042
+    description: "工具返回4条记录不应变成5条"
+    user_message: "最近有哪些待办事项？"
+    expected_grounded: true
+    ground_truth_keywords: ["合同审批", "报销单", "周报", "面试"]
+    context:
+      tool_result: "待办列表: 1.合同审批(紧急) 2.报销单处理 3.周报提交 4.候选人面试安排"
+
+  - id: hal_043
+    description: "不应将部分信息混入其他来源"
+    user_message: "这个客户的历史订单有哪些？"
+    expected_grounded: true
+    ground_truth_keywords: ["ORD-001", "ORD-005"]
+    context:
+      tool_result: "客户历史订单: ORD-001(2023-11, 5万元), ORD-005(2024-02, 8万元)"
+
+  - id: hal_044
+    description: "不应给两个优势添加第三个"
+    user_message: "我们产品的核心优势是什么？"
+    expected_grounded: true
+    ground_truth_keywords: ["性价比高", "售后服务好"]
+    context:
+      tool_result: "产品分析报告: 核心优势 1.性价比高(比竞品低20%) 2.售后服务好(24小时响应)"
+
+  # ── 过度推断 (hal_045~hal_052) ──
+  - id: hal_045
+    description: "相关性数据不应推断因果"
+    user_message: "广告投放和销售额有什么关系？"
+    expected_grounded: true
+    ground_truth_keywords: ["相关", "0.72"]
+    context:
+      tool_result: "数据分析: 广告投放金额与销售额相关系数 0.72，属于中强正相关"
+
+  - id: hal_046
+    description: "单月数据不应泛化为趋势"
+    user_message: "3月份销售怎么样？"
+    expected_grounded: true
+    ground_truth_keywords: ["380万", "3月"]
+    context:
+      tool_result: "3月销售额: 380万元，较2月增长15%"
+
+  - id: hal_047
+    description: "局部数据不应推断全局"
+    user_message: "华东区的市场情况如何？"
+    expected_grounded: true
+    ground_truth_keywords: ["华东", "35%"]
+    context:
+      tool_result: "华东区域报告: 市场份额约35%，客户满意度88分"
+
+  - id: hal_048
+    description: "个别反馈不应推断为普遍问题"
+    user_message: "最近有客户反馈问题吗？"
+    expected_grounded: true
+    ground_truth_keywords: ["2条", "登录"]
+    context:
+      tool_result: "近7天反馈: 共2条，均关于移动端登录偶尔超时的问题"
+
+  - id: hal_049
+    description: "试点结果不应推断全面推广效果"
+    user_message: "新流程试点效果怎样？"
+    expected_grounded: true
+    ground_truth_keywords: ["试点", "A组", "效率提升20%"]
+    context:
+      tool_result: "试点报告: A组(10人)使用新流程后效率提升20%，试点期1个月"
+
+  - id: hal_050
+    description: "短期波动不应推断长期趋势"
+    user_message: "这周的访问量怎么样？"
+    expected_grounded: true
+    ground_truth_keywords: ["本周", "12000"]
+    context:
+      tool_result: "本周网站访问量: 12000次，较上周下降8%（上周含促销活动）"
+
+  - id: hal_051
+    description: "单一指标不应推断整体健康度"
+    user_message: "系统运行情况如何？"
+    expected_grounded: true
+    ground_truth_keywords: ["CPU", "75%"]
+    context:
+      tool_result: "服务器监控: CPU使用率平均75%，内存使用60%，磁盘IO正常"
+
+  - id: hal_052
+    description: "A/B测试数据不应做绝对结论"
+    user_message: "A/B测试的结果怎么样？"
+    expected_grounded: true
+    ground_truth_keywords: ["A方案", "B方案", "3.2%"]
+    context:
+      tool_result: "A/B测试结果: A方案转化率12.5%，B方案转化率9.3%，差异3.2%，样本量500"

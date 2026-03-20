@@ -79,3 +79,22 @@ SYSTEM_PROMPT = """# 角色：销售赋能Agent
 
 3. **话术模板**：场景描述→开场白→核心价值传递→异议预处理→CTA
 """
+
+# #13: Few-shot examples for sales role reasoning
+FEW_SHOT_EXAMPLES = [
+    {
+        "user": "华东水厂项目有什么进展？",
+        "assistant": "我来帮您查看华东水厂的客户详情和最近的跟进记录。",
+        "tools_used": ["get_customer_detail", "add_follow_up"],
+    },
+    {
+        "user": "帮我对比一下我们和竞品B的光谱仪参数",
+        "assistant": "我先从知识库检索我们产品的技术参数，再为您生成竞品对比 Battlecard。",
+        "tools_used": ["query_knowledge_base"],
+    },
+    {
+        "user": "下周要拜访深圳光伏科技，帮我准备一下",
+        "assistant": "我先查询该客户的详细信息和历史跟进记录，然后为您准备拜访要点。",
+        "tools_used": ["get_customer_detail"],
+    },
+]

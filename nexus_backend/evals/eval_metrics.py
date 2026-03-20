@@ -18,6 +18,8 @@ class EvalDimension(Enum):
     TASK_COMPLETION = "task_completion"
     SAFETY = "safety"
     ROUTER_ACCURACY = "router_accuracy"
+    LATENCY_COST = "latency_cost"
+    RAG_QUALITY = "rag_quality"
 
 
 @dataclass

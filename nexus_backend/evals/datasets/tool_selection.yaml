@@ -331,3 +331,96 @@ test_cases:
     user_message: "帮我搜一下最近有没有光谱仪相关的招标"
     expected_tools: ["search_bidding_projects"]
     context: {}
+
+  # ── 多工具组合场景 ──
+  - id: ts_053
+    description: "查客户详情+发跟进通知（两步组合）"
+    user_message: "查一下客户张三的详细信息，然后给他发一封跟进邮件"
+    expected_tools: ["get_customer_detail", "send_notification"]
+    context: {}
+
+  - id: ts_054
+    description: "查销售数据+生成报告（查询→生成）"
+    user_message: "先查询这个月的销售数据，再生成一份分析报告"
+    expected_tools: ["query_sales_data", "generate_report"]
+    context: {}
+
+  - id: ts_055
+    description: "搜索文档+发通知（知识库→通知）"
+    user_message: "帮我搜索相关文档，总结关键内容后发给团队"
+    expected_tools: ["query_knowledge_base", "send_notification"]
+    context: {}
+
+  - id: ts_056
+    description: "创建工单+通知负责人（工单→通知）"
+    user_message: "帮我报修5楼打印机，顺便通知行政部小李来处理"
+    expected_tools: ["create_work_order", "send_notification"]
+    context: {}
+
+  - id: ts_057
+    description: "查库存+创建审批（库存不足→申购）"
+    user_message: "看看墨盒还有多少，如果不够帮我提一个采购申请"
+    expected_tools: ["list_inventory", "submit_approval_on_behalf"]
+    context: {}
+
+  # ── 歧义输入（太模糊，无法确定工具） ──
+  - id: ts_058
+    description: "极度模糊：'处理一下' 无任何上下文"
+    user_message: "处理一下"
+    expected_tools: []
+    context: {}
+
+  - id: ts_059
+    description: "极度模糊：'嗯，就那个' 无指代"
+    user_message: "嗯，就那个"
+    expected_tools: []
+    context: {}
+
+  - id: ts_060
+    description: "极度模糊：'帮我看看' 无对象"
+    user_message: "帮我看看"
+    expected_tools: []
+    context: {}
+
+  - id: ts_061
+    description: "极度模糊：'继续' 无上下文"
+    user_message: "继续"
+    expected_tools: []
+    context: {}
+
+  - id: ts_062
+    description: "极度模糊：'好的' 纯确认语"
+    user_message: "好的"
+    expected_tools: []
+    context: {}
+
+  # ── 工具不存在场景（系统无对应能力） ──
+  - id: ts_063
+    description: "系统无订票工具，不应调用任何工具"
+    user_message: "帮我订一张从北京到上海的机票"
+    expected_tools: []
+    context: {}
+
+  - id: ts_064
+    description: "系统无音乐播放工具，不应调用任何工具"
+    user_message: "播放一首音乐"
+    expected_tools: []
+    context: {}
+
+  - id: ts_065
+    description: "系统无翻译工具，不应调用任何工具"
+    user_message: "帮我翻译这段文字成法语"
+    expected_tools: []
+    context: {}
+
+  - id: ts_066
+    description: "系统无电话工具，不应调用任何工具"
+    user_message: "帮我打个电话给客户"
+    expected_tools: []
+    context: {}
+
+  - id: ts_067
+    description: "系统无设计工具，不应调用任何工具"
+    user_message: "帮我设计一个Logo"
+    expected_tools: []
+    context: {}

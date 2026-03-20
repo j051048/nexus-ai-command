@@ -194,6 +194,17 @@ _CIRCUIT_BREAK_SUGGESTIONS = {
 }
 
 
+def _sse_tool_progress(tool_name: str, status: str, duration_ms: int | None = None) -> str:
+    """#15: Emit tool execution progress for frontend progress bar."""
+    return _sse_data({
+        "tool_progress": {
+            "tool_name": tool_name,
+            "status": status,  # running | success | error
+            "duration_ms": duration_ms,
+        }
+    })
+
+
 def _sse_circuit_break(reason: str) -> str:
     """Emit a circuit break event when the agent hits a safety limit."""
     return _sse_data(
@@ -576,6 +587,14 @@ async def run_agent_stream(
                         elif key == "completed_tool_calls" and isinstance(value, list):
                             existing = accumulated_state.get("completed_tool_calls", [])
                             accumulated_state["completed_tool_calls"] = existing + value
+                            # #15: Emit tool progress events for frontend
+                            for rec in value:
+                                if hasattr(rec, "tool_name"):
+                                    yield _sse_tool_progress(
+                                        rec.tool_name,
+                                        rec.status or "success",
+                                        rec.duration_ms,
+                                    )
                         else:
                             accumulated_state[key] = value
 
@@ -727,6 +746,14 @@ async def run_agent_stream(
                                     accumulated_state["completed_tool_calls"] = (
                                         accumulated_state.get("completed_tool_calls", []) + value
                                     )
+                                    # #15: Emit tool progress events (retry path)
+                                    for rec in value:
+                                        if hasattr(rec, "tool_name"):
+                                            yield _sse_tool_progress(
+                                                rec.tool_name,
+                                                rec.status or "success",
+                                                rec.duration_ms,
+                                            )
                                 else:
                                     accumulated_state[key] = value
             except Exception as retry_err:
@@ -939,6 +966,15 @@ async def run_agent_stream(
             }
         )
 
+    # Calculate per-conversation cost
+    def _calc_cost_usd(mdl: str, in_tok: int, out_tok: int) -> float:
+        try:
+            from app.services.token_service import MODEL_MAPPING, ModelPricing
+            pricing = MODEL_MAPPING.get(mdl.lower(), ModelPricing.DEFAULT).value
+            return round((in_tok * pricing[0] + out_tok * pricing[1]) / 1_000_000, 6)
+        except Exception:
+            return 0.0
+
     asyncio.create_task(
         persist_result(
             user_id=user_id,
@@ -951,6 +987,9 @@ async def run_agent_stream(
                 "thinking_steps": len(all_thinking_steps),
                 "duration_ms": int((time.time() - start_time) * 1000),
                 "total_tokens": total_in + total_out,
+                "input_tokens": total_in,
+                "output_tokens": total_out,
+                "cost_usd": _calc_cost_usd(actual_model, total_in, total_out),
                 "confidence_score": accumulated_state.get("confidence_score", 0.0),
                 "complexity": str(accumulated_state.get("complexity", "moderate")),
                 "plan": accumulated_state.get("plan", "")[:500],

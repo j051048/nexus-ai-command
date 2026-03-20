@@ -113,6 +113,11 @@ class BaseTool(ABC):
         return []
 
     @property
+    def version(self) -> str:
+        """Tool version for tracking and audit. Override in subclass when updating."""
+        return "1.0.0"
+
+    @property
     def depends_on(self) -> list[str]:
         """Optional: tool names that should be called before this tool.
         Execute node returns a guidance error if prerequisites are missing."""

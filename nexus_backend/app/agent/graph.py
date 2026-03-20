@@ -51,6 +51,7 @@ Graph topology:
 import hashlib
 import json
 import logging
+import time
 from typing import Optional
 
 from langgraph.graph import END, StateGraph
@@ -385,6 +386,15 @@ def _proactive_compress(state: AgentState) -> None:
     logger.info(f"[Graph] Proactive mid-reasoning compress applied ({len(messages)} messages)")
 
 
+# ── SLO thresholds (seconds) per complexity level ──
+_SLO_THRESHOLDS = {
+    QueryComplexity.SIMPLE: 5.0,
+    QueryComplexity.MODERATE: 10.0,
+    QueryComplexity.COMPLEX: 20.0,
+    QueryComplexity.CRITICAL: 30.0,
+}
+
+
 def _after_reflect(state: AgentState) -> str:
     """
     After reflection:
@@ -395,6 +405,15 @@ def _after_reflect(state: AgentState) -> str:
 
     P2 Enhancement: Observation logging + iteration guard on replanning.
     """
+    # Dynamic SLO degradation: skip expensive downstream nodes if running out of time
+    wall_clock_start = state.get("wall_clock_start")
+    if wall_clock_start:
+        elapsed = time.time() - wall_clock_start
+        slo = _SLO_THRESHOLDS.get(state.get("complexity"), 10.0)
+        if elapsed > slo * 0.8:
+            logger.warning(f"[SLO] after_reflect: {elapsed:.1f}s > 80% of {slo}s, skipping to respond")
+            return "respond"
+
     needs_replan = state.get("needs_replanning")
     complexity = state.get("complexity")
     confidence = state.get("confidence_score", 0.0)
@@ -570,6 +589,15 @@ def _after_critic(state: AgentState) -> str:
       - If critic passed → respond
       - If critic failed → plan (one correction pass, guarded by max_iterations)
     """
+    # Dynamic SLO degradation: even if critic failed, respond if close to SLO
+    wall_clock_start = state.get("wall_clock_start")
+    if wall_clock_start:
+        elapsed = time.time() - wall_clock_start
+        slo = _SLO_THRESHOLDS.get(state.get("complexity"), 10.0)
+        if elapsed > slo * 0.9:
+            logger.warning(f"[SLO] after_critic: {elapsed:.1f}s > 90% of {slo}s, force respond")
+            return "respond"
+
     if not state.get("critic_passed", True):
         config = state.get("config")
         max_iter = config.max_iterations if config else 5

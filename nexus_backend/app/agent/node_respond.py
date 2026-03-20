@@ -421,9 +421,11 @@ async def error_node(state: AgentState) -> dict:
             ],
         }
 
-    # Level 3: Give up gracefully
+    # Level 3: Give up gracefully — #16: use friendly error message
+    from app.core.errors import friendly_error
+    user_msg = friendly_error(raw_error=str(error_msg))
     return {
-        "final_response": f"⚠️ 系统执行过程中遇到了难以恢复的问题: {error_msg}。您可以尝试换一种说法再次提问。",
+        "final_response": user_msg,
         "current_phase": AgentPhase.RESPONDING,
         "thinking_steps": [
             ThinkingStep(

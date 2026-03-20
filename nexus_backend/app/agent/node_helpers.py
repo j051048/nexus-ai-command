@@ -27,6 +27,7 @@ from app.agent.state import (
     ToolCallRecord,  # noqa: F401
 )
 from app.core.ai_metrics import (
+    check_tool_alert,  # noqa: F401
     record_hallucination,  # noqa: F401
     record_llm_latency,  # noqa: F401
     record_tool_execution,  # noqa: F401

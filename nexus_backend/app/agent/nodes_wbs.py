@@ -25,6 +25,68 @@ from app.agent.state import (
 logger = logging.getLogger(__name__)
 
 
+# ─── #14: WBS Quality Validation ────────────────────────────────────────────
+
+_KNOWN_AGENT_CODES = {
+    "director_agent", "content_agent", "design_agent", "media_agent",
+    "clue_agent", "sales_agent", "synergy_agent", "operation_agent",
+    "pr_agent", "compliance_agent",
+}
+
+
+def _validate_wbs(wbs: dict) -> list[str]:
+    """
+    #14: Validate WBS structure quality. Returns list of warning strings.
+    Non-blocking: warnings are logged but never prevent execution.
+    """
+    warnings = []
+    sub_tasks = wbs.get("sub_tasks", [])
+    n = len(sub_tasks)
+
+    # 1. Self-reference and invalid dependency check
+    for i, task in enumerate(sub_tasks):
+        deps = task.get("dependencies", [])
+        if i in deps:
+            warnings.append(f"子任务[{i}] '{task.get('title', '')}' 存在自引用依赖")
+        for d in deps:
+            if not isinstance(d, int) or d < 0 or d >= n:
+                warnings.append(f"子任务[{i}] 依赖索引 {d} 超出范围(0~{n-1})")
+
+    # 2. Cycle detection via topological sort (Kahn's algorithm)
+    in_degree = [0] * n
+    adj: dict[int, list[int]] = {i: [] for i in range(n)}
+    for i, task in enumerate(sub_tasks):
+        for d in task.get("dependencies", []):
+            if isinstance(d, int) and 0 <= d < n:
+                adj[d].append(i)
+                in_degree[i] += 1
+    queue = [i for i in range(n) if in_degree[i] == 0]
+    visited = 0
+    while queue:
+        node = queue.pop(0)
+        visited += 1
+        for neighbor in adj[node]:
+            in_degree[neighbor] -= 1
+            if in_degree[neighbor] == 0:
+                queue.append(neighbor)
+    if visited < n:
+        warnings.append(f"WBS依赖图存在循环: 仅 {visited}/{n} 个任务可拓扑排序")
+
+    # 3. Complex tasks should have director_agent for integration
+    if n >= 4:
+        has_director = any(t.get("agent_code") == "director_agent" for t in sub_tasks)
+        if not has_director:
+            warnings.append("复杂WBS(≥4子任务)缺少 director_agent 整合任务")
+
+    # 4. Unknown agent codes
+    for i, task in enumerate(sub_tasks):
+        code = task.get("agent_code", "")
+        if code and code not in _KNOWN_AGENT_CODES:
+            warnings.append(f"子任务[{i}] 使用未知 agent_code: {code}")
+
+    return warnings
+
+
 # ─── WBS Prompt Template ─────────────────────────────────────────────────────
 
 _WBS_SYSTEM_PROMPT = """你是一个任务拆解专家。你的职责是将用户的复杂市场营销需求拆解为结构化的子任务列表。
@@ -184,6 +246,12 @@ async def wbs_decompose_node(state: AgentState) -> dict:
                 task["agent_code"] = "director_agent"
 
         task_count = len(wbs_structure["sub_tasks"])
+
+        # #14: WBS quality validation (non-blocking)
+        wbs_warnings = _validate_wbs(wbs_structure)
+        if wbs_warnings:
+            logger.warning(f"[WBS] Validation warnings: {wbs_warnings}")
+
         task_summary = ", ".join(
             f"{t.get('agent_code', '?')}:{t.get('title', '?')}" for t in wbs_structure["sub_tasks"]
         )
@@ -206,7 +274,10 @@ async def wbs_decompose_node(state: AgentState) -> dict:
                     content=f"任务拆解完成: {wbs_structure.get('title', '未命名')} → {task_count}个子任务",
                     duration_ms=duration_ms,
                 ),
-            ],
+            ] + ([ThinkingStep(
+                phase="wbs_decompose",
+                content=f"⚠️ WBS校验警告: {'; '.join(wbs_warnings)}",
+            )] if wbs_warnings else []),
             "total_input_tokens": state.get("total_input_tokens", 0) + input_tokens,
             "total_output_tokens": state.get("total_output_tokens", 0) + output_tokens,
         }

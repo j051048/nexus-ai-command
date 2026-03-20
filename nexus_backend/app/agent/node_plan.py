@@ -49,27 +49,31 @@ async def _plan_with_self_consistency(
     from collections import Counter
     from langchain_openai import ChatOpenAI
 
+    async def _single_sample(i: int):
+        """Single sampling call for parallel execution."""
+        sample_llm = ChatOpenAI(
+            model=(resolved_config or {}).get("model") or model or config.model,
+            api_key=(resolved_config or {}).get("api_key") or config.api_key,
+            base_url=(resolved_config or {}).get("base_url") or config.base_url,
+            temperature=0.7,
+            streaming=False,
+            timeout=30.0,
+        )
+        if tool_schemas:
+            sample_llm = sample_llm.bind_tools(tool_schemas, parallel_tool_calls=True)
+        return await asyncio.wait_for(sample_llm.ainvoke(lc_msgs), timeout=30)
+
+    # Parallel sampling via asyncio.gather
+    results = await asyncio.gather(
+        *[_single_sample(i) for i in range(n)],
+        return_exceptions=True,
+    )
     samples = []
-    for i in range(n):
-        try:
-            # 直接创建 LLM 实例，覆盖 temperature 为 0.7
-            sample_llm = ChatOpenAI(
-                model=(resolved_config or {}).get("model") or model or config.model,
-                api_key=(resolved_config or {}).get("api_key") or config.api_key,
-                base_url=(resolved_config or {}).get("base_url") or config.base_url,
-                temperature=0.7,
-                streaming=False,
-                timeout=30.0,
-            )
-            if tool_schemas:
-                sample_llm = sample_llm.bind_tools(tool_schemas, parallel_tool_calls=True)
-            result = await asyncio.wait_for(
-                sample_llm.ainvoke(lc_msgs),
-                timeout=30,
-            )
-            samples.append(result)
-        except Exception as e:
-            logger.debug(f"[SelfConsistency] Sample {i+1}/{n} failed: {e}")
+    for i, r in enumerate(results):
+        if isinstance(r, Exception):
+            logger.debug(f"[SelfConsistency] Sample {i+1}/{n} failed: {r}")
+        else:
+            samples.append(r)
 
     if not samples:
         return None  # 全部失败，退回单次调用
@@ -87,6 +91,17 @@ async def _plan_with_self_consistency(
     # 选该签名的第一个样本
     for s, sig in zip(samples, sigs):
         if sig == best_sig:
+            # Aggregate token usage from all samples for accurate tracking
+            total_sc_input = sum(
+                (getattr(r, "response_metadata", {}) or {}).get("token_usage", {}).get("prompt_tokens", 0)
+                for r in samples
+            )
+            total_sc_output = sum(
+                (getattr(r, "response_metadata", {}) or {}).get("token_usage", {}).get("completion_tokens", 0)
+                for r in samples
+            )
+            s._sc_total_input_tokens = total_sc_input
+            s._sc_total_output_tokens = total_sc_output
             logger.info(f"[SelfConsistency] Selected tool combination: {best_sig} (votes: {_count}/{n})")
             return s
 
@@ -102,6 +117,11 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     messages = state.get("messages", [])
     iteration = state.get("iteration", 0)
     rag_context = state.get("rag_context", "")
+
+    # SLO tracking: record wall clock start on first iteration
+    _wall_clock_extras = {}
+    if iteration == 0 and not state.get("wall_clock_start"):
+        _wall_clock_extras["wall_clock_start"] = time.time()
 
     # Lifecycle Hook: before_prompt_build
     hook_ctx = await run_hooks("before_prompt_build", {
@@ -225,6 +245,23 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                                SystemMessage(content=f"[参考示例]\n{few_shot}"))
         except Exception:
             pass  # Few-shot injection is optional, never block planning
+
+        # #13: Role-specific few-shot examples from RoleConfig
+        try:
+            from app.agent.roles.registry import get_role_config_sync
+            _agent_code = agent_config.agent_code or "director_agent"
+            _role = get_role_config_sync(_agent_code)
+            if _role.few_shot_examples:
+                _examples = []
+                for ex in _role.few_shot_examples[:3]:
+                    _examples.append(f"用户: {ex['user']}\n助手: {ex['assistant']}")
+                _ex_text = "\n---\n".join(_examples)
+                lc_msgs.insert(
+                    2 if len(lc_msgs) > 1 else len(lc_msgs),
+                    SystemMessage(content=f"[角色参考示例]\n{_ex_text}"),
+                )
+        except Exception:
+            pass  # Role few-shot is optional
 
     # P0-3: On re-planning iterations, inject reflection guidance into system prompt
     if iteration > 0:
@@ -385,6 +422,15 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         # to prevent the LLM from hallucinating a response instead of calling tools
         if _has_irreversible_context and agent_config.system_confirmed:
             bind_kwargs["tool_choice"] = "required"
+        # Structured reflection constraint: when reflect detected "no tool call",
+        # force the LLM to use a tool on the next iteration
+        reflection_guidance = state.get("reflection_guidance", "")
+        if (
+            iteration > 0
+            and reflection_guidance
+            and any(kw in reflection_guidance for kw in ["未调用工具", "no tool call", "未使用工具", "无工具调用"])
+        ):
+            bind_kwargs["tool_choice"] = "required"
         llm = llm.bind_tools(
             _get_tool_schemas(agent_config.user_role, intent_summary=intent_summary, scene_code=state.get("scene_code"), intent_domains=state.get("intent_domains")),
             **bind_kwargs,
@@ -486,6 +532,10 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     usage = ai_msg.response_metadata.get("token_usage", {})
     input_tokens = usage.get("prompt_tokens", 0)
     output_tokens = usage.get("completion_tokens", 0)
+    # Self-Consistency: use aggregated token counts from all parallel samples
+    if hasattr(ai_msg, "_sc_total_input_tokens"):
+        input_tokens = ai_msg._sc_total_input_tokens
+        output_tokens = ai_msg._sc_total_output_tokens
 
     # Diagnostic: log LLM response details for debugging empty/short responses
     finish_reason = ai_msg.response_metadata.get("finish_reason", "unknown")
@@ -803,5 +853,9 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             for t in pending_tools:
                 with contextlib.suppress(Exception):
                     trace_logger.log_tool_plan(t.tool_name, t.tool_args)
+
+    # Merge SLO wall clock start into result
+    if _wall_clock_extras:
+        result.update(_wall_clock_extras)
 
     return result
