@@ -197,15 +197,15 @@ async def ai_activity_stats(request: Request, user_id: str = Depends(get_current
         logger.debug("AI stats tasks query failed: %s", e)
 
     try:
-        # Count distinct agents used this week
+        # Count distinct active agent sessions this week
         res = await (
             client.table("agent_tasks")
-            .select("agent_code")
+            .select("conversation_id")
             .gte("created_at", week_start)
             .execute()
         )
         if res.data:
-            active_agents = len({r.get("agent_code") for r in res.data if r.get("agent_code")})
+            active_agents = len({r.get("conversation_id") for r in res.data if r.get("conversation_id")})
     except Exception as e:
         logger.debug("AI stats agents query failed: %s", e)
 
