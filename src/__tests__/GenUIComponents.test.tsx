@@ -30,23 +30,16 @@ vi.mock('recharts', () => ({
   Cell: () => null,
 }));
 
-// Mock lucide-react icons
-vi.mock('lucide-react', () => ({
-  TrendingUp: () => React.createElement('span', { 'data-testid': 'icon-trending-up' }),
-  TrendingDown: () => React.createElement('span', { 'data-testid': 'icon-trending-down' }),
-  Minus: () => React.createElement('span', { 'data-testid': 'icon-minus' }),
-  ArrowUpDown: () => React.createElement('span', { 'data-testid': 'icon-arrow-updown' }),
-  ArrowUp: () => React.createElement('span', { 'data-testid': 'icon-arrow-up' }),
-  ArrowDown: () => React.createElement('span', { 'data-testid': 'icon-arrow-down' }),
-  Check: () => React.createElement('span', { 'data-testid': 'icon-check' }),
-  Circle: () => React.createElement('span', { 'data-testid': 'icon-circle' }),
-  AlertTriangle: () => React.createElement('span', { 'data-testid': 'icon-alert-triangle' }),
-  Info: () => React.createElement('span', { 'data-testid': 'icon-info' }),
-  CheckCircle: () => React.createElement('span', { 'data-testid': 'icon-check-circle' }),
-  XCircle: () => React.createElement('span', { 'data-testid': 'icon-x-circle' }),
-  ChevronRight: () => React.createElement('span', { 'data-testid': 'icon-chevron-right' }),
-  Star: () => React.createElement('span', { 'data-testid': 'icon-star' }),
-}));
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = await importOriginal<any>();
+  const mocked: any = {};
+  for (const key in actual) {
+    if (typeof actual[key] === 'function' || typeof actual[key] === 'object') {
+      mocked[key] = () => React.createElement('span', { 'data-testid': `icon-${key.toLowerCase()}` });
+    }
+  }
+  return mocked;
+});
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  1. DataChart

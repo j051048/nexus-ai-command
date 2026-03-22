@@ -22,7 +22,7 @@ const priorityColors = {
 
 export function TodoList({ title, items, interactive = true }: TodoListProps) {
   const [checked, setChecked] = useState<Set<number>>(
-    () => new Set(items.map((item, i) => item.done ? i : -1).filter(i => i >= 0))
+    () => new Set((items || []).map((item, i) => item.done ? i : -1).filter(i => i >= 0))
   );
 
   if (!items || items.length === 0) return null;

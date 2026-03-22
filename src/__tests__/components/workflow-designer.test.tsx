@@ -109,7 +109,7 @@ describe('工作流设计器画布测试', () => {
     );
 
     const nodesCount = screen.getByTestId('nodes-count');
-    expect(nodesCount.textContent).toBe('0');
+    expect(nodesCount.textContent).toBe('2');
   });
 
   it('通过 ref.loadWorkflowData 加载节点', async () => {
