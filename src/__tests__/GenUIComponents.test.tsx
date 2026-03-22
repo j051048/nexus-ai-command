@@ -31,8 +31,8 @@ vi.mock('recharts', () => ({
 }));
 
 vi.mock('lucide-react', async (importOriginal) => {
-  const actual = await importOriginal<any>();
-  const mocked: any = {};
+  const actual = await importOriginal<Record<string, unknown>>();
+  const mocked: Record<string, unknown> = {};
   for (const key in actual) {
     if (typeof actual[key] === 'function' || typeof actual[key] === 'object') {
       mocked[key] = () => React.createElement('span', { 'data-testid': `icon-${key.toLowerCase()}` });
@@ -263,8 +263,9 @@ describe('KanbanBoard', () => {
         id: '2', company_name: 'XYZ公司', contact_name: '李四', stage: 'qualified',
         amount: 80000, priority: 'medium', created_at: '2026-03-05',
       },
-    ] as any[];
+    ] as Record<string, unknown>[];
 
+    // @ts-expect-error Testing with partial mock properties
     render(<KanbanBoard leads={leads} onLeadClick={vi.fn()} />);
 
     expect(screen.getByText('实时执行管道')).toBeDefined();
@@ -282,7 +283,7 @@ describe('GenUI Error Boundary Behavior', () => {
     // Pass completely wrong data shapes
     const { container } = render(
       <DataChart
-        data={[{ wrong: 'shape' }] as any}
+        data={[{ wrong: 'shape' }]}
         dataKeys={['nonexistent']}
         type="bar"
       />
@@ -292,26 +293,30 @@ describe('GenUI Error Boundary Behavior', () => {
 
   it('StatCards handles undefined cards without crashing', async () => {
     const { StatCards } = await import('@/components/ai/genui/StatCards');
-    const { container } = render(<StatCards cards={undefined as any} />);
+    // @ts-expect-error Testing undefined cards
+    const { container } = render(<StatCards cards={undefined} />);
     expect(container.innerHTML).toBe('');
   });
 
   it('Timeline handles undefined items without crashing', async () => {
     const { Timeline } = await import('@/components/ai/genui/Timeline');
-    const { container } = render(<Timeline items={undefined as any} />);
+    // @ts-expect-error Testing undefined items
+    const { container } = render(<Timeline items={undefined} />);
     expect(container.innerHTML).toBe('');
   });
 
   it('TodoList handles undefined items without crashing', async () => {
     const { TodoList } = await import('@/components/ai/genui/TodoList');
-    const { container } = render(<TodoList items={undefined as any} />);
+    // @ts-expect-error Testing undefined items
+    const { container } = render(<TodoList items={undefined} />);
     expect(container.innerHTML).toBe('');
   });
 
   it('PieChart handles undefined data without crashing', async () => {
     const PieChartModule = await import('@/components/ai/genui/PieChart');
     const PieChart = PieChartModule.default;
-    const { container } = render(<PieChart data={undefined as any} />);
+    // @ts-expect-error Testing undefined data
+    const { container } = render(<PieChart data={undefined} />);
     expect(container.innerHTML).toBe('');
   });
 
