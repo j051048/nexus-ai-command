@@ -344,6 +344,9 @@ async def build_memory_context(
             relevant_limit = 3
             explicit_limit = 3
             
+    # 0) Directive memories — high-importance constraints injected separately
+    directive_block = ""
+
     # 1) Explicit memories -- always inject (user explicitly asked to remember)
     explicit = await get_memories(
         user_id=user_id,
@@ -352,8 +355,17 @@ async def build_memory_context(
         db=db,
     )
     if explicit:
-        mem_lines = [_format_by_temperature(m) for m in explicit]
-        context_parts.append("\n".join(mem_lines))
+        # Split: importance >= 0.85 → <constraints> header; rest → <user-memories>
+        directives = [m for m in explicit if (m.get("importance") or 0) >= 0.85]
+        non_directives = [m for m in explicit if (m.get("importance") or 0) < 0.85]
+
+        if directives:
+            d_lines = [f"  - {m.get('enriched_value') or m.get('value', '')}" for m in directives]
+            directive_block = "<constraints>\n" + "\n".join(d_lines) + "\n</constraints>"
+
+        if non_directives:
+            mem_lines = [_format_by_temperature(m) for m in non_directives]
+            context_parts.append("\n".join(mem_lines))
 
     # 2) Query-relevant memories -- semantic search across all categories
     if current_query and len(current_query) >= 2:
@@ -388,7 +400,12 @@ async def build_memory_context(
         except Exception as e:
             logger.debug(f"Consolidation context injection skipped: {e}")
 
-    if not context_parts:
+    if not context_parts and not directive_block:
         return ""
 
-    return "<user-memories>\n" + "\n".join(context_parts) + "\n</user-memories>"
+    result_parts = []
+    if directive_block:
+        result_parts.append(directive_block)
+    if context_parts:
+        result_parts.append("<user-memories>\n" + "\n".join(context_parts) + "\n</user-memories>")
+    return "\n\n".join(result_parts)

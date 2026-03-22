@@ -514,6 +514,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
             // Tier 2:  Enhanced direct mode (browser → AI provider with business context)
 
             let tier1Succeeded = false;
+            let tier1aRetried = false;
 
             // ── Tier 1a: Direct backend ──
             try {
@@ -557,7 +558,40 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                 if (!isNetworkError && !msg.includes('500')) {
                     throw err; // Non-network error, propagate
                 }
-                // Tier 1a failed, fall through to Tier 1b
+                // Retry once before falling through to Tier 1b
+                if (!tier1aRetried) {
+                    tier1aRetried = true;
+                    try {
+                        setAiStatus('正在重试连接...');
+                        await new Promise(r => setTimeout(r, 1000));
+                        const retryResponse = await fetch(getBackendUrl(), {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({
+                                messages: chatMessages,
+                                agent: agent,
+                                userId: userId,
+                                sessionId: 'default',
+                                system_confirmed: options?.system_confirmed || false,
+                                confirmed_tool: options?.confirmed_tool || null,
+                                vmd_agent_code: options?.vmd_agent_code,
+                                scene_code: options?.scene_code,
+                            }),
+                            signal: abortControllerRef.current.signal,
+                        });
+                        if (retryResponse.ok) {
+                            setAiStatus(undefined);
+                            await parseBackendStream(retryResponse, onUpdate, onThinkingStep, onThinkingComplete, onToolProgress, onOrchestration);
+                            tier1Succeeded = true;
+                        }
+                    } catch (retryErr) {
+                        if ((retryErr as Error).name === 'AbortError') throw retryErr;
+                        // Retry failed, fall through to Tier 1b
+                    }
+                }
             }
 
             if (tier1Succeeded) return;

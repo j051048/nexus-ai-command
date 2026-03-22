@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { Download, Maximize2, Minimize2, X } from 'lucide-react';
+import { Download, ExternalLink, Maximize2, Minimize2, X } from 'lucide-react';
 
 // Table-like component names that support CSV export
 const TABLE_COMPONENTS = new Set([
@@ -15,6 +15,20 @@ const CHART_COMPONENTS = new Set([
   'UserProfileCard', 'QuoteCard', 'BadgePanel',
   'TodoList', 'FormBuilder', 'FileList',
 ]);
+
+// CRUD components that have a corresponding traditional page for manual fallback
+export const CRUD_FALLBACK_ROUTES: Record<string, string> = {
+  ApprovalCenter: '/approval',
+  ApprovalFlow: '/approval',
+  FormBuilder: '/form-designer',
+  TodoList: '/scheduled-tasks',
+  EmailDraft: '/oa',
+  KanbanBoard: '/sales',
+  PriorityLeads: '/crm',
+  ContractPreview: '/contracts',
+  InvoiceCard: '/finance',
+  CalendarView: '/schedule',
+};
 
 interface GenUIToolbarProps {
   componentName: string;
@@ -93,6 +107,7 @@ export function GenUIToolbar({ componentName, props, children }: GenUIToolbarPro
 
   const canExportCSV = TABLE_COMPONENTS.has(componentName);
   const canExportPNG = CHART_COMPONENTS.has(componentName) || TABLE_COMPONENTS.has(componentName);
+  const fallbackRoute = CRUD_FALLBACK_ROUTES[componentName] || null;
   const title = (props.title as string) || componentName;
 
   const handleExport = useCallback(async () => {
@@ -123,6 +138,15 @@ export function GenUIToolbar({ componentName, props, children }: GenUIToolbarPro
                 <Download className="h-4 w-4" />
               </button>
             )}
+            {fallbackRoute && (
+              <button
+                onClick={() => window.open(fallbackRoute, '_blank')}
+                className="p-2 sm:p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                title="在传统页面中操作"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </button>
+            )}
             <button
               onClick={toggleFullscreen}
               className="p-2 sm:p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
@@ -150,6 +174,15 @@ export function GenUIToolbar({ componentName, props, children }: GenUIToolbarPro
             title={canExportCSV ? '导出 CSV' : '导出 PNG'}
           >
             <Download className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {fallbackRoute && (
+          <button
+            onClick={() => window.open(fallbackRoute, '_blank')}
+            className="p-2 sm:p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+            title="在传统页面中操作"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
           </button>
         )}
         <button

@@ -53,6 +53,17 @@ PREFERENCE_PATTERNS: list[dict[str, Any]] = [
         "key_prefix": "contact",
         "importance": 0.75,
     },
+    # Anti-pattern: user correcting Agent behavior ("你又忘了", "不是这个意思")
+    {
+        "pattern": re.compile(
+            r"(?:不是这个意思|你又忘了|我说的不是|你理解错了|不对[，,]|"
+            r"我之前说过|跟你说过|说了多少遍|不是让你|你搞错了|错了[，,])"
+            r"(.{2,80})"
+        ),
+        "category": "anti_pattern",
+        "key_prefix": "correction",
+        "importance": 0.8,
+    },
 ]
 
 # Tool/action usage patterns for tracking
@@ -75,6 +86,7 @@ MEMORY_SIGNAL_WORDS = frozenset({
     "记住", "以后", "每次", "总是", "永远", "我是", "我负责",
     "我们公司", "规定", "偏好", "习惯", "别给我", "不要",
     "我喜欢", "我讨厌", "我倾向", "帮我记", "请记住",
+    "不是这个意思", "你又忘了", "你理解错了", "说了多少遍",
 })
 
 
@@ -215,6 +227,20 @@ async def extract_preferences(
                 # Avoid duplicates within this batch
                 if not any(e["key"] == entry["key"] for e in extracted):
                     extracted.append(entry)
+
+    # 2.5) Anti-pattern context enrichment — capture what Agent did wrong
+    for entry in extracted:
+        if entry["category"] == "anti_pattern":
+            # Find the user message containing this correction
+            for i, msg in enumerate(messages):
+                if msg.get("role") == "user" and entry["value"] in msg.get("content", ""):
+                    # Look backwards for the nearest assistant response
+                    for j in range(i - 1, -1, -1):
+                        if messages[j].get("role") == "assistant":
+                            prev_resp = messages[j].get("content", "")[:200]
+                            entry["value"] = f"用户纠正: {entry['value']} | Agent之前回复: {prev_resp}"
+                            break
+                    break
 
     # 3) LLM-assisted deep extraction (only when signal words are present)
     #    Skip for subtask conversations — assistant response contains delegated

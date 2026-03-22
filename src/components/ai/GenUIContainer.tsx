@@ -2,7 +2,8 @@ import React, { Suspense } from 'react';
 import { lazyWithRetry } from '@/lib/lazyPreload';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GenUIToolbar } from './genui/GenUIToolbar';
-import { AlertTriangle, RotateCcw } from 'lucide-react';
+import { AlertTriangle, ExternalLink, RotateCcw } from 'lucide-react';
+import { CRUD_FALLBACK_ROUTES } from './genui/GenUIToolbar';
 
 // Registry of components available for Generative UI
 // GenUI components use reloadOnFailure=false to prevent page reload on chunk failures;
@@ -95,6 +96,7 @@ class GenUIErrorBoundary extends React.Component<GenUIErrorBoundaryProps, GenUIE
 
   render() {
     if (this.state.hasError) {
+      const fallbackRoute = CRUD_FALLBACK_ROUTES[this.props.componentName];
       return (
         <div className="p-4 flex flex-col items-center gap-3 text-center">
           <div className="rounded-full bg-amber-500/10 p-2.5">
@@ -108,13 +110,24 @@ class GenUIErrorBoundary extends React.Component<GenUIErrorBoundaryProps, GenUIE
               「{this.props.componentName}」加载出错，请重试
             </p>
           </div>
-          <button
-            onClick={this.handleRetry}
-            className="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent transition-colors"
-          >
-            <RotateCcw className="h-3 w-3" />
-            重新加载
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={this.handleRetry}
+              className="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent transition-colors"
+            >
+              <RotateCcw className="h-3 w-3" />
+              重新加载
+            </button>
+            {fallbackRoute && (
+              <button
+                onClick={() => window.open(fallbackRoute, '_blank')}
+                className="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent transition-colors"
+              >
+                <ExternalLink className="h-3 w-3" />
+                前往手动页面
+              </button>
+            )}
+          </div>
         </div>
       );
     }
