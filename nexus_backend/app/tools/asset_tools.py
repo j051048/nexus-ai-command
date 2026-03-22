@@ -27,7 +27,14 @@ class ListAssetsTool(BaseTool):
     """查询资产列表"""
 
     name = "list_assets"
-    description = "查询资产列表，支持按类型、状态、部门筛选。当用户说'查看资产'、'资产列表'、'有哪些设备'时调用。"
+    description = "查询资产列表，支持按类型、状态、部门筛选"
+    examples = [
+        {"input": {}, "output_summary": "返回全部资产列表"},
+        {"input": {"asset_type": "vehicle", "status": "idle"}, "output_summary": "返回闲置状态的车辆资产"},
+        {"input": {"search": "笔记本"}, "output_summary": "按关键词搜索包含'笔记本'的资产"},
+    ]
+    related_tools = ["get_asset_detail", "create_asset", "asset_statistics"]
+    gotchas = "状态可选值：idle/in_use/maintenance/scrapped。不传筛选条件则返回全部资产。"
 
     parameters = {
         "type": "object",
@@ -113,7 +120,12 @@ class GetAssetDetailTool(BaseTool):
     """获取资产详情"""
 
     name = "get_asset_detail"
-    description = "获取资产详细信息。当用户说'查看资产详情'、'资产信息'时调用。"
+    description = "查询指定资产的详细信息，包括使用人、部门和附加字段"
+    examples = [
+        {"input": {"asset_id": "uuid-xxxx"}, "output_summary": "返回资产的完整信息，包括名称、编号、状态、使用人等"},
+    ]
+    related_tools = ["list_assets", "update_asset", "transfer_asset"]
+    gotchas = "asset_id必须是有效的UUID格式。返回结果包含metadata附加字段（如车牌号、序列号）。"
 
     parameters = {
         "type": "object",
@@ -186,10 +198,13 @@ class CreateAssetTool(BaseTool):
     """创建资产"""
 
     name = "create_asset"
-    description = (
-        "创建新资产（入库登记）。适用于车辆、电脑、设备、办公家具等任何类型。"
-        "当用户说'创建资产'、'新增设备'、'资产入库'时调用。"
-    )
+    description = "创建新资产记录，适用于车辆、电脑、设备、办公家具等任意类型"
+    examples = [
+        {"input": {"asset_code": "PC-2026-001", "name": "联想笔记本", "asset_type": "computer"}, "output_summary": "创建一台电脑类型的资产"},
+        {"input": {"asset_code": "VH-2026-003", "name": "丰田商务车", "asset_type": "vehicle", "value": 280000, "purchase_date": "2026-01-15"}, "output_summary": "创建一辆带价值和购置日期的车辆资产"},
+    ]
+    related_tools = ["list_assets", "update_asset", "transfer_asset"]
+    gotchas = "asset_code、name、asset_type为必填。创建后默认状态为idle（闲置）。metadata可存储自定义扩展字段（如车牌号、序列号）。"
     required_role = "admin"
     is_irreversible = True
     confirmation_message = "⚠️ 即将创建新资产记录，确认继续？"
@@ -286,7 +301,13 @@ class UpdateAssetTool(BaseTool):
     """更新资产"""
 
     name = "update_asset"
-    description = "更新资产信息或状态。当用户说'更新资产'、'修改资产状态'、'资产维修'时调用。"
+    description = "更新指定资产的信息或状态，支持修改名称、状态、部门和使用人"
+    examples = [
+        {"input": {"asset_id": "uuid-xxxx", "status": "maintenance"}, "output_summary": "将资产状态更新为维修中"},
+        {"input": {"asset_id": "uuid-xxxx", "current_user_id": "uuid-yyyy", "status": "in_use"}, "output_summary": "将资产分配给指定用户并设为使用中"},
+    ]
+    related_tools = ["get_asset_detail", "transfer_asset", "list_assets"]
+    gotchas = "至少需要提供一个要更新的字段。状态可选值：idle/in_use/maintenance/scrapped。简单状态变更用此工具，涉及领用/归还/转移流程请用transfer_asset。"
     required_role = "admin"
 
     parameters = {
@@ -360,7 +381,14 @@ class TransferAssetTool(BaseTool):
     """资产转移/领用/归还"""
 
     name = "transfer_asset"
-    description = "资产转移、领用或归还。当用户说'领用资产'、'归还设备'、'资产转移'、'资产报废'时调用。"
+    description = "执行资产领用、归还、转移或报废操作，自动记录流转历史"
+    examples = [
+        {"input": {"asset_id": "uuid-xxxx", "transfer_type": "allocate", "to_user_id": "uuid-yyyy"}, "output_summary": "将资产领用给指定员工"},
+        {"input": {"asset_id": "uuid-xxxx", "transfer_type": "return", "reason": "项目结束"}, "output_summary": "归还资产并记录原因"},
+        {"input": {"asset_id": "uuid-xxxx", "transfer_type": "scrap", "reason": "设备老化无法使用"}, "output_summary": "报废指定资产"},
+    ]
+    related_tools = ["get_asset_detail", "update_asset", "list_assets"]
+    gotchas = "领用（allocate）和转移（transfer）操作必须指定to_user_id。归还（return）和报废（scrap）不需要to_user_id。此操作不可逆，需用户确认。"
     is_irreversible = True
     confirmation_message = "⚠️ 即将进行资产转移操作，确认继续？"
 
@@ -460,7 +488,13 @@ class AssetStatisticsTool(BaseTool):
     """资产统计"""
 
     name = "asset_statistics"
-    description = "获取资产统计数据（总量、在用率、价值等）。当用户说'资产统计'、'设备利用率'、'有多少资产'时调用。"
+    description = "获取资产统计数据，包括总量、各状态数量、利用率和总价值"
+    examples = [
+        {"input": {}, "output_summary": "返回全部资产的统计概况"},
+        {"input": {"asset_type": "computer"}, "output_summary": "返回电脑类资产的统计数据"},
+    ]
+    related_tools = ["list_assets", "get_asset_detail"]
+    gotchas = "不传asset_type则统计全部类型。返回的utilization_rate为百分比数值。"
 
     parameters = {
         "type": "object",

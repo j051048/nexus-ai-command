@@ -32,13 +32,18 @@ class SmartApprovalTool(BaseTool):
     """
 
     name = "smart_approve"
-    description = """智能审批工具。支持批量审批、按条件审批、委托审批等。当领导说'批量审批'、'5000以下的都批'、'一键通过'时调用。注意：单条审批用 approve_request 或 reject_request。
+    description = """批量处理或按条件处理待审批事项。当领导说'批量审批'、'5000以下的都批'、'一键通过'时调用。注意：单条审批用 approve_request 或 reject_request。
 首次调用返回预览信息，需要确认后设置 confirm=true 才会真正执行。
 这是不可逆操作，需要人工确认。"""
     required_role = "boss"
     is_irreversible = True
     confirmation_message = "⚠️ 审批操作不可逆。请在弹出的确认框中确认后执行。"
-    gotchas = "仅boss/founder角色可用。approval_id必须是待审批状态的记录。action可选: approve/reject。批量审批时需逐个确认。"
+    examples = [
+        {"input": {"action": "batch_approve", "confirm": False}, "output_summary": "返回所有待审批事项的预览列表，等待确认"},
+        {"input": {"action": "conditional_approve", "condition": "金额小于5000的全部通过", "confirm": True}, "output_summary": "批准所有金额小于5000的申请"},
+        {"input": {"action": "delegate", "delegate_to": "张三", "confirm": True}, "output_summary": "将待审批事项委托给张三处理"},
+    ]
+    gotchas = "仅老板或创始人角色可用。必须先以 confirm=false 获取预览，再以 confirm=true 执行。单次批量上限由 MAX_BATCH_SIZE 控制。"
     related_tools = ["get_pending_approvals", "get_daily_briefing"]
     depends_on = ["get_pending_approvals"]
 
@@ -451,8 +456,14 @@ class DailyBriefingTool(BaseTool):
     """每日简报工具 - AI 主动汇报"""
 
     name = "get_daily_briefing"
-    description = "获取每日工作简报，包括待审批事项、异常预警、经营数据等。领导说'今天有什么事'、'汇报一下'时调用。"
+    description = "获取每日工作简报，包含待审批事项、经营数据和风险预警。当领导说'今天有什么事'、'汇报一下'时调用。"
     required_role = "boss"
+    examples = [
+        {"input": {"briefing_type": "full"}, "output_summary": "返回完整的每日简报（审批、业绩、预警）"},
+        {"input": {"briefing_type": "approvals_only"}, "output_summary": "仅返回待审批事项列表及AI建议"},
+    ]
+    related_tools = ["smart_approve", "get_business_dashboard", "get_team_insight"]
+    gotchas = "金额大于5000的审批项会调用大模型生成建议，响应可能稍慢。"
 
     parameters = {
         "type": "object",
@@ -679,8 +690,14 @@ class BusinessDashboardTool(BaseTool):
     """经营仪表盘工具"""
 
     name = "get_business_dashboard"
-    description = "获取公司经营核心指标，包括收入、成本、利润、人效等。领导说'看看经营情况'、'本月业绩怎么样'时调用。"
+    description = "获取公司经营核心指标，包含收入、签约、商机和人效数据。当领导说'看看经营情况'、'本月业绩怎么样'时调用。"
     required_role = "boss"
+    examples = [
+        {"input": {"period": "this_month", "focus": "all"}, "output_summary": "返回本月完整经营仪表盘"},
+        {"input": {"period": "this_week", "focus": "revenue"}, "output_summary": "返回本周收入相关指标"},
+    ]
+    related_tools = ["get_daily_briefing", "get_team_insight"]
+    gotchas = "成本数据暂未对接财务系统，仅展示收入和人效。数据来源于 sales_metrics 表，若无数据会提示为空。"
 
     parameters = {
         "type": "object",
@@ -792,8 +809,14 @@ class TeamInsightTool(BaseTool):
     """团队洞察工具"""
 
     name = "get_team_insight"
-    description = "获取团队综合洞察报告，包括人员状态、绩效分布、风险预警等"
+    description = "获取团队综合洞察报告，包含绩效分布、风险预警和人员排名。当用户说'团队情况'、'团队分析'时调用。"
     required_role = "manager"
+    examples = [
+        {"input": {"insight_type": "performance"}, "output_summary": "返回团队绩效分布及排名"},
+        {"input": {"insight_type": "risk"}, "output_summary": "返回需关注的低绩效人员列表"},
+    ]
+    related_tools = ["get_employee_profile", "create_performance_review", "get_daily_briefing"]
+    gotchas = "管理者只能查看本部门数据，老板和创始人可查看全组织。绩效基于 users 表的 score 字段。"
 
     parameters = {
         "type": "object",
@@ -912,8 +935,14 @@ class AnnouncementTool(BaseTool):
     """公告发布工具"""
 
     name = "publish_announcement"
-    description = "发布公司公告或通知。领导说'发个通知'、'通知全员'时调用。注意：给特定个人发消息请用 send_notification，此工具仅用于全员/部门级公告。"
+    description = "发布全员或部门级公告通知。当领导说'发个通知'、'通知全员'时调用。注意：给特定个人发消息请用 send_notification。"
     required_role = "boss"
+    examples = [
+        {"input": {"title": "节假日安排", "content": "五一放假三天", "target": "all", "priority": "normal"}, "output_summary": "向全员发布节假日通知"},
+        {"input": {"title": "紧急通知", "content": "系统维护", "target": "managers", "priority": "urgent"}, "output_summary": "向管理层发布紧急维护通知"},
+    ]
+    related_tools = ["send_notification", "smart_approve"]
+    gotchas = "全员通知或紧急通知需要人工确认后才能发送。发布后不可撤回。通知按50条一批写入数据库。"
 
     parameters = {
         "type": "object",
@@ -1049,8 +1078,14 @@ class CustomerProfileTool(BaseTool):
     """AI 客户画像自动生成"""
 
     name = "generate_customer_profile"
-    description = "根据CRM数据自动生成客户画像分析，包括标签、偏好和跟进建议。当用户说'分析客户'、'客户画像'时调用。"
+    description = "根据客户关系管理数据生成客户画像分析，包含标签、偏好和跟进建议。当用户说'分析客户'、'客户画像'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {"customer_name": "华为"}, "output_summary": "返回华为的AI客户画像（标签、偏好、风险、跟进策略）"},
+        {"input": {"customer_name": "张总"}, "output_summary": "返回与张总相关的客户画像分析"},
+    ]
+    related_tools = ["search_customers", "get_customer_detail"]
+    gotchas = "按客户名称或公司名称模糊匹配，结果取前10条。会调用大模型生成画像，响应可能稍慢。"
 
     parameters = {
         "type": "object",

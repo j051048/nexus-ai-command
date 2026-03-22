@@ -193,10 +193,11 @@ class ConversationMemoryService:
         user_id: str,
         current_query: str,
         db: Any = None,
+        intent_summary: str | None = None,
     ) -> str:
         """构建记忆上下文，注入到 system prompt 中。"""
         return await retrieval.build_memory_context(
-            user_id=user_id, current_query=current_query, db=db,
+            user_id=user_id, current_query=current_query, db=db, intent_summary=intent_summary
         )
 
     # ─── P0-2: Memory Decay ─────────────────────────────────────

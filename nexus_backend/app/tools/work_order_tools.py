@@ -27,7 +27,13 @@ class CreateWorkOrderTool(BaseTool):
     """创建工单"""
 
     name = "create_work_order"
-    description = "创建新工单（报修、投诉、申请等）。当用户说'创建工单'、'提交报修'、'提交投诉'、'提交申请'时调用。"
+    description = "创建新工单，支持报修、投诉、申请、咨询等类型"
+    examples = [
+        {"input": {"title": "办公室空调故障", "order_type": "repair", "priority": "high"}, "output_summary": "创建一个高优先级的设备报修工单"},
+        {"input": {"title": "客户投诉发货延迟", "order_type": "complaint", "description": "客户反映订单超过7天未发货"}, "output_summary": "创建一个客户投诉工单"},
+    ]
+    related_tools = ["list_work_orders", "get_work_order_detail", "update_work_order"]
+    gotchas = "title和order_type为必填。优先级可选值：low/medium/high/urgent。创建后默认状态为open（待处理）。"
 
     parameters = {
         "type": "object",
@@ -128,9 +134,14 @@ class ListWorkOrdersTool(BaseTool):
     """查询工单列表"""
 
     name = "list_work_orders"
-    description = (
-        "查询工单列表，支持按类型、状态、优先级筛选。当用户说'查看工单'、'工单列表'、'有哪些待处理工单'时调用。"
-    )
+    description = "查询工单列表，支持按类型、状态、优先级和处理人筛选"
+    examples = [
+        {"input": {}, "output_summary": "返回全部工单列表"},
+        {"input": {"status": "open", "priority": "urgent"}, "output_summary": "返回待处理的紧急工单"},
+        {"input": {"order_type": "repair", "assignee_id": "uuid-xxxx"}, "output_summary": "返回指定处理人的报修工单"},
+    ]
+    related_tools = ["create_work_order", "get_work_order_detail", "work_order_statistics"]
+    gotchas = "状态可选值：open/processing/resolved/closed/cancelled。优先级可选值：low/medium/high/urgent。不传筛选条件则返回全部工单。"
 
     parameters = {
         "type": "object",
@@ -225,7 +236,12 @@ class GetWorkOrderDetailTool(BaseTool):
     """获取工单详情"""
 
     name = "get_work_order_detail"
-    description = "获取工单详细信息。当用户说'查看工单详情'、'工单信息'时调用。"
+    description = "查询指定工单的详细信息，包括描述、处理人和流转记录"
+    examples = [
+        {"input": {"order_id": "uuid-xxxx"}, "output_summary": "返回工单完整信息及最近5条流转记录"},
+    ]
+    related_tools = ["list_work_orders", "update_work_order"]
+    gotchas = "order_id必须是有效的UUID格式。返回的流转记录默认最多显示最近5条。"
 
     parameters = {
         "type": "object",
@@ -302,7 +318,14 @@ class UpdateWorkOrderTool(BaseTool):
     """更新工单"""
 
     name = "update_work_order"
-    description = "更新工单状态、指派处理人或添加备注。当用户说'处理工单'、'更新工单'、'关闭工单'、'指派工单'时调用。"
+    description = "更新工单状态、指派处理人或添加备注"
+    examples = [
+        {"input": {"order_id": "uuid-xxxx", "status": "processing", "comment": "已开始处理"}, "output_summary": "将工单状态更新为处理中并添加备注"},
+        {"input": {"order_id": "uuid-xxxx", "assignee_id": "uuid-yyyy"}, "output_summary": "将工单指派给指定处理人"},
+        {"input": {"order_id": "uuid-xxxx", "status": "resolved", "comment": "问题已修复"}, "output_summary": "将工单标记为已解决"},
+    ]
+    related_tools = ["get_work_order_detail", "list_work_orders", "create_work_order"]
+    gotchas = "至少需要提供status、assignee_id或comment中的一个。设为resolved时系统会自动记录resolved_at时间戳。状态可选值：open/processing/resolved/closed/cancelled。"
 
     parameters = {
         "type": "object",
@@ -382,9 +405,13 @@ class WorkOrderStatisticsTool(BaseTool):
     """工单统计"""
 
     name = "work_order_statistics"
-    description = (
-        "获取工单统计数据（总量、处理率、响应时长、SLA达标率等）。当用户说'工单统计'、'工单分析'、'处理效率'时调用。"
-    )
+    description = "获取工单统计数据，包括总量、各状态数量、平均响应时长和达标率"
+    examples = [
+        {"input": {}, "output_summary": "返回全部工单的统计概况"},
+        {"input": {"order_type": "repair", "start_date": "2026-03-01", "end_date": "2026-03-31"}, "output_summary": "返回本月报修类工单的统计数据"},
+    ]
+    related_tools = ["list_work_orders", "get_work_order_detail"]
+    gotchas = "不传order_type则统计全部类型。日期格式为YYYY-MM-DD。返回的sla_met_rate和avg_response_hours分别为百分比和小时数值。"
 
     parameters = {
         "type": "object",

@@ -27,7 +27,13 @@ class ListDepartmentsTool(BaseTool):
     """查询部门列表"""
 
     name = "list_departments"
-    description = "查询组织的部门列表，支持查询子部门。当用户说'查看部门'、'部门列表'、'有哪些部门'时调用。"
+    description = "查询组织的部门列表，支持按父部门筛选子部门。当用户说'查看部门'、'部门列表'、'有哪些部门'时调用。"
+    examples = [
+        {"input": {}, "output_summary": "返回组织下所有顶级部门列表"},
+        {"input": {"parent_id": "abc123..."}, "output_summary": "返回指定父部门下的子部门列表"},
+    ]
+    related_tools = ["create_department", "update_department", "org_statistics"]
+    gotchas = "parent_id 必须是合法的UUID格式。未传 parent_id 时返回所有部门。"
 
     parameters = {
         "type": "object",
@@ -78,8 +84,14 @@ class CreateDepartmentTool(BaseTool):
     """创建部门"""
 
     name = "create_department"
-    description = "创建新部门。当用户说'创建部门'、'新建部门'、'添加部门'时调用。"
+    description = "创建新的组织部门。当用户说'创建部门'、'新建部门'、'添加部门'时调用。"
     required_role = "admin"
+    examples = [
+        {"input": {"name": "技术部"}, "output_summary": "创建名为技术部的顶级部门"},
+        {"input": {"name": "前端组", "parent_id": "abc123...", "manager_id": "def456..."}, "output_summary": "在指定父部门下创建前端组并设置负责人"},
+    ]
+    related_tools = ["list_departments", "update_department", "create_employee"]
+    gotchas = "部门名称不能为空。parent_id 和 manager_id 必须是合法的UUID。仅管理员可操作。"
 
     parameters = {
         "type": "object",
@@ -145,8 +157,14 @@ class UpdateDepartmentTool(BaseTool):
     """更新部门信息"""
 
     name = "update_department"
-    description = "更新部门信息（名称、负责人、状态等）。当用户说'更新部门'、'修改部门'、'设置部门负责人'时调用。"
+    description = "更新部门信息，支持修改名称、负责人和状态。当用户说'更新部门'、'修改部门'、'设置部门负责人'时调用。"
     required_role = "admin"
+    examples = [
+        {"input": {"department_id": "abc123...", "name": "研发中心"}, "output_summary": "将部门名称改为研发中心"},
+        {"input": {"department_id": "abc123...", "status": "dissolved"}, "output_summary": "将部门状态设为已解散"},
+    ]
+    related_tools = ["list_departments", "create_department"]
+    gotchas = "必须提供 department_id。至少要更新一个字段，否则报错。状态可选值：active、merged、dissolved。"
 
     parameters = {
         "type": "object",
@@ -220,7 +238,13 @@ class ListEmployeesTool(BaseTool):
     """查询员工列表"""
 
     name = "list_employees"
-    description = "查询员工花名册，支持按部门、职位、状态筛选。当用户说'查看员工'、'员工列表'、'有哪些员工'时调用。"
+    description = "查询员工花名册，支持按部门、职位、状态和关键词筛选。当用户说'查看员工'、'员工列表'、'有哪些员工'时调用。"
+    examples = [
+        {"input": {"department_id": "abc123..."}, "output_summary": "返回指定部门的员工列表"},
+        {"input": {"status": "active", "search": "张"}, "output_summary": "返回姓张的在职员工列表"},
+    ]
+    related_tools = ["get_employee_detail", "create_employee", "update_employee"]
+    gotchas = "search 按姓名、手机、邮箱模糊匹配。所有ID参数必须是合法UUID。"
 
     parameters = {
         "type": "object",
@@ -301,7 +325,12 @@ class GetEmployeeDetailTool(BaseTool):
     """获取员工详情"""
 
     name = "get_employee_detail"
-    description = "获取员工详细信息。当用户说'查看员工详情'、'员工信息'时调用。"
+    description = "根据员工编号获取员工详细信息。当用户说'查看员工详情'、'员工信息'时调用。"
+    examples = [
+        {"input": {"employee_id": "abc123..."}, "output_summary": "返回该员工的姓名、部门、职位、状态、联系方式等详情"},
+    ]
+    related_tools = ["list_employees", "update_employee", "get_employee_profile"]
+    gotchas = "employee_id 必须是合法UUID。查不到时返回未找到提示。"
 
     parameters = {
         "type": "object",
@@ -357,8 +386,14 @@ class CreateEmployeeTool(BaseTool):
     """创建员工"""
 
     name = "create_employee"
-    description = "创建新员工（入职登记）。当用户说'创建员工'、'新员工入职'、'录入员工'时调用。"
+    description = "创建新员工并完成入职登记。当用户说'创建员工'、'新员工入职'、'录入员工'时调用。"
     required_role = "admin"
+    examples = [
+        {"input": {"name": "张三", "department_id": "abc123..."}, "output_summary": "创建员工张三并分配到指定部门"},
+        {"input": {"name": "李四", "department_id": "abc123...", "phone": "13800138000", "hire_date": "2026-03-01"}, "output_summary": "创建员工李四并填写手机号和入职日期"},
+    ]
+    related_tools = ["list_employees", "update_employee", "list_departments"]
+    gotchas = "name 和 department_id 为必填项。department_id 必须是已存在的部门UUID。"
 
     parameters = {
         "type": "object",
@@ -445,8 +480,14 @@ class UpdateEmployeeTool(BaseTool):
     """更新员工信息"""
 
     name = "update_employee"
-    description = "更新员工信息（调岗、离职、信息变更等）。当用户说'更新员工'、'员工调岗'、'员工离职'时调用。"
+    description = "更新员工信息，支持调岗、离职和信息变更。当用户说'更新员工'、'员工调岗'、'员工离职'时调用。"
     required_role = "admin"
+    examples = [
+        {"input": {"employee_id": "abc123...", "department_id": "def456..."}, "output_summary": "将员工调至新部门"},
+        {"input": {"employee_id": "abc123...", "status": "resigned"}, "output_summary": "将员工状态设为离职"},
+    ]
+    related_tools = ["get_employee_detail", "list_employees", "create_employee"]
+    gotchas = "必须提供 employee_id。至少要更新一个字段。状态可选值：active、resigned、suspended。"
 
     parameters = {
         "type": "object",
@@ -526,7 +567,12 @@ class OrgStatisticsTool(BaseTool):
     """组织统计"""
 
     name = "org_statistics"
-    description = "获取组织统计数据（总人数、部门分布、在职率等）。当用户说'组织统计'、'人员统计'、'有多少员工'时调用。"
+    description = "获取组织统计数据，包含总人数、部门数量和在职率。当用户说'组织统计'、'人员统计'、'有多少员工'时调用。"
+    examples = [
+        {"input": {}, "output_summary": "返回总员工数、在职数、离职数和部门数"},
+    ]
+    related_tools = ["list_departments", "list_employees"]
+    gotchas = ""
 
     parameters = {
         "type": "object",

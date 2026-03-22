@@ -164,7 +164,7 @@ def _sse_status(status: str) -> str:
     return _sse_data({"status": status})
 
 
-def _sse_confirmation(tool_name: str, message: str, args: dict) -> str:
+def _sse_confirmation(tool_name: str, message: str, args: dict, confirmation_type: str = "") -> str:
     """Emit a confirmation request for a blocked tool call."""
     return _sse_data(
         {
@@ -173,12 +173,13 @@ def _sse_confirmation(tool_name: str, message: str, args: dict) -> str:
                 "message": message,
                 "args": {k: v for k, v in args.items() if k != "api_key"},  # Strip secrets
                 "modifiable": True,  # P1-7: Allow user to edit args before confirming
+                "confirmation_type": confirmation_type,  # P0-6: tiered confirmation
             }
         }
     )
 
 
-def _sse_ask_user(question: str, options: list[str] | None = None, context: str = "") -> str:
+def _sse_ask_user(question: str, options: list[str] | None = None, context: str = "", fields: list | None = None) -> str:
     """P1-7: Emit an ask_user event for the agent to proactively ask the user."""
     return _sse_data(
         {
@@ -186,6 +187,7 @@ def _sse_ask_user(question: str, options: list[str] | None = None, context: str 
                 "question": question,
                 "options": options or [],
                 "context": context,
+                "fields": fields,
             }
         }
     )
@@ -384,12 +386,38 @@ async def run_agent_stream(
     # ── 2b. Early SIMPLE detection — skip RAG for casual chat ──
     # Also gate RAG for MODERATE queries: only enable when query suggests
     # the user needs information from uploaded documents / knowledge base.
+
+    # ── 2a-bis. Load user behavior preferences ──
+    _behavior_prefs: dict = {}
+    try:
+        _prefs_res = await (db_client or supabase).table("ai_settings") \
+            .select("behavior_preferences") \
+            .eq("user_id", user_id).limit(1).execute()
+        if _prefs_res.data and _prefs_res.data[0].get("behavior_preferences"):
+            _behavior_prefs = _prefs_res.data[0]["behavior_preferences"]
+    except Exception:
+        pass
+
+    if _behavior_prefs:
+        _pref_lines: list[str] = []
+        if _behavior_prefs.get("response_style") == "concise":
+            _pref_lines.append("用户偏好简洁回复，请控制在300字以内，直接给出核心信息。")
+        elif _behavior_prefs.get("response_style") == "detailed":
+            _pref_lines.append("用户偏好详细回复，请提供完整分析、数据支撑和可执行建议。")
+        if _behavior_prefs.get("preferred_chart"):
+            _pref_lines.append(f"当需要展示数据可视化时，用户偏好的图表类型: {_behavior_prefs['preferred_chart']}")
+        if _behavior_prefs.get("language") == "en":
+            _pref_lines.append("Please respond in English.")
+        if _pref_lines:
+            system_prompt += "\n\n## 用户个人偏好\n" + "\n".join(_pref_lines)
+
     _is_simple = False
     early_complexity = None
+    intent_summary = ""
     if last_user_content:
         from app.agent.router import classify_query, _should_enable_rag
 
-        early_complexity, _ = classify_query(last_user_content)
+        early_complexity, intent_summary = classify_query(last_user_content)
         if early_complexity == QueryComplexity.SIMPLE:
             agent_config.enable_rag_inject = False
             _is_simple = True
@@ -409,7 +437,7 @@ async def run_agent_stream(
         agent_config,
         db_client=db_client,
         skip_semantic=_is_simple,
-        state={"complexity": early_complexity} if early_complexity else None,
+        state={"complexity": early_complexity, "intent_summary": intent_summary} if early_complexity else None,
     )
     lc_messages = prep_result["messages"]
     cached_response = prep_result["cached_response"]
@@ -446,9 +474,9 @@ async def run_agent_stream(
         "messages": lc_messages,
         "current_phase": AgentPhase.ROUTING,
         "iteration": 0,
-        "complexity": QueryComplexity.MODERATE,
+        "complexity": early_complexity or QueryComplexity.MODERATE,
+        "intent_summary": intent_summary,
         "selected_model": agent_config.model,
-        "intent_summary": "",
         "plan": "",
         "requires_tools": False,
         "pending_tool_calls": [],
@@ -612,7 +640,15 @@ async def run_agent_stream(
                             for step in new_steps:
                                 if isinstance(step, ThinkingStep):
                                     all_thinking_steps.append(step)
-                                    yield _sse_thinking(step)
+                                    # P2-10: Intercept __orch_meta steps → orchestration SSE
+                                    if getattr(step, "tool_name", None) == "__orch_meta":
+                                        try:
+                                            _orch_data = json.loads(step.content)
+                                            yield _sse_data({"orchestration": _orch_data})
+                                        except Exception:
+                                            yield _sse_thinking(step)
+                                    else:
+                                        yield _sse_thinking(step)
                         elif key == "completed_tool_calls" and isinstance(value, list):
                             existing = accumulated_state.get("completed_tool_calls", [])
                             accumulated_state["completed_tool_calls"] = existing + value
@@ -776,7 +812,14 @@ async def run_agent_stream(
                                     for step in value:
                                         if isinstance(step, ThinkingStep):
                                             all_thinking_steps.append(step)
-                                            yield _sse_thinking(step)
+                                            if getattr(step, "tool_name", None) == "__orch_meta":
+                                                try:
+                                                    _orch_data = json.loads(step.content)
+                                                    yield _sse_data({"orchestration": _orch_data})
+                                                except Exception:
+                                                    yield _sse_thinking(step)
+                                            else:
+                                                yield _sse_thinking(step)
                                 elif key == "completed_tool_calls" and isinstance(value, list):
                                     accumulated_state["completed_tool_calls"] = (
                                         accumulated_state.get("completed_tool_calls", []) + value
@@ -927,6 +970,7 @@ async def run_agent_stream(
                 tool_name=tc.tool_name,
                 message=tc.result or "此操作需要您的确认才能执行。",
                 args=tc.tool_args,
+                confirmation_type=getattr(tc, "confirmation_type", ""),
             )
     else:
         has_confirmation = False
@@ -942,6 +986,7 @@ async def run_agent_stream(
                 question=args.get("question", tc.result or ""),
                 options=args.get("options"),
                 context=args.get("context", ""),
+                fields=args.get("fields"),
             )
 
     # ── 8. Token tracking ──
@@ -1065,6 +1110,29 @@ async def run_agent_stream(
         )
     except Exception:
         logger.debug("[Stream] Failed to end agent trace", exc_info=True)
+
+    # ── P2-13: Generate follow-up suggestions ──
+    try:
+        if final_response and len(final_response) > 30:
+            from langchain_core.messages import HumanMessage as _HMsg, SystemMessage as _SMsg
+            from langchain_openai import ChatOpenAI as _ChatOAI
+
+            _fu_llm = _ChatOAI(
+                model=agent_config.mini_model,
+                api_key=agent_config.api_key,
+                base_url=agent_config.base_url,
+                temperature=0.7,
+                timeout=10.0,
+            )
+            _fu_resp = await _fu_llm.ainvoke([
+                _SMsg(content="基于AI的回复，生成3条用户可能继续追问的简短问题。每条一行，不带序号。"),
+                _HMsg(content=f"用户问: {last_user_content[:200]}\nAI回复: {final_response[:500]}"),
+            ])
+            _fu_lines = [s.strip() for s in _fu_resp.content.strip().split("\n") if s.strip()][:3]
+            if _fu_lines:
+                yield _sse_data({"follow_up_suggestions": _fu_lines})
+    except Exception as e:
+        logger.debug(f"[Stream] Follow-up suggestions failed: {e}")
 
     yield "data: [DONE]\n\n"
 

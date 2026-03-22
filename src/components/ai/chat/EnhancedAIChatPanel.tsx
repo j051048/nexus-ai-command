@@ -11,6 +11,7 @@ import { AIMessage } from '@/types/nexus';
 import { toast } from 'sonner';
 import { useAIStream } from '@/hooks/useAIStream';
 import { useAgentTrace } from '@/hooks/useAgentTrace';
+import { useOrchestrationTrace } from '@/hooks/useOrchestrationTrace';
 import { aiClient } from '@/api/aiClient';
 import { supabase } from '@/integrations/supabase/client';
 import { drainProactiveMessages, PROACTIVE_MSG_EVENT } from '@/lib/proactiveMessageStore';
@@ -18,6 +19,9 @@ import { ChatHeader } from './ChatHeader';
 import { ChatMessageList } from './ChatMessageList';
 import { ChatInputArea } from './ChatInputArea';
 import { ChatSuggestions } from './ChatSuggestions';
+import { useToolMetadata } from '@/hooks/useToolMetadata';
+import { useSavedPrompts } from '@/hooks/useSavedPrompts';
+import { useAISettings } from '@/hooks/useAISettings';
 
 interface QuotaAlert {
   alert_level: 'normal' | 'warning' | 'critical' | 'exhausted';
@@ -105,10 +109,17 @@ export function EnhancedAIChatPanel({
   // Keep ref in sync with state so handleSend reads latest value without re-creating
   inputValueRef.current = input;
 
-  const { isTyping: isAiTyping, aiStatus, streamChat, stopStream, pendingConfirmation, pendingQuestion, circuitBreak, confirmAndResend, answerQuestion, dismissConfirmation, dismissQuestion, dismissCircuitBreak } = useAIStream({ userId: user.id });
+  const { isTyping: isAiTyping, aiStatus, streamChat, stopStream, pendingConfirmation, pendingQuestion, circuitBreak, confirmAndResend, answerQuestion, dismissConfirmation, dismissQuestion, dismissCircuitBreak, followUpSuggestions } = useAIStream({ userId: user.id });
 
-  const { trace, startTrace, endTrace, addThinkingStep, clearTrace } = useAgentTrace();
+  const { trace, startTrace, endTrace, addThinkingStep, clearTrace, addToolProgress } = useAgentTrace();
+  const { orchestration, handleOrchestrationEvent, resetOrchestration } = useOrchestrationTrace();
   const [showTrace, setShowTrace] = useState(false);
+  const [showToolPalette, setShowToolPalette] = useState(false);
+
+  const { tools: toolMetadata, isLoading: toolsLoading } = useToolMetadata();
+  const { savePrompt } = useSavedPrompts();
+  const { data: aiSettings } = useAISettings();
+  const autoExpandTrace = aiSettings?.behavior_preferences?.auto_expand_trace ?? false;
 
   const [quotaAlert, setQuotaAlert] = useState<QuotaAlert | null>(null);
 
@@ -415,6 +426,8 @@ export function EnhancedAIChatPanel({
 
     try {
       startTrace();
+      resetOrchestration();
+      if (autoExpandTrace) setShowTrace(true);
       await streamChat(
         messageToSend,
         messages,
@@ -447,6 +460,12 @@ export function EnhancedAIChatPanel({
           onThinkingComplete: () => {
             endTrace();
           },
+          onToolProgress: (progress) => {
+            addToolProgress(progress.tool_name, progress.status, progress.duration_ms);
+          },
+          onOrchestration: (event) => {
+            handleOrchestrationEvent(event as import('@/hooks/useOrchestrationTrace').OrchestrationEvent);
+          },
         }
       );
 
@@ -455,7 +474,7 @@ export function EnhancedAIChatPanel({
     } catch (e) {
       setMessages((prev) => prev.filter((m) => m.content !== ''));
     }
-  }, [isAiTyping, currentAgent, messages, streamChat, onSendMessage, addThinkingStep, endTrace, startTrace]);
+  }, [isAiTyping, currentAgent, messages, streamChat, onSendMessage, addThinkingStep, addToolProgress, endTrace, startTrace]);
 
   const commandBarSendRef = useRef(false);
   useEffect(() => {
@@ -519,6 +538,25 @@ export function EnhancedAIChatPanel({
     setInput(reply.text);
     setShowQuickReplies(false);
   };
+
+  const handleSelectTool = useCallback((tool: { name: string; description: string; domain: string | null }) => {
+    // Replace trailing / with tool description as prompt
+    const currentInput = inputValueRef.current;
+    const cleaned = currentInput.endsWith('/') ? currentInput.slice(0, -1) : currentInput;
+    setInput(cleaned ? `${cleaned} ${tool.description}` : tool.description);
+    setShowToolPalette(false);
+    inputRef.current?.focus();
+  }, [setInput]);
+
+  const handleSavePrompt = useCallback(async (prompt: string) => {
+    const title = prompt.length > 20 ? prompt.slice(0, 20) + '...' : prompt;
+    try {
+      await savePrompt({ title, prompt });
+      toast.success('快捷指令已保存');
+    } catch {
+      toast.error('保存失败');
+    }
+  }, [savePrompt]);
 
   const startRecording = useCallback(async () => {
     try {
@@ -673,6 +711,7 @@ export function EnhancedAIChatPanel({
               showTrace={showTrace}
               setShowTrace={setShowTrace}
               trace={trace}
+              orchestration={orchestration}
               messagesEndRef={messagesEndRef}
             />
 
@@ -680,6 +719,7 @@ export function EnhancedAIChatPanel({
               showQuickReplies={showQuickReplies}
               messagesCount={messages.length}
               onQuickReply={handleQuickReply}
+              followUpSuggestions={followUpSuggestions}
             />
 
             <ChatInputArea
@@ -708,6 +748,12 @@ export function EnhancedAIChatPanel({
               variant={variant}
               quotaAlert={quotaAlert}
               setQuotaAlert={setQuotaAlert}
+              showToolPalette={showToolPalette}
+              setShowToolPalette={setShowToolPalette}
+              onSelectTool={handleSelectTool}
+              tools={toolMetadata}
+              toolsLoading={toolsLoading}
+              onSavePrompt={handleSavePrompt}
             />
           </div>
         )}

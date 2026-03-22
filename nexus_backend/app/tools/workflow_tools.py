@@ -39,9 +39,15 @@ class ProcessOnboardingTool(BaseTool):
 
     name = "process_onboarding"
     description = (
-        "员工入职全流程一键办理：创建员工记录 → 分配闲置设备 → 创建 IT 工单 → 通知部门负责人。"
+        "执行员工入职全流程：创建员工记录、分配闲置设备、创建工单、通知部门负责人。"
         "当用户说'新员工入职'、'办理入职'、'入职全流程'时调用。"
     )
+    examples = [
+        {"input": {"name": "张三", "department_id": "uuid"}, "output_summary": "创建员工→分配电脑→创建工单→通知负责人，返回各步骤结果"},
+        {"input": {"name": "李四", "department_id": "uuid", "asset_type": "laptop", "email": "lisi@example.com"}, "output_summary": "同上流程但分配笔记本并设置邮箱"},
+    ]
+    related_tools = ["process_resignation", "onboarding_assistant", "process_asset_lifecycle"]
+    gotchas = "不可逆操作，需确认后执行。无闲置设备时会跳过分配步骤而非失败。默认分配类型为电脑。"
     required_role = "admin"
     is_irreversible = True
     confirmation_message = "⚠️ 即将执行员工入职全流程（创建员工+分配设备+创建工单），确认继续？"
@@ -197,9 +203,15 @@ class ProcessResignationTool(BaseTool):
 
     name = "process_resignation"
     description = (
-        "员工离职全流程一键办理：更新员工状态 → 回收名下所有资产 → 通知相关人员。"
+        "执行员工离职全流程：更新员工状态、回收名下资产、关闭待处理工单、通知相关人员。"
         "当用户说'员工离职'、'办理离职'、'离职交接'时调用。"
     )
+    examples = [
+        {"input": {"employee_id": "uuid"}, "output_summary": "更新状态为离职→触发资产回收→关闭待处理工单→通知管理员"},
+        {"input": {"employee_id": "uuid", "reason": "个人原因"}, "output_summary": "同上流程并记录离职原因"},
+    ]
+    related_tools = ["process_onboarding", "process_asset_lifecycle"]
+    gotchas = "不可逆操作，需确认后执行。会自动关闭该员工所有待处理工单并清空指派人。"
     required_role = "admin"
     is_irreversible = True
     confirmation_message = "⚠️ 即将执行员工离职全流程（更新状态+回收资产+通知），确认继续？"
@@ -299,9 +311,16 @@ class ProcessAssetLifecycleTool(BaseTool):
 
     name = "process_asset_lifecycle"
     description = (
-        "资产全生命周期操作：支持批量入库、批量分配、批量报废等操作。"
+        "执行资产批量操作，支持批量入库、批量分配、批量报废三种模式。"
         "当用户说'批量入库'、'批量分配设备'、'批量报废资产'时调用。"
     )
+    examples = [
+        {"input": {"action": "batch_create", "assets_data": [{"asset_code": "PC001", "name": "台式电脑", "asset_type": "computer"}]}, "output_summary": "批量创建资产记录，状态默认为闲置"},
+        {"input": {"action": "batch_allocate", "asset_ids": ["uuid1", "uuid2"], "to_user_id": "uuid"}, "output_summary": "将指定资产分配给目标员工并记录转移"},
+        {"input": {"action": "batch_scrap", "asset_ids": ["uuid1"], "reason": "已过保"}, "output_summary": "报废指定资产并触发库存检查事件"},
+    ]
+    related_tools = ["process_onboarding", "process_resignation", "predictive_maintenance"]
+    gotchas = "不可逆操作，需确认后执行。批量分配需同时提供资产列表和目标员工。批量入库时每项数据需包含资产编码、名称、类型。"
     required_role = "admin"
     is_irreversible = True
     confirmation_message = "⚠️ 即将执行批量资产操作，确认继续？"

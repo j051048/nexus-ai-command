@@ -27,7 +27,13 @@ class ListApprovalFlowsTool(BaseTool):
     """查询审批流模板列表"""
 
     name = "list_approval_flows"
-    description = "查询审批流模板列表。当用户说'查看审批流'、'审批流列表'时调用。"
+    description = "查询当前组织的审批流模板列表。当用户说'查看审批流'、'审批流列表'时调用。可按触发类型筛选。"
+    examples = [
+        {"input": {}, "output_summary": "返回组织下所有审批流模板，含名称、触发类型、步骤数、状态"},
+        {"input": {"trigger_type": "expense"}, "output_summary": "返回报销类型的审批流模板列表"},
+    ]
+    related_tools = ["create_approval_flow"]
+    gotchas = "必须已登录且有组织信息，否则会返回错误。"
 
     parameters = {
         "type": "object",
@@ -87,9 +93,14 @@ class CreateApprovalFlowTool(BaseTool):
     """创建审批流模板"""
 
     name = "create_approval_flow"
-    description = "创建审批流模板。当用户说'创建审批流'、'配置审批流程'时调用。"
-
+    description = "创建新的审批流模板。当用户说'创建审批流'、'配置审批流程'时调用。需要管理员权限。"
     required_role = "admin"
+    examples = [
+        {"input": {"name": "请假审批流", "trigger_type": "leave", "steps": [{"approver_role": "manager"}, {"approver_role": "director"}]}, "output_summary": "创建包含两步审批的请假审批流模板"},
+        {"input": {"name": "大额报销审批", "trigger_type": "expense", "steps": [{"approver_role": "manager"}, {"approver_role": "cfo"}]}, "output_summary": "创建报销审批流模板"},
+    ]
+    related_tools = ["list_approval_flows"]
+    gotchas = "需要管理员权限。steps 必须为非空数组。name 最大长度100字符。trigger_type 仅支持 leave/expense/asset/work_order 四种。"
 
     parameters = {
         "type": "object",

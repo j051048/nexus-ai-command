@@ -29,7 +29,14 @@ class GetContractsTool(BaseTool):
     """查询合同列表"""
 
     name = "get_contracts"
-    description = "查询合同列表，支持按状态和关键词筛选。当用户说'查看合同'、'合同列表'、'有哪些合同'时调用。"
+    description = "查询合同列表，支持按状态筛选和关键词搜索"
+    examples = [
+        {"input": {}, "output_summary": "返回全部合同列表"},
+        {"input": {"status": "active"}, "output_summary": "返回所有生效中的合同"},
+        {"input": {"search": "服务协议"}, "output_summary": "按标题搜索包含'服务协议'的合同"},
+    ]
+    gotchas = "status可选值: draft/pending_review/active/expired/terminated/renewed。不传则返回全部。"
+    related_tools = ["create_contract", "get_expiring_contracts"]
 
     parameters = {
         "type": "object",
@@ -104,11 +111,15 @@ class CreateContractTool(BaseTool):
     """创建新合同"""
 
     name = "create_contract"
-    description = "在系统中创建新合同记录。当用户说'创建合同'、'新建合同'、'录入合同'时调用。"
+    description = "创建新合同记录，支持设置类型、金额、日期和关联客户"
+    examples = [
+        {"input": {"title": "华为年度服务合同", "contract_type": "service", "amount": 100000}, "output_summary": "创建一份金额10万的服务合同（草稿状态）"},
+        {"input": {"title": "保密协议", "customer_id": "uuid-xxxx", "start_date": "2026-01-01", "end_date": "2027-01-01"}, "output_summary": "创建关联客户的保密协议并设置有效期"},
+    ]
     is_irreversible = True
     confirmation_message = "⚠️ 即将创建新合同记录，确认继续？"
-    gotchas = "start_date和end_date格式为YYYY-MM-DD。amount为数字（元）。customer_id必须已存在。status默认draft。"
-    related_tools = ["get_contracts", "get_expiring_contracts"]
+    gotchas = "start_date和end_date格式为YYYY-MM-DD，end_date不能早于start_date。amount必须大于0。customer_id必须是已存在的有效UUID。status默认为draft。"
+    related_tools = ["get_contracts", "get_expiring_contracts", "analyze_contract"]
 
     parameters = {
         "type": "object",
@@ -219,9 +230,13 @@ class GetExpiringContractsTool(BaseTool):
     """查询即将到期的合同"""
 
     name = "get_expiring_contracts"
-    description = (
-        "查询即将到期的合同，方便提前续约或处理。当用户说'到期合同'、'合同到期提醒'、'哪些合同快到期了'时调用。"
-    )
+    description = "查询指定天数内即将到期的合同，方便提前续约处理"
+    examples = [
+        {"input": {}, "output_summary": "返回未来30天内即将到期的合同列表"},
+        {"input": {"days": 7}, "output_summary": "返回未来7天内即将到期的合同列表"},
+    ]
+    gotchas = "days范围1-365，默认30天。只返回状态为active的合同。无到期合同时返回提示信息。"
+    related_tools = ["get_contracts", "create_contract"]
 
     parameters = {
         "type": "object",

@@ -21,8 +21,14 @@ class LeaveRequestTool(BaseTool):
     """请假申请工具 - 支持自然语言创建请假"""
 
     name = "create_leave_request"
-    description = "创建请假申请。用户说'请假'、'休假'、'调休'时调用此工具。支持年假、病假、事假、调休等类型。"
+    description = "创建请假申请并自动匹配审批链。用户说'请假'、'休假'、'调休'时调用。支持年假、病假、事假、调休等类型。"
     required_role = "all"
+    examples = [
+        {"input": {"leave_type": "annual", "start_date": "2026-03-25", "end_date": "2026-03-27", "reason": "家庭出游"}, "output_summary": "提交2天年假申请，系统自动匹配审批链"},
+        {"input": {"leave_type": "sick", "start_date": "2026-03-21", "end_date": "2026-03-21"}, "output_summary": "提交1天病假，短时间自动批准"},
+    ]
+    related_tools = ["query_leave_status", "submit_approval_on_behalf"]
+    gotchas = "日期必须使用 YYYY-MM-DD 格式，且基于当前时间推算，不能使用过去年份。年假余额默认10天，超出会被拒绝。同日期段重复请假会被拦截。"
 
     parameters = {
         "type": "object",
@@ -285,8 +291,14 @@ class LeaveQueryTool(BaseTool):
     """请假查询工具"""
 
     name = "query_leave_status"
-    description = "查询请假申请状态、年假余额等信息"
+    description = "查询请假申请状态或假期余额。当用户说'请假记录'、'年假还剩几天'、'假期余额'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {"query_type": "my_requests"}, "output_summary": "返回最近5条请假记录，含类型、天数、状态"},
+        {"input": {"query_type": "balance"}, "output_summary": "返回年假、调休、病假的剩余天数"},
+    ]
+    related_tools = ["create_leave_request"]
+    gotchas = "team_schedule 查询类型暂未实现。年假余额为简化计算（默认总额10天）。"
 
     parameters = {
         "type": "object",
@@ -362,8 +374,14 @@ class MeetingBookingTool(BaseTool):
     """会议预约工具"""
 
     name = "book_meeting"
-    description = "预约会议室并发送会议邀请。当用户说'约个会'、'开会'、'预约会议室'时调用。"
+    description = "预约会议室并向参会人发送会议邀请通知。当用户说'约个会'、'开会'、'预约会议室'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {"title": "周会", "datetime": "明天下午3点", "attendees": ["张三", "李四"]}, "output_summary": "预约会议室并通知张三、李四"},
+        {"input": {"title": "产品评审", "datetime": "2026-03-25 14:00", "attendees": ["王五"], "room_preference": "large"}, "output_summary": "预约大型会议室并通知参会人"},
+    ]
+    related_tools = ["assign_task", "send_notification"]
+    gotchas = "当前时间解析为简化实现，自然语言时间默认为明天下午。参会人姓名需在系统中存在，否则无法发送通知。"
 
     parameters = {
         "type": "object",
@@ -452,10 +470,14 @@ class TaskAssignmentTool(BaseTool):
     """任务分配工具"""
 
     name = "assign_task"
-    description = "创建并分配任务给指定人员。当用户说'安排个任务'、'让XX做YY'、'@某人 做某事'时调用。"
+    description = "创建任务并分配给指定人员。当用户说'安排个任务'、'让某某做某事'时调用。"
     required_role = "all"
-    gotchas = "assignee_id必须是同组织内的有效用户ID。due_date格式YYYY-MM-DD。priority可选: low/medium/high/urgent。"
-    related_tools = ["list_tasks", "update_task"]
+    examples = [
+        {"input": {"title": "准备季度报告", "assignee": "张三", "due_date": "2026-03-28", "priority": "high"}, "output_summary": "创建高优先级任务并通知张三"},
+        {"input": {"title": "更新文档", "assignee": "李四"}, "output_summary": "创建默认优先级任务，截止日期默认3天后"},
+    ]
+    related_tools = ["create_work_handover", "book_meeting", "send_notification"]
+    gotchas = "负责人姓名必须是同组织内的有效用户。未指定截止日期时默认3天后。优先级可选值为 low/medium/high/urgent。"
 
     parameters = {
         "type": "object",
@@ -560,8 +582,14 @@ class WorkHandoverTool(BaseTool):
     """工作交接工具"""
 
     name = "create_work_handover"
-    description = "创建工作交接单，将任务批量转交给其他同事。当用户说'交接工作'、'把工作转给某人'时调用。"
+    description = "创建工作交接单，将当前待办任务批量转交给指定同事。当用户说'交接工作'、'把工作转给某人'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {"handover_to": "李四", "reason": "请假交接"}, "output_summary": "将所有待办任务转交给李四并发送通知"},
+        {"input": {"handover_to": "王五", "reason": "调岗", "items": ["季度报告", "客户跟进"]}, "output_summary": "将指定工作项转交给王五"},
+    ]
+    related_tools = ["assign_task", "create_leave_request"]
+    gotchas = "会将当前用户所有待办和进行中的任务全部转移给交接人。交接人姓名需在系统中存在。"
 
     parameters = {
         "type": "object",
@@ -651,8 +679,14 @@ class OnboardingChecklistTool(BaseTool):
     """AI 自动生成入职清单"""
 
     name = "generate_onboarding_checklist"
-    description = "根据岗位类型自动生成新员工入职清单，并创建对应任务。当用户说'入职清单'、'新员工入职'时调用。"
+    description = "根据岗位类型自动生成新员工入职清单并创建对应任务。当用户说'入职清单'、'新员工入职'时调用。需要经理权限。"
     required_role = "manager"
+    examples = [
+        {"input": {"job_title": "前端工程师", "department": "技术部", "employee_name": "张三"}, "output_summary": "生成8-12项入职待办任务，含入职前准备、第一天、第一周等"},
+        {"input": {"job_title": "销售经理"}, "output_summary": "根据岗位生成入职清单，使用默认员工名和部门"},
+    ]
+    related_tools = ["assign_task"]
+    gotchas = "依赖大语言模型生成清单内容，结果可能因模型响应格式异常而降级为纯文本输出。最多创建15项任务。"
 
     parameters = {
         "type": "object",
@@ -742,9 +776,15 @@ class SendNotificationTool(BaseTool):
 
     name = "send_notification"
     domain = "oa_leave"
-    description = "给指定同事发送站内通知。用户说'通知小王'、'提醒张三'、'给李经理发个消息'时调用。"
+    description = "给指定同事发送站内通知消息。用户说'通知某人'、'提醒某人'、'给某人发消息'时调用。此操作不可撤回。"
     required_role = "all"
     is_irreversible = True  # HITL: 发送通知后无法撤回，属于外部副作用操作
+    examples = [
+        {"input": {"recipient_name": "张三", "content": "明天上午记得交报告"}, "output_summary": "向张三发送站内通知"},
+        {"input": {"recipient_name": "李经理", "content": "客户已确认合同", "priority": "important"}, "output_summary": "向李经理发送重要通知"},
+    ]
+    related_tools = ["assign_task", "book_meeting"]
+    gotchas = "通知发送后无法撤回。模糊匹配超过5人时需提供更精确的姓名。仅限同组织内发送。"
 
     parameters = {
         "type": "object",

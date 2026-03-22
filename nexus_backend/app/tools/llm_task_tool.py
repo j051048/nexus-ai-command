@@ -20,12 +20,15 @@ class LLMTaskTool(BaseTool):
 
     name = "llm_task"
     description = (
-        "将简单的文本处理子任务委派给轻量级AI模型，节省主模型token。"
-        "适用场景：翻译、摘要提炼、格式转换、数据清洗、文本分类等短文本任务。"
-        "⚠️ 严禁用于：长文创作（超过500字的文章、软文、报告等）、"
-        "需要创意写作的任务、需要工具调用或复杂推理的任务。"
-        "长文创作请直接由你自己完成，不要委派给此工具。"
+        "将简单文本处理子任务委派给轻量模型执行，仅限短文本场景"
     )
+    examples = [
+        {"input": {"task_type": "translate", "instruction": "将以下内容翻译成英文", "content": "人工智能正在改变销售行业"}, "output_summary": "返回英文翻译结果"},
+        {"input": {"task_type": "summarize", "instruction": "提炼关键信息", "content": "一段较长的会议纪要...", "output_format": "要点列表"}, "output_summary": "返回要点形式的摘要"},
+        {"input": {"task_type": "extract", "instruction": "提取客户联系方式", "content": "邮件正文内容..."}, "output_summary": "返回提取到的联系方式信息"},
+    ]
+    gotchas = "严禁用于长文创作（超过500字的文章、软文、报告）。长文创作应由主模型直接完成。不支持需要工具调用或复杂推理的任务。"
+    related_tools = ["analyze_data", "generate_report"]
     required_role = "all"
 
     parameters = {

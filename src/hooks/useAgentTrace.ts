@@ -8,13 +8,14 @@ import { useState, useCallback } from 'react';
 import type { ThinkingStep } from '@/types/nexus';
 
 export interface TraceStep {
-  type: 'thinking' | 'tool_call' | 'tool_result';
+  type: 'thinking' | 'tool_call' | 'tool_result' | 'tool_progress';
   content: string;
   name?: string;
   args?: string;
   tokens?: number;
   timestamp: number;
   duration_ms?: number;
+  status?: 'running' | 'success' | 'error';
 }
 
 export interface AgentTrace {
@@ -106,6 +107,43 @@ export function useAgentTrace() {
     }));
   }, []);
 
+  /** 添加工具执行进度（来自 tool_progress SSE 事件） */
+  const addToolProgress = useCallback((toolName: string, status: string, durationMs?: number) => {
+    setTrace((prev) => {
+      // If status is success/error, update existing running step for same tool
+      if (status === 'success' || status === 'error') {
+        const runningIdx = prev.steps.findIndex(
+          (s) => s.type === 'tool_progress' && s.name === toolName && s.status === 'running'
+        );
+        if (runningIdx >= 0) {
+          const updated = [...prev.steps];
+          updated[runningIdx] = {
+            ...updated[runningIdx],
+            status: status as 'success' | 'error',
+            duration_ms: durationMs,
+            content: status === 'success' ? `${toolName} 执行完成` : `${toolName} 执行失败`,
+          };
+          return { ...prev, steps: updated };
+        }
+      }
+      // Insert new step
+      return {
+        ...prev,
+        steps: [
+          ...prev.steps,
+          {
+            type: 'tool_progress' as const,
+            name: toolName,
+            content: status === 'running' ? `正在执行 ${toolName}...` : `${toolName} ${status === 'success' ? '执行完成' : '执行失败'}`,
+            status: (status as 'running' | 'success' | 'error'),
+            timestamp: Date.now(),
+            duration_ms: durationMs,
+          },
+        ],
+      };
+    });
+  }, []);
+
   return {
     trace,
     startTrace,
@@ -114,5 +152,6 @@ export function useAgentTrace() {
     addThinkingStep,
     addToolResult,
     addTokenUsage,
+    addToolProgress,
   };
 }

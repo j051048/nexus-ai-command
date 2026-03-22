@@ -23,13 +23,28 @@ class SaveMemoryTool(BaseTool):
     @property
     def description(self) -> str:
         return (
-            "主动保存一条用户记忆到长期记忆库。\n"
+            "保存一条用户记忆到长期记忆库，包括偏好、事实或用户明确要求记住的信息。\n"
             "使用场景:\n"
             '- 用户明确说"记住"、"以后都"、"我喜欢"\n'
             "- 推理过程中发现重要的用户偏好或事实\n"
             "- 用户纠正了你的理解, 需要记录正确信息\n"
             "不要用于保存临时信息或当前对话的中间结果。"
         )
+
+    @property
+    def examples(self) -> list[dict]:
+        return [
+            {"input": {"key": "report_format_preference", "value": "用户偏好用表格形式展示数据，不喜欢纯文字", "category": "preference", "importance": 0.8}, "output_summary": "保存用户的报告格式偏好到长期记忆"},
+            {"input": {"key": "main_client_name", "value": "用户的主要客户是华为终端", "category": "fact", "importance": 0.6}, "output_summary": "保存用户的关键客户信息"},
+        ]
+
+    @property
+    def related_tools(self) -> list[str]:
+        return ["search_long_term_memory"]
+
+    @property
+    def gotchas(self) -> str:
+        return "不要保存临时或一次性信息；key 必须用英文蛇形命名；importance 范围 0.0-1.0，超出会被自动截断。"
 
     @property
     def parameters(self) -> dict[str, Any]:

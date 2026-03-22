@@ -12,6 +12,7 @@ This node reads the wbs_structure from state, then for each sub-task:
 
 import asyncio
 import copy
+import json
 import logging
 import time
 
@@ -140,6 +141,29 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
 
     for layer_idx, layer in enumerate(execution_layers):
         layer_size = len(layer)
+        layer_tasks_info = [
+            {
+                "sub_task_id": sub_tasks[idx].get("sub_task_id", f"sub_{idx}"),
+                "agent_code": sub_tasks[idx].get("agent_code", "director_agent"),
+                "title": sub_tasks[idx].get("title", f"子任务{idx + 1}"),
+            }
+            for idx in layer
+        ]
+
+        # P2-10: Emit orchestration layer_start metadata
+        thinking_steps.append(
+            ThinkingStep(
+                phase="orchestrate",
+                tool_name="__orch_meta",
+                content=json.dumps({
+                    "type": "layer_start",
+                    "layer_idx": layer_idx,
+                    "total_layers": len(execution_layers),
+                    "tasks": layer_tasks_info,
+                }),
+            )
+        )
+
         if layer_size > 1:
             thinking_steps.append(
                 ThinkingStep(
@@ -293,6 +317,22 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
                 )
             )
 
+            # P2-10: Emit orchestration task_end metadata
+            thinking_steps.append(
+                ThinkingStep(
+                    phase="orchestrate",
+                    tool_name="__orch_meta",
+                    content=json.dumps({
+                        "type": "task_end",
+                        "sub_task_id": lr["sub_task_id"],
+                        "agent_code": lr["agent_code"],
+                        "title": lr["title"],
+                        "status": lr["status"],
+                        "layer_idx": layer_idx,
+                    }),
+                )
+            )
+
         # P1-4: Dynamic replanning — check if layer failure rate is too high
         if layer_idx < len(execution_layers) - 1:
             valid_results = [lr for lr in layer_results if not isinstance(lr, Exception)]
@@ -330,6 +370,20 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
                         )
 
     # ── Integrate Results ──
+    # P2-10: Emit orchestration complete metadata
+    thinking_steps.append(
+        ThinkingStep(
+            phase="orchestrate",
+            tool_name="__orch_meta",
+            content=json.dumps({
+                "type": "complete",
+                "total_tasks": total_tasks,
+                "completed": len([r for r in delegation_results if r["status"] in ("completed", "degraded")]),
+                "failed": len([r for r in delegation_results if r["status"] == "failed"]),
+            }),
+        )
+    )
+
     thinking_steps.append(
         ThinkingStep(
             phase="orchestrate",

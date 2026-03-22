@@ -16,11 +16,16 @@ import {
   Code2,
   X,
   Activity,
+  Loader2,
+  XCircle,
+  Play,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import type { AgentTrace, TraceStep } from '@/hooks/useAgentTrace';
+import type { OrchestrationTrace } from '@/hooks/useOrchestrationTrace';
+import { OrchestrationPanel } from './OrchestrationPanel';
 
 // ─── Props ──────────────────────────────────────────────────
 
@@ -29,11 +34,12 @@ interface AgentTracePanelProps {
   className?: string;
   defaultExpanded?: boolean;
   onClose?: () => void;
+  orchestration?: OrchestrationTrace;
 }
 
 // ─── Step Icon & Color ──────────────────────────────────────
 
-function getStepIcon(type: TraceStep['type']) {
+function getStepIcon(type: TraceStep['type'], status?: TraceStep['status']) {
   switch (type) {
     case 'thinking':
       return <Brain className="w-3.5 h-3.5" />;
@@ -41,12 +47,16 @@ function getStepIcon(type: TraceStep['type']) {
       return <Wrench className="w-3.5 h-3.5" />;
     case 'tool_result':
       return <CheckCircle2 className="w-3.5 h-3.5" />;
+    case 'tool_progress':
+      if (status === 'running') return <Loader2 className="w-3.5 h-3.5 animate-spin" />;
+      if (status === 'error') return <XCircle className="w-3.5 h-3.5" />;
+      return <CheckCircle2 className="w-3.5 h-3.5" />;
     default:
       return <Activity className="w-3.5 h-3.5" />;
   }
 }
 
-function getStepColor(type: TraceStep['type']) {
+function getStepColor(type: TraceStep['type'], status?: TraceStep['status']) {
   switch (type) {
     case 'thinking':
       return 'text-blue-500 bg-blue-500/10 border-blue-500/20';
@@ -54,6 +64,10 @@ function getStepColor(type: TraceStep['type']) {
       return 'text-amber-500 bg-amber-500/10 border-amber-500/20';
     case 'tool_result':
       return 'text-green-500 bg-green-500/10 border-green-500/20';
+    case 'tool_progress':
+      if (status === 'error') return 'text-red-500 bg-red-500/10 border-red-500/20';
+      if (status === 'success') return 'text-green-500 bg-green-500/10 border-green-500/20';
+      return 'text-purple-500 bg-purple-500/10 border-purple-500/20';
     default:
       return 'text-muted-foreground bg-muted border-border';
   }
@@ -67,6 +81,8 @@ function getStepLabel(type: TraceStep['type']) {
       return '工具调用';
     case 'tool_result':
       return '执行结果';
+    case 'tool_progress':
+      return '工具执行';
     default:
       return '步骤';
   }
@@ -85,10 +101,10 @@ function TraceStepItem({ step, index }: { step: TraceStep; index: number }) {
       <div
         className={cn(
           'absolute left-0 top-2 w-4 h-4 rounded-full flex items-center justify-center border',
-          getStepColor(step.type)
+          getStepColor(step.type, step.status)
         )}
       >
-        {getStepIcon(step.type)}
+        {getStepIcon(step.type, step.status)}
       </div>
 
       <div className="pb-3 ml-2">
@@ -96,7 +112,7 @@ function TraceStepItem({ step, index }: { step: TraceStep; index: number }) {
           className={cn(
             'rounded-lg border p-2.5 transition-colors',
             hasExpandableContent && 'cursor-pointer hover:bg-secondary/30',
-            getStepColor(step.type).split(' ').slice(1).join(' ')
+            getStepColor(step.type, step.status).split(' ').slice(1).join(' ')
           )}
           onClick={hasExpandableContent ? () => setIsExpanded(!isExpanded) : undefined}
         >
@@ -105,7 +121,7 @@ function TraceStepItem({ step, index }: { step: TraceStep; index: number }) {
             <div className="flex items-center gap-2 min-w-0">
               <Badge
                 variant="outline"
-                className={cn('text-[10px] px-1.5 py-0 h-5 shrink-0', getStepColor(step.type))}
+                className={cn('text-[10px] px-1.5 py-0 h-5 shrink-0', getStepColor(step.type, step.status))}
               >
                 {getStepLabel(step.type)}
               </Badge>
@@ -166,15 +182,17 @@ export function AgentTracePanel({
   className,
   defaultExpanded = false,
   onClose,
+  orchestration,
 }: AgentTracePanelProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
   const stats = useMemo(() => {
     const thinkingCount = trace.steps.filter((s) => s.type === 'thinking').length;
     const toolCallCount = trace.steps.filter((s) => s.type === 'tool_call').length;
+    const progressCount = trace.steps.filter((s) => s.type === 'tool_progress').length;
     const duration =
       trace.startTime && trace.endTime ? trace.endTime - trace.startTime : null;
-    return { thinkingCount, toolCallCount, duration };
+    return { thinkingCount, toolCallCount, progressCount, duration };
   }, [trace]);
 
   // Don't render if no trace data
@@ -221,6 +239,12 @@ export function AgentTracePanel({
               {stats.toolCallCount}
             </Badge>
           )}
+          {stats.progressCount > 0 && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-purple-500 border-purple-500/20">
+              <Play className="w-3 h-3 mr-0.5" />
+              {stats.progressCount}
+            </Badge>
+          )}
           {trace.totalTokens > 0 && (
             <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-muted-foreground">
               <Zap className="w-3 h-3 mr-0.5" />
@@ -251,6 +275,13 @@ export function AgentTracePanel({
       {/* Expandable content */}
       {isExpanded && (
         <div className="border-t border-border">
+          {/* P2-10: Orchestration panel */}
+          {orchestration && orchestration.layers.length > 0 && (
+            <div className="px-3 py-2 border-b border-border/50">
+              <OrchestrationPanel orchestration={orchestration} />
+            </div>
+          )}
+
           {/* Summary bar */}
           {stats.duration && (
             <div className="px-3 py-1.5 bg-secondary/20 flex items-center gap-3 text-[10px] text-muted-foreground">

@@ -18,8 +18,14 @@ class AttendanceQueryTool(BaseTool):
     """考勤查询工具"""
 
     name = "query_attendance"
-    description = "查询员工考勤记录、迟到早退情况、出勤统计。当用户说'我的考勤'、'出勤情况'时调用。注意：查个人考勤用此工具，查团队考勤用 query_team_attendance。"
+    description = "查询指定员工的考勤记录和出勤统计。当用户说'我的考勤'、'出勤情况'时调用。注意：查个人考勤用此工具，查团队考勤用 query_team_attendance。"
     required_role = "all"
+    examples = [
+        {"input": {"query_type": "my_record", "month": "2026-03"}, "output_summary": "返回当月个人考勤明细"},
+        {"input": {"query_type": "monthly_summary", "employee_name": "张三"}, "output_summary": "返回张三的月度出勤汇总（需管理者权限）"},
+    ]
+    related_tools = ["query_team_attendance", "get_employee_profile"]
+    gotchas = "非管理者只能查自己的考勤，不能通过 employee_name 查他人。考勤系统暂未接入，当前返回占位提示。"
 
     parameters = {
         "type": "object",
@@ -61,8 +67,14 @@ class TeamAttendanceTool(BaseTool):
     """团队考勤管理工具（管理者专用）"""
 
     name = "query_team_attendance"
-    description = "查询团队整体考勤情况、异常预警等。当管理者说'团队考勤'、'谁迟到了'时调用。仅限管理者使用。"
+    description = "查询团队整体考勤情况和异常预警。当管理者说'团队考勤'、'谁迟到了'时调用。仅限管理者使用。"
     required_role = "manager"
+    examples = [
+        {"input": {"view_type": "overview"}, "output_summary": "返回团队出勤总览"},
+        {"input": {"view_type": "abnormal_alert"}, "output_summary": "返回迟到早退等异常预警列表"},
+    ]
+    related_tools = ["query_attendance", "get_team_insight"]
+    gotchas = "仅管理者及以上角色可用。考勤系统暂未接入，当前返回占位提示。"
 
     parameters = {
         "type": "object",
@@ -98,8 +110,14 @@ class EmployeeProfileTool(BaseTool):
     """员工画像工具（管理者专用）"""
 
     name = "get_employee_profile"
-    description = "获取员工综合画像，包括绩效、考勤、成长轨迹、风险评估等。当用户说'某某人怎么样'、'员工档案'时调用。注意：仅需查ID用 get_employee_info。"
+    description = "获取员工综合画像，包含绩效、考勤、成长轨迹和风险评估。当用户说'某某人怎么样'、'员工档案'时调用。注意：仅需查基本信息用 get_employee_detail。"
     required_role = "manager"
+    examples = [
+        {"input": {"employee_name": "张三", "include_risk_analysis": True}, "output_summary": "返回张三的综合画像及AI风险分析"},
+        {"input": {"employee_name": "李四", "include_risk_analysis": False}, "output_summary": "返回李四的基本画像，不含风险分析"},
+    ]
+    related_tools = ["get_employee_detail", "create_performance_review", "query_attendance"]
+    gotchas = "按姓名模糊匹配，重名时只返回第一个结果。include_risk_analysis 默认为真，会调用大模型生成分析。"
 
     parameters = {
         "type": "object",
@@ -224,6 +242,12 @@ class PerformanceReviewTool(BaseTool):
     name = "create_performance_review"
     description = "发起绩效评估或查看团队绩效排行。当用户说'绩效考核'、'发起考评'、'团队绩效排名'时调用。"
     required_role = "manager"
+    examples = [
+        {"input": {"action": "view_team"}, "output_summary": "返回团队绩效排行榜前十名"},
+        {"input": {"action": "submit_rating", "employee_name": "张三", "rating": 4, "comment": "表现优秀"}, "output_summary": "提交张三的绩效评分4星（80分）"},
+    ]
+    related_tools = ["get_employee_profile", "get_team_insight"]
+    gotchas = "评分范围1到5，会自动乘以20转换为百分制写入数据库。submit_rating 必须提供 employee_name。"
 
     parameters = {
         "type": "object",
@@ -351,8 +375,14 @@ class RecruitmentTool(BaseTool):
     """招聘管理工具"""
 
     name = "manage_recruitment"
-    description = "招聘管理：创建职位需求、查看候选人、安排面试、解析简历。当用户说'招人'、'招聘'、'面试安排'时调用。"
+    description = "管理招聘流程，包含创建职位、查看候选人、安排面试和解析简历。当用户说'招人'、'招聘'、'面试安排'时调用。"
     required_role = "manager"
+    examples = [
+        {"input": {"action": "schedule_interview", "candidate_name": "王五", "interview_time": "明天下午3点"}, "output_summary": "安排王五的面试并发送邀请"},
+        {"input": {"action": "parse_resume", "resume_text": "张三，5年Python开发经验..."}, "output_summary": "返回简历的AI结构化分析及匹配度评分"},
+    ]
+    related_tools = ["get_employee_profile", "create_employee"]
+    gotchas = "parse_resume 必须提供 resume_text，会调用大模型分析。候选人管理功能暂未完全开通。"
 
     parameters = {
         "type": "object",

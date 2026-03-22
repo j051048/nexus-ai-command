@@ -100,12 +100,19 @@ class CreateScheduledTaskTool(BaseTool):
 
     name = "create_scheduled_task"
     description = (
-        "创建定时任务/提醒。当用户说'每天X点提醒我...'、'每周一帮我...'、"
-        "'定时执行...'、'设个提醒...'、'帮我定时...'、'X分钟后提醒我...'时调用此工具。"
+        "创建定时任务或提醒，支持每天、每周、一次性和固定间隔四种调度类型。"
+        "当用户说'每天X点提醒我'、'每周一帮我'、'定时执行'、'设个提醒'、'X分钟后提醒我'时调用。"
         "\n【重要】当用户说'X分钟后'、'半小时后'、'一小时后'等相对时间时，"
         "请使用 schedule_type='once' + delay_minutes 参数，不要自己计算 hour/minute。"
     )
     required_role = "all"
+    examples = [
+        {"input": {"name": "检查客户回复", "prompt": "检查最近的客户跟进情况并提醒我需要回复的客户", "schedule_type": "daily", "hour": 16, "minute": 0}, "output_summary": "创建每天16:00执行的定时任务"},
+        {"input": {"name": "周报提醒", "prompt": "提醒我准备本周工作总结", "schedule_type": "weekly", "hour": 17, "minute": 0, "day_of_week": 4}, "output_summary": "创建每周五17:00执行的定时任务"},
+        {"input": {"name": "会议提醒", "prompt": "提醒我参加产品评审会议", "schedule_type": "once", "delay_minutes": 30}, "output_summary": "创建30分钟后执行的一次性提醒"},
+    ]
+    related_tools = ["list_scheduled_tasks", "delete_scheduled_task"]
+    gotchas = "每个用户最多20个活跃任务；相对时间（如'半小时后'）必须用 delay_minutes 而非手动算 hour/minute；hour 使用北京时间（0-23）。"
 
     parameters = {
         "type": "object",
@@ -294,8 +301,14 @@ class ListScheduledTasksTool(BaseTool):
     """查看用户定时任务列表"""
 
     name = "list_scheduled_tasks"
-    description = "查看当前用户的定时任务列表。当用户说'我的定时任务'、'查看提醒'、'有哪些定时任务'时调用。"
+    description = "查询当前用户的定时任务列表，支持筛选是否包含已停用任务。当用户说'我的定时任务'、'查看提醒'、'有哪些定时任务'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {}, "output_summary": "返回当前用户所有活跃定时任务列表"},
+        {"input": {"include_inactive": True}, "output_summary": "返回包含已停用任务在内的全部定时任务列表"},
+    ]
+    related_tools = ["create_scheduled_task", "delete_scheduled_task"]
+    gotchas = "默认只返回活跃任务，最多返回20条；如需查看已停用任务需显式传 include_inactive=true。"
 
     parameters = {
         "type": "object",
@@ -358,10 +371,16 @@ class DeleteScheduledTaskTool(BaseTool):
     """删除或停用用户定时任务"""
 
     name = "delete_scheduled_task"
-    description = "删除或停用定时任务。当用户说'删除定时任务'、'取消提醒'、'停止定时任务'时调用。支持按名称或ID删除。"
+    description = "删除、停用或启用指定的定时任务，支持按名称模糊匹配或按任务编号精确匹配。当用户说'删除定时任务'、'取消提醒'、'停止定时任务'时调用。"
     required_role = "all"
     is_irreversible = True
     confirmation_message = "确认要删除此定时任务吗？删除后不可恢复。"
+    examples = [
+        {"input": {"task_name": "检查客户回复", "action": "delete"}, "output_summary": "按名称模糊匹配并永久删除该定时任务"},
+        {"input": {"task_id": "abcd1234", "action": "disable"}, "output_summary": "按任务编号停用该定时任务，可后续重新启用"},
+    ]
+    related_tools = ["list_scheduled_tasks", "create_scheduled_task"]
+    gotchas = "删除操作不可逆，需用户确认；停用和启用可反复切换；建议先调用 list_scheduled_tasks 获取任务名称或编号再操作。"
 
     parameters = {
         "type": "object",

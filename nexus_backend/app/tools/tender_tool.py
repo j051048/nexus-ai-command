@@ -9,7 +9,13 @@ from .base_tool import BaseTool
 
 class TenderAnalysisTool(BaseTool):
     name = "analyze_tender_document"
-    description = "【智能投标专家】利用 LLM 深度分析招标文件，提取否决性条款并进行合规性比对"
+    description = "深度分析招标文件内容，提取否决性条款并生成合规性比对报告"
+    examples = [
+        {"input": {"tender_text": "投标人须具备ISO9001认证...最低注册资本500万..."}, "output_summary": "返回合规矩阵分析报告，标注否决性条款和合规风险"},
+        {"input": {"tender_text": "技术参数要求：精度不低于0.01mm..."}, "output_summary": "返回技术参数合规性分析及我方产品匹配度评估"},
+    ]
+    gotchas = "需要系统配置了有效的大模型接口。输入文本最长截取前4000字符。分析结果依赖大模型能力，建议人工复核。"
+    related_tools = ["search_bidding_projects"]
 
     parameters = {
         "type": "object",

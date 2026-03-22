@@ -14,8 +14,14 @@ class ExpenseClaimTool(BaseTool):
     """报销申请工具 - 支持智能识别和自动归类"""
 
     name = "create_expense_claim"
-    description = "创建费用报销申请。当用户说'报销'、'我花了XX钱'、'帮我报个账'时调用。支持差旅、招待、办公等类型。"
+    description = "创建费用报销申请并自动进行合规检查。当用户说'报销'、'我花了多少钱'、'帮我报个账'时调用。支持差旅、招待、办公等类型。"
     required_role = "all"
+    examples = [
+        {"input": {"expense_type": "travel", "amount": 800, "description": "北京出差高铁票", "expense_date": "2026-03-20"}, "output_summary": "提交差旅报销申请，合规检查通过，等待审批"},
+        {"input": {"expense_type": "entertainment", "amount": 600, "description": "客户晚餐", "attendees": ["张总", "李总", "王经理"]}, "output_summary": "提交招待费报销，自动计算人均消费并检查是否超标"},
+    ]
+    related_tools = ["query_expense_status", "submit_approval_on_behalf", "recognize_invoice"]
+    gotchas = "金额必须大于0。招待费用建议填写参与人员以通过合规检查。人均招待标准为200元，差旅单日上限1500元。"
 
     parameters = {
         "type": "object",
@@ -234,8 +240,14 @@ class ExpenseQueryTool(BaseTool):
     """报销查询工具"""
 
     name = "query_expense_status"
-    description = "查询报销申请状态、报销历史、到账情况。当用户说'报销到哪了'、'报销进度'、'到账了吗'时调用。"
+    description = "查询个人报销申请状态和历史记录。当用户说'报销到哪了'、'报销进度'、'到账了吗'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {}, "output_summary": "返回最近10条报销记录，含状态、金额，以及待审批和已批准的汇总"},
+        {"input": {"query_type": "pending"}, "output_summary": "返回待处理的报销申请"},
+    ]
+    related_tools = ["create_expense_claim"]
+    gotchas = "仅查询当前用户自己的报销记录。时间范围筛选参数暂未生效，默认返回最近10条。"
 
     parameters = {
         "type": "object",
@@ -305,8 +317,14 @@ class BudgetQueryTool(BaseTool):
     """预算查询工具"""
 
     name = "query_budget"
-    description = "查询部门或项目的预算使用情况。当用户说'预算还剩多少'、'部门预算'时调用。"
+    description = "查询部门或项目的预算使用情况。当用户说'预算还剩多少'、'部门预算'时调用。需要经理权限。"
     required_role = "manager"
+    examples = [
+        {"input": {"department": "销售部"}, "output_summary": "返回销售部的预算使用情况"},
+        {"input": {"category": "travel"}, "output_summary": "返回差旅类预算使用情况"},
+    ]
+    related_tools = ["create_expense_claim", "query_expense_status"]
+    gotchas = "预算管理功能尚在建设中，当前返回占位提示信息。"
 
     parameters = {
         "type": "object",
@@ -337,8 +355,14 @@ class SalaryQueryTool(BaseTool):
     """薪资查询工具"""
 
     name = "query_salary"
-    description = "查询个人薪资明细、到账记录等（仅能查询自己的薪资）。当用户说'这个月工资'、'薪资明细'、'工资条'时调用。"
+    description = "查询当前用户的个人薪资明细和到账记录。当用户说'这个月工资'、'薪资明细'、'工资条'时调用。仅能查询自己的薪资。"
     required_role = "all"
+    examples = [
+        {"input": {"month": "2026-03"}, "output_summary": "返回2026年3月的薪资明细，含基本工资、奖金、扣除、实发"},
+        {"input": {}, "output_summary": "返回当月薪资明细（默认当月）"},
+    ]
+    related_tools = ["query_expense_status"]
+    gotchas = "仅能查询自己的薪资，无法查询他人。month 格式为 YYYY-MM。薪资表未配置时会返回提示信息。"
 
     parameters = {
         "type": "object",
@@ -386,8 +410,14 @@ class InvoiceOCRTool(BaseTool):
     """发票识别工具"""
 
     name = "recognize_invoice"
-    description = "识别上传的发票图片，自动提取金额、日期、类型等信息。当用户上传发票图片或说'识别发票'、'发票OCR'时调用。"
+    description = "识别上传的发票图片，自动提取金额、日期、类型等结构化信息。当用户上传发票图片或说'识别发票'、'发票识别'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {"image_url": "https://example.com/invoice.jpg"}, "output_summary": "识别发票并返回发票号码、金额、税额、开票单位等信息"},
+        {"input": {"image_url": "https://example.com/train.jpg", "invoice_type": "train"}, "output_summary": "识别火车票发票并提取结构化数据"},
+    ]
+    related_tools = ["create_expense_claim"]
+    gotchas = "依赖大语言模型进行识别，结果可能不完全准确，建议人工核对。image_url 为必填参数。"
 
     parameters = {
         "type": "object",

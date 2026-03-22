@@ -30,10 +30,15 @@ class MonitorIndustryTrendsTool(BaseTool):
     """监测科学仪器行业动态"""
 
     name = "monitor_industry_trends"
-    description = (
-        "监测科学仪器行业动态、政策变化、技术趋势。当用户说'行业动态'、'最新趋势'、'政策变化'、'市场动态'时调用。"
-    )
+    description = "监测科学仪器行业动态、政策变化和技术趋势，生成分析报告。当用户说'行业动态'、'最新趋势'、'政策变化'、'市场动态'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {"category": "policy", "industry": "环保监测"}, "output_summary": "生成环保监测领域最新政策法规动态报告"},
+        {"input": {"category": "technology", "keywords": "拉曼光谱,AI检测"}, "output_summary": "生成拉曼光谱和AI检测相关的技术趋势报告"},
+        {"input": {}, "output_summary": "生成科学仪器行业全面动态报告"},
+    ]
+    related_tools = ["generate_market_research", "generate_competitor_analysis"]
+    gotchas = "所有参数均为可选。category可选值: policy/technology/market/competitor/all。会联网搜索最新信息，每条信息标注来源。"
 
     parameters = {
         "type": "object",
@@ -135,10 +140,14 @@ class GenerateMarketResearchTool(BaseTool):
     """生成市场需求调研报告"""
 
     name = "generate_market_research"
-    description = (
-        "生成市场需求调研报告，分析目标市场、客户需求、竞争格局。当用户说'市场调研'、'市场分析'、'需求调研'时调用。"
-    )
+    description = "生成目标市场的需求调研报告，分析市场规模、客户需求和竞争格局。当用户说'市场调研'、'市场分析'、'需求调研'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {"market_segment": "环保监测仪器市场", "region": "华东"}, "output_summary": "生成华东地区环保监测仪器市场调研报告"},
+        {"input": {"market_segment": "制药分析仪器", "research_focus": "客户需求,市场规模"}, "output_summary": "生成聚焦需求和规模的制药分析仪器调研报告"},
+    ]
+    related_tools = ["monitor_industry_trends", "generate_competitor_analysis"]
+    gotchas = "market_segment为必填。会综合知识库、CRM客户数据和联网搜索三个数据源，部分来源可能为空但不影响报告生成。"
 
     parameters = {
         "type": "object",
@@ -250,11 +259,14 @@ class GenerateCompetitorAnalysisTool(BaseTool):
     """生成竞品全维度分析报告"""
 
     name = "generate_competitor_analysis"
-    description = (
-        "生成竞品全维度分析报告，涵盖产品、技术、市场、组织等维度。"
-        "当用户说'竞品分析'、'研究对手'、'竞争对手报告'时调用。"
-    )
+    description = "生成竞品公司的全维度分析报告，涵盖产品、技术、市场和组织等维度。当用户说'竞品分析'、'研究对手'、'竞争对手报告'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {"competitor_name": "安捷伦", "analysis_depth": "deep", "focus_product": "气相色谱"}, "output_summary": "生成安捷伦气相色谱产品线的深度分析报告"},
+        {"input": {"competitor_name": "赛默飞", "analysis_depth": "quick"}, "output_summary": "生成赛默飞的快速概览分析"},
+    ]
+    related_tools = ["generate_competitor_comparison", "monitor_industry_trends", "generate_market_research"]
+    gotchas = "analysis_depth可选值: quick/standard/deep，不传默认standard。与generate_competitor_comparison的区别：本工具分析整个公司，后者对比具体产品参数。"
 
     parameters = {
         "type": "object",
@@ -352,11 +364,14 @@ class AggregateCustomerFeedbackTool(BaseTool):
     """汇总分析客户反馈和售后痛点"""
 
     name = "aggregate_customer_feedback"
-    description = (
-        "汇总分析客户反馈和售后痛点，为产品改进和研发提供依据。"
-        "当用户说'客户反馈'、'售后问题汇总'、'用户痛点'、'VOC分析'时调用。"
-    )
+    description = "汇总分析客户反馈和售后痛点，为产品改进和研发提供依据。当用户说'客户反馈'、'售后问题汇总'、'用户痛点'、'VOC分析'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {"product_name": "ICP-MS 7800", "time_range": "last_quarter", "feedback_type": "complaint"}, "output_summary": "汇总近一季度ICP-MS相关投诉，分析高频问题和痛点"},
+        {"input": {"time_range": "last_year", "feedback_type": "all"}, "output_summary": "生成近一年全部产品的客户反馈汇总分析"},
+    ]
+    related_tools = ["customer_lifecycle_analysis", "generate_faq_response", "generate_repurchase_campaign"]
+    gotchas = "所有参数均为可选。time_range可选值: last_month/last_quarter/last_year/all。feedback_type可选值: complaint/suggestion/praise/all。CRM活动数据最多取100条。"
 
     parameters = {
         "type": "object",

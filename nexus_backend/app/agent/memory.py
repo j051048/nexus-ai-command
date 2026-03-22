@@ -558,7 +558,10 @@ async def prepare_initial_state(
             try:
                 from app.services.conversation_memory_service import conversation_memory_service
                 ctx = await conversation_memory_service.build_memory_context(
-                    user_id=config.user_id, current_query=last_user_msg, db=client,
+                    user_id=config.user_id, 
+                    current_query=last_user_msg, 
+                    db=client,
+                    intent_summary=state.get("intent_summary") if state else None,
                 )
                 if ctx:
                     logger.info(f"[Memory] Collected long-term memory context for user {config.user_id}")

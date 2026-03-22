@@ -185,9 +185,15 @@ class DataAnalysisTool(BaseTool):
 
     name = "analyze_data"
     description = (
-        "对提供的数据集进行统计分析，支持汇总统计、分组聚合、时序趋势、Top N 排名。"
-        "当用户需要分析数据、统计汇总、查看趋势或排名时调用。"
+        "对数据集执行统计分析，支持汇总、分组聚合、时序趋势和排名"
     )
+    examples = [
+        {"input": {"data": [{"name": "A", "amount": 100}, {"name": "B", "amount": 200}], "analysis_type": "summary"}, "output_summary": "返回记录数、最小值、最大值、平均值、中位数等汇总统计"},
+        {"input": {"data": [{"region": "华东", "sales": 500}], "analysis_type": "group_by", "group_field": "region", "value_field": "sales"}, "output_summary": "按区域分组统计销售额的合计和平均值"},
+        {"input": {"data": [{"date": "2026-01-01", "revenue": 1000}], "analysis_type": "top_n", "value_field": "revenue", "n": 5}, "output_summary": "返回收入最高的前5条记录"},
+    ]
+    related_tools = ["generate_report"]
+    gotchas = "数据必须是字典列表格式。分组分析必须指定分组字段。趋势分析需要数据中包含时间字段。排名分析必须指定数值字段。"
 
     parameters = {
         "type": "object",

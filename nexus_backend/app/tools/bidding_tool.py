@@ -19,11 +19,14 @@ class BiddingSearchTool(BaseTool):
 
     name = "search_bidding_projects"
     description = (
-        "搜索国内最新的招投标、政府采购、企业招标公告数据。"
-        "当用户询问招标信息、投标机会、采购公告、商机、政府招标项目时必须调用此工具。"
-        "不要用 web_search 搜索招投标相关信息，应当使用本工具查询专业的招投标数据库。"
-        "支持按关键词、日期范围筛选。默认查询最近30天的数据。"
+        "搜索国内招投标和政府采购公告数据，支持按关键词和日期筛选"
     )
+    examples = [
+        {"input": {"keyword": "人工智能"}, "output_summary": "返回最近30天内与人工智能相关的招投标项目列表"},
+        {"input": {"keyword": "服务器采购", "start_date": "2026-01-01", "end_date": "2026-03-01"}, "output_summary": "返回指定日期范围内的服务器采购招标公告"},
+    ]
+    gotchas = "关键词为必填项。默认查询最近30天数据。招投标查询应使用此工具而非网页搜索。最多展示前10条结果。"
+    related_tools = ["analyze_tender_document"]
     required_role = "all"
 
     parameters = {

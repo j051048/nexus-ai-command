@@ -43,6 +43,7 @@ import { toast } from 'sonner';
 import { AIMessage } from '@/types/nexus';
 import { getEnterAnimationClass } from '@/lib/animations';
 import { GenUIContainer } from './GenUIContainer';
+import { InlineActions } from './genui/InlineActions';
 
 // ---------------------------------------------------------------------------
 // Layer 3: Infer GenUI component name from props structure
@@ -75,6 +76,8 @@ function inferGenUIComponent(obj: any): string | null {
   if (Array.isArray(obj.data) && obj.data.length > 0 && obj.data[0].label && obj.data[0].value != null) return 'PieChart';
   // DataChart: data + dataKeys
   if (Array.isArray(obj.data) && Array.isArray(obj.dataKeys)) return 'DataChart';
+  // Dashboard: charts array with data+dataKeys
+  if (Array.isArray(obj.charts) && obj.charts.length > 0 && Array.isArray(obj.charts[0].data)) return 'Dashboard';
   return null;
 }
 
@@ -102,6 +105,7 @@ interface MessageBubbleProps {
   onRegenerate?: () => void;
   onFeedback?: (type: 'positive' | 'negative', messageId: string) => void;
   onDelete?: (messageId: string) => void;
+  onSendMessage?: (prompt: string) => void;
   isLatest?: boolean;
   isTyping?: boolean;
 }
@@ -112,6 +116,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   onRegenerate,
   onFeedback,
   onDelete,
+  onSendMessage,
   isLatest,
   isTyping,
 }: MessageBubbleProps) {
@@ -193,7 +198,7 @@ export const MessageBubble = React.memo(function MessageBubble({
             (() => {
               // Layer 0: Use memoized bare JSON detection result
               if (bareGenUI) {
-                return <GenUIContainer componentName={bareGenUI.component} props={bareGenUI.props} />;
+                return <GenUIContainer componentName={bareGenUI.component} props={bareGenUI.props} onSendMessage={onSendMessage} />;
               }
               return null;
             })() ||
@@ -219,14 +224,14 @@ export const MessageBubble = React.memo(function MessageBubble({
                       try {
                         const config = JSON.parse(raw);
                         if (config.component && typeof config.component === 'string') {
-                          return <GenUIContainer componentName={config.component} props={config.props || {}} />;
+                          return <GenUIContainer componentName={config.component} props={config.props || {}} onSendMessage={onSendMessage} />;
                         }
 
                         // Layer 3: Auto-detect component from props structure when "component" field is missing
                         // LLMs sometimes output just the props JSON without the wrapper
                         const inferred = inferGenUIComponent(config);
                         if (inferred) {
-                          return <GenUIContainer componentName={inferred} props={config} />;
+                          return <GenUIContainer componentName={inferred} props={config} onSendMessage={onSendMessage} />;
                         }
                         
                         // Fallback for LLMs generating generic JSON without "component"
@@ -333,7 +338,15 @@ export const MessageBubble = React.memo(function MessageBubble({
 
         {/* Action Bar for Assistant Messages */}
         {!isUser && message.content && (
-          <div className={cn(
+          <>
+            {/* Inline Actions from related tools */}
+            {onSendMessage && !isTyping && message.thinkingSteps?.some(s => s.tool_name) && (
+              <InlineActions
+                toolName={message.thinkingSteps.filter(s => s.tool_name).pop()!.tool_name!}
+                onAction={onSendMessage}
+              />
+            )}
+            <div className={cn(
             'flex items-center gap-1 mt-1.5 transition-opacity',
             'opacity-0 group-hover:opacity-100'
           )}>
@@ -446,6 +459,7 @@ export const MessageBubble = React.memo(function MessageBubble({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+          </>
         )}
       </div>
       

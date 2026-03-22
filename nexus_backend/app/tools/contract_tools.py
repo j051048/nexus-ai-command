@@ -16,9 +16,14 @@ class ContractAnalysisTool(BaseTool):
     """AI 合同条款分析工具"""
 
     name = "analyze_contract"
-    description = (
-        "AI分析合同文档，提取关键条款、识别风险点、生成摘要。当用户说'分析合同'、'合同风险'、'合同摘要'时调用。"
-    )
+    description = "分析合同文档，提取关键条款、识别风险点并生成摘要"
+    examples = [
+        {"input": {"contract_id": "uuid-xxxx", "focus": "risks"}, "output_summary": "分析指定合同的风险点，标注严重程度"},
+        {"input": {"contract_text": "甲方...乙方...", "focus": "summary"}, "output_summary": "对合同文本生成结构化摘要"},
+        {"input": {"contract_id": "uuid-xxxx", "focus": "full"}, "output_summary": "对合同进行全面分析，包括摘要、关键条款、风险和建议"},
+    ]
+    gotchas = "contract_id和contract_text至少提供一个。focus默认为full。需要manager角色权限。通过contract_id查询时依赖contracts表数据完整性。"
+    related_tools = ["get_contracts", "create_contract", "get_expiring_contracts"]
     required_role = "manager"
 
     parameters = {

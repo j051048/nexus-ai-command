@@ -71,6 +71,7 @@ def register_routers(app: FastAPI) -> None:
     from app.routers import system_configs as system_configs_router
     from app.routers import work_orders as work_orders_router
     from app.routers import ws as ws_router
+    from app.routers import saved_prompts as saved_prompts_router
 
     app.include_router(performance.router)
     app.include_router(incentive.router)
@@ -130,6 +131,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(approval_flows_router.router)
     app.include_router(stripe_webhooks_router.router)
     app.include_router(dsar_router.router)
+    app.include_router(saved_prompts_router.router)
 
     # --- Optional routers (try/except to avoid all-or-nothing failure) ---
 

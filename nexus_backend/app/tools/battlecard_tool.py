@@ -11,7 +11,13 @@ logger = logging.getLogger(__name__)
 
 class BattlecardTool(BaseTool):
     name = "get_battlecard"
-    description = "【销售赋能】获取竞争对手的实时打击卡（结构化数据 + 知识库 RAG）"
+    description = "获取指定竞争对手的实时打击卡，含结构化数据和知识库补充"
+    examples = [
+        {"input": {"competitor_name": "安捷伦"}, "output_summary": "返回安捷伦的竞品打击卡，含优劣势、产品对比和打击策略"},
+        {"input": {"competitor_name": "赛默飞"}, "output_summary": "返回赛默飞的竞品打击卡及知识库中的相关分析"},
+    ]
+    gotchas = "竞品名称需与系统中录入的名称匹配。未录入的竞品仅返回通用策略建议。"
+    related_tools = ["list_competitors"]
 
     parameters = {
         "type": "object",
@@ -114,7 +120,12 @@ class BattlecardTool(BaseTool):
 
 class ListCompetitorsTool(BaseTool):
     name = "list_competitors"
-    description = "【销售赋能】列出已录入的所有竞品公司"
+    description = "列出当前租户已录入的所有竞品公司"
+    examples = [
+        {"input": {}, "output_summary": "返回所有已录入竞品的名称、标签和威胁等级列表"},
+    ]
+    gotchas = "需要组织信息才能查询。返回结果包含威胁等级标识。"
+    related_tools = ["get_battlecard"]
 
     parameters = {"type": "object", "properties": {}, "required": []}
 

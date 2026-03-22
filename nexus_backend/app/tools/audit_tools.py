@@ -18,9 +18,7 @@ class QueryAuditLogsTool(BaseTool):
 
     name = "query_audit_logs"
     description = (
-        "查询系统审计日志，支持按时间范围、用户、操作类型、目标表筛选。"
-        "可用于安全审计、异常行为检测、操作追溯等场景。"
-        "当用户说'查审计日志'、'安全审计'、'谁操作了'、'异常登录'、'数据导出记录'时调用。"
+        "查询系统审计日志，支持按时间、用户、操作类型和目标表筛选"
     )
 
     parameters = {
@@ -54,7 +52,12 @@ class QueryAuditLogsTool(BaseTool):
 
     domain = "admin"
     required_role = "boss"
-    gotchas = "仅boss/founder角色可用。days默认7天，最大90天。返回结果包含异常检测摘要。"
+    examples = [
+        {"input": {"days": 7, "action": "auth.failed"}, "output_summary": "返回最近7天内所有登录失败的审计记录及异常检测摘要"},
+        {"input": {"target_table": "contracts", "limit": 20}, "output_summary": "返回合同表相关的最近操作记录，最多20条"},
+        {"input": {"user_id": "abc123", "days": 30}, "output_summary": "返回指定用户最近30天的所有操作记录"},
+    ]
+    gotchas = "仅管理员角色可用。查询天数默认7天，最大90天。返回结果包含异常检测摘要。"
     related_tools = ["get_company_stats"]
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:

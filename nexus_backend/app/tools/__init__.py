@@ -410,3 +410,28 @@ def get_all_tools_schema():
             }
         )
     return schemas
+
+
+def get_tools_metadata(user_role: str = "all") -> list[dict]:
+    """Return structured metadata for all tools, filtered by user role.
+
+    Used by the /api/tools/metadata endpoint to power inline actions
+    and other frontend UX features.
+    """
+    _load_all()
+    result = []
+    for tool in TOOL_REGISTRY.values():
+        # RBAC filter: skip tools the user cannot access
+        if tool.required_role != "all" and tool.required_role != user_role and user_role != "boss":
+            continue
+        result.append({
+            "name": tool.name,
+            "description": tool.description,
+            "domain": tool.domain,
+            "related_tools": tool.related_tools,
+            "required_role": tool.required_role,
+            "is_irreversible": tool.is_irreversible,
+            "examples": tool.examples,
+            "gotchas": tool.gotchas,
+        })
+    return result

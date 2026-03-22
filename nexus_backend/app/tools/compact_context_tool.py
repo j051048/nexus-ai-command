@@ -15,10 +15,15 @@ from app.tools.base_tool import BaseTool
 class CompactContextTool(BaseTool):
     name = "compact_context"
     description = (
-        "当你感觉上下文过长、工具结果冗余、或即将超出 token 限制时，"
-        "调用此工具压缩历史上下文。传入一段对之前所有对话和工具调用结果的精炼摘要，"
-        "保留关键数据、结论和待办事项。调用后系统会自动用摘要替代冗长历史。"
+        "压缩对话历史上下文，用精炼摘要替代冗长的历史消息和工具调用结果。"
+        "当上下文过长、工具结果冗余或即将超出令牌限制时调用。"
+        "传入的摘要需保留关键数据、结论和待办事项。"
     )
+    examples = [
+        {"input": {"summary": "用户查询了本月销售数据，共3个客户成交，总金额12万元。待办：跟进客户A的续约。"}, "output_summary": "用摘要替代之前的冗长对话历史"},
+    ]
+    related_tools = ["load_knowledge"]
+    gotchas = "此工具为伪工具，由系统拦截处理；摘要必须保留关键数据点和待完成步骤，否则后续对话会丢失上下文。"
     parameters = {
         "type": "object",
         "properties": {

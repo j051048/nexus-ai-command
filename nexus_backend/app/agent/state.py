@@ -87,6 +87,7 @@ class ToolCallRecord:
     duration_ms: int | None = None
     error_type: str | None = None  # retryable | param_error | fatal
     tool_version: str | None = None  # #17: tool version for audit
+    confirmation_type: str = ""  # P0-6: "irreversible" | "high_value" | "bulk" | ""
 
 
 # ─── Pydantic Models for Complex State Fields ────────────────────────────────

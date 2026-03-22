@@ -21,9 +21,16 @@ class DataAttributionTool(BaseTool):
 
     name = "analyze_data_attribution"
     description = (
-        "对Dashboard数据变化进行智能归因分析，解释为什么指标上涨或下跌。"
+        "对经营数据变化进行多维度智能归因分析，解释指标上涨或下跌的原因并给出改进建议。"
         "当用户说'为什么销售额下降了'、'分析一下业绩变化原因'、'解读数据'时调用。"
     )
+    examples = [
+        {"input": {}, "output_summary": "对本月全部指标进行归因分析（默认）"},
+        {"input": {"metric": "revenue", "period": "quarter"}, "output_summary": "对本季度营收指标进行归因分析"},
+        {"input": {"metric": "conversion", "period": "week"}, "output_summary": "对本周转化率进行归因分析"},
+    ]
+    related_tools = ["strategy_simulation", "get_business_dashboard", "get_team_insight", "analyze_data"]
+    gotchas = "需要manager角色权限。分析基于系统内实际数据，数据不足时结论可能不够准确。period决定对比周期（本期对比上一同期）。"
     required_role = "manager"
 
     parameters = {
@@ -189,10 +196,15 @@ class StrategySimulationTool(BaseTool):
 
     name = "strategy_simulation"
     description = (
-        "执行战略沙盘推演，回答'如果...会怎样'的假设性问题。"
-        "例如：'进军华南市场需要多少预算'、'裁掉产品线X对现金流的影响'、"
-        "'如果提价10%对客户流失的影响'。当用户提出战略假设时调用。"
+        "执行战略沙盘推演，基于企业真实数据回答假设性问题。"
+        "例如：'进军华南市场需要多少预算'、'如果提价10%对客户流失的影响'。当用户提出战略假设时调用。"
     )
+    examples = [
+        {"input": {"scenario": "如果提价10%对客户流失的影响"}, "output_summary": "基于当前经营数据推演提价10%的综合影响"},
+        {"input": {"scenario": "招聘10名销售对季度营收的提升", "focus": "sales"}, "output_summary": "从销售维度推演扩招的影响"},
+    ]
+    related_tools = ["analyze_data_attribution", "get_business_dashboard", "generate_report"]
+    gotchas = "需要boss角色权限。scenario至少5个字，最多500字。推演基于系统内基线数据，数据不足时会标注为行业平均估算。"
     required_role = "boss"
 
     parameters = {

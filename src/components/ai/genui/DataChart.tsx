@@ -35,6 +35,7 @@ interface DataChartProps {
   dataKeys: string[];
   xKey?: string;
   height?: number;
+  onDataClick?: (label: string, value: number, dataKey: string) => void;
 }
 
 export function DataChart({
@@ -44,6 +45,7 @@ export function DataChart({
   dataKeys,
   xKey = 'name',
   height = 300,
+  onDataClick,
 }: DataChartProps) {
   if (!data || data.length === 0) {
     return (
@@ -57,14 +59,16 @@ export function DataChart({
     switch (type) {
       case 'line':
         return (
-          <LineChart data={data}>
+          <LineChart data={data} onClick={onDataClick ? (e: { activeLabel?: string; activePayload?: Array<{ dataKey: string; value: number }> }) => {
+            if (e?.activeLabel && e?.activePayload?.[0]) onDataClick(e.activeLabel, e.activePayload[0].value, e.activePayload[0].dataKey);
+          } : undefined}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
             <XAxis dataKey={xKey} tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
             <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
             <Tooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
             <Legend />
             {dataKeys.map((key, i) => (
-              <Line key={key} type="monotone" dataKey={key} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={{ r: 3 }} />
+              <Line key={key} type="monotone" dataKey={key} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot={{ r: 3 }} cursor={onDataClick ? 'pointer' : undefined} />
             ))}
           </LineChart>
         );
@@ -86,7 +90,11 @@ export function DataChart({
       case 'pie':
         return (
           <PieChart>
-            <Pie data={data} dataKey={dataKeys[0]} nameKey={xKey} cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+            <Pie data={data} dataKey={dataKeys[0]} nameKey={xKey} cx="50%" cy="50%" outerRadius={100}
+              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+              cursor={onDataClick ? 'pointer' : undefined}
+              onClick={(entry: Record<string, unknown>) => onDataClick?.(String(entry[xKey] ?? entry.name ?? ''), Number(entry[dataKeys[0]] ?? 0), dataKeys[0])}
+            >
               {data.map((_, i) => (
                 <Cell key={i} fill={COLORS[i % COLORS.length]} />
               ))}
@@ -105,7 +113,10 @@ export function DataChart({
             <Tooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
             <Legend />
             {dataKeys.map((key, i) => (
-              <Bar key={key} dataKey={key} fill={COLORS[i % COLORS.length]} radius={[4, 4, 0, 0]} />
+              <Bar key={key} dataKey={key} fill={COLORS[i % COLORS.length]} radius={[4, 4, 0, 0]}
+                cursor={onDataClick ? 'pointer' : undefined}
+                onClick={(entry: Record<string, unknown>) => onDataClick?.(String(entry[xKey] ?? ''), Number(entry[key] ?? 0), key)}
+              />
             ))}
           </BarChart>
         );

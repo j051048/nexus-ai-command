@@ -3,7 +3,7 @@ import { Download, Maximize2, Minimize2, X } from 'lucide-react';
 
 // Table-like component names that support CSV export
 const TABLE_COMPONENTS = new Set([
-  'DataTable', 'ComparisonTable',
+  'DataTable', 'ComparisonTable', 'DataChart',
 ]);
 
 // Components that support PNG export (charts + visual components)
@@ -45,6 +45,18 @@ function exportTableCSV(componentName: string, props: Record<string, unknown>) {
     // Rows
     for (const row of rows) {
       csvContent += [`"${row.label}"`, ...(row.values || []).map(v => `"${v}"`)].join(',') + '\n';
+    }
+  } else if (componentName === 'DataChart') {
+    const data = (props.data as Array<Record<string, unknown>>) || [];
+    const dataKeys = (props.dataKeys as string[]) || [];
+    const xKey = (props.xKey as string) || 'name';
+    if (data.length > 0) {
+      // Header
+      csvContent += [xKey, ...dataKeys].map(k => `"${k}"`).join(',') + '\n';
+      // Rows
+      for (const row of data) {
+        csvContent += [row[xKey], ...dataKeys.map(k => row[k])].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',') + '\n';
+      }
     }
   }
 

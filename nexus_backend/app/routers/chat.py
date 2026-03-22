@@ -208,6 +208,22 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
     )
 
 
+@router.get("/tools/metadata")
+async def get_tools_metadata_endpoint(req: Request, user_id: str = Depends(get_current_user_id)):
+    """Return structured metadata for all tools (filtered by user role).
+
+    Powers frontend inline actions and tool discovery UX.
+    """
+    client = req.state.db
+    user_res = await client.table("users").select("role").eq("id", user_id).maybe_single().execute()
+    user_role = (user_res.data or {}).get("role", "employee")
+
+    from app.tools import get_tools_metadata
+
+    metadata = get_tools_metadata(user_role)
+    return api_success(data={"tools": metadata, "count": len(metadata)})
+
+
 @router.get("/history/{session_id}")
 async def get_chat_history(session_id: str, req: Request, user_id: str = Depends(get_current_user_id)):
     """Fetch persistent chat history for a session"""

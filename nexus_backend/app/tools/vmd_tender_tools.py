@@ -28,11 +28,14 @@ class GenerateBidDocumentTool(BaseTool):
     """基于招标要求生成投标文件初稿框架"""
 
     name = "generate_bid_document"
-    description = (
-        "基于招标要求生成投标文件初稿框架，包含技术方案、商务报价、资质证明等章节。"
-        "当用户说'写投标文件'、'准备投标书'、'生成标书'时调用。"
-    )
+    description = "根据招标要求生成投标文件初稿框架，含技术方案、商务报价和资质证明等章节。当用户说'写投标文件'、'准备投标书'、'生成标书'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {"project_name": "某高校实验室设备采购", "our_products": "ICP-MS 7800", "budget_range": "50-80万元"}, "output_summary": "生成ICP-MS投标文件框架，含技术方案和商务报价章节"},
+        {"input": {"project_name": "环保监测站仪器招标", "tender_requirements": "需具备CMA资质", "deadline": "2026-04-15"}, "output_summary": "生成环保监测招标的完整投标文件框架"},
+    ]
+    related_tools = ["generate_deviation_table", "check_bid_compliance", "extract_bid_requirements"]
+    gotchas = "生成的是框架和要点，非最终投标文件。技术参数来自知识库检索，未找到的会标注'待补充'。"
 
     parameters = {
         "type": "object",
@@ -133,6 +136,12 @@ class GenerateDeviationTableTool(BaseTool):
     name = "generate_deviation_table"
     description = "生成技术偏离表，逐项对照招标技术要求与我方产品参数。当用户说'偏离表'、'技术对比'、'参数对照'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {"tender_specs": "检出限≤0.1ppb，线性范围1-1000ppb", "our_product": "ICP-MS 7800"}, "output_summary": "生成ICP-MS与招标参数的逐项偏离对比表"},
+        {"input": {"tender_specs": "分辨率≥0.5nm，波长范围190-1100nm", "our_product": "UV-2600", "our_specs": "分辨率0.3nm，波长范围185-1100nm"}, "output_summary": "生成含正偏离标注的紫外分光光度计偏离表"},
+    ]
+    related_tools = ["generate_bid_document", "check_bid_compliance", "extract_bid_requirements"]
+    gotchas = "tender_specs为必填，应逐项列出招标参数。我方参数优先从知识库检索，our_specs可手动补充。偏离表用Markdown表格输出。"
 
     parameters = {
         "type": "object",
@@ -218,8 +227,14 @@ class CheckBidComplianceTool(BaseTool):
     """校验投标文件合规性"""
 
     name = "check_bid_compliance"
-    description = "校验投标文件合规性，识别废标风险点。当用户说'检查投标文件'、'合规检查'、'废标风险'时调用。"
+    description = "校验投标文件的合规性，识别废标风险点并给出整改建议。当用户说'检查投标文件'、'合规检查'、'废标风险'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {"bid_content": "投标文件技术方案章节内容...", "tender_requirements": "须具备ISO9001认证"}, "output_summary": "返回合规性检查报告，标注资质缺失等高风险项"},
+        {"input": {"bid_content": "商务报价部分内容...", "check_items": "价格格式,付款条件"}, "output_summary": "返回聚焦商务条件的合规检查结果"},
+    ]
+    related_tools = ["generate_bid_document", "generate_deviation_table", "extract_bid_requirements"]
+    gotchas = "bid_content会被截断到前5000字符以防超出模型限制。检查结果按风险等级分为高/中/低三级。"
 
     parameters = {
         "type": "object",
@@ -287,11 +302,14 @@ class ExtractBidRequirementsTool(BaseTool):
     """从招标文件中提取关键要求清单"""
 
     name = "extract_bid_requirements"
-    description = (
-        "从招标文件中提取关键要求清单，包括资质要求、技术参数、商务条件、评分标准等。"
-        "当用户说'分析招标文件'、'提取要求'、'读招标书'时调用。"
-    )
+    description = "从招标文件中提取关键要求清单，含资质要求、技术参数、商务条件和评分标准。当用户说'分析招标文件'、'提取要求'、'读招标书'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {"tender_text": "招标文件全文或关键段落..."}, "output_summary": "提取资质门槛、技术参数、评分标准等结构化要求清单"},
+        {"input": {"tender_text": "招标文件内容...", "focus_areas": "技术参数,评分标准"}, "output_summary": "聚焦技术参数和评分标准的提取结果"},
+    ]
+    related_tools = ["generate_bid_document", "generate_deviation_table", "check_bid_compliance"]
+    gotchas = "tender_text会被截断到前8000字符。输入过长时建议只粘贴关键章节。focus_areas可缩小提取范围提高精准度。"
 
     parameters = {
         "type": "object",

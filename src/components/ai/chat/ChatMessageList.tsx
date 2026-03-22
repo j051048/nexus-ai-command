@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useEffect, useState } from 'react';
+import React, { useCallback, useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -14,7 +14,10 @@ import { MessageBubble } from '../MessageBubble';
 import { AgentTracePanel } from '../AgentTracePanel';
 import type { ConfirmationRequest, AskUserRequest, CircuitBreakInfo } from '@/hooks/useAIStream';
 import type { AgentTrace } from '@/hooks/useAgentTrace';
+import type { OrchestrationTrace } from '@/hooks/useOrchestrationTrace';
 import { aiClient } from '@/api/aiClient';
+import { ConfirmationCard } from './ConfirmationCard';
+import FormBuilder from '../genui/FormBuilder';
 
 const VIRTUAL_THRESHOLD = 30;
 
@@ -46,7 +49,9 @@ interface ChatMessageListProps {
   showTrace: boolean;
   setShowTrace: (v: boolean) => void;
   trace: AgentTrace;
+  orchestration?: OrchestrationTrace;
   messagesEndRef: React.RefObject<HTMLDivElement>;
+  onSendMessage?: (prompt: string) => void;
 }
 
 export const ChatMessageList = React.memo(function ChatMessageList({
@@ -69,19 +74,13 @@ export const ChatMessageList = React.memo(function ChatMessageList({
   showTrace,
   setShowTrace,
   trace,
+  orchestration,
   messagesEndRef,
+  onSendMessage,
 }: ChatMessageListProps) {
   // Use ref for messages to avoid re-creating callback on every messages change
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
-
-  // HITL editable args state
-  const [editedArgs, setEditedArgs] = useState<Record<string, unknown>>({});
-  useEffect(() => {
-    if (pendingConfirmation?.args) {
-      setEditedArgs({ ...pendingConfirmation.args });
-    }
-  }, [pendingConfirmation]);
 
   // Stable feedback callback — uses ref to avoid messages dependency
   const handleFeedback = useCallback((type: 'positive' | 'negative', messageId: string) => {
@@ -143,114 +142,50 @@ export const ChatMessageList = React.memo(function ChatMessageList({
       )}
 
       {pendingConfirmation && (
-        <div className="mx-4 mb-2 rounded-xl border border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 p-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-            <div className="flex-1 space-y-2">
-              <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
-                操作确认
-              </p>
-              <p className="text-sm text-amber-800 dark:text-amber-300">
-                {pendingConfirmation.message}
-              </p>
-              {pendingConfirmation.args && Object.keys(pendingConfirmation.args).length > 0 && (
-                <details className="pt-1" open={!!pendingConfirmation.modifiable}>
-                  <summary className="text-xs text-amber-700 dark:text-amber-400 cursor-pointer hover:underline">
-                    {pendingConfirmation.modifiable ? '编辑参数' : '查看参数'}
-                  </summary>
-                  {pendingConfirmation.modifiable ? (
-                    <div className="mt-1 space-y-2">
-                      {Object.entries(editedArgs).map(([key, value]) => {
-                        const valType = typeof value;
-                        return (
-                          <div key={key} className="flex items-center gap-2">
-                            <label className="text-xs text-amber-800 dark:text-amber-300 min-w-[80px] font-medium shrink-0">
-                              {key}
-                            </label>
-                            {valType === 'boolean' ? (
-                              <select
-                                className="flex-1 h-7 px-2 rounded border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/40 text-xs text-amber-900 dark:text-amber-200"
-                                value={String(value)}
-                                onChange={(e) => setEditedArgs(prev => ({ ...prev, [key]: e.target.value === 'true' }))}
-                              >
-                                <option value="true">true</option>
-                                <option value="false">false</option>
-                              </select>
-                            ) : valType === 'number' ? (
-                              <input
-                                type="number"
-                                className="flex-1 h-7 px-2 rounded border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/40 text-xs text-amber-900 dark:text-amber-200"
-                                value={value as number}
-                                onChange={(e) => setEditedArgs(prev => ({ ...prev, [key]: Number(e.target.value) }))}
-                              />
-                            ) : valType === 'string' ? (
-                              <input
-                                type="text"
-                                className="flex-1 h-7 px-2 rounded border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/40 text-xs text-amber-900 dark:text-amber-200"
-                                value={value as string}
-                                onChange={(e) => setEditedArgs(prev => ({ ...prev, [key]: e.target.value }))}
-                              />
-                            ) : (
-                              <textarea
-                                className="flex-1 min-h-[56px] px-2 py-1 rounded border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/40 text-xs text-amber-900 dark:text-amber-200 font-mono"
-                                value={typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value ?? '')}
-                                onChange={(e) => {
-                                  try {
-                                    setEditedArgs(prev => ({ ...prev, [key]: JSON.parse(e.target.value) }));
-                                  } catch {
-                                    // Keep raw string if not valid JSON
-                                    setEditedArgs(prev => ({ ...prev, [key]: e.target.value }));
-                                  }
-                                }}
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <pre className="mt-1 p-2 rounded bg-amber-100 dark:bg-amber-900/30 text-xs text-amber-900 dark:text-amber-200 overflow-x-auto max-h-32">
-                      {JSON.stringify(pendingConfirmation.args, null, 2)}
-                    </pre>
-                  )}
-                </details>
-              )}
-              <div className="flex gap-2 pt-1">
-                <Button
-                  size="sm"
-                  className="h-7 px-3 text-xs"
-                  onClick={() => {
-                    confirmAndResend(messages, (content, assistantMsgId) => {
-                      setMessages((prev) => {
-                        const exists = prev.find((m) => m.id === assistantMsgId);
-                        if (exists) {
-                          return prev.map((m) =>
-                            m.id === assistantMsgId ? { ...m, content } : m
-                          );
-                        }
-                        return [...prev, { id: assistantMsgId, role: 'assistant' as const, content, timestamp: new Date() }];
-                      });
-                    }, pendingConfirmation.modifiable ? editedArgs : undefined);
-                  }}
-                >
-                  <Zap className="w-3 h-3 mr-1" />
-                  确认执行
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 px-3 text-xs"
-                  onClick={dismissConfirmation}
-                >
-                  取消
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ConfirmationCard
+          confirmation={pendingConfirmation}
+          onConfirm={(modifiedArgs) => {
+            confirmAndResend(messages, (content, assistantMsgId) => {
+              setMessages((prev) => {
+                const exists = prev.find((m) => m.id === assistantMsgId);
+                if (exists) {
+                  return prev.map((m) =>
+                    m.id === assistantMsgId ? { ...m, content } : m
+                  );
+                }
+                return [...prev, { id: assistantMsgId, role: 'assistant' as const, content, timestamp: new Date() }];
+              });
+            }, modifiedArgs);
+          }}
+          onDismiss={dismissConfirmation}
+        />
       )}
 
       {pendingQuestion && (
+        pendingQuestion.fields && pendingQuestion.fields.length > 0 ? (
+          <FormBuilder
+            title={pendingQuestion.question}
+            fields={pendingQuestion.fields}
+            submitLabel="提交"
+            onSubmit={(data) => {
+              const answer = JSON.stringify(data);
+              answerQuestion(answer, messages, (content, assistantMsgId) => {
+                setMessages((prev) => {
+                  const exists = prev.find((m) => m.id === assistantMsgId);
+                  if (exists) {
+                    return prev.map((m) =>
+                      m.id === assistantMsgId ? { ...m, content } : m
+                    );
+                  }
+                  return [...prev,
+                    { id: `user-answer-${Date.now()}`, role: 'user' as const, content: `[表单提交] ${answer}`, timestamp: new Date() },
+                    { id: assistantMsgId, role: 'assistant' as const, content, timestamp: new Date() }
+                  ];
+                });
+              });
+            }}
+          />
+        ) : (
         <div className="mx-4 mb-2 rounded-xl border border-blue-500/30 bg-blue-50 dark:bg-blue-950/20 p-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <div className="flex items-start gap-3">
             <MessageCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
@@ -333,6 +268,7 @@ export const ChatMessageList = React.memo(function ChatMessageList({
             </div>
           </div>
         </div>
+        )
       )}
 
       {/* Circuit break warning card */}
@@ -372,6 +308,7 @@ export const ChatMessageList = React.memo(function ChatMessageList({
         <div className="mx-4 mb-2">
           <AgentTracePanel
             trace={trace}
+            orchestration={orchestration}
             onClose={() => setShowTrace(false)}
             defaultExpanded
           />
@@ -409,6 +346,7 @@ export const ChatMessageList = React.memo(function ChatMessageList({
                   }
                   onFeedback={handleFeedback}
                   onDelete={handleDeleteMessage}
+                  onSendMessage={onSendMessage}
                   isLatest={isLast}
                   isTyping={isLast && isAiTyping}
                 />
@@ -440,6 +378,7 @@ export const ChatMessageList = React.memo(function ChatMessageList({
             }
             onFeedback={handleFeedback}
             onDelete={handleDeleteMessage}
+            onSendMessage={onSendMessage}
             isLatest={isLast}
             isTyping={isLast && isAiTyping}
           />

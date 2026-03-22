@@ -27,9 +27,13 @@ class SubmitExpenseTool(BaseTool):
     """提交报销申请"""
 
     name = "submit_expense"
-    description = "提交报销申请。当用户说'报销'、'提交报销'、'报销申请'时调用。"
-    gotchas = "amount必须大于0。category可选值见参数schema。需要附件时传attachment_urls数组。提交后状态为pending。"
-    related_tools = ["list_expenses", "check_budget"]
+    description = "提交报销申请，支持差旅、餐饮、办公用品、交通等类型"
+    examples = [
+        {"input": {"expense_type": "travel", "total_amount": 3500}, "output_summary": "提交一笔3500元的差旅费报销"},
+        {"input": {"expense_type": "meal", "total_amount": 280, "items": [{"description": "客户午餐", "amount": 280, "date": "2026-03-15"}]}, "output_summary": "提交一笔带明细的餐饮费报销"},
+    ]
+    gotchas = "total_amount必须大于0。expense_type常用值：travel/meal/office/transport。提交后状态为pending（待审批）。建议先调用check_budget确认预算余额。"
+    related_tools = ["list_expenses", "check_budget", "approve_expense"]
     depends_on = ["check_budget"]
 
     is_irreversible = True
@@ -115,7 +119,14 @@ class ListExpensesTool(BaseTool):
     """查询报销记录"""
 
     name = "list_expenses"
-    description = "查询报销记录。当用户说'查看报销'、'报销列表'、'报销记录'时调用。"
+    description = "查询报销记录列表，支持按状态和日期范围筛选"
+    examples = [
+        {"input": {}, "output_summary": "返回全部报销记录"},
+        {"input": {"status": "pending"}, "output_summary": "返回待审批的报销记录"},
+        {"input": {"start_date": "2026-03-01", "end_date": "2026-03-31"}, "output_summary": "返回本月的报销记录"},
+    ]
+    related_tools = ["submit_expense", "approve_expense", "check_budget"]
+    gotchas = "状态可选值：pending/approved/rejected。不传筛选条件则返回全部记录。日期格式为YYYY-MM-DD。"
 
     parameters = {
         "type": "object",
@@ -194,7 +205,13 @@ class ApproveExpenseTool(BaseTool):
     """审批报销单"""
 
     name = "approve_expense"
-    description = "审批报销单（通过或驳回）。当用户说'审批报销'、'批准报销'、'驳回报销'时调用。"
+    description = "审批报销单，支持通过或驳回操作，需管理员权限"
+    examples = [
+        {"input": {"expense_id": "uuid-xxxx", "action": "approve", "comment": "符合报销标准"}, "output_summary": "通过报销单并添加审批意见"},
+        {"input": {"expense_id": "uuid-xxxx", "action": "reject", "comment": "缺少发票附件"}, "output_summary": "驳回报销单并说明原因"},
+    ]
+    related_tools = ["list_expenses", "submit_expense", "check_budget"]
+    gotchas = "expense_id和action均为必填。action仅支持approve和reject。此操作不可逆，需用户确认。需要admin权限。"
 
     required_role = "admin"
     is_irreversible = True  # HITL: 审批/驳回报销是不可逆财务操作
@@ -265,7 +282,13 @@ class CheckBudgetTool(BaseTool):
     """查询预算使用情况"""
 
     name = "check_budget"
-    description = "查询预算使用情况。当用户说'预算查询'、'预算余额'、'查看预算'时调用。"
+    description = "查询预算使用情况，包括总额、已用、剩余和使用率"
+    examples = [
+        {"input": {}, "output_summary": "返回全组织的预算使用情况"},
+        {"input": {"department_id": "uuid-xxxx", "period": "2026-03"}, "output_summary": "返回指定部门本月的预算使用情况"},
+    ]
+    related_tools = ["submit_expense", "list_expenses"]
+    gotchas = "period格式为YYYY-MM。不传department_id则查全组织预算。建议在提交报销前先调用此工具确认预算余额。"
 
     parameters = {
         "type": "object",

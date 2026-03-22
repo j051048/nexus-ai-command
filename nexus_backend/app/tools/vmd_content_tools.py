@@ -28,11 +28,14 @@ class GenerateProductManualTool(BaseTool):
     """基于知识库生成科学仪器产品手册框架"""
 
     name = "generate_product_manual"
-    description = (
-        "基于知识库生成科学仪器产品手册框架，包含产品概述、技术参数、应用场景、操作指南等章节。"
-        "当用户说'生成产品手册'、'编写产品资料'、'产品文档'时调用。"
-    )
+    description = "基于知识库生成科学仪器产品手册框架，含产品概述、技术参数、应用场景和操作指南等章节。当用户说'生成产品手册'、'编写产品资料'、'产品文档'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {"product_name": "ICP-MS 7800", "product_category": "质谱仪器", "target_audience": "实验室技术人员"}, "output_summary": "生成ICP-MS面向实验室技术人员的产品手册框架"},
+        {"input": {"product_name": "UV-2600", "key_features": "双光束设计,超低杂散光"}, "output_summary": "生成突出关键特性的UV-2600产品手册框架"},
+    ]
+    related_tools = ["generate_whitepaper", "generate_application_note", "generate_social_post"]
+    gotchas = "product_name为必填。知识库无相关资料时会基于行业通用规范生成框架并标注需补充的部分。各字段有最大长度限制。"
 
     parameters = {
         "type": "object",
@@ -129,11 +132,14 @@ class GenerateWhitepaperTool(BaseTool):
     """生成科学仪器行业技术白皮书"""
 
     name = "generate_whitepaper"
-    description = (
-        "生成科学仪器行业技术白皮书，包含行业背景、技术原理、解决方案、应用案例等。"
-        "当用户说'写白皮书'、'技术白皮书'、'行业白皮书'时调用。"
-    )
+    description = "生成科学仪器行业技术白皮书，含行业背景、技术原理、解决方案和应用案例。当用户说'写白皮书'、'技术白皮书'、'行业白皮书'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {"topic": "新一代拉曼光谱在制药行业的应用", "industry": "制药", "technology": "拉曼光谱", "depth": "detailed"}, "output_summary": "生成详细级的拉曼光谱制药应用白皮书框架"},
+        {"input": {"topic": "环境水质在线监测技术发展趋势", "depth": "overview"}, "output_summary": "生成概述级的水质监测技术白皮书"},
+    ]
+    related_tools = ["generate_product_manual", "generate_application_note", "generate_social_post"]
+    gotchas = "topic为必填。depth可选值: overview/detailed/expert，不传默认detailed。生成的是框架和要点，需要补充实际数据的位置会标注。"
 
     parameters = {
         "type": "object",
@@ -229,10 +235,14 @@ class GenerateApplicationNoteTool(BaseTool):
     """生成科学仪器应用方案文档"""
 
     name = "generate_application_note"
-    description = (
-        "生成科学仪器应用方案文档，针对特定行业或应用场景。当用户说'写应用方案'、'应用笔记'、'解决方案文档'时调用。"
-    )
+    description = "生成针对特定行业或场景的科学仪器应用方案文档。当用户说'写应用方案'、'应用笔记'、'解决方案文档'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {"application": "土壤重金属检测", "instrument": "ICP-MS 7800", "sample_type": "土壤", "standard": "GB/T 17141"}, "output_summary": "生成土壤重金属ICP-MS检测的完整应用方案"},
+        {"input": {"application": "药品溶出度测试", "instrument": "紫外分光光度计"}, "output_summary": "生成药品溶出度测试的应用方案文档"},
+    ]
+    related_tools = ["generate_product_manual", "generate_whitepaper"]
+    gotchas = "application为必填，其余参数可选填'待确定'由模型根据知识库补充。文档涵盖从样品前处理到数据分析的完整实验流程。"
 
     parameters = {
         "type": "object",
@@ -322,11 +332,14 @@ class GenerateSocialPostTool(BaseTool):
     """生成科学仪器行业自媒体文案"""
 
     name = "generate_social_post"
-    description = (
-        "生成科学仪器行业自媒体文案，适配微信公众号、LinkedIn、行业论坛等平台。"
-        "当用户说'写公众号文案'、'生成社媒内容'、'发朋友圈'、'写推文'时调用。"
-    )
+    description = "生成适配各平台的科学仪器行业自媒体文案。当用户说'写公众号文案'、'生成社媒内容'、'发朋友圈'、'写推文'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {"topic": "新品发布会预告", "platform": "wechat", "tone": "promotional", "product_name": "ICP-MS 7800"}, "output_summary": "生成微信公众号风格的新品发布推广长文"},
+        {"input": {"topic": "实验室安全知识科普", "platform": "weibo", "tone": "casual"}, "output_summary": "生成微博风格的140字以内实验室安全科普短文"},
+    ]
+    related_tools = ["generate_product_manual", "generate_whitepaper", "generate_application_note"]
+    gotchas = "platform可选值: wechat/linkedin/forum/weibo/general，不同平台字数和风格差异很大。tone可选值: professional/casual/academic/promotional。"
 
     parameters = {
         "type": "object",

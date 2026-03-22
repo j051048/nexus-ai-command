@@ -14,6 +14,8 @@ interface StreamCallbacks {
     onUpdate?: (content: string, id: string) => void;
     onThinkingStep?: (step: ThinkingStep) => void;
     onThinkingComplete?: (totalSteps: number) => void;
+    onToolProgress?: (progress: { tool_name: string; status: string; duration_ms?: number }) => void;
+    onOrchestration?: (event: Record<string, unknown>) => void;
 }
 
 export interface ConfirmationRequest {
@@ -21,12 +23,25 @@ export interface ConfirmationRequest {
     message: string;
     args: Record<string, unknown>;
     modifiable?: boolean;
+    confirmation_type?: 'irreversible' | 'high_value' | 'bulk' | 'external' | 'escalation' | '';
+}
+
+export interface FormField {
+    name: string;
+    label: string;
+    type: 'text' | 'number' | 'email' | 'select' | 'date' | 'textarea' | 'checkbox';
+    required?: boolean;
+    default_value?: string;
+    options?: string[];
+    placeholder?: string;
+    step?: number;
 }
 
 export interface AskUserRequest {
     question: string;
     options: string[];
     context: string;
+    fields?: FormField[];
 }
 
 export interface CircuitBreakInfo {
@@ -52,6 +67,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
     const [pendingQuestion, setPendingQuestion] = useState<AskUserRequest | null>(null);
     const [circuitBreak, setCircuitBreak] = useState<CircuitBreakInfo | null>(null);
     const [quotaInfo, setQuotaInfo] = useState<QuotaInfo | null>(null);
+    const [followUpSuggestions, setFollowUpSuggestions] = useState<string[]>([]);
     const abortControllerRef = useRef<AbortController | null>(null);
     const lastRequestRef = useRef<{ messages: Array<{ role: string; content: string }>; agent?: string } | null>(null);
     const pendingConfirmationRef = useRef<ConfirmationRequest | null>(null);
@@ -85,6 +101,8 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         onUpdate?: (content: string, id: string) => void,
         onThinkingStep?: (step: ThinkingStep) => void,
         onThinkingComplete?: (totalSteps: number) => void,
+        onToolProgress?: (progress: { tool_name: string; status: string; duration_ms?: number }) => void,
+        onOrchestration?: (event: Record<string, unknown>) => void,
     ): Promise<void> => {
         if (!response.body) throw new Error('No response body');
 
@@ -196,6 +214,12 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                         continue;
                     }
 
+                    // Handle tool execution progress events
+                    if (parsed.tool_progress) {
+                        onToolProgress?.(parsed.tool_progress);
+                        continue;
+                    }
+
                     // Handle sanitized content correction from backend
                     if (parsed.sanitized_content) {
                         assistantContent = parsed.sanitized_content;
@@ -206,6 +230,18 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                     // Handle quota info from backend (emitted after each request)
                     if (parsed.quota) {
                         setQuotaInfo(parsed.quota as QuotaInfo);
+                        continue;
+                    }
+
+                    // P2-13: Handle follow-up suggestions
+                    if (parsed.follow_up_suggestions) {
+                        setFollowUpSuggestions(parsed.follow_up_suggestions as string[]);
+                        continue;
+                    }
+
+                    // P2-10: Handle orchestration events
+                    if (parsed.orchestration) {
+                        onOrchestration?.(parsed.orchestration as Record<string, unknown>);
                         continue;
                     }
 
@@ -427,11 +463,14 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         setThinkingSteps([]);
         setIsThinkingComplete(false);
         setPendingConfirmation(null);
+        setFollowUpSuggestions([]);
 
         // Support both old callback style and new object style
         const onUpdate = typeof callbacks === 'function' ? callbacks : callbacks?.onUpdate;
         const onThinkingStep = typeof callbacks === 'object' ? callbacks.onThinkingStep : undefined;
         const onThinkingComplete = typeof callbacks === 'object' ? callbacks.onThinkingComplete : undefined;
+        const onToolProgress = typeof callbacks === 'object' ? callbacks.onToolProgress : undefined;
+        const onOrchestration = typeof callbacks === 'object' ? callbacks.onOrchestration : undefined;
 
         const chatMessages = history
             .filter(m => m.id !== '1') // Skip greeting
@@ -496,7 +535,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
 
                 if (response.ok) {
                     setAiStatus(undefined);
-                    await parseBackendStream(response, onUpdate, onThinkingStep, onThinkingComplete);
+                    await parseBackendStream(response, onUpdate, onThinkingStep, onThinkingComplete, onToolProgress, onOrchestration);
                     tier1Succeeded = true;
                 } else if (response.status >= 500) {
                     // 5xx: backend down, fall through to next tier
@@ -537,7 +576,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
 
                 if (response.ok) {
                     setAiStatus(undefined);
-                    await parseBackendStream(response, onUpdate, onThinkingStep, onThinkingComplete);
+                    await parseBackendStream(response, onUpdate, onThinkingStep, onThinkingComplete, onToolProgress, onOrchestration);
                     tier1Succeeded = true;
                 } else {
                     // Proxy failed, fall through to Tier 2
@@ -639,6 +678,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         pendingQuestion,
         circuitBreak,
         quotaInfo,
+        followUpSuggestions,
         streamChat,
         stopStream,
         confirmAndResend,

@@ -17,9 +17,14 @@ class GetUserPreferencesTool(BaseTool):
 
     name = "get_user_preferences"
     description = (
-        "查看当前用户的个人偏好设置，包括通知活跃时段、每日通知上限、已静音的通知类型、各类通知的接受率统计。"
-        "当用户说'查看我的设置'、'我的偏好'、'通知设置'、'我的配置'时调用。"
+        "查询当前用户的个人偏好设置，包括通知活跃时段、每日通知上限、已静音的通知类型和接受率统计。"
+        "当用户说'查看我的设置'、'我的偏好'、'通知设置'时调用。"
     )
+    examples = [
+        {"input": {}, "output_summary": "返回用户的完整偏好设置，包括活跃时段、通知上限等"},
+    ]
+    related_tools = ["update_user_preferences"]
+    gotchas = ""
 
     parameters = {
         "type": "object",
@@ -54,10 +59,17 @@ class UpdateUserPreferencesTool(BaseTool):
 
     name = "update_user_preferences"
     description = (
-        "更新当前用户的个人偏好设置。可修改通知活跃时段、每日通知上限、静音特定通知类型。"
+        "更新当前用户的个人偏好设置，可修改通知活跃时段、每日通知上限、静音或取消静音特定通知类型。"
         "当用户说'修改我的设置'、'不要在下班后通知我'、'每天最多通知3次'、"
-        "'关掉XX类型通知'、'精简汇报'、'只说结论'时调用。"
+        "'关掉某类通知'时调用。"
     )
+    examples = [
+        {"input": {"active_hours_start": 9, "active_hours_end": 18}, "output_summary": "将通知活跃时段设为9:00-18:00"},
+        {"input": {"daily_notification_limit": 5}, "output_summary": "将每日通知上限设为5条"},
+        {"input": {"mute_type": "system_alert"}, "output_summary": "静音系统告警类通知"},
+    ]
+    related_tools = ["get_user_preferences"]
+    gotchas = "至少需要传一个参数才能执行更新；active_hours_start 和 active_hours_end 可以单独设置；mute_type 和 unmute_type 在同一次调用中不要同时传相同类型。"
 
     parameters = {
         "type": "object",

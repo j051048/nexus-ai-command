@@ -28,10 +28,14 @@ class ListSystemConfigsTool(BaseTool):
 
     name = "list_system_configs"
     description = (
-        "查询租户的系统配置列表，支持按配置类型筛选。"
-        "配置类型包括: asset_status(资产状态), work_order_type(工单类型), priority(优先级)等。"
-        "当用户说'查看配置'、'配置列表'、'有哪些资产状态'时调用。"
+        "查询租户的系统配置列表，支持按配置类型筛选"
     )
+    examples = [
+        {"input": {}, "output_summary": "返回当前租户的所有配置项，按类型分组展示"},
+        {"input": {"config_type": "asset_status"}, "output_summary": "仅返回资产状态相关的配置项"},
+    ]
+    gotchas = "需要用户已登录且有组织信息。返回结果按配置类型分组。"
+    related_tools = ["update_system_config"]
 
     parameters = {
         "type": "object",
@@ -91,7 +95,13 @@ class UpdateSystemConfigTool(BaseTool):
     """更新系统配置"""
 
     name = "update_system_config"
-    description = "创建或更新系统配置项。当用户说'添加资产状态'、'修改工单类型'、'更新配置'时调用。"
+    description = "创建或更新租户的系统配置项"
+    examples = [
+        {"input": {"config_type": "asset_status", "config_key": "maintenance", "label": "维护中", "color": "#FFA500"}, "output_summary": "创建或更新一个资产状态配置项"},
+        {"input": {"config_type": "priority", "config_key": "urgent", "label": "紧急", "icon": "alert"}, "output_summary": "创建一个带图标的优先级配置项"},
+    ]
+    gotchas = "此操作不可逆，仅管理员可用。配置类型、配置键和显示标签为必填项。变更会影响全局行为。"
+    related_tools = ["list_system_configs"]
     required_role = "admin"
     is_irreversible = True  # HITL: 系统配置变更影响全局行为
 

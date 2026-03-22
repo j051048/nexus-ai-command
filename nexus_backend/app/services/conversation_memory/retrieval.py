@@ -12,18 +12,50 @@ from .cleanup import compute_decay_score, mmr_rerank
 logger = logging.getLogger(__name__)
 
 
-def _format_memory_line(mem: dict) -> str:
-    """Format a memory entry for context injection, with optional temporal annotation."""
+def _days_since(date_str: str) -> int:
+    if not date_str:
+        return 0
+    try:
+        from datetime import UTC, datetime
+        dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        return (datetime.now(UTC) - dt).days
+    except Exception:
+        return 0
+
+def _relative_age(date_str: str) -> str:
+    if not date_str:
+        return "未知时间"
+    days = _days_since(date_str)
+    if days == 0:
+        return "今天"
+    elif days < 30:
+        return f"{days}天前"
+    elif days < 365:
+        return f"{days // 30}个月前"
+    return f"{days // 365}年前"
+
+def _format_by_temperature(mem: dict) -> str:
+    """根据记忆温度选择详细度（热=全文，温=截断，冷=摘要），结构化 XML 格式。"""
+    updated_at = mem.get("updated_at") or mem.get("valid_from") or mem.get("created_at") or ""
+    days_old = _days_since(updated_at)
+    age_str = _relative_age(updated_at)
+    category = mem.get("category", "")
+    importance = float(mem.get("importance", 0.5))
     value = mem.get("value", "")
-    valid_from = mem.get("valid_from")
-    if valid_from:
-        # Extract YYYY-MM for concise display
-        try:
-            date_str = str(valid_from)[:7]  # "2026-02-01T..." -> "2026-02"
-            return f"- [{date_str}] {value}"
-        except Exception:
-            pass
-    return f"- {value}"
+    
+    parts = [f'  <memory type="{category}" age="{age_str}" importance="{importance:.1f}">']
+    if days_old < 3 and importance > 0.7:
+        parts.append(value)
+    elif days_old < 30:
+        val = mem.get("enriched_value") or value
+        parts.append(val[:150])
+    else:
+        key = mem.get("key", "")
+        parts.append(f"{key}: {value[:30]}... (需使用 recall_memory 工具查看详情)")
+    parts.append('</memory>')
+    return "".join(parts)
 
 
 async def get_memories(
@@ -101,7 +133,20 @@ async def search_memories(
             )
 
     # Apply temporal decay for final ranking, then MMR diversity reranking
-    memories.sort(key=lambda m: compute_decay_score(m), reverse=True)
+    _TYPE_WEIGHTS = {
+        "explicit_memory": 1.5,
+        "preference": 1.0,
+        "fact": 1.0,
+        "behavior_pattern": 0.8,
+        "tool_usage": 0.7,
+    }
+
+    def _weighted_score(m: dict) -> float:
+        base = compute_decay_score(m)
+        weight = _TYPE_WEIGHTS.get(m.get("category", "preference"), 1.0)
+        return base * weight
+
+    memories.sort(key=_weighted_score, reverse=True)
     memories = mmr_rerank(memories, limit)
 
     # Feature 3: 1-hop connection expansion on top results
@@ -278,41 +323,52 @@ async def build_memory_context(
     user_id: str,
     current_query: str,
     db: Any = None,
+    intent_summary: str | None = None,
 ) -> str:
     """
     构建记忆上下文，注入到 system prompt 中。
-
-    策略：
-    1. 显式记忆无条件注入（用户主动要求记住的，量少且重要）
-    2. 其余记忆（偏好/事实等）走语义搜索，只注入与当前查询相关的
+    使用 intent_summary 执行意图感知动态路由 (Intent-Aware Router)。
     """
     context_parts: list[str] = []
-
+    
+    # Analyze intent to optimize retrieval caps (P2: Intent-Aware Memory Router)
+    explicit_limit = 5
+    relevant_limit = 5
+    consolidated_limit = 3
+    
+    if intent_summary:
+        if "长文" in intent_summary or "复杂" in intent_summary:
+            relevant_limit = 10
+            consolidated_limit = 5
+        elif "查" in intent_summary or "找" in intent_summary:
+            relevant_limit = 8
+            explicit_limit = 3
+            
     # 1) Explicit memories -- always inject (user explicitly asked to remember)
     explicit = await get_memories(
         user_id=user_id,
         category="explicit_memory",
-        limit=5,
+        limit=explicit_limit,
         db=db,
     )
     if explicit:
-        mem_lines = [_format_memory_line(m) for m in explicit]
-        context_parts.append("用户记忆:\n" + "\n".join(mem_lines))
+        mem_lines = [_format_by_temperature(m) for m in explicit]
+        context_parts.append("\n".join(mem_lines))
 
     # 2) Query-relevant memories -- semantic search across all categories
     if current_query and len(current_query) >= 2:
         relevant = await search_memories(
             user_id=user_id,
             query=current_query,
-            limit=5,
+            limit=relevant_limit,
             db=db,
         )
         if relevant:
             existing_ids = {m["id"] for m in explicit}
             new_relevant = [m for m in relevant if m["id"] not in existing_ids]
             if new_relevant:
-                rel_lines = [_format_memory_line(m) for m in new_relevant]
-                context_parts.append("相关记忆:\n" + "\n".join(rel_lines))
+                rel_lines = [_format_by_temperature(m) for m in new_relevant]
+                context_parts.append("\n".join(rel_lines))
 
     # 3) Consolidated insights -- semantic search for cross-memory patterns
     if current_query and len(current_query) >= 2:
@@ -320,19 +376,19 @@ async def build_memory_context(
             consolidations = await search_consolidations(
                 user_id=user_id,
                 query=current_query,
-                limit=3,
+                limit=consolidated_limit,
                 db=db,
             )
             if consolidations:
                 cons_lines = [
-                    f"- [{c['insight_type']}] {c['title']}: {c['content']}"
+                    f"  <insight type=\"{c['insight_type']}\" title=\"{c['title']}\">{c['content']}</insight>"
                     for c in consolidations
                 ]
-                context_parts.append("记忆洞察:\n" + "\n".join(cons_lines))
+                context_parts.append("\n".join(cons_lines))
         except Exception as e:
             logger.debug(f"Consolidation context injection skipped: {e}")
 
     if not context_parts:
         return ""
 
-    return "[用户记忆上下文]\n" + "\n\n".join(context_parts) + "\n[记忆上下文结束]"
+    return "<user-memories>\n" + "\n".join(context_parts) + "\n</user-memories>"

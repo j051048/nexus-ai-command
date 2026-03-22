@@ -123,44 +123,45 @@ class BaseTool(ABC):
         Execute node returns a guidance error if prerequisites are missing."""
         return []
 
-    def check_confirmation(self, args: dict[str, Any], system_confirmed: bool = False) -> str | None:
+    def check_confirmation(self, args: dict[str, Any], system_confirmed: bool = False) -> tuple[str | None, str]:
         """
         System-level confirmation gate.
         Called BEFORE run() for irreversible tools.
-        Returns None if confirmed, or a preview message string if confirmation needed.
+        Returns (None, "") if confirmed, or (preview_message, confirmation_type) if blocked.
+
+        confirmation_type values: "irreversible" | "high_value" | "bulk" | ""
 
         P0 Fix #2: This NOW requires system_confirmed=True (from frontend action)
         and ignores the LLM-generated 'confirm' argument to prevent bypass.
-
-        P2-1: Enhanced with structured confirmation types:
-        - Irreversible operations (delete, reject, cancel)
-        - High-value transactions (above threshold)
-        - Bulk operations (affecting multiple records)
         """
         reasons: list[str] = []
+        primary_type = ""
 
         # Check irreversible flag
         if self.is_irreversible:
             reasons.append(f"🔒 不可逆操作: {self.confirmation_message}")
+            primary_type = primary_type or ConfirmationType.IRREVERSIBLE.value
 
-        # P2-1: Check high-value amount
+        # Check high-value amount
         amount = args.get("amount") or args.get("value") or args.get("total")
         if amount and isinstance(amount, int | float) and amount >= CONFIRMATION_THRESHOLDS["high_value_amount"]:
             reasons.append(f"💰 大额操作: ¥{amount:,.0f} (超过 ¥{CONFIRMATION_THRESHOLDS['high_value_amount']:,} 阈值)")
+            primary_type = primary_type or ConfirmationType.HIGH_VALUE.value
 
-        # P2-1: Check bulk operations
+        # Check bulk operations
         items = args.get("ids") or args.get("items") or args.get("batch")
         if isinstance(items, list | tuple) and len(items) >= CONFIRMATION_THRESHOLDS["bulk_record_count"]:
             reasons.append(f"📦 批量操作: 将影响 {len(items)} 条记录")
+            primary_type = primary_type or ConfirmationType.BULK_OPERATION.value
 
         if not reasons:
-            return None
+            return None, ""
 
         # System-level enforcement: if not explicitly confirmed by the system (human click), block
         if system_confirmed is True:
-            return None  # Confirmed by human, allow execution
+            return None, ""  # Confirmed by human, allow execution
 
-        return "\n".join(["⚠️ 操作需要确认:"] + reasons + ["请确认后再执行。"])
+        return "\n".join(["⚠️ 操作需要确认:"] + reasons + ["请确认后再执行。"]), primary_type
 
     async def validate(self, args: dict[str, Any]) -> None:
         """

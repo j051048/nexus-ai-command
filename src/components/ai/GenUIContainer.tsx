@@ -19,6 +19,7 @@ const GEN_UI_COMPONENTS: Record<string, React.ComponentType<any>> = {
   DataChart: lazyWithRetry(() => import('./genui/DataChart'), 2, false),
   DataTable: lazyWithRetry(() => import('./genui/DataTable'), 2, false),
   StatCards: lazyWithRetry(() => import('./genui/StatCards'), 2, false),
+  Dashboard: lazyWithRetry(() => import('./genui/Dashboard'), 2, false),
   // Interactive components
   TodoList: lazyWithRetry(() => import('./genui/TodoList'), 2, false),
   Timeline: lazyWithRetry(() => import('./genui/Timeline'), 2, false),
@@ -55,6 +56,7 @@ const GEN_UI_COMPONENTS: Record<string, React.ComponentType<any>> = {
 interface GenUIContainerProps {
   componentName: string;
   props: Record<string, unknown>;
+  onSendMessage?: (prompt: string) => void;
 }
 
 // ErrorBoundary that catches render errors locally within GenUI components,
@@ -120,7 +122,7 @@ class GenUIErrorBoundary extends React.Component<GenUIErrorBoundaryProps, GenUIE
   }
 }
 
-export const GenUIContainer = React.memo(function GenUIContainer({ componentName, props }: GenUIContainerProps) {
+export const GenUIContainer = React.memo(function GenUIContainer({ componentName, props, onSendMessage }: GenUIContainerProps) {
   const Component = GEN_UI_COMPONENTS[componentName];
 
   if (!Component) {
@@ -128,12 +130,15 @@ export const GenUIContainer = React.memo(function GenUIContainer({ componentName
     return null;
   }
 
+  // Inject onSendMessage for interactive components (Dashboard, DataChart)
+  const enhancedProps = onSendMessage ? { ...props, onSendMessage } : props;
+
   return (
     <div className="my-4 w-full overflow-hidden rounded-xl border border-border bg-card shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500">
       <GenUIErrorBoundary componentName={componentName}>
         <Suspense fallback={<GenUISkeleton />}>
           <GenUIToolbar componentName={componentName} props={props}>
-            <Component {...props} />
+            <Component {...enhancedProps} />
           </GenUIToolbar>
         </Suspense>
       </GenUIErrorBoundary>

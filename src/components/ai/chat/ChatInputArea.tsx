@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -15,7 +15,10 @@ import {
   Keyboard,
   AlertTriangle,
   Square,
+  Wrench,
+  Bookmark,
 } from 'lucide-react';
+import { ToolPalette } from './ToolPalette';
 
 interface AgentTag {
   id: string;
@@ -57,7 +60,22 @@ interface ChatInputAreaProps {
   variant: 'overlay' | 'embedded';
   quotaAlert: QuotaAlert | null;
   setQuotaAlert: (v: QuotaAlert | null) => void;
+  showToolPalette?: boolean;
+  setShowToolPalette?: (v: boolean) => void;
+  onSelectTool?: (tool: { name: string; description: string; domain: string | null }) => void;
+  tools?: { name: string; description: string; domain: string | null }[];
+  toolsLoading?: boolean;
+  onSavePrompt?: (prompt: string) => void;
 }
+
+const INPUT_HINTS: { prefix: string; hint: string }[] = [
+  { prefix: '查看', hint: '查看本周销售汇总' },
+  { prefix: '分析', hint: '分析商机转化率' },
+  { prefix: '帮我', hint: '帮我写一封跟进邮件' },
+  { prefix: '对比', hint: '对比上月和本月业绩' },
+  { prefix: '生成', hint: '生成客户拜访报告' },
+  { prefix: '统计', hint: '统计本月新增客户数' },
+];
 
 export const ChatInputArea = React.memo(function ChatInputArea({
   input,
@@ -85,7 +103,21 @@ export const ChatInputArea = React.memo(function ChatInputArea({
   variant,
   quotaAlert,
   setQuotaAlert,
+  showToolPalette,
+  setShowToolPalette,
+  onSelectTool,
+  tools,
+  toolsLoading,
+  onSavePrompt,
 }: ChatInputAreaProps) {
+  const matchedHint = useMemo(() => {
+    if (!input || input.length > 10) return null;
+    const trimmed = input.trim();
+    if (!trimmed) return null;
+    const match = INPUT_HINTS.find(h => h.hint.startsWith(trimmed) && h.hint !== trimmed);
+    return match?.hint || null;
+  }, [input]);
+
   return (
     <>
       {quotaAlert && (
@@ -134,6 +166,15 @@ export const ChatInputArea = React.memo(function ChatInputArea({
               ))}
             </div>
           </div>
+        )}
+
+        {showToolPalette && setShowToolPalette && onSelectTool && tools && (
+          <ToolPalette
+            tools={tools}
+            isLoading={toolsLoading || false}
+            onSelectTool={onSelectTool}
+            onClose={() => setShowToolPalette(false)}
+          />
         )}
 
         {showMobileMenu && (
@@ -217,6 +258,22 @@ export const ChatInputArea = React.memo(function ChatInputArea({
               </TooltipTrigger>
               <TooltipContent>上传文档</TooltipContent>
             </Tooltip>
+
+            {onSavePrompt && input.trim() && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 flex-shrink-0"
+                    onClick={() => onSavePrompt(input.trim())}
+                  >
+                    <Bookmark className="w-5 h-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>保存为快捷指令</TooltipContent>
+              </Tooltip>
+            )}
           </div>
 
           <input
@@ -267,8 +324,19 @@ export const ChatInputArea = React.memo(function ChatInputArea({
                 if (val.endsWith('@') && !showAgents) {
                   setShowAgents(true);
                 }
+                // Auto-trigger tool palette when user types /
+                if (val.endsWith('/') && !showToolPalette && setShowToolPalette) {
+                  setShowToolPalette(true);
+                }
               }}
-                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Tab' && matchedHint) {
+                    e.preventDefault();
+                    setInput(matchedHint);
+                  } else if (e.key === 'Enter' && !e.shiftKey) {
+                    handleSend();
+                  }
+                }}
                 placeholder={
                   currentAgent
                     ? `向 ${currentAgent} 提问...`
@@ -289,6 +357,12 @@ export const ChatInputArea = React.memo(function ChatInputArea({
                     <X className="w-3 h-3" />
                   </button>
                 </Badge>
+              )}
+              {matchedHint && (
+                <div className="absolute inset-0 pointer-events-none px-4 py-3 text-sm">
+                  <span className="invisible">{input}</span>
+                  <span className="text-muted-foreground/40">{matchedHint.slice(input.length)}</span>
+                </div>
               )}
             </div>
           )}
@@ -356,6 +430,10 @@ export const ChatInputArea = React.memo(function ChatInputArea({
           按 <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Enter</kbd> 发送
           {' · '}
           <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">@</kbd> 选择助手
+          {' · '}
+          <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">/</kbd> 工具面板
+          {' · '}
+          <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Tab</kbd> 补全
           {' · '}
           <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">⌘K</kbd> 命令面板
           {isAiTyping && (

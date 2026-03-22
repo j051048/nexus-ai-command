@@ -2,6 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthContext';
 
+export interface BehaviorPreferences {
+  response_style?: 'concise' | 'detailed' | 'default';
+  preferred_chart?: 'bar' | 'line' | 'pie' | 'area';
+  auto_expand_trace?: boolean;
+  language?: 'zh' | 'en';
+}
+
 export interface AISettings {
   id: string;
   user_id: string;
@@ -10,6 +17,7 @@ export interface AISettings {
   model: string;
   created_at: string;
   updated_at: string;
+  behavior_preferences?: BehaviorPreferences;
 }
 
 export const DEFAULT_MODELS = [
@@ -55,7 +63,7 @@ export function useSaveAISettings() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (settings: { base_url: string; api_key: string | null; model: string }) => {
+    mutationFn: async (settings: { base_url: string; api_key: string | null; model: string; behavior_preferences?: BehaviorPreferences }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sb = supabase as any;
       
@@ -93,6 +101,7 @@ export function useSaveAISettings() {
             base_url: settings.base_url,
             api_key: settings.api_key,
             model: settings.model,
+            ...(settings.behavior_preferences !== undefined && { behavior_preferences: settings.behavior_preferences }),
             updated_at: new Date().toISOString(),
           })
           .eq('id', existing.id)
@@ -110,6 +119,7 @@ export function useSaveAISettings() {
             base_url: settings.base_url,
             api_key: settings.api_key,
             model: settings.model,
+            ...(settings.behavior_preferences !== undefined && { behavior_preferences: settings.behavior_preferences }),
           })
           .select()
           .single();

@@ -79,7 +79,7 @@ async def get_ai_settings(
     try:
         res = (
             await client.table("ai_settings")
-            .select("model, base_url, temperature")
+            .select("model, base_url, temperature, behavior_preferences")
             .eq("user_id", user_id)
             .limit(1)
             .execute()

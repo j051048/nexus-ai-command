@@ -29,10 +29,14 @@ class GenerateSalesScriptTool(BaseTool):
     """生成科学仪器产品销售话术"""
 
     name = "generate_sales_script"
-    description = (
-        "生成科学仪器产品销售话术和技术答疑口径。当用户说'销售话术'、'怎么和客户说'、'产品卖点'、'FAQs回答'时调用。"
-    )
+    description = "生成指定产品的销售话术和技术答疑口径。当用户说'销售话术'、'怎么和客户说'、'产品卖点'、'FAQs回答'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {"product_name": "ICP-MS 7800", "scenario": "cold_call", "customer_type": "高校实验室"}, "output_summary": "生成ICP-MS 7800针对高校实验室的陌生拜访话术"},
+        {"input": {"product_name": "气相色谱仪", "scenario": "objection_handling", "competitor": "安捷伦8890"}, "output_summary": "生成气相色谱仪面对安捷伦竞品时的异议处理话术"},
+    ]
+    related_tools = ["generate_competitor_comparison", "generate_training_material", "generate_quotation_template"]
+    gotchas = "scenario可选值: cold_call/demo/objection_handling/closing/follow_up，不传默认cold_call。competitor为可选参数，填写后会自动检索竞品情报。"
 
     parameters = {
         "type": "object",
@@ -132,10 +136,14 @@ class GenerateCompetitorComparisonTool(BaseTool):
     """生成竞品对比分析表"""
 
     name = "generate_competitor_comparison"
-    description = (
-        "生成竞品对比分析表，包含技术参数、价格、优劣势对比。当用户说'竞品对比'、'和XX比怎么样'、'竞品分析表'时调用。"
-    )
+    description = "生成我方产品与竞品的对比分析表，含技术参数、价格和优劣势。当用户说'竞品对比'、'和XX比怎么样'、'竞品分析表'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {"our_product": "GC-2030", "competitors": "安捷伦8890,岛津GCMS-QP2020"}, "output_summary": "生成GC-2030与两款竞品的全面对比分析表"},
+        {"input": {"our_product": "UV-2600", "competitors": "PE Lambda 365", "comparison_focus": "灵敏度,性价比"}, "output_summary": "生成聚焦灵敏度和性价比的紫外分光光度计对比"},
+    ]
+    related_tools = ["generate_sales_script", "generate_competitor_analysis"]
+    gotchas = "competitors支持逗号分隔多个竞品。会同时检索知识库和联网搜索，联网搜索可能因网络问题失败但不影响整体结果。"
 
     parameters = {
         "type": "object",
@@ -229,8 +237,14 @@ class GenerateTrainingMaterialTool(BaseTool):
     """生成销售培训课件大纲和内容"""
 
     name = "generate_training_material"
-    description = "生成销售培训课件大纲和内容。当用户说'培训课件'、'新人培训'、'产品培训'时调用。"
+    description = "生成销售培训课件大纲和核心内容。当用户说'培训课件'、'新人培训'、'产品培训'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {"topic": "新产品ICP-MS培训", "audience": "new_hire", "duration": "2小时"}, "output_summary": "生成面向新人的ICP-MS产品培训课件大纲"},
+        {"input": {"topic": "高端客户谈判技巧", "audience": "experienced"}, "output_summary": "生成面向资深销售的谈判技巧培训材料"},
+    ]
+    related_tools = ["generate_sales_script", "generate_competitor_comparison"]
+    gotchas = "audience可选值: new_hire/experienced/manager/technical，不传默认new_hire。duration为自由文本，如'30分钟'、'半天'。"
 
     parameters = {
         "type": "object",
@@ -329,10 +343,14 @@ class GenerateQuotationTemplateTool(BaseTool):
     """生成产品报价单模板"""
 
     name = "generate_quotation_template"
-    description = (
-        "生成产品报价单模板，包含产品配置、价格明细、优惠方案等。当用户说'报价单'、'做报价'、'价格方案'时调用。"
-    )
+    description = "生成产品报价单模板，含产品配置、价格明细和优惠方案。当用户说'报价单'、'做报价'、'价格方案'时调用。"
     required_role = "all"
+    examples = [
+        {"input": {"products": "XX光谱仪标配+自动进样器", "customer_name": "中科院化学所", "include_service": True}, "output_summary": "生成含售后服务的光谱仪报价单模板"},
+        {"input": {"products": "气相色谱仪GC-2030, 液相色谱仪LC-20A", "discount_policy": "年底促销9折"}, "output_summary": "生成两台仪器的促销报价单模板"},
+    ]
+    related_tools = ["generate_sales_script", "generate_competitor_comparison"]
+    gotchas = "价格处会标注'[需填入]'，不会编造实际价格。include_service默认为true。products为必填，customer_name可后续填写。"
 
     parameters = {
         "type": "object",

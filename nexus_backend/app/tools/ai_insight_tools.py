@@ -26,9 +26,14 @@ class SmartReportTool(BaseTool):
     """生成综合组织报告"""
 
     name = "smart_report"
-    description = (
-        "生成综合组织报告，聚合员工、资产、工单、考勤等数据。当用户说'生成报告'、'组织概况'、'综合报告'时调用。"
-    )
+    description = "生成组织综合报告，聚合员工、资产、工单、考勤数据。当用户说'生成报告'、'组织概况'、'综合报告'时调用。"
+    examples = [
+        {"input": {"report_type": "daily"}, "output_summary": "返回当日全组织的员工/资产/工单/考勤汇总"},
+        {"input": {"report_type": "weekly", "department_id": "uuid"}, "output_summary": "返回指定部门最近7天的综合报告"},
+        {"input": {"report_type": "monthly"}, "output_summary": "返回最近30天全组织综合报告"},
+    ]
+    related_tools = ["anomaly_detection", "generate_weekly_report"]
+    gotchas = "报告基于实时查询而非缓存，数据量大时可能较慢。部门ID必须是有效的UUID格式。"
 
     parameters = {
         "type": "object",
@@ -151,9 +156,14 @@ class AnomalyDetectionTool(BaseTool):
     """检测组织数据异常"""
 
     name = "anomaly_detection"
-    description = (
-        "检测组织数据中的异常情况，包括考勤、报销、库存等。当用户说'检测异常'、'有没有异常'、'风险预警'时调用。"
-    )
+    description = "检测组织数据中的异常情况，覆盖考勤、报销、库存范围。当用户说'检测异常'、'有没有异常'、'风险预警'时调用。"
+    examples = [
+        {"input": {"scope": "all"}, "output_summary": "返回考勤、报销、库存三个维度的异常检测结果"},
+        {"input": {"scope": "attendance"}, "output_summary": "仅返回考勤异常，如频繁迟到员工"},
+        {"input": {"scope": "inventory"}, "output_summary": "返回低于安全库存的物资预警"},
+    ]
+    related_tools = ["smart_report", "predictive_maintenance"]
+    gotchas = "异常检测基于最近7天数据。报销异常阈值为平均值的3倍，非固定金额。库存预警依赖物资表中的最低库存设置。"
 
     parameters = {
         "type": "object",
@@ -264,7 +274,13 @@ class PredictiveMaintenanceTool(BaseTool):
     """预测资产维护需求"""
 
     name = "predictive_maintenance"
-    description = "预测资产维护需求，识别需要维护的资产。当用户说'维护预测'、'哪些设备需要维护'、'预防性维护'时调用。"
+    description = "预测资产维护需求，识别超期未维护的使用中资产。当用户说'维护预测'、'哪些设备需要维护'、'预防性维护'时调用。"
+    examples = [
+        {"input": {}, "output_summary": "返回所有使用中资产的维护预测建议"},
+        {"input": {"asset_type": "computer"}, "output_summary": "仅返回电脑类资产的维护建议"},
+    ]
+    related_tools = ["anomaly_detection", "process_asset_lifecycle"]
+    gotchas = "维护判断逻辑：无转移记录且购置超180天，或距上次操作超90天。不支持自定义维护周期阈值。"
 
     parameters = {
         "type": "object",
@@ -367,9 +383,12 @@ class AutoDispatchTool(BaseTool):
     """智能工单派遣建议"""
 
     name = "auto_dispatch"
-    description = (
-        "智能工单派遣建议，根据员工工作量推荐最佳处理人。当用户说'派遣工单'、'谁来处理这个工单'、'智能分配'时调用。"
-    )
+    description = "推荐工单最佳处理人，按员工当前工作量排序。当用户说'派遣工单'、'谁来处理这个工单'、'智能分配'时调用。"
+    examples = [
+        {"input": {"order_id": "uuid"}, "output_summary": "返回该工单所属部门员工按工作量排序的派遣建议"},
+    ]
+    related_tools = ["smart_report", "process_onboarding"]
+    gotchas = "仅提供建议，不会自动修改工单的指派人。工单必须已存在，否则返回错误。"
 
     parameters = {
         "type": "object",
@@ -465,7 +484,13 @@ class MeetingSummaryTool(BaseTool):
     """生成会议纪要"""
 
     name = "meeting_summary"
-    description = "根据会议笔记生成结构化的会议纪要。当用户说'整理会议纪要'、'会议总结'时调用。"
+    description = "解析会议笔记原文，生成结构化会议纪要。当用户说'整理会议纪要'、'会议总结'时调用。"
+    examples = [
+        {"input": {"content": "参会人员：张三、李四\n决定：启动新项目\n行动事项：张三负责方案"}, "output_summary": "返回结构化纪要，含参会人、决定、行动事项"},
+        {"input": {"content": "今天讨论了预算问题，决定下周再议"}, "output_summary": "无明确分段时返回内容摘要并提示优化格式"},
+    ]
+    related_tools = ["generate_weekly_report"]
+    gotchas = "依赖笔记中出现'参会人员'、'决定'、'行动事项'等关键词来分段，无关键词时按原文列出。不调用大语言模型，纯规则解析。"
 
     parameters = {
         "type": "object",
@@ -574,7 +599,13 @@ class OnboardingAssistantTool(BaseTool):
     """生成新员工入职清单"""
 
     name = "onboarding_assistant"
-    description = "为新员工生成入职清单，包括账号、设备、培训等。当用户说'入职清单'、'新员工入职'、'入职准备'时调用。"
+    description = "生成新员工入职清单，含账号配置、设备分配、培训计划等。当用户说'入职清单'、'新员工入职'、'入职准备'时调用。"
+    examples = [
+        {"input": {"employee_id": "uuid"}, "output_summary": "返回该员工的完整入职清单，含可分配的闲置设备"},
+        {"input": {"employee_id": "uuid", "department_id": "uuid"}, "output_summary": "返回入职清单，部门信息使用指定部门而非员工默认部门"},
+    ]
+    related_tools = ["process_onboarding", "auto_dispatch"]
+    gotchas = "仅生成清单文本，不执行实际操作。如需一键执行入职流程请使用 process_onboarding 工具。"
 
     parameters = {
         "type": "object",

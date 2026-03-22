@@ -29,9 +29,14 @@ class GetCustomersTool(BaseTool):
     """查询客户列表"""
 
     name = "get_customers"
-    description = "查询CRM客户列表，支持按阶段筛选和关键词搜索。当用户说'查看客户'、'客户列表'、'有哪些客户'时调用。"
+    description = "查询客户列表，支持按阶段筛选和关键词搜索"
+    examples = [
+        {"input": {}, "output_summary": "返回全部客户列表（默认最多20条）"},
+        {"input": {"stage": "opportunity", "limit": 10}, "output_summary": "返回商机阶段的前10位客户"},
+        {"input": {"search": "华为"}, "output_summary": "按名称或公司名搜索包含'华为'的客户"},
+    ]
     gotchas = "stage参数可选值: lead/prospect/customer/churned。不传则返回全部。结果按updated_at倒序，默认limit=20。"
-    related_tools = ["get_customer_detail", "get_sales_pipeline"]
+    related_tools = ["get_customer_detail", "get_sales_pipeline", "create_customer"]
 
     parameters = {
         "type": "object",
@@ -98,7 +103,12 @@ class GetCustomerDetailTool(BaseTool):
     """查询客户详情"""
 
     name = "get_customer_detail"
-    description = "查询指定客户的详细信息，包括联系人和最近跟进记录。当用户说'客户详情'、'查看某某客户'时调用。"
+    description = "查询指定客户的详细信息，包括联系人和最近跟进记录"
+    examples = [
+        {"input": {"customer_id": "uuid-xxxx"}, "output_summary": "返回客户基本信息、联系人列表和最近5条跟进记录"},
+    ]
+    gotchas = "customer_id必须是有效的UUID格式，否则报错。返回的跟进记录默认最多5条。"
+    related_tools = ["get_customers", "get_follow_ups", "update_customer"]
 
     parameters = {
         "type": "object",
@@ -181,7 +191,13 @@ class CreateCustomerTool(BaseTool):
     """创建新客户"""
 
     name = "create_customer"
-    description = "在CRM中创建新客户记录。当用户说'添加客户'、'创建客户'、'录入新客户'时调用。"
+    description = "创建新客户记录，支持设置阶段、来源和预估金额"
+    examples = [
+        {"input": {"name": "张三", "company": "华为", "stage": "lead"}, "output_summary": "创建名为张三的线索阶段客户"},
+        {"input": {"name": "李四", "source": "展会", "estimated_value": 50000}, "output_summary": "创建来源为展会、预估金额5万的客户"},
+    ]
+    gotchas = "name为必填字段。estimated_value不能为负数。stage默认为lead。创建后自动将assigned_to设为当前用户。"
+    related_tools = ["get_customers", "update_customer", "add_follow_up"]
     is_irreversible = True
     confirmation_message = "⚠️ 即将创建新客户记录，确认继续？"
 
@@ -249,7 +265,13 @@ class UpdateCustomerTool(BaseTool):
     """更新客户信息"""
 
     name = "update_customer"
-    description = "更新CRM中已有客户的信息。当用户说'更新客户'、'修改客户信息'时调用。"
+    description = "更新已有客户的信息，支持修改名称、公司、阶段等字段"
+    examples = [
+        {"input": {"customer_id": "uuid-xxxx", "company": "新公司名"}, "output_summary": "更新指定客户的公司名称"},
+        {"input": {"customer_id": "uuid-xxxx", "stage": "customer", "estimated_value": 100000}, "output_summary": "同时更新客户阶段和预估金额"},
+    ]
+    gotchas = "customer_id必须是有效UUID。至少提供一个要更新的字段，否则报错。不会自动记录阶段变更活动，推进阶段请用update_customer_stage。"
+    related_tools = ["get_customer_detail", "update_customer_stage", "create_customer"]
     is_irreversible = True
     confirmation_message = "⚠️ 即将更新客户信息，确认继续？"
 
@@ -304,13 +326,15 @@ class AddFollowUpTool(BaseTool):
     """添加跟进记录"""
 
     name = "add_follow_up"
-    description = (
-        "为客户添加跟进记录（电话、邮件、会议、备注等）。当用户说'记录跟进'、'添加跟进'、'记一下拜访情况'时调用。"
-    )
+    description = "为指定客户添加跟进记录，支持电话、邮件、会议、备注等类型"
+    examples = [
+        {"input": {"customer_id": "uuid-xxxx", "activity_type": "call", "content": "电话沟通了产品报价"}, "output_summary": "为客户添加一条电话跟进记录"},
+        {"input": {"customer_id": "uuid-xxxx", "activity_type": "meeting", "content": "现场拜访讨论合作方案"}, "output_summary": "为客户添加一条会议跟进记录"},
+    ]
     is_irreversible = True
     confirmation_message = "⚠️ 即将添加跟进记录，确认继续？"
-    gotchas = "customer_id必须是有效UUID。follow_type可选: call/visit/email/wechat/other。content不能为空。"
-    related_tools = ["get_follow_ups", "get_customer_detail"]
+    gotchas = "customer_id必须是有效UUID。activity_type无效时自动降级为note。content不能为空。"
+    related_tools = ["get_follow_ups", "get_customer_detail", "update_customer_stage"]
 
     parameters = {
         "type": "object",
@@ -356,7 +380,13 @@ class GetFollowUpsTool(BaseTool):
     """查询跟进记录"""
 
     name = "get_follow_ups"
-    description = "查询客户的跟进记录时间线。当用户说'跟进记录'、'历史跟进'、'拜访记录'时调用。"
+    description = "查询指定客户的跟进记录时间线，按时间倒序排列"
+    examples = [
+        {"input": {"customer_id": "uuid-xxxx"}, "output_summary": "返回该客户最近20条跟进记录"},
+        {"input": {"customer_id": "uuid-xxxx", "limit": 5}, "output_summary": "返回该客户最近5条跟进记录"},
+    ]
+    gotchas = "customer_id必须是有效UUID。limit范围1-100，默认20。无效limit值自动回退为20。"
+    related_tools = ["add_follow_up", "get_customer_detail"]
 
     parameters = {
         "type": "object",
@@ -416,10 +446,13 @@ class UpdateCustomerStageTool(BaseTool):
     """推进客户阶段"""
 
     name = "update_customer_stage"
-    description = (
-        "推进或变更客户的销售阶段（线索→意向→商机→成交/流失）。"
-        "当用户说'推进商机'、'客户成交了'、'客户流失了'、'变更阶段'时调用。"
-    )
+    description = "推进或变更客户的销售阶段，自动记录阶段变更活动并触发业务事件"
+    examples = [
+        {"input": {"customer_id": "uuid-xxxx", "new_stage": "opportunity"}, "output_summary": "将客户推进到商机阶段"},
+        {"input": {"customer_id": "uuid-xxxx", "new_stage": "customer"}, "output_summary": "将客户标记为成交，触发成交事件"},
+    ]
+    gotchas = "会自动创建一条deal_update类型的跟进记录。成交时触发DEAL_WON事件，进入商机阶段触发LEAD_QUALIFIED事件。不校验阶段跳转合理性（如可直接从线索跳到成交）。"
+    related_tools = ["get_customer_detail", "update_customer", "get_sales_pipeline"]
     is_irreversible = True
     confirmation_message = "⚠️ 即将变更客户阶段，确认继续？"
 
@@ -505,9 +538,12 @@ class GetSalesPipelineTool(BaseTool):
     """获取销售漏斗视图"""
 
     name = "get_sales_pipeline"
-    description = (
-        "获取销售漏斗/管道视图，展示各阶段客户数量和金额分布。当用户说'销售漏斗'、'管道视图'、'各阶段情况'时调用。"
-    )
+    description = "获取销售漏斗视图，展示各阶段客户数量和预估金额分布"
+    examples = [
+        {"input": {}, "output_summary": "返回销售漏斗概览，包括客户总数、本月新增、转化率和各阶段分布表"},
+    ]
+    gotchas = "会额外查询全部客户来计算各阶段金额，客户数量较多时可能较慢。无参数，直接调用即可。"
+    related_tools = ["get_customers", "update_customer_stage"]
 
     parameters = {"type": "object", "properties": {}, "required": []}
 

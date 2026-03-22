@@ -11,9 +11,12 @@ logger = logging.getLogger(__name__)
 
 class ProjectListTool(BaseTool):
     name = "get_projects"
-    description = "获取当前所有进行中的项目列表，用于关联后续的事件记录"
-    gotchas = "默认只返回未归档项目。status可选: planning/active/completed/archived。结果包含member_ids数组。"
-    related_tools = ["create_project", "generate_weekly_report"]
+    description = "查询当前所有未归档项目列表，返回项目名称、状态和进度"
+    examples = [
+        {"input": {}, "output_summary": "返回所有未归档项目的ID、名称、状态、进度百分比"},
+    ]
+    gotchas = "默认只返回未归档项目，无法筛选已归档项目。结果按数据库默认排序返回。"
+    related_tools = ["create_project", "generate_weekly_report", "create_project_event"]
 
     parameters = {"type": "object", "properties": {}, "required": []}
 
@@ -32,7 +35,13 @@ class ProjectListTool(BaseTool):
 
 class CreateProjectTool(BaseTool):
     name = "create_project"
-    description = "创建一个新的项目立项。当用户说'帮我新建一个XXX项目'时使用此工具。"
+    description = "创建新项目立项记录，设置名称、描述和初始状态。当用户说'帮我新建一个项目'时调用。"
+    examples = [
+        {"input": {"name": "智慧园区项目"}, "output_summary": "创建项目，状态默认为规划中，进度为0%"},
+        {"input": {"name": "客户管理系统", "description": "搭建CRM系统", "status": "in_progress"}, "output_summary": "创建项目并设置初始状态为进行中"},
+    ]
+    related_tools = ["get_projects", "create_project_event"]
+    gotchas = "项目名称为必填项。初始状态仅支持规划中和进行中两种。创建后进度默认为0%。"
 
     parameters = {
         "type": "object",
@@ -80,7 +89,13 @@ class CreateProjectTool(BaseTool):
 
 class CreateEventTool(BaseTool):
     name = "create_project_event"
-    description = "在指定的项目中创建一个新的进度事件或关键节点（如：请客吃饭、技术突破、签署合同）"
+    description = "在指定项目中创建进度事件或关键节点，如里程碑、会议、宴请、任务等"
+    examples = [
+        {"input": {"project_id": "uuid", "title": "签署合同", "content": "与客户正式签约", "event_type": "milestone"}, "output_summary": "在项目时间线中创建一条里程碑事件"},
+        {"input": {"project_id": "uuid", "title": "项目启动会", "content": "全员参会讨论分工", "event_type": "meeting"}, "output_summary": "创建一条会议类型事件"},
+    ]
+    related_tools = ["get_projects", "create_project", "generate_weekly_report"]
+    gotchas = "项目ID必须是有效的UUID格式，可先调用查询项目列表获取。事件类型仅支持里程碑、会议、宴请、任务四种。"
 
     parameters = {
         "type": "object",
@@ -145,9 +160,14 @@ class WeeklyReportTool(BaseTool):
     """AI 周报/日报自动起草"""
 
     name = "generate_weekly_report"
-    description = (
-        "自动生成本周工作周报或日报，汇总项目进度、完成任务和下周计划。当用户说'帮我写周报'、'生成日报'时调用。"
-    )
+    description = "自动生成工作日报或周报，汇总任务完成情况、项目事件和下期计划。当用户说'帮我写周报'、'生成日报'时调用。"
+    examples = [
+        {"input": {}, "output_summary": "默认生成本周周报，汇总任务和项目数据"},
+        {"input": {"report_type": "daily"}, "output_summary": "生成当日日报"},
+        {"input": {"report_type": "weekly"}, "output_summary": "生成本周周报"},
+    ]
+    related_tools = ["get_projects", "create_project_event", "smart_report"]
+    gotchas = "数据为空时会生成模板框架供用户填写。依赖大语言模型生成文本，响应时间较长。日报统计当天数据，周报统计本周一至今的数据。"
     required_role = "all"
 
     parameters = {

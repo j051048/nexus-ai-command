@@ -83,10 +83,16 @@ def _query_hash(query: str) -> str:
 class LoadKnowledgeTool(BaseTool):
     name = "load_knowledge"
     description = (
-        "按需加载知识库内容。当你需要查询公司政策、产品文档、销售话术、"
-        "行业知识等事实性信息时，使用此工具检索相关知识。"
+        "按需检索知识库内容，支持公司政策、产品文档、销售话术、行业知识等领域。"
+        "当需要查询事实性信息且长期记忆中未找到时调用。"
         "同一会话中相同查询不会重复加载。"
     )
+    examples = [
+        {"input": {"query": "客户报价审批流程", "domain": "company_policy"}, "output_summary": "从公司政策知识库中检索报价审批相关内容"},
+        {"input": {"query": "产品A的技术参数"}, "output_summary": "全域搜索产品A的技术参数信息"},
+    ]
+    related_tools = ["search_long_term_memory", "web_search"]
+    gotchas = "同一会话中重复查询相同内容会返回缓存提示而非重新检索；优先用 domain 缩小搜索范围以提高准确度。"
     parameters = {
         "type": "object",
         "properties": {

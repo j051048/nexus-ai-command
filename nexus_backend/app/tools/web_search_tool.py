@@ -29,14 +29,18 @@ class WebSearchTool(BaseTool):
 
     name = "web_search"
     description = (
-        "搜索互联网获取实时信息，包括行业新闻、竞品动态、市场数据、政策法规等。"
-        "当需要最新信息、知识库中没有的外部数据、或用户明确要求搜索时调用。"
-        "不要用于查询内部业务数据（客户、合同等），那些请用对应的专用工具。"
-        "招投标/采购/招标公告信息请使用专用的 search_bidding_projects 工具，不要用本工具搜索。"
+        "搜索互联网获取实时公开信息，包括行业新闻、竞品动态、市场数据、政策法规等。"
+        "当需要最新外部信息或知识库中未覆盖的公开数据时调用。"
+        "不要用于查询内部业务数据（客户、合同等），请用对应的专用工具。"
+        "招投标信息请使用专用的搜索工具，不要用本工具搜索。"
     )
     required_role = "all"
-    gotchas = "仅用于需要实时外部信息的查询（如行业动态、竞品信息）。内部数据查询请用对应业务工具，不要用web_search。"
-    related_tools = ["query_knowledge_base", "load_knowledge"]
+    examples = [
+        {"input": {"query": "2026年中国光伏行业趋势", "count": 5}, "output_summary": "返回5条关于光伏行业趋势的最新搜索结果"},
+        {"input": {"query": "华为最新产品发布", "freshness": "pw"}, "output_summary": "返回过去一周内华为产品发布的相关信息"},
+    ]
+    gotchas = "仅用于需要实时外部信息的查询（如行业动态、竞品信息）；内部数据查询请用对应业务工具；需配置环境变量中的搜索服务密钥。"
+    related_tools = ["load_knowledge", "web_fetch"]
 
     parameters = {
         "type": "object",

@@ -251,6 +251,7 @@ class AISettingsUpdate(BaseModel):
     base_url: str | None = None
     temperature: float | None = Field(None, ge=0, le=2)
     api_key: str | None = None
+    behavior_preferences: dict | None = None
 
 
 # --- Push Models ---

@@ -407,10 +407,11 @@ async def _execute_single_tool(
             return record
 
     # 2. Confirmation Gate (irreversible operations)
-    confirmation_msg = tool.check_confirmation(record.tool_args, system_confirmed=config.system_confirmed)
+    confirmation_msg, confirmation_type = tool.check_confirmation(record.tool_args, system_confirmed=config.system_confirmed)
     if confirmation_msg is not None:
         record.status = "blocked"
         record.result = confirmation_msg
+        record.confirmation_type = confirmation_type
         return record
 
     # 2a. Query Result Cache — skip execution for read-only tools with same args

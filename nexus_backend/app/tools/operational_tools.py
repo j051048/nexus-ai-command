@@ -9,7 +9,13 @@ from ._shared import _get_client
 
 class PerformanceReportTool(BaseTool):
     name = "get_performance_report"
-    description = "获取指定用户的详细绩效报告。当用户说'绩效报告'、'绩效数据'时调用。注意：此工具查个人绩效详情，团队整体用 get_team_insight。"
+    description = "获取指定用户的详细绩效报告，包括得分、排名、奖金和近期销售指标。当用户说'绩效报告'、'绩效数据'时调用。注意：此工具查个人绩效详情，团队整体用get_team_insight。"
+    examples = [
+        {"input": {}, "output_summary": "返回当前用户的绩效报告"},
+        {"input": {"user_id": "uuid-xxx"}, "output_summary": "返回指定用户的绩效报告"},
+    ]
+    related_tools = ["get_team_insight", "get_company_stats", "get_business_dashboard"]
+    gotchas = "不传user_id则查当前登录用户。user_id必须是有效的UUID格式。查团队整体绩效请用get_team_insight而非此工具。"
 
     parameters = {
         "type": "object",
@@ -64,7 +70,12 @@ class PerformanceReportTool(BaseTool):
 
 class CompanyStatsTool(BaseTool):
     name = "get_company_stats"
-    description = "获取公司整体统计数据，如员工总人数、部门分布概况等。当用户说'公司有多少人'、'员工总数'、'部门人数'时调用。注意：查经营数据（收入利润）用 get_business_dashboard。"
+    description = "获取公司整体统计数据，包括员工总人数和部门分布概况。当用户说'公司有多少人'、'员工总数'、'部门人数'时调用。注意：查经营数据（收入利润）用get_business_dashboard。"
+    examples = [
+        {"input": {}, "output_summary": "返回公司总人数和各部门人数分布"},
+    ]
+    related_tools = ["get_performance_report", "get_team_insight", "get_business_dashboard"]
+    gotchas = "只返回人力统计数据，不包含营收等经营数据。查经营数据请用get_business_dashboard。"
 
     parameters = {"type": "object", "properties": {}, "required": []}
 
@@ -99,7 +110,13 @@ class CompanyStatsTool(BaseTool):
 
 class KnowledgeBaseTool(BaseTool):
     name = "query_knowledge_base"
-    description = "查询企业知识库，检索公司政策、产品手册、业务文档等内容。当用户问公司规定、产品参数、流程制度等事实性问题时调用。"
+    description = "检索企业知识库中的政策、产品手册和业务文档。当用户问公司规定、产品参数、流程制度等事实性问题时调用。"
+    examples = [
+        {"input": {"query": "报销流程"}, "output_summary": "返回与报销流程相关的知识库内容"},
+        {"input": {"query": "产品A技术参数"}, "output_summary": "返回产品A的技术参数文档"},
+    ]
+    related_tools = ["get_performance_report", "get_company_stats"]
+    gotchas = "基于向量语义搜索，查询词越具体结果越准确。返回结果包含引用来源。"
 
     parameters = {
         "type": "object",
@@ -117,7 +134,13 @@ class KnowledgeBaseTool(BaseTool):
 
 class AwardBadgeTool(BaseTool):
     name = "award_badge"
-    description = "为员工颁发荣誉徽章或奖励"
+    description = "为员工颁发荣誉徽章并发送通知。当用户说'颁发徽章'、'奖励员工'时调用。"
+    examples = [
+        {"input": {"user_id": "uuid-xxx", "badge_name": "销售冠军"}, "output_summary": "为指定员工颁发销售冠军徽章"},
+        {"input": {"user_id": "uuid-xxx", "badge_name": "拼命三郎", "icon": "fire"}, "output_summary": "颁发拼命三郎徽章并使用fire图标"},
+    ]
+    related_tools = ["get_performance_report", "get_team_insight"]
+    gotchas = "user_id必须是有效的UUID格式。badge_name最长100字符。icon默认为sparkles，可选trophy、rocket、fire等。"
 
     parameters = {
         "type": "object",

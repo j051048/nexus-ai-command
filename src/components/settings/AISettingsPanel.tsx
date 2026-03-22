@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAISettings, useSaveAISettings, useTestAIConnection, DEFAULT_MODELS } from '@/hooks/useAISettings';
+import { useAISettings, useSaveAISettings, useTestAIConnection, DEFAULT_MODELS, type BehaviorPreferences } from '@/hooks/useAISettings';
 import { useAuth } from '@/components/auth/AuthContext';
 import { toast } from 'sonner';
 import {
@@ -21,7 +21,8 @@ import {
   CheckCircle2,
   Loader2,
   Terminal,
-  Shield
+  Shield,
+  Sliders
 } from 'lucide-react';
 import { UsageStats } from './UsageStats';
 import { OrgPolicyEditor } from './OrgPolicyEditor';
@@ -45,6 +46,9 @@ export function AISettingsPanel() {
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
 
+  // Behavior preferences state
+  const [behaviorPrefs, setBehaviorPrefs] = useState<BehaviorPreferences>({});
+
   // Load saved settings
   useEffect(() => {
     if (settings) {
@@ -58,6 +62,10 @@ export function AISettingsPanel() {
         setShowCustomInput(true);
       } else {
         setSelectedModel(settings.model || 'gemini-3-flash-preview');
+      }
+
+      if (settings.behavior_preferences) {
+        setBehaviorPrefs(settings.behavior_preferences);
       }
     }
   }, [settings]);
@@ -144,6 +152,22 @@ export function AISettingsPanel() {
     setLogs([]);
   };
 
+  const handleSaveBehavior = async () => {
+    try {
+      const model = getEffectiveModel() || 'gemini-3-flash-preview';
+      await saveSettings.mutateAsync({
+        base_url: baseUrl,
+        api_key: apiKey || null,
+        model,
+        behavior_preferences: behaviorPrefs,
+      });
+      toast.success('行为偏好已保存');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '保存失败';
+      toast.error('保存失败: ' + message);
+    }
+  };
+
   const getLogIcon = (type: LogEntry['type']) => {
     switch (type) {
       case 'success':
@@ -186,6 +210,10 @@ export function AISettingsPanel() {
           <TabsTrigger value="org-policy" className="gap-1.5">
             <Shield className="w-4 h-4" />
             组织行为准则
+          </TabsTrigger>
+          <TabsTrigger value="behavior" className="gap-1.5">
+            <Sliders className="w-4 h-4" />
+            AI 行为偏好
           </TabsTrigger>
         </TabsList>
 
@@ -441,6 +469,104 @@ export function AISettingsPanel() {
 
         <TabsContent value="org-policy" className="mt-4">
           <OrgPolicyEditor />
+        </TabsContent>
+
+        <TabsContent value="behavior" className="mt-4">
+          <Card className="border-border max-w-2xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sliders className="w-5 h-5" />
+                AI 行为偏好
+              </CardTitle>
+              <CardDescription>
+                自定义 AI 的回复风格和交互行为，偏好将自动应用到所有对话中
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {/* Response Style */}
+              <div className="space-y-2">
+                <Label>回复风格</Label>
+                <Select
+                  value={behaviorPrefs.response_style || 'default'}
+                  onValueChange={(v) => setBehaviorPrefs(prev => ({ ...prev, response_style: v as BehaviorPreferences['response_style'] }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择回复风格" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="default">默认 — 根据问题复杂度自动调整</SelectItem>
+                    <SelectItem value="concise">简洁 — 直接给出核心信息，控制在300字以内</SelectItem>
+                    <SelectItem value="detailed">详细 — 完整分析、数据支撑、可执行建议</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Preferred Chart */}
+              <div className="space-y-2">
+                <Label>偏好图表类型</Label>
+                <Select
+                  value={behaviorPrefs.preferred_chart || ''}
+                  onValueChange={(v) => setBehaviorPrefs(prev => ({ ...prev, preferred_chart: (v || undefined) as BehaviorPreferences['preferred_chart'] }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="AI 自动选择" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">AI 自动选择</SelectItem>
+                    <SelectItem value="bar">柱状图</SelectItem>
+                    <SelectItem value="line">折线图</SelectItem>
+                    <SelectItem value="pie">饼图</SelectItem>
+                    <SelectItem value="area">面积图</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">当 AI 需要展示数据可视化时，优先使用此图表类型</p>
+              </div>
+
+              {/* Language */}
+              <div className="space-y-2">
+                <Label>回复语言</Label>
+                <Select
+                  value={behaviorPrefs.language || 'zh'}
+                  onValueChange={(v) => setBehaviorPrefs(prev => ({ ...prev, language: v as BehaviorPreferences['language'] }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="zh">中文</SelectItem>
+                    <SelectItem value="en">English</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Auto expand trace */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>自动展开思考过程</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">AI 回复时自动展开推理步骤面板</p>
+                </div>
+                <input
+                  type="checkbox"
+                  className="rounded border-input w-4 h-4"
+                  checked={behaviorPrefs.auto_expand_trace || false}
+                  onChange={(e) => setBehaviorPrefs(prev => ({ ...prev, auto_expand_trace: e.target.checked }))}
+                />
+              </div>
+
+              <Button
+                onClick={handleSaveBehavior}
+                disabled={saveSettings.isPending}
+                className="w-full"
+              >
+                {saveSettings.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4 mr-2" />
+                )}
+                保存偏好
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
