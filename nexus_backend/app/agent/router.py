@@ -260,9 +260,13 @@ _MODERATE_KEYWORDS = {
     "薪资",
     "发票",
     "开票",
-    # Scheduling
+    # Scheduling / Calendar
     "会议",
     "日程",
+    "日历",
+    "安排",
+    "空闲",
+    "有空",
     "订餐",
     # CRM / sales
     "商机",
@@ -466,7 +470,11 @@ _AGENT_ROLE_PATTERNS: list[tuple[re.Pattern, str, str]] = [
 
 # Patterns that suggest the query needs multi-agent orchestration (WBS decomposition)
 _MULTI_AGENT_PATTERNS = re.compile(
-    r"营销方案|营销计划|推广方案|市场策略|整合营销|全案|年度计划|季度计划|Go.?to.?Market|上市计划|品牌策划|完整方案",
+    r"营销方案|营销计划|推广方案|市场策略|整合营销|全案|年度计划|季度计划"
+    r"|Go.?to.?Market|上市计划|品牌策划|完整方案"
+    # P1: 通用复杂场景（非营销）
+    r"|项目规划|出差行程|招投标全流程|产品上线|招聘计划|培训方案|年度预算"
+    r"|活动策划|展会筹备|客户拜访计划|团建方案",
     re.IGNORECASE,
 )
 
@@ -487,8 +495,10 @@ def detect_agent_role(query: str, complexity: QueryComplexity) -> tuple[str, str
     if complexity == QueryComplexity.SIMPLE:
         return "", "", False
 
-    # Check for multi-agent orchestration first
-    needs_multi_agent = bool(_MULTI_AGENT_PATTERNS.search(text)) and complexity == QueryComplexity.COMPLEX
+    # Check for multi-agent orchestration first (P1: COMPLEX or CRITICAL)
+    needs_multi_agent = bool(_MULTI_AGENT_PATTERNS.search(text)) and complexity in (
+        QueryComplexity.COMPLEX, QueryComplexity.CRITICAL
+    )
 
     # If multi-agent orchestration is needed, always route to director for WBS decomposition
     # The director will delegate to specific agents via the orchestrator
@@ -656,23 +666,24 @@ def _should_enable_rag(query: str) -> bool:
 async def _llm_classify_intent(
     query: str,
     config,
-) -> tuple[QueryComplexity, str, list[str]]:
+) -> tuple[QueryComplexity, str, list[str], bool]:
     """
     Use LLM for ambiguous query classification.
 
     Falls back to MODERATE if LLM fails.
-    Returns: (complexity, intent_summary, domains)
+    Returns: (complexity, intent_summary, domains, multi_intent)
     """
     from langchain_openai import ChatOpenAI
 
     prompt = f"""请分析以下用户输入，返回 JSON：
 - complexity: simple(闲聊问候) / moderate(单一工具查询) / complex(多步骤分析) / critical(审批、金钱、敏感人事操作)
 - reason: 一句话原因
-- domains: 相关的业务域列表（可选值：oa_leave, attendance, approval, finance, project, crm, hr, asset, tender, analytics, knowledge, schedule, inventory, admin, vmd_content, vmd_market）
+- domains: 相关的业务域列表（可选值：oa_leave, attendance, approval, finance, project, crm, hr, asset, tender, analytics, knowledge, schedule, inventory, admin, vmd_content, vmd_market, calendar）
+- multi_intent: 用户消息是否包含2个或以上独立的、不相关的操作意图（如"请假然后查业绩"包含请假和查询两个独立意图）
 
 用户输入: {query}
 
-返回示例: {{"complexity": "moderate", "reason": "查询客户信息", "domains": ["crm"]}}
+返回示例: {{"complexity": "moderate", "reason": "查询客户信息", "domains": ["crm"], "multi_intent": false}}
 """
 
     try:
@@ -713,14 +724,15 @@ async def _llm_classify_intent(
             data = json.loads(json_match.group())
             complexity_str = data.get("complexity", "moderate")
             domains = data.get("domains", [])
+            multi_intent = bool(data.get("multi_intent", False))
             if not isinstance(domains, list):
                 domains = []
             if complexity_str in [c.value for c in QueryComplexity]:
-                return QueryComplexity(complexity_str), f"LLM 识别: {data.get('reason', '未知原因')}", domains
+                return QueryComplexity(complexity_str), f"LLM 识别: {data.get('reason', '未知原因')}", domains, multi_intent
     except Exception as e:
         logger.debug(f"[Router] LLM intent classification failed: {e}")
 
-    return QueryComplexity.MODERATE, "一般业务查询 (LLM 分类失败)", []
+    return QueryComplexity.MODERATE, "一般业务查询 (LLM 分类失败)", [], False
 
 
 # ─── Router Node ─────────────────────────────────────────────────────────────
@@ -780,13 +792,22 @@ async def route_node(state: AgentState) -> dict:
     # - Message is short (≤10 chars) — unlikely to be complex business query
     # This saves ~500ms per SIMPLE query by avoiding an extra LLM round-trip.
     intent_domains: list[str] = []
+    multi_intent = False
     if intent_summary == "一般对话" and len(last_user_msg.strip()) > 10:
-        complexity, intent_summary, intent_domains = await _llm_classify_intent(last_user_msg, config)
+        complexity, intent_summary, intent_domains, multi_intent = await _llm_classify_intent(last_user_msg, config)
 
     selected_model = config.get_model_for_complexity(complexity)
 
     # ── VMD Agent Role Detection (additive) ──
     agent_code, scene_code, needs_multi_agent = detect_agent_role(last_user_msg, complexity)
+
+    # P1: Multi-intent detection — if LLM detected multiple independent intents,
+    # escalate to WBS decomposition even without pattern match
+    if not needs_multi_agent and multi_intent and complexity in (
+        QueryComplexity.MODERATE, QueryComplexity.COMPLEX, QueryComplexity.CRITICAL
+    ):
+        agent_code, scene_code, needs_multi_agent = "director_agent", "task_decompose", True
+        logger.info("[Router] Multi-intent detected by LLM, escalating to WBS decomposition")
 
     if agent_code:
         logger.info(

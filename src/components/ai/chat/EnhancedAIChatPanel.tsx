@@ -123,6 +123,63 @@ export function EnhancedAIChatPanel({
 
   const [quotaAlert, setQuotaAlert] = useState<QuotaAlert | null>(null);
 
+  // P3: 聊天图片附件（不进入RAG知识库）
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [pendingImages, setPendingImages] = useState<Array<{ file: File; previewUrl: string; uploadedUrl?: string }>>([]);
+
+  const handleImageUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files?.length) return;
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith('image/')) {
+        toast.error('仅支持图片文件');
+        continue;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('图片大小不能超过 10MB');
+        continue;
+      }
+      const previewUrl = URL.createObjectURL(file);
+      setPendingImages(prev => [...prev, { file, previewUrl }]);
+
+      // Upload to /api/chat/upload-image (isolated from RAG)
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) { toast.error('请先登录'); continue; }
+        const formData = new FormData();
+        formData.append('file', file);
+        const baseUrl = import.meta.env.VITE_API_BASE_URL;
+        const resp = await fetch(`${baseUrl}/api/chat/upload-image`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData,
+        });
+        if (!resp.ok) throw new Error('Upload failed');
+        const result = await resp.json();
+        const uploadedUrl = result.data?.url;
+        if (uploadedUrl) {
+          setPendingImages(prev => prev.map(img => img.previewUrl === previewUrl ? { ...img, uploadedUrl } : img));
+        }
+      } catch {
+        toast.error(`图片 "${file.name}" 上传失败`);
+        setPendingImages(prev => prev.filter(img => img.previewUrl !== previewUrl));
+        URL.revokeObjectURL(previewUrl);
+      }
+    }
+    if (imageInputRef.current) imageInputRef.current.value = '';
+  }, []);
+
+  const removePendingImage = useCallback((previewUrl: string) => {
+    setPendingImages(prev => prev.filter(img => {
+      if (img.previewUrl === previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        return false;
+      }
+      return true;
+    }));
+  }, []);
+
   useEffect(() => {
     aiClient.fetch<{ data: QuotaAlert }>('api/usage/quota-alert')
       .then((res) => {
@@ -402,19 +459,26 @@ export function EnhancedAIChatPanel({
 
   const handleSend = useCallback(async () => {
     const currentInput = inputValueRef.current;
-    if (!currentInput.trim() || isAiTyping) return;
+    if ((!currentInput.trim() && !pendingImages.some(img => img.uploadedUrl)) || isAiTyping) return;
+
+    // P3: Collect uploaded image URLs
+    const imageUrls = pendingImages.filter(img => img.uploadedUrl).map(img => img.uploadedUrl!);
 
     const userMessage: AIMessage = {
       id: Date.now().toString(),
       role: 'user',
       content: currentInput,
       timestamp: new Date(),
+      ...(imageUrls.length ? { imageUrls } : {}),
     };
 
     setMessages((prev) => [...prev, userMessage]);
     const messageToSend = currentInput;
     setInput('');
     setShowQuickReplies(false);
+    // Clear pending images after send
+    pendingImages.forEach(img => URL.revokeObjectURL(img.previewUrl));
+    setPendingImages([]);
 
     let detectedAgent = currentAgent;
     for (const agent of agentTags) {
@@ -433,6 +497,7 @@ export function EnhancedAIChatPanel({
         messages,
         detectedAgent,
         {
+          imageUrls: imageUrls.length ? imageUrls : undefined,
           onUpdate: (content, assistantMsgId) => {
             setMessages((prev) => {
               const exists = prev.find((m) => m.id === assistantMsgId);
@@ -474,7 +539,7 @@ export function EnhancedAIChatPanel({
     } catch (e) {
       setMessages((prev) => prev.filter((m) => m.content !== ''));
     }
-  }, [isAiTyping, currentAgent, messages, streamChat, onSendMessage, addThinkingStep, addToolProgress, endTrace, startTrace]);
+  }, [isAiTyping, currentAgent, messages, streamChat, onSendMessage, addThinkingStep, addToolProgress, endTrace, startTrace, pendingImages]);
 
   const commandBarSendRef = useRef(false);
   useEffect(() => {
@@ -754,6 +819,10 @@ export function EnhancedAIChatPanel({
               tools={toolMetadata}
               toolsLoading={toolsLoading}
               onSavePrompt={handleSavePrompt}
+              imageInputRef={imageInputRef}
+              handleImageUpload={handleImageUpload}
+              pendingImages={pendingImages}
+              removePendingImage={removePendingImage}
             />
           </div>
         )}

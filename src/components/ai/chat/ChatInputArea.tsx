@@ -17,6 +17,7 @@ import {
   Square,
   Wrench,
   Bookmark,
+  ImagePlus,
 } from 'lucide-react';
 import { ToolPalette } from './ToolPalette';
 
@@ -66,6 +67,11 @@ interface ChatInputAreaProps {
   tools?: { name: string; description: string; domain: string | null }[];
   toolsLoading?: boolean;
   onSavePrompt?: (prompt: string) => void;
+  // P3: 图片上传（不进入RAG知识库）
+  imageInputRef?: React.RefObject<HTMLInputElement>;
+  handleImageUpload?: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  pendingImages?: Array<{ file: File; previewUrl: string; uploadedUrl?: string }>;
+  removePendingImage?: (previewUrl: string) => void;
 }
 
 const INPUT_HINTS: { prefix: string; hint: string }[] = [
@@ -109,6 +115,10 @@ export const ChatInputArea = React.memo(function ChatInputArea({
   tools,
   toolsLoading,
   onSavePrompt,
+  imageInputRef,
+  handleImageUpload,
+  pendingImages,
+  removePendingImage,
 }: ChatInputAreaProps) {
   const matchedHint = useMemo(() => {
     if (!input || input.length > 10) return null;
@@ -179,7 +189,7 @@ export const ChatInputArea = React.memo(function ChatInputArea({
 
         {showMobileMenu && (
           <div className="mb-3 p-2 bg-secondary/50 rounded-lg animate-fade-slide-up sm:hidden">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               <button
                 onClick={() => { setShowAgents(!showAgents); setShowMobileMenu(false); }}
                 className="flex flex-col items-center gap-1 p-3 rounded-lg hover:bg-secondary active:bg-secondary transition-colors"
@@ -194,6 +204,15 @@ export const ChatInputArea = React.memo(function ChatInputArea({
                 <Paperclip className="w-5 h-5 text-green-500" />
                 <span className="text-xs text-muted-foreground">上传文档</span>
               </button>
+              {imageInputRef && handleImageUpload && (
+                <button
+                  onClick={() => { imageInputRef.current?.click(); setShowMobileMenu(false); }}
+                  className="flex flex-col items-center gap-1 p-3 rounded-lg hover:bg-secondary active:bg-secondary transition-colors"
+                >
+                  <ImagePlus className="w-5 h-5 text-purple-500" />
+                  <span className="text-xs text-muted-foreground">上传图片</span>
+                </button>
+              )}
               <button
                 onClick={() => { setVoiceMode(!voiceMode); setShowMobileMenu(false); }}
                 className="flex flex-col items-center gap-1 p-3 rounded-lg hover:bg-secondary active:bg-secondary transition-colors"
@@ -259,6 +278,22 @@ export const ChatInputArea = React.memo(function ChatInputArea({
               <TooltipContent>上传文档</TooltipContent>
             </Tooltip>
 
+            {imageInputRef && handleImageUpload && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 flex-shrink-0"
+                    onClick={() => imageInputRef.current?.click()}
+                  >
+                    <ImagePlus className="w-5 h-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>上传图片（不入知识库）</TooltipContent>
+              </Tooltip>
+            )}
+
             {onSavePrompt && input.trim() && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -283,6 +318,37 @@ export const ChatInputArea = React.memo(function ChatInputArea({
             onChange={handleFileUpload}
             accept=".pdf,.txt,.md,.csv,.json,.docx"
           />
+          {imageInputRef && handleImageUpload && (
+            <input
+              type="file"
+              ref={imageInputRef}
+              className="hidden"
+              onChange={handleImageUpload}
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              multiple
+            />
+          )}
+
+          {pendingImages && pendingImages.length > 0 && removePendingImage && (
+            <div className="flex gap-2 mb-2 flex-wrap">
+              {pendingImages.map((img) => (
+                <div key={img.previewUrl} className="relative w-16 h-16 rounded-lg overflow-hidden border border-border group">
+                  <img src={img.previewUrl} alt={img.file.name} className="w-full h-full object-cover" />
+                  {!img.uploadedUrl && (
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <Loader2 className="w-4 h-4 text-white animate-spin" />
+                    </div>
+                  )}
+                  <button
+                    className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => removePendingImage(img.previewUrl)}
+                  >
+                    <X className="w-3 h-3 text-white" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
           {voiceMode && isMobile ? (
             <button
@@ -417,7 +483,7 @@ export const ChatInputArea = React.memo(function ChatInputArea({
                 : 'bg-secondary text-muted-foreground'
             )}
             onClick={handleSend}
-            disabled={!input.trim()}
+            disabled={!input.trim() && !(pendingImages && pendingImages.some(img => img.uploadedUrl))}
           >
             <Send className="w-5 h-5" />
           </Button>

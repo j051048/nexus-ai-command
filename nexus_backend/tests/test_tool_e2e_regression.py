@@ -415,11 +415,11 @@ class TestCalendarToolsE2E:
 
         args = {
             "title": "周一销售会议",
-            "start_time": "2026-03-16T10:00:00",
-            "end_time": "2026-03-16T11:00:00",
+            "datetime": "2026-03-16T10:00:00+08:00",
+            "attendees": ["张三"],
         }
 
-        with patch("app.tools.oa_tools.supabase", mock_db):
+        with patch("app.tools.oa_tools._get_client", return_value=mock_db):
             result = await tool.run(args, USER_ID, tool_config)
 
         assert isinstance(result, str)
@@ -430,7 +430,7 @@ class TestCalendarToolsE2E:
         tool = _load_tool("query_leave_status")
         _assert_tool_metadata(tool)
 
-        with patch("app.tools.oa_tools.supabase", mock_db):
+        with patch("app.tools.oa_tools._get_client", return_value=mock_db):
             result = await tool.run({}, USER_ID, tool_config)
 
         assert isinstance(result, str)

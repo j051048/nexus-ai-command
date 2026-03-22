@@ -154,6 +154,7 @@ class Project(ProjectBase):
 class Message(BaseModel):
     role: str
     content: str
+    image_urls: list[str] | None = None  # P3: 聊天图片附件 URL 列表
     id: str | None = None
     timestamp: str | None = None
     agent: str | None = None

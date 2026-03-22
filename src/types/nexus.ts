@@ -84,6 +84,7 @@ export interface AIMessage {
   timestamp: Date;
   agent?: string;
   cards?: ActiveCard[];
+  imageUrls?: string[];  // P3: 聊天图片附件
   // Agent thinking chain support
   thinkingSteps?: ThinkingStep[];
   toolCalls?: ToolCall[];

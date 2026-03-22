@@ -129,7 +129,12 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
     ai_config["mini_model"] = settings.AI_MINI_MODEL
 
     # 4. Token Validation
-    messages_dicts = [{"role": m.role, "content": m.content} for m in request.messages]
+    messages_dicts = []
+    for m in request.messages:
+        msg = {"role": m.role, "content": m.content}
+        if m.image_urls:
+            msg["image_urls"] = m.image_urls
+        messages_dicts.append(msg)
     is_allowed, _, limit_reason = validate_request_tokens(messages_dicts, ai_config["model"], user_id)
     if not is_allowed:
         return StreamingResponse(
@@ -182,7 +187,7 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
     # inside run_agent_stream → memory.prepare_messages, so we pass raw messages.
     from app.agent import run_agent_stream
 
-    raw_messages = [{"role": m.role, "content": m.content} for m in request.messages]
+    raw_messages = messages_dicts  # Reuse already-built list (includes image_urls)
 
     logger.info(f"[Chat] Using LangGraph agent for user={user_id} agent={request.agent} model={ai_config['model']}")
 

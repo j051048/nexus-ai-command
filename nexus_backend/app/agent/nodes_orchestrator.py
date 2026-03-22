@@ -806,7 +806,7 @@ async def _integrate_results(
 
     integration_prompt = f"""## 整合任务
 
-你是市场总监，请将以下各专业Agent的执行结果整合为一份完整、一致的方案。
+你是项目负责人，请将以下各专业Agent的执行结果整合为一份完整、一致的方案。
 
 ### 用户原始需求
 {original_query[:2000]}

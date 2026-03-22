@@ -72,12 +72,14 @@ def register_routers(app: FastAPI) -> None:
     from app.routers import work_orders as work_orders_router
     from app.routers import ws as ws_router
     from app.routers import saved_prompts as saved_prompts_router
+    from app.routers import chat_upload as chat_upload_router
 
     app.include_router(performance.router)
     app.include_router(incentive.router)
     app.include_router(approval.router)
     app.include_router(kingdee.router)
     app.include_router(chat.router)
+    app.include_router(chat_upload_router.router)
     app.include_router(audio.router)
     app.include_router(documents.router)
     app.include_router(projects.router)

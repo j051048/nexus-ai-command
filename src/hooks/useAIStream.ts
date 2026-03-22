@@ -456,7 +456,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         history: AIMessage[],
         agent?: string,
         callbacks?: StreamCallbacks | ((content: string, id: string) => void),
-        options?: { system_confirmed?: boolean; confirmed_tool?: { tool_name: string; args: Record<string, unknown> }; vmd_agent_code?: string; scene_code?: string }
+        options?: { system_confirmed?: boolean; confirmed_tool?: { tool_name: string; args: Record<string, unknown> }; vmd_agent_code?: string; scene_code?: string; imageUrls?: string[] }
     ) => {
         setIsTyping(true);
         setAiStatus(undefined);
@@ -472,14 +472,20 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         const onToolProgress = typeof callbacks === 'object' ? callbacks.onToolProgress : undefined;
         const onOrchestration = typeof callbacks === 'object' ? callbacks.onOrchestration : undefined;
 
-        const chatMessages = history
+        const chatMessages: Array<{ role: string; content: string; image_urls?: string[] }> = history
             .filter(m => m.id !== '1') // Skip greeting
-            .map(m => ({
-                role: m.role as 'user' | 'assistant',
-                content: m.content,
-            }));
+            .map(m => {
+                const msg: { role: string; content: string; image_urls?: string[] } = {
+                    role: m.role as 'user' | 'assistant',
+                    content: m.content,
+                };
+                if (m.imageUrls?.length) msg.image_urls = m.imageUrls;
+                return msg;
+            });
 
-        chatMessages.push({ role: 'user', content: input });
+        const currentMsg: { role: string; content: string; image_urls?: string[] } = { role: 'user', content: input };
+        if (options?.imageUrls?.length) currentMsg.image_urls = options.imageUrls;
+        chatMessages.push(currentMsg);
 
         abortControllerRef.current = new AbortController();
 

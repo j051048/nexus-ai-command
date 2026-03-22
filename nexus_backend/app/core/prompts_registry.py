@@ -133,6 +133,22 @@ PROACTIVE_CLARIFY = """
 - 示例："请假需要确认：1) 从哪天开始？2) 请几天？3) 事假还是年假？"
 """
 
+# Workflow chaining hints — proactive next-step suggestions after tool execution
+WORKFLOW_HINTS = """
+【工作流衔接 — 工具调用后的主动串联】
+当你完成某个工具调用后，根据以下规则主动衔接下一步：
+
+1. recognize_invoice 识别发票后 → 主动询问用户是否需要创建报销申请，并用识别结果预填金额、类型、日期
+2. create_leave_request 请假成功后 → 如果请假超过3天，主动提问是否需要创建工作交接(create_work_handover)
+3. book_meeting / create_calendar_event 预约会议后 → 如果参会人较多(>=5人)，提问是否需要发布会议议程通知
+4. create_expense_claim 报销申请后 → 告知当前审批链和预计审批时长
+5. 发现日程冲突时 → 不要只报错，主动查询冲突时段前后的空闲时间并推荐替代方案
+6. assign_task 分配任务后 → 如果设定了截止日期，提问是否需要设置到期提醒(create_scheduled_task)
+7. web_search 搜索完成后 → 如果用户查询涉及竞品/市场，主动建议是否要生成分析报告
+
+注意：衔接建议要简短（一句话+确认），不要自动执行后续操作。让用户决定是否继续。
+"""
+
 # Generative UI Protocol (Area 5)
 GEN_UI_PROTOCOL = """
 【重要：UI 呈现指令】
@@ -261,6 +277,7 @@ ENTERPRISE_CAPABILITIES = (
     + COMMUNICATION_STYLE
     + THINKING_CHAIN_GUIDE
     + PROACTIVE_CLARIFY
+    + WORKFLOW_HINTS
     + """
 你具备以下企业管理能力，可以帮助用户通过自然语言完成各种办公事务：
 

@@ -440,15 +440,46 @@ class InvoiceOCRTool(BaseTool):
             return "❌ 请提供发票图片URL。"
 
         try:
-            from app.services.ai_service import AIService
+            import httpx
+            from app.core.config import settings
 
             type_hint = f"（提示类型: {invoice_type}）" if invoice_type != "auto" else ""
-            result = await AIService.call_llm(
-                f"请识别以下发票信息，提取结构化数据：\n图片URL: {image_url}\n{type_hint}",
-                "你是发票OCR识别专家。请从发票中提取以下字段并以中文列表格式返回：\n"
-                "- 发票号码\n- 开票日期\n- 金额（不含税）\n- 税额\n- 价税合计\n"
-                "- 开票单位\n- 发票类型\n如果无法识别某字段，标注'未识别'。",
-            )
+
+            # P3: 使用 Vision API multimodal content 格式（之前只是把 URL 当文本传给 LLM）
+            payload = {
+                "model": (config.get("model", "gpt-4o") if config else "gpt-4o"),
+                "messages": [{
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                f"请识别以下发票信息，提取结构化数据{type_hint}：\n"
+                                "请提取：发票号码、开票日期、金额（不含税）、税额、价税合计、"
+                                "开票单位、发票类型。\n如无法识别某字段，标注'未识别'。以中文列表格式返回。"
+                            ),
+                        },
+                        {"type": "image_url", "image_url": {"url": image_url}},
+                    ],
+                }],
+                "max_tokens": 2000,
+            }
+
+            base_url = (config.get("base_url") if config else None) or getattr(settings, "AI_BASE_URL", "") or "https://api.openai.com/v1"
+            api_key = (config.get("api_key") if config else None) or settings.OPENAI_API_KEY
+            url = f"{base_url.rstrip('/')}/chat/completions"
+
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                resp = await client.post(
+                    url,
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json=payload,
+                )
+                if resp.status_code != 200:
+                    return f"🧾 发票识别失败: API返回 {resp.status_code}\n\n请手动填写发票信息。"
+                data = resp.json()
+                result = data["choices"][0]["message"]["content"]
+
             return f"🧾 发票识别结果:\n\n{result}"
         except Exception as e:
             return f"🧾 发票识别失败: {str(e)}\n\n请手动填写发票信息。"

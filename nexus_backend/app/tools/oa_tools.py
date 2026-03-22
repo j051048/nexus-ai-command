@@ -8,7 +8,7 @@ P2 Fixes Applied:
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .base_tool import BaseTool
@@ -246,6 +246,28 @@ class LeaveRequestTool(BaseTool):
         except Exception as e:
             logger.warning(f"Failed to create approval_request for leave {leave_id}: {e}")
 
+        # 同步写入 calendar_events 表
+        try:
+            CN_TZ = timezone(timedelta(hours=8))
+            cal_start = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=CN_TZ)
+            cal_end = datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=CN_TZ)
+            cal_data = {
+                "user_id": user_id,
+                "title": f"{type_names.get(leave_type, leave_type)} ({work_days}天)",
+                "event_type": "leave",
+                "start_time": cal_start.isoformat(),
+                "end_time": cal_end.isoformat(),
+                "all_day": True,
+                "source_table": "oa_leave_requests",
+                "source_id": leave_id,
+                "status": "active",
+            }
+            if org_id:
+                cal_data["organization_id"] = org_id
+            await client.table("calendar_events").insert(cal_data).execute()
+        except Exception as e:
+            logger.debug(f"Failed to sync leave to calendar_events: {e}")
+
         # 精准通知审批人（非广播）
         if not auto_approve:
             try:
@@ -389,7 +411,7 @@ class MeetingBookingTool(BaseTool):
             "title": {"type": "string", "description": "会议主题"},
             "datetime": {
                 "type": "string",
-                "description": "会议时间，如 '明天下午3点'、'2024-12-20 15:00'",
+                "description": "会议时间，ISO 8601格式(如 2026-03-25T15:00:00+08:00)。用户说'明天下午3点'时请转换为具体日期时间。",
             },
             "duration_minutes": {
                 "type": "integer",
@@ -413,12 +435,45 @@ class MeetingBookingTool(BaseTool):
         duration = args.get("duration_minutes", 60)
         attendees = args.get("attendees", [])
         room_pref = args.get("room_preference", "medium")
+        datetime_str = args.get("datetime", "")
 
-        # 解析时间（简化处理）
-        # 实际应使用更复杂的 NLU 来解析自然语言时间
-        meeting_time = datetime.now() + timedelta(days=1, hours=3)  # 默认明天下午
+        CN_TZ = timezone(timedelta(hours=8))
+
+        # Parse meeting time from ISO format (LLM converts natural language)
+        try:
+            meeting_time = datetime.fromisoformat(datetime_str)
+            if meeting_time.tzinfo is None:
+                meeting_time = meeting_time.replace(tzinfo=CN_TZ)
+        except (ValueError, TypeError):
+            # Fallback: default to tomorrow afternoon if parsing fails
+            meeting_time = datetime.now(CN_TZ) + timedelta(days=1)
+            meeting_time = meeting_time.replace(hour=15, minute=0, second=0, microsecond=0)
+
+        end_time = meeting_time + timedelta(minutes=duration)
 
         client = _get_client(config)
+
+        # Conflict detection via calendar_events RPC
+        conflict_warning = ""
+        try:
+            conflicts = await client.rpc("check_calendar_conflicts", {
+                "p_user_id": user_id,
+                "p_start_time": meeting_time.isoformat(),
+                "p_end_time": end_time.isoformat(),
+            }).execute()
+            if conflicts.data:
+                conflict_lines = ["⚠️ **日程冲突提醒：**"]
+                for c in conflicts.data:
+                    c_start = c.get("start_time", "")
+                    try:
+                        c_time = datetime.fromisoformat(c_start.replace("Z", "+00:00")).astimezone(CN_TZ).strftime("%H:%M")
+                    except Exception:
+                        c_time = "?"
+                    conflict_lines.append(f"  - {c_time} {c['title']} ({c['event_type']})")
+                conflict_warning = "\n".join(conflict_lines) + "\n\n"
+        except Exception as e:
+            logger.debug(f"Calendar conflict check skipped: {e}")
+
         # 查找参会人
         attendee_ids = []
         attendee_names = []
@@ -428,12 +483,58 @@ class MeetingBookingTool(BaseTool):
                 attendee_ids.append(user_res.data[0]["id"])
                 attendee_names.append(user_res.data[0]["name"])
 
-        # 模拟会议室查找
+        # 会议室选择
         room_name = {
             "small": "洽谈室A",
             "medium": "会议室301",
             "large": "多功能厅",
         }.get(room_pref, "会议室301")
+
+        # 写入 oa_meeting_bookings 表持久化
+        try:
+            await (
+                client.table("oa_meeting_bookings")
+                .insert({
+                    "organizer_id": user_id,
+                    "title": title,
+                    "start_time": meeting_time.isoformat(),
+                    "end_time": end_time.isoformat(),
+                    "attendees": attendee_ids,
+                    "ai_generated": True,
+                    "created_from": "chat",
+                    "status": "confirmed",
+                })
+                .execute()
+            )
+        except Exception as e:
+            logger.debug(f"Failed to persist meeting booking: {e}")
+
+        # 同步写入 calendar_events 表
+        try:
+            org_id = None
+            try:
+                u_res = await client.table("users").select("organization_id").eq("id", user_id).limit(1).execute()
+                if u_res.data:
+                    org_id = u_res.data[0].get("organization_id")
+            except Exception:
+                pass
+
+            cal_data = {
+                "user_id": user_id,
+                "title": title,
+                "event_type": "meeting",
+                "start_time": meeting_time.isoformat(),
+                "end_time": end_time.isoformat(),
+                "attendees": attendee_names or attendees,
+                "location": room_name,
+                "source_table": "oa_meeting_bookings",
+                "status": "active",
+            }
+            if org_id:
+                cal_data["organization_id"] = org_id
+            await client.table("calendar_events").insert(cal_data).execute()
+        except Exception as e:
+            logger.debug(f"Failed to sync meeting to calendar_events: {e}")
 
         # 发送会议通知
         for aid in attendee_ids:
@@ -451,7 +552,7 @@ class MeetingBookingTool(BaseTool):
                 .execute()
             )
 
-        return f"""✅ 会议已预约成功！
+        return f"""{conflict_warning}✅ 会议已预约成功！
 
 📅 **会议详情**
 - 主题: {title}
@@ -460,10 +561,7 @@ class MeetingBookingTool(BaseTool):
 - 地点: {room_name}
 - 参会人: {", ".join(attendee_names) if attendee_names else "待确认"}
 
-📧 已向所有参会人发送日程邀请。
-
-💡 提示: 会议开始前15分钟会发送提醒。
-"""
+📧 已向所有参会人发送日程邀请。"""
 
 
 class TaskAssignmentTool(BaseTool):

@@ -188,6 +188,20 @@ export const MessageBubble = React.memo(function MessageBubble({
               : 'bg-card border border-border text-card-foreground rounded-bl-sm'
           )}
         >
+          {/* P3: 渲染用户消息中的图片附件 */}
+          {isUser && message.imageUrls && message.imageUrls.length > 0 && (
+            <div className="flex gap-2 flex-wrap mb-2">
+              {message.imageUrls.map((url, i) => (
+                <img
+                  key={i}
+                  src={url}
+                  alt={`附件 ${i + 1}`}
+                  className="max-w-[200px] max-h-[150px] rounded-lg object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => window.open(url, '_blank')}
+                />
+              ))}
+            </div>
+          )}
           {isTyping && isLatest && !message.content ? (
             <div className="flex items-center gap-1.5 h-6">
               <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />

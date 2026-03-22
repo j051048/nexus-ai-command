@@ -89,19 +89,19 @@ def _validate_wbs(wbs: dict) -> list[str]:
 
 # ─── WBS Prompt Template ─────────────────────────────────────────────────────
 
-_WBS_SYSTEM_PROMPT = """你是一个任务拆解专家。你的职责是将用户的复杂市场营销需求拆解为结构化的子任务列表。
+_WBS_SYSTEM_PROMPT = """你是一个任务拆解专家。你的职责是将用户的复杂业务需求拆解为结构化的子任务列表。
 
 ## 可用的Agent角色及其能力
-- director_agent: 市场总监，负责整体策略和方案整合
-- content_agent: 内容营销，负责白皮书、案例文章、SEO内容、社交媒体文案
+- director_agent: 总监，负责整体策略规划和方案整合
+- content_agent: 内容创作，负责白皮书、案例文章、SEO内容、社交媒体文案
 - design_agent: 视觉设计，负责品牌视觉、宣传物料、展会设计方案
 - media_agent: 媒介投放，负责广告投放策略、渠道分析、预算分配
 - clue_agent: 线索获客，负责线索获取、评分、渠道归因
-- sales_agent: 销售赋能，负责话术、Battlecard、报价策略、竞品对比
-- synergy_agent: 研产销协同，负责跨部门需求传递和信息同步
-- operation_agent: 私域运营，负责社群运营、会员管理、客户旅程
+- sales_agent: 销售赋能，负责话术、Battlecard、报价策略、竞品对比、标书
+- synergy_agent: 协同管理，负责跨部门需求传递、项目协调、任务分配、排班、日程安排
+- operation_agent: 运营管理，负责社群运营、会员管理、客户旅程、数据分析
 - pr_agent: 舆情口碑，负责品牌舆情监控、危机公关
-- compliance_agent: 合规校验，负责广告法合规、内容审核
+- compliance_agent: 合规校验，负责广告法合规、内容审核、费用合规检查
 
 ## 输出格式要求
 请严格输出以下JSON格式（不要包含markdown代码块标记）：
@@ -169,7 +169,7 @@ async def wbs_decompose_node(state: AgentState) -> dict:
     # Build LLM messages
     llm_messages = [
         SystemMessage(content=_WBS_SYSTEM_PROMPT),
-        HumanMessage(content=f"请拆解以下营销需求:\n\n{last_user_msg}"),
+        HumanMessage(content=f"请拆解以下业务需求:\n\n{last_user_msg}"),
     ]
 
     # Use the high-tier model for task decomposition
