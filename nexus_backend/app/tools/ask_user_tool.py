@@ -18,6 +18,7 @@ class AskUserTool(BaseTool):
     当 Agent 需要用户提供额外信息或确认偏好时调用此工具。
     execute_node 会拦截此调用并转换为 SSE 事件发送到前端。
     """
+    domain = "system"
 
     name = "ask_user"
     description = (

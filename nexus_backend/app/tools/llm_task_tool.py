@@ -19,6 +19,7 @@ class LLMTaskTool(BaseTool):
     """将简单子任务委派给轻量 LLM 处理"""
 
     name = "llm_task"
+    domain = "system"
     description = (
         "将简单文本处理子任务委派给轻量模型执行，仅限短文本场景"
     )

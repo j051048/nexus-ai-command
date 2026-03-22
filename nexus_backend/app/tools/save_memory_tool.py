@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 class SaveMemoryTool(BaseTool):
     """主动保存一条用户记忆到长期记忆库。"""
+    domain = "system"
 
     @property
     def name(self) -> str:
