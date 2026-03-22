@@ -199,6 +199,7 @@ _DOMAIN_TOOL_MAP: dict[str, set[str]] = {
         "book_meeting", "assign_task", "create_work_handover",
         "generate_onboarding_checklist",
         "send_notification",
+        "submit_approval_on_behalf",
     },
     "attendance": {
         "clock_in_out", "get_attendance_record", "attendance_statistics",
@@ -293,7 +294,7 @@ _DOMAIN_TOOL_MAP: dict[str, set[str]] = {
 # Keyword → domain(s) mapping — reuses router.py keyword vocabulary
 _KEYWORD_DOMAIN_MAP: dict[str, list[str]] = {
     # OA / Leave
-    "请假": ["oa_leave"], "出差": ["oa_leave"], "会议": ["oa_leave"],
+    "请假": ["oa_leave"], "出差": ["oa_leave", "approval"], "会议": ["oa_leave"],
     "日程": ["oa_leave", "schedule"], "交接": ["oa_leave"],
     "调休": ["oa_leave", "attendance"], "年假": ["oa_leave"],
     "提醒": ["oa_leave", "schedule"],
@@ -303,7 +304,7 @@ _KEYWORD_DOMAIN_MAP: dict[str, list[str]] = {
     # Approval
     "审批": ["approval"], "批准": ["approval"], "拒绝": ["approval"],
     "驳回": ["approval"], "批了": ["approval"], "不批": ["approval"],
-    "同意": ["approval"], "通过": ["approval"],
+    "同意": ["approval"], "通过": ["approval"], "申请": ["approval"],
     # Finance
     "报销": ["finance"], "预算": ["finance"], "工资": ["finance"],
     "薪资": ["finance"], "发票": ["finance"], "开票": ["finance"],
