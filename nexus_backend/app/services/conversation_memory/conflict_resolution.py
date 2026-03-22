@@ -156,29 +156,75 @@ async def resolve_memory_conflicts(
             logger.info(f"[ConflictResolve] user={user_id} all {len(results)} memories deduped by pattern_key")
         return results
 
-    # ── Step 1+: Original vector-based conflict resolution ──────────
-    # Collect all new facts and search for similar existing memories
+    # ── Step 1: Vector search + cosine similarity pre-filter ──────────
+    # For each new memory, search for similar existing memories.
+    # If similarity >= 0.92, treat as near-duplicate (skip LLM).
+    NEAR_DUPLICATE_THRESHOLD = 0.92
+
     all_similar: list[dict] = []
     new_facts_text: list[str] = []
+    still_remaining: list[dict] = []  # memories that need LLM resolution
 
     for mem in remaining_memories:
         value = mem.get("value", "")
         if not value:
             continue
-        new_facts_text.append(value)
 
         # Search for similar existing memories
         try:
             similar = await _search_similar(user_id, value, org_id=org_id, db=client)
-            for s in similar:
-                if not any(existing["id"] == s["id"] for existing in all_similar):
-                    all_similar.append(s)
         except Exception as e:
             logger.debug(f"Similar memory search failed: {e}")
+            similar = []
+
+        # Check for near-duplicate (high cosine similarity → skip LLM)
+        near_dup = None
+        for s in similar:
+            sim_score = s.get("similarity", 0)
+            if sim_score >= NEAR_DUPLICATE_THRESHOLD:
+                near_dup = s
+                break
+
+        if near_dup:
+            # Near-duplicate: bump recurrence_count on existing, skip LLM
+            try:
+                from datetime import UTC, datetime
+                old_count = near_dup.get("recurrence_count") or near_dup.get("access_count") or 1
+                new_count = old_count + 1
+                await (
+                    client.table("conversation_memories")
+                    .update({
+                        "access_count": new_count,
+                        "last_accessed_at": datetime.now(UTC).isoformat(),
+                    })
+                    .eq("id", near_dup["id"])
+                    .execute()
+                )
+                results.append({
+                    "id": near_dup["id"],
+                    "event": "DEDUP",
+                    "text": near_dup.get("value", ""),
+                    "similarity": near_dup.get("similarity"),
+                })
+                logger.debug(
+                    "[ConflictResolve] Vector dedup: sim=%.3f for '%s'",
+                    near_dup.get("similarity", 0), value[:60],
+                )
+            except Exception as e:
+                logger.debug(f"Vector dedup update failed: {e}")
+                still_remaining.append(mem)
+            continue
+
+        # Not a near-duplicate → needs LLM resolution
+        still_remaining.append(mem)
+        new_facts_text.append(value)
+        for s in similar:
+            if not any(existing["id"] == s["id"] for existing in all_similar):
+                all_similar.append(s)
 
     # Fast path: no similar memories → all are ADDs, use standard save
     if not all_similar:
-        for mem in remaining_memories:
+        for mem in still_remaining:
             try:
                 saved = await _save_memory(
                     user_id=user_id,
@@ -212,7 +258,7 @@ async def resolve_memory_conflicts(
     except Exception as e:
         logger.warning(f"LLM conflict resolution failed, falling back to ADD-all: {e}")
         # Fallback: save all as new memories without conflict resolution
-        for mem in remaining_memories:
+        for mem in still_remaining:
             try:
                 saved = await _save_memory(
                     user_id=user_id,
@@ -243,7 +289,7 @@ async def resolve_memory_conflicts(
         try:
             if event == "ADD":
                 # Find the matching new memory entry for key/category info
-                matching_new = _find_matching_new_mem(text, remaining_memories)
+                matching_new = _find_matching_new_mem(text, still_remaining)
                 saved = await _save_memory(
                     user_id=user_id,
                     key=matching_new.get("key", f"resolved_{hash(text) % 10000:04d}"),
@@ -333,7 +379,11 @@ async def _search_similar(
     org_id: str | None = None,
     db: Any = None,
 ) -> list[dict]:
-    """Search for semantically similar existing memories."""
+    """Search for semantically similar existing memories.
+
+    Uses the existing search_memories_by_embedding RPC (pgvector cosine search).
+    Falls back to keyword search if embedding generation or RPC fails.
+    """
     client = db or supabase
     if not client:
         return []
@@ -342,32 +392,38 @@ async def _search_similar(
     if not embedding:
         return []
 
+    # Primary: vector search via existing RPC
     try:
+        params: dict[str, Any] = {
+            "query_embedding": embedding,
+            "match_user_id": user_id,
+            "match_limit": limit,
+        }
+        if org_id:
+            params["match_org_id"] = org_id
+
         result = await client.rpc(
-            "match_memories",
-            {
-                "query_embedding": embedding,
-                "match_count": limit,
-                "filter_user_id": user_id,
-            },
+            "search_memories_by_embedding", params
         ).execute()
         return result.data or []
-    except Exception:
-        # Fallback: keyword search if RPC not available
-        try:
-            result = (
-                await client.table("conversation_memories")
-                .select("id, key, value, category, importance")
-                .eq("user_id", user_id)
-                .is_("superseded_by", "null")
-                .ilike("value", f"%{query[:50]}%")
-                .limit(limit)
-                .execute()
-            )
-            return result.data or []
-        except Exception as e2:
-            logger.debug(f"Keyword fallback search also failed: {e2}")
-            return []
+    except Exception as e:
+        logger.debug(f"Vector memory search failed, falling back to keyword: {e}")
+
+    # Fallback: keyword search
+    try:
+        result = (
+            await client.table("conversation_memories")
+            .select("id, key, value, category, importance")
+            .eq("user_id", user_id)
+            .is_("superseded_by", "null")
+            .ilike("value", f"%{query[:50]}%")
+            .limit(limit)
+            .execute()
+        )
+        return result.data or []
+    except Exception as e2:
+        logger.debug(f"Keyword fallback search also failed: {e2}")
+        return []
 
 
 async def _llm_resolve(
