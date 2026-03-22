@@ -30,6 +30,7 @@ class GenerateMaintenanceReminderTool(BaseTool):
     """生成设备维护保养提醒和服务通知"""
 
     name = "generate_maintenance_reminder"
+    domain = "vmd_market"
     description = "生成设备维护保养提醒和服务通知。当用户说'维护提醒'、'保养通知'、'售后提醒'时调用。"
     required_role = "all"
     examples = [
@@ -142,6 +143,7 @@ class GenerateFaqResponseTool(BaseTool):
     """智能回答产品常见问题，基于知识库生成精准FAQ回复"""
 
     name = "generate_faq_response"
+    domain = "vmd_market"
     description = "基于知识库智能回答产品常见问题，生成精准的FAQ回复。当用户说'FAQ'、'常见问题'、'产品问题回复'时调用。"
     required_role = "all"
     examples = [
@@ -249,6 +251,7 @@ class GenerateRepurchaseCampaignTool(BaseTool):
     """生成老客户复购/增购营销方案"""
 
     name = "generate_repurchase_campaign"
+    domain = "vmd_market"
     description = "生成老客户复购或增购的营销方案。当用户说'复购方案'、'老客户营销'、'增购计划'时调用。"
     required_role = "all"
     examples = [
@@ -381,6 +384,7 @@ class CustomerLifecycleAnalysisTool(BaseTool):
     """分析客户生命周期价值和健康度"""
 
     name = "customer_lifecycle_analysis"
+    domain = "vmd_market"
     description = "分析客户生命周期价值和健康度，生成数据驱动的分析报告。当用户说'客户分析'、'生命周期'、'客户健康度'、'LTV分析'时调用。"
     required_role = "all"
     examples = [

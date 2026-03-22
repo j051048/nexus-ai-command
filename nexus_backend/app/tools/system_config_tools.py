@@ -30,6 +30,7 @@ class ListSystemConfigsTool(BaseTool):
     description = (
         "查询租户的系统配置列表，支持按配置类型筛选"
     )
+    domain = "admin"
     examples = [
         {"input": {}, "output_summary": "返回当前租户的所有配置项，按类型分组展示"},
         {"input": {"config_type": "asset_status"}, "output_summary": "仅返回资产状态相关的配置项"},
@@ -96,6 +97,7 @@ class UpdateSystemConfigTool(BaseTool):
 
     name = "update_system_config"
     description = "创建或更新租户的系统配置项"
+    domain = "admin"
     examples = [
         {"input": {"config_type": "asset_status", "config_key": "maintenance", "label": "维护中", "color": "#FFA500"}, "output_summary": "创建或更新一个资产状态配置项"},
         {"input": {"config_type": "priority", "config_key": "urgent", "label": "紧急", "icon": "alert"}, "output_summary": "创建一个带图标的优先级配置项"},

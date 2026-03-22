@@ -187,6 +187,7 @@ class DataAnalysisTool(BaseTool):
     description = (
         "对数据集执行统计分析，支持汇总、分组聚合、时序趋势和排名"
     )
+    domain = "analytics"
     examples = [
         {"input": {"data": [{"name": "A", "amount": 100}, {"name": "B", "amount": 200}], "analysis_type": "summary"}, "output_summary": "返回记录数、最小值、最大值、平均值、中位数等汇总统计"},
         {"input": {"data": [{"region": "华东", "sales": 500}], "analysis_type": "group_by", "group_field": "region", "value_field": "sales"}, "output_summary": "按区域分组统计销售额的合计和平均值"},

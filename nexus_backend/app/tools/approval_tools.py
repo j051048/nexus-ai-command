@@ -166,6 +166,7 @@ class SubmitApprovalOnBehalfTool(BaseTool):
         },
         "required": ["type", "description"],
     }
+    domain = "approval"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         from datetime import datetime
@@ -403,6 +404,7 @@ class GetEmployeeInfoTool(BaseTool):
         },
         "required": ["query"],
     }
+    domain = "hr"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         name = args.get("query") or args.get("employee_name")
@@ -449,6 +451,7 @@ class GetEmployeeApprovalHistoryTool(BaseTool):
         },
         "required": ["employee_id"],
     }
+    domain = "approval"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         employee_id = args.get("employee_id")
@@ -522,6 +525,7 @@ class ApprovalTool(BaseTool):
         },
         "required": ["request_id"],
     }
+    domain = "approval"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         req_id = args.get("request_id")
@@ -790,6 +794,7 @@ class RejectTool(BaseTool):
         },
         "required": ["request_id", "reason"],
     }
+    domain = "approval"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         req_id = args.get("request_id")
@@ -1002,6 +1007,7 @@ class PendingApprovalsTool(BaseTool):
     gotchas = ""
 
     parameters = {"type": "object", "properties": {}, "required": []}
+    domain = "approval"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)

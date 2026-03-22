@@ -36,6 +36,7 @@ class SmartApprovalTool(BaseTool):
 首次调用返回预览信息，需要确认后设置 confirm=true 才会真正执行。
 这是不可逆操作，需要人工确认。"""
     required_role = "boss"
+    domain = "approval"
     is_irreversible = True
     confirmation_message = "⚠️ 审批操作不可逆。请在弹出的确认框中确认后执行。"
     examples = [
@@ -458,6 +459,7 @@ class DailyBriefingTool(BaseTool):
     name = "get_daily_briefing"
     description = "获取每日工作简报，包含待审批事项、经营数据和风险预警。当领导说'今天有什么事'、'汇报一下'时调用。"
     required_role = "boss"
+    domain = "schedule"
     examples = [
         {"input": {"briefing_type": "full"}, "output_summary": "返回完整的每日简报（审批、业绩、预警）"},
         {"input": {"briefing_type": "approvals_only"}, "output_summary": "仅返回待审批事项列表及AI建议"},
@@ -692,6 +694,7 @@ class BusinessDashboardTool(BaseTool):
     name = "get_business_dashboard"
     description = "获取公司经营核心指标，包含收入、签约、商机和人效数据。当领导说'看看经营情况'、'本月业绩怎么样'时调用。"
     required_role = "boss"
+    domain = "analytics"
     examples = [
         {"input": {"period": "this_month", "focus": "all"}, "output_summary": "返回本月完整经营仪表盘"},
         {"input": {"period": "this_week", "focus": "revenue"}, "output_summary": "返回本周收入相关指标"},
@@ -811,6 +814,7 @@ class TeamInsightTool(BaseTool):
     name = "get_team_insight"
     description = "获取团队综合洞察报告，包含绩效分布、风险预警和人员排名。当用户说'团队情况'、'团队分析'时调用。"
     required_role = "manager"
+    domain = "analytics"
     examples = [
         {"input": {"insight_type": "performance"}, "output_summary": "返回团队绩效分布及排名"},
         {"input": {"insight_type": "risk"}, "output_summary": "返回需关注的低绩效人员列表"},
@@ -937,6 +941,7 @@ class AnnouncementTool(BaseTool):
     name = "publish_announcement"
     description = "发布全员或部门级公告通知。当领导说'发个通知'、'通知全员'时调用。注意：给特定个人发消息请用 send_notification。"
     required_role = "boss"
+    domain = "admin"
     examples = [
         {"input": {"title": "节假日安排", "content": "五一放假三天", "target": "all", "priority": "normal"}, "output_summary": "向全员发布节假日通知"},
         {"input": {"title": "紧急通知", "content": "系统维护", "target": "managers", "priority": "urgent"}, "output_summary": "向管理层发布紧急维护通知"},
@@ -1080,6 +1085,7 @@ class CustomerProfileTool(BaseTool):
     name = "generate_customer_profile"
     description = "根据客户关系管理数据生成客户画像分析，包含标签、偏好和跟进建议。当用户说'分析客户'、'客户画像'时调用。"
     required_role = "all"
+    domain = "crm"
     examples = [
         {"input": {"customer_name": "华为"}, "output_summary": "返回华为的AI客户画像（标签、偏好、风险、跟进策略）"},
         {"input": {"customer_name": "张总"}, "output_summary": "返回与张总相关的客户画像分析"},

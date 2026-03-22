@@ -28,6 +28,7 @@ class ListCertificatesTool(BaseTool):
 
     name = "list_certificates"
     description = "查询证照列表，支持按类型和持有者筛选。当用户说'查看证照'、'证照列表'时调用。"
+    domain = "admin"
     examples = [
         {"input": {}, "output_summary": "返回全部证照列表"},
         {"input": {"holder_type": "company"}, "output_summary": "返回公司持有的全部证照"},
@@ -115,6 +116,7 @@ class CreateCertificateTool(BaseTool):
 
     name = "create_certificate"
     description = "创建新的证照登记记录，需要管理员权限。当用户说'登记证照'、'添加证照'时调用。"
+    domain = "admin"
     examples = [
         {"input": {"cert_type": "营业执照", "cert_no": "BL-2024-001", "name": "营业执照", "holder_type": "company", "holder_id": "uuid-xxx", "issue_date": "2024-01-01", "expire_date": "2029-01-01"}, "output_summary": "创建一条营业执照记录"},
     ]
@@ -216,6 +218,7 @@ class ExpiringCertsTool(BaseTool):
 
     name = "expiring_certificates"
     description = "查询指定天数内即将到期的证照。当用户说'证照到期'、'哪些证照快到期了'时调用。"
+    domain = "admin"
     examples = [
         {"input": {}, "output_summary": "返回未来30天内即将到期的证照（默认）"},
         {"input": {"days": 90}, "output_summary": "返回未来90天内即将到期的证照"},
@@ -280,6 +283,7 @@ class RenewCertificateTool(BaseTool):
 
     name = "renew_certificate"
     description = "更新证照的到期日期，执行续期操作，需要管理员权限。当用户说'续期证照'、'更新证照有效期'时调用。"
+    domain = "admin"
     examples = [
         {"input": {"cert_id": "uuid-xxx", "new_expire_date": "2030-12-31"}, "output_summary": "将指定证照的到期日期更新为2030-12-31"},
     ]

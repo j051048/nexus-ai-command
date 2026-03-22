@@ -15,7 +15,6 @@ drop-in replacement.
 import asyncio
 import json
 import logging
-import re
 import time
 import uuid
 from collections.abc import AsyncGenerator
@@ -24,6 +23,20 @@ from typing import Any
 from app.agent.graph import get_agent_graph
 from app.agent.safety_guards import is_mutation_fast_path as _is_mutation_fast_path
 from app.agent.memory import persist_result, prepare_initial_state
+from app.agent.sse_protocol import (
+    SSE_KEEPALIVE_INTERVAL,
+    _chunk_text,
+    _sse_ask_user,
+    _sse_circuit_break,
+    _sse_confirmation,
+    _sse_content,
+    _sse_data,
+    _sse_keepalive,
+    _sse_status,
+    _sse_thinking,
+    _sse_tool_progress,
+    _with_keepalive,
+)
 from app.agent.state import (
     AgentConfig,
     AgentPhase,
@@ -31,195 +44,24 @@ from app.agent.state import (
     QueryComplexity,
     ThinkingStep,
 )
+from app.agent.stream_checks import run_pre_checks
+from app.agent.think_tags import extract_clean_content, strip_think_tags
 from app.core.config import settings
 from app.core.database import supabase
-from app.core.token_budget import BudgetVerdict, token_budget_manager
 from app.core.trace_logger import TraceLogger
-from app.services.content_moderation import check_user_input
 from app.services.agent_trace_service import TraceStatus, agent_trace_service
 from app.core.tenant_throttle import tenant_throttle
-from app.services.tenant_credit_service import CreditType, tenant_credit_service
 from app.services.token_service import (
     record_completion,
     token_counter,
     usage_tracker,
-    validate_request_tokens,
 )
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Reasoning model <think> tag stripping
-# ---------------------------------------------------------------------------
-# Models like step-3.5-flash, DeepSeek-R1, QwQ etc. emit <think>...</think>
-# blocks containing chain-of-thought reasoning.  These must be stripped before
-# reaching the frontend.
-
-# Regex for complete <think>...</think> blocks (non-greedy, DOTALL)
-_THINK_BLOCK_RE = re.compile(r"<think>.*?</think>\s*", re.DOTALL)
-
-
-def strip_think_tags(text: str) -> str:
-    """Remove all <think>...</think> blocks from text."""
-    if not text or "<think>" not in text and "</think>" not in text:
-        return text
-    # Remove complete blocks
-    cleaned = _THINK_BLOCK_RE.sub("", text)
-    # Remove orphan opening/closing tags (partial streaming artifacts)
-    cleaned = cleaned.replace("<think>", "").replace("</think>", "")
-    return cleaned.lstrip("\n")
-
-
-def extract_clean_content(msg) -> str:
-    """Extract clean response content from an AIMessage, stripping reasoning.
-
-    Handles three cases:
-    1. reasoning_content in additional_kwargs (OpenAI o1, Stepfun step-3.5-flash)
-    2. <think>...</think> blocks in content (DeepSeek-R1, QwQ)
-    3. Raw reasoning merged into content by proxy APIs
-
-    For case 3, if reasoning_content is found in additional_kwargs and the main
-    content starts with it (proxy merged them), strip the reasoning prefix.
-    """
-    content = msg.content or ""
-    kwargs = getattr(msg, "additional_kwargs", {}) or {}
-
-    # Case 1 & 3: reasoning_content stored separately by LangChain
-    reasoning = kwargs.get("reasoning_content", "")
-    if reasoning and content.startswith(reasoning):
-        # Proxy API merged reasoning into content — strip the reasoning prefix
-        content = content[len(reasoning):].lstrip("\n")
-
-    # Case 2: <think> tags
-    content = strip_think_tags(content)
-
-    return content
-
 
 # Use the singleton agent graph instance
 _agent_graph = get_agent_graph()
-
-# SSE keepalive interval (seconds).  Reverse proxies like CloudFlare (100s)
-# and Nginx (60s default proxy_read_timeout) drop idle connections.  Sending
-# a harmless SSE comment every 15s prevents that.
-SSE_KEEPALIVE_INTERVAL = 15
-
-
-async def _with_keepalive(event_stream, interval: int = SSE_KEEPALIVE_INTERVAL):
-    """Wrap an async event stream with periodic keepalive signals.
-
-    Yields the original events unchanged.  When no event arrives within
-    *interval* seconds, yields ``None`` so the caller can emit an SSE
-    keepalive comment and keep the HTTP connection alive.
-    """
-    aiter = event_stream.__aiter__()
-    fetch_task = None
-
-    async def _get_next():
-        return await anext(aiter)
-
-    try:
-        while True:
-            if fetch_task is None:
-                fetch_task = asyncio.create_task(_get_next())
-                
-            done, pending = await asyncio.wait([fetch_task], timeout=interval)
-            
-            if done:
-                try:
-                    event = fetch_task.result()
-                    fetch_task = None
-                    yield event
-                except StopAsyncIteration:
-                    break
-            else:
-                yield None
-    finally:
-        if fetch_task and not fetch_task.done():
-            fetch_task.cancel()
-
-
-def _sse_keepalive() -> str:
-    """SSE comment that keeps the connection alive through reverse proxies."""
-    return ": keepalive\n\n"
-
-
-def _sse_data(payload: Any) -> str:
-    """Format a payload as an SSE data line."""
-    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
-
-
-def _sse_content(text: str) -> str:
-    """Format text content in the OpenAI-compatible SSE format."""
-    return _sse_data({"choices": [{"delta": {"content": text}}]})
-
-
-def _sse_thinking(step: ThinkingStep) -> str:
-    """Emit a thinking step for the frontend thinking-chain UI."""
-    return _sse_data({"thinking_step": step.to_dict()})
-
-
-def _sse_status(status: str) -> str:
-    """Emit a status update."""
-    return _sse_data({"status": status})
-
-
-def _sse_confirmation(tool_name: str, message: str, args: dict, confirmation_type: str = "") -> str:
-    """Emit a confirmation request for a blocked tool call."""
-    return _sse_data(
-        {
-            "confirmation_required": {
-                "tool_name": tool_name,
-                "message": message,
-                "args": {k: v for k, v in args.items() if k != "api_key"},  # Strip secrets
-                "modifiable": True,  # P1-7: Allow user to edit args before confirming
-                "confirmation_type": confirmation_type,  # P0-6: tiered confirmation
-            }
-        }
-    )
-
-
-def _sse_ask_user(question: str, options: list[str] | None = None, context: str = "", fields: list | None = None) -> str:
-    """P1-7: Emit an ask_user event for the agent to proactively ask the user."""
-    return _sse_data(
-        {
-            "ask_user": {
-                "question": question,
-                "options": options or [],
-                "context": context,
-                "fields": fields,
-            }
-        }
-    )
-
-
-_CIRCUIT_BREAK_SUGGESTIONS = {
-    "loop_detected": "AI 检测到重复操作模式，请尝试用更具体的描述重新提问。",
-    "max_iterations": "本次推理已达到最大步数限制，请简化问题或拆分为多个小任务。",
-}
-
-
-def _sse_tool_progress(tool_name: str, status: str, duration_ms: int | None = None) -> str:
-    """#15: Emit tool execution progress for frontend progress bar."""
-    return _sse_data({
-        "tool_progress": {
-            "tool_name": tool_name,
-            "status": status,  # running | success | error
-            "duration_ms": duration_ms,
-        }
-    })
-
-
-def _sse_circuit_break(reason: str) -> str:
-    """Emit a circuit break event when the agent hits a safety limit."""
-    return _sse_data(
-        {
-            "circuit_break": {
-                "reason": reason,
-                "suggestion": _CIRCUIT_BREAK_SUGGESTIONS.get(reason, "请尝试重新描述您的需求。"),
-            }
-        }
-    )
 
 
 async def run_agent_stream(
@@ -309,79 +151,18 @@ async def run_agent_stream(
     except Exception:
         logger.debug("[Stream] Failed to pre-resolve model configs", exc_info=True)
 
-    # ── 1. Token budget check ──
-    await usage_tracker.ensure_loaded(user_id)
-    messages_dicts = [{"role": m.get("role", "user"), "content": m.get("content", "")} for m in messages]
-    is_allowed, input_tokens, reason = validate_request_tokens(messages_dicts, agent_config.model, user_id)
-    if not is_allowed:
-        yield _sse_content(f"⛔ 请求被拒绝 (超出限制): {reason}")
-        yield "data: [DONE]\n\n"
+    # ── 1-2. Pre-flight checks (token budget, moderation, PII) ──
+    checks_passed, check_events, last_user_content = await run_pre_checks(
+        messages=messages,
+        user_id=user_id,
+        model=agent_config.model,
+        session_id=session_id,
+        org_id=org_id,
+    )
+    if not checks_passed:
+        for evt in check_events:
+            yield evt
         return
-
-    # ── 1b. G5: Session/user/tenant cost circuit-breaker ──
-    try:
-        budget_status = await token_budget_manager.check_budget(
-            session_id=session_id or "default",
-            user_id=user_id,
-            tenant_id=org_id,
-        )
-        if budget_status.verdict == BudgetVerdict.EXCEEDED:
-            yield _sse_content(f"⛔ {budget_status.message}")
-            yield "data: [DONE]\n\n"
-            return
-        if budget_status.verdict == BudgetVerdict.WARNING:
-            logger.warning(f"[Stream] Token budget warning: {budget_status.message}")
-    except Exception as e:
-        logger.warning(f"[Stream] Token budget check failed (non-blocking): {e}")
-
-    # ── 1c. Tenant credit quota check ──
-    if org_id:
-        try:
-            has_credit, credit_error = await tenant_credit_service.check_credit(
-                org_id, CreditType.API_CALLS, 1
-            )
-            if not has_credit:
-                yield _sse_content(f"⚠️ 组织配额不足: {credit_error}")
-                yield "data: [DONE]\n\n"
-                return
-        except Exception as e:
-            logger.warning(f"[Stream] Tenant credit check failed (non-blocking): {e}")
-
-    # ── 2. Input moderation ──
-    last_user_content = ""
-    for msg in reversed(messages):
-        if msg.get("role") == "user":
-            last_user_content = msg.get("content", "")
-            break
-
-    if last_user_content:
-        is_safe, warning = check_user_input(last_user_content)
-        if not is_safe:
-            yield _sse_content(f"⛔ 安全警告: {warning}")
-            yield "data: [DONE]\n\n"
-            return
-
-    # ── 2a. PII sanitization before LLM ──
-    if last_user_content:
-        from app.services.content_moderation import sanitize_pii_for_llm
-
-        sanitized = sanitize_pii_for_llm(last_user_content)
-        if sanitized != last_user_content:
-            last_user_content = sanitized
-            # Sync back to messages so the LLM never sees raw PII
-            for msg in reversed(messages):
-                if msg.get("role") == "user":
-                    msg["content"] = sanitized
-                    break
-
-    # 2a-ext. Sanitize PII in ALL user messages (not just the last one)
-    # This catches PII in conversation history that may be sent to the LLM.
-    if messages:
-        from app.services.content_moderation import sanitize_pii_for_llm as _sanitize_pii
-
-        for msg in messages:
-            if msg.get("role") == "user" and isinstance(msg.get("content"), str):
-                msg["content"] = _sanitize_pii(msg["content"])
 
     # ── 2b. Early SIMPLE detection — skip RAG for casual chat ──
     # Also gate RAG for MODERATE queries: only enable when query suggests
@@ -1135,24 +916,3 @@ async def run_agent_stream(
         logger.debug(f"[Stream] Follow-up suggestions failed: {e}")
 
     yield "data: [DONE]\n\n"
-
-
-def _chunk_text(text: str, chunk_size: int = 4) -> list[str]:
-    """
-    Split text into small chunks for smooth streaming.
-    Respects word/character boundaries for Chinese and English.
-    """
-    if not text:
-        return []
-
-    chunks = []
-    current = ""
-    for char in text:
-        current += char
-        # Emit at natural boundaries
-        if len(current) >= chunk_size or char in ("\n", "。", "！", "？", ".", "!", "?"):
-            chunks.append(current)
-            current = ""
-    if current:
-        chunks.append(current)
-    return chunks

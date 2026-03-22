@@ -56,6 +56,7 @@ class ExpenseClaimTool(BaseTool):
         },
         "required": ["expense_type", "amount"],
     }
+    domain = "finance"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
@@ -265,6 +266,7 @@ class ExpenseQueryTool(BaseTool):
         },
         "required": [],
     }
+    domain = "finance"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
@@ -339,6 +341,7 @@ class BudgetQueryTool(BaseTool):
         },
         "required": [],
     }
+    domain = "finance"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         args.get("department")
@@ -379,6 +382,7 @@ class SalaryQueryTool(BaseTool):
         },
         "required": [],
     }
+    domain = "finance"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         month = args.get("month", datetime.now().strftime("%Y-%m"))
@@ -431,6 +435,7 @@ class InvoiceOCRTool(BaseTool):
         },
         "required": ["image_url"],
     }
+    domain = "finance"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         image_url = args.get("image_url", "")

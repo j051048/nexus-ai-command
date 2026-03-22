@@ -106,6 +106,7 @@ class CreateScheduledTaskTool(BaseTool):
         "请使用 schedule_type='once' + delay_minutes 参数，不要自己计算 hour/minute。"
     )
     required_role = "all"
+    domain = "schedule"
     examples = [
         {"input": {"name": "检查客户回复", "prompt": "检查最近的客户跟进情况并提醒我需要回复的客户", "schedule_type": "daily", "hour": 16, "minute": 0}, "output_summary": "创建每天16:00执行的定时任务"},
         {"input": {"name": "周报提醒", "prompt": "提醒我准备本周工作总结", "schedule_type": "weekly", "hour": 17, "minute": 0, "day_of_week": 4}, "output_summary": "创建每周五17:00执行的定时任务"},
@@ -303,6 +304,7 @@ class ListScheduledTasksTool(BaseTool):
     name = "list_scheduled_tasks"
     description = "查询当前用户的定时任务列表，支持筛选是否包含已停用任务。当用户说'我的定时任务'、'查看提醒'、'有哪些定时任务'时调用。"
     required_role = "all"
+    domain = "schedule"
     examples = [
         {"input": {}, "output_summary": "返回当前用户所有活跃定时任务列表"},
         {"input": {"include_inactive": True}, "output_summary": "返回包含已停用任务在内的全部定时任务列表"},
@@ -373,6 +375,7 @@ class DeleteScheduledTaskTool(BaseTool):
     name = "delete_scheduled_task"
     description = "删除、停用或启用指定的定时任务，支持按名称模糊匹配或按任务编号精确匹配。当用户说'删除定时任务'、'取消提醒'、'停止定时任务'时调用。"
     required_role = "all"
+    domain = "schedule"
     is_irreversible = True
     confirmation_message = "确认要删除此定时任务吗？删除后不可恢复。"
     examples = [

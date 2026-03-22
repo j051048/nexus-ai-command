@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 class ProjectListTool(BaseTool):
     name = "get_projects"
+    domain = "project"
     description = "查询当前所有未归档项目列表，返回项目名称、状态和进度"
     examples = [
         {"input": {}, "output_summary": "返回所有未归档项目的ID、名称、状态、进度百分比"},
@@ -35,6 +36,7 @@ class ProjectListTool(BaseTool):
 
 class CreateProjectTool(BaseTool):
     name = "create_project"
+    domain = "project"
     description = "创建新项目立项记录，设置名称、描述和初始状态。当用户说'帮我新建一个项目'时调用。"
     examples = [
         {"input": {"name": "智慧园区项目"}, "output_summary": "创建项目，状态默认为规划中，进度为0%"},
@@ -89,6 +91,7 @@ class CreateProjectTool(BaseTool):
 
 class CreateEventTool(BaseTool):
     name = "create_project_event"
+    domain = "project"
     description = "在指定项目中创建进度事件或关键节点，如里程碑、会议、宴请、任务等"
     examples = [
         {"input": {"project_id": "uuid", "title": "签署合同", "content": "与客户正式签约", "event_type": "milestone"}, "output_summary": "在项目时间线中创建一条里程碑事件"},
@@ -160,6 +163,7 @@ class WeeklyReportTool(BaseTool):
     """AI 周报/日报自动起草"""
 
     name = "generate_weekly_report"
+    domain = "project"
     description = "自动生成工作日报或周报，汇总任务完成情况、项目事件和下期计划。当用户说'帮我写周报'、'生成日报'时调用。"
     examples = [
         {"input": {}, "output_summary": "默认生成本周周报，汇总任务和项目数据"},

@@ -30,6 +30,7 @@ class MonitorIndustryTrendsTool(BaseTool):
     """监测科学仪器行业动态"""
 
     name = "monitor_industry_trends"
+    domain = "vmd_market"
     description = "监测科学仪器行业动态、政策变化和技术趋势，生成分析报告。当用户说'行业动态'、'最新趋势'、'政策变化'、'市场动态'时调用。"
     required_role = "all"
     examples = [
@@ -140,6 +141,7 @@ class GenerateMarketResearchTool(BaseTool):
     """生成市场需求调研报告"""
 
     name = "generate_market_research"
+    domain = "vmd_market"
     description = "生成目标市场的需求调研报告，分析市场规模、客户需求和竞争格局。当用户说'市场调研'、'市场分析'、'需求调研'时调用。"
     required_role = "all"
     examples = [
@@ -259,6 +261,7 @@ class GenerateCompetitorAnalysisTool(BaseTool):
     """生成竞品全维度分析报告"""
 
     name = "generate_competitor_analysis"
+    domain = "vmd_market"
     description = "生成竞品公司的全维度分析报告，涵盖产品、技术、市场和组织等维度。当用户说'竞品分析'、'研究对手'、'竞争对手报告'时调用。"
     required_role = "all"
     examples = [
@@ -364,6 +367,7 @@ class AggregateCustomerFeedbackTool(BaseTool):
     """汇总分析客户反馈和售后痛点"""
 
     name = "aggregate_customer_feedback"
+    domain = "vmd_market"
     description = "汇总分析客户反馈和售后痛点，为产品改进和研发提供依据。当用户说'客户反馈'、'售后问题汇总'、'用户痛点'、'VOC分析'时调用。"
     required_role = "all"
     examples = [

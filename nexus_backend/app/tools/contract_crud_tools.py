@@ -29,6 +29,7 @@ class GetContractsTool(BaseTool):
     """查询合同列表"""
 
     name = "get_contracts"
+    domain = "crm"
     description = "查询合同列表，支持按状态筛选和关键词搜索"
     examples = [
         {"input": {}, "output_summary": "返回全部合同列表"},
@@ -111,6 +112,7 @@ class CreateContractTool(BaseTool):
     """创建新合同"""
 
     name = "create_contract"
+    domain = "crm"
     description = "创建新合同记录，支持设置类型、金额、日期和关联客户"
     examples = [
         {"input": {"title": "华为年度服务合同", "contract_type": "service", "amount": 100000}, "output_summary": "创建一份金额10万的服务合同（草稿状态）"},
@@ -230,6 +232,7 @@ class GetExpiringContractsTool(BaseTool):
     """查询即将到期的合同"""
 
     name = "get_expiring_contracts"
+    domain = "crm"
     description = "查询指定天数内即将到期的合同，方便提前续约处理"
     examples = [
         {"input": {}, "output_summary": "返回未来30天内即将到期的合同列表"},

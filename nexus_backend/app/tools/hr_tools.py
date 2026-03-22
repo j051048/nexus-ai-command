@@ -18,6 +18,7 @@ class AttendanceQueryTool(BaseTool):
     """考勤查询工具"""
 
     name = "query_attendance"
+    domain = "attendance"
     description = "查询指定员工的考勤记录和出勤统计。当用户说'我的考勤'、'出勤情况'时调用。注意：查个人考勤用此工具，查团队考勤用 query_team_attendance。"
     required_role = "all"
     examples = [
@@ -67,6 +68,7 @@ class TeamAttendanceTool(BaseTool):
     """团队考勤管理工具（管理者专用）"""
 
     name = "query_team_attendance"
+    domain = "attendance"
     description = "查询团队整体考勤情况和异常预警。当管理者说'团队考勤'、'谁迟到了'时调用。仅限管理者使用。"
     required_role = "manager"
     examples = [
@@ -110,6 +112,7 @@ class EmployeeProfileTool(BaseTool):
     """员工画像工具（管理者专用）"""
 
     name = "get_employee_profile"
+    domain = "hr"
     description = "获取员工综合画像，包含绩效、考勤、成长轨迹和风险评估。当用户说'某某人怎么样'、'员工档案'时调用。注意：仅需查基本信息用 get_employee_detail。"
     required_role = "manager"
     examples = [
@@ -240,6 +243,7 @@ class PerformanceReviewTool(BaseTool):
     """绩效评估工具"""
 
     name = "create_performance_review"
+    domain = "hr"
     description = "发起绩效评估或查看团队绩效排行。当用户说'绩效考核'、'发起考评'、'团队绩效排名'时调用。"
     required_role = "manager"
     examples = [
@@ -375,6 +379,7 @@ class RecruitmentTool(BaseTool):
     """招聘管理工具"""
 
     name = "manage_recruitment"
+    domain = "hr"
     description = "管理招聘流程，包含创建职位、查看候选人、安排面试和解析简历。当用户说'招人'、'招聘'、'面试安排'时调用。"
     required_role = "manager"
     examples = [

@@ -27,6 +27,7 @@ class CreateWorkOrderTool(BaseTool):
     """创建工单"""
 
     name = "create_work_order"
+    domain = "project"
     description = "创建新工单，支持报修、投诉、申请、咨询等类型"
     examples = [
         {"input": {"title": "办公室空调故障", "order_type": "repair", "priority": "high"}, "output_summary": "创建一个高优先级的设备报修工单"},
@@ -134,6 +135,7 @@ class ListWorkOrdersTool(BaseTool):
     """查询工单列表"""
 
     name = "list_work_orders"
+    domain = "project"
     description = "查询工单列表，支持按类型、状态、优先级和处理人筛选"
     examples = [
         {"input": {}, "output_summary": "返回全部工单列表"},
@@ -236,6 +238,7 @@ class GetWorkOrderDetailTool(BaseTool):
     """获取工单详情"""
 
     name = "get_work_order_detail"
+    domain = "project"
     description = "查询指定工单的详细信息，包括描述、处理人和流转记录"
     examples = [
         {"input": {"order_id": "uuid-xxxx"}, "output_summary": "返回工单完整信息及最近5条流转记录"},
@@ -318,6 +321,7 @@ class UpdateWorkOrderTool(BaseTool):
     """更新工单"""
 
     name = "update_work_order"
+    domain = "project"
     description = "更新工单状态、指派处理人或添加备注"
     examples = [
         {"input": {"order_id": "uuid-xxxx", "status": "processing", "comment": "已开始处理"}, "output_summary": "将工单状态更新为处理中并添加备注"},
@@ -405,6 +409,7 @@ class WorkOrderStatisticsTool(BaseTool):
     """工单统计"""
 
     name = "work_order_statistics"
+    domain = "project"
     description = "获取工单统计数据，包括总量、各状态数量、平均响应时长和达标率"
     examples = [
         {"input": {}, "output_summary": "返回全部工单的统计概况"},

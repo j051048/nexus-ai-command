@@ -24,6 +24,7 @@ class DataAttributionTool(BaseTool):
         "对经营数据变化进行多维度智能归因分析，解释指标上涨或下跌的原因并给出改进建议。"
         "当用户说'为什么销售额下降了'、'分析一下业绩变化原因'、'解读数据'时调用。"
     )
+    domain = "analytics"
     examples = [
         {"input": {}, "output_summary": "对本月全部指标进行归因分析（默认）"},
         {"input": {"metric": "revenue", "period": "quarter"}, "output_summary": "对本季度营收指标进行归因分析"},
@@ -199,6 +200,7 @@ class StrategySimulationTool(BaseTool):
         "执行战略沙盘推演，基于企业真实数据回答假设性问题。"
         "例如：'进军华南市场需要多少预算'、'如果提价10%对客户流失的影响'。当用户提出战略假设时调用。"
     )
+    domain = "analytics"
     examples = [
         {"input": {"scenario": "如果提价10%对客户流失的影响"}, "output_summary": "基于当前经营数据推演提价10%的综合影响"},
         {"input": {"scenario": "招聘10名销售对季度营收的提升", "focus": "sales"}, "output_summary": "从销售维度推演扩招的影响"},

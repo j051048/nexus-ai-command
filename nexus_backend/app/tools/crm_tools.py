@@ -57,6 +57,7 @@ class GetCustomersTool(BaseTool):
         },
         "required": [],
     }
+    domain = "crm"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
@@ -120,6 +121,7 @@ class GetCustomerDetailTool(BaseTool):
         },
         "required": ["customer_id"],
     }
+    domain = "crm"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
@@ -217,6 +219,7 @@ class CreateCustomerTool(BaseTool):
         },
         "required": ["name"],
     }
+    domain = "crm"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
@@ -288,6 +291,7 @@ class UpdateCustomerTool(BaseTool):
         },
         "required": ["customer_id"],
     }
+    domain = "crm"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
@@ -349,6 +353,7 @@ class AddFollowUpTool(BaseTool):
         },
         "required": ["customer_id", "activity_type", "content"],
     }
+    domain = "crm"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
@@ -396,6 +401,7 @@ class GetFollowUpsTool(BaseTool):
         },
         "required": ["customer_id"],
     }
+    domain = "crm"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
@@ -468,6 +474,7 @@ class UpdateCustomerStageTool(BaseTool):
         },
         "required": ["customer_id", "new_stage"],
     }
+    domain = "crm"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
@@ -546,6 +553,7 @@ class GetSalesPipelineTool(BaseTool):
     related_tools = ["get_customers", "update_customer_stage"]
 
     parameters = {"type": "object", "properties": {}, "required": []}
+    domain = "crm"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)

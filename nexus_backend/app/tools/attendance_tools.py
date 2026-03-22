@@ -55,6 +55,7 @@ class ClockInOutTool(BaseTool):
         },
         "required": ["clock_type"],
     }
+    domain = "attendance"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
@@ -138,6 +139,7 @@ class GetAttendanceRecordTool(BaseTool):
         },
         "required": [],
     }
+    domain = "attendance"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
@@ -209,6 +211,7 @@ class CreateShiftScheduleTool(BaseTool):
         },
         "required": ["employee_id", "shift_date", "shift_type_id"],
     }
+    domain = "attendance"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
@@ -276,6 +279,7 @@ class ListShiftSchedulesTool(BaseTool):
         },
         "required": [],
     }
+    domain = "attendance"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
@@ -343,6 +347,7 @@ class AttendanceStatisticsTool(BaseTool):
         },
         "required": [],
     }
+    domain = "attendance"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
@@ -415,6 +420,7 @@ class RequestLeaveTool(BaseTool):
         },
         "required": ["leave_type", "start_date", "end_date"],
     }
+    domain = "attendance"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)

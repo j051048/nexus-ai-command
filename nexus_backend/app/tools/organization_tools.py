@@ -27,6 +27,7 @@ class ListDepartmentsTool(BaseTool):
     """查询部门列表"""
 
     name = "list_departments"
+    domain = "hr"
     description = "查询组织的部门列表，支持按父部门筛选子部门。当用户说'查看部门'、'部门列表'、'有哪些部门'时调用。"
     examples = [
         {"input": {}, "output_summary": "返回组织下所有顶级部门列表"},
@@ -84,6 +85,7 @@ class CreateDepartmentTool(BaseTool):
     """创建部门"""
 
     name = "create_department"
+    domain = "hr"
     description = "创建新的组织部门。当用户说'创建部门'、'新建部门'、'添加部门'时调用。"
     required_role = "admin"
     examples = [
@@ -157,6 +159,7 @@ class UpdateDepartmentTool(BaseTool):
     """更新部门信息"""
 
     name = "update_department"
+    domain = "hr"
     description = "更新部门信息，支持修改名称、负责人和状态。当用户说'更新部门'、'修改部门'、'设置部门负责人'时调用。"
     required_role = "admin"
     examples = [
@@ -238,6 +241,7 @@ class ListEmployeesTool(BaseTool):
     """查询员工列表"""
 
     name = "list_employees"
+    domain = "hr"
     description = "查询员工花名册，支持按部门、职位、状态和关键词筛选。当用户说'查看员工'、'员工列表'、'有哪些员工'时调用。"
     examples = [
         {"input": {"department_id": "abc123..."}, "output_summary": "返回指定部门的员工列表"},
@@ -325,6 +329,7 @@ class GetEmployeeDetailTool(BaseTool):
     """获取员工详情"""
 
     name = "get_employee_detail"
+    domain = "hr"
     description = "根据员工编号获取员工详细信息。当用户说'查看员工详情'、'员工信息'时调用。"
     examples = [
         {"input": {"employee_id": "abc123..."}, "output_summary": "返回该员工的姓名、部门、职位、状态、联系方式等详情"},
@@ -386,6 +391,7 @@ class CreateEmployeeTool(BaseTool):
     """创建员工"""
 
     name = "create_employee"
+    domain = "hr"
     description = "创建新员工并完成入职登记。当用户说'创建员工'、'新员工入职'、'录入员工'时调用。"
     required_role = "admin"
     examples = [
@@ -480,6 +486,7 @@ class UpdateEmployeeTool(BaseTool):
     """更新员工信息"""
 
     name = "update_employee"
+    domain = "hr"
     description = "更新员工信息，支持调岗、离职和信息变更。当用户说'更新员工'、'员工调岗'、'员工离职'时调用。"
     required_role = "admin"
     examples = [
@@ -567,6 +574,7 @@ class OrgStatisticsTool(BaseTool):
     """组织统计"""
 
     name = "org_statistics"
+    domain = "hr"
     description = "获取组织统计数据，包含总人数、部门数量和在职率。当用户说'组织统计'、'人员统计'、'有多少员工'时调用。"
     examples = [
         {"input": {}, "output_summary": "返回总员工数、在职数、离职数和部门数"},

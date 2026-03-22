@@ -10,6 +10,7 @@ from ._shared import _get_client
 class PerformanceReportTool(BaseTool):
     name = "get_performance_report"
     description = "获取指定用户的详细绩效报告，包括得分、排名、奖金和近期销售指标。当用户说'绩效报告'、'绩效数据'时调用。注意：此工具查个人绩效详情，团队整体用get_team_insight。"
+    domain = "analytics"
     examples = [
         {"input": {}, "output_summary": "返回当前用户的绩效报告"},
         {"input": {"user_id": "uuid-xxx"}, "output_summary": "返回指定用户的绩效报告"},
@@ -71,6 +72,7 @@ class PerformanceReportTool(BaseTool):
 class CompanyStatsTool(BaseTool):
     name = "get_company_stats"
     description = "获取公司整体统计数据，包括员工总人数和部门分布概况。当用户说'公司有多少人'、'员工总数'、'部门人数'时调用。注意：查经营数据（收入利润）用get_business_dashboard。"
+    domain = "analytics"
     examples = [
         {"input": {}, "output_summary": "返回公司总人数和各部门人数分布"},
     ]
@@ -111,6 +113,7 @@ class CompanyStatsTool(BaseTool):
 class KnowledgeBaseTool(BaseTool):
     name = "query_knowledge_base"
     description = "检索企业知识库中的政策、产品手册和业务文档。当用户问公司规定、产品参数、流程制度等事实性问题时调用。"
+    domain = "knowledge"
     examples = [
         {"input": {"query": "报销流程"}, "output_summary": "返回与报销流程相关的知识库内容"},
         {"input": {"query": "产品A技术参数"}, "output_summary": "返回产品A的技术参数文档"},
@@ -135,6 +138,7 @@ class KnowledgeBaseTool(BaseTool):
 class AwardBadgeTool(BaseTool):
     name = "award_badge"
     description = "为员工颁发荣誉徽章并发送通知。当用户说'颁发徽章'、'奖励员工'时调用。"
+    domain = "hr"
     examples = [
         {"input": {"user_id": "uuid-xxx", "badge_name": "销售冠军"}, "output_summary": "为指定员工颁发销售冠军徽章"},
         {"input": {"user_id": "uuid-xxx", "badge_name": "拼命三郎", "icon": "fire"}, "output_summary": "颁发拼命三郎徽章并使用fire图标"},

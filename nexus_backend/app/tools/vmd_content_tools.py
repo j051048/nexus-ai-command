@@ -28,6 +28,7 @@ class GenerateProductManualTool(BaseTool):
     """基于知识库生成科学仪器产品手册框架"""
 
     name = "generate_product_manual"
+    domain = "vmd_content"
     description = "基于知识库生成科学仪器产品手册框架，含产品概述、技术参数、应用场景和操作指南等章节。当用户说'生成产品手册'、'编写产品资料'、'产品文档'时调用。"
     required_role = "all"
     examples = [
@@ -132,6 +133,7 @@ class GenerateWhitepaperTool(BaseTool):
     """生成科学仪器行业技术白皮书"""
 
     name = "generate_whitepaper"
+    domain = "vmd_content"
     description = "生成科学仪器行业技术白皮书，含行业背景、技术原理、解决方案和应用案例。当用户说'写白皮书'、'技术白皮书'、'行业白皮书'时调用。"
     required_role = "all"
     examples = [
@@ -235,6 +237,7 @@ class GenerateApplicationNoteTool(BaseTool):
     """生成科学仪器应用方案文档"""
 
     name = "generate_application_note"
+    domain = "vmd_content"
     description = "生成针对特定行业或场景的科学仪器应用方案文档。当用户说'写应用方案'、'应用笔记'、'解决方案文档'时调用。"
     required_role = "all"
     examples = [
@@ -332,6 +335,7 @@ class GenerateSocialPostTool(BaseTool):
     """生成科学仪器行业自媒体文案"""
 
     name = "generate_social_post"
+    domain = "vmd_content"
     description = "生成适配各平台的科学仪器行业自媒体文案。当用户说'写公众号文案'、'生成社媒内容'、'发朋友圈'、'写推文'时调用。"
     required_role = "all"
     examples = [

@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from app.agent.stream import _chunk_text, _sse_content, _sse_data, _sse_status, _sse_thinking
+from app.agent.sse_protocol import _chunk_text, _sse_content, _sse_data, _sse_status, _sse_thinking
 from app.agent.state import ThinkingStep
 
 

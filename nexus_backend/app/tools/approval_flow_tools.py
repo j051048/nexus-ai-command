@@ -45,6 +45,7 @@ class ListApprovalFlowsTool(BaseTool):
         },
         "required": [],
     }
+    domain = "approval"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
@@ -123,6 +124,7 @@ class CreateApprovalFlowTool(BaseTool):
         },
         "required": ["name", "trigger_type", "steps"],
     }
+    domain = "approval"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)

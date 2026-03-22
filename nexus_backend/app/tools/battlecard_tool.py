@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 class BattlecardTool(BaseTool):
     name = "get_battlecard"
+    domain = "tender"
     description = "获取指定竞争对手的实时打击卡，含结构化数据和知识库补充"
     examples = [
         {"input": {"competitor_name": "安捷伦"}, "output_summary": "返回安捷伦的竞品打击卡，含优劣势、产品对比和打击策略"},
@@ -120,6 +121,7 @@ class BattlecardTool(BaseTool):
 
 class ListCompetitorsTool(BaseTool):
     name = "list_competitors"
+    domain = "tender"
     description = "列出当前租户已录入的所有竞品公司"
     examples = [
         {"input": {}, "output_summary": "返回所有已录入竞品的名称、标签和威胁等级列表"},

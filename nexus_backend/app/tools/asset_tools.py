@@ -27,6 +27,7 @@ class ListAssetsTool(BaseTool):
     """查询资产列表"""
 
     name = "list_assets"
+    domain = "asset"
     description = "查询资产列表，支持按类型、状态、部门筛选"
     examples = [
         {"input": {}, "output_summary": "返回全部资产列表"},
@@ -120,6 +121,7 @@ class GetAssetDetailTool(BaseTool):
     """获取资产详情"""
 
     name = "get_asset_detail"
+    domain = "asset"
     description = "查询指定资产的详细信息，包括使用人、部门和附加字段"
     examples = [
         {"input": {"asset_id": "uuid-xxxx"}, "output_summary": "返回资产的完整信息，包括名称、编号、状态、使用人等"},
@@ -198,6 +200,7 @@ class CreateAssetTool(BaseTool):
     """创建资产"""
 
     name = "create_asset"
+    domain = "asset"
     description = "创建新资产记录，适用于车辆、电脑、设备、办公家具等任意类型"
     examples = [
         {"input": {"asset_code": "PC-2026-001", "name": "联想笔记本", "asset_type": "computer"}, "output_summary": "创建一台电脑类型的资产"},
@@ -301,6 +304,7 @@ class UpdateAssetTool(BaseTool):
     """更新资产"""
 
     name = "update_asset"
+    domain = "asset"
     description = "更新指定资产的信息或状态，支持修改名称、状态、部门和使用人"
     examples = [
         {"input": {"asset_id": "uuid-xxxx", "status": "maintenance"}, "output_summary": "将资产状态更新为维修中"},
@@ -381,6 +385,7 @@ class TransferAssetTool(BaseTool):
     """资产转移/领用/归还"""
 
     name = "transfer_asset"
+    domain = "asset"
     description = "执行资产领用、归还、转移或报废操作，自动记录流转历史"
     examples = [
         {"input": {"asset_id": "uuid-xxxx", "transfer_type": "allocate", "to_user_id": "uuid-yyyy"}, "output_summary": "将资产领用给指定员工"},
@@ -488,6 +493,7 @@ class AssetStatisticsTool(BaseTool):
     """资产统计"""
 
     name = "asset_statistics"
+    domain = "asset"
     description = "获取资产统计数据，包括总量、各状态数量、利用率和总价值"
     examples = [
         {"input": {}, "output_summary": "返回全部资产的统计概况"},

@@ -27,6 +27,7 @@ class SmartReportTool(BaseTool):
 
     name = "smart_report"
     description = "生成组织综合报告，聚合员工、资产、工单、考勤数据。当用户说'生成报告'、'组织概况'、'综合报告'时调用。"
+    domain = "analytics"
     examples = [
         {"input": {"report_type": "daily"}, "output_summary": "返回当日全组织的员工/资产/工单/考勤汇总"},
         {"input": {"report_type": "weekly", "department_id": "uuid"}, "output_summary": "返回指定部门最近7天的综合报告"},
@@ -157,6 +158,7 @@ class AnomalyDetectionTool(BaseTool):
 
     name = "anomaly_detection"
     description = "检测组织数据中的异常情况，覆盖考勤、报销、库存范围。当用户说'检测异常'、'有没有异常'、'风险预警'时调用。"
+    domain = "analytics"
     examples = [
         {"input": {"scope": "all"}, "output_summary": "返回考勤、报销、库存三个维度的异常检测结果"},
         {"input": {"scope": "attendance"}, "output_summary": "仅返回考勤异常，如频繁迟到员工"},
@@ -275,6 +277,7 @@ class PredictiveMaintenanceTool(BaseTool):
 
     name = "predictive_maintenance"
     description = "预测资产维护需求，识别超期未维护的使用中资产。当用户说'维护预测'、'哪些设备需要维护'、'预防性维护'时调用。"
+    domain = "asset"
     examples = [
         {"input": {}, "output_summary": "返回所有使用中资产的维护预测建议"},
         {"input": {"asset_type": "computer"}, "output_summary": "仅返回电脑类资产的维护建议"},
@@ -384,6 +387,7 @@ class AutoDispatchTool(BaseTool):
 
     name = "auto_dispatch"
     description = "推荐工单最佳处理人，按员工当前工作量排序。当用户说'派遣工单'、'谁来处理这个工单'、'智能分配'时调用。"
+    domain = "project"
     examples = [
         {"input": {"order_id": "uuid"}, "output_summary": "返回该工单所属部门员工按工作量排序的派遣建议"},
     ]
@@ -485,6 +489,7 @@ class MeetingSummaryTool(BaseTool):
 
     name = "meeting_summary"
     description = "解析会议笔记原文，生成结构化会议纪要。当用户说'整理会议纪要'、'会议总结'时调用。"
+    domain = "oa_leave"
     examples = [
         {"input": {"content": "参会人员：张三、李四\n决定：启动新项目\n行动事项：张三负责方案"}, "output_summary": "返回结构化纪要，含参会人、决定、行动事项"},
         {"input": {"content": "今天讨论了预算问题，决定下周再议"}, "output_summary": "无明确分段时返回内容摘要并提示优化格式"},
@@ -600,6 +605,7 @@ class OnboardingAssistantTool(BaseTool):
 
     name = "onboarding_assistant"
     description = "生成新员工入职清单，含账号配置、设备分配、培训计划等。当用户说'入职清单'、'新员工入职'、'入职准备'时调用。"
+    domain = "hr"
     examples = [
         {"input": {"employee_id": "uuid"}, "output_summary": "返回该员工的完整入职清单，含可分配的闲置设备"},
         {"input": {"employee_id": "uuid", "department_id": "uuid"}, "output_summary": "返回入职清单，部门信息使用指定部门而非员工默认部门"},

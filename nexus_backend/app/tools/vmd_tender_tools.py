@@ -28,6 +28,7 @@ class GenerateBidDocumentTool(BaseTool):
     """基于招标要求生成投标文件初稿框架"""
 
     name = "generate_bid_document"
+    domain = "tender"
     description = "根据招标要求生成投标文件初稿框架，含技术方案、商务报价和资质证明等章节。当用户说'写投标文件'、'准备投标书'、'生成标书'时调用。"
     required_role = "all"
     examples = [
@@ -134,6 +135,7 @@ class GenerateDeviationTableTool(BaseTool):
     """生成技术偏离表"""
 
     name = "generate_deviation_table"
+    domain = "tender"
     description = "生成技术偏离表，逐项对照招标技术要求与我方产品参数。当用户说'偏离表'、'技术对比'、'参数对照'时调用。"
     required_role = "all"
     examples = [
@@ -227,6 +229,7 @@ class CheckBidComplianceTool(BaseTool):
     """校验投标文件合规性"""
 
     name = "check_bid_compliance"
+    domain = "tender"
     description = "校验投标文件的合规性，识别废标风险点并给出整改建议。当用户说'检查投标文件'、'合规检查'、'废标风险'时调用。"
     required_role = "all"
     examples = [
@@ -302,6 +305,7 @@ class ExtractBidRequirementsTool(BaseTool):
     """从招标文件中提取关键要求清单"""
 
     name = "extract_bid_requirements"
+    domain = "tender"
     description = "从招标文件中提取关键要求清单，含资质要求、技术参数、商务条件和评分标准。当用户说'分析招标文件'、'提取要求'、'读招标书'时调用。"
     required_role = "all"
     examples = [

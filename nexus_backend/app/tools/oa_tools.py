@@ -61,6 +61,7 @@ class LeaveRequestTool(BaseTool):
         },
         "required": ["leave_type", "start_date", "end_date"],
     }
+    domain = "oa_leave"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         token = config.get("token") if config else None
@@ -333,6 +334,7 @@ class LeaveQueryTool(BaseTool):
         },
         "required": [],
     }
+    domain = "oa_leave"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
@@ -429,6 +431,7 @@ class MeetingBookingTool(BaseTool):
         },
         "required": ["title", "datetime", "attendees"],
     }
+    domain = "oa_leave"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         title = args.get("title", "会议")
@@ -593,6 +596,7 @@ class TaskAssignmentTool(BaseTool):
         },
         "required": ["title", "assignee"],
     }
+    domain = "oa_leave"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         title = args.get("title")
@@ -705,6 +709,7 @@ class WorkHandoverTool(BaseTool):
         },
         "required": ["handover_to"],
     }
+    domain = "oa_leave"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         handover_to_name = args.get("handover_to")
@@ -795,6 +800,7 @@ class OnboardingChecklistTool(BaseTool):
         },
         "required": ["job_title"],
     }
+    domain = "oa_leave"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         import json as _json

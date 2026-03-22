@@ -263,7 +263,7 @@ class TestAgentStreamFormat:
 
     def test_sse_status_format(self):
         """Status events are valid SSE JSON."""
-        from app.agent.stream import _sse_status
+        from app.agent.sse_protocol import _sse_status
         result = _sse_status("正在分析...")
         assert result.startswith("data: ")
         assert result.endswith("\n\n")
@@ -272,14 +272,14 @@ class TestAgentStreamFormat:
 
     def test_sse_content_format(self):
         """Content events follow OpenAI-compatible format."""
-        from app.agent.stream import _sse_content
+        from app.agent.sse_protocol import _sse_content
         result = _sse_content("hello")
         parsed = json.loads(result.removeprefix("data: ").strip())
         assert parsed["choices"][0]["delta"]["content"] == "hello"
 
     def test_sse_thinking_format(self):
         """Thinking step events contain expected fields."""
-        from app.agent.stream import _sse_thinking
+        from app.agent.sse_protocol import _sse_thinking
         from app.agent.state import ThinkingStep
         step = ThinkingStep(phase="planning", content="Analyzing...", tool_name="search")
         result = _sse_thinking(step)

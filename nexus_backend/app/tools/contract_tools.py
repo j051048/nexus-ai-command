@@ -16,6 +16,7 @@ class ContractAnalysisTool(BaseTool):
     """AI 合同条款分析工具"""
 
     name = "analyze_contract"
+    domain = "crm"
     description = "分析合同文档，提取关键条款、识别风险点并生成摘要"
     examples = [
         {"input": {"contract_id": "uuid-xxxx", "focus": "risks"}, "output_summary": "分析指定合同的风险点，标注严重程度"},

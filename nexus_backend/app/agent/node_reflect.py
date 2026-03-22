@@ -160,7 +160,7 @@ async def reflect_node(state: AgentState) -> dict:
         last_content = ""
         for msg in reversed(messages):
             if isinstance(msg, AIMessage):
-                from app.agent.stream import extract_clean_content
+                from app.agent.think_tags import extract_clean_content
                 last_content = extract_clean_content(msg)
                 break
         return {

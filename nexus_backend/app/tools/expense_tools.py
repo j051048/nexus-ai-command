@@ -66,6 +66,7 @@ class SubmitExpenseTool(BaseTool):
         },
         "required": ["expense_type", "total_amount"],
     }
+    domain = "finance"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
@@ -147,6 +148,7 @@ class ListExpensesTool(BaseTool):
         },
         "required": [],
     }
+    domain = "finance"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
@@ -236,6 +238,7 @@ class ApproveExpenseTool(BaseTool):
         },
         "required": ["expense_id", "action"],
     }
+    domain = "finance"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
@@ -304,6 +307,7 @@ class CheckBudgetTool(BaseTool):
         },
         "required": [],
     }
+    domain = "finance"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)

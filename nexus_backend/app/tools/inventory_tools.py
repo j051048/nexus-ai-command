@@ -27,6 +27,7 @@ class ListInventoryTool(BaseTool):
     """查询库存列表"""
 
     name = "list_inventory"
+    domain = "inventory"
     description = "查询库存列表，支持按分类、位置、关键词筛选。当用户说'查看库存'、'物资列表'、'库存查询'时调用。"
     examples = [
         {"input": {}, "output_summary": "返回全部库存物品列表"},
@@ -109,6 +110,7 @@ class InventoryInTool(BaseTool):
     """入库操作"""
 
     name = "inventory_in"
+    domain = "inventory"
     description = "执行物品入库操作，增加指定物品的库存数量。当用户说'入库'、'物资入库'、'收货'时调用。"
     examples = [
         {"input": {"item_id": "uuid-xxx", "quantity": 100}, "output_summary": "将指定物品入库100个"},
@@ -178,6 +180,7 @@ class InventoryOutTool(BaseTool):
     """出库操作"""
 
     name = "inventory_out"
+    domain = "inventory"
     description = "执行物品出库操作，减少指定物品的库存数量。当用户说'出库'、'领用物资'、'物品出库'时调用。"
     examples = [
         {"input": {"item_id": "uuid-xxx", "quantity": 10}, "output_summary": "将指定物品出库10个"},
@@ -258,6 +261,7 @@ class InventoryStatisticsTool(BaseTool):
     """库存统计"""
 
     name = "inventory_statistics"
+    domain = "inventory"
     description = "获取库存统计数据，包括物品总数、总价值和低库存预警数。当用户说'库存统计'、'库存概况'、'物资统计'时调用。"
     examples = [
         {"input": {}, "output_summary": "返回全部库存的统计概况"},

@@ -9,6 +9,7 @@ from .base_tool import BaseTool
 
 class TenderAnalysisTool(BaseTool):
     name = "analyze_tender_document"
+    domain = "tender"
     description = "深度分析招标文件内容，提取否决性条款并生成合规性比对报告"
     examples = [
         {"input": {"tender_text": "投标人须具备ISO9001认证...最低注册资本500万..."}, "output_summary": "返回合规矩阵分析报告，标注否决性条款和合规风险"},

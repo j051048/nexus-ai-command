@@ -24,6 +24,7 @@ class CalendarQueryTool(BaseTool):
         "用户说'我的日程'、'这周安排'、'明天有什么事'、'有空吗'时调用。"
     )
     required_role = "all"
+    domain = "schedule"
     examples = [
         {
             "input": {"start_date": "2026-03-22", "end_date": "2026-03-28"},
@@ -150,6 +151,7 @@ class CalendarCreateTool(BaseTool):
         "用户说'安排一个会议'、'添加日程'、'记一下明天要做X'时调用。"
     )
     required_role = "all"
+    domain = "schedule"
     examples = [
         {
             "input": {
@@ -307,6 +309,7 @@ class CalendarUpdateTool(BaseTool):
         "用户说'改会议时间'、'取消明天的会'、'把周三的会推迟'时调用。"
     )
     required_role = "all"
+    domain = "schedule"
     confirmation_type = "IRREVERSIBLE"
     examples = [
         {

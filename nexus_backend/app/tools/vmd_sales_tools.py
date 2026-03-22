@@ -29,6 +29,7 @@ class GenerateSalesScriptTool(BaseTool):
     """生成科学仪器产品销售话术"""
 
     name = "generate_sales_script"
+    domain = "vmd_content"
     description = "生成指定产品的销售话术和技术答疑口径。当用户说'销售话术'、'怎么和客户说'、'产品卖点'、'FAQs回答'时调用。"
     required_role = "all"
     examples = [
@@ -136,6 +137,7 @@ class GenerateCompetitorComparisonTool(BaseTool):
     """生成竞品对比分析表"""
 
     name = "generate_competitor_comparison"
+    domain = "vmd_content"
     description = "生成我方产品与竞品的对比分析表，含技术参数、价格和优劣势。当用户说'竞品对比'、'和XX比怎么样'、'竞品分析表'时调用。"
     required_role = "all"
     examples = [
@@ -237,6 +239,7 @@ class GenerateTrainingMaterialTool(BaseTool):
     """生成销售培训课件大纲和内容"""
 
     name = "generate_training_material"
+    domain = "vmd_content"
     description = "生成销售培训课件大纲和核心内容。当用户说'培训课件'、'新人培训'、'产品培训'时调用。"
     required_role = "all"
     examples = [
@@ -343,6 +346,7 @@ class GenerateQuotationTemplateTool(BaseTool):
     """生成产品报价单模板"""
 
     name = "generate_quotation_template"
+    domain = "vmd_content"
     description = "生成产品报价单模板，含产品配置、价格明细和优惠方案。当用户说'报价单'、'做报价'、'价格方案'时调用。"
     required_role = "all"
     examples = [

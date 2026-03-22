@@ -18,6 +18,7 @@ class BiddingSearchTool(BaseTool):
     """搜索国内招投标项目信息"""
 
     name = "search_bidding_projects"
+    domain = "tender"
     description = (
         "搜索国内招投标和政府采购公告数据，支持按关键词和日期筛选"
     )
