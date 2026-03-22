@@ -49,11 +49,10 @@ def _format_by_temperature(mem: dict) -> str:
     if days_old < 3 and importance > 0.7:
         parts.append(value)
     elif days_old < 30:
-        val = mem.get("enriched_value") or value
-        parts.append(val[:150])
+        parts.append(value[:150])
     else:
         key = mem.get("key", "")
-        parts.append(f"{key}: {value[:30]}... (需使用 recall_memory 工具查看详情)")
+        parts.append(f"{key}: {value[:30]}... (需使用 search_long_term_memory 工具查看详情)")
     parts.append('</memory>')
     return "".join(parts)
 
@@ -323,25 +322,26 @@ async def build_memory_context(
     user_id: str,
     current_query: str,
     db: Any = None,
-    intent_summary: str | None = None,
+    complexity: str | None = None,
 ) -> str:
     """
     构建记忆上下文，注入到 system prompt 中。
-    使用 intent_summary 执行意图感知动态路由 (Intent-Aware Router)。
+    使用 complexity 执行意图感知动态路由 (Intent-Aware Router)。
     """
     context_parts: list[str] = []
-    
-    # Analyze intent to optimize retrieval caps (P2: Intent-Aware Memory Router)
+
+    # Analyze complexity to optimize retrieval caps (P2: Intent-Aware Memory Router)
     explicit_limit = 5
     relevant_limit = 5
     consolidated_limit = 3
-    
-    if intent_summary:
-        if "长文" in intent_summary or "复杂" in intent_summary:
+
+    if complexity:
+        _c = str(complexity).upper()
+        if _c in ("CRITICAL", "COMPLEX"):
             relevant_limit = 10
             consolidated_limit = 5
-        elif "查" in intent_summary or "找" in intent_summary:
-            relevant_limit = 8
+        elif _c == "SIMPLE":
+            relevant_limit = 3
             explicit_limit = 3
             
     # 1) Explicit memories -- always inject (user explicitly asked to remember)
