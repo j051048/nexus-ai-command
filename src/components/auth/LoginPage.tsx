@@ -471,12 +471,6 @@ export function LoginPage() {
           </Tabs>
         </div>
 
-        {/* Demo Account Info */}
-        <div className="mt-6 p-4 bg-secondary/50 rounded-xl text-center">
-          <p className="text-sm text-muted-foreground">
-            💡 演示提示：注册后即可登录体验完整功能
-          </p>
-        </div>
       </div>
     </div>
   );
