@@ -347,6 +347,10 @@ def _after_reflect(state: AgentState) -> str:
         max_iter = config.max_iterations if config else 5
         iteration = state.get("iteration", 0)
         if iteration < max_iter:
+            # ToT backtrack logging
+            backtrack_depth = state.get("backtrack_depth", 0)
+            if backtrack_depth > 0:
+                logger.info(f"[Graph:ToT] Backtracking to alternative plan (depth={backtrack_depth})")
             # Proactive compression: shrink messages mid-reasoning to save tokens
             if iteration >= 3:
                 _proactive_compress(state)

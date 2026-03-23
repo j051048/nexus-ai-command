@@ -60,6 +60,83 @@ def _normalize_number(text: str) -> float | None:
     return None
 
 
+def _check_data_source_primacy(ai_content: str, completed_tools: list) -> str | None:
+    """Layer 3.5: Detect enterprise data claims lacking internal tool backing.
+
+    If the response contains domain-specific data indicators (amounts, counts,
+    names in CRM/finance/HR context) but no relevant internal tool was called,
+    returns a reason string for hallucination flagging.  Returns None if OK.
+    """
+    # Enterprise-sensitive domains → data indicator keywords + expected tool prefixes
+    _SENSITIVE_DOMAINS: dict[str, tuple[list[str], list[str]]] = {
+        "finance": (
+            ["元", "¥", "万元", "报销", "预算", "薪资", "工资", "发票", "费用", "收入", "利润"],
+            ["query_finance", "get_finance", "finance_", "expense_"],
+        ),
+        "crm": (
+            ["客户", "合同", "商机", "线索", "转化率", "跟进率", "成交", "订单金额"],
+            ["query_crm", "get_crm", "crm_", "sales_lead", "query_sales"],
+        ),
+        "hr": (
+            ["员工", "入职", "离职", "绩效", "薪酬", "人数", "编制"],
+            ["query_hr", "get_hr", "hr_", "employee_"],
+        ),
+        "approval": (
+            ["审批", "待审", "已批", "已驳回", "审批流"],
+            ["query_approval", "get_approval", "approval_", "oa_"],
+        ),
+        "attendance": (
+            ["出勤", "迟到", "缺勤", "打卡", "加班时长"],
+            ["query_attendance", "get_attendance", "attendance_"],
+        ),
+        "inventory": (
+            ["库存", "出库", "入库", "库存量", "存货"],
+            ["query_inventory", "get_inventory", "inventory_"],
+        ),
+    }
+
+    # Collect tool names actually called (success or not)
+    called_tools: set[str] = set()
+    for t in completed_tools:
+        name = t.get("tool_name") if isinstance(t, dict) else getattr(t, "tool_name", None)
+        if name:
+            called_tools.add(name)
+
+    # Also check if web_search was called (potential OpenClaw behavior)
+    used_web_search = "web_search" in called_tools
+
+    # Numeric data pattern — numbers that look like real data (>= 2 digits)
+    _has_numeric = bool(re.search(r"\d{2,}", ai_content[:2000]))
+
+    flagged_domains: list[str] = []
+    for domain, (keywords, tool_prefixes) in _SENSITIVE_DOMAINS.items():
+        # Check if response mentions this domain's keywords
+        if not any(kw in ai_content for kw in keywords):
+            continue
+        # Check if a matching internal tool was called
+        has_internal_tool = any(
+            any(tool.startswith(prefix) for prefix in tool_prefixes)
+            for tool in called_tools - {"web_search"}
+        )
+        if not has_internal_tool and _has_numeric:
+            flagged_domains.append(domain)
+
+    if not flagged_domains:
+        return None
+
+    # Build reason
+    domains_str = ", ".join(flagged_domains)
+    if used_web_search:
+        return (
+            f"[DataPrimacy] 回复涉及企业内部数据领域({domains_str})的具体数据，"
+            f"但仅使用了网络搜索而非内部工具。请改用内部数据库工具查询真实数据。"
+        )
+    return (
+        f"[DataPrimacy] 回复涉及企业内部数据领域({domains_str})的具体数据，"
+        f"但未调用任何内部数据工具。请先查询内部系统获取真实数据，避免编造。"
+    )
+
+
 async def _verify_tool_grounding(ai_response: str, tool_results: list) -> str | None:
     """
     P1 Fix: Verify that numerical data in AI response matches tool results.
@@ -250,6 +327,17 @@ async def reflect_node(state: AgentState) -> dict:
             is_hallucination = True
             hallucination_reason = f"回复数据与工具返回不一致: {grounding_issues}"
 
+    # ── Layer 3.5: DataPrimacy source check (SourceCheck) ──
+    # Detects when the response contains enterprise-sensitive data claims
+    # (finance, CRM, HR, etc.) but NO corresponding internal tool was called.
+    # This prevents "OpenClaw syndrome" — fabricating enterprise data or
+    # sourcing it from the web instead of internal databases.
+    if not is_hallucination and not is_creative_writing and last_ai_content:
+        _source_issue = _check_data_source_primacy(last_ai_content, completed_tools)
+        if _source_issue:
+            is_hallucination = True
+            hallucination_reason = _source_issue
+
     # ── Layer 4: RAG-based groundedness check ──
     # IMPORTANT: Skip this check when tools were involved (even if some failed).
     # If the query triggered tool calls, it's a tool-oriented query — RAG context
@@ -429,6 +517,28 @@ AI 回复:
         from app.core.ai_metrics import record_hallucination
         record_hallucination("reflect_grounding_check")
 
+        # ToT backtrack: if alternative plans exist and haven't been tried, switch to backup
+        candidate_plans = state.get("candidate_plans", [])
+        backtrack_depth = state.get("backtrack_depth", 0)
+        _backtrack_extras = {}
+        if candidate_plans and backtrack_depth < 1:
+            alt = candidate_plans[0]
+            alt_sig = alt.get("sig", "unknown")
+            alt_tool_names = [tc.get("name", "") for tc in alt.get("tool_calls", [])]
+            logger.info(
+                f"[ReflectNode] ToT backtrack: switching to alternative plan "
+                f"(sig={alt_sig}, score={alt.get('score', 0):.2f})"
+            )
+            reflection_guidance = (
+                f"上一方案存在问题: {hallucination_reason}。"
+                f"请改用以下工具组合重新执行: {', '.join(alt_tool_names) or '纯文本回答'}。"
+                + (f"\n参考内容: {alt.get('content', '')[:200]}" if alt.get("content") else "")
+            )
+            _backtrack_extras = {
+                "backtrack_depth": backtrack_depth + 1,
+                "candidate_plans": candidate_plans[1:],  # consume the used alternative
+            }
+
         return {
             "messages": [HumanMessage(content=f"[自我指引] {reflection_guidance}")],
             "reflection": f"触发幻觉修正: {hallucination_reason}",
@@ -441,6 +551,7 @@ AI 回复:
             "reflection_count": reflection_count + 1,
             "thinking_steps": [
             ],
+            **_backtrack_extras,
         }
 
     return {

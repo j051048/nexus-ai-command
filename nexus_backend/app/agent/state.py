@@ -266,6 +266,7 @@ class AgentState(TypedDict, total=False):
       Control (6)  → confirmation_pending, _tool_call_history, _loop_escape_attempted,
                       context_compacted_summary, _task_decomposition_done,
                       _task_steps, _active_step_index
+      ToT (3)      → candidate_plans, backtrack_depth, best_plan_score
       SLO (1)      → wall_clock_start
     """
 
@@ -361,6 +362,11 @@ class AgentState(TypedDict, total=False):
     # ── Slot filling / DST (Dialog State Tracking) ──
     slot_context: dict | None      # {tool_name, tool_call_id, filled_slots, missing_slots, tool_schema}
     slot_round: int                # 当前澄清轮次 (0=首次, max=3)
+
+    # ── Tree-of-Thought (ToT) branch search ──
+    candidate_plans: list[dict]    # Top-N scored alternatives from self-consistency: [{sig, score, msg_snapshot}]
+    backtrack_depth: int           # Times we've backtracked to an alternative plan (max=1)
+    best_plan_score: float         # Votes / n for the winning plan (0.0-1.0)
 
 
 # ─── State Access Helpers ─────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 """Memory extraction from conversations: regex patterns + LLM-assisted extraction."""
 
+import contextlib
 import hashlib
 import json as _json
 import logging
@@ -88,6 +89,59 @@ MEMORY_SIGNAL_WORDS = frozenset({
     "我喜欢", "我讨厌", "我倾向", "帮我记", "请记住",
     "不是这个意思", "你又忘了", "你理解错了", "说了多少遍",
 })
+
+# Behavior preference patterns — auto-detect and write to ai_settings.behavior_preferences
+# Each entry: (pattern, preference_key, preference_value)
+BEHAVIOR_PREF_PATTERNS: list[tuple[re.Pattern, str, str]] = [
+    # Response style
+    (re.compile(r"(?:简洁|简短|精简|简要)(?:一点|些|地)?(?:回答|回复|说)?"), "response_style", "concise"),
+    (re.compile(r"(?:详细|详尽|展开|具体)(?:一点|些|地)?(?:回答|回复|说|解释)?"), "response_style", "detailed"),
+    # Language preference
+    (re.compile(r"(?:用|请用|以后用)英文(?:回答|回复)?"), "language", "en"),
+    (re.compile(r"(?:用|请用|以后用)中文(?:回答|回复)?"), "language", "zh"),
+    # Chart preference
+    (re.compile(r"(?:用|我喜欢|偏好)(?:柱状图|柱形图|条形图)"), "preferred_chart", "bar"),
+    (re.compile(r"(?:用|我喜欢|偏好)(?:折线图|线图|趋势图)"), "preferred_chart", "line"),
+    (re.compile(r"(?:用|我喜欢|偏好)(?:饼图|饼状图|圆形图)"), "preferred_chart", "pie"),
+    (re.compile(r"(?:用|我喜欢|偏好)(?:面积图|区域图)"), "preferred_chart", "area"),
+]
+
+
+async def _update_behavior_preferences(
+    user_id: str, detected: dict[str, str], db: Any = None,
+) -> None:
+    """Write detected behavior preferences to ai_settings.behavior_preferences (JSONB merge)."""
+    if not detected:
+        return
+    try:
+        from app.core.database import supabase
+        client = db or supabase
+        if not client:
+            return
+        # Read current preferences
+        result = await (
+            client.table("ai_settings")
+            .select("behavior_preferences")
+            .eq("user_id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        current = (result.data or {}).get("behavior_preferences", {}) if result.data else {}
+        if not isinstance(current, dict):
+            current = {}
+        # Merge detected preferences
+        merged = {**current, **detected}
+        if merged == current:
+            return  # No change
+        # Upsert
+        await (
+            client.table("ai_settings")
+            .upsert({"user_id": user_id, "behavior_preferences": merged}, on_conflict="user_id")
+            .execute()
+        )
+        logger.info(f"[BehaviorPref] Updated behavior preferences for {user_id}: {detected}")
+    except Exception as e:
+        logger.debug(f"[BehaviorPref] Failed to update preferences: {e}")
 
 
 async def _enrich_memory_values(
@@ -261,6 +315,19 @@ async def extract_preferences(
     # P0: 滑动窗口预处理 — 上下文补全
     if extracted:
         extracted = await _enrich_memory_values(extracted, messages)
+
+    # S5: Auto-detect behavior preferences and write to ai_settings
+    behavior_detected: dict[str, str] = {}
+    for msg in messages:
+        if msg.get("role") != "user":
+            continue
+        content = msg.get("content", "")
+        for pattern, pref_key, pref_value in BEHAVIOR_PREF_PATTERNS:
+            if pattern.search(content):
+                behavior_detected[pref_key] = pref_value
+    if behavior_detected:
+        with contextlib.suppress(Exception):
+            await _update_behavior_preferences(user_id, behavior_detected, db=db)
 
     # Save extracted memories — with conflict resolution if possible
     saved: list[dict] = []

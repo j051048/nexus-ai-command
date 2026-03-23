@@ -161,16 +161,24 @@ async def search_memories(
     except Exception as e:
         logger.warning(f"Memory search failed: {e}")
 
-    # Update access counts for returned memories
+    # Update access counts and Bayesian importance reinforcement for returned memories
     now = datetime.now(UTC).isoformat()
     for mem in memories[:limit]:
         with contextlib.suppress(Exception):
+            current_importance = float(mem.get("importance", 0.5) or 0.5)
+            access_count = int(mem.get("access_count", 0) or 0)
+            # Bayesian reinforcement: small boost on retrieval, diminishing returns
+            # Formula: delta = 0.05 / (1 + access_count * 0.3), capped at importance=1.0
+            # First hit: +0.05, 5th hit: +0.02, 10th hit: +0.013
+            delta = 0.05 / (1 + access_count * 0.3)
+            new_importance = min(current_importance + delta, 1.0)
             await (
                 client.table("conversation_memories")
                 .update(
                     {
-                        "access_count": (mem.get("access_count", 0) or 0) + 1,
+                        "access_count": access_count + 1,
                         "last_accessed_at": now,
+                        "importance": round(new_importance, 4),
                     }
                 )
                 .eq("id", mem["id"])

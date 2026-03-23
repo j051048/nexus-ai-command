@@ -12,7 +12,7 @@ import { AIMessage } from '@/types/nexus';
 import { toast } from 'sonner';
 import { useAIStream } from '@/hooks/useAIStream';
 import { useAgentTrace } from '@/hooks/useAgentTrace';
-import { useOrchestrationTrace } from '@/hooks/useOrchestrationTrace';
+import { useOrchestrationTrace, type OrchestrationEvent } from '@/hooks/useOrchestrationTrace';
 import { aiClient } from '@/api/aiClient';
 import { supabase } from '@/integrations/supabase/client';
 import { drainProactiveMessages, PROACTIVE_MSG_EVENT } from '@/lib/proactiveMessageStore';
@@ -359,7 +359,7 @@ export function EnhancedAIChatPanel({
 
         if (error || !data?.length) return;
 
-        type ProactiveRow = { id: string; created_at: string; content?: string; metadata?: Record<string, any> };
+        type ProactiveRow = { id: string; created_at: string; content?: string; metadata?: Record<string, unknown> };
 
         // 过滤掉已删除的定时任务产生的消息
         const scheduledRows = data.filter(
@@ -430,7 +430,7 @@ export function EnhancedAIChatPanel({
           const existingIds = new Set(prev.map(m => m.id));
           // Also check for duplicate content already in chat
           const existingContents = new Set(
-            prev.filter(m => (m as any).isProactive).map(m => m.content?.slice(0, 100))
+            prev.filter(m => m.isProactive).map(m => m.content?.slice(0, 100))
           );
           const newMsgs = deduplicated
             .filter((row: ProactiveRow) =>
@@ -607,7 +607,7 @@ export function EnhancedAIChatPanel({
             addToolProgress(progress.tool_name, progress.status, progress.duration_ms);
           },
           onOrchestration: (event) => {
-            handleOrchestrationEvent(event as any);
+            handleOrchestrationEvent(event as OrchestrationEvent);
           },
         },
         {
@@ -644,7 +644,7 @@ export function EnhancedAIChatPanel({
         ];
       });
     }
-  }, [isAiTyping, currentAgent, streamChat, onSendMessage, addThinkingStep, addToolProgress, endTrace, startTrace, pendingImages]);
+  }, [isAiTyping, currentAgent, streamChat, onSendMessage, addThinkingStep, addToolProgress, endTrace, startTrace, pendingImages, autoExpandTrace, handleOrchestrationEvent, resetOrchestration]);
 
   const commandBarSendRef = useRef(false);
   useEffect(() => {

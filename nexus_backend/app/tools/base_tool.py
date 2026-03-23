@@ -123,6 +123,21 @@ class BaseTool(ABC):
         Execute node returns a guidance error if prerequisites are missing."""
         return []
 
+    @property
+    def isolation_level(self) -> str:
+        """Execution isolation level for high-risk tools.
+
+        Values:
+          - "inline" (default): Execute in the same process as the agent.
+          - "celery": Offload to a Celery worker with timeout. Use for tools
+            that call external paid APIs, perform heavy computation, or have
+            side effects that benefit from independent failure isolation.
+
+        Override in subclass for tools like payment processing, bulk email,
+        or external webhook triggers.
+        """
+        return "inline"
+
     def check_confirmation(self, args: dict[str, Any], system_confirmed: bool = False) -> tuple[str | None, str]:
         """
         System-level confirmation gate.

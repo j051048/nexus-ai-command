@@ -245,6 +245,7 @@ from app.agent.node_helpers import (
     tool_circuit_breaker,
 )
 from app.services.plugin_system_service import ExtensionPoint
+from app.agent.symbolic_guard import check_symbolic_policy
 
 
 def _topological_sort(pending: list) -> list[list]:
@@ -467,6 +468,25 @@ async def _execute_single_tool(
         logger.warning(f"Tool {record.tool_name} requires org_id but none provided (user={config.user_id})")
         return record
 
+    # 4b. Symbolic policy guard: deterministic rule checks (zero LLM, <1ms)
+    policy_verdict = await check_symbolic_policy(
+        tool_name=record.tool_name,
+        tool_args=record.tool_args,
+        user_role=getattr(config, "user_role", "") or "",
+        org_id=config.org_id,
+    )
+    if not policy_verdict.allowed:
+        if policy_verdict.escalation == "needs_approval":
+            # Escalate to HITL confirmation flow
+            record.status = "blocked"
+            record.confirmation_type = "policy_guard"
+            record.result = f"⚠️ [策略拦截] {policy_verdict.reason}。需要人工审批后执行。"
+        else:
+            record.status = "error"
+            record.error_type = "fatal"
+            record.result = f"⛔ [策略拦截] {policy_verdict.reason}"
+        return record
+
     # 5. Execute with configurable timeout and structured retry
     start_time = time.time()
     last_error = None
@@ -477,6 +497,28 @@ async def _execute_single_tool(
     # Use longer timeout for known long-running tools
     if record.tool_name in LONG_RUNNING_TOOLS:
         timeout = max(timeout, 120.0)
+
+    # S4: Celery isolation for high-risk tools
+    isolation = getattr(tool, "isolation_level", "inline")
+    if isolation == "celery":
+        try:
+            from app.tasks.tool_tasks import execute_tool_isolated
+
+            celery_result = execute_tool_isolated.apply_async(
+                args=[record.tool_name, record.tool_args, config.user_id, config.org_id],
+                expires=int(timeout) + 30,
+            )
+            result = celery_result.get(timeout=timeout + 10)
+            record.result = str(result)
+            record.status = "success"
+            record.duration_ms = int((time.time() - start_time) * 1000)
+            record_tool_execution(record.tool_name, True, record.duration_ms)
+            logger.info(f"[Execute] Celery-isolated tool {record.tool_name} completed in {record.duration_ms}ms")
+            return record
+        except ImportError:
+            logger.debug("[Execute] Celery not available, falling back to inline execution")
+        except Exception as e:
+            logger.warning(f"[Execute] Celery execution failed for {record.tool_name}: {e}, falling back to inline")
 
     for attempt in range(max_attempts):
         try:

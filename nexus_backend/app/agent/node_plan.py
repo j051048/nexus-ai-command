@@ -45,6 +45,9 @@ async def _plan_with_self_consistency(
 
     使用 temperature=0.7 多次调用，提取每次的 tool_calls 列表，
     用 Counter 投票选工具组合一致性最高的方案。
+
+    Returns: (best_sample, candidate_plans) where candidate_plans is a list
+    of scored alternatives for Tree-of-Thought backtracking.
     """
     from collections import Counter
     from langchain_openai import ChatOpenAI
@@ -76,7 +79,7 @@ async def _plan_with_self_consistency(
             samples.append(r)
 
     if not samples:
-        return None  # 全部失败，退回单次调用
+        return None, []  # 全部失败，退回单次调用
 
     # 按工具组合签名投票
     def _tool_signature(msg) -> str:
@@ -86,7 +89,29 @@ async def _plan_with_self_consistency(
 
     sigs = [_tool_signature(s) for s in samples]
     counter = Counter(sigs)
-    best_sig, _count = counter.most_common(1)[0]
+    best_sig, best_count = counter.most_common(1)[0]
+
+    # Build scored candidate list for ToT backtracking (top-2, excluding winner)
+    candidate_plans = []
+    for sig, count in counter.most_common():
+        if sig == best_sig:
+            continue  # Winner goes directly as return value
+        # Find first sample with this signature
+        for s, s_sig in zip(samples, sigs):
+            if s_sig == sig:
+                candidate_plans.append({
+                    "sig": sig,
+                    "score": count / n,
+                    "tool_calls": [
+                        {"name": tc.get("name", "") if isinstance(tc, dict) else getattr(tc, "name", ""),
+                         "args": tc.get("args", {}) if isinstance(tc, dict) else getattr(tc, "args", {})}
+                        for tc in (getattr(s, "tool_calls", None) or [])
+                    ],
+                    "content": s.content or "",
+                })
+                break
+    # Keep at most 1 alternative (top-2 total: winner + 1 backup)
+    candidate_plans = candidate_plans[:1]
 
     # 选该签名的第一个样本
     for s, sig in zip(samples, sigs):
@@ -102,10 +127,13 @@ async def _plan_with_self_consistency(
             )
             s._sc_total_input_tokens = total_sc_input
             s._sc_total_output_tokens = total_sc_output
-            logger.info(f"[SelfConsistency] Selected tool combination: {best_sig} (votes: {_count}/{n})")
-            return s
+            logger.info(
+                f"[SelfConsistency] Selected: {best_sig} (votes: {best_count}/{n}), "
+                f"alternatives: {len(candidate_plans)}"
+            )
+            return s, candidate_plans
 
-    return samples[0]
+    return samples[0], []
 
 
 async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> dict:
@@ -495,10 +523,12 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         tool_schemas = _get_tool_schemas(agent_config.user_role, intent_summary=state.get("intent_summary", ""), scene_code=state.get("scene_code"), intent_domains=state.get("intent_domains"))
     last_error = None
     _sc_succeeded = False
+    sc_candidates = []
+    _sc_best_score = 1.0
 
     # ── CRITICAL Self-Consistency: 多次采样投票（仅首轮） ──
     if complexity == QueryComplexity.CRITICAL and iteration == 0:
-        sc_result = await _plan_with_self_consistency(
+        sc_result, sc_candidates = await _plan_with_self_consistency(
             lc_msgs, agent_config, model, tool_schemas, resolved_config=resolved,
         )
         if sc_result is not None:
@@ -506,6 +536,10 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             record_llm_latency(model=model or agent_config.model, duration_ms=(time.time() - _llm_start) * 1000)
             llm_circuit_breaker.record_success()
             _sc_succeeded = True
+            # Extract best score from the _sc metadata if available
+            if hasattr(sc_result, "_sc_total_input_tokens"):
+                # Score was logged in _plan_with_self_consistency
+                _sc_best_score = 1.0  # Will be computed below from candidates
         else:
             logger.warning("[PlanNode] Self-Consistency failed, falling back to single invoke")
 
@@ -829,6 +863,13 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         "total_input_tokens": state.get("total_input_tokens", 0) + input_tokens,
         "total_output_tokens": state.get("total_output_tokens", 0) + output_tokens,
     }
+
+    # ToT: Store self-consistency candidates for backtracking (only on first CRITICAL iteration)
+    if _sc_succeeded and sc_candidates:
+        result["candidate_plans"] = sc_candidates
+        # best_plan_score = 1 - max alternative score (higher = more confident in winner)
+        result["best_plan_score"] = 1.0 - max((c.get("score", 0) for c in sc_candidates), default=0)
+        result["backtrack_depth"] = 0
 
     # P1: Store task decomposition in state
     if _new_task_steps:

@@ -121,7 +121,7 @@ class Settings(BaseSettings):
     MAX_CONCURRENT_LLM_PER_TENANT: int = Field(default=10, description="Max concurrent LLM requests per tenant")
 
     # G5: Token budget / cost circuit-breaker
-    TOKEN_BUDGET_MAX_PER_SESSION: int = Field(default=50000, description="Max tokens per single chat session")
+    TOKEN_BUDGET_MAX_PER_SESSION: int = Field(default=100000, description="Max tokens per single chat session")
     TOKEN_BUDGET_MAX_PER_HOUR_PER_USER: int = Field(default=200000, description="Max tokens per user per hour")
     TOKEN_BUDGET_MAX_COST_PER_SESSION: float = Field(default=5.0, description="Max cost (USD) per single chat session")
     TOKEN_BUDGET_MAX_COST_PER_DAY_PER_TENANT: float = Field(default=100.0, description="Max cost (USD) per tenant per day")

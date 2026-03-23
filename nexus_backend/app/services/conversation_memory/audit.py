@@ -26,6 +26,9 @@ async def log_memory_change(
     reason: str | None = None,
     actor: str = "system",
     db: Any = None,
+    *,
+    source: str | None = None,
+    extraction_method: str | None = None,
 ) -> bool:
     """记录一条记忆变更审计日志。
 
@@ -38,6 +41,8 @@ async def log_memory_change(
         reason: LLM 给出的变更原因（可选）
         actor: 操作来源，如 'system', 'user_explicit', 'conflict_resolution'
         db: 数据库客户端
+        source: Provenance — where this memory came from (e.g. 'chat_session:abc123')
+        extraction_method: How the memory was extracted ('regex', 'llm', 'user_explicit', 'consolidation')
 
     Returns:
         True if logged successfully, False otherwise (non-fatal)
@@ -47,7 +52,7 @@ async def log_memory_change(
         return False
 
     try:
-        await client.table("memory_audit_log").insert({
+        row = {
             "memory_id": memory_id,
             "user_id": user_id,
             "action": action,
@@ -56,7 +61,12 @@ async def log_memory_change(
             "reason": reason,
             "actor": actor,
             "created_at": datetime.now(UTC).isoformat(),
-        }).execute()
+        }
+        if source:
+            row["source"] = source
+        if extraction_method:
+            row["extraction_method"] = extraction_method
+        await client.table("memory_audit_log").insert(row).execute()
         return True
     except Exception as e:
         # Audit logging is non-fatal — don't block the main operation

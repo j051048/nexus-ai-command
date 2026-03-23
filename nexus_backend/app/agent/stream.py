@@ -392,6 +392,13 @@ async def run_agent_stream(
     streamed_plan_text = ""  # Track what was streamed during plan phase
     _graph_start_time = time.time()
 
+    # ── Mid-flight output token budget breaker ──
+    # Counts streamed characters → approximate tokens to cap runaway output.
+    # Uses char÷3 as a mixed Chinese/English approximation (cheap, no tiktoken).
+    _streamed_chars = 0
+    _output_token_budget = settings.TOKEN_BUDGET_MAX_PER_SESSION  # 50 000 by default
+    _budget_breached = False
+
     # Checkpointer corrupt state detection keywords
     corrupt_state_keywords = ("deserializ", "pickle", "ToolCallRecord", "unmarshal", "decode", "SerializationError")
 
@@ -476,6 +483,7 @@ async def run_agent_stream(
 
                     if emit:
                         yield _sse_content(emit)
+                        _streamed_chars += len(emit)
                         streamed_plan_content = True
                     streamed_plan_text += emit  # Use filtered content, not raw
                 elif content and node_name == "plan":
@@ -487,9 +495,30 @@ async def run_agent_stream(
                         plan_filtered = _filter_think_content(content)
                         if plan_filtered:
                             yield _sse_content(plan_filtered)
+                            _streamed_chars += len(plan_filtered)
                         streamed_plan_content = True
                     # Always accumulate plan text for final_response dedup check
                     streamed_plan_text += content
+
+                # ── Mid-flight budget check (both respond & plan paths) ──
+                if not _budget_breached and _streamed_chars // 3 > _output_token_budget:
+                    _budget_breached = True
+                    logger.warning(
+                        "[Stream] Output token budget breached: ~%d tokens "
+                        "(chars=%d, limit=%d) user=%s session=%s",
+                        _streamed_chars // 3, _streamed_chars,
+                        _output_token_budget, user_id, session_id,
+                    )
+                    yield _sse_data({
+                        "budget_breaker": {
+                            "reason": "output_token_limit",
+                            "estimated_tokens": _streamed_chars // 3,
+                            "limit": _output_token_budget,
+                            "message": "回复已达到输出 token 上限，已自动截断。",
+                        }
+                    })
+                    yield _sse_content("\n\n⚠️ 回复已达到输出上限，已自动截断。")
+                    break
 
             # B. State Updates (when a node completes)
             elif kind == "on_chain_end":
@@ -628,6 +657,8 @@ async def run_agent_stream(
                 all_thinking_steps = []
                 streamed_plan_content = False
                 streamed_plan_text = ""
+                _streamed_chars = 0
+                _budget_breached = False
 
                 async for event in _with_keepalive(_agent_graph.astream_events(
                     initial_state,
@@ -653,6 +684,7 @@ async def run_agent_stream(
                             filtered = _filter_think_content(content)
                             if filtered:
                                 yield _sse_content(filtered)
+                                _streamed_chars += len(filtered)
                                 streamed_plan_content = True
                             streamed_plan_text += filtered or ""
                         elif content and node_name == "plan":
@@ -660,8 +692,29 @@ async def run_agent_stream(
                                 plan_filtered = _filter_think_content(content)
                                 if plan_filtered:
                                     yield _sse_content(plan_filtered)
+                                    _streamed_chars += len(plan_filtered)
                                 streamed_plan_content = True
                             streamed_plan_text += content
+
+                        # ── Mid-flight budget check (retry path) ──
+                        if not _budget_breached and _streamed_chars // 3 > _output_token_budget:
+                            _budget_breached = True
+                            logger.warning(
+                                "[Stream] Output token budget breached (retry): ~%d tokens "
+                                "(chars=%d, limit=%d) user=%s",
+                                _streamed_chars // 3, _streamed_chars,
+                                _output_token_budget, user_id,
+                            )
+                            yield _sse_data({
+                                "budget_breaker": {
+                                    "reason": "output_token_limit",
+                                    "estimated_tokens": _streamed_chars // 3,
+                                    "limit": _output_token_budget,
+                                    "message": "回复已达到输出 token 上限，已自动截断。",
+                                }
+                            })
+                            yield _sse_content("\n\n⚠️ 回复已达到输出上限，已自动截断。")
+                            break
                     elif kind == "on_chain_end":
                         data = event.get("data", {})
                         output = data.get("output")

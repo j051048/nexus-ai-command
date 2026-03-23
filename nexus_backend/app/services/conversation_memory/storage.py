@@ -23,6 +23,9 @@ async def save_memory(
     enriched_value: str | None = None,
     valid_from: str | None = None,
     pattern_key: str | None = None,
+    *,
+    source: str | None = None,
+    extraction_method: str | None = None,
 ) -> dict:
     """保存用户记忆条目（upsert by user_id + key），同时生成 embedding 向量"""
     client = db or supabase
@@ -163,6 +166,8 @@ async def save_memory(
                 reason="Version update via save_memory",
                 actor="system",
                 db=client,
+                source=source,
+                extraction_method=extraction_method,
             )
         else:
             await log_memory_change(
@@ -172,6 +177,8 @@ async def save_memory(
                 new_value=value,
                 actor="system",
                 db=client,
+                source=source,
+                extraction_method=extraction_method,
             )
     except Exception:
         pass  # audit is non-fatal

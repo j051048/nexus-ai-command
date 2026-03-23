@@ -183,9 +183,23 @@ _ROLE_HIERARCHY = {
 
 # ─── Intent-based tool filtering (P2: reduce token payload) ──────────────
 
-# Always included regardless of intent
+# Always included regardless of intent (core infrastructure tools only)
+# NOTE: web_search is NOT included here — it's conditionally added via
+# DataPrimacyGuard to prevent "OpenClaw syndrome" (asking the web when
+# internal data should be queried from Supabase).
 _ALWAYS_INCLUDE_TOOLS: set[str] = {
-    "ask_user", "compact_context", "web_search", "llm_task", "save_memory",
+    "ask_user", "compact_context", "llm_task", "save_memory",
+}
+
+# Domains where web search IS appropriate (non-enterprise-private data)
+_WEB_SEARCH_ALLOWED_DOMAINS: set[str] = {
+    "knowledge", "tender", "analytics", "vmd_market",
+}
+
+# Keywords in intent_summary that signal user explicitly wants web search
+_WEB_SEARCH_INTENT_KEYWORDS: set[str] = {
+    "搜索", "查一下", "网上", "搜一下", "百度", "谷歌", "google",
+    "最新", "新闻", "行业", "趋势", "市场",
 }
 
 # ─── Scene-based Tool Policy (inspired by OpenClaw tool-policy-pipeline) ────
@@ -428,6 +442,10 @@ def _sync_tool_domains():
     a ``domain`` property are automatically added to the corresponding domain
     set, so new tools only need to set ``domain = "finance"`` instead of
     manually editing _DOMAIN_TOOL_MAP.
+
+    S4 Enhancement: Also auto-maps tools based on ToolInfo.category as fallback,
+    ensuring tools without explicit domain property still participate in
+    intent-based filtering.
     """
     global _domains_synced
     if _domains_synced:
@@ -435,16 +453,26 @@ def _sync_tool_domains():
     _domains_synced = True
 
     from app.tools import TOOL_REGISTRY, _load_all
+    from app.tools.registry import get_tool_info
 
     _load_all()
+    _auto_mapped = 0
     for name, tool in TOOL_REGISTRY.items():
         domain = getattr(tool, "domain", None)
         if not domain:
-            continue
+            # S4: Fallback to ToolInfo.category for domain mapping
+            info = get_tool_info(name)
+            if info and info.category and info.category != "general":
+                domain = info.category
+            else:
+                continue
+            _auto_mapped += 1
         if domain in _DOMAIN_TOOL_MAP:
             _DOMAIN_TOOL_MAP[domain].add(name)
         else:
             _DOMAIN_TOOL_MAP[domain] = {name}
+    if _auto_mapped:
+        logger.debug(f"[ToolDomainSync] Auto-mapped {_auto_mapped} tools from ToolInfo.category")
 
 
 def _get_tool_schemas(
@@ -546,6 +574,28 @@ def _get_tool_schemas(
                 f"[ToolFilter] No domain match for '{intent_summary}', "
                 f"fallback → {len(filtered)} tools (from {before_count})"
             )
+
+    # DataPrimacyGuard: conditionally inject web_search only when appropriate
+    # Prevents "OpenClaw syndrome" — querying the web for internal enterprise data
+    _should_allow_web_search = False
+    if intent_domains:
+        _should_allow_web_search = bool(set(intent_domains) & _WEB_SEARCH_ALLOWED_DOMAINS)
+    if not _should_allow_web_search and intent_summary:
+        _should_allow_web_search = any(kw in intent_summary for kw in _WEB_SEARCH_INTENT_KEYWORDS)
+    if not _should_allow_web_search and not intent_domains and not intent_summary:
+        # No routing info at all (e.g., SIMPLE queries) — allow web search as fallback
+        _should_allow_web_search = True
+
+    if _should_allow_web_search:
+        # Add web_search schema if not already present
+        ws_schema = next((s for s in (_tool_schemas_cache or []) if s["function"]["name"] == "web_search"), None)
+        if ws_schema and not any(s["function"]["name"] == "web_search" for s in filtered):
+            filtered.append(ws_schema)
+    else:
+        # Explicitly remove web_search from filtered results
+        filtered = [s for s in filtered if s["function"]["name"] != "web_search"]
+        if intent_domains:
+            logger.debug(f"[DataPrimacy] web_search blocked: domains={intent_domains} are enterprise-internal")
 
     # Safety cap: if filtering still leaves too many tools, keep only the most relevant
     MAX_TOOLS = 30
