@@ -10,9 +10,9 @@ from pydantic import BaseModel
 
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
+from app.core.model_pricing import MODEL_PRICES
 from app.models.schemas import StandardResponse
 from app.services.token_service import (
-    MODEL_MAPPING,
     token_counter,
     usage_tracker,
 )
@@ -36,8 +36,7 @@ async def get_available_models():
     Get list of available AI models with pricing information.
     """
     models = []
-    for model_name, pricing in MODEL_MAPPING.items():
-        input_price, output_price = pricing.value
+    for model_name, (input_price, output_price) in MODEL_PRICES.items():
         models.append(
             {
                 "name": model_name,

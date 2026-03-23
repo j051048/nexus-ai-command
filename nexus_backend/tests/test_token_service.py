@@ -2,15 +2,14 @@
 
 import pytest
 from app.services.token_service import (
-    ModelPricing,
     TokenCounter,
     TokenUsage,
     UsageLimits,
     UsageTracker,
     validate_request_tokens,
     token_counter,
-    MODEL_MAPPING,
 )
+from app.core.model_pricing import MODEL_PRICES, DEFAULT_PRICE
 
 
 # ─── TokenCounter Tests ─────────────────────────────────────────────────────
@@ -91,29 +90,25 @@ class TestTokenCounter:
 # ─── ModelPricing Tests ──────────────────────────────────────────────────────
 
 class TestModelPricing:
-    def test_all_models_have_pricing(self):
-        models = list(ModelPricing)
-        assert len(models) > 5
+    def test_has_enough_models(self):
+        assert len(MODEL_PRICES) > 5
 
     def test_pricing_values_positive(self):
-        for model in ModelPricing:
-            input_price, output_price = model.value
-            assert input_price >= 0
-            assert output_price >= 0
+        for model, (input_price, output_price) in MODEL_PRICES.items():
+            assert input_price >= 0, f"{model} input price negative"
+            assert output_price >= 0, f"{model} output price negative"
 
-    def test_model_mapping_coverage(self):
-        """All mapped models should resolve to a valid pricing enum."""
-        for model_name, pricing in MODEL_MAPPING.items():
-            assert isinstance(pricing, ModelPricing)
-            assert len(pricing.value) == 2
+    def test_default_price_exists(self):
+        assert len(DEFAULT_PRICE) == 2
+        assert DEFAULT_PRICE[0] > 0
 
     def test_output_more_expensive_than_input(self):
         """For LLM models (not embeddings), output should cost >= input."""
-        for model in ModelPricing:
-            if model == ModelPricing.TEXT_EMBEDDING_3_SMALL or model == ModelPricing.TEXT_EMBEDDING_3_LARGE:
+        embedding_prefixes = ("text-embedding",)
+        for model, (input_p, output_p) in MODEL_PRICES.items():
+            if model.startswith(embedding_prefixes):
                 continue
-            input_p, output_p = model.value
-            assert output_p >= input_p, f"{model.name}: output ({output_p}) < input ({input_p})"
+            assert output_p >= input_p, f"{model}: output ({output_p}) < input ({input_p})"
 
 
 # ─── UsageTracker Tests ──────────────────────────────────────────────────────

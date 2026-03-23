@@ -8,7 +8,6 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from enum import Enum
 
 logger = logging.getLogger(__name__)
 
@@ -21,40 +20,16 @@ except ImportError:
     TIKTOKEN_AVAILABLE = False
     logger.warning("tiktoken not installed. Using approximate token counting.")
 
+# ─── Re-export from canonical pricing module for backwards compatibility ────
+from app.core.model_pricing import (  # noqa: E402, F401
+    MODEL_PRICES as MODEL_PRICES,
+    DEFAULT_PRICE as DEFAULT_PRICE,
+    estimate_cost as _estimate_cost,
+)
 
-class ModelPricing(Enum):
-    """Pricing per 1M tokens (input, output) in USD"""
-
-    GPT_4O = (2.50, 10.00)
-    GPT_4O_MINI = (0.15, 0.60)
-    GPT_4_TURBO = (10.00, 30.00)
-    GPT_35_TURBO = (0.50, 1.50)
-    GEMINI_PRO = (1.25, 5.00)
-    GEMINI_FLASH = (0.075, 0.30)
-    CLAUDE_3_OPUS = (15.00, 75.00)
-    CLAUDE_3_SONNET = (3.00, 15.00)
-    CLAUDE_3_HAIKU = (0.25, 1.25)
-    TEXT_EMBEDDING_3_SMALL = (0.02, 0.0)
-    TEXT_EMBEDDING_3_LARGE = (0.13, 0.0)
-    DEFAULT = (5.00, 15.00)  # Conservative default
-
-
-MODEL_MAPPING = {
-    "gpt-4o": ModelPricing.GPT_4O,
-    "gpt-4o-mini": ModelPricing.GPT_4O_MINI,
-    "gpt-4-turbo": ModelPricing.GPT_4_TURBO,
-    "gpt-4-turbo-preview": ModelPricing.GPT_4_TURBO,
-    "gpt-3.5-turbo": ModelPricing.GPT_35_TURBO,
-    "gemini-pro": ModelPricing.GEMINI_PRO,
-    "gemini-2.5-pro": ModelPricing.GEMINI_PRO,
-    "gemini-3-pro-preview": ModelPricing.GEMINI_PRO,
-    "gemini-flash": ModelPricing.GEMINI_FLASH,
-    "claude-3-opus": ModelPricing.CLAUDE_3_OPUS,
-    "claude-3-sonnet": ModelPricing.CLAUDE_3_SONNET,
-    "claude-3-haiku": ModelPricing.CLAUDE_3_HAIKU,
-    "text-embedding-3-small": ModelPricing.TEXT_EMBEDDING_3_SMALL,
-    "text-embedding-3-large": ModelPricing.TEXT_EMBEDDING_3_LARGE,
-}
+# Legacy aliases — some call sites import these names
+ModelPricing = None  # Removed: use model_pricing.estimate_cost() directly
+MODEL_MAPPING = None  # Removed: use model_pricing.MODEL_PRICES directly
 
 
 @dataclass
@@ -144,11 +119,8 @@ class TokenCounter:
         return total
 
     def estimate_cost(self, input_tokens: int, output_tokens: int, model: str) -> float:
-        """Estimate cost in USD"""
-        pricing = MODEL_MAPPING.get(model.lower(), ModelPricing.DEFAULT).value
-        input_cost = (input_tokens / 1_000_000) * pricing[0]
-        output_cost = (output_tokens / 1_000_000) * pricing[1]
-        return round(input_cost + output_cost, 6)
+        """Estimate cost in USD — delegates to canonical model_pricing module."""
+        return _estimate_cost(input_tokens, output_tokens, model)
 
     def estimate_prompt_tokens(
         self,

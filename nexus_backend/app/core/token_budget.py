@@ -17,33 +17,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from app.core.config import settings
+from app.core.model_pricing import estimate_cost  # noqa: F401 — re-exported for backwards compat
 
 logger = logging.getLogger(__name__)
-
-# ─── Cost per 1K tokens (USD) by model family ─────────────────────────────
-# Conservative estimates — overestimate is safer than underestimate
-_MODEL_COST_PER_1K: dict[str, dict[str, float]] = {
-    "gpt-4o": {"input": 0.0025, "output": 0.01},
-    "gpt-4o-mini": {"input": 0.00015, "output": 0.0006},
-    "gpt-4": {"input": 0.03, "output": 0.06},
-    "gpt-3.5-turbo": {"input": 0.0005, "output": 0.0015},
-    "claude-3": {"input": 0.003, "output": 0.015},
-    "deepseek": {"input": 0.001, "output": 0.002},
-}
-
-# Default fallback cost
-_DEFAULT_COST_PER_1K = {"input": 0.005, "output": 0.015}
-
-
-def estimate_cost(input_tokens: int, output_tokens: int, model: str) -> float:
-    """Estimate USD cost for a given token usage."""
-    model_lower = model.lower()
-    cost_map = _DEFAULT_COST_PER_1K
-    for prefix, costs in _MODEL_COST_PER_1K.items():
-        if prefix in model_lower:
-            cost_map = costs
-            break
-    return (input_tokens / 1000) * cost_map["input"] + (output_tokens / 1000) * cost_map["output"]
 
 
 # ─── Budget Status ─────────────────────────────────────────────────────────

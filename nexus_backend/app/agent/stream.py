@@ -896,9 +896,8 @@ async def run_agent_stream(
     # Calculate per-conversation cost
     def _calc_cost_usd(mdl: str, in_tok: int, out_tok: int) -> float:
         try:
-            from app.services.token_service import MODEL_MAPPING, ModelPricing
-            pricing = MODEL_MAPPING.get(mdl.lower(), ModelPricing.DEFAULT).value
-            return round((in_tok * pricing[0] + out_tok * pricing[1]) / 1_000_000, 6)
+            from app.core.model_pricing import estimate_cost as _est
+            return _est(in_tok, out_tok, mdl)
         except Exception:
             return 0.0
 
