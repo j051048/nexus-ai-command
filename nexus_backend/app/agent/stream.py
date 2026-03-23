@@ -809,6 +809,7 @@ async def run_agent_stream(
 
     # ── 8.1 G5: Record usage to token budget manager ──
     try:
+        from app.core.token_budget import token_budget_manager
         await token_budget_manager.record_usage(
             session_id=session_id or "default",
             user_id=user_id,
