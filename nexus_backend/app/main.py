@@ -11,7 +11,7 @@ warnings.filterwarnings(
 
 import sentry_sdk
 import uvicorn
-from fastapi import Depends, FastAPI, Response
+from fastapi import Depends, FastAPI, Request, Response
 
 from app.core.auth import get_current_user_id
 from app.core.config import settings
@@ -110,9 +110,8 @@ def create_app() -> FastAPI:
         return Response(status_code=204)
 
     @application.get("/metrics", include_in_schema=False)
-    async def prometheus_metrics(request: "Request"):
+    async def prometheus_metrics(request: Request):
         """Prometheus-compatible metrics endpoint. Requires X-Health-Token header."""
-        from fastapi import Request
 
         expected_token = os.getenv("HEALTH_CHECK_TOKEN", "")
         provided_token = request.headers.get("X-Health-Token", "")
@@ -162,7 +161,7 @@ def create_app() -> FastAPI:
         return UTF8JSONResponse(status_code=http_status, content=content)
 
     @application.get("/health/deep")
-    async def health_deep(request: "Request"):
+    async def health_deep(request: Request):
         """
         Deep health check — covers Redis, DB, LLM provider, and Celery broker.
 
@@ -171,8 +170,6 @@ def create_app() -> FastAPI:
         Not cached (each call does live checks).
         """
         import asyncio
-
-        from fastapi import Request
 
         # Auth: require health check token
         expected_token = os.getenv("HEALTH_CHECK_TOKEN", "")

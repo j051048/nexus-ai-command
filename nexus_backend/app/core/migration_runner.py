@@ -6,9 +6,7 @@
 
 配置:
 - AUTO_MIGRATE=true 环境变量启用自动迁移（默认关闭）
-- 主迁移目录: nexus_backend/supabase_migrations/migrations/
-- 同时扫描: supabase/migrations/ 和 nexus_backend/supabase/migrations/
-  (Items 9/23: 统一扫描所有迁移目录，避免遗漏)
+- 迁移目录: nexus_backend/supabase_migrations/migrations/
 """
 
 import logging
@@ -21,11 +19,9 @@ logger = logging.getLogger(__name__)
 # 项目根目录
 _PROJECT_ROOT = Path(__file__).parent.parent.parent
 
-# 迁移文件目录 — 统一扫描所有3个历史目录 (Item 9/23)
+# 迁移文件目录 — 单一规范目录
 MIGRATIONS_DIRS = [
-    _PROJECT_ROOT / "supabase_migrations" / "migrations",  # 主目录 (52 files)
-    _PROJECT_ROOT.parent / "supabase" / "migrations",      # 顶层 supabase (25 files)
-    _PROJECT_ROOT / "supabase" / "migrations",             # 后端 supabase (7 files)
+    _PROJECT_ROOT / "supabase_migrations" / "migrations",
 ]
 
 # 向后兼容

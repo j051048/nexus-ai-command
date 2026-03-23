@@ -552,6 +552,14 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                     tier1Succeeded = true;
                 } else if (response.status >= 500) {
                     // 5xx: backend down, fall through to next tier
+                } else if (response.status === 429) {
+                    // Rate limited — show countdown toast with Retry-After
+                    const retryAfter = parseInt(response.headers.get('Retry-After') || '60', 10);
+                    toast.error(`AI 请求频率超限，请 ${retryAfter} 秒后重试`, {
+                        id: 'ai-rate-limit',
+                        duration: Math.min(retryAfter * 1000, 30000),
+                    });
+                    throw new Error(`请求频率超限，请 ${retryAfter} 秒后重试`);
                 } else {
                     // 4xx errors are real errors, don't fallback
                     const errorData = await response.json().catch(() => ({}));

@@ -63,7 +63,7 @@ function buildUrl(endpoint: string): string {
 // Centralized error handler that shows user-friendly toasts
 // for common HTTP error codes and network failures.
 
-function handleErrorResponse(status: number, errorMessage: string, silent?: boolean): void {
+function handleErrorResponse(status: number, errorMessage: string, silent?: boolean, retryAfter?: number): void {
     if (silent) return;
 
     switch (status) {
@@ -89,9 +89,14 @@ function handleErrorResponse(status: number, errorMessage: string, silent?: bool
             // Validation error — show the specific message
             toast.error(errorMessage || '请求参数有误');
             break;
-        case 429:
-            toast.error('请求过于频繁，请稍后再试', { id: 'rate-limit' });
+        case 429: {
+            const seconds = retryAfter || 60;
+            toast.error(`请求频率超限，请 ${seconds} 秒后重试`, {
+                id: 'rate-limit',
+                duration: Math.min(seconds * 1000, 30000),
+            });
             break;
+        }
         default:
             // For other 4xx/5xx, show the extracted message
             if (status >= 400) {
@@ -181,7 +186,8 @@ export const aiClient = {
             }
 
             // Unified error interceptor toast
-            handleErrorResponse(response.status, errorMessage, silent);
+            const retryAfter = parseInt(response.headers.get('Retry-After') || '0', 10) || undefined;
+            handleErrorResponse(response.status, errorMessage, silent, retryAfter);
             throw new Error(errorMessage);
         }
 

@@ -10,7 +10,7 @@ requests==2.32.3
 python-multipart==0.0.18
 pypdf==4.2.0
 pandas==2.2.3
-numpy>=1.26.0
+numpy==1.26.4
 openpyxl==3.1.5
 celery[redis]==5.4.0
 arxiv==2.1.3
@@ -46,7 +46,7 @@ langfuse==2.51.3
 
 # Development/Testing — see requirements-dev.txt
 # (not installed in production Docker image)
-jieba>=0.42.1
+jieba==0.42.1
 
 # RAG Evaluation (optional — pull massive ML libs, keep commented for production/Zeabur!)
 # ragas>=0.2.14

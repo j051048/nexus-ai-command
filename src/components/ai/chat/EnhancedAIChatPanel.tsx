@@ -19,6 +19,7 @@ import { drainProactiveMessages, PROACTIVE_MSG_EVENT } from '@/lib/proactiveMess
 import { ChatHeader } from './ChatHeader';
 import { ChatMessageList } from './ChatMessageList';
 import { ChatInputArea } from './ChatInputArea';
+import { QuotaDisplay } from './QuotaDisplay';
 import { ChatSuggestions } from './ChatSuggestions';
 import { useToolMetadata } from '@/hooks/useToolMetadata';
 import { useSavedPrompts } from '@/hooks/useSavedPrompts';
@@ -128,6 +129,7 @@ export function EnhancedAIChatPanel({
     dismissQuestion, 
     dismissCircuitBreak, 
     followUpSuggestions,
+    quotaInfo,
     sessionId,
     setSessionId
   } = useAIStream({ userId: user.id });
@@ -934,6 +936,8 @@ export function EnhancedAIChatPanel({
               onQuickReply={handleQuickReply}
               followUpSuggestions={followUpSuggestions}
             />
+
+            <QuotaDisplay quotaInfo={quotaInfo} />
 
             <ChatInputArea
               input={input}
