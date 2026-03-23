@@ -196,6 +196,7 @@ export function EnhancedAIChatPanel({
     return () => window.removeEventListener('resize', handler);
   }, []);
 
+  // Load chat history from backend, fall back to greeting message
   useEffect(() => {
     const greeting: AIMessage = user.role === 'boss'
       ? {
@@ -212,7 +213,49 @@ export function EnhancedAIChatPanel({
           timestamp: new Date(),
           agent: '@销售指挥官',
         };
-    setMessages([greeting]);
+
+    // Try to load recent history from backend
+    const loadHistory = async () => {
+      try {
+        const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+        if (!API_BASE) {
+          setMessages([greeting]);
+          return;
+        }
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          setMessages([greeting]);
+          return;
+        }
+        const res = await fetch(`${API_BASE}/api/history/default?limit=50`, {
+          headers: { 'Authorization': `Bearer ${session.access_token}` },
+        });
+        if (!res.ok) {
+          setMessages([greeting]);
+          return;
+        }
+        const json = await res.json();
+        const rawMessages = json?.data?.messages;
+        if (!Array.isArray(rawMessages) || rawMessages.length === 0) {
+          setMessages([greeting]);
+          return;
+        }
+        // Convert backend chat_messages to AIMessage format
+        const loaded: AIMessage[] = rawMessages.map((m: Record<string, unknown>) => ({
+          id: String(m.id),
+          role: m.role as 'user' | 'assistant',
+          content: String(m.content || ''),
+          timestamp: new Date(m.created_at as string),
+          agent: m.agent as string | undefined,
+        }));
+        setMessages([greeting, ...loaded]);
+      } catch {
+        // Network error — just show greeting
+        setMessages([greeting]);
+      }
+    };
+
+    loadHistory();
   }, [user.role, user.name]);
 
   // 注入 AI 主动推送消息（定时任务结果、事件告警等）
@@ -537,7 +580,31 @@ export function EnhancedAIChatPanel({
       onSendMessage?.(messageToSend, messages[messages.length - 1]?.content || '');
       endTrace();
     } catch (e) {
-      setMessages((prev) => prev.filter((m) => m.content !== ''));
+      // Mark the last assistant message as failed (if it exists and has no content)
+      // or add a new error message, instead of silently removing it
+      const errMsg = (e as Error)?.message || '发送失败';
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last && last.role === 'assistant' && !last.content) {
+          // Replace empty streaming placeholder with error state
+          return [
+            ...prev.slice(0, -1),
+            { ...last, content: '消息发送失败', status: 'error' as const, errorMessage: errMsg, isStreaming: false },
+          ];
+        }
+        // No assistant placeholder — add an error message
+        return [
+          ...prev,
+          {
+            id: `err-${Date.now()}`,
+            role: 'assistant' as const,
+            content: '消息发送失败',
+            timestamp: new Date(),
+            status: 'error' as const,
+            errorMessage: errMsg,
+          },
+        ];
+      });
     }
   }, [isAiTyping, currentAgent, messages, streamChat, onSendMessage, addThinkingStep, addToolProgress, endTrace, startTrace, pendingImages]);
 
@@ -567,6 +634,18 @@ export function EnhancedAIChatPanel({
       setMessages((prev) => prev.slice(0, -1));
       setInput(lastUserMessage.content);
     }
+  }, [messages]);
+
+  // Retry: remove the error assistant message, re-fill the user message, and auto-send
+  const handleRetry = useCallback(() => {
+    // Find the last user message before the error
+    const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
+    if (!lastUserMsg) return;
+    // Remove the error message
+    setMessages((prev) => prev.filter((m) => m.status !== 'error'));
+    // Re-fill input and trigger send via commandBarSendRef pattern
+    setInput(lastUserMsg.content);
+    commandBarSendRef.current = true;
   }, [messages]);
 
   const handleCopy = useCallback((content: string) => {
@@ -764,6 +843,7 @@ export function EnhancedAIChatPanel({
               userId={user.id}
               handleCopy={handleCopy}
               handleRegenerate={handleRegenerate}
+              handleRetry={handleRetry}
               handleDeleteMessage={handleDeleteMessage}
               pendingConfirmation={pendingConfirmation}
               confirmAndResend={confirmAndResend}

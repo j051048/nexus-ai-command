@@ -228,6 +228,9 @@ async def reflect_node(state: AgentState) -> dict:
     hallucination_reason = ""
     
     intent = state.get("intent_summary", "")
+    # Sanitize to prevent keyword injection bypass (e.g. injecting "写作" to skip hallucination check)
+    from app.agent.node_helpers import sanitize_prompt_field
+    intent = sanitize_prompt_field(intent)
     is_creative_writing = any(kw in intent for kw in ("写作", "创作", "软文", "文章", "报告", "方案", "推广"))
 
     if not is_creative_writing and complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL) and not completed_tools:
@@ -489,6 +492,9 @@ async def critic_node(state: AgentState) -> dict:
 
     # Gather context for critic evaluation
     intent_summary = state.get("intent_summary", "")
+    # Sanitize intent_summary before prompt injection (user-derived via LLM reflection)
+    from app.agent.node_helpers import sanitize_prompt_field
+    intent_summary = sanitize_prompt_field(intent_summary)
     tool_results_summary = []
     for tc in state.get("completed_tool_calls", []):
         result_preview = (getattr(tc, "result", "") or "")[:200]

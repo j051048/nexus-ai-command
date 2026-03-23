@@ -6,6 +6,7 @@ All node modules import from here to avoid circular dependencies.
 
 import asyncio
 import logging
+import re
 import time
 
 from langchain_core.messages import (
@@ -38,6 +39,44 @@ from app.services.plugin_system_service import ExtensionPoint, plugin_system_ser
 from app.tools import get_all_tools_schema, get_tool
 
 logger = logging.getLogger(__name__)
+
+# ── Prompt injection sanitization ──────────────────────────────────────────
+
+# Patterns that look like prompt-injection attempts in user-derived strings
+_INJECTION_PATTERNS = re.compile(
+    r"(ignore\s+(previous|above|all)\s+instructions"
+    r"|you\s+are\s+now"
+    r"|system\s*:\s*"
+    r"|<\|im_start\|>"
+    r"|<\|im_end\|>"
+    r"|```\s*(system|assistant)"
+    r"|IMPORTANT\s*:"
+    r"|OVERRIDE\s*:"
+    r"|忽略(以上|之前|所有)(指令|规则|提示)"
+    r"|你现在是"
+    r"|新的?指令"
+    r"|请?无视(以上|之前))",
+    re.IGNORECASE,
+)
+
+
+def sanitize_prompt_field(value: str, max_len: int = 500) -> str:
+    """Sanitize a user-derived string before injecting it into an LLM prompt.
+
+    - Strips known prompt-injection patterns
+    - Truncates to max_len to prevent context stuffing
+    - Removes control characters
+    """
+    if not value:
+        return value
+    # Remove control chars (keep newlines/tabs)
+    cleaned = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", value)
+    # Strip injection patterns
+    cleaned = _INJECTION_PATTERNS.sub("[FILTERED]", cleaned)
+    # Truncate
+    if len(cleaned) > max_len:
+        cleaned = cleaned[:max_len] + "..."
+    return cleaned.strip()
 
 # Long-running tools that need extended timeout (120s instead of default 30s)
 LONG_RUNNING_TOOLS: set[str] = {

@@ -8,6 +8,7 @@ Provides:
 """
 
 import logging
+import os
 from enum import StrEnum
 from typing import Any
 
@@ -235,19 +236,30 @@ def api_error(
         HTTPException ready to be raised
     """
     status_code = ERROR_STATUS_MAP.get(code, 500)
-    error_message = message or ERROR_MESSAGES.get(code, "未知错误")
+    safe_message = ERROR_MESSAGES.get(code, "未知错误")
+    is_production = os.getenv("ENV", "production").lower() not in ("dev", "development", "test")
 
-    error_body = {"code": code.value, "message": error_message}
+    # Security: For 500-level errors in production, never expose str(e) to users.
+    # The caller's `message` (usually str(e)) is logged but replaced with a safe default.
+    if status_code >= 500 and is_production and message:
+        raw_error = message  # preserve for logging
+        error_message = safe_message
+    else:
+        raw_error = None
+        error_message = message or safe_message
+
+    error_body: dict[str, Any] = {"code": code.value, "message": error_message}
 
     if details:
         error_body["details"] = details
 
     if log_error:
         log_level = logging.WARNING if status_code < 500 else logging.ERROR
+        log_msg = f"API Error: {code.value} - {raw_error or error_message}"
         logger.log(
             log_level,
-            f"API Error: {code.value} - {error_message}",
-            extra={"details": details},
+            log_msg,
+            extra={"details": details, "raw_error": raw_error},
         )
 
     return HTTPException(status_code=status_code, detail=error_body)

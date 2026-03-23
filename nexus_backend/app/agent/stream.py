@@ -60,6 +60,53 @@ from app.services.token_service import (
 logger = logging.getLogger(__name__)
 
 
+# ── Shared stream helpers (DRY extraction) ──────────────────────────────────
+
+
+async def _emit_error_and_cleanup(
+    all_thinking_steps: list,
+    tracer: "TraceLogger | None",
+    trace_id: str,
+    error: Exception,
+) -> AsyncGenerator[str, None]:
+    """Yield standard error SSE sequence and clean up tracing."""
+    yield _sse_content("\n\n⚠️ 处理请求时发生内部错误，请稍后重试。如问题持续，请联系管理员。")
+    yield _sse_data({"thinking_chain_complete": True, "total_steps": len(all_thinking_steps)})
+    yield "data: [DONE]\n\n"
+    if tracer:
+        tracer.log_error(str(error))
+        tracer.log_end()
+    try:
+        agent_trace_service.end_trace(trace_id, TraceStatus.FAILED, error=str(error)[:500])
+    except Exception:
+        pass
+
+
+async def _cleanup_on_disconnect(
+    throttle_ctx: Any,
+    trace_id: str,
+    tracer: "TraceLogger | None" = None,
+    log_msg: str = "",
+) -> None:
+    """Release throttle and end trace on client disconnect."""
+    await throttle_ctx.__aexit__(None, None, None)
+    if log_msg:
+        logger.info(log_msg)
+    if tracer:
+        tracer.log_end(total_tokens=0)
+    try:
+        agent_trace_service.end_trace(trace_id, TraceStatus.CANCELLED)
+    except Exception:
+        pass
+
+
+def _filter_think_content(content: str) -> str:
+    """Strip <think> tags from content (single-pass, no cross-chunk state)."""
+    if "<think>" in content or "</think>" in content:
+        return strip_think_tags(content)
+    return content
+
+
 # Use the singleton agent graph instance
 _agent_graph = get_agent_graph()
 
@@ -435,7 +482,7 @@ async def run_agent_stream(
                     # we can stream plan tokens directly for instant UX.
                     if _is_mutation_fast_path(accumulated_state):
                         # Also filter think tags for plan streaming
-                        plan_filtered = strip_think_tags(content) if "<think>" in content or "</think>" in content else content
+                        plan_filtered = _filter_think_content(content)
                         if plan_filtered:
                             yield _sse_content(plan_filtered)
                         streamed_plan_content = True
@@ -537,26 +584,18 @@ async def run_agent_stream(
         await _throttle_ctx.__aexit__(None, None, None)
 
     except asyncio.CancelledError:
-        # Client disconnected (e.g. user clicked "Stop generating")
-        await _throttle_ctx.__aexit__(None, None, None)
         duration_ms = int((time.time() - start_time) * 1000)
-        logger.info(f"[Stream] Client disconnected after {duration_ms}ms (user={user_id}, session={session_id})")
-        if tracer:
-            tracer.log_end(total_tokens=0)
-        try:
-            agent_trace_service.end_trace(_trace_id, TraceStatus.CANCELLED)
-        except Exception:
-            pass
+        await _cleanup_on_disconnect(
+            _throttle_ctx, _trace_id, tracer,
+            f"[Stream] Client disconnected after {duration_ms}ms (user={user_id}, session={session_id})",
+        )
         return
 
     except GeneratorExit:
-        # Generator closed by framework on client disconnect
-        await _throttle_ctx.__aexit__(None, None, None)
-        logger.info(f"[Stream] Generator closed (user={user_id})")
-        try:
-            agent_trace_service.end_trace(_trace_id, TraceStatus.CANCELLED)
-        except Exception:
-            pass
+        await _cleanup_on_disconnect(
+            _throttle_ctx, _trace_id,
+            log_msg=f"[Stream] Generator closed (user={user_id})",
+        )
         return
 
     except Exception as e:
@@ -609,14 +648,14 @@ async def run_agent_stream(
                             continue
                         if content and node_name == "respond":
                             # Filter <think> tags in retry path too
-                            filtered = strip_think_tags(content) if "<think>" in content or "</think>" in content else content
+                            filtered = _filter_think_content(content)
                             if filtered:
                                 yield _sse_content(filtered)
                                 streamed_plan_content = True
                             streamed_plan_text += filtered or ""
                         elif content and node_name == "plan":
                             if _is_mutation_fast_path(accumulated_state):
-                                plan_filtered = strip_think_tags(content) if "<think>" in content or "</think>" in content else content
+                                plan_filtered = _filter_think_content(content)
                                 if plan_filtered:
                                     yield _sse_content(plan_filtered)
                                 streamed_plan_content = True
@@ -658,30 +697,13 @@ async def run_agent_stream(
                                     accumulated_state[key] = value
             except Exception as retry_err:
                 logger.error(f"[Stream] Retry with fresh thread also failed: {retry_err}", exc_info=True)
-                yield _sse_content("\n\n⚠️ 处理请求时发生内部错误，请稍后重试。如问题持续，请联系管理员。")
-                yield _sse_data({"thinking_chain_complete": True, "total_steps": len(all_thinking_steps)})
-                yield "data: [DONE]\n\n"
-                if tracer:
-                    tracer.log_error(str(retry_err))
-                    tracer.log_end()
-                try:
-                    agent_trace_service.end_trace(_trace_id, TraceStatus.FAILED, error=str(retry_err)[:500])
-                except Exception:
-                    pass
+                async for chunk in _emit_error_and_cleanup(all_thinking_steps, tracer, _trace_id, retry_err):
+                    yield chunk
                 return
         else:
             logger.error(f"[Stream] Agent graph execution failed: {e}", exc_info=True)
-            # P1 Security: Do not expose internal error details to the client
-            yield _sse_content("\n\n⚠️ 处理请求时发生内部错误，请稍后重试。如问题持续，请联系管理员。")
-            yield _sse_data({"thinking_chain_complete": True, "total_steps": len(all_thinking_steps)})
-            yield "data: [DONE]\n\n"
-            if tracer:
-                tracer.log_error(str(e))
-                tracer.log_end()
-            try:
-                agent_trace_service.end_trace(_trace_id, TraceStatus.FAILED, error=str(e)[:500])
-            except Exception:
-                pass
+            async for chunk in _emit_error_and_cleanup(all_thinking_steps, tracer, _trace_id, e):
+                yield chunk
             return
 
     # ── 6. Stream the final response ──

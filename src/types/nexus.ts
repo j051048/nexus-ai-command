@@ -90,6 +90,8 @@ export interface AIMessage {
   toolCalls?: ToolCall[];
   isStreaming?: boolean;
   isProactive?: boolean;
+  status?: 'sending' | 'error';  // Message delivery status
+  errorMessage?: string;         // Error details for failed messages
 }
 
 // Agent thinking chain types for AI-first experience

@@ -44,12 +44,8 @@ opentelemetry-instrumentation-fastapi==0.49b2
 opentelemetry-exporter-otlp==1.28.2
 langfuse==2.51.3
 
-# Development/Testing
-ruff==0.8.6
-black==24.10.0
-pytest-asyncio==0.24.0
-pytest-cov==6.0.0
-httpx==0.28.1
+# Development/Testing — see requirements-dev.txt
+# (not installed in production Docker image)
 jieba>=0.42.1
 
 # RAG Evaluation (optional — pull massive ML libs, keep commented for production/Zeabur!)

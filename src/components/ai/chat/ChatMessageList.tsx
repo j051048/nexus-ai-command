@@ -29,6 +29,7 @@ interface ChatMessageListProps {
   userId: string;
   handleCopy: (content: string) => void;
   handleRegenerate: () => void;
+  handleRetry?: () => void;
   handleDeleteMessage: (id: string) => void;
   pendingConfirmation: ConfirmationRequest | null;
   confirmAndResend: (
@@ -62,6 +63,7 @@ export const ChatMessageList = React.memo(function ChatMessageList({
   userId,
   handleCopy,
   handleRegenerate,
+  handleRetry,
   handleDeleteMessage,
   pendingConfirmation,
   confirmAndResend,
@@ -344,6 +346,7 @@ export const ChatMessageList = React.memo(function ChatMessageList({
                       ? handleRegenerate
                       : undefined
                   }
+                  onRetry={msg.status === 'error' ? handleRetry : undefined}
                   onFeedback={handleFeedback}
                   onDelete={handleDeleteMessage}
                   onSendMessage={onSendMessage}
@@ -376,6 +379,7 @@ export const ChatMessageList = React.memo(function ChatMessageList({
                 ? handleRegenerate
                 : undefined
             }
+            onRetry={msg.status === 'error' ? handleRetry : undefined}
             onFeedback={handleFeedback}
             onDelete={handleDeleteMessage}
             onSendMessage={onSendMessage}

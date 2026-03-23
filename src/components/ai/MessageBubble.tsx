@@ -2,7 +2,7 @@ import React, { useState, useMemo, lazy, Suspense } from 'react';
 import { lazyWithRetry } from '@/lib/lazyPreload';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Bot, Copy, RotateCcw, ThumbsUp, ThumbsDown, User, Check, MoreHorizontal, Trash2, Download } from 'lucide-react';
+import { Bot, Copy, RotateCcw, ThumbsUp, ThumbsDown, User, Check, MoreHorizontal, Trash2, Download, AlertCircle, RefreshCw } from 'lucide-react';
 
 // Lazy-load react-syntax-highlighter (~608KB) — only loaded when code blocks appear
 const SyntaxHighlighter = lazyWithRetry(() =>
@@ -103,6 +103,7 @@ interface MessageBubbleProps {
   message: AIMessage;
   onCopy: (content: string) => void;
   onRegenerate?: () => void;
+  onRetry?: () => void;
   onFeedback?: (type: 'positive' | 'negative', messageId: string) => void;
   onDelete?: (messageId: string) => void;
   onSendMessage?: (prompt: string) => void;
@@ -114,6 +115,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   message,
   onCopy,
   onRegenerate,
+  onRetry,
   onFeedback,
   onDelete,
   onSendMessage,
@@ -202,7 +204,26 @@ export const MessageBubble = React.memo(function MessageBubble({
               ))}
             </div>
           )}
-          {isTyping && isLatest && !message.content ? (
+          {/* Error state: show error message with retry button */}
+          {message.status === 'error' ? (
+            <div className="flex flex-col items-center gap-2 py-1">
+              <div className="flex items-center gap-2 text-destructive">
+                <AlertCircle className="w-4 h-4" />
+                <span className="text-sm">{message.errorMessage || '发送失败'}</span>
+              </div>
+              {onRetry && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-3 text-xs gap-1.5"
+                  onClick={onRetry}
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  重试
+                </Button>
+              )}
+            </div>
+          ) : isTyping && isLatest && !message.content ? (
             <div className="flex items-center gap-1.5 h-6">
               <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
               <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />

@@ -17,6 +17,7 @@ from app.agent.node_helpers import (  # noqa: F401
     _messages_to_lc_format,
     llm_circuit_breaker,
     plugin_system_service,
+    sanitize_prompt_field,
     scan_content,
     tool_circuit_breaker,
 )
@@ -43,6 +44,7 @@ __all__ = [
     "_execute_single_tool",
     "llm_circuit_breaker",
     "scan_content",
+    "sanitize_prompt_field",
     "plugin_system_service",
     "tool_circuit_breaker",
     "record_tool_execution",
