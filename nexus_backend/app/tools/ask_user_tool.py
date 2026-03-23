@@ -19,6 +19,7 @@ class AskUserTool(BaseTool):
     execute_node 会拦截此调用并转换为 SSE 事件发送到前端。
     """
     domain = "system"
+    requires_org_id = False
 
     name = "ask_user"
     description = (

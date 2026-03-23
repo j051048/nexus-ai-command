@@ -26,6 +26,7 @@ from app.tools.base_tool import BaseTool
 
 class SlowTool(BaseTool):
     """模拟执行超慢的工具"""
+    requires_org_id = False
 
     @property
     def name(self) -> str:
@@ -46,6 +47,7 @@ class SlowTool(BaseTool):
 
 class ErrorTool(BaseTool):
     """模拟抛出异常的工具"""
+    requires_org_id = False
 
     @property
     def name(self) -> str:
@@ -65,6 +67,7 @@ class ErrorTool(BaseTool):
 
 class NoneReturnTool(BaseTool):
     """模拟返回 None 的工具"""
+    requires_org_id = False
 
     @property
     def name(self) -> str:
@@ -84,6 +87,7 @@ class NoneReturnTool(BaseTool):
 
 class SuccessTool(BaseTool):
     """模拟正常执行的工具"""
+    requires_org_id = False
 
     @property
     def name(self) -> str:

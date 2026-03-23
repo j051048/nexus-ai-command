@@ -23,6 +23,7 @@ from app.agent.blackboard import SharedBlackboard, TaskResult
 from app.agent.dependency_resolver import resolve_execution_layers
 from app.agent.node_helpers import _get_langfuse_callbacks, _get_trace_context
 from app.agent.roles.registry import get_role_config_sync
+from app.core.prompts_registry import SECURITY_GUARDRAILS
 from app.agent.state import (
     AgentConfig,
     AgentPhase,
@@ -467,8 +468,15 @@ async def _execute_sub_task(
     # 1. Load role config
     role_config = get_role_config_sync(agent_code)
 
-    # 2. Build messages
+    # 2. Build messages — inject security guardrails + user context
     system_prompt = role_config.system_prompt
+    # Ensure sub-agents always have security guardrails
+    if "身份保护" not in system_prompt and "数据安全" not in system_prompt:
+        system_prompt = system_prompt.rstrip() + f"\n\n## 安全规则\n{SECURITY_GUARDRAILS}"
+    # Inject user context so sub-agents know who they are serving
+    user_role = config.user_role or "employee"
+    user_id_short = config.user_id[:8] if config.user_id else "unknown"
+    system_prompt += f"\n\n[当前用户角色: {user_role}, 用户ID: {user_id_short}]"
 
     # P2-10: Get dependency context from blackboard (replaces manual dict lookup)
     dep_context = blackboard.get_dependency_context(dependencies)
@@ -628,7 +636,7 @@ async def _execute_sub_task_degraded(
         user_prompt += f"\n## 前置任务结果（供参考）\n{dep_context}"
 
     messages = [
-        SystemMessage(content="你是一位经验丰富的专业顾问。请基于专业知识回答以下问题。"),
+        SystemMessage(content=f"你是一位经验丰富的专业顾问。请基于专业知识回答以下问题。\n\n## 安全规则\n{SECURITY_GUARDRAILS}"),
         HumanMessage(content=user_prompt),
     ]
 
@@ -672,6 +680,11 @@ async def _run_single_tool(tool_name: str, tool_args: dict, config: AgentConfig)
     timeout = config.tool_timeout
     if tool_name in _LONG_RUNNING_TOOLS:
         timeout = max(timeout, 120.0)
+
+    # Tenant isolation: reject tools that require org_id without one
+    if getattr(tool, "requires_org_id", True) and not config.org_id:
+        logger.warning(f"[Orchestrate] Tool {tool_name} requires org_id but none provided")
+        return f"❌ 无法获取组织信息(org_id缺失)，请确保已正确登录。"
 
     # Execute with single retry
     last_error = None

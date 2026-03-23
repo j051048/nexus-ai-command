@@ -2,6 +2,7 @@
 
 import contextlib
 import logging
+import re
 from datetime import UTC, datetime
 from typing import Any
 
@@ -10,6 +11,51 @@ from app.core.database import supabase
 from .cleanup import compute_decay_score, mmr_rerank
 
 logger = logging.getLogger(__name__)
+
+# ── Chinese stop words for keyword extraction ────────────────────────────
+_STOP_WORDS = frozenset(
+    "的 了 么 吗 嘛 呢 吧 啊 呀 哦 是 在 有 和 与 或 不 也 都 就 还 又 能 可以 "
+    "要 会 把 被 让 给 从 到 对 向 为 我 你 他 她 它 我们 你们 他们 "
+    "这 那 什么 怎么 哪 几 多少 一个 一些 每 个 的话 以及 "
+    "记得 记住 还记得 知道 想起 回忆 前提 哪些 怎样 如何 为什么".split()
+)
+
+# Minimum meaningful term length (Chinese characters)
+_MIN_TERM_LEN = 2
+
+
+def _extract_search_terms(query: str) -> list[str]:
+    """Extract meaningful search terms from a Chinese query.
+
+    Uses jieba word segmentation if available, otherwise falls back to
+    bigram extraction for Chinese text.
+    """
+    # Strip punctuation
+    clean = re.sub(r"[，。！？、；：""''（）【】…—\s\d\W]+", " ", query).strip()
+    if not clean:
+        return []
+
+    terms: list[str] = []
+    try:
+        import jieba
+        words = jieba.lcut(clean)
+        terms = [w.strip() for w in words if w.strip() and len(w.strip()) >= _MIN_TERM_LEN and w.strip() not in _STOP_WORDS]
+    except ImportError:
+        # Fallback: sliding bigrams for Chinese text
+        chars = re.sub(r"\s+", "", clean)
+        for i in range(len(chars) - 1):
+            bigram = chars[i:i + 2]
+            if bigram not in _STOP_WORDS:
+                terms.append(bigram)
+
+    # Deduplicate while preserving order
+    seen: set[str] = set()
+    unique: list[str] = []
+    for t in terms:
+        if t not in seen:
+            seen.add(t)
+            unique.append(t)
+    return unique[:6]  # Cap at 6 terms to limit DB queries
 
 
 def _days_since(date_str: str) -> int:
@@ -207,27 +253,42 @@ async def _semantic_search(user_id: str, query: str, limit: int, org_id: str | N
 
 
 async def _keyword_search(user_id: str, query: str, limit: int, org_id: str | None, client) -> list[dict]:
-    """Keyword-based fallback search using ILIKE (P0: only latest versions)."""
+    """Keyword-based fallback search using ILIKE with Chinese tokenization."""
+    # Extract meaningful terms from the query (e.g. "还记得我的2个同学么" → ["同学"])
+    terms = _extract_search_terms(query)
+    if not terms:
+        # Fallback: use original query if tokenization yields nothing
+        terms = [query]
+
     memories: list[dict] = []
+    seen_ids: set[str] = set()
 
-    # Build base query with mandatory tenant isolation + version filter
-    base_query = (
-        client.table("conversation_memories")
-        .select("*")
-        .eq("user_id", user_id)
-        .is_("superseded_by", "null")
-    )
-    if org_id:
-        base_query = base_query.eq("organization_id", org_id)
+    for term in terms:
+        if len(memories) >= limit:
+            break
 
-    # Search in key field
-    result_key = await base_query.ilike("key", f"%{query}%").limit(limit).execute()
-    if result_key.data:
-        memories.extend(result_key.data)
+        # Search in key field
+        key_query = (
+            client.table("conversation_memories")
+            .select("*")
+            .eq("user_id", user_id)
+            .is_("superseded_by", "null")
+        )
+        if org_id:
+            key_query = key_query.eq("organization_id", org_id)
+        try:
+            result_key = await key_query.ilike("key", f"%{term}%").limit(limit).execute()
+            for item in (result_key.data or []):
+                if item["id"] not in seen_ids:
+                    seen_ids.add(item["id"])
+                    memories.append(item)
+        except Exception:
+            pass
 
-    # Search in value field
-    if len(memories) < limit:
-        seen_ids = {m["id"] for m in memories}
+        if len(memories) >= limit:
+            break
+
+        # Search in value field
         val_query = (
             client.table("conversation_memories")
             .select("*")
@@ -236,13 +297,16 @@ async def _keyword_search(user_id: str, query: str, limit: int, org_id: str | No
         )
         if org_id:
             val_query = val_query.eq("organization_id", org_id)
-        result_value = await val_query.ilike("value", f"%{query}%").limit(limit).execute()
-        if result_value.data:
-            for item in result_value.data:
+        try:
+            result_val = await val_query.ilike("value", f"%{term}%").limit(limit).execute()
+            for item in (result_val.data or []):
                 if item["id"] not in seen_ids:
+                    seen_ids.add(item["id"])
                     memories.append(item)
+        except Exception:
+            pass
 
-    return memories
+    return memories[:limit]
 
 
 async def _expand_top_connections(

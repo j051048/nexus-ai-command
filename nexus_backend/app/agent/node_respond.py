@@ -28,12 +28,30 @@ from app.services.plugin_system_service import ExtensionPoint
 _SENSITIVE_FIELD_RULES = [
     # (pattern, mask_replacement, minimum_role_level)
     # Role levels: guest=0, employee=1, manager=2, boss=3, founder=4
+
+    # --- 薪资/工资 (中文 + 英文 + 变体) ---
     (_re.compile(r"(薪[资酬水]|工资|月薪|年薪|底薪|基本工资)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[薪资信息已隐藏]", 3),
+    (_re.compile(r"(月收入|年收入|税前收入|税后收入|到手)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[薪资信息已隐藏]", 3),
+    (_re.compile(r"\b(salary|wage|pay|income|compensation)\s*[:=]?\s*[\$￥¥]?\s*[\d,.]+", _re.IGNORECASE), "[SALARY HIDDEN]", 3),
+
+    # --- 奖金/提成 ---
     (_re.compile(r"(提成|奖金|绩效奖|年终奖)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[奖金信息已隐藏]", 3),
+    (_re.compile(r"\b(bonus|commission|incentive)\s*[:=]?\s*[\$￥¥]?\s*[\d,.]+", _re.IGNORECASE), "[BONUS HIDDEN]", 3),
+
+    # --- 社保/公积金 ---
     (_re.compile(r"(社保|公积金|五险一金)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[社保信息已隐藏]", 3),
+
+    # --- 合同金额 ---
     (_re.compile(r"(合同金额|签约金额|合同价)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[合同金额已隐藏]", 2),
+    (_re.compile(r"\b(contract\s*(?:amount|value|price))\s*[:=]?\s*[\$￥¥]?\s*[\d,.]+", _re.IGNORECASE), "[CONTRACT AMOUNT HIDDEN]", 2),
+
+    # --- 成本价 ---
     (_re.compile(r"(成本价|进货价|底价)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[成本信息已隐藏]", 2),
+    (_re.compile(r"\b(cost\s*price|wholesale\s*price|unit\s*cost)\s*[:=]?\s*[\$￥¥]?\s*[\d,.]+", _re.IGNORECASE), "[COST HIDDEN]", 2),
+
+    # --- 利润率 ---
     (_re.compile(r"(利润率|毛利率|净利率)\s*[:：]?\s*[\d,.]+\s*%?"), "[利润信息已隐藏]", 2),
+    (_re.compile(r"\b(profit\s*margin|gross\s*margin|net\s*margin)\s*[:=]?\s*[\d,.]+\s*%?", _re.IGNORECASE), "[MARGIN HIDDEN]", 2),
 ]
 
 _ROLE_LEVELS = {

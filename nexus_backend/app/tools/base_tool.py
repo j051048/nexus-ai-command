@@ -181,6 +181,13 @@ class BaseTool(ABC):
         except jsonschema.ValidationError as ve:
             raise ValueError(f"工具 {self.name} 参数校验失败: {ve.message}") from ve
 
+    @property
+    def requires_org_id(self) -> bool:
+        """Whether this tool requires org_id for tenant isolation.
+        Defaults to True — tools that are org-independent should override to False.
+        When True, the execution layer will reject calls without org_id."""
+        return True
+
     @abstractmethod
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         """

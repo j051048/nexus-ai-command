@@ -17,6 +17,7 @@ class SearchLongTermMemoryTool(BaseTool):
     """主动在用户的长期记忆库和组织记忆库中搜索关联信息。"""
 
     domain = "system"
+    requires_org_id = False
 
     @property
     def name(self) -> str:

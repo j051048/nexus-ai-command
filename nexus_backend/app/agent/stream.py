@@ -223,8 +223,26 @@ async def run_agent_stream(
 
         early_complexity, intent_summary = classify_query(last_user_content)
         if early_complexity == QueryComplexity.SIMPLE:
-            agent_config.enable_rag_inject = False
-            _is_simple = True
+            # Short follow-up heuristic: if the current message is very short (<=4 chars)
+            # and the previous user message triggered memory/context, keep memory active.
+            # This handles cases like: User: "还记得我的同学么?" → AI: "..." → User: "林凯"
+            _prev_was_contextual = False
+            if len(last_user_content.strip()) <= 4 and len(messages) >= 3:
+                for prev_msg in reversed(messages[:-1]):
+                    if prev_msg.get("role") == "user":
+                        prev_text = prev_msg.get("content", "")
+                        prev_cx, _ = classify_query(prev_text)
+                        if prev_cx != QueryComplexity.SIMPLE:
+                            _prev_was_contextual = True
+                        break
+            if _prev_was_contextual:
+                # Upgrade to MODERATE so memory/context is preserved for follow-up
+                early_complexity = QueryComplexity.MODERATE
+                intent_summary = "短消息跟进(保留上下文)"
+                logger.debug(f"[Stream] Short follow-up detected, upgraded to MODERATE: '{last_user_content}'")
+            else:
+                agent_config.enable_rag_inject = False
+                _is_simple = True
         elif agent_config.enable_rag_inject and not _should_enable_rag(last_user_content):
             agent_config.enable_rag_inject = False
             logger.debug("[Stream] RAG skipped: query has no document/knowledge indicators")

@@ -29,6 +29,7 @@ class WebSearchTool(BaseTool):
 
     name = "web_search"
     domain = "knowledge"
+    requires_org_id = False
     description = (
         "搜索互联网获取实时公开信息，包括行业新闻、竞品动态、市场数据、政策法规等。"
         "当需要最新外部信息或知识库中未覆盖的公开数据时调用。"

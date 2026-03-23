@@ -76,13 +76,28 @@ _CHITCHAT_PATTERNS = re.compile(
 # These MUST NOT be classified as SIMPLE, because skip_semantic=True would
 # prevent the memory system from retrieving relevant context.
 _MEMORY_RECALL_PATTERNS = re.compile(
+    # Group 1: recall verb + ... + action verb (strict: "记得...说过/聊过")
     r"(记得|记住|还记得|回忆|回顾|想起|忘记|忘了|"
     r"上次|昨天|之前|以前|过去).{0,15}"
     r"(说过|问过|聊过|提到|讨论|告诉|对话|谈过|交流|沟通|讲过|分享)|"
+    # Group 2: temporal + conversation nouns ("上次对话")
     r"(之前|上次|昨天|以前|过去|历史).{0,10}(对话|聊天|交流|沟通|记录)|"
+    # Group 3: "我X过什么"
     r"我(说|问|提|聊|讲)过什么|"
+    # Group 4: "你记得" questions
     r"你(还)?记(得|住)|"
-    r"我们(之前|上次|昨天)",
+    # Group 5: "我们之前"
+    r"我们(之前|上次|昨天)|"
+    # Group 6: "记得/还记得 X 么/吗/？" — recall question with question marker
+    #   e.g. "还记得我的2个同学么", "记得林凯吗"
+    r"(还)?(记得|记不记得).{0,20}[么吗嘛？?]|"
+    # Group 6b: "记不记得" — inherently a recall question, no question marker needed
+    r"记不记得|"
+    # Group 7: "之前提/说/聊过的 X" — temporal + past-tense verb + "的"
+    #   e.g. "我之前提过的林凯", "上次说过的方案"
+    r"(之前|上次|以前|过去|昨天).{0,6}(提|说|聊|讲|讨论)过的|"
+    # Group 8: "你知道我的X吗" — knowledge recall about personal context
+    r"你知道我的.{1,10}[么吗嘛？?]",
     re.IGNORECASE,
 )
 

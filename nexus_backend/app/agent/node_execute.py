@@ -460,7 +460,14 @@ async def _execute_single_tool(
     # Allow hooks to modify args
     record.tool_args = hook_ctx.get("tool_args", record.tool_args)
 
-    # 4. Execute with configurable timeout and structured retry
+    # 4. Tenant isolation: reject tools that require org_id without one
+    if getattr(tool, "requires_org_id", True) and not config.org_id:
+        record.status = "error"
+        record.result = "❌ 无法获取组织信息(org_id缺失)，请确保已正确登录。"
+        logger.warning(f"Tool {record.tool_name} requires org_id but none provided (user={config.user_id})")
+        return record
+
+    # 5. Execute with configurable timeout and structured retry
     start_time = time.time()
     last_error = None
     timeout = config.tool_timeout if hasattr(config, "tool_timeout") else 30.0
