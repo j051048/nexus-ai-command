@@ -49,16 +49,39 @@ function calculateStats(logs: AuditLogEntry[]): AuditStats {
   };
 }
 
+// ─── Table availability probe ──────────────────────────────
+// Once the table is confirmed unavailable (RLS deny / missing), skip all
+// subsequent queries for the rest of the session to avoid 400 console noise.
+
+let _auditTableAvailable: boolean | null = null; // null = not checked yet
+
+async function isAuditTableAvailable(): Promise<boolean> {
+  if (_auditTableAvailable !== null) return _auditTableAvailable;
+
+  const { error } = await supabase
+    .from('audit_logs')
+    .select('id')
+    .limit(1);
+
+  _auditTableAvailable = !error;
+  if (error) {
+    console.debug('[audit_logs] table unavailable (RLS or missing), disabling audit queries');
+  }
+  return _auditTableAvailable;
+}
+
 // ─── Hooks ──────────────────────────────────────────────────
 
 /**
  * 查询审计日志
- * 从 Supabase audit_logs 表获取真实数据，查询失败时抛出错误
+ * 从 Supabase audit_logs 表获取真实数据，表不可用时返回空数组
  */
 export function useAuditLogs(filters: AuditFilters) {
   return useQuery({
     queryKey: ['audit-logs', filters],
     queryFn: async (): Promise<AuditLogEntry[]> => {
+      if (!(await isAuditTableAvailable())) return [];
+
       let query = supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(200);
 
       if (filters.startDate) {
@@ -79,13 +102,13 @@ export function useAuditLogs(filters: AuditFilters) {
 
       const { data, error } = await query;
       if (error) {
-        // Table may not exist yet — return empty instead of crashing
-        console.debug('[useAuditLogs] query failed (table may not exist):', error.message);
+        _auditTableAvailable = false;
         return [];
       }
       return (data as AuditLogEntry[]) || [];
     },
     staleTime: 30_000,
+    retry: false,
   });
 }
 
@@ -113,17 +136,20 @@ export function useAuditActions() {
   return useQuery({
     queryKey: ['audit-actions'],
     queryFn: async () => {
+      if (!(await isAuditTableAvailable())) return [];
+
       const { data, error } = await supabase
         .from('audit_logs')
         .select('action')
         .order('action');
       if (error) {
-        console.debug('[useAuditActions] query failed:', error.message);
+        _auditTableAvailable = false;
         return [];
       }
       const actions: string[] = [...new Set((data as { action: string }[]).map((d) => d.action))];
       return actions;
     },
     staleTime: 60_000,
+    retry: false,
   });
 }
