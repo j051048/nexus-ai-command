@@ -44,7 +44,9 @@ async def list_certificates(
 ):
     """查询证照列表"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         filters = {}
         if cert_type:
@@ -72,7 +74,9 @@ async def create_certificate(
 ):
     """创建证照"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         data = body.model_dump(exclude_none=True)
         cert = await certificate_service.create_certificate(
@@ -94,7 +98,9 @@ async def get_expiring_certs(
 ):
     """查询即将到期证照"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         certs = await certificate_service.get_expiring_certs(
             org_id=org_id,

@@ -20,6 +20,8 @@ import uuid
 from collections.abc import AsyncGenerator
 from typing import Any
 
+_background_tasks: set[asyncio.Task] = set()
+
 from app.agent.graph import get_agent_graph
 from app.agent.safety_guards import is_mutation_fast_path as _is_mutation_fast_path
 from app.agent.memory import persist_result, prepare_initial_state
@@ -900,7 +902,7 @@ async def run_agent_stream(
         except Exception:
             return 0.0
 
-    asyncio.create_task(
+    _t = asyncio.create_task(
         persist_result(
             user_id=user_id,
             session_id=session_id or "default",
@@ -926,6 +928,8 @@ async def run_agent_stream(
             skip_semantic=False,  # SIMPLE queries are ideal cache candidates
         )
     )
+    _background_tasks.add(_t)
+    _t.add_done_callback(_background_tasks.discard)
 
     # Structured metrics log for observability
     duration_ms = int((time.time() - start_time) * 1000)

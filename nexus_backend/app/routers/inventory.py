@@ -43,7 +43,9 @@ async def list_inventory(
 ):
     """查询库存列表"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         filters = {}
         if category:
@@ -73,7 +75,9 @@ async def inventory_in(
 ):
     """入库"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         result = await inventory_service.inventory_in(
             org_id=org_id,
@@ -97,7 +101,9 @@ async def inventory_out(
 ):
     """出库"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         result = await inventory_service.inventory_out(
             org_id=org_id,
@@ -121,7 +127,9 @@ async def low_stock_alert(
 ):
     """低库存预警"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         alerts = await inventory_service.get_low_stock_items(org_id=org_id, db=db)
         return api_success(data={"alerts": alerts})
@@ -138,7 +146,9 @@ async def inventory_statistics(
 ):
     """库存统计"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         stats = await inventory_service.get_inventory_statistics(
             org_id=org_id,

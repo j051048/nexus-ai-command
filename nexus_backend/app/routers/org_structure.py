@@ -63,7 +63,9 @@ async def list_departments(
 ):
     """查询部门列表"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         departments = await organization_service.list_departments(
             org_id=org_id,
@@ -84,7 +86,9 @@ async def create_department(
 ):
     """创建部门"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         department = await organization_service.create_department(
             org_id=org_id,
@@ -135,7 +139,9 @@ async def list_positions(
 ):
     """查询职位列表"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         positions = await organization_service.list_positions(
             org_id=org_id,
@@ -156,7 +162,9 @@ async def create_position(
 ):
     """创建职位"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         position = await organization_service.create_position(
             org_id=org_id,
@@ -184,7 +192,9 @@ async def list_employees(
 ):
     """查询员工列表"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         filters = {}
         if department_id:
@@ -233,7 +243,9 @@ async def create_employee(
 ):
     """创建员工"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         data = body.model_dump(exclude_none=True)
         employee = await organization_service.create_employee(
@@ -281,7 +293,9 @@ async def org_statistics(
 ):
     """组织统计"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         stats = await organization_service.get_org_statistics(org_id=org_id, db=db)
         return api_success(data=stats)

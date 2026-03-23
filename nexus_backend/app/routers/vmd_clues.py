@@ -65,7 +65,9 @@ async def create_clue(
 ):
     """创建商机线索"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = getattr(req.state, "db", None)
         if not client:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
@@ -109,7 +111,9 @@ async def list_clues(
 ):
     """获取线索列表（分页、筛选）"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = getattr(req.state, "db", None)
         if not client:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
@@ -152,7 +156,9 @@ async def get_clue_stats(
 ):
     """获取线索统计概览（按状态、来源、优先级）"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = getattr(req.state, "db", None)
         if not client:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
@@ -176,7 +182,9 @@ async def get_clue(
 ):
     """获取线索详情（含跟进历史）"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = getattr(req.state, "db", None)
         if not client:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
@@ -217,7 +225,9 @@ async def update_clue(
 ):
     """更新线索"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = getattr(req.state, "db", None)
         if not client:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
@@ -257,7 +267,9 @@ async def delete_clue(
 ):
     """删除线索（软删除 - 标记为无效状态）"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = getattr(req.state, "db", None)
         if not client:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
@@ -298,7 +310,9 @@ async def add_follow_up(
 ):
     """添加线索跟进记录"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = getattr(req.state, "db", None)
         if not client:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
@@ -337,7 +351,9 @@ async def convert_clue(
 ):
     """将线索转化为CRM客户"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = getattr(req.state, "db", None)
         if not client:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")

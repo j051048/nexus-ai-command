@@ -154,7 +154,9 @@ async def create_task(
 ):
     """创建VMD任务"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         admin = _get_admin_client()
 
         record = {
@@ -281,7 +283,9 @@ async def list_tasks(
 ):
     """获取任务列表"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         admin = _get_admin_client()
 
         # Count query
@@ -649,7 +653,9 @@ async def create_sub_task(
     """手动创建子任务"""
     try:
         admin = _get_admin_client()
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
 
         # Verify main task exists
         task_res = await admin.table("vmd_main_task").select("id, tenant_id").eq("id", task_id).maybe_single().execute()
@@ -853,7 +859,9 @@ async def list_agent_configs(
 ):
     """获取所有Agent角色配置（优先租户自定义，回退全局默认，最终回退代码默认）"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         admin = _get_admin_client()
 
         # 1. Query global defaults (tenant_id IS NULL)
@@ -930,7 +938,9 @@ async def update_agent_config(
 ):
     """更新Agent配置（租户级覆写，首次编辑时从全局默认或代码默认复制）"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         admin = _get_admin_client()
 
         update_data = body.model_dump(exclude_none=True)
@@ -1013,7 +1023,9 @@ async def delete_task(
 ):
     """删除主任务（软删除 - 标记为 cancelled 状态，级联取消所有子任务）"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         admin = _get_admin_client()
 
         # Verify task exists and is not already cancelled/completed

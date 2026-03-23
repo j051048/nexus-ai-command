@@ -9,10 +9,10 @@ import { toast } from 'sonner';
 export type ApprovalRequest = ApprovalRequestSafe;
 
 export function useApprovals() {
-  const { user, profile } = useAuth();
+  const { user, profile, role } = useAuth();
   const queryClient = useQueryClient();
 
-  const isBoss = user?.role === 'boss';
+  const isBoss = role === 'boss';
 
   // Fetch pending approvals (for Boss)
   const { data: pendingApprovals = [], isLoading } = useQuery({

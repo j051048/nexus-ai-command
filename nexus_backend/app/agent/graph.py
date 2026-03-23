@@ -56,11 +56,14 @@ Architecture Evolution Roadmap (2026-03):
            and cleaner state isolation per worker.
 """
 
+import asyncio
 import hashlib
 import json
 import logging
 import time
 from typing import Optional
+
+_background_tasks: set[asyncio.Task] = set()
 
 from langgraph.graph import END, StateGraph
 
@@ -220,7 +223,6 @@ def _after_execute(state: AgentState) -> str:
         state["circuit_break_reason"] = "loop_detected"
         # Persist loop failure for analytics
         try:
-            import asyncio
             from app.services.failure_log_service import failure_log_service
 
             config = state.get("config")
@@ -229,7 +231,7 @@ def _after_execute(state: AgentState) -> str:
                 if hasattr(msg, "type") and msg.type == "human":
                     user_message = msg.content
                     break
-            asyncio.create_task(failure_log_service.log_failure(
+            _t = asyncio.create_task(failure_log_service.log_failure(
                 org_id=getattr(config, "org_id", None) if config else None,
                 user_id=getattr(config, "user_id", None) if config else None,
                 user_message=user_message or "loop detected",
@@ -239,6 +241,8 @@ def _after_execute(state: AgentState) -> str:
                 error_detail=f"Loop after {iteration} iterations",
                 severity="medium",
             ))
+            _background_tasks.add(_t)
+            _t.add_done_callback(_background_tasks.discard)
         except Exception:
             pass
         return "reflect"

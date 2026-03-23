@@ -36,7 +36,9 @@ async def get_sales_report(
 ):
     """销售报表: 按日/周/月汇总销售额、成交数、转化率"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         date_range = _build_date_range(preset, start, end)
         data = await report_service.get_sales_report(org_id, date_range, group_by, db=db)
@@ -56,7 +58,9 @@ async def get_approval_report(
 ):
     """审批报表: 审批数量、平均处理时间、自动审批率、驳回率"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         date_range = _build_date_range(preset, start, end)
         data = await report_service.get_approval_report(org_id, date_range, db=db)
@@ -76,7 +80,9 @@ async def get_performance_report(
 ):
     """绩效报表: 团队积分、个人排名、目标完成率"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         date_range = _build_date_range(preset, start, end)
         data = await report_service.get_performance_report(org_id, date_range, db=db)
@@ -96,7 +102,9 @@ async def get_usage_report(
 ):
     """使用报表: AI 对话量、Token 消耗、功能使用频率"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         date_range = _build_date_range(preset, start, end)
         data = await report_service.get_usage_report(org_id, date_range, db=db)
@@ -113,7 +121,9 @@ async def get_overview_stats(
 ):
     """概览统计: 关键 KPI 汇总"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         data = await report_service.get_overview_stats(org_id, db=db)
         return api_success(data=data)

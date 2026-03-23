@@ -49,7 +49,9 @@ async def clock_in_out(
 ):
     """打卡签到/签退"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         result = await attendance_service.clock_in_out(
             org_id=org_id,
@@ -75,7 +77,9 @@ async def get_attendance_records(
 ):
     """查询考勤记录"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         records = await attendance_service.get_attendance_records(
             org_id=org_id,
@@ -98,7 +102,9 @@ async def create_shift_schedule(
 ):
     """创建排班"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         shift = await attendance_service.create_shift_schedule(
             org_id=org_id,
@@ -124,7 +130,9 @@ async def list_shift_schedules(
 ):
     """查询排班列表"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         shifts = await attendance_service.list_shift_schedules(
             org_id=org_id,
@@ -149,7 +157,9 @@ async def attendance_statistics(
 ):
     """考勤统计"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         stats = await attendance_service.get_attendance_statistics(
             org_id=org_id,
@@ -172,7 +182,9 @@ async def request_leave(
 ):
     """请假申请"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         leave = await attendance_service.request_leave(
             org_id=org_id,

@@ -110,8 +110,17 @@ def create_app() -> FastAPI:
         return Response(status_code=204)
 
     @application.get("/metrics", include_in_schema=False)
-    async def prometheus_metrics():
-        """Prometheus-compatible metrics endpoint."""
+    async def prometheus_metrics(request: "Request"):
+        """Prometheus-compatible metrics endpoint. Requires X-Health-Token header."""
+        from fastapi import Request
+
+        expected_token = os.getenv("HEALTH_CHECK_TOKEN", "")
+        provided_token = request.headers.get("X-Health-Token", "")
+        if not expected_token and settings.IS_PRODUCTION:
+            return UTF8JSONResponse(status_code=503, content={"status": "error", "detail": "HEALTH_CHECK_TOKEN not configured"})
+        if expected_token and provided_token != expected_token:
+            return UTF8JSONResponse(status_code=403, content={"error": "Forbidden"})
+
         return Response(
             content=generate_metrics_text(),
             media_type="text/plain; version=0.0.4; charset=utf-8",
@@ -168,6 +177,8 @@ def create_app() -> FastAPI:
         # Auth: require health check token
         expected_token = os.getenv("HEALTH_CHECK_TOKEN", "")
         provided_token = request.headers.get("X-Health-Token", "")
+        if not expected_token and settings.IS_PRODUCTION:
+            return UTF8JSONResponse(status_code=503, content={"status": "error", "detail": "HEALTH_CHECK_TOKEN not configured"})
         if expected_token and provided_token != expected_token:
             return UTF8JSONResponse(status_code=403, content={"error": "Forbidden"})
 

@@ -101,7 +101,9 @@ async def list_customers(
 ):
     """获取客户列表（支持筛选和搜索）"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
 
         if search:
@@ -128,7 +130,9 @@ async def create_customer(
 ):
     """创建新客户"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         customer = await crm_service.create_customer(org_id, body.model_dump(exclude_none=True), db=db)
         return api_success(data={"customer": customer}, message="客户创建成功")
@@ -307,7 +311,9 @@ async def get_customer_stats(
 ):
     """获取客户统计数据"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         stats = await crm_service.get_customer_stats(org_id, db=db)
         return api_success(data={"stats": stats})

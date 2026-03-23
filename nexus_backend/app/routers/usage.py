@@ -120,7 +120,9 @@ async def get_cost_report(
     """
     #30 LLM Cost Attribution: Get cost breakdown by department and project.
     """
-    org_id = getattr(req.state, "org_id", None) or "default"
+    org_id = getattr(req.state, "org_id", None)
+    if not org_id:
+        raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
     client = getattr(req.state, "db", None)
     try:
         report = await usage_tracker.get_cost_report(org_id, days=days, db=client)
@@ -282,7 +284,9 @@ async def get_model_breakdown(
     Returns aggregated token usage, cost, latency, and error rate
     grouped by model_code for the requested period.
     """
-    org_id = getattr(req.state, "org_id", None) or "default"
+    org_id = getattr(req.state, "org_id", None)
+    if not org_id:
+        raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
     client = getattr(req.state, "db", None)
 
     if not client:
@@ -428,7 +432,9 @@ async def get_daily_model_trend(
     """
     Daily cost trend broken down by model, sourced from llm_call_log.
     """
-    org_id = getattr(req.state, "org_id", None) or "default"
+    org_id = getattr(req.state, "org_id", None)
+    if not org_id:
+        raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
     client = getattr(req.state, "db", None)
 
     if not client:

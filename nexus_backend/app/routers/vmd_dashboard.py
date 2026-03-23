@@ -25,7 +25,9 @@ async def get_overview_stats(
 ):
     """获取VMD概览统计（今日任务、活跃Agent、新线索、待审核）"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = getattr(req.state, "db", None)
         if not client:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
@@ -99,7 +101,9 @@ async def get_task_trend(
 ):
     """获取任务完成趋势（按日分组）"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = getattr(req.state, "db", None)
         if not client:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
@@ -147,7 +151,9 @@ async def get_agent_workload(
 ):
     """获取Agent工作量分布"""
     try:
-        _org_id = getattr(req.state, "org_id", None) or "default"
+        _org_id = getattr(req.state, "org_id", None)
+        if not _org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = getattr(req.state, "db", None)
         if not client:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
@@ -196,7 +202,9 @@ async def get_scene_distribution(
 ):
     """获取任务场景分布"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = getattr(req.state, "db", None)
         if not client:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
@@ -232,7 +240,9 @@ async def get_model_usage(
 ):
     """获取LLM模型使用汇总"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = getattr(req.state, "db", None)
         if not client:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
@@ -293,7 +303,9 @@ async def get_compliance_trend(
 ):
     """获取合规检查趋势（按日分组）"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = getattr(req.state, "db", None)
         if not client:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")

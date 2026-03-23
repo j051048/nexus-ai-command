@@ -29,7 +29,9 @@ async def create_model(
 ):
     """创建新模型配置"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = _get_admin_client()
 
         # Resolve system defaults for quick-add
@@ -121,7 +123,9 @@ async def list_models(
 ):
     """获取模型列表（分页、筛选）"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = _get_admin_client()
 
         # Build query for count

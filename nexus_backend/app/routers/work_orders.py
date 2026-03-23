@@ -46,7 +46,9 @@ async def list_work_orders(
 ):
     """查询工单列表"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         filters = {}
         if order_type:
@@ -80,7 +82,9 @@ async def get_statistics(
 ):
     """工单统计"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         time_range = {}
         if start_date:
@@ -106,7 +110,9 @@ async def list_types(
 ):
     """查询工单类型"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         types = await work_order_service.list_work_order_types(org_id=org_id, db=db)
         return api_success(data={"work_order_types": types})
@@ -146,7 +152,9 @@ async def create_work_order(
 ):
     """创建工单"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         data = body.model_dump(exclude_none=True)
         order = await work_order_service.create_work_order(

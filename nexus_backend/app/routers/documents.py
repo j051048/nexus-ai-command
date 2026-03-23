@@ -148,6 +148,10 @@ async def upload_documents(
             content = await file.read()
             filename = file.filename
 
+            if len(content) > 50 * 1024 * 1024:
+                results.append({"filename": file.filename, "status": "error", "reason": "文件大小超过50MB限制"})
+                continue
+
             # P1 Fix #20: Multi-level deduplication (hash + title similarity)
             content_hash = etl_service.compute_content_hash(content)
             existing_doc = await etl_service.check_duplicate(content_hash, user_id, org_id=org_id, filename=filename)
@@ -209,7 +213,7 @@ async def upload_documents(
 
         except Exception as e:
             logger.error(f"Upload Setup Failed for {file.filename}: {e}")
-            results.append({"filename": file.filename, "status": "error", "reason": str(e)})
+            results.append({"filename": file.filename, "status": "error", "reason": "文件处理失败"})
 
     summary = f"Queued {processed_count} files"
     if skipped_count > 0:
@@ -330,7 +334,7 @@ async def batch_upload_documents(
             )
         except Exception as e:
             logger.error(f"Failed to upload {file.filename}: {e}")
-            results.append({"filename": file.filename, "status": "error", "reason": str(e)[:100]})
+            results.append({"filename": file.filename, "status": "error", "reason": "文件处理失败"})
 
     success_count = sum(1 for r in results if r["status"] == "uploaded")
     error_count = sum(1 for r in results if r["status"] == "error")
@@ -597,7 +601,7 @@ async def bulk_import_documents(
                 {
                     "title": item.title,
                     "status": "error",
-                    "message": str(e)[:200],
+                    "message": "文件处理失败",
                 }
             )
 

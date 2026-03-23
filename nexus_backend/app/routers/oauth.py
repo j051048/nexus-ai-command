@@ -21,7 +21,9 @@ async def register_client(
 ):
     """Register a new OAuth client application."""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         result = await oauth_service.register_client(
             name=body.client_name,
             org_id=org_id,

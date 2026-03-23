@@ -35,7 +35,9 @@ async def list_approval_flows(
 ):
     """查询审批流程列表"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         flows = await approval_flow_service.list_approval_flows(
             org_id=org_id,
@@ -56,7 +58,9 @@ async def create_approval_flow(
 ):
     """创建审批流程"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         flow = await approval_flow_service.create_approval_flow(
             org_id=org_id,

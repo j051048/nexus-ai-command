@@ -28,7 +28,9 @@ async def list_configs(
 ):
     """查询配置列表"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         configs = await system_config_service.list_configs(
             org_id=org_id,
@@ -49,7 +51,9 @@ async def upsert_config(
 ):
     """创建或更新配置"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         result = await system_config_service.upsert_config(
             org_id=org_id,
@@ -76,7 +80,9 @@ async def delete_config(
     if not config_type or not config_key:
         raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "config_type 和 config_key 不能为空")
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         result = await system_config_service.delete_config(
             org_id=org_id,
@@ -97,7 +103,9 @@ async def init_defaults(
 ):
     """初始化租户默认配置"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         await system_config_service.init_default_configs(org_id=org_id, db=db)
         return api_success(data={"message": "默认配置已初始化"})

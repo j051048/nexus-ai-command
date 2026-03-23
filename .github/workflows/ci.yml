@@ -190,10 +190,11 @@ jobs:
             echo "## Backend Test Coverage: ${TOTAL}%" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
-            # Warning threshold at 50% (non-blocking)
+            # Blocking threshold at 50%
             if (( $(echo "$TOTAL < 50" | bc -l) )); then
-              echo "::warning::Backend test coverage is ${TOTAL}%, below 50% threshold. Consider adding more tests."
+              echo "::error::Backend test coverage is ${TOTAL}%, below 50% threshold."
               echo "Coverage is below 50% target. Please improve test coverage." >> $GITHUB_STEP_SUMMARY
+              exit 1
             else
               echo "Coverage meets the 50% minimum threshold." >> $GITHUB_STEP_SUMMARY
             fi

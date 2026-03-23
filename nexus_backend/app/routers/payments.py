@@ -1,12 +1,16 @@
 """国内支付 API 端点"""
 
 import logging
+import os
 
 from fastapi import APIRouter, Depends, Query, Request
 
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_list, api_success
 from app.services.payment_service import payment_service
+
+# 支付回调签名密钥 (微信/支付宝各自的 API 密钥用于验签)
+_PAYMENT_CALLBACK_TOKEN = os.getenv("PAYMENT_CALLBACK_TOKEN", "")
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/payments", tags=["Payments"])
@@ -36,7 +40,9 @@ async def create_order(
                 "金额必须大于 0",
             )
 
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         order = await payment_service.create_order(org_id, plan_id, payment_method, float(amount), db=db)
         return api_success(data={"order": order})
@@ -56,7 +62,9 @@ async def list_orders(
 ):
     """获取订单列表"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         result = await payment_service.list_orders(org_id, page, page_size, db=db)
         return api_list(
@@ -96,7 +104,9 @@ async def get_bank_transfer_info(
 ):
     """获取对公转账信息"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         info = await payment_service.get_bank_transfer_info(org_id, plan_id)
         return api_success(data={"bank_info": info})
     except Exception as e:
@@ -109,13 +119,22 @@ async def payment_callback(
     platform: str,
     req: Request,
 ):
-    """处理支付回调（微信/支付宝）- 无需鉴权"""
+    """处理支付回调（微信/支付宝）- 需验证回调签名"""
     try:
+        # 基本回调签名验证：要求配置 PAYMENT_CALLBACK_TOKEN
+        if _PAYMENT_CALLBACK_TOKEN:
+            provided = req.headers.get("X-Payment-Token", "")
+            if provided != _PAYMENT_CALLBACK_TOKEN:
+                logger.warning(f"Payment callback rejected: invalid token, platform={platform}, ip={req.client.host if req.client else 'unknown'}")
+                raise api_error(ErrorCode.FORBIDDEN, "回调签名验证失败")
+
         body = await req.json()
         db = getattr(req.state, "db", None)
         result = await payment_service.handle_payment_callback(platform, body, db=db)
         return api_success(data=result)
     except Exception as e:
+        if hasattr(e, "status_code"):
+            raise
         logger.error(f"Payment callback error: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "支付操作失败")
 

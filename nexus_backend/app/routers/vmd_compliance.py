@@ -62,7 +62,9 @@ async def check_content(
 ):
     """对提供的内容执行合规检查"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = getattr(req.state, "db", None)
         if not client:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
@@ -117,7 +119,9 @@ async def list_rules(
 ):
     """获取合规规则列表"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = getattr(req.state, "db", None)
         if not client:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
@@ -141,7 +145,9 @@ async def create_rule(
 ):
     """创建自定义合规规则"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = getattr(req.state, "db", None)
         if not client:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
@@ -236,7 +242,9 @@ async def get_check_history(
 ):
     """获取合规检查历史记录"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = getattr(req.state, "db", None)
         if not client:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")

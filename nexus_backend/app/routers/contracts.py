@@ -27,7 +27,9 @@ async def list_contracts(
     """获取合同列表"""
     try:
         limit = min(limit, 200)
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         filters = {}
         if status:
@@ -51,7 +53,9 @@ async def create_contract(
 ):
     """创建合同"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         data = body.model_dump(exclude_none=True)
         data["created_by"] = user_id
@@ -71,7 +75,9 @@ async def get_contract_stats(
 ):
     """获取合同统计"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         stats = await contract_service.get_contract_stats(org_id=org_id, db=db)
         return api_success(data={"stats": stats})
@@ -88,7 +94,9 @@ async def get_expiring_contracts(
 ):
     """获取即将到期合同"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         contracts = await contract_service.get_expiring_contracts(org_id=org_id, days=days, db=db)
         return api_success(data={"contracts": contracts})

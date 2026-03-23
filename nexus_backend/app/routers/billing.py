@@ -30,7 +30,9 @@ async def get_subscription(
     user_id: str = Depends(get_current_user_id),
 ):
     """Get current org subscription."""
-    org_id = getattr(req.state, "org_id", None) or "default"
+    org_id = getattr(req.state, "org_id", None)
+    if not org_id:
+        raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
     sub = await billing_service.get_subscription(org_id, db=getattr(req.state, "db", None))
     return api_success(data={"subscription": sub.__dict__ if sub else None})
 
@@ -52,7 +54,9 @@ async def subscribe(
         except ValueError:
             raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, f"Invalid plan: {plan_name}")
 
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         sub = await billing_service.create_subscription(org_id, plan, db=getattr(req.state, "db", None))
         return api_success(data={"subscription": sub.__dict__})
     except Exception as e:
@@ -66,7 +70,9 @@ async def cancel_subscription(
     user_id: str = Depends(get_current_user_id),
 ):
     """Cancel current subscription."""
-    org_id = getattr(req.state, "org_id", None) or "default"
+    org_id = getattr(req.state, "org_id", None)
+    if not org_id:
+        raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
     success = await billing_service.cancel_subscription(org_id, db=getattr(req.state, "db", None))
     return api_success(data={"cancelled": success})
 
@@ -119,7 +125,9 @@ async def start_trial(
     user_id: str = Depends(get_current_user_id),
 ):
     """Start a free trial for the organization."""
-    org_id = getattr(req.state, "org_id", None) or "default"
+    org_id = getattr(req.state, "org_id", None)
+    if not org_id:
+        raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
     try:
         body = await req.json()
         days = body.get("days", 14)

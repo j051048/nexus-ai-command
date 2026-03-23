@@ -24,7 +24,9 @@ async def list_quota_configs(
 ):
     """获取配额配置列表"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = _get_admin_client()
 
         res = (
@@ -48,7 +50,9 @@ async def create_quota_config(
 ):
     """创建配额配置"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = _get_admin_client()
 
         record = {

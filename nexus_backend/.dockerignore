@@ -41,3 +41,7 @@ docs/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Test scripts
+chaos_test.py
+normal_test.py

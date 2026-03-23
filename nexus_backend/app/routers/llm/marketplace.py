@@ -618,7 +618,9 @@ async def list_available_models(
         # 2. Get already-added models from DB
         already_added_codes: set[str] = set()
         client = _get_admin_client()
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         try:
             res = (
                 await client.table("llm_model_config")

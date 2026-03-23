@@ -22,7 +22,9 @@ async def list_plugins(
 ):
     """获取插件市场列表"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         plugins = await plugin_marketplace_service.list_plugins(org_id=org_id, category=category, db=db)
         return api_success(data={"plugins": plugins})
@@ -38,7 +40,9 @@ async def get_installed_plugins(
 ):
     """获取已安装的插件"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         plugins = await plugin_marketplace_service.get_installed_plugins(org_id=org_id, db=db)
         return api_success(data={"plugins": plugins})
@@ -56,7 +60,9 @@ async def install_plugin(
 ):
     """安装插件"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         result = await plugin_marketplace_service.install_plugin(
             org_id=org_id, plugin_id=plugin_id, config=body.config, db=db
@@ -77,7 +83,9 @@ async def uninstall_plugin(
 ):
     """卸载插件"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         success = await plugin_marketplace_service.uninstall_plugin(org_id=org_id, plugin_id=plugin_id, db=db)
         return api_success(data={"uninstalled": success}, message="插件已卸载")
@@ -95,7 +103,9 @@ async def update_plugin_config(
 ):
     """更新插件配置"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         result = await plugin_marketplace_service.update_plugin_config(
             org_id=org_id, plugin_id=plugin_id, config=body.config, db=db
@@ -124,7 +134,9 @@ async def execute_plugin_action(
     Body: {"action": "send_message", "params": {"content": "Hello"}}
     """
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
 
         # Inject user context into params

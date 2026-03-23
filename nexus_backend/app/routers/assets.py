@@ -54,7 +54,9 @@ async def list_assets(
 ):
     """查询资产列表"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         filters = {}
         if asset_type:
@@ -84,7 +86,9 @@ async def get_asset_statistics(
 ):
     """资产统计"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         stats = await asset_service.get_asset_statistics(
             org_id=org_id,
@@ -104,7 +108,9 @@ async def list_asset_types(
 ):
     """查询资产类型"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         types = await asset_service.list_asset_types(org_id=org_id, db=db)
         return api_success(data={"asset_types": types})
@@ -139,7 +145,9 @@ async def create_asset(
 ):
     """创建资产"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
         data = body.model_dump(exclude_none=True)
         asset = await asset_service.create_asset(org_id=org_id, data=data, db=db)
@@ -178,7 +186,9 @@ async def transfer_asset(
 ):
     """资产转移/领用/归还"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
 
         # 获取当前资产信息

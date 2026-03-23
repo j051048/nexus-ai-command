@@ -27,7 +27,9 @@ async def create_subscription(
         if not url:
             raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "url is required")
 
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         sub = await webhook_service.register_subscription(
             org_id=org_id,
             url=url,
@@ -52,7 +54,9 @@ async def list_subscriptions(
     user_id: str = Depends(get_current_user_id),
 ):
     """List all webhook subscriptions for the current org."""
-    org_id = getattr(req.state, "org_id", None) or "default"
+    org_id = getattr(req.state, "org_id", None)
+    if not org_id:
+        raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
     subs = await webhook_service.list_subscriptions(org_id=org_id, db=getattr(req.state, "db", None))
     return api_success(data={"subscriptions": subs})
 
@@ -77,6 +81,8 @@ async def list_deliveries(
     limit: int = 50,
 ):
     """List recent webhook deliveries."""
-    org_id = getattr(req.state, "org_id", None) or "default"
+    org_id = getattr(req.state, "org_id", None)
+    if not org_id:
+        raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
     deliveries = webhook_service.get_recent_deliveries(org_id=org_id, limit=limit)
     return api_success(data={"deliveries": deliveries})

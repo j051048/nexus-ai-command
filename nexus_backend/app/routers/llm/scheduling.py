@@ -51,7 +51,9 @@ async def create_schedule_rule(
 ):
     """创建调度规则"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = _get_admin_client()
 
         record = {
@@ -86,7 +88,9 @@ async def list_schedule_rules(
 ):
     """获取调度规则列表"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = _get_admin_client()
 
         # Count

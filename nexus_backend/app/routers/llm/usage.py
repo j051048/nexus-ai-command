@@ -26,7 +26,9 @@ async def get_usage_stats(
 ):
     """多维度用量统计"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = _get_admin_client()
 
         query = client.table("llm_call_log").select("*").eq("tenant_id", org_id)
@@ -98,7 +100,9 @@ async def get_cost_report(
 ):
     """成本报告（含分类明细）"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = _get_admin_client()
 
         query = client.table("llm_call_log").select("*").eq("tenant_id", org_id)
@@ -150,7 +154,9 @@ async def get_model_ranking(
 ):
     """模型使用排行"""
     try:
-        org_id = getattr(req.state, "org_id", None) or "default"
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         client = _get_admin_client()
 
         query = client.table("llm_call_log").select("*").eq("tenant_id", org_id)

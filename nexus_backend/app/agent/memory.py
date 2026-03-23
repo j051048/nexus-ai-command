@@ -17,6 +17,8 @@ import logging
 import re
 from typing import Any
 
+_background_tasks: set[asyncio.Task] = set()
+
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
 from app.agent.state import AgentConfig
@@ -797,7 +799,7 @@ async def prepare_initial_state(
                 import json as _json
                 from app.services.conversation_memory.storage import conversation_memory_service
                 import asyncio
-                asyncio.create_task(
+                _t = asyncio.create_task(
                     conversation_memory_service.save_memory(
                         user_id=config.user_id,
                         key=f"tool_confirmed_usage_{_ct_name}",
@@ -807,6 +809,8 @@ async def prepare_initial_state(
                         org_id=config.org_id,
                     )
                 )
+                _background_tasks.add(_t)
+                _t.add_done_callback(_background_tasks.discard)
             except Exception:
                 logger.debug("Failed to record HITL correction memory", exc_info=True)
 
