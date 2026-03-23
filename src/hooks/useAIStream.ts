@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { AIMessage, ThinkingStep } from '@/types/nexus';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -69,7 +69,11 @@ export function useAIStream({ userId }: UseAIStreamProps) {
     const [quotaInfo, setQuotaInfo] = useState<QuotaInfo | null>(null);
     const [followUpSuggestions, setFollowUpSuggestions] = useState<string[]>([]);
     const abortControllerRef = useRef<AbortController | null>(null);
-    const sessionIdRef = useRef<string>(`session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
+    const [sessionId, setSessionId] = useState<string>(`session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
+    const sessionIdRef = useRef<string>(sessionId);
+    useEffect(() => {
+        sessionIdRef.current = sessionId;
+    }, [sessionId]);
     const lastRequestRef = useRef<{ messages: Array<{ role: string; content: string }>; agent?: string } | null>(null);
     const pendingConfirmationRef = useRef<ConfirmationRequest | null>(null);
     pendingConfirmationRef.current = pendingConfirmation;
@@ -729,5 +733,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         dismissQuestion,
         clearThinkingSteps,
         dismissCircuitBreak: useCallback(() => setCircuitBreak(null), []),
+        sessionId,
+        setSessionId,
     };
 }

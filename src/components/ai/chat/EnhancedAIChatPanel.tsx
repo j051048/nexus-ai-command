@@ -23,6 +23,7 @@ import { ChatSuggestions } from './ChatSuggestions';
 import { useToolMetadata } from '@/hooks/useToolMetadata';
 import { useSavedPrompts } from '@/hooks/useSavedPrompts';
 import { useAISettings } from '@/hooks/useAISettings';
+import { ChatHistorySidebar } from './ChatHistorySidebar';
 
 interface QuotaAlert {
   alert_level: 'normal' | 'warning' | 'critical' | 'exhausted';
@@ -100,6 +101,7 @@ export function EnhancedAIChatPanel({
   const [voiceMode, setVoiceMode] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -112,7 +114,23 @@ export function EnhancedAIChatPanel({
   // Keep ref in sync with state so handleSend reads latest value without re-creating
   inputValueRef.current = input;
 
-  const { isTyping: isAiTyping, aiStatus, streamChat, stopStream, pendingConfirmation, pendingQuestion, circuitBreak, confirmAndResend, answerQuestion, dismissConfirmation, dismissQuestion, dismissCircuitBreak, followUpSuggestions } = useAIStream({ userId: user.id });
+  const { 
+    isTyping: isAiTyping, 
+    aiStatus, 
+    streamChat, 
+    stopStream, 
+    pendingConfirmation, 
+    pendingQuestion, 
+    circuitBreak, 
+    confirmAndResend, 
+    answerQuestion, 
+    dismissConfirmation, 
+    dismissQuestion, 
+    dismissCircuitBreak, 
+    followUpSuggestions,
+    sessionId,
+    setSessionId
+  } = useAIStream({ userId: user.id });
 
   const { trace, startTrace, endTrace, addThinkingStep, clearTrace, addToolProgress } = useAgentTrace();
   const { orchestration, handleOrchestrationEvent, resetOrchestration } = useOrchestrationTrace();
@@ -195,7 +213,7 @@ export function EnhancedAIChatPanel({
 
 
   // Load chat history from backend, fall back to greeting message
-  useEffect(() => {
+  const loadHistory = useCallback(async () => {
     const greeting: AIMessage = user.role === 'boss'
       ? {
           id: '1',
@@ -212,49 +230,67 @@ export function EnhancedAIChatPanel({
           agent: '@销售指挥官',
         };
 
-    // Try to load recent history from backend
-    const loadHistory = async () => {
-      try {
-        const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
-        if (!API_BASE) {
-          setMessages([greeting]);
-          return;
-        }
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.access_token) {
-          setMessages([greeting]);
-          return;
-        }
-        const res = await fetch(`${API_BASE}/api/history/default?limit=50`, {
-          headers: { 'Authorization': `Bearer ${session.access_token}` },
-        });
-        if (!res.ok) {
-          setMessages([greeting]);
-          return;
-        }
-        const json = await res.json();
-        const rawMessages = json?.data?.messages;
-        if (!Array.isArray(rawMessages) || rawMessages.length === 0) {
-          setMessages([greeting]);
-          return;
-        }
-        // Convert backend chat_messages to AIMessage format
-        const loaded: AIMessage[] = rawMessages.map((m: Record<string, unknown>) => ({
-          id: String(m.id),
-          role: m.role as 'user' | 'assistant',
-          content: String(m.content || ''),
-          timestamp: new Date(m.created_at as string),
-          agent: m.agent as string | undefined,
-        }));
-        setMessages([greeting, ...loaded]);
-      } catch {
-        // Network error — just show greeting
+    try {
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+      if (!API_BASE) {
         setMessages([greeting]);
+        return;
       }
-    };
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setMessages([greeting]);
+        return;
+      }
+      
+      // Use current sessionId from state
+      const historyUrl = `${API_BASE}/api/chat/history/${sessionId}?limit=50`;
+      const res = await fetch(historyUrl, {
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+      });
+      
+      if (!res.ok) {
+        setMessages([greeting]);
+        return;
+      }
+      const json = await res.json();
+      const rawMessages = json?.data?.messages;
+      if (!Array.isArray(rawMessages) || rawMessages.length === 0) {
+        setMessages([greeting]);
+        return;
+      }
+      // Convert backend chat_messages to AIMessage format
+      const loaded: AIMessage[] = rawMessages.map((m: Record<string, unknown>) => ({
+        id: String(m.id),
+        role: m.role as 'user' | 'assistant',
+        content: String(m.content || ''),
+        timestamp: new Date(m.created_at as string),
+        agent: m.agent as string | undefined,
+      }));
+      setMessages([greeting, ...loaded]);
+    } catch {
+      // Network error — just show greeting
+      setMessages([greeting]);
+    }
+  }, [user.role, user.name, sessionId]);
 
+  useEffect(() => {
     loadHistory();
-  }, [user.role, user.name]);
+  }, [loadHistory]);
+
+  const handleNewChat = useCallback(() => {
+    const newSessionId = `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    setMessages([]);
+    setSessionId(newSessionId);
+    resetOrchestration();
+    clearTrace();
+    toast.info('开启了新会话');
+  }, [setSessionId, resetOrchestration, clearTrace]);
+
+  const handleSelectSession = useCallback((sid: string) => {
+    setSessionId(sid);
+    resetOrchestration();
+    clearTrace();
+  }, [setSessionId, resetOrchestration, clearTrace]);
 
   // 注入 AI 主动推送消息（定时任务结果、事件告警等）
   useEffect(() => {
@@ -538,7 +574,6 @@ export function EnhancedAIChatPanel({
         messagesRef.current,
         detectedAgent,
         {
-          imageUrls: imageUrls.length ? imageUrls : undefined,
           onUpdate: (content, assistantMsgId) => {
             setMessages((prev) => {
               const exists = prev.find((m) => m.id === assistantMsgId);
@@ -570,8 +605,11 @@ export function EnhancedAIChatPanel({
             addToolProgress(progress.tool_name, progress.status, progress.duration_ms);
           },
           onOrchestration: (event) => {
-            handleOrchestrationEvent(event as import('@/hooks/useOrchestrationTrace').OrchestrationEvent);
+            handleOrchestrationEvent(event as any);
           },
+        },
+        {
+          imageUrls: imageUrls.length ? imageUrls : undefined,
         }
       );
 
@@ -679,10 +717,8 @@ export function EnhancedAIChatPanel({
   }, []);
 
   const handleClearChat = useCallback(() => {
-    setMessages([]);
-    setShowQuickReplies(true);
-    toast.success('对话已清空');
-  }, []);
+    handleNewChat();
+  }, [handleNewChat]);
 
   // Listen for "new chat" command from Ctrl+K command bar
   useEffect(() => {
@@ -727,9 +763,9 @@ export function EnhancedAIChatPanel({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/mp4')
-          ? 'audio/mp4'
-          : 'audio/webm';
+          : MediaRecorder.isTypeSupported('audio/mp4')
+            ? 'audio/mp4'
+            : 'audio/webm';
 
       const recorder = new MediaRecorder(stream, { mimeType });
       audioChunksRef.current = [];
@@ -834,21 +870,31 @@ export function EnhancedAIChatPanel({
         )}
       >
         {!compact && (
-          <ChatHeader
-            isExpanded={isExpanded}
-            onToggle={onToggle}
-            variant={variant}
-            isAiTyping={isAiTyping}
-            aiStatus={aiStatus}
-            isFullscreen={isFullscreen}
-            setIsFullscreen={setIsFullscreen}
-            isMobile={isMobile}
-            showTrace={showTrace}
-            setShowTrace={setShowTrace}
-            handleClearChat={handleClearChat}
-            onExportChat={handleExportChat}
-            onShowHistory={handleShowHistory}
-          />
+          <>
+            <ChatHeader
+              isExpanded={isExpanded}
+              onToggle={onToggle}
+              variant={variant}
+              isAiTyping={isAiTyping}
+              aiStatus={aiStatus}
+              isFullscreen={isFullscreen}
+              setIsFullscreen={setIsFullscreen}
+              isMobile={isMobile}
+              showTrace={showTrace}
+              setShowTrace={setShowTrace}
+              handleClearChat={handleClearChat}
+              onExportChat={handleExportChat}
+              onShowHistory={() => setShowHistory(true)}
+            />
+
+            <ChatHistorySidebar
+              currentSessionId={sessionId}
+              onSelectSession={handleSelectSession}
+              onNewChat={handleNewChat}
+              isOpen={showHistory}
+              onClose={() => setShowHistory(false)}
+            />
+          </>
         )}
 
         {(isExpanded || variant === 'embedded') && (
