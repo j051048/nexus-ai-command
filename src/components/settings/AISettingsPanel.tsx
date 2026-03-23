@@ -22,10 +22,13 @@ import {
   Loader2,
   Terminal,
   Shield,
-  Sliders
+  Sliders,
+  Brain
 } from 'lucide-react';
 import { UsageStats } from './UsageStats';
 import { OrgPolicyEditor } from './OrgPolicyEditor';
+
+const SoulDocumentPage = React.lazy(() => import('@/pages/SoulDocumentPage'));
 
 interface LogEntry {
   timestamp: Date;
@@ -214,6 +217,10 @@ export function AISettingsPanel() {
           <TabsTrigger value="behavior" className="gap-1.5">
             <Sliders className="w-4 h-4" />
             AI 行为偏好
+          </TabsTrigger>
+          <TabsTrigger value="soul-document" className="gap-1.5">
+            <Brain className="w-4 h-4" />
+            灵魂文档
           </TabsTrigger>
         </TabsList>
 
@@ -567,6 +574,12 @@ export function AISettingsPanel() {
               </Button>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="soul-document" className="mt-4">
+          <React.Suspense fallback={<div className="flex items-center justify-center min-h-[300px]"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>}>
+            <SoulDocumentPage />
+          </React.Suspense>
         </TabsContent>
       </Tabs>
     </div>
