@@ -62,7 +62,7 @@ async def get_enhanced_openapi(request: Request):
 
     except Exception as e:
         logger.error(f"Error generating enhanced OpenAPI: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "API文档操作失败")
 
 
 @router.get("/stats")
@@ -84,7 +84,7 @@ async def get_api_stats(request: Request):
 
     except Exception as e:
         logger.error(f"Error getting API stats: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "API文档操作失败")
 
 
 @router.get("/examples")
@@ -101,7 +101,7 @@ async def get_api_examples():
 
     except Exception as e:
         logger.error(f"Error getting API examples: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "API文档操作失败")
 
 
 @router.get("/changelog")
@@ -121,7 +121,7 @@ async def get_api_changelog():
 
     except Exception as e:
         logger.error(f"Error getting API changelog: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "API文档操作失败")
 
 
 @router.get("/tags")
@@ -141,4 +141,4 @@ async def get_api_tags():
 
     except Exception as e:
         logger.error(f"Error getting API tags: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "API文档操作失败")

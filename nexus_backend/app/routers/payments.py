@@ -41,10 +41,10 @@ async def create_order(
         order = await payment_service.create_order(org_id, plan_id, payment_method, float(amount), db=db)
         return api_success(data={"order": order})
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "支付参数校验失败")
     except Exception as e:
         logger.error(f"Create order error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "支付操作失败")
 
 
 @router.get("/orders")
@@ -67,7 +67,7 @@ async def list_orders(
         )
     except Exception as e:
         logger.error(f"List orders error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "支付操作失败")
 
 
 @router.get("/orders/{order_id}")
@@ -85,7 +85,7 @@ async def get_order(
         return api_success(data={"order": order})
     except Exception as e:
         logger.error(f"Get order error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "支付操作失败")
 
 
 @router.get("/bank-info")
@@ -101,7 +101,7 @@ async def get_bank_transfer_info(
         return api_success(data={"bank_info": info})
     except Exception as e:
         logger.error(f"Bank info error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "支付操作失败")
 
 
 @router.post("/callback/{platform}")
@@ -117,7 +117,7 @@ async def payment_callback(
         return api_success(data=result)
     except Exception as e:
         logger.error(f"Payment callback error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "支付操作失败")
 
 
 @router.post("/invoice")
@@ -141,7 +141,7 @@ async def request_invoice(
         result = await payment_service.generate_invoice_request(order_id, invoice_info, db=db)
         return api_success(data={"invoice_request": result})
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "支付参数校验失败")
     except Exception as e:
         logger.error(f"Invoice request error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "支付操作失败")

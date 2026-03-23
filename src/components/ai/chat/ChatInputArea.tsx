@@ -408,6 +408,7 @@ export const ChatInputArea = React.memo(function ChatInputArea({
                     ? `向 ${currentAgent} 提问...`
                     : '输入指令... 按 @ 选择助手'
                 }
+                aria-label="输入消息"
                 className="w-full bg-secondary rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
               />
               {currentAgent && (

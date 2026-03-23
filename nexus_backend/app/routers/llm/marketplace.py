@@ -708,4 +708,4 @@ async def list_available_models(
         )
     except Exception as e:
         logger.error(f"List available models error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "模型市场操作失败")

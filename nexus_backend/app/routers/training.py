@@ -22,7 +22,7 @@ async def list_courses(
         return api_success(data={"courses": courses})
     except Exception as e:
         logger.error(f"Failed to list courses: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "培训操作失败")
 
 
 @router.get("/courses/{course_id}")
@@ -50,7 +50,7 @@ async def get_progress(
         return api_success(data={"progress": progress})
     except Exception as e:
         logger.error(f"Failed to get progress: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "培训操作失败")
 
 
 @router.post("/progress")
@@ -72,10 +72,10 @@ async def update_progress(
         )
         return api_success(data={"progress": result}, message="进度已更新")
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "培训参数校验失败")
     except Exception as e:
         logger.error(f"Failed to update progress: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "培训操作失败")
 
 
 @router.post("/quiz/submit")
@@ -96,7 +96,7 @@ async def submit_quiz(
         )
         return api_success(data={"quiz_result": result})
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "培训参数校验失败")
     except Exception as e:
         logger.error(f"Failed to submit quiz: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "培训操作失败")

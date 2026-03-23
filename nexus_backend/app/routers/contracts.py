@@ -40,7 +40,7 @@ async def list_contracts(
         return api_success(data={"contracts": contracts})
     except Exception as e:
         logger.error(f"Failed to list contracts: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "合同操作失败")
 
 
 @router.post("")
@@ -58,10 +58,10 @@ async def create_contract(
         result = await contract_service.create_contract(org_id=org_id, data=data, db=db)
         return api_success(data={"contract": result}, message="合同创建成功")
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "合同参数校验失败")
     except Exception as e:
         logger.error(f"Failed to create contract: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "合同操作失败")
 
 
 @router.get("/stats")
@@ -77,7 +77,7 @@ async def get_contract_stats(
         return api_success(data={"stats": stats})
     except Exception as e:
         logger.error(f"Failed to get contract stats: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "合同操作失败")
 
 
 @router.get("/expiring")
@@ -94,7 +94,7 @@ async def get_expiring_contracts(
         return api_success(data={"contracts": contracts})
     except Exception as e:
         logger.error(f"Failed to get expiring contracts: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "合同操作失败")
 
 
 @router.get("/{contract_id}")
@@ -125,10 +125,10 @@ async def update_contract(
         result = await contract_service.update_contract(contract_id=contract_id, data=data, db=db)
         return api_success(data={"contract": result}, message="合同已更新")
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "合同参数校验失败")
     except Exception as e:
         logger.error(f"Failed to update contract: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "合同操作失败")
 
 
 @router.get("/{contract_id}/events")
@@ -144,7 +144,7 @@ async def get_contract_events(
         return api_success(data={"events": events})
     except Exception as e:
         logger.error(f"Failed to get contract events: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "合同操作失败")
 
 
 @router.post("/{contract_id}/events")
@@ -167,7 +167,7 @@ async def add_contract_event(
         return api_success(data={"event": event}, message="事件已添加")
     except Exception as e:
         logger.error(f"Failed to add contract event: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "合同操作失败")
 
 
 @router.delete("/{contract_id}")
@@ -199,7 +199,7 @@ async def delete_contract(
             db=db,
         )
 
-        return api_success(message="合同已删除")
+        return api_success(None, message="合同已删除")
     except Exception as e:
         logger.error(f"Failed to delete contract: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "合同操作失败")

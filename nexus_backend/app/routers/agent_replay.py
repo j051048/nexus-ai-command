@@ -36,7 +36,7 @@ async def compare_sessions(
         return api_success(data=result)
     except Exception as e:
         logger.error(f"[Replay] compare_sessions error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "智能体回放操作失败")
 
 
 @router.get("/{thread_id}")
@@ -59,7 +59,7 @@ async def get_replay_steps(
         raise
     except Exception as e:
         logger.error(f"[Replay] get_replay_steps error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "智能体回放操作失败")
 
 
 @router.get("/{thread_id}/step/{step_index}")
@@ -83,4 +83,4 @@ async def get_replay_step_detail(
         raise
     except Exception as e:
         logger.error(f"[Replay] get_replay_step_detail error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "智能体回放操作失败")

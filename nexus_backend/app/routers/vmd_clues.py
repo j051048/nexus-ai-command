@@ -89,10 +89,10 @@ async def create_clue(
         )
         return api_success(data={"clue": result}, message="线索创建成功")
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "VMD线索参数校验失败")
     except Exception as e:
         logger.error(f"Create clue error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD线索操作失败")
 
 
 @router.get("/clues")
@@ -142,7 +142,7 @@ async def list_clues(
         )
     except Exception as e:
         logger.error(f"List clues error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD线索操作失败")
 
 
 @router.get("/clues/stats/overview")
@@ -165,7 +165,7 @@ async def get_clue_stats(
         return api_success(data={"stats": result})
     except Exception as e:
         logger.error(f"Get clue stats error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD线索操作失败")
 
 
 @router.get("/clues/{clue_id}")
@@ -205,7 +205,7 @@ async def get_clue(
         return api_success(data={"clue": clue, "follow_ups": follow_ups})
     except Exception as e:
         logger.error(f"Get clue error: id={clue_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD线索操作失败")
 
 
 @router.put("/clues/{clue_id}")
@@ -243,10 +243,10 @@ async def update_clue(
 
         return api_success(data={"clue": result}, message="线索已更新")
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "VMD线索参数校验失败")
     except Exception as e:
         logger.error(f"Update clue error: id={clue_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD线索操作失败")
 
 
 @router.delete("/clues/{clue_id}")
@@ -278,10 +278,10 @@ async def delete_clue(
         if not res.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "线索不存在")
 
-        return api_success(message="线索已删除")
+        return api_success(None, message="线索已删除")
     except Exception as e:
         logger.error(f"Delete clue error: id={clue_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD线索操作失败")
 
 
 # ---------------------------------------------------------------------------
@@ -321,7 +321,7 @@ async def add_follow_up(
         return api_success(data={"follow_up": result}, message="跟进记录已添加")
     except Exception as e:
         logger.error(f"Add follow-up error: clue={clue_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD线索操作失败")
 
 
 # ---------------------------------------------------------------------------
@@ -395,4 +395,4 @@ async def convert_clue(
         )
     except Exception as e:
         logger.error(f"Convert clue error: clue={clue_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD线索操作失败")

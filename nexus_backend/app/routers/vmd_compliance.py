@@ -101,7 +101,7 @@ async def check_content(
         return api_success(data={"result": asdict(result)}, message="合规检查完成")
     except Exception as e:
         logger.error(f"Compliance check error: user={user_id} err={e}")
-        raise api_error(ErrorCode.COMPLIANCE_CHECK_FAILED, str(e))
+        raise api_error(ErrorCode.COMPLIANCE_CHECK_FAILED, "VMD合规操作失败")
 
 
 # ---------------------------------------------------------------------------
@@ -130,7 +130,7 @@ async def list_rules(
         return api_success(data={"rules": res.data or []})
     except Exception as e:
         logger.error(f"List compliance rules error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD合规操作失败")
 
 
 @router.post("/rules")
@@ -165,7 +165,7 @@ async def create_rule(
         return api_success(data={"rule": rule}, message="合规规则创建成功")
     except Exception as e:
         logger.error(f"Create compliance rule error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD合规操作失败")
 
 
 @router.put("/rules/{rule_id}")
@@ -193,10 +193,10 @@ async def update_rule(
 
         return api_success(data={"rule": res.data[0]}, message="合规规则已更新")
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "VMD合规参数校验失败")
     except Exception as e:
         logger.error(f"Update compliance rule error: id={rule_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD合规操作失败")
 
 
 @router.delete("/rules/{rule_id}")
@@ -215,10 +215,10 @@ async def delete_rule(
         if not res.data:
             raise api_error(ErrorCode.COMPLIANCE_RULE_NOT_FOUND, "合规规则不存在")
 
-        return api_success(message="合规规则已删除")
+        return api_success(None, message="合规规则已删除")
     except Exception as e:
         logger.error(f"Delete compliance rule error: id={rule_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD合规操作失败")
 
 
 # ---------------------------------------------------------------------------
@@ -265,4 +265,4 @@ async def get_check_history(
         return api_list(items=res.data or [], total=total, page=page, page_size=page_size)
     except Exception as e:
         logger.error(f"Get compliance history error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD合规操作失败")

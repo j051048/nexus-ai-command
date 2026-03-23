@@ -35,7 +35,7 @@ async def list_adapters(
         return api_success(data={"adapters": res.data or []})
     except Exception as e:
         logger.error(f"List adapters error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "LLM调度操作失败")
 
 
 # ---------------------------------------------------------------------------
@@ -74,7 +74,7 @@ async def create_schedule_rule(
         if str(err_code) == "23505":
             raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "该调度规则已存在，请勿重复添加")
         logger.error(f"Create schedule rule error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "LLM调度操作失败")
 
 
 @router.get("/schedule-rules")
@@ -109,7 +109,7 @@ async def list_schedule_rules(
         return api_list(items=res.data or [], total=total, page=page, page_size=page_size)
     except Exception as e:
         logger.error(f"List schedule rules error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "LLM调度操作失败")
 
 
 @router.put("/schedule-rules/{rule_id}")
@@ -134,7 +134,7 @@ async def update_schedule_rule(
         return api_success(data={"rule": res.data[0]}, message="调度规则已更新")
     except Exception as e:
         logger.error(f"Update schedule rule error: id={rule_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "LLM调度操作失败")
 
 
 @router.delete("/schedule-rules/{rule_id}")
@@ -154,4 +154,4 @@ async def delete_schedule_rule(
         return api_success(data={"deleted": True}, message="调度规则已删除")
     except Exception as e:
         logger.error(f"Delete schedule rule error: id={rule_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "LLM调度操作失败")

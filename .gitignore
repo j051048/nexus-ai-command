@@ -4,6 +4,10 @@
 .env.*.local
 nexus_backend/.env
 
+# Ad-hoc test scripts with credentials
+chaos_test.py
+normal_test.py
+
 # MCP config (contains API keys)
 .mcp.json
 

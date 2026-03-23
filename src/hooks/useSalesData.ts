@@ -257,8 +257,7 @@ export function useTeamPerformance() {
       if (profilesError) throw profilesError;
 
       // Get latest sales metrics for each user
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const userIds = (profiles || []).map((p: any) => p.id);
+      const userIds = (profiles || []).map((p: { id: string }) => p.id);
       
       const { data: metrics, error: metricsError } = await supabase
         .from('sales_metrics')
@@ -279,8 +278,7 @@ export function useTeamPerformance() {
         });
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (profiles || []).map((p: any) => {
+      return (profiles || []).map((p: { id: string; name: string; score: number | null; total_bonus: number | null }) => {
         const userMetrics = metricsMap.get(p.id) || { calls: 0, conversions: 0 };
         return {
           name: p.name,
@@ -314,8 +312,7 @@ export function useLeaderboard(limit: number = 5) {
 
       if (error) throw error;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (data || []).map((p: any, index: number) => ({
+      return (data || []).map((p: { id: string; name: string; score: number | null; total_bonus: number | null; rank: number | null }, index: number) => ({
         rank: index + 1,
         name: p.name,
         score: p.score || 0,

@@ -92,7 +92,7 @@ async def import_employees(
 
     except Exception as e:
         logger.error(f"员工导入失败: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"导入失败: {str(e)}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "导入失败")
 
 
 @router.post("/customers")
@@ -145,7 +145,7 @@ async def import_customers(
 
     except Exception as e:
         logger.error(f"客户导入失败: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"导入失败: {str(e)}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "导入失败")
 
 
 @router.get("/templates/{template_type}")
@@ -168,10 +168,10 @@ async def get_import_template(template_type: str, user_id: str = Depends(get_cur
         )
 
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "导入数据参数校验失败")
     except Exception as e:
         logger.error(f"获取模板失败: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"获取模板失败: {str(e)}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "获取模板失败")
 
 
 @router.post("/preview")
@@ -199,7 +199,7 @@ async def preview_import_data(file: UploadFile = File(...), user_id: str = Depen
         return api_success(data=preview_data)
 
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "导入数据参数校验失败")
     except Exception as e:
         logger.error(f"预览数据失败: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"预览失败: {str(e)}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "预览失败")

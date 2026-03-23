@@ -153,7 +153,7 @@ async def list_workflows(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error listing workflows: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "工作流操作失败")
 
 
 @router.post("")
@@ -184,12 +184,12 @@ async def create_workflow(
         )
         return api_success(data=_enrich_response(workflow), message="Workflow created")
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "工作流参数校验失败")
     except Exception as e:
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error creating workflow: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "工作流操作失败")
 
 
 @router.get("/types")
@@ -217,7 +217,7 @@ async def get_workflow(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error getting workflow {workflow_id}: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "工作流操作失败")
 
 
 @router.put("/{workflow_id}")
@@ -241,14 +241,14 @@ async def update_workflow(
         )
         return api_success(data=_enrich_response(workflow), message="Workflow updated")
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "工作流参数校验失败")
     except RuntimeError as e:
-        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, str(e))
+        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "工作流操作失败")
     except Exception as e:
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error updating workflow {workflow_id}: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "工作流操作失败")
 
 
 @router.delete("/{workflow_id}")
@@ -270,7 +270,7 @@ async def delete_workflow(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error deleting workflow {workflow_id}: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "工作流操作失败")
 
 
 @router.post("/{workflow_id}/toggle")
@@ -286,12 +286,12 @@ async def toggle_workflow(
         workflow = await workflow_definition_service.toggle_workflow(workflow_id=workflow_id, db=db)
         return api_success(data=_enrich_response(workflow), message="Workflow toggled")
     except RuntimeError as e:
-        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, str(e))
+        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "工作流操作失败")
     except Exception as e:
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error toggling workflow {workflow_id}: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "工作流操作失败")
 
 
 @router.post("/{workflow_id}/set-default")
@@ -311,9 +311,9 @@ async def set_default(
         workflow = await workflow_definition_service.set_default(workflow_id=workflow_id, org_id=org_id, db=db)
         return api_success(data=_enrich_response(workflow), message="Workflow set as default")
     except RuntimeError as e:
-        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, str(e))
+        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "工作流操作失败")
     except Exception as e:
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error setting default workflow {workflow_id}: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "工作流操作失败")

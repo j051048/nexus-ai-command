@@ -39,7 +39,7 @@ async def generate_plan(
         return api_success(data=plan, message="引导计划已生成")
     except Exception as e:
         logger.error(f"[OnboardingAgent] generate_plan error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "入职引导操作失败")
 
 
 @router.get("/next")
@@ -56,7 +56,7 @@ async def get_next_suggestion(
         return api_success(data=suggestion)
     except Exception as e:
         logger.error(f"[OnboardingAgent] get_next_suggestion error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "入职引导操作失败")
 
 
 @router.get("/readiness")
@@ -77,4 +77,4 @@ async def evaluate_readiness(
         return api_success(data=result)
     except Exception as e:
         logger.error(f"[OnboardingAgent] evaluate_readiness error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "入职引导操作失败")

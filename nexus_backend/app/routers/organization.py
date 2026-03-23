@@ -134,7 +134,7 @@ async def get_approval_level(approval_type: str, amount: float, user_id: str = D
             }
         )
     except Exception as e:
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"Approval level check failed: {str(e)}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Approval level check failed")
 
 
 @router.post("/approval-chains/process", response_model=StandardResponse)
@@ -158,7 +158,7 @@ async def process_approval_through_chain(
         )
         return api_success(data=result, message="Approval Request Processed")
     except Exception as e:
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"Approval processing failed: {str(e)}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Approval processing failed")
 
 
 # ============== Organization Members Management ==============

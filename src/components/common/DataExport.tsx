@@ -279,9 +279,10 @@ export function DataExport<T extends Record<string, unknown>>({
       setIsExporting(true);
       setExportProgress(0);
 
+      let progressInterval: ReturnType<typeof setInterval> | undefined;
       try {
         // 模拟进度
-        const progressInterval = setInterval(() => {
+        progressInterval = setInterval(() => {
           setExportProgress((prev) => Math.min(prev + 20, 90));
         }, 100);
 
@@ -342,6 +343,7 @@ export function DataExport<T extends Record<string, unknown>>({
       } catch (error) {
         toast.error('导出失败，请稍后重试');
       } finally {
+        clearInterval(progressInterval);
         setTimeout(() => {
           setIsExporting(false);
           setExportProgress(0);

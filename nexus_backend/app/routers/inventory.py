@@ -62,7 +62,7 @@ async def list_inventory(
         return api_success(data={"items": items})
     except Exception as e:
         logger.error(f"Failed to list inventory: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "库存操作失败")
 
 
 @router.post("/in")
@@ -86,7 +86,7 @@ async def inventory_in(
         return api_success(data={"record": result}, message="入库成功")
     except Exception as e:
         logger.error(f"Failed to process inventory in: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "库存操作失败")
 
 
 @router.post("/out")
@@ -111,7 +111,7 @@ async def inventory_out(
         return api_success(data={"record": result}, message="出库成功")
     except Exception as e:
         logger.error(f"Failed to process inventory out: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "库存操作失败")
 
 
 @router.get("/alerts")
@@ -127,7 +127,7 @@ async def low_stock_alert(
         return api_success(data={"alerts": alerts})
     except Exception as e:
         logger.error(f"Failed to get low stock alerts: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "库存操作失败")
 
 
 @router.get("/statistics")
@@ -148,4 +148,4 @@ async def inventory_statistics(
         return api_success(data=stats)
     except Exception as e:
         logger.error(f"Failed to get inventory statistics: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "库存操作失败")

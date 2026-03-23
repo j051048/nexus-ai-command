@@ -65,7 +65,7 @@ async def create_backup(
         return api_success(data=result, message="备份创建成功")
     except Exception as e:
         logger.error(f"创建备份失败: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "备份操作失败")
 
 
 @router.get("")
@@ -87,7 +87,7 @@ async def list_backups(
         return api_success(data=backups)
     except Exception as e:
         logger.error(f"列出备份失败: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "备份操作失败")
 
 
 @router.get("/{backup_id}/preview")
@@ -110,7 +110,7 @@ async def restore_preview(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"恢复预览失败: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "备份操作失败")
 
 
 @router.post("/{backup_id}/restore")
@@ -138,7 +138,7 @@ async def restore_backup(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"恢复数据失败: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "备份操作失败")
 
 
 @router.put("/schedule")
@@ -166,4 +166,4 @@ async def set_backup_schedule(
         return api_success(data=result, message="备份计划已设置")
     except Exception as e:
         logger.error(f"设置备份计划失败: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "备份操作失败")

@@ -88,6 +88,8 @@ export function EnhancedAIChatPanel({
 }: EnhancedAIChatPanelProps) {
   const { user } = useUser();
   const [messages, setMessages] = useState<AIMessage[]>([]);
+  const messagesRef = useRef<AIMessage[]>(messages);
+  messagesRef.current = messages;
   const [input, setInput] = useState('');
   const [showAgents, setShowAgents] = useState(false);
   const [showQuickReplies, setShowQuickReplies] = useState(true);
@@ -533,7 +535,7 @@ export function EnhancedAIChatPanel({
       if (autoExpandTrace) setShowTrace(true);
       await streamChat(
         messageToSend,
-        messages,
+        messagesRef.current,
         detectedAgent,
         {
           imageUrls: imageUrls.length ? imageUrls : undefined,
@@ -573,7 +575,7 @@ export function EnhancedAIChatPanel({
         }
       );
 
-      onSendMessage?.(messageToSend, messages[messages.length - 1]?.content || '');
+      onSendMessage?.(messageToSend, messagesRef.current[messagesRef.current.length - 1]?.content || '');
       endTrace();
     } catch (e) {
       // Mark the last assistant message as failed (if it exists and has no content)
@@ -602,7 +604,7 @@ export function EnhancedAIChatPanel({
         ];
       });
     }
-  }, [isAiTyping, currentAgent, messages, streamChat, onSendMessage, addThinkingStep, addToolProgress, endTrace, startTrace, pendingImages]);
+  }, [isAiTyping, currentAgent, streamChat, onSendMessage, addThinkingStep, addToolProgress, endTrace, startTrace, pendingImages]);
 
   const commandBarSendRef = useRef(false);
   useEffect(() => {
@@ -650,8 +652,9 @@ export function EnhancedAIChatPanel({
   }, []);
 
   const handleExportChat = useCallback(() => {
-    if (!messages.length) return;
-    const exportData = messages.map(m => ({
+    const msgs = messagesRef.current;
+    if (!msgs.length) return;
+    const exportData = msgs.map(m => ({
       role: m.role,
       content: m.content,
       timestamp: m.timestamp,
@@ -664,7 +667,7 @@ export function EnhancedAIChatPanel({
     a.click();
     URL.revokeObjectURL(url);
     toast.success('对话已导出');
-  }, [messages]);
+  }, []);
 
   const handleShowHistory = useCallback(() => {
     toast.info('历史记录功能开发中');

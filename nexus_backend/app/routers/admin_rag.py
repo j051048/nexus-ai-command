@@ -45,4 +45,4 @@ async def evaluate_rag(
         return api_success(data=result)
     except Exception as e:
         logger.error(f"RAG evaluation failed: {e}")
-        raise api_error(ErrorCode.INTERNAL_ERROR, f"RAG 评估失败: {str(e)}")
+        raise api_error(ErrorCode.INTERNAL_ERROR, "RAG 评估失败")

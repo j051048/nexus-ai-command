@@ -83,7 +83,7 @@ async def get_overview_stats(
         )
     except Exception as e:
         logger.error(f"Dashboard stats error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD仪表盘操作失败")
 
 
 # ---------------------------------------------------------------------------
@@ -132,7 +132,7 @@ async def get_task_trend(
         return api_success(data={"trend": trend_list, "days": days})
     except Exception as e:
         logger.error(f"Task trend error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD仪表盘操作失败")
 
 
 # ---------------------------------------------------------------------------
@@ -181,7 +181,7 @@ async def get_agent_workload(
         return api_success(data={"workload": workload_list})
     except Exception as e:
         logger.error(f"Agent workload error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD仪表盘操作失败")
 
 
 # ---------------------------------------------------------------------------
@@ -217,7 +217,7 @@ async def get_scene_distribution(
         return api_success(data={"distribution": dist_list})
     except Exception as e:
         logger.error(f"Scene distribution error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD仪表盘操作失败")
 
 
 # ---------------------------------------------------------------------------
@@ -277,7 +277,7 @@ async def get_model_usage(
         return api_success(data={"usage": usage_list})
     except Exception as e:
         logger.error(f"Model usage error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD仪表盘操作失败")
 
 
 # ---------------------------------------------------------------------------
@@ -335,4 +335,4 @@ async def get_compliance_trend(
         return api_success(data={"trend": trend_list, "days": days})
     except Exception as e:
         logger.error(f"Compliance trend error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD仪表盘操作失败")

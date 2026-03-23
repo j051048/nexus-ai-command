@@ -246,7 +246,7 @@ async def get_chat_history(session_id: str, req: Request, user_id: str = Depends
         return api_success(data={"messages": response.data})
     except Exception as e:
         logger.error(f"Failed to fetch chat history: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "对话操作失败")
 
 
 @router.get("/sessions")
@@ -294,7 +294,7 @@ async def archive_session(session_id: str, req: Request, user_id: str = Depends(
         if hasattr(e, "code") and str(getattr(e, "code", "")) == "204":
             return api_success(data={"message": f"Session {session_id} archived"})
         logger.error(f"Failed to archive session: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "对话操作失败")
 
 
 @router.post("/sessions/{session_id}/compact")
@@ -394,7 +394,7 @@ async def compact_session(session_id: str, req: Request, user_id: str = Depends(
 
     except Exception as e:
         logger.error(f"Failed to compact session: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "对话操作失败")
 
 
 @router.get("/search")

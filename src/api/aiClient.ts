@@ -172,8 +172,7 @@ export const aiClient = {
                     if (typeof errorData.detail === 'string') {
                         errorMessage = errorData.detail;
                     } else if (Array.isArray(errorData.detail)) {
-                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                         errorMessage = errorData.detail.map((d: any) => d.msg).join(', ');
+                         errorMessage = errorData.detail.map((d: { msg: string }) => d.msg).join(', ');
                     }
                 }
             } catch {
@@ -190,15 +189,13 @@ export const aiClient = {
     },
 
     /** GET convenience */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async get(endpoint: string, options: RequestOptions = {}): Promise<{ data: any }> {
+    async get<T = unknown>(endpoint: string, options: RequestOptions = {}): Promise<{ data: T }> {
         const data = await this.fetch(endpoint, { ...options, method: 'GET' });
         return { data };
     },
 
     /** POST convenience */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async post(endpoint: string, body?: unknown, options: RequestOptions = {}): Promise<{ data: any }> {
+    async post<T = unknown>(endpoint: string, body?: unknown, options: RequestOptions = {}): Promise<{ data: T }> {
         const data = await this.fetch(endpoint, {
             ...options,
             method: 'POST',
@@ -208,8 +205,7 @@ export const aiClient = {
     },
 
     /** PUT convenience */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async put(endpoint: string, body?: unknown, options: RequestOptions = {}): Promise<{ data: any }> {
+    async put<T = unknown>(endpoint: string, body?: unknown, options: RequestOptions = {}): Promise<{ data: T }> {
         const data = await this.fetch(endpoint, {
             ...options,
             method: 'PUT',
@@ -219,8 +215,7 @@ export const aiClient = {
     },
 
     /** DELETE convenience */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async delete(endpoint: string, options: RequestOptions = {}): Promise<{ data: any }> {
+    async delete<T = unknown>(endpoint: string, options: RequestOptions = {}): Promise<{ data: T }> {
         const data = await this.fetch(endpoint, { ...options, method: 'DELETE' });
         return { data };
     },

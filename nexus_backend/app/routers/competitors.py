@@ -115,7 +115,7 @@ async def list_competitors(
         return api_success(data=data)
     except Exception as e:
         logger.error(f"List competitors failed: {e}")
-        raise api_error(ErrorCode.SERVER_ERROR, f"获取竞品列表失败: {e}")
+        raise api_error(ErrorCode.SERVER_ERROR, "获取竞品列表失败")
 
 
 @router.post("")
@@ -135,10 +135,10 @@ async def create_competitor(
         )
         return api_success(data=data, message="竞品创建成功")
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "竞品分析参数校验失败")
     except Exception as e:
         logger.error(f"Create competitor failed: {e}")
-        raise api_error(ErrorCode.SERVER_ERROR, f"创建竞品失败: {e}")
+        raise api_error(ErrorCode.SERVER_ERROR, "创建竞品失败")
 
 
 @router.get("/{competitor_id}")
@@ -157,7 +157,7 @@ async def get_competitor(
         if "竞品不存在" in str(e):
             raise
         logger.error(f"Get competitor failed: {e}")
-        raise api_error(ErrorCode.SERVER_ERROR, f"获取竞品详情失败: {e}")
+        raise api_error(ErrorCode.SERVER_ERROR, "获取竞品详情失败")
 
 
 @router.put("/{competitor_id}")
@@ -175,10 +175,10 @@ async def update_competitor(
         )
         return api_success(data=data, message="竞品更新成功")
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "竞品分析参数校验失败")
     except Exception as e:
         logger.error(f"Update competitor failed: {e}")
-        raise api_error(ErrorCode.SERVER_ERROR, f"更新竞品失败: {e}")
+        raise api_error(ErrorCode.SERVER_ERROR, "更新竞品失败")
 
 
 @router.delete("/{competitor_id}")
@@ -191,10 +191,10 @@ async def delete_competitor(
     _check_admin(req)
     try:
         await competitor_service.delete_competitor(competitor_id, db=req.state.db)
-        return api_success(message="竞品已删除")
+        return api_success(None, message="竞品已删除")
     except Exception as e:
         logger.error(f"Delete competitor failed: {e}")
-        raise api_error(ErrorCode.SERVER_ERROR, f"删除竞品失败: {e}")
+        raise api_error(ErrorCode.SERVER_ERROR, "删除竞品失败")
 
 
 # ---------------------------------------------------------------------------
@@ -213,7 +213,7 @@ async def list_products(
         return api_success(data=data)
     except Exception as e:
         logger.error(f"List products failed: {e}")
-        raise api_error(ErrorCode.SERVER_ERROR, str(e))
+        raise api_error(ErrorCode.SERVER_ERROR, "竞品分析操作失败")
 
 
 @router.post("/{competitor_id}/products")
@@ -231,10 +231,10 @@ async def create_product(
         )
         return api_success(data=data, message="产品添加成功")
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "竞品分析参数校验失败")
     except Exception as e:
         logger.error(f"Create product failed: {e}")
-        raise api_error(ErrorCode.SERVER_ERROR, str(e))
+        raise api_error(ErrorCode.SERVER_ERROR, "竞品分析操作失败")
 
 
 @router.put("/{competitor_id}/products/{product_id}")
@@ -251,7 +251,7 @@ async def update_product(
         return api_success(data=data, message="产品更新成功")
     except Exception as e:
         logger.error(f"Update product failed: {e}")
-        raise api_error(ErrorCode.SERVER_ERROR, str(e))
+        raise api_error(ErrorCode.SERVER_ERROR, "竞品分析操作失败")
 
 
 @router.delete("/{competitor_id}/products/{product_id}")
@@ -264,10 +264,10 @@ async def delete_product(
     _check_admin(req)
     try:
         await competitor_service.delete_product(product_id, db=req.state.db)
-        return api_success(message="产品已删除")
+        return api_success(None, message="产品已删除")
     except Exception as e:
         logger.error(f"Delete product failed: {e}")
-        raise api_error(ErrorCode.SERVER_ERROR, str(e))
+        raise api_error(ErrorCode.SERVER_ERROR, "竞品分析操作失败")
 
 
 # ---------------------------------------------------------------------------
@@ -286,7 +286,7 @@ async def list_features(
         return api_success(data=data)
     except Exception as e:
         logger.error(f"List features failed: {e}")
-        raise api_error(ErrorCode.SERVER_ERROR, str(e))
+        raise api_error(ErrorCode.SERVER_ERROR, "竞品分析操作失败")
 
 
 @router.post("/{competitor_id}/features")
@@ -304,10 +304,10 @@ async def upsert_feature(
         )
         return api_success(data=data, message="对比维度保存成功")
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "竞品分析参数校验失败")
     except Exception as e:
         logger.error(f"Upsert feature failed: {e}")
-        raise api_error(ErrorCode.SERVER_ERROR, str(e))
+        raise api_error(ErrorCode.SERVER_ERROR, "竞品分析操作失败")
 
 
 @router.delete("/{competitor_id}/features/{feature_id}")
@@ -320,10 +320,10 @@ async def delete_feature(
     _check_admin(req)
     try:
         await competitor_service.delete_feature(feature_id, db=req.state.db)
-        return api_success(message="对比维度已删除")
+        return api_success(None, message="对比维度已删除")
     except Exception as e:
         logger.error(f"Delete feature failed: {e}")
-        raise api_error(ErrorCode.SERVER_ERROR, str(e))
+        raise api_error(ErrorCode.SERVER_ERROR, "竞品分析操作失败")
 
 
 # ---------------------------------------------------------------------------
@@ -342,7 +342,7 @@ async def list_documents(
         return api_success(data=data)
     except Exception as e:
         logger.error(f"List documents failed: {e}")
-        raise api_error(ErrorCode.SERVER_ERROR, str(e))
+        raise api_error(ErrorCode.SERVER_ERROR, "竞品分析操作失败")
 
 
 @router.post("/{competitor_id}/documents")
@@ -357,10 +357,10 @@ async def link_document(
         await competitor_service.link_document(
             competitor_id, body.document_id, body.doc_type or "general", db=req.state.db
         )
-        return api_success(message="文档关联成功")
+        return api_success(None, message="文档关联成功")
     except Exception as e:
         logger.error(f"Link document failed: {e}")
-        raise api_error(ErrorCode.SERVER_ERROR, str(e))
+        raise api_error(ErrorCode.SERVER_ERROR, "竞品分析操作失败")
 
 
 @router.delete("/{competitor_id}/documents/{document_id}")
@@ -373,7 +373,7 @@ async def unlink_document(
     _check_admin(req)
     try:
         await competitor_service.unlink_document(competitor_id, document_id, db=req.state.db)
-        return api_success(message="文档关联已移除")
+        return api_success(None, message="文档关联已移除")
     except Exception as e:
         logger.error(f"Unlink document failed: {e}")
-        raise api_error(ErrorCode.SERVER_ERROR, str(e))
+        raise api_error(ErrorCode.SERVER_ERROR, "竞品分析操作失败")

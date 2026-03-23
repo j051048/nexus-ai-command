@@ -58,7 +58,7 @@ async def subscribe(
             )
     except Exception as e:
         logger.error(f"Push subscribe error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "推送操作失败")
 
 
 @router.post("/unsubscribe")
@@ -85,4 +85,4 @@ async def unsubscribe(
             )
     except Exception as e:
         logger.error(f"Push unsubscribe error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "推送操作失败")

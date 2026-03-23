@@ -86,7 +86,7 @@ async def get_usage_stats(
         )
     except Exception as e:
         logger.error(f"Usage stats error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "用量查询失败")
 
 
 @router.get("/usage/cost-report")
@@ -137,7 +137,7 @@ async def get_cost_report(
         )
     except Exception as e:
         logger.error(f"Cost report error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "用量查询失败")
 
 
 @router.get("/usage/model-ranking")
@@ -181,4 +181,4 @@ async def get_model_ranking(
         return api_success(data={"ranking": sorted_ranking})
     except Exception as e:
         logger.error(f"Model ranking error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "用量查询失败")

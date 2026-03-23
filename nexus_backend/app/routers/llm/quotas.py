@@ -37,7 +37,7 @@ async def list_quota_configs(
         return api_success(data={"configs": res.data or []})
     except Exception as e:
         logger.error(f"List quota configs error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "LLM配额操作失败")
 
 
 @router.post("/quota-configs")
@@ -70,7 +70,7 @@ async def create_quota_config(
         if str(err_code) == "23505":
             raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "该配额配置已存在，请勿重复添加")
         logger.error(f"Create quota config error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "LLM配额操作失败")
 
 
 @router.put("/quota-configs/{config_id}")
@@ -95,4 +95,4 @@ async def update_quota_config(
         return api_success(data={"config": res.data[0]}, message="配额配置已更新")
     except Exception as e:
         logger.error(f"Update quota config error: id={config_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "LLM配额操作失败")

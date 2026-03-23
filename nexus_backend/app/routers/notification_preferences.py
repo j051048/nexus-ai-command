@@ -67,7 +67,7 @@ async def record_feedback(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error recording feedback: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "通知偏好操作失败")
 
 
 @router.get("")
@@ -82,7 +82,7 @@ async def get_preferences(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error getting AI notification preferences: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "通知偏好操作失败")
 
 
 @router.put("")
@@ -103,4 +103,4 @@ async def update_preferences(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error updating AI notification preferences: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "通知偏好操作失败")

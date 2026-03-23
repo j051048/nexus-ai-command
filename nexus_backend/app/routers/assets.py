@@ -73,7 +73,7 @@ async def list_assets(
         return api_success(data={"assets": assets})
     except Exception as e:
         logger.error(f"Failed to list assets: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "资产操作失败")
 
 
 @router.get("/statistics")
@@ -94,7 +94,7 @@ async def get_asset_statistics(
         return api_success(data=stats)
     except Exception as e:
         logger.error(f"Failed to get asset statistics: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "资产操作失败")
 
 
 @router.get("/types")
@@ -110,7 +110,7 @@ async def list_asset_types(
         return api_success(data={"asset_types": types})
     except Exception as e:
         logger.error(f"Failed to list asset types: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "资产操作失败")
 
 
 @router.get("/{asset_id}")
@@ -128,7 +128,7 @@ async def get_asset_detail(
         return api_success(data={"asset": asset})
     except Exception as e:
         logger.error(f"Failed to get asset detail: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "资产操作失败")
 
 
 @router.post("")
@@ -146,7 +146,7 @@ async def create_asset(
         return api_success(data={"asset": asset}, message="资产创建成功")
     except Exception as e:
         logger.error(f"Failed to create asset: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "资产操作失败")
 
 
 @router.patch("/{asset_id}")
@@ -166,7 +166,7 @@ async def update_asset(
         return api_success(data={"asset": asset}, message="资产更新成功")
     except Exception as e:
         logger.error(f"Failed to update asset: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "资产操作失败")
 
 
 @router.post("/{asset_id}/transfer")
@@ -201,4 +201,4 @@ async def transfer_asset(
         return api_success(data={"transfer": result}, message="资产转移成功")
     except Exception as e:
         logger.error(f"Failed to transfer asset: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "资产操作失败")

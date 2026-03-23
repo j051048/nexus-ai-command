@@ -52,7 +52,7 @@ async def get_my_permissions(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error fetching permissions for {user_id}: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "权限操作失败")
 
 
 @router.get("/check/{permission:path}")
@@ -89,7 +89,7 @@ async def check_single_permission(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error checking permission {permission}: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "权限操作失败")
 
 
 @router.get("/roles/{role}")
@@ -124,7 +124,7 @@ async def get_role_permissions(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error fetching role permissions for {role}: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "权限操作失败")
 
 
 @router.get("/all")
@@ -152,4 +152,4 @@ async def get_all_permission_rules(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error fetching all permission rules: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "权限操作失败")

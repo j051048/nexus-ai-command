@@ -43,7 +43,7 @@ async def get_sales_report(
         return api_success(data=data)
     except Exception as e:
         logger.error(f"Sales report error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "报表操作失败")
 
 
 @router.get("/approvals")
@@ -63,7 +63,7 @@ async def get_approval_report(
         return api_success(data=data)
     except Exception as e:
         logger.error(f"Approval report error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "报表操作失败")
 
 
 @router.get("/performance")
@@ -83,7 +83,7 @@ async def get_performance_report(
         return api_success(data=data)
     except Exception as e:
         logger.error(f"Performance report error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "报表操作失败")
 
 
 @router.get("/usage")
@@ -103,7 +103,7 @@ async def get_usage_report(
         return api_success(data=data)
     except Exception as e:
         logger.error(f"Usage report error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "报表操作失败")
 
 
 @router.get("/overview")
@@ -119,4 +119,4 @@ async def get_overview_stats(
         return api_success(data=data)
     except Exception as e:
         logger.error(f"Overview stats error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "报表操作失败")

@@ -43,7 +43,7 @@ async def create_subscription(
         )
     except Exception as e:
         logger.error(f"Webhook subscription creation failed: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Webhook操作失败")
 
 
 @router.get("/subscriptions")

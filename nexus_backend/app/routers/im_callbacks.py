@@ -283,4 +283,4 @@ async def handle_approval_callback(platform: str, request: Request):
         raise
     except Exception as e:
         logger.error(f"[im_callback] Callback error for {platform}: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "IM回调处理失败")

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, status
 
+from app.core.auth import get_current_user_id
 from app.core.database import supabase
 from app.core.dependencies import require_role
 from app.core.errors import ErrorCode, api_error, api_success
@@ -12,8 +13,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/projects", tags=["Projects"])
 
 
-@router.get("/{user_id}", response_model=StandardResponse)
-async def get_projects(user_id: str):
+@router.get("/", response_model=StandardResponse)
+async def get_projects(user_id: str = Depends(get_current_user_id)):
     """
     Get projects for a user.
     Admin/Founder can see all projects (potentially), but standard behavior is RLS or owner check.
@@ -33,11 +34,11 @@ async def get_projects(user_id: str):
 
         return api_success(data=res.data)
     except Exception as e:
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "项目操作失败")
 
 
 @router.post("/", response_model=StandardResponse, status_code=status.HTTP_201_CREATED)
-async def create_project(project: ProjectCreate):
+async def create_project(project: ProjectCreate, user_id: str = Depends(get_current_user_id)):
     """
     Create a new project.
     """
@@ -55,11 +56,11 @@ async def create_project(project: ProjectCreate):
 
         return api_success(data=res.data[0], message="Project created successfully")
     except Exception as e:
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "项目操作失败")
 
 
 @router.patch("/{project_id}", response_model=StandardResponse)
-async def update_project(project_id: str, updates: ProjectUpdate):
+async def update_project(project_id: str, updates: ProjectUpdate, user_id: str = Depends(get_current_user_id)):
     """
     Update an existing project.
     """
@@ -81,7 +82,7 @@ async def update_project(project_id: str, updates: ProjectUpdate):
 
         return api_success(data=res.data[0], message="Project updated")
     except Exception as e:
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "项目操作失败")
 
 
 @router.delete("/{project_id}", response_model=StandardResponse)
@@ -101,7 +102,7 @@ async def delete_project(
 
         return api_success(data=None, message="项目已删除")
     except Exception as e:
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "项目操作失败")
 
 
 @router.post("/{project_id}/weekly-report")
@@ -215,4 +216,4 @@ async def generate_weekly_report(
         if hasattr(e, "status_code"):
             raise
         logger.error("Generate weekly report error: %s", e)
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "项目操作失败")

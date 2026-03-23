@@ -60,7 +60,7 @@ async def create_api_key(
         return api_success(data=result, message="API Key 创建成功")
     except Exception as e:
         logger.error(f"创建 API Key 失败: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "API密钥操作失败")
 
 
 @router.get("")
@@ -82,7 +82,7 @@ async def list_api_keys(
         return api_success(data=keys)
     except Exception as e:
         logger.error(f"列出 API Keys 失败: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "API密钥操作失败")
 
 
 @router.delete("/{key_id}")
@@ -105,7 +105,7 @@ async def revoke_api_key(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"撤销 API Key 失败: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "API密钥操作失败")
 
 
 @router.get("/{key_id}/usage")
@@ -138,4 +138,4 @@ async def get_api_key_usage(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"获取 API 使用统计失败: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "API密钥操作失败")

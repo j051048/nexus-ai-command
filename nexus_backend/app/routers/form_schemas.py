@@ -66,7 +66,7 @@ async def list_schemas(
         return api_success(data=schemas)
     except Exception as e:
         logger.error(f"Failed to list form schemas: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "表单模板操作失败")
 
 
 @router.post("")
@@ -99,10 +99,10 @@ async def create_schema(
         )
         return api_success(data=schema, message="表单 Schema 创建成功")
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "表单模板参数校验失败")
     except Exception as e:
         logger.error(f"Failed to create form schema: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "表单模板操作失败")
 
 
 @router.get("/by-type/{approval_type}")
@@ -131,7 +131,7 @@ async def get_by_type(
         raise
     except Exception as e:
         logger.error(f"Failed to get form schema by type: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "表单模板操作失败")
 
 
 @router.get("/{schema_id}")
@@ -153,7 +153,7 @@ async def get_schema(
         raise
     except Exception as e:
         logger.error(f"Failed to get form schema: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "表单模板操作失败")
 
 
 @router.put("/{schema_id}")
@@ -179,10 +179,10 @@ async def update_schema(
     except HTTPException:
         raise
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "表单模板参数校验失败")
     except Exception as e:
         logger.error(f"Failed to update form schema: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "表单模板操作失败")
 
 
 @router.delete("/{schema_id}")
@@ -204,7 +204,7 @@ async def delete_schema(
         raise
     except Exception as e:
         logger.error(f"Failed to delete form schema: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "表单模板操作失败")
 
 
 @router.post("/validate")
@@ -241,4 +241,4 @@ async def validate_data(
         raise
     except Exception as e:
         logger.error(f"Form data validation failed: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "表单模板操作失败")

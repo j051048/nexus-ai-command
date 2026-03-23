@@ -62,7 +62,7 @@ async def get_im_configs(
 
     except Exception as e:
         logger.error(f"[im_settings] Failed to get configs: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "IM设置操作失败")
 
 
 @router.post("")
@@ -152,7 +152,7 @@ async def upsert_im_config(
 
     except Exception as e:
         logger.error(f"[im_settings] Failed to upsert config: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "IM设置操作失败")
 
 
 @router.delete("/{platform}")
@@ -188,7 +188,7 @@ async def delete_im_config(
 
     except Exception as e:
         logger.error(f"[im_settings] Failed to delete config: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "IM设置操作失败")
 
 
 @router.post("/{platform}/test")
@@ -292,7 +292,7 @@ async def trigger_contact_sync(
 
     except Exception as e:
         logger.error(f"[im_settings] Contact sync failed: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "IM设置操作失败")
 
 
 @router.post("/{platform}/sync-attendance")
@@ -338,7 +338,7 @@ async def trigger_attendance_sync(
 
     except Exception as e:
         logger.error(f"[im_settings] Attendance sync failed: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "IM设置操作失败")
 
 
 def _get_required_fields(platform: str) -> list:

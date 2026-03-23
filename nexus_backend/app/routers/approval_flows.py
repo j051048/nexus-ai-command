@@ -45,7 +45,7 @@ async def list_approval_flows(
         return api_success(data={"approval_flows": flows})
     except Exception as e:
         logger.error(f"Failed to list approval flows: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "审批流程操作失败")
 
 
 @router.post("")
@@ -69,4 +69,4 @@ async def create_approval_flow(
         return api_success(data={"approval_flow": flow}, message="审批流程创建成功")
     except Exception as e:
         logger.error(f"Failed to create approval flow: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "审批流程操作失败")

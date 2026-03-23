@@ -32,7 +32,7 @@ async def register_client(
         return api_success(data=result)
     except Exception as e:
         logger.error(f"OAuth client registration failed: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "OAuth授权操作失败")
 
 
 @router.get("/authorize")
@@ -90,7 +90,7 @@ async def exchange_token(body: OAuthTokenRequest):
         return api_success(data=token.to_dict())
     except Exception as e:
         logger.error(f"Token exchange failed: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "OAuth授权操作失败")
 
 
 @router.post("/revoke")
@@ -100,4 +100,4 @@ async def revoke_token(body: OAuthRevokeRequest):
         success = await oauth_service.revoke_token(body.token)
         return api_success(data={"revoked": success})
     except Exception as e:
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "OAuth授权操作失败")

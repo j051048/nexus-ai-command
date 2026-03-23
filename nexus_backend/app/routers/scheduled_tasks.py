@@ -80,7 +80,7 @@ async def list_scheduled_tasks(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error listing scheduled tasks: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "定时任务操作失败")
 
 
 @router.post("")
@@ -143,7 +143,7 @@ async def create_scheduled_task(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error creating scheduled task: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "定时任务操作失败")
 
 
 @router.put("/{task_id}")
@@ -216,7 +216,7 @@ async def update_scheduled_task(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error updating scheduled task: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "定时任务操作失败")
 
 
 @router.delete("/{task_id}")
@@ -252,7 +252,7 @@ async def delete_scheduled_task(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error deleting scheduled task: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "定时任务操作失败")
 
 
 @router.post("/{task_id}/run")
@@ -311,4 +311,4 @@ async def run_scheduled_task(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error running scheduled task: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "定时任务操作失败")

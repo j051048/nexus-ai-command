@@ -38,7 +38,7 @@ async def list_configs(
         return api_success(data={"configs": configs})
     except Exception as e:
         logger.error(f"Failed to list configs: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "系统配置操作失败")
 
 
 @router.put("")
@@ -62,7 +62,7 @@ async def upsert_config(
         return api_success(data={"config": result})
     except Exception as e:
         logger.error(f"Failed to upsert config: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "系统配置操作失败")
 
 
 @router.delete("")
@@ -87,7 +87,7 @@ async def delete_config(
         return api_success(data={"deleted": result})
     except Exception as e:
         logger.error(f"Failed to delete config: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "系统配置操作失败")
 
 
 @router.post("/init-defaults")
@@ -103,4 +103,4 @@ async def init_defaults(
         return api_success(data={"message": "默认配置已初始化"})
     except Exception as e:
         logger.error(f"Failed to init defaults: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "系统配置操作失败")

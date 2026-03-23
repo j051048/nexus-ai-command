@@ -52,7 +52,7 @@ async def list_organizations(
         )
     except Exception as e:
         logger.error(f"列出组织失败: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "超级管理员操作失败")
 
 
 @router.get("/organizations/{org_id}")
@@ -70,7 +70,7 @@ async def get_organization_detail(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"获取组织详情失败: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "超级管理员操作失败")
 
 
 @router.post("/organizations/{org_id}/suspend")
@@ -89,7 +89,7 @@ async def suspend_organization(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"暂停组织失败: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "超级管理员操作失败")
 
 
 @router.post("/organizations/{org_id}/unsuspend")
@@ -107,7 +107,7 @@ async def unsuspend_organization(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"恢复组织失败: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "超级管理员操作失败")
 
 
 @router.get("/stats")
@@ -120,7 +120,7 @@ async def get_platform_stats(
         return api_success(data=stats)
     except Exception as e:
         logger.error(f"获取平台统计失败: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "超级管理员操作失败")
 
 
 @router.get("/system-health")
@@ -133,7 +133,7 @@ async def get_system_health(
         return api_success(data=health)
     except Exception as e:
         logger.error(f"系统健康检查失败: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "超级管理员操作失败")
 
 
 @router.get("/audit-logs")
@@ -165,4 +165,4 @@ async def list_audit_logs(
         return api_success(data=logs)
     except Exception as e:
         logger.error(f"获取审计日志失败: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "超级管理员操作失败")

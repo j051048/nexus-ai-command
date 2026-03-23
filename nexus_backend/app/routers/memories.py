@@ -41,7 +41,7 @@ async def get_memories(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error getting memories: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "记忆操作失败")
 
 
 @router.delete("")
@@ -68,7 +68,7 @@ async def clear_memories(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error clearing memories: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "记忆操作失败")
 
 
 @router.delete("/{memory_id}")
@@ -98,7 +98,7 @@ async def delete_memory(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error deleting memory {memory_id}: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "记忆操作失败")
 
 
 # ─── Organization Behavior Policies ──────────────────────────
@@ -158,7 +158,7 @@ async def get_org_policies(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error getting org policies: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "记忆操作失败")
 
 
 @router.put("/org-policies")
@@ -200,7 +200,7 @@ async def save_org_policies(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error saving org policies: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "记忆操作失败")
 
 
 @router.delete("/org-policies/{memory_id}")
@@ -232,7 +232,7 @@ async def delete_org_policy(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error deleting org policy {memory_id}: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "记忆操作失败")
 
 
 # ─── Business Rules (Agent auto-injection) ──────────────────────────
@@ -261,7 +261,7 @@ async def get_business_rules(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error getting business rules: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "记忆操作失败")
 
 
 @router.put("/business-rules")
@@ -303,7 +303,7 @@ async def save_business_rules(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error saving business rules: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "记忆操作失败")
 
 
 @router.delete("/business-rules/{memory_id}")
@@ -335,4 +335,4 @@ async def delete_business_rule(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error deleting business rule {memory_id}: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "记忆操作失败")

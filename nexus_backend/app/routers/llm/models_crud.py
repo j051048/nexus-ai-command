@@ -73,7 +73,7 @@ async def create_model(
         model = res.data[0] if res.data else record
         return api_success(data={"model": _mask_model_record(model)}, message="模型配置创建成功")
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "LLM模型参数校验失败")
     except Exception as e:
         err_info = getattr(e, "details", str(e)) if hasattr(e, "code") else str(e)
         err_code = getattr(e, "code", "")
@@ -160,7 +160,7 @@ async def list_models(
         return api_list(items=records, total=total, page=page, page_size=page_size)
     except Exception as e:
         logger.error(f"List models error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "LLM模型操作失败")
 
 
 @router.get("/models/{model_id}")
@@ -187,7 +187,7 @@ async def get_model(
         return api_success(data={"model": _mask_model_record(res.data)})
     except Exception as e:
         logger.error(f"Get model error: id={model_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "LLM模型操作失败")
 
 
 @router.put("/models/{model_id}")
@@ -231,10 +231,10 @@ async def update_model(
 
         return api_success(data={"model": _mask_model_record(res.data[0])}, message="模型配置已更新")
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "LLM模型参数校验失败")
     except Exception as e:
         logger.error(f"Update model error: id={model_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "LLM模型操作失败")
 
 
 @router.delete("/models/{model_id}")
@@ -260,7 +260,7 @@ async def delete_model(
         return api_success(data={"deleted": True}, message="模型已删除")
     except Exception as e:
         logger.error(f"Delete model error: id={model_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "LLM模型操作失败")
 
 
 @router.post("/models/{model_id}/test")
@@ -332,7 +332,7 @@ async def test_model_connectivity(
         )
     except Exception as e:
         logger.error(f"Test model error: id={model_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "LLM模型操作失败")
 
 
 @router.post("/models/{model_id}/toggle")
@@ -367,4 +367,4 @@ async def toggle_model_status(
         )
     except Exception as e:
         logger.error(f"Toggle model error: id={model_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "LLM模型操作失败")

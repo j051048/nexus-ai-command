@@ -50,8 +50,7 @@ import { InlineActions } from './genui/InlineActions';
 // When LLM outputs just the props JSON without {"component": "...", "props": ...}
 // wrapper, we try to match known prop signatures to auto-detect the component.
 // ---------------------------------------------------------------------------
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function inferGenUIComponent(obj: any): { component: string; confidence: number } | null {
+function inferGenUIComponent(obj: Record<string, unknown>): { component: string; confidence: number } | null {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
   // EmailDraft: must have to + subject + body
   if (obj.to && obj.subject && obj.body) return { component: 'EmailDraft', confidence: 0.95 };
@@ -241,8 +240,7 @@ export const MessageBubble = React.memo(function MessageBubble({
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  code({ node, inline, className, children, ...props }: React.ClassAttributes<HTMLElement> & React.HTMLAttributes<HTMLElement> & { inline?: boolean, node?: any }) {
+                  code({ node, inline, className, children, ...props }: React.ClassAttributes<HTMLElement> & React.HTMLAttributes<HTMLElement> & { inline?: boolean, node?: unknown }) {
                     const match = /language-(\w+[-]?\w*)/.exec(className || '');
                     const lang = match?.[1]?.toLowerCase() || '';
                     const raw = String(children).trim();
@@ -278,7 +276,7 @@ export const MessageBubble = React.memo(function MessageBubble({
                                  <h3 className="font-medium text-sm">{config.title}</h3>
                                </div>
                                <div className="p-4 space-y-2 text-sm text-muted-foreground leading-relaxed">
-                                 {config.content.map((item: any, i: number) => (
+                                 {config.content.map((item: unknown, i: number) => (
                                    <div key={i}>{String(item)}</div>
                                  ))}
                                </div>
@@ -393,6 +391,7 @@ export const MessageBubble = React.memo(function MessageBubble({
                   className="h-6 w-6 p-0"
                   data-compact
                   onClick={handleCopy}
+                  aria-label="复制消息"
                 >
                   {copied ? (
                     <Check className="w-3.5 h-3.5 text-green-500" />

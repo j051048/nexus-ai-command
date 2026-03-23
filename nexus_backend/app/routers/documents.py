@@ -82,7 +82,7 @@ async def batch_delete_documents(
         if _is_jwt_expired(e):
             raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "登录已过期，请刷新页面后重试")
         logger.error(f"Batch Delete Failed for user {user_id}: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"删除失败: {str(e)}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "删除失败")
 
 
 @router.post("/upload", response_model=StandardResponse)
@@ -455,7 +455,7 @@ async def update_document_category(
         return api_success(data={"document_id": document_id, "doc_type": body.doc_type}, message="分类已更新")
     except Exception as e:
         logger.error(f"Update category failed: doc={document_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"更新分类失败: {str(e)}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "更新分类失败")
 
 
 # ============== Bulk Import Endpoint ==============
@@ -651,7 +651,7 @@ async def list_knowledge_libraries(
         return api_success(data=libraries, message=f"共 {len(libraries)} 个知识库")
     except Exception as e:
         logger.error(f"Failed to list knowledge libraries: {e}")
-        raise api_error(ErrorCode.DB_QUERY_ERROR, f"获取知识库列表失败: {str(e)}")
+        raise api_error(ErrorCode.DB_QUERY_ERROR, "获取知识库列表失败")
 
 
 @router.post("/admin/re-embed", response_model=StandardResponse)
@@ -722,4 +722,4 @@ async def trigger_re_embed(
         return api_success(data={"queued": len(doc_ids)}, message=f"已排队 {len(doc_ids)} 个文档进行重新嵌入")
     except Exception as e:
         logger.error(f"Failed to trigger re-embed: {e}")
-        raise api_error(ErrorCode.DB_QUERY_ERROR, f"触发重新嵌入失败: {str(e)}")
+        raise api_error(ErrorCode.DB_QUERY_ERROR, "触发重新嵌入失败")

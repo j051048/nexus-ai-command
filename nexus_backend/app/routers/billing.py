@@ -57,7 +57,7 @@ async def subscribe(
         return api_success(data={"subscription": sub.__dict__})
     except Exception as e:
         logger.error(f"Subscription failed: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "账单操作失败")
 
 
 @router.post("/cancel")
@@ -110,7 +110,7 @@ async def billing_webhook(req: Request):
         return api_success(data={"received": True})
     except Exception as e:
         logger.error(f"Billing webhook error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "账单操作失败")
 
 
 @router.post("/trial")

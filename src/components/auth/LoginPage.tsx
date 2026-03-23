@@ -339,6 +339,7 @@ export function LoginPage() {
                     <button
                       type="button"
                       onClick={() => setSelectedRole('employee')}
+                      aria-pressed={selectedRole === 'employee'}
                       className={cn(
                         "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all",
                         selectedRole === 'employee'
@@ -361,6 +362,7 @@ export function LoginPage() {
                     <button
                       type="button"
                       onClick={() => setSelectedRole('boss')}
+                      aria-pressed={selectedRole === 'boss'}
                       className={cn(
                         "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all",
                         selectedRole === 'boss'

@@ -112,6 +112,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                         variant="secondary"
                         className="absolute top-4 left-4 z-50 shadow-lg rounded-full"
                         onClick={() => setIsChatOpen(true)}
+                        aria-label="打开聊天面板"
                     >
                         <PanelLeftOpen className="w-4 h-4 text-muted-foreground hover:text-foreground" />
                     </Button>
@@ -140,6 +141,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                                 className="h-8 w-8 p-0"
                                 data-compact
                                 onClick={() => setIsCanvasOpen(false)}
+                                aria-label="关闭画布面板"
                             >
                                 <PanelRightClose className="w-4 h-4" />
                             </Button>
@@ -162,6 +164,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                     variant="secondary"
                     className="fixed top-4 right-4 z-50 shadow-lg rounded-full"
                     onClick={() => setIsCanvasOpen(true)}
+                    aria-label="打开画布面板"
                 >
                     <PanelRightOpen className="w-4 h-4" />
                 </Button>

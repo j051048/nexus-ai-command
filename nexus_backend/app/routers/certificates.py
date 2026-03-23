@@ -61,7 +61,7 @@ async def list_certificates(
         return api_success(data={"certificates": certs})
     except Exception as e:
         logger.error(f"Failed to list certificates: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "证书操作失败")
 
 
 @router.post("")
@@ -83,7 +83,7 @@ async def create_certificate(
         return api_success(data={"certificate": cert}, message="证照创建成功")
     except Exception as e:
         logger.error(f"Failed to create certificate: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "证书操作失败")
 
 
 @router.get("/expiring")
@@ -104,7 +104,7 @@ async def get_expiring_certs(
         return api_success(data={"certificates": certs})
     except Exception as e:
         logger.error(f"Failed to get expiring certificates: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "证书操作失败")
 
 
 @router.patch("/{cert_id}/renew")
@@ -126,4 +126,4 @@ async def renew_certificate(
         return api_success(data={"certificate": result}, message="证照续期成功")
     except Exception as e:
         logger.error(f"Failed to renew certificate: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "证书操作失败")

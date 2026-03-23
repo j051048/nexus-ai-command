@@ -28,7 +28,7 @@ async def list_plugins(
         return api_success(data={"plugins": plugins})
     except Exception as e:
         logger.error(f"Failed to list plugins: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "插件操作失败")
 
 
 @router.get("/installed")
@@ -44,7 +44,7 @@ async def get_installed_plugins(
         return api_success(data={"plugins": plugins})
     except Exception as e:
         logger.error(f"Failed to get installed plugins: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "插件操作失败")
 
 
 @router.post("/{plugin_id}/install")
@@ -63,10 +63,10 @@ async def install_plugin(
         )
         return api_success(data={"plugin": result}, message="插件安装成功")
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "插件参数校验失败")
     except Exception as e:
         logger.error(f"Failed to install plugin: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "插件操作失败")
 
 
 @router.post("/{plugin_id}/uninstall")
@@ -83,7 +83,7 @@ async def uninstall_plugin(
         return api_success(data={"uninstalled": success}, message="插件已卸载")
     except Exception as e:
         logger.error(f"Failed to uninstall plugin: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "插件操作失败")
 
 
 @router.put("/{plugin_id}/config")
@@ -102,10 +102,10 @@ async def update_plugin_config(
         )
         return api_success(data={"plugin": result}, message="配置已更新")
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "插件参数校验失败")
     except Exception as e:
         logger.error(f"Failed to update plugin config: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "插件操作失败")
 
 
 # ── P3: Plugin Execution API ──
@@ -146,12 +146,12 @@ async def execute_plugin_action(
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, result.get("error", "执行失败"))
 
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "插件参数校验失败")
     except Exception as e:
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Plugin execution failed: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "插件操作失败")
 
 
 @router.get("/{plugin_id}/actions")

@@ -62,7 +62,7 @@ async def submit_feedback(
         return api_success(data={"feedback": feedback}, message="反馈已记录")
     except Exception as e:
         logger.error("Submit feedback error: %s", e)
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "AI反馈操作失败")
 
 
 @router.get("")
@@ -94,7 +94,7 @@ async def list_feedback(
         return api_list(items=res.data or [], total=total, page=page, page_size=page_size)
     except Exception as e:
         logger.error("List feedback error: %s", e)
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "AI反馈操作失败")
 
 
 @router.get("/stats")
@@ -137,7 +137,7 @@ async def feedback_stats(
         )
     except Exception as e:
         logger.error("Feedback stats error: %s", e)
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "AI反馈操作失败")
 
 
 @router.post("/correction")
@@ -180,4 +180,4 @@ async def submit_correction(
         if hasattr(e, "status_code"):
             raise
         logger.error("Submit correction error: %s", e)
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "AI反馈操作失败")

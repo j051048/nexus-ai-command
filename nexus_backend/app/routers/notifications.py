@@ -63,7 +63,7 @@ async def get_notifications(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error getting notifications: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "通知操作失败")
 
 
 @router.post("/mark-read")
@@ -90,7 +90,7 @@ async def mark_read(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error marking notifications as read: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "通知操作失败")
 
 
 @router.post("/mark-all-read")
@@ -115,7 +115,7 @@ async def mark_all_read(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error marking all notifications as read: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "通知操作失败")
 
 
 @router.get("/unread-count")
@@ -137,7 +137,7 @@ async def get_unread_count(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error getting unread count: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "通知操作失败")
 
 
 @router.get("/preferences")
@@ -159,7 +159,7 @@ async def get_preferences(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error getting preferences: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "通知操作失败")
 
 
 @router.put("/preferences")
@@ -191,4 +191,4 @@ async def update_preferences(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error updating preferences: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "通知操作失败")

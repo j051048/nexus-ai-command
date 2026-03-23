@@ -1,8 +1,9 @@
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
+from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
 from app.models.schemas import PerformanceEvent, StandardResponse
 from app.services.performance_service import PerformanceService
@@ -11,7 +12,7 @@ router = APIRouter(prefix="/api/performance", tags=["Performance"])
 
 
 @router.post("/calculate", response_model=StandardResponse)
-async def calculate_performance(event: PerformanceEvent):
+async def calculate_performance(event: PerformanceEvent, user_id: str = Depends(get_current_user_id)):
     """
     Real-time performance calculation API.
 
@@ -26,7 +27,7 @@ async def calculate_performance(event: PerformanceEvent):
 
     except Exception as e:
         # Catch unexpected errors handled by service layer
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "绩效数据操作失败")
 
 
 @router.get("/quality-trend", response_model=StandardResponse)
@@ -34,6 +35,7 @@ async def quality_trend(
     days: int = Query(7, ge=1, le=90),
     scene_code: str | None = Query(None),
     complexity: str | None = Query(None),
+    user_id: str = Depends(get_current_user_id),
 ):
     """Agent quality scores trend aggregated by day."""
     try:
@@ -84,4 +86,4 @@ async def quality_trend(
 
         return api_success(data={"days": days, "trend": trend})
     except Exception as e:
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "绩效数据操作失败")

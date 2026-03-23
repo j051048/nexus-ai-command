@@ -109,12 +109,12 @@ async def export_data(
         )
 
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "数据传输参数校验失败")
     except Exception as e:
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Export {export_type} failed: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"导出失败: {str(e)}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "导出失败")
 
 
 @router.get("/export/types")
@@ -127,7 +127,7 @@ async def list_export_types(
         return api_success(data=exports)
     except Exception as e:
         logger.error(f"List export types failed: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据传输操作失败")
 
 
 # ============== Template Endpoints ==============
@@ -143,7 +143,7 @@ async def list_templates(
         return api_success(data=templates)
     except Exception as e:
         logger.error(f"List templates failed: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据传输操作失败")
 
 
 @router.get("/templates/{template_type}")
@@ -172,10 +172,10 @@ async def download_template(
         )
 
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "数据传输参数校验失败")
     except Exception as e:
         logger.error(f"Download template {template_type} failed: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据传输操作失败")
 
 
 # ============== Import Endpoints ==============
@@ -257,7 +257,7 @@ async def import_data(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Import {import_type} failed: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"导入失败: {str(e)}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "导入失败")
 
 
 @router.post("/import/validate")
@@ -287,4 +287,4 @@ async def validate_import(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Validate import failed: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据传输操作失败")

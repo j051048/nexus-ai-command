@@ -52,7 +52,7 @@ async def export_audit_logs(
         )
     except Exception as e:
         logger.error(f"Audit export failed: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "合规检查操作失败")
 
 
 @router.get("/dsar/{target_user_id}")
@@ -109,7 +109,7 @@ async def data_subject_access_request(
         return api_success(data=report)
     except Exception as e:
         logger.error(f"DSAR failed: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "合规检查操作失败")
 
 
 @router.get("/retention")

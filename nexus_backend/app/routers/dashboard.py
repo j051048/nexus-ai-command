@@ -88,7 +88,7 @@ async def boss_dashboard(request: Request, user_id: str = Depends(get_current_us
         raise
     except Exception as e:
         logger.error(f"Error fetching boss dashboard data: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "仪表盘数据获取失败")
 
 
 @router.get("/alerts")

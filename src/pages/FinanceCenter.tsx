@@ -155,9 +155,8 @@ export function FinanceCenter() {
       }
       setExpenseDialogOpen(false);
       setExpenseForm({ type: 'expense', description: '', amount: 0 });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      toast.error(error?.message || '提交失败');
+    } catch (error: unknown) {
+      toast.error((error instanceof Error ? error.message : null) || '提交失败');
     } finally {
       setSubmitting(false);
     }
@@ -199,9 +198,8 @@ export function FinanceCenter() {
       setEditingBudgetId(null);
       setBudgetForm({ name: '', total_amount: 0, period: new Date().toISOString().slice(0, 7) });
       fetchBudgets();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      toast.error(error?.message || '操作失败');
+    } catch (error: unknown) {
+      toast.error((error instanceof Error ? error.message : null) || '操作失败');
     } finally {
       setBudgetSubmitting(false);
     }
@@ -226,9 +224,8 @@ export function FinanceCenter() {
       if (error) throw error;
       toast.success('预算已删除');
       fetchBudgets();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      toast.error(error?.message || '删除失败');
+    } catch (error: unknown) {
+      toast.error((error instanceof Error ? error.message : null) || '删除失败');
     }
   };
 
@@ -255,9 +252,8 @@ export function FinanceCenter() {
       setInvoiceDialogOpen(false);
       setInvoiceForm({ invoice_number: '', amount: 0, due_date: '', status: 'draft' });
       fetchInvoices();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      toast.error(error?.message || '创建失败');
+    } catch (error: unknown) {
+      toast.error((error instanceof Error ? error.message : null) || '创建失败');
     } finally {
       setInvoiceSubmitting(false);
     }
@@ -277,8 +273,7 @@ export function FinanceCenter() {
         .order('created_at', { ascending: false });
       if (error) throw error;
       setInvoices((data as FinanceInvoice[]) || []);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error('加载发票数据失败');
     } finally {
       setInvoiceLoading(false);
@@ -298,8 +293,7 @@ export function FinanceCenter() {
         .order('created_at', { ascending: false });
       if (error) throw error;
       setBudgets((data as FinanceBudget[]) || []);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error('加载预算数据失败');
     } finally {
       setBudgetLoading(false);

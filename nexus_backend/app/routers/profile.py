@@ -38,7 +38,7 @@ async def get_profile(
         return api_success(data={"profile": row})
     except Exception as e:
         logger.error(f"Profile fetch failed: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "用户资料操作失败")
 
 
 @router.put("")
@@ -63,7 +63,7 @@ async def update_profile(
         return api_success(data={"updated": True, "fields": list(updates.keys())})
     except Exception as e:
         logger.error(f"Profile update failed: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "用户资料操作失败")
 
 
 @router.get("/ai-settings")
@@ -88,7 +88,7 @@ async def get_ai_settings(
         return api_success(data={"ai_settings": res.data[0] if res.data else {}})
     except Exception as e:
         logger.error(f"AI settings fetch failed: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "用户资料操作失败")
 
 
 @router.put("/ai-settings")
@@ -114,7 +114,7 @@ async def update_ai_settings(
         return api_success(data={"updated": True})
     except Exception as e:
         logger.error(f"AI settings update failed: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "用户资料操作失败")
 
 
 @router.put("/security")
@@ -132,4 +132,4 @@ async def update_security_settings(
             }
         )
     except Exception as e:
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "用户资料操作失败")

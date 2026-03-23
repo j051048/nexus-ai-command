@@ -67,7 +67,7 @@ async def list_work_orders(
         return api_success(data={"work_orders": orders})
     except Exception as e:
         logger.error(f"Failed to list work orders: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "工单操作失败")
 
 
 @router.get("/statistics")
@@ -96,7 +96,7 @@ async def get_statistics(
         return api_success(data=stats)
     except Exception as e:
         logger.error(f"Failed to get work order statistics: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "工单操作失败")
 
 
 @router.get("/types")
@@ -112,7 +112,7 @@ async def list_types(
         return api_success(data={"work_order_types": types})
     except Exception as e:
         logger.error(f"Failed to list work order types: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "工单操作失败")
 
 
 @router.get("/{order_id}")
@@ -135,7 +135,7 @@ async def get_work_order_detail(
         return api_success(data={"work_order": order})
     except Exception as e:
         logger.error(f"Failed to get work order detail: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "工单操作失败")
 
 
 @router.post("")
@@ -158,7 +158,7 @@ async def create_work_order(
         return api_success(data={"work_order": order}, message="工单创建成功")
     except Exception as e:
         logger.error(f"Failed to create work order: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "工单操作失败")
 
 
 @router.patch("/{order_id}")
@@ -191,4 +191,4 @@ async def update_work_order(
         return api_success(data={"work_order": order}, message="工单更新成功")
     except Exception as e:
         logger.error(f"Failed to update work order: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "工单操作失败")

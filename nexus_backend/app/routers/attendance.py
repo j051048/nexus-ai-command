@@ -62,7 +62,7 @@ async def clock_in_out(
         return api_success(data={"clock": result}, message="打卡成功")
     except Exception as e:
         logger.error(f"Failed to clock in/out: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "考勤操作失败")
 
 
 @router.get("/records")
@@ -87,7 +87,7 @@ async def get_attendance_records(
         return api_success(data={"records": records})
     except Exception as e:
         logger.error(f"Failed to get attendance records: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "考勤操作失败")
 
 
 @router.post("/shifts")
@@ -111,7 +111,7 @@ async def create_shift_schedule(
         return api_success(data={"shift": shift}, message="排班创建成功")
     except Exception as e:
         logger.error(f"Failed to create shift schedule: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "考勤操作失败")
 
 
 @router.get("/shifts")
@@ -136,7 +136,7 @@ async def list_shift_schedules(
         return api_success(data={"shifts": shifts})
     except Exception as e:
         logger.error(f"Failed to list shift schedules: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "考勤操作失败")
 
 
 @router.get("/statistics")
@@ -161,7 +161,7 @@ async def attendance_statistics(
         return api_success(data=stats)
     except Exception as e:
         logger.error(f"Failed to get attendance statistics: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "考勤操作失败")
 
 
 @router.post("/leave")
@@ -187,4 +187,4 @@ async def request_leave(
         return api_success(data={"leave": leave}, message="请假申请已提交")
     except Exception as e:
         logger.error(f"Failed to request leave: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "考勤操作失败")

@@ -55,7 +55,7 @@ async def list_templates(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error listing templates: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "工作流模板操作失败")
 
 
 @router.get("/{template_id}")
@@ -80,7 +80,7 @@ async def get_template(
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error getting template {template_id}: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "工作流模板操作失败")
 
 
 @router.post("/create-from/{template_id}")
@@ -108,12 +108,12 @@ async def create_from_template(
 
         return api_success(data=workflow, message="工作流已从模板创建")
     except ValueError as e:
-        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, str(e))
+        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "工作流模板操作失败")
     except Exception as e:
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error creating from template {template_id}: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "工作流模板操作失败")
 
 
 @router.post("/share/{workflow_id}")
@@ -139,9 +139,9 @@ async def share_as_template(
 
         return api_success(data=template, message="工作流已分享为模板")
     except ValueError as e:
-        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, str(e))
+        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "工作流模板操作失败")
     except Exception as e:
         if hasattr(e, "status_code"):
             raise
         logger.error(f"Error sharing workflow {workflow_id}: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "工作流模板操作失败")

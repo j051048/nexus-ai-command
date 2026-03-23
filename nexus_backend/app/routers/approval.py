@@ -108,7 +108,7 @@ async def get_approval_type_config(
         raise
     except Exception as e:
         logger.error(f"Get approval type config error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "审批操作失败")
 
 
 @router.get("/list")
@@ -237,7 +237,7 @@ async def list_approvals(
         raise
     except Exception as e:
         logger.error(f"List approvals error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "审批操作失败")
 
 
 @router.get("/tab-counts")
@@ -294,7 +294,7 @@ async def get_tab_counts(
         raise
     except Exception as e:
         logger.error(f"Get tab counts error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "审批操作失败")
 
 
 # ---- 原有端点 ----
@@ -315,7 +315,7 @@ async def process_approval(request: ApprovalRequest, user_id: str = Depends(get_
 
         return api_success(data=decision.model_dump(), message="Approval Processed")
     except Exception as e:
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "审批操作失败")
 
 
 @router.post("/submit-with-form")
@@ -461,7 +461,7 @@ async def submit_with_form(
         raise
     except Exception as e:
         logger.error(f"Submit with form failed: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "审批操作失败")
 
 
 # ============== P0: Approval Chain Execution Endpoints ==============
@@ -551,12 +551,12 @@ async def advance_approval(
 
     except RuntimeError as e:
         logger.warning(f"Advance approval failed: {e}")
-        raise api_error(ErrorCode.RESOURCE_CONFLICT, str(e))
+        raise api_error(ErrorCode.RESOURCE_CONFLICT, "审批操作失败")
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Advance approval error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "审批操作失败")
 
 
 @router.get("/{request_id}/progress")
@@ -625,7 +625,7 @@ async def get_approval_progress(
         raise
     except Exception as e:
         logger.error(f"Get approval progress error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "审批操作失败")
 
 
 @router.post("/submit-smart")
@@ -759,7 +759,7 @@ async def submit_smart_approval(
         raise
     except Exception as e:
         logger.error(f"Smart submit approval error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "审批操作失败")
 
 
 # ============== Auto Approval Rules (#16) ==============
@@ -796,7 +796,7 @@ async def list_auto_rules(
         return api_success(data=res.data or [])
     except Exception as e:
         logger.error("List auto rules error: %s", e)
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "审批操作失败")
 
 
 @router.post("/auto-rules")
@@ -830,7 +830,7 @@ async def create_auto_rule(
         if hasattr(e, "status_code"):
             raise
         logger.error("Create auto rule error: %s", e)
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "审批操作失败")
 
 
 @router.delete("/auto-rules/{rule_id}")
@@ -862,4 +862,4 @@ async def delete_auto_rule(
         if hasattr(e, "status_code"):
             raise
         logger.error("Delete auto rule error: %s", e)
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "审批操作失败")

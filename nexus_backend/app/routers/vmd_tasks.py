@@ -266,7 +266,7 @@ async def create_task(
         return api_success(data={"task": task}, message="任务创建成功且子任务分解完成")
     except Exception as e:
         logger.error(f"Create task error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD任务操作失败")
 
 
 @router.get("/tasks")
@@ -318,7 +318,7 @@ async def list_tasks(
         return api_list(items=res.data or [], total=total, page=page, page_size=page_size)
     except Exception as e:
         logger.error(f"List tasks error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD任务操作失败")
 
 
 @router.get("/tasks/{task_id}")
@@ -386,7 +386,7 @@ async def get_task(
         return api_success(data=flat_response)
     except Exception as e:
         logger.error(f"Get task error: id={task_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD任务操作失败")
 
 
 @router.get("/tasks/{task_id}/logs")
@@ -419,7 +419,7 @@ async def get_task_logs(
         return api_list(items=res.data or [], total=total, page=page, page_size=page_size)
     except Exception as e:
         logger.error(f"Get task logs error: task={task_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD任务操作失败")
 
 
 # ---------------------------------------------------------------------------
@@ -452,7 +452,7 @@ async def pause_task(
         return api_success(data={"task_id": task_id, "status": "paused"}, message="任务已暂停")
     except Exception as e:
         logger.error(f"Pause task error: id={task_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD任务操作失败")
 
 
 @router.post("/tasks/{task_id}/resume")
@@ -481,7 +481,7 @@ async def resume_task(
         return api_success(data={"task_id": task_id, "status": "executing"}, message="任务已恢复执行")
     except Exception as e:
         logger.error(f"Resume task error: id={task_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD任务操作失败")
 
 
 @router.post("/tasks/{task_id}/cancel")
@@ -511,7 +511,7 @@ async def cancel_task(
         return api_success(data={"task_id": task_id, "status": "cancelled"}, message="任务已取消")
     except Exception as e:
         logger.error(f"Cancel task error: id={task_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD任务操作失败")
 
 
 @router.post("/tasks/{task_id}/retry")
@@ -562,7 +562,7 @@ async def retry_task(
         )
     except Exception as e:
         logger.error(f"Retry task error: id={task_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD任务操作失败")
 
 
 # ---------------------------------------------------------------------------
@@ -636,7 +636,7 @@ async def update_sub_task(
         raise
     except Exception as e:
         logger.error(f"Update sub-task error: id={sub_task_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD任务操作失败")
 
 
 @router.post("/tasks/{task_id}/sub-tasks")
@@ -703,7 +703,7 @@ async def create_sub_task(
         raise
     except Exception as e:
         logger.error(f"Create sub-task error: task={task_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD任务操作失败")
 
 
 @router.delete("/sub-tasks/{sub_task_id}")
@@ -743,7 +743,7 @@ async def delete_sub_task(
         raise
     except Exception as e:
         logger.error(f"Delete sub-task error: id={sub_task_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD任务操作失败")
 
 
 # ---------------------------------------------------------------------------
@@ -800,7 +800,7 @@ async def audit_sub_task(
         )
     except Exception as e:
         logger.error(f"Audit sub-task error: id={sub_task_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD任务操作失败")
 
 
 class SubmitSubTaskRequest(BaseModel):
@@ -838,7 +838,7 @@ async def submit_sub_task(
         )
     except Exception as e:
         logger.error(f"Submit sub-task error: id={sub_task_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD任务操作失败")
 
 
 # ---------------------------------------------------------------------------
@@ -918,7 +918,7 @@ async def list_agent_configs(
         raise
     except Exception as e:
         logger.error(f"List agent configs error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD任务操作失败")
 
 
 @router.put("/agents/config/{agent_code}")
@@ -997,7 +997,7 @@ async def update_agent_config(
         raise
     except Exception as e:
         logger.error(f"Update agent config error: code={agent_code} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD任务操作失败")
 
 
 # ---------------------------------------------------------------------------
@@ -1051,4 +1051,4 @@ async def delete_task(
         raise
     except Exception as e:
         logger.error(f"Delete task error: id={task_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "VMD任务操作失败")

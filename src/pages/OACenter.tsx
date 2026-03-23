@@ -136,8 +136,7 @@ function AttendanceTab({ orgId, userId }: { orgId?: string; userId?: string }) {
       if (error) throw error;
       
       const uiRecords: AttendanceRecord[] = [];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rows = data as any[];
+      const rows = data as { id: string; check_date: string; check_in_time: string | null; check_out_time: string | null; location: string | null }[];
       if (rows && rows.length > 0) {
         const row = rows[0];
         if (row.check_in_time) {
@@ -174,12 +173,10 @@ function AttendanceTab({ orgId, userId }: { orgId?: string; userId?: string }) {
         
       if (fetchErr) throw fetchErr;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const existing = existingData as any;
+      const existing = existingData as { id: string } | null;
 
       if (existing) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const updates: any = {};
+        const updates: Record<string, string> = {};
         if (clockType === 'clock_in') updates.check_in_time = nowTime;
         else if (clockType === 'clock_out') updates.check_out_time = nowTime;
         else if (clockType === 'field_work') {
@@ -190,15 +187,14 @@ function AttendanceTab({ orgId, userId }: { orgId?: string; userId?: string }) {
            }
         }
         
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types incomplete for this table
         const queryBuilder = supabase.from('attendance_records') as any;
         const { error } = await queryBuilder
           .update(updates)
           .eq('id', existing.id);
         if (error) throw error;
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const record: any = {
+        const record: Record<string, string | undefined> = {
           user_id: userId,
           organization_id: orgId,
           platform: 'wecom', // Need required platform value
@@ -388,9 +384,8 @@ export function OACenter() {
       setLeaveDialogOpen(false);
       setLeaveForm({ leave_type: 'annual', start_date: '', end_date: '', reason: '' });
       fetchLeaves();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      toast.error(error?.message || '提交失败');
+    } catch (error: unknown) {
+      toast.error((error instanceof Error ? error.message : null) || '提交失败');
     } finally {
       setLeaveSubmitting(false);
     }
@@ -450,9 +445,8 @@ export function OACenter() {
       setMeetingDialogOpen(false);
       setMeetingForm({ title: '', start_time: '', end_time: '' });
       fetchMeetings();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      toast.error(error?.message || '预约失败');
+    } catch (error: unknown) {
+      toast.error((error instanceof Error ? error.message : null) || '预约失败');
     } finally {
       setMeetingSubmitting(false);
     }
@@ -503,8 +497,7 @@ export function OACenter() {
         creator_name: (t.creator as { name?: string } | null)?.name || undefined,
       }));
       setTasks(mapped as OATask[]);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error('加载任务列表失败');
     } finally {
       setTaskLoading(false);
@@ -548,9 +541,8 @@ export function OACenter() {
       setTaskDialogOpen(false);
       setTaskForm({ title: '', description: '', priority: 'medium', due_date: '' });
       fetchTasks();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      toast.error(error?.message || '创建失败');
+    } catch (error: unknown) {
+      toast.error((error instanceof Error ? error.message : null) || '创建失败');
     } finally {
       setTaskSubmitting(false);
     }
@@ -585,10 +577,9 @@ export function OACenter() {
         return;
       }
       toast.success('请假申请已撤回');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
+    } catch (error: unknown) {
       fetchLeaves();
-      toast.error(error?.message || '撤回失败');
+      toast.error((error instanceof Error ? error.message : null) || '撤回失败');
     }
   };
 
@@ -605,9 +596,8 @@ export function OACenter() {
         throw error;
       }
       toast.success('会议已取消');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      toast.error(error?.message || '取消失败');
+    } catch (error: unknown) {
+      toast.error((error instanceof Error ? error.message : null) || '取消失败');
     }
   };
 
@@ -628,9 +618,8 @@ export function OACenter() {
       if (error) throw error;
       toast.success('任务状态已更新');
       fetchTasks();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      toast.error(error?.message || '更新失败');
+    } catch (error: unknown) {
+      toast.error((error instanceof Error ? error.message : null) || '更新失败');
     }
   };
 
@@ -691,9 +680,8 @@ export function OACenter() {
       toast.success('任务已标记为完成');
       setCompletionDialogOpen(false);
       fetchTasks();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      toast.error(error?.message || '操作失败');
+    } catch (error: unknown) {
+      toast.error((error instanceof Error ? error.message : null) || '操作失败');
     } finally {
       setCompletionSubmitting(false);
     }

@@ -142,7 +142,12 @@ async def run_migrations() -> list[str]:
     返回已应用的迁移名称列表。
     如果 AUTO_MIGRATE 未启用，返回空列表。
     """
-    if not AUTO_MIGRATE:
+    from app.core.database import supabase
+
+    # 动态检查环境变量 (Item 18)
+    auto_migrate = os.environ.get("AUTO_MIGRATE", "false").lower() in ("true", "1", "yes")
+
+    if not auto_migrate:
         logger.info("[MigrationRunner] 自动迁移未启用 (设置 AUTO_MIGRATE=true 启用)")
         return []
 
@@ -170,19 +175,17 @@ async def run_migrations() -> list[str]:
     # 在大多数 Supabase 环境中，应使用 supabase db push 而不是自动执行
     # 这里仅记录待执行迁移，实际执行需要 DBA 确认
     applied_names = []
-    for name, _path in pending:
-        logger.info(f"[MigrationRunner] 待执行迁移: {name}")
-        # 安全起见，这里只记录不自动执行
-        # 如需自动执行，取消下面注释并确保 exec_sql RPC 可用
-        # try:
-        #     sql = path.read_text(encoding="utf-8")
-        #     await supabase.rpc("exec_sql", {"query": sql}).execute()
-        #     await _record_migration(name)
-        #     applied_names.append(name)
-        #     logger.info(f"[MigrationRunner] 成功执行迁移: {name}")
-        # except Exception as e:
-        #     logger.error(f"[MigrationRunner] 迁移执行失败 '{name}': {e}")
-        #     break  # 遇到错误停止执行
-        applied_names.append(name)
+    for name, path in pending:
+        logger.info(f"[MigrationRunner] 执行待决迁移: {name}")
+        try:
+            sql = path.read_text(encoding="utf-8")
+            # 自动执行 SQL 迁移 需要数据库的 exec_sql RPC
+            await supabase.rpc("exec_sql", {"query": sql}).execute()
+            await _record_migration(name)
+            applied_names.append(name)
+            logger.info(f"[MigrationRunner] 成功执行迁移: {name}")
+        except Exception as e:
+            logger.error(f"[MigrationRunner] 迁移执行失败 '{name}': {e}")
+            break  # 遇到错误停止执行
 
     return applied_names

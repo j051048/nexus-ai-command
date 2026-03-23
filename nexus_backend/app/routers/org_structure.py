@@ -73,7 +73,7 @@ async def list_departments(
         return api_success(data={"departments": departments})
     except Exception as e:
         logger.error(f"Failed to list departments: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "组织架构操作失败")
 
 
 @router.post("/departments")
@@ -97,7 +97,7 @@ async def create_department(
         return api_success(data={"department": department}, message="部门创建成功")
     except Exception as e:
         logger.error(f"Failed to create department: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "组织架构操作失败")
 
 
 @router.patch("/departments/{department_id}")
@@ -121,7 +121,7 @@ async def update_department(
         return api_success(data={"department": department}, message="部门更新成功")
     except Exception as e:
         logger.error(f"Failed to update department: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "组织架构操作失败")
 
 
 # ── Position Endpoints ──
@@ -145,7 +145,7 @@ async def list_positions(
         return api_success(data={"positions": positions})
     except Exception as e:
         logger.error(f"Failed to list positions: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "组织架构操作失败")
 
 
 @router.post("/positions")
@@ -168,7 +168,7 @@ async def create_position(
         return api_success(data={"position": position}, message="职位创建成功")
     except Exception as e:
         logger.error(f"Failed to create position: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "组织架构操作失败")
 
 
 # ── Employee Endpoints ──
@@ -201,7 +201,7 @@ async def list_employees(
         return api_success(data={"employees": employees})
     except Exception as e:
         logger.error(f"Failed to list employees: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "组织架构操作失败")
 
 
 @router.get("/employees/{employee_id}")
@@ -222,7 +222,7 @@ async def get_employee_detail(
         return api_success(data={"employee": employee})
     except Exception as e:
         logger.error(f"Failed to get employee detail: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "组织架构操作失败")
 
 
 @router.post("/employees")
@@ -244,7 +244,7 @@ async def create_employee(
         return api_success(data={"employee": employee}, message="员工创建成功")
     except Exception as e:
         logger.error(f"Failed to create employee: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "组织架构操作失败")
 
 
 @router.patch("/employees/{employee_id}")
@@ -268,7 +268,7 @@ async def update_employee(
         return api_success(data={"employee": employee}, message="员工更新成功")
     except Exception as e:
         logger.error(f"Failed to update employee: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "组织架构操作失败")
 
 
 # ── Statistics ──
@@ -287,4 +287,4 @@ async def org_statistics(
         return api_success(data=stats)
     except Exception as e:
         logger.error(f"Failed to get org statistics: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "组织架构操作失败")

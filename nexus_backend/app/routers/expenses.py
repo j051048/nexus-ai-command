@@ -53,7 +53,7 @@ async def submit_expense(
         return api_success(data={"expense": expense}, message="报销申请已提交")
     except Exception as e:
         logger.error(f"Failed to submit expense: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "费用操作失败")
 
 
 @router.get("")
@@ -83,7 +83,7 @@ async def list_expenses(
         return api_success(data={"expenses": expenses})
     except Exception as e:
         logger.error(f"Failed to list expenses: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "费用操作失败")
 
 
 @router.patch("/{expense_id}/approve")
@@ -105,7 +105,7 @@ async def approve_expense(
         return api_success(data={"expense": result}, message="审批完成")
     except Exception as e:
         logger.error(f"Failed to approve expense: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "费用操作失败")
 
 
 @router.get("/statistics")
@@ -132,7 +132,7 @@ async def expense_statistics(
         return api_success(data=stats)
     except Exception as e:
         logger.error(f"Failed to get expense statistics: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "费用操作失败")
 
 
 @router.get("/budget")
@@ -155,4 +155,4 @@ async def budget_check(
         return api_success(data=result)
     except Exception as e:
         logger.error(f"Failed to check budget: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "费用操作失败")

@@ -117,7 +117,7 @@ async def list_customers(
         return api_list(items=customers, total=len(customers))
     except Exception as e:
         logger.error(f"List customers error: user={user_id} org={getattr(req.state, 'org_id', None)} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
 
 
 @router.post("/customers")
@@ -133,10 +133,10 @@ async def create_customer(
         customer = await crm_service.create_customer(org_id, body.model_dump(exclude_none=True), db=db)
         return api_success(data={"customer": customer}, message="客户创建成功")
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "CRM参数校验失败")
     except Exception as e:
         logger.error(f"Create customer error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
 
 
 @router.get("/customers/{customer_id}")
@@ -154,7 +154,7 @@ async def get_customer(
         return api_success(data={"customer": customer})
     except Exception as e:
         logger.error(f"Get customer error: id={customer_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
 
 
 @router.put("/customers/{customer_id}")
@@ -170,10 +170,10 @@ async def update_customer(
         customer = await crm_service.update_customer(customer_id, body.model_dump(exclude_none=True), db=db)
         return api_success(data={"customer": customer}, message="客户信息已更新")
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "CRM参数校验失败")
     except Exception as e:
         logger.error(f"Update customer error: id={customer_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
 
 
 @router.get("/customers/{customer_id}/contacts")
@@ -189,7 +189,7 @@ async def list_contacts(
         return api_list(items=contacts, total=len(contacts))
     except Exception as e:
         logger.error(f"List contacts error: customer={customer_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
 
 
 @router.post("/customers/{customer_id}/contacts")
@@ -205,10 +205,10 @@ async def create_contact(
         contact = await crm_service.create_contact(customer_id, body.model_dump(), db=db)
         return api_success(data={"contact": contact}, message="联系人已添加")
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "CRM参数校验失败")
     except Exception as e:
         logger.error(f"Create contact error: customer={customer_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
 
 
 @router.put("/customers/{customer_id}/contacts/{contact_id}")
@@ -225,10 +225,10 @@ async def update_contact(
         contact = await crm_service.update_contact(contact_id, body.model_dump(exclude_none=True), db=db)
         return api_success(data={"contact": contact}, message="联系人已更新")
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "CRM参数校验失败")
     except Exception as e:
         logger.error(f"Update contact error: contact={contact_id} customer={customer_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
 
 
 @router.delete("/customers/{customer_id}/contacts/{contact_id}")
@@ -245,7 +245,7 @@ async def delete_contact(
         return api_success(data=None, message="联系人已删除")
     except Exception as e:
         logger.error(f"Delete contact error: contact={contact_id} customer={customer_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
 
 
 @router.delete("/customers/{customer_id}")
@@ -261,7 +261,7 @@ async def delete_customer(
         return api_success(data=None, message="客户已删除")
     except Exception as e:
         logger.error(f"Delete customer error: id={customer_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
 
 
 @router.get("/customers/{customer_id}/timeline")
@@ -278,7 +278,7 @@ async def get_timeline(
         return api_list(items=activities, total=len(activities))
     except Exception as e:
         logger.error(f"Get timeline error: customer={customer_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
 
 
 @router.post("/customers/{customer_id}/activities")
@@ -294,10 +294,10 @@ async def create_activity(
         activity = await crm_service.create_activity(customer_id, body.activity_type, body.content, user_id, db=db)
         return api_success(data={"activity": activity}, message="活动记录已添加")
     except ValueError as e:
-        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, str(e))
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "CRM参数校验失败")
     except Exception as e:
         logger.error(f"Create activity error: customer={customer_id} user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
 
 
 @router.get("/stats")
@@ -313,7 +313,7 @@ async def get_customer_stats(
         return api_success(data={"stats": stats})
     except Exception as e:
         logger.error(f"Customer stats error: user={user_id} err={e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
 
 
 @router.get("/stages")

@@ -52,7 +52,7 @@ async def list_qa_pairs(
         return api_success(data=res.data or [])
     except Exception as e:
         logger.error(f"Failed to list QA pairs: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "QA问答对操作失败")
 
 
 @router.post("", response_model=StandardResponse)
@@ -76,7 +76,7 @@ async def create_qa_pair(payload: QAPairCreate, req: Request, user_id: str = Dep
         return api_success(data=res.data[0], message="QA pair created successfully")
     except Exception as e:
         logger.error(f"Failed to create QA pair: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "QA问答对操作失败")
 
 
 @router.put("/{qa_id}", response_model=StandardResponse)
@@ -100,7 +100,7 @@ async def update_qa_pair(
             data["category"] = payload.category.strip() if payload.category else None
 
         if not data:
-            return api_success(message="No updates provided")
+            return api_success(None, message="No updates provided")
 
         data["updated_at"] = "now()"
 
@@ -112,7 +112,7 @@ async def update_qa_pair(
         return api_success(data=res.data[0], message="QA pair updated successfully")
     except Exception as e:
         logger.error(f"Failed to update QA pair: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "QA问答对操作失败")
 
 
 @router.delete("/{qa_id}", response_model=StandardResponse)
@@ -126,10 +126,10 @@ async def delete_qa_pair(qa_id: str, req: Request, user_id: str = Depends(requir
         if not res.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "QA pair not found or no permission")
 
-        return api_success(message="QA pair deleted successfully")
+        return api_success(None, message="QA pair deleted successfully")
     except Exception as e:
         logger.error(f"Failed to delete QA pair: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "QA问答对操作失败")
 
 
 @router.get("/categories", response_model=StandardResponse)
@@ -150,4 +150,4 @@ async def list_categories(req: Request, user_id: str = Depends(get_current_user_
         return api_success(data=sorted(list(categories)))
     except Exception as e:
         logger.error(f"Failed to list categories: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "QA问答对操作失败")

@@ -26,7 +26,7 @@ async def get_trace_stats(
         return api_success(data=stats)
     except Exception as e:
         logger.error(f"Get trace stats error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "追踪日志操作失败")
 
 
 @router.get("/list")
@@ -79,7 +79,7 @@ async def list_traces(
         return api_success(data={"traces": items, "total": len(items)})
     except Exception as e:
         logger.error(f"List traces error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "追踪日志操作失败")
 
 
 @router.get("/detail/{trace_id}")
@@ -96,7 +96,7 @@ async def get_trace_detail(
         return api_success(data={"trace": trace.to_dict()})
     except Exception as e:
         logger.error(f"Get trace detail error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "追踪日志操作失败")
 
 
 @router.get("/replay/{trace_id}")
@@ -113,7 +113,7 @@ async def replay_trace(
         return api_success(data=replay_data)
     except Exception as e:
         logger.error(f"Replay trace error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "追踪日志操作失败")
 
 
 @router.get("/metrics")
@@ -129,7 +129,7 @@ async def get_metrics(
         return api_success(data={"metrics": metrics, "count": len(metrics)})
     except Exception as e:
         logger.error(f"Get metrics error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "追踪日志操作失败")
 
 
 @router.get("/thread/{thread_id}")
@@ -144,7 +144,7 @@ async def get_thread_traces(
         return api_success(data={"traces": items, "total": len(items)})
     except Exception as e:
         logger.error(f"Get thread traces error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "追踪日志操作失败")
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +168,7 @@ async def get_quality_summary(
         return api_success(data=summary)
     except Exception as e:
         logger.error(f"Quality summary error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "追踪日志操作失败")
 
 
 @router.get("/quality/trend")
@@ -187,4 +187,4 @@ async def get_quality_trend(
         return api_success(data={"trend": trend, "days": days})
     except Exception as e:
         logger.error(f"Quality trend error: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "追踪日志操作失败")

@@ -123,7 +123,7 @@ async def get_login_url(
 
     except Exception as e:
         logger.error(f"[im_oauth] Failed to generate login URL for {platform}: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "IM授权操作失败")
     finally:
         if client:
             await client.close()
@@ -297,7 +297,7 @@ async def oauth_callback(
         raise
     except Exception as e:
         logger.error(f"[im_oauth] OAuth callback error for {platform}: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "IM授权操作失败")
     finally:
         if client:
             await client.close()
