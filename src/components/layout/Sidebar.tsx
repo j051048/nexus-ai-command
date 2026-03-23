@@ -137,8 +137,6 @@ const NAV_CONFIG: NavItem[] = [
     icon: <TrendingUp size={20} />,
     label: "销售AI管理",
     href: "sales",
-    badge: "5",
-    badgeType: "primary",
     roles: ["employee", "manager", "boss", "founder"],
     group: "销售与客关",
   },
@@ -290,8 +288,6 @@ const NAV_CONFIG: NavItem[] = [
     icon: <Gift size={20} />,
     label: "激励钱包",
     href: "rewards",
-    badge: "¥200",
-    badgeType: "success",
     group: "知识与培训",
   },
   {
@@ -307,8 +303,6 @@ const NAV_CONFIG: NavItem[] = [
     icon: <Rocket size={20} />,
     label: "虚拟市场部",
     href: "vmd",
-    badge: "AI",
-    badgeType: "primary",
     group: "虚拟市场部",
   },
   {
