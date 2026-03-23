@@ -123,17 +123,30 @@ class SemanticRouter:
 
         self._initializing = True
         try:
+            import asyncio
+
             from app.services.vector_service import vector_service
 
-            embeddings: dict[str, list[np.ndarray]] = {}
+            # Collect all (intent, index, text) tuples for parallel embedding
+            tasks: list[tuple[str, int, str]] = []
             for intent, exemplars in INTENT_EXEMPLARS.items():
-                intent_embs = []
-                for text in exemplars:
-                    emb = await vector_service.embed_text(text, org_id or "default")
-                    if emb:
-                        intent_embs.append(np.array(emb, dtype=np.float32))
-                if intent_embs:
-                    embeddings[intent] = intent_embs
+                for idx, text in enumerate(exemplars):
+                    tasks.append((intent, idx, text))
+
+            # Fire all embedding calls in parallel (~84 calls, 1s vs 4-7s sequential)
+            async def _embed(text: str) -> list[float] | None:
+                return await vector_service.embed_text(text, org_id or "default")
+
+            results = await asyncio.gather(
+                *[_embed(t[2]) for t in tasks], return_exceptions=True
+            )
+
+            embeddings: dict[str, list[np.ndarray]] = {}
+            for (intent, _, _), result in zip(tasks, results):
+                if isinstance(result, Exception) or result is None:
+                    continue
+                arr = np.array(result, dtype=np.float32)
+                embeddings.setdefault(intent, []).append(arr)
 
             self._exemplar_embeddings = embeddings
             logger.info(

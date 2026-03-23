@@ -72,6 +72,20 @@ _CHITCHAT_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# Memory / recall queries — user is asking about past conversations or memories.
+# These MUST NOT be classified as SIMPLE, because skip_semantic=True would
+# prevent the memory system from retrieving relevant context.
+_MEMORY_RECALL_PATTERNS = re.compile(
+    r"(记得|记住|还记得|回忆|回顾|想起|忘记|忘了|"
+    r"上次|昨天|之前|以前|过去).{0,15}"
+    r"(说过|问过|聊过|提到|讨论|告诉|对话|谈过|交流|沟通|讲过|分享)|"
+    r"(之前|上次|昨天|以前|过去|历史).{0,10}(对话|聊天|交流|沟通|记录)|"
+    r"我(说|问|提|聊|讲)过什么|"
+    r"你(还)?记(得|住)|"
+    r"我们(之前|上次|昨天)",
+    re.IGNORECASE,
+)
+
 # Long-form writing / content creation patterns — COMPLEX tier.
 # Must be checked BEFORE _REALTIME_INFO_PATTERNS because queries like
 # "写一篇3000字FD-F1560食品安全推广软文" can accidentally match realtime
@@ -564,6 +578,10 @@ def classify_query(query: str) -> tuple[QueryComplexity, str]:
     # 1c. Chitchat / casual conversation — no tools needed
     if _CHITCHAT_PATTERNS.search(text):
         return QueryComplexity.SIMPLE, "日常闲聊"
+
+    # 1c2. Memory / recall queries — need memory context, MUST NOT be SIMPLE
+    if _MEMORY_RECALL_PATTERNS.search(text):
+        return QueryComplexity.MODERATE, "记忆回顾/历史对话查询"
 
     # 1d. Long-form writing / content creation — MUST be checked BEFORE realtime
     #     info patterns, because queries like "写3000字推广软文" can accidentally
