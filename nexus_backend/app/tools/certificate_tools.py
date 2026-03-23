@@ -10,6 +10,7 @@ from app.services.certificate_service import certificate_service
 
 from .base_tool import BaseTool
 from ._shared import _get_client, _validate_uuid
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +109,7 @@ class ListCertificatesTool(BaseTool):
 
         except Exception as e:
             logger.error(f"查询证照列表失败: {e}")
-            return f"❌ 查询证照列表失败: {str(e)}"
+            return safe_tool_error(e, "查询证照列表")
 
 
 class CreateCertificateTool(BaseTool):
@@ -210,7 +211,7 @@ class CreateCertificateTool(BaseTool):
 
         except Exception as e:
             logger.error(f"创建证照失败: {e}")
-            return f"❌ 创建证照失败: {str(e)}"
+            return safe_tool_error(e, "创建证照")
 
 
 class ExpiringCertsTool(BaseTool):
@@ -275,7 +276,7 @@ class ExpiringCertsTool(BaseTool):
 
         except Exception as e:
             logger.error(f"查询到期证照失败: {e}")
-            return f"❌ 查询到期证照失败: {str(e)}"
+            return safe_tool_error(e, "查询到期证照")
 
 
 class RenewCertificateTool(BaseTool):
@@ -335,4 +336,4 @@ class RenewCertificateTool(BaseTool):
 
         except Exception as e:
             logger.error(f"证照续期失败: {e}")
-            return f"❌ 证照续期失败: {str(e)}"
+            return safe_tool_error(e, "证照续期")

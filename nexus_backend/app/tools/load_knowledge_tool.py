@@ -14,6 +14,7 @@ import logging
 from typing import Any
 
 from app.tools.base_tool import BaseTool
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +152,7 @@ class LoadKnowledgeTool(BaseTool):
 
         except Exception as e:
             logger.error(f"[LoadKnowledge] Failed: {e}", exc_info=True)
-            return f"知识库检索失败: {e}"
+            return safe_tool_error(e, "知识库检索")
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         return await self.execute(args, {"user_id": user_id, **(config or {})})

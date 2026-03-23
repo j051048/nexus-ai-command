@@ -41,9 +41,11 @@ interface ChatHeaderProps {
   showTrace: boolean;
   setShowTrace: (v: boolean) => void;
   handleClearChat: () => void;
+  onExportChat?: () => void;
+  onShowHistory?: () => void;
 }
 
-export function ChatHeader({
+export const ChatHeader = React.memo(function ChatHeader({
   isExpanded,
   onToggle,
   variant,
@@ -55,6 +57,8 @@ export function ChatHeader({
   showTrace,
   setShowTrace,
   handleClearChat,
+  onExportChat,
+  onShowHistory,
 }: ChatHeaderProps) {
   const { data: soulDoc } = useSoulDocument();
   const aiName = (soulDoc?.is_active && soulDoc?.ai_name) ? soulDoc.ai_name : '企业助手';
@@ -176,12 +180,12 @@ export function ChatHeader({
                       <Trash2 className="w-4 h-4 mr-2" />
                       清空对话
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={onExportChat}>
                       <Download className="w-4 h-4 mr-2" />
                       导出对话
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={onShowHistory}>
                       <History className="w-4 h-4 mr-2" />
                       历史记录
                     </DropdownMenuItem>
@@ -225,4 +229,4 @@ export function ChatHeader({
       </div>
     </div>
   );
-}
+});

@@ -9,6 +9,7 @@ import logging
 from typing import Any
 
 from app.tools.base_tool import BaseTool
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -118,4 +119,4 @@ class SearchLongTermMemoryTool(BaseTool):
 
         except Exception as e:
             logger.warning(f"[SearchMemoryTool] Error searching memory: {e}")
-            return f"⚠️ 记忆检索失败: {str(e)}"
+            return safe_tool_error(e, "⚠️ 记忆检索")

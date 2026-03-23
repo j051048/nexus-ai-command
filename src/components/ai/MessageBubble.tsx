@@ -328,7 +328,7 @@ export const MessageBubble = React.memo(function MessageBubble({
                             <span className="text-xs text-zinc-400">{match[1]}</span>
                             <button
                               onClick={() => {
-                                navigator.clipboard.writeText(String(children));
+                                navigator.clipboard.writeText(String(children)).catch(() => {});
                                 toast.success("代码已复制");
                               }}
                               className="text-xs text-zinc-400 hover:text-white"

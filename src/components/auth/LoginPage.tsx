@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LogIn, UserPlus, Loader2, Briefcase, Users, KeyRound, ArrowLeft, Mail, Ticket } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -25,8 +25,6 @@ export function LoginPage() {
   const [resetEmailSent, setResetEmailSent] = useState(false);
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
-  const { toast } = useToast();
-
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -34,16 +32,9 @@ export function LoginPage() {
     const { error } = await signIn(email, password);
 
     if (error) {
-      toast({
-        title: '登录失败',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error('登录失败', { description: error.message });
     } else {
-      toast({
-        title: '登录成功',
-        description: '欢迎回来！',
-      });
+      toast.success('登录成功', { description: '欢迎回来！' });
       navigate('/');
     }
     setLoading(false);
@@ -54,11 +45,7 @@ export function LoginPage() {
 
     // Frontend Validation
     if (password.length < 6) {
-      toast({
-        title: '密码太短',
-        description: '密码长度至少为6位',
-        variant: 'destructive',
-      });
+      toast.error('密码太短', { description: '密码长度至少为6位' });
       return;
     }
 
@@ -100,25 +87,14 @@ export function LoginPage() {
     );
 
     if (error) {
-      toast({
-        title: '注册失败',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error('注册失败', { description: error.message });
     } else {
-      toast({
-        title: '注册成功',
-        description: '正在为您自动登录...',
-      });
+      toast.success('注册成功', { description: '正在为您自动登录...' });
 
       // Auto-login after successful registration
       const { error: signInError } = await signIn(email, password);
       if (signInError) {
-        toast({
-          title: '自动登录失败',
-          description: '请手动登录',
-          variant: 'destructive',
-        });
+        toast.error('自动登录失败', { description: '请手动登录' });
       } else {
         navigate('/');
       }
@@ -130,11 +106,7 @@ export function LoginPage() {
     e.preventDefault();
 
     if (!email.trim()) {
-      toast({
-        title: '请输入邮箱',
-        description: '我们需要您的邮箱地址来发送重置链接',
-        variant: 'destructive',
-      });
+      toast.error('请输入邮箱', { description: '我们需要您的邮箱地址来发送重置链接' });
       return;
     }
 
@@ -145,17 +117,10 @@ export function LoginPage() {
     });
 
     if (error) {
-      toast({
-        title: '发送失败',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error('发送失败', { description: error.message });
     } else {
       setResetEmailSent(true);
-      toast({
-        title: '邮件已发送',
-        description: '请检查您的邮箱，点击链接重置密码',
-      });
+      toast.success('邮件已发送', { description: '请检查您的邮箱，点击链接重置密码' });
     }
     setLoading(false);
   };

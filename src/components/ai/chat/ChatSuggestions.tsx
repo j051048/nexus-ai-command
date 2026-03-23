@@ -28,7 +28,7 @@ interface ChatSuggestionsProps {
   followUpSuggestions?: string[];
 }
 
-export function ChatSuggestions({
+export const ChatSuggestions = React.memo(function ChatSuggestions({
   showQuickReplies,
   messagesCount,
   onQuickReply,
@@ -160,4 +160,4 @@ export function ChatSuggestions({
       )}
     </div>
   );
-}
+});

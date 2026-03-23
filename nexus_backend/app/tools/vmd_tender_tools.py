@@ -15,6 +15,7 @@ from app.services.ai_service import AIService
 from app.services.vector_service import vector_service
 
 from .base_tool import BaseTool
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +124,7 @@ class GenerateBidDocumentTool(BaseTool):
             return f"📋 **投标文件框架 — {project_name}**\n\n{result}"
         except Exception as e:
             logger.error(f"Failed to generate bid document: {e}")
-            return f"❌ 生成投标文件失败: {str(e)}"
+            return safe_tool_error(e, "生成投标文件")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -217,7 +218,7 @@ class GenerateDeviationTableTool(BaseTool):
             return f"📊 **技术偏离表**\n\n{result}"
         except Exception as e:
             logger.error(f"Failed to generate deviation table: {e}")
-            return f"❌ 生成偏离表失败: {str(e)}"
+            return safe_tool_error(e, "生成偏离表")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -293,7 +294,7 @@ class CheckBidComplianceTool(BaseTool):
             return f"🔍 **投标合规性检查报告**\n\n{result}"
         except Exception as e:
             logger.error(f"Failed to check bid compliance: {e}")
-            return f"❌ 合规检查失败: {str(e)}"
+            return safe_tool_error(e, "合规检查")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -366,4 +367,4 @@ class ExtractBidRequirementsTool(BaseTool):
             return f"📋 **招标要求提取清单**\n\n{result}"
         except Exception as e:
             logger.error(f"Failed to extract bid requirements: {e}")
-            return f"❌ 提取招标要求失败: {str(e)}"
+            return safe_tool_error(e, "提取招标要求")

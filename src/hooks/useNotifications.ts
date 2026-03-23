@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 export interface Notification {
     id: string;
@@ -18,8 +18,6 @@ export interface Notification {
 export function useNotificationsRealtime() {
     const { user } = useAuth();
     const queryClient = useQueryClient();
-    const { toast } = useToast();
-
     useEffect(() => {
         if (!user?.id) return;
 
@@ -35,11 +33,7 @@ export function useNotificationsRealtime() {
                 },
                 (payload) => {
                     const newNotif = payload.new as Notification;
-                    toast({
-                        title: newNotif.title,
-                        description: newNotif.content,
-                        variant: newNotif.type === 'error' ? 'destructive' : 'default',
-                    });
+                    newNotif.type === 'error' ? toast.error(newNotif.title, { description: newNotif.content }) : toast.success(newNotif.title, { description: newNotif.content });
                     queryClient.invalidateQueries({ queryKey: ['notifications'] });
                     queryClient.invalidateQueries({ queryKey: ['notification-center'] });
                     queryClient.invalidateQueries({ queryKey: ['notification-unread-count'] });
@@ -50,7 +44,7 @@ export function useNotificationsRealtime() {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [user?.id, queryClient, toast]);
+    }, [user?.id, queryClient]);
 }
 
 export function useNotifications() {

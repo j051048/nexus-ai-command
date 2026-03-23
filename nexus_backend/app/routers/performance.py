@@ -50,7 +50,7 @@ async def quality_trend(
         if complexity:
             query = query.eq("complexity", complexity)
 
-        res = await query.order("created_at").limit(5000).execute()
+        res = await query.order("created_at").limit(1000).execute()
         rows = res.data or []
 
         # Aggregate by day

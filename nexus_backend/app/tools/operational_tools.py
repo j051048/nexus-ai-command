@@ -5,6 +5,7 @@ from app.services.vector_service import vector_service
 
 from .base_tool import BaseTool
 from ._shared import _get_client
+from app.tools._shared import safe_tool_error
 
 
 class PerformanceReportTool(BaseTool):
@@ -191,5 +192,5 @@ class AwardBadgeTool(BaseTool):
                 .execute()
             )
         except Exception as e:
-            return f"❌ 颁发徽章失败: {str(e)}"
+            return safe_tool_error(e, "颁发徽章")
         return f"成功为用户 {target_id} 颁发徽章: {badge_name}"

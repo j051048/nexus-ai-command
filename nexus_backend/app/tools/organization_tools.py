@@ -10,6 +10,7 @@ from app.services.organization_service import organization_service
 
 from .base_tool import BaseTool
 from ._shared import _get_client, _validate_uuid
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,7 @@ class ListDepartmentsTool(BaseTool):
 
         except Exception as e:
             logger.error(f"查询部门列表失败: {e}")
-            return f"❌ 查询部门列表失败: {str(e)}"
+            return safe_tool_error(e, "查询部门列表")
 
 
 class CreateDepartmentTool(BaseTool):
@@ -152,7 +153,7 @@ class CreateDepartmentTool(BaseTool):
 
         except Exception as e:
             logger.error(f"创建部门失败: {e}")
-            return f"❌ 创建部门失败: {str(e)}"
+            return safe_tool_error(e, "创建部门")
 
 
 class UpdateDepartmentTool(BaseTool):
@@ -229,7 +230,7 @@ class UpdateDepartmentTool(BaseTool):
 
         except Exception as e:
             logger.error(f"更新部门失败: {e}")
-            return f"❌ 更新部门失败: {str(e)}"
+            return safe_tool_error(e, "更新部门")
 
 
 # ============================================================================
@@ -322,7 +323,7 @@ class ListEmployeesTool(BaseTool):
 
         except Exception as e:
             logger.error(f"查询员工列表失败: {e}")
-            return f"❌ 查询员工列表失败: {str(e)}"
+            return safe_tool_error(e, "查询员工列表")
 
 
 class GetEmployeeDetailTool(BaseTool):
@@ -384,7 +385,7 @@ class GetEmployeeDetailTool(BaseTool):
 
         except Exception as e:
             logger.error(f"获取员工详情失败: {e}")
-            return f"❌ 获取员工详情失败: {str(e)}"
+            return safe_tool_error(e, "获取员工详情")
 
 
 class CreateEmployeeTool(BaseTool):
@@ -479,7 +480,7 @@ class CreateEmployeeTool(BaseTool):
 
         except Exception as e:
             logger.error(f"创建员工失败: {e}")
-            return f"❌ 创建员工失败: {str(e)}"
+            return safe_tool_error(e, "创建员工")
 
 
 class UpdateEmployeeTool(BaseTool):
@@ -567,7 +568,7 @@ class UpdateEmployeeTool(BaseTool):
 
         except Exception as e:
             logger.error(f"更新员工失败: {e}")
-            return f"❌ 更新员工失败: {str(e)}"
+            return safe_tool_error(e, "更新员工")
 
 
 class OrgStatisticsTool(BaseTool):
@@ -610,4 +611,4 @@ class OrgStatisticsTool(BaseTool):
 
         except Exception as e:
             logger.error(f"获取组织统计失败: {e}")
-            return f"❌ 获取组织统计失败: {str(e)}"
+            return safe_tool_error(e, "获取组织统计")

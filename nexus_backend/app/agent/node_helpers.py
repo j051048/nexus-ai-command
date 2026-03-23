@@ -462,8 +462,8 @@ def _get_tool_schemas(
     """
     global _tool_schemas_cache, _tool_schemas_count
     _sync_tool_domains()
-    schemas = get_all_tools_schema()
-    if _tool_schemas_cache is None or len(schemas) != _tool_schemas_count:
+    if _tool_schemas_cache is None:
+        schemas = get_all_tools_schema()
         _tool_schemas_cache = schemas
         _tool_schemas_count = len(schemas)
 
@@ -564,6 +564,10 @@ def _get_tool_schemas(
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 
+# Cached Langfuse client to avoid recreating HTTP connections per callback
+_langfuse_client = None
+
+
 def _get_langfuse_callbacks(
     *,
     trace_id: str | None = None,
@@ -576,7 +580,9 @@ def _get_langfuse_callbacks(
     Shared across all LLM construction sites to ensure complete observability.
     Respects LANGFUSE_SAMPLE_RATE for production cost control.
     When trace_id is provided, all LLM spans are grouped under the same trace.
+    Reuses a cached Langfuse client to avoid per-call HTTP client creation.
     """
+    global _langfuse_client
     try:
         from app.core.config import settings
 
@@ -586,11 +592,16 @@ def _get_langfuse_callbacks(
                 return None
             from langfuse.callback import CallbackHandler as LangfuseCallbackHandler
 
-            kwargs: dict = {
-                "public_key": settings.LANGFUSE_PUBLIC_KEY,
-                "secret_key": settings.LANGFUSE_SECRET_KEY,
-                "host": settings.LANGFUSE_HOST,
-            }
+            # Reuse cached Langfuse client for HTTP connection pooling
+            if _langfuse_client is None:
+                from langfuse import Langfuse
+                _langfuse_client = Langfuse(
+                    public_key=settings.LANGFUSE_PUBLIC_KEY,
+                    secret_key=settings.LANGFUSE_SECRET_KEY,
+                    host=settings.LANGFUSE_HOST,
+                )
+
+            kwargs: dict = {"langfuse_client": _langfuse_client}
             if trace_id:
                 kwargs["trace_id"] = trace_id
             if session_id:
@@ -958,7 +969,7 @@ def _try_extract_tool_names(concatenated_name: str) -> list[str]:
 
     Returns a list of matched tool names (may be empty).
     """
-    all_schemas = get_all_tools_schema()
+    all_schemas = _tool_schemas_cache or get_all_tools_schema()
     # Sort by length descending to match longest tool name first
     known_names = sorted(
         [s["function"]["name"] for s in all_schemas],

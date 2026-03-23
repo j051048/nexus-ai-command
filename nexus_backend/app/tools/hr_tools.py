@@ -10,6 +10,7 @@ from typing import Any
 
 from .base_tool import BaseTool
 from ._shared import _get_client
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -342,7 +343,7 @@ class PerformanceReviewTool(BaseTool):
             try:
                 await client.table("users").update({"score": new_score}).eq("id", emp_id).execute()
             except Exception as e:
-                return f"❌ 绩效评分更新失败: {str(e)}"
+                return safe_tool_error(e, "绩效评分更新")
 
             # Try to record in performance_reviews table
             # RLS policy "perf_review_insert" allows manager+ with reviewer_id = self
@@ -453,6 +454,6 @@ class RecruitmentTool(BaseTool):
                 )
                 return f"📋 AI 简历分析:\n\n{analysis}"
             except Exception as e:
-                return f"📋 简历分析失败: {str(e)}"
+                return safe_tool_error(e, "简历分析")
 
         return "功能开发中"

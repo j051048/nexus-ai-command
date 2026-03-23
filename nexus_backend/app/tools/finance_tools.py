@@ -8,6 +8,7 @@ from typing import Any
 
 from .base_tool import BaseTool
 from ._shared import _get_client
+from app.tools._shared import safe_tool_error
 
 
 class ExpenseClaimTool(BaseTool):
@@ -487,4 +488,4 @@ class InvoiceOCRTool(BaseTool):
 
             return f"🧾 发票识别结果:\n\n{result}"
         except Exception as e:
-            return f"🧾 发票识别失败: {str(e)}\n\n请手动填写发票信息。"
+            return safe_tool_error(e, "发票识别") + "\n\n请手动填写发票信息。"

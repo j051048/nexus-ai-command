@@ -1,7 +1,6 @@
 """OpenTelemetry setup for distributed tracing and metrics."""
 
 import logging
-import time
 
 from app.core.config import settings
 
@@ -52,37 +51,10 @@ def setup_telemetry(app):
         # Metrics
         meter_provider = MeterProvider(resource=resource)
         metrics.set_meter_provider(meter_provider)
-        meter = metrics.get_meter("nexus-backend")
 
-        request_counter = meter.create_counter(
-            "http.server.request_count",
-            description="Total HTTP requests",
-        )
-        request_duration = meter.create_histogram(
-            "http.server.duration",
-            description="HTTP request duration in milliseconds",
-            unit="ms",
-        )
-
-        # Add metrics middleware
-        from starlette.middleware.base import BaseHTTPMiddleware
-        from starlette.requests import Request
-
-        class MetricsMiddleware(BaseHTTPMiddleware):
-            async def dispatch(self, request: Request, call_next):
-                start = time.perf_counter()
-                response = await call_next(request)
-                duration_ms = (time.perf_counter() - start) * 1000
-                attrs = {
-                    "http.method": request.method,
-                    "http.route": request.url.path,
-                    "http.status_code": response.status_code,
-                }
-                request_counter.add(1, attrs)
-                request_duration.record(duration_ms, attrs)
-                return response
-
-        app.add_middleware(MetricsMiddleware)
+        # Note: Manual HTTP metrics middleware removed — FastAPIInstrumentor
+        # below already collects http.server.request_count and http.server.duration.
+        # Keeping a separate manual middleware would double-count all HTTP metrics.
 
         FastAPIInstrumentor.instrument_app(app)
         logger.info("OpenTelemetry tracing and metrics initialized")

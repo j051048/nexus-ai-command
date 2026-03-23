@@ -123,7 +123,7 @@ async def initiate_export(
         _dsar_requests[request_id]["status"] = "failed"
         _dsar_requests[request_id]["completed_at"] = datetime.now(UTC).isoformat()
         _dsar_requests[request_id]["result"] = {"error": str(e)}
-        raise HTTPException(status_code=500, detail=f"Data export failed: {e}")
+        raise HTTPException(status_code=500, detail="Data export failed")
 
     return api_success(
         data={"request_id": request_id, "status": _dsar_requests[request_id]["status"]},
@@ -200,7 +200,7 @@ async def initiate_delete(
         _dsar_requests[request_id]["status"] = "failed"
         _dsar_requests[request_id]["completed_at"] = datetime.now(UTC).isoformat()
         _dsar_requests[request_id]["result"] = {"error": str(e)}
-        raise HTTPException(status_code=500, detail=f"Data deletion failed: {e}")
+        raise HTTPException(status_code=500, detail="Data deletion failed")
 
     return api_success(
         data={"request_id": request_id, "status": _dsar_requests[request_id]["status"]},

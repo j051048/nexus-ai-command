@@ -10,6 +10,7 @@ from app.services.ai_service import AIService
 
 from .base_tool import BaseTool
 from ._shared import _get_client
+from app.tools._shared import safe_tool_error
 
 
 class ContractAnalysisTool(BaseTool):
@@ -79,7 +80,7 @@ class ContractAnalysisTool(BaseTool):
                 else:
                     return f"❌ 未找到ID为 {contract_id} 的合同。"
             except Exception as e:
-                return f"❌ 查询合同失败: {str(e)}"
+                return safe_tool_error(e, "查询合同")
 
         if not contract_text:
             return "❌ 请提供合同ID或合同文本内容。"
@@ -104,4 +105,4 @@ class ContractAnalysisTool(BaseTool):
             }
             return f"📄 合同{focus_names.get(focus, '分析')}:\n\n{analysis}"
         except Exception as e:
-            return f"📄 合同分析失败: {str(e)}"
+            return safe_tool_error(e, "合同分析")

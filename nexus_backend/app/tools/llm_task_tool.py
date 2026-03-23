@@ -11,6 +11,7 @@ from typing import Any
 from app.services.ai_service import AIService
 
 from .base_tool import BaseTool
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -113,4 +114,4 @@ class LLMTaskTool(BaseTool):
             return f"📝 **{label}结果**\n\n{result}"
         except Exception as e:
             logger.error(f"LLM task delegation failed: {e}")
-            return f"❌ 任务处理失败: {str(e)}"
+            return safe_tool_error(e, "任务处理")

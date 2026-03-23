@@ -16,6 +16,7 @@ import httpx
 from app.core.config import settings
 
 from .base_tool import BaseTool
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +116,7 @@ class WebSearchTool(BaseTool):
             return f"❌ 搜索服务异常（HTTP {e.response.status_code}），请稍后重试。"
         except Exception as e:
             logger.error(f"Web search failed: {e}")
-            return f"❌ 搜索失败: {str(e)}"
+            return safe_tool_error(e, "搜索")
 
         # Parse results
         web_results = data.get("web", {}).get("results", [])

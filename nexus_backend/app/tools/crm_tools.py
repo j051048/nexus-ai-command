@@ -11,6 +11,7 @@ from app.services.crm_service import ACTIVITY_TYPES, CUSTOMER_STAGES, crm_servic
 
 from .base_tool import BaseTool
 from ._shared import _get_client, _validate_uuid
+from app.tools._shared import safe_tool_error
 
 
 logger = logging.getLogger(__name__)
@@ -249,7 +250,7 @@ class CreateCustomerTool(BaseTool):
         try:
             customer = await crm_service.create_customer(org_id, data, db=client)
         except Exception as e:
-            return f"❌ 创建客户失败: {str(e)}"
+            return safe_tool_error(e, "创建客户")
 
         if not customer:
             return "❌ 创建客户失败，请稍后重试"
@@ -312,7 +313,7 @@ class UpdateCustomerTool(BaseTool):
         try:
             customer = await crm_service.update_customer(customer_id, data, db=client)
         except Exception as e:
-            return f"❌ 更新客户失败: {str(e)}"
+            return safe_tool_error(e, "更新客户")
 
         if not customer:
             return f"❌ 未找到ID为 {customer_id} 的客户"
@@ -372,7 +373,7 @@ class AddFollowUpTool(BaseTool):
         try:
             activity = await crm_service.create_activity(customer_id, activity_type, content, user_id, db=client)
         except Exception as e:
-            return f"❌ 添加跟进记录失败: {str(e)}"
+            return safe_tool_error(e, "添加跟进记录")
 
         if not activity:
             return "❌ 添加跟进记录失败，请确认客户ID是否正确"
@@ -498,7 +499,7 @@ class UpdateCustomerStageTool(BaseTool):
         try:
             customer = await crm_service.update_customer(customer_id, {"stage": new_stage}, db=client)
         except Exception as e:
-            return f"❌ 阶段变更失败: {str(e)}"
+            return safe_tool_error(e, "阶段变更")
 
         # 记录阶段变更活动
         await crm_service.create_activity(

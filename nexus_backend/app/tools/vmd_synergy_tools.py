@@ -17,6 +17,7 @@ from app.tools.web_search_helper import search_web
 
 from .base_tool import BaseTool
 from ._shared import _get_client
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -129,7 +130,7 @@ class MonitorIndustryTrendsTool(BaseTool):
             return f"📡 **行业动态报告 — {industry}**\n\n{result}"
         except Exception as e:
             logger.error(f"Failed to monitor industry trends: {e}")
-            return f"❌ 生成行业动态报告失败: {str(e)}"
+            return safe_tool_error(e, "生成行业动态报告")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -249,7 +250,7 @@ class GenerateMarketResearchTool(BaseTool):
             return f"📊 **市场调研报告 — {market_segment}**\n\n{result}"
         except Exception as e:
             logger.error(f"Failed to generate market research: {e}")
-            return f"❌ 生成市场调研报告失败: {str(e)}"
+            return safe_tool_error(e, "生成市场调研报告")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -355,7 +356,7 @@ class GenerateCompetitorAnalysisTool(BaseTool):
             return f"🔎 **竞品分析 — {competitor_name}**\n\n{result}"
         except Exception as e:
             logger.error(f"Failed to generate competitor analysis: {e}")
-            return f"❌ 生成竞品分析失败: {str(e)}"
+            return safe_tool_error(e, "生成竞品分析")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -480,4 +481,4 @@ class AggregateCustomerFeedbackTool(BaseTool):
             return f"📢 **客户反馈汇总分析**\n\n{result}"
         except Exception as e:
             logger.error(f"Failed to aggregate customer feedback: {e}")
-            return f"❌ 汇总客户反馈失败: {str(e)}"
+            return safe_tool_error(e, "汇总客户反馈")

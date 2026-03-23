@@ -10,6 +10,7 @@ from app.services.attendance_service import attendance_service
 
 from .base_tool import BaseTool
 from ._shared import _get_client, _validate_uuid
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +78,7 @@ class ClockInOutTool(BaseTool):
             employee_id = emp_resp.data[0]["id"]
         except Exception as e:
             logger.error(f"查询员工信息失败: {e}")
-            return f"❌ 查询员工信息失败: {str(e)}"
+            return safe_tool_error(e, "查询员工信息")
 
         try:
             record = await attendance_service.clock_in_out(
@@ -105,7 +106,7 @@ class ClockInOutTool(BaseTool):
 
         except Exception as e:
             logger.error(f"打卡失败: {e}")
-            return f"❌ 打卡失败: {str(e)}"
+            return safe_tool_error(e, "打卡")
 
 
 class GetAttendanceRecordTool(BaseTool):
@@ -177,7 +178,7 @@ class GetAttendanceRecordTool(BaseTool):
 
         except Exception as e:
             logger.error(f"查询考勤记录失败: {e}")
-            return f"❌ 查询考勤记录失败: {str(e)}"
+            return safe_tool_error(e, "查询考勤记录")
 
 
 class CreateShiftScheduleTool(BaseTool):
@@ -246,7 +247,7 @@ class CreateShiftScheduleTool(BaseTool):
 
         except Exception as e:
             logger.error(f"创建排班失败: {e}")
-            return f"❌ 创建排班失败: {str(e)}"
+            return safe_tool_error(e, "创建排班")
 
 
 class ListShiftSchedulesTool(BaseTool):
@@ -314,7 +315,7 @@ class ListShiftSchedulesTool(BaseTool):
 
         except Exception as e:
             logger.error(f"查询排班表失败: {e}")
-            return f"❌ 查询排班表失败: {str(e)}"
+            return safe_tool_error(e, "查询排班表")
 
 
 class AttendanceStatisticsTool(BaseTool):
@@ -378,7 +379,7 @@ class AttendanceStatisticsTool(BaseTool):
 
         except Exception as e:
             logger.error(f"获取考勤统计失败: {e}")
-            return f"❌ 获取考勤统计失败: {str(e)}"
+            return safe_tool_error(e, "获取考勤统计")
 
 
 class RequestLeaveTool(BaseTool):
@@ -445,7 +446,7 @@ class RequestLeaveTool(BaseTool):
             employee_id = emp_resp.data[0]["id"]
         except Exception as e:
             logger.error(f"查询员工信息失败: {e}")
-            return f"❌ 查询员工信息失败: {str(e)}"
+            return safe_tool_error(e, "查询员工信息")
 
         data = {
             "leave_type": leave_type,
@@ -489,4 +490,4 @@ class RequestLeaveTool(BaseTool):
 
         except Exception as e:
             logger.error(f"请假申请失败: {e}")
-            return f"❌ 请假申请失败: {str(e)}"
+            return safe_tool_error(e, "请假申请")

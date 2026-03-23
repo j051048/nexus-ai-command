@@ -10,6 +10,7 @@ from app.services.approval_flow_service import approval_flow_service
 
 from .base_tool import BaseTool
 from ._shared import _get_client
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +88,7 @@ class ListApprovalFlowsTool(BaseTool):
 
         except Exception as e:
             logger.error(f"查询审批流列表失败: {e}")
-            return f"❌ 查询审批流列表失败: {str(e)}"
+            return safe_tool_error(e, "查询审批流列表")
 
 
 class CreateApprovalFlowTool(BaseTool):
@@ -168,4 +169,4 @@ class CreateApprovalFlowTool(BaseTool):
 
         except Exception as e:
             logger.error(f"创建审批流失败: {e}")
-            return f"❌ 创建审批流失败: {str(e)}"
+            return safe_tool_error(e, "创建审批流")

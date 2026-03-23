@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, KeyRound, CheckCircle2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
 export function ResetPasswordPage() {
@@ -13,8 +13,6 @@ export function ResetPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
-
   // Check if we have a valid session from the reset link
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -33,20 +31,12 @@ export function ResetPasswordPage() {
     e.preventDefault();
 
     if (password !== confirmPassword) {
-      toast({
-        title: '密码不匹配',
-        description: '请确保两次输入的密码相同',
-        variant: 'destructive',
-      });
+      toast.error('密码不匹配', { description: '请确保两次输入的密码相同' });
       return;
     }
 
     if (password.length < 6) {
-      toast({
-        title: '密码太短',
-        description: '密码至少需要6个字符',
-        variant: 'destructive',
-      });
+      toast.error('密码太短', { description: '密码至少需要6个字符' });
       return;
     }
 
@@ -57,17 +47,10 @@ export function ResetPasswordPage() {
     });
 
     if (error) {
-      toast({
-        title: '重置失败',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error('重置失败', { description: error.message });
     } else {
       setSuccess(true);
-      toast({
-        title: '密码已重置',
-        description: '您的密码已成功更新',
-      });
+      toast.success('密码已重置', { description: '您的密码已成功更新' });
       
       // Sign out and redirect to login after a short delay
       setTimeout(async () => {

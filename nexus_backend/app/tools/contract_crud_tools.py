@@ -12,6 +12,7 @@ from app.services.contract_service import contract_service
 
 from .base_tool import BaseTool
 from ._shared import _get_client
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -199,7 +200,7 @@ class CreateContractTool(BaseTool):
         try:
             contract = await contract_service.create_contract(org_id, data, db=client)
         except Exception as e:
-            return f"❌ 创建合同失败: {str(e)}"
+            return safe_tool_error(e, "创建合同")
 
         if not contract:
             return "❌ 创建合同失败，请稍后重试"

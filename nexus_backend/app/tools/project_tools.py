@@ -5,6 +5,7 @@ from typing import Any
 
 from .base_tool import BaseTool
 from ._shared import _get_client
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +156,7 @@ class CreateEventTool(BaseTool):
             if result.data:
                 return f"成功在项目中创建了事件: {title}。"
         except Exception as e:
-            return f"创建事件失败: {str(e)}"
+            return safe_tool_error(e, "创建事件")
         return "创建失败，请核对项目 ID 是否正确。"
 
 
@@ -253,4 +254,4 @@ class WeeklyReportTool(BaseTool):
             report = await AIService.call_llm(prompt, system)
             return f"📝 AI 生成的{report_type_name}:\n\n{report}"
         except Exception as e:
-            return f"📝 {report_type_name}生成失败: {str(e)}"
+            return safe_tool_error(e, "{report_type_name}生成")

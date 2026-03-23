@@ -687,22 +687,32 @@ async def trigger_re_embed(
             return api_success(data={"queued": 0}, message="所有文档已使用最新嵌入模型")
 
         async def _re_embed_docs(document_ids: list[str]):
+            # Batch query: fetch all documents in one call instead of N+1
+            try:
+                docs_res = await global_supabase.table("documents").select("id, organization_id").in_("id", document_ids).execute()
+                doc_org_map = {d["id"]: d.get("organization_id", "default") for d in (docs_res.data or [])}
+            except Exception as e:
+                logger.error(f"Batch doc fetch failed: {e}")
+                return
+
+            # Batch query: fetch all chunks in one call
+            try:
+                chunks_res = await global_supabase.table("document_embeddings").select("document_id, content").in_("document_id", document_ids).execute()
+                chunks_by_doc: dict[str, list[str]] = {}
+                for row in (chunks_res.data or []):
+                    if row.get("content") and row.get("document_id"):
+                        chunks_by_doc.setdefault(row["document_id"], []).append(row["content"])
+            except Exception as e:
+                logger.error(f"Batch chunks fetch failed: {e}")
+                return
+
+            # Process each doc with pre-fetched data
             for doc_id in document_ids:
                 try:
-                    # Fetch document text
-                    doc_res = await global_supabase.table("documents").select("id, organization_id").eq("id", doc_id).single().execute()
-                    if not doc_res.data:
+                    org_id = doc_org_map.get(doc_id)
+                    if not org_id:
                         continue
-                    org_id = doc_res.data.get("organization_id", "default")
-
-                    # Fetch existing chunks to re-embed
-                    chunks_res = (
-                        await global_supabase.table("document_embeddings")
-                        .select("content")
-                        .eq("document_id", doc_id)
-                        .execute()
-                    )
-                    chunks = [row["content"] for row in (chunks_res.data or []) if row.get("content")]
+                    chunks = chunks_by_doc.get(doc_id, [])
                     if chunks:
                         await vector_service.incremental_update(doc_id, chunks, org_id)
                 except Exception as e:

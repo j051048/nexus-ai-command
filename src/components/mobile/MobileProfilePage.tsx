@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils';
 import { useUser } from '@/contexts/UserContext';
 import { useAuth } from '@/components/auth/AuthContext';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 /** 角色中文映射 */
 const ROLE_LABEL: Record<string, string> = {
@@ -194,7 +194,7 @@ export default function MobileProfilePage() {
         iconColor: 'text-cyan-600',
         iconBg: 'bg-cyan-50 dark:bg-cyan-900/20',
         action: () => {
-          toast({ title: '帮助中心', description: '该功能即将上线，敬请期待' });
+          toast.success('帮助中心', { description: '该功能即将上线，敬请期待' });
         },
       },
       {
@@ -204,7 +204,7 @@ export default function MobileProfilePage() {
         iconColor: 'text-pink-600',
         iconBg: 'bg-pink-50 dark:bg-pink-900/20',
         action: () => {
-          toast({ title: '意见反馈', description: '该功能即将上线，敬请期待' });
+          toast.success('意见反馈', { description: '该功能即将上线，敬请期待' });
         },
       },
     ],

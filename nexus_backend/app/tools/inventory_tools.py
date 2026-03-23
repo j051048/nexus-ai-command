@@ -10,6 +10,7 @@ from app.services.inventory_service import inventory_service
 
 from .base_tool import BaseTool
 from ._shared import _get_client, _validate_uuid
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +104,7 @@ class ListInventoryTool(BaseTool):
 
         except Exception as e:
             logger.error(f"查询库存失败: {e}")
-            return f"❌ 查询库存失败: {str(e)}"
+            return safe_tool_error(e, "查询库存")
 
 
 class InventoryInTool(BaseTool):
@@ -173,7 +174,7 @@ class InventoryInTool(BaseTool):
 
         except Exception as e:
             logger.error(f"入库失败: {e}")
-            return f"❌ 入库失败: {str(e)}"
+            return safe_tool_error(e, "入库")
 
 
 class InventoryOutTool(BaseTool):
@@ -254,7 +255,7 @@ class InventoryOutTool(BaseTool):
 
         except Exception as e:
             logger.error(f"出库失败: {e}")
-            return f"❌ 出库失败: {str(e)}"
+            return safe_tool_error(e, "出库")
 
 
 class InventoryStatisticsTool(BaseTool):
@@ -307,4 +308,4 @@ class InventoryStatisticsTool(BaseTool):
 
         except Exception as e:
             logger.error(f"获取库存统计失败: {e}")
-            return f"❌ 获取库存统计失败: {str(e)}"
+            return safe_tool_error(e, "获取库存统计")

@@ -10,6 +10,7 @@ from app.services.work_order_service import work_order_service
 
 from .base_tool import BaseTool
 from ._shared import _get_client, _validate_uuid
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +129,7 @@ class CreateWorkOrderTool(BaseTool):
 
         except Exception as e:
             logger.error(f"创建工单失败: {e}")
-            return f"❌ 创建工单失败: {str(e)}"
+            return safe_tool_error(e, "创建工单")
 
 
 class ListWorkOrdersTool(BaseTool):
@@ -231,7 +232,7 @@ class ListWorkOrdersTool(BaseTool):
 
         except Exception as e:
             logger.error(f"查询工单列表失败: {e}")
-            return f"❌ 查询工单列表失败: {str(e)}"
+            return safe_tool_error(e, "查询工单列表")
 
 
 class GetWorkOrderDetailTool(BaseTool):
@@ -314,7 +315,7 @@ class GetWorkOrderDetailTool(BaseTool):
 
         except Exception as e:
             logger.error(f"获取工单详情失败: {e}")
-            return f"❌ 获取工单详情失败: {str(e)}"
+            return safe_tool_error(e, "获取工单详情")
 
 
 class UpdateWorkOrderTool(BaseTool):
@@ -402,7 +403,7 @@ class UpdateWorkOrderTool(BaseTool):
 
         except Exception as e:
             logger.error(f"更新工单失败: {e}")
-            return f"❌ 更新工单失败: {str(e)}"
+            return safe_tool_error(e, "更新工单")
 
 
 class WorkOrderStatisticsTool(BaseTool):
@@ -472,4 +473,4 @@ class WorkOrderStatisticsTool(BaseTool):
 
         except Exception as e:
             logger.error(f"获取工单统计失败: {e}")
-            return f"❌ 获取工单统计失败: {str(e)}"
+            return safe_tool_error(e, "获取工单统计")

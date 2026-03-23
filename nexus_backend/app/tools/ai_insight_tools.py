@@ -9,6 +9,7 @@ from typing import Any
 
 from .base_tool import BaseTool
 from ._shared import _get_client, _validate_uuid
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +151,7 @@ class SmartReportTool(BaseTool):
 
         except Exception as e:
             logger.error(f"生成智能报告失败: {e}")
-            return f"❌ 生成智能报告失败: {str(e)}"
+            return safe_tool_error(e, "生成智能报告")
 
 
 class AnomalyDetectionTool(BaseTool):
@@ -269,7 +270,7 @@ class AnomalyDetectionTool(BaseTool):
 
         except Exception as e:
             logger.error(f"异常检测失败: {e}")
-            return f"❌ 异常检测失败: {str(e)}"
+            return safe_tool_error(e, "异常检测")
 
 
 class PredictiveMaintenanceTool(BaseTool):
@@ -379,7 +380,7 @@ class PredictiveMaintenanceTool(BaseTool):
 
         except Exception as e:
             logger.error(f"维护预测失败: {e}")
-            return f"❌ 维护预测失败: {str(e)}"
+            return safe_tool_error(e, "维护预测")
 
 
 class AutoDispatchTool(BaseTool):
@@ -481,7 +482,7 @@ class AutoDispatchTool(BaseTool):
 
         except Exception as e:
             logger.error(f"智能派遣失败: {e}")
-            return f"❌ 智能派遣失败: {str(e)}"
+            return safe_tool_error(e, "智能派遣")
 
 
 class MeetingSummaryTool(BaseTool):
@@ -597,7 +598,7 @@ class MeetingSummaryTool(BaseTool):
 
         except Exception as e:
             logger.error(f"生成会议纪要失败: {e}")
-            return f"❌ 生成会议纪要失败: {str(e)}"
+            return safe_tool_error(e, "生成会议纪要")
 
 
 class OnboardingAssistantTool(BaseTool):
@@ -733,4 +734,4 @@ class OnboardingAssistantTool(BaseTool):
 
         except Exception as e:
             logger.error(f"生成入职清单失败: {e}")
-            return f"❌ 生成入职清单失败: {str(e)}"
+            return safe_tool_error(e, "生成入职清单")

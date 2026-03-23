@@ -13,6 +13,7 @@ from typing import Any
 
 from .base_tool import BaseTool
 from ._shared import _get_client
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -872,7 +873,7 @@ class OnboardingChecklistTool(BaseTool):
         except _json.JSONDecodeError:
             return f"📋 AI 生成的入职清单:\n\n{checklist_text}"
         except Exception as e:
-            return f"❌ 入职清单生成失败: {str(e)}"
+            return safe_tool_error(e, "入职清单生成")
 
 
 class SendNotificationTool(BaseTool):
@@ -949,7 +950,7 @@ class SendNotificationTool(BaseTool):
                 await client.table("notifications").insert(notification_data).execute()
             except Exception as e:
                 logger.warning(f"Failed to send notification to {user['name']}: {e}")
-                return f"❌ 发送通知失败: {str(e)}"
+                return safe_tool_error(e, "发送通知")
 
         names = "、".join(u["name"] for u in users)
         return f"✅ 已通知 {names}"

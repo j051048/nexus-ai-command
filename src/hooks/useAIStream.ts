@@ -69,6 +69,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
     const [quotaInfo, setQuotaInfo] = useState<QuotaInfo | null>(null);
     const [followUpSuggestions, setFollowUpSuggestions] = useState<string[]>([]);
     const abortControllerRef = useRef<AbortController | null>(null);
+    const sessionIdRef = useRef<string>(`session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
     const lastRequestRef = useRef<{ messages: Array<{ role: string; content: string }>; agent?: string } | null>(null);
     const pendingConfirmationRef = useRef<ConfirmationRequest | null>(null);
     pendingConfirmationRef.current = pendingConfirmation;
@@ -136,6 +137,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
 
         // P1 Fix: RAF 节流 — 累积 token 后按帧批量刷新，避免每个 token 触发一次 re-render
         let rafPending = false;
+        let rafId = 0;
         let lastFlushedContent = '';
         const flushContent = () => {
             rafPending = false;
@@ -147,7 +149,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         const scheduleFlush = () => {
             if (!rafPending) {
                 rafPending = true;
-                requestAnimationFrame(flushContent);
+                rafId = requestAnimationFrame(flushContent);
             }
         };
 
@@ -262,7 +264,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
 
         // P1 Fix: 流结束后立即刷新剩余累积内容，确保最后一批 token 显示到 UI
         if (rafPending) {
-            cancelAnimationFrame(0); // cancel any pending RAF
+            cancelAnimationFrame(rafId); // cancel any pending RAF
             flushContent();
         } else if (assistantContent !== lastFlushedContent) {
             flushContent();
@@ -531,7 +533,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                         messages: chatMessages,
                         agent: agent,
                         userId: userId,
-                        sessionId: 'default',
+                        sessionId: sessionIdRef.current,
                         system_confirmed: options?.system_confirmed || false,
                         confirmed_tool: options?.confirmed_tool || null,
                         vmd_agent_code: options?.vmd_agent_code,
@@ -574,7 +576,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                                 messages: chatMessages,
                                 agent: agent,
                                 userId: userId,
-                                sessionId: 'default',
+                                sessionId: sessionIdRef.current,
                                 system_confirmed: options?.system_confirmed || false,
                                 confirmed_tool: options?.confirmed_tool || null,
                                 vmd_agent_code: options?.vmd_agent_code,
@@ -609,7 +611,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
                         messages: chatMessages,
                         agent: agent,
                         userId: userId,
-                        sessionId: 'default',
+                        sessionId: sessionIdRef.current,
                     }),
                     signal: abortControllerRef.current.signal,
                 });

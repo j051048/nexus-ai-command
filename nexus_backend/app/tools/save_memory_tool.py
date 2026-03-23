@@ -9,6 +9,7 @@ import logging
 from typing import Any
 
 from app.tools.base_tool import BaseTool
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -100,4 +101,4 @@ class SaveMemoryTool(BaseTool):
             return f"✅ 已记住: {key} = {snippet}"
         except Exception as e:
             logger.warning(f"[SaveMemory] Failed to save memory: {e}")
-            return f"⚠️ 记忆保存失败: {e}"
+            return safe_tool_error(e, "⚠️ 记忆保存")

@@ -13,6 +13,7 @@ from app.core.database import supabase
 from app.services.event_bus import EventType, emit
 
 from .base_tool import BaseTool
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -196,7 +197,7 @@ class ProcessOnboardingTool(BaseTool):
         except Exception as e:
             logger.error(f"入职流程失败: {e}")
             partial = "\n".join(results) if results else "无"
-            return f"❌ 入职流程部分失败: {str(e)}\n\n已完成步骤:\n{partial}"
+            return safe_tool_error(e, "入职流程部分") + "\n\n已完成步骤:\n{partial}"
 
 
 class ProcessResignationTool(BaseTool):
@@ -305,7 +306,7 @@ class ProcessResignationTool(BaseTool):
         except Exception as e:
             logger.error(f"离职流程失败: {e}")
             partial = "\n".join(results) if results else "无"
-            return f"❌ 离职流程部分失败: {str(e)}\n\n已完成步骤:\n{partial}"
+            return safe_tool_error(e, "离职流程部分") + "\n\n已完成步骤:\n{partial}"
 
 
 class ProcessAssetLifecycleTool(BaseTool):
@@ -464,4 +465,4 @@ class ProcessAssetLifecycleTool(BaseTool):
 
         except Exception as e:
             logger.error(f"资产生命周期操作失败: {e}")
-            return f"❌ 操作失败: {str(e)}"
+            return safe_tool_error(e, "操作")

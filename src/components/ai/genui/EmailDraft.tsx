@@ -16,7 +16,7 @@ export default function EmailDraft({ to, cc, subject, body, type = 'email' }: Em
   const [sent, setSent] = useState(false);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(body);
+    navigator.clipboard.writeText(body).catch(() => {});
     setCopied(true);
     toast.success('正文已复制到剪贴板');
     setTimeout(() => setCopied(false), 2000);

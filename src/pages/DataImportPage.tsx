@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/table';
 import { useAuth } from '@/components/auth/AuthContext';
 import { Upload, Download, FileUp, Loader2, CheckCircle2, XCircle } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 interface PreviewData {
@@ -45,8 +45,6 @@ export default function DataImportPage() {
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   
   const { session } = useAuth();
-  const { toast } = useToast();
-  
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
   
   // 文件类型和大小限制
@@ -65,11 +63,7 @@ export default function DataImportPage() {
     try {
       const token = session?.access_token;
       if (!token) {
-        toast({
-          title: '未登录',
-          description: '请先登录后再下载模板',
-          variant: 'destructive',
-        });
+        toast.error('未登录', { description: '请先登录后再下载模板' });
         return;
       }
       
@@ -93,16 +87,9 @@ export default function DataImportPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
-      toast({
-        title: '下载成功',
-        description: '模板已下载到本地',
-      });
+      toast.success('下载成功', { description: '模板已下载到本地' });
     } catch (error) {
-      toast({
-        title: '下载失败',
-        description: error instanceof Error ? error.message : '下载模板时出现错误',
-        variant: 'destructive',
-      });
+      toast.error('下载失败');
     }
   };
   
@@ -121,11 +108,7 @@ export default function DataImportPage() {
     }
     
     if (file.size > MAX_FILE_SIZE) {
-      toast({
-        title: '文件过大',
-        description: '文件大小不能超过 10MB',
-        variant: 'destructive',
-      });
+      toast.error('文件过大', { description: '文件大小不能超过 10MB' });
       return false;
     }
     
@@ -173,11 +156,7 @@ export default function DataImportPage() {
         description: `解析到 ${result.data.total} 条记录`,
       });
     } catch (error) {
-      toast({
-        title: '预览失败',
-        description: error instanceof Error ? error.message : '预览文件时出现错误',
-        variant: 'destructive',
-      });
+      toast.error('预览失败');
       setFile(null);
     } finally {
       setIsUploading(false);
@@ -216,11 +195,7 @@ export default function DataImportPage() {
   // 执行导入
   const handleImport = async () => {
     if (!file) {
-      toast({
-        title: '未选择文件',
-        description: '请先选择要导入的文件',
-        variant: 'destructive',
-      });
+      toast.error('未选择文件', { description: '请先选择要导入的文件' });
       return;
     }
     
@@ -263,11 +238,7 @@ export default function DataImportPage() {
         description: `成功导入 ${result.data.success_count} 条记录`,
       });
     } catch (error) {
-      toast({
-        title: '导入失败',
-        description: error instanceof Error ? error.message : '导入数据时出现错误',
-        variant: 'destructive',
-      });
+      toast.error('导入失败');
     } finally {
       setIsImporting(false);
     }

@@ -8,6 +8,7 @@ import logging
 from typing import Any
 
 from .base_tool import BaseTool
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ class GetUserPreferencesTool(BaseTool):
 
         except Exception as e:
             logger.error(f"[PreferenceTool] Get failed: {e}")
-            return f"❌ 获取偏好设置失败: {str(e)}"
+            return safe_tool_error(e, "获取偏好设置")
 
 
 class UpdateUserPreferencesTool(BaseTool):
@@ -147,4 +148,4 @@ class UpdateUserPreferencesTool(BaseTool):
 
         except Exception as e:
             logger.error(f"[PreferenceTool] Update failed: {e}")
-            return f"❌ 更新偏好设置失败: {str(e)}"
+            return safe_tool_error(e, "更新偏好设置")

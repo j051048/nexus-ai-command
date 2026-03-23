@@ -11,6 +11,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from .base_tool import BaseTool
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +157,7 @@ class WebFetchTool(BaseTool):
                 resp.raise_for_status()
                 html = resp.text
         except Exception as e:
-            return f"抓取失败: {e}"
+            return safe_tool_error(e, "抓取")
 
         # --- 解析 ---
         title, text = _html_to_text(html)

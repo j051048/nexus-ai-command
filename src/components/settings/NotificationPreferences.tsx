@@ -20,7 +20,7 @@ import {
     Clock,
     Filter,
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthContext';
 
@@ -69,7 +69,6 @@ const DEFAULT_PREFERENCES: NotificationPreferencesData = {
 
 export function NotificationPreferences() {
     const { user } = useAuth();
-    const { toast } = useToast();
     const [preferences, setPreferences] = useState<NotificationPreferencesData>(DEFAULT_PREFERENCES);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -111,16 +110,9 @@ export function NotificationPreferences() {
             //     if (error) throw error;
             // }
 
-            toast({
-                title: '保存成功',
-                description: '通知偏好设置已更新',
-            });
+            toast.success('保存成功', { description: '通知偏好设置已更新' });
         } catch (error) {
-            toast({
-                title: '保存失败',
-                description: '无法保存通知偏好设置，请稍后重试',
-                variant: 'destructive',
-            });
+            toast.error('保存失败', { description: '无法保存通知偏好设置，请稍后重试' });
         } finally {
             setSaving(false);
         }

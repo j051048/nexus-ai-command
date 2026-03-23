@@ -10,6 +10,7 @@ import logging
 from typing import Any
 
 from app.tools.base_tool import BaseTool
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +91,7 @@ class CreateTaskTool(BaseTool):
             return "任务创建失败"
         except Exception as e:
             logger.error(f"[CreateTask] Failed: {e}", exc_info=True)
-            return f"创建任务失败: {e}"
+            return safe_tool_error(e, "创建任务")
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         return await self.execute(args, {"user_id": user_id, **(config or {})})
@@ -167,7 +168,7 @@ class UpdateTaskTool(BaseTool):
             return f"未找到任务: {task_id}"
         except Exception as e:
             logger.error(f"[UpdateTask] Failed: {e}", exc_info=True)
-            return f"更新任务失败: {e}"
+            return safe_tool_error(e, "更新任务")
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         return await self.execute(args, {"user_id": user_id, **(config or {})})
@@ -262,7 +263,7 @@ class ListTasksTool(BaseTool):
             return "\n".join(lines)
         except Exception as e:
             logger.error(f"[ListTasks] Failed: {e}", exc_info=True)
-            return f"获取任务列表失败: {e}"
+            return safe_tool_error(e, "获取任务列表")
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         return await self.execute(args, {"user_id": user_id, **(config or {})})

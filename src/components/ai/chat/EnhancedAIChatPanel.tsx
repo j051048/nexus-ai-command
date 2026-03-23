@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/contexts/UserContext';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Zap,
   ThumbsUp,
@@ -93,7 +94,7 @@ export function EnhancedAIChatPanel({
   const [currentAgent, setCurrentAgent] = useState<string | undefined>(defaultAgent);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const isMobile = useIsMobile();
   const [voiceMode, setVoiceMode] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -190,11 +191,6 @@ export function EnhancedAIChatPanel({
       .catch(() => { /* silent — non-critical */ });
   }, []);
 
-  useEffect(() => {
-    const handler = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
 
   // Load chat history from backend, fall back to greeting message
   useEffect(() => {
@@ -649,8 +645,29 @@ export function EnhancedAIChatPanel({
   }, [messages]);
 
   const handleCopy = useCallback((content: string) => {
-    navigator.clipboard.writeText(content);
+    navigator.clipboard.writeText(content).catch(() => {});
     toast.success('已复制到剪贴板');
+  }, []);
+
+  const handleExportChat = useCallback(() => {
+    if (!messages.length) return;
+    const exportData = messages.map(m => ({
+      role: m.role,
+      content: m.content,
+      timestamp: m.timestamp,
+    }));
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chat-export-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('对话已导出');
+  }, [messages]);
+
+  const handleShowHistory = useCallback(() => {
+    toast.info('历史记录功能开发中');
   }, []);
 
   const handleDeleteMessage = useCallback((id: string) => {
@@ -826,6 +843,8 @@ export function EnhancedAIChatPanel({
             showTrace={showTrace}
             setShowTrace={setShowTrace}
             handleClearChat={handleClearChat}
+            onExportChat={handleExportChat}
+            onShowHistory={handleShowHistory}
           />
         )}
 

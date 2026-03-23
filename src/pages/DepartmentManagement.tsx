@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { Building2, Plus, Pencil, Trash2, Users } from 'lucide-react';
 import {
   AlertDialog,
@@ -65,9 +65,6 @@ export default function DepartmentManagement() {
     name: '',
     manager_id: '',
   });
-
-  const { toast } = useToast();
-
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
@@ -114,11 +111,7 @@ export default function DepartmentManagement() {
 
       setDepartments(deptsWithDetails);
     } catch (error) {
-      toast({
-        title: '加载失败',
-        description: '无法加载部门数据',
-        variant: 'destructive',
-      });
+      toast.error('加载失败', { description: '无法加载部门数据' });
     } finally {
       setLoading(false);
     }
@@ -150,10 +143,7 @@ export default function DepartmentManagement() {
 
   const handleSaveDepartment = async () => {
     if (!formData.name.trim()) {
-      toast({
-        title: '请输入部门名称',
-        variant: 'destructive',
-      });
+      toast.error('请输入部门名称');
       return;
     }
 
@@ -195,11 +185,7 @@ export default function DepartmentManagement() {
       handleCloseDialog();
       fetchData();
     } catch (error) {
-      toast({
-        title: '保存失败',
-        description: '无法保存部门信息',
-        variant: 'destructive',
-      });
+      toast.error('保存失败', { description: '无法保存部门信息' });
     }
   };
 
@@ -213,20 +199,13 @@ export default function DepartmentManagement() {
 
       if (error) throw error;
 
-      toast({
-        title: '部门已删除',
-        description: '部门已成功删除',
-      });
+      toast.success('部门已删除', { description: '部门已成功删除' });
 
       setDeleteDialogOpen(false);
       setDepartmentToDelete(null);
       fetchData();
     } catch (error) {
-      toast({
-        title: '删除失败',
-        description: '无法删除部门',
-        variant: 'destructive',
-      });
+      toast.error('删除失败', { description: '无法删除部门' });
     }
   };
 

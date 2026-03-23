@@ -20,10 +20,13 @@ async def list_contracts(
     status: str = None,
     contract_type: str = None,
     search: str = None,
+    skip: int = 0,
+    limit: int = 50,
     user_id: str = Depends(get_current_user_id),
 ):
     """获取合同列表"""
     try:
+        limit = min(limit, 200)
         org_id = getattr(req.state, "org_id", None) or "default"
         db = getattr(req.state, "db", None)
         filters = {}
@@ -33,7 +36,7 @@ async def list_contracts(
             filters["contract_type"] = contract_type
         if search:
             filters["search"] = search
-        contracts = await contract_service.list_contracts(org_id=org_id, filters=filters if filters else None, db=db)
+        contracts = await contract_service.list_contracts(org_id=org_id, filters=filters if filters else None, db=db, skip=skip, limit=limit)
         return api_success(data={"contracts": contracts})
     except Exception as e:
         logger.error(f"Failed to list contracts: {e}")

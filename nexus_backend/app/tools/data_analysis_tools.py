@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Any
 
 from .base_tool import BaseTool
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -258,7 +259,7 @@ class DataAnalysisTool(BaseTool):
             result = handler()
         except Exception as e:
             logger.exception("数据分析失败")
-            return f"数据分析失败: {e}"
+            return safe_tool_error(e, "数据分析")
 
         return json.dumps(
             {"analysis_type": analysis_type, "result": result},

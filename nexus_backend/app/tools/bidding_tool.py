@@ -9,6 +9,7 @@ import logging
 from typing import Any
 
 from app.services import bidding_service
+from app.tools._shared import safe_tool_error
 from app.tools.base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
@@ -66,10 +67,10 @@ class BiddingSearchTool(BaseTool):
                 end_date=end_date,
             )
         except ValueError as e:
-            return f"招投标查询配置错误: {e}"
+            return safe_tool_error(e, "招投标查询配置")
         except Exception as e:
             logger.error(f"BiddingSearchTool error: {e}")
-            return f"招投标查询系统错误: {e}"
+            return safe_tool_error(e, "招投标查询")
 
         if result.get("status") != "success":
             return f"招投标查询失败: {result.get('message', '未知错误')}"

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
     CheckCircle2,
     AlertTriangle,
@@ -77,7 +78,7 @@ export function BossApprovalView() {
     const [statusFilter, setStatusFilter] = useState('pending');
     const [rejectingId, setRejectingId] = useState<string | null>(null);
     const [rejectReason, setRejectReason] = useState('');
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    const isMobile = useIsMobile();
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [isBatchProcessing, setIsBatchProcessing] = useState(false);
 
@@ -87,12 +88,6 @@ export function BossApprovalView() {
     const rejectRequest = useRejectRequest();
     const advanceApproval = useAdvanceApproval();
 
-    // A6: 移动端检测
-    useEffect(() => {
-        const handler = () => setIsMobile(window.innerWidth < 768);
-        window.addEventListener('resize', handler);
-        return () => window.removeEventListener('resize', handler);
-    }, []);
 
     // 当筛选条件变化时清空选择
     useEffect(() => {

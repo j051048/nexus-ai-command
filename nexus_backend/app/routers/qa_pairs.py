@@ -35,17 +35,19 @@ async def list_qa_pairs(
     req: Request,
     user_id: str = Depends(get_current_user_id),
     category: str | None = None,
+    skip: int = 0,
     limit: int = 100,
 ):
     """List all QA pairs for current user"""
     try:
+        limit = min(limit, 200)
         client = req.state.db
         query = client.table("qa_pairs").select("*").eq("user_id", user_id)
 
         if category:
             query = query.eq("category", category)
 
-        res = await query.order("created_at", desc=True).limit(limit).execute()
+        res = await query.order("created_at", desc=True).range(skip, skip + limit - 1).execute()
 
         return api_success(data=res.data or [])
     except Exception as e:

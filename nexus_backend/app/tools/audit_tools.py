@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .base_tool import BaseTool
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -145,4 +146,4 @@ class QueryAuditLogsTool(BaseTool):
 
         except Exception as e:
             logger.error(f"[AuditTool] Query failed: {e}")
-            return f"❌ 审计日志查询失败: {str(e)}"
+            return safe_tool_error(e, "审计日志查询")

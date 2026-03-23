@@ -10,6 +10,7 @@ from app.services.expense_service import expense_service
 
 from .base_tool import BaseTool
 from ._shared import _get_client, _validate_uuid
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +114,7 @@ class SubmitExpenseTool(BaseTool):
 
         except Exception as e:
             logger.error(f"提交报销失败: {e}")
-            return f"❌ 提交报销失败: {str(e)}"
+            return safe_tool_error(e, "提交报销")
 
 
 class ListExpensesTool(BaseTool):
@@ -200,7 +201,7 @@ class ListExpensesTool(BaseTool):
 
         except Exception as e:
             logger.error(f"查询报销记录失败: {e}")
-            return f"❌ 查询报销记录失败: {str(e)}"
+            return safe_tool_error(e, "查询报销记录")
 
 
 class ApproveExpenseTool(BaseTool):
@@ -278,7 +279,7 @@ class ApproveExpenseTool(BaseTool):
 
         except Exception as e:
             logger.error(f"审批报销失败: {e}")
-            return f"❌ 审批报销失败: {str(e)}"
+            return safe_tool_error(e, "审批报销")
 
 
 class CheckBudgetTool(BaseTool):
@@ -339,4 +340,4 @@ class CheckBudgetTool(BaseTool):
 
         except Exception as e:
             logger.error(f"查询预算失败: {e}")
-            return f"❌ 查询预算失败: {str(e)}"
+            return safe_tool_error(e, "查询预算")

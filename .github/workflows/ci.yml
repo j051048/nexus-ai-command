@@ -520,10 +520,34 @@ jobs:
           STAGING_DEPLOY_WEBHOOK_URL: ${{ secrets.STAGING_DEPLOY_WEBHOOK_URL }}
 
       - name: Run staging smoke tests
+        if: ${{ secrets.STAGING_API_URL != '' }}
         run: |
           echo "Running smoke tests against staging environment..."
-          echo "Verifying staging API health endpoint..."
-          echo "Verifying staging frontend loads..."
+          STAGING_URL="${{ secrets.STAGING_API_URL }}"
+
+          # Wait for deployment to propagate (max 60s)
+          for i in $(seq 1 6); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${STAGING_URL}/health" || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "Health check passed (attempt $i)"
+              break
+            fi
+            echo "Waiting for staging (attempt $i, status=$STATUS)..."
+            sleep 10
+          done
+
+          # Verify health endpoint
+          echo "Checking /health..."
+          curl -sf "${STAGING_URL}/health" || { echo "::error::Staging /health failed"; exit 1; }
+
+          # Verify API docs reachable
+          echo "Checking /docs..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${STAGING_URL}/docs")
+          if [ "$STATUS" != "200" ]; then
+            echo "::warning::Staging /docs returned $STATUS"
+          fi
+
+          echo "Staging smoke tests passed"
 
       - name: Staging deployment summary
         run: |

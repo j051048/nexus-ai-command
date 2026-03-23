@@ -16,6 +16,7 @@ from app.services.vector_service import vector_service
 from app.tools.web_search_helper import search_web
 
 from .base_tool import BaseTool
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +126,7 @@ class GenerateSalesScriptTool(BaseTool):
             return f"🎯 **销售话术 — {product_name}（{scenario_labels.get(scenario, '')}）**\n\n{result}"
         except Exception as e:
             logger.error(f"Failed to generate sales script: {e}")
-            return f"❌ 生成销售话术失败: {str(e)}"
+            return safe_tool_error(e, "生成销售话术")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -227,7 +228,7 @@ class GenerateCompetitorComparisonTool(BaseTool):
             return f"⚔️ **竞品对比分析 — {our_product} vs {competitors}**\n\n{result}"
         except Exception as e:
             logger.error(f"Failed to generate competitor comparison: {e}")
-            return f"❌ 生成竞品对比分析失败: {str(e)}"
+            return safe_tool_error(e, "生成竞品对比分析")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -334,7 +335,7 @@ class GenerateTrainingMaterialTool(BaseTool):
             return f"📚 **培训课件 — {topic}**\n\n{result}"
         except Exception as e:
             logger.error(f"Failed to generate training material: {e}")
-            return f"❌ 生成培训材料失败: {str(e)}"
+            return safe_tool_error(e, "生成培训材料")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -441,4 +442,4 @@ class GenerateQuotationTemplateTool(BaseTool):
             return f"💰 **报价单模板**\n\n{result}"
         except Exception as e:
             logger.error(f"Failed to generate quotation template: {e}")
-            return f"❌ 生成报价单失败: {str(e)}"
+            return safe_tool_error(e, "生成报价单")

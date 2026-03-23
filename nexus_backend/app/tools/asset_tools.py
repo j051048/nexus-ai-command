@@ -10,6 +10,7 @@ from app.services.asset_service import asset_service
 
 from .base_tool import BaseTool
 from ._shared import _get_client, _validate_uuid
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +115,7 @@ class ListAssetsTool(BaseTool):
 
         except Exception as e:
             logger.error(f"查询资产列表失败: {e}")
-            return f"❌ 查询资产列表失败: {str(e)}"
+            return safe_tool_error(e, "查询资产列表")
 
 
 class GetAssetDetailTool(BaseTool):
@@ -193,7 +194,7 @@ class GetAssetDetailTool(BaseTool):
 
         except Exception as e:
             logger.error(f"获取资产详情失败: {e}")
-            return f"❌ 获取资产详情失败: {str(e)}"
+            return safe_tool_error(e, "获取资产详情")
 
 
 class CreateAssetTool(BaseTool):
@@ -297,7 +298,7 @@ class CreateAssetTool(BaseTool):
 
         except Exception as e:
             logger.error(f"创建资产失败: {e}")
-            return f"❌ 创建资产失败: {str(e)}"
+            return safe_tool_error(e, "创建资产")
 
 
 class UpdateAssetTool(BaseTool):
@@ -378,7 +379,7 @@ class UpdateAssetTool(BaseTool):
 
         except Exception as e:
             logger.error(f"更新资产失败: {e}")
-            return f"❌ 更新资产失败: {str(e)}"
+            return safe_tool_error(e, "更新资产")
 
 
 class TransferAssetTool(BaseTool):
@@ -486,7 +487,7 @@ class TransferAssetTool(BaseTool):
 
         except Exception as e:
             logger.error(f"资产转移失败: {e}")
-            return f"❌ 资产转移失败: {str(e)}"
+            return safe_tool_error(e, "资产转移")
 
 
 class AssetStatisticsTool(BaseTool):
@@ -541,4 +542,4 @@ class AssetStatisticsTool(BaseTool):
 
         except Exception as e:
             logger.error(f"获取资产统计失败: {e}")
-            return f"❌ 获取资产统计失败: {str(e)}"
+            return safe_tool_error(e, "获取资产统计")

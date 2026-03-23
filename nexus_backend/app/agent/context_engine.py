@@ -64,8 +64,12 @@ class ContextEngine:
 
     @staticmethod
     def _estimate_tokens(text: str) -> int:
-        """简单 token 估算: 中英文混合约 len//3。"""
-        return len(text) // 3 if text else 0
+        """Token 估算: 中文字符约 1.5 token/char, ASCII 约 0.25 token/char。"""
+        if not text:
+            return 0
+        cjk = sum(1 for c in text if '\u4e00' <= c <= '\u9fff' or '\u3400' <= c <= '\u4dbf')
+        ascii_chars = len(text) - cjk
+        return int(cjk * 1.5 + ascii_chars * 0.25)
 
     async def build_context(
         self, user_id: str, org_id: str | None, query: str, **kwargs: Any,

@@ -17,6 +17,7 @@ from app.services.ai_service import AIService
 
 from .base_tool import BaseTool
 from .boss_shared import MAX_BATCH_SIZE, _get_client, _parse_amount_from_condition
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -805,7 +806,7 @@ class BusinessDashboardTool(BaseTool):
 
         except Exception as e:
             logger.error(f"Error fetching dashboard data: {e}")
-            return f"❌ 获取经营数据失败: {str(e)}"
+            return safe_tool_error(e, "获取经营数据")
 
 
 class TeamInsightTool(BaseTool):
@@ -1129,7 +1130,7 @@ class CustomerProfileTool(BaseTool):
                 )
                 customers = res.data or []
         except Exception as e:
-            return f"❌ 查询客户数据失败: {str(e)}"
+            return safe_tool_error(e, "查询客户数据")
 
         if not customers:
             return f"未找到与 '{name}' 相关的客户记录。请确认客户名称是否正确。"
@@ -1196,4 +1197,4 @@ class CustomerProfileTool(BaseTool):
             profile = await AIService.call_llm(prompt, system)
             return f"👤 {name} 客户画像:\n\n{profile}"
         except Exception as e:
-            return f"👤 客户画像生成失败: {str(e)}"
+            return safe_tool_error(e, "客户画像生成")

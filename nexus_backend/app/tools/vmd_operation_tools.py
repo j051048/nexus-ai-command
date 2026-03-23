@@ -17,6 +17,7 @@ from app.services.vector_service import vector_service
 
 from .base_tool import BaseTool
 from ._shared import _get_client
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +132,7 @@ class GenerateMaintenanceReminderTool(BaseTool):
             return f"🔧 **设备维护提醒{target} — {product_name}**\n\n{result}"
         except Exception as e:
             logger.error(f"Failed to generate maintenance reminder: {e}")
-            return f"❌ 生成维护保养提醒失败: {str(e)}"
+            return safe_tool_error(e, "生成维护保养提醒")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -239,7 +240,7 @@ class GenerateFaqResponseTool(BaseTool):
             return f"💡 **FAQ智能回复**\n\n**问题：** {question}\n\n{result}"
         except Exception as e:
             logger.error(f"Failed to generate FAQ response: {e}")
-            return f"❌ 生成FAQ回复失败: {str(e)}"
+            return safe_tool_error(e, "生成FAQ回复")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -372,7 +373,7 @@ class GenerateRepurchaseCampaignTool(BaseTool):
             return f"🎯 **{type_labels.get(campaign_type, '复购')}营销方案 — {customer_segment}**\n\n{result}"
         except Exception as e:
             logger.error(f"Failed to generate repurchase campaign: {e}")
-            return f"❌ 生成复购营销方案失败: {str(e)}"
+            return safe_tool_error(e, "生成复购营销方案")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -578,4 +579,4 @@ class CustomerLifecycleAnalysisTool(BaseTool):
             return f"📈 **客户生命周期分析 — {scope}**\n\n{result}"
         except Exception as e:
             logger.error(f"Failed to generate customer lifecycle analysis: {e}")
-            return f"❌ 生成客户生命周期分析失败: {str(e)}"
+            return safe_tool_error(e, "生成客户生命周期分析")

@@ -119,19 +119,21 @@ def create_app() -> FastAPI:
 
     @application.get("/api/test-ai")
     async def test_ai_connectivity(user_id: str = Depends(get_current_user_id)):
-        """Test connectivity from Backend to AI Gateway"""
+        """Test connectivity from Backend to AI Gateway (dev/test only)"""
+        if settings.ENV not in ("dev", "development", "test"):
+            return {"status": "error", "detail": "This endpoint is only available in dev/test environments"}
         import httpx
 
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.get("https://proxy.flydao.top")
+                resp = await client.get(settings.AI_BASE_URL or "https://api.openai.com/v1")
                 return {
                     "status": "ok",
                     "gateway_response_code": resp.status_code,
                     "message": "Successfully reached AI Gateway",
                 }
-        except Exception as e:
-            return {"status": "error", "detail": str(e)}
+        except Exception:
+            return {"status": "error", "detail": "Gateway unreachable"}
 
     # G6: Health check — O(1) cached return via background refresh
     @application.get("/health")
@@ -151,14 +153,23 @@ def create_app() -> FastAPI:
         return UTF8JSONResponse(status_code=http_status, content=content)
 
     @application.get("/health/deep")
-    async def health_deep():
+    async def health_deep(request: "Request"):
         """
         Deep health check — covers Redis, DB, LLM provider, and Celery broker.
 
+        Requires X-Health-Token header matching HEALTH_CHECK_TOKEN env var.
         Use for readiness probes and operational dashboards.
         Not cached (each call does live checks).
         """
         import asyncio
+
+        from fastapi import Request
+
+        # Auth: require health check token
+        expected_token = os.getenv("HEALTH_CHECK_TOKEN", "")
+        provided_token = request.headers.get("X-Health-Token", "")
+        if expected_token and provided_token != expected_token:
+            return UTF8JSONResponse(status_code=403, content={"error": "Forbidden"})
 
         from app.core.database import supabase
         from app.services.cache_service import cache_service
@@ -175,15 +186,15 @@ def create_app() -> FastAPI:
                     timeout=3.0,
                 )
                 checks["database"] = {"status": "connected"}
-        except Exception as e:
-            checks["database"] = {"status": "error", "detail": str(e)[:100]}
+        except Exception:
+            checks["database"] = {"status": "unavailable"}
 
         # 2. Redis/Cache
         try:
             ok = await asyncio.wait_for(cache_service.ping(), timeout=3.0)
             checks["redis"] = {"status": "connected" if ok else "error"}
-        except Exception as e:
-            checks["redis"] = {"status": "error", "detail": str(e)[:100]}
+        except Exception:
+            checks["redis"] = {"status": "unavailable"}
 
         # 3. LLM Provider (check API key is configured)
         llm_status = "not_configured"
@@ -207,8 +218,8 @@ def create_app() -> FastAPI:
                 checks["celery_broker"] = {"status": "configured"}
             else:
                 checks["celery_broker"] = {"status": "not_configured"}
-        except Exception as e:
-            checks["celery_broker"] = {"status": "error", "detail": str(e)[:100]}
+        except Exception:
+            checks["celery_broker"] = {"status": "unavailable"}
 
         # Overall status
         critical = [checks.get("database", {}).get("status"), checks.get("redis", {}).get("status")]

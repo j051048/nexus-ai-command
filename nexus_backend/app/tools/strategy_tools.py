@@ -12,6 +12,7 @@ from app.services.ai_service import AIService
 
 from .base_tool import BaseTool
 from ._shared import _get_client
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +105,7 @@ class DataAttributionTool(BaseTool):
             )
             data_context.append(f"线索: {period_name} {cur_leads} vs 上期 {prev_leads}")
         except Exception as e:
-            data_context.append(f"销售指标查询: {str(e)}")
+            data_context.append("销售指标查询: 暂时不可用")
 
         # 商机阶段分布
         try:
@@ -189,7 +190,7 @@ class DataAttributionTool(BaseTool):
             analysis = await AIService.call_llm(prompt, system)
             return f"📊 {period_name}数据智能归因分析:\n\n{analysis}"
         except Exception as e:
-            return f"📊 归因分析失败: {str(e)}"
+            return safe_tool_error(e, "归因分析")
 
 
 class StrategySimulationTool(BaseTool):
@@ -377,4 +378,4 @@ class StrategySimulationTool(BaseTool):
             simulation = await AIService.call_llm(prompt, system)
             return f"🎯 战略沙盘推演 — {scenario[:30]}...\n\n{simulation}"
         except Exception as e:
-            return f"🎯 推演分析失败: {str(e)}"
+            return safe_tool_error(e, "推演分析")

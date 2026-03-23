@@ -140,6 +140,8 @@ class ContractService:
         org_id: str,
         filters: dict | None = None,
         db: Any = None,
+        skip: int = 0,
+        limit: int = 50,
     ) -> list[dict]:
         """列出组织的合同"""
         if db:
@@ -154,7 +156,7 @@ class ContractService:
                     if filters.get("search"):
                         query = query.ilike("title", f"%{filters['search']}%")
 
-                result = await query.execute()
+                result = await query.range(skip, skip + limit - 1).execute()
                 return result.data or []
             except Exception as e:
                 logger.error(f"Failed to list contracts: {e}")

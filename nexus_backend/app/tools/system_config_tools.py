@@ -10,6 +10,7 @@ from app.services.system_config_service import system_config_service
 
 from .base_tool import BaseTool
 from ._shared import _get_client
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +90,7 @@ class ListSystemConfigsTool(BaseTool):
 
         except Exception as e:
             logger.error(f"查询配置列表失败: {e}")
-            return f"❌ 查询配置列表失败: {str(e)}"
+            return safe_tool_error(e, "查询配置列表")
 
 
 class UpdateSystemConfigTool(BaseTool):
@@ -179,4 +180,4 @@ class UpdateSystemConfigTool(BaseTool):
 
         except Exception as e:
             logger.error(f"保存配置失败: {e}")
-            return f"❌ 保存配置失败: {str(e)}"
+            return safe_tool_error(e, "保存配置")

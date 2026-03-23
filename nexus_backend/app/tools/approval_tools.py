@@ -13,6 +13,7 @@ from typing import Any
 
 from .base_tool import BaseTool
 from ._shared import _get_client
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -670,7 +671,7 @@ class ApprovalTool(BaseTool):
 
             except RuntimeError as e:
                 logger.warning(f"Chain advance failed for {req_id}: {e}")
-                return f"审批推进失败: {str(e)}"
+                return safe_tool_error(e, "审批推进")
 
         # Fallback: Direct status update for non-chain approvals (backward compatible)
         result = (
@@ -908,7 +909,7 @@ class RejectTool(BaseTool):
 
             except RuntimeError as e:
                 logger.warning(f"Chain advance (reject) failed for {req_id}: {e}")
-                return f"驳回失败: {str(e)}"
+                return safe_tool_error(e, "驳回")
 
         # Fallback: Direct status update for non-chain rejections (backward compatible)
         result = (

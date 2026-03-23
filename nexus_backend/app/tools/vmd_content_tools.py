@@ -15,6 +15,7 @@ from app.services.ai_service import AIService
 from app.services.vector_service import vector_service
 
 from .base_tool import BaseTool
+from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +122,7 @@ class GenerateProductManualTool(BaseTool):
             return f"📘 **{product_name} 产品手册框架**\n\n{result}"
         except Exception as e:
             logger.error(f"Failed to generate product manual: {e}")
-            return f"❌ 生成产品手册失败: {str(e)}"
+            return safe_tool_error(e, "生成产品手册")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -225,7 +226,7 @@ class GenerateWhitepaperTool(BaseTool):
             return f"📄 **技术白皮书 — {topic}**\n\n{result}"
         except Exception as e:
             logger.error(f"Failed to generate whitepaper: {e}")
-            return f"❌ 生成白皮书失败: {str(e)}"
+            return safe_tool_error(e, "生成白皮书")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -323,7 +324,7 @@ class GenerateApplicationNoteTool(BaseTool):
             return f"🔬 **应用方案 — {application}**\n\n{result}"
         except Exception as e:
             logger.error(f"Failed to generate application note: {e}")
-            return f"❌ 生成应用方案失败: {str(e)}"
+            return safe_tool_error(e, "生成应用方案")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -444,4 +445,4 @@ class GenerateSocialPostTool(BaseTool):
             return f"📱 **{platform_name}文案 — {topic}**\n\n{result}"
         except Exception as e:
             logger.error(f"Failed to generate social post: {e}")
-            return f"❌ 生成文案失败: {str(e)}"
+            return safe_tool_error(e, "生成文案")

@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { ActiveCard } from '@/types/nexus';
 import { useApprovals } from '@/hooks/useApprovals';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 const cardIcons = {
   lead: <Target className="w-4 h-4" />,
@@ -41,8 +41,6 @@ export function ActiveCardStream() {
 
   // Real Data Hook
   const { pendingApprovals, updateStatus, isLoading: isLoadingApprovals } = useApprovals();
-  const { toast } = useToast();
-
   useEffect(() => {
     // Convert Real Approvals to Cards
     const approvalCards: ActiveCard[] = pendingApprovals.map(req => ({
@@ -66,9 +64,9 @@ export function ActiveCardStream() {
     e.stopPropagation();
     try {
       await updateStatus.mutateAsync({ id, status: 'approved' });
-      toast({ title: "已批准", description: "申请已通过系统审核" });
+      toast.success('已批准', { description: '申请已通过系统审核' });
     } catch (e) {
-      toast({ variant: "destructive", title: "操作失败", description: "无法完成请求" });
+      toast.error('操作失败', { description: '无法完成请求' });
     }
   };
 
@@ -76,9 +74,9 @@ export function ActiveCardStream() {
     e.stopPropagation();
     try {
       await updateStatus.mutateAsync({ id, status: 'rejected' });
-      toast({ title: "已驳回", description: "申请已被拒绝" });
+      toast.success('已驳回', { description: '申请已被拒绝' });
     } catch (e) {
-      toast({ variant: "destructive", title: "操作失败", description: "无法完成请求" });
+      toast.error('操作失败', { description: '无法完成请求' });
     }
   };
 
