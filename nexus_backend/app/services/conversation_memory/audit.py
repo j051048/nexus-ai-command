@@ -14,7 +14,7 @@ from app.core.database import supabase
 
 logger = logging.getLogger(__name__)
 
-ActionType = Literal["ADD", "UPDATE", "DELETE"]
+ActionType = Literal["ADD", "UPDATE", "DELETE", "PROMOTE", "MERGE", "RESOLVE_CONFLICT", "DECAY"]
 
 
 async def log_memory_change(
@@ -32,7 +32,7 @@ async def log_memory_change(
     Args:
         memory_id: 被操作的记忆 ID
         user_id: 所属用户
-        action: ADD / UPDATE / DELETE
+        action: ADD / UPDATE / DELETE / PROMOTE / MERGE / RESOLVE_CONFLICT / DECAY
         new_value: 变更后的值 (DELETE 时为 None)
         old_value: 变更前的值 (ADD 时为 None)
         reason: LLM 给出的变更原因（可选）
