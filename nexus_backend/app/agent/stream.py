@@ -164,6 +164,11 @@ async def run_agent_stream(
             yield evt
         return
 
+    # Estimate input tokens for later token tracking (was computed inside pre-checks)
+    input_tokens = token_counter.count_tokens(
+        " ".join(m.get("content", "") for m in messages), agent_config.model
+    )
+
     # ── 2b. Early SIMPLE detection — skip RAG for casual chat ──
     # Also gate RAG for MODERATE queries: only enable when query suggests
     # the user needs information from uploaded documents / knowledge base.
@@ -207,7 +212,7 @@ async def run_agent_stream(
             logger.debug("[Stream] RAG skipped: query has no document/knowledge indicators")
 
     if tracer:
-        tracer.log_start(messages_dicts)
+        tracer.log_start([{"role": m.get("role", "user"), "content": m.get("content", "")} for m in messages])
 
     # ── 3. Prepare initial state via Memory Manager ──
     yield _sse_status("正在思考...")
