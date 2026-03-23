@@ -794,7 +794,26 @@ async def route_node(state: AgentState) -> dict:
     intent_domains: list[str] = []
     multi_intent = False
     if intent_summary == "一般对话" and len(last_user_msg.strip()) > 10:
-        complexity, intent_summary, intent_domains, multi_intent = await _llm_classify_intent(last_user_msg, config)
+        # Fast path: semantic router (embedding similarity, ~50ms)
+        try:
+            from app.agent.semantic_router import semantic_router
+            sr_intent, sr_conf, sr_domains = await semantic_router.classify(
+                last_user_msg, org_id=config.org_id if hasattr(config, "org_id") else None
+            )
+            if sr_intent and sr_conf > 0.85:
+                complexity_str = semantic_router.get_complexity(sr_intent)
+                complexity = QueryComplexity(complexity_str)
+                intent_summary = sr_intent
+                intent_domains = sr_domains
+                logger.info(
+                    f"[Router] Semantic router hit: {sr_intent} (conf={sr_conf:.3f}), skipping LLM classify"
+                )
+            else:
+                # Slow path: LLM classify
+                complexity, intent_summary, intent_domains, multi_intent = await _llm_classify_intent(last_user_msg, config)
+        except Exception:
+            logger.debug("[Router] Semantic router failed, falling back to LLM", exc_info=True)
+            complexity, intent_summary, intent_domains, multi_intent = await _llm_classify_intent(last_user_msg, config)
 
     selected_model = config.get_model_for_complexity(complexity)
 

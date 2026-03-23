@@ -508,6 +508,17 @@ def _get_tool_schemas(
                 f"fallback → {len(filtered)} tools (from {before_count})"
             )
 
+    # Safety cap: if filtering still leaves too many tools, keep only the most relevant
+    MAX_TOOLS = 30
+    if len(filtered) > MAX_TOOLS:
+        logger.info(
+            f"[ToolFilter] Capping {len(filtered)} tools to {MAX_TOOLS} (always-include + domain-sorted)"
+        )
+        # Prioritize always-include tools, then domain-matched, then the rest
+        always = [s for s in filtered if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS]
+        rest = [s for s in filtered if s["function"]["name"] not in _ALWAYS_INCLUDE_TOOLS]
+        filtered = (always + rest)[:MAX_TOOLS]
+
     return filtered
 
 

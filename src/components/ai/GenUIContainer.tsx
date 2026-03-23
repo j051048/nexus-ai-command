@@ -54,6 +54,15 @@ const GEN_UI_COMPONENTS: Record<string, React.ComponentType<any>> = {
   Heatmap: lazyWithRetry(() => import('./genui/Heatmap'), 2, false),
 };
 
+// Height hints for skeleton placeholders — reduces CLS when loading GenUI components
+const COMPONENT_HEIGHT_HINTS: Record<string, number> = {
+  StatCards: 120, DataChart: 280, DataTable: 320,
+  Dashboard: 400, GanttChart: 350, Heatmap: 200,
+  GeoChart: 300, PieChart: 260, FunnelChart: 240,
+  DataGrid: 320, OrgChart: 300, CalendarView: 350,
+  ComparisonTable: 280, Timeline: 200, ApprovalFlow: 180,
+};
+
 interface GenUIContainerProps {
   componentName: string;
   props: Record<string, unknown>;
@@ -83,11 +92,18 @@ class GenUIErrorBoundary extends React.Component<GenUIErrorBoundaryProps, GenUIE
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error(
-      `[GenUI] Component "${this.props.componentName}" render failed:`,
-      error,
-      errorInfo.componentStack
-    );
+    // Structured error report — ready for Sentry integration
+    const report = {
+      component: 'GenUI',
+      componentName: this.props.componentName,
+      error: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack,
+      timestamp: new Date().toISOString(),
+    };
+    console.error('[GenUI] Component render failed:', report);
+
+    // Future: Sentry.captureException(error, { tags: { component: 'GenUI', componentName: this.props.componentName }, extra: report });
   }
 
   private handleRetry = () => {
@@ -147,9 +163,9 @@ export const GenUIContainer = React.memo(function GenUIContainer({ componentName
   const enhancedProps = onSendMessage ? { ...props, onSendMessage } : props;
 
   return (
-    <div className="my-4 w-full overflow-hidden rounded-xl border border-border bg-card shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500">
+    <div className="my-4 w-full overflow-hidden rounded-xl border border-border bg-card shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500 transition-all">
       <GenUIErrorBoundary componentName={componentName}>
-        <Suspense fallback={<GenUISkeleton />}>
+        <Suspense fallback={<GenUISkeleton componentName={componentName} />}>
           <GenUIToolbar componentName={componentName} props={props}>
             <Component {...enhancedProps} />
           </GenUIToolbar>
@@ -159,9 +175,10 @@ export const GenUIContainer = React.memo(function GenUIContainer({ componentName
   );
 });
 
-function GenUISkeleton() {
+function GenUISkeleton({ componentName }: { componentName?: string }) {
+  const minHeight = componentName ? (COMPONENT_HEIGHT_HINTS[componentName] ?? 180) : 180;
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-4 transition-all duration-300" style={{ minHeight }}>
       <div className="flex items-center justify-between">
         <Skeleton className="h-6 w-32" />
         <Skeleton className="h-4 w-16" />

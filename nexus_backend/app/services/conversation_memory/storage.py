@@ -52,6 +52,24 @@ async def save_memory(
         old_version = existing.data.get("version", 1)
         old_id = existing.data["id"]
 
+    # Semantic dedup: if no exact key match, check for semantically similar memories
+    if not old_id and embedding:
+        try:
+            similar = await _find_semantically_similar(
+                user_id, embedding, threshold=0.92, category=category, db=client
+            )
+            if similar:
+                # Found a semantically similar memory — merge into it
+                old_id = similar["id"]
+                old_version = similar.get("version", 1)
+                key = similar.get("key", key)  # reuse existing key for version chain
+                logger.info(
+                    f"Semantic dedup: merging '{key}' with similar memory "
+                    f"(id={old_id}, similarity≥0.92)"
+                )
+        except Exception:
+            logger.debug("Semantic dedup check failed, proceeding with normal insert", exc_info=True)
+
     # Always insert a new record (append-only versioning)
     insert_data = {
         "user_id": user_id,
@@ -258,3 +276,40 @@ async def get_memory_history(
     except Exception as e:
         logger.debug(f"get_memory_history failed (columns may not exist): {e}")
         return []
+
+
+async def _find_semantically_similar(
+    user_id: str,
+    embedding: list[float],
+    threshold: float = 0.92,
+    category: str | None = None,
+    db: Any = None,
+) -> dict | None:
+    """Find the most similar active memory via pgvector cosine search.
+
+    Returns the top-1 match above `threshold`, or None.
+    Uses the existing search_memories_by_embedding RPC.
+    """
+    client = db or supabase
+    if not client:
+        return None
+
+    params: dict[str, Any] = {
+        "p_user_id": user_id,
+        "p_embedding": embedding,
+        "p_match_threshold": threshold,
+        "p_match_count": 1,
+    }
+
+    try:
+        result = await client.rpc("search_memories_by_embedding", params).execute()
+        if result.data and len(result.data) > 0:
+            match = result.data[0]
+            # Filter by category if specified (RPC may not support this natively)
+            if category and match.get("category") and match["category"] != category:
+                return None
+            return match
+    except Exception as e:
+        logger.debug(f"_find_semantically_similar RPC failed: {e}")
+
+    return None

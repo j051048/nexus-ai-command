@@ -51,33 +51,33 @@ import { InlineActions } from './genui/InlineActions';
 // wrapper, we try to match known prop signatures to auto-detect the component.
 // ---------------------------------------------------------------------------
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function inferGenUIComponent(obj: any): string | null {
+function inferGenUIComponent(obj: any): { component: string; confidence: number } | null {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
   // EmailDraft: must have to + subject + body
-  if (obj.to && obj.subject && obj.body) return 'EmailDraft';
+  if (obj.to && obj.subject && obj.body) return { component: 'EmailDraft', confidence: 0.95 };
   // ReportCard: must have title + sections array
   if (obj.title && Array.isArray(obj.sections) && obj.sections.length > 0 &&
-      obj.sections[0].heading && Array.isArray(obj.sections[0].items)) return 'ReportCard';
+      obj.sections[0].heading && Array.isArray(obj.sections[0].items)) return { component: 'ReportCard', confidence: 0.9 };
   // StatCards: cards array with label+value
-  if (Array.isArray(obj.cards) && obj.cards.length > 0 && obj.cards[0].label != null) return 'StatCards';
+  if (Array.isArray(obj.cards) && obj.cards.length > 0 && obj.cards[0].label != null) return { component: 'StatCards', confidence: 0.9 };
   // DataTable: columns + rows arrays
-  if (Array.isArray(obj.columns) && Array.isArray(obj.rows)) return 'DataTable';
+  if (Array.isArray(obj.columns) && Array.isArray(obj.rows)) return { component: 'DataTable', confidence: 0.85 };
   // TodoList: items array with label field
-  if (Array.isArray(obj.items) && obj.items.length > 0 && obj.items[0].label != null && obj.items[0].done !== undefined) return 'TodoList';
+  if (Array.isArray(obj.items) && obj.items.length > 0 && obj.items[0].label != null && obj.items[0].done !== undefined) return { component: 'TodoList', confidence: 0.85 };
   // AlertList: alerts array
-  if (Array.isArray(obj.alerts) && obj.alerts.length > 0 && obj.alerts[0].level) return 'AlertList';
+  if (Array.isArray(obj.alerts) && obj.alerts.length > 0 && obj.alerts[0].level) return { component: 'AlertList', confidence: 0.85 };
   // Timeline: items with time+title+status
-  if (Array.isArray(obj.items) && obj.items.length > 0 && obj.items[0].time && obj.items[0].title) return 'Timeline';
+  if (Array.isArray(obj.items) && obj.items.length > 0 && obj.items[0].time && obj.items[0].title) return { component: 'Timeline', confidence: 0.8 };
   // ApprovalFlow: steps array with status
-  if (Array.isArray(obj.steps) && obj.steps.length > 0 && obj.steps[0].status) return 'ApprovalFlow';
+  if (Array.isArray(obj.steps) && obj.steps.length > 0 && obj.steps[0].status) return { component: 'ApprovalFlow', confidence: 0.8 };
   // FunnelChart: stages array
-  if (Array.isArray(obj.stages) && obj.stages.length > 0 && obj.stages[0].value != null) return 'FunnelChart';
+  if (Array.isArray(obj.stages) && obj.stages.length > 0 && obj.stages[0].value != null) return { component: 'FunnelChart', confidence: 0.8 };
   // PieChart: data array with label+value
-  if (Array.isArray(obj.data) && obj.data.length > 0 && obj.data[0].label && obj.data[0].value != null) return 'PieChart';
+  if (Array.isArray(obj.data) && obj.data.length > 0 && obj.data[0].label && obj.data[0].value != null) return { component: 'PieChart', confidence: 0.75 };
   // DataChart: data + dataKeys
-  if (Array.isArray(obj.data) && Array.isArray(obj.dataKeys)) return 'DataChart';
-  // Dashboard: charts array with data+dataKeys
-  if (Array.isArray(obj.charts) && obj.charts.length > 0 && Array.isArray(obj.charts[0].data)) return 'Dashboard';
+  if (Array.isArray(obj.data) && Array.isArray(obj.dataKeys)) return { component: 'DataChart', confidence: 0.8 };
+  // Dashboard: charts array with data+dataKeys — lower confidence due to generic structure
+  if (Array.isArray(obj.charts) && obj.charts.length > 0 && Array.isArray(obj.charts[0].data)) return { component: 'Dashboard', confidence: 0.7 };
   return null;
 }
 
@@ -93,8 +93,8 @@ function tryExtractBareGenUI(text: string): { component: string; props: Record<s
     const obj = JSON.parse(trimmed);
     // If it already has "component", use standard path
     if (obj.component) return { component: obj.component, props: obj.props || {} };
-    const name = inferGenUIComponent(obj);
-    if (name) return { component: name, props: obj };
+    const result = inferGenUIComponent(obj);
+    if (result && result.confidence >= 0.6) return { component: result.component, props: obj };
   } catch { /* not valid JSON */ }
   return null;
 }
@@ -244,8 +244,8 @@ export const MessageBubble = React.memo(function MessageBubble({
                         // Layer 3: Auto-detect component from props structure when "component" field is missing
                         // LLMs sometimes output just the props JSON without the wrapper
                         const inferred = inferGenUIComponent(config);
-                        if (inferred) {
-                          return <GenUIContainer componentName={inferred} props={config} onSendMessage={onSendMessage} />;
+                        if (inferred && inferred.confidence >= 0.6) {
+                          return <GenUIContainer componentName={inferred.component} props={config} onSendMessage={onSendMessage} />;
                         }
                         
                         // Fallback for LLMs generating generic JSON without "component"

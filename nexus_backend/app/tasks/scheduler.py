@@ -658,6 +658,41 @@ def push_smart_recommendations():
 
 
 @celery_app.task
+@_with_redis_lock("purge_superseded_memories", lock_ttl=600)
+def purge_superseded_memories():
+    """
+    P2-2: 清理已被取代的旧版本记忆。
+    每天凌晨3:45运行，删除 superseded_by IS NOT NULL 且超过 30 天的旧记录。
+    这些记录已被新版本取代，保留它们只会膨胀表。
+    """
+
+    async def _run():
+        from app.core.database import supabase
+
+        if not supabase:
+            return "skipped: no db"
+
+        cutoff = (datetime.now(UTC) - timedelta(days=30)).isoformat()
+        try:
+            result = (
+                await supabase.table("conversation_memories")
+                .delete()
+                .not_.is_("superseded_by", "null")
+                .lt("updated_at", cutoff)
+                .execute()
+            )
+            deleted = len(result.data) if result.data else 0
+            logger.info(f"[MemoryPurge] Deleted {deleted} superseded memories older than 30 days")
+            return f"Purged {deleted} superseded old-version memories"
+        except Exception as e:
+            # superseded_by column may not exist yet
+            logger.debug(f"[MemoryPurge] Failed (column may not exist): {e}")
+            return f"skipped: {e}"
+
+    return _run_async(_run())
+
+
+@celery_app.task
 @_with_redis_lock("cleanup_stale_memories", lock_ttl=600)
 def cleanup_stale_memories():
     """
