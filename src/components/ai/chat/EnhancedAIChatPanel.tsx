@@ -245,7 +245,7 @@ export function EnhancedAIChatPanel({
       }
       
       // Use current sessionId from state
-      const historyUrl = `${API_BASE}/api/chat/history/${sessionId}?limit=50`;
+      const historyUrl = `${API_BASE}/api/history/${sessionId}?limit=50`;
       const res = await fetch(historyUrl, {
         headers: { 'Authorization': `Bearer ${session.access_token}` },
       });
@@ -347,15 +347,22 @@ export function EnhancedAIChatPanel({
           }
         }
 
-        const { data, error } = await supabase
+        const { data: rawData, error } = await supabase
           .from('chat_messages')
-          .select('id, session_id, role, content, metadata, created_at')
+          .select('*')
           .eq('user_id', user.id)
           .eq('role', 'assistant')
-          .filter('metadata->>source', 'in', '("scheduled_task","smart_reminder")')
           .gt('created_at', new Date(queryTime).toISOString())
           .order('created_at', { ascending: false })
-          .limit(20);
+          .limit(50);
+
+        // Filter for proactive messages client-side (metadata->>source JSONB filter
+        // can 400 if column doesn't exist or PostgREST doesn't support arrow+in)
+        const proactiveSources = new Set(['scheduled_task', 'smart_reminder']);
+        const data = (rawData || []).filter((r: Record<string, unknown>) => {
+          const meta = r.metadata as Record<string, unknown> | null;
+          return meta?.source && proactiveSources.has(meta.source as string);
+        }).slice(0, 20);
 
         if (error || !data?.length) return;
 

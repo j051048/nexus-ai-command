@@ -339,10 +339,31 @@ export function EnhancedThemeProvider({ children }: { children: ReactNode }) {
 export function useEnhancedTheme() {
   const context = useContext(EnhancedThemeContext);
   if (!context) {
-    throw new Error('useEnhancedTheme must be used within EnhancedThemeProvider');
+    // Return a safe read-only fallback instead of crashing the app.
+    // This can happen when service worker serves stale chunks or during
+    // ErrorBoundary rendering before providers mount.
+    return _ENHANCED_FALLBACK;
   }
   return context;
 }
+
+// Minimal no-op fallback so components using useEnhancedTheme don't crash
+const _noop = () => {};
+const _ENHANCED_FALLBACK: EnhancedThemeContextValue = {
+  mode: 'dark',
+  resolvedMode: 'dark',
+  preset: 'default-dark',
+  settings: defaultSettings,
+  setMode: _noop as any,
+  toggleMode: _noop,
+  setPreset: _noop as any,
+  setCustomColor: _noop as any,
+  setFontSize: _noop as any,
+  setRadius: _noop as any,
+  setReducedMotion: _noop as any,
+  resetToDefaults: _noop,
+  presets: [],
+};
 
 export { themePresets };
 export default EnhancedThemeProvider;

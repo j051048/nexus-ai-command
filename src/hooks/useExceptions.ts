@@ -23,7 +23,7 @@ export function useExceptions() {
       // 1. 预算超支 (used > 90% of total)
       try {
         const { data: budgets } = await supabase.from('finance_budgets')
-          .select('id, name, total_amount, used_amount, period')
+          .select('*')
           .eq('organization_id', orgId);
 
         for (const b of (budgets || [])) {
@@ -31,12 +31,13 @@ export function useExceptions() {
           const used = Number(b.used_amount || 0);
           if (total > 0 && used / total > 0.9) {
             const pct = Math.round((used / total) * 100);
+            const period = (b as Record<string, unknown>).period ?? '';
             alerts.push({
               id: `budget-${b.id}`,
               type: 'budget_overrun',
               severity: pct >= 100 ? 'high' : 'medium',
               title: `预算超支: ${b.name}`,
-              description: `${b.period} 预算已使用 ${pct}% (\u00A5${used.toLocaleString()} / \u00A5${total.toLocaleString()})`,
+              description: `${period} 预算已使用 ${pct}% (\u00A5${used.toLocaleString()} / \u00A5${total.toLocaleString()})`,
               entityId: b.id,
             });
           }
@@ -49,20 +50,24 @@ export function useExceptions() {
       try {
         const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
         const { data: leads } = await supabase.from('sales_leads')
-          .select('id, company_name, status, updated_at, assigned_to')
+          .select('*')
           .eq('organization_id', orgId)
-          .in('status', ['lead', 'prospect', 'negotiation'])
+          .in('stage', ['lead', 'prospect', 'negotiation'])
           .lt('updated_at', thirtyDaysAgo)
           .limit(10);
 
         for (const l of (leads || [])) {
-          const daysSince = Math.floor((Date.now() - new Date(l.updated_at).getTime()) / 86400000);
+          const companyName = (l as Record<string, unknown>).company_name ?? (l as Record<string, unknown>).name ?? '未知';
+          const stage = (l as Record<string, unknown>).stage ?? '';
+          const updatedAt = (l as Record<string, unknown>).updated_at as string | undefined;
+          if (!updatedAt) continue;
+          const daysSince = Math.floor((Date.now() - new Date(updatedAt).getTime()) / 86400000);
           alerts.push({
             id: `lead-${l.id}`,
             type: 'stale_lead',
             severity: daysSince > 60 ? 'high' : 'medium',
-            title: `商机停滞: ${l.company_name}`,
-            description: `已 ${daysSince} 天未更新 (状态: ${l.status})`,
+            title: `商机停滞: ${companyName}`,
+            description: `已 ${daysSince} 天未更新 (状态: ${stage})`,
             entityId: l.id,
           });
         }

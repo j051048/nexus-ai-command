@@ -28,10 +28,16 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// Safe fallback when ThemeProvider is missing (e.g. stale service worker cache,
+// chunk mismatch, or ErrorBoundary fallback rendering).  Theme is non-critical —
+// crashing the entire app over it is worse than falling back to dark mode.
+const _FALLBACK: ThemeContextType = {
+  theme: 'dark',
+  toggleTheme: () => {},
+  setTheme: () => {},
+};
+
 export function useTheme() {
   const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error('useTheme must be used within a ThemeProvider');
-  }
-  return context;
+  return context ?? _FALLBACK;
 }
