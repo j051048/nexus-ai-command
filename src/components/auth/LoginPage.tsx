@@ -72,6 +72,7 @@ export function LoginPage() {
       setInviteValidating(true);
       setInviteError('');
       try {
+        // @ts-expect-error Supabase types might not be synchronized yet for new RPCs
         const { data: orgId, error } = await supabase.rpc('validate_invite_code', {
           _code: inviteCode.trim(),
         });
