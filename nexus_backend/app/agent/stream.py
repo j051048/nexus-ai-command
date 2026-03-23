@@ -197,6 +197,24 @@ async def run_agent_stream(
         if _pref_lines:
             system_prompt += "\n\n## 用户个人偏好\n" + "\n".join(_pref_lines)
 
+    # ── 2b. Soul Document — 用灵魂文档替换默认身份认知 ──
+    try:
+        from app.services.soul_document_service import soul_document_service
+
+        _soul_prompt = await soul_document_service.get_compiled_prompt(org_id)
+        if _soul_prompt:
+            from app.core.prompts_registry import SELF_AWARENESS
+
+            # 如果 system_prompt 包含默认 SELF_AWARENESS，替换之
+            _sa_marker = SELF_AWARENESS[:30]
+            if _sa_marker in system_prompt:
+                system_prompt = system_prompt.replace(SELF_AWARENESS, _soul_prompt)
+            else:
+                # DB/YAML 加载的 prompt 可能不含 SELF_AWARENESS，追加到头部
+                system_prompt = _soul_prompt + "\n\n" + system_prompt
+    except Exception:
+        logger.debug("[Stream] Soul document injection skipped", exc_info=True)
+
     _is_simple = False
     early_complexity = None
     intent_summary = ""

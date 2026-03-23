@@ -36,6 +36,7 @@ NS_DOC = "doc"
 NS_IDEMPOTENCY = "idempotency"
 NS_RATE_LIMIT = "rl"
 NS_CONTEXT = "ctx"
+NS_SOUL_DOC = "soul_doc"
 
 
 def rk(scope: str | None, service: str, *parts: str) -> str:

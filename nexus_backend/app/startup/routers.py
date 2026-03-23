@@ -73,6 +73,7 @@ def register_routers(app: FastAPI) -> None:
     from app.routers import ws as ws_router
     from app.routers import saved_prompts as saved_prompts_router
     from app.routers import chat_upload as chat_upload_router
+    from app.routers import soul_document as soul_document_router
 
     app.include_router(performance.router)
     app.include_router(incentive.router)
@@ -134,6 +135,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(stripe_webhooks_router.router)
     app.include_router(dsar_router.router)
     app.include_router(saved_prompts_router.router)
+    app.include_router(soul_document_router.router)
 
     # --- Optional routers (try/except to avoid all-or-nothing failure) ---
 

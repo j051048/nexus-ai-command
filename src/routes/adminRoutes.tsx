@@ -13,6 +13,7 @@ import {
   PluginMarketplace,
   LLMModelManagement,
   LLMCostDashboard,
+  SoulDocumentPage,
   AgentDebugPanel,
   AnimationShowcase,
   ScheduledTasks,
@@ -65,6 +66,7 @@ export function adminRoutes(AdminRoute: React.ComponentType<{ children: React.Re
       <Route path="super-admin" element={<AdminRoute><ModuleErrorBoundary moduleName="超级管理"><SuperAdminDashboard /></ModuleErrorBoundary></AdminRoute>} />
       <Route path="api-keys" element={<AdminRoute><ModuleErrorBoundary moduleName="API密钥"><APIKeysPage /></ModuleErrorBoundary></AdminRoute>} />
       <Route path="company-settings" element={<AdminRoute><ModuleErrorBoundary moduleName="企业设置"><CompanySettingsPage /></ModuleErrorBoundary></AdminRoute>} />
+      <Route path="soul-document" element={<AdminRoute><ModuleErrorBoundary moduleName="灵魂文档"><SoulDocumentPage /></ModuleErrorBoundary></AdminRoute>} />
       <Route path="org-chart" element={<AdminRoute><ModuleErrorBoundary moduleName="组织架构"><OrgChartPage /></ModuleErrorBoundary></AdminRoute>} />
       <Route path="plugins" element={<ModuleErrorBoundary moduleName="插件市场"><PluginMarketplace /></ModuleErrorBoundary>} />
       <Route path="llm/models" element={<AdminRoute><ModuleErrorBoundary moduleName="LLM模型"><LLMModelManagement /></ModuleErrorBoundary></AdminRoute>} />

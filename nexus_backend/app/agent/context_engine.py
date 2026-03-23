@@ -527,9 +527,33 @@ class CorrectionHistoryProvider(ContextProvider):
             return ""
 
 
+class SoulDocumentProvider(ContextProvider):
+    """注入企业灵魂文档，定义 AI 的核心人格。最高优先级。"""
+
+    name = "灵魂文档"
+    priority = 1  # 最高优先级
+
+    def max_tokens(self) -> int:
+        return 600
+
+    async def get_context(
+        self, user_id: str, org_id: str | None, query: str, **kwargs: Any
+    ) -> str:
+        if not org_id:
+            return ""
+        try:
+            from app.services.soul_document_service import soul_document_service
+
+            return await soul_document_service.get_compiled_prompt(org_id) or ""
+        except Exception as e:
+            logger.debug(f"[SoulDocumentProvider] Failed: {e}")
+            return ""
+
+
 # 模块级单例
 context_engine = ContextEngine(total_budget=4000)
 
+context_engine.register(SoulDocumentProvider())
 context_engine.register(ChatHistoryProvider())
 context_engine.register(BusinessRuleProvider())
 context_engine.register(CompletedTasksProvider())
