@@ -80,7 +80,7 @@ export function ProjectManagement() {
             })
             .subscribe();
 
-        return () => { supabase.removeChannel(channel); };
+        return () => { channel.unsubscribe(); };
     }, [user, fetchProjects]);
 
     const handleAiCreate = async () => {

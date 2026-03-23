@@ -69,7 +69,7 @@ export function useSalesMetricsRealtime() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      channel.unsubscribe();
     };
   }, [session?.user?.id, queryClient]);
 }

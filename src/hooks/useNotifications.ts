@@ -42,7 +42,7 @@ export function useNotificationsRealtime() {
             .subscribe();
 
         return () => {
-            supabase.removeChannel(channel);
+            channel.unsubscribe();
         };
     }, [user?.id, queryClient]);
 }

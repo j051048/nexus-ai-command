@@ -335,6 +335,8 @@ export function EnhancedAIChatPanel({
   useEffect(() => {
     const loadProactiveFromDB = async () => {
       try {
+        // Skip if user.id is a placeholder (profile not loaded yet)
+        if (!user.id || user.id.length < 10) return;
         const lastSeenStr = localStorage.getItem(`nexus_last_seen_proactive_${user.id}`);
         const fallbackTime = new Date(Date.now() - 24 * 60 * 60 * 1000).getTime();
         let queryTime = fallbackTime;

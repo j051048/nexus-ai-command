@@ -236,7 +236,7 @@ export function useApprovalsRealtime() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      channel.unsubscribe();
     };
   }, [user?.id, profile?.organization_id, queryClient]);
 }

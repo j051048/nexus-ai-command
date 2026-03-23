@@ -78,7 +78,11 @@ export function useAuditLogs(filters: AuditFilters) {
       }
 
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) {
+        // Table may not exist yet — return empty instead of crashing
+        console.debug('[useAuditLogs] query failed (table may not exist):', error.message);
+        return [];
+      }
       return (data as AuditLogEntry[]) || [];
     },
     staleTime: 30_000,
@@ -113,7 +117,10 @@ export function useAuditActions() {
         .from('audit_logs')
         .select('action')
         .order('action');
-      if (error) throw error;
+      if (error) {
+        console.debug('[useAuditActions] query failed:', error.message);
+        return [];
+      }
       const actions: string[] = [...new Set((data as { action: string }[]).map((d) => d.action))];
       return actions;
     },
