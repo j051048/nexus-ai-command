@@ -708,7 +708,7 @@ export function EnhancedAIChatPanel({
   }, []);
 
   const handleShowHistory = useCallback(() => {
-    toast.info('历史记录功能开发中');
+    setShowHistory(true);
   }, []);
 
   const handleDeleteMessage = useCallback((id: string) => {
