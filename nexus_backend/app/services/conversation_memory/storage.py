@@ -295,16 +295,18 @@ async def _find_semantically_similar(
         return None
 
     params: dict[str, Any] = {
-        "p_user_id": user_id,
-        "p_embedding": embedding,
-        "p_match_threshold": threshold,
-        "p_match_count": 1,
+        "match_user_id": user_id,
+        "query_embedding": embedding,
+        "match_limit": 1,
     }
 
     try:
         result = await client.rpc("search_memories_by_embedding", params).execute()
         if result.data and len(result.data) > 0:
             match = result.data[0]
+            # Check similarity threshold (RPC returns similarity field)
+            if match.get("similarity", 0) < threshold:
+                return None
             # Filter by category if specified (RPC may not support this natively)
             if category and match.get("category") and match["category"] != category:
                 return None

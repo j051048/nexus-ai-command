@@ -27,6 +27,7 @@ import {
   Download,
 } from 'lucide-react';
 import { PulseDot } from '@/components/common/AnimatedComponents';
+import { useSoulDocument } from '@/hooks/useSoulDocument';
 
 interface ChatHeaderProps {
   isExpanded: boolean;
@@ -55,6 +56,9 @@ export function ChatHeader({
   setShowTrace,
   handleClearChat,
 }: ChatHeaderProps) {
+  const { data: soulDoc } = useSoulDocument();
+  const aiName = (soulDoc?.is_active && soulDoc?.ai_name) ? soulDoc.ai_name : '企业助手';
+
   return (
     <div
       className={cn(
@@ -76,7 +80,7 @@ export function ChatHeader({
         </div>
         <div>
           <h3 className="font-semibold text-foreground flex items-center gap-2">
-            企业助手
+            {aiName}
             <Sparkles className="w-4 h-4 text-primary" />
           </h3>
           <div className="text-xs text-muted-foreground flex items-center gap-2">
