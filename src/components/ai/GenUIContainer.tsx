@@ -1,4 +1,5 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useRef, useEffect, useState, useCallback } from 'react';
+import * as Sentry from '@sentry/react';
 import { lazyWithRetry } from '@/lib/lazyPreload';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GenUIToolbar } from './genui/GenUIToolbar';
@@ -103,7 +104,10 @@ class GenUIErrorBoundary extends React.Component<GenUIErrorBoundaryProps, GenUIE
     };
     console.error('[GenUI] Component render failed:', report);
 
-    // Future: Sentry.captureException(error, { tags: { component: 'GenUI', componentName: this.props.componentName }, extra: report });
+    Sentry.captureException(error, {
+      tags: { component: 'GenUI', componentName: this.props.componentName },
+      extra: report,
+    });
   }
 
   private handleRetry = () => {
@@ -153,6 +157,25 @@ class GenUIErrorBoundary extends React.Component<GenUIErrorBoundaryProps, GenUIE
 
 export const GenUIContainer = React.memo(function GenUIContainer({ componentName, props, onSendMessage }: GenUIContainerProps) {
   const Component = GEN_UI_COMPONENTS[componentName];
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
+
+  // ResizeObserver: track actual content height for smooth skeleton→component transition
+  const observerRef = useRef<ResizeObserver | null>(null);
+  const handleResize = useCallback((entries: ResizeObserverEntry[]) => {
+    const entry = entries[0];
+    if (entry) {
+      setMeasuredHeight(entry.contentRect.height);
+    }
+  }, []);
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    observerRef.current = new ResizeObserver(handleResize);
+    observerRef.current.observe(el);
+    return () => observerRef.current?.disconnect();
+  }, [handleResize]);
 
   if (!Component) {
     console.warn(`Generative UI: Component "${componentName}" not found in registry.`);
@@ -161,16 +184,25 @@ export const GenUIContainer = React.memo(function GenUIContainer({ componentName
 
   // Inject onSendMessage for interactive components (Dashboard, DataChart)
   const enhancedProps = onSendMessage ? { ...props, onSendMessage } : props;
+  const hintHeight = COMPONENT_HEIGHT_HINTS[componentName] ?? 180;
 
   return (
-    <div className="my-4 w-full overflow-hidden rounded-xl border border-border bg-card shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500 transition-all">
-      <GenUIErrorBoundary componentName={componentName}>
-        <Suspense fallback={<GenUISkeleton componentName={componentName} />}>
-          <GenUIToolbar componentName={componentName} props={props}>
-            <Component {...enhancedProps} />
-          </GenUIToolbar>
-        </Suspense>
-      </GenUIErrorBoundary>
+    <div
+      className="my-4 w-full overflow-hidden rounded-xl border border-border bg-card shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500"
+      style={{
+        minHeight: measuredHeight ?? hintHeight,
+        transition: 'min-height 300ms ease-out',
+      }}
+    >
+      <div ref={contentRef}>
+        <GenUIErrorBoundary componentName={componentName}>
+          <Suspense fallback={<GenUISkeleton componentName={componentName} />}>
+            <GenUIToolbar componentName={componentName} props={props}>
+              <Component {...enhancedProps} />
+            </GenUIToolbar>
+          </Suspense>
+        </GenUIErrorBoundary>
+      </div>
     </div>
   );
 });

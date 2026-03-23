@@ -210,8 +210,11 @@ async def search_memories(
 
 async def _semantic_search(user_id: str, query: str, limit: int, org_id: str | None, client) -> list[dict]:
     """Embedding-based semantic search on memories using pgvector.
-    P1: 优先使用 search_memories_hybrid（向量+FTS 融合+时间衰减），
+    P1: 优先使用 search_memories_hybrid（向量+时间衰减），
     降级到 search_memories_by_embedding。
+
+    注: hybrid RPC 的 FTS 分支已移除 (20260323 迁移)，因为 Supabase 'simple'
+    分词器对中文无效。中文关键词搜索由 _keyword_search (jieba+ILIKE) 负责。
     """
     try:
         from app.services.vector_service import vector_service

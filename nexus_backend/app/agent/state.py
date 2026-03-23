@@ -358,6 +358,10 @@ class AgentState(TypedDict, total=False):
     # ── Circuit breaker (set by _after_execute on loop/iteration limit) ──
     circuit_break_reason: str | None
 
+    # ── Slot filling / DST (Dialog State Tracking) ──
+    slot_context: dict | None      # {tool_name, tool_call_id, filled_slots, missing_slots, tool_schema}
+    slot_round: int                # 当前澄清轮次 (0=首次, max=3)
+
 
 # ─── State Access Helpers ─────────────────────────────────────────────────────
 # Type-safe accessors that handle dict/dataclass duality from checkpoint

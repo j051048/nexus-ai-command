@@ -23,6 +23,7 @@ from app.agent.node_helpers import (  # noqa: F401
 from app.agent.node_plan import plan_node  # noqa: F401
 from app.agent.node_reflect import critic_node, reflect_node  # noqa: F401
 from app.agent.node_respond import error_node, respond_node, simple_respond_node  # noqa: F401
+from app.agent.node_slot_verify import slot_verify_node  # noqa: F401
 from app.agent.node_synthesize import synthesize_node  # noqa: F401
 from app.core.ai_metrics import record_tool_execution  # noqa: F401
 from app.tools import get_tool  # noqa: F401
@@ -34,6 +35,7 @@ __all__ = [
     "respond_node",
     "simple_respond_node",
     "synthesize_node",
+    "slot_verify_node",
     "critic_node",
     "error_node",
     "_messages_to_lc_format",

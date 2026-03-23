@@ -66,7 +66,7 @@ from langgraph.graph import END, StateGraph
 
 from app.agent.checkpointer import get_checkpointer
 from app.agent.loop_detector import detect_loop, tool_call_fingerprint
-from app.agent.nodes import critic_node, error_node, execute_node, plan_node, reflect_node, respond_node, simple_respond_node, synthesize_node
+from app.agent.nodes import critic_node, error_node, execute_node, plan_node, reflect_node, respond_node, simple_respond_node, slot_verify_node, synthesize_node
 from app.agent.node_parallel_context import parallel_context_and_plan
 from app.agent.nodes_orchestrator import orchestrate_node
 from app.agent.nodes_wbs import wbs_decompose_node
@@ -119,7 +119,7 @@ def _after_plan(state: AgentState) -> str:
     if state.get("error"):
         return "error"
     if state.get("requires_tools") and state.get("pending_tool_calls"):
-        return "execute"
+        return "slot_verify"
     # Short-circuit: SIMPLE queries (greetings, FAQ) skip reflection
     if state.get("complexity") == QueryComplexity.SIMPLE:
         return "respond"
@@ -136,6 +136,19 @@ def _after_plan(state: AgentState) -> str:
         logger.info("[Graph] Mutation fast-path: all tools succeeded & irreversible, skipping reflect+critic")
         return "respond"
     return "reflect"
+
+
+def _after_slot_verify(state: AgentState) -> str:
+    """After slot verification:
+      - slot_context is set (missing params) → respond (ask_user)
+      - slot_context is None (all filled) → execute
+      - error → error
+    """
+    if state.get("error"):
+        return "error"
+    if state.get("slot_context"):
+        return "respond"
+    return "execute"
 
 
 def _after_execute(state: AgentState) -> str:
@@ -539,6 +552,7 @@ def build_agent_graph() -> StateGraph:
     graph.add_node("simple_respond", simple_respond_node)  # SIMPLE fast-path
     graph.add_node("synthesize", synthesize_node)  # Single-tool fast synthesis
     graph.add_node("error", error_node)
+    graph.add_node("slot_verify", slot_verify_node)  # DST slot filling
     # VMD multi-agent nodes
     graph.add_node("wbs_decompose", wbs_decompose_node)
     graph.add_node("orchestrate", orchestrate_node)
@@ -582,25 +596,36 @@ def build_agent_graph() -> StateGraph:
         },
     )
 
-    # plan → execute | reflect | respond | error (conditional)
+    # plan → slot_verify | reflect | respond | error (conditional)
     graph.add_conditional_edges(
         "plan",
         _after_plan,
         {
-            "execute": "execute",
+            "slot_verify": "slot_verify",
             "reflect": "reflect",
             "respond": "respond",
             "error": "error",
         },
     )
 
-    # parallel_plan → execute | reflect | respond | error (same edges as plan)
+    # parallel_plan → slot_verify | reflect | respond | error (same edges as plan)
     graph.add_conditional_edges(
         "parallel_plan",
         _after_plan,
         {
-            "execute": "execute",
+            "slot_verify": "slot_verify",
             "reflect": "reflect",
+            "respond": "respond",
+            "error": "error",
+        },
+    )
+
+    # slot_verify → execute | respond | error (conditional, DST)
+    graph.add_conditional_edges(
+        "slot_verify",
+        _after_slot_verify,
+        {
+            "execute": "execute",
             "respond": "respond",
             "error": "error",
         },

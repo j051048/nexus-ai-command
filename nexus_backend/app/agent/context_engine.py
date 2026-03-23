@@ -557,7 +557,9 @@ context_engine.register(SoulDocumentProvider())
 context_engine.register(ChatHistoryProvider())
 context_engine.register(BusinessRuleProvider())
 context_engine.register(CompletedTasksProvider())
-context_engine.register(UserProfileProvider())
+# UserProfileProvider 已由 memory.py:prepare_initial_state() 第488行覆盖，跳过避免重复注入
+# context_engine.register(UserProfileProvider())
 context_engine.register(CorrectionHistoryProvider())
-context_engine.register(SemanticMemoryProvider())
+# SemanticMemoryProvider 已由 memory.py:prepare_initial_state() 第554行覆盖，跳过避免重复注入
+# context_engine.register(SemanticMemoryProvider())
 context_engine.register(KnowledgeBaseProvider())

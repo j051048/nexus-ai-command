@@ -880,6 +880,9 @@ async def execute_node(state: AgentState, config: RunnableConfig | None = None) 
         "_tool_call_history": [_tool_call_fingerprint(completed)],
         # Stop graph when confirmation is needed
         "confirmation_pending": has_confirmation_blocked,
+        # DST: Clear slot context after successful execution
+        "slot_context": None,
+        "slot_round": 0,
     }
 
     if confirmation_response:

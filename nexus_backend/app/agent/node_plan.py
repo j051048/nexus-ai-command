@@ -314,6 +314,24 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             SystemMessage(content=f"[上下文摘要 — 之前的对话和工具结果已压缩]\n{compacted_summary}"),
         )
 
+    # DST: Inject slot_context hint when user provided missing params
+    slot_ctx = state.get("slot_context")
+    if slot_ctx:
+        filled = slot_ctx.get("filled_slots", {})
+        missing = slot_ctx.get("missing_slots", [])
+        filled_str = ", ".join(f"{k}={v}" for k, v in filled.items()) if filled else "无"
+        missing_str = ", ".join(missing)
+        hint = (
+            f"[槽位填充提示] 用户正在补充「{slot_ctx['tool_name']}」工具的参数。\n"
+            f"已有参数: {filled_str}\n"
+            f"缺失参数: {missing_str}\n"
+            f"请根据用户最新回复提取缺失参数值，调用该工具时确保包含所有参数。"
+        )
+        lc_msgs.insert(
+            1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
+            SystemMessage(content=hint),
+        )
+
     # ── Context Engine 集成：统一上下文组装 ──
     # 替代硬编码 RAG 注入，通过 ContextEngine 按优先级和 token 预算获取上下文
     if iteration == 0:
