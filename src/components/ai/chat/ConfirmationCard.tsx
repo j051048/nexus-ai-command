@@ -11,6 +11,57 @@ import {
 } from 'lucide-react';
 import type { ConfirmationRequest } from '@/hooks/useAIStream';
 
+/** 常见参数 key → 中文标签映射 */
+const ARG_LABEL_MAP: Record<string, string> = {
+  content: '内容',
+  title: '标题',
+  priority: '优先级',
+  target: '目标对象',
+  message: '消息',
+  description: '描述',
+  name: '名称',
+  email: '邮箱',
+  phone: '电话',
+  department: '部门',
+  role: '角色',
+  status: '状态',
+  type: '类型',
+  amount: '金额',
+  reason: '原因',
+  date: '日期',
+  time: '时间',
+  location: '地点',
+  assignee: '负责人',
+  deadline: '截止日期',
+  category: '分类',
+  tags: '标签',
+  url: '链接',
+  id: '编号',
+  count: '数量',
+  subject: '主题',
+  body: '正文',
+  recipients: '收件人',
+  cc: '抄送',
+  attachment: '附件',
+  start_time: '开始时间',
+  end_time: '结束时间',
+  duration: '时长',
+  level: '级别',
+  scope: '范围',
+  notify: '是否通知',
+  confirm: '是否确认',
+  remark: '备注',
+  note: '备注',
+  comment: '评论',
+};
+
+/** 将英文 key 转为中文标签（若无映射则美化显示） */
+function localizeArgKey(key: string): string {
+  if (ARG_LABEL_MAP[key]) return ARG_LABEL_MAP[key];
+  // snake_case → 空格分割并首字母大写，作为 fallback
+  return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 interface ConfirmationCardProps {
   confirmation: ConfirmationRequest;
   onConfirm: (modifiedArgs?: Record<string, unknown>) => void;
@@ -133,7 +184,7 @@ export const ConfirmationCard: React.FC<ConfirmationCardProps> = ({
   const style = TIER_STYLES[confirmation.confirmation_type || ''] || DEFAULT_STYLE;
   const Icon = style.icon;
   const needsTypedConfirm = 'requireTypedConfirm' in style && style.requireTypedConfirm;
-  const canConfirm = !needsTypedConfirm || typedConfirm === '确认删除';
+  const canConfirm = !needsTypedConfirm || typedConfirm === '确认执行';
 
   return (
     <div className={`mx-4 mb-2 rounded-xl border ${style.border} ${style.bg} p-4 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
@@ -160,7 +211,7 @@ export const ConfirmationCard: React.FC<ConfirmationCardProps> = ({
                     return (
                       <div key={key} className="flex items-center gap-2">
                         <label className={`text-xs ${style.textColor} min-w-[80px] font-medium shrink-0`}>
-                          {key}
+                          {localizeArgKey(key)}
                         </label>
                         {valType === 'boolean' ? (
                           <select
@@ -168,8 +219,8 @@ export const ConfirmationCard: React.FC<ConfirmationCardProps> = ({
                             value={String(value)}
                             onChange={(e) => setEditedArgs(prev => ({ ...prev, [key]: e.target.value === 'true' }))}
                           >
-                            <option value="true">true</option>
-                            <option value="false">false</option>
+                            <option value="true">是</option>
+                            <option value="false">否</option>
                           </select>
                         ) : valType === 'number' ? (
                           <input
@@ -214,12 +265,12 @@ export const ConfirmationCard: React.FC<ConfirmationCardProps> = ({
           {needsTypedConfirm && (
             <div className="pt-1">
               <p className={`text-xs ${style.labelColor} mb-1`}>
-                请输入 <span className="font-bold">确认删除</span> 以继续
+                请输入 <span className="font-bold">确认执行</span> 以继续
               </p>
               <input
                 type="text"
                 className={`w-48 h-7 px-2 rounded border ${style.inputBorder} ${style.inputBg} text-xs ${style.inputText} focus:outline-none focus:ring-1 focus:ring-red-500`}
-                placeholder="确认删除"
+                placeholder="确认执行"
                 value={typedConfirm}
                 onChange={(e) => setTypedConfirm(e.target.value)}
               />
