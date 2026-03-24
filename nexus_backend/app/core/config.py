@@ -72,10 +72,10 @@ class Settings(BaseSettings):
         default="https://api.apiyi.com/v1",
         description="Base URL for OpenAI-compatible API",
     )
-    AI_DEFAULT_MODEL: str = Field(default="gpt-4o", description="Default AI model for general tasks")
-    AI_MINI_MODEL: str = Field(default="gpt-4o-mini", description="Lightweight model for simple queries")
+    AI_DEFAULT_MODEL: str = Field(default="gemini-3-flash-preview", description="Default AI model for general tasks")
+    AI_MINI_MODEL: str = Field(default="gemini-3-flash-preview", description="Lightweight model for simple queries")
     AI_STRONG_MODEL: str = Field(
-        default="",
+        default="gemini-3-flash-preview",
         description="Strong model for complex/flagship tasks. When user's saved model is weak (mini/flash/turbo), "
         "power/flagship tier auto-upgrades to this. Falls back to AI_DEFAULT_MODEL if empty.",
     )

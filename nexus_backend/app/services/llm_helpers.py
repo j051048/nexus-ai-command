@@ -13,12 +13,17 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 # Model codes too weak for power/flagship complexity tasks
-_WEAK_MODEL_PATTERNS = {"mini", "flash", "turbo", "haiku", "lite"}
+_WEAK_MODEL_PATTERNS = {"mini", "turbo", "haiku", "lite"}
 _WEAK_MODEL_CODES = {"deepseek-chat", "qwen-plus-latest"}
+
+# Models that contain weak-sounding substrings but are actually capable
+_STRONG_MODEL_OVERRIDES = {"gemini-3-flash-preview", "gemini-2.0-flash", "gemini-2.5-flash-preview-05-20"}
 
 
 def is_weak_model(model_name: str) -> bool:
     """Check if a model is too weak for power/flagship tier tasks."""
+    if model_name in _STRONG_MODEL_OVERRIDES:
+        return False
     lower = model_name.lower()
     if any(p in lower for p in _WEAK_MODEL_PATTERNS):
         return True

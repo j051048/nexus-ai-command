@@ -195,7 +195,7 @@ class AgentConfig(BaseModel):
         from app.services.llm_helpers import is_weak_model
         if is_weak_model(model):
             from app.core.config import settings as _settings
-            fallback = getattr(_settings, "AI_STRONG_MODEL", "") or getattr(_settings, "AI_DEFAULT_MODEL", "gpt-4o")
+            fallback = getattr(_settings, "AI_STRONG_MODEL", "") or getattr(_settings, "AI_DEFAULT_MODEL", "gemini-3-flash-preview")
             logger.info(
                 "Weak model '%s' for %s tier, upgrading to '%s'",
                 model, tier, fallback,
