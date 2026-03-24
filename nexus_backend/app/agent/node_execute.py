@@ -247,6 +247,26 @@ from app.agent.node_helpers import (
 )
 from app.services.plugin_system_service import ExtensionPoint
 from app.agent.symbolic_guard import check_symbolic_policy
+from app.services.agent_trace_service import agent_trace_service
+
+
+def _log_decision(trace_id: str | None, step_id: str, decision: str, reasoning: str, alternatives: list[str] | None = None):
+    """Log a structured decision to the agent trace (fire-and-forget, never raises)."""
+    if not trace_id:
+        return
+    try:
+        agent_trace_service.add_step(
+            trace_id=trace_id,
+            step_id=step_id,
+            node_type="decision",
+            output_data={
+                "decision": decision,
+                "reasoning": reasoning,
+                "alternatives": alternatives or [],
+            },
+        )
+    except Exception:
+        pass  # Never block agent flow for tracing
 
 
 def _topological_sort(pending: list) -> list[list]:
@@ -347,6 +367,7 @@ async def _execute_single_tool(
     config: AgentConfig,
     _idempotency_cache: dict = None,
     prior_completed_tools: set[str] | None = None,
+    trace_id: str | None = None,
 ) -> ToolCallRecord:
     """Execute a single tool with RBAC, confirmation gates, circuit breaker, idempotency, and retry."""
     # Evict old cache entries to prevent unbounded memory growth
@@ -406,6 +427,8 @@ async def _execute_single_tool(
             role_label = {"boss": "领导", "manager": "管理者", "admin": "管理员"}.get(tool.required_role, tool.required_role)
             record.status = "blocked"
             record.result = f"⛔ 权限不足: 工具 [{record.tool_name}] 需要{role_label}权限，当前角色为 [{config.user_role}]。"
+            _log_decision(trace_id, f"exec_rbac_{record.tool_name}", "blocked_rbac",
+                          f"用户角色{config.user_role}(level={user_level}) < 工具要求{tool.required_role}(level={req_level})")
             return record
 
     # 2. Confirmation Gate (irreversible operations)
@@ -414,6 +437,8 @@ async def _execute_single_tool(
         record.status = "blocked"
         record.result = confirmation_msg
         record.confirmation_type = confirmation_type
+        _log_decision(trace_id, f"exec_confirm_{record.tool_name}", "blocked_confirmation",
+                      f"不可逆操作需确认: type={confirmation_type}")
         return record
 
     # 2a. Query Result Cache — skip execution for read-only tools with same args
@@ -486,6 +511,8 @@ async def _execute_single_tool(
             record.status = "error"
             record.error_type = "fatal"
             record.result = f"⛔ [策略拦截] {policy_verdict.reason}"
+        _log_decision(trace_id, f"exec_policy_{record.tool_name}", f"blocked_policy({policy_verdict.escalation})",
+                      f"策略规则拦截: {policy_verdict.reason}", ["allow", "escalate", "deny"])
         return record
 
     # 5. Execute with configurable timeout and structured retry
@@ -750,6 +777,10 @@ async def execute_node(state: AgentState, config: RunnableConfig | None = None) 
     # P1 Fix: Share a single idempotency cache across all parallel tool executions
     shared_idempotency_cache: dict = {}
 
+    # Extract trace_id for explainability logging
+    _configurable = (config or {}).get("configurable", {}) if isinstance(config, dict) else {}
+    _trace_id = _configurable.get("trace_id")
+
     # Collect previously completed tool names for dependency checking
     prior_completed = {
         getattr(tc, "tool_name", "")
@@ -761,7 +792,7 @@ async def execute_node(state: AgentState, config: RunnableConfig | None = None) 
         layers = _topological_sort(pending)
         completed: list[ToolCallRecord] = []
         for layer in layers:
-            tasks = [_execute_single_tool(record, agent_config, shared_idempotency_cache, prior_completed) for record in layer]
+            tasks = [_execute_single_tool(record, agent_config, shared_idempotency_cache, prior_completed, _trace_id) for record in layer]
             layer_results: list[ToolCallRecord] = await asyncio.wait_for(
                 asyncio.gather(*tasks, return_exceptions=False),
                 timeout=gather_timeout,

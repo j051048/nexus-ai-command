@@ -78,6 +78,25 @@ export function useAIStream({ userId }: UseAIStreamProps) {
     const pendingConfirmationRef = useRef<ConfirmationRequest | null>(null);
     pendingConfirmationRef.current = pendingConfirmation;
 
+    // ── Weak network degradation: online/offline detection ──
+    const [isOffline, setIsOffline] = useState(!navigator.onLine);
+    useEffect(() => {
+        const handleOffline = () => {
+            setIsOffline(true);
+            toast.warning('网络已断开，AI 功能暂时不可用', { id: 'network-status', duration: Infinity });
+        };
+        const handleOnline = () => {
+            setIsOffline(false);
+            toast.success('网络已恢复', { id: 'network-status', duration: 3000 });
+        };
+        window.addEventListener('offline', handleOffline);
+        window.addEventListener('online', handleOnline);
+        return () => {
+            window.removeEventListener('offline', handleOffline);
+            window.removeEventListener('online', handleOnline);
+        };
+    }, []);
+
     /** Tier 1 primary: Zeabur backend directly */
     const getBackendUrl = useCallback(() => {
         let url = import.meta.env.VITE_API_BASE_URL;
@@ -158,7 +177,22 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         };
 
         while (true) {
-            const { done, value } = await reader.read();
+            let readResult: ReadableStreamReadResult<Uint8Array>;
+            try {
+                readResult = await reader.read();
+            } catch (readErr) {
+                // Stream interrupted mid-response (network flicker, server disconnect)
+                if (assistantContent) {
+                    if (rafPending) {
+                        cancelAnimationFrame(rafId);
+                        flushContent();
+                    }
+                    assistantContent += '\n\n⚠️ 网络中断，回复可能不完整。请检查网络后重试。';
+                    onUpdate?.(assistantContent, assistantMsgId);
+                }
+                throw readErr;
+            }
+            const { done, value } = readResult;
             if (done) break;
 
             textBuffer += decoder.decode(value, { stream: true });
@@ -733,6 +767,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         circuitBreak,
         quotaInfo,
         followUpSuggestions,
+        isOffline,
         streamChat,
         stopStream,
         confirmAndResend,

@@ -63,6 +63,9 @@ class SemanticCacheService:
         # Redis client (lazy init)
         self._redis = None
         self._redis_init_attempted = False
+        # ── Cache stats (in-memory counters for observability) ──
+        self._hits = 0
+        self._misses = 0
 
     async def _resolve_embedding_model(self):
         """Resolve embedding model via gateway (cached after first call)."""
@@ -189,6 +192,7 @@ class SemanticCacheService:
                     if cached_val:
                         logger.info(f"Semantic Cache Redis-Hit: query='{query[:30]}...'")
                         record_cache_hit()
+                        self._hits += 1
                         return cached_val
                 except Exception:
                     pass  # Redis failure is non-fatal
@@ -221,6 +225,7 @@ class SemanticCacheService:
                     except Exception:
                         pass
                 record_cache_hit()
+                self._hits += 1
                 return hash_res.data["response_text"]
 
             # --- Slow path: vector similarity search ---
@@ -260,13 +265,16 @@ class SemanticCacheService:
                     except Exception:
                         pass
                 record_cache_hit()
+                self._hits += 1
                 return match["response_text"]
 
             record_cache_miss()
+            self._misses += 1
             return None
         except Exception as e:
             logger.warning(f"Semantic cache lookup failed: {e}")
             record_cache_miss()
+            self._misses += 1
             return None
 
     async def set_cache(self, query: str, response_text: str, user_id: str):
@@ -470,6 +478,50 @@ class SemanticCacheService:
             logger.warning(f"Failed to keyword-invalidate cache: {e}")
 
         return deleted
+
+    # ── Observability: cache stats ──
+
+    def get_stats(self) -> dict:
+        """Return in-memory cache hit/miss stats for monitoring."""
+        total = self._hits + self._misses
+        return {
+            "hits": self._hits,
+            "misses": self._misses,
+            "total": total,
+            "hit_rate": round(self._hits / total, 4) if total > 0 else 0.0,
+            "ttl_hours": self.ttl_hours,
+            "threshold": self.threshold,
+        }
+
+    # ── Maintenance: TTL-based expired entry cleanup ──
+
+    async def cleanup_expired(self) -> int:
+        """Delete cache entries older than TTL. Returns count of deleted rows.
+
+        Call periodically (e.g. daily via scheduled task) to prevent unbounded
+        table growth. Redis entries expire automatically via TTL.
+        """
+        if not supabase:
+            return 0
+        cutoff = self._ttl_cutoff()
+        try:
+            # Fetch expired entry count first for logging
+            rows = (
+                await supabase.table("semantic_cache")
+                .select("id", count="exact")
+                .lt("created_at", cutoff)
+                .execute()
+            )
+            count = rows.count or 0
+            if count == 0:
+                return 0
+            # Delete expired entries
+            await supabase.table("semantic_cache").delete().lt("created_at", cutoff).execute()
+            logger.info(f"[SemanticCache] Cleaned up {count} expired entries (TTL={self.ttl_hours}h)")
+            return count
+        except Exception as e:
+            logger.warning(f"Failed to cleanup expired cache entries: {e}")
+            return 0
 
 
 semantic_cache_service = SemanticCacheService()

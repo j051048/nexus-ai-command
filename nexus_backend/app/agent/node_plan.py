@@ -31,6 +31,26 @@ from app.agent.node_helpers import (
     run_hooks,
 )
 from app.services.plugin_system_service import ExtensionPoint
+from app.services.agent_trace_service import agent_trace_service
+
+
+def _log_decision(trace_id: str | None, step_id: str, decision: str, reasoning: str, alternatives: list[str] | None = None):
+    """Log a structured decision to the agent trace (fire-and-forget, never raises)."""
+    if not trace_id:
+        return
+    try:
+        agent_trace_service.add_step(
+            trace_id=trace_id,
+            step_id=step_id,
+            node_type="decision",
+            output_data={
+                "decision": decision,
+                "reasoning": reasoning,
+                "alternatives": alternatives or [],
+            },
+        )
+    except Exception:
+        pass  # Never block agent flow for tracing
 
 
 async def _plan_with_self_consistency(
@@ -488,6 +508,21 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             **bind_kwargs,
         )
 
+    # ── Explainability: log tool binding decision ──
+    _configurable_early = (config or {}).get("configurable", {}) if isinstance(config, dict) else {}
+    _trace_id = _configurable_early.get("trace_id")
+    _tool_choice_mode = bind_kwargs.get("tool_choice", "auto") if complexity != QueryComplexity.SIMPLE else "simple_only"
+    _log_decision(
+        _trace_id,
+        step_id=f"plan_tool_binding_iter{iteration}",
+        decision=f"tool_choice={_tool_choice_mode}, complexity={complexity.value}",
+        reasoning=(
+            "SIMPLE查询仅绑定轻量工具" if complexity == QueryComplexity.SIMPLE
+            else f"绑定完整工具集, tool_choice={'required(反思强制)' if bind_kwargs.get('tool_choice') == 'required' else 'auto'}"
+        ),
+        alternatives=["bind_no_tools", "bind_simple_only", "bind_all_tools"],
+    )
+
     thinking_step = ThinkingStep(
         phase=AgentPhase.PLANNING.value,
         content=f"正在分析意图并规划执行路径... (轮次 {iteration + 1})",
@@ -869,6 +904,17 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         "total_input_tokens": state.get("total_input_tokens", 0) + input_tokens,
         "total_output_tokens": state.get("total_output_tokens", 0) + output_tokens,
     }
+
+    # ── Explainability: log plan outcome decision ──
+    _log_decision(
+        _trace_id,
+        step_id=f"plan_outcome_iter{iteration}",
+        decision=f"tools={[t.tool_name for t in pending_tools]}" if pending_tools else "direct_response",
+        reasoning=(
+            f"LLM规划了{len(pending_tools)}个工具调用" if pending_tools
+            else f"LLM直接回复(无工具), 内容长度={len(content)}"
+        ),
+    )
 
     # ToT: Store self-consistency candidates for backtracking (only on first CRITICAL iteration)
     if _sc_succeeded and sc_candidates:

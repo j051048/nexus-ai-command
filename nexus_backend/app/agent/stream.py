@@ -676,7 +676,7 @@ async def run_agent_stream(
                 async for event in _with_keepalive(_agent_graph.astream_events(
                     initial_state,
                     thread_id=fresh_thread,
-                    config={"configurable": {"trace_logger": tracer}},
+                    config={"configurable": {"trace_logger": tracer, "trace_id": _trace_id}},
                     version="v2",
                 )):
                     if event is None:
