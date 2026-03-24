@@ -141,7 +141,7 @@ class ChatService:
         # 2. System-level Confirmation Gate (P0 Fix #10)
         # This runs BEFORE the tool's own logic, preventing LLM from bypassing confirm
         # P0 Fix #2: Pass system_confirmed to strict check
-        confirmation_msg = tool.check_confirmation(args, system_confirmed=system_confirmed)
+        confirmation_msg, _confirmation_type = tool.check_confirmation(args, system_confirmed=system_confirmed)
         if confirmation_msg is not None:
             logger.info(f"[HITL Gate] Tool {name} blocked - awaiting user confirmation")
             return confirmation_msg

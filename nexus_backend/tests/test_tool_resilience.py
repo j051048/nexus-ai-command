@@ -120,7 +120,7 @@ class TestToolTimeout:
         config = AgentConfig(
             user_id="user-001",
             api_key="sk-fake",
-            tool_timeout=0.1,  # 非常短的超时
+            tool_timeout=1,  # 非常短的超时
         )
 
         record = ToolCallRecord(
@@ -364,7 +364,7 @@ class TestExecuteNodeTimeout:
         config = AgentConfig(
             user_id="user-008",
             api_key="sk-fake",
-            gather_timeout=0.01,  # 极短超时
+            gather_timeout=1,  # 极短超时
         )
 
         pending = [
@@ -383,7 +383,7 @@ class TestExecuteNodeTimeout:
         }
 
         # 模拟一个慢工具
-        async def slow_execute(record, config, cache=None):
+        async def slow_execute(record, config, cache=None, prior_completed=None, trace_id=None):
             await asyncio.sleep(100)
             return record
 

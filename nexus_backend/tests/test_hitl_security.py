@@ -123,7 +123,7 @@ class TestConfirmationGate:
     def test_irreversible_tool_blocked_without_confirmation(self):
         """不可逆工具在未确认时应被阻止"""
         tool = MockIrreversibleTool()
-        result = tool.check_confirmation(args={"id": "req-001"}, system_confirmed=False)
+        result, _type = tool.check_confirmation(args={"id": "req-001"}, system_confirmed=False)
 
         assert result is not None  # 非 None 表示需要确认
         assert "不可逆" in result or "确认" in result
@@ -131,14 +131,14 @@ class TestConfirmationGate:
     def test_irreversible_tool_allowed_with_confirmation(self):
         """不可逆工具在 system_confirmed=True 时应允许"""
         tool = MockIrreversibleTool()
-        result = tool.check_confirmation(args={"id": "req-001"}, system_confirmed=True)
+        result, _type = tool.check_confirmation(args={"id": "req-001"}, system_confirmed=True)
 
         assert result is None  # None 表示允许执行
 
     def test_high_value_blocked_without_confirmation(self):
         """高金额操作在未确认时应被阻止"""
         tool = MockNormalTool()
-        result = tool.check_confirmation(
+        result, _type = tool.check_confirmation(
             args={"amount": 100000},  # 超过 50000 阈值
             system_confirmed=False,
         )
@@ -149,7 +149,7 @@ class TestConfirmationGate:
     def test_high_value_allowed_with_confirmation(self):
         """高金额操作在确认后应允许"""
         tool = MockNormalTool()
-        result = tool.check_confirmation(
+        result, _type = tool.check_confirmation(
             args={"amount": 100000},
             system_confirmed=True,
         )
@@ -159,7 +159,7 @@ class TestConfirmationGate:
     def test_normal_amount_not_blocked(self):
         """正常金额不应被阻止"""
         tool = MockNormalTool()
-        result = tool.check_confirmation(
+        result, _type = tool.check_confirmation(
             args={"amount": 1000},  # 低于阈值
             system_confirmed=False,
         )
@@ -169,7 +169,7 @@ class TestConfirmationGate:
     def test_bulk_operation_blocked(self):
         """批量操作 (>5 条记录) 在未确认时应被阻止"""
         tool = MockNormalTool()
-        result = tool.check_confirmation(
+        result, _type = tool.check_confirmation(
             args={"ids": ["1", "2", "3", "4", "5", "6"]},  # 6 条记录
             system_confirmed=False,
         )
@@ -180,7 +180,7 @@ class TestConfirmationGate:
     def test_bulk_operation_under_threshold_not_blocked(self):
         """少量批量操作不应被阻止"""
         tool = MockNormalTool()
-        result = tool.check_confirmation(
+        result, _type = tool.check_confirmation(
             args={"ids": ["1", "2", "3"]},  # 3 条, 低于 5 阈值
             system_confirmed=False,
         )
@@ -190,7 +190,7 @@ class TestConfirmationGate:
     def test_bulk_operation_allowed_with_confirmation(self):
         """批量操作在确认后应允许"""
         tool = MockNormalTool()
-        result = tool.check_confirmation(
+        result, _type = tool.check_confirmation(
             args={"ids": ["1", "2", "3", "4", "5", "6"]},
             system_confirmed=True,
         )
@@ -211,7 +211,7 @@ class TestLLMCannotForgeConfirmation:
         tool = MockIrreversibleTool()
 
         # LLM 试图在参数中传入 confirm=True
-        result = tool.check_confirmation(
+        result, _type = tool.check_confirmation(
             args={"id": "req-001", "confirm": True},
             system_confirmed=False,  # 系统层面未确认
         )
@@ -223,7 +223,7 @@ class TestLLMCannotForgeConfirmation:
         """args 中的 confirmed=True 不应绕过系统确认"""
         tool = MockIrreversibleTool()
 
-        result = tool.check_confirmation(
+        result, _type = tool.check_confirmation(
             args={"id": "req-001", "confirmed": True},
             system_confirmed=False,
         )
@@ -235,14 +235,14 @@ class TestLLMCannotForgeConfirmation:
         tool = MockIrreversibleTool()
 
         # 系统确认 + LLM 参数 -> 放行
-        result_confirmed = tool.check_confirmation(
+        result_confirmed, _type = tool.check_confirmation(
             args={"id": "req-001", "confirm": False},
             system_confirmed=True,
         )
         assert result_confirmed is None
 
         # 系统未确认 + LLM 声称确认 -> 阻止
-        result_not_confirmed = tool.check_confirmation(
+        result_not_confirmed, _type = tool.check_confirmation(
             args={"id": "req-001", "confirm": True},
             system_confirmed=False,
         )
@@ -296,6 +296,7 @@ class TestRBAC:
             user_id="user-002",
             user_role="manager",
             api_key="sk-fake",
+            org_id="org-001",
             system_confirmed=True,
         )
 
@@ -367,7 +368,7 @@ class TestConfirmationThresholds:
     def test_exactly_at_threshold_blocked(self):
         """金额恰好等于阈值时应被阻止"""
         tool = MockNormalTool()
-        result = tool.check_confirmation(
+        result, _type = tool.check_confirmation(
             args={"amount": 50000},
             system_confirmed=False,
         )
@@ -376,7 +377,7 @@ class TestConfirmationThresholds:
     def test_just_below_threshold_allowed(self):
         """金额略低于阈值时应允许"""
         tool = MockNormalTool()
-        result = tool.check_confirmation(
+        result, _type = tool.check_confirmation(
             args={"amount": 49999},
             system_confirmed=False,
         )

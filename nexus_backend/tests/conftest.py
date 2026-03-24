@@ -60,9 +60,16 @@ class MockQueryBuilder:
         return self._clone()
 
     def insert(self, data, **kwargs):
+        # Auto-generate 'id' for inserted records if missing (mimics Supabase RETURNING *)
+        import uuid as _uuid
         if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict) and "id" not in item:
+                    item["id"] = str(_uuid.uuid4())[:8]
             return self._clone(data=data)
         else:
+            if isinstance(data, dict) and "id" not in data:
+                data["id"] = str(_uuid.uuid4())[:8]
             return self._clone(data=[data])
 
     def update(self, data, **kwargs):

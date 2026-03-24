@@ -151,7 +151,7 @@ class TestCRMToolsE2E:
         tool = _load_tool("get_customers")
         _assert_tool_metadata(tool)
 
-        with patch("app.tools.crm_tools.supabase", mock_db):
+        with patch("app.tools.crm_tools._get_client", return_value=mock_db):
             result = await tool.run({"limit": 10}, USER_ID, tool_config)
 
         assert isinstance(result, str)
@@ -162,7 +162,7 @@ class TestCRMToolsE2E:
         """查询客户列表 — 按阶段筛选"""
         tool = _load_tool("get_customers")
 
-        with patch("app.tools.crm_tools.supabase", mock_db):
+        with patch("app.tools.crm_tools._get_client", return_value=mock_db):
             result = await tool.run({"stage": "qualified"}, USER_ID, tool_config)
 
         assert isinstance(result, str)
@@ -180,7 +180,7 @@ class TestCRMToolsE2E:
             "stage": "new",
         }
 
-        with patch("app.tools.crm_tools.supabase", mock_db):
+        with patch("app.tools.crm_tools._get_client", return_value=mock_db):
             result = await tool.run(args, USER_ID, tool_config)
 
         assert isinstance(result, str)
@@ -196,7 +196,7 @@ class TestCRMToolsE2E:
             "new_stage": "proposal",
         }
 
-        with patch("app.tools.crm_tools.supabase", mock_db):
+        with patch("app.tools.crm_tools._get_client", return_value=mock_db):
             result = await tool.run(args, USER_ID, tool_config)
 
         assert isinstance(result, str)
@@ -216,7 +216,7 @@ class TestApprovalToolsE2E:
         tool = _load_tool("get_pending_approvals")
         _assert_tool_metadata(tool)
 
-        with patch("app.tools.approval_tools.supabase", mock_db):
+        with patch("app.tools.approval_tools._get_client", return_value=mock_db):
             result = await tool.run({}, MANAGER_USER_ID, tool_config)
 
         assert isinstance(result, str)
@@ -229,8 +229,8 @@ class TestApprovalToolsE2E:
         assert tool.is_irreversible, "approve_request should be irreversible"
 
         # 未确认时应返回确认提示
-        preview = tool.check_confirmation({"approval_id": "appr-001"}, system_confirmed=False)
-        assert preview is not None, "Should require confirmation when not confirmed"
+        confirmation_msg, confirmation_type = tool.check_confirmation({"approval_id": "appr-001"}, system_confirmed=False)
+        assert confirmation_msg is not None, "Should require confirmation when not confirmed"
 
     @pytest.mark.asyncio
     async def test_reject_request_requires_confirmation(self, mock_db, tool_config):
@@ -239,11 +239,11 @@ class TestApprovalToolsE2E:
         _assert_tool_metadata(tool)
         assert tool.is_irreversible, "reject_request should be irreversible"
 
-        preview = tool.check_confirmation(
+        confirmation_msg, confirmation_type = tool.check_confirmation(
             {"approval_id": "appr-001", "reason": "金额异常"},
             system_confirmed=False,
         )
-        assert preview is not None
+        assert confirmation_msg is not None
 
     @pytest.mark.asyncio
     async def test_approve_request_confirmed(self, mock_db, tool_config):
@@ -251,8 +251,8 @@ class TestApprovalToolsE2E:
         tool = _load_tool("approve_request")
 
         # 已确认时 check_confirmation 应返回 None
-        preview = tool.check_confirmation({"approval_id": "appr-001"}, system_confirmed=True)
-        assert preview is None, "Should allow when system_confirmed=True"
+        confirmation_msg, confirmation_type = tool.check_confirmation({"approval_id": "appr-001"}, system_confirmed=True)
+        assert confirmation_msg is None, "Should allow when system_confirmed=True"
 
     @pytest.mark.asyncio
     async def test_submit_approval_on_behalf(self, mock_db, tool_config):
@@ -266,7 +266,7 @@ class TestApprovalToolsE2E:
             "description": "办公用品采购",
         }
 
-        with patch("app.tools.approval_tools.supabase", mock_db):
+        with patch("app.tools.approval_tools._get_client", return_value=mock_db):
             result = await tool.run(args, USER_ID, tool_config)
 
         assert isinstance(result, str)
@@ -286,7 +286,7 @@ class TestHRToolsE2E:
         tool = _load_tool("query_attendance")
         _assert_tool_metadata(tool)
 
-        with patch("app.tools.hr_tools.supabase", mock_db):
+        with patch("app.tools.hr_tools._get_client", return_value=mock_db):
             result = await tool.run({"query_type": "my_record"}, USER_ID, tool_config)
 
         assert isinstance(result, str)
@@ -297,7 +297,7 @@ class TestHRToolsE2E:
         tool = _load_tool("query_team_attendance")
         _assert_tool_metadata(tool)
 
-        with patch("app.tools.hr_tools.supabase", mock_db):
+        with patch("app.tools.hr_tools._get_client", return_value=mock_db):
             result = await tool.run({}, MANAGER_USER_ID, tool_config)
 
         assert isinstance(result, str)
@@ -308,7 +308,7 @@ class TestHRToolsE2E:
         tool = _load_tool("get_employee_profile")
         _assert_tool_metadata(tool)
 
-        with patch("app.tools.hr_tools.supabase", mock_db):
+        with patch("app.tools.hr_tools._get_client", return_value=mock_db):
             result = await tool.run({}, USER_ID, tool_config)
 
         assert isinstance(result, str)
@@ -335,7 +335,7 @@ class TestFinanceToolsE2E:
             "expense_date": "2026-03-10",
         }
 
-        with patch("app.tools.finance_tools.supabase", mock_db):
+        with patch("app.tools.finance_tools._get_client", return_value=mock_db):
             result = await tool.run(args, USER_ID, tool_config)
 
         assert isinstance(result, str)
@@ -346,7 +346,7 @@ class TestFinanceToolsE2E:
         tool = _load_tool("query_expense_status")
         _assert_tool_metadata(tool)
 
-        with patch("app.tools.finance_tools.supabase", mock_db):
+        with patch("app.tools.finance_tools._get_client", return_value=mock_db):
             result = await tool.run({}, USER_ID, tool_config)
 
         assert isinstance(result, str)
@@ -357,7 +357,7 @@ class TestFinanceToolsE2E:
         tool = _load_tool("query_budget")
         _assert_tool_metadata(tool)
 
-        with patch("app.tools.finance_tools.supabase", mock_db):
+        with patch("app.tools.finance_tools._get_client", return_value=mock_db):
             result = await tool.run({}, USER_ID, tool_config)
 
         assert isinstance(result, str)
@@ -368,13 +368,13 @@ class TestFinanceToolsE2E:
         tool = _load_tool("create_expense_claim")
 
         # 超过阈值 50000 应触发高额确认
-        preview = tool.check_confirmation(
+        confirmation_msg, confirmation_type = tool.check_confirmation(
             {"expense_type": "travel", "amount": 60000},
             system_confirmed=False,
         )
         # 即使工具本身不是 is_irreversible，高额也应触发
-        if preview:
-            assert "确认" in preview or "大额" in preview
+        if confirmation_msg:
+            assert "确认" in confirmation_msg or "大额" in confirmation_msg
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -393,7 +393,7 @@ class TestKnowledgeToolsE2E:
 
         args = {"query": "销售流程"}
 
-        with patch("app.tools.operational_tools.supabase", mock_db):
+        with patch("app.tools.operational_tools._get_client", return_value=mock_db):
             result = await tool.run(args, USER_ID, tool_config)
 
         assert isinstance(result, str)
@@ -450,7 +450,7 @@ class TestReportToolsE2E:
         tool = _load_tool("generate_weekly_report")
         _assert_tool_metadata(tool)
 
-        with patch("app.tools.project_tools.supabase", mock_db):
+        with patch("app.tools.project_tools._get_client", return_value=mock_db):
             result = await tool.run({}, USER_ID, tool_config)
 
         assert isinstance(result, str)
@@ -461,7 +461,7 @@ class TestReportToolsE2E:
         tool = _load_tool("get_performance_report")
         _assert_tool_metadata(tool)
 
-        with patch("app.tools.operational_tools.supabase", mock_db):
+        with patch("app.tools.operational_tools._get_client", return_value=mock_db):
             result = await tool.run({}, USER_ID, tool_config)
 
         assert isinstance(result, str)
@@ -562,24 +562,24 @@ class TestNegativeValidation:
     def test_irreversible_tool_blocked_without_confirmation(self):
         """不可逆工具在未确认时应被拦截"""
         tool = _load_tool("approve_request")
-        preview = tool.check_confirmation({"approval_id": "test"}, system_confirmed=False)
-        assert preview is not None
-        assert "确认" in preview
+        confirmation_msg, confirmation_type = tool.check_confirmation({"approval_id": "test"}, system_confirmed=False)
+        assert confirmation_msg is not None
+        assert "确认" in confirmation_msg
 
     def test_irreversible_tool_allowed_with_confirmation(self):
         """不可逆工具在已确认时应放行"""
         tool = _load_tool("approve_request")
-        preview = tool.check_confirmation({"approval_id": "test"}, system_confirmed=True)
-        assert preview is None
+        confirmation_msg, confirmation_type = tool.check_confirmation({"approval_id": "test"}, system_confirmed=True)
+        assert confirmation_msg is None
 
     def test_bulk_operation_triggers_confirmation(self):
         """批量操作超过阈值应触发确认"""
         tool = _load_tool("approve_request")
-        preview = tool.check_confirmation(
+        confirmation_msg, confirmation_type = tool.check_confirmation(
             {"approval_id": "test", "ids": ["a", "b", "c", "d", "e"]},
             system_confirmed=False,
         )
-        assert preview is not None
+        assert confirmation_msg is not None
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
