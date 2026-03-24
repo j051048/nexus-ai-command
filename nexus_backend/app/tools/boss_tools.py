@@ -969,16 +969,19 @@ class AnnouncementTool(BaseTool):
         "required": ["title", "content"],
     }
 
-    def check_confirmation(self, args: dict[str, Any], system_confirmed: bool = False) -> str | None:
+    def check_confirmation(self, args: dict[str, Any], system_confirmed: bool = False) -> tuple[str | None, str]:
         """Only require confirmation for all-staff or urgent announcements."""
         target = args.get("target", "all")
         priority = args.get("priority", "normal")
         if target == "all" or priority == "urgent":
             if system_confirmed:
-                return None
+                return None, ""
             scope = "全员" if target == "all" else "紧急"
-            return f"⚠️ 操作需要确认:\n🔒 {scope}通知将发送给所有目标用户，发布后不可撤回。\n请确认后再执行。"
-        return None
+            return (
+                f"⚠️ 操作需要确认:\n🔒 {scope}通知将发送给所有目标用户，发布后不可撤回。\n请确认后再执行。",
+                "irreversible",
+            )
+        return None, ""
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         title = args.get("title")
