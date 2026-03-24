@@ -410,7 +410,7 @@ class MeetingBookingTool(BaseTool):
     description = "预约会议室并向参会人发送会议邀请通知。当用户说'约个会'、'开会'、'预约会议室'时调用。"
     required_role = "all"
     examples = [
-        {"input": {"title": "周会", "datetime": "明天下午3点", "attendees": ["张三", "李四"]}, "output_summary": "预约会议室并通知张三、李四"},
+        {"input": {"title": "周会", "datetime": "明天下午3点", "attendees": ["[姓名A]", "[姓名B]"]}, "output_summary": "预约会议室并通知参会人"},
         {"input": {"title": "产品评审", "datetime": "2026-03-25 14:00", "attendees": ["王五"], "room_preference": "large"}, "output_summary": "预约大型会议室并通知参会人"},
     ]
     related_tools = ["assign_task", "send_notification"]
@@ -585,8 +585,8 @@ class TaskAssignmentTool(BaseTool):
     description = "创建任务并分配给指定人员。当用户说'安排个任务'、'让某某做某事'时调用。"
     required_role = "all"
     examples = [
-        {"input": {"title": "准备季度报告", "assignee": "张三", "due_date": "2026-03-28", "priority": "high"}, "output_summary": "创建高优先级任务并通知张三"},
-        {"input": {"title": "更新文档", "assignee": "李四"}, "output_summary": "创建默认优先级任务，截止日期默认3天后"},
+        {"input": {"title": "准备报告", "assignee": "[姓名]", "due_date": "2026-03-28", "priority": "high"}, "output_summary": "创建高优先级任务并通知负责人"},
+        {"input": {"title": "更新文档", "assignee": "[姓名]"}, "output_summary": "创建默认优先级任务，截止日期默认3天后"},
     ]
     related_tools = ["create_work_handover", "book_meeting", "send_notification"]
     gotchas = "负责人姓名必须是同组织内的有效用户。未指定截止日期时默认3天后。优先级可选值为 low/medium/high/urgent。"
@@ -797,7 +797,7 @@ class OnboardingChecklistTool(BaseTool):
     description = "根据岗位类型自动生成新员工入职清单并创建对应任务。当用户说'入职清单'、'新员工入职'时调用。需要经理权限。"
     required_role = "manager"
     examples = [
-        {"input": {"job_title": "前端工程师", "department": "技术部", "employee_name": "张三"}, "output_summary": "生成8-12项入职待办任务，含入职前准备、第一天、第一周等"},
+        {"input": {"job_title": "工程师", "department": "部门", "employee_name": "[员工姓名]"}, "output_summary": "生成入职待办任务清单"},
         {"input": {"job_title": "销售经理"}, "output_summary": "根据岗位生成入职清单，使用默认员工名和部门"},
     ]
     related_tools = ["assign_task"]
@@ -897,7 +897,7 @@ class SendNotificationTool(BaseTool):
     required_role = "all"
     is_irreversible = True  # HITL: 发送通知后无法撤回，属于外部副作用操作
     examples = [
-        {"input": {"recipient_name": "张三", "content": "明天上午记得交报告"}, "output_summary": "向张三发送站内通知"},
+        {"input": {"recipient_name": "[姓名]", "content": "记得交报告"}, "output_summary": "向指定人员发送站内通知"},
         {"input": {"recipient_name": "李经理", "content": "客户已确认合同", "priority": "important"}, "output_summary": "向李经理发送重要通知"},
     ]
     related_tools = ["assign_task", "book_meeting"]

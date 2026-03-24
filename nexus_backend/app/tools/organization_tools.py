@@ -246,7 +246,7 @@ class ListEmployeesTool(BaseTool):
     description = "查询员工花名册，支持按部门、职位、状态和关键词筛选。当用户说'查看员工'、'员工列表'、'有哪些员工'时调用。"
     examples = [
         {"input": {"department_id": "abc123..."}, "output_summary": "返回指定部门的员工列表"},
-        {"input": {"status": "active", "search": "张"}, "output_summary": "返回姓张的在职员工列表"},
+                {"input": {"status": "active", "search": "[关键词]"}, "output_summary": "返回符合条件的在职员工列表"},
     ]
     related_tools = ["get_employee_detail", "create_employee", "update_employee"]
     gotchas = "search 按姓名、手机、邮箱模糊匹配。所有ID参数必须是合法UUID。"
@@ -396,8 +396,8 @@ class CreateEmployeeTool(BaseTool):
     description = "创建新员工并完成入职登记。当用户说'创建员工'、'新员工入职'、'录入员工'时调用。"
     required_role = "admin"
     examples = [
-        {"input": {"name": "张三", "department_id": "abc123..."}, "output_summary": "创建员工张三并分配到指定部门"},
-        {"input": {"name": "李四", "department_id": "abc123...", "phone": "13800138000", "hire_date": "2026-03-01"}, "output_summary": "创建员工李四并填写手机号和入职日期"},
+                {"input": {"name": "[姓名]", "department_id": "[ID]"}, "output_summary": "创建员工并分配到指定部门"},
+        {"input": {"name": "[姓名]", "phone": "138xxxxxxxx", "hire_date": "2026-03-01"}, "output_summary": "创建员工并填写手机号和入职日期"},
     ]
     related_tools = ["list_employees", "update_employee", "list_departments"]
     gotchas = "name 和 department_id 为必填项。department_id 必须是已存在的部门UUID。"

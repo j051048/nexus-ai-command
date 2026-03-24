@@ -24,7 +24,7 @@ class AttendanceQueryTool(BaseTool):
     required_role = "all"
     examples = [
         {"input": {"query_type": "my_record", "month": "2026-03"}, "output_summary": "返回当月个人考勤明细"},
-        {"input": {"query_type": "monthly_summary", "employee_name": "张三"}, "output_summary": "返回张三的月度出勤汇总（需管理者权限）"},
+                {"input": {"query_type": "monthly_summary", "employee_name": "[员工姓名]"}, "output_summary": "返回该员工的月度出勤汇总（需管理者权限）"},
     ]
     related_tools = ["query_team_attendance", "get_employee_profile"]
     gotchas = "非管理者只能查自己的考勤，不能通过 employee_name 查他人。考勤系统暂未接入，当前返回占位提示。"
@@ -393,8 +393,8 @@ class RecruitmentTool(BaseTool):
     description = "管理招聘流程，包含创建职位、查看候选人、安排面试和解析简历。当用户说'招人'、'招聘'、'面试安排'时调用。"
     required_role = "manager"
     examples = [
-        {"input": {"action": "schedule_interview", "candidate_name": "王五", "interview_time": "明天下午3点"}, "output_summary": "安排王五的面试并发送邀请"},
-        {"input": {"action": "parse_resume", "resume_text": "张三，5年Python开发经验..."}, "output_summary": "返回简历的AI结构化分析及匹配度评分"},
+                {"input": {"action": "schedule_interview", "candidate_name": "[候选人]", "interview_time": "明天下午3点"}, "output_summary": "安排候选人的面试并发送邀请"},
+                {"input": {"action": "parse_resume", "resume_text": "本人拥有5年开发经验..."}, "output_summary": "返回简历分析评分"},
     ]
     related_tools = ["get_employee_profile", "create_employee"]
     gotchas = "parse_resume 必须提供 resume_text，会调用大模型分析。候选人管理功能暂未完全开通。"

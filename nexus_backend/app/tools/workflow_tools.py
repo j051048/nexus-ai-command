@@ -45,8 +45,8 @@ class ProcessOnboardingTool(BaseTool):
     )
     domain = "admin"
     examples = [
-        {"input": {"name": "张三", "department_id": "uuid"}, "output_summary": "创建员工→分配电脑→创建工单→通知负责人，返回各步骤结果"},
-        {"input": {"name": "李四", "department_id": "uuid", "asset_type": "laptop", "email": "lisi@example.com"}, "output_summary": "同上流程但分配笔记本并设置邮箱"},
+                {"input": {"name": "[员工姓名]", "department_id": "[ID]"}, "output_summary": "触发自动化流程，返回各步骤执行结果"},
+                {"input": {"name": "[姓名]", "department_id": "[ID]", "asset_type": "laptop"}, "output_summary": "自动化流程并分配资产"},
     ]
     related_tools = ["process_resignation", "onboarding_assistant", "process_asset_lifecycle"]
     gotchas = "不可逆操作，需确认后执行。无闲置设备时会跳过分配步骤而非失败。默认分配类型为电脑。"
