@@ -154,6 +154,7 @@ class AgentConfig(BaseModel):
     system_confirmed: bool = False
     confirmed_tool: dict | None = None  # HITL: {tool_name, args} from blocked call
     org_id: str | None = None
+    token: str = ""  # User JWT for RLS-scoped DB queries in tools
     user_role: str = "employee"
     max_iterations: int = Field(default=5, gt=0, description="Must be > 0")
     max_tokens_per_day: int = Field(default=1_000_000, gt=0, description="Must be > 0")

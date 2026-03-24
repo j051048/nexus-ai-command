@@ -415,8 +415,8 @@ export function EnhancedAIChatPanel({
         const validData = (deletedTaskIds.size > 0 || orphanTaskNames.size > 0)
           ? data.filter((r: ProactiveRow) => {
               if (r.metadata?.source !== 'scheduled_task') return true;
-              if (r.metadata?.task_id && deletedTaskIds.has(r.metadata.task_id)) return false;
-              if (!r.metadata?.task_id && r.metadata?.task_name && orphanTaskNames.has(r.metadata.task_name)) return false;
+              if (r.metadata?.task_id && deletedTaskIds.has(r.metadata.task_id as string)) return false;
+              if (!r.metadata?.task_id && r.metadata?.task_name && orphanTaskNames.has(r.metadata.task_name as string)) return false;
               return true;
             })
           : data;
@@ -626,7 +626,7 @@ export function EnhancedAIChatPanel({
             addToolProgress(progress.tool_name, progress.status, progress.duration_ms);
           },
           onOrchestration: (event) => {
-            handleOrchestrationEvent(event as OrchestrationEvent);
+            handleOrchestrationEvent(event as unknown as OrchestrationEvent);
           },
         },
         {

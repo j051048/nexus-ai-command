@@ -39,14 +39,20 @@ const statusColors = {
 export default function StatusTimeline({ events, title }: StatusTimelineProps) {
   if (!events || events.length === 0) return null;
 
+  // 过滤掉截断的 JSON 导致的不完整 event 对象
+  const validEvents = events.filter(
+    (e) => e && typeof e === 'object' && typeof e.title === 'string'
+  );
+  if (validEvents.length === 0) return null;
+
   return (
     <div className="p-4">
       {title && <h4 className="text-sm font-semibold mb-4">{title}</h4>}
       <div className="relative">
-        {events.map((event, i) => {
+        {validEvents.map((event, i) => {
           const status = event.status || 'info';
           const colors = statusColors[status];
-          const isLast = i === events.length - 1;
+          const isLast = i === validEvents.length - 1;
 
           return (
             <div key={i} className="flex gap-3 pb-4 last:pb-0">

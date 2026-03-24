@@ -109,11 +109,11 @@ class DataAttributionTool(BaseTool):
 
         # 商机阶段分布
         try:
-            leads_res = await client.table("sales_leads").select("status", count="exact").execute()
+            leads_res = await client.table("sales_leads").select("*", count="exact").execute()
             if leads_res.data:
                 status_counts = {}
                 for lead in leads_res.data:
-                    s = lead.get("status", "unknown")
+                    s = lead.get("stage") or lead.get("status") or "unknown"
                     status_counts[s] = status_counts.get(s, 0) + 1
                 data_context.append(f"商机分布: {status_counts}")
         except Exception as e:
@@ -307,11 +307,11 @@ class StrategySimulationTool(BaseTool):
 
         async def _fetch_leads():
             try:
-                res = await client.table("sales_leads").select("status, estimated_value").limit(500).execute()
+                res = await client.table("sales_leads").select("*").limit(500).execute()
                 if res.data:
                     pipeline = {}
                     for lead in res.data:
-                        s = lead.get("status", "unknown")
+                        s = lead.get("stage") or lead.get("status") or "unknown"
                         pipeline[s] = pipeline.get(s, 0) + float(lead.get("estimated_value", 0))
                     return f"销售漏斗: {pipeline}"
             except Exception as e:

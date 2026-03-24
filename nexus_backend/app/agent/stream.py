@@ -152,6 +152,7 @@ async def run_agent_stream(
         confirmed_tool=confirmed_tool,
         user_role=user_role,
         org_id=org_id,
+        token=config.get("token", ""),
         max_iterations=settings.LANGGRAPH_MAX_ITERATIONS,
         tool_timeout=settings.LANGGRAPH_TOOL_TIMEOUT,
         gather_timeout=settings.LANGGRAPH_GATHER_TIMEOUT,

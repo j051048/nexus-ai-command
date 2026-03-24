@@ -135,13 +135,12 @@ class PaymentService:
         if _IS_MOCK:
             return {
                 "platform": "wechat_pay",
-                "status": "mock",
+                "mode": "sandbox",
                 "qr_code_url": f"https://mock-wechat-pay.example.com/qr/{order_id}",
                 "message": "微信支付即将上线，当前为演示模式",
                 "order_id": order_id,
                 "amount": amount,
                 "expire_minutes": 30,
-                "_dev_mode": True,
             }
 
         # TODO: 真实微信支付统一下单 API
@@ -172,13 +171,12 @@ class PaymentService:
         if _IS_MOCK:
             return {
                 "platform": "alipay",
-                "status": "mock",
+                "mode": "sandbox",
                 "pay_url": f"https://mock-alipay.example.com/pay/{order_id}",
                 "message": "支付宝支付即将上线，当前为演示模式",
                 "order_id": order_id,
                 "amount": amount,
                 "expire_minutes": 30,
-                "_dev_mode": True,
             }
 
         # TODO: 真实支付宝下单 API
@@ -337,16 +335,27 @@ class PaymentService:
     async def get_bank_transfer_info(self, org_id: str, plan_id: str) -> dict:
         """获取对公转账信息"""
         plan_info = PLAN_PRICING.get(plan_id, {})
-        return {
-            "bank_name": "中国工商银行",
-            "branch": "北京市海淀区中关村支行",
-            "account_name": "Nexus AI 科技有限公司",
-            "account_number": "待配置",
+
+        bank_name = os.getenv("BANK_NAME", "")
+        bank_branch = os.getenv("BANK_BRANCH", "")
+        account_name = os.getenv("BANK_ACCOUNT_NAME", "")
+        account_number = os.getenv("BANK_ACCOUNT_NUMBER", "")
+
+        is_configured = bool(account_number)
+
+        result = {
+            "bank_name": bank_name or "待配置",
+            "branch": bank_branch or "待配置",
+            "account_name": account_name or "待配置",
+            "account_number": account_number or "待配置",
             "reference": f"ORG-{org_id[:8]}",
             "plan_name": plan_info.get("name", plan_id),
             "amount": plan_info.get("monthly", "根据订阅计划"),
             "note": "请在转账备注中填写参考号(reference)，以便我们快速确认您的付款。",
         }
+        if not is_configured:
+            result["mode"] = "sandbox"
+        return result
 
 
 # Global instance

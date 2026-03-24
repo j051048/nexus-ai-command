@@ -32,6 +32,7 @@ class PerformanceReportTool(BaseTool):
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
+        org_id = config.get("org_id") if config else None
         target_id = args.get("user_id") or user_id
 
         # Validate UUID format
@@ -40,7 +41,10 @@ class PerformanceReportTool(BaseTool):
         except (ValueError, TypeError, AttributeError):
             return f"user_id '{target_id}' 不是有效的UUID格式。"
 
-        user_res = await client.table("users").select("*").eq("id", target_id).maybe_single().execute()
+        query = client.table("users").select("*").eq("id", target_id)
+        if org_id:
+            query = query.eq("organization_id", org_id)
+        user_res = await query.maybe_single().execute()
         if not user_res.data:
             return f"找不到 ID 为 {target_id} 的用户绩效数据。"
 
@@ -169,6 +173,7 @@ class AwardBadgeTool(BaseTool):
         target_id = args.get("user_id")
         badge_name = args.get("badge_name", "")[:100]
         icon = args.get("icon", "sparkles")[:50]
+        org_id = config.get("org_id") if config else None
 
         # Validate UUID format
         try:
@@ -177,8 +182,18 @@ class AwardBadgeTool(BaseTool):
             return f"user_id '{target_id}' 不是有效的UUID格式，请检查员工ID。"
 
         client = _get_client(config)
+
+        # 验证目标用户属于同一组织
+        if org_id:
+            check = await client.table("users").select("id").eq("id", target_id).eq("organization_id", org_id).maybe_single().execute()
+            if not check.data:
+                return f"❌ 未找到该员工或该员工不属于本组织。"
+
         try:
-            await client.table("badges").insert({"user_id": target_id, "name": badge_name, "icon": icon}).execute()
+            badge_data = {"user_id": target_id, "name": badge_name, "icon": icon}
+            if org_id:
+                badge_data["organization_id"] = org_id
+            await client.table("badges").insert(badge_data).execute()
             await (
                 client.table("notifications")
                 .insert(

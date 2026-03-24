@@ -140,8 +140,12 @@ class EmployeeProfileTool(BaseTool):
         include_risk = args.get("include_risk_analysis", True)
 
         client = _get_client(config)
-        # 查找员工
-        emp_res = await client.table("users").select("*").ilike("name", f"%{employee_name}%").limit(1).execute()
+        org_id = config.get("org_id") if config else None
+        # 查找员工 — 必须限定本组织
+        query = client.table("users").select("*").ilike("name", f"%{employee_name}%").limit(1)
+        if org_id:
+            query = query.eq("organization_id", org_id)
+        emp_res = await query.execute()
 
         if not emp_res.data:
             return f"❌ 未找到名为「{employee_name}」的员工"
@@ -271,17 +275,20 @@ class PerformanceReviewTool(BaseTool):
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         action = args.get("action", "view_team")
+        org_id = config.get("org_id") if config else None
 
         if action == "view_team":
             client = _get_client(config)
-            # 获取团队绩效概览
-            team_res = (
-                await client.table("users")
+            # 获取团队绩效概览 — 限定本组织
+            query = (
+                client.table("users")
                 .select("name, score, rank, total_bonus")
                 .order("score", desc=True)
                 .limit(10)
-                .execute()
             )
+            if org_id:
+                query = query.eq("organization_id", org_id)
+            team_res = await query.execute()
 
             response = """📊 **团队绩效排行榜**
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -320,14 +327,16 @@ class PerformanceReviewTool(BaseTool):
 
             client = _get_client(config)
 
-            # Find the employee
-            emp_res = (
-                await client.table("users")
+            # Find the employee — 限定本组织
+            query = (
+                client.table("users")
                 .select("id, name, score")
                 .ilike("name", f"%{employee_name}%")
                 .limit(1)
-                .execute()
             )
+            if org_id:
+                query = query.eq("organization_id", org_id)
+            emp_res = await query.execute()
 
             if not emp_res.data:
                 return f"❌ 未找到名为「{employee_name}」的员工"

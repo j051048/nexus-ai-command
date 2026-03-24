@@ -130,3 +130,26 @@ async def get_overview_stats(
     except Exception as e:
         logger.error(f"Overview stats error: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "报表操作失败")
+
+
+@router.post("/{report_type}/refresh")
+async def refresh_report_cache(
+    req: Request,
+    report_type: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """手动刷新指定报表类型的缓存。"""
+    from app.services.report_cache import invalidate_report
+
+    valid_types = {"get_sales_report", "get_approval_report", "get_performance_report", "get_usage_report", "get_overview_stats"}
+    method_name = f"get_{report_type}_report" if report_type != "overview" else "get_overview_stats"
+
+    if method_name not in valid_types:
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, f"不支持的报表类型: {report_type}")
+
+    org_id = getattr(req.state, "org_id", None)
+    if not org_id:
+        raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
+
+    invalidated = await invalidate_report(org_id, method_name)
+    return api_success(data={"invalidated": invalidated, "report_type": report_type})

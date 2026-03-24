@@ -258,12 +258,86 @@ class NotificationService:
         """Return list of registered/available notification channels."""
         return list(self._adapters.keys())
 
+    # --- Preference cache (user_id → preferences dict, expires after 5 min) ---
+    _pref_cache: dict[str, tuple[float, dict]] = {}
+    _PREF_TTL = 300  # seconds
+
+    async def _get_user_preferences(self, user_id: str) -> dict:
+        """Fetch notification preferences for a user, with 5-min memory cache."""
+        import time
+
+        now = time.time()
+        cached = self._pref_cache.get(user_id)
+        if cached and (now - cached[0]) < self._PREF_TTL:
+            return cached[1]
+
+        defaults = {
+            "email_enabled": True,
+            "push_enabled": True,
+            "im_enabled": True,
+            "quiet_hours_start": None,
+            "quiet_hours_end": None,
+        }
+        try:
+            from app.core.database import supabase
+
+            if not supabase:
+                return defaults
+            result = await (
+                supabase.table("notification_preferences")
+                .select("email_enabled, push_enabled, im_enabled, quiet_hours_start, quiet_hours_end")
+                .eq("user_id", user_id)
+                .limit(1)
+                .execute()
+            )
+            prefs = result.data[0] if result.data else defaults
+            self._pref_cache[user_id] = (now, prefs)
+            return prefs
+        except Exception as e:
+            logger.debug("Failed to fetch notification preferences for %s: %s", user_id, e)
+            return defaults
+
+    def _is_quiet_hours(self, prefs: dict) -> bool:
+        """Check if current time falls within the user's quiet hours."""
+        from datetime import datetime, timedelta, timezone
+
+        start = prefs.get("quiet_hours_start")
+        end = prefs.get("quiet_hours_end")
+        if not start or not end:
+            return False
+
+        cn_tz = timezone(timedelta(hours=8))
+        now = datetime.now(cn_tz).time()
+        try:
+            start_t = datetime.strptime(start, "%H:%M").time() if isinstance(start, str) else start
+            end_t = datetime.strptime(end, "%H:%M").time() if isinstance(end, str) else end
+        except (ValueError, TypeError):
+            return False
+
+        # Handle overnight ranges (e.g. 22:00 - 08:00)
+        if start_t <= end_t:
+            return start_t <= now <= end_t
+        else:
+            return now >= start_t or now <= end_t
+
+    def _channel_allowed_by_prefs(self, channel: NotificationChannel, prefs: dict) -> bool:
+        """Check if a channel is allowed by user preferences. IN_APP is always allowed."""
+        if channel == NotificationChannel.IN_APP:
+            return True
+        if channel == NotificationChannel.EMAIL:
+            return prefs.get("email_enabled", True)
+        # WECOM, DINGTALK, FEISHU → im_enabled
+        if channel in (NotificationChannel.WECOM, NotificationChannel.DINGTALK, NotificationChannel.FEISHU):
+            return prefs.get("im_enabled", True)
+        return True
+
     async def send(self, notification: Notification) -> bool:
         """
         发送单个通知
 
-        根据通知对象的 channel 属性选择对应适配器发送
-        发送失败记录日志，不抛出异常
+        根据通知对象的 channel 属性选择对应适配器发送。
+        发送前检查用户偏好设置：渠道开关、免打扰时段。
+        发送失败记录日志，不抛出异常。
 
         Args:
             notification: 通知对象
@@ -272,6 +346,37 @@ class NotificationService:
             bool: 发送成功返回 True，失败返回 False
         """
         channel = notification.channel
+
+        # --- Preference checking ---
+        try:
+            prefs = await self._get_user_preferences(notification.target_user_id)
+
+            # Quiet hours + non-URGENT → downgrade to IN_APP only
+            if self._is_quiet_hours(prefs) and notification.priority != NotificationPriority.URGENT:
+                if channel != NotificationChannel.IN_APP:
+                    logger.debug(
+                        "Quiet hours active for user %s, downgrading %s to IN_APP",
+                        notification.target_user_id, channel.value,
+                    )
+                    channel = NotificationChannel.IN_APP
+                    notification = Notification(
+                        title=notification.title,
+                        content=notification.content,
+                        target_user_id=notification.target_user_id,
+                        channel=NotificationChannel.IN_APP,
+                        priority=notification.priority,
+                        metadata=notification.metadata,
+                    )
+
+            # Channel preference check
+            if not self._channel_allowed_by_prefs(channel, prefs):
+                logger.debug(
+                    "Channel %s disabled by user %s preferences, skipping",
+                    channel.value, notification.target_user_id,
+                )
+                return True  # Not an error — user chose to disable
+        except Exception as e:
+            logger.debug("Preference check failed for %s, proceeding with send: %s", notification.target_user_id, e)
 
         if channel not in self._adapters:
             logger.warning(

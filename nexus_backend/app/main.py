@@ -8,6 +8,11 @@ warnings.filterwarnings(
     message="ARC4 has been moved",
     category=DeprecationWarning,
 )
+warnings.filterwarnings(
+    "ignore",
+    message="Core Pydantic V1 functionality isn't compatible with Python 3.14",
+    category=UserWarning,
+)
 
 import sentry_sdk
 import uvicorn

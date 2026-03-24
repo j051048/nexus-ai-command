@@ -49,8 +49,8 @@ def _get_plan_price_map() -> dict[str, str]:
     if _PLAN_PRICE_MAP is None:
         from app.core.config import settings
         _PLAN_PRICE_MAP = {
-            "basic": settings.STRIPE_PRICE_BASIC,
-            "premium": settings.STRIPE_PRICE_PREMIUM,
+            "starter": settings.STRIPE_PRICE_STARTER,
+            "professional": settings.STRIPE_PRICE_PROFESSIONAL,
             "enterprise": settings.STRIPE_PRICE_ENTERPRISE,
         }
     return _PLAN_PRICE_MAP

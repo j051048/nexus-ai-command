@@ -121,8 +121,8 @@ def mine_sales_leads():
 
         result = (
             await supabase.table("sales_leads")
-            .select("id, company_name, status, assigned_to, updated_at")
-            .eq("status", "lead")
+            .select("*")
+            .eq("stage", "lead")
             .lt("updated_at", seven_days_ago)
             .limit(20)
             .execute()

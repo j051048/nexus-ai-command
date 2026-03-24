@@ -51,6 +51,9 @@ class ContractService:
 
     async def create_contract(self, org_id: str, data: dict, db: Any = None) -> dict:
         """创建新合同"""
+        if not db:
+            raise RuntimeError("Database client is required to create a contract")
+
         contract = {
             "organization_id": org_id,
             "title": data.get("title", ""),
@@ -67,28 +70,30 @@ class ContractService:
             "metadata": data.get("metadata", {}),
         }
 
-        if db:
-            try:
-                result = await db.table("contracts").insert(contract).execute()
-                if result.data:
-                    created = result.data[0]
-                    # 添加创建事件
-                    await self.add_contract_event(
-                        contract_id=created["id"],
-                        event_type="created",
-                        description=f"合同「{contract['title']}」已创建",
-                        user_id=data.get("created_by"),
-                        db=db,
-                    )
-                    return created
-            except Exception as e:
-                logger.error(f"Failed to create contract: {e}")
-                raise
+        result = await db.table("contracts").insert(contract).execute()
+        if not result.data:
+            raise RuntimeError("Contract insert returned no data — possible RLS policy rejection")
 
-        return {**contract, "id": "mock-id", "created_at": datetime.utcnow().isoformat()}
+        created = result.data[0]
+        # 添加创建事件
+        try:
+            await self.add_contract_event(
+                contract_id=created["id"],
+                event_type="created",
+                description=f"合同「{contract['title']}」已创建",
+                user_id=data.get("created_by"),
+                db=db,
+            )
+        except Exception as e:
+            logger.warning(f"Contract created but event logging failed: {e}")
+
+        return created
 
     async def update_contract(self, contract_id: str, data: dict, db: Any = None) -> dict:
         """更新合同"""
+        if not db:
+            raise RuntimeError("Database client is required to update a contract")
+
         update_data = {
             k: v
             for k, v in data.items()
@@ -113,16 +118,11 @@ class ContractService:
         }
         update_data["updated_at"] = datetime.utcnow().isoformat()
 
-        if db:
-            try:
-                result = await db.table("contracts").update(update_data).eq("id", contract_id).execute()
-                if result.data:
-                    return result.data[0]
-            except Exception as e:
-                logger.error(f"Failed to update contract: {e}")
-                raise
+        result = await db.table("contracts").update(update_data).eq("id", contract_id).execute()
+        if not result.data:
+            raise RuntimeError(f"Contract {contract_id} update returned no data — record may not exist or RLS blocked")
 
-        return {"id": contract_id, **update_data}
+        return result.data[0]
 
     async def get_contract(self, contract_id: str, db: Any = None) -> dict | None:
         """获取合同详情"""
@@ -234,6 +234,9 @@ class ContractService:
         db: Any = None,
     ) -> dict:
         """添加合同事件"""
+        if not db:
+            raise RuntimeError("Database client is required to add a contract event")
+
         event = {
             "contract_id": contract_id,
             "event_type": event_type,
@@ -241,16 +244,11 @@ class ContractService:
             "user_id": user_id,
         }
 
-        if db:
-            try:
-                result = await db.table("contract_events").insert(event).execute()
-                if result.data:
-                    return result.data[0]
-            except Exception as e:
-                logger.error(f"Failed to add contract event: {e}")
-                raise
+        result = await db.table("contract_events").insert(event).execute()
+        if not result.data:
+            raise RuntimeError("Contract event insert returned no data")
 
-        return {**event, "id": "mock-event-id", "created_at": datetime.utcnow().isoformat()}
+        return result.data[0]
 
     async def get_contract_events(self, contract_id: str, db: Any = None) -> list[dict]:
         """获取合同事件时间线"""

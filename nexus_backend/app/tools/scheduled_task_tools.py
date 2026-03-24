@@ -11,6 +11,7 @@ from typing import Any
 from app.core.database import supabase
 
 from .base_tool import BaseTool
+from ._shared import _get_client
 
 logger = logging.getLogger(__name__)
 
@@ -324,7 +325,7 @@ class ListScheduledTasksTool(BaseTool):
     }
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
-        client = supabase
+        client = _get_client(config)
         if not client:
             return "数据库连接不可用"
 
@@ -406,7 +407,7 @@ class DeleteScheduledTaskTool(BaseTool):
     }
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
-        client = supabase
+        client = _get_client(config)
         if not client:
             return "数据库连接不可用"
 
@@ -456,7 +457,9 @@ class DeleteScheduledTaskTool(BaseTool):
         task = result.data[0]
 
         if action == "delete":
-            await client.table("user_scheduled_tasks").delete().eq("id", task["id"]).execute()
+            del_res = await client.table("user_scheduled_tasks").delete().eq("id", task["id"]).execute()
+            if not del_res.data:
+                return f"❌ 删除定时任务「{task['name']}」失败，请稍后重试。"
             # 清理该任务产生的推送消息，防止登录/刷新时重复显示
             try:
                 await (
@@ -470,7 +473,9 @@ class DeleteScheduledTaskTool(BaseTool):
                 pass  # 非关键路径，静默失败
             return f"已删除定时任务「{task['name']}」。"
         elif action == "disable":
-            await client.table("user_scheduled_tasks").update({"is_active": False}).eq("id", task["id"]).execute()
+            dis_res = await client.table("user_scheduled_tasks").update({"is_active": False}).eq("id", task["id"]).execute()
+            if not dis_res.data:
+                return f"❌ 停用定时任务「{task['name']}」失败，请稍后重试。"
             return f"已停用定时任务「{task['name']}」。可以随时重新启用。"
         elif action == "enable":
             next_exec = _compute_next_execution(
@@ -481,12 +486,14 @@ class DeleteScheduledTaskTool(BaseTool):
                 task.get("interval_minutes"),
                 task.get("execute_at"),
             )
-            await (
+            en_res = await (
                 client.table("user_scheduled_tasks")
                 .update({"is_active": True, "next_execution_at": next_exec})
                 .eq("id", task["id"])
                 .execute()
             )
+            if not en_res.data:
+                return f"❌ 启用定时任务「{task['name']}」失败，请稍后重试。"
             return f"已启用定时任务「{task['name']}」，下次执行时间: {next_exec[:16] if next_exec else '待计算'}。"
 
         return "未知操作"

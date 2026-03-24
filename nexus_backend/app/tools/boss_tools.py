@@ -1007,28 +1007,24 @@ class AnnouncementTool(BaseTool):
 
         users = users_res.data or []
 
-        # Batch insert notifications for efficiency
+        # Batch insert in-app notifications via NotificationCenterService
         priority_icons = {"normal": "📢", "important": "⚠️", "urgent": "🚨"}
         icon = priority_icons.get(priority, "📢")
         notification_type = "info" if priority == "normal" else "warning"
-        notifications_batch = [
-            {
-                "user_id": user["id"],
-                "title": f"{icon} {title}",
-                "content": content,
-                "type": notification_type,
-            }
-            for user in users
-        ]
+        user_ids = [u["id"] for u in users]
+        try:
+            from app.services.notification_center_service import notification_center_service
 
-        # Insert in batches of 50 to avoid payload size limits
-        batch_size = 50
-        for i in range(0, len(notifications_batch), batch_size):
-            batch = notifications_batch[i : i + batch_size]
-            try:
-                await client.table("notifications").insert(batch).execute()
-            except Exception as e:
-                logger.warning(f"Failed to insert notification batch {i // batch_size + 1}: {e}")
+            await notification_center_service.notify_users(
+                user_ids=user_ids,
+                title=f"{icon} {title}",
+                body=content,
+                type=notification_type,
+                org_id=org_id,
+                db=client,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to batch insert announcement notifications: {e}")
 
         # Multi-channel notification for announcements
         try:

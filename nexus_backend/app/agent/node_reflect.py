@@ -549,7 +549,6 @@ AI 回复:
         except Exception as e:
             logger.debug(f"[ReflectNode] Failed to log hallucination: {e}")
 
-        from app.core.ai_metrics import record_hallucination
         record_hallucination("reflect_grounding_check")
 
         # ToT backtrack: if alternative plans exist and haven't been tried, switch to backup

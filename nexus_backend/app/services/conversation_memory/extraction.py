@@ -108,7 +108,7 @@ BEHAVIOR_PREF_PATTERNS: list[tuple[re.Pattern, str, str]] = [
 
 
 async def _update_behavior_preferences(
-    user_id: str, detected: dict[str, str], db: Any = None,
+    user_id: str, detected: dict[str, str], db: Any = None, org_id: str | None = None,
 ) -> None:
     """Write detected behavior preferences to ai_settings.behavior_preferences (JSONB merge)."""
     if not detected:
@@ -119,13 +119,14 @@ async def _update_behavior_preferences(
         if not client:
             return
         # Read current preferences
-        result = await (
+        query = (
             client.table("ai_settings")
             .select("behavior_preferences")
             .eq("user_id", user_id)
-            .maybe_single()
-            .execute()
         )
+        if org_id:
+            query = query.eq("organization_id", org_id)
+        result = await query.maybe_single().execute()
         current = (result.data or {}).get("behavior_preferences", {}) if result.data else {}
         if not isinstance(current, dict):
             current = {}
@@ -133,13 +134,24 @@ async def _update_behavior_preferences(
         merged = {**current, **detected}
         if merged == current:
             return  # No change
-        # Upsert
+
+        # Ensure we always provide organization_id to match the UNIQUE(user_id, organization_id) constraint
+        # Use the system default UUID if org_id is missing, as defined in migration 20260211
+        effective_org_id = org_id or '00000000-0000-0000-0000-000000000000'
+        
+        # Upsert (composite unique: user_id + organization_id)
+        upsert_data = {
+            "user_id": user_id,
+            "organization_id": effective_org_id,
+            "behavior_preferences": merged
+        }
+        
         await (
             client.table("ai_settings")
-            .upsert({"user_id": user_id, "behavior_preferences": merged}, on_conflict="user_id")
+            .upsert(upsert_data, on_conflict="user_id,organization_id")
             .execute()
         )
-        logger.info(f"[BehaviorPref] Updated behavior preferences for {user_id}: {detected}")
+        logger.info(f"[BehaviorPref] Updated behavior preferences for {user_id} (Org: {effective_org_id}): {detected}")
     except Exception as e:
         logger.debug(f"[BehaviorPref] Failed to update preferences: {e}")
 
@@ -327,7 +339,7 @@ async def extract_preferences(
                 behavior_detected[pref_key] = pref_value
     if behavior_detected:
         with contextlib.suppress(Exception):
-            await _update_behavior_preferences(user_id, behavior_detected, db=db)
+            await _update_behavior_preferences(user_id, behavior_detected, db=db, org_id=org_id)
 
     # Save extracted memories — with conflict resolution if possible
     saved: list[dict] = []

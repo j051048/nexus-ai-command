@@ -450,20 +450,18 @@ async def generate_demo_data(user_id: str, org_id: str) -> dict[str, Any]:
         current_step = "sales_leads"
         lead_data = [
             {
-                "source_paper": "AI 赋能企业数字化白皮书",
-                "professor": "Dr. 王教授",
+                "company_name": "AI 赋能企业数字化白皮书",
                 "match_score": 0.92,
-                "status": "qualified",
+                "stage": "qualified",
             },
-            {"source_paper": "供应链智能化趋势报告", "professor": "Dr. 李教授", "match_score": 0.85, "status": "new"},
+            {"company_name": "供应链智能化趋势报告", "match_score": 0.85, "stage": "new"},
             {
-                "source_paper": "零售行业 SaaS 市场分析",
-                "professor": "Dr. 陈教授",
+                "company_name": "零售行业 SaaS 市场分析",
                 "match_score": 0.78,
-                "status": "contacted",
+                "stage": "contacted",
             },
-            {"source_paper": "制造业降本增效方案集", "professor": "Dr. 张教授", "match_score": 0.88, "status": "won"},
-            {"source_paper": "金融科技合规框架研究", "professor": "Dr. 赵教授", "match_score": 0.71, "status": "new"},
+            {"company_name": "制造业降本增效方案集", "match_score": 0.88, "stage": "won"},
+            {"company_name": "金融科技合规框架研究", "match_score": 0.71, "stage": "new"},
         ]
         for idx, lead in enumerate(lead_data):
             lid = str(uuid.uuid4())
@@ -472,10 +470,9 @@ async def generate_demo_data(user_id: str, org_id: str) -> dict[str, Any]:
                 .insert(
                     {
                         "id": lid,
-                        "source_paper": lead["source_paper"],
-                        "professor": lead["professor"],
+                        "company_name": lead["company_name"],
                         "match_score": lead["match_score"],
-                        "status": lead["status"],
+                        "stage": lead["stage"],
                         "owner_id": employee_ids[idx % 3],
                         "ai_win_probability": round(lead["match_score"] * 0.9, 2),
                         "created_at": (now - timedelta(days=idx * 5)).isoformat(),

@@ -6,8 +6,8 @@ Item 8: Data Transfer Router
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Request, UploadFile
-from fastapi.responses import PlainTextResponse
+from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
+from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id
@@ -51,9 +51,10 @@ async def export_data(
     export_type: str,
     body: ExportRequest = ExportRequest(),
     user_id: str = Depends(get_current_user_id),
+    format: str = Query("csv", description="导出格式: csv 或 xlsx"),
 ):
     """
-    导出数据为 CSV。
+    导出数据为 CSV 或 Excel。
 
     支持的导出类型:
     - approvals: 审批记录
@@ -62,10 +63,13 @@ async def export_data(
     - employees: 员工数据
     - customers: 客户数据
 
-    返回 CSV 文件内容，前端可直接触发下载。
+    参数 format=csv|xlsx 控制输出格式。
     """
     org_id = getattr(request.state, "org_id", None)
     db = getattr(request.state, "db", None)
+
+    if format not in ("csv", "xlsx"):
+        raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "format 参数只支持 csv 或 xlsx")
 
     try:
         # 构建过滤条件
@@ -75,7 +79,22 @@ async def export_data(
         if body.date_to:
             filters["date_to"] = body.date_to
 
-        # 选择导出方法
+        if format == "xlsx":
+            # Excel 导出（通用路径）
+            xlsx_bytes = await data_export_service.export_to_xlsx(
+                export_type=export_type,
+                filters=filters,
+                org_id=org_id,
+                db=db,
+            )
+            filename = f"{export_type}_export.xlsx"
+            return Response(
+                content=xlsx_bytes,
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": f"attachment; filename={filename}"},
+            )
+
+        # CSV 导出（保持原有逻辑）
         if export_type == "approvals" and org_id:
             csv_content = await data_export_service.export_approvals(org_id=org_id, filters=filters, db=db)
         elif export_type == "attendance" and org_id:

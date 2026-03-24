@@ -24,8 +24,11 @@ class ProjectListTool(BaseTool):
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         client = _get_client(config)
-        # Check role to filter projects? For now, list all accessible via RLS
-        result = await client.table("projects").select("id, name, stage, progress").neq("stage", "archived").execute()
+        org_id = config.get("org_id") if config else None
+        query = client.table("projects").select("id, name, stage, progress").neq("stage", "archived")
+        if org_id:
+            query = query.eq("organization_id", org_id)
+        result = await query.execute()
         if not result.data:
             return "暂无进行中的项目。"
         items = [
@@ -192,6 +195,7 @@ class WeeklyReportTool(BaseTool):
 
         report_type = args.get("report_type", "weekly")
         client = _get_client(config)
+        org_id = config.get("org_id") if config else None
         now = datetime.now()
 
         if report_type == "daily":
@@ -215,24 +219,29 @@ class WeeklyReportTool(BaseTool):
         except Exception as e:
             logger.debug("任务数据查询失败: %s", e)
 
-        # 聚合项目事件
+        # 聚合项目事件 — 限定本组织
         events_data = []
         try:
-            events_res = (
-                await client.table("project_timeline")
+            events_query = (
+                client.table("project_timeline")
                 .select("title, event_type, content")
                 .gte("created_at", period_start)
                 .limit(20)
-                .execute()
             )
+            if org_id:
+                events_query = events_query.eq("organization_id", org_id)
+            events_res = await events_query.execute()
             events_data = events_res.data or []
         except Exception as e:
             logger.debug("项目事件查询失败: %s", e)
 
-        # 查询用户项目
+        # 查询用户项目 — 限定本组织
         projects_data = []
         try:
-            proj_res = await client.table("projects").select("name, stage, progress").eq("user_id", user_id).neq("stage", "archived").execute()
+            proj_query = client.table("projects").select("name, stage, progress").eq("user_id", user_id).neq("stage", "archived")
+            if org_id:
+                proj_query = proj_query.eq("organization_id", org_id)
+            proj_res = await proj_query.execute()
             projects_data = proj_res.data or []
         except Exception as e:
             logger.debug("用户项目查询失败: %s", e)

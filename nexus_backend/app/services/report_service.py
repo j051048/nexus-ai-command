@@ -9,6 +9,8 @@ import logging
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 
+from app.services.report_cache import cached_report
+
 logger = logging.getLogger(__name__)
 
 
@@ -76,6 +78,7 @@ class ReportService:
 
     # ─── 销售报表 ──────────────────────────────────────────
 
+    @cached_report(ttl_seconds=900)
     async def get_sales_report(
         self, org_id: str, date_range: dict | None = None, group_by: str = "day", db=None
     ) -> dict:
@@ -143,12 +146,19 @@ class ReportService:
                 "overall_conversion_rate": overall_rate,
             },
             "data": summary_data,
+            "chart_data": {
+                "type": "line",
+                "x_key": "period",
+                "y_keys": ["revenue", "conversion_rate"],
+                "data": summary_data,
+            },
             "group_by": group_by,
             "date_range": {"start": start_date, "end": end_date},
         }
 
     # ─── 审批报表 ──────────────────────────────────────────
 
+    @cached_report(ttl_seconds=900)
     async def get_approval_report(self, org_id: str, date_range: dict | None = None, db=None) -> dict:
         """审批报表: 审批数量、平均处理时间、自动审批率、驳回率"""
         start_date, end_date = _parse_date_range(date_range)
@@ -204,11 +214,22 @@ class ReportService:
                 "avg_processing_hours": avg_processing_hours,
             },
             "by_type": dict(by_type),
+            "chart_data": {
+                "type": "pie",
+                "x_key": "status",
+                "y_keys": ["count"],
+                "data": [
+                    {"status": "已通过", "count": approved},
+                    {"status": "已驳回", "count": rejected},
+                    {"status": "待处理", "count": pending},
+                ],
+            },
             "date_range": {"start": start_date, "end": end_date},
         }
 
     # ─── 绩效报表 ──────────────────────────────────────────
 
+    @cached_report(ttl_seconds=900)
     async def get_performance_report(self, org_id: str, date_range: dict | None = None, db=None) -> dict:
         """绩效报表: 团队积分、个人排名、目标完成率"""
         start_date, end_date = _parse_date_range(date_range)
@@ -257,11 +278,18 @@ class ReportService:
                 "top_performer": rankings[0]["name"] if rankings else "N/A",
             },
             "rankings": rankings,
+            "chart_data": {
+                "type": "bar",
+                "x_key": "name",
+                "y_keys": ["score", "bonus"],
+                "data": rankings[:20],
+            },
             "date_range": {"start": start_date, "end": end_date},
         }
 
     # ─── 使用报表 ──────────────────────────────────────────
 
+    @cached_report(ttl_seconds=900)
     async def get_usage_report(self, org_id: str, date_range: dict | None = None, db=None) -> dict:
         """使用报表: AI 对话量、Token 消耗、功能使用频率"""
         start_date, end_date = _parse_date_range(date_range)
@@ -311,11 +339,18 @@ class ReportService:
             },
             "model_distribution": dict(model_distribution),
             "feature_usage": feature_usage,
+            "chart_data": {
+                "type": "bar",
+                "x_key": "feature",
+                "y_keys": ["count"],
+                "data": feature_usage,
+            },
             "date_range": {"start": start_date, "end": end_date},
         }
 
     # ─── 概览统计 ──────────────────────────────────────────
 
+    @cached_report(ttl_seconds=300)
     async def get_overview_stats(self, org_id: str, db=None) -> dict:
         """概览统计: 关键 KPI 汇总，综合各个维度的核心指标"""
         # 获取各维度最近 30 天的数据

@@ -6,7 +6,6 @@
 """
 
 import logging
-import uuid
 from collections import defaultdict
 from datetime import UTC, datetime
 
@@ -37,54 +36,43 @@ class CRMService:
 
     async def create_customer(self, org_id: str, data: dict, db=None) -> dict:
         """创建客户"""
-        customer = {
-            "id": str(uuid.uuid4()),
+        if not db:
+            raise RuntimeError("Database client is required to create a customer")
+
+        name = data.get("name", "")
+        if not name:
+            raise ValueError("客户名称不能为空")
+
+        stage = data.get("stage", "lead")
+        if stage not in CUSTOMER_STAGES:
+            raise ValueError(f"无效的客户阶段: {stage}")
+
+        insert_data = {
             "organization_id": org_id,
-            "name": data.get("name", ""),
+            "name": name,
             "company": data.get("company", ""),
             "industry": data.get("industry", ""),
-            "stage": data.get("stage", "lead"),
+            "stage": stage,
             "source": data.get("source", ""),
             "estimated_value": data.get("estimated_value", 0),
             "assigned_to": data.get("assigned_to"),
             "tags": data.get("tags", []),
             "metadata": data.get("metadata", {}),
-            "created_at": datetime.now(UTC).isoformat(),
-            "updated_at": datetime.now(UTC).isoformat(),
         }
 
-        if not customer["name"]:
-            raise ValueError("客户名称不能为空")
+        res = await db.table("customers").insert(insert_data).execute()
+        if not res.data:
+            raise RuntimeError("Customer insert returned no data — possible RLS rejection")
 
-        if customer["stage"] not in CUSTOMER_STAGES:
-            raise ValueError(f"无效的客户阶段: {customer['stage']}")
-
-        if db:
-            try:
-                insert_data = {
-                    "organization_id": org_id,
-                    "name": customer["name"],
-                    "company": customer["company"],
-                    "industry": customer["industry"],
-                    "stage": customer["stage"],
-                    "source": customer["source"],
-                    "estimated_value": customer["estimated_value"],
-                    "assigned_to": customer["assigned_to"],
-                    "tags": customer["tags"],
-                    "metadata": customer["metadata"],
-                }
-                res = await db.table("customers").insert(insert_data).execute()
-                if res.data:
-                    customer = {**customer, **res.data[0]}
-            except Exception as e:
-                logger.error(f"Failed to create customer in DB: {e}")
-                raise
-
-        logger.info(f"Customer created: {customer['name']} in org {org_id}")
-        return customer
+        created = res.data[0]
+        logger.info(f"Customer created: {name} in org {org_id}")
+        return created
 
     async def update_customer(self, customer_id: str, data: dict, db=None) -> dict:
         """更新客户信息"""
+        if not db:
+            raise RuntimeError("Database client is required to update a customer")
+
         allowed_fields = [
             "name",
             "company",
@@ -102,17 +90,11 @@ class CRMService:
         if "stage" in update_data and update_data["stage"] not in CUSTOMER_STAGES:
             raise ValueError(f"无效的客户阶段: {update_data['stage']}")
 
-        if db:
-            try:
-                res = await db.table("customers").update(update_data).eq("id", customer_id).execute()
-                if res.data:
-                    return res.data[0]
-            except Exception as e:
-                logger.error(f"Failed to update customer: {e}")
-                raise
-            return {"id": customer_id, **update_data}
+        res = await db.table("customers").update(update_data).eq("id", customer_id).execute()
+        if not res.data:
+            raise RuntimeError(f"Customer {customer_id} update returned no data — record may not exist or RLS blocked")
 
-        return {"id": customer_id, **update_data}
+        return res.data[0]
 
     async def get_customer(self, customer_id: str, db=None) -> dict | None:
         """获取客户详情"""
@@ -184,56 +166,37 @@ class CRMService:
 
     async def delete_customer(self, customer_id: str, db=None) -> bool:
         """删除客户（级联删除联系人和活动记录）"""
-        if db:
-            try:
-                # DB FK ON DELETE CASCADE handles contacts & activities
-                await db.table("customers").delete().eq("id", customer_id).execute()
-            except Exception as e:
-                logger.error(f"Failed to delete customer: {e}")
-                raise
+        if not db:
+            raise RuntimeError("Database client is required to delete a customer")
+
+        await db.table("customers").delete().eq("id", customer_id).execute()
         return True
 
     # ─── 联系人管理 ─────────────────────────────────────────
 
     async def create_contact(self, customer_id: str, data: dict, db=None) -> dict:
         """创建联系人"""
-        contact = {
-            "id": str(uuid.uuid4()),
+        if not db:
+            raise RuntimeError("Database client is required to create a contact")
+
+        name = data.get("name", "")
+        if not name:
+            raise ValueError("联系人姓名不能为空")
+
+        insert_data = {
             "customer_id": customer_id,
-            "name": data.get("name", ""),
+            "name": name,
             "title": data.get("title", ""),
             "phone": data.get("phone", ""),
             "email": data.get("email", ""),
             "is_primary": data.get("is_primary", False),
-            "created_at": datetime.now(UTC).isoformat(),
         }
 
-        if not contact["name"]:
-            raise ValueError("联系人姓名不能为空")
+        res = await db.table("customer_contacts").insert(insert_data).execute()
+        if not res.data:
+            raise RuntimeError("Contact insert returned no data — possible RLS rejection")
 
-        if db:
-            try:
-                res = (
-                    await db.table("customer_contacts")
-                    .insert(
-                        {
-                            "customer_id": customer_id,
-                            "name": contact["name"],
-                            "title": contact["title"],
-                            "phone": contact["phone"],
-                            "email": contact["email"],
-                            "is_primary": contact["is_primary"],
-                        }
-                    )
-                    .execute()
-                )
-                if res.data:
-                    contact = {**contact, **res.data[0]}
-            except Exception as e:
-                logger.error(f"Failed to create contact: {e}")
-                raise
-
-        return contact
+        return res.data[0]
 
     async def list_contacts(self, customer_id: str, db=None) -> list[dict]:
         """获取客户的联系人列表"""
@@ -256,6 +219,9 @@ class CRMService:
 
     async def update_contact(self, contact_id: str, data: dict, db=None) -> dict:
         """更新联系人信息"""
+        if not db:
+            raise RuntimeError("Database client is required to update a contact")
+
         allowed_fields = ["name", "title", "phone", "email", "is_primary"]
         update_data = {k: v for k, v in data.items() if k in allowed_fields}
 
@@ -265,26 +231,18 @@ class CRMService:
         if "name" in update_data and not update_data["name"]:
             raise ValueError("联系人姓名不能为空")
 
-        if db:
-            try:
-                res = await db.table("customer_contacts").update(update_data).eq("id", contact_id).execute()
-                if res.data:
-                    return res.data[0]
-            except Exception as e:
-                logger.error(f"Failed to update contact: {e}")
-                raise
-            return {"id": contact_id, **update_data}
+        res = await db.table("customer_contacts").update(update_data).eq("id", contact_id).execute()
+        if not res.data:
+            raise RuntimeError(f"Contact {contact_id} update returned no data")
 
-        return {"id": contact_id, **update_data}
+        return res.data[0]
 
     async def delete_contact(self, contact_id: str, db=None) -> bool:
         """删除联系人"""
-        if db:
-            try:
-                await db.table("customer_contacts").delete().eq("id", contact_id).execute()
-            except Exception as e:
-                logger.error(f"Failed to delete contact: {e}")
-                raise
+        if not db:
+            raise RuntimeError("Database client is required to delete a contact")
+
+        await db.table("customer_contacts").delete().eq("id", contact_id).execute()
         return True
 
     # ─── 活动时间线 ─────────────────────────────────────────
@@ -298,40 +256,24 @@ class CRMService:
         db=None,
     ) -> dict:
         """创建客户活动记录"""
+        if not db:
+            raise RuntimeError("Database client is required to create an activity")
+
         if activity_type not in ACTIVITY_TYPES:
             raise ValueError(f"无效的活动类型: {activity_type}")
 
-        activity = {
-            "id": str(uuid.uuid4()),
+        insert_data = {
             "customer_id": customer_id,
             "user_id": user_id,
             "activity_type": activity_type,
             "content": content,
-            "metadata": {},
-            "created_at": datetime.now(UTC).isoformat(),
         }
 
-        if db:
-            try:
-                res = (
-                    await db.table("customer_activities")
-                    .insert(
-                        {
-                            "customer_id": customer_id,
-                            "user_id": user_id,
-                            "activity_type": activity_type,
-                            "content": content,
-                        }
-                    )
-                    .execute()
-                )
-                if res.data:
-                    activity = {**activity, **res.data[0]}
-            except Exception as e:
-                logger.error(f"Failed to create activity: {e}")
-                raise
+        res = await db.table("customer_activities").insert(insert_data).execute()
+        if not res.data:
+            raise RuntimeError("Activity insert returned no data")
 
-        return activity
+        return res.data[0]
 
     async def get_activity_timeline(self, customer_id: str, limit: int = 20, db=None) -> list[dict]:
         """获取客户的活动时间线"""

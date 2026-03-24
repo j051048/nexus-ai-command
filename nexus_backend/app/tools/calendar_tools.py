@@ -392,12 +392,14 @@ class CalendarUpdateTool(BaseTool):
             return "❌ 未找到匹配的日程事件。请检查事件标题或ID是否正确。"
 
         if action == "cancel":
-            await (
+            cancel_res = await (
                 client.table("calendar_events")
                 .update({"status": "cancelled", "updated_at": datetime.now(CN_TZ).isoformat()})
                 .eq("id", event["id"])
                 .execute()
             )
+            if not cancel_res.data:
+                return "❌ 取消日程失败，请稍后重试。"
             return f"✅ 已取消日程: **{event['title']}**"
 
         # action == "update"
@@ -438,12 +440,14 @@ class CalendarUpdateTool(BaseTool):
             except Exception:
                 pass
 
-        await (
+        upd_res = await (
             client.table("calendar_events")
             .update(update_data)
             .eq("id", event["id"])
             .execute()
         )
+        if not upd_res.data:
+            return "❌ 更新日程失败，请稍后重试。"
 
         changes = []
         if args.get("new_title"):

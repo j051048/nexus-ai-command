@@ -203,7 +203,16 @@ class DataAnalysisTool(BaseTool):
             "data": {
                 "type": "array",
                 "items": {"type": "object"},
-                "description": "数据记录列表，每条记录是一个字典（必填）",
+                "description": "数据记录列表，每条记录是一个字典。与 table_name 二选一",
+            },
+            "table_name": {
+                "type": "string",
+                "description": "直接查询的表名（无需预先传入 data）。支持: sales_leads, customers, approval_requests, attendance_records, contracts, projects, users",
+                "enum": ["sales_leads", "customers", "approval_requests", "attendance_records", "contracts", "projects", "users"],
+            },
+            "filters": {
+                "type": "object",
+                "description": "DB 查询过滤条件，键值对格式，如 {\"status\": \"active\"}。仅在指定 table_name 时生效",
             },
             "analysis_type": {
                 "type": "string",
@@ -223,11 +232,29 @@ class DataAnalysisTool(BaseTool):
                 "description": "Top N 数量，默认 10",
             },
         },
-        "required": ["data"],
+        "required": [],
+    }
+
+    # 允许直查的表白名单
+    _ALLOWED_TABLES = {
+        "sales_leads", "customers", "approval_requests",
+        "attendance_records", "contracts", "projects", "users",
     }
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         data = args.get("data")
+        table_name = args.get("table_name")
+
+        # DB 直查模式：table_name 有值且 data 为空
+        if table_name and not data:
+            if table_name not in self._ALLOWED_TABLES:
+                return f"不允许查询表 {table_name}，支持: {', '.join(sorted(self._ALLOWED_TABLES))}"
+            try:
+                data = await self._query_table(table_name, args.get("filters"), config)
+            except Exception as e:
+                logger.warning("DB direct query failed for %s: %s", table_name, e)
+                return safe_tool_error(e, f"查询表 {table_name}")
+
         if not data or not isinstance(data, list):
             return "请提供有效的数据列表（data 参数）。"
         if not all(isinstance(r, dict) for r in data):
@@ -267,3 +294,29 @@ class DataAnalysisTool(BaseTool):
             indent=2,
             default=str,
         )
+
+    async def _query_table(
+        self, table_name: str, filters: dict | None, config: dict | None
+    ) -> list[dict]:
+        """Query a whitelisted Supabase table with multi-tenant isolation."""
+        from app.core.database import supabase
+
+        if not supabase:
+            raise ValueError("数据库连接不可用")
+
+        query = supabase.table(table_name).select("*")
+
+        # 多租户隔离：自动注入 organization_id
+        org_id = (config or {}).get("org_id") or (config or {}).get("organization_id")
+        if org_id:
+            query = query.eq("organization_id", org_id)
+
+        # 应用用户指定的过滤条件
+        if filters and isinstance(filters, dict):
+            for key, value in filters.items():
+                if value is not None and key != "organization_id":
+                    query = query.eq(key, value)
+
+        query = query.limit(5000)
+        result = await query.execute()
+        return result.data or []

@@ -1,9 +1,6 @@
 """Subscription billing API endpoints."""
 
-import hashlib
-import hmac
 import logging
-import os
 
 from fastapi import APIRouter, Depends, Request
 
@@ -13,8 +10,6 @@ from app.services.billing_service import BillingPlan, billing_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/billing", tags=["Billing"])
-
-_STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 
 
 @router.get("/plans")
@@ -77,44 +72,30 @@ async def cancel_subscription(
     return api_success(data={"cancelled": success})
 
 
-@router.post("/webhook")
+@router.post("/webhook", deprecated=True)
 async def billing_webhook(req: Request):
-    """Handle billing provider webhooks (e.g., Stripe)."""
+    """Handle billing provider webhooks (e.g., Stripe).
+
+    DEPRECATED: Use POST /api/webhooks/stripe instead.
+    This endpoint proxies to PaymentGateway.handle_webhook() for backwards compatibility.
+    """
+    from app.services.payment_gateway import payment_gateway
+
+    logger.warning("Deprecated billing webhook endpoint called — use /api/webhooks/stripe instead")
+
     try:
         raw_body = await req.body()
+        signature = req.headers.get("stripe-signature", "")
 
-        # P2 Security: Verify webhook signature in production
-        if _STRIPE_WEBHOOK_SECRET:
-            sig_header = req.headers.get("stripe-signature", "")
-            if not sig_header:
-                logger.warning("Billing webhook received without signature")
-                raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "Missing webhook signature")
+        if not signature:
+            logger.warning("Billing webhook received without signature")
+            raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "Missing webhook signature")
 
-            # Verify HMAC signature
-            timestamp, _, sig = "", "", ""
-            for part in sig_header.split(","):
-                k, _, v = part.strip().partition("=")
-                if k == "t":
-                    timestamp = v
-                elif k == "v1":
-                    sig = v
-
-            signed_payload = f"{timestamp}.{raw_body.decode()}"
-            expected = hmac.new(_STRIPE_WEBHOOK_SECRET.encode(), signed_payload.encode(), hashlib.sha256).hexdigest()
-            if not hmac.compare_digest(expected, sig):
-                logger.warning("Billing webhook signature verification failed")
-                raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "Invalid webhook signature")
-        else:
-            logger.warning("STRIPE_WEBHOOK_SECRET not set — webhook signature verification skipped (dev mode)")
-
-        import json
-
-        body = json.loads(raw_body)
-        event_type = body.get("type", "")
-        data = body.get("data", {})
-        await billing_service.handle_payment_webhook(event_type, data)
-        return api_success(data={"received": True})
+        result = await payment_gateway.handle_webhook(raw_body, signature)
+        return api_success(data=result)
     except Exception as e:
+        if hasattr(e, "status_code"):
+            raise
         logger.error(f"Billing webhook error: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "账单操作失败")
 

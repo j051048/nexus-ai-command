@@ -194,9 +194,18 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = Field(default="", description="Stripe secret key")
     STRIPE_PUBLISHABLE_KEY: str = Field(default="", description="Stripe publishable key")
     STRIPE_WEBHOOK_SECRET: str = Field(default="", description="Stripe webhook signing secret")
-    STRIPE_PRICE_BASIC: str = Field(default="", description="Stripe Price ID for Basic plan")
-    STRIPE_PRICE_PREMIUM: str = Field(default="", description="Stripe Price ID for Premium plan")
+    STRIPE_PRICE_BASIC: str = Field(default="", description="Stripe Price ID for Starter plan (legacy alias: basic)")
+    STRIPE_PRICE_PREMIUM: str = Field(default="", description="Stripe Price ID for Professional plan (legacy alias: premium)")
     STRIPE_PRICE_ENTERPRISE: str = Field(default="", description="Stripe Price ID for Enterprise plan")
+
+    # Canonical aliases — prefer these in new code
+    @property
+    def STRIPE_PRICE_STARTER(self) -> str:
+        return self.STRIPE_PRICE_BASIC
+
+    @property
+    def STRIPE_PRICE_PROFESSIONAL(self) -> str:
+        return self.STRIPE_PRICE_PREMIUM
 
     # G4: Prompt Firewall
     PROMPT_FIREWALL_ENABLED: bool = Field(

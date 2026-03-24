@@ -263,7 +263,9 @@ class ProcessResignationTool(BaseTool):
             emp_name = emp.get("name", "")
 
             # Step 2: 更新员工状态为离职
-            await client.table("employees").update({"status": "resigned"}).eq("id", employee_id).execute()
+            resign_res = await client.table("employees").update({"status": "resigned"}).eq("id", employee_id).execute()
+            if not resign_res.data:
+                return f"❌ 更新员工 {emp_name} 状态失败，请检查权限或记录是否存在。"
             results.append(f"✅ 员工状态已更新为离职: {emp_name}")
 
             # Step 3: 发送离职事件（触发级联：回收资产 + 通知）
@@ -291,13 +293,14 @@ class ProcessResignationTool(BaseTool):
             )
             closed_count = 0
             for order in open_orders.data or []:
-                await (
+                close_res = await (
                     client.table("work_orders")
                     .update({"status": "closed", "assignee_id": None})
                     .eq("id", order["id"])
                     .execute()
                 )
-                closed_count += 1
+                if close_res.data:
+                    closed_count += 1
             if closed_count:
                 results.append(f"✅ 已关闭 {closed_count} 个待处理工单")
 
@@ -393,12 +396,14 @@ class ProcessAssetLifecycleTool(BaseTool):
 
                 count = 0
                 for aid in asset_ids:
-                    await (
+                    upd_res = await (
                         client.table("assets")
                         .update({"current_user_id": to_user_id, "status": "in_use"})
                         .eq("id", aid)
                         .execute()
                     )
+                    if not upd_res.data:
+                        continue
                     await (
                         client.table("asset_transfers")
                         .insert(
@@ -426,12 +431,14 @@ class ProcessAssetLifecycleTool(BaseTool):
                     asset_resp = await (
                         client.table("assets").select("asset_type").eq("id", aid).maybe_single().execute()
                     )
-                    await (
+                    scrap_res = await (
                         client.table("assets")
                         .update({"status": "scrapped", "current_user_id": None})
                         .eq("id", aid)
                         .execute()
                     )
+                    if not scrap_res.data:
+                        continue
                     await (
                         client.table("asset_transfers")
                         .insert(

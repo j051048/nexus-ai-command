@@ -37,12 +37,14 @@ def _get_stripe():
     return _stripe
 
 
-# Stripe Price IDs mapped by plan (set via env vars)
-STRIPE_PRICE_IDS: dict[str, str] = {
-    "starter": os.getenv("STRIPE_PRICE_STARTER", ""),
-    "professional": os.getenv("STRIPE_PRICE_PROFESSIONAL", ""),
-    "enterprise": os.getenv("STRIPE_PRICE_ENTERPRISE", ""),
-}
+# Stripe Price IDs mapped by plan (read from settings — supports both legacy and canonical names)
+def _get_stripe_price_ids() -> dict[str, str]:
+    from app.core.config import settings
+    return {
+        "starter": settings.STRIPE_PRICE_STARTER,
+        "professional": settings.STRIPE_PRICE_PROFESSIONAL,
+        "enterprise": settings.STRIPE_PRICE_ENTERPRISE,
+    }
 
 
 class BillingPlan(Enum):
@@ -154,7 +156,7 @@ class BillingService:
         plans = [p.to_dict() for p in PLAN_CATALOG.values()]
         if _IS_DEV_MODE:
             for p in plans:
-                p["_dev_mode"] = True
+                p["mode"] = "sandbox"
                 p["_dev_warning"] = "Stripe not configured. Billing is simulated."
         return plans
 
@@ -197,7 +199,7 @@ class BillingService:
         """
         # Production: create Stripe Checkout Session
         stripe = _get_stripe()
-        price_id = STRIPE_PRICE_IDS.get(plan.value, "")
+        price_id = _get_stripe_price_ids().get(plan.value, "")
         if stripe and price_id and plan != BillingPlan.FREE:
             try:
                 # Find or create Stripe customer
@@ -410,7 +412,7 @@ class BillingService:
             "status": "trialing",
             "trial_ends": trial_end.isoformat(),
             "days": days,
-            "_dev_mode": _IS_DEV_MODE,
+            "mode": "sandbox" if _IS_DEV_MODE else "production",
         }
 
     async def check_expired_trials(self, db=None):

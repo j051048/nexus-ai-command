@@ -220,8 +220,8 @@ class SmartRecommendationService:
 
         query = (
             client.table("sales_leads")
-            .select("id, company_name, status, assigned_to, updated_at", count="exact")
-            .in_("status", ["lead", "prospect", "negotiation"])
+            .select("*", count="exact")
+            .in_("stage", ["lead", "prospect", "negotiation"])
             .lt("updated_at", seven_days_ago)
         )
         if org_id:

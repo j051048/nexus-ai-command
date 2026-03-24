@@ -14,6 +14,12 @@ from typing import Any
 from .base_tool import BaseTool
 from ._shared import _get_client
 from app.tools._shared import safe_tool_error
+from app.services.notification_service import (
+    Notification,
+    NotificationChannel,
+    NotificationPriority,
+    notification_service,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -244,7 +250,9 @@ class LeaveRequestTool(BaseTool):
                 approval_insert["timeout_at"] = timeout_at
             if org_id:
                 approval_insert["organization_id"] = org_id
-            await client.table("approval_requests").insert(approval_insert).execute()
+            approval_result = await client.table("approval_requests").insert(approval_insert).execute()
+            if not approval_result.data:
+                logger.warning(f"Approval request insert returned no data for leave {leave_id}")
         except Exception as e:
             logger.warning(f"Failed to create approval_request for leave {leave_id}: {e}")
 
@@ -496,7 +504,7 @@ class MeetingBookingTool(BaseTool):
 
         # 写入 oa_meeting_bookings 表持久化
         try:
-            await (
+            meeting_result = await (
                 client.table("oa_meeting_bookings")
                 .insert({
                     "organizer_id": user_id,
@@ -510,8 +518,10 @@ class MeetingBookingTool(BaseTool):
                 })
                 .execute()
             )
+            if not meeting_result.data:
+                return "❌ 会议预约失败，数据未写入数据库，请稍后重试。"
         except Exception as e:
-            logger.debug(f"Failed to persist meeting booking: {e}")
+            return f"❌ 会议预约失败: {e}"
 
         # 同步写入 calendar_events 表
         try:
@@ -651,20 +661,21 @@ class TaskAssignmentTool(BaseTool):
         if org_id:
             task_data["organization_id"] = org_id
 
-        await client.table("oa_tasks").insert(task_data).execute()
+        task_result = await client.table("oa_tasks").insert(task_data).execute()
+        if not task_result.data:
+            return "❌ 任务创建失败，数据未写入数据库，请稍后重试。"
 
-        # 通知负责人（带 action_url 支持点击跳转）
-        notification_data = {
-            "user_id": assignee["id"],
-            "title": "📌 新任务分配",
-            "content": f"{creator_name} 给您分配了任务: {title}\n截止日期: {due_date}",
-            "type": "info",
-            "action_url": "/oa?tab=task",
-        }
-        if org_id:
-            notification_data["organization_id"] = org_id
-
-        await client.table("notifications").insert(notification_data).execute()
+        # 通知负责人（通过统一 NotificationService，支持多渠道分发）
+        try:
+            await notification_service.send(Notification(
+                title="📌 新任务分配",
+                content=f"{creator_name} 给您分配了任务: {title}\n截止日期: {due_date}",
+                target_user_id=assignee["id"],
+                channel=NotificationChannel.IN_APP,
+                metadata={"action_url": "/oa?tab=task", "organization_id": org_id or ""},
+            ))
+        except Exception as e:
+            logger.warning(f"Failed to notify assignee {assignee['name']}: {e}")
 
         priority_icons = {"low": "🟢", "medium": "🟡", "high": "🟠", "urgent": "🔴"}
 
@@ -850,8 +861,9 @@ class OnboardingChecklistTool(BaseTool):
                     }
                     if org_id:
                         task_data["organization_id"] = org_id
-                    await client.table("oa_tasks").insert(task_data).execute()
-                    created += 1
+                    res = await client.table("oa_tasks").insert(task_data).execute()
+                    if res.data:
+                        created += 1
                 except Exception:
                     continue
 
@@ -935,19 +947,19 @@ class SendNotificationTool(BaseTool):
         sender_res = await client.table("users").select("name").eq("id", user_id).single().execute()
         sender_name = sender_res.data.get("name", "同事") if sender_res.data else "同事"
 
-        # 发送通知
+        # 发送通知（通过统一 NotificationService，支持多渠道分发）
         icon = "📢" if priority == "normal" else "⚠️"
+        prio = NotificationPriority.NORMAL if priority == "normal" else NotificationPriority.HIGH
         for user in users:
-            notification_data = {
-                "user_id": user["id"],
-                "title": f"{icon} {title}",
-                "content": f"{sender_name}: {content}",
-                "type": "info" if priority == "normal" else "warning",
-            }
-            if org_id:
-                notification_data["organization_id"] = org_id
             try:
-                await client.table("notifications").insert(notification_data).execute()
+                await notification_service.send(Notification(
+                    title=f"{icon} {title}",
+                    content=f"{sender_name}: {content}",
+                    target_user_id=user["id"],
+                    channel=NotificationChannel.IN_APP,
+                    priority=prio,
+                    metadata={"organization_id": org_id or ""},
+                ))
             except Exception as e:
                 logger.warning(f"Failed to send notification to {user['name']}: {e}")
                 return safe_tool_error(e, "发送通知")

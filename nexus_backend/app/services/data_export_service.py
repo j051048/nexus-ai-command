@@ -1,7 +1,7 @@
 """
 Item 8: Data Export Service
-数据导出服务 - 支持审批记录、考勤数据、销售数据的 CSV 导出。
-使用 Python 标准库 csv 模块。
+数据导出服务 - 支持审批记录、考勤数据、销售数据的 CSV / Excel 导出。
+使用 Python 标准库 csv 模块和 openpyxl。
 """
 
 import csv
@@ -641,6 +641,122 @@ class DataExportService:
             writer.writerow(csv_row)
 
         return output.getvalue()
+
+    def _generate_xlsx(
+        self,
+        headers: list[str],
+        columns: list[str],
+        rows: list[dict[str, Any]],
+        sheet_title: str = "数据导出",
+    ) -> bytes:
+        """
+        生成 Excel (xlsx) 字节流。
+
+        Args:
+            headers: 表头（中文）
+            columns: 数据字段名
+            rows: 数据行列表
+            sheet_title: 工作表标题
+
+        Returns:
+            xlsx 文件的字节内容
+        """
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Font
+        from openpyxl.utils import get_column_letter
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = sheet_title
+
+        # 写入表头（加粗 + 冻结首行）
+        header_font = Font(bold=True)
+        for col_idx, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col_idx, value=header)
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center")
+        ws.freeze_panes = "A2"
+
+        # 写入数据行
+        for row_idx, row in enumerate(rows, 2):
+            for col_idx, col in enumerate(columns, 1):
+                value = row.get(col, "")
+                if value is None:
+                    value = ""
+                elif isinstance(value, datetime | date):
+                    value = value.isoformat()
+                ws.cell(row=row_idx, column=col_idx, value=value)
+
+        # 自动列宽（基于表头和前 50 行数据）
+        for col_idx, header in enumerate(headers, 1):
+            max_len = len(str(header))
+            sample_rows = rows[:50]
+            for row in sample_rows:
+                val = str(row.get(columns[col_idx - 1], ""))
+                val_len = sum(2 if ord(c) > 127 else 1 for c in val)
+                if val_len > max_len:
+                    max_len = val_len
+            header_len = sum(2 if ord(c) > 127 else 1 for c in str(header))
+            if header_len > max_len:
+                max_len = header_len
+            ws.column_dimensions[get_column_letter(col_idx)].width = min(max_len + 4, 60)
+
+        output = io.BytesIO()
+        wb.save(output)
+        return output.getvalue()
+
+    async def export_to_xlsx(
+        self,
+        export_type: str,
+        filters: dict[str, Any] | None = None,
+        org_id: str | None = None,
+        db=None,
+    ) -> bytes:
+        """
+        根据导出类型导出 Excel 数据。
+
+        Args:
+            export_type: 导出类型
+            filters: 可选的过滤条件
+            org_id: 组织 ID
+            db: 数据库客户端
+
+        Returns:
+            xlsx 文件的字节内容
+        """
+        db = db or supabase
+        if not db:
+            raise ValueError("数据库连接不可用")
+
+        config = self.EXPORT_CONFIGS.get(export_type)
+        if not config:
+            raise ValueError(f"不支持的导出类型: {export_type}，可选: {', '.join(self.EXPORT_CONFIGS.keys())}")
+
+        try:
+            columns_str = ", ".join(config["columns"])
+            query = db.table(config["table"]).select(columns_str)
+
+            if org_id:
+                query = query.eq("organization_id", org_id)
+            if filters:
+                query = self._apply_filters(query, filters)
+
+            query = query.order("created_at", desc=True).limit(10000)
+            result = await query.execute()
+            rows = result.data or []
+
+            return self._generate_xlsx(
+                headers=config["headers_cn"],
+                columns=config["columns"],
+                rows=rows,
+                sheet_title=config["description"],
+            )
+
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(f"Export {export_type} to xlsx failed: {e}")
+            raise ValueError(f"导出失败: {str(e)}")
 
     def _apply_filters(self, query, filters: dict[str, Any]):
         """

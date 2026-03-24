@@ -56,6 +56,7 @@ def _create_postgres_checkpointer():
 
     Uses Supabase connection pool for reliability.
     Requires langgraph-checkpoint-postgres package.
+    When LANGGRAPH_AES_KEY is set, checkpoint state is AES-encrypted at rest.
     """
     try:
         from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
@@ -72,9 +73,13 @@ def _create_postgres_checkpointer():
             open=False,  # Will be opened on first use
         )
 
-        checkpointer = AsyncPostgresSaver(pool)
+        # Enable AES encryption if key is configured
+        serde = _build_encrypted_serde()
 
-        logger.info("[Checkpointer] Using PostgreSQL checkpointer (persistent)")
+        checkpointer = AsyncPostgresSaver(pool, serde=serde) if serde else AsyncPostgresSaver(pool)
+
+        encrypted_label = " + AES encrypted" if serde else ""
+        logger.info("[Checkpointer] Using PostgreSQL checkpointer (persistent%s)", encrypted_label)
         return checkpointer
 
     except ImportError as e:
@@ -84,6 +89,27 @@ def _create_postgres_checkpointer():
         logger.error(f"[Checkpointer] Failed to create PostgreSQL checkpointer: {e}")
         logger.warning("[Checkpointer] Falling back to memory checkpointer")
         return _create_memory_checkpointer()
+
+
+def _build_encrypted_serde():
+    """Build AES-encrypted serializer if LANGGRAPH_AES_KEY env var is set."""
+    import os
+
+    if not os.getenv("LANGGRAPH_AES_KEY"):
+        return None
+
+    try:
+        from langgraph.checkpoint.serde.encrypted import EncryptedSerializer
+
+        serde = EncryptedSerializer.from_pycryptodome_aes()
+        logger.info("[Checkpointer] AES encryption enabled for checkpoint state")
+        return serde
+    except ImportError:
+        logger.warning("[Checkpointer] pycryptodome not installed, checkpoint encryption disabled")
+        return None
+    except Exception as e:
+        logger.warning("[Checkpointer] Encryption setup failed (%s), continuing unencrypted", e)
+        return None
 
 
 def _build_postgres_url() -> str:

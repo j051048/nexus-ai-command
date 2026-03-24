@@ -8,9 +8,42 @@ Each function is idempotent and safe to run multiple times per day.
 import logging
 from datetime import datetime, timedelta, timezone
 
+from app.services.notification_service import (
+    Notification,
+    NotificationChannel,
+    NotificationPriority,
+    notification_service,
+)
+
 logger = logging.getLogger(__name__)
 
 CN_TZ = timezone(timedelta(hours=8))
+
+
+async def _send_system_notification(
+    user_id: str,
+    title: str,
+    content: str,
+    *,
+    type: str = "info",
+    action_url: str | None = None,
+    org_id: str | None = None,
+) -> None:
+    """Send a system notification via NotificationService (unified path)."""
+    priority = NotificationPriority.HIGH if type == "warning" else NotificationPriority.NORMAL
+    metadata: dict = {}
+    if action_url:
+        metadata["action_url"] = action_url
+    if org_id:
+        metadata["organization_id"] = org_id
+    await notification_service.send(Notification(
+        title=title,
+        content=content,
+        target_user_id=user_id,
+        channel=NotificationChannel.IN_APP,
+        priority=priority,
+        metadata=metadata,
+    ))
 
 
 async def run_all_system_tasks():
@@ -88,14 +121,14 @@ async def check_expiring_contracts():
             days_left = (datetime.fromisoformat(contract["end_date"]).date() - today).days
             urgency = "紧急" if days_left <= 7 else "提醒"
 
-            await supabase.table("notifications").insert({
-                "user_id": notify_user_id,
-                "title": f"[{urgency}] 合同即将到期",
-                "content": f"合同「{contract['title']}」将于 {contract['end_date']} 到期（剩余 {days_left} 天），请及时跟进续约。",
-                "type": "warning",
-                "action_url": f"/contracts/{contract['id']}",
-                "organization_id": contract.get("organization_id"),
-            }).execute()
+            await _send_system_notification(
+                user_id=notify_user_id,
+                title=f"[{urgency}] 合同即将到期",
+                content=f"合同「{contract['title']}」将于 {contract['end_date']} 到期（剩余 {days_left} 天），请及时跟进续约。",
+                type="warning",
+                action_url=f"/contracts/{contract['id']}",
+                org_id=contract.get("organization_id"),
+            )
 
             logger.debug("[SystemTasks] Sent contract expiry notification for %s", contract["id"])
         except Exception as e:
@@ -165,14 +198,14 @@ async def check_inactive_customers():
             if existing.data:
                 continue
 
-            await supabase.table("notifications").insert({
-                "user_id": customer["assigned_to"],
-                "title": "客户跟进提醒",
-                "content": f"客户「{customer['name']}」已超过 {days_inactive} 天无跟进记录，建议尽快联系维护关系。",
-                "type": "info",
-                "action_url": f"/crm/customers/{customer['id']}",
-                "organization_id": customer.get("organization_id"),
-            }).execute()
+            await _send_system_notification(
+                user_id=customer["assigned_to"],
+                title="客户跟进提醒",
+                content=f"客户「{customer['name']}」已超过 {days_inactive} 天无跟进记录，建议尽快联系维护关系。",
+                type="info",
+                action_url=f"/crm/customers/{customer['id']}",
+                org_id=customer.get("organization_id"),
+            )
 
             notified += 1
         except Exception as e:
@@ -275,14 +308,14 @@ async def check_data_consistency():
                 except Exception:
                     pass
 
-                await supabase.table("notifications").insert({
-                    "user_id": admin["id"],
-                    "title": "数据一致性预警",
-                    "content": alert["message"],
-                    "type": "warning",
-                    "action_url": "/dashboard",
-                    "organization_id": admin.get("organization_id"),
-                }).execute()
+                await _send_system_notification(
+                    user_id=admin["id"],
+                    title="数据一致性预警",
+                    content=alert["message"],
+                    type="warning",
+                    action_url="/dashboard",
+                    org_id=admin.get("organization_id"),
+                )
 
         logger.info("[SystemTasks] Sent %d consistency alerts to %d admins", len(alerts), len(admins))
     except Exception as e:
@@ -387,14 +420,14 @@ async def check_pending_approvals():
                 if existing.data:
                     continue
 
-                await supabase.table("notifications").insert({
-                    "user_id": admin_id,
-                    "title": f"[{urgency}] 审批待处理",
-                    "content": f"「{desc}」{amount_str} 已等待 {hours_pending} 小时未审批，请及时处理。",
-                    "type": "warning" if is_urgent else "info",
-                    "action_url": f"/approvals/{approval['id']}",
-                    "organization_id": org_id,
-                }).execute()
+                await _send_system_notification(
+                    user_id=admin_id,
+                    title=f"[{urgency}] 审批待处理",
+                    content=f"「{desc}」{amount_str} 已等待 {hours_pending} 小时未审批，请及时处理。",
+                    type="warning" if is_urgent else "info",
+                    action_url=f"/approvals/{approval['id']}",
+                    org_id=org_id,
+                )
 
                 notified += 1
             except Exception as e:
