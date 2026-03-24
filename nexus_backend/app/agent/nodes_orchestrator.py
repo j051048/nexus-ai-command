@@ -41,9 +41,11 @@ _MAX_CONCURRENCY = 4
 # P0-1: Maximum tool-calling rounds per sub-task
 _MAX_SUB_TASK_TOOL_ROUNDS = 3
 # P1-4: Failure rate threshold to trigger dynamic replanning
-_REPLAN_FAILURE_THRESHOLD = 0.5
+_REPLAN_FAILURE_THRESHOLD = 0.3
 # Known long-running tools — imported from canonical definition
 from app.agent.node_helpers import LONG_RUNNING_TOOLS as _LONG_RUNNING_TOOLS
+# Total token budget for the entire orchestration pass
+_ORCHESTRATION_TOKEN_BUDGET = 30000
 
 
 # ─── P2-9: Unified LLM factory for orchestrator ─────────────────────────────
@@ -198,9 +200,19 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
                         blackboard=blackboard,
                         original_messages=_messages_copy,
                     )
+
+                    # Quality gate: detect empty or error-like results
+                    task_status = "completed"
+                    if not result or len(result.strip()) < 10:
+                        task_status = "degraded"
+                        logger.warning(f"[Orchestrate] Sub-task {task_idx} ({agent_code}) result too short, marking degraded")
+                    elif result.lstrip().startswith(("Error:", "错误", "执行失败")):
+                        task_status = "degraded"
+                        logger.warning(f"[Orchestrate] Sub-task {task_idx} ({agent_code}) result looks like error, marking degraded")
+
                     return {
                         **_base_result,
-                        "status": "completed",
+                        "status": task_status,
                         "result": result,
                         "tokens_in": tokens_in,
                         "tokens_out": tokens_out,
@@ -220,9 +232,17 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
                         blackboard=blackboard,
                         original_messages=_messages_copy,
                     )
+
+                    # Quality gate (same as Attempt 1)
+                    task_status = "completed"
+                    if not result or len(result.strip()) < 10:
+                        task_status = "degraded"
+                    elif result.lstrip().startswith(("Error:", "错误", "执行失败")):
+                        task_status = "degraded"
+
                     return {
                         **_base_result,
-                        "status": "completed",
+                        "status": task_status,
                         "result": result,
                         "tokens_in": tokens_in,
                         "tokens_out": tokens_out,
@@ -327,16 +347,32 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
                 )
             )
 
-        # P1-4: Dynamic replanning — check if layer failure rate is too high
+        # P1: Orchestration-level token budget guard
+        orchestration_tokens = total_input_tokens + total_output_tokens
+        if orchestration_tokens >= _ORCHESTRATION_TOKEN_BUDGET and layer_idx < len(execution_layers) - 1:
+            remaining_layers = len(execution_layers) - layer_idx - 1
+            thinking_steps.append(
+                ThinkingStep(
+                    phase="orchestrate",
+                    content=f"⚠️ 编排总 token 已达 {orchestration_tokens} (预算 {_ORCHESTRATION_TOKEN_BUDGET})，"
+                    f"跳过剩余 {remaining_layers} 层，使用已完成结果整合",
+                )
+            )
+            break
+
+        # P1-4: Dynamic replanning — check if layer anomaly rate is too high
         if layer_idx < len(execution_layers) - 1:
             valid_results = [lr for lr in layer_results if not isinstance(lr, Exception)]
             layer_failed = sum(1 for lr in valid_results if lr["status"] == "failed")
-            if valid_results and layer_failed / len(valid_results) > _REPLAN_FAILURE_THRESHOLD:
+            layer_degraded = sum(1 for lr in valid_results if lr["status"] == "degraded")
+            layer_anomalies = layer_failed + layer_degraded
+
+            if valid_results and layer_anomalies / len(valid_results) > _REPLAN_FAILURE_THRESHOLD:
                 thinking_steps.append(
                     ThinkingStep(
                         phase="orchestrate",
-                        content=f"第{layer_idx + 1}层有 {layer_failed}/{len(valid_results)} 个任务失败，"
-                        f"正在评估后续任务...",
+                        content=f"第{layer_idx + 1}层有 {layer_failed} 个失败 + {layer_degraded} 个降级"
+                        f" (共 {layer_anomalies}/{len(valid_results)})，正在评估后续任务...",
                     )
                 )
 
@@ -362,6 +398,15 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
                                 content=f"已动态调整 {len(adjusted)} 个后续子任务的策略",
                             )
                         )
+
+            # Full-layer failure: warn but continue (downstream tasks will see warnings via blackboard)
+            if valid_results and layer_failed == len(valid_results):
+                thinking_steps.append(
+                    ThinkingStep(
+                        phase="orchestrate",
+                        content=f"⚠️ 第{layer_idx + 1}层所有任务均失败，后续依赖任务的执行质量可能受影响",
+                    )
+                )
 
     # ── Integrate Results ──
     # P2-10: Emit orchestration complete metadata

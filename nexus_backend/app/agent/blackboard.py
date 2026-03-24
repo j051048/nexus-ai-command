@@ -51,6 +51,9 @@ class SharedBlackboard:
     def get_dependency_context(self, dependencies: list[int], max_chars: int = 3000) -> str:
         """Build dependency context text for a sub-task, including tool call summaries.
 
+        Status-aware: marks failed/degraded dependencies so downstream agents
+        can adjust their behaviour accordingly.
+
         Args:
             dependencies: List of task indices this sub-task depends on.
             max_chars: Maximum total characters for the context text.
@@ -59,6 +62,7 @@ class SharedBlackboard:
             return ""
 
         parts: list[str] = []
+        anomaly_count = 0
         chars_per_dep = max_chars // max(len(dependencies), 1)
 
         for dep_idx in dependencies:
@@ -66,8 +70,18 @@ class SharedBlackboard:
             if not result:
                 continue
 
-            section = f"[前置任务{dep_idx + 1}: {result.title}]\n"
-            section += result.text[:chars_per_dep]
+            # Status-aware prefix
+            if result.status == "failed":
+                section = f"[前置任务{dep_idx + 1}: {result.title}] ⚠️ [失败]\n"
+                section += f"失败原因: {result.text[:chars_per_dep]}"
+                anomaly_count += 1
+            elif result.status == "degraded":
+                section = f"[前置任务{dep_idx + 1}: {result.title}] ⚠️ [降级]\n"
+                section += result.text[:chars_per_dep]
+                anomaly_count += 1
+            else:
+                section = f"[前置任务{dep_idx + 1}: {result.title}]\n"
+                section += result.text[:chars_per_dep]
 
             if result.tool_calls:
                 tool_names = ", ".join(tc["tool_name"] for tc in result.tool_calls[:5])
@@ -75,7 +89,25 @@ class SharedBlackboard:
 
             parts.append(section)
 
-        return "\n\n".join(parts)
+        context = "\n\n".join(parts)
+
+        # Prepend overall warning if any anomalies exist
+        if anomaly_count > 0:
+            warning = f"⚠️ 注意: 前置任务中有 {anomaly_count} 个失败/降级，请据此调整执行策略。\n\n"
+            context = warning + context
+
+        return context
+
+    def get_anomaly_summary(self) -> str:
+        """Return a summary of all non-completed results for layer-level health checks."""
+        anomalies: list[str] = []
+        for result in self.get_all_results():
+            if result.status != "completed":
+                anomalies.append(
+                    f"- 任务{result.task_idx + 1} ({result.agent_code}): "
+                    f"[{result.status}] {result.title} — {result.text[:100]}"
+                )
+        return "\n".join(anomalies) if anomalies else ""
 
     def get_all_results(self) -> list[TaskResult]:
         """Return all results sorted by task_idx."""

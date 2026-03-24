@@ -162,14 +162,92 @@ class AgentReplayService:
             return None
         return steps[step_index]
 
+    async def get_session_timeline(
+        self, session_id: str, org_id: str, *, db=None
+    ) -> dict:
+        """
+        Build a Time Travel timeline for a chat session.
+
+        Aggregates all agent_traces whose thread_id matches the pattern
+        ``{org_id}::{session_id}::msg-*`` and returns them as an ordered
+        timeline of message-level execution summaries.
+        """
+        timeline: list[dict] = []
+
+        # thread_id pattern: "{org_id}::{session_id}::msg-{timestamp}"
+        thread_prefix = f"{org_id}::{session_id}::msg-"
+
+        # 1. Check in-memory traces (both active and completed)
+        in_memory_traces = [
+            t for t in list(agent_trace_service._active_traces.values())
+            + list(agent_trace_service._completed_traces.values())
+            if t.thread_id.startswith(thread_prefix)
+        ]
+        for trace in in_memory_traces:
+                nodes = [s.node_type for s in trace.steps] if trace.steps else []
+                timeline.append({
+                    "thread_id": trace.thread_id,
+                    "trace_id": trace.trace_id,
+                    "timestamp": datetime.fromtimestamp(trace.start_time, tz=UTC).isoformat()
+                    if trace.start_time else None,
+                    "query": (trace.query or "")[:200],
+                    "nodes_executed": nodes,
+                    "status": trace.status.value,
+                    "steps_count": len(trace.steps),
+                    "token_usage": {
+                        "total": trace.total_tokens,
+                    },
+                    "duration_ms": trace.total_duration_ms,
+                })
+
+        # 2. Fall back / supplement from DB
+        if db:
+            try:
+                result = (
+                    await db.table("agent_traces")
+                    .select("trace_id, thread_id, query, status, start_time, "
+                            "total_tokens, total_duration_ms, steps_json")
+                    .eq("org_id", org_id)
+                    .like("thread_id", f"%::{session_id}::msg-%")
+                    .order("start_time", desc=False)
+                    .limit(100)
+                    .execute()
+                )
+                existing_trace_ids = {t["trace_id"] for t in timeline}
+                for row in (result.data or []):
+                    if row.get("trace_id") in existing_trace_ids:
+                        continue
+                    steps_json = row.get("steps_json") or []
+                    nodes = [s.get("node_type", "unknown") for s in steps_json] if steps_json else []
+                    timeline.append({
+                        "thread_id": row.get("thread_id", ""),
+                        "trace_id": row.get("trace_id", ""),
+                        "timestamp": row.get("start_time"),
+                        "query": (row.get("query") or "")[:200],
+                        "nodes_executed": nodes,
+                        "status": row.get("status", ""),
+                        "steps_count": len(steps_json),
+                        "token_usage": {
+                            "total": row.get("total_tokens", 0),
+                        },
+                        "duration_ms": row.get("total_duration_ms"),
+                    })
+            except Exception as e:
+                logger.warning(f"[Replay] Session timeline DB query failed: {e}")
+
+        # Sort by timestamp
+        timeline.sort(key=lambda t: t.get("timestamp") or "")
+
+        return {
+            "session_id": session_id,
+            "org_id": org_id,
+            "timeline": timeline,
+            "total_messages": len(timeline),
+        }
+
     async def compare_sessions(
         self, thread_id_a: str, thread_id_b: str, *, db=None
     ) -> dict:
-        """
-        Compare two agent sessions and highlight differences.
-
-        Returns a SessionDiff with summary metrics and per-step comparison.
-        """
         trace_a = await self.load_session_trace(thread_id_a, db=db)
         trace_b = await self.load_session_trace(thread_id_b, db=db)
 

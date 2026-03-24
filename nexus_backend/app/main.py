@@ -243,6 +243,13 @@ def create_app() -> FastAPI:
         else:
             overall = "degraded"
 
+        # 5. Degradation registry — aggregated fallback tracking
+        from app.core.degradation_registry import degradation_registry
+        degradation_summary = degradation_registry.summary()
+        checks["degradations"] = degradation_summary
+        if degradation_summary["degraded"] and overall == "healthy":
+            overall = "degraded"
+
         status_code = 200 if overall == "healthy" else 503
         return UTF8JSONResponse(
             status_code=status_code,

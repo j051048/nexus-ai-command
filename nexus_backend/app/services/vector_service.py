@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import re
+import time
 from collections import OrderedDict
 from datetime import datetime, timedelta
 from typing import Any
@@ -64,7 +65,8 @@ class VectorService:
     """
 
     _EMBED_CACHE_MAX = 500  # max cached embeddings (in-process LRU)
-    _embed_cache: OrderedDict[str, list[float]] = OrderedDict()
+    _EMBED_CACHE_TTL = 3600  # 1 hour TTL for embedding cache entries
+    _embed_cache: OrderedDict[str, tuple[list[float], float]] = OrderedDict()  # key -> (embedding, timestamp)
 
     _DOC_TYPE_LABELS = {
         "tender": "招标文件",
@@ -531,8 +533,12 @@ class VectorService:
         truncated = text.strip()[:8000]
         cache_key = hashlib.md5(truncated.encode()).hexdigest()
         if cache_key in self._embed_cache:
-            self._embed_cache.move_to_end(cache_key)
-            return self._embed_cache[cache_key]
+            embedding, ts = self._embed_cache[cache_key]
+            if time.time() - ts < self._EMBED_CACHE_TTL:
+                self._embed_cache.move_to_end(cache_key)
+                return embedding
+            else:
+                del self._embed_cache[cache_key]  # expired
 
         try:
             api_key, base_url, model = await self._get_embedding_config(org_id)
@@ -555,8 +561,8 @@ class VectorService:
             )
             embedding = response.data[0].embedding
 
-            # Cache the result (LRU eviction)
-            self._embed_cache[cache_key] = embedding
+            # Cache the result (LRU eviction with TTL)
+            self._embed_cache[cache_key] = (embedding, time.time())
             if len(self._embed_cache) > self._EMBED_CACHE_MAX:
                 self._embed_cache.popitem(last=False)
 

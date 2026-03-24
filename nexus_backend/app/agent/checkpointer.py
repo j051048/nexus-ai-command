@@ -17,6 +17,18 @@ logger = logging.getLogger(__name__)
 
 # Singleton checkpointer instance
 _checkpointer_instance = None
+# Whether the active checkpointer is persistent (Postgres) or ephemeral (Memory)
+_checkpointer_persistent = False
+
+
+def is_checkpointer_persistent() -> bool:
+    """Return True if the active checkpointer is persistent (Postgres-backed).
+
+    HITL (Human-in-the-Loop) confirmation flows should refuse to proceed
+    when persistence is not available, as interrupted confirmations would
+    be lost on process restart.
+    """
+    return _checkpointer_persistent
 
 
 def get_checkpointer():
@@ -31,13 +43,21 @@ def get_checkpointer():
         LangGraph checkpointer instance
     """
     global _checkpointer_instance
+    global _checkpointer_persistent
 
     if _checkpointer_instance is not None:
         return _checkpointer_instance
 
     backend = settings.LANGGRAPH_CHECKPOINTER.lower()
 
-    _checkpointer_instance = _create_postgres_checkpointer() if backend == "postgres" else _create_memory_checkpointer()
+    if backend == "postgres":
+        _checkpointer_instance = _create_postgres_checkpointer()
+        # _create_postgres_checkpointer may fall back to memory on error
+        from langgraph.checkpoint.memory import MemorySaver
+        _checkpointer_persistent = not isinstance(_checkpointer_instance, MemorySaver)
+    else:
+        _checkpointer_instance = _create_memory_checkpointer()
+        _checkpointer_persistent = False
 
     return _checkpointer_instance
 
@@ -84,10 +104,14 @@ def _create_postgres_checkpointer():
 
     except ImportError as e:
         logger.warning(f"[Checkpointer] langgraph-checkpoint-postgres not installed, falling back to memory: {e}")
+        from app.core.degradation_registry import degradation_registry
+        degradation_registry.register("checkpointer", str(e), fallback="MemorySaver")
         return _create_memory_checkpointer()
     except Exception as e:
         logger.error(f"[Checkpointer] Failed to create PostgreSQL checkpointer: {e}")
         logger.warning("[Checkpointer] Falling back to memory checkpointer")
+        from app.core.degradation_registry import degradation_registry
+        degradation_registry.register("checkpointer", str(e), fallback="MemorySaver")
         return _create_memory_checkpointer()
 
 
@@ -183,5 +207,7 @@ def reset_checkpointer():
     Used for testing or hot-reload scenarios.
     """
     global _checkpointer_instance
+    global _checkpointer_persistent
     _checkpointer_instance = None
+    _checkpointer_persistent = False
     logger.info("[Checkpointer] Instance reset")

@@ -872,6 +872,47 @@ class AgentGraph:
         config = {"configurable": {"thread_id": thread_id}}
         await self.compiled.aupdate_state(config, updates)
 
+    async def get_state_history(self, thread_id: str, limit: int = 20) -> list[dict]:
+        """
+        Retrieve checkpoint history for a thread (Time Travel support).
+
+        Returns a list of checkpoint snapshots ordered from newest to oldest.
+        Note: With the current per-message thread_id strategy, each thread
+        typically has only 1 checkpoint. This method is forward-compatible
+        with future thread_id strategy changes.
+        """
+        config = {"configurable": {"thread_id": thread_id}}
+        states = []
+        try:
+            async for state_snapshot in self.compiled.aget_state_history(config):
+                checkpoint_config = state_snapshot.config.get("configurable", {})
+                values = state_snapshot.values or {}
+                metadata = state_snapshot.metadata or {}
+
+                states.append({
+                    "checkpoint_id": checkpoint_config.get("checkpoint_id"),
+                    "checkpoint_ns": checkpoint_config.get("checkpoint_ns", ""),
+                    "values_summary": {
+                        k: str(v)[:200] for k, v in values.items()
+                        if k != "messages"
+                    },
+                    "message_count": len(values.get("messages", [])),
+                    "next_nodes": list(state_snapshot.next) if state_snapshot.next else [],
+                    "created_at": metadata.get("created_at"),
+                    "step": metadata.get("step"),
+                    "parent_checkpoint_id": (
+                        state_snapshot.parent_config.get("configurable", {}).get("checkpoint_id")
+                        if getattr(state_snapshot, "parent_config", None)
+                        else None
+                    ),
+                })
+                if len(states) >= limit:
+                    break
+        except Exception as e:
+            logger.warning(f"[AgentGraph] get_state_history failed for {thread_id}: {e}")
+
+        return states
+
 
 # Convenience function to get singleton
 def get_agent_graph() -> AgentGraph:

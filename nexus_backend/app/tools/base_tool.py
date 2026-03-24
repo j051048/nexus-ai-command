@@ -172,6 +172,17 @@ class BaseTool(ABC):
         if not reasons:
             return None, ""
 
+        # Safety: refuse HITL confirmation when checkpointer is non-persistent
+        # (state would be lost on restart, leaving the operation in limbo)
+        from app.agent.checkpointer import is_checkpointer_persistent
+        if not is_checkpointer_persistent():
+            return (
+                "⚠️ 当前系统处于非持久化模式，无法安全执行需要确认的高风险操作。"
+                "请联系管理员启用 PostgreSQL checkpointer 后重试。\n"
+                + "\n".join(reasons),
+                primary_type,
+            )
+
         # System-level enforcement: if not explicitly confirmed by the system (human click), block
         if system_confirmed is True:
             return None, ""  # Confirmed by human, allow execution

@@ -11,6 +11,34 @@ from .pii_filter import sanitize_pii
 
 logger = logging.getLogger(__name__)
 
+# Categories whose value field is encrypted at rest
+_ENCRYPTED_CATEGORIES = frozenset({"explicit_memory", "personal_info", "episodic"})
+
+
+def _encrypt_value(value: str, category: str) -> str:
+    """Encrypt value for sensitive categories, passthrough for others."""
+    if category not in _ENCRYPTED_CATEGORIES or not value:
+        return value
+    try:
+        from app.services.encryption_service import encryption_service
+        return encryption_service.encrypt(value)
+    except Exception as e:
+        logger.warning(f"Memory encryption failed (storing plaintext): {e}")
+        return value
+
+
+def decrypt_memory_value(value: str) -> str:
+    """Decrypt a memory value if it's Fernet-encrypted, otherwise return as-is."""
+    if not value:
+        return value
+    try:
+        from app.services.encryption_service import EncryptionService
+        if EncryptionService.is_encrypted(value):
+            return EncryptionService.decrypt(value)
+    except Exception as e:
+        logger.warning(f"Memory decryption failed (returning raw): {e}")
+    return value
+
 
 async def save_memory(
     user_id: str,
@@ -43,6 +71,11 @@ async def save_memory(
     # Generate embedding for semantic search (prefer enriched_value for better semantics)
     embed_text = enriched_value or f"{key}: {value}"
     embedding = await generate_embedding(embed_text, org_id)
+
+    # Encrypt sensitive categories at rest (AFTER embedding, which needs plaintext)
+    value = _encrypt_value(value, category)
+    if enriched_value:
+        enriched_value = _encrypt_value(enriched_value, category)
 
     # Check if key already exists for this user (latest version only)
     existing = (

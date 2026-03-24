@@ -75,7 +75,15 @@ def mmr_rerank(
         return memories
 
     def _tokenize(text: str) -> set[str]:
-        return set(text.lower().split())
+        """Tokenize using character bigrams for CJK compatibility.
+
+        Plain split() produces whole sentences for Chinese (no spaces),
+        making Jaccard always 0 or 1.  Character bigrams work for any language.
+        """
+        text = text.lower()
+        if len(text) < 2:
+            return {text} if text else set()
+        return {text[i : i + 2] for i in range(len(text) - 1)}
 
     def _jaccard(a: set[str], b: set[str]) -> float:
         if not a or not b:

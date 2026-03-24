@@ -47,16 +47,24 @@ class Experiment:
 # Add new experiments here. Disabled experiments always return "control".
 
 EXPERIMENTS: dict[str, Experiment] = {
-    # Example: compare two system prompt strategies
-    # "prompt_v2_test": Experiment(
-    #     name="prompt_v2_test",
-    #     description="Test concise vs detailed system prompt",
-    #     variants=(
-    #         ExperimentVariant("control", weight=50),
-    #         ExperimentVariant("treatment", weight=50, config={"prompt_style": "concise"}),
-    #     ),
-    #     traffic_pct=20,
-    # ),
+    # Experiment 1: Test whether concise system instructions improve response quality
+    "system_prompt_style": Experiment(
+        name="system_prompt_style",
+        description="Compare default vs concise system prompt style for response quality",
+        variants=(
+            ExperimentVariant("control", weight=50),
+            ExperimentVariant("concise", weight=50, config={
+                "prompt_suffix": (
+                    "\n\n## 回复风格要求\n"
+                    "- 直入主题，省略寒暄和过渡语\n"
+                    "- 优先使用列表和表格展示信息\n"
+                    "- 每段回复不超过200字"
+                ),
+            }),
+        ),
+        traffic_pct=10,  # Start with 10% of users
+        enabled=True,
+    ),
 }
 
 

@@ -2,59 +2,63 @@
 Unit tests for A/B Testing framework.
 """
 
-import pytest
-from unittest.mock import MagicMock
-from app.agent.ab_testing import ab_test_manager, ABTestConfig
+from app.agent.ab_testing import (
+    EXPERIMENTS,
+    Experiment,
+    ExperimentVariant,
+    get_active_assignments,
+    get_experiment_config,
+    get_experiment_variant,
+)
 
 
-@pytest.fixture
-def clean_manager():
-    """Reset manager state before each test."""
-    ab_test_manager._tests.clear()
-    return ab_test_manager
+def test_experiment_registered():
+    """At least one experiment should be registered."""
+    assert len(EXPERIMENTS) >= 1
+    assert "system_prompt_style" in EXPERIMENTS
 
 
-def test_register_and_get_test(clean_manager):
-    config = ABTestConfig(
-        name="test_logic",
-        variants=["A", "B"],
-        weights=[0.5, 0.5],
-        description="Test description"
-    )
-    clean_manager.register_test(config)
-    
-    assert "test_logic" in clean_manager._tests
-    assert clean_manager.get_test("test_logic").variants == ["A", "B"]
-
-
-def test_get_variant_deterministic(clean_manager):
-    config = ABTestConfig(
-        name="ui_theme",
-        variants=["dark", "light"],
-        weights=[0.5, 0.5]
-    )
-    clean_manager.register_test(config)
-    
-    # Same user_id should always get same variant
-    v1 = clean_manager.get_variant("ui_theme", "user-1")
-    v2 = clean_manager.get_variant("ui_theme", "user-1")
+def test_get_variant_deterministic():
+    """Same (experiment, user_id) should always return the same variant."""
+    v1 = get_experiment_variant("system_prompt_style", "user-abc-123")
+    v2 = get_experiment_variant("system_prompt_style", "user-abc-123")
     assert v1 == v2
-    
-    # Different user_id might get different variant (hash based)
-    # We test hash consistency here
-    v3 = clean_manager.get_variant("ui_theme", "user-6") # Chosen to likely be different
-    # This is statistical, but for specific IDs it's deterministic
-    pass
+    assert v1 in ("control", "concise")
 
-def test_get_variant_unregistered(clean_manager):
-    # Should return None or default for unregistered tests
-    variant = clean_manager.get_variant("non_existent", "user-1")
-    assert variant is None
 
-def test_active_tests_filtering(clean_manager):
-    clean_manager.register_test(ABTestConfig(name="test1", variants=["A", "B"], is_active=True))
-    clean_manager.register_test(ABTestConfig(name="test2", variants=["A", "B"], is_active=False))
-    
-    active = clean_manager.get_active_tests()
-    assert len(active) == 1
-    assert active[0].name == "test1"
+def test_get_variant_unknown_experiment():
+    """Unknown experiment should return 'control'."""
+    v = get_experiment_variant("non_existent_experiment", "user-1")
+    assert v == "control"
+
+
+def test_get_experiment_config_returns_dict():
+    """Config for a valid experiment variant should be a dict."""
+    config = get_experiment_config("system_prompt_style", "user-abc-123")
+    assert isinstance(config, dict)
+
+
+def test_get_active_assignments():
+    """Active assignments should be a dict of experiment→variant."""
+    assignments = get_active_assignments("user-abc-123")
+    assert isinstance(assignments, dict)
+    # Only non-control assignments are returned
+    for v in assignments.values():
+        assert v != "control"
+
+
+def test_disabled_experiment():
+    """Disabled experiment should return 'control'."""
+    # Temporarily modify
+    exp = Experiment(
+        name="test_disabled",
+        description="disabled test",
+        variants=(ExperimentVariant("control", 50), ExperimentVariant("treatment", 50)),
+        enabled=False,
+    )
+    EXPERIMENTS["test_disabled"] = exp
+    try:
+        v = get_experiment_variant("test_disabled", "user-1")
+        assert v == "control"
+    finally:
+        del EXPERIMENTS["test_disabled"]

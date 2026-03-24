@@ -302,8 +302,11 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
                 request.state.user_id = user_id
 
                 # 2. Get Org ID (with caching, TTL reduced to 5 min)
+                # Security: mutating methods skip cache to ensure
+                # permission revocations take effect immediately.
+                is_mutating = request.method in ("POST", "PUT", "PATCH", "DELETE")
                 cache_key = f"user:{user_id}:org_id"
-                org_id = await cache_service.get(cache_key)
+                org_id = None if is_mutating else await cache_service.get(cache_key)
 
                 if not org_id:
                     # Query once from users table - P0 Fix: Use organization_id

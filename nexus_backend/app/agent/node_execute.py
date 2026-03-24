@@ -326,9 +326,30 @@ def _topological_sort(pending: list) -> list[list]:
 # Caches read-only (non-mutation) tool results within a session to avoid
 # redundant API calls when the LLM re-requests the same data.
 # Key: tool_name + args_hash, Value: (result_str, timestamp)
-_QUERY_CACHE_TTL = 300  # 5 minutes
+_QUERY_CACHE_TTL = 300  # 5 minutes (default)
 _query_result_cache: dict[str, tuple[str, float]] = {}
 _QUERY_CACHE_MAX = 200
+
+# TTL tiers by tool category — fast-changing data gets shorter TTL
+_TOOL_TTL_OVERRIDES: dict[str, int] = {
+    # Customer/CRM data changes frequently
+    "query_customers": 120,
+    "query_leads": 120,
+    "get_customer_detail": 120,
+    "search_leads": 120,
+    # Financial data — moderate change rate
+    "query_invoices": 180,
+    "query_expenses": 180,
+    "get_finance_summary": 180,
+    # Knowledge base / product data — changes slowly
+    "search_knowledge_base": 600,
+    "search_documents": 600,
+    "query_products": 600,
+    # Analytics / reports — expensive, cache longer
+    "generate_report": 900,
+    "get_analytics_summary": 900,
+    "data_analysis": 900,
+}
 
 
 def _query_cache_key(tool_name: str, tool_args: dict, org_id: str | None = None) -> str:
@@ -339,13 +360,14 @@ def _query_cache_key(tool_name: str, tool_args: dict, org_id: str | None = None)
 
 
 def _get_cached_result(tool_name: str, tool_args: dict, org_id: str | None = None) -> str | None:
-    """Return cached result if available and not expired."""
+    """Return cached result if available and not expired (uses tool-specific TTL)."""
     key = _query_cache_key(tool_name, tool_args, org_id)
     entry = _query_result_cache.get(key)
     if entry is None:
         return None
     result, ts = entry
-    if time.time() - ts > _QUERY_CACHE_TTL:
+    ttl = _TOOL_TTL_OVERRIDES.get(tool_name, _QUERY_CACHE_TTL)
+    if time.time() - ts > ttl:
         del _query_result_cache[key]
         return None
     return result

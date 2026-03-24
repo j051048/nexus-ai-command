@@ -90,6 +90,10 @@ def _format_by_temperature(mem: dict) -> str:
     category = mem.get("category", "")
     importance = float(mem.get("importance", 0.5))
     value = mem.get("value", "")
+
+    # Decrypt if the value was encrypted at rest
+    from app.services.conversation_memory.storage import decrypt_memory_value
+    value = decrypt_memory_value(value)
     
     parts = [f'  <memory type="{category}" age="{age_str}" importance="{importance:.1f}">']
     if days_old < 3 and importance > 0.7:

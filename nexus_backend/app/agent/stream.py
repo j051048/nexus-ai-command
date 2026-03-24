@@ -258,6 +258,18 @@ async def run_agent_stream(
         if _pref_lines:
             system_prompt += "\n\n## 用户个人偏好\n" + "\n".join(_pref_lines)
 
+    # ── 2a-ab. A/B test — apply experiment config to system prompt ──
+    if _ab_assignments:
+        try:
+            from app.agent.ab_testing import get_experiment_config
+            for exp_name in _ab_assignments:
+                exp_config = get_experiment_config(exp_name, user_id, user_role=agent_config.user_role)
+                suffix = exp_config.get("prompt_suffix")
+                if suffix:
+                    system_prompt += suffix
+        except Exception:
+            logger.debug("[Stream] A/B prompt injection skipped", exc_info=True)
+
     # ── 2b. Soul Document — 用灵魂文档替换默认身份认知 ──
     try:
         from app.services.soul_document_service import soul_document_service

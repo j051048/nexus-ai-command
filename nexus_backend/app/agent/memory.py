@@ -681,21 +681,37 @@ async def prepare_initial_state(
         system_prompt = system_prompt + "\n\n" + user_profile_ctx
         logger.info("[Memory] User profile embedded into system prompt")
 
-    # Inject remaining contexts as a single system message
+    # Inject remaining contexts as a single system message (with token budget)
     if injected_contexts:
         # Add save_memory tool guidance at the end of context blocks
         injected_contexts.append(
             '[记忆工具提示] 当用户明确要求"记住"某事, 或你发现重要的用户偏好/事实时, '
             "立即调用 save_memory 工具保存, 不要等到对话结束。"
         )
+
+        # Unified token budget: cap injected context to avoid unbounded growth
+        # Mirrors ContextEngine._MAX_BUDGET to keep total context predictable.
+        from app.services.token_service import token_counter
+        _INJECT_BUDGET = 6000  # tokens — aligned with ContextEngine budget range
+        budgeted: list[str] = []
+        running_tokens = 0
+        for block in injected_contexts:
+            block_tokens = token_counter.count_tokens(block)
+            if running_tokens + block_tokens > _INJECT_BUDGET and budgeted:
+                logger.info(f"[Memory] Context budget reached ({running_tokens}/{_INJECT_BUDGET}), "
+                            f"dropping {len(injected_contexts) - len(budgeted)} remaining blocks")
+                break
+            budgeted.append(block)
+            running_tokens += block_tokens
+
         raw_messages.insert(
             0,
             {
                 "role": "system",
-                "content": "\n\n".join(injected_contexts),
+                "content": "\n\n".join(budgeted),
             },
         )
-        logger.info(f"[Memory] Injected {len(injected_contexts)} context blocks as one system message")
+        logger.info(f"[Memory] Injected {len(budgeted)} context blocks (~{running_tokens} tokens)")
 
     # ── 2g. Pre-compaction Memory Flush ──
     # Before discarding old messages, extract any memorizable content

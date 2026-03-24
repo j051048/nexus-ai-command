@@ -112,15 +112,9 @@ def _lc_code_replacer(match):
 
 
 def _count_tokens_approx(text: str) -> int:
-    """Approximate token count without requiring tiktoken.
-
-    Uses heuristic: Chinese chars ~1.5 tokens each, other chars ~0.25 tokens each.
-    """
-    if not text:
-        return 0
-    chinese_chars = sum(1 for c in text if "\u4e00" <= c <= "\u9fff")
-    other_chars = len(text) - chinese_chars
-    return int(chinese_chars / 1.5 + other_chars / 4)
+    """Token count — delegates to the canonical TokenCounter."""
+    from app.services.token_service import token_counter
+    return token_counter.count_tokens(text)
 
 
 def _count_messages_tokens(messages: list[BaseMessage]) -> int:
