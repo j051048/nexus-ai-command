@@ -30,9 +30,9 @@ function ConditionNodeComponent({ data, selected }: NodeProps) {
   return (
     <div
       className={`
-        px-4 py-3 rounded-lg border-2 bg-background shadow-sm min-w-[180px]
-        ${selected ? 'border-yellow-500 ring-2 ring-yellow-500/20' : 'border-yellow-400'}
-        transition-all
+        px-4 py-3 rounded-lg border-2 bg-background/90 backdrop-blur-sm shadow-xl min-w-[180px]
+        ${selected ? 'border-yellow-500 ring-4 ring-yellow-500/20' : 'border-yellow-400/60'}
+        transition-all duration-300
       `}
     >
       <Handle

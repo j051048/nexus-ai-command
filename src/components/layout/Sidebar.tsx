@@ -61,6 +61,11 @@ import {
   Workflow,
   FileEdit,
   LayoutTemplate,
+  Pin,
+  PinOff,
+  Star,
+  Library,
+  Network,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -93,8 +98,9 @@ interface NavItem {
   group: string;
 }
 
-// ── localStorage key for collapsed groups ──
+// ── localStorage keys ──
 const COLLAPSED_GROUPS_KEY = "nexus:sidebar-collapsed-groups";
+const PINNED_ITEMS_KEY = "nexus:sidebar-pinned-items";
 
 function loadCollapsedGroups(): Record<string, boolean> {
   try {
@@ -105,8 +111,21 @@ function loadCollapsedGroups(): Record<string, boolean> {
   }
 }
 
+function loadPinnedItems(): string[] {
+  try {
+    const raw = localStorage.getItem(PINNED_ITEMS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
 function saveCollapsedGroups(state: Record<string, boolean>) {
   localStorage.setItem(COLLAPSED_GROUPS_KEY, JSON.stringify(state));
+}
+
+function savePinnedItems(items: string[]) {
+  localStorage.setItem(PINNED_ITEMS_KEY, JSON.stringify(items));
 }
 
 // ── Navigation config — reorganized & merged ──
@@ -346,14 +365,14 @@ const NAV_CONFIG: NavItem[] = [
     group: "组织管理",
   },
   {
-    icon: <Building2 size={20} />,
+    icon: <Library size={20} />,
     label: "部门管理",
     href: "departments",
     roles: ["boss", "founder"],
     group: "组织管理",
   },
   {
-    icon: <Building2 size={20} />,
+    icon: <Network size={20} />,
     label: "组织架构",
     href: "org-chart",
     roles: ["boss", "founder"],
@@ -486,6 +505,17 @@ export function Sidebar({ onNavClick }: SidebarProps) {
   const navigate = useNavigate();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(loadCollapsedGroups);
+  const [pinnedHrefs, setPinnedHrefs] = useState<string[]>(loadPinnedItems);
+
+  const togglePin = (href: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const next = pinnedHrefs.includes(href) 
+      ? pinnedHrefs.filter(h => h !== href) 
+      : [...pinnedHrefs, href];
+    setPinnedHrefs(next);
+    savePinnedItems(next);
+  };
 
   // Badge data
   const { data: exceptions = [] } = useExceptions();
@@ -683,6 +713,19 @@ export function Sidebar({ onNavClick }: SidebarProps) {
                   <span className="flex-1 text-left truncate">
                     {item.label}
                   </span>
+                  
+                  {/* Pin Button */}
+                  <button
+                    onClick={(e) => togglePin(item.href, e)}
+                    className={cn(
+                      "opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-background/50 transition-all",
+                      pinnedHrefs.includes(item.href) && "opacity-100 text-primary"
+                    )}
+                    title={pinnedHrefs.includes(item.href) ? "取消收藏" : "加入收藏"}
+                  >
+                    {pinnedHrefs.includes(item.href) ? <PinOff size={12} /> : <Pin size={12} />}
+                  </button>
+
                   {item.badge && (
                     <span
                       className={cn(
@@ -780,6 +823,35 @@ export function Sidebar({ onNavClick }: SidebarProps) {
         aria-label="功能菜单"
         className="flex-1 py-2 overflow-y-auto overflow-x-hidden space-y-1 custom-scrollbar"
       >
+        {/* 收藏夹 (Pinned Items) */}
+        {!isCollapsed && pinnedHrefs.length > 0 && (
+          <div className="mb-4 px-4">
+             <div className="flex items-center gap-2 px-2 py-1.5 opacity-60">
+                <Star size={12} className="text-primary fill-primary" />
+                <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">我的收藏</h3>
+             </div>
+             <ul className="space-y-1 mt-1">
+                {navItems.filter(i => pinnedHrefs.includes(i.href)).map(item => (
+                  <li key={`pinned-${item.href}`}>
+                    <Link
+                      to={`/${item.href}`}
+                      onClick={onNavClick}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg text-sm font-medium transition-all group relative px-3 py-2 border border-transparent",
+                        isActive(item.href)
+                          ? "bg-primary/5 text-primary border-primary/10 shadow-sm"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground",
+                      )}
+                    >
+                      <span className="shrink-0">{item.icon}</span>
+                      <span className="flex-1 text-left truncate">{item.label}</span>
+                    </Link>
+                  </li>
+                ))}
+             </ul>
+          </div>
+        )}
+
         {NAV_GROUPS.map((group) => {
           const groupItems = navItems.filter((i) => i.group === group);
           return renderNavGroup(group, groupItems);

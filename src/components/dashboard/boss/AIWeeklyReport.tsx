@@ -16,13 +16,12 @@ interface AIWeeklyReportProps {
 export function AIWeeklyReport({ report }: AIWeeklyReportProps) {
     return (
         <div className="relative overflow-hidden glass rounded-3xl p-5 sm:p-8 cyber-border shadow-2xl transition-all duration-300">
-            {/* Background glowing orb */}
-            <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 rounded-full bg-primary/10 blur-3xl animate-pulse-glow pointer-events-none" />
+            {/* Background glowing orb - Simplified static version for reduced noise */}
+            <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
 
             <div className="relative z-10 flex items-center gap-4 mb-6 sm:mb-8">
                 <div className="relative">
-                    <div className="absolute inset-0 bg-primary/30 rounded-2xl blur-md animate-glow-pulse" />
-                    <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-primary flex items-center justify-center glow-primary">
+                    <div className="relative w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-primary flex items-center justify-center glow-primary transition-transform hover:scale-105">
                         <Bot className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                     </div>
                 </div>
@@ -67,8 +66,8 @@ export function AIWeeklyReport({ report }: AIWeeklyReportProps) {
                     <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-2">本周智能激励发放</p>
                     <div className="flex flex-col gap-1">
                         <span className="text-3xl sm:text-4xl font-extrabold text-success tracking-tight mono-number">
-                            <span className="text-xl sm:text-2xl text-success/70 mr-1">¥</span>
-                            {(report.totalIncentives / 10000).toFixed(1)}<span className="text-xl sm:text-2xl text-success/70 ml-1">万</span>
+                            <span className="text-xl sm:text-2xl text-success mr-1">¥</span>
+                            {(report.totalIncentives / 10000).toFixed(1)}<span className="text-xl sm:text-2xl text-success ml-1">万</span>
                         </span>
                     </div>
                 </div>
@@ -77,7 +76,7 @@ export function AIWeeklyReport({ report }: AIWeeklyReportProps) {
                     <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-2">AI 自治处理率</p>
                     <div className="flex items-baseline gap-2">
                         <span className="text-3xl sm:text-4xl font-extrabold text-primary tracking-tight mono-number">95<span className="text-2xl">%</span></span>
-                        <span className="text-sm font-medium text-primary/70">全程无人干预</span>
+                        <span className="text-sm font-medium text-primary">全程无人干预</span>
                     </div>
                 </div>
             </div>

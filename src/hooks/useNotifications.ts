@@ -13,6 +13,7 @@ export interface Notification {
     is_read: boolean;
     action_url?: string;
     created_at: string;
+    metadata?: Record<string, unknown>;
 }
 
 export function useNotificationsRealtime() {
@@ -33,7 +34,11 @@ export function useNotificationsRealtime() {
                 },
                 (payload) => {
                     const newNotif = payload.new as Notification;
-                    newNotif.type === 'error' ? toast.error(newNotif.title, { description: newNotif.content }) : toast.success(newNotif.title, { description: newNotif.content });
+                    if (newNotif.type === 'error') {
+                        toast.error(newNotif.title, { description: newNotif.content });
+                    } else {
+                        toast.success(newNotif.title, { description: newNotif.content });
+                    }
                     queryClient.invalidateQueries({ queryKey: ['notifications'] });
                     queryClient.invalidateQueries({ queryKey: ['notification-center'] });
                     queryClient.invalidateQueries({ queryKey: ['notification-unread-count'] });

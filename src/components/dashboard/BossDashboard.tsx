@@ -121,16 +121,15 @@ export function BossDashboard() {
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-fade-in">
-      {/* Hero Header with Glassmorphism */}
-      <div className="relative overflow-hidden rounded-3xl glass cyber-border p-6 sm:p-8 hover-lift">
-        {/* Animated background elements */}
-        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 rounded-full bg-primary/20 blur-3xl animate-pulse-glow" />
-        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-success/20 blur-3xl float" style={{ animationDelay: '1s' }} />
+      {/* Hero Header with Glassmorphism - Visual Noise Reduction */}
+      <div className="relative overflow-hidden rounded-3xl glass cyber-border p-6 sm:p-8">
+        {/* Reduced Visual Noise - Minimal background accent */}
+        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
         
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-gradient-primary inline-flex animate-bounce-subtle">
+              <div className="p-2.5 rounded-xl bg-gradient-primary inline-flex">
                 <Sparkles className="w-6 h-6 text-white" />
               </div>
               <h1 className="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-foreground to-foreground/60 tracking-tight">
@@ -161,11 +160,11 @@ export function BossDashboard() {
               </Button>
             )}
             <div className="flex items-center gap-3 px-5 py-3 glass bg-success/10 rounded-xl cyber-border animate-fade-slide-left shadow-lg">
-               <div className="p-1.5 rounded-full bg-success/20 animate-pulse">
+               <div className="p-1.5 rounded-full bg-success/20">
                   <Activity className="w-5 h-5 text-success" />
                </div>
                <div className="flex flex-col">
-                 <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">Automated</span>
+                 <span className="text-xs text-muted-foreground font-mono uppercase tracking-wider">自动化</span>
                  <span className="text-success font-bold text-sm sm:text-base">95% 事务已托管</span>
                </div>
             </div>

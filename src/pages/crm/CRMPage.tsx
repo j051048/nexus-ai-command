@@ -121,6 +121,10 @@ function CRMPage() {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         customers={customers as unknown as Record<string, unknown>[]}
+        onReset={() => {
+          setSearchQuery('');
+          setStageFilter('all');
+        }}
       />
 
       {isLoading ? (

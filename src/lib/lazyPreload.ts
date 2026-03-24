@@ -24,7 +24,7 @@ export const prefetchRoute = (component: { preload: () => Promise<unknown> }) =>
  *   where a page reload would be disruptive. The error will still be thrown and
  *   can be caught by a React ErrorBoundary.
  */
-export function lazyWithRetry<T extends ComponentType<unknown>>(
+export function lazyWithRetry<T extends ComponentType<any>>(
     factory: () => Promise<{ default: T }>,
     retries = 2,
     reloadOnFailure = true

@@ -814,7 +814,7 @@ async def prepare_initial_state(
         if _ct_name and _ct_args:
             try:
                 import json as _json
-                from app.services.conversation_memory.storage import conversation_memory_service
+                from app.services.conversation_memory import conversation_memory_service
                 import asyncio
                 _t = asyncio.create_task(
                     conversation_memory_service.save_memory(

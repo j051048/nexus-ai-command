@@ -236,7 +236,7 @@ export function ProjectManagement() {
 
     return (
         <div className="space-y-6 max-w-[1400px] mx-auto pb-20">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex flex-col gap-2">
                     <h1 className="text-2xl font-bold tracking-tight">项目管理</h1>
                     <p className="text-muted-foreground">全生命周期项目追踪与协作</p>

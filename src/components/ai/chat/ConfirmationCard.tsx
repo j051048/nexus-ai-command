@@ -53,6 +53,23 @@ const ARG_LABEL_MAP: Record<string, string> = {
   remark: '备注',
   note: '备注',
   comment: '评论',
+  customer_name: '客户姓名',
+  customer_id: '客户编号',
+  contract_id: '合同编号',
+  invoice_id: '发票编号',
+  approval_type: '审批类型',
+  leave_type: '请假类型',
+  start_date: '开始日期',
+  end_date: '结束日期',
+  total_amount: '总金额',
+  tax_rate: '税率',
+  account_name: '账户名',
+  bank_name: '银行',
+  address: '地址',
+  description_cn: '详细描述',
+  summary: '摘要',
+  feedback: '反馈',
+  score: '评分',
 };
 
 /** 将英文 key 转为中文标签（若无映射则美化显示） */
@@ -183,8 +200,10 @@ export const ConfirmationCard: React.FC<ConfirmationCardProps> = ({
 
   const style = TIER_STYLES[confirmation.confirmation_type || ''] || DEFAULT_STYLE;
   const Icon = style.icon;
+  const isDestructive = confirmation.tool_name.includes('delete') || confirmation.tool_name.includes('remove');
+  const confirmPlaceholder = '确认';
   const needsTypedConfirm = 'requireTypedConfirm' in style && style.requireTypedConfirm;
-  const canConfirm = !needsTypedConfirm || typedConfirm === '确认执行';
+  const canConfirm = !needsTypedConfirm || typedConfirm === confirmPlaceholder;
 
   return (
     <div className={`mx-4 mb-2 rounded-xl border ${style.border} ${style.bg} p-4 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
@@ -265,12 +284,12 @@ export const ConfirmationCard: React.FC<ConfirmationCardProps> = ({
           {needsTypedConfirm && (
             <div className="pt-1">
               <p className={`text-xs ${style.labelColor} mb-1`}>
-                请输入 <span className="font-bold">确认执行</span> 以继续
+                请输入 <span className="font-bold">{confirmPlaceholder}</span> 以继续
               </p>
               <input
                 type="text"
                 className={`w-48 h-7 px-2 rounded border ${style.inputBorder} ${style.inputBg} text-xs ${style.inputText} focus:outline-none focus:ring-1 focus:ring-red-500`}
-                placeholder="确认执行"
+                placeholder={confirmPlaceholder}
                 value={typedConfirm}
                 onChange={(e) => setTypedConfirm(e.target.value)}
               />

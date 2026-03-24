@@ -50,6 +50,21 @@ import {
   PlusCircle,
 } from 'lucide-react';
 import { aiClient } from '@/api/aiClient';
+import { pinyin } from 'pinyin-pro';
+
+/**
+ * 拼音处理辅助函数：生成全拼和首字母
+ * 例如 "待办" -> "daiban db"
+ */
+function getPinyinValues(text: string): string {
+  try {
+    const full = pinyin(text, { toneType: 'none', type: 'array' }).join('');
+    const first = pinyin(text, { pattern: 'initial', toneType: 'none', type: 'array' }).join('');
+    return `${full} ${first}`;
+  } catch {
+    return '';
+  }
+}
 
 interface NavCommandItem {
   label: string;
@@ -149,6 +164,14 @@ const COMMAND_ITEMS: NavCommandItem[] = [
   { label: '个人中心', path: '/profile', icon: Users, keywords: ['个人', 'profile', '我的'], group: '其他' },
   { label: '支付管理', path: '/payments', icon: CreditCard, keywords: ['支付', 'payment', '订阅'], group: '其他' },
 ];
+
+// Pre-compute pinyin search values at module level (COMMAND_ITEMS is static)
+const COMMAND_ITEM_VALUES = new Map<string, string>(
+  COMMAND_ITEMS.map((item) => [
+    item.path,
+    `${item.label} ${item.keywords?.join(' ') || ''} ${getPinyinValues(item.label)}`,
+  ])
+);
 
 // P2: Intent detection — ACTION_KEYWORDS trigger AI routing
 const ACTION_KEYWORDS = [
@@ -456,7 +479,7 @@ export function GlobalCommandBar() {
               {items.map((item) => (
                 <CommandItem
                   key={item.path}
-                  value={`${item.label} ${item.keywords?.join(' ') || ''}`}
+                  value={COMMAND_ITEM_VALUES.get(item.path) || item.label}
                   onSelect={() => handleSelect(item.path)}
                 >
                   <item.icon className="mr-2 h-4 w-4" />

@@ -272,7 +272,7 @@ export function ContractManagement() {
   return (
     <div className="p-6 space-y-6 max-w-[1400px] mx-auto">
       {/* 页面标题 */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <FileText className="h-6 w-6 text-primary" />

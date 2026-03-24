@@ -119,7 +119,7 @@ export default function MobileHomePage() {
         id: 'more',
         label: '更多',
         icon: MoreHorizontal,
-        path: '/approval',
+        path: '/approval', // 工作台默认路径，会触发 MobileWorkbenchPage 渲染
         color: 'text-gray-600',
         bgColor: 'bg-gray-100 dark:bg-gray-800',
       },
@@ -160,14 +160,14 @@ export default function MobileHomePage() {
       {
         id: 'ai-score',
         label: 'AI 评分',
-        value: '87',
+        value: `${Math.min(100, Math.max(0, Math.round(user.score * 0.6 + Math.max(0, 30 - (user.rank - 1) * 3) + (pendingCount === 0 ? 10 : Math.max(0, 10 - pendingCount)))))}`,
         unit: '分',
         icon: Brain,
         color: 'text-violet-600',
         bgColor: 'bg-violet-50 dark:bg-violet-900/20',
       },
     ],
-    [user.score, user.rank, user.totalBonus]
+    [user.score, user.rank, user.totalBonus, pendingCount]
   );
 
   // 待办事项

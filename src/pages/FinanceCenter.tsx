@@ -335,7 +335,7 @@ export function FinanceCenter() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-2xl font-bold">财务中心</h1>
           <p className="text-muted-foreground">管理报销申请、发票和预算</p>

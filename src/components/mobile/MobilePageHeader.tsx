@@ -40,6 +40,7 @@ export default function MobilePageHeader({
         'h-12 flex items-center justify-between px-2 border-b border-border bg-background/95 backdrop-blur-sm',
         'pt-[env(safe-area-inset-top)]',
         'flex-shrink-0',
+        'mobile-header',
         className
       )}
     >

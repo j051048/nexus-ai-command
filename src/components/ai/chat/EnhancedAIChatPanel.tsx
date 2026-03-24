@@ -180,7 +180,7 @@ export function EnhancedAIChatPanel({
           headers: { 'Authorization': `Bearer ${token}` },
           body: formData,
         });
-        if (!resp.ok) throw new Error('Upload failed');
+        if (!resp.ok) throw new Error('上传图片失败');
         const result = await resp.json();
         const uploadedUrl = result.data?.url;
         if (uploadedUrl) {
@@ -522,7 +522,7 @@ export function EnhancedAIChatPanel({
         body: formData,
       });
 
-      if (!response.ok) throw new Error('Upload failed');
+      if (!response.ok) throw new Error('上传文档失败');
 
       const result = await response.json();
       toast.success(

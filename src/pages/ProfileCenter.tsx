@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
@@ -35,6 +36,16 @@ import { useAuth } from '@/components/auth/AuthContext';
 import { toast } from 'sonner';
 import { NotificationPreferences } from '@/components/settings/NotificationPreferences';
 import { supabase } from '@/integrations/supabase/client';
+
+function getPasswordStrength(password: string): number {
+  let s = 0;
+  if (password.length >= 6) s++;
+  if (password.length >= 10) s++;
+  if (/[A-Z]/.test(password)) s++;
+  if (/[0-9]/.test(password)) s++;
+  if (/[^A-Za-z0-9]/.test(password)) s++;
+  return s;
+}
 
 export function ProfileCenter() {
   const { user } = useUser();
@@ -481,6 +492,38 @@ export function ProfileCenter() {
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                     />
+                    {newPassword && (
+                      <div className="space-y-1.5 mt-2">
+                        <div className="flex gap-1 h-1">
+                          {[1, 2, 3, 4, 5].map((level) => {
+                            const strength = getPasswordStrength(newPassword);
+                            return (
+                              <div
+                                key={level}
+                                className={cn(
+                                  "h-full flex-1 rounded-full transition-colors",
+                                  level <= strength
+                                    ? strength <= 2
+                                      ? "bg-destructive"
+                                      : strength <= 4
+                                      ? "bg-yellow-500"
+                                      : "bg-green-500"
+                                    : "bg-muted"
+                                )}
+                              />
+                            );
+                          })}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          {(() => {
+                            const strength = getPasswordStrength(newPassword);
+                            if (strength <= 2) return "强度：弱（建议包含大小写字母、数字）";
+                            if (strength <= 4) return "强度：中（极好！继续添加特殊字符）";
+                            return "强度：极强（完美的安全保障）";
+                          })()}
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>确认新密码</Label>

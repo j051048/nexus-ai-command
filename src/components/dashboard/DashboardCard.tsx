@@ -21,6 +21,7 @@ import {
 } from 'recharts';
 
 import { CHART_COLORS } from '@/lib/chartColors';
+import { EmptyState } from '@/components/common/EmptyState';
 
 // ─── Mock 数据 ──────────────────────────────────────────────
 
@@ -53,6 +54,16 @@ const APPROVAL_STATS = {
 
 // ─── 子渲染组件 ──────────────────────────────────────────────
 
+function DefaultEmptyState() {
+  return (
+    <EmptyState
+      compact
+      title="暂无业务数据"
+      description="当前看板暂无可用业务指标，系统将在业务数据录入后自动展示。"
+    />
+  );
+}
+
 function KPIContent({ dataSource }: { dataSource: string }) {
   const kpi = KPI_MAP[dataSource] || KPI_MAP.sales;
   const isPositive = kpi.change >= 0;
@@ -78,7 +89,7 @@ function KPIContent({ dataSource }: { dataSource: string }) {
 
 function BarChartContent() {
   if (BAR_DATA.length === 0) {
-    return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">暂无数据</div>;
+    return <DefaultEmptyState />;
   }
 
   return (
@@ -102,7 +113,7 @@ function BarChartContent() {
 
 function PieChartContent() {
   if (PIE_DATA.length === 0) {
-    return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">暂无数据</div>;
+    return <DefaultEmptyState />;
   }
 
   return (
@@ -130,7 +141,7 @@ function PieChartContent() {
 
 function LineChartContent() {
   if (LINE_DATA.length === 0) {
-    return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">暂无数据</div>;
+    return <DefaultEmptyState />;
   }
 
   return (
@@ -179,7 +190,7 @@ function ApprovalStatsContent() {
 
 function LeaderboardContent() {
   if (LEADERBOARD_DATA.length === 0) {
-    return <div className="flex items-center justify-center h-full text-sm text-muted-foreground">暂无数据</div>;
+    return <DefaultEmptyState />;
   }
 
   return (
@@ -233,24 +244,27 @@ interface DashboardCardProps {
 export function DashboardCard({ config, isEditing, onRemove, onEdit }: DashboardCardProps) {
   return (
     <Card
-      className={`relative transition-all ${
-        isEditing ? 'ring-2 ring-dashed ring-primary/30 hover:ring-primary/50' : 'hover:shadow-md'
-      } ${config.colSpan === 2 ? 'md:col-span-2' : ''}`}
+      className={`relative transition-all overflow-hidden ${
+        isEditing ? 'ring-2 ring-dashed ring-primary/30 hover:ring-primary/50' : 'hover:shadow-lg hover:shadow-primary/5'
+      } ${config.colSpan === 2 ? 'md:col-span-2' : ''} border-border/40 bg-card/60 backdrop-blur-sm shadow-sm`}
     >
       {isEditing && (
-        <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
-          <Button variant="ghost" size="icon" className="h-7 w-7" data-compact onClick={() => onEdit(config.id)}>
+        <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10 animate-in fade-in zoom-in duration-200">
+          <Button variant="secondary" size="icon" className="h-8 w-8 rounded-full shadow-sm" data-compact onClick={() => onEdit(config.id)}>
             <Settings className="w-3.5 h-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" data-compact onClick={() => onRemove(config.id)}>
+          <Button variant="secondary" size="icon" className="h-8 w-8 rounded-full shadow-sm text-destructive hover:text-destructive" data-compact onClick={() => onRemove(config.id)}>
             <X className="w-3.5 h-3.5" />
           </Button>
         </div>
       )}
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{config.title}</CardTitle>
+      <CardHeader className="pb-3 px-5 pt-5">
+        <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-2 tracking-tight">
+          <div className="w-1.5 h-3.5 rounded-full bg-primary/40 shrink-0" />
+          {config.title}
+        </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-5 pb-5 pt-0">
         <CardTypeContent type={config.type} dataSource={config.dataSource} />
       </CardContent>
     </Card>

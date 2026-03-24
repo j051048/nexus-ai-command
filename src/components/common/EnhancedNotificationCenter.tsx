@@ -51,6 +51,7 @@ import { zhCN } from 'date-fns/locale';
 import { getEnterAnimationClass, getStaggerStyle } from '@/lib/animations';
 import { FadeInView } from './AnimatedComponents';
 import { toast } from 'sonner';
+import { NotificationDetailDialog } from './NotificationDetailDialog';
 
 // ==================== 类型定义 ====================
 
@@ -75,6 +76,8 @@ const typeIcons: Record<NotificationType, React.ReactNode> = {
   warning: <AlertTriangle className="w-4 h-4 text-yellow-500" />,
   error: <XCircle className="w-4 h-4 text-red-500" />,
   info: <Info className="w-4 h-4 text-blue-500" />,
+  approval: <FileCheck className="w-4 h-4 text-orange-500" />,
+  system: <Settings className="w-4 h-4 text-purple-500" />,
 };
 
 const typeColors: Record<NotificationType, string> = {
@@ -82,6 +85,8 @@ const typeColors: Record<NotificationType, string> = {
   warning: 'bg-yellow-500/10 border-yellow-500/20',
   error: 'bg-red-500/10 border-red-500/20',
   info: 'bg-blue-500/10 border-blue-500/20',
+  approval: 'bg-orange-500/10 border-orange-500/20',
+  system: 'bg-purple-500/10 border-purple-500/20',
 };
 
 const categoryIcons: Record<NotificationCategory, React.ReactNode> = {
@@ -199,14 +204,6 @@ function NotificationItem({
           onRead(notification.id);
         }
         onClick?.(notification);
-        if (notification.action_url) {
-          onClose();
-          if (notification.action_url.startsWith('http')) {
-            window.open(notification.action_url, '_blank');
-          } else {
-            onNavigate(notification.action_url);
-          }
-        }
       }}
     >
       {/* Selection Checkbox */}
@@ -360,6 +357,7 @@ export function EnhancedNotificationCenter({
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<NotificationCategory>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [detailNotification, setDetailNotification] = useState<Notification | null>(null);
 
   // 按类别筛选
   const filteredNotifications = useMemo(() => {
@@ -453,6 +451,11 @@ export function EnhancedNotificationCenter({
       },
     });
   }, [deleteNotification]);
+
+  const handleNotificationClick = useCallback((notification: Notification) => {
+     setDetailNotification(notification);
+     onNotificationClick?.(notification);
+  }, [onNotificationClick]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -612,7 +615,7 @@ export function EnhancedNotificationCenter({
                             onSelect={handleSelect}
                             onRead={handleRead}
                             onDelete={handleDelete}
-                            onClick={onNotificationClick}
+                            onClick={handleNotificationClick}
                             onNavigate={navigate}
                             onClose={() => setOpen(false)}
                             index={index}
@@ -639,6 +642,14 @@ export function EnhancedNotificationCenter({
           </Button>
         </div>
       </PopoverContent>
+      <NotificationDetailDialog
+        notification={detailNotification}
+        open={!!detailNotification}
+        onOpenChange={(open) => !open && setDetailNotification(null)}
+        onRead={handleRead}
+        onDelete={handleDelete}
+        onNavigate={navigate}
+      />
     </Popover>
   );
 }

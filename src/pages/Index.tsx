@@ -3,16 +3,17 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { UserProvider } from '@/contexts/UserContext';
 import { ChatFirstLayout } from '@/components/layout/ChatFirstLayout';
 import { MobileLayout } from '@/components/layout/MobileLayout';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsMobile, useIsTablet } from '@/hooks/use-mobile';
 import { Outlet } from 'react-router-dom';
 
 const Index = () => {
   const isMobile = useIsMobile();
+  const isTablet = useIsTablet();
 
   return (
     <ThemeProvider>
       <UserProvider>
-        {isMobile ? (
+        {(isMobile || isTablet) ? (
           <MobileLayout />
         ) : (
           <ChatFirstLayout>

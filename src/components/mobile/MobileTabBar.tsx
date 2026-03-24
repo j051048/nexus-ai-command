@@ -52,7 +52,8 @@ export default function MobileTabBar({
         'fixed bottom-0 left-0 right-0 z-50',
         'bg-background/95 backdrop-blur-md border-t border-border',
         'pb-[env(safe-area-inset-bottom)]',
-        'md:hidden'
+        'lg:hidden',
+        'mobile-tab-bar'
       )}
     >
       <div className="flex items-center justify-around h-14">
@@ -88,7 +89,7 @@ export default function MobileTabBar({
                 >
                   <Icon className="w-5 h-5" />
                 </div>
-                <span className="text-[10px] leading-tight mt-0.5 text-muted-foreground">
+                <span className="tab-label text-[10px] leading-tight mt-0.5 text-muted-foreground">
                   {tab.label}
                 </span>
               </button>
@@ -126,7 +127,7 @@ export default function MobileTabBar({
                   </span>
                 )}
               </div>
-              <span className={cn('text-[10px] leading-tight', isActive && 'font-medium')}>
+              <span className={cn('tab-label text-[10px] leading-tight', isActive && 'font-medium')}>
                 {tab.label}
               </span>
             </button>

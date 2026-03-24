@@ -20,6 +20,7 @@ import {
   type NodeTypes,
   BackgroundVariant,
   MarkerType,
+  useReactFlow,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -190,9 +191,9 @@ function getNodeId() {
 export const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>(
   function WorkflowCanvas({ onNodeSelect, onNodeUpdate }, ref) {
     const reactFlowWrapper = useRef<HTMLDivElement>(null);
-    const [nodes, setNodes, onNodesChange] = useNodesState(INITIAL_NODES);
-    const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-    const reactFlowInstance = useRef<ReturnType<typeof import('@xyflow/react').useReactFlow> | null>(null);
+    const [nodes, setNodes, onNodesChange] = useNodesState<Node>(INITIAL_NODES);
+    const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+    const { screenToFlowPosition } = useReactFlow();
 
     // Expose methods to parent
     useImperativeHandle(ref, () => ({
@@ -245,7 +246,7 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>
 
     // Connection validation
     const isValidConnection = useCallback(
-      (connection: Connection) => {
+      (connection: Connection | Edge) => {
         const sourceNode = nodes.find((n) => n.id === connection.source);
         const targetNode = nodes.find((n) => n.id === connection.target);
         if (!sourceNode || !targetNode) return false;
@@ -291,14 +292,27 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>
     // Handle new connections
     const onConnect = useCallback(
       (params: Connection) => {
+        const sourceNode = nodes.find((n) => n.id === params.source);
+        let label = '';
+
+        // Auto-label for condition nodes based on handle id
+        if (sourceNode?.type === 'condition') {
+          label = params.sourceHandle === 'no' ? '否 / 驳回' : '是 / 通过';
+        }
+
         const newEdge = {
           ...params,
+          label,
+          labelStyle: { fill: 'hsl(var(--foreground))', fontWeight: 600, fontSize: 12 },
+          labelBgStyle: { fill: 'hsl(var(--background))', fillOpacity: 0.8 },
+          labelBgPadding: [4, 2],
+          labelBgBorderRadius: 4,
           markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
-          style: { strokeWidth: 2 },
+          style: { strokeWidth: 2, stroke: params.sourceHandle === 'no' ? 'hsl(var(--destructive))' : 'hsl(var(--primary))' },
         };
         setEdges((eds) => addEdge(newEdge, eds));
       },
-      [setEdges]
+      [setEdges, nodes]
     );
 
     // Handle node selection
@@ -327,15 +341,15 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>
         const nodeType = event.dataTransfer.getData('application/reactflow');
         if (!nodeType || !DEFAULT_NODE_DATA[nodeType] || FIXED_NODE_TYPES.has(nodeType)) return;
 
-        const wrapperBounds = reactFlowWrapper.current?.getBoundingClientRect();
-        if (!wrapperBounds) return;
+        // Use screenToFlowPosition for accurate placement regardless of zoom/pan
+        const position = screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        });
 
-        // Calculate position relative to the flow canvas
-        // Use a simpler approach: estimate position based on wrapper offset
-        const position = {
-          x: event.clientX - wrapperBounds.left - 80,
-          y: event.clientY - wrapperBounds.top - 30,
-        };
+        // Center the node
+        position.x -= 75;
+        position.y -= 25;
 
         const newNode: Node = {
           id: getNodeId(),
@@ -346,7 +360,7 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>
 
         setNodes((nds) => [...nds, newNode]);
       },
-      [setNodes]
+      [setNodes, screenToFlowPosition]
     );
 
     // Bridge external node update calls
@@ -384,10 +398,6 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasRef, WorkflowCanvasProps>
           onDrop={onDrop}
           isValidConnection={isValidConnection}
           nodeTypes={nodeTypes}
-          onInit={(instance) => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            reactFlowInstance.current = instance as any;
-          }}
           fitView
           fitViewOptions={{ padding: 0.2 }}
           deleteKeyCode={['Backspace', 'Delete']}

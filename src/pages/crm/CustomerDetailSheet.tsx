@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -16,7 +17,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import {
@@ -484,6 +484,18 @@ export default function CustomerDetailSheet({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [activityFilter, setActivityFilter] = useState<string>('all');
 
+  const filteredTimeline = activityFilter === 'all'
+    ? (timeline as CustomerActivity[])
+    : (timeline as CustomerActivity[]).filter(a => a.activity_type === activityFilter);
+
+  const timelineRef = useRef<HTMLDivElement>(null);
+  const timelineVirtualizer = useVirtualizer({
+    count: filteredTimeline.length,
+    getScrollElement: () => timelineRef.current,
+    estimateSize: () => 80,
+    overscan: 5,
+  });
+
   if (!customer) return null;
 
   const stage = STAGES[customer.stage] || STAGES.lead;
@@ -501,10 +513,6 @@ export default function CustomerDetailSheet({
       // error toast handled in hook
     }
   };
-
-  const filteredTimeline = activityFilter === 'all'
-    ? (timeline as CustomerActivity[])
-    : (timeline as CustomerActivity[]).filter(a => a.activity_type === activityFilter);
 
   return (
     <>
@@ -535,7 +543,7 @@ export default function CustomerDetailSheet({
                 联系人 {(contacts as CustomerContact[]).length > 0 && `(${(contacts as CustomerContact[]).length})`}
               </TabsTrigger>
               <TabsTrigger value="timeline">
-                时间线 {(timeline as CustomerActivity[]).length > 0 && `(${(timeline as CustomerActivity[]).length})`}
+                时间线 {filteredTimeline.length > 0 && `(${filteredTimeline.length})`}
               </TabsTrigger>
             </TabsList>
 
@@ -658,26 +666,51 @@ export default function CustomerDetailSheet({
                   {activityFilter === 'all' ? '暂无活动记录' : `暂无${ACTIVITY_NAMES[activityFilter]}记录`}
                 </div>
               ) : (
-                <ScrollArea className="h-[400px]">
-                  <div className="space-y-3">
-                    {filteredTimeline.map(act => (
-                      <div key={act.id} className="flex gap-3">
-                        <div className="mt-1 p-1.5 rounded-full bg-muted shrink-0">
-                          {ACTIVITY_ICONS[act.activity_type] || <MessageSquare className="w-4 h-4" />}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">{ACTIVITY_NAMES[act.activity_type] || act.activity_type}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(act.created_at).toLocaleDateString('zh-CN')}
-                            </span>
+                <div 
+                  ref={timelineRef}
+                  className="h-[500px] overflow-auto pr-2 custom-scrollbar-minimal"
+                  style={{ contain: 'strict' }}
+                >
+                  <div
+                    style={{
+                      height: `${timelineVirtualizer.getTotalSize()}px`,
+                      width: '100%',
+                      position: 'relative',
+                    }}
+                  >
+                    {timelineVirtualizer.getVirtualItems().map((virtualRow) => {
+                      const act = filteredTimeline[virtualRow.index];
+                      return (
+                        <div
+                          key={virtualRow.key}
+                          data-index={virtualRow.index}
+                          ref={timelineVirtualizer.measureElement}
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            transform: `translateY(${virtualRow.start}px)`,
+                          }}
+                          className="flex gap-3 pb-4"
+                        >
+                          <div className="mt-1 p-2 rounded-full bg-muted/60 shrink-0 border">
+                            {ACTIVITY_ICONS[act.activity_type] || <MessageSquare className="w-4 h-4" />}
                           </div>
-                          <p className="text-sm text-muted-foreground">{act.content}</p>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-semibold">{ACTIVITY_NAMES[act.activity_type] || act.activity_type}</span>
+                              <span className="text-[10px] text-muted-foreground font-medium uppercase">
+                                {new Date(act.created_at).toLocaleDateString('zh-CN')}
+                              </span>
+                            </div>
+                            <p className="text-sm text-muted-foreground leading-snug mt-1">{act.content}</p>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
-                </ScrollArea>
+                </div>
               )}
             </TabsContent>
           </Tabs>

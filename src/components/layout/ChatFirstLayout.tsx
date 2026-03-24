@@ -10,6 +10,7 @@ import { NotificationCenter } from '@/components/common/NotificationCenter';
 import { PanelRightClose, PanelRightOpen, Clock, PanelLeftOpen } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { useWebSocketPush } from '@/hooks/useWebSocketPush';
+import { Breadcrumbs } from './Breadcrumbs';
 
 // Interface for props
 interface ChatFirstLayoutProps {
@@ -150,6 +151,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
 
                    {/* Canvas Content */}
                    <div className="flex-1 overflow-auto p-2 md:p-4 custom-scrollbar pb-4 relative">
+                        <Breadcrumbs />
                         {children || <Outlet />}
                    </div>
 

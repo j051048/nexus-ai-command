@@ -128,7 +128,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         onToolProgress?: (progress: { tool_name: string; status: string; duration_ms?: number }) => void,
         onOrchestration?: (event: Record<string, unknown>) => void,
     ): Promise<void> => {
-        if (!response.body) throw new Error('No response body');
+        if (!response.body) throw new Error('响应体为空');
 
         const assistantMsgId = Date.now().toString();
 
@@ -436,7 +436,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
 
         if (!response.ok) {
             const errorText = await response.text().catch(() => '');
-            throw new Error(`AI 服务错误 (${response.status}): ${errorText.slice(0, 200)}`);
+            throw new Error(`AI 服务错误 (${response.status}): ${errorText.slice(0, 100) || '未知错误'}`);
         }
 
         if (!response.body) return false;

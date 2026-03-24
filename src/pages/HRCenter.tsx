@@ -65,7 +65,7 @@ export function HRCenter() {
   return (
     <div className="space-y-6">
       {/* 页面标题 */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-2xl font-bold">HR 人事中心</h1>
           <p className="text-muted-foreground">查看考勤、薪资、绩效和招聘信息</p>

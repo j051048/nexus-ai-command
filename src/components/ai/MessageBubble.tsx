@@ -177,7 +177,7 @@ export const MessageBubble = React.memo(function MessageBubble({
              <span className="text-[10px] text-muted-foreground">
                {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
              </span>
-             <span className="text-xs font-medium text-foreground">You</span>
+             <span className="text-xs font-medium text-foreground">我</span>
            </div>
         )}
 
