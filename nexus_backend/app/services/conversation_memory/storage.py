@@ -79,6 +79,10 @@ async def save_memory(
         except Exception:
             logger.debug("Semantic dedup check failed, proceeding with normal insert", exc_info=True)
 
+    # P0 Fix: Per-user memory limit (500) — evict lowest-importance when full
+    if not old_id:
+        await _enforce_memory_limit(user_id, client, max_memories=500)
+
     # Always insert a new record (append-only versioning)
     insert_data = {
         "user_id": user_id,
@@ -328,3 +332,51 @@ async def _find_semantically_similar(
         logger.debug(f"_find_semantically_similar RPC failed: {e}")
 
     return None
+
+
+async def _enforce_memory_limit(
+    user_id: str, db: Any, *, max_memories: int = 500
+) -> None:
+    """Evict lowest-importance memories when a user exceeds the cap.
+
+    Deletes the bottom 10% by importance to avoid evicting on every single insert.
+    Protected categories (explicit_memory, policy) are never evicted.
+    """
+    try:
+        count_res = (
+            await db.table("conversation_memories")
+            .select("id", count="exact")
+            .eq("user_id", user_id)
+            .is_("superseded_by", "null")
+            .execute()
+        )
+        total = count_res.count if hasattr(count_res, "count") and count_res.count is not None else len(count_res.data or [])
+        if total < max_memories:
+            return
+
+        # Evict bottom 10% (at least 1) ordered by importance ASC
+        evict_count = max(int(max_memories * 0.1), 1)
+        victims = (
+            await db.table("conversation_memories")
+            .select("id")
+            .eq("user_id", user_id)
+            .is_("superseded_by", "null")
+            .not_.in_("category", ["explicit_memory", "policy"])
+            .order("importance", desc=False)
+            .limit(evict_count)
+            .execute()
+        )
+        if victims.data:
+            victim_ids = [v["id"] for v in victims.data]
+            await (
+                db.table("conversation_memories")
+                .delete()
+                .in_("id", victim_ids)
+                .execute()
+            )
+            logger.info(
+                "[MemoryLimit] Evicted %d low-importance memories for user %s (total was %d, cap %d)",
+                len(victim_ids), user_id, total, max_memories,
+            )
+    except Exception as e:
+        logger.debug("[MemoryLimit] Limit enforcement failed (non-fatal): %s", e)

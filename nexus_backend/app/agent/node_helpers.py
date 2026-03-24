@@ -79,6 +79,7 @@ def sanitize_prompt_field(value: str, max_len: int = 500) -> str:
     return cleaned.strip()
 
 # Long-running tools that need extended timeout (120s instead of default 30s)
+# Canonical definition — also used by nodes_orchestrator.py
 LONG_RUNNING_TOOLS: set[str] = {
     "generate_product_manual",
     "generate_faq_response",
@@ -95,6 +96,21 @@ LONG_RUNNING_TOOLS: set[str] = {
     "strategy_simulation",
     "get_company_stats",
     "llm_task",
+    # Previously only in nodes_orchestrator.py — now unified
+    "generate_bid_document",
+    "analyze_contract",
+    "generate_market_research",
+}
+
+# Subset of LONG_RUNNING_TOOLS that should be offloaded to Celery workers
+# when available, for independent failure isolation and process-level timeout.
+CELERY_ISOLATED_TOOLS: set[str] = {
+    "generate_product_manual",
+    "generate_whitepaper",
+    "generate_bid_document",
+    "strategy_simulation",
+    "batch_analyze_documents",
+    "generate_market_research",
 }
 
 

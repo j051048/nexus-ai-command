@@ -74,6 +74,17 @@ try:
         description="Number of agent delegation events",
     )
 
+    # ── SLO Metrics (by complexity tier) ──────────────────────────────────
+    _agent_e2e_duration = _meter.create_histogram(
+        name="agent_e2e_duration_ms",
+        description="End-to-end agent response duration in milliseconds (by complexity tier)",
+        unit="ms",
+    )
+    _agent_completion = _meter.create_counter(
+        name="agent_completion_count",
+        description="Agent completion count (success/error by tier)",
+    )
+
     _otel_available = True
     logger.info("OpenTelemetry AI metrics initialised (meter: nexus-ai-metrics)")
 
@@ -148,6 +159,21 @@ def record_cache_miss(cache_type: str = "semantic") -> None:
     _cache_miss.add(1, attributes={"type": cache_type})
 
 
+def record_agent_e2e(tier: str, duration_ms: float, success: bool) -> None:
+    """Record end-to-end agent response duration by complexity tier.
+
+    Args:
+        tier: Complexity tier (economy/balanced/power/flagship).
+        duration_ms: Wall-clock duration from request start to response.
+        success: Whether the agent completed without error.
+    """
+    if not _otel_available:
+        return
+    attrs = {"tier": tier, "status": "success" if success else "error"}
+    _agent_e2e_duration.record(duration_ms, attributes=attrs)
+    _agent_completion.add(1, attributes=attrs)
+
+
 # ---------------------------------------------------------------------------
 # Tool success rate sliding window alert
 # ---------------------------------------------------------------------------
@@ -179,6 +205,46 @@ def check_tool_alert(tool_name: str, success: bool) -> bool:
             "[ToolAlert] %s failed %d consecutive times — potential issue",
             tool_name,
             _CONSECUTIVE_FAIL_THRESHOLD,
+        )
+        return True
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Agent success rate sliding window alert (1-hour window)
+# ---------------------------------------------------------------------------
+
+import time as _time
+
+_agent_outcomes: _deque = _deque(maxlen=500)  # (timestamp, success: bool)
+_AGENT_ALERT_WINDOW_S = 3600  # 1 hour
+_AGENT_ALERT_THRESHOLD = 0.80  # alert if success rate < 80%
+_AGENT_ALERT_MIN_SAMPLES = 10  # need at least 10 samples to trigger
+
+
+def check_agent_success_rate(success: bool) -> bool:
+    """Track agent outcomes and alert if success rate drops below threshold.
+
+    Returns True if an alert was triggered.
+    """
+    now = _time.time()
+    _agent_outcomes.append((now, success))
+
+    # Trim expired entries
+    cutoff = now - _AGENT_ALERT_WINDOW_S
+    while _agent_outcomes and _agent_outcomes[0][0] < cutoff:
+        _agent_outcomes.popleft()
+
+    if len(_agent_outcomes) < _AGENT_ALERT_MIN_SAMPLES:
+        return False
+
+    successes = sum(1 for _, s in _agent_outcomes if s)
+    rate = successes / len(_agent_outcomes)
+
+    if rate < _AGENT_ALERT_THRESHOLD:
+        logger.warning(
+            "[AgentAlert] Success rate %.1f%% (%d/%d) below %.0f%% threshold in last hour",
+            rate * 100, successes, len(_agent_outcomes), _AGENT_ALERT_THRESHOLD * 100,
         )
         return True
     return False

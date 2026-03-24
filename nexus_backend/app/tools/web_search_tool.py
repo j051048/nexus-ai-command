@@ -17,6 +17,7 @@ from app.core.config import settings
 
 from .base_tool import BaseTool
 from app.tools._shared import safe_tool_error
+from app.tools.registry import register_tool
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ _CACHE: dict[str, tuple[float, str]] = {}  # query -> (timestamp, result)
 _CACHE_TTL = 900  # 15 minutes
 
 
+@register_tool(name="web_search", category="knowledge", description="搜索互联网获取实时信息")
 class WebSearchTool(BaseTool):
     """搜索互联网获取实时信息"""
 

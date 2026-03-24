@@ -128,6 +128,7 @@ class FailureLogService:
 
         Groups by pattern_key for better aggregation, falls back to
         raw records if pattern_key column is not yet available.
+        Also opportunistically cleans up records older than 90 days.
         """
         try:
             db = supabase
@@ -137,6 +138,19 @@ class FailureLogService:
             from datetime import UTC, datetime, timedelta
 
             since = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+
+            # P0 Fix: Opportunistic TTL cleanup — delete records older than 90 days
+            ttl_cutoff = (datetime.now(UTC) - timedelta(days=90)).isoformat()
+            try:
+                await (
+                    db.table("agent_failure_logs")
+                    .delete()
+                    .eq("organization_id", org_id)
+                    .lt("created_at", ttl_cutoff)
+                    .execute()
+                )
+            except Exception:
+                pass  # TTL cleanup is non-fatal
 
             # Fetch recent failures with pattern_key
             result = (

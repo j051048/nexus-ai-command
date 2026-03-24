@@ -368,6 +368,48 @@ class AgentState(TypedDict, total=False):
     backtrack_depth: int           # Times we've backtracked to an alternative plan (max=1)
     best_plan_score: float         # Votes / n for the winning plan (0.0-1.0)
 
+    # ── Schema version (for checkpoint restore compatibility) ──
+    _schema_version: int           # Current schema version; used to migrate stale checkpoints
+
+
+# ─── Schema Version & Migration ──────────────────────────────────────────────
+
+CURRENT_SCHEMA_VERSION = 2  # Bump when adding/removing/renaming AgentState fields
+
+# Fields added in each version (for forward-compatible migration)
+_SCHEMA_DEFAULTS: dict[int, dict[str, Any]] = {
+    2: {
+        "_schema_version": 2,
+        "candidate_plans": [],
+        "backtrack_depth": 0,
+        "best_plan_score": 0.0,
+        "slot_context": None,
+        "slot_round": 0,
+        "circuit_break_reason": None,
+    },
+}
+
+
+def migrate_state(state: dict) -> dict:
+    """Migrate a checkpoint state dict to the current schema version.
+
+    Adds missing fields with safe defaults so that stale checkpoints
+    don't crash on KeyError.  Called once on checkpoint restore.
+    """
+    version = state.get("_schema_version", 1)
+    if version >= CURRENT_SCHEMA_VERSION:
+        return state
+
+    for v in range(version + 1, CURRENT_SCHEMA_VERSION + 1):
+        defaults = _SCHEMA_DEFAULTS.get(v, {})
+        for key, default in defaults.items():
+            if key not in state:
+                state[key] = default
+
+    state["_schema_version"] = CURRENT_SCHEMA_VERSION
+    logger.info("[State] Migrated checkpoint from schema v%d → v%d", version, CURRENT_SCHEMA_VERSION)
+    return state
+
 
 # ─── State Access Helpers ─────────────────────────────────────────────────────
 # Type-safe accessors that handle dict/dataclass duality from checkpoint

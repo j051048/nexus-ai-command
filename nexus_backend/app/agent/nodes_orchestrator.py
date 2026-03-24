@@ -42,15 +42,8 @@ _MAX_CONCURRENCY = 4
 _MAX_SUB_TASK_TOOL_ROUNDS = 3
 # P1-4: Failure rate threshold to trigger dynamic replanning
 _REPLAN_FAILURE_THRESHOLD = 0.5
-# Known long-running tools that need extended timeout
-_LONG_RUNNING_TOOLS = {
-    "generate_product_manual",
-    "generate_whitepaper",
-    "generate_bid_document",
-    "analyze_contract",
-    "strategy_simulation",
-    "generate_market_research",
-}
+# Known long-running tools — imported from canonical definition
+from app.agent.node_helpers import LONG_RUNNING_TOOLS as _LONG_RUNNING_TOOLS
 
 
 # ─── P2-9: Unified LLM factory for orchestrator ─────────────────────────────

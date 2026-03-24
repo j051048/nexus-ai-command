@@ -11,7 +11,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Any
 
 from app.agent.graph import get_agent_graph
-from app.agent.state import AgentConfig, AgentPhase, QueryComplexity
+from app.agent.state import AgentConfig, AgentPhase, CURRENT_SCHEMA_VERSION, QueryComplexity
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -122,6 +122,7 @@ async def run_proactive_agent(
         "parent_agent_code": None,
         "delegation_results": [],
         "wbs_structure": None,
+        "_schema_version": CURRENT_SCHEMA_VERSION,
     }
 
     try:

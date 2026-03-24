@@ -366,6 +366,12 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         try:
             from app.agent.context_engine import context_engine
 
+            # Dynamic budget: adjust based on selected model's context window
+            _resolved = agent_config.resolved_configs or {}
+            _tier_key = complexity.model_tier if hasattr(complexity, "model_tier") else "balanced"
+            _ctx_window = (_resolved.get(_tier_key) or {}).get("context_window")
+            context_engine.adjust_budget_for_model(_ctx_window)
+
             engine_ctx = await context_engine.build_context(
                 user_id=agent_config.user_id,
                 org_id=agent_config.org_id,

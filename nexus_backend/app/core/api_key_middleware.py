@@ -68,17 +68,17 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
                     request.state.org_id = key_info["organization_id"]
                     request.state.user_id = key_info.get("created_by")
 
-                    # P0 Security Fix: API Key 请求也使用 scoped client 保持组织隔离
-                    # 不再直接使用 service key client 绕过 RLS
+                    # P0 Security Fix: API Key 请求使用 OrgFilteredClient 保持组织隔离
+                    # OrgFilteredClient 自动在每个查询上注入 organization_id 过滤，
+                    # 即使路由遗漏手动过滤也不会泄露跨租户数据。
                     from app.core.database import supabase
 
-                    if supabase and key_info.get("created_by"):
-                        # 尝试获取该用户的 JWT token 来创建 scoped client
-                        # 如果无法获取，则使用 service client 但在应用层过滤 org_id
-                        request.state.db = supabase
-                        request.state.api_key_org_filter = key_info["organization_id"]
+                    if supabase:
+                        request.state.db = supabase.get_org_filtered_client(
+                            key_info["organization_id"]
+                        )
                     else:
-                        request.state.db = supabase
+                        request.state.db = None
 
                     logger.debug(f"API Key 认证成功: key_id={key_info['key_id']}, org_id={key_info['organization_id']}")
 

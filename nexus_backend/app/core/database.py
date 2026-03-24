@@ -78,6 +78,60 @@ try:
             _scoped_client_cache[cache_key] = client
             return client
 
+        def get_org_filtered_client(self, org_id: str):
+            """Return an OrgFilteredClient that auto-injects org_id on every query."""
+            return OrgFilteredClient(self, org_id)
+
+    class OrgFilteredClient:
+        """
+        P0 Security Fix: Wrapper that auto-injects organization_id filter on every query.
+
+        Used for API Key auth where no user JWT is available for RLS scoped clients.
+        This ensures org isolation at the application level systematically — even if a
+        route forgets to manually filter, the client handles it.
+        """
+
+        # Tables that use organization_id for multi-tenancy isolation
+        _ORG_TABLES = {
+            "users", "documents", "document_embeddings", "sales_leads", "sales_metrics",
+            "approval_requests", "projects", "departments", "notifications", "oa_tasks",
+            "ai_settings", "conversation_memories", "org_memories", "chat_sessions",
+            "chat_messages", "contracts", "competitors", "knowledge_graph_triples",
+            "entity_aliases", "agent_traces", "tenant_credits", "semantic_cache",
+            "webhook_subscriptions", "installed_plugins", "vmd_main_task", "vmd_sub_task",
+            "work_orders", "assets", "certificates", "inventory",
+            "pending_confirmations",
+        }
+
+        def __init__(self, inner: "MiniSupabaseClient", org_id: str):
+            self._inner = inner
+            self._org_id = org_id
+
+        def table(self, name: str):
+            """Return a query builder with automatic org_id filtering for known tables."""
+            builder = self._inner.table(name)
+            if name in self._ORG_TABLES:
+                builder = builder.eq("organization_id", self._org_id)
+            return builder
+
+        def rpc(self, name: str, params: dict):
+            """Pass through RPC calls, injecting p_org_id when not already present."""
+            if "p_org_id" not in params and "organization_id" not in params:
+                params = {**params, "p_org_id": self._org_id}
+            return self._inner.rpc(name, params)
+
+        @property
+        def is_configured(self) -> bool:
+            return self._inner.is_configured
+
+        def get_scoped_client(self, token: str):
+            """Delegate to inner client for JWT-based scoped access."""
+            return self._inner.get_scoped_client(token)
+
+        def get_org_filtered_client(self, org_id: str):
+            """Return a new OrgFilteredClient (allow re-filtering)."""
+            return OrgFilteredClient(self._inner, org_id)
+
     if not url or not key:
         logger.warning("SUPABASE_URL or SUPABASE_SERVICE_KEY not set. Database features disabled.")
         supabase = None

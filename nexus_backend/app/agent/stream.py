@@ -43,6 +43,7 @@ from app.agent.state import (
     AgentConfig,
     AgentPhase,
     AgentState,
+    CURRENT_SCHEMA_VERSION,
     QueryComplexity,
     ThinkingStep,
 )
@@ -168,13 +169,23 @@ async def run_agent_stream(
             _user_query = (_m.get("content") or "")[:500]
             break
     try:
+        from app.agent.ab_testing import get_active_assignments
+        _ab_assignments = get_active_assignments(user_id, user_role=agent_config.user_role)
+    except Exception:
+        _ab_assignments = {}
+
+    try:
         agent_trace_service.start_trace(
             trace_id=_trace_id,
             thread_id=f"{org_id or 'default'}::{session_id or 'default'}",
             user_id=user_id,
             query=_user_query,
             org_id=org_id,
-            metadata={"agent_name": agent_name, "scene_code": scene_code},
+            metadata={
+                "agent_name": agent_name,
+                "scene_code": scene_code,
+                **({f"ab_{k}": v for k, v in _ab_assignments.items()} if _ab_assignments else {}),
+            },
         )
     except Exception:
         logger.debug("[Stream] Failed to start agent trace", exc_info=True)
@@ -383,6 +394,8 @@ async def run_agent_stream(
         "_task_decomposition_done": False,
         "_task_steps": [],
         "_active_step_index": 0,
+        # Schema version for checkpoint compatibility
+        "_schema_version": CURRENT_SCHEMA_VERSION,
     }
 
     # ── 5. Run graph with granular event streaming (astream_events) ──
@@ -871,6 +884,22 @@ async def run_agent_stream(
                 args=tc.tool_args,
                 confirmation_type=getattr(tc, "confirmation_type", ""),
             )
+            # HITL: Persist confirmation to DB for async approval
+            try:
+                from app.services.hitl_service import persist_confirmation
+                asyncio.create_task(persist_confirmation(
+                    org_id=agent_config.org_id or "",
+                    user_id=user_id,
+                    session_id=session_id or "default",
+                    thread_id=scoped_thread_id,
+                    tool_name=tc.tool_name,
+                    tool_args=tc.tool_args or {},
+                    tool_call_id=getattr(tc, "tool_call_id", ""),
+                    confirmation_type=getattr(tc, "confirmation_type", ""),
+                    message=tc.result or "",
+                ))
+            except Exception:
+                pass  # non-fatal
     else:
         has_confirmation = False
 
@@ -990,12 +1019,19 @@ async def run_agent_stream(
         "[AgentMetrics] session=%s complexity=%s tools=%d cache_hit=%s nodes=%d duration=%dms tokens=%d",
         session_id or "default",
         str(accumulated_state.get("complexity", "unknown")),
-        len(completed_tools),
         cached_response is not None,
+        len(completed_tools),
         len(all_thinking_steps),
         duration_ms,
         total_in + total_out,
     )
+
+    # SLO: Record end-to-end duration by complexity tier
+    from app.core.ai_metrics import record_agent_e2e, check_agent_success_rate
+    _tier = str(accumulated_state.get("complexity", "moderate"))
+    _success = not accumulated_state.get("error")
+    record_agent_e2e(_tier, duration_ms, _success)
+    check_agent_success_rate(_success)
 
     # ── 10. Finalize trace ──
     if tracer:

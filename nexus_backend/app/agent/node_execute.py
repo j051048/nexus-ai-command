@@ -228,6 +228,7 @@ async def _llm_fix_params(
 
 
 from app.agent.node_helpers import (
+    CELERY_ISOLATED_TOOLS,
     LONG_RUNNING_TOOLS,
     AgentConfig,
     AgentPhase,
@@ -498,8 +499,10 @@ async def _execute_single_tool(
     if record.tool_name in LONG_RUNNING_TOOLS:
         timeout = max(timeout, 120.0)
 
-    # S4: Celery isolation for high-risk tools
+    # S4: Celery isolation for high-risk / heavy tools
     isolation = getattr(tool, "isolation_level", "inline")
+    if isolation == "inline" and record.tool_name in CELERY_ISOLATED_TOOLS:
+        isolation = "celery"
     if isolation == "celery":
         try:
             from app.tasks.tool_tasks import execute_tool_isolated

@@ -817,11 +817,15 @@ class AgentGraph:
     async def get_state(self, thread_id: str) -> AgentState | None:
         """
         Retrieve the persisted state for a thread.
-        Useful for resuming interrupted conversations.
+        Applies schema migration for stale checkpoints.
         """
+        from app.agent.state import migrate_state
+
         config = {"configurable": {"thread_id": thread_id}}
         state_snapshot = await self.compiled.aget_state(config)
-        return state_snapshot.values if state_snapshot else None
+        if not state_snapshot or not state_snapshot.values:
+            return None
+        return migrate_state(state_snapshot.values)
 
     async def update_state(self, thread_id: str, updates: dict):
         """

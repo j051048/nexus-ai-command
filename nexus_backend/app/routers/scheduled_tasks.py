@@ -12,19 +12,12 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id
-from app.core.database import supabase
+from app.core.dependencies import get_db
 from app.core.errors import ErrorCode, api_error, api_success
 from app.tools.scheduled_task_tools import _compute_next_execution
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/scheduled-tasks", tags=["Scheduled Tasks"])
-
-
-def _get_admin_client():
-    """Get the global service-key Supabase client (bypasses RLS)."""
-    if not supabase:
-        raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
-    return supabase
 
 
 # ─── Request Models ──────────────────────────────────────────
@@ -59,13 +52,13 @@ class UpdateScheduledTaskBody(BaseModel):
 @router.get("")
 async def list_scheduled_tasks(
     include_inactive: bool = False,
+    db=Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):
     """获取当前用户的定时任务列表"""
     try:
-        client = _get_admin_client()
         query = (
-            client.table("user_scheduled_tasks")
+            db.table("user_scheduled_tasks")
             .select("*")
             .eq("user_id", user_id)
             .order("created_at", desc=True)
@@ -86,12 +79,11 @@ async def list_scheduled_tasks(
 @router.post("")
 async def create_scheduled_task(
     body: CreateScheduledTaskBody,
+    db=Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):
     """创建定时任务"""
     try:
-        client = _get_admin_client()
-
         # 校验
         if body.schedule_type == "weekly" and body.day_of_week is None:
             raise api_error(ErrorCode.VALIDATION_ERROR, "每周任务需指定 day_of_week (0=周一, 6=周日)")
@@ -102,7 +94,7 @@ async def create_scheduled_task(
 
         # 限额检查
         existing = (
-            await client.table("user_scheduled_tasks")
+            await db.table("user_scheduled_tasks")
             .select("id", count="exact")
             .eq("user_id", user_id)
             .eq("is_active", True)
@@ -134,7 +126,7 @@ async def create_scheduled_task(
             "notify_method": body.notify_method,
         }
 
-        result = await client.table("user_scheduled_tasks").insert(task_data).execute()
+        result = await db.table("user_scheduled_tasks").insert(task_data).execute()
         if not result.data:
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "创建失败")
 
@@ -150,15 +142,14 @@ async def create_scheduled_task(
 async def update_scheduled_task(
     task_id: str,
     body: UpdateScheduledTaskBody,
+    db=Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):
     """更新定时任务"""
     try:
-        client = _get_admin_client()
-
         # 确认任务属于当前用户
         existing = (
-            await client.table("user_scheduled_tasks")
+            await db.table("user_scheduled_tasks")
             .select("*")
             .eq("id", task_id)
             .eq("user_id", user_id)
@@ -209,7 +200,7 @@ async def update_scheduled_task(
 
         update_data["update_time"] = datetime.now(UTC).isoformat()
 
-        result = await client.table("user_scheduled_tasks").update(update_data).eq("id", task_id).execute()
+        result = await db.table("user_scheduled_tasks").update(update_data).eq("id", task_id).execute()
 
         return api_success(data=result.data[0] if result.data else task, message="定时任务更新成功")
     except Exception as e:
@@ -222,24 +213,23 @@ async def update_scheduled_task(
 @router.delete("/{task_id}")
 async def delete_scheduled_task(
     task_id: str,
+    db=Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):
     """删除定时任务"""
     try:
-        client = _get_admin_client()
-
         # 确认任务属于当前用户
         existing = (
-            await client.table("user_scheduled_tasks").select("id").eq("id", task_id).eq("user_id", user_id).execute()
+            await db.table("user_scheduled_tasks").select("id").eq("id", task_id).eq("user_id", user_id).execute()
         )
         if not existing.data:
             raise api_error(ErrorCode.NOT_FOUND, "定时任务不存在")
 
-        await client.table("user_scheduled_tasks").delete().eq("id", task_id).execute()
+        await db.table("user_scheduled_tasks").delete().eq("id", task_id).execute()
         # 清理该任务产生的推送消息，防止登录/刷新时重复显示
         try:
             await (
-                client.table("chat_messages")
+                db.table("chat_messages")
                 .delete()
                 .eq("user_id", user_id)
                 .filter("metadata->>task_id", "eq", task_id)
@@ -258,14 +248,13 @@ async def delete_scheduled_task(
 @router.post("/{task_id}/run")
 async def run_scheduled_task(
     task_id: str,
+    db=Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ):
     """手动触发执行一次定时任务"""
     try:
-        client = _get_admin_client()
-
         existing = (
-            await client.table("user_scheduled_tasks")
+            await db.table("user_scheduled_tasks")
             .select("*")
             .eq("id", task_id)
             .eq("user_id", user_id)
@@ -295,7 +284,7 @@ async def run_scheduled_task(
 
         # 更新执行统计
         await (
-            client.table("user_scheduled_tasks")
+            db.table("user_scheduled_tasks")
             .update(
                 {
                     "last_executed_at": datetime.now(UTC).isoformat(),

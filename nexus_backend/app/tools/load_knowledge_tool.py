@@ -15,6 +15,7 @@ from typing import Any
 
 from app.tools.base_tool import BaseTool
 from app.tools._shared import safe_tool_error
+from app.tools.registry import register_tool
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,7 @@ def _query_hash(query: str) -> str:
     return hashlib.md5(query.encode()).hexdigest()[:12]
 
 
+@register_tool(name="load_knowledge", category="knowledge", description="加载知识库技能详情")
 class LoadKnowledgeTool(BaseTool):
     name = "load_knowledge"
     description = (

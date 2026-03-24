@@ -12,6 +12,7 @@ from app.services.crm_service import ACTIVITY_TYPES, CUSTOMER_STAGES, crm_servic
 from .base_tool import BaseTool
 from ._shared import _get_client, _validate_uuid
 from app.tools._shared import safe_tool_error
+from app.tools.registry import register_tool
 
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,7 @@ def _get_org_id(config: dict = None) -> str | None:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
+@register_tool(name="get_customers", category="crm", description="查询客户列表")
 class GetCustomersTool(BaseTool):
     """查询客户列表"""
 

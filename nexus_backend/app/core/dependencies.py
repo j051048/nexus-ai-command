@@ -22,9 +22,31 @@ logger = logging.getLogger(__name__)
 async def get_db(request: Request):
     """
     Dependency to get the database client for the current request context.
-    The client is injected into request.state by TenantContextMiddleware.
+
+    The client is injected into request.state by TenantContextMiddleware:
+    - JWT auth → scoped client with RLS via user token
+    - API Key auth → OrgFilteredClient with application-level org isolation
+    - Public routes → global service-key client (fallback)
+
+    Usage in routers:
+        @router.get("/items")
+        async def list_items(db=Depends(get_db)):
+            result = await db.table("items").select("*").execute()
     """
-    return getattr(request.state, "db", supabase)
+    db = getattr(request.state, "db", None)
+    if db is None:
+        db = supabase
+    if db is None:
+        raise HTTPException(status_code=503, detail="数据库不可用")
+    return db
+
+
+async def get_org_id(request: Request) -> str | None:
+    """
+    Dependency to get the organization_id from request context.
+    Set by TenantContextMiddleware after auth.
+    """
+    return getattr(request.state, "org_id", None)
 
 
 
