@@ -336,3 +336,88 @@ async def delete_business_rule(
             raise
         logger.error(f"Error deleting business rule {memory_id}: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "记忆操作失败")
+
+
+# ─── Entity Profile (Mem0+ simplified) ────────────────────────
+
+
+@router.get("/entity-profile")
+async def get_entity_profile(
+    request: Request,
+    entity: str,
+    limit: int = 30,
+    user_id: str = Depends(get_current_user_id),
+):
+    """获取实体画像 — 聚合 knowledge_graph_triples 中该实体的所有关系。
+
+    返回以该实体为 source 或 destination 的三元组列表，
+    帮助用户了解 AI 对某人/公司/概念的已知信息。
+    """
+    try:
+        org_id = getattr(request.state, "org_id", None)
+        if not org_id:
+            return api_success(data={"entity": entity, "triples": []}, message="未关联组织")
+
+        from app.core.database import supabase as db
+
+        entity_clean = entity.strip()[:200]
+        safe_limit = min(max(limit, 1), 100)
+
+        # Query triples where entity appears as source OR destination
+        as_source = (
+            await db.table("knowledge_graph_triples")
+            .select("id, source_entity, source_type, relationship, destination_entity, destination_type, strength, occurrences, updated_at")
+            .eq("organization_id", org_id)
+            .ilike("source_entity", entity_clean)
+            .order("strength", desc=True)
+            .limit(safe_limit)
+            .execute()
+        )
+        as_dest = (
+            await db.table("knowledge_graph_triples")
+            .select("id, source_entity, source_type, relationship, destination_entity, destination_type, strength, occurrences, updated_at")
+            .eq("organization_id", org_id)
+            .ilike("destination_entity", entity_clean)
+            .order("strength", desc=True)
+            .limit(safe_limit)
+            .execute()
+        )
+
+        triples = (as_source.data or []) + (as_dest.data or [])
+        # Dedupe by id
+        seen = set()
+        unique = []
+        for t in triples:
+            if t["id"] not in seen:
+                seen.add(t["id"])
+                unique.append(t)
+
+        # Also fetch aliases from entity_aliases
+        aliases = []
+        try:
+            alias_resp = (
+                await db.table("entity_aliases")
+                .select("alias, canonical_name")
+                .eq("organization_id", org_id)
+                .or_(f"alias.ilike.{entity_clean},canonical_name.ilike.{entity_clean}")
+                .limit(20)
+                .execute()
+            )
+            aliases = alias_resp.data or []
+        except Exception:
+            pass  # entity_aliases table may not exist
+
+        return api_success(
+            data={
+                "entity": entity_clean,
+                "triple_count": len(unique),
+                "triples": unique[:safe_limit],
+                "aliases": aliases,
+            },
+            message=f"实体画像: {entity_clean}",
+        )
+    except Exception as e:
+        if hasattr(e, "status_code"):
+            raise
+        logger.error(f"Error getting entity profile for '{entity}': {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "实体画像查询失败")

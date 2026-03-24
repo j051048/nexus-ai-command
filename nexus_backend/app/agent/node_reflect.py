@@ -71,27 +71,37 @@ def _check_data_source_primacy(ai_content: str, completed_tools: list) -> str | 
     _SENSITIVE_DOMAINS: dict[str, tuple[list[str], list[str]]] = {
         "finance": (
             ["元", "¥", "万元", "报销", "预算", "薪资", "工资", "发票", "费用", "收入", "利润"],
-            ["query_finance", "get_finance", "finance_", "expense_"],
+            ["query_budget", "query_salary", "query_expense", "check_budget",
+             "submit_expense", "create_expense", "list_expenses", "approve_expense",
+             "recognize_invoice"],
         ),
         "crm": (
             ["客户", "合同", "商机", "线索", "转化率", "跟进率", "成交", "订单金额"],
-            ["query_crm", "get_crm", "crm_", "sales_lead", "query_sales"],
+            ["get_customers", "get_customer_detail", "create_customer", "update_customer",
+             "get_contracts", "create_contract", "get_expiring_contracts", "analyze_contract",
+             "get_sales_pipeline", "update_customer_stage", "add_follow_up", "get_follow_ups",
+             "generate_customer_profile", "customer_lifecycle_analysis"],
         ),
         "hr": (
             ["员工", "入职", "离职", "绩效", "薪酬", "人数", "编制"],
-            ["query_hr", "get_hr", "hr_", "employee_"],
+            ["list_employees", "create_employee", "update_employee",
+             "process_onboarding", "process_resignation", "manage_recruitment",
+             "create_performance_review", "org_statistics"],
         ),
         "approval": (
             ["审批", "待审", "已批", "已驳回", "审批流"],
-            ["query_approval", "get_approval", "approval_", "oa_"],
+            ["smart_approve", "approve_request", "reject_request",
+             "submit_approval_on_behalf", "list_approval_flows", "create_approval_flow"],
         ),
         "attendance": (
             ["出勤", "迟到", "缺勤", "打卡", "加班时长"],
-            ["query_attendance", "get_attendance", "attendance_"],
+            ["clock_in_out", "get_attendance_record", "query_attendance",
+             "query_team_attendance", "attendance_statistics",
+             "request_leave", "query_leave_status"],
         ),
         "inventory": (
             ["库存", "出库", "入库", "库存量", "存货"],
-            ["query_inventory", "get_inventory", "inventory_"],
+            ["list_inventory", "inventory_in", "inventory_out", "inventory_statistics"],
         ),
     }
 
@@ -107,18 +117,23 @@ def _check_data_source_primacy(ai_content: str, completed_tools: list) -> str | 
 
     # Numeric data pattern — numbers that look like real data (>= 2 digits)
     _has_numeric = bool(re.search(r"\d{2,}", ai_content[:2000]))
+    # Entity name pattern — Chinese company names, person names with titles, etc.
+    _has_entity_name = bool(re.search(
+        r"[\u4e00-\u9fff]{2,}(?:公司|集团|科技|企业|有限|股份)|"  # company names
+        r"[\u4e00-\u9fff]{2,4}(?:先生|女士|总|经理|主管)",       # person names with titles
+        ai_content[:2000],
+    ))
+    # Either numbers or named entities count as "specific data claims"
+    _has_specific_data = _has_numeric or _has_entity_name
 
     flagged_domains: list[str] = []
-    for domain, (keywords, tool_prefixes) in _SENSITIVE_DOMAINS.items():
+    for domain, (keywords, tool_names) in _SENSITIVE_DOMAINS.items():
         # Check if response mentions this domain's keywords
         if not any(kw in ai_content for kw in keywords):
             continue
-        # Check if a matching internal tool was called
-        has_internal_tool = any(
-            any(tool.startswith(prefix) for prefix in tool_prefixes)
-            for tool in called_tools - {"web_search"}
-        )
-        if not has_internal_tool and _has_numeric:
+        # Check if a matching internal tool was called (exact name match)
+        has_internal_tool = bool(called_tools & set(tool_names))
+        if not has_internal_tool and _has_specific_data:
             flagged_domains.append(domain)
 
     if not flagged_domains:
@@ -284,6 +299,24 @@ async def reflect_node(state: AgentState) -> dict:
         content="正在评估回复完整度与事实准确性...",
     )
 
+    # ── Layer 0: Negative feedback detection (AgeMem critic) ──
+    # If the user's latest message signals dissatisfaction with a prior AI answer,
+    # demote the importance of recently accessed memories so they're less likely
+    # to steer future responses in the same wrong direction.
+    _NEGATIVE_KEYWORDS = (
+        "不对", "错了", "不是这样", "说错", "不准确", "胡说", "瞎说",
+        "答非所问", "不正确", "搞错了", "别乱说", "不是的", "信息有误",
+    )
+    last_user_msg_text = ""
+    for msg in reversed(messages):
+        if isinstance(msg, HumanMessage):
+            last_user_msg_text = msg.content if isinstance(msg.content, str) else ""
+            break
+    if last_user_msg_text and any(kw in last_user_msg_text for kw in _NEGATIVE_KEYWORDS):
+        # Fire-and-forget: demote recent memories for this user
+        import asyncio
+        asyncio.create_task(_demote_recent_memories(config.user_id))
+
     # ── Layer 1: Empty response check ──
     if (not last_ai_content.strip() or len(last_ai_content.strip()) < 5) and completed_tools:
         should_replan = iteration < config.max_iterations
@@ -310,14 +343,16 @@ async def reflect_node(state: AgentState) -> dict:
     intent = sanitize_prompt_field(intent)
     is_creative_writing = any(kw in intent for kw in ("写作", "创作", "软文", "文章", "报告", "方案", "推广"))
 
-    if not is_creative_writing and complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL) and not completed_tools:
-        hallucination_keywords = ["查询到", "系统显示", "数据显示", "结果是", "找到", "检索到", "发现"]
+    if not is_creative_writing and complexity in (QueryComplexity.MODERATE, QueryComplexity.COMPLEX, QueryComplexity.CRITICAL) and not completed_tools:
+        hallucination_keywords = ["查询到", "系统显示", "数据显示", "结果是", "找到", "检索到", "发现",
+                                  "目前没有", "只有一", "共有", "共计"]
         if any(kw in last_ai_content for kw in hallucination_keywords):
-            # Additional check: does it contain specific numbers/data?
+            # Additional check: does it contain specific numbers/data or entity names?
             number_pattern = r"\d+(?:\.\d+)?(?:万|千|百|元|个|%|位)?"
-            if re.search(number_pattern, last_ai_content):
+            entity_pattern = r"[\u4e00-\u9fff]{2,}(?:公司|集团|科技|企业|有限)"
+            if re.search(number_pattern, last_ai_content) or re.search(entity_pattern, last_ai_content):
                 is_hallucination = True
-                hallucination_reason = "复杂查询未调用工具却产出了具体数据"
+                hallucination_reason = "查询类问题未调用工具却产出了具体数据或实体名"
 
     # ── Layer 3: Tool result grounding verification ──
     # P1 Fix: Verify that numerical data in response matches tool results
@@ -816,3 +851,48 @@ async def _persist_critic_score(
         f"[CriticNode] Quality score persisted: "
         f"passed={result.passed} score={min(result.completeness, result.relevance, result.accuracy):.2f}"
     )
+
+
+# ── AgeMem: negative-feedback memory demotion ──────────────────────
+
+async def _demote_recent_memories(user_id: str, penalty: float = 0.3) -> None:
+    """Lower the importance of recently accessed memories for *user_id*.
+
+    Called fire-and-forget when the user signals dissatisfaction (e.g. "不对",
+    "错了").  This makes the offending memories less likely to surface in
+    future semantic searches, creating a lightweight quality feedback loop
+    without a full RL critic.
+
+    Args:
+        user_id: The user whose memories should be demoted.
+        penalty: How much to subtract from importance (clamped to 0).
+    """
+    try:
+        from app.core.database import supabase as _db
+
+        # Fetch top-5 most recently accessed memories for this user
+        resp = (
+            await _db.table("conversation_memories")
+            .select("id, importance")
+            .eq("user_id", user_id)
+            .order("last_accessed_at", desc=True)
+            .limit(5)
+            .execute()
+        )
+        if not resp.data:
+            return
+
+        for mem in resp.data:
+            old = mem.get("importance", 0.5)
+            new_importance = max(0.0, round(old - penalty, 2))
+            if new_importance != old:
+                await (
+                    _db.table("conversation_memories")
+                    .update({"importance": new_importance})
+                    .eq("id", mem["id"])
+                    .execute()
+                )
+        demoted = len(resp.data)
+        logger.info(f"[AgeMem] Demoted {demoted} memories for user {user_id} (penalty={penalty})")
+    except Exception as e:
+        logger.debug(f"[AgeMem] Memory demotion failed (non-fatal): {e}")

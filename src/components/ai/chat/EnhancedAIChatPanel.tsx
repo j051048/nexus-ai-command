@@ -1,3 +1,4 @@
+import { EntityProfileDialog } from '@/components/ai/EntityProfileDialog';
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/contexts/UserContext';
@@ -103,6 +104,7 @@ export function EnhancedAIChatPanel({
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [entityDialogEntity, setEntityDialogEntity] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -549,6 +551,14 @@ export function EnhancedAIChatPanel({
     const currentInput = inputValueRef.current;
     if ((!currentInput.trim() && !pendingImages.some(img => img.uploadedUrl)) || isAiTyping) return;
 
+    // /entity command: open entity profile dialog
+    const entityMatch = currentInput.trim().match(/^\/entity\s+(.+)/);
+    if (entityMatch) {
+      setEntityDialogEntity(entityMatch[1].trim());
+      setInput('');
+      return;
+    }
+
     // P3: Collect uploaded image URLs
     const imageUrls = pendingImages.filter(img => img.uploadedUrl).map(img => img.uploadedUrl!);
 
@@ -988,6 +998,11 @@ export function EnhancedAIChatPanel({
           </div>
         )}
       </div>
+      <EntityProfileDialog
+        entity={entityDialogEntity}
+        open={!!entityDialogEntity}
+        onOpenChange={(open) => { if (!open) setEntityDialogEntity(null); }}
+      />
     </>
   );
 }

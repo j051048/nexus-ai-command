@@ -7,6 +7,7 @@ from typing import Any
 from app.core.database import supabase
 
 from .embedding import generate_embedding
+from .pii_filter import sanitize_pii
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,11 @@ async def save_memory(
         raise RuntimeError("数据库连接不可用")
 
     now = datetime.now(UTC).isoformat()
+
+    # PII sanitization — mask sensitive data before persisting
+    value = sanitize_pii(value)
+    if enriched_value:
+        enriched_value = sanitize_pii(enriched_value)
 
     # Generate embedding for semantic search (prefer enriched_value for better semantics)
     embed_text = enriched_value or f"{key}: {value}"
