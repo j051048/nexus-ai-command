@@ -226,7 +226,7 @@ _WEB_SEARCH_INTENT_KEYWORDS: set[str] = {
 _SCENE_TOOL_POLICY: dict[str, dict] = {
     # Leave/OA scenes: restrict to OA-related tools only
     "leave_request": {
-        "allow_domains": ["oa_leave", "attendance", "schedule"],
+        "allow_domains": ["oa_leave", "oa_task", "attendance", "schedule"],
     },
     "attendance_check": {
         "allow_domains": ["attendance", "oa_leave"],
@@ -265,10 +265,13 @@ _SCENE_TOOL_POLICY: dict[str, dict] = {
 _DOMAIN_TOOL_MAP: dict[str, set[str]] = {
     "oa_leave": {
         "create_leave_request", "query_leave_status", "request_leave",
-        "book_meeting", "assign_task", "create_work_handover",
+        "book_meeting", "create_work_handover",
         "generate_onboarding_checklist",
-        "send_notification",
         "submit_approval_on_behalf",
+    },
+    "oa_task": {
+        "assign_task", "send_notification", "book_meeting",
+        "create_work_handover",
     },
     "attendance": {
         "clock_in_out", "get_attendance_record", "attendance_statistics",
@@ -366,7 +369,13 @@ _KEYWORD_DOMAIN_MAP: dict[str, list[str]] = {
     "请假": ["oa_leave"], "出差": ["oa_leave", "approval"], "会议": ["oa_leave"],
     "日程": ["oa_leave", "schedule"], "交接": ["oa_leave"],
     "调休": ["oa_leave", "attendance"], "年假": ["oa_leave"],
-    "提醒": ["oa_leave", "schedule"],
+    "提醒": ["oa_task", "oa_leave", "schedule"],
+    # OA Task / Administrative
+    "安排": ["oa_task", "project"], "去办": ["oa_task"],
+    "跑腿": ["oa_task"], "行政": ["oa_task", "admin"],
+    "送资料": ["oa_task"], "取文件": ["oa_task"],
+    "交付": ["oa_task", "project"], "派人": ["oa_task", "project"],
+    "吩咐": ["oa_task"], "交代": ["oa_task"],
     # Attendance
     "考勤": ["attendance"], "打卡": ["attendance"], "补卡": ["attendance"],
     "加班": ["attendance"], "排班": ["attendance"],
@@ -418,7 +427,7 @@ _KEYWORD_DOMAIN_MAP: dict[str, list[str]] = {
     # Admin
     "证照": ["admin"], "盖章": ["admin"], "用印": ["admin"],
     "签署": ["admin"], "公告": ["admin", "approval"],
-    "通知": ["admin", "approval", "oa_leave", "project"],
+    "通知": ["oa_task", "approval"],
     "审计": ["admin"], "审计日志": ["admin"], "安全审计": ["admin"],
     "异常登录": ["admin"], "数据导出": ["admin"],
     # Knowledge

@@ -10,6 +10,7 @@ import json
 import logging
 import time
 import uuid
+from datetime import UTC, datetime
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
@@ -263,9 +264,52 @@ async def wbs_decompose_node(state: AgentState) -> dict:
 
         logger.info(f"[WBS] Decomposed into {task_count} sub-tasks in {duration_ms}ms: {task_summary}")
 
+        # ── Persist WBS to vmd_main_task / vmd_sub_task ──────────────
+        db_task_id = None
+        try:
+            from app.core.database import supabase as admin
+
+            if admin:
+                org_id = config.org_id or "default"
+                user_id = config.user_id or ""
+                date_part = datetime.now(UTC).strftime("%Y%m%d")
+                task_code = f"VMD-{date_part}-{uuid.uuid4().hex[:6].upper()}"
+
+                main_record = {
+                    "tenant_id": org_id,
+                    "task_code": task_code,
+                    "title": wbs_structure.get("title", "WBS任务"),
+                    "description": wbs_structure.get("summary", last_user_msg[:500]),
+                    "scene_code": state.get("scene_code", "task_decompose"),
+                    "priority": "medium",
+                    "status": "planning",
+                    "user_id": user_id,
+                    "wbs_structure": wbs_structure,
+                }
+
+                res = await admin.table("vmd_main_task").insert(main_record).execute()
+                db_task_id = res.data[0]["id"] if res.data else None
+
+                if db_task_id:
+                    for i, st in enumerate(wbs_structure.get("sub_tasks", [])):
+                        sub_record = {
+                            "main_task_id": db_task_id,
+                            "tenant_id": org_id,
+                            "title": st.get("title", "未命名子任务"),
+                            "agent_code": st.get("agent_code", "director_agent"),
+                            "description": st.get("description", ""),
+                            "sort_order": i + 1,
+                            "status": "todo",
+                        }
+                        await admin.table("vmd_sub_task").insert(sub_record).execute()
+
+                    logger.info(f"[WBS] Persisted to DB: main_task={db_task_id}, {task_count} sub-tasks")
+        except Exception as e:
+            logger.warning(f"[WBS] DB persistence failed (non-blocking): {e}")
+
         return {
             "wbs_structure": wbs_structure,
-            "main_task_id": main_task_id,
+            "main_task_id": db_task_id or main_task_id,
             "current_phase": AgentPhase.EXECUTING,
             "thinking_steps": [
                 thinking_step,

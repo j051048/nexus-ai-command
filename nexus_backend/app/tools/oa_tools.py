@@ -607,7 +607,7 @@ class TaskAssignmentTool(BaseTool):
         },
         "required": ["title", "assignee"],
     }
-    domain = "oa_leave"
+    domain = "oa_task"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         title = args.get("title")
@@ -892,7 +892,7 @@ class SendNotificationTool(BaseTool):
     """给指定同事发送站内通知（所有角色可用）"""
 
     name = "send_notification"
-    domain = "oa_leave"
+    domain = "oa_task"
     description = "给指定同事发送站内通知消息。用户说'通知某人'、'提醒某人'、'给某人发消息'时调用。此操作不可撤回。"
     required_role = "all"
     is_irreversible = True  # HITL: 发送通知后无法撤回，属于外部副作用操作
