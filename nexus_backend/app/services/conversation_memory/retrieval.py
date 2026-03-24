@@ -336,40 +336,95 @@ async def _expand_top_connections(
     memories: list[dict],
     user_id: str,
     limit: int = 3,
+    max_total: int = 10,
+    hop2_strength: float = 0.7,
+    hop2_threshold: float = 0.8,
+    hop2_max: int = 5,
     db: Any = None,
 ) -> list[dict]:
-    """1-hop expansion: fetch connected memories for top results."""
+    """1-hop + 2-hop expansion: fetch connected memories for top results.
+
+    2-hop is only attempted for 1-hop connections with strength > hop2_strength,
+    and uses a stricter threshold (hop2_threshold) for the second hop.
+    Total results are capped at max_total (shared between 1-hop and 2-hop).
+    """
     client = db or supabase
     if not client:
         return []
 
-    connected_ids: set[str] = set()
     seen_ids = {m["id"] for m in memories}
+    hop1_ids: set[str] = set()
+    hop1_strong_ids: set[str] = set()  # High-strength connections eligible for 2-hop
 
+    # --- 1-hop: collect connected memory IDs ---
     for mem in memories[:limit]:
         connections = mem.get("connections", [])
         if not isinstance(connections, list):
             continue
         for conn in connections:
             mid = conn.get("memory_id")
-            if mid and mid not in seen_ids and mid not in connected_ids:
-                connected_ids.add(mid)
+            if mid and mid not in seen_ids and mid not in hop1_ids:
+                hop1_ids.add(mid)
+                strength = float(conn.get("strength", 0))
+                if strength > hop2_strength:
+                    hop1_strong_ids.add(mid)
 
-    if not connected_ids:
+    if not hop1_ids:
         return []
 
+    # --- Fetch 1-hop memories ---
     try:
         result = (
             await client.table("conversation_memories")
             .select("*")
             .eq("user_id", user_id)
-            .in_("id", list(connected_ids)[:10])
+            .in_("id", list(hop1_ids)[:max_total])
             .execute()
         )
-        return result.data or []
+        hop1_memories = result.data or []
     except Exception as e:
-        logger.debug(f"Connection expansion failed: {e}")
+        logger.debug(f"Connection expansion (1-hop) failed: {e}")
         return []
+
+    # --- 2-hop: expand high-strength 1-hop results ---
+    remaining_quota = max_total - len(hop1_memories)
+    if remaining_quota > 0 and hop1_strong_ids:
+        all_known = seen_ids | hop1_ids
+        hop2_ids: set[str] = set()
+        hop2_limit = min(hop2_max, remaining_quota)
+
+        for mem in hop1_memories:
+            if mem["id"] not in hop1_strong_ids:
+                continue
+            connections = mem.get("connections", [])
+            if not isinstance(connections, list):
+                continue
+            for conn in connections:
+                mid = conn.get("memory_id")
+                strength = float(conn.get("strength", 0))
+                if (mid and mid not in all_known
+                        and mid not in hop2_ids
+                        and strength > hop2_threshold):
+                    hop2_ids.add(mid)
+                    if len(hop2_ids) >= hop2_limit:
+                        break
+            if len(hop2_ids) >= hop2_limit:
+                break
+
+        if hop2_ids:
+            try:
+                result2 = (
+                    await client.table("conversation_memories")
+                    .select("*")
+                    .eq("user_id", user_id)
+                    .in_("id", list(hop2_ids))
+                    .execute()
+                )
+                hop1_memories.extend(result2.data or [])
+            except Exception as e:
+                logger.debug(f"Connection expansion (2-hop) failed: {e}")
+
+    return hop1_memories[:max_total]
 
 
 async def search_consolidations(

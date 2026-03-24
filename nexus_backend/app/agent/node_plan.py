@@ -103,9 +103,24 @@ async def _plan_with_self_consistency(
 
     # 按工具组合签名投票
     def _tool_signature(msg) -> str:
+        """Build a signature from tool names + arg key sets for parameter-aware voting.
+
+        Example: "search_leads(keywords,region)|update_lead(lead_id,stage)"
+        Only arg *keys* are compared (not values) to avoid over-fragmentation.
+        """
         calls = getattr(msg, "tool_calls", None) or []
-        names = sorted(tc.get("name", "") if isinstance(tc, dict) else getattr(tc, "name", "") for tc in calls)
-        return "|".join(names) if names else "__no_tools__"
+        parts: list[str] = []
+        for tc in calls:
+            if isinstance(tc, dict):
+                name = tc.get("name", "")
+                args = tc.get("args", {})
+            else:
+                name = getattr(tc, "name", "")
+                args = getattr(tc, "args", {})
+            arg_keys = ",".join(sorted(args.keys())) if isinstance(args, dict) else ""
+            parts.append(f"{name}({arg_keys})")
+        parts.sort()
+        return "|".join(parts) if parts else "__no_tools__"
 
     sigs = [_tool_signature(s) for s in samples]
     counter = Counter(sigs)
@@ -281,14 +296,39 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             insert_pos = 2 if len(lc_msgs) > 1 else len(lc_msgs)
             lc_msgs.insert(insert_pos, SystemMessage(content=cot_prompt))
 
-        # Few-shot example injection — scene/intent-aware style demonstrations
+        # Few-shot example injection — dynamic golden examples + static fallback
         try:
             from app.core.prompts.few_shot_examples import get_few_shot_examples
 
             scene_code = state.get("scene_code", "")
-            few_shot = get_few_shot_examples(scene_code, intent_summary)
+            few_shot = None  # Will hold dynamic or static examples
+
+            # Try dynamic few-shot: retrieve golden_example from conversation_memories
+            try:
+                from app.core.database import supabase as _mem_db
+                if _mem_db and agent_config.user_id:
+                    golden_res = (
+                        await _mem_db.table("conversation_memories")
+                        .select("value")
+                        .eq("user_id", agent_config.user_id)
+                        .eq("category", "golden_example")
+                        .is_("superseded_by", "null")
+                        .order("importance", desc=True)
+                        .limit(2)
+                        .execute()
+                    )
+                    if golden_res.data:
+                        from app.services.conversation_memory.storage import decrypt_memory_value
+                        ex_parts = [decrypt_memory_value(r["value"]) for r in golden_res.data]
+                        few_shot = "【历史优秀对话参考】\n" + "\n---\n".join(ex_parts)
+            except Exception:
+                pass  # Dynamic few-shot lookup failed, will fallback to static
+
+            # Fallback to static scene/intent-aware examples
+            if not few_shot:
+                few_shot = get_few_shot_examples(scene_code, intent_summary)
+
             if few_shot:
-                # 独立 SystemMessage，与主 system prompt 分离
                 lc_msgs.insert(2 if len(lc_msgs) > 1 else len(lc_msgs),
                                SystemMessage(content=f"[参考示例]\n{few_shot}"))
         except Exception:

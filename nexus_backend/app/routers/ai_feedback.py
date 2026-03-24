@@ -19,6 +19,7 @@ class FeedbackRequest(BaseModel):
     comment: str | None = Field(None, max_length=1000, description="评价备注")
     ai_response_snippet: str | None = Field(None, max_length=500, description="AI回复片段")
     query_snippet: str | None = Field(None, max_length=500, description="用户问题片段")
+    scene_code: str | None = Field(None, max_length=50, description="场景编码")
 
 
 class CorrectionRequest(BaseModel):
@@ -59,6 +60,37 @@ async def submit_feedback(
         feedback = res.data[0] if res.data else record
 
         logger.info("AI feedback received: user=%s rating=%s session=%s", user_id, body.rating, body.session_id)
+
+        # Dynamic Few-shot: store golden_example on positive feedback
+        if body.rating == "positive" and body.query_snippet and body.ai_response_snippet:
+            try:
+                from app.services.conversation_memory.storage import save_memory
+
+                q_truncated = body.query_snippet[:200]
+                r_truncated = body.ai_response_snippet[:500]
+                golden_value = f"用户: {q_truncated}\n助手: {r_truncated}"
+                scene = body.scene_code or "general"
+                golden_key = f"golden_{scene}_{body.session_id[:8]}"
+
+                await save_memory(
+                    user_id=user_id,
+                    key=golden_key,
+                    value=golden_value,
+                    category="golden_example",
+                    importance=0.9,
+                    org_id=org_id,
+                    db=client,
+                    source="ai_feedback",
+                    extraction_method="user_positive_feedback",
+                    metadata={
+                        "scene_code": scene,
+                        "session_id": body.session_id,
+                    },
+                )
+                logger.info("Golden example saved: user=%s scene=%s", user_id, scene)
+            except Exception as ge_err:
+                logger.debug(f"Golden example save failed (non-fatal): {ge_err}")
+
         return api_success(data={"feedback": feedback}, message="反馈已记录")
     except Exception as e:
         logger.error("Submit feedback error: %s", e)
