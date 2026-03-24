@@ -371,3 +371,39 @@ test_cases:
     expected_behavior:
       should_call_tools: true
       expected_tool_names: ["get_sales_pipeline"]
+
+  # ── 定时任务 + 澄清 ──
+  - id: e2e_051
+    description: "定时任务: 列出定时任务"
+    user_message: "帮我看看我设了哪些定时任务"
+    expected_behavior:
+      should_call_tools: true
+      expected_tool_names: ["list_scheduled_tasks"]
+
+  - id: e2e_052
+    description: "定时任务: 删除定时任务"
+    user_message: "把每天早上发日报那个定时任务删了"
+    expected_behavior:
+      should_call_tools: true
+      expected_tool_names: ["delete_scheduled_task"]
+
+  - id: e2e_053
+    description: "澄清: 缺参数需澄清"
+    user_message: "帮我创建个定时任务"
+    expected_behavior:
+      should_call_tools: false
+      response_should_contain: ["名称", "哪", "什么", "具体"]
+
+  - id: e2e_054
+    description: "澄清: 模糊请求降级"
+    user_message: "帮我查一下那个东西"
+    expected_behavior:
+      should_call_tools: false
+      response_should_contain: ["具体", "哪", "什么"]
+
+  - id: e2e_055
+    description: "澄清: 歧义请求询问"
+    user_message: "帮我处理一下"
+    expected_behavior:
+      should_call_tools: false
+      response_should_contain: ["哪", "什么", "具体"]

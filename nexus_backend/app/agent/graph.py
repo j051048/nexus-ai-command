@@ -193,6 +193,8 @@ def _after_execute(state: AgentState) -> str:
         f"has_plan={'yes' if state.get('plan') else 'no'}"
     )
 
+    _gc_state(state)
+
     if iteration >= max_iter:
         logger.warning(f"[Graph] Max iterations ({max_iter}) reached, forcing reflect")
         state["circuit_break_reason"] = "max_iterations"
@@ -309,6 +311,41 @@ def _proactive_compress(state: AgentState) -> None:
     compacted = _micro_compact_lc_messages(messages)
     state["messages"] = compacted
     logger.info(f"[Graph] Proactive mid-reasoning compress applied ({len(messages)} messages)")
+
+
+def _gc_state(state: AgentState) -> None:
+    """每次迭代清理无界增长的 state 字段，防止 operator.add 累加器无限膨胀。"""
+    from app.agent.prompt_compression import _micro_compact_lc_messages
+    from app.agent.state import ToolCallRecord
+
+    iteration = state.get("iteration", 0)
+
+    # 1. thinking_steps: 保留最近 10 条
+    ts = state.get("thinking_steps", [])
+    if len(ts) > 10:
+        state["thinking_steps"] = ts[-10:]
+
+    # 2. _tool_call_history: 保留最近 5 条
+    hist = state.get("_tool_call_history", [])
+    if len(hist) > 5:
+        state["_tool_call_history"] = hist[-5:]
+
+    # 3. completed_tool_calls: 超过 8 条时折叠旧记录
+    completed = state.get("completed_tool_calls", [])
+    if len(completed) > 8:
+        older_summary = ToolCallRecord(
+            tool_name="_gc_summary",
+            tool_args={},
+            tool_call_id="gc",
+            result=f"[已折叠 {len(completed) - 5} 条历史工具结果]",
+            status="success",
+        )
+        state["completed_tool_calls"] = [older_summary] + completed[-5:]
+
+    # 4. messages: iteration >= 2 时提前触发微压缩（比 _proactive_compress 的 >= 3 更早）
+    msgs = state.get("messages", [])
+    if iteration >= 2 and len(msgs) >= 6:
+        state["messages"] = _micro_compact_lc_messages(msgs)
 
 
 def _after_reflect(state: AgentState) -> str:

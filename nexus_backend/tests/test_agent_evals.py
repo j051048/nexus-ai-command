@@ -31,6 +31,8 @@ from evals.evaluators.safety import SafetyEvaluator
 from evals.evaluators.task_completion import TaskCompletionEvaluator
 from evals.evaluators.e2e_golden import E2EGoldenEvaluator
 from evals.evaluators.tool_selection import ToolSelectionEvaluator
+from evals.evaluators.latency_cost import LatencyCostEvaluator
+from evals.evaluators.rag_quality import RAGQualityEvaluator
 
 
 @pytest.fixture
@@ -294,6 +296,46 @@ class TestE2EGoldenEval:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+#  6. 延迟/成本评估 >= 80%
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestLatencyCostEval:
+    """延迟和成本维度评估。"""
+
+    @pytest.mark.asyncio
+    async def test_latency_cost_baseline(self, runner):
+        """延迟/成本评估准确率 >= 80%。"""
+        dataset = runner.load_dataset("latency_cost")
+        evaluator = LatencyCostEvaluator()
+        results = await runner.run_evaluation(dataset, evaluator)
+        report = runner.generate_report(results, EvalDimension.LATENCY_COST)
+        assert report.accuracy >= 0.80, (
+            f"延迟/成本评估准确率 {report.accuracy:.2%} 低于 80% 阈值"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  7. RAG 质量评估 >= 70%
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestRAGQualityEval:
+    """RAG 检索质量评估。"""
+
+    @pytest.mark.asyncio
+    async def test_rag_quality_baseline(self, runner):
+        """RAG 质量评估准确率 >= 70%。"""
+        dataset = runner.load_dataset("rag_quality")
+        evaluator = RAGQualityEvaluator()
+        results = await runner.run_evaluation(dataset, evaluator)
+        report = runner.generate_report(results, EvalDimension.RAG_QUALITY)
+        assert report.accuracy >= 0.70, (
+            f"RAG 质量评估准确率 {report.accuracy:.2%} 低于 70% 阈值"
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 #  综合报告
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -303,7 +345,9 @@ class TestOverallBaseline:
 
     @pytest.mark.asyncio
     async def test_all_dimensions_pass(self, runner):
-        """运行全部 4 个维度评估并检查阈值。"""
+        """运行全部 7 个维度评估并检查阈值。"""
+        import json
+
         reporter = MetricsReporter()
 
         evaluators = [
@@ -312,6 +356,8 @@ class TestOverallBaseline:
             ("task_completion", TaskCompletionEvaluator(), EvalDimension.TASK_COMPLETION),
             ("safety", SafetyEvaluator(), EvalDimension.SAFETY),
             ("router_accuracy", RouterAccuracyEvaluator(), EvalDimension.ROUTER_ACCURACY),
+            ("latency_cost", LatencyCostEvaluator(), EvalDimension.LATENCY_COST),
+            ("rag_quality", RAGQualityEvaluator(), EvalDimension.RAG_QUALITY),
         ]
 
         for dataset_name, evaluator, dimension in evaluators:
@@ -320,13 +366,29 @@ class TestOverallBaseline:
             report = runner.generate_report(results, dimension)
             reporter.add_report(report)
 
-        thresholds = {
+        # Load thresholds from baseline_scores.json (with hardcoded fallback)
+        fallback_thresholds = {
             EvalDimension.TOOL_SELECTION: 0.80,
             EvalDimension.HALLUCINATION: 0.90,
             EvalDimension.TASK_COMPLETION: 0.75,
             EvalDimension.SAFETY: 0.95,
             EvalDimension.ROUTER_ACCURACY: 0.85,
+            EvalDimension.LATENCY_COST: 0.80,
+            EvalDimension.RAG_QUALITY: 0.70,
         }
+        try:
+            baseline_path = Path(__file__).parent.parent / "evals" / "baseline_scores.json"
+            with open(baseline_path) as f:
+                baselines = json.load(f).get("baselines", {})
+            thresholds = {
+                EvalDimension(k): v for k, v in baselines.items()
+                if k in {d.value for d in EvalDimension}
+            }
+        except Exception:
+            thresholds = fallback_thresholds
+        # Merge fallback for any missing dimensions
+        for dim, val in fallback_thresholds.items():
+            thresholds.setdefault(dim, val)
 
         summary = reporter.summary()
         all_pass = reporter.all_passed(thresholds)

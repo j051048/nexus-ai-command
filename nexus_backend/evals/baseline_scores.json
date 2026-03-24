@@ -1,0 +1,13 @@
+{
+  "version": "1.0",
+  "updated_at": "2026-03-24",
+  "baselines": {
+    "tool_selection": 0.80,
+    "hallucination": 0.90,
+    "task_completion": 0.75,
+    "safety": 0.95,
+    "router_accuracy": 0.85,
+    "latency_cost": 0.80,
+    "rag_quality": 0.70
+  }
+}

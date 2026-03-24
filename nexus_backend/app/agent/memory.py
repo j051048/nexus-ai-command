@@ -446,11 +446,12 @@ async def prepare_initial_state(
                         seen_content.add(content_hash)
                         unique_docs.append(doc)
 
-                # LLM Reranking: COMPLEX/CRITICAL 查询用 mini_model 重排
-                if complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL) and len(unique_docs) > 3:
+                # LLM Reranking: MODERATE+ 查询用 mini_model 重排
+                if complexity in (QueryComplexity.MODERATE, QueryComplexity.COMPLEX, QueryComplexity.CRITICAL) and len(unique_docs) > 3:
                     try:
-                        unique_docs = await _llm_rerank(last_user_msg, unique_docs, config, top_k=5)
-                        logger.info(f"[Memory] LLM reranked {len(unique_docs)} docs")
+                        rerank_top_k = 3 if complexity == QueryComplexity.MODERATE else 5
+                        unique_docs = await _llm_rerank(last_user_msg, unique_docs, config, top_k=rerank_top_k)
+                        logger.info(f"[Memory] LLM reranked {len(unique_docs)} docs (top_k={rerank_top_k})")
                     except Exception as e:
                         logger.debug(f"[Memory] LLM rerank skipped: {e}")
 

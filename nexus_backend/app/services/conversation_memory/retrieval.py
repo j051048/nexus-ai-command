@@ -202,6 +202,14 @@ async def search_memories(
     memories.sort(key=_weighted_score, reverse=True)
     memories = mmr_rerank(memories, limit)
 
+    # P0: 最低相关性阈值过滤，防止冷旧记忆污染上下文
+    _MIN_DECAY_SCORE = 0.15
+    if memories:
+        pre_count = len(memories)
+        memories = [m for m in memories if _weighted_score(m) >= _MIN_DECAY_SCORE]
+        if len(memories) < pre_count:
+            logger.info(f"[Memory] Relevance filter: {pre_count} → {len(memories)}")
+
     # Feature 3: 1-hop connection expansion on top results
     try:
         expanded = await _expand_top_connections(memories[:3], user_id, db=client)
