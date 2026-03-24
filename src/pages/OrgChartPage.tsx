@@ -1,9 +1,10 @@
 /**
  * OrgChartPage - 组织架构管理页面
- * 管理员可查看和编辑员工的汇报关系（manager_id）
+ * Tab 1: 可视化架构图（ReactFlow 树形图 + 拖拽编辑）
+ * Tab 2: 列表视图（原表格）
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, lazy, Suspense } from 'react';
 import {
   Users,
   Edit2,
@@ -12,11 +13,14 @@ import {
   UserCheck,
   X,
   Building2,
+  Network,
+  List,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -40,6 +44,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useOrgMembers, useUpdateManager, type OrgMember } from '@/hooks/useOrgChart';
+import { ReactFlowProvider } from '@xyflow/react';
+import { OrgFlowCanvas } from '@/components/orgchart/OrgFlowCanvas';
 
 // ─── Role Display ───────────────────────────────────────────
 
@@ -92,7 +98,6 @@ function EditManagerModal({
     member.manager_id || '__none__'
   );
 
-  // Exclude the member themselves from the manager dropdown
   const managerOptions = allMembers.filter((m) => m.id !== member.id);
 
   const handleSave = () => {
@@ -110,7 +115,6 @@ function EditManagerModal({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 pt-2">
-          {/* Current info */}
           <div className="p-3 rounded-lg bg-secondary/30 border border-border/50">
             <div className="text-sm">
               <span className="text-muted-foreground">员工：</span>
@@ -125,8 +129,6 @@ function EditManagerModal({
               <span>{member.manager_name || '无'}</span>
             </div>
           </div>
-
-          {/* Manager select */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">选择新上级</label>
             <Select
@@ -153,8 +155,6 @@ function EditManagerModal({
               </SelectContent>
             </Select>
           </div>
-
-          {/* Actions */}
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               取消
@@ -174,15 +174,14 @@ function EditManagerModal({
   );
 }
 
-// ─── Main Page ──────────────────────────────────────────────
+// ─── List View (original table) ──────────────────────────────
 
-export function OrgChartPage() {
+function OrgListView() {
   const { data: members = [], isLoading } = useOrgMembers();
   const updateManager = useUpdateManager();
   const [search, setSearch] = useState('');
   const [editingMember, setEditingMember] = useState<OrgMember | null>(null);
 
-  // Filter members by search
   const filteredMembers = useMemo(() => {
     if (!search.trim()) return members;
     const lower = search.toLowerCase();
@@ -200,26 +199,9 @@ export function OrgChartPage() {
   };
 
   return (
-    <div className="max-w-[1200px] mx-auto space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-extrabold text-foreground tracking-tight flex items-center gap-3">
-            <Building2 className="w-8 h-8 text-primary" />
-            组织架构管理
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            管理员工的汇报关系，维护组织架构层级
-          </p>
-        </div>
-        <Badge variant="outline" className="text-sm px-3 py-1">
-          <Users className="w-4 h-4 mr-1.5" />
-          共 {members.length} 人
-        </Badge>
-      </div>
-
+    <>
       {/* Search */}
-      <div className="relative max-w-md">
+      <div className="relative max-w-md mb-4">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           placeholder="搜索姓名、部门..."
@@ -237,7 +219,6 @@ export function OrgChartPage() {
         )}
       </div>
 
-      {/* Table */}
       <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -308,7 +289,6 @@ export function OrgChartPage() {
         )}
       </div>
 
-      {/* Edit Modal */}
       {editingMember && (
         <EditManagerModal
           member={editingMember}
@@ -319,6 +299,57 @@ export function OrgChartPage() {
           isSaving={updateManager.isPending}
         />
       )}
+    </>
+  );
+}
+
+// ─── Main Page ──────────────────────────────────────────────
+
+export function OrgChartPage() {
+  const { data: members = [] } = useOrgMembers();
+
+  return (
+    <div className="max-w-[1400px] mx-auto space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h1 className="text-3xl font-extrabold text-foreground tracking-tight flex items-center gap-3">
+            <Building2 className="w-8 h-8 text-primary" />
+            组织架构管理
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            可视化管理组织结构，拖拽调整部门层级和人员归属
+          </p>
+        </div>
+        <Badge variant="outline" className="text-sm px-3 py-1">
+          <Users className="w-4 h-4 mr-1.5" />
+          共 {members.length} 人
+        </Badge>
+      </div>
+
+      {/* Tabs */}
+      <Tabs defaultValue="chart" className="w-full">
+        <TabsList>
+          <TabsTrigger value="chart" className="gap-1.5">
+            <Network className="w-4 h-4" />
+            架构图
+          </TabsTrigger>
+          <TabsTrigger value="list" className="gap-1.5">
+            <List className="w-4 h-4" />
+            列表
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="chart" className="mt-4">
+          <ReactFlowProvider>
+            <OrgFlowCanvas />
+          </ReactFlowProvider>
+        </TabsContent>
+
+        <TabsContent value="list" className="mt-4">
+          <OrgListView />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

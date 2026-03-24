@@ -361,7 +361,7 @@ const NAV_CONFIG: NavItem[] = [
     icon: <Users size={20} />,
     label: "员工管理",
     href: "employees",
-    roles: ["manager", "boss", "founder"],
+    roles: ["boss", "founder"],
     group: "组织管理",
   },
   {

@@ -60,7 +60,7 @@ export function adminRoutes(AdminRoute: React.ComponentType<{ children: React.Re
 
       {/* Admin only */}
       <Route path="settings" element={<ModuleErrorBoundary moduleName="AI设置"><AISettingsPanel /></ModuleErrorBoundary>} />
-      <Route path="employees" element={<AdminRoute allowedRoles={['boss', 'manager']}><ModuleErrorBoundary moduleName="员工管理"><EmployeeManagement /></ModuleErrorBoundary></AdminRoute>} />
+      <Route path="employees" element={<AdminRoute allowedRoles={['boss']}><ModuleErrorBoundary moduleName="员工管理"><EmployeeManagement /></ModuleErrorBoundary></AdminRoute>} />
       <Route path="departments" element={<ModuleErrorBoundary moduleName="部门管理"><DepartmentManagement /></ModuleErrorBoundary>} />
       <Route path="audit" element={<ModuleErrorBoundary moduleName="审计面板"><AuditPanel /></ModuleErrorBoundary>} />
       <Route path="super-admin" element={<AdminRoute><ModuleErrorBoundary moduleName="超级管理"><SuperAdminDashboard /></ModuleErrorBoundary></AdminRoute>} />

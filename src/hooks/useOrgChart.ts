@@ -56,3 +56,90 @@ export function useUpdateManager() {
     },
   });
 }
+
+// ─── Department Types ────────────────────────────────────────
+
+export interface OrgDepartment {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  manager_id: string | null;
+  sort_order: number;
+}
+
+// ─── Department Hooks ────────────────────────────────────────
+
+export function useDepartments() {
+  return useQuery({
+    queryKey: ['org-departments'],
+    queryFn: async () => {
+      const res = await aiClient.fetch<{ success: boolean; data: OrgDepartment[] }>(
+        'api/org-structure/departments'
+      );
+      return res.data || [];
+    },
+    staleTime: 30_000,
+  });
+}
+
+export function useCreateDepartment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: { name: string; parent_id?: string | null }) => {
+      const res = await aiClient.fetch<{ success: boolean; data: OrgDepartment }>(
+        'api/org-structure/departments',
+        { method: 'POST', body: JSON.stringify(body) }
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['org-departments'] });
+      queryClient.invalidateQueries({ queryKey: ['org-members'] });
+      toast.success('部门创建成功');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || '创建部门失败');
+    },
+  });
+}
+
+export function useUpdateDepartmentParent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ deptId, parentId }: { deptId: string; parentId: string | null }) => {
+      const res = await aiClient.fetch<{ success: boolean; data: OrgDepartment }>(
+        `api/org-structure/departments/${deptId}`,
+        { method: 'PATCH', body: JSON.stringify({ parent_id: parentId }) }
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['org-departments'] });
+      toast.success('部门层级已更新');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || '更新部门层级失败');
+    },
+  });
+}
+
+export function useTransferEmployee() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ employeeId, departmentId }: { employeeId: string; departmentId: string }) => {
+      const res = await aiClient.fetch<{ success: boolean }>(
+        `api/org-structure/employees/${employeeId}`,
+        { method: 'PATCH', body: JSON.stringify({ department_id: departmentId }) }
+      );
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['org-members'] });
+      queryClient.invalidateQueries({ queryKey: ['org-departments'] });
+      toast.success('人员调动成功');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || '人员调动失败');
+    },
+  });
+}
