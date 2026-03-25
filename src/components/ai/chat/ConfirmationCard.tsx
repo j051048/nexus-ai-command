@@ -112,7 +112,6 @@ const TIER_STYLES: Record<string, {
     inputBorder: 'border-red-300 dark:border-red-700',
     inputBg: 'bg-red-50 dark:bg-red-900/40',
     inputText: 'text-red-900 dark:text-red-200',
-    requireTypedConfirm: true,
   },
   high_value: {
     border: 'border-orange-500/40',

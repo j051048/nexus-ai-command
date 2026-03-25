@@ -265,6 +265,14 @@ def _after_execute(state: AgentState) -> str:
         )
     ):
         if _has_irreversible_tool(state):
+            # G1 exception: if user already confirmed (system_confirmed=True),
+            # skip critic review — user intent is clear, avoid SLO timeout
+            config = state.get("config")
+            if config and config.system_confirmed:
+                logger.info(
+                    "[Graph] Irreversible tool succeeded + user confirmed → fast synthesize (skip reflect)"
+                )
+                return "synthesize"
             logger.info(
                 "[Graph] All tools succeeded but irreversible tool detected → reflect (G1: Critic review required)"
             )
