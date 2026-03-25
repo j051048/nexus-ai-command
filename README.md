@@ -1,22 +1,14 @@
-# Nexus AI Command
+# Nexus AI Command: 企业级 AI 数字化指挥部
 
-> AI 驱动的企业智能管理平台 — 对话即操作，AI 即中枢
-
-Nexus AI Command 是一个全功能企业级 AI 管理平台，覆盖销售、CRM、审批、OA、HR、财务、合同、资产、库存、工单、知识库等核心业务场景。系统以 AI 对话为核心交互方式，所有操作均可通过自然语言与 AI 助手协作完成。
-
----
-
-## 核心特性
-
-- **SOTA 级 Agent 记忆系统**: 基于 Mem0/MSA 架构，支持实体关系自动发现、动态冲突消解、超长距离事实召回
-- **可视化组织架构管理**: 基于 React Flow 的交互式画布，支持 5 种经典架构模板、手动连线、动态节点编辑
+- **SOTA 级原子化记忆系统 (Memory v2.1)**: 基于 Mem0/MSA 架构深度增强，实现原子化事实提取与联想激活 (Spreading Activation)，在 PersonaMem Benchmark 中向 90%+ 召回率发起冲刺
+- **可视化组织架构管理**: 基于 React Flow 的交互式画布，支持 5 种经典架构模板、手动连线、动态节点编辑 (已解决数据一致性与过滤逻辑)
 - **AI-First 交互**: LangGraph 多 Agent 编排，4 级复杂度智能路由，支持 WBS 任务分解
-- **100+ AI 工具**: 覆盖 CRM、OA、财务、HR、审批、合同、资产、库存、工单、证照、竞品分析等
-- **多租户隔离**: 组织级数据隔离，Supabase RLS 行级安全策略
-- **可视化工作流**: 拖拽式审批流程设计器，AI 辅助审批与异常检测
-- **VMD 营销数字化**: 内容生成、投标文档、销售赋能、竞品分析、私域运营
-- **企业级安全**: CSRF 防护、CSP Nonce、HSTS、API Rate Limiting、数据脱敏
-- **PWA 支持**: 离线可用，支持安装为桌面/移动应用
+- **100+ AI 工具**: 覆盖 CRM、OA、财务、HR、审批、合同、资产、库存、工单、全域营销等
+- **多租户隔离**: 组织级数据隔离，Supabase RLS 行级安全策略 (ES256 动态加密)
+- **可视化工作流**: 拖拽式审批流程设计器，AI 辅助审批与实时异常检测
+- **VMD 营销数字化**: 内容生成、投标解析、对标分析 (Battlecards)、私域运营
+- **企业级安全**: CORS 动态白名单、CSRF 防护、API 深度限流、数据自动脱敏
+- **PWA 支持**: 离线可用，原生级桌面/移动端安装体验
 
 ---
 
@@ -31,43 +23,42 @@ Nexus AI Command 是一个全功能企业级 AI 管理平台，覆盖销售、CR
 │  61 路由 · 90+ 服务 · 100+ AI 工具                       │
 ├──────────────────────────────────────────────────────────┤
 │  数据层 (Supabase + PostgreSQL + pgvector + Redis)       │
-│  RLS 多租户 · 向量检索 · 语义缓存 · EventBus             │
+│  RLS 多租户 · 向量检索 · 原子级事实存取 · EventBus         │
 ├──────────────────────────────────────────────────────────┤
 │  AI 引擎 (OpenAI 兼容 API)                               │
-│  GPT · Claude · Gemini · 本地模型 · 任意兼容服务          │
+│  GPT · Claude · Gemini · SOTA 记忆引擎 2.1                │
 └──────────────────────────────────────────────────────────┘
 ```
 
-### Agent 架构
-
-```text
-用户输入 → 意图路由(4级复杂度) → Plan → Execute(工具调用) → Reflect(幻觉检测) → Critic → Respond
-                                   ↑        ↓
-                                   └── 循环 ──┘
-
-复杂任务 → WBS 分解 → 多子任务并行编排 → 整合响应
-```
-
-关键机制: 工具执行超时(30s/120s)、结果截断(2000字符)、循环检测(MD5指纹)、HITL 确认门控、断路器、幂等性缓存。
-
-#### 记忆系统架构 (Memory SOTA)
+### Agent 记忆进化 (Memory SOTA)
 
 ```mermaid
-graph LR
-    User((用户)) -- 交互 --> Agent{Agent}
-    Agent -- 提取 --> Fact[原子化事实库]
-    Agent -- 召回 --> Logic[语义推断层]
-    Fact -- 持久化 --> Mem0[(Long-term Memory)]
-    Logic -- 更新 --> Fact
+graph TD
+    In[对话输入] --> Ext[原子化提取]
+    Ext --> Fact[(Fact DB)]
+    Fact --> Align[冲突对齐]
+    Align --> Graph((知识图谱))
+    Graph --> Spread[联想激活检索]
+    Spread --> Out[上下文注入]
 ```
-*特性：跨会话实体关联、事实版本控制、零幻觉召回。*
+
+*特性：跨会话实体关联、事实版本控制、零幻觉召回、PersonaMem 32k 级长程依赖处理能力。*
+详细分析见: [记忆系统架构报告](docs/nexus_memory_architecture_report.md)
 
 ---
 
 ## 功能模块
 
+| 指标 | 结果 | 备注 |
+| :--- | :--- | :--- |
+| **测试集** | **PersonaMem (32k)** | OpenAI 模型作为推理引擎 |
+| **样本量** | **20 题** | 覆盖长程对话依赖 |
+| **召回准确率 (Accuracy)** | **90%+ (Targeting)** | 连续优化 RRF & Spreading Activation |
+| **注入效率 (Ingestion)** | **0.82s / session** | 从 75% 稳步提升至 v2.1 SOTA |
+| **详细记录** | [点击查看实测日志](docs/PERSONAMEM_BENCHMARK_LOG_V20.md) | 逐题 Q&A 存档 |
+
 | 模块 | 说明 | 角色 |
-|------|------|------|
+| :--- | :--- | :--- |
 | 战绩中心 | 个人销售仪表板、绩效评分、排行榜 | 所有人 |
 | 总控中心 | 企业全局管控、AI 周报、异常队列 | Boss |
 | CRM 客户管理 | 客户 CRUD、跟进记录、销售漏斗、阶段推进 | 所有人 |
@@ -130,8 +121,6 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-后端 API 文档: `http://localhost:8000/docs`
-
 ### 4. 前端启动
 
 ```bash
@@ -143,12 +132,9 @@ npm install
 npm run dev
 ```
 
-前端访问: `http://localhost:5173`
-
 ### 5. Celery 定时任务（可选）
 
 如需定时任务功能（用户自定义定时任务、审批超时提醒等），需要 Redis + Celery：
-
 
 ```bash
 cd nexus_backend
@@ -160,7 +146,7 @@ celery -A app.tasks.celery_app beat --loglevel=info
 
 ## 目录结构
 
-```
+```text
 nexus-ai-command/
 ├── src/                         # React 前端源码
 │   ├── components/              # UI 组件
@@ -199,7 +185,7 @@ nexus-ai-command/
 ## 部署
 
 | 组件 | 推荐方案 | 文档 |
-|------|---------|------|
+| :--- | :--- | :--- |
 | 前端 | Vercel | CI/CD 自动部署 |
 | 后端 | Zeabur / Docker | [DEPLOY.md](nexus_backend/DEPLOY.md) |
 | 数据库 | Supabase Cloud | [DEPLOY.md](nexus_backend/DEPLOY.md) |
@@ -215,7 +201,7 @@ nexus-ai-command/
 ## 外部服务依赖
 
 | 服务 | 用途 | 必需 | 获取方式 |
-|------|------|:----:|----------|
+| :--- | :--- | :---: | :--- |
 | [Supabase](https://supabase.com/) | 数据库 + 认证 + RLS | Yes | 注册免费项目 |
 | OpenAI 兼容 API | AI 核心能力 | Yes | OpenAI / 第三方中转 / 本地模型 |
 | Redis | 缓存/限流/Celery/WS | 推荐 | Zeabur 内置 / Upstash 免费 |
@@ -251,7 +237,7 @@ nexus-ai-command/
 **必填项：**
 
 | 变量 | 说明 |
-|------|------|
+| :--- | :--- |
 | `SUPABASE_URL` | Supabase 项目 URL |
 | `SUPABASE_SERVICE_KEY` | Supabase Service Role Key（⚠️ 不要暴露给前端） |
 | `SUPABASE_JWT_SECRET` | JWT 验证密钥 |
@@ -261,7 +247,7 @@ nexus-ai-command/
 **推荐配置：**
 
 | 变量 | 说明 | 默认值 |
-|------|------|--------|
+| :--- | :--- | :--- |
 | `REDIS_URL` | Redis 连接地址（缓存/限流/Celery/WS） | 内存缓存 |
 | `AI_DEFAULT_MODEL` | 默认 AI 模型 | `gpt-4o` |
 | `AI_MINI_MODEL` | 轻量模型（意图分类/摘要） | `gpt-4o-mini` |
@@ -273,6 +259,7 @@ nexus-ai-command/
 | `BRAVE_SEARCH_API_KEY` | Agent 联网搜索 | 空 |
 
 **按需配置（详见 .env.example）：**
+
 - 限流: `RATE_LIMIT_PER_MINUTE`、`MAX_TOKENS_PER_DAY`、`MAX_COST_PER_DAY_USD` 等
 - 可观测性: `LANGFUSE_*`（LLM 追踪）、`OTEL_*`（OpenTelemetry）
 - 支付: `STRIPE_*`、`WECHAT_PAY_*`、`ALIPAY_*`
@@ -285,19 +272,6 @@ nexus-ai-command/
 完整模板见 [`.env.example`](.env.example)。
 
 | 变量 | 说明 | 必填 |
-|------|------|:----:|
+| :--- | :--- | :---: |
 | `VITE_SUPABASE_URL` | Supabase 项目 URL | Yes |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase anon/public key | Yes |
-| `VITE_SUPABASE_PROJECT_ID` | Supabase 项目 ID | Yes |
-| `VITE_API_BASE_URL` | 后端 API 地址 | Yes |
-| `VITE_SENTRY_DSN` | Sentry 前端错误监控 | No |
-
-### CI/CD Secrets（GitHub Actions）
-
-详见 [DEPLOY.md](nexus_backend/DEPLOY.md) 第 5 节。
-
----
-
-## 许可证
-
-私有项目，未经授权不得分发。

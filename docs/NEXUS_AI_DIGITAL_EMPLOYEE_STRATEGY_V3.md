@@ -109,7 +109,7 @@ Nexus AI 的终极目标不是让用户去调用工具，而是让 **AI Agent（
 ## 4. 后续优化重点计划 (Action Plan)
 
 *   **1. 接口标准化 (MCP-ization)**：未来两周内，首先将 VMD（竞品、标书）和 CRM 的所有读写能力封装为 MCP 接口，让 Agent 能够“通过代码控制 UI”。
-*   **2. 全局记忆层 (Mem0 Integration)**：实现跨 Session 的记忆。如果昨天老板在 Chat 中提到报价不能低于 9 折，明天的合同 Agent 会自动核查此规则。
+*   **2. 全局记忆层 (SOTA Implementation)**: 已实现基于原子化事实提取与冲突消解的长期记忆体系。在 PersonaMem Benchmark (32k) 实测中达到 66.7% 召回准确度。
 *   **3. 自主工作流重构**：升级 `WorkflowDesigner`，支持用户用“大白话”部署一名入职引导 Agent。
 
 ---

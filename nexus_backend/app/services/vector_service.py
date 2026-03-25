@@ -544,6 +544,8 @@ class VectorService:
             api_key, base_url, model = await self._get_embedding_config(org_id)
             if not api_key:
                 api_key = settings.OPENAI_API_KEY
+            
+            print(f"DEBUG: VectorService using API Key prefix: {api_key[:10] if api_key else 'EMPTY'} for URL: {base_url}")
             if not api_key:
                 return None
 

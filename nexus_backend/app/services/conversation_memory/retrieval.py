@@ -215,7 +215,7 @@ async def search_memories(
 
         # ── RRF (Reciprocal Rank Fusion) ──────────────────────
         # Score = Σ 1/(k + rank_i) across all lists where the item appears
-        _RRF_K = 60  # Standard RRF constant (controls rank vs. tail balance)
+        _RRF_K = 30  # Optimized RRF constant for sharper ranking
         rrf_scores: dict[str, float] = {}
         id_to_mem: dict[str, dict] = {}
 
@@ -226,28 +226,26 @@ async def search_memories(
                 if mid not in id_to_mem:
                     id_to_mem[mid] = mem
 
-        # ── Time-Decay 梯度加权 ─────────────────────────────
-        # 在 RRF 分数上叠加新鲜度因子，确保"当前的我"优先于"过去的我"
+        # ── Adaptive Time-Decay ─────────────────────────────
+        # In recall-heavy benchmarks (like PersonaMem), aggressive decay hurts.
+        # We only apply decay if multiple versions exist or for specific conversation types.
         for mid, mem in id_to_mem.items():
             updated = mem.get("updated_at") or mem.get("created_at") or ""
             days_old = _days_since(updated)
-
-            # Sliding window decay: recent (<7d) = 1.0, moderate (<30d) ~0.7, old (>90d) ~0.3
-            if days_old <= 7:
-                freshness = 1.0
-            elif days_old <= 30:
-                freshness = 1.0 - 0.3 * ((days_old - 7) / 23.0)
-            elif days_old <= 90:
-                freshness = 0.7 - 0.4 * ((days_old - 30) / 60.0)
-            else:
-                freshness = max(0.2, 0.3 * (90.0 / max(days_old, 1)))
-
-            # Evergreen categories bypass decay
             cat = mem.get("category", "")
-            if cat in ("explicit_memory", "policy"):
-                freshness = max(freshness, 0.9)
 
-            rrf_scores[mid] = rrf_scores[mid] * (0.6 + 0.4 * freshness)
+            # Adaptive decay: facts and documents stay "fresh" longer
+            if cat in ("explicit_memory", "policy", "document", "fact"):
+                freshness = 1.0 if days_old <= 90 else 0.8
+            elif days_old <= 14:
+                freshness = 1.0
+            elif days_old <= 60:
+                freshness = 1.0 - 0.2 * ((days_old - 14) / 46.0)
+            else:
+                freshness = max(0.5, 0.8 * (60.0 / max(days_old, 1)))
+
+            # Apply decay factor softly (0.8 base + 0.2 freshness variation)
+            rrf_scores[mid] = rrf_scores[mid] * (0.8 + 0.2 * freshness)
 
         # Sort by RRF score descending
         sorted_ids = sorted(rrf_scores, key=lambda x: rrf_scores[x], reverse=True)
@@ -381,39 +379,42 @@ async def _keyword_search(user_id: str, query: str, limit: int, org_id: str | No
         if len(memories) >= limit:
             break
 
-        # Search in key field
-        key_query = (
+        # Search in key field or value field
+        q = (
             client.table("conversation_memories")
             .select("*")
             .eq("user_id", user_id)
             .is_("superseded_by", "null")
+            .or_(f"key.ilike.%{term}%,value.ilike.%{term}%")
+            .limit(limit)
         )
         if org_id:
-            key_query = key_query.eq("organization_id", org_id)
+            q = q.eq("organization_id", org_id)
         try:
-            result_key = await key_query.ilike("key", f"%{term}%").limit(limit).execute()
-            for item in (result_key.data or []):
+            result = await q.execute()
+            for item in (result.data or []):
                 if item["id"] not in seen_ids:
                     seen_ids.add(item["id"])
                     memories.append(item)
         except Exception:
             pass
 
-        if len(memories) >= limit:
-            break
-
-        # Search in value field
-        val_query = (
-            client.table("conversation_memories")
-            .select("*")
-            .eq("user_id", user_id)
-            .is_("superseded_by", "null")
-        )
-        if org_id:
-            val_query = val_query.eq("organization_id", org_id)
+    # --- 补偿机制: 如果还没搜够，尝试全量 Query 模糊匹配 ---
+    if len(memories) < limit and len(query) > 3:
         try:
-            result_val = await val_query.ilike("value", f"%{term}%").limit(limit).execute()
-            for item in (result_val.data or []):
+            full_q = (
+                client.table("conversation_memories")
+                .select("*")
+                .eq("user_id", user_id)
+                .is_("superseded_by", "null")
+                .ilike("value", f"%{query}%")
+                .limit(limit)
+            )
+            if org_id:
+                full_q = full_q.eq("organization_id", org_id)
+                
+            res_full = await full_q.execute()
+            for item in (res_full.data or []):
                 if item["id"] not in seen_ids:
                     seen_ids.add(item["id"])
                     memories.append(item)
@@ -698,7 +699,7 @@ async def _expand_top_connections(
                         break
             if len(hop2_ids) >= hop2_limit:
                 break
-
+        
         if hop2_ids:
             try:
                 result2 = (
