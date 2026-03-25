@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useRef } from 'react';
+import { useCallback, useMemo, useEffect, useState, useRef } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -28,6 +28,48 @@ import {
   type OrgMember,
 } from '@/hooks/useOrgChart';
 import { Loader2 } from 'lucide-react';
+
+// 内联错误边界，用于精确定位 ReactFlow 内部的 #301 错误
+import React from 'react';
+class FlowErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null; errorInfo: React.ErrorInfo | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('[FlowErrorBoundary] ReactFlow render error:', error.message);
+    console.error('[FlowErrorBoundary] Component stack:', errorInfo.componentStack);
+    this.setState({ errorInfo });
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4 border border-destructive/20 bg-destructive/5 rounded-lg text-sm">
+          <p className="font-medium text-destructive">ReactFlow 渲染异常</p>
+          <p className="text-xs text-muted-foreground mt-1 break-all">{this.state.error?.message}</p>
+          {this.state.errorInfo?.componentStack && (
+            <pre className="mt-2 text-[10px] text-muted-foreground bg-muted/50 rounded p-2 overflow-auto max-h-60 whitespace-pre-wrap break-all">
+              {this.state.errorInfo.componentStack}
+            </pre>
+          )}
+          <button
+            onClick={() => this.setState({ hasError: false, error: null, errorInfo: null })}
+            className="mt-2 rounded bg-primary px-3 py-1 text-xs text-primary-foreground"
+          >
+            重试
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // 安全提取字符串值（防止字段是对象时 React #301 崩溃）
 function safeStr(v: unknown): string {
@@ -260,8 +302,8 @@ export function OrgFlowCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState(flowNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(flowEdges);
 
-  // Sync when data changes
-  useMemo(() => {
+  // Sync when data changes (useEffect, not useMemo — setState during render causes #301)
+  useEffect(() => {
     setNodes(flowNodes);
     setEdges(flowEdges);
   }, [flowNodes, flowEdges, setNodes, setEdges]);
@@ -379,27 +421,29 @@ export function OrgFlowCanvas() {
     <div className="h-[calc(100vh-14rem)] w-full rounded-xl border border-border bg-card overflow-hidden">
       <OrgFlowToolbar onAddDepartment={() => setShowAddDept(true)} />
 
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onNodeDragStop={onNodeDragStop}
-        nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.3 }}
-        minZoom={0.2}
-        maxZoom={2}
-        proOptions={{ hideAttribution: true }}
-      >
-        <Controls className="!bg-card !border-border !shadow-sm" />
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="hsl(var(--border))" />
-        <MiniMap
-          className="!bg-card !border-border"
-          nodeColor={(node) => (node.type === 'department' ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))')}
-          maskColor="hsl(var(--background) / 0.8)"
-        />
-      </ReactFlow>
+      <FlowErrorBoundary>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onNodeDragStop={onNodeDragStop}
+          nodeTypes={nodeTypes}
+          fitView
+          fitViewOptions={{ padding: 0.3 }}
+          minZoom={0.2}
+          maxZoom={2}
+          proOptions={{ hideAttribution: true }}
+        >
+          <Controls className="!bg-card !border-border !shadow-sm" />
+          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="hsl(var(--border))" />
+          <MiniMap
+            className="!bg-card !border-border"
+            nodeColor={(node) => (node.type === 'department' ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))')}
+            maskColor="hsl(var(--background) / 0.8)"
+          />
+        </ReactFlow>
+      </FlowErrorBoundary>
 
       <AddDepartmentDialog
         open={showAddDept}
