@@ -4,7 +4,6 @@ import {
   Layers, 
   Layout, 
   Network, 
-  ArrowRight,
   Check,
   RefreshCcw,
   Loader2
@@ -19,6 +18,8 @@ import {
 } from '@/components/ui/dialog';
 import { useState } from 'react';
 import { useCreateDepartment, useDepartments, useDeleteDepartment } from '@/hooks/useOrgChart';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -99,26 +100,39 @@ export function OrgTemplatesDialog({ open, onOpenChange }: OrgTemplatesDialogPro
   const { data: existingDepts = [] } = useDepartments();
   const createDept = useCreateDepartment();
   const deleteDept = useDeleteDepartment();
+  const { confirm, ConfirmDialogProps } = useConfirmDialog();
 
   const handleApply = async () => {
     if (!selected) return;
     const template = TEMPLATES.find(t => t.id === selected);
     if (!template) return;
 
-    setLoading(true);
-    try {
-      // 1. Cleanup existing structure
-      if (existingDepts.length > 0) {
-        if (!confirm('应用模板将保留现有人员但重组部门结构，是否继续？')) {
-          setLoading(false);
-          return;
-        }
-        // 逐个软删除，失败则中断
+    // 1. Cleanup existing structure
+    if (existingDepts.length > 0) {
+      const ok = await confirm({
+        title: '确认应用模板',
+        description: `应用「${template.name}」模板将保留现有人员但重组（清空并重建）部门结构，是否继续？`,
+        variant: 'destructive',
+      });
+      if (!ok) return;
+
+      setLoading(true);
+      try {
+        // 逐个软删除
         for (const d of existingDepts) {
           await deleteDept.mutateAsync(d.id);
         }
+      } catch (err) {
+        console.error('Cleanup failed:', err);
+        toast.error('清理旧部门失败，请重试');
+        setLoading(false);
+        return;
       }
+    } else {
+      setLoading(true);
+    }
 
+    try {
       // 2. Create new structure
       const createdMap = new Map<string, string>(); // name -> id
 
@@ -203,6 +217,7 @@ export function OrgTemplatesDialog({ open, onOpenChange }: OrgTemplatesDialogPro
           </Button>
         </div>
       </DialogContent>
+      <ConfirmDialog {...ConfirmDialogProps} />
     </Dialog>
   );
 }

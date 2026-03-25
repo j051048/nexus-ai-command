@@ -34,10 +34,15 @@ export function useNotificationsRealtime() {
                 },
                 (payload) => {
                     const newNotif = payload.new as Notification;
+                    const safeTitle = typeof newNotif.title === 'string' ? newNotif.title : String(newNotif.title || '');
+                    const safeContent = typeof newNotif.content === 'string' ? newNotif.content : JSON.stringify(newNotif.content || '');
+
                     if (newNotif.type === 'error') {
-                        toast.error(newNotif.title, { description: newNotif.content });
+                        toast.error(safeTitle, { description: safeContent });
+                    } else if (newNotif.type === 'warning') {
+                        toast.warning(safeTitle, { description: safeContent });
                     } else {
-                        toast.success(newNotif.title, { description: newNotif.content });
+                        toast.success(safeTitle, { description: safeContent });
                     }
                     queryClient.invalidateQueries({ queryKey: ['notifications'] });
                     queryClient.invalidateQueries({ queryKey: ['notification-center'] });

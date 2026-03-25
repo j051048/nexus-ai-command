@@ -77,30 +77,36 @@ export default function DepartmentManagement() {
       if (deptError) throw deptError;
 
       // 获取所有经理和用户信息
-      const { data: userData, error: userError } = await supabase.from('users')
+      const { data: userDataRaw, error: userError } = await supabase.from('users')
         .select('id, name, role, department, organization_id');
 
       if (userError) throw userError;
 
+      const userData = (userDataRaw || []) as Array<{
+        id: string;
+        name: string;
+        role: string;
+        department: string | null;
+        organization_id: string | null;
+      }>;
+
       // 所有员工均可被指定为部门经理（排除 AI 助手）
-      const managerList = userData?.filter((u) => u.role !== 'ai_assistant') || [];
+      const managerList = userData.filter((u) => u.role !== 'ai_assistant');
       setManagers(managerList);
 
       // 获取当前用户的 organization_id
       if (user?.id) {
-        const currentUser = userData?.find((u) => u.id === user.id);
-        const userOrgId = currentUser && 'organization_id' in currentUser
-          ? (currentUser as Record<string, unknown>).organization_id as string
-          : undefined;
+        const currentUser = userData.find((u) => u.id === user.id);
+        const userOrgId = currentUser?.organization_id;
         if (userOrgId) {
           setOrgId(userOrgId);
         }
       }
 
       // 为每个部门附加经理名称和成员数量
-      const deptsWithDetails: DepartmentWithDetails[] = (deptData || []).map((dept) => {
-        const manager = userData?.find((u) => u.id === dept.manager_id);
-        const memberCount = userData?.filter((u) => u.department === dept.name).length || 0;
+      const deptsWithDetails: DepartmentWithDetails[] = (deptData || []).map((dept: any) => {
+        const manager = userData.find((u) => u.id === dept.manager_id);
+        const memberCount = userData.filter((u) => u.department === dept.name).length || 0;
 
         return {
           ...dept,
@@ -115,7 +121,7 @@ export default function DepartmentManagement() {
     } finally {
       setLoading(false);
     }
-  }, [toast, user?.id]);
+  }, [user?.id]);
 
   useEffect(() => {
     fetchData();
@@ -156,13 +162,12 @@ export default function DepartmentManagement() {
           .update({
             name: formData.name,
             manager_id: managerId,
-          })
+          } as any)
           .eq('id', editingDept.id);
 
         if (error) throw error;
 
-        toast({
-          title: '部门已更新',
+        toast.success('部门已更新', {
           description: `${formData.name} 部门信息已更新`,
         });
       } else {
@@ -172,12 +177,11 @@ export default function DepartmentManagement() {
           name: formData.name,
           manager_id: managerId,
           organization_id: orgId,
-        });
+        } as any);
 
         if (error) throw error;
 
-        toast({
-          title: '部门已创建',
+        toast.success('部门已创建', {
           description: `${formData.name} 部门已成功创建`,
         });
       }
