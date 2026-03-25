@@ -3,6 +3,19 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Building2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+// 安全提取字符串值（防止 React #301）
+function safeStr(v: unknown): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (typeof v === 'object') {
+    const name = (v as Record<string, unknown>).name;
+    if (typeof name === 'string') return name;
+    return JSON.stringify(v);
+  }
+  return String(v);
+}
+
 export interface DepartmentNodeData {
   label: string;
   deptId: string;
@@ -14,6 +27,9 @@ export interface DepartmentNodeData {
 
 function DepartmentNodeComponent({ data, selected }: NodeProps) {
   const d = data as unknown as DepartmentNodeData;
+  const label = safeStr(d.label);
+  const managerName = safeStr(d.managerName);
+  const memberCount = typeof d.memberCount === 'number' ? d.memberCount : 0;
 
   return (
     <div
@@ -35,14 +51,14 @@ function DepartmentNodeComponent({ data, selected }: NodeProps) {
           <div className="p-1.5 rounded-lg bg-primary/10 shrink-0">
             <Building2 className="w-4 h-4 text-primary" />
           </div>
-          <span className="text-sm font-semibold text-foreground truncate">{d.label}</span>
+          <span className="text-sm font-semibold text-foreground truncate">{label}</span>
         </div>
         {d.onAddMember && (
           <button
             className="p-1 rounded-md hover:bg-primary/10 text-primary/60 hover:text-primary transition-colors shrink-0"
             onClick={(e) => {
               e.stopPropagation();
-              d.onAddMember?.(d.deptId);
+              d.onAddMember?.(safeStr(d.deptId));
             }}
             title="添加人员"
           >
@@ -51,12 +67,12 @@ function DepartmentNodeComponent({ data, selected }: NodeProps) {
         )}
       </div>
 
-      {d.managerName && (
+      {managerName && (
         <p className="text-xs text-muted-foreground mt-1.5 truncate">
-          负责人: {d.managerName}
+          负责人: {managerName}
         </p>
       )}
-      <p className="text-xs text-muted-foreground/70 mt-0.5">{d.memberCount} 人</p>
+      <p className="text-xs text-muted-foreground/70 mt-0.5">{memberCount} 人</p>
 
       <Handle
         type="source"

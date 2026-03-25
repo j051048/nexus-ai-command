@@ -3,6 +3,19 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
+// 安全提取字符串值（防止 React #301）
+function safeStr(v: unknown): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (typeof v === 'object') {
+    const name = (v as Record<string, unknown>).name;
+    if (typeof name === 'string') return name;
+    return JSON.stringify(v);
+  }
+  return String(v);
+}
+
 export interface MemberNodeData {
   memberId: string;
   name: string;
@@ -29,6 +42,9 @@ const ROLE_COLORS: Record<string, string> = {
 
 function MemberNodeComponent({ data, selected }: NodeProps) {
   const d = data as unknown as MemberNodeData;
+  const name = safeStr(d.name) || '未知';
+  const role = safeStr(d.role) || 'employee';
+  const avatarUrl = typeof d.avatarUrl === 'string' ? d.avatarUrl : null;
 
   return (
     <div
@@ -47,16 +63,16 @@ function MemberNodeComponent({ data, selected }: NodeProps) {
 
       <div className="flex items-center gap-2">
         <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-medium shrink-0">
-          {d.avatarUrl ? (
-            <img src={d.avatarUrl} className="w-full h-full rounded-full object-cover" alt="" />
+          {avatarUrl ? (
+            <img src={avatarUrl} className="w-full h-full rounded-full object-cover" alt="" />
           ) : (
-            d.name.charAt(0)
+            name.charAt(0)
           )}
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground truncate">{d.name}</p>
-          <Badge variant="outline" className={cn('text-[10px] px-1 py-0 h-4', ROLE_COLORS[d.role])}>
-            {ROLE_LABELS[d.role] || d.role}
+          <p className="text-sm font-medium text-foreground truncate">{name}</p>
+          <Badge variant="outline" className={cn('text-[10px] px-1 py-0 h-4', ROLE_COLORS[role])}>
+            {ROLE_LABELS[role] || role}
           </Badge>
         </div>
       </div>

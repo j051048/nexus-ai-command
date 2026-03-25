@@ -19,16 +19,45 @@ export interface OrgMember {
   avatar_url: string | null;
 }
 
+// 安全提取字符串（防止 API 返回对象导致 React #301）
+function ensureStr(v: unknown, field?: string): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  console.warn(`[useOrgChart] field "${field}" is not a string:`, typeof v, v);
+  if (typeof v === 'object') {
+    const name = (v as Record<string, unknown>).name;
+    if (typeof name === 'string') return name;
+    return JSON.stringify(v);
+  }
+  return String(v);
+}
+
+// 清洗 OrgMember 数据，确保所有字段类型安全
+function sanitizeMember(raw: Record<string, unknown>): OrgMember {
+  return {
+    id: ensureStr(raw.id, 'id'),
+    full_name: ensureStr(raw.full_name, 'full_name'),
+    department: ensureStr(raw.department, 'department'),
+    role: ensureStr(raw.role, 'role') || 'employee',
+    manager_id: raw.manager_id != null ? ensureStr(raw.manager_id, 'manager_id') : null,
+    manager_name: raw.manager_name != null ? ensureStr(raw.manager_name, 'manager_name') : null,
+    avatar_url: typeof raw.avatar_url === 'string' ? raw.avatar_url : null,
+  };
+}
+
 // ─── Hooks ──────────────────────────────────────────────────
 
 export function useOrgMembers() {
   return useQuery({
     queryKey: ['org-members'],
     queryFn: async () => {
-      const res = await aiClient.fetch<{ success: boolean; data: OrgMember[] }>(
+      const res = await aiClient.fetch<{ success: boolean; data: unknown[] }>(
         'api/organization/members'
       );
-      return res.data || [];
+      const raw = res.data;
+      if (!Array.isArray(raw)) return [];
+      return raw.map((m) => sanitizeMember(m as Record<string, unknown>));
     },
     staleTime: 30_000,
   });
@@ -67,20 +96,38 @@ export interface OrgDepartment {
   sort_order: number;
 }
 
+// 清洗 OrgDepartment 数据
+function sanitizeDepartment(raw: Record<string, unknown>): OrgDepartment {
+  return {
+    id: ensureStr(raw.id, 'dept.id'),
+    name: ensureStr(raw.name, 'dept.name'),
+    parent_id: raw.parent_id != null ? ensureStr(raw.parent_id, 'dept.parent_id') : null,
+    manager_id: raw.manager_id != null ? ensureStr(raw.manager_id, 'dept.manager_id') : null,
+    sort_order: typeof raw.sort_order === 'number' ? raw.sort_order : 0,
+  };
+}
+
 // ─── Department Hooks ────────────────────────────────────────
 
 export function useDepartments() {
   return useQuery({
     queryKey: ['org-departments'],
     queryFn: async () => {
-      const res = await aiClient.fetch<{ success: boolean; data: { departments: OrgDepartment[] } | OrgDepartment[] }>(
+      const res = await aiClient.fetch<{ success: boolean; data: { departments: unknown[] } | unknown[] }>(
         'api/org-structure/departments'
       );
       // 后端返回 { data: { departments: [...] } }，需从嵌套对象中提取数组
       const raw = res.data;
-      if (Array.isArray(raw)) return raw;
-      if (raw && typeof raw === 'object' && 'departments' in raw) return (raw as { departments: OrgDepartment[] }).departments;
-      return [];
+      let arr: unknown[];
+      if (Array.isArray(raw)) {
+        arr = raw;
+      } else if (raw && typeof raw === 'object' && 'departments' in raw) {
+        arr = (raw as { departments: unknown[] }).departments;
+      } else {
+        arr = [];
+      }
+      if (!Array.isArray(arr)) return [];
+      return arr.map((d) => sanitizeDepartment(d as Record<string, unknown>));
     },
     staleTime: 30_000,
   });
