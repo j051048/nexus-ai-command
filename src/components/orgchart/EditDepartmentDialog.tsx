@@ -48,7 +48,7 @@ export function EditDepartmentDialog({ deptId, onOpenChange, departments }: Edit
   }, [currentDept]);
 
   const handleSubmit = async () => {
-    if (!deptId || !name.trim()) return;
+    if (!deptId || !currentDept || !name.trim()) return;
     await updateDept.mutateAsync({
       deptId,
       name: name.trim(),
@@ -59,7 +59,7 @@ export function EditDepartmentDialog({ deptId, onOpenChange, departments }: Edit
   };
 
   const handleDelete = async () => {
-    if (!deptId) return;
+    if (!deptId || !currentDept) return;
     if (confirm('确定要删除该部门吗？下属部门和人员将失去归属。')) {
       await deleteDept.mutateAsync(deptId);
       onOpenChange(false);
@@ -67,7 +67,7 @@ export function EditDepartmentDialog({ deptId, onOpenChange, departments }: Edit
   };
 
   return (
-    <Dialog open={!!deptId} onOpenChange={(o) => !o && onOpenChange(false)}>
+    <Dialog open={!!deptId && !!currentDept} onOpenChange={(o) => !o && onOpenChange(false)}>
       <DialogContent className="sm:max-w-md bg-card border-border">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
