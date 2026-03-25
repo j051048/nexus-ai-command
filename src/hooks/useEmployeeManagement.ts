@@ -31,12 +31,11 @@ export function useAllEmployees() {
         .from('users')
         .select('*')
         .eq('organization_id', profile.organization_id)
-        .order('name', { ascending: true });
+        .order('name', { ascending: true }) as any;
 
       if (error) throw error;
 
-      // Cast to any to bypass strict type check on 'users' table which might not be fully generated in types yet
-      return (users || []).map(u => ({
+      return (users || []).map((u: any) => ({
         id: u.id,
         user_id: u.id,
         name: u.name,
@@ -70,7 +69,7 @@ export function useTransferEmployeeData() {
       toUserId: string;
     }) => {
       // Use the RPC for atomic transfer
-      const { error } = await supabase.rpc('transfer_employee_data', {
+      const { error } = await (supabase as any).rpc('transfer_employee_data', {
         from_user_id: fromUserId,
         to_user_id: toUserId,
       });
@@ -92,7 +91,7 @@ export function useDeleteEmployee() {
   return useMutation({
     mutationFn: async (userId: string) => {
       // Use the RPC for deletion
-      const { error } = await supabase.rpc('delete_employee', {
+      const { error } = await (supabase as any).rpc('delete_employee', {
         target_user_id: userId,
       });
 
@@ -117,7 +116,7 @@ export function useUpdateEmployee() {
       userId: string;
       updates: Partial<Pick<Employee, 'name' | 'department' | 'job_title' | 'employee_number' | 'score' | 'total_bonus' | 'role'>>;
     }) => {
-      const { data, error } = await supabase.rpc('admin_update_user', {
+      const { data, error } = await (supabase as any).rpc('admin_update_user', {
         target_user_id: userId,
         new_role: updates.role ?? null,
         new_department: updates.department ?? null,
@@ -169,15 +168,23 @@ export function useEmployeeStats(userId: string) {
 
 // Fetch departments list for dropdown
 export function useDepartments() {
+  const { profile } = useAuth();
+  
   return useQuery({
-    queryKey: ['departments'],
+    queryKey: ['departments', profile?.organization_id],
     queryFn: async () => {
+      if (!profile?.organization_id) return [];
+      
       const { data, error } = await supabase
         .from('departments')
         .select('id, name')
+        .eq('organization_id', profile.organization_id)
+        .eq('status', 'active')
         .order('name', { ascending: true });
+        
       if (error) throw error;
       return (data || []) as { id: string; name: string }[];
     },
+    enabled: !!profile?.organization_id
   });
 }
