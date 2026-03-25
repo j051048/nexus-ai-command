@@ -29,6 +29,14 @@ import {
 } from '@/hooks/useOrgChart';
 import { Loader2 } from 'lucide-react';
 
+// 安全提取字符串值（防止字段是对象时 React #301 崩溃）
+function safeStr(v: unknown): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'object' && v !== null) return (v as Record<string, unknown>).name as string || '';
+  return String(v);
+}
+
 // ─── Node Types ──────────────────────────────────────────────
 
 const nodeTypes: NodeTypes = {
@@ -64,7 +72,8 @@ function buildTree(departments: OrgDepartment[], members: OrgMember[]): TreeNode
   const membersByDept = new Map<string, OrgMember[]>();
   for (const m of members) {
     if (!m.department) continue;
-    const dept = departments.find((d) => d.name === m.department);
+    const deptName = safeStr(m.department);
+    const dept = departments.find((d) => d.name === deptName);
     if (dept) {
       const list = membersByDept.get(dept.id) || [];
       list.push(m);
@@ -124,7 +133,7 @@ function layoutTree(
   const memberCountByDept = new Map<string, number>();
   for (const m of members) {
     if (!m.department) continue;
-    const dept = departments.find((d) => d.name === m.department);
+    const dept = departments.find((d) => d.name === safeStr(m.department));
     if (dept) memberCountByDept.set(dept.id, (memberCountByDept.get(dept.id) || 0) + 1);
   }
 
@@ -147,10 +156,10 @@ function layoutTree(
         type: 'department',
         position: { x: cx, y },
         data: {
-          label: dept?.name || '未命名',
+          label: safeStr(dept?.name) || '未命名',
           deptId,
           memberCount: memberCountByDept.get(deptId) || 0,
-          managerName: manager?.full_name,
+          managerName: safeStr(manager?.full_name),
           onAddMember,
         } satisfies DepartmentNodeData,
       });
@@ -164,8 +173,8 @@ function layoutTree(
         draggable: true,
         data: {
           memberId,
-          name: m?.full_name || '未知',
-          role: m?.role || 'employee',
+          name: safeStr(m?.full_name) || '未知',
+          role: safeStr(m?.role) || 'employee',
           avatarUrl: m?.avatar_url,
         },
       });
@@ -290,7 +299,7 @@ export function OrgFlowCanvas() {
         const targetDept = departments.find((d) => d.id === targetDeptId);
 
         // Check if already in this dept
-        const currentDept = departments.find((d) => d.name === member?.department);
+        const currentDept = departments.find((d) => d.name === safeStr(member?.department));
         if (currentDept?.id === targetDeptId) {
           snapBack(draggedNode.id);
           return;

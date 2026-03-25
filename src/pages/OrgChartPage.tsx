@@ -61,6 +61,14 @@ function getRoleLabel(role: string) {
   return ROLE_LABELS[role] || role;
 }
 
+// 安全提取字符串值（全局复用，防止字段是对象时崩溃）
+function safeStr(v: unknown): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'object' && v !== null) return (v as Record<string, unknown>).name as string || JSON.stringify(v);
+  return String(v);
+}
+
 function getRoleBadgeColor(role: string) {
   switch (role) {
     case 'boss':
@@ -111,22 +119,22 @@ function EditManagerModal({
         <DialogHeader>
           <DialogTitle>编辑汇报关系</DialogTitle>
           <DialogDescription>
-            设置 <span className="font-medium text-foreground">{member.full_name}</span> 的直属上级
+           设置 <span className="font-medium text-foreground">{safeStr(member.full_name)}</span> 的直属上级
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <div className="p-3 rounded-lg bg-secondary/30 border border-border/50">
             <div className="text-sm">
               <span className="text-muted-foreground">员工：</span>
-              <span className="font-medium">{member.full_name}</span>
+              <span className="font-medium">{safeStr(member.full_name)}</span>
             </div>
             <div className="text-sm mt-1">
               <span className="text-muted-foreground">部门：</span>
-              <span>{member.department || '未分配'}</span>
+              <span>{safeStr(member.department) || '未分配'}</span>
             </div>
             <div className="text-sm mt-1">
               <span className="text-muted-foreground">当前上级：</span>
-              <span>{member.manager_name || '无'}</span>
+              <span>{safeStr(member.manager_name) || '无'}</span>
             </div>
           </div>
           <div className="space-y-2">
@@ -145,9 +153,9 @@ function EditManagerModal({
                 {managerOptions.map((m) => (
                   <SelectItem key={m.id} value={m.id}>
                     <div className="flex items-center gap-2">
-                      <span>{m.full_name}</span>
+                      <span>{safeStr(m.full_name)}</span>
                       {m.department && (
-                        <span className="text-xs text-muted-foreground">({m.department})</span>
+                        <span className="text-xs text-muted-foreground">({safeStr(m.department)})</span>
                       )}
                     </div>
                   </SelectItem>
@@ -187,9 +195,9 @@ function OrgListView() {
     const lower = search.toLowerCase();
     return members.filter(
       (m) =>
-        m.full_name.toLowerCase().includes(lower) ||
-        (m.department && m.department.toLowerCase().includes(lower)) ||
-        (m.manager_name && m.manager_name.toLowerCase().includes(lower))
+        safeStr(m.full_name).toLowerCase().includes(lower) ||
+        safeStr(m.department).toLowerCase().includes(lower) ||
+        safeStr(m.manager_name).toLowerCase().includes(lower)
     );
   }, [members, search]);
 
@@ -252,13 +260,13 @@ function OrgListView() {
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-medium">
-                        {member.full_name.charAt(0)}
+                        {safeStr(member.full_name).charAt(0)}
                       </div>
-                      <span className="font-medium text-foreground">{member.full_name}</span>
+                      <span className="font-medium text-foreground">{safeStr(member.full_name)}</span>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <span className="text-muted-foreground">{member.department || '未分配'}</span>
+                    <span className="text-muted-foreground">{safeStr(member.department) || '未分配'}</span>
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className={cn('text-xs', getRoleBadgeColor(member.role))}>
@@ -267,7 +275,7 @@ function OrgListView() {
                   </TableCell>
                   <TableCell>
                     {member.manager_name ? (
-                      <span className="text-foreground">{member.manager_name}</span>
+                      <span className="text-foreground">{safeStr(member.manager_name)}</span>
                     ) : (
                       <span className="text-muted-foreground/50">无</span>
                     )}
