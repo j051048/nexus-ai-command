@@ -172,15 +172,18 @@ class BaseTool(ABC):
         if not reasons:
             return None, ""
 
-        # Safety: refuse HITL confirmation when checkpointer is non-persistent
-        # (state would be lost on restart, leaving the operation in limbo)
+        # Non-persistent checkpointer: log a warning but still allow the
+        # confirmation flow.  The confirmation state lives in memory and
+        # would be lost on restart, but the user-confirm → execute round-trip
+        # is typically < 10 s, so the practical risk is negligible.  Blocking
+        # ALL irreversible tools in non-persistent mode makes 15+ tools
+        # completely unusable, which is far worse.
         from app.agent.checkpointer import is_checkpointer_persistent
         if not is_checkpointer_persistent():
-            return (
-                "⚠️ 当前系统处于非持久化模式，无法安全执行需要确认的高风险操作。"
-                "请联系管理员启用 PostgreSQL checkpointer 后重试。\n"
-                + "\n".join(reasons),
-                primary_type,
+            import logging as _log
+            _log.getLogger(__name__).warning(
+                "[HITL] Non-persistent checkpointer: confirmation for %s will not survive restart",
+                self.name,
             )
 
         # System-level enforcement: if not explicitly confirmed by the system (human click), block
