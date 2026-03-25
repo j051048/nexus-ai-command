@@ -359,13 +359,6 @@ const NAV_CONFIG: NavItem[] = [
 
   // 组织管理 (merged: 团队管理 + 部门管理 + 组织架构 + 企业设置)
   {
-    icon: <Users size={20} />,
-    label: "员工管理",
-    href: "employees",
-    roles: ["boss", "founder"],
-    group: "组织管理",
-  },
-  {
     icon: <Network size={20} />,
     label: "组织架构",
     href: "org-chart",
