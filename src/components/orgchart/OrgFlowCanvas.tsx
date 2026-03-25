@@ -10,7 +10,6 @@ import {
   type NodeTypes,
   useNodesState,
   useEdgesState,
-  type NodeDragHandler,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -115,12 +114,18 @@ function buildTree(departments: OrgDepartment[], members: OrgMember[]): TreeNode
     deptMap.set(d.id, { id: `dept-${d.id}`, children: [], width: 0, nodeHeight: NODE_H_DEPT });
   }
 
-  // Attach member nodes under departments
+  // Attach member nodes under departments (EXCLUDE managers to avoid duplicates)
   const membersByDept = new Map<string, OrgMember[]>();
   for (const m of members) {
     if (!m.department) continue;
-    const deptName = safeStr(m.department);
-    const dept = departments.find((d) => d.name === deptName);
+    const deptName = safeStr(m.department).trim();
+    const dept = departments.find((d) => safeStr(d.name).trim() === deptName);
+    
+    // Check if this member is the manager of this department
+    if (dept && dept.manager_id === m.id) {
+      continue; // Skip, they are already shown in the Department box
+    }
+
     if (dept) {
       const list = membersByDept.get(dept.id) || [];
       list.push(m);
@@ -180,7 +185,8 @@ function layoutTree(
   const memberCountByDept = new Map<string, number>();
   for (const m of members) {
     if (!m.department) continue;
-    const dept = departments.find((d) => d.name === safeStr(m.department));
+    const deptName = safeStr(m.department).trim();
+    const dept = departments.find((d) => safeStr(d.name).trim() === deptName);
     if (dept) memberCountByDept.set(dept.id, (memberCountByDept.get(dept.id) || 0) + 1);
   }
 
@@ -190,6 +196,34 @@ function layoutTree(
   totalRootsWidth += (roots.length - 1) * GAP_X;
 
   let startX = -totalRootsWidth / 2;
+
+  // Add a Virtual Root for the whole Organization if there's no single parent
+  if (roots.length > 1 || (roots.length === 1 && roots[0].id.startsWith('dept-'))) {
+    const orgId = 'org-root';
+    nodes.push({
+      id: orgId,
+      type: 'department',
+      position: { x: -NODE_W / 2, y: -GAP_Y - NODE_H_DEPT },
+      data: {
+        label: '企业总部',
+        deptId: '0',
+        memberCount: members.length,
+        managerName: members.find(m => m.role === 'boss' || m.role === 'founder')?.full_name || '总管',
+        onAddMember,
+      } as DepartmentNodeData,
+    });
+    
+    // Connect original roots to this virtual head
+    for (const r of roots) {
+      edges.push({
+        id: `e-org-${r.id}`,
+        source: orgId,
+        target: r.id,
+        type: 'smoothstep',
+        style: { strokeWidth: 2.5, stroke: 'hsl(var(--primary))' },
+      });
+    }
+  }
 
   function place(node: TreeNode, x: number, y: number, parentId?: string) {
     const cx = x + node.width / 2 - NODE_W / 2;
@@ -233,9 +267,10 @@ function layoutTree(
         source: parentId,
         target: node.id,
         type: 'smoothstep',
+        animated: false,
         style: node.id.startsWith('member-')
-          ? { strokeWidth: 1, strokeDasharray: '4 3', stroke: 'hsl(var(--border))' }
-          : { strokeWidth: 2, stroke: 'hsl(var(--border))' },
+          ? { strokeWidth: 1.5, strokeDasharray: '4 3', stroke: 'hsl(var(--primary) / 0.5)' }
+          : { strokeWidth: 2, stroke: 'hsl(var(--primary))' },
       });
     }
 
@@ -308,72 +343,64 @@ export function OrgFlowCanvas() {
     setEdges(flowEdges);
   }, [flowNodes, flowEdges, setNodes, setEdges]);
 
-  // Drag-drop: detect if member node dropped on a department
-  const onNodeDragStop: NodeDragHandler = useCallback(
-    (_event, draggedNode) => {
-      if (!draggedNode.id.startsWith('member-')) {
-        // Dept drag: check if dropped on another dept
-        if (draggedNode.id.startsWith('dept-')) {
-          const deptNodes = nodes.filter((n) => n.id.startsWith('dept-') && n.id !== draggedNode.id);
-          const target = deptNodes.find((dn) => isOverlapping(draggedNode, dn));
-          if (target) {
-            const deptId = draggedNode.id.replace('dept-', '');
-            const targetDeptId = target.id.replace('dept-', '');
-            const dept = departments.find((d) => d.id === deptId);
-            const targetDept = departments.find((d) => d.id === targetDeptId);
-            if (dept && targetDept) {
-              setTransfer({
-                nodeId: draggedNode.id,
-                name: `部门「${safeStr(dept.name)}」`,
-                targetDeptId,
-                targetDeptName: safeStr(targetDept.name),
-              });
-              return;
-            }
-          }
-        }
-        snapBack(draggedNode.id);
-        return;
-      }
-
-      const deptNodes = nodes.filter((n) => n.id.startsWith('dept-'));
-      const target = deptNodes.find((dn) => isOverlapping(draggedNode, dn));
-
-      if (target) {
-        const memberId = draggedNode.id.replace('member-', '');
-        const member = members.find((m) => m.id === memberId);
-        const targetDeptId = target.id.replace('dept-', '');
-        const targetDept = departments.find((d) => d.id === targetDeptId);
-
-        // Check if already in this dept
-        const currentDept = departments.find((d) => d.name === safeStr(member?.department));
-        if (currentDept?.id === targetDeptId) {
-          snapBack(draggedNode.id);
-          return;
-        }
-
-        if (member && targetDept) {
-          setTransfer({
-            nodeId: draggedNode.id,
-            name: safeStr(member.full_name),
-            targetDeptId,
-            targetDeptName: safeStr(targetDept.name),
-          });
-          return;
-        }
-      }
-
-      snapBack(draggedNode.id);
-    },
-    [nodes, members, departments],
-  );
-
-  function snapBack(nodeId: string) {
+  const snapBack = useCallback((nodeId: string) => {
     const orig = origPositionsRef.current.get(nodeId);
     if (orig) {
       setNodes((nds) => nds.map((n) => (n.id === nodeId ? { ...n, position: { ...orig } } : n)));
     }
-  }
+  }, [setNodes]);
+
+  // Drag-drop: detect if member node dropped on a department
+  const onNodeDragStop = useCallback(
+    (_event: React.MouseEvent | React.TouchEvent, draggedNode: Node) => {
+      // Find possible target department
+      const deptNodes = nodes.filter((n) => n.id.startsWith('dept-') && n.id !== draggedNode.id);
+      const target = deptNodes.find((dn) => isOverlapping(draggedNode, dn));
+
+      if (target) {
+        const targetDeptId = target.id.replace('dept-', '');
+        const targetDept = departments.find((d) => d.id === targetDeptId);
+
+        if (draggedNode.id.startsWith('member-')) {
+          const memberId = draggedNode.id.replace('member-', '');
+          const member = members.find((m) => m.id === memberId);
+          
+          // Check if already in this dept
+          const currentDept = departments.find((d) => d.name === safeStr(member?.department).trim());
+          if (currentDept?.id === targetDeptId) {
+            snapBack(draggedNode.id);
+            return;
+          }
+
+          if (member && targetDept) {
+            setTransfer({
+              nodeId: draggedNode.id,
+              name: safeStr(member.full_name),
+              targetDeptId,
+              targetDeptName: safeStr(targetDept.name),
+            });
+            return;
+          }
+        } else if (draggedNode.id.startsWith('dept-')) {
+          const deptId = draggedNode.id.replace('dept-', '');
+          const dept = departments.find((d) => d.id === deptId);
+          if (dept && targetDept) {
+            setTransfer({
+              nodeId: draggedNode.id,
+              name: `部门「${safeStr(dept.name)}」`,
+              targetDeptId,
+              targetDeptName: safeStr(targetDept.name),
+            });
+            return;
+          }
+        }
+      }
+      
+      // If not dropping on a department to change relation, just let it stay at the new position
+      // Nodes state is updated by React Flow's onNodesChange
+    },
+    [nodes, members, departments, snapBack],
+  );
 
   function isOverlapping(a: Node, b: Node): boolean {
     const ax = a.position.x;
@@ -404,7 +431,7 @@ export function OrgFlowCanvas() {
   const handleTransferCancel = useCallback(() => {
     if (transfer) snapBack(transfer.nodeId);
     setTransfer(null);
-  }, [transfer]);
+  }, [transfer, snapBack]);
 
   const isLoading = membersLoading || deptsLoading;
 
