@@ -90,6 +90,22 @@ MEMORY_SIGNAL_WORDS = frozenset({
     "不是这个意思", "你又忘了", "你理解错了", "说了多少遍",
 })
 
+# ── LLM 提取频率控制（进程内，无需持久化）─────────────────────
+_EXTRACT_COOLDOWN = 5  # 每 5 轮最多触发 1 次非信号词 LLM 提取
+_last_extract: dict[str, int] = {}  # user_id → last_trigger_turn
+
+
+def _recently_extracted(user_id: str, current_turn: int) -> bool:
+    return (current_turn - _last_extract.get(user_id, -999)) < _EXTRACT_COOLDOWN
+
+
+def _mark_extracted(user_id: str, current_turn: int) -> None:
+    _last_extract[user_id] = current_turn
+    if len(_last_extract) > 1000:
+        sorted_keys = sorted(_last_extract, key=_last_extract.get)
+        for k in sorted_keys[:500]:
+            del _last_extract[k]
+
 # Behavior preference patterns — auto-detect and write to ai_settings.behavior_preferences
 # Each entry: (pattern, preference_key, preference_value)
 BEHAVIOR_PREF_PATTERNS: list[tuple[re.Pattern, str, str]] = [
@@ -308,14 +324,29 @@ async def extract_preferences(
                             break
                     break
 
-    # 3) LLM-assisted deep extraction (only when signal words are present)
+    # 3) LLM-assisted deep extraction
     #    Skip for subtask conversations — assistant response contains delegated
     #    tool output that may be misinterpreted as user preferences.
     user_texts = " ".join(
         msg.get("content", "") for msg in messages if msg.get("role") == "user"
     )
-    if not is_subtask and any(w in user_texts for w in MEMORY_SIGNAL_WORDS):
+    user_msg_count = sum(1 for m in messages if m.get("role") == "user")
+
+    # 三条件触发（满足任一即可）：
+    # 1. 信号词命中（快速路径，始终触发）
+    has_signal = any(w in user_texts for w in MEMORY_SIGNAL_WORDS)
+    # 2. 实质性对话（>= 50 字 + >= 3 轮）且未在冷却期内（捕获隐式偏好）
+    is_substantial = (
+        len(user_texts) >= 50
+        and user_msg_count >= 3
+        and not _recently_extracted(user_id, user_msg_count)
+    )
+    should_extract = has_signal or is_substantial
+
+    if not is_subtask and should_extract:
         llm_extracted = await extract_with_llm(messages)
+        if not has_signal:
+            _mark_extracted(user_id, user_msg_count)
     else:
         llm_extracted = []
     if llm_extracted:

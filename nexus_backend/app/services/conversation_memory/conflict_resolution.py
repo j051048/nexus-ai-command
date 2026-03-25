@@ -289,7 +289,7 @@ async def resolve_memory_conflicts(
         try:
             if event == "ADD":
                 # Find the matching new memory entry for key/category info
-                matching_new = _find_matching_new_mem(text, still_remaining)
+                matching_new = await _find_matching_new_mem(text, still_remaining)
                 saved = await _save_memory(
                     user_id=user_id,
                     key=matching_new.get("key", f"resolved_{hash(text) % 10000:04d}"),
@@ -582,17 +582,43 @@ async def _delete_existing_memory(
     )
 
 
-def _find_matching_new_mem(text: str, new_memories: list[dict]) -> dict:
-    """Find the new memory entry that best matches the given text."""
+async def _find_matching_new_mem(text: str, new_memories: list[dict]) -> dict:
+    """Find the new memory entry that best matches the given text.
+
+    Uses embedding cosine similarity when available, falls back to
+    character-set overlap on failure.
+    """
+    if not new_memories:
+        return {}
+    if len(new_memories) == 1:
+        return new_memories[0]
+
+    # 尝试语义匹配
+    try:
+        from .embedding import vector_service
+
+        if vector_service:
+            text_emb = await vector_service.embed_text(text)
+            if text_emb:
+                best_match = new_memories[0]
+                best_score = -1.0
+                for mem in new_memories:
+                    mem_emb = await vector_service.embed_text(mem.get("value", ""))
+                    if mem_emb:
+                        score = sum(a * b for a, b in zip(text_emb, mem_emb))
+                        if score > best_score:
+                            best_score = score
+                            best_match = mem
+                return best_match
+    except Exception:
+        pass
+
+    # 回退：字符集交集
     best_match = {}
     best_overlap = 0
-
     for mem in new_memories:
-        value = mem.get("value", "")
-        # Simple overlap score: number of common characters
-        overlap = len(set(text) & set(value))
+        overlap = len(set(text) & set(mem.get("value", "")))
         if overlap > best_overlap:
             best_overlap = overlap
             best_match = mem
-
-    return best_match or (new_memories[0] if new_memories else {})
+    return best_match or new_memories[0]

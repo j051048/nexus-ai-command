@@ -1,5 +1,6 @@
 """Memory retrieval: get, search (semantic + keyword), context building."""
 
+import asyncio
 import contextlib
 import logging
 import re
@@ -150,12 +151,26 @@ async def search_memories(
     memories: list[dict] = []
 
     try:
-        # Strategy 1: Embedding-based semantic search (preferred)
-        semantic_results = await _semantic_search(user_id, query, limit, org_id, client)
-        if semantic_results:
+        # 双路并行：语义搜索 + 实体精确搜索
+        sem_task = _semantic_search(user_id, query, limit, org_id, client)
+        entity_task = _entity_precise_search(user_id, query, min(3, limit), org_id, client)
+        semantic_results, entity_results = await asyncio.gather(
+            sem_task, entity_task, return_exceptions=True,
+        )
+
+        # 合并语义搜索结果
+        if isinstance(semantic_results, list):
             memories.extend(semantic_results)
 
-        # Strategy 2: Keyword fallback (supplement if semantic results insufficient)
+        # 合并实体搜索结果（ID 去重）
+        if isinstance(entity_results, list) and entity_results:
+            seen_ids = {m["id"] for m in memories}
+            for item in entity_results:
+                if item["id"] not in seen_ids:
+                    memories.append(item)
+                    seen_ids.add(item["id"])
+
+        # Strategy 3: Keyword fallback (supplement if still insufficient)
         if len(memories) < limit:
             keyword_results = await _keyword_search(user_id, query, limit - len(memories), org_id, client)
             seen_ids = {m["id"] for m in memories}
@@ -323,6 +338,54 @@ async def _keyword_search(user_id: str, query: str, limit: int, org_id: str | No
         try:
             result_val = await val_query.ilike("value", f"%{term}%").limit(limit).execute()
             for item in (result_val.data or []):
+                if item["id"] not in seen_ids:
+                    seen_ids.add(item["id"])
+                    memories.append(item)
+        except Exception:
+            pass
+
+    return memories[:limit]
+
+
+# ── 实体精确搜索（双路并行的第二路）─────────────────────────
+_ENTITY_PATTERNS = [
+    re.compile(r"([\u4e00-\u9fff]{2,4}(?:总|经理|老师|同学|先生|女士|老板|主管|领导|组长))"),
+    re.compile(r"([\u4e00-\u9fff]{2,4})(?:说|提到|要求|反馈|告诉|认为|觉得)"),
+    re.compile(r"(?:关于|有关|涉及)([\u4e00-\u9fff\w]{2,10}?)(?:的|项目|方案|合同|订单)"),
+]
+
+
+async def _entity_precise_search(
+    user_id: str, query: str, limit: int, org_id: str | None, client,
+) -> list[dict]:
+    """从 query 中提取实体（人名、项目名等），做精确 ILIKE 搜索。"""
+    entities: list[str] = []
+    for pat in _ENTITY_PATTERNS:
+        entities.extend(pat.findall(query))
+    # 去重 + 过滤太短的
+    entities = list(dict.fromkeys(e for e in entities if len(e) >= 2))
+    if not entities:
+        return []
+
+    memories: list[dict] = []
+    seen_ids: set[str] = set()
+
+    for entity in entities[:4]:  # 最多 4 个实体
+        if len(memories) >= limit:
+            break
+        q = (
+            client.table("conversation_memories")
+            .select("*")
+            .eq("user_id", user_id)
+            .is_("superseded_by", "null")
+            .or_(f"key.ilike.%{entity}%,value.ilike.%{entity}%")
+            .limit(limit)
+        )
+        if org_id:
+            q = q.eq("organization_id", org_id)
+        try:
+            result = await q.execute()
+            for item in (result.data or []):
                 if item["id"] not in seen_ids:
                     seen_ids.add(item["id"])
                     memories.append(item)

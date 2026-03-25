@@ -5,6 +5,8 @@ from typing import Any
 
 from app.core.database import supabase
 
+from .embedding import generate_embedding
+
 logger = logging.getLogger(__name__)
 
 
@@ -27,7 +29,7 @@ async def save_org_memory(
     if not supabase:
         return None
     try:
-        record = {
+        record: dict = {
             "organization_id": org_id,
             "scope": "organization",
             "category": category,
@@ -36,6 +38,10 @@ async def save_org_memory(
             "contributed_by": user_id,
             "metadata": metadata or {},
         }
+        # 生成向量嵌入（非阻塞，失败不影响保存）
+        embedding = await generate_embedding(value, org_id)
+        if embedding:
+            record["embedding"] = embedding
         res = (
             await supabase.table("org_memories")
             .upsert(record, on_conflict="organization_id,category,key")
@@ -79,23 +85,48 @@ async def search_org_memories(
     limit: int = 10,
     db: Any = None,
 ) -> list[dict]:
-    """Search organization memories by keyword. Uses admin client to bypass RLS."""
+    """Search organization memories (vector-first, keyword fallback)."""
     if not supabase:
         return []
+
+    results: list[dict] = []
+
+    # 路径1: 向量语义搜索
     try:
-        res = (
-            await supabase.table("org_memories")
-            .select("*")
-            .eq("organization_id", org_id)
-            .or_(f"key.ilike.%{query}%,value.ilike.%{query}%")
-            .order("updated_at", desc=True)
-            .limit(limit)
-            .execute()
-        )
-        return res.data or []
+        embedding = await generate_embedding(query, org_id)
+        if embedding:
+            vec_res = await supabase.rpc(
+                "search_org_memories_by_embedding",
+                {
+                    "p_org_id": org_id,
+                    "p_query_embedding": embedding,
+                    "p_limit": limit,
+                },
+            ).execute()
+            results = vec_res.data or []
     except Exception as e:
-        logger.error("Failed to search org memories: %s", e)
-        return []
+        logger.debug("Org memory vector search skipped: %s", e)
+
+    # 路径2: 关键词补充（向量结果不足时）
+    if len(results) < limit:
+        try:
+            kw_res = (
+                await supabase.table("org_memories")
+                .select("*")
+                .eq("organization_id", org_id)
+                .or_(f"key.ilike.%{query}%,value.ilike.%{query}%")
+                .order("updated_at", desc=True)
+                .limit(limit - len(results))
+                .execute()
+            )
+            seen_ids = {r["id"] for r in results}
+            for item in (kw_res.data or []):
+                if item["id"] not in seen_ids:
+                    results.append(item)
+        except Exception as e:
+            logger.debug("Org memory keyword search failed: %s", e)
+
+    return results[:limit]
 
 
 async def delete_org_memory(
