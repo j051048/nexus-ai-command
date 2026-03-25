@@ -1086,7 +1086,7 @@ const translations: Record<Locale, Translations> = {
 
 // ==================== Store (使用 React Context 替代 zustand) ====================
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 
 interface I18nContextValue {
   locale: Locale;
@@ -1108,14 +1108,16 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     return 'zh-CN';
   });
 
-  const setLocale = (newLocale: Locale) => {
+  const setLocale = useCallback((newLocale: Locale) => {
     setLocaleState(newLocale);
     localStorage.setItem(STORAGE_KEY, newLocale);
-  };
+  }, []);
+
+  const value = useMemo(() => ({ locale, setLocale }), [locale, setLocale]);
 
   return React.createElement(
     I18nContext.Provider,
-    { value: { locale, setLocale } },
+    { value },
     children
   );
 }
@@ -1227,8 +1229,6 @@ export function formatRelativeTime(date: Date | string | number): string {
 }
 
 // ==================== React Hook ====================
-
-import { useMemo } from 'react';
 
 export function useTranslation() {
   const { locale, setLocale } = useI18nContext();

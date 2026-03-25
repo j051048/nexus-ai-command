@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useUser } from "@/contexts/UserContext";
 import { useAuth } from "@/components/auth/AuthContext";
@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { prefetchRoute } from "@/lib/lazyPreload";
+import * as LazyRoutes from "@/routes/lazyImports";
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -469,6 +471,18 @@ const NAV_GROUPS = [
   "系统管理",
 ];
 
+// href → lazy component mapping for hover preload (core high-traffic routes only)
+const PRELOAD_MAP: Record<string, { preload?: () => Promise<void> }> = {
+  dashboard: LazyRoutes.EmployeeDashboard,
+  'boss-dashboard': LazyRoutes.BossDashboard,
+  inbox: LazyRoutes.InboxPage,
+  sales: LazyRoutes.SalesPipeline,
+  projects: LazyRoutes.ProjectManagement,
+  approval: LazyRoutes.ApprovalCenter,
+  crm: LazyRoutes.CRMPage,
+  'org-chart': LazyRoutes.OrgChartPage,
+};
+
 interface SidebarProps {
   onNavClick?: () => void;
 }
@@ -477,6 +491,12 @@ export function Sidebar({ onNavClick }: SidebarProps) {
   const { user } = useUser();
   const { role, signOut, profile } = useAuth();
   const [orgName, setOrgName] = useState("企业名称");
+
+  // Preload route chunk on hover (best-effort, fire-and-forget)
+  const handleLinkHover = useCallback((href: string) => {
+    const component = PRELOAD_MAP[href];
+    if (component) prefetchRoute(component);
+  }, []);
 
   useEffect(() => {
     const fetchOrgName = async () => {
@@ -626,6 +646,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
                       <Link
                         to={`/${item.href}`}
                         onClick={onNavClick}
+                        onMouseEnter={() => handleLinkHover(item.href)}
                         aria-current={isActive(item.href) ? "page" : undefined}
                         className={cn(
                           "flex items-center justify-center p-2 rounded-lg text-sm font-medium transition-all group relative",
@@ -695,6 +716,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
                 <Link
                   to={`/${item.href}`}
                   onClick={onNavClick}
+                  onMouseEnter={() => handleLinkHover(item.href)}
                   aria-current={isActive(item.href) ? "page" : undefined}
                   className={cn(
                     "flex items-center gap-3 rounded-lg text-sm font-medium transition-all group relative px-3 py-2",

@@ -429,6 +429,7 @@ export function OrgFlowCanvas() {
           onEdgesChange={onEdgesChange}
           onNodeDragStop={onNodeDragStop}
           nodeTypes={nodeTypes}
+          onlyRenderVisibleElements
           fitView
           fitViewOptions={{ padding: 0.3 }}
           minZoom={0.2}

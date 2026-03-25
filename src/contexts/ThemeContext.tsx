@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, useMemo, useCallback, ReactNode } from 'react';
 import { useEnhancedTheme } from './EnhancedThemeContext';
 
 type Theme = 'dark' | 'light';
@@ -15,11 +15,13 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const { resolvedMode, toggleMode, setMode } = useEnhancedTheme();
 
-  const value: ThemeContextType = {
+  const setTheme = useCallback((theme: Theme) => setMode(theme), [setMode]);
+
+  const value = useMemo<ThemeContextType>(() => ({
     theme: resolvedMode,
     toggleTheme: toggleMode,
-    setTheme: (theme: Theme) => setMode(theme),
-  };
+    setTheme,
+  }), [resolvedMode, toggleMode, setTheme]);
 
   return (
     <ThemeContext.Provider value={value}>

@@ -1,24 +1,27 @@
 import React, { ComponentType, LazyExoticComponent, Suspense } from 'react';
 
+// Lazy component type with optional preload method
+export type PreloadableLazy<T extends ComponentType<any>> =
+    LazyExoticComponent<T> & { preload: () => Promise<void> };
+
 // A factory that returns a Lazy component with an attached "preload" method
 export function lazyWithPreload<T extends ComponentType<unknown>>(
     factory: () => Promise<{ default: T }>
-): LazyExoticComponent<T> & { preload: () => Promise<{ default: T }> } {
-    const Component = React.lazy(factory) as LazyExoticComponent<T> & { preload: unknown };
-    Component.preload = factory;
-    return Component as LazyExoticComponent<T> & { preload: () => Promise<{ default: T }> };
+): PreloadableLazy<T> {
+    const Component = React.lazy(factory) as PreloadableLazy<T>;
+    Component.preload = () => factory().then(() => {});
+    return Component;
 }
 
-// Preload Helper for Sidebar
-export const prefetchRoute = (component: { preload: () => Promise<unknown> }) => {
-    if (component.preload) {
-        component.preload();
-    }
+// Preload Helper for Sidebar — accepts any component with a preload method
+export const prefetchRoute = (component: { preload?: () => Promise<unknown> }) => {
+    component.preload?.();
 };
 
 /**
  * Wraps a dynamic import with retry logic for handling chunk load failures
  * after new deployments. On final failure, triggers a page reload by default.
+ * Also exposes a `.preload()` method for eager loading on hover.
  *
  * @param reloadOnFailure - Set to false for non-critical components (e.g. GenUI)
  *   where a page reload would be disruptive. The error will still be thrown and
@@ -28,8 +31,11 @@ export function lazyWithRetry<T extends ComponentType<any>>(
     factory: () => Promise<{ default: T }>,
     retries = 2,
     reloadOnFailure = true
-): React.LazyExoticComponent<T> {
-    return React.lazy(() => retryImport(factory, retries, reloadOnFailure));
+): PreloadableLazy<T> {
+    const Component = React.lazy(() => retryImport(factory, retries, reloadOnFailure)) as PreloadableLazy<T>;
+    // preload calls factory directly (no retry needed for preload — it's best-effort)
+    Component.preload = () => factory().then(() => {});
+    return Component;
 }
 
 async function retryImport<T>(
