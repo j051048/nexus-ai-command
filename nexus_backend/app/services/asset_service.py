@@ -34,7 +34,7 @@ class AssetService:
         try:
             query = (
                 db.table("assets")
-                .select("*, current_user:employees!current_user_id(id, name)")
+                .select("*, current_user:users!current_user_id(id, name)")
                 .eq("organization_id", org_id)
                 .order("created_at", desc=True)
             )
@@ -80,7 +80,7 @@ class AssetService:
         try:
             result = await (
                 db.table("assets")
-                .select("*, current_user:employees!current_user_id(id, name)")
+                .select("*, current_user:users!current_user_id(id, name)")
                 .eq("id", asset_id)
                 .maybe_single()
                 .execute()

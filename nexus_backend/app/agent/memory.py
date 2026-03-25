@@ -498,15 +498,11 @@ async def prepare_initial_state(
             dept_name = None
             if config.org_id:
                 try:
-                    emp_res = await client.table("employees").select(
-                        "departments(name)"
-                    ).eq("user_id", config.user_id).eq(
-                        "organization_id", config.org_id
-                    ).maybe_single().execute()
+                    emp_res = await client.table("users").select(
+                        "department"
+                    ).eq("id", config.user_id).maybe_single().execute()
                     if emp_res.data:
-                        dept_info = emp_res.data.get("departments")
-                        if isinstance(dept_info, dict):
-                            dept_name = dept_info.get("name")
+                        dept_name = emp_res.data.get("department")
                 except Exception:
                     pass
 

@@ -308,16 +308,26 @@ class ListEmployeesTool(BaseTool):
 
             lines = [f"📋 共找到 {len(employees)} 名员工:\n"]
             for emp in employees:
-                pos = emp.get("position", {})
-                dept_id = emp.get("department_id", "未分配")
-                pos_name = pos.get("name", "未设置") if pos else "未设置"
-                status_map = {"active": "在职", "resigned": "离职", "suspended": "停职"}
-                status = status_map.get(emp.get("status", ""), emp.get("status", ""))
+                name = emp.get("name", "未知")
 
-                lines.append(
-                    f"- **{emp.get('name')}** | 部门: {dept_id[:8]}... - {pos_name} | "
-                    f"状态: {status} | 手机: {emp.get('phone', '未填写')} | ID: {emp['id'][:8]}..."
-                )
+                # 兼容 employees 表和 users 表兜底两种数据格式
+                if emp.get("_source") == "users":
+                    dept_display = emp.get("department", "未分配")
+                    role = emp.get("role", "employee")
+                    lines.append(
+                        f"- **{name}** | 部门: {dept_display} | 角色: {role}"
+                    )
+                else:
+                    pos = emp.get("position", {})
+                    dept_id = emp.get("department_id", "未分配")
+                    pos_name = pos.get("name", "未设置") if pos else "未设置"
+                    status_map = {"active": "在职", "resigned": "离职", "suspended": "停职"}
+                    status = status_map.get(emp.get("status", ""), emp.get("status", ""))
+
+                    lines.append(
+                        f"- **{name}** | 部门: {dept_id[:8]}... - {pos_name} | "
+                        f"状态: {status} | 手机: {emp.get('phone', '未填写')} | ID: {emp['id'][:8]}..."
+                    )
 
             return "\n".join(lines)
 

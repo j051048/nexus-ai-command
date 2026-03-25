@@ -320,17 +320,16 @@ class UserProfileProvider(ContextProvider):
             if org_id:
                 try:
                     emp_res = (
-                        await supabase.table("employees")
-                        .select("departments(name)")
-                        .eq("user_id", user_id)
-                        .eq("organization_id", org_id)
-                        .limit(1)
+                        await supabase.table("users")
+                        .select("department")
+                        .eq("id", user_id)
+                        .maybe_single()
                         .execute()
                     )
                     if emp_res.data:
-                        dept = emp_res.data[0].get("departments")
-                        if isinstance(dept, dict) and dept.get("name"):
-                            parts.append(f"部门: {dept['name']}")
+                        dept_name = emp_res.data.get("department")
+                        if dept_name:
+                            parts.append(f"部门: {dept_name}")
                 except Exception:
                     pass
 

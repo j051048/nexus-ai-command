@@ -352,8 +352,8 @@ class AttendanceService:
         try:
             data = {
                 "organization_id": org_id,
-                "employee_id": employee_id,
-                "leave_type": leave_type,
+                "user_id": employee_id,
+                "type": leave_type,
                 "start_date": start_date,
                 "end_date": end_date,
                 "days": days,
@@ -361,7 +361,7 @@ class AttendanceService:
                 "status": "pending",
             }
 
-            result = await db.table("leave_requests").insert(data).execute()
+            result = await db.table("oa_leave_requests").insert(data).execute()
 
             if result.data and len(result.data) > 0:
                 logger.info(f"请假申请已提交: org={org_id}, employee={employee_id}, type={leave_type}")

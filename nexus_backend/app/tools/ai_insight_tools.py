@@ -79,53 +79,82 @@ class SmartReportTool(BaseTool):
         end_date = now.date().isoformat()
 
         try:
-            # 1. 员工统计
-            emp_query = (
-                client.table("employees")
-                .select("id", count="exact")
-                .eq("organization_id", org_id)
-                .eq("status", "active")
-            )
-            if department_id:
-                emp_query = emp_query.eq("department_id", department_id)
-            emp_result = await emp_query.execute()
-            emp_count = emp_result.count or 0
+            # 1. 员工统计 — 优先查 employees，兜底查 users
+            emp_count = 0
+            try:
+                emp_query = (
+                    client.table("employees")
+                    .select("id", count="exact")
+                    .eq("organization_id", org_id)
+                    .eq("status", "active")
+                )
+                if department_id:
+                    emp_query = emp_query.eq("department_id", department_id)
+                emp_result = await emp_query.execute()
+                emp_count = emp_result.count or 0
+            except Exception:
+                pass
+            if emp_count == 0:
+                try:
+                    uq = client.table("users").select("id", count="exact").eq("organization_id", org_id)
+                    if department_id:
+                        uq = uq.eq("department", department_id)
+                    emp_result = await uq.execute()
+                    emp_count = emp_result.count or 0
+                except Exception:
+                    pass
 
-            # 2. 资产统计
-            asset_query = client.table("assets").select("id, status", count="exact").eq("organization_id", org_id)
-            if department_id:
-                asset_query = asset_query.eq("department_id", department_id)
-            asset_result = await asset_query.execute()
-            asset_total = asset_result.count or 0
-            asset_in_use = sum(1 for a in (asset_result.data or []) if a.get("status") == "in_use")
+            # 2. 资产统计（表可能不存在，优雅降级）
+            asset_total = 0
+            asset_in_use = 0
+            try:
+                asset_query = client.table("assets").select("id, status", count="exact").eq("organization_id", org_id)
+                if department_id:
+                    asset_query = asset_query.eq("department_id", department_id)
+                asset_result = await asset_query.execute()
+                asset_total = asset_result.count or 0
+                asset_in_use = sum(1 for a in (asset_result.data or []) if a.get("status") == "in_use")
+            except Exception:
+                pass
 
-            # 3. 工单统计
-            wo_query = (
-                client.table("work_orders")
-                .select("id, status", count="exact")
-                .eq("organization_id", org_id)
-                .gte("created_at", start_date)
-            )
-            if department_id:
-                wo_query = wo_query.eq("department_id", department_id)
-            wo_result = await wo_query.execute()
-            wo_total = wo_result.count or 0
-            wo_pending = sum(1 for w in (wo_result.data or []) if w.get("status") in ("pending", "open"))
-            wo_done = sum(1 for w in (wo_result.data or []) if w.get("status") in ("done", "closed", "completed"))
+            # 3. 工单统计（表可能不存在，优雅降级）
+            wo_total = 0
+            wo_pending = 0
+            wo_done = 0
+            try:
+                wo_query = (
+                    client.table("work_orders")
+                    .select("id, status", count="exact")
+                    .eq("organization_id", org_id)
+                    .gte("created_at", start_date)
+                )
+                if department_id:
+                    wo_query = wo_query.eq("department_id", department_id)
+                wo_result = await wo_query.execute()
+                wo_total = wo_result.count or 0
+                wo_pending = sum(1 for w in (wo_result.data or []) if w.get("status") in ("pending", "open"))
+                wo_done = sum(1 for w in (wo_result.data or []) if w.get("status") in ("done", "closed", "completed"))
+            except Exception:
+                pass
 
-            # 4. 考勤统计
-            att_query = (
-                client.table("attendance_records")
-                .select("id, status", count="exact")
-                .eq("organization_id", org_id)
-                .gte("date", start_date)
-                .lte("date", end_date)
-            )
-            if department_id:
-                att_query = att_query.eq("department_id", department_id)
-            att_result = await att_query.execute()
-            att_total = att_result.count or 0
-            att_late = sum(1 for a in (att_result.data or []) if a.get("status") == "late")
+            # 4. 考勤统计（attendance_records 表存在）
+            att_total = 0
+            att_late = 0
+            try:
+                att_query = (
+                    client.table("attendance_records")
+                    .select("id, status", count="exact")
+                    .eq("organization_id", org_id)
+                    .gte("check_date", start_date)
+                    .lte("check_date", end_date)
+                )
+                if department_id:
+                    att_query = att_query.eq("department_id", department_id)
+                att_result = await att_query.execute()
+                att_total = att_result.count or 0
+                att_late = sum(1 for a in (att_result.data or []) if a.get("status") == "late")
+            except Exception:
+                pass
 
             dept_note = f"（部门: {department_id[:8]}...）" if department_id else "（全组织）"
 
@@ -194,68 +223,76 @@ class AnomalyDetectionTool(BaseTool):
         try:
             # 考勤异常检测
             if scope in ("attendance", "all"):
-                att_result = await (
-                    client.table("attendance_records")
-                    .select("employee_id, status")
-                    .eq("organization_id", org_id)
-                    .gte("date", week_ago)
-                    .eq("status", "late")
-                    .execute()
-                )
-                late_records = att_result.data or []
-                if late_records:
-                    # 按员工统计迟到次数
-                    late_counts: dict[str, int] = {}
-                    for rec in late_records:
-                        eid = rec.get("employee_id", "unknown")
-                        late_counts[eid] = late_counts.get(eid, 0) + 1
+                try:
+                    att_result = await (
+                        client.table("attendance_records")
+                        .select("user_id, status")
+                        .eq("organization_id", org_id)
+                        .gte("check_date", week_ago)
+                        .eq("status", "late")
+                        .execute()
+                    )
+                    late_records = att_result.data or []
+                    if late_records:
+                        late_counts: dict[str, int] = {}
+                        for rec in late_records:
+                            eid = rec.get("user_id", "unknown")
+                            late_counts[eid] = late_counts.get(eid, 0) + 1
 
-                    frequent_late = {k: v for k, v in late_counts.items() if v >= 3}
-                    if frequent_late:
-                        alerts.append(f"⏰ **考勤异常**: {len(frequent_late)} 名员工本周迟到 3 次以上")
-                    if len(late_records) > 10:
-                        alerts.append(f"⏰ **考勤预警**: 本周共 {len(late_records)} 次迟到记录，建议关注")
+                        frequent_late = {k: v for k, v in late_counts.items() if v >= 3}
+                        if frequent_late:
+                            alerts.append(f"⏰ **考勤异常**: {len(frequent_late)} 名员工本周迟到 3 次以上")
+                        if len(late_records) > 10:
+                            alerts.append(f"⏰ **考勤预警**: 本周共 {len(late_records)} 次迟到记录，建议关注")
+                except Exception:
+                    pass
 
-            # 报销异常检测
+            # 报销异常检测（expense_claims 表可能不存在）
             if scope in ("expense", "all"):
-                exp_result = await (
-                    client.table("expense_claims")
-                    .select("id, amount, employee_id")
-                    .eq("organization_id", org_id)
-                    .gte("created_at", week_ago)
-                    .execute()
-                )
-                expenses = exp_result.data or []
-                if expenses:
-                    amounts = [float(e.get("amount", 0)) for e in expenses if e.get("amount")]
-                    if amounts:
-                        avg_amount = sum(amounts) / len(amounts)
-                        high_expenses = [a for a in amounts if a > avg_amount * 3]
-                        if high_expenses:
-                            alerts.append(
-                                f"💰 **报销异常**: {len(high_expenses)} 笔报销金额超过平均值3倍 "
-                                f"(平均: ¥{avg_amount:,.0f})"
-                            )
+                try:
+                    exp_result = await (
+                        client.table("expense_claims")
+                        .select("id, amount, employee_id")
+                        .eq("organization_id", org_id)
+                        .gte("created_at", week_ago)
+                        .execute()
+                    )
+                    expenses = exp_result.data or []
+                    if expenses:
+                        amounts = [float(e.get("amount", 0)) for e in expenses if e.get("amount")]
+                        if amounts:
+                            avg_amount = sum(amounts) / len(amounts)
+                            high_expenses = [a for a in amounts if a > avg_amount * 3]
+                            if high_expenses:
+                                alerts.append(
+                                    f"💰 **报销异常**: {len(high_expenses)} 笔报销金额超过平均值3倍 "
+                                    f"(平均: ¥{avg_amount:,.0f})"
+                                )
+                except Exception:
+                    pass
 
             # 库存异常检测
             if scope in ("inventory", "all"):
-                inv_result = await (
-                    client.table("inventory")
-                    .select("id, name, quantity, min_quantity")
-                    .eq("organization_id", org_id)
-                    .execute()
-                )
-                items = inv_result.data or []
-                low_stock = [
-                    item
-                    for item in items
-                    if item.get("quantity") is not None
-                    and item.get("min_quantity") is not None
-                    and item["quantity"] <= item["min_quantity"]
-                ]
-                if low_stock:
-                    names = ", ".join(i.get("name", "未知")[:10] for i in low_stock[:5])
-                    alerts.append(f"📦 **库存预警**: {len(low_stock)} 项物资低于安全库存 ({names})")
+                try:
+                    inv_result = await (
+                        client.table("inventory")
+                        .select("id, name, quantity, min_stock")
+                        .eq("organization_id", org_id)
+                        .execute()
+                    )
+                    items = inv_result.data or []
+                    low_stock = [
+                        item
+                        for item in items
+                        if item.get("quantity") is not None
+                        and item.get("min_stock") is not None
+                        and item["quantity"] <= item["min_stock"]
+                    ]
+                    if low_stock:
+                        names = ", ".join(i.get("name", "未知")[:10] for i in low_stock[:5])
+                        alerts.append(f"📦 **库存预警**: {len(low_stock)} 项物资低于安全库存 ({names})")
+                except Exception:
+                    pass
 
             if not alerts:
                 scope_labels = {
@@ -428,14 +465,27 @@ class AutoDispatchTool(BaseTool):
             department_id = order.get("department_id")
             order_title = order.get("title", "未知")
 
-            # 查询该部门员工
-            emp_query = (
-                client.table("employees").select("id, name").eq("organization_id", org_id).eq("status", "active")
-            )
-            if department_id:
-                emp_query = emp_query.eq("department_id", department_id)
-            emp_result = await emp_query.execute()
-            employees = emp_result.data or []
+            # 查询该部门员工 — 优先 employees，兜底 users
+            employees = []
+            try:
+                emp_query = (
+                    client.table("employees").select("id, name").eq("organization_id", org_id).eq("status", "active")
+                )
+                if department_id:
+                    emp_query = emp_query.eq("department_id", department_id)
+                emp_result = await emp_query.execute()
+                employees = emp_result.data or []
+            except Exception:
+                pass
+            if not employees:
+                try:
+                    uq = client.table("users").select("id, name").eq("organization_id", org_id)
+                    if department_id:
+                        uq = uq.eq("department", department_id)
+                    emp_result = await uq.execute()
+                    employees = emp_result.data or []
+                except Exception:
+                    pass
 
             if not employees:
                 return "❌ 当前部门暂无可用员工进行分配。"
@@ -646,14 +696,24 @@ class OnboardingAssistantTool(BaseTool):
             return f"❌ {err}"
 
         try:
-            # 获取员工信息
-            emp_result = await client.table("employees").select("*").eq("id", employee_id).maybe_single().execute()
-            employee = emp_result.data
+            # 获取员工信息 — 优先 employees，兜底 users
+            employee = None
+            try:
+                emp_result = await client.table("employees").select("*").eq("id", employee_id).maybe_single().execute()
+                employee = emp_result.data
+            except Exception:
+                pass
+            if not employee:
+                try:
+                    emp_result = await client.table("users").select("*").eq("id", employee_id).maybe_single().execute()
+                    employee = emp_result.data
+                except Exception:
+                    pass
             if not employee:
                 return f"❌ 未找到ID为 {employee_id} 的员工。"
 
             emp_name = employee.get("name", "未知")
-            dept_id = department_id or employee.get("department_id")
+            dept_id = department_id or employee.get("department_id") or employee.get("department")
 
             # 获取部门信息
             dept_name = "未分配"

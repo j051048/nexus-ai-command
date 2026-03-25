@@ -354,19 +354,20 @@ class PerformanceReviewTool(BaseTool):
             except Exception as e:
                 return safe_tool_error(e, "绩效评分更新")
 
-            # Try to record in performance_reviews table
+            # Try to record in hr_performance_reviews table
             # RLS policy "perf_review_insert" allows manager+ with reviewer_id = self
             with contextlib.suppress(Exception):
                 await (
-                    client.table("performance_reviews")
+                    client.table("hr_performance_reviews")
                     .insert(
                         {
                             "user_id": emp_id,
                             "reviewer_id": user_id,
-                            "rating": rating,
-                            "score": new_score,
-                            "comment": comment,
-                            "review_period": datetime.now().strftime("%Y-%m"),
+                            "manager_rating": rating,
+                            "final_rating": rating,
+                            "ai_analysis": comment,
+                            "period": datetime.now().strftime("%Y-%m"),
+                            "status": "completed",
                         }
                     )
                     .execute()

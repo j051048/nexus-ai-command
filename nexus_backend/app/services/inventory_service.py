@@ -32,7 +32,7 @@ class InventoryService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            query = db.table("inventory_items").select("*").eq("organization_id", org_id).order("created_at", desc=True)
+            query = db.table("inventory").select("*").eq("organization_id", org_id).order("created_at", desc=True)
 
             if filters:
                 if filters.get("category"):
@@ -94,7 +94,7 @@ class InventoryService:
         try:
             # 获取当前库存
             item_result = await (
-                db.table("inventory_items").select("id, quantity").eq("id", item_id).maybe_single().execute()
+                db.table("inventory").select("id, quantity").eq("id", item_id).maybe_single().execute()
             )
 
             if not item_result.data:
@@ -107,7 +107,7 @@ class InventoryService:
             transaction_data = {
                 "organization_id": org_id,
                 "item_id": item_id,
-                "type": "in",
+                "transaction_type": "in",
                 "quantity": quantity,
                 "operator_id": operator_id,
                 "reason": reason,
@@ -117,7 +117,7 @@ class InventoryService:
             transaction_result = await db.table("inventory_transactions").insert(transaction_data).execute()
 
             # 更新库存数量
-            await db.table("inventory_items").update({"quantity": new_quantity}).eq("id", item_id).execute()
+            await db.table("inventory").update({"quantity": new_quantity}).eq("id", item_id).execute()
 
             logger.info(f"入库成功: item={item_id}, quantity={quantity}, new_total={new_quantity}")
             return transaction_result.data[0] if transaction_result.data else {}
@@ -157,7 +157,7 @@ class InventoryService:
         try:
             # 获取当前库存
             item_result = await (
-                db.table("inventory_items").select("id, quantity").eq("id", item_id).maybe_single().execute()
+                db.table("inventory").select("id, quantity").eq("id", item_id).maybe_single().execute()
             )
 
             if not item_result.data:
@@ -174,7 +174,7 @@ class InventoryService:
             transaction_data = {
                 "organization_id": org_id,
                 "item_id": item_id,
-                "type": "out",
+                "transaction_type": "out",
                 "quantity": quantity,
                 "operator_id": operator_id,
                 "receiver_id": receiver_id,
@@ -184,7 +184,7 @@ class InventoryService:
             transaction_result = await db.table("inventory_transactions").insert(transaction_data).execute()
 
             # 更新库存数量
-            await db.table("inventory_items").update({"quantity": new_quantity}).eq("id", item_id).execute()
+            await db.table("inventory").update({"quantity": new_quantity}).eq("id", item_id).execute()
 
             logger.info(f"出库成功: item={item_id}, quantity={quantity}, new_total={new_quantity}")
             return transaction_result.data[0] if transaction_result.data else {}
@@ -213,7 +213,7 @@ class InventoryService:
 
         try:
             result = await (
-                db.table("inventory_items")
+                db.table("inventory")
                 .select("*")
                 .eq("organization_id", org_id)
                 .not_.is_("min_stock", "null")
@@ -252,7 +252,7 @@ class InventoryService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            query = db.table("inventory_items").select("*").eq("organization_id", org_id)
+            query = db.table("inventory").select("*").eq("organization_id", org_id)
 
             if category:
                 query = query.eq("category", category)

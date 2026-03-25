@@ -68,17 +68,8 @@ class ClockInOutTool(BaseTool):
         if not clock_type:
             return "❌ 请指定打卡类型（clock_in/clock_out/field_work）"
 
-        # 查找当前用户对应的员工ID
-        try:
-            emp_resp = (
-                client.table("employees").select("id").eq("user_id", user_id).eq("tenant_id", org_id).limit(1).execute()
-            )
-            if not emp_resp.data:
-                return "❌ 未找到您的员工信息，请联系管理员。"
-            employee_id = emp_resp.data[0]["id"]
-        except Exception as e:
-            logger.error(f"查询员工信息失败: {e}")
-            return safe_tool_error(e, "查询员工信息")
+        # 直接使用 user_id 作为 employee_id（users 表的 id 即用户ID）
+        employee_id = user_id
 
         try:
             record = await attendance_service.clock_in_out(
@@ -436,17 +427,8 @@ class RequestLeaveTool(BaseTool):
         if not leave_type or not start_date or not end_date:
             return "❌ 请假类型、开始日期和结束日期不能为空"
 
-        # 查找当前用户对应的员工ID
-        try:
-            emp_resp = (
-                client.table("employees").select("id").eq("user_id", user_id).eq("tenant_id", org_id).limit(1).execute()
-            )
-            if not emp_resp.data:
-                return "❌ 未找到您的员工信息，请联系管理员。"
-            employee_id = emp_resp.data[0]["id"]
-        except Exception as e:
-            logger.error(f"查询员工信息失败: {e}")
-            return safe_tool_error(e, "查询员工信息")
+        # 直接使用 user_id 作为 employee_id（users 表的 id 即用户ID）
+        employee_id = user_id
 
         data = {
             "leave_type": leave_type,

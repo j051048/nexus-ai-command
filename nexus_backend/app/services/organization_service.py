@@ -232,6 +232,8 @@ class OrganizationService:
         """
         查询员工列表
 
+        优先查 employees 表（HR花名册），为空则兜底查 users 表（核心用户表）。
+
         Args:
             org_id: 组织ID
             filters: 筛选条件 {department_id, position_id, status, search}
@@ -263,10 +265,48 @@ class OrganizationService:
                     query = query.or_(f"name.ilike.%{search}%,phone.ilike.%{search}%,email.ilike.%{search}%")
 
             result = await query.execute()
-            return result.data or []
+            employees = result.data or []
+
+            if employees:
+                return employees
 
         except Exception as e:
-            logger.error(f"查询员工列表失败: {e}")
+            logger.warning(f"employees 表查询失败(可能不存在)，尝试 users 表兜底: {e}")
+
+        # ── 兜底：查 users 表 ──────────────────────────────────
+        try:
+            uq = (
+                db.table("users")
+                .select("id, name, role, department, avatar, created_at")
+                .eq("organization_id", org_id)
+                .order("created_at", desc=True)
+            )
+
+            if filters:
+                if filters.get("search"):
+                    search = filters["search"]
+                    uq = uq.or_(f"name.ilike.%{search}%,department.ilike.%{search}%")
+
+            result = await uq.execute()
+            users = result.data or []
+
+            # 将 users 记录规范化为 employee 格式，方便上层统一处理
+            return [
+                {
+                    "id": u["id"],
+                    "name": u.get("name", "未知"),
+                    "department": u.get("department", "未分配"),
+                    "role": u.get("role", "employee"),
+                    "status": "active",
+                    "avatar": u.get("avatar"),
+                    "created_at": u.get("created_at"),
+                    "_source": "users",  # 标记数据来源
+                }
+                for u in users
+            ]
+
+        except Exception as e:
+            logger.error(f"查询员工列表失败(users 表兜底也失败): {e}")
             raise
 
     async def get_employee_detail(
@@ -275,18 +315,12 @@ class OrganizationService:
         db=None,
     ) -> dict | None:
         """
-        获取员工详情
-
-        Args:
-            employee_id: 员工ID
-            db: 数据库客户端
-
-        Returns:
-            员工详情
+        获取员工详情（优先 employees 表，兜底 users 表）
         """
         if not db:
             raise RuntimeError("数据库连接不可用")
 
+        # 尝试 employees 表
         try:
             result = await (
                 db.table("employees")
@@ -295,9 +329,28 @@ class OrganizationService:
                 .maybe_single()
                 .execute()
             )
+            if result.data:
+                return result.data
+        except Exception as e:
+            logger.warning(f"employees 表查询失败，尝试 users 表兜底: {e}")
 
-            return result.data
-
+        # 兜底 users 表
+        try:
+            result = await (
+                db.table("users")
+                .select("id, name, role, department, avatar, created_at")
+                .eq("id", employee_id)
+                .maybe_single()
+                .execute()
+            )
+            if result.data:
+                u = result.data
+                return {
+                    **u,
+                    "status": "active",
+                    "_source": "users",
+                }
+            return None
         except Exception as e:
             logger.error(f"获取员工详情失败: {e}")
             raise
@@ -345,28 +398,31 @@ class OrganizationService:
         db=None,
     ) -> dict:
         """
-        更新员工信息
-
-        Args:
-            employee_id: 员工ID
-            updates: 更新字段
-            db: 数据库客户端
-
-        Returns:
-            更新后的员工对象
+        更新员工信息（优先 employees 表，兜底 users 表）
         """
         if not db:
             raise RuntimeError("数据库连接不可用")
 
+        # 尝试 employees 表
         try:
             result = await db.table("employees").update(updates).eq("id", employee_id).execute()
-
             if result.data and len(result.data) > 0:
                 logger.info(f"员工已更新: id={employee_id}")
                 return result.data[0]
+        except Exception as e:
+            logger.warning(f"employees 表更新失败，尝试 users 表兜底: {e}")
 
+        # 兜底 users 表（只更新 users 表中存在的列）
+        try:
+            allowed_cols = {"name", "role", "department", "avatar"}
+            user_updates = {k: v for k, v in updates.items() if k in allowed_cols}
+            if not user_updates:
+                raise RuntimeError("没有可更新的字段")
+            result = await db.table("users").update(user_updates).eq("id", employee_id).execute()
+            if result.data and len(result.data) > 0:
+                logger.info(f"员工已更新(users 表): id={employee_id}")
+                return result.data[0]
             raise RuntimeError("员工更新失败")
-
         except Exception as e:
             logger.error(f"更新员工失败: {e}")
             raise
