@@ -271,7 +271,7 @@ _DOMAIN_TOOL_MAP: dict[str, set[str]] = {
     },
     "oa_task": {
         "assign_task", "send_notification", "book_meeting",
-        "create_work_handover",
+        "create_work_handover", "publish_announcement",
     },
     "attendance": {
         "clock_in_out", "get_attendance_record", "attendance_statistics",
@@ -427,7 +427,9 @@ _KEYWORD_DOMAIN_MAP: dict[str, list[str]] = {
     # Admin
     "证照": ["admin"], "盖章": ["admin"], "用印": ["admin"],
     "签署": ["admin"], "公告": ["admin", "approval"],
-    "通知": ["oa_task", "approval"],
+    "通知": ["oa_task", "approval", "admin"],
+    "全员": ["admin", "oa_task"], "全体": ["admin", "oa_task"],
+    "放假": ["admin", "oa_task"], "公告通知": ["admin", "oa_task"],
     "审计": ["admin"], "审计日志": ["admin"], "安全审计": ["admin"],
     "异常登录": ["admin"], "数据导出": ["admin"],
     # Knowledge

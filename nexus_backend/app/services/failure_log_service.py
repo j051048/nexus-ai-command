@@ -115,7 +115,7 @@ class FailureLogService:
             if error_detail:
                 row["error_detail"] = error_detail[:2000]
 
-            db.table("agent_failure_logs").insert(row).execute()
+            await db.table("agent_failure_logs").insert(row).execute()
             logger.info(f"[FailureLog] Recorded {error_type} failure (severity={severity}, pattern={pattern_key})")
         except Exception as e:
             # Never let logging failures crash the agent
@@ -153,7 +153,7 @@ class FailureLogService:
                 pass  # TTL cleanup is non-fatal
 
             # Fetch recent failures with pattern_key
-            result = (
+            result = await (
                 db.table("agent_failure_logs")
                 .select("error_type, severity, user_message, error_detail, pattern_key, created_at")
                 .eq("organization_id", org_id)
