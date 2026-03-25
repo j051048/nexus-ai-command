@@ -54,7 +54,11 @@ async def consolidate_user_memories(
     # Build memory list for LLM
     mem_lines = []
     for i, m in enumerate(memories):
-        mem_lines.append(f"[{i}] ({m['category']}) {m['key']}: {m['value']}")
+        # P0 Fix: Truncate value to prevent context_length_exceeded on long-session datasets (LoCoMo)
+        val = str(m.get('value', ''))
+        if len(val) > 3000:
+            val = val[:3000] + "... (truncated for consolidation)"
+        mem_lines.append(f"[{i}] ({m['category']}) {m['key']}: {val}")
 
     prompt = "以下是用户的记忆条目，请分析并找出跨记忆的模式：\n\n" + "\n".join(mem_lines)
     system = (
@@ -238,7 +242,10 @@ async def generate_user_observation(
 
         mem_lines = []
         for m in memories:
-            mem_lines.append(f"- ({m['category']}) {m['key']}: {m['value']}")
+            val = str(m.get('value', ''))
+            if len(val) > 2000:
+                val = val[:2000] + "..."
+            mem_lines.append(f"- ({m['category']}) {m['key']}: {val}")
 
         prompt = "以下是某用户的关键记忆条目，请生成一份浓缩的用户画像摘要：\n\n" + "\n".join(mem_lines)
         system = (

@@ -114,7 +114,7 @@ async def save_memory(
 
     # P0 Fix: Per-user memory limit (500) — evict lowest-importance when full
     if not old_id:
-        await _enforce_memory_limit(user_id, client, max_memories=500)
+        await _enforce_memory_limit(user_id, client, max_memories=5000)
 
     # Always insert a new record (append-only versioning)
     insert_data = {

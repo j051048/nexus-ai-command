@@ -204,9 +204,12 @@ async def search_memories(
         entity_task = _entity_precise_search(user_id, query, min(5, limit), org_id, client)
         anchor_task = _user_anchor_search(user_id, min(5, limit), org_id, client)
         keyword_task = _keyword_search(user_id, query, limit, org_id, client)
-        results = await asyncio.gather(
-            sem_task, entity_task, anchor_task, keyword_task,
-            return_exceptions=True,
+        results = await asyncio.wait_for(
+            asyncio.gather(
+                sem_task, entity_task, anchor_task, keyword_task,
+                return_exceptions=True,
+            ),
+            timeout=20.0
         )
 
         for r in results:
@@ -251,32 +254,38 @@ async def search_memories(
         sorted_ids = sorted(rrf_scores, key=lambda x: rrf_scores[x], reverse=True)
         memories = [id_to_mem[mid] for mid in sorted_ids]
 
+    except asyncio.TimeoutError:
+        logger.warning(f"[Memory] Parallel search timeout for user {user_id}")
     except Exception as e:
         logger.warning(f"Memory search failed: {e}")
 
-    # Update access counts and Bayesian importance reinforcement for returned memories
-    now = datetime.now(UTC).isoformat()
-    for mem in memories[:limit]:
-        with contextlib.suppress(Exception):
-            current_importance = float(mem.get("importance", 0.5) or 0.5)
-            access_count = int(mem.get("access_count", 0) or 0)
-            # Bayesian reinforcement: small boost on retrieval, diminishing returns
-            # Formula: delta = 0.05 / (1 + access_count * 0.3), capped at importance=1.0
-            # First hit: +0.05, 5th hit: +0.02, 10th hit: +0.013
-            delta = 0.05 / (1 + access_count * 0.3)
-            new_importance = min(current_importance + delta, 1.0)
-            await (
-                client.table("conversation_memories")
-                .update(
-                    {
+    # P1: Fire-and-forget DB updates in a separate task group to avoid blocking retrieval
+    async def _bg_updates(mems_to_update):
+        now = datetime.now(UTC).isoformat()
+        update_tasks = []
+        for mem in mems_to_update:
+            try:
+                current_importance = float(mem.get("importance", 0.5) or 0.5)
+                access_count = int(mem.get("access_count", 0) or 0)
+                delta = 0.05 / (1 + access_count * 0.3)
+                new_importance = min(current_importance + delta, 1.0)
+                update_tasks.append(
+                    client.table("conversation_memories")
+                    .update({
                         "access_count": access_count + 1,
                         "last_accessed_at": now,
                         "importance": round(new_importance, 4),
-                    }
+                    })
+                    .eq("id", mem["id"])
+                    .execute()
                 )
-                .eq("id", mem["id"])
-                .execute()
-            )
+            except Exception:
+                pass
+        if update_tasks:
+            await asyncio.gather(*update_tasks, return_exceptions=True)
+
+    if memories:
+        asyncio.create_task(_bg_updates(memories[:limit]))
 
     # Apply temporal decay for final ranking, then MMR diversity reranking
     _TYPE_WEIGHTS = {

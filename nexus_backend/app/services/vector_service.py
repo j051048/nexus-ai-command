@@ -24,7 +24,7 @@ _EMBEDDING_DIMENSIONS = 1536
 # (settings.RERANK_ENABLED, settings.RERANK_PROVIDER, settings.RERANK_MODEL, etc.)
 
 # Timeout for OpenAI API calls (embedding + rerank)
-_OPENAI_TIMEOUT = float(getattr(settings, "VECTOR_OPENAI_TIMEOUT", 15))
+_OPENAI_TIMEOUT = float(getattr(settings, "VECTOR_OPENAI_TIMEOUT", 120))
 
 
 def escape_like_pattern(value: str) -> str:
@@ -545,7 +545,7 @@ class VectorService:
             if not api_key:
                 api_key = settings.OPENAI_API_KEY
             
-            print(f"DEBUG: VectorService using API Key prefix: {api_key[:10] if api_key else 'EMPTY'} for URL: {base_url}")
+            # print(f"DEBUG: VectorService using API Key prefix: {api_key[:10] if api_key else 'EMPTY'} for URL: {base_url}")
             if not api_key:
                 return None
 

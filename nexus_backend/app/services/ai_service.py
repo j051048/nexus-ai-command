@@ -18,7 +18,7 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 # Configuration
-DEFAULT_TIMEOUT = 90.0
+DEFAULT_TIMEOUT = 120.0
 MAX_RETRIES = 2
 
 
