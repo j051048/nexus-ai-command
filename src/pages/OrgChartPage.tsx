@@ -1,7 +1,8 @@
 /**
  * OrgChartPage - 组织架构管理页面
  * Tab 1: 可视化架构图（ReactFlow 树形图 + 拖拽编辑）
- * Tab 2: 列表视图（原表格）
+ * Tab 2: 部门管理（层级化树形列表 + CRUD）
+ * Tab 3: 成员列表（原表格）
  */
 
 import React, { useState, useMemo, lazy, Suspense } from 'react';
@@ -15,6 +16,10 @@ import {
   Building2,
   Network,
   List,
+  Plus,
+  Trash2,
+  ChevronRight,
+  FolderTree,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -43,9 +48,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useOrgMembers, useUpdateManager, type OrgMember } from '@/hooks/useOrgChart';
+import { useOrgMembers, useUpdateManager, useDepartments, useDeleteDepartment, type OrgMember, type OrgDepartment } from '@/hooks/useOrgChart';
 import { ReactFlowProvider } from '@xyflow/react';
 import { OrgFlowCanvas } from '@/components/orgchart/OrgFlowCanvas';
+import { EditDepartmentDialog } from '@/components/orgchart/EditDepartmentDialog';
+import { AddDepartmentDialog } from '@/components/orgchart/AddDepartmentDialog';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 
 // ─── Role Display ───────────────────────────────────────────
 
@@ -318,6 +327,199 @@ function OrgListView() {
   );
 }
 
+// ─── Department Tree Helpers ──────────────────────────────────
+
+interface FlatDept extends OrgDepartment {
+  depth: number;
+}
+
+function flattenDeptTree(departments: OrgDepartment[]): FlatDept[] {
+  const byParent = new Map<string | null, OrgDepartment[]>();
+  for (const d of departments) {
+    const key = d.parent_id || null;
+    const list = byParent.get(key) || [];
+    list.push(d);
+    byParent.set(key, list);
+  }
+  const result: FlatDept[] = [];
+  function walk(parentId: string | null, depth: number) {
+    const children = (byParent.get(parentId) || []).sort((a, b) => a.sort_order - b.sort_order);
+    for (const c of children) {
+      result.push({ ...c, depth });
+      walk(c.id, depth + 1);
+    }
+  }
+  walk(null, 0);
+  return result;
+}
+
+// ─── Department Management View ──────────────────────────────
+
+function OrgDeptManageView() {
+  const { data: departments = [], isLoading: deptsLoading } = useDepartments();
+  const { data: members = [] } = useOrgMembers();
+  const deleteDept = useDeleteDepartment();
+  const { confirm, ConfirmDialogProps } = useConfirmDialog();
+  const [search, setSearch] = useState('');
+  const [editDeptId, setEditDeptId] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+
+  const flatDepts = useMemo(() => flattenDeptTree(departments), [departments]);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return flatDepts;
+    const lower = search.toLowerCase();
+    return flatDepts.filter(d => safeStr(d.name).toLowerCase().includes(lower));
+  }, [flatDepts, search]);
+
+  // Count members per department (by name match)
+  const memberCountMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const m of members) {
+      const deptName = safeStr(m.department);
+      if (deptName) {
+        const dept = departments.find(d => safeStr(d.name) === deptName);
+        if (dept) map.set(dept.id, (map.get(dept.id) || 0) + 1);
+      }
+    }
+    return map;
+  }, [members, departments]);
+
+  const handleDelete = async (dept: FlatDept) => {
+    const ok = await confirm({
+      title: '确认删除部门',
+      description: `确定要删除「${safeStr(dept.name)}」吗？该操作将解散此部门。`,
+      variant: 'destructive',
+    });
+    if (ok) {
+      await deleteDept.mutateAsync(dept.id);
+    }
+  };
+
+  return (
+    <>
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-4 mb-4">
+        <div className="relative max-w-md flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="搜索部门名称..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+          {search && (
+            <button
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              onClick={() => setSearch('')}
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+        <Button onClick={() => setAddOpen(true)} size="sm">
+          <Plus className="w-4 h-4 mr-1.5" />
+          新建部门
+        </Button>
+      </div>
+
+      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+        {deptsLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">正在加载部门数据...</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+            <FolderTree className="w-16 h-16 mb-4 opacity-20" />
+            <h3 className="text-lg font-medium text-foreground">
+              {search ? '未找到匹配的部门' : '暂无部门数据'}
+            </h3>
+            <p className="text-sm mt-1">
+              {search ? '请尝试其他搜索关键词' : '可以在架构图中使用模板快速创建组织结构'}
+            </p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[320px]">部门名称</TableHead>
+                <TableHead>负责人</TableHead>
+                <TableHead className="w-[100px] text-center">成员数</TableHead>
+                <TableHead className="w-[100px] text-right">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((dept) => {
+                const manager = members.find(m => m.id === dept.manager_id);
+                const count = memberCountMap.get(dept.id) || 0;
+                return (
+                  <TableRow key={dept.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2" style={{ paddingLeft: dept.depth * 24 }}>
+                        {dept.depth > 0 && (
+                          <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
+                        )}
+                        <Building2 className="w-4 h-4 text-primary shrink-0" />
+                        <span className="font-medium text-foreground">{safeStr(dept.name)}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {manager ? (
+                        <span className="text-foreground">{safeStr(manager.full_name)}</span>
+                      ) : (
+                        <span className="text-muted-foreground/50">未指定</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant="outline" className="text-xs">
+                        {count}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setEditDeptId(dept.id)}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => handleDelete(dept)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </div>
+
+      {/* Dialogs */}
+      <EditDepartmentDialog
+        deptId={editDeptId}
+        onOpenChange={(open) => !open && setEditDeptId(null)}
+        departments={departments}
+      />
+      <AddDepartmentDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        departments={departments}
+      />
+      <ConfirmDialog {...ConfirmDialogProps} />
+    </>
+  );
+}
+
 // ─── Main Page ──────────────────────────────────────────────
 
 export function OrgChartPage() {
@@ -354,9 +556,13 @@ export function OrgChartPage() {
             <Network className="w-4 h-4" />
             架构图
           </TabsTrigger>
+          <TabsTrigger value="departments" className="gap-1.5">
+            <FolderTree className="w-4 h-4" />
+            部门管理
+          </TabsTrigger>
           <TabsTrigger value="list" className="gap-1.5">
             <List className="w-4 h-4" />
-            列表
+            成员列表
           </TabsTrigger>
         </TabsList>
 
@@ -364,6 +570,10 @@ export function OrgChartPage() {
           <ReactFlowProvider>
             <OrgFlowCanvas />
           </ReactFlowProvider>
+        </TabsContent>
+
+        <TabsContent value="departments" className="mt-4">
+          <OrgDeptManageView />
         </TabsContent>
 
         <TabsContent value="list" className="mt-4">

@@ -201,22 +201,23 @@ function layoutTree(
 
   let startX = -totalRootsWidth / 2;
 
-  // Add a Virtual Root for the whole Organization if there's no single parent
-  if (roots.length > 1 || (roots.length === 1 && roots[0].id.startsWith('dept-'))) {
+  // Add a Virtual Root only when there are multiple root departments (or none)
+  // If there's exactly 1 root department, it IS the top node — no virtual wrapper needed
+  if (roots.length !== 1) {
     const orgId = 'org-root';
     nodes.push({
       id: orgId,
       type: 'department',
       position: { x: -NODE_W / 2, y: -GAP_Y - NODE_H_DEPT },
       data: {
-        label: '企业总部',
-        deptId: '0',
+        label: '公司总部',
+        deptId: '__virtual_root__',
         memberCount: members.length,
         managerName: members.find(m => m.role === 'boss' || m.role === 'founder')?.full_name || '总管',
         onAddMember,
       } as DepartmentNodeData,
     });
-    
+
     // Connect original roots to this virtual head
     for (const r of roots) {
       edges.push({
@@ -503,7 +504,11 @@ export function OrgFlowCanvas() {
           onNodeDragStop={onNodeDragStop}
           onConnect={onConnect}
           nodeTypes={nodeTypes}
-          onNodeClick={(_e, node) => node.type === 'department' && setEditDeptId(node.id.replace('dept-', ''))}
+          onNodeClick={(_e, node) => {
+            if (node.type === 'department' && node.id !== 'org-root') {
+              setEditDeptId(node.id.replace('dept-', ''));
+            }
+          }}
           onlyRenderVisibleElements
           fitView
           fitViewOptions={{ padding: 0.3 }}

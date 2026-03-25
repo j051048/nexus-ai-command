@@ -66,7 +66,6 @@ import {
   Pin,
   PinOff,
   Star,
-  Library,
   Network,
 } from "lucide-react";
 import {
@@ -363,13 +362,6 @@ const NAV_CONFIG: NavItem[] = [
     icon: <Users size={20} />,
     label: "员工管理",
     href: "employees",
-    roles: ["boss", "founder"],
-    group: "组织管理",
-  },
-  {
-    icon: <Library size={20} />,
-    label: "部门管理",
-    href: "departments",
     roles: ["boss", "founder"],
     group: "组织管理",
   },

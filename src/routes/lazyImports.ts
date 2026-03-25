@@ -56,7 +56,6 @@ export const PaymentPage = lazyWithRetry(() => import("@/pages/PaymentPage"));
 // Admin
 export const AISettingsPanel = lazyWithRetry(() => import("@/components/settings/AISettingsPanel").then(m => ({ default: m.AISettingsPanel })));
 export const EmployeeManagement = lazyWithRetry(() => import("@/components/admin/EmployeeManagement").then(m => ({ default: m.EmployeeManagement })));
-export const DepartmentManagement = lazyWithRetry(() => import("@/pages/DepartmentManagement"));
 export const SuperAdminDashboard = lazyWithRetry(() => import("@/pages/SuperAdminDashboard"));
 export const APIKeysPage = lazyWithRetry(() => import("@/pages/APIKeysPage"));
 export const AdminPanel = lazyWithRetry(() => import("@/pages/AdminPanel"));
