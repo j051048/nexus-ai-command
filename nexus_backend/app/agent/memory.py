@@ -1065,6 +1065,35 @@ async def persist_result(
             logger.info(f"[Memory] Saved completed_task memory for user {user_id}: {task_key}")
         extraction_tasks.append(("task_memory", _save_task_memory()))
 
+    # Generate/refresh user observation (throttle: skip if < 1 hour since last)
+    async def _update_user_observation():
+        try:
+            from datetime import UTC, datetime, timedelta
+            obs_check = await (
+                client.table("memory_consolidations")
+                .select("created_at")
+                .eq("user_id", user_id)
+                .eq("insight_type", "observation")
+                .order("created_at", desc=True)
+                .limit(1)
+                .execute()
+            )
+            if obs_check.data:
+                last_created = obs_check.data[0].get("created_at", "")
+                if last_created:
+                    last_dt = datetime.fromisoformat(last_created.replace("Z", "+00:00"))
+                    if last_dt.tzinfo is None:
+                        last_dt = last_dt.replace(tzinfo=UTC)
+                    if datetime.now(UTC) - last_dt < timedelta(hours=1):
+                        return  # Throttled: too recent
+
+            from app.services.conversation_memory.consolidation import generate_user_observation
+            await generate_user_observation(user_id=user_id, org_id=org_id, db=client)
+        except Exception as e:
+            logger.debug(f"[Memory] User observation generation failed: {e}")
+
+    extraction_tasks.append(("user_observation", _update_user_observation()))
+
     # Execute all extraction tasks in parallel
     if extraction_tasks:
         task_names = [name for name, _ in extraction_tasks]

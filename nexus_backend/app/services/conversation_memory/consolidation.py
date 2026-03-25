@@ -198,3 +198,100 @@ async def _write_connections(
                 )
         except Exception as e:
             logger.debug(f"Failed to write memory connection: {e}")
+
+
+async def generate_user_observation(
+    user_id: str,
+    org_id: str | None = None,
+    db: Any = None,
+) -> dict | None:
+    """Generate a condensed user profile observation from top memories.
+
+    Pulls the top-30 highest-importance memories and asks LLM to produce a
+    concise user profile summary (3-8 sentences). Upserts the result into
+    memory_consolidations with insight_type='observation'.
+
+    Throttle: caller should skip if last observation was generated < 1 hour ago.
+
+    Returns the observation record dict, or None on failure.
+    """
+    from app.services.ai_service import AIService
+
+    client = db or supabase
+    if not client:
+        return None
+
+    try:
+        # Pull top-30 high-importance memories for this user
+        result = await (
+            client.table("conversation_memories")
+            .select("category, key, value, importance")
+            .eq("user_id", user_id)
+            .is_("superseded_by", "null")
+            .order("importance", desc=True)
+            .limit(30)
+            .execute()
+        )
+        memories = result.data or []
+        if len(memories) < 3:
+            return None
+
+        mem_lines = []
+        for m in memories:
+            mem_lines.append(f"- ({m['category']}) {m['key']}: {m['value']}")
+
+        prompt = "以下是某用户的关键记忆条目，请生成一份浓缩的用户画像摘要：\n\n" + "\n".join(mem_lines)
+        system = (
+            "你是用户画像分析专家。根据用户的记忆条目，生成一份简洁的用户画像摘要。\n"
+            "要求：\n"
+            "- 3-8句话，涵盖用户的核心偏好、习惯、重要关系和关键事实\n"
+            '- 使用第三人称描述（如"该用户..."）\n'
+            "- 优先提取高重要性的偏好和事实\n"
+            "- 不要重复或罗列原始记忆，而是综合提炼\n"
+            "- 直接输出摘要文本，不要添加标题或格式标记"
+        )
+
+        observation_text = await AIService.call_llm(prompt, system)
+        if not observation_text or len(observation_text.strip()) < 10:
+            return None
+
+        observation_text = observation_text.strip()
+
+        # Generate embedding
+        from app.services.vector_service import vector_service
+        embedding = await vector_service.embed_text(f"用户画像: {observation_text[:200]}")
+
+        # Upsert: delete existing observation for this user, then insert new one
+        try:
+            await (
+                client.table("memory_consolidations")
+                .delete()
+                .eq("user_id", user_id)
+                .eq("insight_type", "observation")
+                .execute()
+            )
+        except Exception:
+            pass  # Table may not have existing observations
+
+        row = {
+            "user_id": user_id,
+            "insight_type": "observation",
+            "title": "用户画像摘要",
+            "content": observation_text,
+            "importance": 0.9,
+            "source_memory_ids": [m.get("key", "") for m in memories[:10]],
+        }
+        if org_id:
+            row["organization_id"] = org_id
+        if embedding:
+            row["embedding"] = embedding
+
+        insert_result = await client.table("memory_consolidations").insert(row).execute()
+        if insert_result.data:
+            logger.info(f"[Observation] Generated user observation for {user_id}")
+            return insert_result.data[0]
+
+    except Exception as e:
+        logger.warning(f"[Observation] Failed to generate observation for {user_id}: {e}")
+
+    return None

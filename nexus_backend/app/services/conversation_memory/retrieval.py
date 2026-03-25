@@ -21,42 +21,87 @@ _STOP_WORDS = frozenset(
     "记得 记住 还记得 知道 想起 回忆 前提 哪些 怎样 如何 为什么".split()
 )
 
+_EN_STOP_WORDS = frozenset(
+    "a an the is are was were be been being have has had do does did will would "
+    "shall should can could may might must need dare ought to of in on at by for "
+    "with from as into about between through during before after above below "
+    "and or but not no nor so yet both either neither each every all any few "
+    "more most other some such than too very also just only even still already "
+    "again ever never always often usually sometimes i me my mine we us our ours "
+    "you your yours he him his she her hers it its they them their theirs "
+    "this that these those here there where when how what which who whom whose "
+    "if then else while until because since although though unless whether "
+    "up down out off over under way much many well back even go get make like "
+    "know think want say tell give take come see find use work call try ask "
+    "keep let begin seem help show hear play run move live believe hold bring "
+    "happen write provide sit stand lose pay meet include continue set learn "
+    "change lead understand watch follow stop create speak read grow open walk "
+    "win offer remember love consider appear buy wait serve die send expect "
+    "build stay fall cut reach kill remain suggest raise pass sell require "
+    "report decide pull develop".split()
+)
+
 # Minimum meaningful term length (Chinese characters)
 _MIN_TERM_LEN = 2
 
+# Check if text contains Latin characters (English content indicator)
+_HAS_LATIN = re.compile(r"[a-zA-Z]{2,}")
+
 
 def _extract_search_terms(query: str) -> list[str]:
-    """Extract meaningful search terms from a Chinese query.
+    """Extract meaningful search terms from Chinese, English, or mixed queries.
 
-    Uses jieba word segmentation if available, otherwise falls back to
-    bigram extraction for Chinese text.
+    - Chinese path: jieba segmentation → stop word filter
+    - English path: whitespace split → stop word filter → keep 2+ char tokens
+    - Mixed: both paths merged, deduplicated
     """
-    # Strip punctuation
-    clean = re.sub(r"[，。！？、；：""''（）【】…—\s\d\W]+", " ", query).strip()
+    # Strip punctuation (keep Latin + CJK characters)
+    clean = re.sub(r"[，。！？、；：\u201c\u201d\u2018\u2019（）【】…—\s\d]+", " ", query)
+    clean = re.sub(r"[^\w\s\u4e00-\u9fff]", " ", clean).strip()
     if not clean:
         return []
 
+    has_latin = bool(_HAS_LATIN.search(clean))
+    has_cjk = bool(re.search(r"[\u4e00-\u9fff]", clean))
+
     terms: list[str] = []
-    try:
-        import jieba
-        words = jieba.lcut(clean)
-        terms = [w.strip() for w in words if w.strip() and len(w.strip()) >= _MIN_TERM_LEN and w.strip() not in _STOP_WORDS]
-    except ImportError:
-        # Fallback: sliding bigrams for Chinese text
-        chars = re.sub(r"\s+", "", clean)
-        for i in range(len(chars) - 1):
-            bigram = chars[i:i + 2]
-            if bigram not in _STOP_WORDS:
-                terms.append(bigram)
+
+    # English path: whitespace tokenization + stop word filter
+    if has_latin:
+        for word in clean.split():
+            w = word.strip().lower()
+            if len(w) >= 2 and w not in _EN_STOP_WORDS and not w.isdigit():
+                # Keep original case for proper nouns (capitalized words)
+                terms.append(word.strip() if word[0].isupper() else w)
+
+    # Chinese path: jieba segmentation
+    if has_cjk:
+        # Extract only CJK portions for jieba
+        cjk_text = re.sub(r"[^\u4e00-\u9fff]+", " ", clean).strip()
+        if cjk_text:
+            try:
+                import jieba
+                words = jieba.lcut(cjk_text)
+                terms.extend(
+                    w.strip() for w in words
+                    if w.strip() and len(w.strip()) >= _MIN_TERM_LEN and w.strip() not in _STOP_WORDS
+                )
+            except ImportError:
+                chars = re.sub(r"\s+", "", cjk_text)
+                for i in range(len(chars) - 1):
+                    bigram = chars[i:i + 2]
+                    if bigram not in _STOP_WORDS:
+                        terms.append(bigram)
 
     # Deduplicate while preserving order
     seen: set[str] = set()
     unique: list[str] = []
     for t in terms:
-        if t not in seen:
-            seen.add(t)
+        key = t.lower()
+        if key not in seen:
+            seen.add(key)
             unique.append(t)
-    return unique[:6]  # Cap at 6 terms to limit DB queries
+    return unique[:8]  # Cap at 8 terms (up from 6) for bilingual queries
 
 
 def _days_since(date_str: str) -> int:
@@ -150,33 +195,64 @@ async def search_memories(
 
     memories: list[dict] = []
 
+    # ── RRF 融合所需的各路排名列表 ──────────────────────────
+    rrf_lists: list[list[dict]] = []  # each sub-list is one retrieval path
+
     try:
-        # 双路并行：语义搜索 + 实体精确搜索
-        sem_task = _semantic_search(user_id, query, limit, org_id, client)
-        entity_task = _entity_precise_search(user_id, query, min(3, limit), org_id, client)
-        semantic_results, entity_results = await asyncio.gather(
-            sem_task, entity_task, return_exceptions=True,
+        # 四路并行：语义搜索 + 实体精确搜索 + 用户锚定检索 + 关键词搜索
+        sem_task = _semantic_search(user_id, query, limit * 2, org_id, client)
+        entity_task = _entity_precise_search(user_id, query, min(5, limit), org_id, client)
+        anchor_task = _user_anchor_search(user_id, min(5, limit), org_id, client)
+        keyword_task = _keyword_search(user_id, query, limit, org_id, client)
+        results = await asyncio.gather(
+            sem_task, entity_task, anchor_task, keyword_task,
+            return_exceptions=True,
         )
 
-        # 合并语义搜索结果
-        if isinstance(semantic_results, list):
-            memories.extend(semantic_results)
+        for r in results:
+            if isinstance(r, list) and r:
+                rrf_lists.append(r)
 
-        # 合并实体搜索结果（ID 去重）
-        if isinstance(entity_results, list) and entity_results:
-            seen_ids = {m["id"] for m in memories}
-            for item in entity_results:
-                if item["id"] not in seen_ids:
-                    memories.append(item)
-                    seen_ids.add(item["id"])
+        # ── RRF (Reciprocal Rank Fusion) ──────────────────────
+        # Score = Σ 1/(k + rank_i) across all lists where the item appears
+        _RRF_K = 60  # Standard RRF constant (controls rank vs. tail balance)
+        rrf_scores: dict[str, float] = {}
+        id_to_mem: dict[str, dict] = {}
 
-        # Strategy 3: Keyword fallback (supplement if still insufficient)
-        if len(memories) < limit:
-            keyword_results = await _keyword_search(user_id, query, limit - len(memories), org_id, client)
-            seen_ids = {m["id"] for m in memories}
-            for item in keyword_results:
-                if item["id"] not in seen_ids:
-                    memories.append(item)
+        for ranked_list in rrf_lists:
+            for rank, mem in enumerate(ranked_list):
+                mid = mem["id"]
+                rrf_scores[mid] = rrf_scores.get(mid, 0.0) + 1.0 / (_RRF_K + rank + 1)
+                if mid not in id_to_mem:
+                    id_to_mem[mid] = mem
+
+        # ── Time-Decay 梯度加权 ─────────────────────────────
+        # 在 RRF 分数上叠加新鲜度因子，确保"当前的我"优先于"过去的我"
+        for mid, mem in id_to_mem.items():
+            updated = mem.get("updated_at") or mem.get("created_at") or ""
+            days_old = _days_since(updated)
+
+            # Sliding window decay: recent (<7d) = 1.0, moderate (<30d) ~0.7, old (>90d) ~0.3
+            if days_old <= 7:
+                freshness = 1.0
+            elif days_old <= 30:
+                freshness = 1.0 - 0.3 * ((days_old - 7) / 23.0)
+            elif days_old <= 90:
+                freshness = 0.7 - 0.4 * ((days_old - 30) / 60.0)
+            else:
+                freshness = max(0.2, 0.3 * (90.0 / max(days_old, 1)))
+
+            # Evergreen categories bypass decay
+            cat = mem.get("category", "")
+            if cat in ("explicit_memory", "policy"):
+                freshness = max(freshness, 0.9)
+
+            rrf_scores[mid] = rrf_scores[mid] * (0.6 + 0.4 * freshness)
+
+        # Sort by RRF score descending
+        sorted_ids = sorted(rrf_scores, key=lambda x: rrf_scores[x], reverse=True)
+        memories = [id_to_mem[mid] for mid in sorted_ids]
+
     except Exception as e:
         logger.warning(f"Memory search failed: {e}")
 
@@ -229,16 +305,16 @@ async def search_memories(
         if len(memories) < pre_count:
             logger.info(f"[Memory] Relevance filter: {pre_count} → {len(memories)}")
 
-    # Feature 3: 1-hop connection expansion on top results
+    # Feature 3: KG Spreading Activation — 脉冲式激活扩散
     try:
-        expanded = await _expand_top_connections(memories[:3], user_id, db=client)
+        expanded = await _spreading_activation(memories[:5], user_id, db=client)
         if expanded:
             seen_ids = {m["id"] for m in memories}
             for em in expanded:
                 if em["id"] not in seen_ids:
                     memories.append(em)
     except Exception as e:
-        logger.debug(f"Connection expansion skipped: {e}")
+        logger.debug(f"Spreading activation skipped: {e}")
 
     return memories
 
@@ -352,6 +428,10 @@ _ENTITY_PATTERNS = [
     re.compile(r"([\u4e00-\u9fff]{2,4}(?:总|经理|老师|同学|先生|女士|老板|主管|领导|组长))"),
     re.compile(r"([\u4e00-\u9fff]{2,4})(?:说|提到|要求|反馈|告诉|认为|觉得)"),
     re.compile(r"(?:关于|有关|涉及)([\u4e00-\u9fff\w]{2,10}?)(?:的|项目|方案|合同|订单)"),
+    # English: multi-word proper names like "Kanoa Manu", "John Smith"
+    re.compile(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b"),
+    # English: single capitalized word (likely a name) adjacent to possessive/verb
+    re.compile(r"\b([A-Z][a-z]{2,})'s\b"),
 ]
 
 
@@ -393,6 +473,151 @@ async def _entity_precise_search(
             pass
 
     return memories[:limit]
+
+
+async def _user_anchor_search(
+    user_id: str, limit: int, org_id: str | None, client,
+) -> list[dict]:
+    """无条件拉取用户最重要的 TOP-N 记忆（不依赖查询语义）。
+
+    解决语义向量搜索在隐式关联场景下的盲区：
+    即使用户查询与记忆文本的向量距离大，高重要性记忆仍应被召回。
+    """
+    try:
+        q = (
+            client.table("conversation_memories")
+            .select("*")
+            .eq("user_id", user_id)
+            .is_("superseded_by", "null")
+            .order("importance", desc=True)
+            .limit(limit)
+        )
+        if org_id:
+            q = q.eq("organization_id", org_id)
+        result = await q.execute()
+        return result.data or []
+    except Exception as e:
+        logger.debug(f"User anchor search failed: {e}")
+        return []
+
+
+async def _spreading_activation(
+    seed_memories: list[dict],
+    user_id: str,
+    max_hops: int = 2,
+    decay_factor: float = 0.5,
+    activation_threshold: float = 0.15,
+    max_total: int = 8,
+    db: Any = None,
+) -> list[dict]:
+    """KG Spreading Activation — 脉冲式激活扩散检索。
+
+    从种子记忆出发，沿 connections 网络传播激活信号：
+    - 每一跳激活分数乘以 decay_factor × connection strength
+    - 激活分数低于 activation_threshold 的节点停止传播
+    - 最终按累积激活分数排序返回 top-N 扩散记忆
+
+    这比简单的 1-hop/2-hop 扩展更精准：
+    - 多路径汇聚的节点获得更高分数
+    - 弱连接自然被过滤掉
+    """
+    client = db or supabase
+    if not client or not seed_memories:
+        return []
+
+    seed_ids = {m["id"] for m in seed_memories}
+
+    # activation_map: node_id -> cumulative activation score
+    activation_map: dict[str, float] = {}
+
+    # Initialize seeds with their importance as initial activation
+    frontier: list[tuple[str, float]] = []  # (memory_id, activation_score)
+    for mem in seed_memories:
+        imp = float(mem.get("importance", 0.5) or 0.5)
+        connections = mem.get("connections", [])
+        if not isinstance(connections, list):
+            continue
+        for conn in connections:
+            target_id = conn.get("memory_id")
+            strength = float(conn.get("strength", 0.5) or 0.5)
+            if target_id and target_id not in seed_ids:
+                activation = imp * strength * decay_factor
+                if activation >= activation_threshold:
+                    frontier.append((target_id, activation))
+
+    # BFS-style propagation
+    visited: set[str] = set(seed_ids)
+    all_activated: dict[str, float] = {}
+
+    for hop in range(max_hops):
+        if not frontier:
+            break
+
+        # Accumulate activations for this frontier
+        for mid, score in frontier:
+            all_activated[mid] = all_activated.get(mid, 0.0) + score
+
+        # Fetch frontier memories to get their connections for next hop
+        frontier_ids = list({mid for mid, _ in frontier if mid not in visited})
+        if not frontier_ids:
+            break
+
+        try:
+            result = await (
+                client.table("conversation_memories")
+                .select("id, connections, importance")
+                .eq("user_id", user_id)
+                .in_("id", frontier_ids[:20])
+                .execute()
+            )
+            fetched = {m["id"]: m for m in (result.data or [])}
+        except Exception:
+            break
+
+        next_frontier: list[tuple[str, float]] = []
+        for mid, score in frontier:
+            visited.add(mid)
+            mem_data = fetched.get(mid)
+            if not mem_data:
+                continue
+            connections = mem_data.get("connections", [])
+            if not isinstance(connections, list):
+                continue
+            for conn in connections:
+                target_id = conn.get("memory_id")
+                strength = float(conn.get("strength", 0.5) or 0.5)
+                if target_id and target_id not in visited and target_id not in seed_ids:
+                    propagated = score * strength * decay_factor
+                    if propagated >= activation_threshold:
+                        next_frontier.append((target_id, propagated))
+
+        frontier = next_frontier
+
+    if not all_activated:
+        return []
+
+    # Sort by activation score, fetch top memories
+    sorted_activated = sorted(all_activated.items(), key=lambda x: x[1], reverse=True)
+    top_ids = [mid for mid, _ in sorted_activated[:max_total]]
+
+    try:
+        result = await (
+            client.table("conversation_memories")
+            .select("*")
+            .eq("user_id", user_id)
+            .in_("id", top_ids)
+            .execute()
+        )
+        expanded = result.data or []
+        # Attach activation score for downstream ranking
+        for mem in expanded:
+            mem["_activation_score"] = all_activated.get(mem["id"], 0)
+        # Sort by activation score
+        expanded.sort(key=lambda m: m.get("_activation_score", 0), reverse=True)
+        return expanded
+    except Exception as e:
+        logger.debug(f"Spreading activation fetch failed: {e}")
+        return []
 
 
 async def _expand_top_connections(
@@ -534,6 +759,26 @@ async def build_memory_context(
     使用 complexity 执行意图感知动态路由 (Intent-Aware Router)。
     """
     context_parts: list[str] = []
+    client = db or supabase
+
+    # 0-pre) 注入用户画像 observation（如果存在）
+    try:
+        if client:
+            obs_result = await (
+                client.table("memory_consolidations")
+                .select("content")
+                .eq("user_id", user_id)
+                .eq("insight_type", "observation")
+                .order("created_at", desc=True)
+                .limit(1)
+                .execute()
+            )
+            if obs_result.data:
+                obs_content = obs_result.data[0].get("content", "")
+                if obs_content:
+                    context_parts.append(f"<observation>\n{obs_content}\n</observation>")
+    except Exception as e:
+        logger.debug(f"Observation injection skipped: {e}")
 
     # Analyze complexity to optimize retrieval caps (P2: Intent-Aware Memory Router)
     explicit_limit = 5
