@@ -154,6 +154,60 @@ export function useCreateDepartment() {
   });
 }
 
+export function useUpdateDepartment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ 
+      deptId, 
+      name, 
+      managerId, 
+      parentId 
+    }: { 
+      deptId: string; 
+      name?: string; 
+      managerId?: string | null; 
+      parentId?: string | null 
+    }) => {
+      const body: Record<string, unknown> = {};
+      if (name !== undefined) body.name = name;
+      if (managerId !== undefined) body.manager_id = managerId;
+      if (parentId !== undefined) body.parent_id = parentId;
+
+      const res = await aiClient.fetch<{ success: boolean; data: OrgDepartment }>(
+        `api/org-structure/departments/${deptId}`,
+        { method: 'PATCH', body: JSON.stringify(body) }
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['org-departments'] });
+      queryClient.invalidateQueries({ queryKey: ['org-members'] });
+      toast.success('部门信息已更新');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || '更新部门失败');
+    },
+  });
+}
+
+export function useDeleteDepartment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (deptId: string) => {
+      await aiClient.fetch(`api/org-structure/departments/${deptId}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['org-departments'] });
+      toast.success('部门已删除');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || '删除部门失败');
+    },
+  });
+}
+
 export function useUpdateDepartmentParent() {
   const queryClient = useQueryClient();
   return useMutation({

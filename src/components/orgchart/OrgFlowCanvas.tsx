@@ -18,14 +18,18 @@ import { MemberNode } from './MemberNode';
 import { OrgFlowToolbar } from './OrgFlowToolbar';
 import { AddDepartmentDialog } from './AddDepartmentDialog';
 import { TransferConfirmDialog } from './TransferConfirmDialog';
+import { EditDepartmentDialog } from './EditDepartmentDialog';
+import { OrgTemplatesDialog } from './OrgTemplatesDialog';
 import {
   useOrgMembers,
   useDepartments,
   useTransferEmployee,
   useUpdateDepartmentParent,
+  useUpdateDepartment,
   type OrgDepartment,
   type OrgMember,
 } from '@/hooks/useOrgChart';
+import { addEdge, type Connection, type OnConnect } from '@xyflow/react';
 import { Loader2 } from 'lucide-react';
 
 // 内联错误边界，用于精确定位 ReactFlow 内部的 #301 错误
@@ -307,6 +311,16 @@ export function OrgFlowCanvas() {
   const updateDeptParent = useUpdateDepartmentParent();
 
   const [showAddDept, setShowAddDept] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [editDeptId, setEditDeptId] = useState<string | null>(null);
+
+  const handleEditDepartment = useCallback((deptId: string) => {
+    setEditDeptId(deptId);
+  }, []);
+
+  // Track original positions for snap-back
+  const origPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+
   const [transfer, setTransfer] = useState<{
     nodeId: string;
     name: string;
@@ -314,25 +328,25 @@ export function OrgFlowCanvas() {
     targetDeptName: string;
   } | null>(null);
 
-  // Track original positions for snap-back
-  const origPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
-
-  const handleAddMember = useCallback((deptId: string) => {
-    // Navigate to employee management with dept context
-    window.open(`/employees?dept=${deptId}`, '_self');
-  }, []);
+  // Manual Wiring mode
+  const [autoEdgeMode, setAutoEdgeMode] = useState(false);
 
   // Build flow data
   const { flowNodes, flowEdges } = useMemo(() => {
     if (!departments.length) return { flowNodes: [], flowEdges: [] };
     const roots = buildTree(departments, members);
-    const { nodes, edges } = layoutTree(roots, departments, members, handleAddMember);
+    const { nodes, edges } = layoutTree(roots, departments, members, handleEditDepartment);
+    
+    // In manual mode, we might want to skip auto-edges 
+    // BUT! Keeping them initially ensures the user sees the existing DB structure.
+    // However, the user said "不应该自动生成", so I'll follow that.
+    const finalEdges = autoEdgeMode ? edges : [];
     // Cache positions
     const posMap = new Map<string, { x: number; y: number }>();
     for (const n of nodes) posMap.set(n.id, { ...n.position });
     origPositionsRef.current = posMap;
     return { flowNodes: nodes, flowEdges: edges };
-  }, [departments, members, handleAddMember]);
+  }, [departments, members, handleEditDepartment, autoEdgeMode]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(flowNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(flowEdges);
@@ -340,8 +354,27 @@ export function OrgFlowCanvas() {
   // Sync when data changes (useEffect, not useMemo — setState during render causes #301)
   useEffect(() => {
     setNodes(flowNodes);
-    setEdges(flowEdges);
-  }, [flowNodes, flowEdges, setNodes, setEdges]);
+    setEdges(prev => autoEdgeMode ? flowEdges : prev);
+  }, [flowNodes, flowEdges, setNodes, setEdges, autoEdgeMode]);
+
+  const onConnect: OnConnect = useCallback(
+    async (params: Connection) => {
+      // Create relationship in DB when a line is drawn
+      if (params.source?.startsWith('dept-') && params.target?.startsWith('dept-')) {
+        const sourceId = params.source.replace('dept-', '');
+        const targetId = params.target.replace('dept-', '');
+        await updateDeptParent.mutateAsync({ deptId: targetId, parentId: sourceId });
+        setEdges((eds) => addEdge({ ...params, type: 'smoothstep', style: { strokeWidth: 2, stroke: 'hsl(var(--primary))' } }, eds));
+      } else if (params.source?.startsWith('dept-') && params.target?.startsWith('member-')) {
+        // Assign member to dept
+        const deptId = params.source.replace('dept-', '');
+        const memberId = params.target.replace('member-', '');
+        await transferEmployee.mutateAsync({ employeeId: memberId, departmentId: deptId });
+        setEdges((eds) => addEdge({ ...params, type: 'smoothstep', animated: true, style: { strokeWidth: 1.5, strokeDasharray: '4 3', stroke: 'hsl(var(--primary) / 0.5)' } }, eds));
+      }
+    },
+    [setEdges, updateDeptParent, transferEmployee]
+  );
 
   const snapBack = useCallback((nodeId: string) => {
     const orig = origPositionsRef.current.get(nodeId);
@@ -445,8 +478,21 @@ export function OrgFlowCanvas() {
   }
 
   return (
-    <div className="h-[calc(100vh-14rem)] w-full rounded-xl border border-border bg-card overflow-hidden">
-      <OrgFlowToolbar onAddDepartment={() => setShowAddDept(true)} />
+    <div className="h-[calc(100vh-14rem)] w-full rounded-xl border border-border bg-card overflow-hidden relative">
+      <OrgFlowToolbar 
+        onAddDepartment={() => setShowAddDept(true)} 
+        onShowTemplates={() => setShowTemplates(true)}
+      />
+
+      <div className="absolute top-14 left-4 z-10 flex items-center gap-2 bg-background/50 backdrop-blur p-1 rounded-md border border-border">
+         <span className="text-[10px] font-medium px-2">自动连线</span>
+         <input 
+            type="checkbox" 
+            checked={autoEdgeMode} 
+            onChange={e => setAutoEdgeMode(e.target.checked)}
+            className="w-4 h-4 accent-primary"
+         />
+      </div>
 
       <FlowErrorBoundary>
         <ReactFlow
@@ -455,12 +501,14 @@ export function OrgFlowCanvas() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onNodeDragStop={onNodeDragStop}
+          onConnect={onConnect}
           nodeTypes={nodeTypes}
+          onNodeClick={(_e, node) => node.type === 'department' && setEditDeptId(node.id.replace('dept-', ''))}
           onlyRenderVisibleElements
           fitView
           fitViewOptions={{ padding: 0.3 }}
           minZoom={0.2}
-          maxZoom={2}
+          maxZoom={4}
           proOptions={{ hideAttribution: true }}
         >
           <Controls className="!bg-card !border-border !shadow-sm" />
@@ -477,6 +525,17 @@ export function OrgFlowCanvas() {
         open={showAddDept}
         onOpenChange={setShowAddDept}
         departments={departments}
+      />
+
+      <EditDepartmentDialog
+        deptId={editDeptId}
+        onOpenChange={(open) => !open && setEditDeptId(null)}
+        departments={departments}
+      />
+
+      <OrgTemplatesDialog
+        open={showTemplates}
+        onOpenChange={setShowTemplates}
       />
 
       <TransferConfirmDialog
