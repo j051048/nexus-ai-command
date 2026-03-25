@@ -28,6 +28,19 @@ interface OrgInfo {
   member_count?: number;
 }
 
+// 安全提取字符串值（防止 React #301 崩溃）
+function safeStr(v: unknown): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (typeof v === 'object') {
+    const name = (v as Record<string, unknown>).name;
+    if (typeof name === 'string') return name;
+    return JSON.stringify(v);
+  }
+  return String(v);
+}
+
 function CompanySettingsPage() {
   const { profile } = useAuth();
   const [org, setOrg] = useState<OrgInfo | null>(null);
@@ -85,9 +98,9 @@ function CompanySettingsPage() {
 
       const orgData: OrgInfo = {
         id: data.id,
-        name: data.name,
-        slug: data.slug,
-        invite_code: inviteCode,
+        name: safeStr(data.name),
+        slug: safeStr(data.slug),
+        invite_code: inviteCode ? safeStr(inviteCode) : null,
         invite_code_enabled: inviteEnabled,
         invite_code_expires_at: inviteExpires,
         member_count: count ?? 0,
@@ -238,7 +251,7 @@ function CompanySettingsPage() {
             </div>
             <div className="flex items-center gap-1.5">
               <Shield className="w-4 h-4" />
-              <span>ID: {org.slug}</span>
+              <span>ID: {safeStr(org.slug)}</span>
             </div>
           </div>
         </CardContent>
@@ -273,7 +286,7 @@ function CompanySettingsPage() {
               <div className="flex items-center gap-3">
                 <div className="flex-1 relative">
                   <code className="block w-full text-center text-2xl font-mono font-bold tracking-[0.3em] bg-muted/50 border border-border rounded-lg py-4 px-6 select-all">
-                    {org.invite_code}
+                    {safeStr(org.invite_code)}
                   </code>
                   {!org.invite_code_enabled && (
                     <div className="absolute inset-0 bg-background/80 rounded-lg flex items-center justify-center">

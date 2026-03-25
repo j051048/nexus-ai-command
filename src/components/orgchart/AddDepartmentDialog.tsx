@@ -18,6 +18,19 @@ import {
 import { Loader2, Building2 } from 'lucide-react';
 import { useCreateDepartment, type OrgDepartment } from '@/hooks/useOrgChart';
 
+// 安全提取字符串值
+function safeStr(v: unknown): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (typeof v === 'object') {
+    const name = (v as Record<string, unknown>).name;
+    if (typeof name === 'string') return name;
+    return JSON.stringify(v);
+  }
+  return String(v);
+}
+
 interface AddDepartmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -72,7 +85,7 @@ export function AddDepartmentDialog({ open, onOpenChange, departments }: AddDepa
                 </SelectItem>
                 {departments.map((d) => (
                   <SelectItem key={d.id} value={d.id}>
-                    {d.name}
+                    {safeStr(d.name)}
                   </SelectItem>
                 ))}
               </SelectContent>

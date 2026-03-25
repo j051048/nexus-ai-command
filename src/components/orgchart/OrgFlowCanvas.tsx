@@ -33,7 +33,12 @@ import { Loader2 } from 'lucide-react';
 function safeStr(v: unknown): string {
   if (v == null) return '';
   if (typeof v === 'string') return v;
-  if (typeof v === 'object' && v !== null) return (v as Record<string, unknown>).name as string || '';
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (typeof v === 'object') {
+    const name = (v as Record<string, unknown>).name;
+    if (typeof name === 'string') return name;
+    return JSON.stringify(v);
+  }
   return String(v);
 }
 
@@ -277,9 +282,9 @@ export function OrgFlowCanvas() {
             if (dept && targetDept) {
               setTransfer({
                 nodeId: draggedNode.id,
-                name: `部门「${dept.name}」`,
+                name: `部门「${safeStr(dept.name)}」`,
                 targetDeptId,
-                targetDeptName: targetDept.name,
+                targetDeptName: safeStr(targetDept.name),
               });
               return;
             }
@@ -308,9 +313,9 @@ export function OrgFlowCanvas() {
         if (member && targetDept) {
           setTransfer({
             nodeId: draggedNode.id,
-            name: member.full_name,
+            name: safeStr(member.full_name),
             targetDeptId,
-            targetDeptName: targetDept.name,
+            targetDeptName: safeStr(targetDept.name),
           });
           return;
         }

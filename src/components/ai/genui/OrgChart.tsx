@@ -2,6 +2,19 @@ import React from 'react';
 import { User, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+// 安全提取字符串值（防止 AI 生成的数据含对象导致 React #301）
+function safeStr(v: unknown): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (typeof v === 'object') {
+    const name = (v as Record<string, unknown>).name;
+    if (typeof name === 'string') return name;
+    return JSON.stringify(v);
+  }
+  return String(v);
+}
+
 interface OrgNode {
   id: string;
   name: string;
@@ -30,9 +43,9 @@ function NodeCard({ node }: { node: OrgNode }) {
         </div>
       )}
       <div className="text-center">
-        <p className="text-sm font-medium leading-tight">{node.name}</p>
+        <p className="text-sm font-medium leading-tight">{safeStr(node.name)}</p>
         {node.title && (
-          <p className="text-xs text-muted-foreground leading-tight mt-0.5">{node.title}</p>
+          <p className="text-xs text-muted-foreground leading-tight mt-0.5">{safeStr(node.title)}</p>
         )}
       </div>
     </div>
@@ -128,7 +141,7 @@ export default function OrgChart({ nodes, title }: OrgChartProps) {
 
   return (
     <div className="p-4">
-      {title && <h4 className="text-sm font-semibold mb-4">{title}</h4>}
+      {title && <h4 className="text-sm font-semibold mb-4">{safeStr(title)}</h4>}
       <div className="overflow-x-auto">
         <div className="inline-flex gap-8 min-w-fit">
           {rootNodes.map((root) => (

@@ -57,20 +57,27 @@ const ROLE_LABELS: Record<string, string> = {
   employee: '员工',
 };
 
-function getRoleLabel(role: string) {
-  return ROLE_LABELS[role] || role;
+function getRoleLabel(role: unknown) {
+  const r = safeStr(role);
+  return ROLE_LABELS[r] || r;
 }
 
 // 安全提取字符串值（全局复用，防止字段是对象时崩溃）
 function safeStr(v: unknown): string {
   if (v == null) return '';
   if (typeof v === 'string') return v;
-  if (typeof v === 'object' && v !== null) return (v as Record<string, unknown>).name as string || JSON.stringify(v);
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (typeof v === 'object') {
+    const name = (v as Record<string, unknown>).name;
+    if (typeof name === 'string') return name;
+    return JSON.stringify(v);
+  }
   return String(v);
 }
 
-function getRoleBadgeColor(role: string) {
-  switch (role) {
+function getRoleBadgeColor(role: unknown) {
+  const r = safeStr(role);
+  switch (r) {
     case 'boss':
     case 'founder':
       return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
