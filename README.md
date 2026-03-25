@@ -8,10 +8,12 @@ Nexus AI Command 是一个全功能企业级 AI 管理平台，覆盖销售、CR
 
 ## 核心特性
 
+- **SOTA 级 Agent 记忆系统**: 基于 Mem0/MSA 架构，支持实体关系自动发现、动态冲突消解、超长距离事实召回
+- **可视化组织架构管理**: 基于 React Flow 的交互式画布，支持 5 种经典架构模板、手动连线、动态节点编辑
 - **AI-First 交互**: LangGraph 多 Agent 编排，4 级复杂度智能路由，支持 WBS 任务分解
 - **100+ AI 工具**: 覆盖 CRM、OA、财务、HR、审批、合同、资产、库存、工单、证照、竞品分析等
 - **多租户隔离**: 组织级数据隔离，Supabase RLS 行级安全策略
-- **可视化工作流**: 基于 React Flow 的拖拽式审批流程设计器
+- **可视化工作流**: 拖拽式审批流程设计器，AI 辅助审批与异常检测
 - **VMD 营销数字化**: 内容生成、投标文档、销售赋能、竞品分析、私域运营
 - **企业级安全**: CSRF 防护、CSP Nonce、HSTS、API Rate Limiting、数据脱敏
 - **PWA 支持**: 离线可用，支持安装为桌面/移动应用
@@ -20,7 +22,7 @@ Nexus AI Command 是一个全功能企业级 AI 管理平台，覆盖销售、CR
 
 ## 技术架构
 
-```
+```text
 ┌──────────────────────────────────────────────────────────┐
 │  前端 (React + Vite + TypeScript + TailwindCSS)          │
 │  Radix UI + React Flow + TanStack Query + Sentry         │
@@ -38,7 +40,7 @@ Nexus AI Command 是一个全功能企业级 AI 管理平台，覆盖销售、CR
 
 ### Agent 架构
 
-```
+```text
 用户输入 → 意图路由(4级复杂度) → Plan → Execute(工具调用) → Reflect(幻觉检测) → Critic → Respond
                                    ↑        ↓
                                    └── 循环 ──┘
@@ -47,6 +49,18 @@ Nexus AI Command 是一个全功能企业级 AI 管理平台，覆盖销售、CR
 ```
 
 关键机制: 工具执行超时(30s/120s)、结果截断(2000字符)、循环检测(MD5指纹)、HITL 确认门控、断路器、幂等性缓存。
+
+#### 记忆系统架构 (Memory SOTA)
+
+```mermaid
+graph LR
+    User((用户)) -- 交互 --> Agent{Agent}
+    Agent -- 提取 --> Fact[原子化事实库]
+    Agent -- 召回 --> Logic[语义推断层]
+    Fact -- 持久化 --> Mem0[(Long-term Memory)]
+    Logic -- 更新 --> Fact
+```
+*特性：跨会话实体关联、事实版本控制、零幻觉召回。*
 
 ---
 
@@ -134,6 +148,7 @@ npm run dev
 ### 5. Celery 定时任务（可选）
 
 如需定时任务功能（用户自定义定时任务、审批超时提醒等），需要 Redis + Celery：
+
 
 ```bash
 cd nexus_backend

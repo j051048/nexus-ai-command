@@ -1,269 +1,94 @@
-# Graph Memory 试点设计文档
+# Nexus AI 核心记忆系统 (Memory SOTA) 架构文档
 
-> 在 CRM / 组织架构场景引入轻量级知识图谱，增强 Agent 对实体关系的理解和推理能力。
+> 基于 Mem0/MSA (Memory System Architecture) 原则构建的企业级长效记忆引擎。
 
-## 1. 动机
+## 1. 深度动机
 
-当前 `conversation_memories` 和 `vector_service` 均为"扁平"存储：每条记忆或文档片段独立存在，缺乏实体间的关联信息。这导致以下场景表现不佳：
+在企业级 AI 助手场景中，传统 RAG（检索增强生成）存在三大痛点：
+- **事实孤岛**：由于分段存储，AI 无法理解“张三的猫有多大”与“多比是只猫”之间的实体关联。
+- **事实冲突**：当用户更新信息时（如“我要回老家”改为“我要去旅游”），传统检索会搜出两条冲突信息。
+- **上下文膨胀**：为了让 AI “有记性”，开发者往往被迫把成千上万的历史对话塞进 Prompt，导致 Token 成本飙升且响应变慢。
 
-- "张总的下属有哪些人？" —— 需要遍历所有记忆才能拼凑组织架构
-- "跟华为相关的所有销售线索和联系人" —— 跨表跨记忆难以聚合
-- "李经理上次提到的那个供应商叫什么" —— 需要实体消歧和关系回溯
+Nexus AI 通过**原子化事实提取**与**语义冲突代理**解决了上述问题。
 
-知识图谱可以将实体和关系显式建模，使 Agent 能通过图遍历快速获取结构化上下文。
+## 2. 技术架构
 
-## 2. 数据模型
+系统采用三级分层架构，确保即时性与持久性的平衡。
 
-### 2.1 核心表结构（PostgreSQL 原生方案）
+### 2.1 分层存储模型
 
-```sql
--- 实体表：人物、组织、产品、项目等
-CREATE TABLE IF NOT EXISTS graph_entities (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id VARCHAR(64) NOT NULL,
-    entity_type VARCHAR(50) NOT NULL,      -- person, organization, product, project, lead
-    name VARCHAR(255) NOT NULL,
-    aliases TEXT[] DEFAULT '{}',            -- 别名列表，用于实体消歧
-    properties JSONB DEFAULT '{}',          -- 灵活属性 (title, phone, email, etc.)
-    embedding vector(1536),                 -- 语义向量，用于模糊匹配
-    source VARCHAR(50) DEFAULT 'agent',     -- agent, import, crm_sync
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(tenant_id, entity_type, name)
-);
-
--- 关系表：实体间的有向关系
-CREATE TABLE IF NOT EXISTS graph_relations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id VARCHAR(64) NOT NULL,
-    source_entity_id UUID NOT NULL REFERENCES graph_entities(id) ON DELETE CASCADE,
-    target_entity_id UUID NOT NULL REFERENCES graph_entities(id) ON DELETE CASCADE,
-    relation_type VARCHAR(50) NOT NULL,     -- reports_to, belongs_to, sells_to, contacts
-    properties JSONB DEFAULT '{}',          -- weight, since, notes
-    confidence FLOAT DEFAULT 1.0,           -- 0.0-1.0，自动提取的关系置信度
-    source VARCHAR(50) DEFAULT 'agent',
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    UNIQUE(tenant_id, source_entity_id, target_entity_id, relation_type)
-);
-
--- 索引
-CREATE INDEX idx_graph_entities_tenant_type ON graph_entities(tenant_id, entity_type);
-CREATE INDEX idx_graph_entities_name_trgm ON graph_entities USING gin(name gin_trgm_ops);
-CREATE INDEX idx_graph_entities_embedding ON graph_entities USING ivfflat(embedding vector_cosine_ops) WITH (lists=100);
-CREATE INDEX idx_graph_relations_source ON graph_relations(source_entity_id);
-CREATE INDEX idx_graph_relations_target ON graph_relations(target_entity_id);
-CREATE INDEX idx_graph_relations_type ON graph_relations(tenant_id, relation_type);
+```mermaid
+graph TD
+    A[用户输入/回复] --> B{记忆控制器 MSA}
+    B -- 1-3轮 --> C[短期: Token Context Buffer]
+    B -- 关键词提取 --> D[中期: Redis 语义缓存]
+    B -- 事实解析/Mem0 --> E[长期: 向量事实库 Vector DB]
+    
+    C --> F[即时代词解析]
+    D --> G[当前任务上下文]
+    E --> H[跨会话偏好 & 实体关系]
 ```
 
-### 2.2 实体类型枚举
+### 2.2 核心机制
 
-| entity_type    | 说明         | 典型属性                         |
-|----------------|--------------|----------------------------------|
-| `person`       | 联系人/员工  | title, phone, email, department  |
-| `organization` | 公司/部门    | industry, size, address          |
-| `product`      | 产品/方案    | category, price_range            |
-| `project`      | 项目/商机    | stage, value, deadline           |
-| `lead`         | 销售线索     | stage, source, priority          |
+#### 2.2.1 原子化事实提取 (Atomization)
+利用 `memory.py` 集成的 LLM 提取器，将长对话转化为不可分割的事实条目：
+- 原始输入："我更喜欢在周二下午一点深度阅读。"
+- 原子事实：`{ entity: "user", attribute: "deep_reading_time", value: "Tuesday 13:00", confidence: 1.0 }`
 
-### 2.3 关系类型枚举
+#### 2.2.2 语义冲突消解 (Conflict Resolution)
+当新事实进入系统时，MSA 控制器执行以下流程：
+1. **相似性检索**：在向量库中寻找与新事实语义重叠的旧条目。
+2. **逻辑判定**：如果新旧事实存在互斥（如：住址 A vs 住址 B），则通过 LLM 判定更新后的真相。
+3. **版本更新**：标记旧事实为 `stale`（过时），保证召回的始终是唯一最新事实。
 
-| relation_type  | 说明             | 示例                              |
-|----------------|------------------|-----------------------------------|
-| `reports_to`   | 汇报关系         | 员工A → 经理B                     |
-| `belongs_to`   | 归属关系         | 员工A → 部门X                     |
-| `contacts`     | 联系人关系       | 销售员 → 客户联系人               |
-| `sells_to`     | 销售关系         | 公司 → 客户                       |
-| `related_to`   | 通用关联         | 项目A → 产品B                     |
-| `competes_with`| 竞争关系         | 产品A → 竞品B                     |
+#### 2.2.3 实体指代消解 (Entity Resolution)
+系统自动在记忆库中搜索实体别名（Aliases）和关联关系。
+- 示例：记住“那个想去大理的人”就是“张三”，通过语义标签完成实体对齐。
 
-## 3. 存储方案对比
+## 3. 实体关系图谱 (ER Graph)
 
-| 维度           | PostgreSQL + pgvector (推荐) | Neo4j                        |
-|----------------|------------------------------|------------------------------|
-| 部署复杂度     | 零额外依赖（已有 Supabase）  | 需要独立实例，增加运维成本   |
-| 学习成本       | 标准 SQL + 递归 CTE          | Cypher 查询语言              |
-| 向量搜索       | pgvector 原生支持            | 需插件（neo4j-vector）       |
-| 多跳遍历性能   | 3 跳内够用（递归 CTE）       | 深度遍历优势明显             |
-| 事务一致性     | 与业务表同库，强一致          | 跨库需分布式事务             |
-| 成本           | 包含在 Supabase 套餐内       | 额外 $50-200/月              |
+系统在后台维护了一个隐式的关系图谱，支持多跳推理：
 
-**结论**：推荐 PostgreSQL 原生方案。CRM 场景中关系深度通常 <=3 跳，PostgreSQL 递归 CTE 足够满足性能需求，且避免引入新基础设施依赖。
-
-## 4. 与现有 memory.py 的集成点
-
-### 4.1 写入时机
-
-在 `memory.py` 的 `save_to_memory()` 方法中，对话结束后：
-
-1. 调用 LLM 从对话中提取实体和关系（类似现有的 `_extract_with_llm`）
-2. 通过 `GraphMemoryService.upsert_entities()` 写入实体
-3. 通过 `GraphMemoryService.upsert_relations()` 写入关系
-
-```python
-# memory.py 集成伪代码
-async def save_to_memory(self, ...):
-    # 现有逻辑：保存对话记忆
-    await self._save_conversation_memory(...)
-
-    # 新增：提取并保存图谱实体/关系
-    entities, relations = await self._extract_graph_data(messages)
-    if entities:
-        await graph_memory_service.upsert_entities(tenant_id, entities)
-    if relations:
-        await graph_memory_service.upsert_relations(tenant_id, relations)
+```mermaid
+graph LR
+    User((用户)) -- 饮品偏好 --> Coffee(咖啡: 加冰/无糖)
+    User -- 指导阅读 --> Time(周二下午13:00)
+    StudyGroup[学习小组] -- 成员 --> ZhangSan[张三]
+    ZhangSan -- 宠物 --> Dobby[猫: 多比]
+    Dobby -- 喜好 --> Snack[冻干鸡脖]
 ```
 
-### 4.2 读取时机
+## 4. 与系统组件的集成
 
-在 `memory.py` 的 `prepare_context()` 方法中，构建 Agent 上下文时：
+### 4.1 写入链路 (Ingestion)
+1. **Hook 触发**：对话结束时根据意图路由判定是否需要记忆。
+2. **Tool 调用**：使用 `add_memories` 原子化录入知识。
 
-1. 从用户查询中识别实体名称
-2. 查询图谱获取 1-2 跳关联实体和关系
-3. 将图谱上下文拼接到 RAG 上下文中
+### 4.2 查询链路 (Retrieval)
+1. **主动召回**：Agent 在规划（Plan）阶段识别出需要背景知识，主动调用 `search_long_term_memory`。
+2. **被动增强**：在构建 Prompt 时，系统根据 query 自动注入相关的原子事实。
 
-```python
-# memory.py 集成伪代码
-async def prepare_context(self, query: str, ...):
-    # 现有逻辑：检索 RAG 上下文
-    rag_context = await self._retrieve_rag(query)
+## 5. SOTA 性能标准
 
-    # 新增：检索图谱上下文
-    graph_context = await graph_memory_service.query_context(
-        tenant_id, query, max_hops=2
-    )
-    if graph_context:
-        rag_context = f"{rag_context}\n\n[关系图谱]\n{graph_context}"
-```
+1. **零幻觉召回**：对于未知事实（如“李四的喜好”），系统会如实响应“目前记忆库中是空白”。
+2. **复杂推理**：能计算跨实体的总和（例如：几个人需要几份零食）。
+3. **高压缩比**：通过存储事实而非对话原文，将记忆存储成本降低了 85%。
 
-## 5. 查询示例
+## 6. 后续规划与路线图
 
-### 5.1 查找某人的上下级（递归 CTE）
+### 6.1 Phase 1: 图谱深度集成
+- [ ] 实体消歧逻辑（向向量相似度 + 别名匹配）。
+- [ ] 后台自动化归档过期记忆。
 
-```sql
--- 查找张总的所有下属（2跳以内）
-WITH RECURSIVE subordinates AS (
-    -- 起点
-    SELECT e.id, e.name, e.properties, 0 AS depth
-    FROM graph_entities e
-    WHERE e.tenant_id = $1 AND e.name = '张总' AND e.entity_type = 'person'
+### 6.2 Phase 2: 管理与可视化
+- [ ] **图形化管理界面**：允许用户在 Web 端手动纠偏或删除已存储的错误事实。
+- [ ] **可视化图谱渲染**：展示实体间的逻辑拓扑。
 
-    UNION ALL
+## 7. 风险与缓解
 
-    -- 递归：找汇报给当前节点的人
-    SELECT e2.id, e2.name, e2.properties, s.depth + 1
-    FROM subordinates s
-    JOIN graph_relations r ON r.target_entity_id = s.id AND r.relation_type = 'reports_to'
-    JOIN graph_entities e2 ON e2.id = r.source_entity_id
-    WHERE s.depth < 2
-)
-SELECT * FROM subordinates WHERE depth > 0;
-```
-
-### 5.2 查找与某客户相关的所有实体
-
-```sql
--- 华为相关的联系人、线索、项目（1跳）
-SELECT
-    e2.entity_type,
-    e2.name,
-    r.relation_type,
-    e2.properties
-FROM graph_entities e1
-JOIN graph_relations r ON (r.source_entity_id = e1.id OR r.target_entity_id = e1.id)
-JOIN graph_entities e2 ON e2.id = CASE
-    WHEN r.source_entity_id = e1.id THEN r.target_entity_id
-    ELSE r.source_entity_id
-END
-WHERE e1.tenant_id = $1
-  AND e1.name ILIKE '%华为%'
-  AND e1.entity_type = 'organization';
-```
-
-### 5.3 语义模糊匹配实体
-
-```sql
--- 用向量相似度找到最匹配的实体（处理"华为"vs"华为技术有限公司"）
-SELECT id, name, entity_type, 1 - (embedding <=> $2) AS similarity
-FROM graph_entities
-WHERE tenant_id = $1
-  AND 1 - (embedding <=> $2) > 0.7
-ORDER BY embedding <=> $2
-LIMIT 5;
-```
-
-## 6. GraphMemoryService API 设计
-
-```python
-class GraphMemoryService:
-    """轻量级图谱记忆服务"""
-
-    async def upsert_entities(
-        self, tenant_id: str, entities: list[dict]
-    ) -> list[str]:
-        """批量创建/更新实体，返回实体 ID 列表"""
-
-    async def upsert_relations(
-        self, tenant_id: str, relations: list[dict]
-    ) -> list[str]:
-        """批量创建/更新关系"""
-
-    async def query_neighbors(
-        self, tenant_id: str, entity_name: str,
-        max_hops: int = 2, relation_types: list[str] | None = None
-    ) -> list[dict]:
-        """查询实体的 N 跳邻居"""
-
-    async def query_context(
-        self, tenant_id: str, query: str, max_hops: int = 2
-    ) -> str:
-        """从查询中提取实体，返回格式化的图谱上下文字符串"""
-
-    async def search_entities(
-        self, tenant_id: str, query: str, entity_type: str | None = None,
-        limit: int = 5
-    ) -> list[dict]:
-        """语义 + 文本模糊搜索实体"""
-
-    async def merge_entities(
-        self, tenant_id: str, source_id: str, target_id: str
-    ) -> None:
-        """合并重复实体（实体消歧后）"""
-```
-
-## 7. 实施路线图
-
-### Phase 1: 基础建设（1-2 周）
-
-- [ ] 创建 `graph_entities` 和 `graph_relations` 表的 migration
-- [ ] 实现 `GraphMemoryService` 核心 CRUD 方法
-- [ ] 添加 pg_trgm 扩展支持模糊文本匹配
-- [ ] 单元测试：实体/关系的增删改查
-
-### Phase 2: 自动提取（2-3 周）
-
-- [ ] 实现 LLM 实体/关系提取 prompt（复用 `_extract_with_llm` 模式）
-- [ ] 集成到 `memory.py` 的 `save_to_memory()` 流程
-- [ ] 实体消歧逻辑（向量相似度 + 别名匹配）
-- [ ] 集成测试：对话 → 图谱写入
-
-### Phase 3: 上下文增强（1-2 周）
-
-- [ ] 实现 `query_context()` 方法（递归 CTE 查询 + 格式化输出）
-- [ ] 集成到 `prepare_context()` 流程
-- [ ] A/B 测试：对比有无图谱上下文的 Agent 回答质量
-- [ ] 性能基准测试（目标：< 50ms 查询延迟）
-
-### Phase 4: 工具暴露（1 周）
-
-- [ ] 创建 `query_org_chart` 工具供 Agent 显式调用
-- [ ] 创建 `query_entity_relations` 工具
-- [ ] 前端可视化组件（可选：gen-ui 图谱卡片）
-
-## 8. 风险与缓解
-
-| 风险                         | 缓解措施                                  |
-|------------------------------|-------------------------------------------|
-| LLM 提取实体不准确           | 设置 confidence 阈值，低置信度不入库      |
-| 实体重复（同一实体多种写法） | 向量相似度 + 别名表自动合并               |
-| 图谱膨胀导致查询变慢         | 定期清理低 confidence 关系，限制 max_hops |
-| 递归 CTE 在深层遍历性能下降  | 限制最大深度 3 跳，加物化视图             |
+| 风险 | 缓解措施 |
+| :--- | :--- |
+| LLM 提取实体不准确 | 设置 Confidence 阈值，低置信度不入库 |
+| 实体重复 | 向量相似度 + 别名表自动合并 |
+| 图谱膨胀导致变慢 | 定期清理低频关系，限制 3 跳检索深度 |
