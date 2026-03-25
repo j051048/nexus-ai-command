@@ -44,11 +44,11 @@ class OrganizationService:
                 .order("sort_order", desc=False)
             )
 
-            if parent_id:
-                query = query.eq("parent_id", parent_id)
-            elif parent_id is None:
-                # 查询顶级部门
-                query = query.is_("parent_id", "null")
+            if parent_id is not None:
+                if parent_id == "root":
+                    query = query.is_("parent_id", "null")
+                else:
+                    query = query.eq("parent_id", parent_id)
 
             result = await query.execute()
             return result.data or []

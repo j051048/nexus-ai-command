@@ -2,7 +2,7 @@
 
 import logging
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
 from app.core.auth import get_current_user_id
@@ -60,7 +60,7 @@ class PositionCreate(BaseModel):
 @router.get("/departments")
 async def list_departments(
     req: Request,
-    parent_id: str = None,
+    parent_id: str | None = Query(None),
     user_id: str = Depends(get_current_user_id),
 ):
     """查询部门列表"""
