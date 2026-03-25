@@ -73,10 +73,14 @@ export function useDepartments() {
   return useQuery({
     queryKey: ['org-departments'],
     queryFn: async () => {
-      const res = await aiClient.fetch<{ success: boolean; data: OrgDepartment[] }>(
+      const res = await aiClient.fetch<{ success: boolean; data: { departments: OrgDepartment[] } | OrgDepartment[] }>(
         'api/org-structure/departments'
       );
-      return res.data || [];
+      // 后端返回 { data: { departments: [...] } }，需从嵌套对象中提取数组
+      const raw = res.data;
+      if (Array.isArray(raw)) return raw;
+      if (raw && typeof raw === 'object' && 'departments' in raw) return (raw as { departments: OrgDepartment[] }).departments;
+      return [];
     },
     staleTime: 30_000,
   });
