@@ -128,11 +128,27 @@ def _relative_age(date_str: str) -> str:
         return f"{days // 30}个月前"
     return f"{days // 365}年前"
 
+def _absolute_date(date_str: str) -> str:
+    """Extract absolute date (YYYY-MM-DD) from ISO timestamp for time anchoring."""
+    if not date_str:
+        return ""
+    try:
+        dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+        return dt.strftime("%Y-%m-%d")
+    except Exception:
+        return ""
+
+
 def _format_by_temperature(mem: dict) -> str:
-    """根据记忆温度选择详细度（热=全文，温=截断，冷=摘要），结构化 XML 格式。"""
+    """根据记忆温度选择详细度（热=全文，温=截断，冷=摘要），结构化 XML 格式。
+
+    P0 LoCoMo Fix: 每条记忆强制携带绝对时间戳 date="YYYY-MM-DD"，
+    解决 LLM 时序推理混乱（将相对时间误解为系统当前时间）。
+    """
     updated_at = mem.get("updated_at") or mem.get("valid_from") or mem.get("created_at") or ""
     days_old = _days_since(updated_at)
     age_str = _relative_age(updated_at)
+    abs_date = _absolute_date(updated_at)
     category = mem.get("category", "")
     importance = float(mem.get("importance", 0.5))
     value = mem.get("value", "")
@@ -140,8 +156,10 @@ def _format_by_temperature(mem: dict) -> str:
     # Decrypt if the value was encrypted at rest
     from app.services.conversation_memory.storage import decrypt_memory_value
     value = decrypt_memory_value(value)
-    
-    parts = [f'  <memory type="{category}" age="{age_str}" importance="{importance:.1f}">']
+
+    # Time anchor: absolute date + relative age for LLM temporal reasoning
+    date_attr = f' date="{abs_date}"' if abs_date else ""
+    parts = [f'  <memory type="{category}"{date_attr} age="{age_str}" importance="{importance:.1f}">']
     if days_old < 3 and importance > 0.7:
         parts.append(value)
     elif days_old < 30:
@@ -448,19 +466,33 @@ _ENTITY_PATTERNS = [
 async def _entity_precise_search(
     user_id: str, query: str, limit: int, org_id: str | None, client,
 ) -> list[dict]:
-    """从 query 中提取实体（人名、项目名等），做精确 ILIKE 搜索。"""
+    """从 query 中提取实体（人名、项目名等），做精确 ILIKE 搜索。
+
+    P1 LoCoMo Fix: 对多实体查询，额外做实体对组合搜索（AND 关系），
+    解决"梅兰妮的孩子做陶器"这种跨实体关联丢失问题。
+    """
     entities: list[str] = []
     for pat in _ENTITY_PATTERNS:
         entities.extend(pat.findall(query))
     # 去重 + 过滤太短的
     entities = list(dict.fromkeys(e for e in entities if len(e) >= 2))
+
+    # 补充：从 _extract_search_terms 提取关键名词作为隐式实体
+    # 这能捕获 "pottery"、"camping" 等非人名实体
+    extra_terms = _extract_search_terms(query)
+    # 只取首字母大写或长度>=3的词作为实体候选
+    for t in extra_terms:
+        if t not in entities and (t[0].isupper() or len(t) >= 4):
+            entities.append(t)
+
     if not entities:
         return []
 
     memories: list[dict] = []
     seen_ids: set[str] = set()
 
-    for entity in entities[:4]:  # 最多 4 个实体
+    # Phase 1: 单实体搜索
+    for entity in entities[:6]:  # 最多 6 个实体（提升自 4）
         if len(memories) >= limit:
             break
         q = (
@@ -481,6 +513,33 @@ async def _entity_precise_search(
                     memories.append(item)
         except Exception:
             pass
+
+    # Phase 2: 多实体组合搜索（AND 关系）— 找同时包含两个实体的记忆
+    # 这解决了"Melanie's kids made pottery"需要同时匹配 kids + pottery 的场景
+    if len(entities) >= 2 and len(memories) < limit:
+        from itertools import combinations
+        for e1, e2 in list(combinations(entities[:4], 2))[:3]:
+            if len(memories) >= limit:
+                break
+            try:
+                combo_q = (
+                    client.table("conversation_memories")
+                    .select("*")
+                    .eq("user_id", user_id)
+                    .is_("superseded_by", "null")
+                    .ilike("value", f"%{e1}%")
+                    .ilike("value", f"%{e2}%")
+                    .limit(3)
+                )
+                if org_id:
+                    combo_q = combo_q.eq("organization_id", org_id)
+                combo_result = await combo_q.execute()
+                for item in (combo_result.data or []):
+                    if item["id"] not in seen_ids:
+                        seen_ids.add(item["id"])
+                        memories.append(item)
+            except Exception:
+                pass
 
     return memories[:limit]
 
@@ -795,6 +854,18 @@ async def build_memory_context(
     relevant_limit = 5
     consolidated_limit = 3
 
+    # P0 LoCoMo Fix: 检测列表/计数类查询，自动提升检索量和多样性
+    # 解决 "Where has X been?" / "What types of Y?" 类问题只返回部分记忆的问题
+    _LIST_PATTERNS = re.compile(
+        r"(how many|what (?:types?|kinds?|all)|where (?:has|have|did)|"
+        r"list|哪些|多少|几个|几次|都有|所有|有哪|列举|分别)",
+        re.IGNORECASE,
+    )
+    is_list_query = bool(_LIST_PATTERNS.search(current_query)) if current_query else False
+    if is_list_query:
+        relevant_limit = max(relevant_limit, 15)  # Force higher recall for list queries
+        consolidated_limit = max(consolidated_limit, 5)
+
     if complexity:
         _c = str(complexity).upper()
         if _c in ("CRITICAL", "COMPLEX"):
@@ -838,6 +909,22 @@ async def build_memory_context(
         if relevant:
             existing_ids = {m["id"] for m in explicit}
             new_relevant = [m for m in relevant if m["id"] not in existing_ids]
+
+            # P0 LoCoMo Fix: 对列表查询启用日期多样性过滤
+            # 确保返回的记忆来自不同日期/session，避免同 session 记忆挤占配额
+            if is_list_query and len(new_relevant) > 5:
+                date_seen: dict[str, list[dict]] = {}
+                for m in new_relevant:
+                    d = _absolute_date(m.get("updated_at") or m.get("created_at") or "")
+                    date_key = d or "unknown"
+                    date_seen.setdefault(date_key, []).append(m)
+                # Round-robin pick from each date to ensure cross-session diversity
+                diverse: list[dict] = []
+                max_per_date = max(2, relevant_limit // max(len(date_seen), 1))
+                for date_key in sorted(date_seen.keys()):
+                    diverse.extend(date_seen[date_key][:max_per_date])
+                new_relevant = diverse[:relevant_limit]
+
             if new_relevant:
                 rel_lines = [_format_by_temperature(m) for m in new_relevant]
                 context_parts.append("\n".join(rel_lines))
@@ -868,4 +955,19 @@ async def build_memory_context(
         result_parts.append(directive_block)
     if context_parts:
         result_parts.append("<user-memories>\n" + "\n".join(context_parts) + "\n</user-memories>")
+
+    # P2 LoCoMo Fix: 反 RLHF 偏见指令 — 防止 AI 美化用户的负面体验
+    if result_parts:
+        result_parts.append(
+            "<memory-instructions>\n"
+            "When answering questions about the user based on their memories:\n"
+            "- Respect negative sentiments faithfully. If a memory says the user had a bad experience, "
+            "do NOT speculate they would want to repeat it.\n"
+            "- Use the exact dates from memory date attributes (date=\"YYYY-MM-DD\") for temporal reasoning. "
+            "Do NOT substitute the current system date for historical events.\n"
+            "- For list/enumeration questions, gather evidence from ALL available memories across different dates, "
+            "not just the most relevant single memory.\n"
+            "</memory-instructions>"
+        )
+
     return "\n\n".join(result_parts)
