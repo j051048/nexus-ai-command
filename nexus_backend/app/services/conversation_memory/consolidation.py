@@ -229,7 +229,7 @@ async def generate_user_observation(
         # Pull top-30 high-importance memories for this user
         result = await (
             client.table("conversation_memories")
-            .select("category, key, value, importance")
+            .select("id, category, key, value, importance")
             .eq("user_id", user_id)
             .is_("superseded_by", "null")
             .order("importance", desc=True)
@@ -286,7 +286,7 @@ async def generate_user_observation(
             "title": "用户画像摘要",
             "content": observation_text,
             "importance": 0.9,
-            "source_memory_ids": [m.get("key", "") for m in memories[:10]],
+            "source_memory_ids": [str(m["id"]) for m in memories[:10]],
         }
         if org_id:
             row["organization_id"] = org_id
