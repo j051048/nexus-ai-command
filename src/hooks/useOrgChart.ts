@@ -194,8 +194,10 @@ export function useDeleteDepartment() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (deptId: string) => {
+      // 软删除：通过 PATCH 设置 status=dissolved（兼容后端无 DELETE 端点的情况）
       await aiClient.fetch(`api/org-structure/departments/${deptId}`, {
-        method: 'DELETE',
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'dissolved' }),
       });
     },
     onSuccess: () => {

@@ -107,16 +107,15 @@ export function OrgTemplatesDialog({ open, onOpenChange }: OrgTemplatesDialogPro
 
     setLoading(true);
     try {
-      // 1. Cleanup existing structure (optional, but requested for 'quick start')
+      // 1. Cleanup existing structure
       if (existingDepts.length > 0) {
-        if (confirm('应用模板将保留现有人员但重组部门结构，是否继续？')) {
-          // In a real app, we'd have a bulk delete route
-          for (const d of existingDepts) {
-             try { await deleteDept.mutateAsync(d.id); } catch(e) { /* skip if constraint fails */ }
-          }
-        } else {
+        if (!confirm('应用模板将保留现有人员但重组部门结构，是否继续？')) {
           setLoading(false);
           return;
+        }
+        // 逐个软删除，失败则中断
+        for (const d of existingDepts) {
+          await deleteDept.mutateAsync(d.id);
         }
       }
 
@@ -136,7 +135,7 @@ export function OrgTemplatesDialog({ open, onOpenChange }: OrgTemplatesDialogPro
       onOpenChange(false);
     } catch (err) {
       console.error(err);
-      toast.error('应用模板失败');
+      toast.error('应用模板失败，请重试');
     } finally {
       setLoading(false);
     }
