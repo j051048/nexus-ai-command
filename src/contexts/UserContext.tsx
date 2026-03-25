@@ -24,6 +24,19 @@ interface UserContextType {
   updateScore: (delta: number) => void;
 }
 
+// 安全提取字符串（防止 profile 中有非字符串值传入 user 对象）
+function safeStr(v: unknown): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (typeof v === 'object') {
+    const name = (v as Record<string, unknown>).name;
+    if (typeof name === 'string') return name;
+    return JSON.stringify(v);
+  }
+  return String(v);
+}
+
 const defaultBadges: Badge[] = [];
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -32,17 +45,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const { profile, role: authRole } = useAuth();
 
   const [user, setUser] = useState<User>({
-    id: profile?.id || '1',
-    name: profile?.name || '用户',
-    avatar: profile?.avatar || '',
+    id: safeStr(profile?.id) || '1',
+    name: safeStr(profile?.name) || '用户',
+    avatar: safeStr(profile?.avatar),
     role: authRole || 'employee',
-    department: profile?.department || '销售部',
+    department: safeStr(profile?.department) || '销售部',
     score: profile?.score ?? 0,
     rank: profile?.rank ?? 0,
     totalBonus: Number(profile?.total_bonus) || 0,
     badges: defaultBadges,
-    employeeNumber: profile?.employee_number || null,
-    jobTitle: profile?.job_title || null,
+    employeeNumber: profile?.employee_number ? safeStr(profile.employee_number) : null,
+    jobTitle: profile?.job_title ? safeStr(profile.job_title) : null,
   });
 
   // Sync with auth profile when it changes
@@ -50,15 +63,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (profile) {
       setUser(prev => ({
         ...prev,
-        id: profile.id,
-        name: profile.name,
-        avatar: profile.avatar || '',
-        department: profile.department || '销售部',
+        id: safeStr(profile.id),
+        name: safeStr(profile.name),
+        avatar: safeStr(profile.avatar),
+        department: safeStr(profile.department) || '销售部',
         score: profile.score ?? 0,
         rank: profile.rank ?? 0,
         totalBonus: Number(profile.total_bonus) || 0,
-        employeeNumber: profile.employee_number || null,
-        jobTitle: profile.job_title || null,
+        employeeNumber: profile.employee_number ? safeStr(profile.employee_number) : null,
+        jobTitle: profile.job_title ? safeStr(profile.job_title) : null,
       }));
     }
   }, [profile]);

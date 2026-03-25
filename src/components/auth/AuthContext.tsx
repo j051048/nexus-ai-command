@@ -21,6 +21,37 @@ interface Profile {
   job_title: string | null;
 }
 
+// 安全提取字符串（防止 Supabase 返回非预期类型导致 React #301）
+function safeProfileStr(v: unknown, field?: string): string {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  console.warn(`[AuthContext] profile.${field} is not a string:`, typeof v, v);
+  if (typeof v === 'object') {
+    const name = (v as Record<string, unknown>).name;
+    if (typeof name === 'string') return name;
+    return JSON.stringify(v);
+  }
+  return String(v);
+}
+
+// 清洗 profile 数据，确保所有渲染字段都是安全类型
+function sanitizeProfile(raw: Record<string, unknown>): Profile {
+  return {
+    id: safeProfileStr(raw.id, 'id'),
+    user_id: safeProfileStr(raw.user_id ?? raw.id, 'user_id'),
+    name: safeProfileStr(raw.name ?? raw.full_name, 'name'),
+    avatar: safeProfileStr(raw.avatar ?? raw.avatar_url, 'avatar'),
+    department: safeProfileStr(raw.department, 'department'),
+    score: typeof raw.score === 'number' ? raw.score : 0,
+    rank: typeof raw.rank === 'number' ? raw.rank : 0,
+    total_bonus: typeof raw.total_bonus === 'number' ? raw.total_bonus : 0,
+    organization_id: safeProfileStr(raw.organization_id, 'organization_id'),
+    employee_number: raw.employee_number != null ? safeProfileStr(raw.employee_number, 'employee_number') : null,
+    job_title: raw.job_title != null ? safeProfileStr(raw.job_title, 'job_title') : null,
+  };
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -59,20 +90,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (profileError) {
         // Profile fetch failed — user will have limited functionality
       } else if (profileData) {
-        // Map DB fields to Profile interface if needed, or use as is
-        setProfile(profileData as unknown as Profile);
+        // 清洗 profile 数据，确保所有字段都是渲染安全的类型
+        setProfile(sanitizeProfile(profileData as Record<string, unknown>));
       }
 
       const { data: roleData } = await supabase
         .rpc('get_user_role', { _user_id: userId });
 
       if (roleData) {
+        // 安全提取角色字符串（RPC 可能返回非字符串类型）
+        const roleStr = safeProfileStr(roleData, 'role');
         // Handle pending_boss: treat as employee but flag it
-        if (roleData === 'pending_boss') {
+        if (roleStr === 'pending_boss') {
           setRole('employee');
           setIsPendingBoss(true);
         } else {
-          setRole(roleData as AppRole);
+          setRole(roleStr as AppRole);
           setIsPendingBoss(false);
         }
       } else {

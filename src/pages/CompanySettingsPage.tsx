@@ -50,6 +50,11 @@ function CompanySettingsPage() {
   const [copied, setCopied] = useState(false);
   const [orgName, setOrgName] = useState('');
 
+  // 版本标记：确认最新代码已加载 (v5 - 2026-03-25)
+  useEffect(() => {
+    console.log('[CompanySettingsPage] v5 loaded, profile:', profile?.id);
+  }, [profile?.id]);
+
   const orgId = (profile as unknown as Record<string, unknown>)?.organization_id as string | undefined;
 
   // Load organization data

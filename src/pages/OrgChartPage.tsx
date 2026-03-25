@@ -323,6 +323,11 @@ function OrgListView() {
 export function OrgChartPage() {
   const { data: members = [] } = useOrgMembers();
 
+  // 版本标记：确认最新代码已加载 (v5 - 2026-03-25)
+  React.useEffect(() => {
+    console.log('[OrgChartPage] v5 loaded, members:', members.length);
+  }, [members.length]);
+
   return (
     <div className="max-w-[1400px] mx-auto space-y-6 pb-20 animate-in fade-in slide-in-from-bottom-2 duration-500">
       {/* Header */}

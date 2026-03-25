@@ -488,9 +488,10 @@ export function Sidebar({ onNavClick }: SidebarProps) {
             .eq("id", profile.organization_id)
             .single();
 
-          const orgData = data as { name: string } | null;
+          const orgData = data as { name: unknown } | null;
           if (!error && orgData?.name) {
-            setOrgName(orgData.name);
+            const safeName = typeof orgData.name === 'string' ? orgData.name : String(orgData.name);
+            setOrgName(safeName);
           }
         }
       } catch (e) {
@@ -871,18 +872,18 @@ export function Sidebar({ onNavClick }: SidebarProps) {
               <div className="w-9 h-9 rounded-full bg-gradient-primary flex items-center justify-center text-primary-foreground font-semibold shrink-0 group-hover:scale-105 transition-transform overflow-hidden ring-2 ring-background">
                 {user.avatar ? (
                   <img
-                    src={user.avatar}
-                    alt={user.name}
+                    src={typeof user.avatar === 'string' ? user.avatar : ''}
+                    alt={typeof user.name === 'string' ? user.name : ''}
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  user.name[0]
+                  typeof user.name === 'string' ? user.name[0] : '?'
                 )}
               </div>
               {!isCollapsed && (
                 <div className="flex-1 min-w-0 text-left transition-all duration-300 opacity-100">
                   <p className="text-sm font-medium text-foreground truncate">
-                    {user.name}
+                    {typeof user.name === 'string' ? user.name : String(user.name ?? '')}
                   </p>
                   <div className="flex items-center justify-between">
                     <p className="text-xs text-muted-foreground truncate max-w-[80px]">
@@ -902,7 +903,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
           >
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{user.name}</p>
+                <p className="text-sm font-medium leading-none">{typeof user.name === 'string' ? user.name : String(user.name ?? '')}</p>
                 <p className="text-xs leading-none text-muted-foreground">
                   {getRoleDisplayName(user.role)}
                 </p>

@@ -69,14 +69,29 @@ export class ModuleErrorBoundary extends React.Component<ModuleErrorBoundaryProp
         return this.props.fallback;
       }
 
+      // 提取简洁的组件堆栈用于诊断（生产环境也需要）
+      const stack = this.state.error?.stack || '';
+      const componentStack = (this as unknown as { _errorInfo?: React.ErrorInfo })._errorInfo?.componentStack || '';
+
       return (
         <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-6 text-center">
           <div className="text-sm font-medium text-destructive">
             {this.props.moduleName}模块加载异常
           </div>
-          <p className="text-xs text-muted-foreground max-w-sm">
+          <p className="text-xs text-muted-foreground max-w-sm break-all">
             {this.state.error?.message || '发生了未知错误'}
           </p>
+          {/* 生产环境也显示组件堆栈以帮助诊断 */}
+          {this.state.errorInfo?.componentStack && (
+            <details className="w-full max-w-md text-left">
+              <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                展开诊断信息
+              </summary>
+              <pre className="mt-2 text-[10px] text-muted-foreground bg-muted/50 rounded p-2 overflow-auto max-h-40 whitespace-pre-wrap break-all">
+                {this.state.errorInfo.componentStack}
+              </pre>
+            </details>
+          )}
           <button
             onClick={this.handleRetry}
             className="mt-1 rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 transition-colors"
