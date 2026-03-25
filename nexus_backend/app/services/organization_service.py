@@ -138,6 +138,42 @@ class OrganizationService:
             logger.error(f"更新部门失败: {e}")
             raise
 
+    async def delete_department(
+        self,
+        department_id: str,
+        db=None,
+    ) -> dict:
+        """
+        软删除部门（设置 status=dissolved）
+
+        Args:
+            department_id: 部门ID
+            db: 数据库客户端
+
+        Returns:
+            更新后的部门对象
+        """
+        if not db:
+            raise RuntimeError("数据库连接不可用")
+
+        try:
+            result = await (
+                db.table("departments")
+                .update({"status": "dissolved"})
+                .eq("id", department_id)
+                .execute()
+            )
+
+            if result.data and len(result.data) > 0:
+                logger.info(f"部门已删除(软删除): id={department_id}")
+                return result.data[0]
+
+            raise RuntimeError("部门删除失败，可能不存在")
+
+        except Exception as e:
+            logger.error(f"删除部门失败: {e}")
+            raise
+
     # ========================================================================
     # 职位管理
     # ========================================================================

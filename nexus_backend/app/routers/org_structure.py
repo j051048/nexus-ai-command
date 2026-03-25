@@ -25,7 +25,9 @@ class DepartmentCreate(BaseModel):
 
 class DepartmentUpdate(BaseModel):
     name: str | None = None
+    parent_id: str | None = None
     manager_id: str | None = None
+    sort_order: int | None = None
     status: str | None = None
 
 
@@ -125,6 +127,25 @@ async def update_department(
         return api_success(data={"department": department}, message="部门更新成功")
     except Exception as e:
         logger.error(f"Failed to update department: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "组织架构操作失败")
+
+
+@router.delete("/departments/{department_id}")
+async def delete_department(
+    department_id: str,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """删除部门（软删除，设置 status=dissolved）"""
+    try:
+        db = getattr(req.state, "db", None)
+        department = await organization_service.delete_department(
+            department_id=department_id,
+            db=db,
+        )
+        return api_success(data={"department": department}, message="部门已删除")
+    except Exception as e:
+        logger.error(f"Failed to delete department: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "组织架构操作失败")
 
 

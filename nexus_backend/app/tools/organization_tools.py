@@ -7,6 +7,7 @@ import logging
 from typing import Any
 
 from app.services.organization_service import organization_service
+from app.services.organization import organization_service as org_hierarchy_service
 
 from .base_tool import BaseTool
 from ._shared import _get_client, _validate_uuid
@@ -622,3 +623,133 @@ class OrgStatisticsTool(BaseTool):
         except Exception as e:
             logger.error(f"获取组织统计失败: {e}")
             return safe_tool_error(e, "获取组织统计")
+
+
+# ============================================================================
+# 组织架构层级工具（AI 理解上下级关系）
+# ============================================================================
+
+
+class GetOrgTreeTool(BaseTool):
+    """获取完整组织架构树"""
+
+    name = "get_org_tree"
+    domain = "hr"
+    description = (
+        "获取完整的组织架构树形结构，包含部门层级和人员分布。"
+        "当AI需要理解公司组织结构、判断任务派发路径、或回答关于部门关系的问题时调用。"
+    )
+    examples = [
+        {"input": {}, "output_summary": "返回完整的组织架构树，包含部门层级、负责人和人员数"},
+    ]
+    related_tools = ["list_departments", "get_reporting_line", "org_statistics"]
+    gotchas = "返回的是完整树形结构，数据量可能较大。优先用此工具理解全局组织关系。"
+
+    parameters = {
+        "type": "object",
+        "properties": {},
+        "required": [],
+    }
+
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+        client = _get_client(config)
+        org_id = _get_org_id(config)
+
+        try:
+            # 获取部门树
+            tree_roots = await org_hierarchy_service.get_department_tree()
+
+            if not tree_roots:
+                return "当前暂无部门记录，组织架构树为空。"
+
+            # 格式化树形输出
+            lines = ["🏢 组织架构树:\n"]
+
+            def render_tree(node, indent=0):
+                prefix = "  " * indent + ("├── " if indent > 0 else "")
+                meta = node.metadata or {}
+                manager_info = f" (负责人ID: {meta['manager_id'][:8]}...)" if meta.get("manager_id") else ""
+                lines.append(f"{prefix}📁 **{node.name}**{manager_info}")
+                for child in node.children:
+                    render_tree(child, indent + 1)
+
+            for root in tree_roots:
+                render_tree(root)
+
+            # 补充人员信息
+            if org_id and client:
+                try:
+                    stats = await organization_service.get_org_statistics(org_id=org_id, db=client)
+                    lines.append(f"\n📊 总计: {stats.get('total_employees', 0)} 名员工, {stats.get('total_departments', 0)} 个部门")
+                except Exception:
+                    pass
+
+            return "\n".join(lines)
+
+        except Exception as e:
+            logger.error(f"获取组织架构树失败: {e}")
+            return safe_tool_error(e, "获取组织架构树")
+
+
+class GetReportingLineTool(BaseTool):
+    """获取用户的汇报链（上级路径）"""
+
+    name = "get_reporting_line"
+    domain = "hr"
+    description = (
+        "获取指定用户的汇报链，从直属上级一直到最高管理者。"
+        "当AI需要判断审批路径、任务上报路径、或理解某人的上下级关系时调用。"
+    )
+    examples = [
+        {"input": {"user_id": "abc123..."}, "output_summary": "返回该用户的汇报链：直属经理 → 部门总监 → VP → CEO"},
+    ]
+    related_tools = ["get_org_tree", "get_employee_detail", "list_departments"]
+    gotchas = "user_id 必须是合法UUID。如果用户没有设置 manager_id，会尝试通过部门负责人推断。最多向上追溯10层。"
+
+    parameters = {
+        "type": "object",
+        "properties": {
+            "user_id": {
+                "type": "string",
+                "description": "要查询汇报链的用户ID",
+            },
+        },
+        "required": ["user_id"],
+    }
+
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+        client = _get_client(config)
+        target_user_id = args.get("user_id")
+
+        if err := _validate_uuid(target_user_id, "user_id"):
+            return f"❌ {err}"
+
+        try:
+            reporting_line = await org_hierarchy_service.get_user_reporting_line(
+                user_id=target_user_id,
+                db=client,
+            )
+
+            if not reporting_line:
+                return f"该用户没有上级汇报链（可能是最高管理者，或未设置上级关系）。"
+
+            lines = [f"📈 汇报链（共 {len(reporting_line)} 层）:\n"]
+            for i, person in enumerate(reporting_line):
+                arrow = "→ " if i > 0 else ""
+                level = f"第{i + 1}级上级"
+                role_map = {
+                    "boss": "老板",
+                    "founder": "创始人",
+                    "admin": "管理员",
+                    "manager": "经理",
+                    "employee": "员工",
+                }
+                role = role_map.get(person.get("role", ""), person.get("role", ""))
+                dept = person.get("department", "未分配")
+                lines.append(f"  {arrow}**{person.get('name')}** ({role}) - {dept} [{level}]")
+
+            return "\n".join(lines)
+
+        except Exception as e:
+            logger.error(f"获取汇报链失败: {e}")
+            return safe_tool_error(e, "获取汇报链")

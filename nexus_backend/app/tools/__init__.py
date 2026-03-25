@@ -124,6 +124,8 @@ _TOOL_MODULES: dict[str, tuple[str, str]] = {
     "create_employee": ("app.tools.organization_tools", "CreateEmployeeTool"),
     "update_employee": ("app.tools.organization_tools", "UpdateEmployeeTool"),
     "org_statistics": ("app.tools.organization_tools", "OrgStatisticsTool"),
+    "get_org_tree": ("app.tools.organization_tools", "GetOrgTreeTool"),
+    "get_reporting_line": ("app.tools.organization_tools", "GetReportingLineTool"),
     # asset_tools (资产管理)
     "list_assets": ("app.tools.asset_tools", "ListAssetsTool"),
     "get_asset_detail": ("app.tools.asset_tools", "GetAssetDetailTool"),
