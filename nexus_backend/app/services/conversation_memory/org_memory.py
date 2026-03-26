@@ -110,11 +110,13 @@ async def search_org_memories(
     # 路径2: 关键词补充（向量结果不足时）
     if len(results) < limit:
         try:
+            # 转义特殊字符，避免 PostgREST 解析错误
+            safe_query = query.replace('%', '\\%').replace('_', '\\_').replace('"', '\\"')
             kw_res = (
                 await supabase.table("org_memories")
                 .select("*")
                 .eq("organization_id", org_id)
-                .or_(f"key.ilike.%{query}%,value.ilike.%{query}%")
+                .or_(f"key.ilike.%{safe_query}%,value.ilike.%{safe_query}%")
                 .order("updated_at", desc=True)
                 .limit(limit - len(results))
                 .execute()
