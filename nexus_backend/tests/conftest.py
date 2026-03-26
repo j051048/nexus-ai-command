@@ -53,18 +53,24 @@ class MockQueryBuilder:
         return self
     def eq(self, column, value): 
         # 简单的内存过滤逻辑
-        self._data = [d for d in self._data if d.get(column) == value]
+        if isinstance(self._data, list):
+            self._data = [d for d in self._data if isinstance(d, dict) and d.get(column) == value]
         return self
+    def is_(self, column, value): 
+        # 处理 status is null 的情况
+        if value == "null" and isinstance(self._data, list):
+            self._data = [d for d in self._data if d.get(column) is None]
+        return self
+
     def neq(self, column, value):
-        self._data = [d for d in self._data if d.get(column) != value]
+        if isinstance(self._data, list):
+            self._data = [d for d in self._data if isinstance(d, dict) and d.get(column) != value]
         return self
     def order(self, column, desc=False): return self
     def limit(self, count): 
-        self._data = self._data[:count]
+        if isinstance(self._data, list):
+            self._data = self._data[:count]
         return self
-    def maybe_single(self): return self
-    def single(self): return self
-    def is_(self, column, value): return self
     def insert(self, data):
         self._data = [data]
         return self
