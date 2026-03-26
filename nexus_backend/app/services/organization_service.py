@@ -4,6 +4,7 @@
 """
 
 import logging
+from app.core.cache import cache, invalidate_cache
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,7 @@ class OrganizationService:
     # 部门管理
     # ========================================================================
 
+    @cache(ttl=300, prefix="org")
     async def list_departments(
         self,
         org_id: str,
@@ -97,6 +99,8 @@ class OrganizationService:
 
             if result.data and len(result.data) > 0:
                 logger.info(f"部门已创建: org={org_id}, name={name}")
+                invalidate_cache(f"org:cache:*list_departments*{org_id}*")
+                invalidate_cache(f"org:cache:*get_org_statistics*{org_id}*")
                 return result.data[0]
 
             raise RuntimeError("部门创建失败")
@@ -130,6 +134,8 @@ class OrganizationService:
 
             if result.data and len(result.data) > 0:
                 logger.info(f"部门已更新: id={department_id}")
+                org_id = result.data[0].get("organization_id")
+                invalidate_cache(f"org:cache:*list_departments*{org_id}*")
                 return result.data[0]
 
             raise RuntimeError("部门更新失败")
@@ -166,6 +172,9 @@ class OrganizationService:
 
             if result.data and len(result.data) > 0:
                 logger.info(f"部门已删除(软删除): id={department_id}")
+                org_id = result.data[0].get("organization_id")
+                invalidate_cache(f"org:cache:*list_departments*{org_id}*")
+                invalidate_cache(f"org:cache:*get_org_statistics*{org_id}*")
                 return result.data[0]
 
             raise RuntimeError("部门删除失败，可能不存在")
@@ -178,6 +187,7 @@ class OrganizationService:
     # 职位管理
     # ========================================================================
 
+    @cache(ttl=300, prefix="org")
     async def list_positions(
         self,
         org_id: str,
@@ -247,6 +257,7 @@ class OrganizationService:
 
             if result.data and len(result.data) > 0:
                 logger.info(f"职位已创建: org={org_id}, name={name}")
+                invalidate_cache(f"org:cache:*list_positions*{org_id}*")
                 return result.data[0]
 
             raise RuntimeError("职位创建失败")
@@ -259,6 +270,7 @@ class OrganizationService:
     # 员工管理
     # ========================================================================
 
+    @cache(ttl=300, prefix="org")
     async def list_employees(
         self,
         org_id: str,
@@ -345,6 +357,7 @@ class OrganizationService:
             logger.error(f"查询员工列表失败(users 表兜底也失败): {e}")
             raise
 
+    @cache(ttl=300, prefix="org")
     async def get_employee_detail(
         self,
         employee_id: str,
@@ -419,6 +432,8 @@ class OrganizationService:
 
             if result.data and len(result.data) > 0:
                 logger.info(f"员工已创建: org={org_id}, name={data.get('name')}")
+                invalidate_cache(f"org:cache:*list_employees*{org_id}*")
+                invalidate_cache(f"org:cache:*get_org_statistics*{org_id}*")
                 return result.data[0]
 
             raise RuntimeError("员工创建失败")
@@ -444,6 +459,9 @@ class OrganizationService:
             result = await db.table("employees").update(updates).eq("id", employee_id).execute()
             if result.data and len(result.data) > 0:
                 logger.info(f"员工已更新: id={employee_id}")
+                org_id = result.data[0].get("organization_id")
+                invalidate_cache(f"org:cache:*list_employees*{org_id}*")
+                invalidate_cache(f"org:cache:*get_employee_detail*{employee_id}*")
                 return result.data[0]
         except Exception as e:
             logger.warning(f"employees 表更新失败，尝试 users 表兜底: {e}")
@@ -457,12 +475,16 @@ class OrganizationService:
             result = await db.table("users").update(user_updates).eq("id", employee_id).execute()
             if result.data and len(result.data) > 0:
                 logger.info(f"员工已更新(users 表): id={employee_id}")
+                org_id = result.data[0].get("organization_id")
+                invalidate_cache(f"org:cache:*list_employees*{org_id}*")
+                invalidate_cache(f"org:cache:*get_employee_detail*{employee_id}*")
                 return result.data[0]
             raise RuntimeError("员工更新失败")
         except Exception as e:
             logger.error(f"更新员工失败: {e}")
             raise
 
+    @cache(ttl=300, prefix="org")
     async def get_org_statistics(
         self,
         org_id: str,
