@@ -63,6 +63,8 @@ async def consolidate_user_memories(
     prompt = "以下是用户的记忆条目，请分析并找出跨记忆的模式：\n\n" + "\n".join(mem_lines)
     system = (
         "你是记忆整合专家。分析用户的多条记忆，发现跨记忆的模式、总结和矛盾。\n"
+        "特别注意发现因果关系(causal)：如果A导致了B、A使B成为可能、A阻止了B，\n"
+        "请在connections中明确标注relation为causal。因果关系是最有价值的洞察类型。\n\n"
         "请返回 JSON 数组，每个元素包含：\n"
         '- "insight_type": "pattern"（规律模式）/ "summary"（综合总结）/ "contradiction"（矛盾冲突）\n'
         '- "title": 简短标题（10字以内）\n'
@@ -70,7 +72,8 @@ async def consolidate_user_memories(
         '- "importance": 0.0-1.0 重要性评分\n'
         '- "source_indices": 来源记忆的索引号数组，如 [0, 2, 5]\n'
         '- "connections": 记忆之间的关系数组，如 [{"from": 0, "to": 2, "relation": "supplements"}]\n'
-        '  relation 可选值: same_customer, same_project, causal, contradicts, supplements\n\n'
+        '  relation 可选值: same_customer, same_project, causal, contradicts, supplements\n'
+        '  优先标注 causal（因果）关系\n\n'
         "只返回 JSON 数组。最多生成 5 条洞察。如果没有有意义的模式，返回 []。"
     )
 

@@ -1,22 +1,26 @@
 """Entity Resolution: merge synonymous entities in the knowledge graph.
 
 Prevents garbage duplicate nodes like "Apple Inc." vs "苹果公司" by:
-1. Embedding-based similarity matching at write time
+1. Three-signal composite scoring (embedding + name + cooccurrence + temporal)
 2. Alias table for canonical name lookup
 3. Periodic batch merging of similar entities
 """
 
 import logging
+from datetime import datetime, timezone
+from difflib import SequenceMatcher
 from typing import Any
 
 from app.core.database import supabase
 
 logger = logging.getLogger(__name__)
 
-# Cosine similarity threshold for auto-merge (high confidence)
-AUTO_MERGE_THRESHOLD = 0.88
+# Embedding pre-filter threshold (lowered to let composite scoring decide)
+EMBEDDING_PREFILTER_THRESHOLD = 0.65
+# Composite score threshold for auto-merge
+AUTO_MERGE_THRESHOLD = 0.70
 # Threshold for candidate detection (lower, for batch review)
-CANDIDATE_THRESHOLD = 0.78
+CANDIDATE_THRESHOLD = 0.60
 
 
 async def resolve_entity(
@@ -44,7 +48,7 @@ async def resolve_entity(
     if canonical:
         return canonical
 
-    # Step 2: Embedding similarity search
+    # Step 2: Three-signal composite scoring
     try:
         from .embedding import generate_embedding
 
@@ -52,23 +56,34 @@ async def resolve_entity(
         if not embedding:
             return entity_name
 
-        similar = await _find_similar_by_embedding(
-            org_id, embedding, AUTO_MERGE_THRESHOLD, client
+        # Pre-filter with low embedding threshold, then composite scoring decides
+        candidates = await _find_similar_by_embedding(
+            org_id, embedding, EMBEDDING_PREFILTER_THRESHOLD, client
         )
-        if similar:
-            # Found a high-confidence match — register alias and return canonical
-            best = similar[0]
-            canonical_name = best["entity_name"]
-            if canonical_name != entity_name:
+        if candidates:
+            best_score = 0.0
+            best_candidate = None
+            for cand in candidates:
+                cand_name = cand["entity_name"]
+                if cand_name == entity_name:
+                    continue
+                composite = await _composite_score(
+                    entity_name, cand_name, cand["similarity"], org_id, client,
+                )
+                if composite > best_score:
+                    best_score = composite
+                    best_candidate = cand_name
+
+            if best_candidate and best_score >= AUTO_MERGE_THRESHOLD:
                 await _register_alias(
-                    org_id, entity_name, canonical_name,
-                    entity_type, best["similarity"], client,
+                    org_id, entity_name, best_candidate,
+                    entity_type, best_score, client,
                 )
                 logger.info(
-                    "[EntityRes] Auto-merged '%s' -> '%s' (sim=%.3f)",
-                    entity_name, canonical_name, best["similarity"],
+                    "[EntityRes] Auto-merged '%s' -> '%s' (composite=%.3f)",
+                    entity_name, best_candidate, best_score,
                 )
-                return canonical_name
+                return best_candidate
     except Exception as e:
         logger.debug(f"[EntityRes] Embedding resolution skipped: {e}")
 
@@ -193,6 +208,13 @@ async def batch_merge_similar_entities(
                     continue
                 seen_pairs.add(pair)
 
+                # Three-signal composite scoring
+                composite = await _composite_score(
+                    name, match_name, match["similarity"], org_id, client,
+                )
+                if composite < AUTO_MERGE_THRESHOLD:
+                    continue
+
                 # Merge: keep the one with more occurrences as canonical
                 canonical, alias = await _pick_canonical(
                     org_id, name, match_name, client
@@ -210,6 +232,104 @@ async def batch_merge_similar_entities(
 
 
 # ── Internal helpers ──
+
+
+async def _composite_score(
+    name_a: str,
+    name_b: str,
+    embedding_sim: float,
+    org_id: str,
+    db: Any,
+) -> float:
+    """Compute a three-signal composite score for entity similarity.
+
+    Weights: embedding(0.4) + name(0.3) + cooccurrence(0.2) + temporal(0.1)
+    """
+    # Signal 1: Embedding cosine similarity (already computed by RPC)
+    emb_score = float(embedding_sim)
+
+    # Signal 2: Name string similarity (SequenceMatcher)
+    name_sim = SequenceMatcher(None, name_a.lower(), name_b.lower()).ratio()
+
+    # Signal 3: KG cooccurrence (how often do they appear in same triples)
+    cooccurrence = await _cooccurrence_score(name_a, name_b, org_id, db)
+
+    # Signal 4: Temporal proximity (both appeared recently → more likely same)
+    temporal = await _temporal_proximity(name_a, name_b, org_id, db)
+
+    composite = 0.4 * emb_score + 0.3 * name_sim + 0.2 * cooccurrence + 0.1 * temporal
+    return composite
+
+
+async def _cooccurrence_score(
+    name_a: str, name_b: str, org_id: str, db: Any,
+) -> float:
+    """Count how many triples mention both entities. Returns min(count/3, 1.0)."""
+    try:
+        # Count triples where one is source and the other is destination
+        res = await (
+            db.table("knowledge_graph_triples")
+            .select("id", count="exact")
+            .eq("organization_id", org_id)
+            .eq("source_entity", name_a)
+            .eq("destination_entity", name_b)
+            .is_("valid_to", "null")
+            .execute()
+        )
+        count_ab = res.count or 0
+
+        res2 = await (
+            db.table("knowledge_graph_triples")
+            .select("id", count="exact")
+            .eq("organization_id", org_id)
+            .eq("source_entity", name_b)
+            .eq("destination_entity", name_a)
+            .is_("valid_to", "null")
+            .execute()
+        )
+        count_ba = res2.count or 0
+
+        total = count_ab + count_ba
+        return min(total / 3.0, 1.0)
+    except Exception:
+        return 0.0
+
+
+async def _temporal_proximity(
+    name_a: str, name_b: str, org_id: str, db: Any,
+) -> float:
+    """7-day decay: max(0, 1 - days_diff/7) between last occurrences."""
+    try:
+        res_a = await (
+            db.table("knowledge_graph_triples")
+            .select("updated_at")
+            .eq("organization_id", org_id)
+            .eq("source_entity", name_a)
+            .is_("valid_to", "null")
+            .order("updated_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        res_b = await (
+            db.table("knowledge_graph_triples")
+            .select("updated_at")
+            .eq("organization_id", org_id)
+            .eq("source_entity", name_b)
+            .is_("valid_to", "null")
+            .order("updated_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+
+        if not res_a.data or not res_b.data:
+            return 0.0
+
+        ts_a = datetime.fromisoformat(res_a.data[0]["updated_at"].replace("Z", "+00:00"))
+        ts_b = datetime.fromisoformat(res_b.data[0]["updated_at"].replace("Z", "+00:00"))
+        days_diff = abs((ts_a - ts_b).total_seconds()) / 86400.0
+        return max(0.0, 1.0 - days_diff / 7.0)
+    except Exception:
+        return 0.0
 
 
 async def _lookup_alias(org_id: str, name: str, db: Any) -> str | None:

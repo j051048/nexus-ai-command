@@ -475,6 +475,10 @@ async def extract_with_llm(
             "如果没有值得提取的信息，返回空数组 []。\n\n"
             "严格以JSON数组格式返回，每个元素包含：\n"
             '- "category": "preference" 或 "explicit_memory" 或 "fact"\n'
+            '- "fact_type": "fact"（客观事实，如"我是销售经理"、"公司在上海"）/ '
+            '"opinion"（主观偏好/观点，如"我喜欢用表格"、"我觉得A方案更好"）/ '
+            '"experience"（个人经历，如"昨天见了客户"、"上周出差去了北京"）\n'
+            '- "confidence": 0.0-1.0 置信度，客观事实默认1.0，主观偏好0.7-0.9，推断/不确定0.4-0.6\n'
             '- "key": 简短的标识键（如 "role_region"、"report_format"）\n'
             '- "value": 提取的完整信息\n'
             '- "pattern_key": 稳定的模式标识（如 "preference:report_format"、"fact:role_region"），'
@@ -486,7 +490,10 @@ async def extract_with_llm(
             '- "valid_from": 该信息的生效日期，ISO格式如 "2026-02-01"。'
             f"基于当前日期 {today_str} 推算相对时间：'上个月' → 上月1日、'去年' → 去年1月、"
             "'最近'/'刚刚'/'今天' → 当天、'上周' → 上周一。"
-            "如果完全无时间线索，填当天日期。\n\n"
+            "如果完全无时间线索，填当天日期。\n"
+            '- "valid_until": 该信息的结束日期（可选），ISO格式如 "2026-02-05"。'
+            "仅当信息有明确的时间区间时填写（如'周一到周五的培训'、'3月1日到5日出差'）。"
+            "单一时间点的事件不需要填此字段。\n\n"
             "只返回JSON数组，不要其他文字。最多提取5条。"
         )
 
@@ -516,6 +523,9 @@ async def extract_with_llm(
                     "importance": min(max(float(item.get("importance", 0.5)), 0.1), 1.0),
                     "pattern_key": item.get("pattern_key") or f"{category}:{key}",
                     "valid_from": item.get("valid_from") or today_str,
+                    "fact_type": item.get("fact_type", "fact") if item.get("fact_type") in ("fact", "opinion", "experience") else "fact",
+                    "confidence": min(max(float(item.get("confidence", 1.0)), 0.0), 1.0),
+                    **({"valid_until": item["valid_until"]} if item.get("valid_until") else {}),
                 }
             )
 

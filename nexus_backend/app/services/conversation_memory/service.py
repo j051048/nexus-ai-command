@@ -39,12 +39,13 @@ class ConversationMemoryService:
         db: Any = None,
         enriched_value: str | None = None,
         valid_from: str | None = None,
+        **kwargs,
     ) -> dict:
         """保存用户记忆条目（upsert by user_id + key），同时生成 embedding 向量"""
         return await storage.save_memory(
             user_id=user_id, key=key, value=value, category=category,
             metadata=metadata, importance=importance, org_id=org_id, db=db,
-            enriched_value=enriched_value, valid_from=valid_from,
+            enriched_value=enriched_value, valid_from=valid_from, **kwargs,
         )
 
     async def _generate_embedding(self, text: str, org_id: str | None = None) -> list[float] | None:

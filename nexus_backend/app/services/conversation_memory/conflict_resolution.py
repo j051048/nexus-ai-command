@@ -40,7 +40,13 @@ CONFLICT_RESOLUTION_PROMPT = """你是一个智能记忆管理器，负责管理
 3. DELETE — 新信息直接否定/矛盾旧信息:
    - 旧="喜欢芝士" + 新="讨厌芝士" → DELETE 旧的
 4. NONE — 语义完全相同:
-   - 旧="喜欢芝士披萨" == 新="爱芝士披萨" → NONE"""
+   - 旧="喜欢芝士披萨" == 新="爱芝士披萨" → NONE
+
+观点强化规则（当旧记忆的 fact_type 为 "opinion" 时）：
+- 如果新信息支持/强化旧观点 → opinion_effect: "reinforce"
+- 如果新信息削弱旧观点 → opinion_effect: "weaken"
+- 如果新信息直接矛盾旧观点 → opinion_effect: "contradict"
+- 无关或非观点类 → opinion_effect: "neutral" """
 
 CONFLICT_RESOLUTION_USER_TEMPLATE = """{system_prompt}
 
@@ -62,7 +68,8 @@ CONFLICT_RESOLUTION_USER_TEMPLATE = """{system_prompt}
             "id": "<已有记忆的 ID (UPDATE/DELETE/NONE) 或 'new' (ADD)>",
             "text": "<最终的记忆内容>",
             "event": "<ADD / UPDATE / DELETE / NONE>",
-            "old_memory": "<仅 UPDATE 时需要：被更新的旧记忆内容>"
+            "old_memory": "<仅 UPDATE 时需要：被更新的旧记忆内容>",
+            "opinion_effect": "<仅当旧记忆是观点时: reinforce / weaken / contradict / neutral>"
         }}
     ]
 }}
@@ -237,6 +244,8 @@ async def resolve_memory_conflicts(
                     enriched_value=mem.get("enriched_value"),
                     valid_from=mem.get("valid_from"),
                     pattern_key=mem.get("pattern_key"),
+                    fact_type=mem.get("fact_type", "fact"),
+                    confidence=mem.get("confidence", 1.0),
                 )
                 results.append({"id": saved.get("id"), "event": "ADD", "text": mem["value"]})
                 # Audit log
@@ -336,6 +345,10 @@ async def resolve_memory_conflicts(
                     actor="conflict_resolution",
                     db=client,
                 )
+                # Opinion reinforcement: adjust confidence based on LLM's opinion_effect
+                opinion_effect = action.get("opinion_effect", "neutral")
+                if opinion_effect in ("reinforce", "weaken", "contradict"):
+                    await _adjust_opinion_confidence(action_id, opinion_effect, client)
 
             elif event == "DELETE" and action_id:
                 await _delete_existing_memory(
@@ -622,3 +635,51 @@ async def _find_matching_new_mem(text: str, new_memories: list[dict]) -> dict:
             best_overlap = overlap
             best_match = mem
     return best_match or new_memories[0]
+
+
+async def _adjust_opinion_confidence(
+    memory_id: str,
+    effect: str,
+    client: Any,
+) -> None:
+    """Adjust confidence of an opinion memory based on reinforcement signal.
+
+    Hindsight-inspired opinion reinforcement:
+    - reinforce: confidence += 0.1 (capped at 1.0)
+    - weaken: confidence -= 0.1 (floored at 0.0)
+    - contradict: confidence -= 0.2 (floored at 0.0)
+    """
+    try:
+        result = await (
+            client.table("conversation_memories")
+            .select("confidence, fact_type")
+            .eq("id", memory_id)
+            .maybe_single()
+            .execute()
+        )
+        if not result.data:
+            return
+
+        old_conf = float(result.data.get("confidence", 1.0) or 1.0)
+        if effect == "reinforce":
+            new_conf = min(old_conf + 0.1, 1.0)
+        elif effect == "weaken":
+            new_conf = max(old_conf - 0.1, 0.0)
+        elif effect == "contradict":
+            new_conf = max(old_conf - 0.2, 0.0)
+        else:
+            return
+
+        if new_conf != old_conf:
+            await (
+                client.table("conversation_memories")
+                .update({"confidence": round(new_conf, 2)})
+                .eq("id", memory_id)
+                .execute()
+            )
+            logger.debug(
+                "[OpinionReinforce] %s: confidence %.2f → %.2f (%s)",
+                memory_id[:8], old_conf, new_conf, effect,
+            )
+    except Exception as e:
+        logger.debug(f"Opinion confidence adjustment failed: {e}")

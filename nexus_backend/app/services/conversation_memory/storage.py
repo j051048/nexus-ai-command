@@ -55,6 +55,9 @@ async def save_memory(
     *,
     source: str | None = None,
     extraction_method: str | None = None,
+    fact_type: str = "fact",
+    confidence: float = 1.0,
+    valid_until: str | None = None,
 ) -> dict:
     """保存用户记忆条目（upsert by user_id + key），同时生成 embedding 向量"""
     client = db or supabase
@@ -69,7 +72,15 @@ async def save_memory(
         enriched_value = sanitize_pii(enriched_value)
 
     # Generate embedding for semantic search (prefer enriched_value for better semantics)
+    # Hindsight-inspired: inject date prefix into embedding text for temporal awareness
     embed_text = enriched_value or f"{key}: {value}"
+    if valid_from:
+        try:
+            from datetime import datetime as _dt
+            _vf = _dt.fromisoformat(str(valid_from).replace("Z", "+00:00"))
+            embed_text = f"[Date: {_vf.strftime('%Y-%m-%d')} / {_vf.strftime('%d %B %Y')}] {embed_text}"
+        except (ValueError, TypeError):
+            pass
     embedding = await generate_embedding(embed_text, org_id)
 
     # Encrypt sensitive categories at rest (AFTER embedding, which needs plaintext)
@@ -141,6 +152,12 @@ async def save_memory(
         insert_data["pattern_key"] = pattern_key
         insert_data["first_seen_at"] = now
         insert_data["recurrence_count"] = 1
+    if fact_type and fact_type != "fact":
+        insert_data["fact_type"] = fact_type
+    if confidence != 1.0:
+        insert_data["confidence"] = confidence
+    if valid_until:
+        insert_data["valid_until"] = valid_until
     try:
         result = await client.table("conversation_memories").insert(insert_data).execute()
     except Exception as insert_err:

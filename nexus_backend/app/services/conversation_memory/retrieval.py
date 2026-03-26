@@ -158,8 +158,17 @@ def _format_by_temperature(mem: dict) -> str:
     value = decrypt_memory_value(value)
 
     # Time anchor: absolute date + relative age for LLM temporal reasoning
-    date_attr = f' date="{abs_date}"' if abs_date else ""
-    parts = [f'  <memory type="{category}"{date_attr} age="{age_str}" importance="{importance:.1f}">']
+    # If valid_until exists, show as date range
+    valid_until = mem.get("valid_until")
+    if abs_date and valid_until:
+        end_date = _absolute_date(valid_until)
+        date_attr = f' date="{abs_date} ~ {end_date}"' if end_date else f' date="{abs_date}"'
+    elif abs_date:
+        date_attr = f' date="{abs_date}"'
+    else:
+        date_attr = ""
+    fact_type_attr = f' fact_type="{mem.get("fact_type", "fact")}"' if mem.get("fact_type") and mem.get("fact_type") != "fact" else ""
+    parts = [f'  <memory type="{category}"{date_attr}{fact_type_attr} age="{age_str}" importance="{importance:.1f}">']
     if days_old < 3 and importance > 0.7:
         parts.append(value)
     elif days_old < 30:
@@ -216,9 +225,17 @@ async def search_memories(
     # ── RRF 融合所需的各路排名列表 ──────────────────────────
     rrf_lists: list[list[dict]] = []  # each sub-list is one retrieval path
 
+    # Pre-compute query embedding once for reuse across semantic search + reranking
+    query_embedding = None
+    try:
+        from app.services.vector_service import vector_service
+        query_embedding = await vector_service.embed_text(query)
+    except Exception:
+        pass
+
     try:
         # 四路并行：语义搜索 + 实体精确搜索 + 用户锚定检索 + 关键词搜索
-        sem_task = _semantic_search(user_id, query, limit * 2, org_id, client)
+        sem_task = _semantic_search(user_id, query, limit * 2, org_id, client, query_embedding=query_embedding)
         entity_task = _entity_precise_search(user_id, query, min(5, limit), org_id, client)
         anchor_task = _user_anchor_search(user_id, min(5, limit), org_id, client)
         keyword_task = _keyword_search(user_id, query, limit, org_id, client)
@@ -266,7 +283,35 @@ async def search_memories(
                 freshness = max(0.5, 0.8 * (60.0 / max(days_old, 1)))
 
             # Apply decay factor softly (0.8 base + 0.2 freshness variation)
-            rrf_scores[mid] = rrf_scores[mid] * (0.8 + 0.2 * freshness)
+            confidence = float(mem.get("confidence", 1.0) or 1.0)
+            rrf_scores[mid] = rrf_scores[mid] * (0.8 + 0.2 * freshness) * confidence
+
+        # ── Embedding-based rerank (lightweight cross-encoder substitute) ──
+        # For candidates from non-semantic arms that lack similarity scores,
+        # compute cosine similarity with query embedding as a precision signal.
+        if query_embedding and len(id_to_mem) > 1:
+            try:
+                import numpy as np
+                q_vec = np.array(query_embedding, dtype=np.float32)
+                q_norm = np.linalg.norm(q_vec)
+                if q_norm > 0:
+                    max_rrf = max(rrf_scores.values()) if rrf_scores else 1.0
+                    for mid, mem in id_to_mem.items():
+                        mem_emb = mem.get("embedding")
+                        if mem_emb and isinstance(mem_emb, list):
+                            m_vec = np.array(mem_emb, dtype=np.float32)
+                            m_norm = np.linalg.norm(m_vec)
+                            if m_norm > 0:
+                                cos_sim = float(np.dot(q_vec, m_vec) / (q_norm * m_norm))
+                            else:
+                                cos_sim = 0.0
+                        else:
+                            cos_sim = float(mem.get("similarity", 0) or 0)
+                        # Blend: 0.6 * normalized_rrf + 0.4 * cosine_similarity
+                        norm_rrf = rrf_scores.get(mid, 0) / max_rrf if max_rrf else 0
+                        rrf_scores[mid] = 0.6 * norm_rrf + 0.4 * max(cos_sim, 0)
+            except Exception as e:
+                logger.debug(f"Embedding rerank skipped: {e}")
 
         # Sort by RRF score descending
         sorted_ids = sorted(rrf_scores, key=lambda x: rrf_scores[x], reverse=True)
@@ -344,7 +389,7 @@ async def search_memories(
     return memories
 
 
-async def _semantic_search(user_id: str, query: str, limit: int, org_id: str | None, client) -> list[dict]:
+async def _semantic_search(user_id: str, query: str, limit: int, org_id: str | None, client, *, query_embedding: list[float] | None = None) -> list[dict]:
     """Embedding-based semantic search on memories using pgvector.
     P1: 优先使用 search_memories_hybrid（向量+时间衰减），
     降级到 search_memories_by_embedding。
@@ -353,9 +398,9 @@ async def _semantic_search(user_id: str, query: str, limit: int, org_id: str | N
     分词器对中文无效。中文关键词搜索由 _keyword_search (jieba+ILIKE) 负责。
     """
     try:
-        from app.services.vector_service import vector_service
-
-        query_embedding = await vector_service.embed_text(query)
+        if not query_embedding:
+            from app.services.vector_service import vector_service
+            query_embedding = await vector_service.embed_text(query)
         if not query_embedding:
             return []
 
@@ -610,7 +655,10 @@ async def _spreading_activation(
             target_id = conn.get("memory_id")
             strength = float(conn.get("strength", 0.5) or 0.5)
             if target_id and target_id not in seed_ids:
-                activation = imp * strength * decay_factor
+                # Hindsight-inspired: causal links get 2x boost, contradicts 1.5x
+                relation = conn.get("relation", "supplements")
+                link_mult = 2.0 if relation == "causal" else (1.5 if relation == "contradicts" else 1.0)
+                activation = imp * strength * decay_factor * link_mult
                 if activation >= activation_threshold:
                     frontier.append((target_id, activation))
 
@@ -656,7 +704,9 @@ async def _spreading_activation(
                 target_id = conn.get("memory_id")
                 strength = float(conn.get("strength", 0.5) or 0.5)
                 if target_id and target_id not in visited and target_id not in seed_ids:
-                    propagated = score * strength * decay_factor
+                    relation = conn.get("relation", "supplements")
+                    link_mult = 2.0 if relation == "causal" else (1.5 if relation == "contradicts" else 1.0)
+                    propagated = score * strength * decay_factor * link_mult
                     if propagated >= activation_threshold:
                         next_frontier.append((target_id, propagated))
 
