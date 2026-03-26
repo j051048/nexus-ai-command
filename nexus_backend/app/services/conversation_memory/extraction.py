@@ -459,9 +459,13 @@ async def extract_with_llm(
 
         from .llm_utils import parse_llm_json
 
+        # Inject current date so LLM can resolve relative time references
+        from datetime import UTC, datetime as _dt
+        today_str = _dt.now(UTC).strftime("%Y-%m-%d")
+
         prompt = f"以下是用户在对话中说的话：\n\n{combined}"
         system = (
-            "你是记忆提取专家。从用户的对话中提取值得长期记住的信息。\n"
+            f"你是记忆提取专家。当前日期: {today_str}。从用户的对话中提取值得长期记住的信息。\n"
             "提取以下类型的信息：\n"
             "- 用户的身份、职位、负责区域等个人信息\n"
             "- 用户的工作习惯和偏好（如报告格式、沟通方式）\n"
@@ -479,9 +483,10 @@ async def extract_with_llm(
             "  * 0.8-1.0: 身份信息、核心偏好、明确指令（如'以后都用表格'）\n"
             "  * 0.5-0.7: 工作习惯、常用功能、业务方向\n"
             "  * 0.3-0.4: 一般性事实、临时偏好、单次提及\n"
-            '- "valid_from": (可选) 如果信息涉及具体时间点（如"上个月搬了新办公室"、'
-            '"去年加入公司"），输出该事实的大致生效日期，ISO格式如 "2026-02-01"。'
-            "无明确时间信息则不输出此字段。\n\n"
+            '- "valid_from": 该信息的生效日期，ISO格式如 "2026-02-01"。'
+            f"基于当前日期 {today_str} 推算相对时间：'上个月' → 上月1日、'去年' → 去年1月、"
+            "'最近'/'刚刚'/'今天' → 当天、'上周' → 上周一。"
+            "如果完全无时间线索，填当天日期。\n\n"
             "只返回JSON数组，不要其他文字。最多提取5条。"
         )
 
@@ -510,7 +515,7 @@ async def extract_with_llm(
                     "category": category,
                     "importance": min(max(float(item.get("importance", 0.5)), 0.1), 1.0),
                     "pattern_key": item.get("pattern_key") or f"{category}:{key}",
-                    **({"valid_from": item["valid_from"]} if item.get("valid_from") else {}),
+                    "valid_from": item.get("valid_from") or today_str,
                 }
             )
 

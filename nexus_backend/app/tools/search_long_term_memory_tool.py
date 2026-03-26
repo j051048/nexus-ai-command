@@ -6,6 +6,7 @@ search_long_term_memory_tool — Agent 主动长短期记忆检索工具 (Memory
 """
 
 import logging
+import re
 from typing import Any
 
 from app.tools.base_tool import BaseTool
@@ -70,21 +71,30 @@ class SearchLongTermMemoryTool(BaseTool):
             "required": ["query"],
         }
 
+    _LIST_PATTERNS = re.compile(
+        r"(how many|what (?:types?|kinds?|all)|where (?:has|have|did)|"
+        r"list|哪些|多少|几个|几次|都有|所有|有哪|列举|分别)",
+        re.IGNORECASE,
+    )
+
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] | None = None) -> str:
         from app.services.conversation_memory_service import conversation_memory_service
-        
+
         query = args["query"]
         category = args.get("category", "all")
         org_id = (config or {}).get("org_id")
 
+        # 列表类查询自动提升检索量
+        limit = 10 if self._LIST_PATTERNS.search(query) else 5
+
         try:
             results = []
-            
+
             # 搜索用户个人记忆
             memories = await conversation_memory_service.search_memories(
                 user_id=user_id,
                 query=query,
-                limit=5,
+                limit=limit,
                 org_id=org_id,
             )
             

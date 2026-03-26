@@ -866,6 +866,13 @@ async def build_memory_context(
         relevant_limit = max(relevant_limit, 15)  # Force higher recall for list queries
         consolidated_limit = max(consolidated_limit, 5)
 
+    # Detect recency-oriented queries — boost recent memories when user asks about "lately"
+    _RECENCY_PATTERNS = re.compile(
+        r"(最近|近期|刚才|刚刚|今天|昨天|这几天|这周|上周|recently|lately|just now|today|yesterday|this week|last week)",
+        re.IGNORECASE,
+    )
+    is_recency_query = bool(_RECENCY_PATTERNS.search(current_query)) if current_query else False
+
     if complexity:
         _c = str(complexity).upper()
         if _c in ("CRITICAL", "COMPLEX"):
@@ -924,6 +931,20 @@ async def build_memory_context(
                 for date_key in sorted(date_seen.keys()):
                     diverse.extend(date_seen[date_key][:max_per_date])
                 new_relevant = diverse[:relevant_limit]
+
+            # Recency-first reranking: when user asks about recent events,
+            # sort memories so that last-7-days items come first
+            if is_recency_query and len(new_relevant) > 1:
+                now = datetime.now(UTC)
+                def _recency_tier(m: dict) -> int:
+                    ts = m.get("valid_from") or m.get("updated_at") or m.get("created_at") or ""
+                    d = _days_since(ts) if ts else 999
+                    if d <= 7:
+                        return 0  # recent — top tier
+                    if d <= 30:
+                        return 1  # warm
+                    return 2      # older
+                new_relevant.sort(key=_recency_tier)
 
             if new_relevant:
                 rel_lines = [_format_by_temperature(m) for m in new_relevant]
