@@ -99,7 +99,7 @@ async def get_current_user_id(request: Request = None, authorization: str | None
             if claimed_alg not in ALLOWED_ALGORITHMS:
                 logger.warning(f"Token claims unsupported algorithm: {claimed_alg}")
         except Exception:
-            logger.debug("Failed to parse JWT header for algorithm check, proceeding with verification")
+            logger.error("Failed to parse JWT header for algorithm check, proceeding with verification")
 
         payload = None
         last_error = None
@@ -129,7 +129,7 @@ async def get_current_user_id(request: Request = None, authorization: str | None
                 )
             except Exception as e:
                 last_error = e
-                logger.debug(f"JWKS verification failed: {e}")
+                logger.error(f"JWKS verification failed: {e}")
 
         # Strategy 2: Try shared secrets (for HS256 tokens)
         if not payload:

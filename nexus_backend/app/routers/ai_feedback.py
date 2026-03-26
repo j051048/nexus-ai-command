@@ -89,7 +89,7 @@ async def submit_feedback(
                 )
                 logger.info("Golden example saved: user=%s scene=%s", user_id, scene)
             except Exception as ge_err:
-                logger.debug(f"Golden example save failed (non-fatal): {ge_err}")
+                logger.error(f"Golden example save failed (non-fatal): {ge_err}")
 
         return api_success(data={"feedback": feedback}, message="反馈已记录")
     except Exception as e:

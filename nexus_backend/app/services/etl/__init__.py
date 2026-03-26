@@ -129,7 +129,7 @@ class ETLService:
                     return similar
 
         except Exception as e:
-            logger.debug(f"Dedup check failed (non-fatal): {e}")
+            logger.error(f"Dedup check failed (non-fatal): {e}")
         return None
 
     async def _check_title_similarity(self, filename: str, org_id: str, threshold: float = 0.85) -> dict | None:
@@ -171,7 +171,7 @@ class ETLService:
                     return {**doc, "dedup_reason": f"title_similar({ratio:.0%})"}
 
         except Exception as e:
-            logger.debug(f"Title similarity check failed (non-fatal): {e}")
+            logger.error(f"Title similarity check failed (non-fatal): {e}")
         return None
 
     async def create_initial_record(
@@ -198,7 +198,7 @@ class ETLService:
                 if user_res.data:
                     department = user_res.data.get("department")
             except Exception as e:
-                logger.debug(f"Failed to fetch user department: {e}")
+                logger.error(f"Failed to fetch user department: {e}")
 
         record = {
             "name": filename,

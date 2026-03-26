@@ -69,6 +69,7 @@ class ThinkingStep:
     duration_ms: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
+        """Convert step to dictionary, excluding None values."""
         return {k: v for k, v in asdict(self).items() if v is not None}
 
 
@@ -179,6 +180,7 @@ class AgentConfig(BaseModel):
     @field_validator("user_role")
     @classmethod
     def validate_user_role(cls, v: str) -> str:
+        """Validate and normalize user role, defaulting to 'employee' if invalid."""
         if not v or not isinstance(v, str):
             return "employee"
         return v

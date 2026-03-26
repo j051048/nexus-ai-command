@@ -100,7 +100,7 @@ class RateLimitingService:
                     with contextlib.suppress(ValueError):
                         tier = RateTier(res.data["tier"])
             except Exception as e:
-                logger.debug(f"Tier lookup failed for {user_id}: {e}")
+                logger.error(f"Tier lookup failed for {user_id}: {e}")
 
         self._tier_cache[user_id] = tier
         return tier

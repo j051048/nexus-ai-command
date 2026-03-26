@@ -135,7 +135,7 @@ async def consolidate_user_memories(
             await _write_connections(memories, connections, client)
 
         except Exception as e:
-            logger.debug(f"Failed to store consolidation insight: {e}")
+            logger.error(f"Failed to store consolidation insight: {e}")
 
     # Mark all processed memories as consolidated
     if memories:
@@ -208,7 +208,7 @@ async def _write_connections(
                     .execute()
                 )
         except Exception as e:
-            logger.debug(f"Failed to write memory connection: {e}")
+            logger.error(f"Failed to write memory connection: {e}")
 
 
 async def generate_user_observation(

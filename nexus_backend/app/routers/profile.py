@@ -5,11 +5,25 @@ import logging
 from fastapi import APIRouter, Depends, Request
 
 from app.core.auth import get_current_user_id
+from app.core.cache import cache
 from app.core.errors import ErrorCode, api_error, api_success
 from app.models.schemas import AISettingsUpdate, ProfileUpdate
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/profile", tags=["Profile"])
+
+
+@cache(ttl=300)
+async def _get_user_profile(client, user_id: str):
+    """Cached user profile query."""
+    res = (
+        await client.table("users")
+        .select("id, name, email, role, department, position, avatar_url, employee_number, job_title, created_at")
+        .eq("id", user_id)
+        .limit(1)
+        .execute()
+    )
+    return res.data[0] if res.data else None
 
 
 @router.get("")
@@ -23,15 +37,7 @@ async def get_profile(
         raise api_error(ErrorCode.DB_CONNECTION_ERROR, "Database unavailable")
 
     try:
-        res = (
-            await client.table("users")
-            .select("id, name, email, role, department, position, avatar_url, employee_number, job_title, created_at")
-            .eq("id", user_id)
-            .limit(1)
-            .execute()
-        )
-
-        row = res.data[0] if res.data else None
+        row = await _get_user_profile(client, user_id)
         if not row:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "User not found")
 

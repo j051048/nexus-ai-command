@@ -325,7 +325,7 @@ async def _store_triples(
                         conflict.get("destination_entity"), rel["destination"],
                     )
             except Exception as e:
-                logger.debug(f"[KG] Conflict check failed (non-critical): {e}")
+                logger.error(f"[KG] Conflict check failed (non-critical): {e}")
 
             # Insert new triple (with entity embeddings for similarity search)
             insert_data = {
@@ -364,7 +364,7 @@ async def _store_triples(
             if "knowledge_graph_triples" in err_str and ("42P01" in err_str or "PGRST" in err_str):
                 logger.debug("knowledge_graph_triples table not yet created, skipping")
                 return []
-            logger.debug(f"Failed to store triple: {e}")
+            logger.error(f"Failed to store triple: {e}")
 
     return saved
 
@@ -546,7 +546,7 @@ async def query_entity_relations(
         return combined[:limit]
 
     except Exception as e:
-        logger.debug(f"Failed to query entity relations: {e}")
+        logger.error(f"Failed to query entity relations: {e}")
         return []
 
 
@@ -585,7 +585,7 @@ async def search_kg_hybrid(
         direct_results = result.data or []
     except Exception as e:
         # RPC not deployed yet — fallback to simple ILIKE
-        logger.debug(f"[KG] Hybrid search RPC failed, falling back to ILIKE: {e}")
+        logger.error(f"[KG] Hybrid search RPC failed, falling back to ILIKE: {e}")
         try:
             pattern = f"%{query}%"
             result = (

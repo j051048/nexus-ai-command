@@ -144,7 +144,7 @@ class CacheService:
                 except (json.JSONDecodeError, TypeError):
                     return value.decode() if isinstance(value, bytes) else value
         except Exception as e:
-            logger.debug(f"Cache get error: {e}")
+            logger.error(f"Cache get error: {e}")
         return None
 
     async def set(self, key: str, value: Any, ttl: int = None) -> bool:
@@ -161,7 +161,7 @@ class CacheService:
                 await self._client.set(key, value)
             return True
         except Exception as e:
-            logger.debug(f"Cache set error: {e}")
+            logger.error(f"Cache set error: {e}")
             return False
 
     async def delete(self, key: str) -> bool:
@@ -171,7 +171,7 @@ class CacheService:
             await self._client.delete(key)
             return True
         except Exception as e:
-            logger.debug(f"Cache delete error: {e}")
+            logger.error(f"Cache delete error: {e}")
             return False
 
     async def delete_pattern(self, pattern: str) -> int:
@@ -191,7 +191,7 @@ class CacheService:
                         await self._client.delete(key)
                 return len(keys)
         except Exception as e:
-            logger.debug(f"Cache delete_pattern error: {e}")
+            logger.error(f"Cache delete_pattern error: {e}")
         return 0
 
     # ============== Domain-specific methods ==============

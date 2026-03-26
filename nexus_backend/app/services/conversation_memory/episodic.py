@@ -62,7 +62,7 @@ class EpisodicMemoryService:
                 return result.data[0] if isinstance(result.data, list) else result.data
         except Exception as e:
             # Episode save failure should never block the main flow
-            logger.debug(f"[Episode] Save failed (non-critical): {e}")
+            logger.error(f"[Episode] Save failed (non-critical): {e}")
         return None
 
     async def search_similar_episodes(
@@ -99,7 +99,7 @@ class EpisodicMemoryService:
             # Filter by minimum similarity threshold
             return [ep for ep in episodes if ep.get("similarity", 0) > 0.5]
         except Exception as e:
-            logger.debug(f"[Episode] Search failed (non-critical): {e}")
+            logger.error(f"[Episode] Search failed (non-critical): {e}")
             return []
 
     def build_episode_context(self, episodes: list[dict]) -> str:

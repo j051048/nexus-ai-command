@@ -43,10 +43,18 @@ try:
                 "Authorization": f"Bearer {token or key}",
                 "Content-Type": "application/json",
             }
-            # G5 Optimization: Force HTTP/1.1 by passing a custom timeout and letting it default
-            # Actually, to truly force HTTP/1.1 we would need to pass a client, but AsyncPostgrestClient
-            # doesn't make this easy in all versions. We'll set a healthy timeout.
-            self.client = AsyncPostgrestClient(base_url, headers=headers, timeout=30)
+            # Connection pool configuration
+            limits = httpx.Limits(
+                max_keepalive_connections=20,
+                max_connections=100,
+                keepalive_expiry=30.0
+            )
+            timeout = httpx.Timeout(30.0, connect=10.0)
+
+            # Create custom httpx client with connection pool
+            http_client = httpx.AsyncClient(limits=limits, timeout=timeout, http2=False)
+
+            self.client = AsyncPostgrestClient(base_url, headers=headers, session=http_client)
             self._url = url
             self._key = key
 

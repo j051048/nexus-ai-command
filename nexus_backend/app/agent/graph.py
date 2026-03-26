@@ -76,7 +76,9 @@ from app.agent.nodes_wbs import wbs_decompose_node
 from app.agent.router import route_node
 from app.agent.safety_guards import SLO_THRESHOLDS, has_irreversible_tool, is_mutation_fast_path, check_slo_budget
 from app.agent.state import AgentState, QueryComplexity, get_completed_tools, get_config, get_task_steps
-from app.core.config import settings
+from app.core.timeout import with_timeout
+from app.core.agent_metrics import record_agent_execution
+import time
 from app.tools import get_tool
 
 logger = logging.getLogger(__name__)
@@ -813,18 +815,60 @@ class AgentGraph:
         increment_tool_schema_version()
         logger.info("[AgentGraph] Graph marked for reload on next access")
 
+    @with_timeout(120)
     async def run(self, initial_state: AgentState, thread_id: str = "default") -> AgentState:
         """
         Run the graph to completion and return the final state.
         Suitable for non-streaming use cases (tests, batch jobs).
         """
+        # Check conversation turn limit
+        messages = initial_state.get("messages", [])
+        if len(messages) > 50:
+            logger.warning(f"Conversation exceeded 50 turns, rejecting request")
+            initial_state["final_response"] = "对话轮次已达上限（50轮），请开始新的对话。"
+            initial_state["error"] = "MAX_TURNS_EXCEEDED"
+            return initial_state
+
         config = {
             "configurable": {
                 "thread_id": thread_id,
             },
             "recursion_limit": settings.LANGGRAPH_MAX_ITERATIONS * 5 + 10,
         }
-        return await self.compiled.ainvoke(initial_state, config=config)
+
+        # Record metrics
+        start_time = time.time()
+        try:
+            result = await self.compiled.ainvoke(initial_state, config=config)
+            duration = time.time() - start_time
+
+            # Record token usage
+            tokens = result.get("total_input_tokens", 0) + result.get("total_output_tokens", 0)
+            cost = tokens * 0.00001  # Simplified cost calculation
+
+            record_agent_execution(
+                user_id=result.get("config", {}).get("user_id", "unknown"),
+                complexity=str(result.get("complexity", "unknown")),
+                model=result.get("selected_model", "unknown"),
+                tokens=tokens,
+                cost=cost,
+                duration=duration,
+                success=not result.get("error")
+            )
+
+            return result
+        except Exception as e:
+            duration = time.time() - start_time
+            record_agent_execution(
+                user_id=initial_state.get("config", {}).get("user_id", "unknown"),
+                complexity="unknown",
+                model="unknown",
+                tokens=0,
+                cost=0,
+                duration=duration,
+                success=False
+            )
+            raise
 
     async def stream(self, initial_state: AgentState, thread_id: str = "default"):
         """

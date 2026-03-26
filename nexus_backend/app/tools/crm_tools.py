@@ -528,7 +528,7 @@ class UpdateCustomerStageTool(BaseTool):
             elif new_stage == "opportunity":
                 await event_bus.emit(EventType.LEAD_QUALIFIED.value, event_data)
         except Exception as e:
-            logger.debug(f"Event emission failed: {e}")
+            logger.error(f"Event emission failed: {e}")
 
         stage_labels = {
             "lead": "线索",

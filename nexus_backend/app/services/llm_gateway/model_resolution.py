@@ -351,7 +351,7 @@ class ModelResolutionMixin:
                         )
                         return larger, larger_config
         except Exception as e:
-            logger.debug(f"Context upgrade check failed (non-fatal): {e}")
+            logger.error(f"Context upgrade check failed (non-fatal): {e}")
         return model_code, config
 
     async def _create_adapter(

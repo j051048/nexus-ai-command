@@ -138,7 +138,7 @@ async def _load_role_from_db(agent_code: str, tenant_id: str | None = None) -> R
         )
     except Exception as e:
         # Table may not exist yet — that's fine, fall back to code defaults
-        logger.debug(f"[RoleRegistry] DB lookup failed for {agent_code}: {e}")
+        logger.error(f"[RoleRegistry] DB lookup failed for {agent_code}: {e}")
         return None
 
 

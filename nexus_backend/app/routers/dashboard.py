@@ -194,7 +194,7 @@ async def ai_activity_stats(request: Request, user_id: str = Depends(get_current
         )
         tasks_completed = res.count if res.count is not None else 0
     except Exception as e:
-        logger.debug("AI stats tasks query failed: %s", e)
+        logger.error("AI stats tasks query failed: %s", e)
 
     try:
         # Count distinct active agent sessions this week
@@ -207,7 +207,7 @@ async def ai_activity_stats(request: Request, user_id: str = Depends(get_current
         if res.data:
             active_agents = len({r.get("conversation_id") for r in res.data if r.get("conversation_id")})
     except Exception as e:
-        logger.debug("AI stats agents query failed: %s", e)
+        logger.error("AI stats agents query failed: %s", e)
 
     # Estimate: ~15 min saved per completed task
     estimated_hours = round(tasks_completed * 0.25, 1)

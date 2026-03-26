@@ -375,7 +375,7 @@ async def error_node(state: AgentState) -> dict:
             severity="high" if recovery_level >= 2 else "medium",
         )
     except Exception as e:
-        logger.debug(f"[ErrorNode] Failed to log failure: {e}")
+        logger.error(f"[ErrorNode] Failed to log failure: {e}")
 
     # P1 Plugin: ON_ERROR hook
     try:
@@ -384,7 +384,7 @@ async def error_node(state: AgentState) -> dict:
             {"error": error_msg, "recovery_level": recovery_level, "iteration": iteration},
         )
     except Exception as e:
-        logger.debug(f"[ErrorNode] ON_ERROR hook error: {e}")
+        logger.error(f"[ErrorNode] ON_ERROR hook error: {e}")
 
     if recovery_level == 0 and iteration < 5:
         # Extract failed tool names from recent ToolMessages for better recovery guidance

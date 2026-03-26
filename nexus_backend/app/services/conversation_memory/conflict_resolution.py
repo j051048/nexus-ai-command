@@ -159,7 +159,7 @@ async def resolve_memory_conflicts(
                 )
                 continue
         except Exception as e:
-            logger.debug(f"Pattern-key dedup lookup failed for {pk}: {e}")
+            logger.error(f"Pattern-key dedup lookup failed for {pk}: {e}")
 
         remaining_memories.append(mem)
 
@@ -186,7 +186,7 @@ async def resolve_memory_conflicts(
         try:
             similar = await _search_similar(user_id, value, org_id=org_id, db=client)
         except Exception as e:
-            logger.debug(f"Similar memory search failed: {e}")
+            logger.error(f"Similar memory search failed: {e}")
             similar = []
 
         # Check for near-duplicate (high cosine similarity → skip LLM)
@@ -223,7 +223,7 @@ async def resolve_memory_conflicts(
                     near_dup.get("similarity", 0), value[:60],
                 )
             except Exception as e:
-                logger.debug(f"Vector dedup update failed: {e}")
+                logger.error(f"Vector dedup update failed: {e}")
                 still_remaining.append(mem)
             continue
 
@@ -425,7 +425,7 @@ async def _search_similar(
         ).execute()
         return result.data or []
     except Exception as e:
-        logger.debug(f"Vector memory search failed, falling back to keyword: {e}")
+        logger.error(f"Vector memory search failed, falling back to keyword: {e}")
 
     # Fallback: keyword search
     try:
@@ -440,7 +440,7 @@ async def _search_similar(
         )
         return result.data or []
     except Exception as e2:
-        logger.debug(f"Keyword fallback search also failed: {e2}")
+        logger.error(f"Keyword fallback search also failed: {e2}")
         return []
 
 
@@ -687,4 +687,4 @@ async def _adjust_opinion_confidence(
                 memory_id[:8], old_conf, new_conf, effect,
             )
     except Exception as e:
-        logger.debug(f"Opinion confidence adjustment failed: {e}")
+        logger.error(f"Opinion confidence adjustment failed: {e}")

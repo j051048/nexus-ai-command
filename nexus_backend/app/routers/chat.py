@@ -94,7 +94,7 @@ async def chat(request: ChatRequest, req: Request, user_id: str = Depends(get_cu
     try:
         # Query AI settings with organization_id to match frontend save logic
         org_id = getattr(req.state, "org_id", None)
-        settings_query = client.table("ai_settings").select("*").eq("user_id", user_id)
+        settings_query = client.table("ai_settings").select("base_url,api_key,model").eq("user_id", user_id)
         if org_id:
             settings_query = settings_query.eq("organization_id", org_id)
         settings_res = await settings_query.maybe_single().execute()
@@ -236,7 +236,7 @@ async def get_chat_history(session_id: str, req: Request, user_id: str = Depends
         client = req.state.db
         response = (
             await client.table("chat_messages")
-            .select("*")
+            .select("id,role,content,created_at,session_id")
             .eq("user_id", user_id)
             .eq("session_id", session_id)
             .order("created_at", desc=False)
@@ -410,7 +410,7 @@ async def search_messages(q: str, req: Request, user_id: str = Depends(get_curre
         # Simple ILIKE search on content
         response = (
             await client.table("chat_messages")
-            .select("*")
+            .select("id,role,content,created_at,session_id")
             .eq("user_id", user_id)
             .ilike("content", f"%{escaped_q}%")
             .order("created_at", desc=True)

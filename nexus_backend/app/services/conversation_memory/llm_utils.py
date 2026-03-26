@@ -116,5 +116,5 @@ def parse_llm_json(text: str) -> Any:
             except json.JSONDecodeError:
                 pass
 
-    logger.debug(f"Failed to parse LLM JSON response: {text[:200]}...")
+    logger.error(f"Failed to parse LLM JSON response: {text[:200]}...")
     return None

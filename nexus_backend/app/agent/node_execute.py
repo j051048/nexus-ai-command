@@ -274,7 +274,7 @@ async def _llm_fix_params(
             logger.info(f"[SelfHeal] LLM fixed params for {tool_name}: {list(fixed_args.keys())}")
             return fixed_args
     except Exception as e:
-        logger.debug(f"[SelfHeal] LLM param fix failed for {tool_name}: {e}")
+        logger.error(f"[SelfHeal] LLM param fix failed for {tool_name}: {e}")
     return None
 
 
@@ -549,7 +549,7 @@ async def _execute_single_tool(
                 logger.warning(f"[PreFlight] {record.tool_name} blocked: {error_msg}")
                 return record
         except Exception as e:
-            logger.debug(f"[PreFlight] Check error for {record.tool_name}: {e}")
+            logger.error(f"[PreFlight] Check error for {record.tool_name}: {e}")
 
     # 2a. Query Result Cache — skip execution for read-only tools with same args
     if not tool.is_irreversible and record.tool_name not in LONG_RUNNING_TOOLS:
@@ -884,7 +884,7 @@ async def execute_node(state: AgentState, config: RunnableConfig | None = None) 
             {"tools": tool_names_list, "pending_count": len(pending)},
         )
     except Exception as e:
-        logger.debug(f"[ExecuteNode] PRE_TOOL hook error: {e}")
+        logger.error(f"[ExecuteNode] PRE_TOOL hook error: {e}")
 
     # P1 Fix: Share a single idempotency cache across all parallel tool executions
     shared_idempotency_cache: dict = {}
@@ -1027,7 +1027,7 @@ async def execute_node(state: AgentState, config: RunnableConfig | None = None) 
                     error_message=record.result[:300] if record.status == "error" and record.result else None,
                 )
             except Exception:
-                logger.debug(f"[ExecuteNode] Audit log failed for {record.tool_name}", exc_info=True)
+                logger.error(f"[ExecuteNode] Audit log failed for {record.tool_name}", exc_info=True)
     except ImportError:
         pass
 
@@ -1042,7 +1042,7 @@ async def execute_node(state: AgentState, config: RunnableConfig | None = None) 
             },
         )
     except Exception as e:
-        logger.debug(f"[ExecuteNode] POST_TOOL hook error: {e}")
+        logger.error(f"[ExecuteNode] POST_TOOL hook error: {e}")
 
     # Check for confirmation-blocked tools — stop iteration to let frontend handle
     has_confirmation_blocked = any(r.status == "blocked" for r in completed)

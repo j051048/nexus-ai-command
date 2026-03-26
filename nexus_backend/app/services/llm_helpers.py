@@ -163,7 +163,7 @@ async def resolve_model_config(
                         "context_window": config.context_window,
                     }
     except Exception as e:
-        logger.debug("Gateway model resolution failed, using fallback: %s", e)
+        logger.error("Gateway model resolution failed, using fallback: %s", e)
 
     # Tier-aware hardcoded fallback
     if complexity_tier:
@@ -216,7 +216,7 @@ async def resolve_embedding_config(org_id: str = "default") -> dict:
                         "model": config.model_id or config.model_code,
                     }
     except Exception as e:
-        logger.debug("Gateway embedding resolution failed, using fallback: %s", e)
+        logger.error("Gateway embedding resolution failed, using fallback: %s", e)
 
     # Fallback — use large model with dimensions=1536 (MRL), matching DB vector(1536)
     return {

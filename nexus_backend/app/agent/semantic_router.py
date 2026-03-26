@@ -205,7 +205,7 @@ class SemanticRouter:
             return None, best_score, []
 
         except Exception as e:
-            logger.debug(f"[SemanticRouter] classify failed: {e}")
+            logger.error(f"[SemanticRouter] classify failed: {e}")
             return None, 0.0, []
 
     def get_complexity(self, intent: str) -> str:

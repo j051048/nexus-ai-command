@@ -317,7 +317,7 @@ class CircuitBreakerManager:
                         breaker._opened_at = time.monotonic()
                         logger.info(f"Circuit breaker synced OPEN from Redis for model '{model_code}'")
         except Exception as e:
-            logger.debug(f"Circuit breaker Redis sync failed (non-fatal): {e}")
+            logger.error(f"Circuit breaker Redis sync failed (non-fatal): {e}")
 
 
 # Global circuit breaker manager

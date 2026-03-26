@@ -4,6 +4,7 @@
 """
 
 import logging
+from app.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +12,7 @@ logger = logging.getLogger(__name__)
 class SystemConfigService:
     """系统配置管理服务"""
 
+    @cache(ttl=600)
     async def list_configs(
         self,
         org_id: str,

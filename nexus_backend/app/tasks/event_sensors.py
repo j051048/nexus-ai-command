@@ -54,7 +54,7 @@ async def _get_thresholds(org_id: str | None = None) -> dict:
             merged.update(config["value"])
             return merged
     except Exception as e:
-        logger.debug("tenant sensor thresholds query failed: %s", e)
+        logger.error("tenant sensor thresholds query failed: %s", e)
 
 
 async def _record_action(
@@ -86,7 +86,7 @@ async def _record_action(
             .execute()
         )
     except Exception as e:
-        logger.debug(f"Failed to record action outcome: {e}")
+        logger.error(f"Failed to record action outcome: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -134,7 +134,7 @@ def sensor_sales_anomaly():
                     .execute()
                 )
             except Exception as e:
-                logger.debug(f"sales_metrics query failed: {e}")
+                logger.error(f"sales_metrics query failed: {e}")
                 return "skipped: sales_metrics not available"
 
         yesterday_data = yesterday_res.data or []
@@ -156,7 +156,7 @@ def sensor_sales_anomaly():
             )
             week_data = week_res.data or []
         except Exception as e:
-            logger.debug("historical sales_metrics query failed: %s", e)
+            logger.error("historical sales_metrics query failed: %s", e)
             week_data = []
 
         if not week_data:
@@ -215,7 +215,7 @@ def sensor_sales_anomaly():
                     )
                     notified += 1
                 except Exception as e:
-                    logger.debug("anomaly notification send failed for user: %s", e)
+                    logger.error("anomaly notification send failed for user: %s", e)
             return f"Sales anomaly alert sent to {notified} users: {'; '.join(anomalies)}"
         except Exception as e:
             logger.error(f"Failed to send anomaly alerts: {e}")
@@ -259,7 +259,7 @@ def sensor_followup_timeout():
                 .execute()
             )
         except Exception as e:
-            logger.debug(f"customers query failed: {e}")
+            logger.error(f"customers query failed: {e}")
             return "skipped: customers table not available"
 
         stale = result.data or []
@@ -358,7 +358,7 @@ def sensor_contract_expiry_ladder():
                     .execute()
                 )
             except Exception as e:
-                logger.debug("contract expiry query failed for %d-day ladder: %s", ladder["days"], e)
+                logger.error("contract expiry query failed for %d-day ladder: %s", ladder["days"], e)
                 continue
 
             for contract in result.data or []:
@@ -380,7 +380,7 @@ def sensor_contract_expiry_ladder():
                             )
                             suggestion = f"\n\n💡 续签建议: {suggestion[:200]}"
                         except Exception as e:
-                            logger.debug("contract renewal suggestion generation failed: %s", e)
+                            logger.error("contract renewal suggestion generation failed: %s", e)
 
                     await send_notification(
                         title=f"{ladder['label']} 合同到期: {contract.get('title', '未命名')}",
@@ -444,7 +444,7 @@ def sensor_approval_backlog():
                 .execute()
             )
         except Exception as e:
-            logger.debug(f"approval_requests query failed: {e}")
+            logger.error(f"approval_requests query failed: {e}")
             return "skipped: approval_requests not available"
 
         pending = result.data or []

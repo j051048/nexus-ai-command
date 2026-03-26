@@ -74,7 +74,7 @@ async def log_memory_change(
         if "memory_audit_log" in err_str and ("42P01" in err_str or "PGRST" in err_str):
             logger.debug("memory_audit_log table not yet created, skipping audit")
         else:
-            logger.debug(f"Failed to log memory audit: {e}")
+            logger.error(f"Failed to log memory audit: {e}")
         return False
 
 
@@ -101,7 +101,7 @@ async def get_memory_audit_trail(
         )
         return result.data or []
     except Exception as e:
-        logger.debug(f"Failed to retrieve audit trail: {e}")
+        logger.error(f"Failed to retrieve audit trail: {e}")
         return []
 
 
@@ -126,5 +126,5 @@ async def get_user_recent_changes(
         )
         return result.data or []
     except Exception as e:
-        logger.debug(f"Failed to retrieve user changes: {e}")
+        logger.error(f"Failed to retrieve user changes: {e}")
         return []

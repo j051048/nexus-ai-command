@@ -341,7 +341,7 @@ async def decay_kg_strength(
                     )
                     archived += 1
                 except Exception as e:
-                    logger.debug(f"[KG Decay] Archive failed for {triple['id']}: {e}")
+                    logger.error(f"[KG Decay] Archive failed for {triple['id']}: {e}")
             else:
                 # Just decay the strength
                 try:
@@ -353,7 +353,7 @@ async def decay_kg_strength(
                     )
                     decayed_count += 1
                 except Exception as e:
-                    logger.debug(f"[KG Decay] Update failed for {triple['id']}: {e}")
+                    logger.error(f"[KG Decay] Update failed for {triple['id']}: {e}")
 
     except Exception as e:
         logger.warning(f"[KG Decay] Scan failed: {e}")

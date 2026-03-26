@@ -402,7 +402,7 @@ class TenantCreditService:
                         storage_limit_mb=res.data.get("storage_limit_mb", 1_000),
                     )
             except Exception as e:
-                logger.debug(f"Tenant quota lookup failed for {org_id}: {e}")
+                logger.error(f"Tenant quota lookup failed for {org_id}: {e}")
         return self.DEFAULT_QUOTAS
 
     async def monitor_all_tenants(self, db=None):

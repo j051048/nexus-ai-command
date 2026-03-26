@@ -126,7 +126,7 @@ async def search_org_memories(
                 if item["id"] not in seen_ids:
                     results.append(item)
         except Exception as e:
-            logger.debug("Org memory keyword search failed: %s", e)
+            logger.error("Org memory keyword search failed: %s", e)
 
     return results[:limit]
 

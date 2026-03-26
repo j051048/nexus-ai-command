@@ -649,7 +649,7 @@ def push_smart_recommendations():
                 })
                 pushed += 1
             except Exception as e:
-                logger.debug(f"Recommendation push failed for {user_id}: {e}")
+                logger.error(f"Recommendation push failed for {user_id}: {e}")
 
         return f"pushed to {pushed}/{len(connected_users)} users"
 
@@ -686,7 +686,7 @@ def purge_superseded_memories():
             return f"Purged {deleted} superseded old-version memories"
         except Exception as e:
             # superseded_by column may not exist yet
-            logger.debug(f"[MemoryPurge] Failed (column may not exist): {e}")
+            logger.error(f"[MemoryPurge] Failed (column may not exist): {e}")
             return f"skipped: {e}"
 
     return _run_async(_run())
@@ -862,7 +862,7 @@ def measure_action_outcomes():
                 .execute()
             )
         except Exception as e:
-            logger.debug(f"ai_action_outcomes query failed: {e}")
+            logger.error(f"ai_action_outcomes query failed: {e}")
             return "skipped: table not available"
 
         actions = result.data or []

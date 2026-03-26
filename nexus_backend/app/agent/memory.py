@@ -247,7 +247,7 @@ async def decompress_message_embedding(msg: dict) -> dict:
             from app.services.vector_service import VectorService
             msg["embedding"] = VectorService.dequantize_embedding(msg["embedding_quantized"])
         except Exception as e:
-            logger.debug(f"Decompression failed: {e}")
+            logger.error(f"Decompression failed: {e}")
     return msg
 
 
@@ -387,7 +387,7 @@ async def prepare_initial_state(
                 result["cached_response"] = cached
                 return result
         except Exception as e:
-            logger.debug(f"[Memory] Semantic cache lookup failed: {e}")
+            logger.error(f"[Memory] Semantic cache lookup failed: {e}")
 
     # ── 2. RAG Retrieval with Query Transformation ──
     # P1 Fix #22: Add HyDE and Multi-Query for better retrieval
@@ -427,7 +427,7 @@ async def prepare_initial_state(
                         logger.info(f"[Memory] Query rewritten: '{last_user_msg[:40]}' → '{rewritten[:40]}'")
                         last_user_msg = rewritten
                 except Exception as e:
-                    logger.debug(f"[Memory] Query rewrite failed: {e}")
+                    logger.error(f"[Memory] Query rewrite failed: {e}")
 
             all_docs = []
 
@@ -560,7 +560,7 @@ async def prepare_initial_state(
                 user_profile_ctx = "[用户画像上下文]\n" + "\n".join(parts) + "\n[用户画像结束]"
                 logger.info(f"[Memory] Collected user profile context for {config.user_id}")
         except Exception as e:
-            logger.debug(f"[Memory] User profile context failed: {e}")
+            logger.error(f"[Memory] User profile context failed: {e}")
 
     # ── 2g-tasks. Agent Task Board injection (P1a) ──
     # Inject a compact task status summary so the agent always knows
@@ -624,7 +624,7 @@ async def prepare_initial_state(
                     return "[组织共享记忆上下文]\n" + ctx + "\n[组织记忆结束]"
                 return None
             except Exception as e:
-                logger.debug(f"[Memory] Org memory context failed: {e}")
+                logger.error(f"[Memory] Org memory context failed: {e}")
                 return None
 
         async def _fetch_kg_context():
@@ -657,7 +657,7 @@ async def prepare_initial_state(
                     return ctx
                 return None
             except Exception as e:
-                logger.debug(f"[Memory] Knowledge graph context failed: {e}")
+                logger.error(f"[Memory] Knowledge graph context failed: {e}")
                 return None
 
         async def _fetch_pattern_suggestions():
@@ -673,7 +673,7 @@ async def prepare_initial_state(
                     logger.info(f"[Memory] Collected pattern suggestions for user {config.user_id}")
                 return ctx
             except Exception as e:
-                logger.debug(f"[Memory] Pattern suggestion failed: {e}")
+                logger.error(f"[Memory] Pattern suggestion failed: {e}")
                 return None
 
         async def _fetch_episodic_memory():
@@ -693,7 +693,7 @@ async def prepare_initial_state(
                     return ctx
                 return None
             except Exception as e:
-                logger.debug(f"[Memory] Episode recall failed: {e}")
+                logger.error(f"[Memory] Episode recall failed: {e}")
                 return None
 
         # Fire all 5 lookups concurrently (profile already fetched above)
@@ -711,7 +711,7 @@ async def prepare_initial_state(
             if isinstance(r, str) and r:
                 injected_contexts.append(r)
             elif isinstance(r, Exception):
-                logger.debug(f"[Memory] Parallel context fetch error: {r}")
+                logger.error(f"[Memory] Parallel context fetch error: {r}")
 
     # Embed user profile directly into system_prompt (highest priority)
     if user_profile_ctx:
@@ -879,7 +879,7 @@ async def prepare_initial_state(
                 _background_tasks.add(_t)
                 _t.add_done_callback(_background_tasks.discard)
             except Exception:
-                logger.debug("Failed to record HITL correction memory", exc_info=True)
+                logger.error("Failed to record HITL correction memory", exc_info=True)
 
     if config.system_confirmed:
         confirmed = config.confirmed_tool or {}
@@ -1144,7 +1144,7 @@ async def persist_result(
             from app.services.conversation_memory.consolidation import generate_user_observation
             await generate_user_observation(user_id=user_id, org_id=org_id, db=client)
         except Exception as e:
-            logger.debug(f"[Memory] User observation generation failed: {e}")
+            logger.error(f"[Memory] User observation generation failed: {e}")
 
     extraction_tasks.append(("user_observation", _update_user_observation()))
 
@@ -1157,7 +1157,7 @@ async def persist_result(
         # Log any failures (non-fatal)
         for name, result in zip(task_names, results):
             if isinstance(result, Exception):
-                logger.debug(f"[Memory] Parallel task '{name}' failed: {result}")
+                logger.error(f"[Memory] Parallel task '{name}' failed: {result}")
 
 
 

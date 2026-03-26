@@ -294,7 +294,7 @@ class NotificationService:
             self._pref_cache[user_id] = (now, prefs)
             return prefs
         except Exception as e:
-            logger.debug("Failed to fetch notification preferences for %s: %s", user_id, e)
+            logger.error("Failed to fetch notification preferences for %s: %s", user_id, e)
             return defaults
 
     def _is_quiet_hours(self, prefs: dict) -> bool:
@@ -376,7 +376,7 @@ class NotificationService:
                 )
                 return True  # Not an error — user chose to disable
         except Exception as e:
-            logger.debug("Preference check failed for %s, proceeding with send: %s", notification.target_user_id, e)
+            logger.error("Preference check failed for %s, proceeding with send: %s", notification.target_user_id, e)
 
         if channel not in self._adapters:
             logger.warning(

@@ -24,7 +24,7 @@ def register_routers(app: FastAPI) -> None:
     """
 
     # ── 1. AI / Chat ──────────────────────────────────────────────────────
-    from app.routers import chat, audio, memories
+    from app.routers import chat, audio, memories, metrics
     from app.routers import chat_upload as chat_upload_router
     from app.routers import saved_prompts as saved_prompts_router
     from app.routers import soul_document as soul_document_router
@@ -36,6 +36,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(chat_upload_router.router)
     app.include_router(audio.router)
     app.include_router(memories.router)
+    app.include_router(metrics.router)
     app.include_router(saved_prompts_router.router)
     app.include_router(soul_document_router.router)
     app.include_router(scheduled_tasks_router.router)

@@ -189,7 +189,7 @@ async def run_agent_stream(
             },
         )
     except Exception:
-        logger.debug("[Stream] Failed to start agent trace", exc_info=True)
+        logger.error("[Stream] Failed to start agent trace", exc_info=True)
 
     # ── 0c. Pre-resolve model configs for all tiers (Step 2: centralized resolution) ──
     try:
@@ -210,7 +210,7 @@ async def run_agent_stream(
             agent_config.resolved_configs = _resolved_configs
             logger.info(f"[Stream] Pre-resolved model configs for tiers: {list(_resolved_configs.keys())}")
     except Exception:
-        logger.debug("[Stream] Failed to pre-resolve model configs", exc_info=True)
+        logger.error("[Stream] Failed to pre-resolve model configs", exc_info=True)
 
     # ── 1-2. Pre-flight checks (token budget, moderation, PII) ──
     checks_passed, check_events, last_user_content = await run_pre_checks(
@@ -974,7 +974,7 @@ async def run_agent_stream(
             }
         )
     except Exception as e:
-        logger.debug(f"[Stream] Quota emission failed: {e}")
+        logger.error(f"[Stream] Quota emission failed: {e}")
 
     # ── 9. Persist to DB and cache (fire-and-forget) ──
     # Extract tool call data for knowledge graph and pattern learning
@@ -1059,7 +1059,7 @@ async def run_agent_stream(
             db=db_client or supabase,
         )
     except Exception:
-        logger.debug("[Stream] Failed to end agent trace", exc_info=True)
+        logger.error("[Stream] Failed to end agent trace", exc_info=True)
 
     # ── P2-13: Generate follow-up suggestions ──
     try:
@@ -1082,6 +1082,6 @@ async def run_agent_stream(
             if _fu_lines:
                 yield _sse_data({"follow_up_suggestions": _fu_lines})
     except Exception as e:
-        logger.debug(f"[Stream] Follow-up suggestions failed: {e}")
+        logger.error(f"[Stream] Follow-up suggestions failed: {e}")
 
     yield "data: [DONE]\n\n"

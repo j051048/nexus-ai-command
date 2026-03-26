@@ -255,7 +255,7 @@ class CalendarCreateTool(BaseTool):
                     conflict_lines.append(f"  - {c_time} {c['title']} ({c['event_type']})")
                 conflict_warning = "\n".join(conflict_lines) + "\n\n"
         except Exception as e:
-            logger.debug(f"Calendar conflict check failed (RPC may not exist yet): {e}")
+            logger.error(f"Calendar conflict check failed (RPC may not exist yet): {e}")
 
         # Get org_id from user
         org_id = None

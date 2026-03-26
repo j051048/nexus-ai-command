@@ -423,7 +423,7 @@ AI回复:
                     grounded_warning = eval_result.reason or "事实偏差"
                     logger.warning(f"[Reflect] Ungrounded response: {grounded_warning}")
         except Exception as e:
-            logger.debug(f"[ReflectNode] Groundedness check failed: {e}")
+            logger.error(f"[ReflectNode] Groundedness check failed: {e}")
     elif has_any_tool_attempts:
         logger.info(
             f"[Reflect] Layer 4 skipped: query used tools "
@@ -467,7 +467,7 @@ AI 回复:
                     is_hallucination = True
                     hallucination_reason = eval_result.reason or "存在事实偏差"
         except Exception as e:
-            logger.debug(f"[ReflectNode] LLM eval failed: {e}")
+            logger.error(f"[ReflectNode] LLM eval failed: {e}")
 
     if grounded_warning:
         hallucination_reason = grounded_warning
@@ -547,7 +547,7 @@ AI 回复:
                 severity="high",
             )
         except Exception as e:
-            logger.debug(f"[ReflectNode] Failed to log hallucination: {e}")
+            logger.error(f"[ReflectNode] Failed to log hallucination: {e}")
 
         record_hallucination("reflect_grounding_check")
 
@@ -894,4 +894,4 @@ async def _demote_recent_memories(user_id: str, penalty: float = 0.3) -> None:
         demoted = len(resp.data)
         logger.info(f"[AgeMem] Demoted {demoted} memories for user {user_id} (penalty={penalty})")
     except Exception as e:
-        logger.debug(f"[AgeMem] Memory demotion failed (non-fatal): {e}")
+        logger.error(f"[AgeMem] Memory demotion failed (non-fatal): {e}")

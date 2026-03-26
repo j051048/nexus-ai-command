@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
+from app.core.sanitize import sanitize_html, validate_email
 
 # --- Common Models ---
 
@@ -45,6 +46,11 @@ class ApprovalRequest(BaseModel):
     type: str = Field(..., min_length=1, max_length=50, description="审批类型代码")
     amount: float = Field(default=0.0, ge=0, description="Monetary amount involved")
     details: str = Field(..., min_length=5, description="Description of the request")
+
+    @field_validator("details")
+    @classmethod
+    def sanitize_details(cls, v):
+        return sanitize_html(v)
 
     @field_validator("amount", mode="before")
     @classmethod
@@ -125,6 +131,11 @@ class BatchDeleteRequest(BaseModel):
 class ProjectBase(BaseModel):
     name: str
     description: str | None = None
+
+    @field_validator("name", "description")
+    @classmethod
+    def sanitize_text(cls, v):
+        return sanitize_html(v) if v else v
 
 
 class ProjectCreate(ProjectBase):

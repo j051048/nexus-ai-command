@@ -31,7 +31,7 @@ async def push_agent_result(
             target_user_id=user_id,
         )
     except Exception as e:
-        logger.debug("[push_agent_result] Notification failed: %s", e)
+        logger.error("[push_agent_result] Notification failed: %s", e)
 
     # 2. Push to chat via WebSocket
     try:
@@ -48,7 +48,7 @@ async def push_agent_result(
                 },
             })
     except Exception as e:
-        logger.debug("[push_agent_result] WS push failed: %s", e)
+        logger.error("[push_agent_result] WS push failed: %s", e)
 
     # 3. Save as chat message for persistence
     try:
@@ -64,4 +64,4 @@ async def push_agent_result(
             org_id=org_id,
         )
     except Exception as e:
-        logger.debug("[push_agent_result] Chat save failed: %s", e)
+        logger.error("[push_agent_result] Chat save failed: %s", e)

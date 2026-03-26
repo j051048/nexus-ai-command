@@ -763,7 +763,7 @@ async def _llm_classify_intent(
             if complexity_str in [c.value for c in QueryComplexity]:
                 return QueryComplexity(complexity_str), f"LLM 识别: {data.get('reason', '未知原因')}", domains, multi_intent
     except Exception as e:
-        logger.debug(f"[Router] LLM intent classification failed: {e}")
+        logger.error(f"[Router] LLM intent classification failed: {e}")
 
     return QueryComplexity.MODERATE, "一般业务查询 (LLM 分类失败)", [], False
 
@@ -859,7 +859,7 @@ async def route_node(state: AgentState) -> dict:
                 # Slow path: LLM classify
                 complexity, intent_summary, intent_domains, multi_intent = await _llm_classify_intent(last_user_msg, config)
         except Exception:
-            logger.debug("[Router] Semantic router failed, falling back to LLM", exc_info=True)
+            logger.error("[Router] Semantic router failed, falling back to LLM", exc_info=True)
             complexity, intent_summary, intent_domains, multi_intent = await _llm_classify_intent(last_user_msg, config)
 
     selected_model = config.get_model_for_complexity(complexity)

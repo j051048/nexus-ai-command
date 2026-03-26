@@ -169,7 +169,7 @@ async def _update_behavior_preferences(
         )
         logger.info(f"[BehaviorPref] Updated behavior preferences for {user_id} (Org: {effective_org_id}): {detected}")
     except Exception as e:
-        logger.debug(f"[BehaviorPref] Failed to update preferences: {e}")
+        logger.error(f"[BehaviorPref] Failed to update preferences: {e}")
 
 
 async def _enrich_memory_values(

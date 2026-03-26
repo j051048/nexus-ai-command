@@ -66,7 +66,7 @@ class ChatService:
                     except Exception:
                         return variant.content
             except Exception as e:
-                logger.debug(f"A/B test variant lookup failed: {e}")
+                logger.error(f"A/B test variant lookup failed: {e}")
 
         # 1. Try Cache (org-scoped to prevent cross-tenant prompt leakage)
         cache_key = rk(org_id, NS_PROMPT, prompt_key)

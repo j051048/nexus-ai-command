@@ -543,7 +543,7 @@ async def _keyword_search(user_id: str, query: str, limit: int, org_id: str | No
         result = await q.execute()
         return result.data or []
     except Exception as e:
-        logger.debug(f"Keyword search failed: {e}")
+        logger.error(f"Keyword search failed: {e}")
         return []
 
 
@@ -647,7 +647,7 @@ async def _user_anchor_search(
         result = await q.execute()
         return result.data or []
     except Exception as e:
-        logger.debug(f"User anchor search failed: {e}")
+        logger.error(f"User anchor search failed: {e}")
         return []
 
 
@@ -771,7 +771,7 @@ async def _spreading_activation(
         expanded.sort(key=lambda m: m.get("_activation_score", 0), reverse=True)
         return expanded
     except Exception as e:
-        logger.debug(f"Spreading activation fetch failed: {e}")
+        logger.error(f"Spreading activation fetch failed: {e}")
         return []
 
 
@@ -826,7 +826,7 @@ async def _expand_top_connections(
         )
         hop1_memories = result.data or []
     except Exception as e:
-        logger.debug(f"Connection expansion (1-hop) failed: {e}")
+        logger.error(f"Connection expansion (1-hop) failed: {e}")
         return []
 
     # --- 2-hop: expand high-strength 1-hop results ---
@@ -865,7 +865,7 @@ async def _expand_top_connections(
                 )
                 hop1_memories.extend(result2.data or [])
             except Exception as e:
-                logger.debug(f"Connection expansion (2-hop) failed: {e}")
+                logger.error(f"Connection expansion (2-hop) failed: {e}")
 
     return hop1_memories[:max_total]
 
@@ -899,7 +899,7 @@ async def search_consolidations(
         result = await client.rpc("search_consolidations_by_embedding", params).execute()
         return result.data or []
     except Exception as e:
-        logger.debug(f"Consolidation search failed: {e}")
+        logger.error(f"Consolidation search failed: {e}")
         return []
 
 

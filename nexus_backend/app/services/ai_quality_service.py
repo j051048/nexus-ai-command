@@ -51,7 +51,7 @@ class AIQualityService:
             neg_res = await neg_query.eq("rating", "negative").execute()
             negative = neg_res.count if neg_res.count else 0
         except Exception as e:
-            logger.debug("Feedback count failed: %s", e)
+            logger.error("Feedback count failed: %s", e)
 
         by_status = stats.get("by_status", {})
         record = {

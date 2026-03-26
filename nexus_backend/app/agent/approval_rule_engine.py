@@ -72,7 +72,7 @@ async def _load_rules(org_id: str, db: Any = None) -> list[dict]:
             logger.debug(f"[ApprovalRuleEngine] Loaded {len(rules)} rules for org {org_id}")
         return rules
     except Exception as e:
-        logger.debug(f"[ApprovalRuleEngine] Failed to load rules for org {org_id}: {e}")
+        logger.error(f"[ApprovalRuleEngine] Failed to load rules for org {org_id}: {e}")
         return []
 
 

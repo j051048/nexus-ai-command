@@ -330,7 +330,7 @@ class ApprovalChainService:
                             "source": "auto_rule",
                         }
         except Exception as e:
-            logger.debug("Auto-approval rules check failed (non-blocking): %s", e)
+            logger.error("Auto-approval rules check failed (non-blocking): %s", e)
 
         if not chain_data:
             # Ultimate fallback

@@ -121,7 +121,7 @@ async def _enrich_chunks(
             else:
                 logger.debug(f"[ETL] Chunk enrichment API returned {resp.status_code}")
         except Exception as e:
-            logger.debug(f"[ETL] Chunk enrichment batch failed (non-fatal): {e}")
+            logger.error(f"[ETL] Chunk enrichment batch failed (non-fatal): {e}")
 
     return enriched
 
@@ -165,7 +165,7 @@ async def generate_embeddings(
             if "/v1" not in active_base_url and "api.openai.com" not in active_base_url:
                 active_base_url = f"{active_base_url}/v1"
     except Exception:
-        logger.debug("[ETL] Embedding config resolution failed, using defaults")
+        logger.error("[ETL] Embedding config resolution failed, using defaults")
 
     async with httpx.AsyncClient(timeout=60.0) as shared_client:
 

@@ -205,7 +205,7 @@ async def _authenticate_ws(token: str) -> str | None:
                 logger.debug("[WS] Token expired")
                 return None
             except Exception as e:
-                logger.debug(f"[WS] JWKS verification failed: {e}")
+                logger.error(f"[WS] JWKS verification failed: {e}")
 
         # Strategy 2: HS256 shared secret
         if not payload:

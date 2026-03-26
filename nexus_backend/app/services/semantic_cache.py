@@ -82,7 +82,7 @@ class SemanticCacheService:
                     base_url=config.get("base_url"),
                 )
         except Exception as e:
-            logger.debug(f"Semantic cache embedding resolution failed, using default: {e}")
+            logger.error(f"Semantic cache embedding resolution failed, using default: {e}")
         self._embedding_resolved = True
 
     async def _get_redis(self):

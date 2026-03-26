@@ -16,6 +16,7 @@ IM 聊天消息通道 — 飞书/企微双向 AI 对话
 """
 
 import hashlib
+import json
 import logging
 
 import httpx
@@ -24,6 +25,8 @@ from fastapi import APIRouter, Request
 from app.core.config import settings
 from app.core.database import supabase
 from app.core.errors import api_success
+from app.agent.result_cache import _generate_cache_key
+from app.core.cache import redis_client
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/im-chat", tags=["IM Chat Channel"])
@@ -308,18 +311,32 @@ async def _call_agent(user_id: str, message: str, session_id: str) -> str:
             system_prompt=system_prompt,
         )
 
-        # 运行 Agent
-        graph = get_agent_graph()
-        final_state = await graph.run(initial_state, thread_id=session_id)
+        # 检查缓存
+        cache_key = _generate_cache_key(user_id, message, org_id=None)
+        cached = redis_client.get(cache_key)
+        if cached:
+            cached_result = json.loads(cached)
+            reply = cached_result.get("reply", "")
+            logger.info(f"[IM Chat] Using cached agent result for user {user_id}")
+        else:
+            # 运行 Agent
+            graph = get_agent_graph()
+            final_state = await graph.run(initial_state, thread_id=session_id)
 
-        # 提取回复
-        reply = final_state.get("final_response", "")
-        if not reply:
-            # 从消息中提取最后一个 AI 回复
-            for msg in reversed(final_state.get("messages", [])):
-                if hasattr(msg, "content") and hasattr(msg, "type") and msg.type == "ai":
-                    reply = msg.content
-                    break
+            # 提取回复
+            reply = final_state.get("final_response", "")
+            if not reply:
+                # 从消息中提取最后一个 AI 回复
+                for msg in reversed(final_state.get("messages", [])):
+                    if hasattr(msg, "content") and hasattr(msg, "type") and msg.type == "ai":
+                        reply = msg.content
+                        break
+
+            # 缓存结果
+            try:
+                redis_client.setex(cache_key, 1800, json.dumps({"reply": reply}, ensure_ascii=False))
+            except Exception as e:
+                logger.warning(f"Failed to cache agent result: {e}")
 
         # 保存消息
         try:

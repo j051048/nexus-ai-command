@@ -484,7 +484,7 @@ class VectorService:
                     for row in parent_res.data:
                         parent_content_map[str(row["id"])] = row.get("content", "").strip()
             except Exception as e:
-                logger.debug(f"Batch parent chunk lookup failed: {e}")
+                logger.error(f"Batch parent chunk lookup failed: {e}")
 
         for item in top_docs:
             content = item.get("content", "").strip()

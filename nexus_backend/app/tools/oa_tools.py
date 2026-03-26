@@ -276,7 +276,7 @@ class LeaveRequestTool(BaseTool):
                 cal_data["organization_id"] = org_id
             await client.table("calendar_events").insert(cal_data).execute()
         except Exception as e:
-            logger.debug(f"Failed to sync leave to calendar_events: {e}")
+            logger.error(f"Failed to sync leave to calendar_events: {e}")
 
         # 精准通知审批人（非广播）
         if not auto_approve:
@@ -548,7 +548,7 @@ class MeetingBookingTool(BaseTool):
                 cal_data["organization_id"] = org_id
             await client.table("calendar_events").insert(cal_data).execute()
         except Exception as e:
-            logger.debug(f"Failed to sync meeting to calendar_events: {e}")
+            logger.error(f"Failed to sync meeting to calendar_events: {e}")
 
         # 发送会议通知
         for aid in attendee_ids:

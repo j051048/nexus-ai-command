@@ -229,6 +229,6 @@ async def llm_rerank(query: str, docs: list[dict], config: "AgentConfig", top_k:
                 ranked = sorted(zip(scores, docs), key=lambda x: x[0], reverse=True)
                 return [doc for _, doc in ranked[:top_k]]
     except Exception as e:
-        logger.debug(f"[LLMRerank] Failed, returning original docs: {e}")
+        logger.error(f"[LLMRerank] Failed, returning original docs: {e}")
 
     return docs[:top_k]

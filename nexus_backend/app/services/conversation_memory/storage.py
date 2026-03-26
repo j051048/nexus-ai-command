@@ -133,7 +133,7 @@ async def save_memory(
                     f"(id={old_id}, similarity≥0.92)"
                 )
         except Exception:
-            logger.debug("Semantic dedup check failed, proceeding with normal insert", exc_info=True)
+            logger.error("Semantic dedup check failed, proceeding with normal insert", exc_info=True)
 
     # P0 Fix: Per-user memory limit (500) — evict lowest-importance when full
     if not old_id and not is_bench:
@@ -217,7 +217,7 @@ async def save_memory(
                     .execute()
                 )
             except Exception:
-                logger.debug(f"Failed to mark old version {old_id} as superseded (column may not exist)")
+                logger.error(f"Failed to mark old version {old_id} as superseded (column may not exist)")
 
     if not result.data:
         raise RuntimeError("保存记忆失败")
@@ -353,7 +353,7 @@ async def get_memory_history(
         )
         return result.data or []
     except Exception as e:
-        logger.debug(f"get_memory_history failed (columns may not exist): {e}")
+        logger.error(f"get_memory_history failed (columns may not exist): {e}")
         return []
 
 
@@ -391,7 +391,7 @@ async def _find_semantically_similar(
                 return None
             return match
     except Exception as e:
-        logger.debug(f"_find_semantically_similar RPC failed: {e}")
+        logger.error(f"_find_semantically_similar RPC failed: {e}")
 
     return None
 
@@ -441,4 +441,4 @@ async def _enforce_memory_limit(
                 len(victim_ids), user_id, total, max_memories,
             )
     except Exception as e:
-        logger.debug("[MemoryLimit] Limit enforcement failed (non-fatal): %s", e)
+        logger.error("[MemoryLimit] Limit enforcement failed (non-fatal): %s", e)

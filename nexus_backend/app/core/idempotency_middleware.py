@@ -104,7 +104,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                 )
         except Exception as e:
             # If Redis is down, proceed without idempotency (degrade gracefully)
-            logger.debug("Idempotency cache check failed: %s", e)
+            logger.error("Idempotency cache check failed: %s", e)
             return await call_next(request)
 
         # Execute the actual request
@@ -138,7 +138,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                     headers=new_headers,
                 )
             except Exception as e:
-                logger.debug("Idempotency cache set failed: %s", e)
+                logger.error("Idempotency cache set failed: %s", e)
                 # If caching fails, we need to return the response
                 # But we already consumed body_iterator, so return what we have
                 new_headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}

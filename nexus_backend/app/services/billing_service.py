@@ -184,7 +184,7 @@ class BillingService:
                     self._subscriptions[org_id] = (sub, _time.time())
                     return sub
             except Exception as e:
-                logger.debug(f"Subscription lookup failed: {e}")
+                logger.error(f"Subscription lookup failed: {e}")
 
         # Default to free plan
         sub = Subscription(org_id=org_id, plan=BillingPlan.FREE)
@@ -266,7 +266,7 @@ class BillingService:
                 rate_limiting_service.invalidate_cache(uid)
             logger.info(f"Rate limiter cache invalidated for org {org_id} (plan={plan.value}, tier={plan.rate_tier})")
         except Exception as e:
-            logger.debug(f"Rate limiter tier sync failed (non-critical): {e}")
+            logger.error(f"Rate limiter tier sync failed (non-critical): {e}")
 
     async def _get_or_create_stripe_customer(self, org_id: str, db=None) -> str:
         """Get existing Stripe customer ID or create a new one."""

@@ -282,7 +282,7 @@ async def _upsert_relations(relations: list[dict]):
             if rel["target_entity"] not in existing:
                 existing.append(rel["target_entity"])
         except Exception as e:
-            logger.debug(f"[EntityRelation] Upsert failed: {e}")
+            logger.error(f"[EntityRelation] Upsert failed: {e}")
 
 
 def _find_canonical(name: str, existing_names: list[str]) -> str:
@@ -373,7 +373,7 @@ async def query_entity_context(
         return "\n".join(lines)
 
     except Exception as e:
-        logger.debug(f"[EntityRelation] Query failed: {e}")
+        logger.error(f"[EntityRelation] Query failed: {e}")
         return ""
 
 
@@ -534,7 +534,7 @@ async def learn_tool_patterns(
             await _persist_learned_patterns(org_id, new_patterns)
 
     except Exception as e:
-        logger.debug(f"[PatternLearning] Analysis failed: {e}")
+        logger.error(f"[PatternLearning] Analysis failed: {e}")
 
     return new_patterns
 
@@ -604,7 +604,7 @@ async def get_pattern_suggestions(
         return "[行为模式洞察]\n" + "\n".join(suggestions) + "\n[洞察结束]"
 
     except Exception as e:
-        logger.debug(f"[PatternLearning] Suggestion generation failed: {e}")
+        logger.error(f"[PatternLearning] Suggestion generation failed: {e}")
         return ""
 
 
@@ -714,4 +714,4 @@ async def _persist_learned_patterns(org_id: str, patterns: list[dict]):
                     .execute()
                 )
         except Exception as e:
-            logger.debug(f"[PatternLearning] Persist pattern failed: {e}")
+            logger.error(f"[PatternLearning] Persist pattern failed: {e}")

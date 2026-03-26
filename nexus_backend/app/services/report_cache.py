@@ -55,7 +55,7 @@ def cached_report(ttl_seconds: int = 300):
                 await cache_service.set(cache_key, result, ttl=ttl_seconds)
                 logger.debug("Report cache SET: %s (ttl=%ds)", cache_key, ttl_seconds)
             except Exception as e:
-                logger.debug("Report cache SET failed: %s", e)
+                logger.error("Report cache SET failed: %s", e)
 
             return result
 
@@ -84,5 +84,5 @@ async def invalidate_report(org_id: str, report_type: str) -> bool:
                 logger.info("Invalidated %d cached reports matching %s", len(keys), pattern)
                 return True
     except Exception as e:
-        logger.debug("Report cache invalidation failed: %s", e)
+        logger.error("Report cache invalidation failed: %s", e)
     return False

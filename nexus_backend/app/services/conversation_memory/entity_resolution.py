@@ -169,7 +169,7 @@ async def batch_merge_similar_entities(
                         .execute()
                     )
             except Exception as e:
-                logger.debug(f"[EntityRes] Backfill failed for '{name}': {e}")
+                logger.error(f"[EntityRes] Backfill failed for '{name}': {e}")
 
         # Now scan for similar pairs
         # Get all distinct entities with embeddings
@@ -369,7 +369,7 @@ async def _find_similar_by_embedding(
         ).execute()
         return result.data or []
     except Exception as e:
-        logger.debug(f"[EntityRes] Similarity search failed: {e}")
+        logger.error(f"[EntityRes] Similarity search failed: {e}")
         return []
 
 
@@ -398,7 +398,7 @@ async def _register_alias(
             .execute()
         )
     except Exception as e:
-        logger.debug(f"[EntityRes] Alias registration failed: {e}")
+        logger.error(f"[EntityRes] Alias registration failed: {e}")
 
 
 async def _pick_canonical(

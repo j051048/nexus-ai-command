@@ -688,7 +688,7 @@ class AutoTriggerService:
                         reminder_type="approval_timeout",
                     )
         except Exception as e:
-            logger.debug("[SmartReminder] Approval check failed: %s", e)
+            logger.error("[SmartReminder] Approval check failed: %s", e)
 
     async def _remind_due_tasks(self, supabase, now: datetime):
         """Remind users about tasks due today or overdue."""
@@ -743,7 +743,7 @@ class AutoTriggerService:
                     reminder_type="task_due",
                 )
         except Exception as e:
-            logger.debug("[SmartReminder] Task due check failed: %s", e)
+            logger.error("[SmartReminder] Task due check failed: %s", e)
 
     async def _remind_stale_leads(self, supabase, now: datetime):
         """Remind sales reps about leads not updated in 7+ days."""
@@ -803,7 +803,7 @@ class AutoTriggerService:
                     reminder_type="lead_followup",
                 )
         except Exception as e:
-            logger.debug("[SmartReminder] Lead followup check failed: %s", e)
+            logger.error("[SmartReminder] Lead followup check failed: %s", e)
 
     async def _push_proactive_reminder(
         self, user_id: str, title: str, message: str, reminder_type: str
@@ -850,7 +850,7 @@ class AutoTriggerService:
                 logger.debug("Redis cooldown set unavailable: %s", e)
             logger.info("[SmartReminder] Sent '%s' to user %s", reminder_type, user_id[:8])
         except Exception as e:
-            logger.debug("[SmartReminder] Push failed for %s: %s", user_id[:8], e)
+            logger.error("[SmartReminder] Push failed for %s: %s", user_id[:8], e)
 
 
 # Global instance

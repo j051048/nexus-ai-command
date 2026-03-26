@@ -904,7 +904,7 @@ async def invoke_with_fallback(
             {"user_id": config.user_id, "org_id": config.org_id, "model": model},
         )
     except Exception:
-        logger.debug("[LLM Hooks] before_llm_call failed, continuing with original messages", exc_info=True)
+        logger.error("[LLM Hooks] before_llm_call failed, continuing with original messages", exc_info=True)
 
     for label, candidate_llm in candidates:
         pkey = _provider_key(candidate_llm)

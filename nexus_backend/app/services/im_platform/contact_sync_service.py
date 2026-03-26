@@ -361,7 +361,7 @@ class ContactSyncService:
             if result.data:
                 return result.data[0].get("id")
         except Exception as e:
-            logger.debug(f"[ContactSync] User lookup by mobile failed: {e}")
+            logger.error(f"[ContactSync] User lookup by mobile failed: {e}")
 
         return None
 

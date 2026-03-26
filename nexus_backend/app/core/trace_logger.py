@@ -154,7 +154,7 @@ class TraceLogger:
                     metadata={"phase": "planning"},
                 )
             except Exception as e:
-                logger.debug(f"Langfuse span failed: {e}")
+                logger.error(f"Langfuse span failed: {e}")
 
     def log_tool_execution(self, tool_name: str, status: str, result_preview: str):
         self._emit(
@@ -174,7 +174,7 @@ class TraceLogger:
                     metadata={"phase": "execution", "status": status},
                 )
             except Exception as e:
-                logger.debug(f"Langfuse span failed: {e}")
+                logger.error(f"Langfuse span failed: {e}")
 
     def log_error(self, error: str):
         self._emit("error", {"error_message": str(error)})
@@ -205,14 +205,14 @@ class TraceLogger:
                 if langfuse:
                     asyncio.create_task(self._flush_langfuse(langfuse))
             except Exception as e:
-                logger.debug(f"Langfuse update failed: {e}")
+                logger.error(f"Langfuse update failed: {e}")
 
     async def _flush_langfuse(self, langfuse):
         """Flush Langfuse client in background."""
         try:
             langfuse.flush()
         except Exception as e:
-            logger.debug(f"Langfuse flush failed: {e}")
+            logger.error(f"Langfuse flush failed: {e}")
 
     def log_generation(self, model: str, input_messages: list[dict], output: str, usage: dict = None):
         """Log a generation event (LLM call) to Langfuse."""
@@ -227,7 +227,7 @@ class TraceLogger:
                     metadata={"agent": self.agent},
                 )
             except Exception as e:
-                logger.debug(f"Langfuse generation failed: {e}")
+                logger.error(f"Langfuse generation failed: {e}")
 
     def log_rag_retrieval(
         self,
@@ -264,4 +264,4 @@ class TraceLogger:
                     },
                 )
             except Exception as e:
-                logger.debug(f"Langfuse RAG span failed: {e}")
+                logger.error(f"Langfuse RAG span failed: {e}")

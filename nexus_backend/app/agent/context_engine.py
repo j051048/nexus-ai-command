@@ -281,7 +281,7 @@ class ChatHistoryProvider(ContextProvider):
             )
             return f"{header}\n\n" + "\n".join(lines)
         except Exception as e:
-            logger.debug(f"[ChatHistoryProvider] Failed: {e}")
+            logger.error(f"[ChatHistoryProvider] Failed: {e}")
             return ""
 
 
@@ -335,7 +335,7 @@ class UserProfileProvider(ContextProvider):
 
             return "，".join(parts) if parts else ""
         except Exception as e:
-            logger.debug(f"[UserProfileProvider] Failed: {e}")
+            logger.error(f"[UserProfileProvider] Failed: {e}")
             return ""
 
 
@@ -362,7 +362,7 @@ class SemanticMemoryProvider(ContextProvider):
             )
             return ctx or ""
         except Exception as e:
-            logger.debug(f"[SemanticMemoryProvider] Failed: {e}")
+            logger.error(f"[SemanticMemoryProvider] Failed: {e}")
             return ""
 
 
@@ -399,7 +399,7 @@ class KnowledgeBaseProvider(ContextProvider):
             from app.tools.load_knowledge_tool import build_skill_index_prompt
             return build_skill_index_prompt()
         except Exception as e:
-            logger.debug(f"[KnowledgeBaseProvider] Failed to build skill index: {e}")
+            logger.error(f"[KnowledgeBaseProvider] Failed to build skill index: {e}")
             return ""
 
 
@@ -447,7 +447,7 @@ class CompletedTasksProvider(ContextProvider):
                 lines.append(line)
             return "\n".join(lines)
         except Exception as e:
-            logger.debug(f"[CompletedTasksProvider] Failed: {e}")
+            logger.error(f"[CompletedTasksProvider] Failed: {e}")
             return ""
 
 
@@ -490,7 +490,7 @@ class BusinessRuleProvider(ContextProvider):
                 lines.append(f"- {prefix}{r['key']}: {r['value']}")
             return "\n".join(lines)
         except Exception as e:
-            logger.debug(f"[BusinessRuleProvider] Failed: {e}")
+            logger.error(f"[BusinessRuleProvider] Failed: {e}")
             return ""
 
 
@@ -536,7 +536,7 @@ class CorrectionHistoryProvider(ContextProvider):
                 lines.append(f"- 步骤{c.get('step_index', '?')}: {c.get('correction_text', '')}")
             return "\n".join(lines)
         except Exception as e:
-            logger.debug(f"[CorrectionHistoryProvider] Failed: {e}")
+            logger.error(f"[CorrectionHistoryProvider] Failed: {e}")
             return ""
 
 
@@ -559,7 +559,7 @@ class SoulDocumentProvider(ContextProvider):
 
             return await soul_document_service.get_compiled_prompt(org_id) or ""
         except Exception as e:
-            logger.debug(f"[SoulDocumentProvider] Failed: {e}")
+            logger.error(f"[SoulDocumentProvider] Failed: {e}")
             return ""
 
 

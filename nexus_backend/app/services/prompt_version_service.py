@@ -507,7 +507,7 @@ class PromptVersionService:
                     .execute()
                 )
             except Exception as e:
-                logger.debug(f"Failed to persist prompt metrics: {e}")
+                logger.error(f"Failed to persist prompt metrics: {e}")
 
     async def persist_to_db(self, db=None):
         """Persist prompt versions to database."""

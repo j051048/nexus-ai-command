@@ -94,7 +94,7 @@ async def _plan_with_self_consistency(
     samples = []
     for i, r in enumerate(results):
         if isinstance(r, Exception):
-            logger.debug(f"[SelfConsistency] Sample {i+1}/{n} failed: {r}")
+            logger.error(f"[SelfConsistency] Sample {i+1}/{n} failed: {r}")
         else:
             samples.append(r)
 
@@ -256,7 +256,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             keep_recent=3,
         )
     except Exception as e:
-        logger.debug(f"[PlanNode] Prompt compression failed, using full history: {e}")
+        logger.error(f"[PlanNode] Prompt compression failed, using full history: {e}")
 
     # ── Dynamic System Prompt Injection ──
     # Inject user_role and available_tools into the system prompt
@@ -444,7 +444,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                     SystemMessage(content=f"[上下文引擎检索结果]\n{engine_ctx}"),
                 )
         except Exception as e:
-            logger.debug(f"[PlanNode] ContextEngine failed, falling back to raw RAG: {e}")
+            logger.error(f"[PlanNode] ContextEngine failed, falling back to raw RAG: {e}")
             engine_ctx = ""
 
         # RAG 上下文（来自 rag_inject 节点的预检索结果）作为补充
@@ -577,7 +577,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         if "messages" in hook_ctx and isinstance(hook_ctx["messages"], list):
             lc_msgs = hook_ctx["messages"]
     except Exception as e:
-        logger.debug(f"[PlanNode] PRE_CHAT hook error: {e}")
+        logger.error(f"[PlanNode] PRE_CHAT hook error: {e}")
 
     # Call LLM via standard invoke (with automatic fallback to backup provider)
     # Circuit breaker check for LLM service
@@ -708,7 +708,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             {"ai_message": ai_msg, "input_tokens": input_tokens, "output_tokens": output_tokens},
         )
     except Exception as e:
-        logger.debug(f"[PlanNode] POST_CHAT hook error: {e}")
+        logger.error(f"[PlanNode] POST_CHAT hook error: {e}")
 
     tool_calls_raw = ai_msg.tool_calls
     content = ai_msg.content or ""

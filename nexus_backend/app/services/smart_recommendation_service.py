@@ -112,31 +112,31 @@ class SmartRecommendationService:
             recs = await self._get_approval_recommendations(user_id, user_role, org_id, client)
             recommendations.extend(recs)
         except Exception as e:
-            logger.debug(f"Approval recommendations failed: {e}")
+            logger.error(f"Approval recommendations failed: {e}")
 
         try:
             recs = await self._get_lead_recommendations(user_id, user_role, org_id, client)
             recommendations.extend(recs)
         except Exception as e:
-            logger.debug(f"Lead recommendations failed: {e}")
+            logger.error(f"Lead recommendations failed: {e}")
 
         try:
             recs = await self._get_budget_recommendations(org_id, client)
             recommendations.extend(recs)
         except Exception as e:
-            logger.debug(f"Budget recommendations failed: {e}")
+            logger.error(f"Budget recommendations failed: {e}")
 
         try:
             recs = await self._get_contract_recommendations(org_id, client)
             recommendations.extend(recs)
         except Exception as e:
-            logger.debug(f"Contract recommendations failed: {e}")
+            logger.error(f"Contract recommendations failed: {e}")
 
         try:
             recs = await self._get_task_recommendations(user_id, client)
             recommendations.extend(recs)
         except Exception as e:
-            logger.debug(f"Task recommendations failed: {e}")
+            logger.error(f"Task recommendations failed: {e}")
 
         # Add time-based recommendations
         recommendations.extend(await self._get_time_based_recommendations())

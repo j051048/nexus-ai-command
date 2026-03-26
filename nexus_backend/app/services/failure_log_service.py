@@ -87,7 +87,7 @@ class FailureLogService:
         try:
             db = supabase
             if not db:
-                logger.debug("[FailureLog] No DB connection, skipping")
+                logger.error("[FailureLog] No DB connection, skipping")
                 return
 
             # Auto-derive pattern_key if not provided
