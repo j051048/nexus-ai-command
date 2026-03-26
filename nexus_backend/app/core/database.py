@@ -43,18 +43,10 @@ try:
                 "Authorization": f"Bearer {token or key}",
                 "Content-Type": "application/json",
             }
-            # Connection pool configuration
-            limits = httpx.Limits(
-                max_keepalive_connections=20,
-                max_connections=100,
-                keepalive_expiry=30.0
-            )
+            # Connection pool configuration with timeout
             timeout = httpx.Timeout(30.0, connect=10.0)
 
-            # Create custom httpx client with connection pool
-            http_client = httpx.AsyncClient(limits=limits, timeout=timeout, http2=False)
-
-            self.client = AsyncPostgrestClient(base_url, headers=headers, session=http_client)
+            self.client = AsyncPostgrestClient(base_url, headers=headers, timeout=timeout)
             self._url = url
             self._key = key
 
