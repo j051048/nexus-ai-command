@@ -171,6 +171,10 @@ class AgentConfig(BaseModel):
     tool_timeout: int = Field(default=15, gt=0, description="Seconds, must be > 0")
     gather_timeout: int = Field(default=120, gt=0, description="Seconds, must be > 0")
     tool_max_retries: int = Field(default=2, ge=0, le=5, description="Max retry attempts for retryable tool errors")
+    # P0-1: Confidence gating
+    confidence_threshold: float = Field(default=0.85, ge=0.0, le=1.0, description="Min confidence for tool params")
+    # P0-2: Dry-run mode
+    dry_run: bool = False
 
     @field_validator("user_role")
     @classmethod

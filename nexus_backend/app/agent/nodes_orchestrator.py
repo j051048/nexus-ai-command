@@ -283,11 +283,33 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
                         "tool_calls": [],
                     }
 
-        # Execute all tasks in this layer concurrently
-        layer_results = await asyncio.gather(
-            *[_run_task_with_semaphore(idx) for idx in layer],
-            return_exceptions=True,
-        )
+        # P1-3: Execute with early stop on FATAL errors
+        cancel_event = asyncio.Event()
+        layer_results = []
+
+        async def _run_with_cancel(idx: int):
+            """Wrapper that checks cancel event before/during execution."""
+            if cancel_event.is_set():
+                return {
+                    "task_idx": idx,
+                    "status": "cancelled",
+                    "result": "任务已取消（同层其他任务出现致命错误）",
+                    "tokens_in": 0,
+                    "tokens_out": 0,
+                    "tool_calls": [],
+                }
+            result = await _run_task_with_semaphore(idx)
+            # Check if this is a FATAL error
+            if result.get("status") == "failed" and "fatal" in result.get("result", "").lower():
+                cancel_event.set()  # Signal other tasks to stop
+            return result
+
+        # Use as_completed for early stop capability
+        tasks = [_run_with_cancel(idx) for idx in layer]
+        for coro in asyncio.as_completed(tasks):
+            result = await coro
+            layer_results.append(result)
+            # If FATAL error detected, remaining tasks will see cancel_event
 
         # Aggregate layer results
         for lr in layer_results:

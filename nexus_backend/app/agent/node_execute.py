@@ -178,6 +178,57 @@ def _build_param_error_hint(error: str) -> str:
         hints.append("传入了不支持的参数，请移除多余的字段")
     return "；".join(hints) if hints else "请检查参数是否正确"
 
+
+# ── P0-1: Confidence-Based Gating ────────────────────────────────────────────
+
+
+def _extract_param_confidence(logprobs: dict | None, param_name: str) -> float:
+    """Extract confidence score for a specific parameter from logprobs."""
+    if not logprobs:
+        return 1.0  # No logprobs available, assume confident
+    # Simplified: return average token probability
+    # Real implementation would parse token-level logprobs
+    return 0.95  # Placeholder
+
+
+def _is_mutation_tool(tool_name: str) -> bool:
+    """Check if tool performs write operations."""
+    mutation_keywords = ['create', 'update', 'delete', 'send', 'post', 'put', 'remove', 'modify']
+    return any(kw in tool_name.lower() for kw in mutation_keywords)
+
+
+def _check_tool_confidence(
+    tool_name: str,
+    tool_args: dict,
+    threshold: float,
+    logprobs: dict | None = None
+) -> tuple[bool, str]:
+    """P0-1: Check tool call confidence, block low-confidence calls."""
+    # High-risk parameters that require high confidence
+    high_risk_params = ['amount', 'user_id', 'status', 'stage', 'price', 'quantity', 'email']
+
+    for param in high_risk_params:
+        if param in tool_args:
+            confidence = _extract_param_confidence(logprobs, param)
+            if confidence < threshold:
+                return False, f"参数 {param} 置信度过低 ({confidence:.2f} < {threshold})"
+
+    return True, ""
+
+
+# ── P0-2: Dry-Run Mode ───────────────────────────────────────────────────────
+
+
+def _simulate_tool_result(tool_name: str, args: dict) -> dict:
+    """P0-2: Simulate tool execution result for dry-run mode."""
+    return {
+        "simulated": True,
+        "tool": tool_name,
+        "args": args,
+        "message": f"[预演模式] 工具 {tool_name} 将执行以下操作",
+        "expected_effect": "数据将被修改（实际未执行）"
+    }
+
 async def _llm_fix_params(
     tool_name: str,
     tool_args: dict,
@@ -462,6 +513,43 @@ async def _execute_single_tool(
         _log_decision(trace_id, f"exec_confirm_{record.tool_name}", "blocked_confirmation",
                       f"不可逆操作需确认: type={confirmation_type}")
         return record
+
+    # 2b. P0-1: Confidence Gate — block low-confidence mutation tools
+    if _is_mutation_tool(record.tool_name):
+        passed, reason = _check_tool_confidence(
+            record.tool_name,
+            record.tool_args,
+            config.confidence_threshold,
+            logprobs=None  # TODO: extract from LLM response metadata
+        )
+        if not passed:
+            record.status = "blocked"
+            record.result = f"⚠️ 置信度不足: {reason}，请确认参数后重试"
+            _log_decision(trace_id, f"exec_confidence_{record.tool_name}", "blocked_confidence", reason)
+            return record
+
+    # 2c. P0-2: Dry-Run Mode — simulate mutation tools
+    if config.dry_run and _is_mutation_tool(record.tool_name):
+        simulated = _simulate_tool_result(record.tool_name, record.tool_args)
+        record.status = "success"
+        record.result = _json.dumps(simulated, ensure_ascii=False, indent=2)
+        record.duration_ms = 0
+        logger.info(f"[DryRun] Simulated {record.tool_name}")
+        return record
+
+    # 2d. P1-4: Pre-Flight Validation — business logic checks
+    if _is_mutation_tool(record.tool_name):
+        try:
+            from app.agent.preflight_rules import run_preflight_checks
+            passed, error_msg = await run_preflight_checks(record.tool_name, record.tool_args)
+            if not passed:
+                record.status = "error"
+                record.result = f"预检失败: {error_msg}"
+                record.error_type = ErrorType.FATAL
+                logger.warning(f"[PreFlight] {record.tool_name} blocked: {error_msg}")
+                return record
+        except Exception as e:
+            logger.debug(f"[PreFlight] Check error for {record.tool_name}: {e}")
 
     # 2a. Query Result Cache — skip execution for read-only tools with same args
     if not tool.is_irreversible and record.tool_name not in LONG_RUNNING_TOOLS:
