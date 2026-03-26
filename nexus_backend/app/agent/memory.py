@@ -7,6 +7,7 @@ Combines:
 3. Semantic: Vector search for relevant past context
 4. Semantic Cache: Fast-path for repeated / similar queries
 5. Query Transformation: HyDE and Multi-Query for better retrieval
+6. Phase 2: TurboQuant compression for long conversation memory
 
 This module is called BEFORE the graph runs to prepare the initial
 message list, and AFTER the graph runs to persist results.
@@ -16,6 +17,7 @@ import asyncio
 import logging
 import re
 from typing import Any
+import numpy as np
 
 _background_tasks: set[asyncio.Task] = set()
 
@@ -208,6 +210,45 @@ _MODEL_CONTEXT_WINDOWS = {
     "gpt-3.5-turbo": 16385,
 }
 _DEFAULT_CONTEXT_WINDOW = 128000
+
+
+# ── Phase 2: TurboQuant Memory Compression ────────────────────────────────────
+
+
+async def compress_old_messages(messages: list[dict[str, str]], preserve_recent: int = 10) -> list[dict[str, str]]:
+    """Phase 2: Compress embeddings in old messages using TurboQuant (5x memory reduction)"""
+    if len(messages) <= preserve_recent:
+        return messages
+
+    try:
+        from app.services.vector_service import VectorService
+
+        compressed = []
+        for i, msg in enumerate(messages):
+            if i < len(messages) - preserve_recent and "embedding" in msg:
+                # Quantize old message embeddings
+                embedding = msg["embedding"]
+                if isinstance(embedding, list) and len(embedding) == 1536:
+                    quantized = VectorService.quantize_embedding(embedding)
+                    msg["embedding_quantized"] = quantized
+                    del msg["embedding"]  # Remove full precision
+                    logger.debug(f"Compressed message {i} embedding")
+            compressed.append(msg)
+        return compressed
+    except Exception as e:
+        logger.debug(f"Memory compression skipped: {e}")
+        return messages
+
+
+async def decompress_message_embedding(msg: dict) -> dict:
+    """Phase 2: Decompress quantized embedding when needed"""
+    if "embedding_quantized" in msg and "embedding" not in msg:
+        try:
+            from app.services.vector_service import VectorService
+            msg["embedding"] = VectorService.dequantize_embedding(msg["embedding_quantized"])
+        except Exception as e:
+            logger.debug(f"Decompression failed: {e}")
+    return msg
 
 
 async def trim_messages_to_window(

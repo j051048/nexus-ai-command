@@ -4,10 +4,13 @@ Shared Blackboard — structured data sharing hub for multi-agent orchestration.
 Replaces the old `completed_context: dict[str, str]` local variable with a
 thread-safe, structured result store that preserves tool call data and avoids
 key collisions between sub-tasks with the same agent_code.
+
+Phase 3: TurboQuant integration for vector state compression (6x bandwidth reduction).
 """
 
 import asyncio
 from dataclasses import dataclass, field
+import numpy as np
 
 
 @dataclass
@@ -22,6 +25,8 @@ class TaskResult:
     text: str  # Text result from LLM
     tool_calls: list[dict] = field(default_factory=list)
     # Each dict: {tool_name: str, args_summary: str, result_summary: str}
+    # Phase 3: Optional vector state (quantized)
+    vector_state: dict | None = None
 
 
 class SharedBlackboard:
@@ -29,6 +34,7 @@ class SharedBlackboard:
 
     Keyed by task_idx (integer) to avoid agent_code collisions.
     Uses asyncio.Lock for safe concurrent writes from parallel sub-tasks.
+    Phase 3: Supports vector state compression for multi-agent communication.
     """
 
     def __init__(self) -> None:
@@ -39,6 +45,28 @@ class SharedBlackboard:
         """Write a sub-task result (called from parallel coroutines)."""
         async with self._lock:
             self._results[result.task_idx] = result
+
+    async def write_vector_state(self, task_idx: int, vector: np.ndarray) -> None:
+        """Phase 3: Write compressed vector state (6x bandwidth reduction)"""
+        try:
+            from app.services.vector_service import VectorService
+            quantized = VectorService.quantize_embedding(vector.tolist())
+            async with self._lock:
+                if task_idx in self._results:
+                    self._results[task_idx].vector_state = quantized
+        except Exception:
+            pass  # Graceful degradation
+
+    def read_vector_state(self, task_idx: int) -> np.ndarray | None:
+        """Phase 3: Read and decompress vector state"""
+        result = self._results.get(task_idx)
+        if result and result.vector_state:
+            try:
+                from app.services.vector_service import VectorService
+                return np.array(VectorService.dequantize_embedding(result.vector_state))
+            except Exception:
+                pass
+        return None
 
     def read(self, task_idx: int) -> TaskResult | None:
         """Read a specific sub-task result.
