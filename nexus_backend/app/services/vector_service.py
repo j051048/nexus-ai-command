@@ -26,7 +26,7 @@ _EMBEDDING_DIMENSIONS = 1536
 # (settings.RERANK_ENABLED, settings.RERANK_PROVIDER, settings.RERANK_MODEL, etc.)
 
 # Timeout for OpenAI API calls (embedding + rerank)
-_OPENAI_TIMEOUT = float(getattr(settings, "VECTOR_OPENAI_TIMEOUT", 120))
+_OPENAI_TIMEOUT = float(getattr(settings, "VECTOR_OPENAI_TIMEOUT", 120.0))
 
 
 def escape_like_pattern(value: str) -> str:
@@ -585,7 +585,7 @@ class VectorService:
 
             for attempt in range(3):
                 try:
-                    client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=30.0)
+                    client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=_OPENAI_TIMEOUT)
                     response = await client.embeddings.create(
                         input=truncated,
                         model=model or _DEFAULT_EMBEDDING_MODEL,
