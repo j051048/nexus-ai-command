@@ -411,6 +411,11 @@ async def search_memories(
         return base * weight
 
     memories.sort(key=_weighted_score, reverse=True)
+
+    # P1 LoCoMo Fix: Temporal reranking for time-sensitive queries
+    from .temporal_normalizer import rerank_by_temporal_relevance
+    memories = rerank_by_temporal_relevance(query, memories, boost_factor=2.0)
+
     memories = mmr_rerank(memories, limit)
 
     # P0: 最低相关性阈值过滤，防止冷旧记忆污染上下文

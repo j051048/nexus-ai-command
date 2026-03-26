@@ -66,6 +66,14 @@ async def save_memory(
 
     now = datetime.now(UTC).isoformat()
 
+    # P0 LoCoMo Fix: Normalize temporal context before storage
+    from .temporal_normalizer import normalize_temporal_context
+    metadata = normalize_temporal_context(
+        session_date=valid_from or now,
+        text=value,
+        metadata=metadata
+    )
+
     # PII sanitization — mask sensitive data before persisting
     value = sanitize_pii(value)
     if enriched_value:
