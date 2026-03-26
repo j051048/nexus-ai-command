@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import logging
 import re
@@ -7,6 +8,8 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from openai import AsyncOpenAI
+import httpx
+import os
 import numpy as np
 
 from app.core.config import settings
@@ -16,9 +19,9 @@ from app.services.turboquant import TurboQuant
 logger = logging.getLogger(__name__)
 
 # P1: Embedding Model Versioning — Track model changes to detect stale embeddings
-EMBEDDING_MODEL = "text-embedding-3-large"
+EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_MODEL_VERSION = "2026-03"
-_DEFAULT_EMBEDDING_MODEL = "text-embedding-3-large"
+_DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 # All DB vector columns are vector(1536); force this dimension to avoid mismatch
 _EMBEDDING_DIMENSIONS = 1536
 
@@ -106,20 +109,16 @@ class VectorService:
             return quantized["raw"]
         return cls._get_quantizer().dequantize(quantized).tolist()
 
-    @staticmethod
-    async def _get_embedding_config(org_id: str = "default") -> tuple[str, str, str]:
-        """Resolve embedding model dynamically via gateway. Returns (api_key, base_url, model)."""
-        try:
-            from app.services.llm_helpers import resolve_embedding_config
+    _embedding_config_cache: dict = {}
 
-            config = await resolve_embedding_config(org_id)
-            return config["api_key"], config["base_url"], config["model"]
-        except Exception:
-            return (
-                settings.OPENAI_API_KEY,
-                getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1"),
-                _DEFAULT_EMBEDDING_MODEL,
-            )
+    @classmethod
+    async def _get_embedding_config(cls, org_id: str = "default") -> tuple[str, str, str]:
+        """Resolve embedding model directly via settings (Bypass DB lookups for performance)."""
+        return (
+            settings.OPENAI_API_KEY,
+            getattr(settings, "AI_BASE_URL", "https://api.apiyi.com/v1").rstrip("/"),
+            _DEFAULT_EMBEDDING_MODEL,
+        )
 
     @staticmethod
     def _get_doc_type_label(item: dict) -> str:
@@ -577,21 +576,42 @@ class VectorService:
             if not api_key:
                 return None
 
-            if not base_url:
-                base_url = getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1")
-            base_url = base_url.rstrip("/")
-            if "/v1" not in base_url and "api.openai.com" not in base_url:
-                base_url = f"{base_url}/v1"
+            # G5 Optimization: Use a shared persistent client to avoid repeated TLS handshakes
+            if not hasattr(self, '_benchmark_client') or self._benchmark_client.is_closed:
+                import httpx
+                self._benchmark_client = httpx.AsyncClient(
+                    timeout=httpx.Timeout(_OPENAI_TIMEOUT, connect=30.0),
+                    limits=httpx.Limits(max_connections=50, max_keepalive_connections=20),
+                    http2=False
+                )
 
+            # Sanitize URL: ensure base_url exists and doesn't have trailing slash issues
+            clean_base = (base_url or "https://api.openai.com/v1").rstrip("/")
+            endpoint = f"{clean_base}/embeddings"
             for attempt in range(3):
                 try:
-                    client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=_OPENAI_TIMEOUT)
-                    response = await client.embeddings.create(
-                        input=truncated,
-                        model=model or _DEFAULT_EMBEDDING_MODEL,
-                        dimensions=_EMBEDDING_DIMENSIONS,
-                    )
-                    embedding = response.data[0].embedding
+                    headers = {
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    }
+                    payload = {
+                        "input": truncated,
+                        "model": model or _DEFAULT_EMBEDDING_MODEL,
+                    }
+                    
+                    # Use reused global client
+                    response = await self._benchmark_client.post(endpoint, headers=headers, json=payload)
+                    print(f"DEBUG VECTOR: POST {endpoint} STAT={response.status_code} REUSED_CLIENT=True")
+                        
+                    if response.status_code != 200:
+                        logger.warning(f"Embedding API error {response.status_code}: {response.text}")
+                        if attempt < 2:
+                            await asyncio.sleep(2 * (attempt + 1))
+                            continue
+                        return None
+                        
+                    result = response.json()
+                    embedding = result["data"][0]["embedding"]
 
                     # Cache the result (LRU eviction with TTL)
                     self._embed_cache[cache_key] = (embedding, time.time())
@@ -601,7 +621,7 @@ class VectorService:
                     return embedding
                 except Exception as e:
                     if attempt < 2:
-                        logger.warning(f"Embedding retry {attempt + 1}/3 due to: {e}")
+                        logger.debug(f"Embedding retry {attempt + 1}/3 due to: {e}")
                         await asyncio.sleep(2 * (attempt + 1))
                         continue
                     raise e

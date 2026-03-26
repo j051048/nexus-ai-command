@@ -67,6 +67,7 @@ class RerankerService:
         query: str,
         documents: list[dict],
         top_k: int = 5,
+        user_id: str = None,
     ) -> RerankResult:
         """
         Rerank documents by relevance to query.
@@ -75,6 +76,7 @@ class RerankerService:
             query: The search query
             documents: List of dicts with at least a "content" key
             top_k: Number of top results to return
+            user_id: Optional user ID for logging or specific backend handling
 
         Returns:
             RerankResult with reranked documents and metadata
@@ -115,22 +117,32 @@ class RerankerService:
         logger.info(f"[RerankerService] Reranked {len(documents)} docs via {backend} in {elapsed_ms:.0f}ms")
         return RerankResult(documents=result_docs, backend_used=backend, latency_ms=elapsed_ms)
 
+    # G5 Optimization: Use a shared persistent client for all rerank requests
+    _client: "httpx.AsyncClient" = None
+
+    async def _get_client(self, timeout: float = 10.0) -> "httpx.AsyncClient":
+        import httpx
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(
+                timeout=timeout,
+                limits=httpx.Limits(max_connections=50, max_keepalive_connections=20)
+            )
+        return self._client
+
     # ── Cohere Backend ─────────────────────────────────────────────────────
 
     async def _rerank_cohere(
         self, query: str, documents: list[dict], top_k: int
     ) -> list[dict]:
         """Rerank via Cohere Rerank API."""
-        import httpx
-
         api_key = getattr(settings, "COHERE_API_KEY", "").strip()
         if not api_key:
             raise ValueError("COHERE_API_KEY not configured")
 
-        max_docs = getattr(settings, "RERANK_MAX_DOCS", 8)
-        timeout = getattr(settings, "RERANK_TIMEOUT", 8)
+        max_docs = getattr(settings, "RERANK_MAX_DOCS", 15)
+        timeout = getattr(settings, "RERANK_TIMEOUT", 10)
 
-        doc_texts = [doc.get("content", "")[:500] for doc in documents[:max_docs]]
+        doc_texts = [doc.get("content", "")[:1000] for doc in documents[:max_docs]]
 
         payload = {
             "model": "rerank-v3.5",
@@ -143,14 +155,14 @@ class RerankerService:
             "Content-Type": "application/json",
         }
 
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            resp = await client.post(
-                "https://api.cohere.com/v2/rerank",
-                json=payload,
-                headers=headers,
-            )
-            resp.raise_for_status()
-            data = resp.json()
+        client = await self._get_client(timeout=timeout)
+        resp = await client.post(
+            "https://api.cohere.com/v2/rerank",
+            json=payload,
+            headers=headers,
+        )
+        resp.raise_for_status()
+        data = resp.json()
 
         results = data.get("results", [])
         return self._apply_rerank_indices(documents, results, top_k)
@@ -161,18 +173,19 @@ class RerankerService:
         self, query: str, documents: list[dict], top_k: int
     ) -> list[dict]:
         """Rerank via BGE-Reranker model through API proxy (Cohere-compatible format)."""
-        import httpx
-
-        max_docs = getattr(settings, "RERANK_MAX_DOCS", 8)
-        timeout = getattr(settings, "RERANK_TIMEOUT", 8)
+        max_docs = getattr(settings, "RERANK_MAX_DOCS", 15)
+        timeout = getattr(settings, "RERANK_TIMEOUT", 10)
         rerank_model = getattr(settings, "RERANK_MODEL", "bge-reranker-v2-m3")
 
         # Build rerank API URL from base URL
-        base_url = (settings.AI_BASE_URL or "https://api.openai.com/v1").rstrip("/")
-        base_root = base_url.rsplit("/v1", 1)[0] if base_url.endswith("/v1") else base_url
-        url = f"{base_root}/v1/rerank"
+        base_url = (settings.AI_BASE_URL or "https://api.apiyi.com/v1").rstrip("/")
+        # Fix: ensure we have /v1/rerank or /rerank correctly
+        if "/v1" in base_url:
+            url = f"{base_url.split('/v1')[0]}/v1/rerank"
+        else:
+            url = f"{base_url}/rerank"
 
-        doc_texts = [doc.get("content", "")[:500] for doc in documents[:max_docs]]
+        doc_texts = [doc.get("content", "")[:1000] for doc in documents[:max_docs]]
 
         payload = {
             "model": rerank_model,
@@ -185,10 +198,10 @@ class RerankerService:
             "Content-Type": "application/json",
         }
 
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            resp = await client.post(url, json=payload, headers=headers)
-            resp.raise_for_status()
-            data = resp.json()
+        client = await self._get_client(timeout=timeout)
+        resp = await client.post(url, json=payload, headers=headers)
+        resp.raise_for_status()
+        data = resp.json()
 
         results = data.get("results", [])
         return self._apply_rerank_indices(documents, results, top_k)

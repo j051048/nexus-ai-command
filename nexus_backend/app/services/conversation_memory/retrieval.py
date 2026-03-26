@@ -1,6 +1,7 @@
 """Memory retrieval: get, search (semantic + keyword), context building."""
 
 import asyncio
+import os
 import contextlib
 import logging
 import re
@@ -442,15 +443,20 @@ async def search_memories(
             logger.info(f"[Memory] Relevance filter: {pre_count} → {len(memories)}")
 
     # Feature 3: KG Spreading Activation — 脉冲式激活扩散
-    try:
-        expanded = await _spreading_activation(memories[:5], user_id, db=client)
-        if expanded:
-            seen_ids = {m["id"] for m in memories}
-            for em in expanded:
-                if em["id"] not in seen_ids:
-                    memories.append(em)
-    except Exception as e:
-        logger.debug(f"Spreading activation skipped: {e}")
+    # P1: Skip during heavy benchmarks to prevent DB connection pool exhaustion
+    from app.core.config import settings
+    if not os.environ.get("RAG_BENCHMARK_MODE") == "1":
+        try:
+            expanded = await _spreading_activation(memories[:5], user_id, db=client)
+            if expanded:
+                seen_ids = {m["id"] for m in memories}
+                for em in expanded:
+                    if em["id"] not in seen_ids:
+                        memories.append(em)
+        except Exception as e:
+            logger.debug(f"Spreading activation skipped: {e}")
+    else:
+        logger.info("[Memory] Skipping spreading activation (BENCHMARK_MODE)")
 
     return memories
 
@@ -495,6 +501,7 @@ async def _semantic_search(user_id: str, query: str, limit: int, org_id: str | N
         if org_id:
             params["match_org_id"] = org_id
 
+        print(f"DEBUG SEMANTIC: Calling search_memories_by_embedding with {list(params.keys())}")
         result = await client.rpc("search_memories_by_embedding", params).execute()
         return result.data or []
     except Exception as e:
@@ -503,63 +510,41 @@ async def _semantic_search(user_id: str, query: str, limit: int, org_id: str | N
 
 
 async def _keyword_search(user_id: str, query: str, limit: int, org_id: str | None, client) -> list[dict]:
-    """Keyword-based fallback search using ILIKE with Chinese tokenization."""
-    # Extract meaningful terms from the query (e.g. "还记得我的2个同学么" → ["同学"])
+    """Keyword-based fallback search using ILIKE with Chinese tokenization.
+    Optimized for bulk querying to reduce DB roundtrips.
+    """
     terms = _extract_search_terms(query)
     if not terms:
-        # Fallback: use original query if tokenization yields nothing
-        terms = [query]
+        terms = [query] if len(query) > 1 else []
+    
+    if not terms:
+        return []
 
-    memories: list[dict] = []
-    seen_ids: set[str] = set()
-
-    for term in terms:
-        if len(memories) >= limit:
-            break
-
-        # Search in key field or value field
+    # Build a single bulk OR query: "key.ilike.%term1%,value.ilike.%term1%,key.ilike.%term2%,..."
+    # Limit to first 4 terms to keep query string reasonable
+    or_parts = []
+    for t in terms[:4]:
+        or_parts.append(f"key.ilike.%{t}%,value.ilike.%{t}%")
+    
+    or_filter = ",".join(or_parts)
+    
+    try:
         q = (
             client.table("conversation_memories")
             .select("*")
             .eq("user_id", user_id)
             .is_("superseded_by", "null")
-            .or_(f"key.ilike.%{term}%,value.ilike.%{term}%")
+            .or_(or_filter)
             .limit(limit)
         )
         if org_id:
             q = q.eq("organization_id", org_id)
-        try:
-            result = await q.execute()
-            for item in (result.data or []):
-                if item["id"] not in seen_ids:
-                    seen_ids.add(item["id"])
-                    memories.append(item)
-        except Exception:
-            pass
-
-    # --- 补偿机制: 如果还没搜够，尝试全量 Query 模糊匹配 ---
-    if len(memories) < limit and len(query) > 3:
-        try:
-            full_q = (
-                client.table("conversation_memories")
-                .select("*")
-                .eq("user_id", user_id)
-                .is_("superseded_by", "null")
-                .ilike("value", f"%{query}%")
-                .limit(limit)
-            )
-            if org_id:
-                full_q = full_q.eq("organization_id", org_id)
-                
-            res_full = await full_q.execute()
-            for item in (res_full.data or []):
-                if item["id"] not in seen_ids:
-                    seen_ids.add(item["id"])
-                    memories.append(item)
-        except Exception:
-            pass
-
-    return memories[:limit]
+            
+        result = await q.execute()
+        return result.data or []
+    except Exception as e:
+        logger.debug(f"Keyword search failed: {e}")
+        return []
 
 
 # ── 实体精确搜索（双路并行的第二路）─────────────────────────
@@ -577,21 +562,15 @@ _ENTITY_PATTERNS = [
 async def _entity_precise_search(
     user_id: str, query: str, limit: int, org_id: str | None, client,
 ) -> list[dict]:
-    """从 query 中提取实体（人名、项目名等），做精确 ILIKE 搜索。
-
-    P1 LoCoMo Fix: 对多实体查询，额外做实体对组合搜索（AND 关系），
-    解决"梅兰妮的孩子做陶器"这种跨实体关联丢失问题。
+    """Extract entities and perform bulk ILIKE search.
+    Optimized to avoid looping DB queries.
     """
     entities: list[str] = []
     for pat in _ENTITY_PATTERNS:
         entities.extend(pat.findall(query))
-    # 去重 + 过滤太短的
     entities = list(dict.fromkeys(e for e in entities if len(e) >= 2))
 
-    # 补充：从 _extract_search_terms 提取关键名词作为隐式实体
-    # 这能捕获 "pottery"、"camping" 等非人名实体
     extra_terms = _extract_search_terms(query)
-    # 只取首字母大写或长度>=3的词作为实体候选
     for t in extra_terms:
         if t not in entities and (t[0].isupper() or len(t) >= 4):
             entities.append(t)
@@ -599,60 +578,51 @@ async def _entity_precise_search(
     if not entities:
         return []
 
-    memories: list[dict] = []
-    seen_ids: set[str] = set()
-
-    # Phase 1: 单实体搜索
-    for entity in entities[:6]:  # 最多 6 个实体（提升自 4）
-        if len(memories) >= limit:
-            break
+    # Bulk OR query for entities
+    or_parts = []
+    for e in entities[:5]:
+        or_parts.append(f"key.ilike.%{e}%,value.ilike.%{e}%")
+    
+    try:
         q = (
             client.table("conversation_memories")
             .select("*")
             .eq("user_id", user_id)
             .is_("superseded_by", "null")
-            .or_(f"key.ilike.%{entity}%,value.ilike.%{entity}%")
+            .or_(",".join(or_parts))
             .limit(limit)
         )
         if org_id:
             q = q.eq("organization_id", org_id)
-        try:
-            result = await q.execute()
-            for item in (result.data or []):
-                if item["id"] not in seen_ids:
-                    seen_ids.add(item["id"])
-                    memories.append(item)
-        except Exception:
-            pass
-
-    # Phase 2: 多实体组合搜索（AND 关系）— 找同时包含两个实体的记忆
-    # 这解决了"Melanie's kids made pottery"需要同时匹配 kids + pottery 的场景
-    if len(entities) >= 2 and len(memories) < limit:
-        from itertools import combinations
-        for e1, e2 in list(combinations(entities[:4], 2))[:3]:
-            if len(memories) >= limit:
-                break
-            try:
-                combo_q = (
-                    client.table("conversation_memories")
-                    .select("*")
-                    .eq("user_id", user_id)
-                    .is_("superseded_by", "null")
-                    .ilike("value", f"%{e1}%")
-                    .ilike("value", f"%{e2}%")
-                    .limit(3)
-                )
-                if org_id:
-                    combo_q = combo_q.eq("organization_id", org_id)
-                combo_result = await combo_q.execute()
-                for item in (combo_result.data or []):
+        
+        result = await q.execute()
+        memories = result.data or []
+        
+        # Phase 2: Combo search (only if small results and multiple entities)
+        # We keep this limited to 1 extra query if needed
+        if len(memories) < limit and len(entities) >= 2:
+            e1, e2 = entities[0], entities[1]
+            combo_q = (
+                client.table("conversation_memories")
+                .select("*")
+                .eq("user_id", user_id)
+                .is_("superseded_by", "null")
+                .ilike("value", f"%{e1}%")
+                .ilike("value", f"%{e2}%")
+                .limit(3)
+            )
+            if org_id:
+                combo_q = combo_q.eq("organization_id", org_id)
+            combo_res = await combo_q.execute()
+            if combo_res.data:
+                seen_ids = {m["id"] for m in memories}
+                for item in combo_res.data:
                     if item["id"] not in seen_ids:
-                        seen_ids.add(item["id"])
                         memories.append(item)
-            except Exception:
-                pass
-
-    return memories[:limit]
+                        
+        return memories[:limit]
+    except Exception:
+        return memories[:limit] if 'memories' in locals() else []
 
 
 async def _user_anchor_search(

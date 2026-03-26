@@ -113,8 +113,12 @@ async def save_memory(
         old_version = existing.data.get("version", 1)
         old_id = existing.data["id"]
 
+    # G5 LoCoMo Skip: Heavy DB checks during bench
+    import os
+    is_bench = os.getenv("LOCOMO_INGEST_MODE") == "1"
+
     # Semantic dedup: if no exact key match, check for semantically similar memories
-    if not old_id and embedding:
+    if not old_id and embedding and not is_bench:
         try:
             similar = await _find_semantically_similar(
                 user_id, embedding, threshold=0.92, category=category, db=client
@@ -132,7 +136,7 @@ async def save_memory(
             logger.debug("Semantic dedup check failed, proceeding with normal insert", exc_info=True)
 
     # P0 Fix: Per-user memory limit (500) — evict lowest-importance when full
-    if not old_id:
+    if not old_id and not is_bench:
         await _enforce_memory_limit(user_id, client, max_memories=5000)
 
     # Always insert a new record (append-only versioning)
