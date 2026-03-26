@@ -9,7 +9,7 @@ from app.agent.event_triggers import event_trigger
 from app.agent.goal_tracker import goal_tracker
 from app.agent.proactive_scheduler import proactive_scheduler
 from app.core.auth import get_current_user_id
-from app.core.responses import api_success
+from app.core.errors import api_success
 
 router = APIRouter(prefix="/api/agent/proactive", tags=["agent-proactive"])
 
