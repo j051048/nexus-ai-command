@@ -574,7 +574,6 @@ class VectorService:
             if not api_key:
                 api_key = settings.OPENAI_API_KEY
             
-            # print(f"DEBUG: VectorService using API Key prefix: {api_key[:10] if api_key else 'EMPTY'} for URL: {base_url}")
             if not api_key:
                 return None
 
@@ -584,22 +583,30 @@ class VectorService:
             if "/v1" not in base_url and "api.openai.com" not in base_url:
                 base_url = f"{base_url}/v1"
 
-            client = AsyncOpenAI(api_key=api_key, base_url=base_url)
-            response = await client.embeddings.create(
-                input=truncated,
-                model=model or _DEFAULT_EMBEDDING_MODEL,
-                dimensions=_EMBEDDING_DIMENSIONS,
-            )
-            embedding = response.data[0].embedding
+            for attempt in range(3):
+                try:
+                    client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=30.0)
+                    response = await client.embeddings.create(
+                        input=truncated,
+                        model=model or _DEFAULT_EMBEDDING_MODEL,
+                        dimensions=_EMBEDDING_DIMENSIONS,
+                    )
+                    embedding = response.data[0].embedding
 
-            # Cache the result (LRU eviction with TTL)
-            self._embed_cache[cache_key] = (embedding, time.time())
-            if len(self._embed_cache) > self._EMBED_CACHE_MAX:
-                self._embed_cache.popitem(last=False)
+                    # Cache the result (LRU eviction with TTL)
+                    self._embed_cache[cache_key] = (embedding, time.time())
+                    if len(self._embed_cache) > self._EMBED_CACHE_MAX:
+                        self._embed_cache.popitem(last=False)
 
-            return embedding
+                    return embedding
+                except Exception as e:
+                    if attempt < 2:
+                        logger.warning(f"Embedding retry {attempt + 1}/3 due to: {e}")
+                        await asyncio.sleep(2 * (attempt + 1))
+                        continue
+                    raise e
         except Exception as e:
-            logger.warning(f"Failed to generate embedding: {e}")
+            logger.error(f"Failed to generate embedding: {e}")
             return None
 
     # Keep backward-compatible private alias

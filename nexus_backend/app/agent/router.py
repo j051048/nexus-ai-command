@@ -790,6 +790,20 @@ async def route_node(state: AgentState) -> dict:
     config = state["config"]
     messages = state.get("messages", [])
 
+    # P0-2: Inject goal context at conversation start
+    if hasattr(config, "user_id") and config.user_id:
+        try:
+            from app.agent.goal_tracker import goal_tracker
+            goal_context = await goal_tracker.get_goal_context_for_agent(
+                config.user_id,
+                getattr(config, "org_id", "default")
+            )
+            if goal_context:
+                from langchain_core.messages import SystemMessage
+                messages.insert(0, SystemMessage(content=goal_context))
+        except Exception as e:
+            logger.debug(f"Goal context injection skipped: {e}")
+
     # Load DB keyword rules on first invocation (cached after first call)
     await _load_db_intent_rules()
 

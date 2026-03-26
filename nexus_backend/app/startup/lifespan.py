@@ -124,6 +124,24 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Scheduled task runner start skipped: {e}")
 
+    # P0-1: Start proactive scheduler
+    from app.agent.proactive_scheduler import proactive_scheduler
+
+    try:
+        await proactive_scheduler.load_all_tasks()
+        logger.info("Proactive scheduler started")
+    except Exception as e:
+        logger.warning(f"Proactive scheduler start skipped: {e}")
+
+    # P0-3: Register default event triggers
+    from app.agent.event_triggers import register_default_triggers
+
+    try:
+        register_default_triggers()
+        logger.info("Event triggers registered")
+    except Exception as e:
+        logger.warning(f"Event triggers registration skipped: {e}")
+
     # G6: Start background health checker (O(1) cached /health)
     from app.core.health_cache import health_cache
 
@@ -141,6 +159,10 @@ async def lifespan(app: FastAPI):
         await health_cache.stop()
     with suppress(Exception):
         await scheduled_task_runner.stop()
+    with suppress(Exception):
+        # Stop all proactive scheduler tasks
+        for task_id in list(proactive_scheduler.running_tasks.keys()):
+            await proactive_scheduler.stop_task(task_id)
     with suppress(Exception):
         await auto_trigger_service.stop()
     await event_bus.stop()
