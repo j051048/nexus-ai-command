@@ -12,6 +12,7 @@ import asyncio
 import json
 import logging
 import re
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -71,17 +72,17 @@ class QueryTransformer:
         if not llm:
             return query
 
-        prompt = f"""请生成一段假设性的文档内容，这段文档应该能够回答用户的问题。
+        prompt = f"""请模拟用户在对话中提到这个问题时的自然表达方式，生成一段简短的对话片段。
 
 用户问题: {query}
 
 要求:
-1. 文档应该包含问题的答案
-2. 使用专业、清晰的语言
-3. 长度约200-300字
-4. 直接输出文档内容，不要解释
+1. 使用口语化、自然的表达（而非专业术语或百科风格）
+2. 模拟真实聊天记忆的碎片化特征
+3. 长度约100-150字
+4. 直接输出对话片段，不要解释
 
-假设性文档:"""
+对话片段:"""
 
         try:
             response = await llm.chat.completions.create(
@@ -160,6 +161,8 @@ class QueryTransformer:
 
         prompt = f"""请将以下问题重写为更适合检索的形式。
 {context_block}
+当前日期: {datetime.now().strftime('%Y-%m-%d')}
+
 原问题: {query}
 
 要求:
@@ -167,8 +170,9 @@ class QueryTransformer:
 2. 使用更标准、更清晰的表达
 3. 移除口语化表达
 4. 如果问题中有代词（那个/这个/上次/之前），根据上下文替换为具体指代内容
-5. 添加可能的关键词
-6. 直接输出重写后的问题
+5. 将相对时间（昨天/上周/前天/上个月）转换为绝对日期 YYYY-MM-DD
+6. 添加可能的关键词
+7. 直接输出重写后的问题
 
 重写后的问题:"""
 
