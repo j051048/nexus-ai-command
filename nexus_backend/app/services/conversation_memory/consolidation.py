@@ -65,6 +65,10 @@ async def consolidate_user_memories(
         "你是记忆整合专家。分析用户的多条记忆，发现跨记忆的模式、总结和矛盾。\n"
         "特别注意发现因果关系(causal)：如果A导致了B、A使B成为可能、A阻止了B，\n"
         "请在connections中明确标注relation为causal。因果关系是最有价值的洞察类型。\n\n"
+        "时间聚类指引：\n"
+        "- 同一天/同一周的记忆优先聚类（如'周一见客户A' + '周二签约A' → pattern）\n"
+        "- 跨度>1个月的记忆谨慎关联（除非有明确因果/主题联系）\n"
+        "- 标注时间跨度：connections中可添加time_span='same_day'/'same_week'/'cross_month'\n\n"
         "请返回 JSON 数组，每个元素包含：\n"
         '- "insight_type": "pattern"（规律模式）/ "summary"（综合总结）/ "contradiction"（矛盾冲突）\n'
         '- "title": 简短标题（10字以内）\n'
