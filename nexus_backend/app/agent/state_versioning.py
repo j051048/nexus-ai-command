@@ -4,6 +4,7 @@ P2-1: 状态版本控制系统
 
 import logging
 from datetime import datetime
+from typing import List, Dict
 
 from app.core.database import supabase
 
@@ -51,7 +52,7 @@ class StateVersionControl:
             logger.error(f"Failed to rollback: {e}")
             raise
 
-    async def list_snapshots(self, thread_id: str) -> list[dict]:
+    async def list_snapshots(self, thread_id: str) -> List[Dict]:
         """列出所有快照"""
         result = await supabase.table("state_snapshots")\
             .select("id, label, created_at")\

@@ -10,7 +10,7 @@ P2: 工具调用缓存 - 提升响应速度
 import hashlib
 import json
 import logging
-from typing import Any
+from typing import Any, Callable
 
 from app.services.cache_service import cache_service
 
@@ -43,7 +43,7 @@ class ToolCache:
         self,
         tool_name: str,
         args: dict,
-        executor: callable
+        executor: Callable
     ) -> Any:
         """获取缓存或执行工具"""
         # 只缓存只读工具

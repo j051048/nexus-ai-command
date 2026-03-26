@@ -38,11 +38,19 @@ class SubAgent:
     async def execute(self, task: dict) -> dict:
         """独立执行任务"""
         try:
-            result = await self.graph.ainvoke({
-                "messages": [{"role": "user", "content": task["description"]}],
-                "config": task.get("config", {})
-            })
+            import asyncio
+            # 添加30秒超时控制
+            result = await asyncio.wait_for(
+                self.graph.ainvoke({
+                    "messages": [{"role": "user", "content": task["description"]}],
+                    "config": task.get("config", {})
+                }),
+                timeout=30.0
+            )
             return result
+        except asyncio.TimeoutError:
+            logger.error(f"SubAgent {self.name} timeout after 30s")
+            return {"error": "执行超时"}
         except Exception as e:
             logger.error(f"SubAgent {self.name} failed: {e}")
             return {"error": str(e)}

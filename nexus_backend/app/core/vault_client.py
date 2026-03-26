@@ -1,7 +1,10 @@
 """HashiCorp Vault 密钥管理"""
 import os
+import logging
 import hvac
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 class VaultClient:
     def __init__(self):
@@ -14,7 +17,8 @@ class VaultClient:
         try:
             response = self.client.secrets.kv.v2.read_secret_version(path=path)
             return response["data"]["data"]
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to get secret from {path}: {e}")
             return None
     
     def set_secret(self, path: str, data: dict):

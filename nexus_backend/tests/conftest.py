@@ -17,4 +17,10 @@ async def client():
 
 @pytest.fixture
 def test_user():
-    return {"user_id": "test-123", "org_id": "org-456", "tenant_id": "tenant-789"}
+    return {
+        "user_id": "test-123",
+        "org_id": "org-456",
+        "tenant_id": "tenant-789",
+        "id": "test-123",
+        "role": "admin"
+    }
