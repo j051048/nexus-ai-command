@@ -301,14 +301,14 @@ async def search_memories(
             else:
                 freshness = max(0.5, 0.8 * (60.0 / max(days_old, 1)))
 
-            # P0: Temporal matching boost (3x multiplier for time-matched memories)
+            # P0: Temporal matching boost (5x multiplier for time-matched memories)
             temporal_boost = 1.0
             if is_temporal_query and query_time_range:
                 meta = mem.get("metadata", {})
                 temporal_anchors = meta.get("temporal_anchors", [])
                 overlap = calculate_temporal_overlap(temporal_anchors, query_time_range)
                 if overlap > 0.5:
-                    temporal_boost = 3.0  # Strong boost for time-matched memories
+                    temporal_boost = 5.0  # Stronger boost (was 3.0)
 
             # Apply decay factor softly (0.8 base + 0.2 freshness variation)
             confidence = float(mem.get("confidence", 1.0) or 1.0)
