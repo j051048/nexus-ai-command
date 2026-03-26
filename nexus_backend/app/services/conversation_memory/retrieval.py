@@ -247,11 +247,13 @@ async def search_memories(
         pass
 
     try:
-        # 四路并行：语义搜索 + 实体精确搜索 + 用户锚定检索 + 关键词搜索
-        sem_task = _semantic_search(user_id, query, limit * 2, org_id, client, query_embedding=query_embedding)
-        entity_task = _entity_precise_search(user_id, query, min(5, limit), org_id, client)
-        anchor_task = _user_anchor_search(user_id, min(5, limit), org_id, client)
-        keyword_task = _keyword_search(user_id, query, limit, org_id, client)
+        # P1 LoCoMo Fix: Expand retrieval to combat context loss (Top-20 → Top-40)
+        # When Reranker is offline, we need more candidates to ensure key memories aren't filtered out
+        retrieval_multiplier = 4  # Increased from 2
+        sem_task = _semantic_search(user_id, query, limit * retrieval_multiplier, org_id, client, query_embedding=query_embedding)
+        entity_task = _entity_precise_search(user_id, query, min(10, limit * 2), org_id, client)
+        anchor_task = _user_anchor_search(user_id, min(10, limit * 2), org_id, client)
+        keyword_task = _keyword_search(user_id, query, limit * 2, org_id, client)
         results = await asyncio.wait_for(
             asyncio.gather(
                 sem_task, entity_task, anchor_task, keyword_task,
@@ -277,9 +279,13 @@ async def search_memories(
                 if mid not in id_to_mem:
                     id_to_mem[mid] = mem
 
-        # ── Adaptive Time-Decay ─────────────────────────────
-        # In recall-heavy benchmarks (like PersonaMem), aggressive decay hurts.
-        # We only apply decay if multiple versions exist or for specific conversation types.
+        # ── Adaptive Time-Decay + Temporal Boost ─────────────────────────────
+        # P0 LoCoMo Fix: Add temporal matching bonus for time-sensitive queries
+        from .temporal_normalizer import extract_time_range_from_query, calculate_temporal_overlap
+
+        query_time_range = extract_time_range_from_query(query)
+        is_temporal_query = any(kw in query.lower() for kw in ['when', 'what time', '什么时候', '何时', '哪天'])
+
         for mid, mem in id_to_mem.items():
             updated = mem.get("updated_at") or mem.get("created_at") or ""
             days_old = _days_since(updated)
@@ -295,9 +301,18 @@ async def search_memories(
             else:
                 freshness = max(0.5, 0.8 * (60.0 / max(days_old, 1)))
 
+            # P0: Temporal matching boost (3x multiplier for time-matched memories)
+            temporal_boost = 1.0
+            if is_temporal_query and query_time_range:
+                meta = mem.get("metadata", {})
+                temporal_anchors = meta.get("temporal_anchors", [])
+                overlap = calculate_temporal_overlap(temporal_anchors, query_time_range)
+                if overlap > 0.5:
+                    temporal_boost = 3.0  # Strong boost for time-matched memories
+
             # Apply decay factor softly (0.8 base + 0.2 freshness variation)
             confidence = float(mem.get("confidence", 1.0) or 1.0)
-            rrf_scores[mid] = rrf_scores[mid] * (0.8 + 0.2 * freshness) * confidence
+            rrf_scores[mid] = rrf_scores[mid] * (0.8 + 0.2 * freshness) * confidence * temporal_boost
 
         # ── Embedding-based rerank (lightweight cross-encoder substitute) ──
         # For candidates from non-semantic arms that lack similarity scores,
