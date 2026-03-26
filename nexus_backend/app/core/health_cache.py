@@ -91,6 +91,9 @@ class HealthCache:
                     timeout=2.0,
                 )
                 return "connected"
+            except asyncio.TimeoutError:
+                logger.warning("Health check DB timeout (>2s)")
+                return "error" if settings.IS_PRODUCTION else "error: timeout"
             except Exception as e:
                 logger.warning("Health check DB error: %s", e)
                 return "error" if settings.IS_PRODUCTION else f"error: {str(e)[:50]}"

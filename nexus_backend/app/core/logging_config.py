@@ -104,6 +104,10 @@ def setup_logging(level: str | None = None, format_string: str | None = None, js
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("asyncio").setLevel(logging.WARNING)
 
+    # OpenAI SDK: suppress verbose request/response dumps
+    logging.getLogger("openai").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+
     # Supabase / PostgREST client noise
     logging.getLogger("supabase").setLevel(logging.WARNING)
     logging.getLogger("postgrest").setLevel(logging.WARNING)
