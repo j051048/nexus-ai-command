@@ -685,6 +685,19 @@ async def prepare_initial_state(
             "立即调用 save_memory 工具保存, 不要等到对话结束。"
         )
 
+        # Cross-source conflict resolution instructions
+        injected_contexts.append(
+            "<source-priority>\n"
+            "当不同来源的记忆出现矛盾时，按以下优先级判断最新真实情况：\n"
+            "1. 标记了具体日期且日期更近的个人记忆 > 日期更旧的记忆\n"
+            "2. 组织行为准则(policy) > 个人偏好（政策必须遵守）\n"
+            '3. 有 status="expired" 标记的记忆已过期，仅作历史参考\n'
+            "4. confidence 值更高的记忆 > confidence 更低的\n"
+            '5. fact_type="fact" > fact_type="opinion"（事实优先于观点）\n'
+            "6. 如仍无法判断，明确告知用户存在信息矛盾并询问确认\n"
+            "</source-priority>"
+        )
+
         # Unified token budget: cap injected context to avoid unbounded growth
         # Mirrors ContextEngine._MAX_BUDGET to keep total context predictable.
         from app.services.token_service import token_counter

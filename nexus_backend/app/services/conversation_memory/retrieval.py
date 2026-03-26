@@ -4,7 +4,7 @@ import asyncio
 import contextlib
 import logging
 import re
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timezone
 from typing import Any
 
 from app.core.database import supabase
@@ -168,7 +168,20 @@ def _format_by_temperature(mem: dict) -> str:
     else:
         date_attr = ""
     fact_type_attr = f' fact_type="{mem.get("fact_type", "fact")}"' if mem.get("fact_type") and mem.get("fact_type") != "fact" else ""
-    parts = [f'  <memory type="{category}"{date_attr}{fact_type_attr} age="{age_str}" importance="{importance:.1f}">']
+
+    # Status annotation: expired (valid_until in the past) or possibly-outdated (same-key conflict)
+    status_attr = ""
+    if mem.get("valid_until"):
+        try:
+            vu = datetime.fromisoformat(str(mem["valid_until"]).replace("Z", "+00:00"))
+            if vu < datetime.now(timezone.utc):
+                status_attr = ' status="expired"'
+        except (ValueError, TypeError):
+            pass
+    if not status_attr and mem.get("_outdated"):
+        status_attr = ' status="possibly-outdated"'
+
+    parts = [f'  <memory type="{category}"{date_attr}{fact_type_attr}{status_attr} age="{age_str}" importance="{importance:.1f}">']
     if days_old < 3 and importance > 0.7:
         parts.append(value)
     elif days_old < 30:
@@ -312,6 +325,39 @@ async def search_memories(
                         rrf_scores[mid] = 0.6 * norm_rrf + 0.4 * max(cos_sim, 0)
             except Exception as e:
                 logger.debug(f"Embedding rerank skipped: {e}")
+
+        # ── Reranker 精排 (cross-encoder level) ──────────────────────
+        # Call reranker_service on top-15 candidates for query-doc interaction scoring.
+        # Falls back silently to cosine rerank results on failure.
+        from app.core.config import settings
+        if settings.RERANK_ENABLED and len(id_to_mem) > 3:
+            try:
+                from app.services.reranker_service import reranker_service
+
+                top_candidates = sorted(
+                    id_to_mem.keys(),
+                    key=lambda x: rrf_scores.get(x, 0),
+                    reverse=True,
+                )[:15]
+                rerank_docs = []
+                for mid in top_candidates:
+                    mem = id_to_mem[mid]
+                    content = mem.get("value") or mem.get("key", "")
+                    rerank_docs.append({"content": content, "id": mid})
+
+                if len(rerank_docs) > 3:
+                    rr = await reranker_service.rerank(query, rerank_docs, top_k=limit)
+                    for rank, doc in enumerate(rr.documents):
+                        mid = doc.get("id")
+                        if mid and mid in rrf_scores:
+                            rrf_scores[mid] = 1.0 - rank * 0.05
+                    logger.debug(
+                        "[MemRerank] %d → %d via %s in %.0fms",
+                        len(rerank_docs), len(rr.documents),
+                        rr.backend_used, rr.latency_ms,
+                    )
+            except Exception as e:
+                logger.debug(f"[MemRerank] Reranker skipped: {e}")
 
         # Sort by RRF score descending
         sorted_ids = sorted(rrf_scores, key=lambda x: rrf_scores[x], reverse=True)
@@ -997,6 +1043,21 @@ async def build_memory_context(
                 new_relevant.sort(key=_recency_tier)
 
             if new_relevant:
+                # Same-key conflict detection: mark older entries as possibly-outdated
+                key_groups: dict[str, list[dict]] = {}
+                for m in new_relevant:
+                    k = m.get("key", "")
+                    if k:
+                        key_groups.setdefault(k, []).append(m)
+                for _k, group in key_groups.items():
+                    if len(group) > 1:
+                        group.sort(
+                            key=lambda m: m.get("valid_from") or m.get("updated_at") or "",
+                            reverse=True,
+                        )
+                        for old_mem in group[1:]:
+                            old_mem["_outdated"] = True
+
                 rel_lines = [_format_by_temperature(m) for m in new_relevant]
                 context_parts.append("\n".join(rel_lines))
 
