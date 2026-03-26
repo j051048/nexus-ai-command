@@ -48,6 +48,7 @@ langfuse==2.51.3
 # Development/Testing — see requirements-dev.txt
 # (not installed in production Docker image)
 jieba==0.42.1
+croniter==5.0.1
 
 # RAG Evaluation (optional — pull massive ML libs, keep commented for production/Zeabur!)
 # ragas>=0.2.14
