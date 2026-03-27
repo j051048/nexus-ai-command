@@ -9,13 +9,17 @@ import logging
 from typing import Any, Callable, List, Optional
 import redis
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
 # 获取 Redis 连接
+_redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 try:
     redis_client = redis.from_url(
-        os.getenv("REDIS_URL", "redis://localhost:6379/0"),
+        _redis_url,
         decode_responses=True,
         socket_timeout=2,
         socket_connect_timeout=2,
@@ -23,6 +27,9 @@ try:
     )
     # 测试连接
     redis_client.ping()
+    # 隐藏密码，只显示 host:port
+    _safe_url = _redis_url.split("@")[-1] if "@" in _redis_url else _redis_url
+    logger.info(f"Redis 连接成功: {_safe_url}")
 except Exception as e:
     logger.warning(f"Redis 连接失败，缓存功能将降级为直接查询数据库: {e}")
     redis_client = None
