@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import Joyride, { Step, CallBackProps, STATUS } from 'react-joyride';
+import { Joyride, Step, EventData, STATUS } from 'react-joyride';
 
 const tourSteps: Step[] = [
   {
@@ -35,7 +35,7 @@ export function ProductTour() {
     }
   }, []);
 
-  const handleJoyrideCallback = (data: CallBackProps) => {
+  const handleJoyrideCallback = (data: EventData) => {
     const { status } = data;
     if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
       localStorage.setItem('hasSeenTour', 'true');
@@ -63,7 +63,7 @@ export function ProductTour() {
           zIndex: 10000,
         },
       }}
-      callback={handleJoyrideCallback}
+      onEvent={handleJoyrideCallback}
     />
   );
 }
