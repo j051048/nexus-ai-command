@@ -39,6 +39,17 @@ jobs:
         run: |
           npx vitest run --coverage --reporter=verbose
 
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      - name: Run Playwright E2E Tests
+        run: |
+          # 启动前端开发服务器并等待，然后运行测试
+          # 注意：生产环境应先 npm run build 然后使用 preview 模式，但目前为了测试稳定性直接使用 dev
+          npm run dev -- --port 5173 &
+          npx wait-on http://localhost:5173
+          npx playwright test
+
       - name: Generate frontend coverage summary
         if: always()
         run: |

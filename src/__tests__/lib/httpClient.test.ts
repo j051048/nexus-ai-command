@@ -49,7 +49,11 @@ describe('httpClient interceptors', () => {
   });
 
   afterEach(() => {
-    window.location = originalLocation;
+    Object.defineProperty(window, 'location', {
+      value: originalLocation,
+      writable: true,
+      configurable: true,
+    });
     vi.restoreAllMocks();
   });
 

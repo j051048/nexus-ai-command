@@ -111,6 +111,7 @@
     "vite": "^5.4.21",
     "vite-plugin-pwa": "^1.2.0",
     "vitest": "^4.1.0",
+    "wait-on": "^9.0.4",
     "workbox-window": "^7.4.0"
   }
 }
