@@ -39,4 +39,29 @@ describe('ErrorBoundary (组件异常阻断测试)', () => {
     expect(getAllByText(/返回首页/i)[0]).toBeInTheDocument();
     expect(getAllByText(/展开错误详情/i)[0]).toBeInTheDocument();
   });
+
+  it('错误边界应能捕获异常并调用上报逻辑（如有需要），能够恢复正常的渲染', () => {
+    // 假如有 onReset 或者重试，这里可以用模拟的一个受控组件
+    let triggerError = false;
+    const Faulty = () => {
+      if (triggerError) throw new Error('Crash');
+      return <div>Normal state</div>;
+    };
+    const { getByText, getAllByText, rerender } = render(
+      <ErrorBoundary>
+        <Faulty />
+      </ErrorBoundary>
+    );
+
+    expect(getByText('Normal state')).toBeInTheDocument();
+
+    triggerError = true;
+    rerender(
+      <ErrorBoundary>
+        <Faulty />
+      </ErrorBoundary>
+    );
+    // 现在应该变成异常兜底界面
+    expect(getAllByText(/返回首页/i)[0]).toBeInTheDocument();
+  });
 });

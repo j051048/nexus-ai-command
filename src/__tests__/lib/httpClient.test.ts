@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import httpClient from '../../lib/httpClient';
+import { AxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
 
 // Mock 外部依赖
@@ -13,7 +14,7 @@ vi.mock('../../lib/apiConfig', () => ({
 }));
 
 describe('httpClient interceptors', () => {
-  let requestConfig: any;
+  let requestConfig: AxiosRequestConfig;
   let originalLocation: Location;
 
   beforeEach(() => {
@@ -35,9 +36,13 @@ describe('httpClient interceptors', () => {
 
     // 劫持 window.location
     originalLocation = window.location;
-    // @ts-ignore
+    // @ts-expect-error mock window.location
     delete window.location;
-    window.location = { ...originalLocation, href: '' } as any;
+    Object.defineProperty(window, 'location', {
+      value: { ...originalLocation, href: '' },
+      writable: true,
+      configurable: true,
+    });
 
     // 清空 body 以准备 meta tag 测试
     document.head.innerHTML = '';
@@ -50,7 +55,7 @@ describe('httpClient interceptors', () => {
 
   describe('Request Interceptor', () => {
     it('应该正确注入 Token、Org-ID 和全局标记', async () => {
-      // @ts-ignore
+      // @ts-expect-error access private handlers for test
       const handler = httpClient.interceptors.request.handlers[0];
       const config = await handler.fulfilled(requestConfig);
 
@@ -65,7 +70,7 @@ describe('httpClient interceptors', () => {
       document.head.innerHTML = '<meta name="csrf-token" content="mock-csrf-token-abc" />';
       requestConfig.method = 'post';
 
-      // @ts-ignore
+      // @ts-expect-error access private handlers for test
       const handler = httpClient.interceptors.request.handlers[0];
       const config = await handler.fulfilled(requestConfig);
 
@@ -78,7 +83,7 @@ describe('httpClient interceptors', () => {
       document.head.innerHTML = '<meta name="csrf-token" content="mock-csrf-token-abc" />';
       requestConfig.method = 'get';
 
-      // @ts-ignore
+      // @ts-expect-error access private handlers for test
       const handler = httpClient.interceptors.request.handlers[0];
       const config = await handler.fulfilled(requestConfig);
 
@@ -90,7 +95,7 @@ describe('httpClient interceptors', () => {
   describe('Response Interceptor Error Handling', () => {
     // 提取响应拦截器错误处理器
     const runErrorInterceptor = async (status: number) => {
-      // @ts-ignore
+      // @ts-expect-error access private handlers for test
       const handler = httpClient.interceptors.response.handlers[0];
       try {
         await handler.rejected({ response: { status } });
