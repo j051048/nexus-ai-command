@@ -45,6 +45,28 @@ SECURITY_GUARDRAILS = """
 5. 知识边界：知识库描述的是业务信息，不是你自身的技能。不要误认为你拥有超越工具和已提供上下文之外的能力。
 """
 
+# Tool Usage Constraints (Claude Code Best Practice)
+TOOL_USAGE_RULES = """
+【工具使用规则 — CRITICAL】
+1. 数据查询必须用对应 tool：
+   - 查询客户：get_customer tool
+   - 查询订单：get_order tool
+   - 查询线索：get_lead tool
+   - 禁止用 bash cat/grep 读取数据
+
+2. 数据操作必须用对应 tool：
+   - 创建/更新客户：create_customer / update_customer tool
+   - 禁止直接执行 SQL
+   - 禁止用 bash 操作数据库
+
+3. 文件操作必须用对应 tool：
+   - 读文件：read_file tool
+   - 搜索代码：search_code tool
+   - 禁止用 bash cat/head/tail/grep
+
+4. 没有对应 tool 时明确告知用户
+"""
+
 # Self-awareness — tells the AI it has memory and knows the user
 SELF_AWARENESS = """
 【身份与记忆 — 核心自我认知】

@@ -58,7 +58,7 @@ async def memory_inject_middleware(state: AgentState) -> dict[str, Any]:
         return {"_memory_injected": True}
 
     try:
-        from app.agent.memory import search_relevant_memories
+        from app.services.conversation_memory_service import conversation_memory_service
 
         # 获取最后一条用户消息
         messages = state.get("messages", [])
@@ -69,19 +69,17 @@ async def memory_inject_middleware(state: AgentState) -> dict[str, Any]:
                 break
 
         if user_message:
-            # 搜索相关记忆
-            memories = await search_relevant_memories(
-                org_id=config.org_id,
+            # 使用 build_memory_context 搜索相关记忆
+            memory_context = await conversation_memory_service.build_memory_context(
                 user_id=config.user_id,
-                query=user_message,
-                limit=3,
+                current_query=user_message,
             )
 
-            if memories:
-                logger.debug(f"[Middleware] Injected {len(memories)} memories")
+            if memory_context:
+                logger.debug(f"[Middleware] Injected memory context ({len(memory_context)} chars)")
                 return {
                     "_memory_injected": True,
-                    "_injected_memories": memories,
+                    "_injected_memories": [memory_context],
                 }
 
     except Exception as e:
@@ -160,18 +158,26 @@ async def memory_update_middleware(state: AgentState) -> dict[str, Any]:
         return {}
 
     try:
-        from app.agent.memory import save_conversation_memory
+        from app.agent.memory import persist_result
 
         messages = state.get("messages", [])
-        if messages:
+        # 获取最后一条用户消息
+        user_message = ""
+        for msg in reversed(messages):
+            if hasattr(msg, "type") and msg.type == "human":
+                user_message = msg.content
+                break
+
+        if user_message:
             # 异步保存记忆（不阻塞响应）
             import asyncio
             asyncio.create_task(
-                save_conversation_memory(
-                    org_id=config.org_id,
+                persist_result(
                     user_id=config.user_id,
-                    messages=messages,
-                    response=final_response,
+                    session_id=getattr(config, "session_id", ""),
+                    user_message=user_message,
+                    assistant_response=final_response,
+                    org_id=config.org_id,
                 )
             )
             logger.debug("[Middleware] Memory update scheduled")
