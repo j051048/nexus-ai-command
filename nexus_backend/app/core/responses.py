@@ -23,3 +23,13 @@ class UTF8JSONResponse(JSONResponse):
             indent=None,
             separators=(",", ":"),
         ).encode("utf-8")
+
+
+def api_success(data: Any, message: str = "success") -> dict:
+    """Standard success response format."""
+    return {"success": True, "data": data, "message": message}
+
+
+def api_error(message: str, code: str = "error") -> dict:
+    """Standard error response format."""
+    return {"success": False, "error": message, "code": code}
