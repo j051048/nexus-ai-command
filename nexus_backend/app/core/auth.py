@@ -188,3 +188,11 @@ async def get_current_user_id(request: Request = None, authorization: str | None
     except Exception as e:
         logger.exception(f"Unexpected auth error: {e}")
         raise HTTPException(status_code=401, detail="认证执行异常 (Authentication error)")
+
+
+async def get_current_org_id(request: Request) -> str:
+    """Extract organization ID from X-Org-ID header."""
+    org_id = request.headers.get("X-Org-ID")
+    if not org_id:
+        raise HTTPException(status_code=400, detail="缺少租户ID (Missing X-Org-ID header)")
+    return org_id
