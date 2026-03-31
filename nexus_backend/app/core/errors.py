@@ -17,6 +17,51 @@ from fastapi import HTTPException
 logger = logging.getLogger(__name__)
 
 
+# Error message prefixes for log parsing
+ERROR_PREFIX_MAP = {
+    "AUTH": "[AUTH_ERROR]",
+    "VALIDATION": "[VALIDATION_ERROR]",
+    "RESOURCE": "[RESOURCE_ERROR]",
+    "RATE": "[RATE_ERROR]",
+    "AI": "[AI_ERROR]",
+    "DB": "[DB_ERROR]",
+    "SYSTEM": "[SYSTEM_ERROR]",
+    "VMD": "[VMD_ERROR]",
+    "KB": "[KB_ERROR]",
+    "COMPLIANCE": "[COMPLIANCE_ERROR]",
+    "INTEGRATION": "[INTEGRATION_ERROR]",
+}
+
+
+def format_error_log(code: str, message: str, details: dict = None, trace_id: str = None) -> str:
+    """Format error message with prefix for better log parsing"""
+    category = code.split("_")[0]
+    prefix = ERROR_PREFIX_MAP.get(category, "[ERROR]")
+
+    parts = [prefix, message]
+    if details:
+        parts.append(f"details={details}")
+    if trace_id:
+        parts.append(f"trace_id={trace_id}")
+
+    return " | ".join(parts)
+
+
+def extract_db_error_details(error: Exception) -> dict:
+    """Extract detailed info from database errors"""
+    error_dict = {"type": type(error).__name__, "message": str(error)}
+
+    # Supabase/PostgreSQL error details
+    if hasattr(error, "code"):
+        error_dict["code"] = error.code
+    if hasattr(error, "details"):
+        error_dict["details"] = error.details
+    if hasattr(error, "hint"):
+        error_dict["hint"] = error.hint
+
+    return error_dict
+
+
 class ErrorCode(StrEnum):
     """
     Standardized error codes for API responses.
@@ -255,12 +300,13 @@ def api_error(
 
     if log_error:
         log_level = logging.WARNING if status_code < 500 else logging.ERROR
-        log_msg = f"API Error: {code.value} - {raw_error or error_message}"
-        logger.log(
-            log_level,
-            log_msg,
-            extra={"details": details, "raw_error": raw_error},
+        log_msg = format_error_log(
+            code=code.value,
+            message=raw_error or error_message,
+            details=details,
+            trace_id=details.get("trace_id") if details else None
         )
+        logger.log(log_level, log_msg)
 
     return HTTPException(status_code=status_code, detail=error_body)
 

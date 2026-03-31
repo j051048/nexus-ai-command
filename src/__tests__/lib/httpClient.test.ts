@@ -61,7 +61,8 @@ describe('httpClient interceptors', () => {
     it('应该正确注入 Token、Org-ID 和全局标记', async () => {
       // @ts-expect-error access private handlers for test
       const handler = httpClient.interceptors.request.handlers[0];
-      const config = await (handler.fulfilled as any)(requestConfig);
+      // @ts-expect-error mock request config type mismatch
+      const config = await handler.fulfilled(requestConfig);
 
       // 断言
       expect(config.headers.Authorization).toBe('Bearer mock-token-123');
@@ -76,7 +77,8 @@ describe('httpClient interceptors', () => {
 
       // @ts-expect-error access private handlers for test
       const handler = httpClient.interceptors.request.handlers[0];
-      const config = await (handler.fulfilled as any)(requestConfig);
+      // @ts-expect-error mock request config type mismatch
+      const config = await handler.fulfilled(requestConfig);
 
       expect(config.headers['X-CSRF-Token']).toBe('mock-csrf-token-abc');
       expect(config.headers['X-Idempotency-Key']).toBeDefined(); // 需要有一串时间戳随机值
@@ -89,7 +91,8 @@ describe('httpClient interceptors', () => {
 
       // @ts-expect-error access private handlers for test
       const handler = httpClient.interceptors.request.handlers[0];
-      const config = await (handler.fulfilled as any)(requestConfig);
+      // @ts-expect-error mock request config type mismatch
+      const config = await handler.fulfilled(requestConfig);
 
       expect(config.headers['X-CSRF-Token']).toBeUndefined();
       expect(config.headers['X-Idempotency-Key']).toBeUndefined();
@@ -103,7 +106,7 @@ describe('httpClient interceptors', () => {
       const handler = httpClient.interceptors.response.handlers[0];
       try {
         if (handler.rejected) {
-          await (handler.rejected as any)({ response: { status } });
+          await handler.rejected({ response: { status } });
         }
       } catch (e) {
         // expected to reject
