@@ -200,7 +200,9 @@ class RerankerService:
 
         client = await self._get_client(timeout=timeout)
         resp = await client.post(url, json=payload, headers=headers)
-        resp.raise_for_status()
+        if resp.status_code != 200:
+            error_text = resp.text[:200]
+            raise RuntimeError(f"BGE rerank failed: status={resp.status_code}, body={error_text}")
         data = resp.json()
 
         results = data.get("results", [])

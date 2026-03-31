@@ -55,6 +55,7 @@ def _extract_search_terms(query: str) -> list[str]:
     - Chinese path: jieba segmentation → stop word filter
     - English path: whitespace split → stop word filter → keep 2+ char tokens
     - Mixed: both paths merged, deduplicated
+    - P1 Fix: 保留人名（2-4个中文字符的词）
     """
     # Strip punctuation (keep Latin + CJK characters)
     clean = re.sub(r"[，。！？、；：\u201c\u201d\u2018\u2019（）【】…—\s\d]+", " ", query)
@@ -83,10 +84,15 @@ def _extract_search_terms(query: str) -> list[str]:
             try:
                 import jieba
                 words = jieba.lcut(cjk_text)
-                terms.extend(
-                    w.strip() for w in words
-                    if w.strip() and len(w.strip()) >= _MIN_TERM_LEN and w.strip() not in _STOP_WORDS
-                )
+                for w in words:
+                    w = w.strip()
+                    if not w or len(w) < _MIN_TERM_LEN:
+                        continue
+                    # P1 Fix: 2-4字的中文词可能是人名，不过滤
+                    if 2 <= len(w) <= 4:
+                        terms.append(w)
+                    elif w not in _STOP_WORDS:
+                        terms.append(w)
             except ImportError:
                 chars = re.sub(r"\s+", "", cjk_text)
                 for i in range(len(chars) - 1):
