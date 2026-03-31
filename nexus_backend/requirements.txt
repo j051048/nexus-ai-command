@@ -18,6 +18,9 @@ openai==1.109.1
 sentry-sdk==2.19.2
 python-docx==1.1.2
 python-pptx==1.0.2
+reportlab==4.0.7
+markdown==3.5.1
+PyPDF2==3.0.1
 
 # P0 Agent Framework (pinned to prevent breaking changes)
 langgraph==1.1.3
