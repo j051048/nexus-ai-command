@@ -88,9 +88,14 @@ def _build_tier_fallback(tier: str, scene_code: str = "") -> dict | None:
         if not config:
             return None
 
-        # 从配置中提取，环境变量优先
-        api_key = os.getenv("OPENAI_API_KEY") or settings.OPENAI_API_KEY
-        base_url = os.getenv("AI_BASE_URL") or getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1")
+        # 根据 provider 选择正确的 API Key 和 Base URL
+        provider = config.get("provider", "openai").lower()
+        if provider == "anthropic":
+            api_key = os.getenv("ANTHROPIC_API_KEY") or getattr(settings, "ANTHROPIC_API_KEY", "")
+            base_url = os.getenv("ANTHROPIC_BASE_URL") or getattr(settings, "ANTHROPIC_BASE_URL", "https://api.anthropic.com/v1")
+        else:  # openai or compatible
+            api_key = os.getenv("OPENAI_API_KEY") or settings.OPENAI_API_KEY
+            base_url = os.getenv("AI_BASE_URL") or getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1")
 
         return {
             "api_key": api_key,
