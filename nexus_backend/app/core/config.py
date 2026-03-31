@@ -318,6 +318,15 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+# Sync critical env vars from Pydantic back to os.environ
+# so that modules using os.getenv() (celery_app, rate_limiter, etc.) can also read them
+import os as _os
+_sync_keys = ["REDIS_URL", "SUPABASE_URL", "SUPABASE_SERVICE_KEY", "OPENAI_API_KEY", "AI_BASE_URL"]
+for _key in _sync_keys:
+    _val = getattr(settings, _key, None)
+    if _val and _key not in _os.environ:
+        _os.environ[_key] = _val
+
 # Validate configuration on startup
 _logger = logging.getLogger(__name__)
 _config_errors = settings.validate_production_config()
