@@ -31,6 +31,7 @@ def register_routers(app: FastAPI) -> None:
     from app.routers import scheduled_tasks as scheduled_tasks_router
     from app.routers import ws as ws_router
     from app.routers import agent_proactive as agent_proactive_router
+    from app.routers import export, charts, analysis, files, batch
 
     app.include_router(chat.router)
     app.include_router(chat_upload_router.router)
@@ -42,6 +43,11 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(scheduled_tasks_router.router)
     app.include_router(ws_router.router)
     app.include_router(agent_proactive_router.router)
+    app.include_router(export.router)
+    app.include_router(charts.router)
+    app.include_router(analysis.router)
+    app.include_router(files.router)
+    app.include_router(batch.router)
 
     # ── 2. CRM / Sales ───────────────────────────────────────────────────
     from app.routers import crm, competitors, performance, incentive, dashboard

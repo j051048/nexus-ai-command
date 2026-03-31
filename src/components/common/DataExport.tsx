@@ -42,6 +42,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { exportToExcel, exportToPDF } from '@/lib/newFeaturesApi';
 
 // ==================== 类型定义 ====================
 
@@ -161,6 +162,33 @@ function convertToJSON<T>(
  */
 function downloadFile(content: string, filename: string, mimeType: string) {
   const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Base64 转 Blob
+ */
+function base64ToBlob(base64: string, mimeType: string): Blob {
+  const byteCharacters = atob(base64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  return new Blob([byteArray], { type: mimeType });
+}
+
+/**
+ * 下载 Blob
+ */
+function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -313,17 +341,28 @@ export function DataExport<T extends Record<string, unknown>>({
               extension = 'json';
               break;
             case 'xlsx':
-              // 对于 Excel，使用 CSV 作为后备
-              content = convertToCSV(data, columns);
-              mimeType = 'text/csv;charset=utf-8';
-              extension = 'csv';
-              toast.info('Excel 格式暂不支持，已导出为 CSV');
+              // 调用后端 API
+              const excelRes = await exportToExcel(data, filename);
+              if (excelRes.data?.success) {
+                const base64 = excelRes.data.content_base64;
+                const blob = base64ToBlob(base64, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                downloadBlob(blob, excelRes.data.filename);
+              } else {
+                throw new Error(excelRes.data?.error || '导出失败');
+              }
               break;
             case 'pdf':
-              toast.info('PDF 导出功能即将上线');
-              clearInterval(progressInterval);
-              setIsExporting(false);
-              return;
+              // 调用后端 API
+              const pdfContent = convertToJSON(data, columns);
+              const pdfRes = await exportToPDF(pdfContent, filename, filename);
+              if (pdfRes.data?.success) {
+                const base64 = pdfRes.data.content_base64;
+                const blob = base64ToBlob(base64, 'application/pdf');
+                downloadBlob(blob, pdfRes.data.filename);
+              } else {
+                throw new Error(pdfRes.data?.error || '导出失败');
+              }
+              break;
             default:
               throw new Error(`Unsupported format: ${format}`);
           }
