@@ -30,11 +30,12 @@ class SearchLongTermMemoryTool(BaseTool):
         return (
             "检索用户长期记忆库和组织知识库中的偏好、事实或历史信息。\n"
             "使用场景:\n"
+            "- 用户问'还记得XX吗'、'之前讨论过什么'、'XX是谁'、'XX的信息'\n"
             "- 面临需要依赖用户过去背景知识或习惯来决策的情况\n"
             "- 需要多轮迭代结合多种记忆进行复合推断\n"
             "- 想要回忆先前存储或约定的工作流程\n"
             "参数说明:\n"
-            "- query: 搜索关键词或短语，需简练、语义明确\n"
+            "- query: 搜索关键词或短语，需简练、语义明确（如'张三'、'林凯'、'上周讨论'）\n"
             "- category: 可选过滤类型 (preference, fact, explicit_memory, knowledge)\n"
         )
 

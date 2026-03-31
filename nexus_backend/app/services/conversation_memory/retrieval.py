@@ -189,10 +189,11 @@ def _format_by_temperature(mem: dict) -> str:
         status_attr = ' status="possibly-outdated"'
 
     parts = [f'  <memory type="{category}"{date_attr}{fact_type_attr}{status_attr} age="{age_str}" importance="{importance:.1f}">']
+    # P1 Fix: 严格限制每条记忆的最大长度，防止注入过大
     if days_old < 3 and importance > 0.7:
-        parts.append(value)
+        parts.append(value[:300])  # 限制最新高重要性记忆为 300 字符
     elif days_old < 30:
-        parts.append(value[:150])
+        parts.append(value[:100])  # 限制近期记忆为 100 字符
     else:
         key = mem.get("key", "")
         parts.append(f"{key}: {value[:30]}... (需使用 search_long_term_memory 工具查看详情)")
@@ -1098,4 +1099,11 @@ async def build_memory_context(
             "</memory-instructions>"
         )
 
-    return "\n\n".join(result_parts)
+    # P1 Fix: 限制总记忆上下文大小，防止注入过大
+    final_context = "\n\n".join(result_parts)
+    MAX_CONTEXT_SIZE = 30000  # 30KB 限制
+    if len(final_context) > MAX_CONTEXT_SIZE:
+        logger.warning(f"[MemoryContext] Truncated from {len(final_context)} to {MAX_CONTEXT_SIZE} chars")
+        final_context = final_context[:MAX_CONTEXT_SIZE] + "\n\n... (更多记忆已省略，使用 search_long_term_memory 工具查看)"
+
+    return final_context
