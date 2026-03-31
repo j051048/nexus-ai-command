@@ -69,6 +69,13 @@ from langgraph.graph import END, StateGraph
 
 from app.agent.checkpointer import get_checkpointer
 from app.agent.loop_detector import detect_loop, tool_call_fingerprint
+from app.agent.middlewares import (
+    audit_log_middleware,
+    memory_inject_middleware,
+    memory_update_middleware,
+    tenant_context_middleware,
+    token_limit_middleware,
+)
 from app.agent.nodes import critic_node, error_node, execute_node, plan_node, reflect_node, respond_node, simple_respond_node, slot_verify_node, synthesize_node
 from app.agent.node_parallel_context import parallel_context_and_plan
 from app.agent.nodes_orchestrator import orchestrate_node
@@ -597,7 +604,12 @@ def build_agent_graph() -> StateGraph:
     """
     graph = StateGraph(AgentState)
 
-    # ── Add Nodes ──
+    # ── 中间件节点（前置）──
+    graph.add_node("tenant_context", tenant_context_middleware)
+    graph.add_node("memory_inject", memory_inject_middleware)
+    graph.add_node("token_limit", token_limit_middleware)
+
+    # ── 核心节点 ──
     graph.add_node("router", route_node)
     graph.add_node("plan", plan_node)
     graph.add_node("parallel_plan", parallel_context_and_plan)  # RAG + Plan in parallel
@@ -614,8 +626,17 @@ def build_agent_graph() -> StateGraph:
     # P1-5: Independent quality evaluator
     graph.add_node("critic", critic_node)
 
+    # ── 中间件节点（后置）──
+    graph.add_node("audit_log", audit_log_middleware)
+    graph.add_node("memory_update", memory_update_middleware)
+
     # ── Set Entry Point ──
-    graph.set_entry_point("router")
+    graph.set_entry_point("tenant_context")
+
+    # ── 中间件链（前置）──
+    graph.add_edge("tenant_context", "memory_inject")
+    graph.add_edge("memory_inject", "token_limit")
+    graph.add_edge("token_limit", "router")
 
     # ── Add Edges ──
     # router → plan | parallel_plan | wbs_decompose | simple_respond (conditional)
@@ -730,11 +751,13 @@ def build_agent_graph() -> StateGraph:
         },
     )
 
-    # respond → END
-    graph.add_edge("respond", END)
+    # respond → audit_log → memory_update → END
+    graph.add_edge("respond", "audit_log")
+    graph.add_edge("audit_log", "memory_update")
+    graph.add_edge("memory_update", END)
 
-    # simple_respond → END (fast-path)
-    graph.add_edge("simple_respond", END)
+    # simple_respond → audit_log → memory_update → END (fast-path)
+    graph.add_edge("simple_respond", "audit_log")
 
     # synthesize → respond (lightweight synthesis feeds into respond for output formatting)
     graph.add_edge("synthesize", "respond")

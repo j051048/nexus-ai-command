@@ -7,6 +7,7 @@ resolution, quota management, circuit breaking, and failover capabilities.
 """
 
 import logging
+import os
 
 from app.core.config import settings
 
@@ -74,36 +75,35 @@ def auto_detect_tier(
     return "balanced"
 
 
-def _build_tier_fallback(tier: str) -> dict | None:
-    """Build tier-specific fallback config from env settings.
+def _build_tier_fallback(tier: str, scene_code: str = "") -> dict | None:
+    """Build tier-specific fallback config from YAML config file.
 
     Used when the LLM Gateway has no DB schedule rules configured.
-    Maps 4 complexity tiers to different model/temperature/timeout combos.
-
-    For power/flagship tiers, prefers AI_STRONG_MODEL (e.g. gemini-3.1-pro-preview)
-    over AI_DEFAULT_MODEL to ensure complex tasks get the strongest available model.
+    Loads from config/models.yaml with env variable overrides.
     """
-    _tiers = {
-        #            (settings attr,           temp, timeout, tools)
-        "economy":  ("AI_MINI_MODEL",          0.3, 30.0, False),
-        "balanced": ("AI_MINI_MODEL",          0.5, 45.0, True),
-        "power":    ("AI_STRONG_MODEL",        0.7, 60.0, True),
-        "flagship": ("AI_STRONG_MODEL",        0.5, 90.0, True),
-    }
-    if tier not in _tiers:
+    from app.core.model_config import get_model_config
+
+    try:
+        config = get_model_config(tier=tier, scene_code=scene_code)
+        if not config:
+            return None
+
+        # 从配置中提取，环境变量优先
+        api_key = os.getenv("OPENAI_API_KEY") or settings.OPENAI_API_KEY
+        base_url = os.getenv("AI_BASE_URL") or getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1")
+
+        return {
+            "api_key": api_key,
+            "base_url": base_url,
+            "model": config.get("model", "gpt-4o-mini"),
+            "temperature": config.get("temperature", 0.7),
+            "timeout": config.get("timeout", 60.0),
+            "supports_tools": config.get("supports_tools", True),
+            "context_window": config.get("context_window"),
+        }
+    except Exception as e:
+        logger.error(f"Failed to load model config: {e}")
         return None
-    attr, temp, timeout, tools = _tiers[tier]
-    # Resolve model: prefer the tier's attr, fallback chain → AI_DEFAULT_MODEL → "gpt-4o"
-    model = getattr(settings, attr, "") or getattr(settings, "AI_DEFAULT_MODEL", "gpt-4o")
-    return {
-        "api_key": settings.OPENAI_API_KEY,
-        "base_url": getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1"),
-        "model": model,
-        "temperature": temp,
-        "timeout": timeout,
-        "supports_tools": tools,
-        "context_window": None,
-    }
 
 
 async def resolve_model_config(
@@ -167,7 +167,7 @@ async def resolve_model_config(
 
     # Tier-aware hardcoded fallback
     if complexity_tier:
-        tier_fb = _build_tier_fallback(complexity_tier)
+        tier_fb = _build_tier_fallback(complexity_tier, scene_code)
         if tier_fb:
             return tier_fb
 
@@ -188,7 +188,7 @@ async def resolve_embedding_config(org_id: str = "default") -> dict:
     Resolve embedding model configuration via the LLM Gateway.
 
     Returns a dict with keys: api_key, base_url, model
-    Falls back to settings + default text-embedding-3-small.
+    Falls back to YAML config + settings.
     """
     try:
         from app.core.database import supabase
@@ -218,11 +218,14 @@ async def resolve_embedding_config(org_id: str = "default") -> dict:
     except Exception as e:
         logger.error("Gateway embedding resolution failed, using fallback: %s", e)
 
-    # Fallback — use large model with dimensions=1536 (MRL), matching DB vector(1536)
+    # Fallback to YAML config
+    from app.core.model_config import get_embedding_config
+
+    yaml_config = get_embedding_config()
     return {
-        "api_key": settings.OPENAI_API_KEY,
-        "base_url": getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1"),
-        "model": "text-embedding-3-large",
+        "api_key": os.getenv("OPENAI_API_KEY") or settings.OPENAI_API_KEY,
+        "base_url": os.getenv("AI_BASE_URL") or getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1"),
+        "model": yaml_config.get("model", "text-embedding-3-large"),
     }
 
 

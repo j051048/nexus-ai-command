@@ -24,54 +24,40 @@ class SimpleContextManager:
 
     async def trim_if_needed(self, conversation_id: str) -> bool:
         """
-        检查并修剪消息（如果超过限制）
+        【已废弃 - 危险操作拦截】
+        原逻辑会物理删除早期的用户对话。该行为已被紧急拦截修复！
+        现在此方法仅做兼容性保留，不会删除任何数据，始终返回 False。
+        请在组装 LLM Prompt 时改为使用 get_recent_messages 进行安全筛选。
+        """
+        logger.warning(f"trim_if_needed was called for {conversation_id} but ignored. Physical deletion of chats is strictly prohibited.")
+        return False
 
+    async def get_recent_messages(self, conversation_id: str, limit: int = None) -> List[Dict]:
+        """
+        安全的上下文滑动窗口：获取最近 N 条消息记录，以组装 Prompt
+        
         Args:
             conversation_id: 对话 ID
-
+            limit: 获取消息的最大条数，默认使用类的 MAX_MESSAGES (50条)
+            
         Returns:
-            是否执行了修剪
+            排好序的最近消息列表（按时间顺序从前往后）
         """
         client = await self._get_client()
-
-        # 1. 获取消息总数
+        fetch_limit = limit or self.MAX_MESSAGES
+        
         result = await client.table('conversation_memories') \
-            .select('id', count='exact') \
+            .select('*') \
             .eq('conversation_id', conversation_id) \
+            .order('created_at', desc=True) \
+            .limit(fetch_limit) \
             .execute()
-
-        total_count = result.count
-
-        if total_count <= self.MAX_MESSAGES:
-            return False  # 无需修剪
-
-        # 2. 获取要删除的旧消息 ID
-        messages_to_delete = total_count - self.MAX_MESSAGES
-
-        old_messages = await client.table('conversation_memories') \
-            .select('id') \
-            .eq('conversation_id', conversation_id) \
-            .order('created_at', desc=False) \
-            .limit(messages_to_delete) \
-            .execute()
-
-        if not old_messages.data:
-            return False
-
-        # 3. 删除旧消息
-        old_ids = [msg['id'] for msg in old_messages.data]
-
-        await client.table('conversation_memories') \
-            .delete() \
-            .in_('id', old_ids) \
-            .execute()
-
-        logger.info(
-            f"Trimmed {len(old_ids)} old messages from conversation {conversation_id}, "
-            f"kept recent {self.MAX_MESSAGES}"
-        )
-
-        return True
+            
+        if not result.data:
+            return []
+            
+        # 根据 DESC=True 获取的是最新 N 条，需反转以恢复聊天时间顺序
+        return sorted(result.data, key=lambda x: x.get('created_at', ''))
 
 
 # 全局实例

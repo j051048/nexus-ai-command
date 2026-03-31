@@ -1,0 +1,69 @@
+# 模型配置文件
+# 支持多租户、多场景的声明式模型管理
+
+# 默认模型配置
+default:
+  provider: openai
+  model: gpt-4o-mini
+  temperature: 0.7
+  max_tokens: 4000
+  timeout: 60
+  supports_tools: true
+
+# 经济型（简单查询、问候）
+economy:
+  provider: openai
+  model: gpt-4o-mini
+  temperature: 0.3
+  max_tokens: 2000
+  timeout: 30
+  supports_tools: false
+
+# 均衡型（标准任务）
+balanced:
+  provider: openai
+  model: gpt-4o-mini
+  temperature: 0.5
+  max_tokens: 4000
+  timeout: 45
+  supports_tools: true
+
+# 强力型（复杂推理）
+power:
+  provider: openai
+  model: gpt-4o
+  temperature: 0.7
+  max_tokens: 8000
+  timeout: 60
+  supports_tools: true
+
+# 旗舰型（关键任务）
+flagship:
+  provider: anthropic
+  model: claude-3-5-sonnet-20241022
+  temperature: 0.5
+  max_tokens: 8000
+  timeout: 90
+  supports_tools: true
+
+# 场景特定配置（可选）
+scenes:
+  tender_analysis:
+    provider: anthropic
+    model: claude-3-5-sonnet-20241022
+    temperature: 0.3
+    max_tokens: 16000
+    timeout: 120
+
+  task_decompose:
+    provider: openai
+    model: gpt-4o
+    temperature: 0.5
+    max_tokens: 8000
+    timeout: 90
+
+# Embedding 模型
+embedding:
+  provider: openai
+  model: text-embedding-3-large
+  dimensions: 1536
