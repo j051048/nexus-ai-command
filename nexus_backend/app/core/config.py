@@ -10,6 +10,7 @@ Benefits:
 
 import logging
 import sys
+from pathlib import Path
 
 try:
     from pydantic_settings import BaseSettings
@@ -308,7 +309,7 @@ class Settings(BaseSettings):
         return errors
 
     model_config = {
-        "env_file": ".env",
+        "env_file": str(Path(__file__).parent.parent.parent / ".env"),
         "env_file_encoding": "utf-8",
         "case_sensitive": True,
         "extra": "ignore",  # Ignore extra env vars not defined here
