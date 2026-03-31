@@ -83,6 +83,7 @@ from app.agent.nodes_wbs import wbs_decompose_node
 from app.agent.router import route_node
 from app.agent.safety_guards import SLO_THRESHOLDS, has_irreversible_tool, is_mutation_fast_path, check_slo_budget
 from app.agent.state import AgentState, QueryComplexity, get_completed_tools, get_config, get_task_steps
+from app.core.config import settings
 from app.core.timeout import with_timeout
 from app.core.agent_metrics import record_agent_execution
 import time
