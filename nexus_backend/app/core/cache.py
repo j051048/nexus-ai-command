@@ -8,31 +8,38 @@ import hashlib
 import logging
 from typing import Any, Callable, List, Optional
 import redis
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# 获取 Redis 连接
-_redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-try:
-    redis_client = redis.from_url(
-        _redis_url,
-        decode_responses=True,
-        socket_timeout=2,
-        socket_connect_timeout=2,
-        retry_on_timeout=True
-    )
-    # 测试连接
-    redis_client.ping()
-    # 隐藏密码，只显示 host:port
-    _safe_url = _redis_url.split("@")[-1] if "@" in _redis_url else _redis_url
-    logger.info(f"Redis 连接成功: {_safe_url}")
-except Exception as e:
-    logger.warning(f"Redis 连接失败，缓存功能将降级为直接查询数据库: {e}")
-    redis_client = None
+# 延迟初始化 Redis 客户端
+redis_client = None
+_redis_initialized = False
+
+def _init_redis():
+    """延迟初始化 Redis 连接"""
+    global redis_client, _redis_initialized
+    if _redis_initialized:
+        return
+
+    _redis_initialized = True
+    try:
+        from app.core.config import settings
+        _redis_url = settings.REDIS_URL or "redis://localhost:6379/0"
+        redis_client = redis.from_url(
+            _redis_url,
+            decode_responses=True,
+            socket_timeout=2,
+            socket_connect_timeout=2,
+            retry_on_timeout=True
+        )
+        # 测试连接
+        redis_client.ping()
+        # 隐藏密码，只显示 host:port
+        _safe_url = _redis_url.split("@")[-1] if "@" in _redis_url else _redis_url
+        logger.info(f"Redis 连接成功: {_safe_url}")
+    except Exception as e:
+        logger.warning(f"Redis 连接失败，缓存功能将降级为直接查询数据库: {e}")
+        redis_client = None
 
 
 def cache(ttl: int = 300, prefix: str = "nexus", exclude_params: Optional[List[str]] = None):
@@ -55,6 +62,7 @@ def cache(ttl: int = 300, prefix: str = "nexus", exclude_params: Optional[List[s
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs) -> Any:
+            _init_redis()  # 确保 Redis 已初始化
             if redis_client is None:
                 return await func(*args, **kwargs)
 
@@ -103,6 +111,7 @@ def cache(ttl: int = 300, prefix: str = "nexus", exclude_params: Optional[List[s
 
 def invalidate_cache(pattern: str):
     """根据模式批量清理缓存"""
+    _init_redis()  # 确保 Redis 已初始化
     if redis_client is None:
         return
     try:
