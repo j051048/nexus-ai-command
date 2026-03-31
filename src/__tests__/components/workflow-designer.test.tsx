@@ -7,38 +7,49 @@ import React from 'react';
 
 const mockNodeTypes: Record<string, any> = {};
 
-vi.mock('@xyflow/react', () => ({
-  ReactFlow: ({ children, nodes, edges, nodeTypes }: any) => {
-    // Store nodeTypes for test assertions
-    Object.assign(mockNodeTypes, nodeTypes || {});
-    return (
-      <div data-testid="react-flow-canvas">
-        <div data-testid="nodes-count">{nodes?.length ?? 0}</div>
-        <div data-testid="edges-count">{edges?.length ?? 0}</div>
-        {nodes?.map((n: any) => (
-          <div key={n.id} data-testid={`node-${n.id}`} data-type={n.type}>
-            {n.data?.label || n.id}
-          </div>
-        ))}
-        {children}
-      </div>
-    );
-  },
-  Controls: () => <div data-testid="flow-controls" />,
-  Background: () => <div data-testid="flow-background" />,
-  MiniMap: () => <div data-testid="flow-minimap" />,
-  useNodesState: (initial: any[]) => {
-    const [nodes, setNodes] = React.useState(initial || []);
-    return [nodes, setNodes, vi.fn()];
-  },
-  useEdgesState: (initial: any[]) => {
-    const [edges, setEdges] = React.useState(initial || []);
-    return [edges, setEdges, vi.fn()];
-  },
-  addEdge: vi.fn((connection: any, edges: any[]) => [...edges, connection]),
-  BackgroundVariant: { Dots: 'dots' },
-  MarkerType: { ArrowClosed: 'arrowclosed' },
-}));
+vi.mock('@xyflow/react', () => {
+  return {
+    ReactFlow: ({ children, nodes, edges, nodeTypes }: any) => {
+      // Store nodeTypes for test assertions
+      Object.assign(mockNodeTypes, nodeTypes || {});
+      return (
+        <div data-testid="react-flow-canvas">
+          <div data-testid="nodes-count">{nodes?.length ?? 0}</div>
+          <div data-testid="edges-count">{edges?.length ?? 0}</div>
+          {nodes?.map((n: any) => (
+            <div key={n.id} data-testid={`node-${n.id}`} data-type={n.type}>
+              {n.data?.label || n.id}
+            </div>
+          ))}
+          {children}
+        </div>
+      );
+    },
+    Controls: () => <div data-testid="flow-controls" />,
+    Background: () => <div data-testid="flow-background" />,
+    MiniMap: () => <div data-testid="flow-minimap" />,
+    useNodesState: (initial: any[]) => {
+      const [nodes, setNodes] = (React as any).useState(initial || []);
+      return [nodes, setNodes, vi.fn()];
+    },
+    useEdgesState: (initial: any[]) => {
+      const [edges, setEdges] = (React as any).useState(initial || []);
+      return [edges, setEdges, vi.fn()];
+    },
+    useReactFlow: () => ({
+      getNode: vi.fn(),
+      getNodes: vi.fn(() => []),
+      setNodes: vi.fn(),
+      addNodes: vi.fn(),
+      setEdges: vi.fn(),
+      screenToFlowPosition: vi.fn((pos) => pos),
+    }),
+    addEdge: vi.fn((connection: any, edges: any[]) => [...edges, connection]),
+    BackgroundVariant: { Dots: 'dots' },
+    MarkerType: { ArrowClosed: 'arrowclosed' },
+    Panel: ({ children }: any) => <div>{children}</div>,
+  };
+});
 
 vi.mock('@xyflow/react/dist/style.css', () => ({}));
 

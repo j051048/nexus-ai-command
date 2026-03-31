@@ -6,60 +6,83 @@ test.describe('第一条生命链路：登录、鉴权与面板导航', () => {
 // TODO: 根据实际系统的启动端口和环境变量调整
   const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 
+  test.beforeEach(async ({ page }) => {
+    // 拦截鉴权相关的 API 请求，确保即使后端没挂也能跑通逻辑
+    await page.route('**/auth/v1/token*', async (route) => {
+      const email = route.request().postDataJSON()?.email;
+      if (email === 'test-admin@nexus-ai.com') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            access_token: 'fake-token',
+            token_type: 'bearer',
+            expires_in: 3600,
+            refresh_token: 'fake-refresh-token',
+            user: { id: 'test-user-id', email: 'test-admin@nexus-ai.com' }
+          })
+        });
+      } else {
+        await route.fulfill({
+          status: 400,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: 'invalid_grant', error_description: 'Invalid login credentials' })
+        });
+      }
+    });
+
+    // 拦截获取用户信息的请求
+    await page.route('**/auth/v1/user', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: 'test-user-id', email: 'test-admin@nexus-ai.com', user_metadata: { role: 'boss' } })
+      });
+    });
+  });
+
   test('如果用户未登录，访问 /dashboard 必须被重定向回 /login', async ({ page }) => {
     await page.goto(`${BASE_URL}/dashboard`);
-    // 无论框架有多高大上，这里没 token 必须被拦截回去
     await expect(page).toHaveURL(/.*\/login/);
   });
 
   test('允许测试人员输入账号密码并验证通过后正确落入大盘', async ({ page }) => {
-    // 1. 到达登录页
     await page.goto(`${BASE_URL}/login`);
 
-    // 假设你有通用的 input placeholder
-    await page.fill('input[type="email"]', 'test-admin@nexus-ai.com');
-    await page.fill('input[type="password"]', 'TestPass123!');
+    await page.getByTestId('login-email-input').fill('test-admin@nexus-ai.com');
+    await page.getByTestId('login-password-input').fill('TestPass123!');
+    await page.getByTestId('login-submit-btn').click();
 
-    // 2. 点击登录按钮
-    await page.click('button[type="submit"]');
-
-    // 3. 拦截 API 如果是纯离线也可以通过 playwright route mock 掉，
-    // 这里我们假设后端能正常吐出 200 或者我们 mock 登录成功
+    // 等待跳转到首页或 dashboardLayout 渲染
+    await expect(page).toHaveURL(new RegExp(`${BASE_URL}/?`));
     
-    // 4. 等待跳转
-    await page.waitForURL(/.*\/dashboard/);
-
-    // 5. 验证是不是真大盘：可以找侧边栏、或者是特定的图表容器
-    const heading = await page.locator('h1', { hasText: /Dashboard/i }).first();
-    await expect(heading).toBeVisible();
+    // 验证侧边栏或主内容渲染（App.tsx 中首页是 DashboardLayout）
+    await expect(page.getByTestId('sidebar-main')).toBeVisible();
   });
 
   test('测试极端用例：输入错误账号密码应该被阻拦并看到红色的报错通知', async ({ page }) => {
     await page.goto(`${BASE_URL}/login`);
 
-    await page.fill('input[type="email"]', 'hacker@nexus-ai.com');
-    await page.fill('input[type="password"]', 'WrongPass123!');
-    await page.click('button[type="submit"]');
+    await page.getByTestId('login-email-input').fill('hacker@nexus-ai.com');
+    await page.getByTestId('login-password-input').fill('WrongPass123!');
+    await page.getByTestId('login-submit-btn').click();
 
-    // 不应该跳转
     await expect(page).toHaveURL(/.*\/login/);
-    
-    // 界面应有相应的错误提示文本（无论是 toast 还是表单自带的报错红底）
-    const errorToast = page.locator('text=登录失败').first(); // 根据项目真实的错误文案调整
-    // 由于实际系统可能未启动，这里仅作为占位符编写：
-    // await expect(errorToast).toBeVisible(); 
+    await expect(page.getByText('登录失败')).toBeVisible();
   });
 
   test('Token 生命周期测试：若在中途被清理，则强行被踹出回到登录页', async ({ page }) => {
-    // 省略复杂模拟过程，仅验证如果把 localstorage 里的 auth.token 拔了然后访问数据，页面会跳转
-    await page.goto(`${BASE_URL}/dashboard`);
-    // 执行原生清缓存操作
-    await page.evaluate(() => localStorage.removeItem('supabase.auth.token'));
-    
-    // 强制触发页面一个接口请求或者切换路由，这里直接请求一次 dashboard 或者重新加载
+    // 先模拟登录成功状态
+    await page.goto(`${BASE_URL}/login`);
+    await page.getByTestId('login-email-input').fill('test-admin@nexus-ai.com');
+    await page.getByTestId('login-password-input').fill('TestPass123!');
+    await page.getByTestId('login-submit-btn').click();
+    await expect(page).not.toHaveURL(/.*\/login/);
+
+    // 清理 token
+    await page.evaluate(() => localStorage.clear());
     await page.reload();
 
-    // 此时必然会被重新遣返回 /login
     await expect(page).toHaveURL(/.*\/login/);
   });
 });

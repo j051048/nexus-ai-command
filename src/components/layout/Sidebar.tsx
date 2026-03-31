@@ -761,6 +761,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
   return (
     <aside
       aria-label="主导航"
+      data-testid="sidebar-main"
       className={cn(
         "bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 ease-in-out h-full z-40 relative group/sidebar",
         isCollapsed ? "w-[70px]" : "w-64",
