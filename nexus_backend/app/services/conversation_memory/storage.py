@@ -99,7 +99,7 @@ async def save_memory(
     # Check if key already exists for this user (latest version only)
     existing = (
         await client.table("conversation_memories")
-        .select("id, access_count, version")
+        .select("id, access_count, version, importance")
         .eq("user_id", user_id)
         .eq("key", key)
         .is_("superseded_by", "null")
@@ -109,9 +109,16 @@ async def save_memory(
 
     old_version = 0
     old_id = None
+    old_access_count = 0
+    old_importance = importance
     if existing and existing.data:
         old_version = existing.data.get("version", 1)
         old_id = existing.data["id"]
+        old_access_count = existing.data.get("access_count", 0)
+        old_importance = existing.data.get("importance", importance)
+        # P1 Fix: 动态调整重要性 - 经常访问的记忆提升重要性
+        if old_access_count > 5:
+            importance = min(old_importance + 0.05, 1.0)
 
     # G5 LoCoMo Skip: Heavy DB checks during bench
     import os

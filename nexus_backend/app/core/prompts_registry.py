@@ -64,7 +64,12 @@ TOOL_USAGE_RULES = """
    - 搜索代码：search_code tool
    - 禁止用 bash cat/head/tail/grep
 
-4. 没有对应 tool 时明确告知用户
+4. 记忆查询必须用 search_long_term_memory tool：
+   - 用户问"还记得XX吗"、"之前讨论过什么"、"XX是谁"
+   - 示例：用户问"还记得林凯吗" → search_long_term_memory(query="林凯")
+   - 示例：用户问"上周讨论过什么" → search_long_term_memory(query="上周讨论")
+
+5. 没有对应 tool 时明确告知用户
 """
 
 # Self-awareness — tells the AI it has memory and knows the user

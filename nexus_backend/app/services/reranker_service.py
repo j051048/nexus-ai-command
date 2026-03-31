@@ -104,7 +104,8 @@ class RerankerService:
                 result_docs = await self._rerank_llm(query, documents, top_k)
                 backend = "llm"
         except Exception as e:
-            logger.warning(f"[RerankerService] {backend} failed: {e}, falling back to llm")
+            error_msg = str(e) or repr(e) or type(e).__name__
+            logger.warning(f"[RerankerService] {backend} failed: {error_msg}, falling back to llm")
             try:
                 result_docs = await self._rerank_llm(query, documents, top_k)
                 backend = f"llm(fallback from {backend})"
