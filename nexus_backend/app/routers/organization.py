@@ -277,3 +277,56 @@ async def update_user_manager(
     return api_success(
         data={"user_id": target_user_id, "manager_id": body.manager_id}, message="Manager updated successfully"
     )
+
+
+# ============== Invite Code Endpoints ==============
+
+@router.post("/invite-code/regenerate", response_model=StandardResponse)
+async def regenerate_invite_code(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """重新生成邀请码"""
+    import secrets
+    client = req.state.db
+    
+    # 获取用户的组织ID
+    user_res = await client.table("users").select("organization_id").eq("id", user_id).single().execute()
+    org_id = user_res.data.get("organization_id")
+    
+    if not org_id:
+        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "Organization not found")
+    
+    # 生成新邀请码
+    new_code = secrets.token_urlsafe(8)
+    
+    # 更新组织
+    await client.table("organizations").update({"invite_code": new_code}).eq("id", org_id).execute()
+    
+    return api_success(data={"invite_code": new_code}, message="邀请码已重新生成")
+
+
+@router.post("/invite-code/toggle", response_model=StandardResponse)
+async def toggle_invite_code(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """切换邀请码启用状态"""
+    client = req.state.db
+    
+    # 获取用户的组织ID
+    user_res = await client.table("users").select("organization_id").eq("id", user_id).single().execute()
+    org_id = user_res.data.get("organization_id")
+    
+    if not org_id:
+        raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "Organization not found")
+    
+    # 获取当前状态
+    org_res = await client.table("organizations").select("invite_code_enabled").eq("id", org_id).single().execute()
+    current = org_res.data.get("invite_code_enabled", True)
+    
+    # 切换状态
+    new_status = not current
+    await client.table("organizations").update({"invite_code_enabled": new_status}).eq("id", org_id).execute()
+    
+    return api_success(data={"enabled": new_status}, message=f"邀请码已{'启用' if new_status else '禁用'}")

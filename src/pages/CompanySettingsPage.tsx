@@ -192,12 +192,14 @@ function CompanySettingsPage() {
     if (!org) return;
     try {
       setRegenerating(true);
-      const { data, error } = await supabase.rpc('regenerate_invite_code', {
-        _org_id: org.id,
+      const response = await fetch('/api/organization/invite-code/regenerate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
       });
-      if (error) throw error;
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message);
       toast.success('邀请码已重新生成');
-      setOrg(prev => prev ? { ...prev, invite_code: data as string } : null);
+      setOrg(prev => prev ? { ...prev, invite_code: result.data.invite_code } : null);
     } catch (e) {
       toast.error(`重新生成邀请码失败: ${e instanceof Error ? e.message : '未知错误'}`);
     } finally {
@@ -209,13 +211,14 @@ function CompanySettingsPage() {
   const handleToggleInvite = async (enabled: boolean) => {
     if (!org) return;
     try {
-      const { error } = await supabase.rpc('toggle_invite_code', {
-        _org_id: org.id,
-        _enabled: enabled,
+      const response = await fetch('/api/organization/invite-code/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
       });
-      if (error) throw error;
-      setOrg(prev => prev ? { ...prev, invite_code_enabled: enabled } : null);
-      toast.success(enabled ? '邀请码已启用' : '邀请码已禁用');
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message);
+      setOrg(prev => prev ? { ...prev, invite_code_enabled: result.data.enabled } : null);
+      toast.success(result.data.enabled ? '邀请码已启用' : '邀请码已禁用');
     } catch {
       toast.error('操作失败');
     }
