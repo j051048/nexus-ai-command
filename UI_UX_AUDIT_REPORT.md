@@ -37,7 +37,7 @@
 
 ## 1. 整体视觉美学与品牌一致性
 
-### 📋 详细分析
+### 📋 详细分析 - 整体视觉
 
 **当前实现** (基于 `tailwind.config.ts` + `EnhancedThemeContext.tsx`):
 - 色彩系统: HSL CSS 变量 + 8个主题预设 (default-dark/light, ocean, forest, sunset, purple, rose, monochrome)
@@ -218,7 +218,7 @@ export const tokens = {
 };
 ```
 
-### 📊 维度评分
+### 📊 维度评分 - 整体视觉
 
 **视觉美学与品牌一致性**: 7.5/10
 
@@ -234,7 +234,7 @@ export const tokens = {
 
 ## 2. 导航与信息架构
 
-### 📋 详细分析
+### 📋 详细分析 - 导航架构
 
 **当前实现** (基于 `Sidebar.tsx`):
 - 导航结构: 6大分组 (核心/销售/项目/办公/财务/系统)
@@ -383,11 +383,12 @@ const TASK_BASED_GROUPS = {
 </nav>
 ```
 
-### 📊 维度评分
+### 📊 维度评分 - 导航架构
 
 **导航与信息架构**: 6.5/10
 
 **理由**:
+
 - ✅ 角色动态过滤 (+1.5)
 - ✅ 分组折叠持久化 (+1)
 - ⚠️ 导航项过多 (-2)
@@ -397,12 +398,12 @@ const TASK_BASED_GROUPS = {
 
 ---
 
-
 ## 3. 仪表板与数据可视化
 
-### 📋 详细分析
+### 📋 详细分析 - 数据可视化
 
 **当前实现**:
+
 - 核心仪表板: `Dashboard.tsx` (工作台)、`boss-dashboard` (总控中心)
 - 数据组件: `src/components/ai/genui/DataChart.tsx`、`Dashboard.tsx`
 - 可视化库: 未明确 (需确认是否使用 Recharts/Chart.js/ECharts)
@@ -489,7 +490,7 @@ export function KPICard({ title, value, change, trend, icon, sparkline }: KPICar
 }
 ```
 
-### 📊 维度评分
+### 📊 维度评分 - 数据可视化
 
 **仪表板与数据可视化**: 6.0/10
 
@@ -506,7 +507,7 @@ export function KPICard({ title, value, change, trend, icon, sparkline }: KPICar
 
 ## 4. React Flow 工作流设计器体验
 
-### 📋 详细分析
+### 📋 详细分析 - 工作流设计器
 
 **当前实现** (基于 `WorkflowFlow.tsx`):
 - 自定义节点: `ApprovalNode`, `ExecutorNode`, `ParallelGatewayNode`
@@ -515,9 +516,9 @@ export function KPICard({ title, value, change, trend, icon, sparkline }: KPICar
 
 ### ✅ 核心优势
 
-1. **状态可视化**: 三态节点清晰
-2. **自定义节点**: 3种节点类型覆盖审批场景
-3. **React Flow 原生**: 拖拽、缩放、连线开箱即用
+- ✅ 状态可视化: 三态节点清晰
+- ✅ 自定义节点: 3种节点类型覆盖审批场景
+- ✅ React Flow 原生: 拖拽、缩放、连线开箱即用
 
 ### ⚠️ 问题与差距
 
@@ -568,7 +569,7 @@ function ApprovalNode({ data }: { data: any }) {
 }
 ```
 
-### 📊 维度评分
+### 📊 维度评分 - 工作流设计器
 
 **React Flow 工作流设计器**: 6.5/10
 
@@ -576,7 +577,7 @@ function ApprovalNode({ data }: { data: any }) {
 
 ## 5. AI Conversational UI 与对话交互
 
-### 📋 详细分析
+### 📋 详细分析 - 对话交互
 
 **当前实现** (基于 `EnhancedAIChatPanel.tsx`):
 - Agent 标签: 4个预设 (@销售指挥官/@绩效教练/@企业小助手/@知识助手)
@@ -585,9 +586,9 @@ function ApprovalNode({ data }: { data: any }) {
 
 ### ✅ 核心优势
 
-1. **多 Agent 切换**: 4个垂直领域 Agent
-2. **流式响应**: 实时打字效果
-3. **历史记录**: `ChatHistorySidebar` 会话管理
+- ✅ 多 Agent 切换: 4个垂直领域 Agent
+- ✅ 流式响应: 实时打字效果
+- ✅ 历史记录: `ChatHistorySidebar` 会话管理
 
 ### ⚠️ 问题与差距
 
@@ -596,7 +597,7 @@ function ApprovalNode({ data }: { data: any }) {
 3. **上下文展示不足** - 用户不知道 AI 看到了哪些数据
 4. **移动端体验差** - `overlay` 模式占满屏
 
-### 📊 维度评分
+### 📊 维度评分 - 对话交互
 
 **AI Conversational UI**: 7.0/10
 
@@ -612,8 +613,8 @@ function ApprovalNode({ data }: { data: any }) {
 
 ### ✅ 核心优势
 
-1. **Radix UI 基础**: 无障碍支持开箱即用
-2. **表单验证**: React Hook Form 性能优秀
+- ✅ Radix UI 基础: 无障碍支持开箱即用
+- ✅ 表单验证: React Hook Form 性能优秀
 
 ### ⚠️ 问题与差距
 
@@ -650,7 +651,7 @@ export function DataTable<T>({ data, columns, loading }: DataTableProps<T>) {
 }
 ```
 
-### 📊 维度评分
+### 📊 维度评分 - 表单表格列表
 
 **表单、表格、列表**: 6.5/10
 
@@ -694,7 +695,7 @@ export function DataTable<T>({ data, columns, loading }: DataTableProps<T>) {
 }
 ```
 
-### 📊 维度评分
+### 📊 维度评分 - 可访问性
 
 **可访问性**: 7.0/10
 
@@ -702,7 +703,7 @@ export function DataTable<T>({ data, columns, loading }: DataTableProps<T>) {
 
 ## 8. 响应式、PWA 跨端与离线体验
 
-### 📋 详细分析
+### 📋 详细分析 - 响应式PWA
 
 **当前实现**:
 - 响应式: Tailwind breakpoints
@@ -750,7 +751,7 @@ export function OfflineIndicator() {
 }
 ```
 
-### 📊 维度评分
+### 📊 维度评分 - 响应式PWA
 
 **响应式与 PWA**: 7.5/10
 
@@ -759,7 +760,7 @@ export function OfflineIndicator() {
 
 ## 9. 微交互、动画与性能感知
 
-### 📋 详细分析
+### 📋 详细分析 - 微交互动画
 
 **当前实现**:
 - 动画: 12个 keyframes (fade-in, slide-in, pulse-glow 等)
@@ -767,8 +768,8 @@ export function OfflineIndicator() {
 
 ### ✅ 核心优势
 
-1. **动画系统完备**: 覆盖常见场景
-2. **流畅过渡**: 使用 cubic-bezier
+- ✅ 动画系统完备: 覆盖常见场景
+- ✅ 流畅过渡: 使用 cubic-bezier
 
 ### ⚠️ 问题与差距
 
@@ -801,7 +802,7 @@ export function useOptimisticUpdate<T>(queryKey, mutationFn) {
 }
 ```
 
-### 📊 维度评分
+### 📊 维度评分 - 微交互动画
 
 **微交互与动画**: 6.5/10
 
@@ -848,7 +849,7 @@ export function useUserBehavior() {
 }
 ```
 
-### 📊 维度评分
+### 📊 维度评分 - 个性化情感设计
 
 **AI 个性化与情感设计**: 6.0/10
 
@@ -1077,6 +1078,7 @@ useOptimisticUpdate(...)
 #### Week 1: 视觉与导航 (预计 +12 分)
 
 **Day 1-2: Glassmorphism + 排版系统**
+
 ```typescript
 // tailwind.config.ts
 extend: {
@@ -1148,7 +1150,8 @@ export function KPICard({ title, value, change, sparkline }: KPICardProps) {
 
 ---
 
-**Day 9-10: 乐观 UI + Skeleton**
+#### Day 9-10: 乐观 UI + Skeleton
+
 ```tsx
 // hooks/useOptimisticUpdate.ts
 export function useOptimisticUpdate<T>(queryKey, mutationFn) {
@@ -1171,6 +1174,7 @@ export function useOptimisticUpdate<T>(queryKey, mutationFn) {
 ---
 
 **短期成果**:
+
 - 总分: 72→84 (+12)
 - 用户感知: "界面更专业了"
 - 任务完成时间: -30%
@@ -1209,6 +1213,7 @@ export const tokens = {
 ```
 
 **Week 5-6: 统一组件库**
+
 - `components/common/DataTable.tsx`
 - `components/common/EmptyState.tsx`
 - `components/common/ErrorDialog.tsx`
@@ -1222,6 +1227,7 @@ export const tokens = {
 #### Month 2: 工作流 + AI 增强
 
 **Week 7-8: React Flow 专业化**
+
 ```tsx
 // 节点样式重构 + 全屏模式 + 详情弹窗
 <WorkflowFlow 
@@ -1236,6 +1242,7 @@ export const tokens = {
 ---
 
 **Week 9-10: AI 多模态输入**
+
 ```tsx
 // 图片上传 + 文件解析 + 语音输入
 <ChatInputArea 
@@ -1251,6 +1258,7 @@ export const tokens = {
 #### Month 3: 移动端 + 可访问性
 
 **Week 11-12: 移动端优化**
+
 ```tsx
 // 底部 Tab Bar + 触屏优化 + 横屏适配
 <MobileTabBar items={[...]} />
@@ -1262,6 +1270,7 @@ export const tokens = {
 ---
 
 **中期成果**:
+
 - 总分: 84→90 (+6)
 - 设计系统文档完成
 - 组件复用率 > 80%
@@ -1424,6 +1433,7 @@ onCLS(console.log);
 **优化目标**: > 70 (优秀)
 
 **计算公式**:
+
 ```
 NPS = (推荐者% - 贬损者%) × 100
 推荐者: 9-10 分
