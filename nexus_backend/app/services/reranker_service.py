@@ -141,7 +141,7 @@ class RerankerService:
             raise ValueError("COHERE_API_KEY not configured")
 
         max_docs = getattr(settings, "RERANK_MAX_DOCS", 15)
-        timeout = getattr(settings, "RERANK_TIMEOUT", 10)
+        timeout = getattr(settings, "RERANK_TIMEOUT", 30)
 
         doc_texts = [doc.get("content", "")[:1000] for doc in documents[:max_docs]]
 
@@ -175,7 +175,7 @@ class RerankerService:
     ) -> list[dict]:
         """Rerank via BGE-Reranker model through API proxy (Cohere-compatible format)."""
         max_docs = getattr(settings, "RERANK_MAX_DOCS", 15)
-        timeout = getattr(settings, "RERANK_TIMEOUT", 10)
+        timeout = getattr(settings, "RERANK_TIMEOUT", 30)
         rerank_model = getattr(settings, "RERANK_MODEL", "bge-reranker-v2-m3")
 
         # Build rerank API URL from base URL
