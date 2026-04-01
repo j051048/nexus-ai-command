@@ -330,3 +330,63 @@ async def toggle_invite_code(
     await client.table("organizations").update({"invite_code_enabled": new_status}).eq("id", org_id).execute()
     
     return api_success(data={"enabled": new_status}, message=f"邀请码已{'启用' if new_status else '禁用'}")
+
+
+# ============== Admin Endpoints ==============
+
+@router.get("/admin/pending-bosses", response_model=StandardResponse)
+async def admin_list_pending_bosses(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """列出待审批的Boss申请"""
+    client = req.state.db
+    result = await client.table("users").select("*").eq("role", "boss").eq("status", "pending").execute()
+    return api_success(data=result.data or [])
+
+
+@router.get("/admin/organizations", response_model=StandardResponse)
+async def admin_list_organizations(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """列出所有组织"""
+    client = req.state.db
+    result = await client.table("organizations").select("*").execute()
+    return api_success(data=result.data or [])
+
+
+@router.post("/admin/approve-boss/{target_user_id}", response_model=StandardResponse)
+async def admin_approve_boss(
+    target_user_id: str,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """批准Boss申请"""
+    client = req.state.db
+    await client.table("users").update({"status": "approved"}).eq("id", target_user_id).execute()
+    return api_success(message="已批准")
+
+
+@router.post("/admin/reject-boss/{target_user_id}", response_model=StandardResponse)
+async def admin_reject_boss(
+    target_user_id: str,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """拒绝Boss申请"""
+    client = req.state.db
+    await client.table("users").update({"status": "rejected", "role": "employee"}).eq("id", target_user_id).execute()
+    return api_success(message="已拒绝")
+
+
+@router.delete("/admin/organization/{org_id}", response_model=StandardResponse)
+async def admin_delete_organization(
+    org_id: str,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """删除组织"""
+    client = req.state.db
+    await client.table("organizations").delete().eq("id", org_id).execute()
+    return api_success(message="组织已删除")

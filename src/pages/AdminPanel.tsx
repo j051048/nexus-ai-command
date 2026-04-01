@@ -83,9 +83,10 @@ function AdminPanel() {
   const loadPendingBosses = useCallback(async () => {
     try {
       setLoadingPending(true);
-      const { data, error } = await supabase.rpc('admin_list_pending_bosses');
-      if (error) throw error;
-      setPendingBosses((data as PendingBoss[]) || []);
+      const response = await fetch('/api/organization/admin/pending-bosses');
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message);
+      setPendingBosses((result.data as PendingBoss[]) || []);
     } catch (e) {
       toast.error(`加载待审批列表失败: ${errMsg(e)}`);
     } finally {
@@ -96,9 +97,10 @@ function AdminPanel() {
   const loadOrganizations = useCallback(async () => {
     try {
       setLoadingOrgs(true);
-      const { data, error } = await supabase.rpc('admin_list_organizations');
-      if (error) throw error;
-      setOrganizations((data as OrgItem[]) || []);
+      const response = await fetch('/api/organization/admin/organizations');
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message);
+      setOrganizations((result.data as OrgItem[]) || []);
     } catch (e) {
       toast.error(`加载企业列表失败: ${errMsg(e)}`);
     } finally {
@@ -116,8 +118,9 @@ function AdminPanel() {
   const handleApprove = async (userId: string, name: string) => {
     try {
       setActionLoading(userId);
-      const { error } = await supabase.rpc('admin_approve_boss', { _user_id: userId });
-      if (error) throw error;
+      const response = await fetch(`/api/organization/admin/approve-boss/${userId}`, { method: 'POST' });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message);
       toast.success(`已批准 ${name} 的管理员权限`);
       loadPendingBosses();
     } catch (e) {
@@ -130,8 +133,9 @@ function AdminPanel() {
   const handleReject = async (userId: string, name: string) => {
     try {
       setActionLoading(userId);
-      const { error } = await supabase.rpc('admin_reject_boss', { _user_id: userId });
-      if (error) throw error;
+      const response = await fetch(`/api/organization/admin/reject-boss/${userId}`, { method: 'POST' });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message);
       toast.success(`已拒绝 ${name} 的管理员申请`);
       loadPendingBosses();
     } catch (e) {
@@ -145,8 +149,9 @@ function AdminPanel() {
     if (!deleteTarget) return;
     try {
       setActionLoading(deleteTarget.org_id);
-      const { error } = await supabase.rpc('admin_delete_organization', { _org_id: deleteTarget.org_id });
-      if (error) throw error;
+      const response = await fetch(`/api/organization/admin/organization/${deleteTarget.org_id}`, { method: 'DELETE' });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message);
       toast.success(`已删除企业: ${deleteTarget.name}`);
       setDeleteTarget(null);
       loadOrganizations();
