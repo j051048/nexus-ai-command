@@ -149,7 +149,9 @@ class ModelResolutionMixin:
 
         try:
             # Try tenant-specific first, then fall back to global (NULL tenant_id)
-            for tid in [org_id, None]:
+            # Skip org_id if it's "default" (not a valid UUID)
+            tenant_ids = [org_id, None] if org_id and org_id != "default" else [None]
+            for tid in tenant_ids:
                 rows = []
 
                 # P2-9: Try exact match with complexity_tier first
