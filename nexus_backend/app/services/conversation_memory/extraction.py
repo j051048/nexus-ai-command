@@ -168,6 +168,7 @@ async def _update_behavior_preferences(
         upsert_data = {
             "user_id": user_id,
             "organization_id": effective_org_id,
+            "base_url": "",  # 必填字段，空字符串表示使用默认
             "behavior_preferences": merged
         }
         

@@ -174,7 +174,7 @@ class TestLLMGatewayTenantIsolation:
         service = LLMGatewayService()
 
         # 没有 DB 连接时应返回 None
-        with patch("app.services.llm_gateway_service.supabase", new=None):
+        with patch("app.services.llm_gateway.model_resolution.supabase", new=None):
             result = await service._resolve_model("chat", "default", "org-tenant-A")
 
         assert result is None  # 无 DB 返回 None
@@ -185,7 +185,7 @@ class TestLLMGatewayTenantIsolation:
 
         service = LLMGatewayService()
 
-        with patch("app.services.llm_gateway_service.supabase", new=None):
+        with patch("app.services.llm_gateway.model_resolution.supabase", new=None):
             result = await service._load_model_config("gpt-4o", "org-001")
 
         assert result is None
