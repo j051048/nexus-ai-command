@@ -39,8 +39,8 @@ power:
 
 # 旗舰型（关键任务）
 flagship:
-  provider: anthropic
-  model: claude-3-5-sonnet-20241022
+  provider: google
+  model: gemini-3-flash-preview
   temperature: 0.5
   max_tokens: 8000
   timeout: 90
@@ -49,8 +49,8 @@ flagship:
 # 场景特定配置（可选）
 scenes:
   tender_analysis:
-    provider: anthropic
-    model: claude-3-5-sonnet-20241022
+    provider: google
+    model: gemini-3-flash-preview
     temperature: 0.3
     max_tokens: 16000
     timeout: 120
