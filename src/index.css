@@ -798,6 +798,37 @@ html, body {
     animation: reveal 0.6s ease-out forwards;
   }
 
+  /* --- NEW 2.0 ADVANCED ANIMATIONS --- */
+  @keyframes mesh-float {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-20px) scale(1.05); }
+  }
+
+  @keyframes star-twinkle {
+    0%, 100% { opacity: 0.3; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.2); }
+  }
+
+  @keyframes border-beam {
+    0% { offset-distance: 0%; }
+    100% { offset-distance: 100%; }
+  }
+
+  .animate-mesh-float {
+    animation: mesh-float 20s ease-in-out infinite;
+  }
+
+  .glass-2 {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .dark .glass-2 {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
   /* Bounce subtle */
   @keyframes bounce-subtle {
     0%, 100% {

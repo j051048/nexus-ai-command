@@ -442,17 +442,38 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 bg-background">
+    <div className="min-h-screen grid lg:grid-cols-[1.5fr_1fr] bg-background">
       {/* Left Side - Brand Presentation (Hidden on mobile) */}
       <div className="hidden lg:flex flex-col justify-between p-12 bg-zinc-950 text-white relative overflow-hidden">
-        {/* Abstract Background Glowing Effects */}
+        {/* Abstract Background Glowing Effects & Patterns */}
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-          <div className="absolute -top-[20%] -left-[10%] w-[70%] h-[70%] rounded-full bg-blue-600/30 blur-[120px] animate-blob mix-blend-screen" />
-          <div className="absolute bottom-[10%] -right-[10%] w-[60%] h-[60%] rounded-full bg-purple-600/30 blur-[120px] animate-blob mix-blend-screen" style={{ animationDelay: '2s' }} />
-          <div className="absolute top-[40%] right-[10%] w-[30%] h-[30%] rounded-full bg-emerald-500/20 blur-[100px] animate-blob mix-blend-screen" style={{ animationDelay: '4s' }} />
+          {/* Animated Blob Gradients */}
+          <div className="absolute -top-[10%] -left-[5%] w-[80%] h-[80%] rounded-full bg-blue-600/30 blur-[140px] animate-blob mix-blend-screen" />
+          <div className="absolute bottom-[0%] -right-[5%] w-[70%] h-[70%] rounded-full bg-purple-600/30 blur-[140px] animate-blob mix-blend-screen" style={{ animationDelay: '2s' }} />
           
-          {/* Subtle Grid Pattern overlay */}
-          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiLz48L3N2Zz4=')] opacity-50" />
+          {/* Moving Mesh Grid */}
+          <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.07] animate-mesh-float" 
+               style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+          
+          {/* Edge Glow Transition - Blends the center line */}
+          <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-background to-transparent z-10" />
+          
+          {/* Floating Particles (CSS only) */}
+          {[...Array(6)].map((_, i) => (
+            <div 
+              key={i}
+              className="absolute rounded-full bg-white animate-pulse"
+              style={{
+                width: Math.random() * 3 + 1 + 'px',
+                height: Math.random() * 3 + 1 + 'px',
+                top: Math.random() * 100 + '%',
+                left: Math.random() * 100 + '%',
+                opacity: Math.random() * 0.5,
+                animationDelay: i * 0.7 + 's',
+                animationDuration: 3 + Math.random() * 4 + 's'
+              }}
+            />
+          ))}
         </div>
 
         <div className="relative z-10 flex flex-col gap-8">
@@ -485,13 +506,14 @@ export function LoginPage() {
               { icon: <Zap className="w-5 h-5 text-purple-400" />, title: '工作流自动化', desc: '通过智能 Agent 矩阵，无缝串联日常繁冗任务' },
               { icon: <ShieldCheck className="w-5 h-5 text-emerald-400" />, title: '强隔离安全架构', desc: '租户沙箱级别的私有化安全隔离，保障核心资产无忧' },
             ].map((feature, i) => (
-              <div key={i} className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/5 backdrop-blur-md transition-all duration-300 hover:bg-white/10 hover:-translate-y-1 shadow-sm hover:shadow-xl hover:shadow-black/20 group">
-                <div className="mt-0.5 bg-white/10 p-2.5 rounded-xl group-hover:bg-white/20 transition-colors">
+              <div key={i} className="flex items-start gap-4 p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md transition-all duration-500 hover:bg-white/[0.08] hover:border-blue-500/30 hover:-translate-y-1 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] group relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                <div className="mt-0.5 bg-white/10 p-3 rounded-xl group-hover:scale-110 group-hover:bg-blue-500/20 transition-all duration-300 relative z-10">
                   {feature.icon}
                 </div>
-                <div>
-                  <h3 className="font-semibold text-zinc-100">{feature.title}</h3>
-                  <p className="text-zinc-400 text-sm mt-1 leading-relaxed">{feature.desc}</p>
+                <div className="relative z-10">
+                  <h3 className="font-bold text-zinc-100 text-base tracking-tight group-hover:text-blue-400 transition-colors">{feature.title}</h3>
+                  <p className="text-zinc-400 text-sm mt-1.5 leading-relaxed font-light">{feature.desc}</p>
                 </div>
               </div>
             ))}
@@ -531,6 +553,11 @@ export function LoginPage() {
           
           {renderAuthContent()}
           
+          <div className="text-center pt-2 animate-in fade-in slide-in-from-bottom-4 delay-500">
+             <p className="text-xs text-muted-foreground/60">
+               Nexus AI 采用最高等级数据加密协议保障您的安全
+             </p>
+          </div>
         </div>
       </div>
     </div>
