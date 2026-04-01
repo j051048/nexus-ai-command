@@ -16,14 +16,8 @@ async def list_attendance(
 ):
     """获取HR考勤记录"""
     try:
-        org_id = getattr(req.state, "org_id", None)
         db = getattr(req.state, "db", None)
-
-        query = db.table("hr_attendance").select("*")
-        if org_id:
-            query = query.eq("tenant_id", org_id)
-
-        result = await query.execute()
+        result = await db.table("hr_attendance").select("*").execute()
         return api_success(data={"records": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list attendance: {e}")
@@ -37,14 +31,8 @@ async def list_salary(
 ):
     """获取薪资记录"""
     try:
-        org_id = getattr(req.state, "org_id", None)
         db = getattr(req.state, "db", None)
-
-        query = db.table("hr_salary_records").select("*")
-        if org_id:
-            query = query.eq("tenant_id", org_id)
-
-        result = await query.execute()
+        result = await db.table("hr_salary_records").select("*").execute()
         return api_success(data={"records": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list salary: {e}")
@@ -58,14 +46,8 @@ async def list_performance(
 ):
     """获取绩效评审"""
     try:
-        org_id = getattr(req.state, "org_id", None)
         db = getattr(req.state, "db", None)
-
-        query = db.table("hr_performance_reviews").select("*")
-        if org_id:
-            query = query.eq("tenant_id", org_id)
-
-        result = await query.execute()
+        result = await db.table("hr_performance_reviews").select("*").execute()
         return api_success(data={"reviews": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list performance: {e}")
@@ -79,14 +61,8 @@ async def list_positions(
 ):
     """获取职位列表"""
     try:
-        org_id = getattr(req.state, "org_id", None)
         db = getattr(req.state, "db", None)
-
-        query = db.table("hr_job_positions").select("*")
-        if org_id:
-            query = query.eq("tenant_id", org_id)
-
-        result = await query.execute()
+        result = await db.table("hr_job_positions").select("*").execute()
         return api_success(data={"positions": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list positions: {e}")
@@ -100,14 +76,8 @@ async def list_candidates(
 ):
     """获取候选人列表"""
     try:
-        org_id = getattr(req.state, "org_id", None)
         db = getattr(req.state, "db", None)
-
-        query = db.table("hr_candidates").select("*")
-        if org_id:
-            query = query.eq("tenant_id", org_id)
-
-        result = await query.execute()
+        result = await db.table("hr_candidates").select("*").execute()
         return api_success(data={"candidates": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list candidates: {e}")
