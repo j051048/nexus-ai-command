@@ -60,26 +60,45 @@ function CompanySettingsPage() {
   // Load organization data
   const loadOrg = useCallback(async () => {
     if (!orgId) {
-      // 如果用户没有组织，尝试创建默认组织
+      // 如果用户没有组织，尝试查找默认组织或创建新组织
       try {
-        const { data: newOrg, error: createError } = await supabase
+        // 先查找是否有默认组织
+        const { data: existingOrgs } = await supabase
           .from('organizations')
-          .insert({ name: '我的企业', slug: `org-${Date.now()}` })
-          .select()
-          .single();
+          .select('id, name')
+          .limit(1);
 
-        if (!createError && newOrg) {
+        let targetOrgId: string | null = null;
+
+        if (existingOrgs && existingOrgs.length > 0) {
+          // 使用第一个找到的组织
+          targetOrgId = existingOrgs[0].id;
+          toast.info(`已关联到组织: ${existingOrgs[0].name}`);
+        } else {
+          // 创建新组织
+          const { data: newOrg, error: createError } = await supabase
+            .from('organizations')
+            .insert({ name: '我的企业', slug: `org-${Date.now()}` })
+            .select()
+            .single();
+
+          if (!createError && newOrg) {
+            targetOrgId = newOrg.id;
+            toast.success('已自动创建企业');
+          }
+        }
+
+        if (targetOrgId && profile?.id) {
           // 更新用户的 organization_id
           await supabase
             .from('users')
-            .update({ organization_id: newOrg.id })
-            .eq('id', profile?.id);
+            .update({ organization_id: targetOrgId })
+            .eq('id', profile.id);
 
-          toast.success('已自动创建企业');
           window.location.reload();
         }
       } catch (err) {
-        console.error('Failed to create organization:', err);
+        console.error('Failed to setup organization:', err);
       }
       setLoading(false);
       return;
