@@ -27,6 +27,21 @@ def _is_jwt_expired(e: Exception) -> bool:
     return "JWT expired" in msg or "PGRST303" in msg
 
 
+@router.get("", response_model=StandardResponse)
+async def list_documents(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """List all documents for current user."""
+    client = req.state.db
+    try:
+        result = await client.table("documents").select("*").order("created_at", desc=True).execute()
+        return api_success(data={"documents": result.data or []})
+    except Exception as e:
+        logger.error(f"Failed to list documents: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "获取文档列表失败")
+
+
 @router.post("/batch-delete", response_model=StandardResponse)
 async def batch_delete_documents(
     payload: BatchDeleteRequest,

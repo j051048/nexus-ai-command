@@ -102,8 +102,13 @@ export function useWorkflows() {
   return useQuery({
     queryKey: ['workflows'],
     queryFn: async () => {
-      const result = await authFetch<{ data: Workflow[] }>('api/workflows');
-      return result.data ?? [];
+      try {
+        const result = await authFetch<{ data: Workflow[] }>('api/workflows');
+        return Array.isArray(result.data) ? result.data : [];
+      } catch (error) {
+        console.error('Failed to fetch workflows:', error);
+        return [];
+      }
     },
   });
 }
