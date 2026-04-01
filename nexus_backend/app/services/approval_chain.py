@@ -590,11 +590,30 @@ class ApprovalChainService:
 
         # If rejected, finalize immediately
         if decision == "rejected":
+            # Check if workflow defines reject_to field
+            current_node_def = None
+            chain_result = await client.table("workflow_templates").select("steps").eq(
+                "name", request_data.get("workflow_name", "")
+            ).maybe_single().execute()
+            if chain_result.data:
+                chain_steps = chain_result.data.get("steps", [])
+                if current_step < len(chain_steps):
+                    current_node_def = chain_steps[current_step]
+
+            reject_to = current_node_def.get("reject_to", "start") if current_node_def else "start"
+            reject_to_step = 0 if reject_to == "start" else self._find_step_index(chain_steps, reject_to) if chain_result.data else 0
+
             update_data = {
-                "status": "rejected",
+                "status": "pending_resubmit",
+                "reject_to_step": reject_to_step,
+                "resubmit_count": request_data.get("resubmit_count", 0),
                 "approval_history": history,
                 "timeout_at": None,
+                "current_step": None,  # Reset step for resubmission
             }
+            # Increment resubmit_count
+            update_data["resubmit_count"] += 1
+
             result = (
                 await client.table("approval_requests")
                 .update(update_data)
@@ -725,6 +744,58 @@ class ApprovalChainService:
                         has_more_steps = next_step < len(chain_steps)
                         if has_more_steps:
                             next_step_def = chain_steps[next_step]
+
+                    # Handle executor nodes: execution confirmation required
+                    if next_step_type == "executor":
+                        executor_role = next_step_def.get("role")
+                        action = next_step_def.get("action", "execute")
+                        action_label = next_step_def.get("action_label", "执行确认")
+                        require_evidence = next_step_def.get("require_evidence", False)
+
+                        # Executor nodes wait for manual execution confirmation
+                        # The executor_id will be passed when they confirm execution
+                        logger.info(
+                            f"Approval {request_id} waiting for execution confirmation "
+                            f"(role={executor_role}, action={action})"
+                        )
+
+                    # Handle parallel_gateway nodes: track parallel approvals
+                    if next_step_type == "parallel_gateway":
+                        mode = next_step_def.get("mode", "all")
+                        approvers = next_step_def.get("approvers", [])
+                        min_approvals = next_step_def.get("min_approvals", len(approvers))
+
+                        # Record this parallel decision
+                        await self._record_parallel_decision(
+                            request_id, approver_id, decision, next_step, client
+                        )
+
+                        # Get all decisions for this step
+                        decisions = await self._get_parallel_decisions(request_id, next_step, client)
+
+                        # Check if approval condition is met
+                        approved_count = sum(1 for d in decisions if d["decision"] == "approved")
+
+                        if mode == "all":
+                            # All must approve
+                            if approved_count == len(approvers):
+                                logger.info(f"Parallel gateway all-approved for {request_id}")
+                                # All approved, move to next step
+                                next_step += 1
+                                has_more_steps = next_step < len(chain_steps)
+                                if has_more_steps:
+                                    next_step_def = chain_steps[next_step]
+                        elif mode == "any":
+                            # Any N approvers can approve
+                            if approved_count >= min_approvals:
+                                logger.info(
+                                    f"Parallel gateway reached min approvals ({approved_count}/{min_approvals}) "
+                                    f"for {request_id}"
+                                )
+                                next_step += 1
+                                has_more_steps = next_step < len(chain_steps)
+                                if has_more_steps:
+                                    next_step_def = chain_steps[next_step]
 
                     # Handle timer nodes: set timeout and auto-advance
                     if has_more_steps and next_step_def.get("type") == "timer":
@@ -1001,6 +1072,38 @@ class ApprovalChainService:
             logger.info(f"Timeout escalation: escalated {escalated_count} requests")
 
         return escalated_count
+
+    async def _record_execution(
+        self, request_id: str, executor_id: str, action: str, evidence: str | None, db
+    ):
+        """记录执行确认"""
+        client = db or supabase
+        await client.table("workflow_executions").insert({
+            "request_id": request_id,
+            "executor_id": executor_id,
+            "action": action,
+            "evidence_url": evidence
+        }).execute()
+
+    async def _record_parallel_decision(
+        self, request_id: str, approver_id: str, decision: str, step_index: int, db
+    ):
+        """记录并行审批决策"""
+        client = db or supabase
+        await client.table("parallel_approval_decisions").insert({
+            "request_id": request_id,
+            "step_index": step_index,
+            "approver_id": approver_id,
+            "decision": decision
+        }).execute()
+
+    async def _get_parallel_decisions(self, request_id: str, step_index: int, db):
+        """获取并行审批决策"""
+        client = db or supabase
+        result = await client.table("parallel_approval_decisions").select("*").eq(
+            "request_id", request_id
+        ).eq("step_index", step_index).execute()
+        return result.data or []
 
 
 # Global service instance
