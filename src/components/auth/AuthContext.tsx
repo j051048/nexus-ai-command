@@ -85,7 +85,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const profileData = response.data?.user;
 
       if (profileData) {
-        setProfile(sanitizeProfile(profileData as Record<string, unknown>));
+        const newProfile = sanitizeProfile(profileData as Record<string, unknown>);
+        console.log('[AuthContext] Fetched new profile data:', newProfile);
+        setProfile(prev => {
+          console.log('[AuthContext] Current profile state before update:', prev);
+          console.log('[AuthContext] Setting next profile state:', newProfile);
+          // 强制返回新对象引用
+          return { ...newProfile };
+        });
       }
 
       const { data: roleData } = await supabase
@@ -143,10 +150,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (newSession?.user) {
           hadSessionRef.current = true;
-          // fetchUserData handles its own setLoading(false)
           fetchUserData(newSession.user.id);
         } else {
-          // Session lost — notify user if they were previously signed in
           if (hadSessionRef.current && (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED')) {
             toast.error('登录已过期，请重新登录');
           }

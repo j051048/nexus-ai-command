@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, Request
 
 from app.core.auth import get_current_user_id
 from app.core.dependencies import get_db, require_role
@@ -218,3 +218,24 @@ async def generate_weekly_report(
             raise
         logger.error("Generate weekly report error: %s", e)
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "项目操作失败")
+
+
+@router.post("/{project_id}/timeline", response_model=StandardResponse)
+async def add_timeline_event(
+    project_id: str,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """添加项目时间线事件"""
+    client = req.state.db
+    body = await req.json()
+    
+    event = {
+        "project_id": project_id,
+        "user_id": user_id,
+        "event_type": body.get("event_type"),
+        "description": body.get("description"),
+    }
+    
+    await client.table("project_timeline").insert(event).execute()
+    return api_success(message="时间线事件已添加")

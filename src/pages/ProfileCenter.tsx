@@ -183,14 +183,20 @@ export function ProfileCenter() {
 
       // 调用后端API更新用户信息
       try {
+        console.log('[ProfileCenter] Sending profile update request:', editName.trim());
+        console.log('[ProfileCenter] Current user state before update:', user);
         await httpClient.put('/api/profile', { name: editName.trim() });
+        console.log('[ProfileCenter] Profile update API call successful');
         toast.success('个人信息保存成功');
 
         // 刷新 AuthContext 中的 profile，使侧边栏等全局组件也更新
+        console.log('[ProfileCenter] Triggering refreshProfile...');
         await refreshProfile();
+        console.log('[ProfileCenter] refreshProfile completed');
 
         setIsEditing(false);
       } catch (error: any) {
+        console.error('[ProfileCenter] Profile update API error:', error);
         toast.error('保存失败: ' + (error?.response?.data?.message || error.message));
       }
     } catch (err) {

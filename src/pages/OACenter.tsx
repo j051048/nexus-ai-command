@@ -128,18 +128,12 @@ function AttendanceTab({ orgId, userId }: { orgId?: string; userId?: string }) {
     if (!orgId || !userId) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('attendance_records')
-        .select('id, check_date, check_in_time, check_out_time, location')
-        .eq('user_id', userId)
-        .eq('check_date', today);
-        
-      if (error) throw error;
-      
+      const response = await httpClient.get('/api/oa/attendance/today');
+      const data = response.data?.records || [];
+
       const uiRecords: AttendanceRecord[] = [];
-      const rows = data as { id: string; check_date: string; check_in_time: string | null; check_out_time: string | null; location: string | null }[];
-      if (rows && rows.length > 0) {
-        const row = rows[0];
+      if (data.length > 0) {
+        const row = data[0];
         if (row.check_in_time) {
           uiRecords.push({ id: row.id + '_in', clock_type: 'clock_in', clock_time: row.check_in_time, location: row.location });
         }
@@ -152,7 +146,6 @@ function AttendanceTab({ orgId, userId }: { orgId?: string; userId?: string }) {
       }
       setRecords(uiRecords);
     } catch {
-      // table may not exist yet — show empty
       setRecords([]);
     } finally {
       setLoading(false);
@@ -164,54 +157,11 @@ function AttendanceTab({ orgId, userId }: { orgId?: string; userId?: string }) {
   const handleClock = async (clockType: string) => {
     setClocking(true);
     try {
-      const nowTime = new Date().toISOString();
-      const { data: existingData, error: fetchErr } = await supabase
-        .from('attendance_records')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('check_date', today)
-        .maybeSingle();
-        
-      if (fetchErr) throw fetchErr;
+      await httpClient.post('/api/oa/attendance/clock', {
+        clock_type: clockType,
+        organization_id: orgId,
+      });
 
-      const existing = existingData as { id: string } | null;
-
-      if (existing) {
-        const updates: Record<string, string> = {};
-        if (clockType === 'clock_in') updates.check_in_time = nowTime;
-        else if (clockType === 'clock_out') updates.check_out_time = nowTime;
-        else if (clockType === 'field_work') {
-           updates.location = '外勤';
-           // If they haven't clocked in yet, count this as clock in too
-           if (!records.some(r => r.clock_type === 'clock_in')) {
-             updates.check_in_time = nowTime;
-           }
-        }
-        
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase generated types incomplete for this table
-        const queryBuilder = supabase.from('attendance_records') as any;
-        const { error } = await queryBuilder
-          .update(updates)
-          .eq('id', existing.id);
-        if (error) throw error;
-      } else {
-        const record: Record<string, string | undefined> = {
-          user_id: userId,
-          organization_id: orgId,
-          platform: 'wecom', // Need required platform value
-          check_date: today,
-        };
-        if (clockType === 'clock_in') record.check_in_time = nowTime;
-        else if (clockType === 'clock_out') record.check_out_time = nowTime;
-        else if (clockType === 'field_work') {
-           record.check_in_time = nowTime;
-           record.location = '外勤';
-        }
-        
-        const { error } = await supabase.from('attendance_records').insert(record);
-        if (error) throw error;
-      }
-      
       toast.success(clockType === 'clock_in' ? '上班打卡成功' : clockType === 'clock_out' ? '下班打卡成功' : '外勤打卡成功');
       fetchRecords();
     } catch (e) {
@@ -340,13 +290,8 @@ export function OACenter() {
   const fetchLeaves = useCallback(async () => {
     try {
       if (!user?.id) return;
-      const { data, error } = await supabase.from('oa_leave_requests')
-        .select('*')
-        .eq('user_id', user.id)
-        .neq('status', 'cancelled')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      setLeaves((data as LeaveRequest[]) || []);
+      const response = await httpClient.get('/api/oa/leave-requests');
+      setLeaves((response.data?.requests as LeaveRequest[]) || []);
     } catch (error: unknown) {
       toast.error('加载请假记录失败');
     } finally {
@@ -369,18 +314,14 @@ export function OACenter() {
       const end = new Date(leaveForm.end_date);
       const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
 
-      // @ts-expect-error Types not fully generated
-      const { error } = await supabase.from('oa_leave_requests').insert({
-        user_id: user?.id,
+      await httpClient.post('/api/oa/leave-request', {
         organization_id: profile?.organization_id,
         leave_type: leaveForm.leave_type,
         start_date: leaveForm.start_date,
         end_date: leaveForm.end_date,
         days,
         reason: leaveForm.reason,
-        status: days <= 1 ? 'approved' : 'pending',
       });
-      if (error) throw error;
       toast.success(days <= 1 ? '1天以内自动审批通过' : '请假申请已提交，等待审批');
       setLeaveDialogOpen(false);
       setLeaveForm({ leave_type: 'annual', start_date: '', end_date: '', reason: '' });

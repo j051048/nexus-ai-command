@@ -326,7 +326,10 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
             {!isCollapsed && (
               <div className="flex-1 min-w-0 transition-opacity duration-300">
                 <p className="text-xs font-bold text-white group-hover:text-primary transition-colors truncate">
-                  {profile?.name || "BOSS"}
+                  {(() => {
+                    if (import.meta.env.DEV) console.log('[Sidebar] Rendering name with profile:', profile?.name);
+                    return profile?.name || "BOSS";
+                  })()}
                 </p>
                 <div className="flex items-center gap-1">
                   <p className="text-[10px] text-white/50 uppercase font-bold tracking-tighter italic truncate">

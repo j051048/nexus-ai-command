@@ -147,12 +147,9 @@ export function useUpdateProjectStage() {
       });
 
       // Auto-insert timeline milestone
-      await supabase.from('project_timeline').insert({
-        project_id: projectId,
-        title: `项目阶段变更为「${label}」`,
-        content: `项目阶段已从上一阶段推进至「${label}」`,
+      await httpClient.post(`/api/projects/${projectId}/timeline`, {
         event_type: 'milestone',
-        created_by: userId,
+        description: `项目阶段变更为「${label}」`,
       });
     },
     onSuccess: () => toast.success('阶段已更新'),
@@ -179,8 +176,10 @@ export function useAddTimelineEvent() {
       event_type: string;
       created_by: string;
     }) => {
-      const { error } = await supabase.from('project_timeline').insert(event);
-      if (error) throw error;
+      await httpClient.post(`/api/projects/${event.project_id}/timeline`, {
+        event_type: event.event_type,
+        description: `${event.title}: ${event.content}`,
+      });
     },
     onSuccess: () => toast.success('进展记录已添加'),
     onError: (err: Error) => toast.error(err.message || '添加记录失败'),
