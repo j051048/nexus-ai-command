@@ -15,12 +15,15 @@ const httpClient: AxiosInstance = axios.create({
 
 // 请求拦截器
 httpClient.interceptors.request.use(
-  (config) => {
-    // 1. 注入 Token
-    const token = localStorage.getItem('supabase.auth.token') ||
-                  sessionStorage.getItem('supabase.auth.token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+  async (config) => {
+    // 1. 注入 Token - 从 Supabase 获取最新 session
+    try {
+      const { data: { session } } = await import('@/integrations/supabase/client').then(m => m.supabase.auth.getSession());
+      if (session?.access_token) {
+        config.headers.Authorization = `Bearer ${session.access_token}`;
+      }
+    } catch (error) {
+      console.error('Failed to get session:', error);
     }
 
     // 2. 注入租户 ID
