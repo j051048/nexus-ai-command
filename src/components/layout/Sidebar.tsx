@@ -159,6 +159,7 @@ const NAV_CONFIG: NavItem[] = [
   { icon: <Gift size={18} />, label: "激励", href: "rewards", group: "更多" },
   { icon: <Rocket size={18} />, label: "VMD", href: "vmd", group: "更多" },
   { icon: <Network size={18} />, label: "组织", href: "org-chart", roles: ["boss", "founder"], group: "更多" },
+  { icon: <Building2 size={18} />, label: "公司设置", href: "company-settings", roles: ["boss", "founder"], group: "更多" },
   { icon: <Cpu size={18} />, label: "模型", href: "llm/models", roles: ["boss", "founder"], group: "更多" },
 ];
 
