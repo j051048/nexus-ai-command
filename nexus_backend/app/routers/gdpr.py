@@ -49,8 +49,10 @@ async def export_user_data(
         # Collect all user data
         data = {}
 
-        # Profile
-        profile = await supabase.table("users").select("*").eq("id", user_id).single().execute()
+        # Profile (显式字段列表，排除敏感信息)
+        profile = await supabase.table("users").select(
+            "id, email, full_name, avatar_url, created_at, updated_at"
+        ).eq("id", user_id).single().execute()
         data["profile"] = profile.data
 
         # Conversations
