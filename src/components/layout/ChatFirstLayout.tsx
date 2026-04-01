@@ -12,64 +12,38 @@ import { useAuth } from '@/components/auth/AuthContext';
 import { useWebSocketPush } from '@/hooks/useWebSocketPush';
 import { Breadcrumbs } from './Breadcrumbs';
 
-// Interface for props
 interface ChatFirstLayoutProps {
     children?: React.ReactNode;
 }
 
-/**
- * 桌面端 Layout：左 Chat + 右 Canvas 双栏布局
- * 移动端已迁移到 MobileLayout，此组件仅服务桌面端 (≥768px)
- */
 export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
     const [isCanvasOpen, setIsCanvasOpen] = useState(true);
     const [isChatOpen, setIsChatOpen] = useState(true);
     const location = useLocation();
     const { isPendingBoss } = useAuth();
 
-    // 实时推送连接（WebSocket + 自动重连）
     useWebSocketPush();
 
-    // Dynamic page title
     const getPageTitle = useCallback(() => {
         const path = location.pathname;
         if (path.includes('boss-dashboard')) return '总控中心';
         if (path.includes('dashboard')) return '战绩中心';
         if (path.includes('sales')) return '销售管道';
         if (path.includes('projects')) return '项目管理';
-        if (path.includes('tender-analysis')) return '标书审阅';
-        if (path.includes('battlecards')) return '竞品库';
-        if (path.includes('target-dashboard')) return '目标看板';
         if (path.includes('approval')) return '智能审批';
         if (path.includes('knowledge')) return '知识库';
-        if (path.includes('documents')) return '文档中心';
-        if (path.includes('rewards')) return '激励钱包';
-        if (path.includes('settings')) return '系统设置';
-        if (path.includes('employees')) return '员工管理';
-        if (path.includes('exceptions')) return '异常待办';
-        if (path.includes('targets')) return '目标管理';
-        if (path.includes('vmd/tasks')) return '任务中心';
-        if (path.includes('vmd/agents')) return 'Agent配置';
-        if (path.includes('vmd/clues')) return '线索管理';
-        if (path.includes('vmd/compliance')) return '合规校验';
-        if (path.includes('vmd/dashboard')) return '数据看板';
         if (path.includes('vmd')) return '虚拟市场部';
         if (path.includes('org-chart')) return '组织架构';
-        if (path.includes('llm/models')) return '模型管理';
-        if (path.includes('agent-debug')) return 'Agent 调试面板';
+        if (path.includes('settings')) return '系统设置';
         return 'Nexus OS';
     }, [location.pathname]);
 
-    // Auto-open canvas on page routes
     const isPageRoute = location.pathname !== '/' && location.pathname !== '/chat';
 
     React.useEffect(() => {
-        if (isPageRoute) {
-            setIsCanvasOpen(true);
-        }
+        if (isPageRoute) setIsCanvasOpen(true);
     }, [location.pathname, isPageRoute]);
 
-    // 监听后台 AI 主动对话事件 → 确保 Chat 面板展开
     useEffect(() => {
         const handler = () => setIsChatOpen(true);
         window.addEventListener('proactive-chat', handler);
@@ -77,27 +51,25 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
     }, []);
 
     return (
-        <div className="flex h-[100dvh] w-full bg-background overflow-hidden">
-            {/* Pending Boss Banner */}
+        <div className="flex h-[100dvh] w-full bg-[#02020A] overflow-hidden text-slate-200">
             {isPendingBoss && (
-                <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500/90 text-white text-center text-sm py-2 px-4 flex items-center justify-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    您的管理员账号正在审核中，审核通过前可以普通员工身份使用系统
+                <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500/90 text-white text-center text-xs py-2 px-4 backdrop-blur-md flex items-center justify-center gap-2">
+                    <Clock className="w-3.5 h-3.5" />
+                    账号审核中 · 您目前以普通员工身份模式运行
                 </div>
             )}
 
-            {/* Sidebar */}
-            <div className={cn("flex h-full border-r bg-card z-20", isPendingBoss && "pt-9")}>
+            {/* Sidebar with Abyss contrast */}
+            <div className={cn("hidden md:flex h-full z-20 relative", isPendingBoss && "pt-9")}>
                 <Sidebar />
             </div>
 
-            {/* Main Work Area: Chat + Canvas Split */}
+            {/* Main Content Area */}
             <div className="flex flex-1 overflow-hidden relative">
-
-                {/* Chat Area */}
+                {/* Chat Panel - Glassy and subtle */}
                 <div className={cn(
-                    "flex flex-col transition-all duration-300 ease-in-out h-full relative z-10",
-                    isChatOpen ? (isCanvasOpen ? "w-[45%] lg:w-[40%]" : "w-full") : "w-0 overflow-hidden opacity-0"
+                    "flex flex-col transition-all duration-500 cubic-bezier(0.16, 1, 0.3, 1) h-full relative z-10",
+                    isChatOpen ? (isCanvasOpen ? "w-[45%] lg:w-[38%]" : "w-full") : "w-0 overflow-hidden opacity-0"
                 )}>
                     <EnhancedAIChatPanel
                         isExpanded={isChatOpen}
@@ -106,76 +78,65 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                     />
                 </div>
 
-                {/* Chat reopen button when closed */}
-                {!isChatOpen && (
-                    <Button
-                        size="icon"
-                        variant="secondary"
-                        className="absolute top-4 left-4 z-50 shadow-lg rounded-full"
-                        onClick={() => setIsChatOpen(true)}
-                        aria-label="打开聊天面板"
-                    >
-                        <PanelLeftOpen className="w-4 h-4 text-muted-foreground hover:text-foreground" />
-                    </Button>
-                )}
-
-                {/* Canvas Area */}
+                {/* Canvas Area - Bento Styled */}
                 <div className={cn(
-                    "bg-background/95 backdrop-blur-sm transition-all duration-300 ease-in-out border-l shadow-2xl overflow-hidden flex flex-col",
+                    "transition-all duration-500 cubic-bezier(0.16, 1, 0.3, 1) overflow-hidden flex flex-col relative",
                     isCanvasOpen ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 w-0",
-                    "static inset-auto bottom-0",
-                    isCanvasOpen ? (isChatOpen ? "w-[55%] lg:w-[60%]" : "w-full flex-1") : "w-0"
+                    isCanvasOpen ? (isChatOpen ? "w-[55%] lg:w-[62%]" : "w-full flex-1") : "w-0"
                 )}>
-
-                   {/* Canvas Header */}
-                   <div className="h-12 border-b flex items-center justify-between px-4 bg-card/50">
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-foreground truncate">
+                    {/* Floating Header */}
+                    <header className="h-14 flex items-center justify-between px-6 bg-white/5 backdrop-blur-md border-b border-white/5 relative z-20">
+                        <div className="flex items-center gap-3">
+                            <div className="h-2 w-2 rounded-full bg-primary/40 animate-pulse" />
+                            <span className="text-xs font-black uppercase tracking-[0.2em] text-white/60">
                                 {getPageTitle()}
                             </span>
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-3">
                             <NotificationCenter />
                             <Button
                                 variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                data-compact
+                                size="icon"
+                                className="h-8 w-8 text-white/40 hover:text-white"
                                 onClick={() => setIsCanvasOpen(false)}
-                                aria-label="关闭画布面板"
                             >
                                 <PanelRightClose className="w-4 h-4" />
                             </Button>
                         </div>
-                   </div>
+                    </header>
 
-                   {/* Canvas Content */}
-                   <div className="flex-1 overflow-auto p-2 md:p-4 custom-scrollbar pb-4 relative">
-                        <Breadcrumbs />
-                        {children || <Outlet />}
-                   </div>
-
+                    {/* Scrollable Content with Staggered Entrance Container */}
+                    <main className="flex-1 overflow-y-auto no-scrollbar p-6 bg-gradient-to-br from-transparent to-primary/[0.02]">
+                        <div className="max-w-[1600px] mx-auto min-h-full pb-20">
+                            <div className="mb-6 opacity-60">
+                                <Breadcrumbs />
+                            </div>
+                            {children || <Outlet />}
+                        </div>
+                    </main>
                 </div>
-
             </div>
 
-            {/* Canvas reopen button when closed */}
-            {!isCanvasOpen && isPageRoute && (
-                <Button
-                    size="icon"
-                    variant="secondary"
-                    className="fixed top-4 right-4 z-50 shadow-lg rounded-full"
-                    onClick={() => setIsCanvasOpen(true)}
-                    aria-label="打开画布面板"
+            {/* Float Triggers */}
+            {!isChatOpen && (
+                <button
+                    onClick={() => setIsChatOpen(true)}
+                    className="fixed bottom-8 left-8 z-50 w-12 h-12 bg-primary rounded-2xl shadow-2xl shadow-primary/30 flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-all"
                 >
-                    <PanelRightOpen className="w-4 h-4" />
-                </Button>
+                    <PanelLeftOpen className="w-6 h-6" />
+                </button>
             )}
 
-            {/* PWA Install Prompt */}
-            <InstallPrompt />
+            {!isCanvasOpen && isPageRoute && (
+                <button
+                    onClick={() => setIsCanvasOpen(true)}
+                    className="fixed bottom-8 right-8 z-50 w-12 h-12 bg-white/10 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-all"
+                >
+                    <PanelRightOpen className="w-6 h-6" />
+                </button>
+            )}
 
-            {/* Onboarding Welcome Tour */}
+            <InstallPrompt />
             <WelcomeTour />
         </div>
     );

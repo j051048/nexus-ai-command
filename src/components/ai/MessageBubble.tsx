@@ -152,54 +152,62 @@ export const MessageBubble = React.memo(function MessageBubble({
       )}
     >
       {!isUser && (
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center flex-shrink-0 shadow-sm mt-1">
-          <Bot className="w-4 h-4 text-primary-foreground" />
+        <div className="relative flex-shrink-0 mt-1">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-blue-500 flex items-center justify-center shadow-lg relative z-10 overflow-hidden">
+            <Bot className="w-5 h-5 text-white active:scale-95 transition-transform" />
+            <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent opacity-50" />
+          </div>
+          {/* AI 状态呼吸灯 */}
+          {isTyping && isLatest && (
+            <div className="absolute -inset-1 bg-blue-500/30 rounded-xl blur-md ai-pulse-glow" />
+          )}
         </div>
       )}
 
-      <div className={cn('flex flex-col max-w-[85%] md:max-w-2xl', isUser && 'items-end')}>
+      <div className={cn('flex flex-col max-w-[88%] md:max-w-2xl', isUser && 'items-end')}>
         {!isUser && message.agent && (
-          <div className="flex items-center gap-2 mb-1 pl-1">
+          <div className="flex items-center gap-2 mb-1.5 pl-1.5">
             {message.isProactive && (
-              <span className="text-[10px] font-medium text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded">
-                主动推送
+              <span className="text-[10px] font-bold text-white bg-blue-600 px-2 py-0.5 rounded-full shadow-sm">
+                AI 主动建议
               </span>
             )}
-            <span className="text-xs font-medium text-foreground">{message.agent}</span>
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-xs font-semibold text-foreground/80 tracking-wide">{message.agent}</span>
+            <span className="text-[10px] text-muted-foreground/60 font-mono">
               {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
         )}
 
         {isUser && (
-           <div className="flex items-center gap-2 mb-1 pr-1">
-             <span className="text-[10px] text-muted-foreground">
+           <div className="flex items-center gap-2 mb-1.5 pr-1.5">
+             <span className="text-[10px] text-muted-foreground/60 font-mono">
                {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
              </span>
-             <span className="text-xs font-medium text-foreground">我</span>
+             <span className="text-xs font-semibold text-foreground/80 tracking-wide">我</span>
            </div>
         )}
 
         <div
           className={cn(
-            'rounded-2xl px-4 py-3 shadow-sm relative overflow-hidden',
+            'rounded-2xl px-5 py-4 relative group/bubble transition-all duration-300',
             isUser
-              ? 'bg-primary text-primary-foreground rounded-br-sm'
-              : 'bg-card border border-border text-card-foreground rounded-bl-sm'
+              ? 'bg-primary text-primary-foreground rounded-tr-none shadow-premium chat-bubble-user'
+              : 'glass-premium border-white/5 text-card-foreground rounded-tl-none shadow-lg chat-bubble-ai'
           )}
         >
-          {/* P3: 渲染用户消息中的图片附件 */}
+          {/* 用户附件显示优化 */}
           {isUser && message.imageUrls && message.imageUrls.length > 0 && (
-            <div className="flex gap-2 flex-wrap mb-2">
+            <div className="flex gap-2 flex-wrap mb-3">
               {message.imageUrls.map((url, i) => (
-                <img
-                  key={i}
-                  src={url}
-                  alt={`附件 ${i + 1}`}
-                  className="max-w-[200px] max-h-[150px] rounded-lg object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                  onClick={() => window.open(url, '_blank')}
-                />
+                <div key={i} className="relative group/img overflow-hidden rounded-xl border border-white/20 shadow-md">
+                  <img
+                    src={url}
+                    alt={`附件 ${i + 1}`}
+                    className="max-w-[240px] max-h-[180px] object-cover cursor-zoom-in group-hover/img:scale-105 transition-transform duration-500"
+                    onClick={() => window.open(url, '_blank')}
+                  />
+                </div>
               ))}
             </div>
           )}

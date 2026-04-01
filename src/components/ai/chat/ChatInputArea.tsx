@@ -5,18 +5,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Badge } from '@/components/ui/badge';
 import {
   Send,
-  Mic,
-  MicOff,
   AtSign,
+  Mic,
   Loader2,
-  Paperclip,
-  Plus,
   X,
-  Keyboard,
-  AlertTriangle,
   Square,
-  Wrench,
-  Bookmark,
   ImagePlus,
 } from 'lucide-react';
 import { ToolPalette } from './ToolPalette';
@@ -67,7 +60,6 @@ interface ChatInputAreaProps {
   tools?: { name: string; description: string; domain: string | null }[];
   toolsLoading?: boolean;
   onSavePrompt?: (prompt: string) => void;
-  // P3: 图片上传（不进入RAG知识库）
   imageInputRef?: React.RefObject<HTMLInputElement>;
   handleImageUpload?: (event: React.ChangeEvent<HTMLInputElement>) => void;
   pendingImages?: Array<{ file: File; previewUrl: string; uploadedUrl?: string }>;
@@ -96,16 +88,9 @@ export const ChatInputArea = React.memo(function ChatInputArea({
   agentTags,
   insertAgent,
   isMobile,
-  voiceMode,
-  setVoiceMode,
   isRecording,
-  isTranscribing,
   toggleRecording,
-  showMobileMenu,
-  setShowMobileMenu,
   inputRef,
-  fileInputRef,
-  handleFileUpload,
   variant,
   quotaAlert,
   setQuotaAlert,
@@ -114,11 +99,9 @@ export const ChatInputArea = React.memo(function ChatInputArea({
   onSelectTool,
   tools,
   toolsLoading,
-  onSavePrompt,
   imageInputRef,
   handleImageUpload,
   pendingImages,
-  removePendingImage,
 }: ChatInputAreaProps) {
   const matchedHint = useMemo(() => {
     if (!input || input.length > 10) return null;
@@ -135,266 +118,81 @@ export const ChatInputArea = React.memo(function ChatInputArea({
           'mx-4 md:mx-6 mb-1 px-3 py-2 rounded-lg text-xs flex items-center gap-2',
           quotaAlert.alert_level === 'exhausted' && 'bg-destructive/10 text-destructive border border-destructive/20',
           quotaAlert.alert_level === 'critical' && 'bg-orange-500/10 text-orange-600 border border-orange-500/20',
-          quotaAlert.alert_level === 'warning' && 'bg-yellow-500/10 text-yellow-600 border border-yellow-500/20',
         )}>
-          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+          <AtSign className="w-3.5 h-3.5 flex-shrink-0" />
           <span className="flex-1">{quotaAlert.alert_message}</span>
-          <button
-            className="text-muted-foreground hover:text-foreground"
-            onClick={() => setQuotaAlert(null)}
-          >
-            <X className="w-3 h-3" />
-          </button>
+          <button onClick={() => setQuotaAlert(null)}><X className="w-3 h-3" /></button>
         </div>
       )}
+
       <div className={cn(
-        "px-4 md:px-6 py-3 border-t border-border bg-card sticky bottom-0",
-        variant === 'embedded' ? 'pb-3' : 'pb-[calc(1rem+env(safe-area-inset-bottom))]'
+        "px-4 md:px-8 py-6 sticky bottom-0 z-20",
+        variant === 'embedded' ? 'pb-6' : 'pb-[calc(1.5rem+env(safe-area-inset-bottom))]'
       )}>
-        {showAgents && (
-          <div className="mb-3 p-2 bg-secondary/50 rounded-lg animate-fade-slide-up">
-            <p className="text-xs text-muted-foreground mb-2">选择AI助手</p>
-            <div className="grid grid-cols-2 gap-2">
-              {agentTags.map((agent) => (
-                <button
-                  key={agent.id}
-                  onClick={() => insertAgent(agent)}
-                  className={cn(
-                    'flex items-start gap-2 p-2 rounded-lg text-left transition-colors',
-                    'hover:bg-secondary',
-                    agent.color
-                  )}
-                >
-                  <span className="mt-0.5">{agent.icon}</span>
-                  <div>
-                    <p className="text-xs font-medium">{agent.name}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {agent.description}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {showToolPalette && setShowToolPalette && onSelectTool && tools && (
-          <ToolPalette
-            tools={tools}
-            isLoading={toolsLoading || false}
-            onSelectTool={onSelectTool}
-            onClose={() => setShowToolPalette(false)}
-          />
-        )}
-
-        {showMobileMenu && (
-          <div className="mb-3 p-2 bg-secondary/50 rounded-lg animate-fade-slide-up sm:hidden">
-            <div className="grid grid-cols-4 gap-2">
-              <button
-                onClick={() => { setShowAgents(!showAgents); setShowMobileMenu(false); }}
-                className="flex flex-col items-center gap-1 p-3 rounded-lg hover:bg-secondary active:bg-secondary transition-colors"
-              >
-                <AtSign className="w-5 h-5 text-blue-500" />
-                <span className="text-xs text-muted-foreground">AI助手</span>
-              </button>
-              <button
-                onClick={() => { fileInputRef.current?.click(); setShowMobileMenu(false); }}
-                className="flex flex-col items-center gap-1 p-3 rounded-lg hover:bg-secondary active:bg-secondary transition-colors"
-              >
-                <Paperclip className="w-5 h-5 text-green-500" />
-                <span className="text-xs text-muted-foreground">上传文档</span>
-              </button>
-              {imageInputRef && handleImageUpload && (
-                <button
-                  onClick={() => { imageInputRef.current?.click(); setShowMobileMenu(false); }}
-                  className="flex flex-col items-center gap-1 p-3 rounded-lg hover:bg-secondary active:bg-secondary transition-colors"
-                >
-                  <ImagePlus className="w-5 h-5 text-purple-500" />
-                  <span className="text-xs text-muted-foreground">上传图片</span>
-                </button>
-              )}
-              <button
-                onClick={() => { setVoiceMode(!voiceMode); setShowMobileMenu(false); }}
-                className="flex flex-col items-center gap-1 p-3 rounded-lg hover:bg-secondary active:bg-secondary transition-colors"
-              >
-                <Mic className={cn("w-5 h-5", voiceMode ? "text-red-500" : "text-orange-500")} />
-                <span className="text-xs text-muted-foreground">{voiceMode ? '文字模式' : '语音模式'}</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="flex items-center gap-2">
-          <div className="flex sm:hidden">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-10 w-10 flex-shrink-0"
-              onClick={() => setShowMobileMenu(prev => !prev)}
-            >
-              <Plus className={cn("w-5 h-5 transition-transform", showMobileMenu && "rotate-45")} />
-            </Button>
-          </div>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-10 w-10 flex-shrink-0 sm:hidden"
-            onClick={() => setVoiceMode(!voiceMode)}
-          >
-            {voiceMode ? (
-              <Keyboard className="w-5 h-5" />
-            ) : (
-              <Mic className="w-5 h-5" />
-            )}
-          </Button>
-
-          <div className="hidden sm:flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={showAgents ? 'default' : 'ghost'}
-                  size="icon"
-                  className="h-10 w-10 flex-shrink-0"
-                  onClick={() => setShowAgents(!showAgents)}
-                >
-                  <AtSign className="w-5 h-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>选择AI助手</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-10 w-10 flex-shrink-0"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Paperclip className="w-5 h-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>上传文档</TooltipContent>
-            </Tooltip>
-
-            {imageInputRef && handleImageUpload && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-10 w-10 flex-shrink-0"
-                    onClick={() => imageInputRef.current?.click()}
-                  >
-                    <ImagePlus className="w-5 h-5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>上传图片（不入知识库）</TooltipContent>
-              </Tooltip>
-            )}
-
-            {onSavePrompt && input.trim() && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-10 w-10 flex-shrink-0"
-                    onClick={() => onSavePrompt(input.trim())}
-                  >
-                    <Bookmark className="w-5 h-5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>保存为快捷指令</TooltipContent>
-              </Tooltip>
-            )}
-          </div>
-
-          <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            onChange={handleFileUpload}
-            accept=".pdf,.txt,.md,.csv,.json,.docx"
-          />
-          {imageInputRef && handleImageUpload && (
-            <input
-              type="file"
-              ref={imageInputRef}
-              className="hidden"
-              onChange={handleImageUpload}
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              multiple
-            />
-          )}
-
-          {pendingImages && pendingImages.length > 0 && removePendingImage && (
-            <div className="flex gap-2 mb-2 flex-wrap">
-              {pendingImages.map((img) => (
-                <div key={img.previewUrl} className="relative w-16 h-16 rounded-lg overflow-hidden border border-border group">
-                  <img src={img.previewUrl} alt={img.file.name} className="w-full h-full object-cover" />
-                  {!img.uploadedUrl && (
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                      <Loader2 className="w-4 h-4 text-white animate-spin" />
-                    </div>
-                  )}
+        <div className="max-w-4xl mx-auto command-capsule glass-premium border-white/10 shadow-2xl p-2 md:p-3 relative group/capsule">
+          <div className="absolute inset-x-12 -top-px h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover/capsule:opacity-100 transition-opacity" />
+          
+          {showAgents && (
+            <div className="absolute bottom-full left-0 right-0 mb-4 p-3 glass-premium border-white/10 rounded-2xl animate-fade-slide-up shadow-2xl overflow-hidden">
+              <p className="text-[10px] font-bold text-muted-foreground/60 mb-2 uppercase tracking-widest px-2">切换智能助手</p>
+              <div className="grid grid-cols-2 gap-2 relative z-10">
+                {agentTags.map((agent) => (
                   <button
-                    className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => removePendingImage(img.previewUrl)}
+                    key={agent.id}
+                    onClick={() => insertAgent(agent)}
+                    className={cn('flex items-start gap-3 p-2.5 rounded-xl text-left transition-all hover:bg-white/10', agent.color)}
                   >
-                    <X className="w-3 h-3 text-white" />
+                    <div className="p-2 rounded-lg bg-white/5 shadow-inner">{agent.icon}</div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold truncate">{agent.name}</p>
+                      <p className="text-[10px] text-muted-foreground/80 line-clamp-1">{agent.description}</p>
+                    </div>
                   </button>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
 
-          {voiceMode && isMobile ? (
-            <button
-              className={cn(
-                "flex-1 h-12 rounded-xl text-sm font-medium select-none transition-all",
-                "active:scale-[0.98]",
-                isRecording
-                  ? "bg-red-500/10 text-red-500 border-2 border-red-500/30 animate-pulse"
-                  : "bg-secondary text-muted-foreground border-2 border-transparent",
-                isTranscribing && "opacity-50 pointer-events-none"
+          <div className="flex items-center gap-2 relative z-10">
+            <div className="hidden md:flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 text-muted-foreground/60 hover:text-primary hover:bg-white/5 transition-all rounded-xl"
+                onClick={() => setShowAgents(!showAgents)}
+              >
+                <AtSign className={cn("w-5 h-5", showAgents && "text-primary")} />
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 text-muted-foreground/60 hover:text-green-500 hover:bg-white/5 transition-all rounded-xl"
+                onClick={() => imageInputRef?.current?.click()}
+              >
+                <ImagePlus className="w-5 h-5" />
+              </Button>
+            </div>
+
+            <div className="flex-1 relative flex items-center min-w-0">
+              {currentAgent && (
+                <div className="absolute left-2 inset-y-2 z-10">
+                  <Badge variant="secondary" className="h-full px-2 gap-1 bg-primary/20 text-primary-foreground border-none text-[10px] font-bold">
+                    @{currentAgent}
+                    <X className="w-3 h-3 cursor-pointer" onClick={() => setCurrentAgent(undefined)} />
+                  </Badge>
+                </div>
               )}
-              onClick={toggleRecording}
-              disabled={isTranscribing || isAiTyping}
-            >
-              {isTranscribing ? (
-                <span className="flex items-center justify-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  识别中...
-                </span>
-              ) : isRecording ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                  录音中... 点击结束
-                </span>
-              ) : (
-                '点击开始说话'
-              )}
-            </button>
-          ) : (
-            <div className="flex-1 relative">
               <input
                 ref={inputRef}
                 type="text"
                 value={input}
                 onChange={(e) => {
-                const val = e.target.value;
-                setInput(val);
-                // Auto-trigger agent picker when user types @
-                if (val.endsWith('@') && !showAgents) {
-                  setShowAgents(true);
-                }
-                // Auto-trigger tool palette when user types /
-                if (val.endsWith('/') && !showToolPalette && setShowToolPalette) {
-                  setShowToolPalette(true);
-                }
-              }}
+                  const val = e.target.value;
+                  setInput(val);
+                  if (val.endsWith('@') && !showAgents) setShowAgents(true);
+                  if (val.endsWith('/') && !showToolPalette && setShowToolPalette) setShowToolPalette(true);
+                }}
                 onKeyDown={(e) => {
                   if (e.key === 'Tab' && matchedHint) {
                     e.preventDefault();
@@ -403,114 +201,54 @@ export const ChatInputArea = React.memo(function ChatInputArea({
                     handleSend();
                   }
                 }}
-                placeholder={
-                  currentAgent
-                    ? `向 ${currentAgent} 提问...`
-                    : '输入指令... 按 @ 选择助手'
-                }
-                aria-label="输入消息"
-                className="w-full bg-secondary rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
+                placeholder={currentAgent ? "" : "输入指令并回车 / 或输入 @ 召唤专家..."}
+                className={cn(
+                  "w-full bg-black/20 dark:bg-white/5 rounded-xl py-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all placeholder:text-muted-foreground/40",
+                  currentAgent ? "pl-20 pr-4" : "px-4"
+                )}
               />
-              {currentAgent && (
-                <Badge
-                  variant="secondary"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px]"
+            </div>
+
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn("h-10 w-10 text-muted-foreground hover:bg-white/5 rounded-xl transition-all", isRecording && "bg-red-500/20 text-red-500 animate-pulse")}
+                onClick={toggleRecording}
+              >
+                {isRecording ? <Square className="w-4 h-4" /> : <Mic className="w-5 h-5" />}
+              </Button>
+
+              {isAiTyping ? (
+                <Button size="icon" className="h-10 w-10 bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-lg animate-pulse" onClick={stopStream}>
+                  <Square className="w-4 h-4" />
+                </Button>
+              ) : (
+                <Button
+                  size="icon"
+                  className={cn("h-10 w-10 rounded-xl transition-all duration-500 shadow-xl", input.trim() ? "bg-primary scale-100 opacity-100" : "bg-muted scale-95 opacity-50")}
+                  onClick={handleSend}
+                  disabled={!input.trim()}
                 >
-                  {currentAgent}
-                  <button
-                    className="ml-1 hover:text-foreground"
-                    onClick={() => setCurrentAgent(undefined)}
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </Badge>
-              )}
-              {matchedHint && (
-                <div className="absolute inset-0 pointer-events-none px-4 py-3 text-sm">
-                  <span className="invisible">{input}</span>
-                  <span className="text-muted-foreground/40">{matchedHint.slice(input.length)}</span>
-                </div>
+                  <Send className="w-5 h-5" />
+                </Button>
               )}
             </div>
-          )}
-
-          <div className="hidden sm:block">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={isRecording ? 'destructive' : 'ghost'}
-                  size="icon"
-                  className={cn(
-                    'h-10 w-10 flex-shrink-0 relative',
-                    isRecording && 'animate-pulse'
-                  )}
-                  onClick={toggleRecording}
-                >
-                  {isRecording && (
-                    <span className="absolute inset-0 rounded-md bg-red-500/20 animate-ping" />
-                  )}
-                  {isRecording ? (
-                    <MicOff className="w-5 h-5 relative z-10" />
-                  ) : (
-                    <Mic className="w-5 h-5" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {isRecording ? '停止录音' : '语音输入'}
-              </TooltipContent>
-            </Tooltip>
           </div>
-
-          {!(voiceMode && isMobile) && (
-          <>
-          {isAiTyping ? (
-            <Button
-              size="icon"
-              variant="destructive"
-              className="h-10 w-10 flex-shrink-0 shadow-lg animate-pulse"
-              onClick={stopStream}
-              title="停止生成"
-            >
-              <Square className="w-4 h-4" />
-            </Button>
-          ) : (
-          <Button
-            size="icon"
-            className={cn(
-              'h-10 w-10 flex-shrink-0 transition-all',
-              input.trim()
-                ? 'bg-primary hover:bg-primary/90 shadow-lg'
-                : 'bg-secondary text-muted-foreground'
-            )}
-            onClick={handleSend}
-            disabled={!input.trim() && !(pendingImages && pendingImages.some(img => img.uploadedUrl))}
-          >
-            <Send className="w-5 h-5" />
-          </Button>
-          )}
-          </>
-          )}
         </div>
-
-        <p className="text-[10px] text-muted-foreground mt-2 text-center hidden md:block">
-          按 <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Enter</kbd> 发送
-          {' · '}
-          <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">@</kbd> 选择助手
-          {' · '}
-          <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">/</kbd> 工具面板
-          {' · '}
-          <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">Tab</kbd> 补全
-          {' · '}
-          <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">⌘K</kbd> 命令面板
-          {isAiTyping && (
-            <>
-              {' · '}
-              <button className="text-destructive hover:underline" onClick={stopStream}>停止生成</button>
-            </>
-          )}
+        <p className="text-[10px] text-muted-foreground/40 mt-3 text-center font-mono uppercase hidden md:block">
+          SHIFT + ENTER 换行 · @ 专家模式 · / 工作流
         </p>
       </div>
+
+      <input
+        type="file"
+        ref={imageInputRef}
+        className="hidden"
+        onChange={handleImageUpload}
+        accept="image/*"
+        multiple
+      />
     </>
   );
 });
