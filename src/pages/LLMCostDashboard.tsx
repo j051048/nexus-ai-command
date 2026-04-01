@@ -3,10 +3,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { LoadingState } from '@/components/common/LoadingState';
 import { Coins, TrendingUp, TrendingDown, AlertTriangle, Activity, Zap, BarChart3 } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { aiClient } from '@/api/aiClient';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { iconColors, iconBackgrounds, spacing, typography, statusColors } from '@/lib/design-tokens';
 
 interface UsageSummary {
   tokens_used: number;
@@ -131,14 +134,16 @@ export default function LLMCostDashboard() {
   const alertConfig = ALERT_CONFIG[quota?.alert_level || 'normal'];
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className={cn('container mx-auto py-6', spacing.md)}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Coins className="w-8 h-8 text-primary" />
+          <div className={cn('w-12 h-12 rounded-lg flex items-center justify-center', iconBackgrounds.purple)}>
+            <Coins className={cn('w-6 h-6', iconColors.purple)} />
+          </div>
           <div>
-            <h1 className="text-2xl font-bold">LLM 成本看板</h1>
-            <p className="text-muted-foreground">Token 消耗、费用归因与配额监控</p>
+            <h1 className={cn(typography.h1)}>LLM 成本看板</h1>
+            <p className={cn(typography.small, 'text-muted-foreground mt-1')}>Token 消耗、费用归因与配额监控</p>
           </div>
         </div>
         <Select value={days} onValueChange={setDays}>
@@ -154,14 +159,12 @@ export default function LLMCostDashboard() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-        </div>
+        <LoadingState type="spinner" message="加载成本数据..." />
       ) : (
         <>
           {/* Stat Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
+          <div className={cn('grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4', spacing.sm)}>
+            <Card variant="elevated">
               <CardHeader className="pb-2">
                 <CardDescription className="flex items-center gap-1.5">
                   <Activity className="w-3.5 h-3.5" /> 今日 Token

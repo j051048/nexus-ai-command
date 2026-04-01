@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingState } from '@/components/common/LoadingState';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import {
@@ -16,6 +16,7 @@ import {
   TrendingUp,
   TrendingDown,
 } from 'lucide-react';
+import { iconColors, iconBackgrounds, spacing, typography } from '@/lib/design-tokens';
 import {
   LineChart,
   Line,
@@ -86,32 +87,32 @@ export default function VMDDashboard() {
       value: stats?.today_tasks ?? 0,
       trend: stats?.today_tasks_trend ?? 0,
       icon: ListTodo,
-      color: 'text-blue-500',
-      bg: 'bg-blue-500/10',
+      color: iconColors.blue,
+      bg: iconBackgrounds.blue,
     },
     {
       label: '活跃Agent数',
       value: stats?.active_agents ?? 0,
       trend: stats?.active_agents_trend ?? 0,
       icon: Bot,
-      color: 'text-green-500',
-      bg: 'bg-green-500/10',
+      color: iconColors.green,
+      bg: iconBackgrounds.green,
     },
     {
       label: '新增线索',
       value: stats?.new_clues ?? 0,
       trend: stats?.new_clues_trend ?? 0,
       icon: Target,
-      color: 'text-amber-500',
-      bg: 'bg-amber-500/10',
+      color: iconColors.orange,
+      bg: iconBackgrounds.orange,
     },
     {
       label: '合规校验数',
       value: stats?.compliance_checks ?? stats?.pending_review ?? 0,
       trend: stats?.compliance_checks_trend ?? 0,
       icon: ShieldCheck,
-      color: 'text-purple-500',
-      bg: 'bg-purple-500/10',
+      color: iconColors.purple,
+      bg: iconBackgrounds.purple,
     },
   ];
 
@@ -122,12 +123,12 @@ export default function VMDDashboard() {
   }));
 
   return (
-    <div className="space-y-6 max-w-[1400px] mx-auto pb-20">
+    <div className={cn('space-y-6 max-w-[1400px] mx-auto pb-20')}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">数据看板</h1>
-          <p className="text-muted-foreground">虚拟市场部运营数据概览与趋势分析</p>
+          <h1 className={cn(typography.h1)}>数据看板</h1>
+          <p className={cn(typography.small, 'text-muted-foreground mt-1')}>虚拟市场部运营数据概览与趋势分析</p>
         </div>
         <Select value={String(trendDays)} onValueChange={(v) => setTrendDays(Number(v))}>
           <SelectTrigger className="w-[130px]">
@@ -143,27 +144,25 @@ export default function VMDDashboard() {
       </div>
 
       {/* ====== Row 1: Stat Cards with trend arrows ====== */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className={cn('grid grid-cols-2 md:grid-cols-4', spacing.sm)}>
         {statsLoading ? (
-          Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i}><CardContent className="pt-6"><Skeleton className="h-16 w-full" /></CardContent></Card>
-          ))
+          <LoadingState type="skeleton" rows={1} className="col-span-full h-24" />
         ) : (
           statCards.map((stat) => {
             const Icon = stat.icon;
             const isUp = stat.trend > 0;
             const isDown = stat.trend < 0;
             return (
-              <Card key={stat.label}>
-                <CardContent className="pt-6">
+              <Card key={stat.label} variant="elevated">
+                <CardContent className="p-6">
                   <div className="flex items-center gap-3">
                     <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", stat.bg)}>
                       <Icon className={cn("w-5 h-5", stat.color)} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-muted-foreground">{stat.label}</p>
+                      <p className={cn(typography.xs)}>{stat.label}</p>
                       <div className="flex items-center gap-2">
-                        <p className="text-2xl font-bold">{stat.value}</p>
+                        <p className={cn(typography.h2)}>{stat.value}</p>
                         {stat.trend !== 0 && (
                           <span className={cn(
                             "flex items-center gap-0.5 text-xs font-medium",

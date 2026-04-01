@@ -5,6 +5,8 @@ import { ChatFirstLayout } from '@/components/layout/ChatFirstLayout';
 import { MobileLayout } from '@/components/layout/MobileLayout';
 import { useIsMobile, useIsTablet } from '@/hooks/use-mobile';
 import { Outlet } from 'react-router-dom';
+import { SkipToContent } from '@/components/common/SkipToContent';
+import { GlobalHotkeys } from '@/components/common/GlobalHotkeys';
 
 const Index = () => {
   const isMobile = useIsMobile();
@@ -13,11 +15,15 @@ const Index = () => {
   return (
     <ThemeProvider>
       <UserProvider>
+        <SkipToContent />
+        <GlobalHotkeys />
         {(isMobile || isTablet) ? (
           <MobileLayout />
         ) : (
           <ChatFirstLayout>
-            <Outlet />
+            <main id="main-content">
+              <Outlet />
+            </main>
           </ChatFirstLayout>
         )}
       </UserProvider>

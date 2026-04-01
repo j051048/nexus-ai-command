@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingState } from '@/components/common/LoadingState';
+import { iconColors, iconBackgrounds, typography } from '@/lib/design-tokens';
 import {
   Dialog,
   DialogContent,
@@ -78,12 +79,12 @@ function ProgressCard({
 }) {
   const pct = Math.min(progress, 100);
   return (
-    <Card>
+    <Card variant="elevated">
       <CardContent className="pt-6">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className={cn('p-2 rounded-lg', color)}>
-              <Icon className="w-4 h-4" />
+            <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center', color)}>
+              <Icon className="w-5 h-5" />
             </div>
             <span className="text-sm font-medium">{label}</span>
           </div>
@@ -103,11 +104,7 @@ function CurrentProgress({ period, type }: { period: string; type: 'monthly' | '
   const { data: tp, isLoading } = useTargetProgress(period, type);
 
   if (isLoading) {
-    return (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-32 rounded-lg" />)}
-      </div>
-    );
+    return <LoadingState type="skeleton" rows={1} className="h-32" />;
   }
 
   if (!tp) {

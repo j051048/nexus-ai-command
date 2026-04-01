@@ -47,7 +47,7 @@ const { data } = await httpClient.get('/api/contracts');
 - 替换调用: 2-3小时
 - 测试验证: 2小时
 
-**总计: 1-2天**
+## 预计总计时长: 1-2天
 
 ## 注意事项
 

@@ -3,7 +3,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { NoDataYet, NoSearchResults } from '@/components/common/EmptyState';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingState } from '@/components/common/LoadingState';
 import {
   Dialog,
   DialogContent,
@@ -34,36 +34,35 @@ import CustomerTable from './CustomerTable';
 import CustomerDetailSheet from './CustomerDetailSheet';
 import CustomerFormDialog from './CustomerFormDialog';
 import { EditCustomerDialog } from './CustomerDetailSheet';
+import { iconColors, iconBackgrounds, spacing, typography } from '@/lib/design-tokens';
 
 function StatsBar() {
   const { data: stats, isLoading } = useCustomerStats();
 
   if (isLoading) {
-    return (
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {[1, 2, 3, 4, 5].map(i => <Skeleton key={i} className="h-20" />)}
-      </div>
-    );
+    return <LoadingState type="skeleton" rows={1} className="h-24" />;
   }
 
   const items = [
-    { label: '客户总数', value: stats?.total_customers ?? 0, icon: Users, color: 'text-blue-500' },
-    { label: '本月新增', value: stats?.new_this_month ?? 0, icon: Plus, color: 'text-green-500' },
-    { label: '转化率', value: `${stats?.conversion_rate ?? 0}%`, icon: ArrowRightLeft, color: 'text-orange-500' },
-    { label: '预估总额', value: `\u00A5${Number(stats?.total_estimated_value ?? 0).toLocaleString()}`, icon: DollarSign, color: 'text-purple-500' },
-    { label: '流失', value: stats?.churned ?? 0, icon: TrendingUp, color: 'text-red-500' },
+    { label: '客户总数', value: stats?.total_customers ?? 0, icon: Users, color: iconColors.blue, bg: iconBackgrounds.blue },
+    { label: '本月新增', value: stats?.new_this_month ?? 0, icon: Plus, color: iconColors.green, bg: iconBackgrounds.green },
+    { label: '转化率', value: `${stats?.conversion_rate ?? 0}%`, icon: ArrowRightLeft, color: iconColors.orange, bg: iconBackgrounds.orange },
+    { label: '预估总额', value: `¥${Number(stats?.total_estimated_value ?? 0).toLocaleString()}`, icon: DollarSign, color: iconColors.purple, bg: iconBackgrounds.purple },
+    { label: '流失', value: stats?.churned ?? 0, icon: TrendingUp, color: iconColors.red, bg: iconBackgrounds.red },
   ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+    <div className={cn('grid grid-cols-2 md:grid-cols-5', spacing.sm)}>
       {items.map(item => (
-        <Card key={item.label}>
-          <CardContent className="pt-4 pb-3 px-4">
-            <div className="flex items-center gap-2">
-              <item.icon className={cn('w-4 h-4', item.color)} />
-              <span className="text-xs text-muted-foreground">{item.label}</span>
+        <Card key={item.label} variant="elevated">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-3">
+              <span className={cn(typography.xs)}>{item.label}</span>
+              <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center', item.bg)}>
+                <item.icon className={cn('w-5 h-5', item.color)} />
+              </div>
             </div>
-            <p className={cn('text-lg font-bold mt-1', item.color)}>{item.value}</p>
+            <p className={cn(typography.h2, item.color)}>{item.value}</p>
           </CardContent>
         </Card>
       ))}
@@ -99,11 +98,11 @@ function CRMPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className={cn('space-y-6')}>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">客户管理</h1>
-          <p className="text-muted-foreground">管理客户关系，跟踪销售漏斗</p>
+          <h1 className={cn(typography.h1)}>客户管理</h1>
+          <p className={cn(typography.small, 'text-muted-foreground mt-1')}>管理客户关系，跟踪销售漏斗</p>
         </div>
         <Button className="gap-2" onClick={() => setCreateOpen(true)}>
           <Plus className="w-4 h-4" />
@@ -128,15 +127,7 @@ function CRMPage() {
       />
 
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="space-y-2">
-              <Skeleton className="h-6 w-20" />
-              <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-24 w-full" />
-            </div>
-          ))}
-        </div>
+        <LoadingState type="skeleton" rows={4} message="加载客户数据..." />
       ) : customers.length === 0 ? (
         debouncedSearch ? (
           <NoSearchResults query={searchQuery} onClear={() => setSearchQuery('')} />

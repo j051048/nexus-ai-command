@@ -58,9 +58,20 @@ httpClient.interceptors.response.use(
 
     // 401: Token 过期或无效
     if (status === 401) {
-      toast.error('登录已过期，请重新登录');
-      localStorage.removeItem('supabase.auth.token');
-      window.location.href = '/login';
+      // 避免在 /login 页面产生无限重定向白屏死循环
+      if (window.location.pathname !== '/login') {
+        toast.error('登录已过期，请重新登录');
+        localStorage.removeItem('supabase.auth.token');
+        
+        // 彻底清理 supabase 底层 session 缓存，防止 AuthContext 再次触发死循环
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+            localStorage.removeItem(key);
+          }
+        });
+        
+        window.location.href = '/login';
+      }
     }
 
     // 403: CSRF 或权限不足
