@@ -79,14 +79,22 @@ html, body {
 
     --radius: 0.875rem;
 
+    /* Spacing System - 8px Grid */
+    --spacing-xs: 0.25rem;   /* 4px */
+    --spacing-sm: 0.5rem;    /* 8px */
+    --spacing-md: 1rem;      /* 16px */
+    --spacing-lg: 1.5rem;    /* 24px */
+    --spacing-xl: 2rem;      /* 32px */
+    --spacing-2xl: 3rem;     /* 48px */
+
     /* Sidebar - Light */
-    --sidebar-background: 217 91% 97%;
-    --sidebar-foreground: 217 30% 25%;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 222 47% 30%;
     --sidebar-primary: 217 91% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 91% 92%;
+    --sidebar-accent: 217 91% 96%;
     --sidebar-accent-foreground: 217 30% 20%;
-    --sidebar-border: 217 30% 85%;
+    --sidebar-border: 214 20% 90%;
     --sidebar-ring: 217 91% 50%;
 
     /* Gamification Colors */

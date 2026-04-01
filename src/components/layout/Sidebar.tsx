@@ -129,54 +129,46 @@ function savePinnedItems(items: string[]) {
 }
 
 const NAV_CONFIG: NavItem[] = [
-  { icon: <Crown size={18} />, label: "总控中心", href: "boss-dashboard", roles: ["boss", "founder"], group: "AI 核心" },
-  { icon: <LayoutDashboard size={18} />, label: "战绩中心", href: "dashboard", group: "AI 核心" },
-  { icon: <Inbox size={18} />, label: "待办中心", href: "inbox", group: "AI 核心" },
-  { icon: <TrendingUp size={18} />, label: "销售AI管理", href: "sales", roles: ["employee", "manager", "boss", "founder"], group: "销售与客关" },
-  { icon: <Contact size={18} />, label: "CRM管理", href: "crm", group: "销售与客关" },
-  { icon: <FileSearch size={18} />, label: "标书审阅", href: "tender-analysis", group: "销售与客关" },
-  { icon: <Swords size={18} />, label: "竞品库", href: "battlecards", group: "销售与客关" },
-  { icon: <FileSignature size={18} />, label: "合同管理", href: "contracts", roles: ["manager", "boss", "founder"], group: "销售与客关" },
-  { icon: <Warehouse size={18} />, label: "库存管理", href: "inventory", group: "销售与客关" },
-  { icon: <Briefcase size={18} />, label: "项目管理", href: "projects", group: "项目与目标" },
-  { icon: <Target size={18} />, label: "目标看板", href: "target-dashboard", group: "项目与目标" },
-  { icon: <TrendingUp size={18} />, label: "目标管理", href: "targets", roles: ["boss", "founder"], group: "项目与目标" },
-  { icon: <BarChart3 size={18} />, label: "数据报表", href: "reports", group: "项目与目标" },
-  { icon: <Calendar size={18} />, label: "OA办公", href: "oa", group: "OA/HR/财务" },
-  { icon: <Fingerprint size={18} />, label: "考勤打卡", href: "oa?tab=attendance", group: "OA/HR/财务" },
-  { icon: <Clock size={18} />, label: "人事中心", href: "hr", roles: ["manager", "boss", "founder"], group: "OA/HR/财务" },
-  { icon: <DollarSign size={18} />, label: "财务中心", href: "finance", group: "OA/HR/财务" },
-  { icon: <FileCheck size={18} />, label: "审批中心", href: "approval", group: "OA/HR/财务" },
-  { icon: <Workflow size={18} />, label: "流程设计", href: "workflows", roles: ["boss", "founder"], group: "OA/HR/财务" },
-  { icon: <LayoutTemplate size={18} />, label: "流程模板", href: "workflow-templates", roles: ["boss", "founder"], group: "OA/HR/财务" },
-  { icon: <FileEdit size={18} />, label: "表单设计", href: "form-designer", roles: ["boss", "founder"], group: "OA/HR/财务" },
-  { icon: <Wrench size={18} />, label: "工单管理", href: "work-orders", group: "OA/HR/财务" },
-  { icon: <Package size={18} />, label: "资产管理", href: "assets", group: "OA/HR/财务" },
-  { icon: <BookOpen size={18} />, label: "知识库", href: "knowledge", group: "知识与培训" },
-  { icon: <GraduationCap size={18} />, label: "培训中心", href: "training", group: "知识与培训" },
-  { icon: <Gift size={18} />, label: "激励钱包", href: "rewards", group: "知识与培训" },
-  { icon: <Award size={18} />, label: "企业证照", href: "certificates", group: "知识与培训" },
-  { icon: <Rocket size={18} />, label: "虚拟市场部", href: "vmd", group: "虚拟市场部" },
-  { icon: <ListTodo size={18} />, label: "任务中心", href: "vmd/tasks", group: "虚拟市场部" },
-  { icon: <BotIcon size={18} />, label: "Agent配置", href: "vmd/agents", group: "虚拟市场部" },
-  { icon: <Target size={18} />, label: "线索管理", href: "vmd/clues", group: "虚拟市场部" },
-  { icon: <ShieldCheck size={18} />, label: "合规校验", href: "vmd/compliance", group: "虚拟市场部" },
-  { icon: <BarChart3 size={18} />, label: "VMD看板", href: "vmd/dashboard", group: "虚拟市场部" },
-  { icon: <Network size={18} />, label: "组织架构", href: "org-chart", roles: ["boss", "founder"], group: "组织管理" },
-  { icon: <Settings size={18} />, label: "企业设置", href: "company-settings", roles: ["boss", "founder"], group: "组织管理" },
-  { icon: <Settings size={18} />, label: "系统设置", href: "settings", group: "系统管理" },
-  { icon: <Cpu size={18} />, label: "模型管理", href: "llm/models", roles: ["boss", "founder"], group: "系统管理" },
-  { icon: <DollarSign size={18} />, label: "LLM成本", href: "llm/costs", roles: ["boss", "founder"], group: "系统管理" },
-  { icon: <Upload size={18} />, label: "数据导入", href: "import", roles: ["boss", "founder"], group: "系统管理" },
-  { icon: <ClipboardList size={18} />, label: "审计日志", href: "audit", group: "系统管理" },
-  { icon: <Puzzle size={18} />, label: "插件市场", href: "plugins", group: "系统管理" },
-  { icon: <Key size={18} />, label: "API密钥", href: "api-keys", group: "系统管理" },
-  { icon: <CreditCard size={18} />, label: "订阅支付", href: "payments", group: "系统管理" },
-  { icon: <Bug size={18} />, label: "Agent调试", href: "agent-debug", group: "系统管理" },
-  { icon: <Clock size={18} />, label: "定时任务", href: "scheduled-tasks", group: "系统管理" },
+  // 核心工作区
+  { icon: <Crown size={18} />, label: "总控中心", href: "boss-dashboard", roles: ["boss", "founder"], group: "核心" },
+  { icon: <LayoutDashboard size={18} />, label: "工作台", href: "dashboard", group: "核心" },
+  { icon: <Inbox size={18} />, label: "待办中心", href: "inbox", group: "核心" },
+
+  // 销售模块
+  { icon: <TrendingUp size={18} />, label: "销售管理", href: "sales", group: "销售" },
+  { icon: <Contact size={18} />, label: "客户关系", href: "crm", group: "销售" },
+  { icon: <Swords size={18} />, label: "竞品分析", href: "battlecards", group: "销售" },
+
+  // 项目与目标
+  { icon: <Briefcase size={18} />, label: "项目管理", href: "projects", group: "项目" },
+  { icon: <Target size={18} />, label: "目标看板", href: "target-dashboard", group: "项目" },
+  { icon: <BarChart3 size={18} />, label: "数据报表", href: "reports", group: "项目" },
+
+  // OA办公
+  { icon: <Calendar size={18} />, label: "OA办公", href: "oa", group: "办公" },
+  { icon: <FileCheck size={18} />, label: "审批中心", href: "approval", group: "办公" },
+  { icon: <Clock size={18} />, label: "人事管理", href: "hr", roles: ["manager", "boss", "founder"], group: "办公" },
+  { icon: <DollarSign size={18} />, label: "财务中心", href: "finance", group: "办公" },
+
+  // 更多功能（折叠）
+  { icon: <FileSearch size={18} />, label: "标书审阅", href: "tender-analysis", group: "更多" },
+  { icon: <FileSignature size={18} />, label: "合同管理", href: "contracts", roles: ["manager", "boss", "founder"], group: "更多" },
+  { icon: <Warehouse size={18} />, label: "库存管理", href: "inventory", group: "更多" },
+  { icon: <Workflow size={18} />, label: "流程设计", href: "workflows", roles: ["boss", "founder"], group: "更多" },
+  { icon: <Wrench size={18} />, label: "工单管理", href: "work-orders", group: "更多" },
+  { icon: <Package size={18} />, label: "资产管理", href: "assets", group: "更多" },
+  { icon: <BookOpen size={18} />, label: "知识库", href: "knowledge", group: "更多" },
+  { icon: <GraduationCap size={18} />, label: "培训中心", href: "training", group: "更多" },
+  { icon: <Gift size={18} />, label: "激励钱包", href: "rewards", group: "更多" },
+  { icon: <Rocket size={18} />, label: "虚拟市场部", href: "vmd", group: "更多" },
+  { icon: <Network size={18} />, label: "组织架构", href: "org-chart", roles: ["boss", "founder"], group: "更多" },
+
+  // 设置
+  { icon: <Settings size={18} />, label: "系统设置", href: "settings", group: "设置" },
+  { icon: <Cpu size={18} />, label: "模型管理", href: "llm/models", roles: ["boss", "founder"], group: "设置" },
 ];
 
-const NAV_GROUPS = ["AI 核心", "销售与客关", "项目与目标", "OA/HR/财务", "知识与培训", "虚拟市场部", "组织管理", "系统管理"];
+const NAV_GROUPS = ["核心", "销售", "项目", "办公", "更多", "设置"];
 
 export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
   const { user } = useUser();
