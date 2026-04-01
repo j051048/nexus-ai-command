@@ -67,6 +67,7 @@ import {
   PinOff,
   Star,
   Network,
+  Search,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -262,6 +263,24 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
           </div>
         )}
       </div>
+
+      {/* 搜索框 */}
+      {!isCollapsed && (
+        <div className="px-6 pb-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="搜索功能 (⌘K)"
+              className="w-full pl-9 pr-3 h-9 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-primary/50 focus:bg-white/10 transition-all"
+              onFocus={() => {
+                const event = new KeyboardEvent('keydown', { key: 'k', metaKey: true });
+                document.dispatchEvent(event);
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto no-scrollbar py-2">
         {NAV_GROUPS.map(group => 

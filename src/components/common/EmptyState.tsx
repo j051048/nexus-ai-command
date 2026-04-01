@@ -1,207 +1,32 @@
-import React from 'react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Plus, Search } from 'lucide-react';
-import {
-  EmptyInboxIllustration,
-  NoSearchResultsIllustration,
-  ErrorIllustration,
-  NoDataIllustration,
-  NoPermissionIllustration,
-} from './EmptyStateIllustrations';
-
-export type EmptyStateType = 'default' | 'search' | 'error' | 'no-data' | 'no-permission';
+import { Button } from "@/components/ui/button";
 
 interface EmptyStateProps {
-  type?: EmptyStateType;
   icon?: React.ReactNode;
   title: string;
-  description?: string;
+  description: string;
   action?: {
     label: string;
     onClick: () => void;
-    icon?: React.ReactNode;
   };
-  secondaryAction?: {
-    label: string;
-    onClick: () => void;
-  };
-  suggestions?: string[];
-  className?: string;
-  compact?: boolean;
 }
 
-const defaultIcons: Record<EmptyStateType, React.ReactNode> = {
-  default: <EmptyInboxIllustration className="w-24 h-24 text-muted-foreground" />,
-  search: <NoSearchResultsIllustration className="w-24 h-24 text-muted-foreground" />,
-  error: <ErrorIllustration className="w-24 h-24 text-destructive" />,
-  'no-data': <NoDataIllustration className="w-24 h-24 text-muted-foreground" />,
-  'no-permission': <NoPermissionIllustration className="w-24 h-24 text-warning" />,
-};
-
-export function EmptyState({
-  type = 'default',
-  icon,
-  title,
-  description,
-  action,
-  secondaryAction,
-  suggestions,
-  className,
-  compact = false,
-}: EmptyStateProps) {
-  const displayIcon = icon || defaultIcons[type];
-
+export function EmptyState({ icon, title, description, action }: EmptyStateProps) {
   return (
-    <div
-      className={cn(
-        'flex flex-col items-center justify-center text-center',
-        compact ? 'py-8 px-4' : 'py-16 px-6',
-        className
-      )}
-    >
-      {/* Icon Container */}
-      <div
-        className={cn(
-          'rounded-full bg-muted/50 flex items-center justify-center mb-4 transition-transform hover:scale-105',
-          compact ? 'w-20 h-20' : 'w-28 h-28'
-        )}
-      >
-        {displayIcon}
-      </div>
-
-      {/* Title */}
-      <h3
-        className={cn(
-          'font-semibold text-foreground mb-2',
-          compact ? 'text-base' : 'text-xl'
-        )}
-      >
-        {title}
-      </h3>
-
-      {/* Description */}
-      {description && (
-        <p
-          className={cn(
-            'text-muted-foreground max-w-md mb-6',
-            compact ? 'text-sm' : 'text-base'
-          )}
-        >
-          {description}
-        </p>
-      )}
-
-      {/* Suggestions */}
-      {suggestions && suggestions.length > 0 && (
-        <div className="mb-6 text-left">
-          <p className="text-sm text-muted-foreground mb-2 text-center">您可以尝试：</p>
-          <ul className="space-y-1.5">
-            {suggestions.map((suggestion, index) => (
-              <li
-                key={index}
-                className="flex items-center gap-2 text-sm text-muted-foreground"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
-                <span>{suggestion}</span>
-              </li>
-            ))}
-          </ul>
+    <div className="flex flex-col items-center justify-center py-16 px-4">
+      {icon && (
+        <div className="w-24 h-24 rounded-full bg-muted/50 flex items-center justify-center mb-6">
+          {icon}
         </div>
       )}
-
-      {/* Actions */}
-      <div className="flex items-center gap-3">
-        {action && (
-          <Button onClick={action.onClick} size={compact ? 'sm' : 'default'}>
-            {action.icon || <Plus className="w-4 h-4 mr-2" />}
-            {action.label}
-          </Button>
-        )}
-        {secondaryAction && (
-          <Button
-            variant="outline"
-            onClick={secondaryAction.onClick}
-            size={compact ? 'sm' : 'default'}
-          >
-            {secondaryAction.label}
-          </Button>
-        )}
-      </div>
+      <h3 className="text-heading-sm mb-2">{title}</h3>
+      <p className="text-body-sm text-muted-foreground text-center max-w-md mb-6">
+        {description}
+      </p>
+      {action && (
+        <Button onClick={action.onClick} size="lg">
+          {action.label}
+        </Button>
+      )}
     </div>
   );
 }
-
-// 预设的空状态变体
-export function NoSearchResults({
-  query,
-  onClear,
-}: {
-  query: string;
-  onClear: () => void;
-}) {
-  return (
-    <EmptyState
-      type="search"
-      title={`未找到 "${query}" 相关结果`}
-      description="请尝试其他关键词或调整筛选条件"
-      action={{
-        label: '清除搜索',
-        onClick: onClear,
-        icon: <Search className="w-4 h-4 mr-2" />,
-      }}
-      suggestions={[
-        '检查关键词是否有拼写错误',
-        '尝试使用更简短的关键词',
-        '减少筛选条件',
-      ]}
-    />
-  );
-}
-
-export function NoDataYet({
-  resourceName,
-  onAdd,
-}: {
-  resourceName: string;
-  onAdd?: () => void;
-}) {
-  return (
-    <EmptyState
-      type="no-data"
-      title={`暂无${resourceName}`}
-      description={`还没有任何${resourceName}，立即创建第一个吧`}
-      action={
-        onAdd
-          ? {
-              label: `新建${resourceName}`,
-              onClick: onAdd,
-            }
-          : undefined
-      }
-    />
-  );
-}
-
-export function LoadingError({
-  message,
-  onRetry,
-}: {
-  message?: string;
-  onRetry: () => void;
-}) {
-  return (
-    <EmptyState
-      type="error"
-      title="加载失败"
-      description={message || '数据加载时发生错误，请稍后重试'}
-      action={{
-        label: '重新加载',
-        onClick: onRetry,
-        icon: <span className="mr-2">🔄</span>,
-      }}
-    />
-  );
-}
-
-export default EmptyState;
