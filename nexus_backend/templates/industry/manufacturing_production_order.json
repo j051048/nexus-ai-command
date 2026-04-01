@@ -1,0 +1,61 @@
+{
+  "name": "制造业-生产订单审批",
+  "industry": "manufacturing",
+  "description": "适用于制造业的生产订单审批流程，包含成本审核、产能评估、质量把关等环节",
+  "tags": ["制造业", "生产管理", "订单审批"],
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start",
+      "label": "提交生产订单",
+      "position": {"x": 100, "y": 100}
+    },
+    {
+      "id": "cost_review",
+      "type": "approval",
+      "label": "成本审核",
+      "config": {
+        "approver_role": "finance_manager",
+        "auto_approve_threshold": 50000,
+        "timeout_hours": 24
+      },
+      "position": {"x": 100, "y": 200}
+    },
+    {
+      "id": "capacity_check",
+      "type": "auto_check",
+      "label": "产能评估",
+      "config": {
+        "check_type": "capacity",
+        "pass_condition": "available_capacity > order_quantity"
+      },
+      "position": {"x": 100, "y": 300}
+    },
+    {
+      "id": "quality_approval",
+      "type": "approval",
+      "label": "质量把关",
+      "config": {
+        "approver_role": "quality_manager",
+        "timeout_hours": 12
+      },
+      "position": {"x": 100, "y": 400}
+    },
+    {
+      "id": "production_start",
+      "type": "notify",
+      "label": "通知生产部门",
+      "config": {
+        "notify_roles": ["production_manager", "workshop_director"],
+        "message_template": "生产订单 {{order_id}} 已审批通过，请安排生产"
+      },
+      "position": {"x": 100, "y": 500}
+    }
+  ],
+  "edges": [
+    {"from": "start", "to": "cost_review"},
+    {"from": "cost_review", "to": "capacity_check", "condition": "approved"},
+    {"from": "capacity_check", "to": "quality_approval", "condition": "passed"},
+    {"from": "quality_approval", "to": "production_start", "condition": "approved"}
+  ]
+}
