@@ -18,6 +18,32 @@ export default {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
+      backdropBlur: {
+        xs: '2px',
+      },
+      fontSize: {
+        'display-lg': ['3rem', { lineHeight: '1.2', fontWeight: '700' }],
+        'display': ['2.25rem', { lineHeight: '1.25', fontWeight: '700' }],
+        'heading-lg': ['1.875rem', { lineHeight: '1.3', fontWeight: '600' }],
+        'heading': ['1.5rem', { lineHeight: '1.4', fontWeight: '600' }],
+        'heading-sm': ['1.25rem', { lineHeight: '1.4', fontWeight: '600' }],
+        'body-lg': ['1.125rem', { lineHeight: '1.6', fontWeight: '400' }],
+        'body': ['1rem', { lineHeight: '1.5', fontWeight: '400' }],
+        'body-sm': ['0.875rem', { lineHeight: '1.5', fontWeight: '400' }],
+        'caption': ['0.75rem', { lineHeight: '1.4', fontWeight: '400' }],
+      },
+      spacing: {
+        'section': '4rem',
+        'component': '2rem',
+        'element': '1rem',
+        'tight': '0.5rem',
+      },
+      minHeight: {
+        'touch': '44px',
+      },
+      minWidth: {
+        'touch': '44px',
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

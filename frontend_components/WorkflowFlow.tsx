@@ -11,31 +11,45 @@ import ReactFlow, {
   MarkerType,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+import { User, CheckCircle2, Clock } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 // 自定义审批节点
 function ApprovalNode({ data }: { data: any }) {
-  const statusColor = {
-    completed: 'bg-green-100 border-green-500',
-    current: 'bg-blue-100 border-blue-500',
-    pending: 'bg-gray-50 border-gray-300',
+  const statusStyles = {
+    completed: 'bg-success/10 border-success/50 dark:bg-success/5',
+    current: 'bg-primary/10 border-primary/50 dark:bg-primary/5 shadow-lg shadow-primary/20',
+    pending: 'bg-muted/50 border-border dark:bg-muted/20',
+  };
+
+  const statusIcons = {
+    completed: <CheckCircle2 className="w-4 h-4 text-success" />,
+    current: <Clock className="w-4 h-4 text-primary animate-pulse" />,
+    pending: <User className="w-4 h-4 text-muted-foreground" />,
   };
 
   return (
-    <div className={`approval-node p-4 rounded-lg border-2 ${statusColor[data.status || 'pending']}`}>
-      <div className="flex items-center gap-2 mb-2">
-        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
-          👤
+    <div className={cn(
+      "approval-node p-4 rounded-xl border-2 transition-all duration-200",
+      "hover:shadow-lg hover:scale-105 cursor-pointer",
+      statusStyles[data.status || 'pending']
+    )}>
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-background flex items-center justify-center border">
+          {statusIcons[data.status || 'pending']}
         </div>
-        <div>
-          <p className="text-sm font-medium">{data.label}</p>
-          {data.approver && <p className="text-xs text-gray-500">{data.approver}</p>}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">{data.label}</p>
+          {data.approver && (
+            <p className="text-xs text-muted-foreground truncate">{data.approver}</p>
+          )}
         </div>
       </div>
-      {data.status === 'current' && (
-        <div className="mt-2 text-xs text-blue-600">待处理</div>
-      )}
-      {data.status === 'completed' && (
-        <div className="mt-2 text-xs text-green-600">已完成 {data.completedAt}</div>
+
+      {data.status === 'completed' && data.completedAt && (
+        <div className="mt-3 pt-3 border-t border-border/50 text-xs text-muted-foreground">
+          {data.completedAt}
+        </div>
       )}
     </div>
   );
@@ -44,19 +58,19 @@ function ApprovalNode({ data }: { data: any }) {
 // 自定义执行人节点
 function ExecutorNode({ data }: { data: any }) {
   return (
-    <div className="executor-node p-4 rounded-lg border-2 bg-purple-50 border-purple-500">
-      <div className="flex items-center gap-2 mb-2">
-        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
-          ✅
+    <div className="executor-node p-4 rounded-xl border-2 bg-purple-500/10 border-purple-500/50 dark:bg-purple-500/5 hover:shadow-lg transition-all cursor-pointer">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-background flex items-center justify-center border">
+          <CheckCircle2 className="w-4 h-4 text-purple-500" />
         </div>
-        <div>
-          <p className="text-sm font-medium">{data.label}</p>
-          <p className="text-xs text-gray-500">{data.actionLabel}</p>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">{data.label}</p>
+          <p className="text-xs text-muted-foreground truncate">{data.actionLabel}</p>
         </div>
       </div>
       {data.status === 'completed' && data.evidence && (
-        <div className="mt-2 text-xs text-purple-600">
-          已确认 · <a href={data.evidence} className="underline">查看凭证</a>
+        <div className="mt-3 pt-3 border-t border-border/50 text-xs text-purple-600 dark:text-purple-400">
+          已确认 · <a href={data.evidence} className="underline hover:text-purple-700">查看凭证</a>
         </div>
       )}
     </div>
@@ -66,12 +80,12 @@ function ExecutorNode({ data }: { data: any }) {
 // 自定义并行网关节点
 function ParallelGatewayNode({ data }: { data: any }) {
   return (
-    <div className="parallel-gateway p-3 rounded-lg border-2 bg-yellow-50 border-yellow-500">
+    <div className="parallel-gateway p-3 rounded-xl border-2 bg-warning/10 border-warning/50 dark:bg-warning/5 hover:shadow-lg transition-all cursor-pointer">
       <div className="text-center">
         <p className="text-sm font-medium mb-1">
           {data.mode === 'all' ? '会签' : '或签'}
         </p>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-muted-foreground">
           {data.mode === 'all' ? '全部同意' : `${data.minApprovals}人同意`}
         </p>
       </div>

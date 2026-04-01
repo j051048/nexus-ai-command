@@ -928,3 +928,38 @@ html, body {
     animation: none !important;
   }
 }
+
+/* ==================== Glassmorphism 玻璃态样式 ==================== */
+@layer components {
+  .glass-card {
+    @apply backdrop-blur-xl bg-white/80 dark:bg-gray-900/80 
+           border border-white/20 dark:border-white/10
+           shadow-lg shadow-black/5;
+  }
+  
+  .glass-sidebar {
+    @apply backdrop-blur-2xl bg-white/60 dark:bg-gray-950/60
+           border-r border-white/10;
+  }
+  
+  .glass-header {
+    @apply backdrop-blur-xl bg-white/70 dark:bg-gray-900/70
+           border-b border-white/10;
+  }
+}
+
+/* ==================== 焦点指示器增强 ==================== */
+*:focus-visible {
+  outline: 3px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+/* ==================== 减弱动画支持 ==================== */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
