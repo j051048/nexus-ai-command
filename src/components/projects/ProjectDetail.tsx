@@ -19,6 +19,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/contexts/UserContext';
+import { httpClient } from '@/lib/httpClient';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -72,13 +73,8 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
     const { data: subtasks = [] } = useQuery({
         queryKey: ['project-subtasks', projectId],
         queryFn: async () => {
-            const { data, error } = await supabase.from('oa_tasks')
-                .select('id, title, status, priority, assignee_id, created_at')
-                .eq('metadata->>project_id', projectId)
-                .order('created_at', { ascending: false })
-                .limit(20);
-            if (error) throw error;
-            return (data || []) as OATask[];
+            const response = await httpClient.get(`/api/projects/${projectId}/tasks`);
+            return response.data?.tasks || [];
         },
         enabled: !!projectId,
     });

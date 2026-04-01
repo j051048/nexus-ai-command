@@ -1,0 +1,114 @@
+"""HR人力资源 API 路由"""
+
+import logging
+from fastapi import APIRouter, Depends, Request
+from app.core.auth import get_current_user_id
+from app.core.errors import ErrorCode, api_error, api_success
+
+logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/api/hr", tags=["HR"])
+
+
+@router.get("/attendance")
+async def list_attendance(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """获取HR考勤记录"""
+    try:
+        org_id = getattr(req.state, "org_id", None)
+        db = getattr(req.state, "db", None)
+
+        query = db.table("hr_attendance").select("*")
+        if org_id:
+            query = query.eq("tenant_id", org_id)
+
+        result = await query.execute()
+        return api_success(data={"records": result.data or []})
+    except Exception as e:
+        logger.error(f"Failed to list attendance: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "获取考勤失败")
+
+
+@router.get("/salary")
+async def list_salary(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """获取薪资记录"""
+    try:
+        org_id = getattr(req.state, "org_id", None)
+        db = getattr(req.state, "db", None)
+
+        query = db.table("hr_salary_records").select("*")
+        if org_id:
+            query = query.eq("tenant_id", org_id)
+
+        result = await query.execute()
+        return api_success(data={"records": result.data or []})
+    except Exception as e:
+        logger.error(f"Failed to list salary: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "获取薪资失败")
+
+
+@router.get("/performance")
+async def list_performance(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """获取绩效评审"""
+    try:
+        org_id = getattr(req.state, "org_id", None)
+        db = getattr(req.state, "db", None)
+
+        query = db.table("hr_performance_reviews").select("*")
+        if org_id:
+            query = query.eq("tenant_id", org_id)
+
+        result = await query.execute()
+        return api_success(data={"reviews": result.data or []})
+    except Exception as e:
+        logger.error(f"Failed to list performance: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "获取绩效失败")
+
+
+@router.get("/positions")
+async def list_positions(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """获取职位列表"""
+    try:
+        org_id = getattr(req.state, "org_id", None)
+        db = getattr(req.state, "db", None)
+
+        query = db.table("hr_job_positions").select("*")
+        if org_id:
+            query = query.eq("tenant_id", org_id)
+
+        result = await query.execute()
+        return api_success(data={"positions": result.data or []})
+    except Exception as e:
+        logger.error(f"Failed to list positions: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "获取职位失败")
+
+
+@router.get("/candidates")
+async def list_candidates(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """获取候选人列表"""
+    try:
+        org_id = getattr(req.state, "org_id", None)
+        db = getattr(req.state, "db", None)
+
+        query = db.table("hr_candidates").select("*")
+        if org_id:
+            query = query.eq("tenant_id", org_id)
+
+        result = await query.execute()
+        return api_success(data={"candidates": result.data or []})
+    except Exception as e:
+        logger.error(f"Failed to list candidates: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "获取候选人失败")

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthContext';
+import { httpClient } from '@/lib/httpClient';
 
 // Interfaces for HR tables (not in generated types.ts)
 
@@ -89,25 +89,12 @@ export interface HRCandidate {
 
 export function useAttendanceRecords(month?: string) {
   const { user } = useAuth();
-  const targetMonth = month || new Date().toISOString().slice(0, 7);
 
   return useQuery({
-    queryKey: ['hr-attendance', user?.id, targetMonth],
+    queryKey: ['hr-attendance', user?.id, month],
     queryFn: async () => {
-      const startDate = `${targetMonth}-01`;
-      const [y, m] = targetMonth.split('-').map(Number);
-      const lastDay = new Date(y, m, 0).getDate();
-      const endDate = `${targetMonth}-${String(lastDay).padStart(2, '0')}`;
-
-      const { data, error } = await supabase.from('hr_attendance')
-        .select('*')
-        .eq('user_id', user?.id)
-        .gte('date', startDate)
-        .lte('date', endDate)
-        .order('date', { ascending: false });
-
-      if (error) throw error;
-      return (data || []) as AttendanceRecord[];
+      const response = await httpClient.get('/api/hr/attendance');
+      return response.data?.records || [];
     },
     enabled: !!user?.id,
   });
@@ -132,19 +119,12 @@ export function useAttendanceStats(month?: string) {
 
 export function useSalaryRecords(period?: string) {
   const { user } = useAuth();
-  const targetPeriod = period || new Date().toISOString().slice(0, 7);
 
   return useQuery({
-    queryKey: ['hr-salary', user?.id, targetPeriod],
+    queryKey: ['hr-salary', user?.id, period],
     queryFn: async () => {
-      const { data, error } = await supabase.from('hr_salary_records')
-        .select('*')
-        .eq('user_id', user?.id)
-        .eq('period', targetPeriod)
-        .maybeSingle();
-
-      if (error) throw error;
-      return data as SalaryRecord | null;
+      const response = await httpClient.get('/api/hr/salary');
+      return response.data?.records?.[0] || null;
     },
     enabled: !!user?.id,
   });
@@ -156,18 +136,8 @@ export function usePerformanceData(period?: string) {
   return useQuery({
     queryKey: ['hr-performance', user?.id, period],
     queryFn: async () => {
-      let query = supabase.from('hr_performance_reviews')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false });
-
-      if (period) {
-        query = query.eq('period', period);
-      }
-
-      const { data, error } = await query.limit(1).maybeSingle();
-      if (error) throw error;
-      return data as PerformanceReview | null;
+      const response = await httpClient.get('/api/hr/performance');
+      return response.data?.reviews?.[0] || null;
     },
     enabled: !!user?.id,
   });
@@ -179,13 +149,8 @@ export function useRecruitmentList() {
   return useQuery({
     queryKey: ['hr-positions', profile?.organization_id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('hr_job_positions')
-        .select('*')
-        .eq('organization_id', profile?.organization_id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return (data || []) as JobPosition[];
+      const response = await httpClient.get('/api/hr/positions');
+      return response.data?.positions || [];
     },
     enabled: !!profile?.organization_id,
   });
@@ -195,13 +160,8 @@ export function useCandidates(positionId: string | null) {
   return useQuery({
     queryKey: ['hr-candidates', positionId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('hr_candidates')
-        .select('*')
-        .eq('position_id', positionId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return (data || []) as HRCandidate[];
+      const response = await httpClient.get('/api/hr/candidates');
+      return response.data?.candidates || [];
     },
     enabled: !!positionId,
   });

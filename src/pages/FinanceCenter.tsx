@@ -41,6 +41,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMyApprovals, useSubmitApproval } from '@/hooks/useApprovals';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { httpClient } from '@/lib/httpClient';
 
 // Local interface for finance_budgets (not in types.ts)
 interface FinanceBudget {
@@ -174,24 +175,18 @@ export function FinanceCenter() {
     setBudgetSubmitting(true);
     try {
       if (editingBudgetId) {
-        const { error } = await supabase.from('finance_budgets')
-          .update({
-            name: budgetForm.name,
-            total_amount: budgetForm.total_amount,
-            period: budgetForm.period,
-          })
-          .eq('id', editingBudgetId);
-        if (error) throw error;
-        toast.success('预算更新成功');
-      } else {
-        const { error } = await supabase.from('finance_budgets').insert({
+        await httpClient.put(`/api/finance/budgets/${editingBudgetId}`, {
           name: budgetForm.name,
           total_amount: budgetForm.total_amount,
-          used_amount: 0,
           period: budgetForm.period,
-          organization_id: profile?.organization_id,
         });
-        if (error) throw error;
+        toast.success('预算更新成功');
+      } else {
+        await httpClient.post('/api/finance/budgets', {
+          name: budgetForm.name,
+          total_amount: budgetForm.total_amount,
+          period: budgetForm.period,
+        });
         toast.success('预算创建成功');
       }
       setBudgetDialogOpen(false);
@@ -218,10 +213,7 @@ export function FinanceCenter() {
   const handleDeleteBudget = async (budgetId: string) => {
     if (!window.confirm('确认删除此预算？删除后不可恢复。')) return;
     try {
-      const { error } = await supabase.from('finance_budgets')
-        .delete()
-        .eq('id', budgetId);
-      if (error) throw error;
+      await httpClient.delete(`/api/finance/budgets/${budgetId}`);
       toast.success('预算已删除');
       fetchBudgets();
     } catch (error: unknown) {
@@ -240,14 +232,12 @@ export function FinanceCenter() {
     }
     setInvoiceSubmitting(true);
     try {
-      const { error } = await supabase.from('finance_invoices').insert({
+      await httpClient.post('/api/finance/invoices', {
         invoice_number: invoiceForm.invoice_number,
         amount: invoiceForm.amount,
         due_date: invoiceForm.due_date || null,
         status: invoiceForm.status,
-        organization_id: profile?.organization_id,
       });
-      if (error) throw error;
       toast.success('发票创建成功');
       setInvoiceDialogOpen(false);
       setInvoiceForm({ invoice_number: '', amount: 0, due_date: '', status: 'draft' });
@@ -287,12 +277,8 @@ export function FinanceCenter() {
   const fetchBudgets = useCallback(async () => {
     try {
       if (!profile?.organization_id) return;
-      const { data, error } = await supabase.from('finance_budgets')
-        .select('*')
-        .eq('organization_id', profile.organization_id)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      setBudgets((data as FinanceBudget[]) || []);
+      const response = await httpClient.get('/api/finance/budgets');
+      setBudgets(response.data?.budgets || []);
     } catch (error: unknown) {
       toast.error('加载预算数据失败');
     } finally {

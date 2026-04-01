@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getApiBaseUrl } from '@/lib/apiConfig';
+import { httpClient } from '@/lib/httpClient';
 import {
     FileText,
     Upload,
@@ -59,11 +60,8 @@ export function DocumentsPage({ onNavigate }: { onNavigate?: (nav: string) => vo
     const fetchDocuments = async () => {
         setIsLoading(true);
         try {
-            const { data, error } = await supabase.from('documents')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            if (error) throw error;
+            const response = await httpClient.get('/api/documents');
+            const data = response.data?.documents || [];
 
             const formattedDocs: NexusDocument[] = (data || []).map((doc) => ({
                 id: doc.id,

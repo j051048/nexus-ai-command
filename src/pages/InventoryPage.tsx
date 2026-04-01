@@ -33,6 +33,7 @@ import { useAuth } from '@/components/auth/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { httpClient } from '@/lib/httpClient';
 
 interface InventoryItem {
   id: string;
@@ -106,8 +107,7 @@ export default function InventoryPage() {
     }
     setSubmitting(true);
     try {
-      // @ts-expect-error Types not fully generated
-      const { error } = await supabase.from('inventory').insert({
+      await httpClient.post('/api/inventory', {
         item_code: form.item_code.trim(),
         name: form.name.trim(),
         category: form.category,
@@ -115,9 +115,7 @@ export default function InventoryPage() {
         min_stock: Number(form.min_stock) || 10,
         location: form.location.trim() || null,
         unit: form.unit || '个',
-        organization_id: orgId,
       });
-      if (error) throw error;
       toast.success('物料添加成功');
       setDialogOpen(false);
       setForm({ item_code: '', name: '', category: 'office', quantity: '', min_stock: '10', location: '', unit: '个' });

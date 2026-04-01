@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { httpClient } from '@/lib/httpClient';
 
 // ─── 类型定义 ──────────────────────────────────────────────
 
@@ -50,31 +50,16 @@ function calculateStats(logs: AuditLogEntry[]): AuditStats {
 }
 
 // ─── Table availability probe ──────────────────────────────
-// Once the table is confirmed unavailable (RLS deny / missing), skip all
-// subsequent queries for the rest of the session to avoid 400 console noise.
-
-let _auditTableAvailable: boolean | null = null; // null = not checked yet
+let _auditTableAvailable: boolean | null = true; // 默认可用
 
 async function isAuditTableAvailable(): Promise<boolean> {
-  if (_auditTableAvailable !== null) return _auditTableAvailable;
-
-  const { error } = await supabase
-    .from('audit_logs')
-    .select('id')
-    .limit(1);
-
-  _auditTableAvailable = !error;
-  if (error) {
-    console.debug('[audit_logs] table unavailable (RLS or missing), disabling audit queries');
-  }
-  return _auditTableAvailable;
+  return _auditTableAvailable !== false;
 }
 
 // ─── Hooks ──────────────────────────────────────────────────
 
 /**
  * 查询审计日志
- * 从 Supabase audit_logs 表获取真实数据，表不可用时返回空数组
  */
 export function useAuditLogs(filters: AuditFilters) {
   return useQuery({
@@ -82,30 +67,15 @@ export function useAuditLogs(filters: AuditFilters) {
     queryFn: async (): Promise<AuditLogEntry[]> => {
       if (!(await isAuditTableAvailable())) return [];
 
-      let query = supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(200);
+      const params = new URLSearchParams();
+      if (filters.startDate) params.append('startDate', filters.startDate);
+      if (filters.endDate) params.append('endDate', filters.endDate);
+      if (filters.action && filters.action !== 'all') params.append('action', filters.action);
+      if (filters.actor) params.append('actor', filters.actor);
+      if (filters.status && filters.status !== 'all') params.append('status', filters.status);
 
-      if (filters.startDate) {
-        query = query.gte('created_at', filters.startDate);
-      }
-      if (filters.endDate) {
-        query = query.lte('created_at', filters.endDate + 'T23:59:59');
-      }
-      if (filters.action && filters.action !== 'all') {
-        query = query.eq('action', filters.action);
-      }
-      if (filters.actor) {
-        query = query.ilike('actor', `%${filters.actor}%`);
-      }
-      if (filters.status && filters.status !== 'all') {
-        query = query.eq('status', filters.status);
-      }
-
-      const { data, error } = await query;
-      if (error) {
-        _auditTableAvailable = false;
-        return [];
-      }
-      return (data as AuditLogEntry[]) || [];
+      const response = await httpClient.get(`/api/system/audit-logs?${params}`);
+      return response.data?.logs || [];
     },
     staleTime: 30_000,
     retry: false,
@@ -130,24 +100,16 @@ export function useAuditStats(filters: AuditFilters) {
 }
 
 /**
- * 可用的操作类型列表（从真实数据中提取去重）
+ * 可用的操作类型列表
  */
 export function useAuditActions() {
   return useQuery({
     queryKey: ['audit-actions'],
     queryFn: async () => {
       if (!(await isAuditTableAvailable())) return [];
-
-      const { data, error } = await supabase
-        .from('audit_logs')
-        .select('action')
-        .order('action');
-      if (error) {
-        _auditTableAvailable = false;
-        return [];
-      }
-      const actions: string[] = [...new Set((data as { action: string }[]).map((d) => d.action))];
-      return actions;
+      const response = await httpClient.get('/api/system/audit-logs');
+      const logs = response.data?.logs || [];
+      return [...new Set(logs.map((l: AuditLogEntry) => l.action))];
     },
     staleTime: 60_000,
     retry: false,

@@ -33,6 +33,7 @@ import { useAuth } from '@/components/auth/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { httpClient } from '@/lib/httpClient';
 
 interface Certificate {
   id: string;
@@ -119,17 +120,14 @@ export default function CertificateManagement() {
     }
     setSubmitting(true);
     try {
-      const { error } = await supabase.from('certificates').insert({
+      await httpClient.post('/api/certificates', {
         cert_type: form.cert_type.trim(),
         cert_no: form.cert_no.trim(),
         name: form.name.trim(),
         holder_type: form.holder_type,
         issue_date: form.issue_date || null,
         expire_date: form.expire_date || null,
-        status: 'valid',
-        organization_id: orgId,
       });
-      if (error) throw error;
       toast.success('证照添加成功');
       setDialogOpen(false);
       setForm({ cert_type: '', cert_no: '', name: '', holder_type: 'company', issue_date: '', expire_date: '' });

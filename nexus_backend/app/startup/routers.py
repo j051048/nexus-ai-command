@@ -51,8 +51,11 @@ def register_routers(app: FastAPI) -> None:
 
     # ── 2. CRM / Sales ───────────────────────────────────────────────────
     from app.routers import crm, competitors, performance, incentive, dashboard
+    from app.routers import sales_leads, sales
 
     app.include_router(crm.router)
+    app.include_router(sales_leads.router)
+    app.include_router(sales.router)
     app.include_router(competitors.router)
     app.include_router(performance.router)
     app.include_router(incentive.router)
@@ -63,6 +66,7 @@ def register_routers(app: FastAPI) -> None:
     from app.routers import approval_flows as approval_flows_router
     from app.routers import attendance as attendance_router
     from app.routers import expenses as expenses_router
+    from app.routers import oa
 
     app.include_router(approval.router)
     app.include_router(approval_flows_router.router)
@@ -72,6 +76,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(form_schemas.router)
     app.include_router(attendance_router.router)
     app.include_router(expenses_router.router)
+    app.include_router(oa.router)
 
     # ── 4. Documents / Knowledge ──────────────────────────────────────────
     from app.routers import documents, training, reports, qa_pairs, import_data
@@ -86,6 +91,7 @@ def register_routers(app: FastAPI) -> None:
     from app.routers import organization, profile, permissions, onboarding, notifications
     from app.routers import notification_preferences as notification_preferences_router
     from app.routers import org_structure as org_structure_router
+    from app.routers import users, hr
 
     app.include_router(organization.router)
     app.include_router(org_structure_router.router)
@@ -94,15 +100,19 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(onboarding.router)
     app.include_router(notifications.router)
     app.include_router(notification_preferences_router.router)
+    app.include_router(users.router)
+    app.include_router(hr.router)
 
     # ── 6. Finance / Billing ──────────────────────────────────────────────
     from app.routers import billing, payments, usage
     from app.routers import stripe_webhooks as stripe_webhooks_router
+    from app.routers import finance
 
     app.include_router(billing.router)
     app.include_router(payments.router)
     app.include_router(stripe_webhooks_router.router)
     app.include_router(usage.router)
+    app.include_router(finance.router)
 
     # ── 7. Assets / Inventory / Contracts ─────────────────────────────────
     from app.routers import contracts
@@ -139,6 +149,7 @@ def register_routers(app: FastAPI) -> None:
     from app.routers import super_admin, api_docs, api_keys, backups, compliance, data_transfer
     from app.routers import system_configs as system_configs_router
     from app.routers import dsar as dsar_router
+    from app.routers import system as system_router
 
     app.include_router(super_admin.router)
     app.include_router(api_docs.router)
@@ -148,6 +159,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(data_transfer.router)
     app.include_router(system_configs_router.router)
     app.include_router(dsar_router.router)
+    app.include_router(system_router.router)
 
     # ── 10. Optional / VMD routers ────────────────────────────────────────
 

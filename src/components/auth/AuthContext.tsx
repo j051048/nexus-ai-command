@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, useMemo,
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { toast } from 'sonner';
+import { httpClient } from '@/lib/httpClient';
 
 // 权限系统
 type AppRole = 'boss' | 'manager' | 'ai_assistant' | 'employee' | 'pending_boss';
@@ -80,17 +81,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchUserData = async (userId: string) => {
     try {
-      // Use 'users' table instead of 'profiles'
-      // Map id to user_id for backward compatibility
-      const { data: profileData, error: profileError } = await supabase.from('users')
-        .select('*, user_id:id')
-        .eq('id', userId)
-        .maybeSingle();
+      const response = await httpClient.get('/api/users/profile');
+      const profileData = response.data?.user;
 
-      if (profileError) {
-        // Profile fetch failed — user will have limited functionality
-      } else if (profileData) {
-        // 清洗 profile 数据，确保所有字段都是渲染安全的类型
+      if (profileData) {
         setProfile(sanitizeProfile(profileData as Record<string, unknown>));
       }
 
@@ -98,9 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .rpc('get_user_role', { _user_id: userId });
 
       if (roleData) {
-        // 安全提取角色字符串（RPC 可能返回非字符串类型）
         const roleStr = safeProfileStr(roleData, 'role');
-        // Handle pending_boss: treat as employee but flag it
         if (roleStr === 'pending_boss') {
           setRole('employee');
           setIsPendingBoss(true);

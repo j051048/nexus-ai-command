@@ -6,6 +6,7 @@ import { ListChecks, Bot, Loader2, Upload, AlertCircle, CheckCircle2, FileText, 
 import { supabase } from "@/integrations/supabase/client";
 import { getApiBaseUrl } from '@/lib/apiConfig';
 import { toast } from "sonner";
+import { httpClient } from '@/lib/httpClient';
 import { useUser } from "@/contexts/UserContext";
 import { AICopilotInsight } from '@/components/common/AICopilotInsight';
 
@@ -57,14 +58,9 @@ export function TenderAnalysisPage() {
     const fetchHistory = useCallback(async () => {
         setHistoryLoading(true);
         try {
-            const { data, error } = await supabase.from('documents')
-                .select('id, name, doc_type, status, extracted_data, owner_id, created_at')
-                .order('created_at', { ascending: false })
-                .limit(20);
+            const response = await httpClient.get('/api/documents');
+            const data = response.data?.documents || [];
 
-            if (error) throw error;
-
-            // Filter to bid/tender documents (check both top-level and extracted_data.doc_type)
             const bidDocs = (data || []).filter((doc: Record<string, unknown>) => {
                 const ed = typeof doc.extracted_data === 'string'
                     ? JSON.parse(doc.extracted_data)
@@ -73,14 +69,12 @@ export function TenderAnalysisPage() {
                 return dt === 'bid' || dt === 'tender';
             });
 
-            // Resolve owner names
             const ownerIds = [...new Set(bidDocs.map((d: Record<string, unknown>) => d.owner_id).filter(Boolean))] as string[];
             let nameMap: Record<string, string> = {};
 
             if (ownerIds.length > 0) {
-                const { data: users } = await supabase.from('users')
-                    .select('id, name')
-                    .in('id', ownerIds);
+                const userResponse = await httpClient.get('/api/users/profile');
+                const users = userResponse.data?.users || [];
                 nameMap = Object.fromEntries(
                     (users || []).map((u: { id: string; name?: string }) => [u.id, u.name || '未知用户'])
                 );

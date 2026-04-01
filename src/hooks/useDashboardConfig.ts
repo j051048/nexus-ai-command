@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthContext';
+import { httpClient } from '@/lib/httpClient';
 
 // ─── 类型定义 ──────────────────────────────────────────────
 
@@ -86,19 +86,12 @@ export function useDashboardConfig() {
   // Debounce ref for saving to DB
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Fetch from Supabase ──────────────────────────────────
+  // ── Fetch from API ──────────────────────────────────
   const { data: dbConfig } = useQuery({
     queryKey: ['dashboard-config', userId],
     queryFn: async () => {
-      const { data } = await supabase.from('dashboard_configs')
-        .select('id, config_json')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (data?.config_json) {
-        return data.config_json as DashboardConfig;
-      }
-      return null;
+      const response = await httpClient.get('/api/system/dashboard-configs');
+      return response.data?.config?.config_json || null;
     },
     enabled: !!userId,
     staleTime: 60_000,
@@ -116,19 +109,9 @@ export function useDashboardConfig() {
   const saveMutation = useMutation({
     mutationFn: async (newConfig: DashboardConfig) => {
       if (!userId) return;
-
-      await supabase.from('dashboard_configs').upsert(
-        {
-          user_id: userId,
-          organization_id: orgId || null,
-          config_json: newConfig,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' },
-      );
+      await httpClient.post('/api/system/dashboard-configs', { config: newConfig });
     },
     onError: (err) => {
-      // Non-critical — localStorage is the fallback
       console.warn('Dashboard config save to DB failed:', err);
     },
   });

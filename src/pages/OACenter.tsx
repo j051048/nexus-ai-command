@@ -43,6 +43,7 @@ import { useAuth } from '@/components/auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { httpClient } from '@/lib/httpClient';
 
 // Local interfaces for tables not in types.ts
 interface LeaveRequest {

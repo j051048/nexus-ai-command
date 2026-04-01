@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { httpClient } from '@/lib/httpClient';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -111,16 +112,12 @@ export default function AssetManagement() {
     }
     setSubmitting(true);
     try {
-      // @ts-expect-error Types not fully generated
-      const { error } = await supabase.from('assets').insert({
+      await httpClient.post('/api/assets', {
         asset_code: form.asset_code.trim(),
         name: form.name.trim(),
         asset_type: form.asset_type,
         value: form.value ? Number(form.value) : null,
-        status: 'idle',
-        organization_id: orgId,
       });
-      if (error) throw error;
       toast.success('资产登记成功');
       setDialogOpen(false);
       setForm({ asset_code: '', name: '', asset_type: 'computer', value: '' });

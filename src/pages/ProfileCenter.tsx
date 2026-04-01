@@ -36,6 +36,7 @@ import { useAuth } from '@/components/auth/AuthContext';
 import { toast } from 'sonner';
 import { NotificationPreferences } from '@/components/settings/NotificationPreferences';
 import { supabase } from '@/integrations/supabase/client';
+import { httpClient } from '@/lib/httpClient';
 
 function getPasswordStrength(password: string): number {
   let s = 0;
@@ -130,29 +131,23 @@ export function ProfileCenter() {
 
       // Projects: count oa_tasks assigned to this user
       try {
-        const { count } = await supabase.from('oa_tasks')
-          .select('id', { count: 'exact', head: true })
-          .eq('assigned_to', userId);
-        totalProjects = count || 0;
+        const response = await httpClient.get(`/api/oa/tasks?assigned_to=${userId}`);
+        totalProjects = response.data?.tasks?.length || 0;
       } catch { /* table may not exist */ }
 
       // Sales: sum revenue from sales_metrics for this user
       try {
-        const { data: metrics } = await supabase.from('sales_metrics')
-          .select('revenue')
-          .eq('user_id', userId);
-        totalSales = (metrics || []).reduce((sum: number, m: { revenue: number }) => sum + (Number(m.revenue) || 0), 0);
+        const response = await httpClient.get('/api/sales/metrics');
+        const metrics = response.data?.metrics || [];
+        totalSales = metrics.reduce((sum: number, m: { revenue: number }) => sum + (Number(m.revenue) || 0), 0);
       } catch { /* table may not exist */ }
 
       // Attendance: calculate rate from hr_attendance for current month
       try {
-        const monthStart = new Date().toISOString().slice(0, 7) + '-01';
-        const { data: records } = await supabase.from('hr_attendance')
-          .select('status')
-          .eq('user_id', userId)
-          .gte('date', monthStart);
-        const total = (records || []).length;
-        const present = (records || []).filter((r: { status: string }) => r.status === 'present' || r.status === 'normal').length;
+        const response = await httpClient.get('/api/hr/attendance');
+        const records = response.data?.records || [];
+        const total = records.length;
+        const present = records.filter((r: { status: string }) => r.status === 'present' || r.status === 'normal').length;
         attendanceRate = total > 0 ? Math.round((present / total) * 100) : 0;
       } catch { /* table may not exist */ }
 
@@ -187,20 +182,13 @@ export function ProfileCenter() {
       const userId = session.user.id;
 
       // 直接更新 users 表中的 name 字段
-      const { data: updated, error } = await supabase.from('users')
-        .update({ name: editName.trim() })
-        .eq('id', userId)
-        .select('id')
-        .single();
-
-      if (error) {
-        toast.error('保存失败: ' + error.message);
-        return;
-      }
-
-      if (!updated) {
-        toast.error('保存失败：未能更新记录，请联系管理员检查权限配置');
-        return;
+      try {
+        await httpClient.put('/api/users/profile', { name: editName.trim() });
+        toast.success('姓名已更新');
+        setUser({ ...user, name: editName.trim() });
+        setEditDialogOpen(false);
+      } catch (error) {
+        toast.error('保存失败: ' + (error as Error).message);
       }
 
       // 刷新 AuthContext 中的 profile，使侧边栏等全局组件也更新

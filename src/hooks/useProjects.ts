@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthContext';
 import { aiClient } from '@/api/aiClient';
 import { toast } from 'sonner';
 import { Project, ProjectTimeline } from '@/types/nexus';
 import { getApiBaseUrl } from '@/lib/apiConfig';
+import { httpClient } from '@/lib/httpClient';
 export type { ProjectTimeline };
 
 export function useProjects() {
@@ -17,24 +17,15 @@ export function useProjects() {
         if (!profile?.organization_id) return;
 
         setLoading(true);
-        const { data, error } = await supabase
-            .from('projects')
-            .select('*')
-            // Filter by organization_id
-            .eq('organization_id', profile.organization_id)
-            .neq('stage', 'archived')
-            .order('updated_at', { ascending: false });
-
-        if (!error && data) {
-            const mapped = data.map(p => ({
-                ...p,
-                stage: p.status, // Map status to stage for UI
-                type: 'Enterprise' // Default type
-            }));
-            setProjects(mapped as Project[]);
-        }
+        const response = await httpClient.get('/api/projects');
+        const data = response.data?.projects || [];
+        const mapped = data.map(p => ({
+            ...p,
+            stage: p.status,
+            type: 'Enterprise'
+        }));
+        setProjects(mapped as Project[]);
         setLoading(false);
-        // ...
     }, [profile?.organization_id]);
 
     useEffect(() => {
@@ -54,12 +45,12 @@ export function useProjectDetail(projectId: string | null) {
         setLoading(true);
 
         const [projectRes, timelineRes] = await Promise.all([
-            supabase.from('projects').select('*').eq('id', projectId).single(),
-            supabase.from('project_timeline').select('*').eq('project_id', projectId).order('created_at', { ascending: false })
+            httpClient.get(`/api/projects/${projectId}`),
+            httpClient.get(`/api/projects/${projectId}/timeline`)
         ]);
 
-        if (!projectRes.error && projectRes.data) {
-            const p = projectRes.data;
+        const p = projectRes.data?.project;
+        if (p) {
             setProject({
                 ...p,
                 stage: p.status,
@@ -67,13 +58,11 @@ export function useProjectDetail(projectId: string | null) {
             });
         }
 
-        if (!timelineRes.error && timelineRes.data) {
-            const mappedTimeline = timelineRes.data.map(t => ({
-                ...t,
-                occurred_at: t.created_at
-            }));
-            setTimeline(mappedTimeline);
-        }
+        const timelineData = timelineRes.data?.timeline || [];
+        setTimeline(timelineData.map(t => ({
+            ...t,
+            occurred_at: t.created_at
+        })));
 
         setLoading(false);
     }, [projectId]);
@@ -114,13 +103,8 @@ export function useOrgMembers() {
     queryKey: ['org-members', profile?.organization_id],
     queryFn: async () => {
       if (!profile?.organization_id) return [];
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('user_id, name, avatar, department')
-        .eq('organization_id', profile.organization_id)
-        .order('name');
-      if (error) throw error;
-      return (data || []) as TeamMember[];
+      const response = await httpClient.get('/api/organization/members');
+      return response.data?.members || [];
     },
     enabled: !!profile?.organization_id,
   });

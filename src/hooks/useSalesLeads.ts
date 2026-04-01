@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthContext';
 import { SalesLead } from '@/types/nexus';
 import { salesLeadSchema } from '@/lib/schemas';
+import { httpClient } from '@/lib/httpClient';
 
 // 定义表名常量
 const SALES_LEADS_TABLE = 'sales_leads';
@@ -18,22 +18,8 @@ export function useSalesLeads() {
         queryFn: async () => {
             if (!session?.user?.id || !profile?.organization_id) return [];
 
-            let query = supabase.from('sales_leads').select('*');
-
-            if (profile?.organization_id) {
-                query = query.eq('organization_id', profile.organization_id);
-            } else {
-                query = query.eq('user_id', session?.user?.id);
-            }
-
-            query = query.order('score', { ascending: false });
-
-            const { data, error } = await query;
-
-            if (error) {
-                console.error('Error fetching leads:', error);
-                return [];
-            }
+            const response = await httpClient.get('/api/sales-leads');
+            const data = response.data?.leads || [];
 
             // 数据屏蔽层：使用 Zod 验证并提供默认值
             return (data || []).map(item => {
@@ -51,11 +37,7 @@ export function useSalesLeads() {
     // 更新线索阶段
     const updateLeadStage = useMutation({
         mutationFn: async ({ id, stage }: { id: string; stage: SalesLead['stage'] }) => {
-            const { error } = await supabase.from('sales_leads')
-                .update({ stage })
-                .eq('id', id);
-
-            if (error) throw error;
+            await httpClient.put(`/api/sales-leads/${id}`, { stage });
             return { id, stage };
         },
         onSuccess: () => {
