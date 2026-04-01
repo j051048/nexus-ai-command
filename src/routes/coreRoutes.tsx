@@ -16,6 +16,8 @@ import {
   ProfileCenter,
 } from "./lazyImports";
 
+const AIChatPage = React.lazy(() => import("@/components/ai/EnhancedAIChatPanel").then(m => ({ default: () => <div className="h-full"><m.default /></div> })));
+
 export function coreRoutes(AdminRoute: React.ComponentType<{ children: React.ReactNode; allowedRoles?: string[] }>) {
   return (
     <>
@@ -31,6 +33,7 @@ export function coreRoutes(AdminRoute: React.ComponentType<{ children: React.Rea
       <Route path="rewards" element={<ModuleErrorBoundary moduleName="奖励钱包"><RewardsWallet /></ModuleErrorBoundary>} />
       <Route path="targets" element={<ModuleErrorBoundary moduleName="销售目标"><SalesTargetManager /></ModuleErrorBoundary>} />
       <Route path="target-dashboard" element={<ModuleErrorBoundary moduleName="目标仪表盘"><TargetDashboard /></ModuleErrorBoundary>} />
+      <Route path="ai-chat" element={<ModuleErrorBoundary moduleName="AI助手"><AIChatPage /></ModuleErrorBoundary>} />
       <Route path="personal-settings" element={<ModuleErrorBoundary moduleName="个人中心"><ProfileCenter /></ModuleErrorBoundary>} />
     </>
   );
