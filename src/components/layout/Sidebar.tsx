@@ -212,7 +212,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
               setCollapsedGroups(next);
               saveCollapsedGroups(next);
             }}
-            className="flex items-center justify-between w-full px-3 py-2 text-[10px] font-black text-white/20 uppercase tracking-[0.2em] hover:text-white/40 transition-colors"
+            className="flex items-center justify-between w-full px-3 py-2 text-[10px] font-black text-white/30 uppercase tracking-[0.2em] hover:text-white/50 transition-colors"
           >
             {title}
             {isOpen ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
@@ -229,14 +229,14 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
                   to={`/${item.href}`}
                   onClick={onNavClick}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-300 relative group border border-transparent",
-                    isActive(item.href) 
-                      ? "bg-primary/10 text-primary shadow-[inset_0_0_20px_rgba(var(--primary-rgb),0.05)] border-primary/20" 
-                      : "text-white/40 hover:text-white hover:bg-white/5"
+                    "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 relative group border border-transparent",
+                    isActive(item.href)
+                      ? "bg-primary/15 text-white shadow-[0_0_20px_rgba(59,130,246,0.15)] border-primary/30 font-semibold"
+                      : "text-white/50 hover:text-white hover:bg-white/8 hover:border-white/10"
                   )}
                 >
                   {isActive(item.href) && (
-                    <div className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-primary rounded-r-full shadow-[0_0_10px_rgba(var(--primary-rgb),0.5)]" />
+                    <div className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-primary rounded-r-full shadow-[0_0_16px_rgba(59,130,246,0.8)]" />
                   )}
                   <span className={cn("shrink-0 transition-transform duration-300", !isActive(item.href) && "group-hover:scale-110")}>
                     {item.icon}
@@ -260,7 +260,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
 
   return (
     <aside className={cn(
-      "bg-[#050510] border-r border-white/5 flex flex-col transition-all duration-500 ease-in-out h-full z-40 relative group/sidebar",
+      "bg-gradient-to-b from-[#141b2e] to-[#0d1220] border-r border-white/10 flex flex-col transition-all duration-500 ease-in-out h-full z-40 relative group/sidebar shadow-2xl",
       isCollapsed ? "w-[80px]" : "w-64"
     )}>
       <div className={cn("p-6 flex items-center gap-3", isCollapsed && "justify-center")}>
@@ -287,22 +287,25 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
         )}
       </div>
 
-      <div className="p-4 border-t border-white/5 bg-white/[0.02]">
+      <div className="p-4 border-t border-white/10 bg-gradient-to-t from-black/20 to-transparent backdrop-blur-sm">
         <div className={cn("flex flex-col gap-3", !isCollapsed && "px-2")}>
+          <div className={cn("flex", isCollapsed ? "justify-center" : "justify-end mb-2")}>
+            <ThemeToggle />
+          </div>
           <div 
             onClick={() => navigate("/personal-settings")}
             className={cn(
-              "flex items-center gap-3 p-2 rounded-2xl cursor-pointer hover:bg-white/5 transition-all duration-300 group",
+              "flex items-center gap-3 p-2 rounded-2xl cursor-pointer hover:bg-white/10 transition-all duration-300 group",
               isCollapsed && "justify-center"
             )}
           >
-            <div className="relative shrink-0 w-9 h-9 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center overflow-hidden group-hover:border-primary/60 transition-colors">
+            <div className="relative shrink-0 w-9 h-9 rounded-full bg-primary/25 border border-primary/40 flex items-center justify-center overflow-hidden group-hover:border-primary/70 group-hover:shadow-[0_0_12px_rgba(59,130,246,0.4)] transition-all">
               {profile?.avatar ? (
                 <img src={profile.avatar} alt="avatar" className="w-full h-full object-cover" />
               ) : (
                 <UserIcon className="w-5 h-5 text-primary" />
               )}
-              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-[#0A0A1A] rounded-full shadow-lg"></div>
+              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-[#141b2e] rounded-full shadow-[0_0_8px_rgba(74,222,128,0.6)]"></div>
             </div>
             {!isCollapsed && (
               <div className="flex-1 min-w-0 transition-opacity duration-300">
@@ -310,7 +313,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
                   {profile?.name || "BOSS"}
                 </p>
                 <div className="flex items-center gap-1">
-                  <p className="text-[10px] text-white/40 uppercase font-bold tracking-tighter italic truncate">
+                  <p className="text-[10px] text-white/50 uppercase font-bold tracking-tighter italic truncate">
                     {role || "顶级精英"}
                   </p>
                   <Settings size={10} className="text-white/20 group-hover:text-primary/60 transition-colors" />
@@ -321,8 +324,8 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
           
           {!isCollapsed && (
             <button 
-              onClick={signOut} 
-              className="flex items-center gap-2 mt-1 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all duration-300 group/logout"
+              onClick={signOut}
+              className="flex items-center gap-2 mt-1 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-white/30 hover:text-red-400 hover:bg-red-500/15 rounded-xl transition-all duration-300 group/logout"
             >
               <LogOut size={12} className="group-hover:rotate-12 transition-transform" />
               <span>Sign Out Safely</span>
@@ -333,7 +336,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
       
       <button 
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-20 w-6 h-6 bg-primary rounded-full md:flex items-center justify-center text-white shadow-xl hover:scale-110 active:scale-95 transition-all z-50 border-4 border-[#050510] hidden"
+        className="absolute -right-3 top-20 w-6 h-6 bg-primary rounded-full md:flex items-center justify-center text-white shadow-[0_0_16px_rgba(59,130,246,0.5)] hover:scale-110 hover:shadow-[0_0_24px_rgba(59,130,246,0.7)] active:scale-95 transition-all z-50 border-4 border-[#141b2e] hidden"
       >
         {isCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
       </button>

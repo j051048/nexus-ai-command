@@ -13,6 +13,7 @@ import {
   SalesTargetManager,
   TargetDashboard,
   InboxPage,
+  ProfileCenter,
 } from "./lazyImports";
 
 export function coreRoutes(AdminRoute: React.ComponentType<{ children: React.ReactNode; allowedRoles?: string[] }>) {
@@ -30,6 +31,7 @@ export function coreRoutes(AdminRoute: React.ComponentType<{ children: React.Rea
       <Route path="rewards" element={<ModuleErrorBoundary moduleName="奖励钱包"><RewardsWallet /></ModuleErrorBoundary>} />
       <Route path="targets" element={<ModuleErrorBoundary moduleName="销售目标"><SalesTargetManager /></ModuleErrorBoundary>} />
       <Route path="target-dashboard" element={<ModuleErrorBoundary moduleName="目标仪表盘"><TargetDashboard /></ModuleErrorBoundary>} />
+      <Route path="personal-settings" element={<ModuleErrorBoundary moduleName="个人中心"><ProfileCenter /></ModuleErrorBoundary>} />
     </>
   );
 }

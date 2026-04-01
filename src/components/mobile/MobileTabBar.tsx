@@ -50,7 +50,7 @@ export default function MobileTabBar({
     <nav
       className={cn(
         'fixed bottom-0 left-0 right-0 z-50',
-        'bg-background/95 backdrop-blur-md border-t border-border',
+        'bg-background/98 backdrop-blur-xl border-t border-border shadow-2xl',
         'pb-[env(safe-area-inset-bottom)]',
         'lg:hidden',
         'mobile-tab-bar'

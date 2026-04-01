@@ -37,7 +37,7 @@ export default function MobilePageHeader({
   return (
     <header
       className={cn(
-        'h-12 flex items-center justify-between px-2 border-b border-border bg-background/95 backdrop-blur-sm',
+        'h-12 flex items-center justify-between px-2 border-b border-border bg-background/98 backdrop-blur-xl shadow-lg',
         'pt-[env(safe-area-inset-top)]',
         'flex-shrink-0',
         'mobile-header',

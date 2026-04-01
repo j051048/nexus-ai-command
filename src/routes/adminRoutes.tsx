@@ -41,7 +41,6 @@ export function adminRoutes(AdminRoute: React.ComponentType<{ children: React.Re
       <Route path="certificates" element={<ModuleErrorBoundary moduleName="证照管理"><CertificateManagement /></ModuleErrorBoundary>} />
       <Route path="hr" element={<ModuleErrorBoundary moduleName="人力资源"><HRCenter /></ModuleErrorBoundary>} />
       <Route path="finance" element={<ModuleErrorBoundary moduleName="财务中心"><FinanceCenter /></ModuleErrorBoundary>} />
-      <Route path="profile" element={<ModuleErrorBoundary moduleName="个人中心"><ProfileCenter /></ModuleErrorBoundary>} />
 
       {/* Workflows */}
       <Route path="workflows" element={<ModuleErrorBoundary moduleName="工作流"><WorkflowList /></ModuleErrorBoundary>} />
