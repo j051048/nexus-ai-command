@@ -60,6 +60,27 @@ function CompanySettingsPage() {
   // Load organization data
   const loadOrg = useCallback(async () => {
     if (!orgId) {
+      // 如果用户没有组织，尝试创建默认组织
+      try {
+        const { data: newOrg, error: createError } = await supabase
+          .from('organizations')
+          .insert({ name: '我的企业', slug: `org-${Date.now()}` })
+          .select()
+          .single();
+
+        if (!createError && newOrg) {
+          // 更新用户的 organization_id
+          await supabase
+            .from('users')
+            .update({ organization_id: newOrg.id })
+            .eq('id', profile?.id);
+
+          toast.success('已自动创建企业');
+          window.location.reload();
+        }
+      } catch (err) {
+        console.error('Failed to create organization:', err);
+      }
       setLoading(false);
       return;
     }
