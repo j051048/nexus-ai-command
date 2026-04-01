@@ -119,11 +119,13 @@ class EpisodicMemoryService:
         parts = ["[历史经验回忆 - 以下是处理类似问题的历史记录]"]
         for i, ep in enumerate(useful[:3], 1):
             tools = ", ".join(ep.get("tools_used", [])[:5]) or "无"
+            created_at = ep.get("created_at", "")
+            time_info = f" (时间: {created_at})" if created_at else ""
             parts.append(
-                f"经验{i}: 用户意图「{ep.get('user_intent', '')}」→ "
+                f"经验{i}{time_info}: 用户意图「{ep.get('user_intent', '')}」→ "
                 f"策略: {ep.get('strategy', '')[:100]} | "
                 f"使用工具: {tools} | "
                 f"结果置信度: {ep.get('confidence_score', 0):.0%}"
             )
-        parts.append("[经验回忆结束]")
+        parts.append("[经验回忆结束]\n注意: 请根据时间戳判断这些记忆的时效性，不要将过去的事件误认为是最近发生的。")
         return "\n".join(parts)
