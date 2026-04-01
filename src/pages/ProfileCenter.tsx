@@ -181,21 +181,18 @@ export function ProfileCenter() {
 
       const userId = session.user.id;
 
-      // 直接更新 users 表中的 name 字段
+      // 调用后端API更新用户信息
       try {
-        await httpClient.put('/api/users/profile', { name: editName.trim() });
-        toast.success('姓名已更新');
-        setUser({ ...user, name: editName.trim() });
-        setEditDialogOpen(false);
-      } catch (error) {
-        toast.error('保存失败: ' + (error as Error).message);
+        await httpClient.put('/api/profile', { name: editName.trim() });
+        toast.success('个人信息保存成功');
+
+        // 刷新 AuthContext 中的 profile，使侧边栏等全局组件也更新
+        await refreshProfile();
+
+        setIsEditing(false);
+      } catch (error: any) {
+        toast.error('保存失败: ' + (error?.response?.data?.message || error.message));
       }
-
-      // 刷新 AuthContext 中的 profile，使侧边栏等全局组件也更新
-      await refreshProfile();
-
-      toast.success('个人信息保存成功');
-      setIsEditing(false);
     } catch (err) {
       toast.error('保存失败，请稍后重试');
     } finally {

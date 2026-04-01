@@ -2,12 +2,19 @@
 
 import logging
 from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/sales", tags=["Sales"])
+
+
+class TargetCreate(BaseModel):
+    title: str = Field(..., max_length=200)
+    target_value: float
+    period: str = Field(..., max_length=50)
+    assigned_to: str | None = None
 
 
 @router.get("/targets")
@@ -27,6 +34,50 @@ async def list_targets(
     except Exception as e:
         logger.error(f"Failed to list targets: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "获取目标失败")
+
+
+@router.post("/targets")
+async def create_target(
+    body: TargetCreate,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """创建销售目标"""
+    try:
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
+        db = getattr(req.state, "db", None)
+
+        data = body.model_dump()
+        data["tenant_id"] = org_id
+        data["created_by"] = user_id
+
+        result = await db.table("sales_targets").insert(data).execute()
+        return api_success(data={"target": result.data[0] if result.data else None})
+    except Exception as e:
+        logger.error(f"Failed to create target: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "创建目标失败")
+
+
+@router.delete("/targets/{target_id}")
+async def delete_target(
+    target_id: str,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """删除销售目标"""
+    try:
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
+        db = getattr(req.state, "db", None)
+
+        await db.table("sales_targets").delete().eq("id", target_id).eq("tenant_id", org_id).execute()
+        return api_success(data={"deleted": True})
+    except Exception as e:
+        logger.error(f"Failed to delete target: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "删除目标失败")
 
 
 @router.get("/metrics")
