@@ -185,7 +185,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
   };
 
   const renderNavGroup = (title: string, items: NavItem[]) => {
-    if (items.length === 0) return null;
+    if (!items || items.length === 0) return null;
     const groupActive = items.some(i => isActive(i.href));
     const isOpen = groupActive || !collapsedGroups[title];
 
