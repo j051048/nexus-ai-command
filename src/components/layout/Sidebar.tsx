@@ -288,23 +288,44 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
       </div>
 
       <div className="p-4 border-t border-white/5 bg-white/[0.02]">
-        <div className={cn("flex items-center gap-3 px-2", isCollapsed && "justify-center")}>
-          <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center overflow-hidden">
-            {profile?.avatar ? (
-              <img src={profile.avatar} alt="avatar" className="w-full h-full object-cover" />
-            ) : (
-              <UserIcon className="w-4 h-4 text-primary" />
+        <div className={cn("flex flex-col gap-3", !isCollapsed && "px-2")}>
+          <div 
+            onClick={() => navigate("/personal-settings")}
+            className={cn(
+              "flex items-center gap-3 p-2 rounded-2xl cursor-pointer hover:bg-white/5 transition-all duration-300 group",
+              isCollapsed && "justify-center"
+            )}
+          >
+            <div className="relative shrink-0 w-9 h-9 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center overflow-hidden group-hover:border-primary/60 transition-colors">
+              {profile?.avatar ? (
+                <img src={profile.avatar} alt="avatar" className="w-full h-full object-cover" />
+              ) : (
+                <UserIcon className="w-5 h-5 text-primary" />
+              )}
+              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-[#0A0A1A] rounded-full shadow-lg"></div>
+            </div>
+            {!isCollapsed && (
+              <div className="flex-1 min-w-0 transition-opacity duration-300">
+                <p className="text-xs font-bold text-white group-hover:text-primary transition-colors truncate">
+                  {profile?.name || "BOSS"}
+                </p>
+                <div className="flex items-center gap-1">
+                  <p className="text-[10px] text-white/40 uppercase font-bold tracking-tighter italic truncate">
+                    {role || "顶级精英"}
+                  </p>
+                  <Settings size={10} className="text-white/20 group-hover:text-primary/60 transition-colors" />
+                </div>
+              </div>
             )}
           </div>
+          
           {!isCollapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-white truncate">{profile?.name || "用户"}</p>
-              <p className="text-[10px] text-white/40 uppercase font-bold tracking-tighter italic">{role || "销售精英"}</p>
-            </div>
-          )}
-          {!isCollapsed && (
-            <button onClick={signOut} className="p-2 text-white/30 hover:text-red-400 transition-colors">
-              <LogOut size={16} />
+            <button 
+              onClick={signOut} 
+              className="flex items-center gap-2 mt-1 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all duration-300 group/logout"
+            >
+              <LogOut size={12} className="group-hover:rotate-12 transition-transform" />
+              <span>Sign Out Safely</span>
             </button>
           )}
         </div>

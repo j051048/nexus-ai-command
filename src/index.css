@@ -1,4 +1,4 @@
-﻿@tailwind base;
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -925,15 +925,23 @@ html, body {
 
 /* --- Nexus Premium UI Kits (Added by Gemini) --- */
 .glass-premium {
-  @apply backdrop-blur-xl bg-white/70 dark:bg-[#0A0A1A]/60 border border-white/20 dark:border-white/10 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)];
+  @apply backdrop-blur-xl transition-all duration-300;
+  @apply bg-white/70 border-white/20 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)];
+  @apply dark:bg-[#0A0A1A]/60 dark:border-white/10 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.5)];
 }
 
 .bento-card {
-  @apply relative transition-all duration-500 hover:shadow-2xl hover:shadow-primary/5 active:scale-[0.98];
+  @apply relative transition-all duration-500 overflow-hidden rounded-[2.5rem];
+  @apply bg-white border border-slate-100 hover:shadow-xl hover:shadow-slate-200/50;
+  @apply dark:bg-[#111122]/40 dark:border-white/5 dark:hover:shadow-primary/5 dark:hover:bg-[#111122]/60;
+  @apply active:scale-[0.98];
 }
 
 .command-capsule {
-  @apply rounded-full bg-white/80 dark:bg-white/5 backdrop-blur-2xl border border-white/20 dark:border-white/10 shadow-2xl transition-all duration-500 focus-within:ring-2 focus-within:ring-primary/30;
+  @apply rounded-full transition-all duration-500 focus-within:ring-2;
+  @apply bg-slate-50/80 border-slate-200 focus-within:ring-slate-400/30;
+  @apply dark:bg-white/5 dark:backdrop-blur-2xl dark:border-white/10 dark:focus-within:ring-primary/30;
+  @apply shadow-2xl;
 }
 
 .ai-pulse-glow {
@@ -942,7 +950,8 @@ html, body {
 
 .ai-pulse-glow::after {
   content: '';
-  @apply absolute -inset-1 bg-primary/20 rounded-full blur-md opacity-0 animate-pulse;
+  @apply absolute -inset-1 rounded-full blur-md opacity-0 animate-pulse;
+  @apply bg-primary/20 dark:bg-primary/40;
 }
 
 @keyframes fadeSlideUp {
@@ -956,7 +965,8 @@ html, body {
 }
 
 .hover-lift {
-  @apply transition-transform duration-500 hover:-translate-y-1.5 hover:shadow-2xl;
+  @apply transition-all duration-500;
+  @apply hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-slate-200/60 dark:hover:shadow-black/50;
 }
 
 .glow-hover {
@@ -965,7 +975,8 @@ html, body {
 
 .glow-hover::before {
   content: '';
-  @apply absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full transition-transform duration-1000 ease-in-out;
+  @apply absolute inset-0 -translate-x-full transition-transform duration-1000 ease-in-out;
+  @apply bg-gradient-to-r from-transparent via-white/20 to-transparent dark:via-white/10;
 }
 
 .glow-hover:hover::before { @apply translate-x-full; }
@@ -980,5 +991,13 @@ html, body {
 }
 
 .bg-gradient-primary {
-  @apply bg-gradient-to-br from-primary via-primary/80 to-purple-600;
+  @apply bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600;
+  @apply dark:from-primary dark:via-primary/80 dark:to-purple-600;
 }
+
+/* Global Background Adaption */
+body {
+  @apply bg-slate-50 text-slate-900 transition-colors duration-500;
+  @apply dark:bg-[#02020A] dark:text-slate-100;
+}
+
