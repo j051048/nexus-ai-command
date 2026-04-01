@@ -5,7 +5,7 @@
 /* Project Nexus - AI Enterprise Command Center Design System */
 /* Dark mode: Cyberpunk-inspired | Light mode: Clean SaaS professional */
 
-/* ==================== A8: 绉诲姩绔Е鎺т紭鍖?==================== */
+/* ==================== A8: 移动端触控优化 ==================== */
 
 /* Mobile touch optimizations */
 html {
@@ -34,178 +34,159 @@ html, body {
 
 @layer base {
   :root {
-    /* Light Mode - Standard Clean Professional SaaS Style */
+    /* Light Mode - Clean Professional SaaS Style */
     --background: 210 20% 98%;
-    /* Use a softer foreground color for light mode */
-    --foreground: 222 47% 15%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 15%;
+    --card-foreground: 222 47% 11%;
     --card-elevated: 210 20% 96%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 15%;
+    --popover-foreground: 222 47% 11%;
 
-    /* Primary - Professional Soft Blue */
-    --primary: 221 83% 53%;
-    --primary-foreground: 210 40% 98%;
-    --primary-glow: 221 83% 65%;
+    /* Primary - Professional Blue */
+    --primary: 217 91% 50%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 217 91% 60%;
 
-    /* Secondary - Softer gray-blue */
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary */
+    --secondary: 210 20% 96%;
+    --secondary-foreground: 222 47% 20%;
 
     /* Muted */
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 210 15% 94%;
+    --muted-foreground: 215 16% 40%;
 
-    /* Accent - Subtle interactive indicator */
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --success: 142 71% 45%;
-    --success-glow: 142 71% 55%;
+    /* Accent - Success Green */
+    --accent: 142 69% 45%;
+    --accent-foreground: 0 0% 100%;
+    --success: 142 69% 45%;
+    --success-glow: 142 69% 55%;
 
     /* Warning Orange */
-    --warning: 38 92% 50%;
-    --warning-foreground: 48 96% 89%;
+    --warning: 36 100% 50%;
+    --warning-foreground: 0 0% 0%;
 
     /* Destructive */
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 0 0% 100%;
 
     /* UI Elements */
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --border: 214 20% 88%;
+    --input: 214 20% 92%;
+    --ring: 217 91% 50%;
 
     --radius: 0.75rem;
 
-    /* Sidebar - Light (Maintain consistency with the rest of the app) */
+    /* Sidebar - Light */
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 240 5.9% 90%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-foreground: 222 47% 30%;
+    --sidebar-primary: 217 91% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 20% 96%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 20% 90%;
+    --sidebar-ring: 217 91% 50%;
 
     /* Gamification Colors */
     --gold: 45 100% 50%;
     --silver: 0 0% 65%;
     --bronze: 30 60% 45%;
-    --xp-bar: 221 83% 53%;
+    --xp-bar: 280 100% 55%;
 
-    /* Gradients - Light Mode (Subtle & Professional) */
-    --gradient-primary: linear-gradient(135deg, hsl(221 83% 53%) 0%, hsl(226 70% 55%) 100%);
-    --gradient-success: linear-gradient(135deg, hsl(142 71% 45%) 0%, hsl(144 61% 50%) 100%);
-    --gradient-warning: linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(43 96% 55%) 100%);
-    /* Premium Modern Backgrounds */
-    .glass-bg-main {
-      @apply bg-background transition-colors duration-500;
-      background-image: 
-        radial-gradient(at 0% 0%, hsla(221, 83%, 53%, 0.05) 0px, transparent 50%),
-        radial-gradient(at 100% 0%, hsla(221, 83%, 53%, 0.02) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, hsla(221, 83%, 53%, 0.05) 0px, transparent 50%),
-        radial-gradient(at 0% 100%, hsla(221, 83%, 53%, 0.02) 0px, transparent 50%);
-    }
-
-    .dark .glass-bg-main {
-      background-image: 
-        radial-gradient(at 0% 0%, hsla(221, 83%, 53%, 0.15) 0px, transparent 50%),
-        radial-gradient(at 100% 0%, hsla(221, 83%, 53%, 0.1) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, hsla(221, 83%, 53%, 0.15) 0px, transparent 50%),
-        radial-gradient(at 0% 100%, hsla(221, 83%, 53%, 0.1) 0px, transparent 50%);
-    }
+    /* Gradients - Light Mode */
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 50%) 0%, hsl(217 91% 60%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(142 69% 40%) 0%, hsl(142 69% 50%) 100%);
+    --gradient-warning: linear-gradient(135deg, hsl(36 100% 48%) 0%, hsl(36 100% 55%) 100%);
     --gradient-gold: linear-gradient(135deg, hsl(45 100% 45%) 0%, hsl(55 100% 55%) 100%);
     --gradient-dark: linear-gradient(180deg, hsl(210 20% 98%) 0%, hsl(210 20% 95%) 100%);
-    --gradient-card: linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(210 20% 99%) 100%);
-    --gradient-cyber: linear-gradient(135deg, hsl(221 83% 53% / 0.05) 0%, hsl(142 71% 45% / 0.05) 100%);
+    --gradient-card: linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(210 20% 98%) 100%);
+    --gradient-cyber: linear-gradient(135deg, hsl(217 91% 50% / 0.08) 0%, hsl(142 69% 45% / 0.08) 100%);
 
-    /* Shadows - Light Mode (Soft & Deep) */
-    --shadow-glow-primary: 0 8px 16px -4px hsl(221 83% 53% / 0.15);
-    --shadow-glow-success: 0 8px 16px -4px hsl(142 71% 45% / 0.15);
-    --shadow-glow-warning: 0 8px 16px -4px hsl(38 92% 50% / 0.15);
-    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-    --shadow-elevated: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-    --shadow-premium: 0 20px 25px -5px rgb(0 0 0 / 0.05), 0 8px 10px -6px rgb(0 0 0 / 0.05);
+    /* Shadows - Light Mode */
+    --shadow-glow-primary: 0 4px 20px hsl(217 91% 50% / 0.15);
+    --shadow-glow-success: 0 4px 20px hsl(142 69% 45% / 0.15);
+    --shadow-glow-warning: 0 4px 20px hsl(36 100% 50% / 0.15);
+    --shadow-card: 0 2px 8px hsl(0 0% 0% / 0.06), 0 4px 16px hsl(0 0% 0% / 0.04);
+    --shadow-elevated: 0 4px 24px hsl(0 0% 0% / 0.1);
   }
 
   .dark {
-    /* Dark Mode - Modern Deep Blue */
-    --background: 222 47% 8%;
-    --foreground: 210 40% 98%;
+    /* Dark Mode - Cyberpunk Style */
+    --background: 0 0% 7%;
+    --foreground: 0 0% 95%;
 
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
-    --card-elevated: 222 47% 14%;
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 95%;
+    --card-elevated: 0 0% 12%;
 
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 95%;
 
-    /* Vibrant Blue */
-    --primary: 217 91% 60%;
+    /* Tech Blue */
+    --primary: 211 100% 50%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 217 91% 70%;
+    --primary-glow: 211 100% 60%;
 
     /* Secondary */
-    --secondary: 222 47% 16%;
-    --secondary-foreground: 210 40% 90%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 85%;
 
     /* Muted */
-    --muted: 222 47% 13%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 75%;
 
     /* Accent */
-    --accent: 142 76% 55%;
+    --accent: 142 69% 50%;
     --accent-foreground: 0 0% 100%;
-    --success: 142 76% 55%;
-    --success-glow: 142 76% 65%;
+    --success: 142 69% 50%;
+    --success-glow: 142 69% 60%;
 
     /* Warning */
-    --warning: 38 92% 58%;
+    --warning: 36 100% 52%;
     --warning-foreground: 0 0% 0%;
 
     /* Destructive */
-    --destructive: 0 72% 58%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
     /* UI Elements */
-    --border: 222 47% 20%;
-    --input: 222 47% 16%;
-    --ring: 217 91% 60%;
+    --border: 0 0% 18%;
+    --input: 0 0% 15%;
+    --ring: 211 100% 50%;
 
     /* Sidebar - Dark */
-    --sidebar-background: 222 47% 9%;
-    --sidebar-foreground: 210 40% 90%;
-    --sidebar-primary: 217 91% 60%;
+    --sidebar-background: 0 0% 8%;
+    --sidebar-foreground: 0 0% 85%;
+    --sidebar-primary: 211 100% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 16%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 222 47% 18%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-accent: 0 0% 15%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 0 0% 15%;
+    --sidebar-ring: 211 100% 50%;
 
     /* Gamification */
-    --gold: 45 100% 55%;
+    --gold: 45 100% 50%;
     --silver: 0 0% 75%;
-    --bronze: 30 60% 50%;
-    --xp-bar: 280 100% 65%;
+    --bronze: 30 60% 45%;
+    --xp-bar: 280 100% 60%;
 
     /* Gradients - Dark Mode */
-    --gradient-primary: linear-gradient(135deg, hsl(217 91% 55%) 0%, hsl(217 91% 70%) 100%);
-    --gradient-success: linear-gradient(135deg, hsl(142 76% 50%) 0%, hsl(142 76% 60%) 100%);
-    --gradient-warning: linear-gradient(135deg, hsl(38 92% 55%) 0%, hsl(38 92% 65%) 100%);
-    --gradient-gold: linear-gradient(135deg, hsl(45 100% 50%) 0%, hsl(55 100% 60%) 100%);
-    --gradient-dark: linear-gradient(180deg, hsl(222 47% 11%) 0%, hsl(222 47% 8%) 100%);
-    --gradient-card: linear-gradient(135deg, hsl(222 47% 13%) 0%, hsl(222 47% 10%) 100%);
-    --gradient-cyber: linear-gradient(135deg, hsl(217 91% 60% / 0.12) 0%, hsl(142 76% 55% / 0.08) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(211 100% 50%) 0%, hsl(211 100% 65%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(142 69% 45%) 0%, hsl(142 69% 55%) 100%);
+    --gradient-warning: linear-gradient(135deg, hsl(36 100% 50%) 0%, hsl(36 100% 60%) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(45 100% 45%) 0%, hsl(55 100% 55%) 100%);
+    --gradient-dark: linear-gradient(180deg, hsl(0 0% 10%) 0%, hsl(0 0% 7%) 100%);
+    --gradient-card: linear-gradient(135deg, hsl(0 0% 12%) 0%, hsl(0 0% 9%) 100%);
+    --gradient-cyber: linear-gradient(135deg, hsl(211 100% 50% / 0.1) 0%, hsl(142 69% 50% / 0.1) 100%);
 
     /* Shadows - Dark Mode */
-    --shadow-glow-primary: 0 0 24px hsl(217 91% 60% / 0.4), 0 0 48px hsl(217 91% 60% / 0.2);
-    --shadow-glow-success: 0 0 24px hsl(142 76% 55% / 0.4);
-    --shadow-glow-warning: 0 0 24px hsl(38 92% 58% / 0.4);
-    --shadow-card: 0 4px 24px hsl(222 47% 4% / 0.4);
-    --shadow-elevated: 0 8px 40px hsl(222 47% 4% / 0.5);
+    --shadow-glow-primary: 0 0 20px hsl(211 100% 50% / 0.3);
+    --shadow-glow-success: 0 0 20px hsl(142 69% 50% / 0.3);
+    --shadow-glow-warning: 0 0 20px hsl(36 100% 50% / 0.3);
+    --shadow-card: 0 4px 20px hsl(0 0% 0% / 0.3);
+    --shadow-elevated: 0 8px 32px hsl(0 0% 0% / 0.4);
   }
 }
 
@@ -817,37 +798,6 @@ html, body {
     animation: reveal 0.6s ease-out forwards;
   }
 
-  /* --- NEW 2.0 ADVANCED ANIMATIONS --- */
-  @keyframes mesh-float {
-    0%, 100% { transform: translateY(0) scale(1); }
-    50% { transform: translateY(-20px) scale(1.05); }
-  }
-
-  @keyframes star-twinkle {
-    0%, 100% { opacity: 0.3; transform: scale(1); }
-    50% { opacity: 0.8; transform: scale(1.2); }
-  }
-
-  @keyframes border-beam {
-    0% { offset-distance: 0%; }
-    100% { offset-distance: 100%; }
-  }
-
-  .animate-mesh-float {
-    animation: mesh-float 20s ease-in-out infinite;
-  }
-
-  .glass-2 {
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-  }
-
-  .dark .glass-2 {
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-  }
-
   /* Bounce subtle */
   @keyframes bounce-subtle {
     0%, 100% {
@@ -941,82 +891,3 @@ html, body {
     animation: none !important;
   }
 }
-
-/* --- Nexus Premium UI Kits (Added by Gemini) --- */
-.glass-premium {
-  @apply backdrop-blur-xl transition-all duration-300;
-  @apply bg-white/70 border-white/20 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)];
-  @apply dark:bg-[#0A0A1A]/60 dark:border-white/10 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.5)];
-}
-
-.bento-card {
-  @apply relative transition-all duration-500 overflow-hidden rounded-[2.5rem];
-  @apply bg-white border border-slate-100 hover:shadow-xl hover:shadow-slate-200/50;
-  @apply dark:bg-[#111122]/40 dark:border-white/5 dark:hover:shadow-primary/5 dark:hover:bg-[#111122]/60;
-  @apply active:scale-[0.98];
-}
-
-.command-capsule {
-  @apply rounded-full transition-all duration-500 focus-within:ring-2;
-  @apply bg-slate-50/80 border-slate-200 focus-within:ring-slate-400/30;
-  @apply dark:bg-white/5 dark:backdrop-blur-2xl dark:border-white/10 dark:focus-within:ring-primary/30;
-  @apply shadow-2xl;
-}
-
-.ai-pulse-glow {
-  @apply relative;
-}
-
-.ai-pulse-glow::after {
-  content: '';
-  @apply absolute -inset-1 rounded-full blur-md opacity-0 animate-pulse;
-  @apply bg-primary/20 dark:bg-primary/40;
-}
-
-@keyframes fadeSlideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-fade-slide-up {
-  opacity: 0;
-  animation: fadeSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.hover-lift {
-  @apply transition-all duration-500;
-  @apply hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-slate-200/60 dark:hover:shadow-black/50;
-}
-
-.glow-hover {
-  @apply relative overflow-hidden;
-}
-
-.glow-hover::before {
-  content: '';
-  @apply absolute inset-0 -translate-x-full transition-transform duration-1000 ease-in-out;
-  @apply bg-gradient-to-r from-transparent via-white/20 to-transparent dark:via-white/10;
-}
-
-.glow-hover:hover::before { @apply translate-x-full; }
-
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-.font-numbers {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-}
-
-.bg-gradient-primary {
-  @apply bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600;
-  @apply dark:from-primary dark:via-primary/80 dark:to-purple-600;
-}
-
-/* Global Background Adaption */
-body {
-  @apply bg-slate-50 text-slate-900 transition-colors duration-500;
-  @apply dark:bg-[#0f1729] dark:text-slate-100;
-}
-
