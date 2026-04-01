@@ -290,15 +290,15 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
       <div className="p-4 border-t border-white/5 bg-white/[0.02]">
         <div className={cn("flex items-center gap-3 px-2", isCollapsed && "justify-center")}>
           <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center overflow-hidden">
-            {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+            {profile?.avatar ? (
+              <img src={profile.avatar} alt="avatar" className="w-full h-full object-cover" />
             ) : (
               <UserIcon className="w-4 h-4 text-primary" />
             )}
           </div>
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-white truncate">{profile?.full_name || "用户"}</p>
+              <p className="text-xs font-bold text-white truncate">{profile?.name || "用户"}</p>
               <p className="text-[10px] text-white/40 uppercase font-bold tracking-tighter italic">{role || "销售精英"}</p>
             </div>
           )}
