@@ -257,12 +257,6 @@ class ProfileUpdate(BaseModel):
     position: str | None = Field(None, max_length=100)
     phone: str | None = Field(None, max_length=20)
 
-    def model_dump(self, **kwargs):
-        data = super().model_dump(**kwargs)
-        if "name" in data and data["name"] is not None:
-            data["full_name"] = data.pop("name")
-        return data
-
 
 class AISettingsUpdate(BaseModel):
     model: str | None = None
