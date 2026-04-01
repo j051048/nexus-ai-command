@@ -90,13 +90,13 @@ export function BossDashboard() {
               <div className="p-4 rounded-2xl bg-gradient-primary shadow-xl ai-pulse-glow">
                 <Sparkles className="w-8 h-8 text-white" />
               </div>
-              <h1 className="text-4xl font-black tracking-tighter text-white">
+              <h1 className="text-4xl font-black tracking-tighter text-foreground">
                 Nexus <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300">COMMAND</span>
               </h1>
             </div>
-            <p className="text-lg text-white/40 flex items-center gap-3 font-medium">
+            <p className="text-lg text-muted-foreground flex items-center gap-3 font-medium">
               <span className="flex h-3 w-3 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.5)]" />
-              中枢系统已就绪 · <span className="text-white font-bold font-numbers">{pendingApprovals.length}</span> 项任务待审阅
+              中枢系统已就绪 · <span className="text-foreground font-bold font-numbers">{pendingApprovals.length}</span> 项任务待审阅
             </p>
           </div>
 
@@ -105,18 +105,18 @@ export function BossDashboard() {
               <Button
                 variant="outline"
                 onClick={() => seedDemoData.mutateAsync()}
-                className="command-capsule border-white/10 hover:bg-white/5 h-14 px-8"
+                className="command-capsule border-border hover:bg-muted h-14 px-8"
               >
                 <Database className="w-5 h-5 mr-3 text-primary" />
-                <span className="font-black text-xs uppercase tracking-widest text-white/80">同步数据映射</span>
+                <span className="font-black text-xs uppercase tracking-widest text-muted-foreground">同步数据映射</span>
               </Button>
             )}
             <div className="h-14 px-8 glass-premium border-emerald-500/20 rounded-full flex items-center gap-4">
               <div className="text-right">
-                <p className="text-[10px] text-white/30 font-black uppercase tracking-widest">Automation</p>
-                <p className="text-emerald-400 font-black font-numbers text-xl">98%</p>
+                <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Automation</p>
+                <p className="text-emerald-500 font-black font-numbers text-xl">98%</p>
               </div>
-              <div className="h-6 w-px bg-white/10" />
+              <div className="h-6 w-px bg-border" />
               <Activity className="w-6 h-6 text-emerald-500" />
             </div>
           </div>
@@ -124,11 +124,11 @@ export function BossDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="h-14 bg-white/5 border border-white/5 p-1 rounded-2xl mb-8">
-          <TabsTrigger value="overview" className="h-full px-8 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white font-bold transition-all">
+        <TabsList className="h-14 bg-muted border border-border p-1 rounded-2xl mb-8">
+          <TabsTrigger value="overview" className="h-full px-8 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold transition-all">
             <BarChart3 className="w-4 h-4 mr-2" /> 监控面板
           </TabsTrigger>
-          <TabsTrigger value="history" className="h-full px-8 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white font-bold transition-all">
+          <TabsTrigger value="history" className="h-full px-8 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-bold transition-all">
             <History className="w-4 h-4 mr-2" /> 决策溯源
           </TabsTrigger>
         </TabsList>
@@ -174,7 +174,7 @@ export function BossDashboard() {
         </TabsContent>
 
         <TabsContent value="history" className="animate-fade-slide-up">
-           <div className="glass-premium rounded-[2.5rem] p-8 border-white/5 shadow-2xl">
+           <div className="glass-premium rounded-[2.5rem] p-8 border-border shadow-2xl">
               <SalesHistoryPanel />
            </div>
         </TabsContent>

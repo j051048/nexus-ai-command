@@ -51,7 +51,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
     }, []);
 
     return (
-        <div className="flex h-[100dvh] w-full bg-[#02020A] overflow-hidden text-slate-200">
+        <div className="flex h-[100dvh] w-full bg-background overflow-hidden text-foreground">
             {isPendingBoss && (
                 <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500/90 text-white text-center text-xs py-2 px-4 backdrop-blur-md flex items-center justify-center gap-2">
                     <Clock className="w-3.5 h-3.5" />
@@ -60,7 +60,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
             )}
 
             {/* Sidebar with Abyss contrast */}
-            <div className={cn("hidden md:flex h-full z-20 relative", isPendingBoss && "pt-9")}>
+            <div className={cn("hidden md:flex h-full z-20 relative border-r border-border", isPendingBoss && "pt-9")}>
                 <Sidebar />
             </div>
 
@@ -68,7 +68,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
             <div className="flex flex-1 overflow-hidden relative">
                 {/* Chat Panel - Glassy and subtle */}
                 <div className={cn(
-                    "flex flex-col transition-all duration-500 cubic-bezier(0.16, 1, 0.3, 1) h-full relative z-10",
+                    "flex flex-col transition-all duration-500 cubic-bezier(0.16, 1, 0.3, 1) h-full relative z-10 border-r border-border",
                     isChatOpen ? (isCanvasOpen ? "w-[45%] lg:w-[38%]" : "w-full") : "w-0 overflow-hidden opacity-0"
                 )}>
                     <EnhancedAIChatPanel
@@ -85,10 +85,10 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                     isCanvasOpen ? (isChatOpen ? "w-[55%] lg:w-[62%]" : "w-full flex-1") : "w-0"
                 )}>
                     {/* Floating Header */}
-                    <header className="h-14 flex items-center justify-between px-6 bg-white/5 backdrop-blur-md border-b border-white/5 relative z-20">
+                    <header className="h-14 flex items-center justify-between px-6 bg-card/10 backdrop-blur-md border-b border-border/10 relative z-20">
                         <div className="flex items-center gap-3">
                             <div className="h-2 w-2 rounded-full bg-primary/40 animate-pulse" />
-                            <span className="text-xs font-black uppercase tracking-[0.2em] text-white/60">
+                            <span className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/80">
                                 {getPageTitle()}
                             </span>
                         </div>
@@ -97,7 +97,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-white/40 hover:text-white"
+                                className="h-8 w-8 text-muted-foreground/60 hover:text-foreground"
                                 onClick={() => setIsCanvasOpen(false)}
                             >
                                 <PanelRightClose className="w-4 h-4" />
@@ -106,7 +106,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                     </header>
 
                     {/* Scrollable Content with Staggered Entrance Container */}
-                    <main className="flex-1 overflow-y-auto no-scrollbar p-6 bg-gradient-to-br from-transparent to-primary/[0.02]">
+                    <main className="flex-1 overflow-y-auto no-scrollbar p-6 bg-background">
                         <div className="max-w-[1600px] mx-auto min-h-full pb-20">
                             <div className="mb-6 opacity-60">
                                 <Breadcrumbs />
@@ -130,7 +130,7 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
             {!isCanvasOpen && isPageRoute && (
                 <button
                     onClick={() => setIsCanvasOpen(true)}
-                    className="fixed bottom-8 right-8 z-50 w-12 h-12 bg-white/10 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-all"
+                    className="fixed bottom-8 right-8 z-50 w-12 h-12 bg-card border border-border rounded-2xl shadow-2xl flex items-center justify-center text-foreground hover:scale-110 active:scale-95 transition-all"
                 >
                     <PanelRightOpen className="w-6 h-6" />
                 </button>
