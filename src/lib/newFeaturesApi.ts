@@ -1,7 +1,7 @@
 /**
  * 新功能 API 调用（使用统一 HTTP 客户端）
  */
-import httpClient from './httpClient';
+import { httpClient } from './httpClient';
 
 // Excel 导出
 export async function exportToExcel(data: any[], filename?: string) {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import httpClient from '../../lib/httpClient';
+import { httpClient } from '../../lib/httpClient';
 import { AxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
 
