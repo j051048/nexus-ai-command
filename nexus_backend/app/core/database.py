@@ -24,9 +24,11 @@ key: str = os.getenv("SUPABASE_SERVICE_KEY", "")
 
 try:
     from collections import OrderedDict
+    from contextvars import ContextVar
     from postgrest import AsyncPostgrestClient
 
-    _scoped_client_cache: OrderedDict = OrderedDict()
+    # P1-3修复: 使用ContextVar替代全局字典,避免线程安全问题
+    _request_scoped_clients: ContextVar[dict] = ContextVar('scoped_clients', default={})
     _SCOPED_CLIENT_CACHE_MAX = 200
 
     class MiniSupabaseClient:
@@ -61,16 +63,20 @@ try:
             return bool(self._url) and bool(self.client)
 
         def get_scoped_client(self, token: str):
+            # P1-3修复: 使用ContextVar获取请求级别的缓存
+            cache = _request_scoped_clients.get()
             cache_key = hashlib.sha256(token.encode()).hexdigest() if token else ""
-            if cache_key in _scoped_client_cache:
-                _scoped_client_cache.move_to_end(cache_key)
-                return _scoped_client_cache[cache_key]
 
-            while len(_scoped_client_cache) >= _SCOPED_CLIENT_CACHE_MAX:
-                _scoped_client_cache.popitem(last=False)
+            if cache_key in cache:
+                return cache[cache_key]
+
+            # 限制缓存大小
+            if len(cache) >= _SCOPED_CLIENT_CACHE_MAX:
+                cache.clear()
 
             client = MiniSupabaseClient(self._url, self._key, token)
-            _scoped_client_cache[cache_key] = client
+            cache[cache_key] = client
+            _request_scoped_clients.set(cache)
             return client
 
         def get_org_filtered_client(self, org_id: str):
