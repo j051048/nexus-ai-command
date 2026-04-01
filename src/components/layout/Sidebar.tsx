@@ -137,7 +137,7 @@ const NAV_CONFIG: NavItem[] = [
   { icon: <Contact size={18} />, label: "客户", href: "crm", group: "primary" },
   { icon: <FileCheck size={18} />, label: "审批", href: "approval", group: "primary" },
   { icon: <Briefcase size={18} />, label: "项目", href: "projects", group: "primary" },
-  { icon: <Bot size={18} />, label: "AI助手", href: "ai-chat", group: "primary" },
+  { icon: <Bot size={18} />, label: "AI助手", href: "#ai-chat", group: "primary" },
   { icon: <Settings size={18} />, label: "设置", href: "settings", group: "primary" },
 
   // 二级导航 (折叠在"更多"中)
@@ -209,11 +209,22 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
           {items.map((item) => {
             let badge = item.badge;
             if (item.href === 'inbox' && inboxBadgeCount > 0) badge = String(inboxBadgeCount);
+
+            const handleClick = (e: React.MouseEvent) => {
+              if (item.href === '#ai-chat') {
+                e.preventDefault();
+                window.dispatchEvent(new CustomEvent('proactive-chat'));
+                onNavClick?.();
+              } else {
+                onNavClick?.();
+              }
+            };
+
             return (
               <li key={item.href}>
                 <Link
                   to={`/${item.href}`}
-                  onClick={onNavClick}
+                  onClick={handleClick}
                   className={cn(
                     "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 relative group border border-transparent",
                     isActive(item.href)
