@@ -4,10 +4,21 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Bot, Copy, RotateCcw, ThumbsUp, ThumbsDown, User, Check, MoreHorizontal, Trash2, Download, AlertCircle, RefreshCw } from 'lucide-react';
 
+interface SyntaxProps {
+  children?: React.ReactNode;
+  language?: string;
+  style?: Record<string, React.CSSProperties>;
+  PreTag?: string;
+  customStyle?: React.CSSProperties;
+  [key: string]: unknown;
+}
+
 // Lazy-load react-syntax-highlighter (~608KB) — only loaded when code blocks appear
 const SyntaxHighlighter = lazyWithRetry(() =>
-  import('react-syntax-highlighter/dist/esm/prism').then(mod => ({ default: mod.default }))
-);
+  import('react-syntax-highlighter/dist/esm/prism').then(mod => ({ 
+    default: mod.default as unknown as React.ComponentType<SyntaxProps> 
+  }))
+) as React.ComponentType<SyntaxProps>;
 const loadStyle = () => import('react-syntax-highlighter/dist/esm/styles/prism/vsc-dark-plus').then(mod => mod.default);
 
 // Wrapper that lazy-loads both the highlighter component and its style

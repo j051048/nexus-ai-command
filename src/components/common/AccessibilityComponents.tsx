@@ -283,6 +283,7 @@ export function KeyboardShortcut({
       left: '←',
       right: '→',
     };
+    if (!key) return '';
     return keyMap[key.toLowerCase()] || key.toUpperCase();
   };
 

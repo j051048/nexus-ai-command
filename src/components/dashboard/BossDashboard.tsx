@@ -44,8 +44,8 @@ export function BossDashboard() {
     try {
       await updateStatus.mutateAsync({ id, status: 'approved' });
       toast.success('申请批准成功');
-    } catch (e: any) {
-      toast.error('操作失败: ' + (e?.message || '未知错误'));
+    } catch (e: unknown) {
+      toast.error('操作失败: ' + (e instanceof Error ? e.message : '未知错误'));
     }
   };
 
@@ -53,8 +53,8 @@ export function BossDashboard() {
     try {
       await updateStatus.mutateAsync({ id, status: 'rejected' });
       toast.success('申请已驳回');
-    } catch (e: any) {
-      toast.error('操作失败: ' + (e?.message || '未知错误'));
+    } catch (e: unknown) {
+      toast.error('操作失败: ' + (e instanceof Error ? e.message : '未知错误'));
     }
   };
 

@@ -4,7 +4,7 @@
 import { httpClient } from './httpClient';
 
 // Excel 导出
-export async function exportToExcel(data: any[], filename?: string) {
+export async function exportToExcel(data: Record<string, unknown>[], filename?: string) {
   const res = await httpClient.post('/api/export/excel', { data, filename });
   return res.data;
 }
@@ -23,7 +23,7 @@ export async function exportToPDF(content: string, title?: string, filename?: st
 // 生成图表
 export async function generateChart(params: {
   chart_type: 'line' | 'bar' | 'pie' | 'funnel' | 'scatter' | 'heatmap';
-  data: any;
+  data: Record<string, unknown> | Record<string, unknown>[];
   title?: string;
   x_label?: string;
   y_label?: string;
@@ -40,7 +40,7 @@ export async function analyzeData(query: string, context?: string) {
 }
 
 // 批量导入客户
-export async function batchImportCustomers(data: any[]) {
+export async function batchImportCustomers(data: Record<string, unknown>[]) {
   const res = await httpClient.post('/api/batch/import-customers', { data });
   return res.data;
 }

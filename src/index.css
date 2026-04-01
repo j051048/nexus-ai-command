@@ -34,82 +34,101 @@ html, body {
 
 @layer base {
   :root {
-    /* Light Mode - Clean Professional SaaS Style */
+    /* Light Mode - Standard Clean Professional SaaS Style */
     --background: 210 20% 98%;
-    --foreground: 222 47% 11%;
+    /* Use a softer foreground color for light mode */
+    --foreground: 222 47% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 222 47% 15%;
     --card-elevated: 210 20% 96%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 222 47% 15%;
 
-    /* Primary - Professional Blue */
-    --primary: 217 91% 50%;
-    --primary-foreground: 0 0% 100%;
-    --primary-glow: 217 91% 60%;
+    /* Primary - Professional Soft Blue */
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+    --primary-glow: 221 83% 65%;
 
-    /* Secondary */
-    --secondary: 210 20% 96%;
-    --secondary-foreground: 222 47% 20%;
+    /* Secondary - Softer gray-blue */
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
 
     /* Muted */
-    --muted: 210 15% 94%;
-    --muted-foreground: 215 16% 40%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
 
-    /* Accent - Success Green */
-    --accent: 142 69% 45%;
-    --accent-foreground: 0 0% 100%;
-    --success: 142 69% 45%;
-    --success-glow: 142 69% 55%;
+    /* Accent - Subtle interactive indicator */
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --success: 142 71% 45%;
+    --success-glow: 142 71% 55%;
 
     /* Warning Orange */
-    --warning: 36 100% 50%;
-    --warning-foreground: 0 0% 0%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 48 96% 89%;
 
     /* Destructive */
-    --destructive: 0 84% 55%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
 
     /* UI Elements */
-    --border: 214 20% 88%;
-    --input: 214 20% 92%;
-    --ring: 217 91% 50%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
 
     --radius: 0.75rem;
 
-    /* Sidebar - Light */
+    /* Sidebar - Light (Maintain consistency with the rest of the app) */
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 222 47% 30%;
-    --sidebar-primary: 217 91% 50%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 20% 96%;
-    --sidebar-accent-foreground: 222 47% 11%;
-    --sidebar-border: 214 20% 90%;
-    --sidebar-ring: 217 91% 50%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 240 5.9% 90%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
 
     /* Gamification Colors */
     --gold: 45 100% 50%;
     --silver: 0 0% 65%;
     --bronze: 30 60% 45%;
-    --xp-bar: 280 100% 55%;
+    --xp-bar: 221 83% 53%;
 
-    /* Gradients - Light Mode */
-    --gradient-primary: linear-gradient(135deg, hsl(217 91% 50%) 0%, hsl(217 91% 60%) 100%);
-    --gradient-success: linear-gradient(135deg, hsl(142 69% 40%) 0%, hsl(142 69% 50%) 100%);
-    --gradient-warning: linear-gradient(135deg, hsl(36 100% 48%) 0%, hsl(36 100% 55%) 100%);
+    /* Gradients - Light Mode (Subtle & Professional) */
+    --gradient-primary: linear-gradient(135deg, hsl(221 83% 53%) 0%, hsl(226 70% 55%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(142 71% 45%) 0%, hsl(144 61% 50%) 100%);
+    --gradient-warning: linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(43 96% 55%) 100%);
+    /* Premium Modern Backgrounds */
+    .glass-bg-main {
+      @apply bg-background transition-colors duration-500;
+      background-image: 
+        radial-gradient(at 0% 0%, hsla(221, 83%, 53%, 0.05) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, hsla(221, 83%, 53%, 0.02) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, hsla(221, 83%, 53%, 0.05) 0px, transparent 50%),
+        radial-gradient(at 0% 100%, hsla(221, 83%, 53%, 0.02) 0px, transparent 50%);
+    }
+
+    .dark .glass-bg-main {
+      background-image: 
+        radial-gradient(at 0% 0%, hsla(221, 83%, 53%, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, hsla(221, 83%, 53%, 0.1) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, hsla(221, 83%, 53%, 0.15) 0px, transparent 50%),
+        radial-gradient(at 0% 100%, hsla(221, 83%, 53%, 0.1) 0px, transparent 50%);
+    }
     --gradient-gold: linear-gradient(135deg, hsl(45 100% 45%) 0%, hsl(55 100% 55%) 100%);
     --gradient-dark: linear-gradient(180deg, hsl(210 20% 98%) 0%, hsl(210 20% 95%) 100%);
-    --gradient-card: linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(210 20% 98%) 100%);
-    --gradient-cyber: linear-gradient(135deg, hsl(217 91% 50% / 0.08) 0%, hsl(142 69% 45% / 0.08) 100%);
+    --gradient-card: linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(210 20% 99%) 100%);
+    --gradient-cyber: linear-gradient(135deg, hsl(221 83% 53% / 0.05) 0%, hsl(142 71% 45% / 0.05) 100%);
 
-    /* Shadows - Light Mode */
-    --shadow-glow-primary: 0 4px 20px hsl(217 91% 50% / 0.15);
-    --shadow-glow-success: 0 4px 20px hsl(142 69% 45% / 0.15);
-    --shadow-glow-warning: 0 4px 20px hsl(36 100% 50% / 0.15);
-    --shadow-card: 0 2px 8px hsl(0 0% 0% / 0.06), 0 4px 16px hsl(0 0% 0% / 0.04);
-    --shadow-elevated: 0 4px 24px hsl(0 0% 0% / 0.1);
+    /* Shadows - Light Mode (Soft & Deep) */
+    --shadow-glow-primary: 0 8px 16px -4px hsl(221 83% 53% / 0.15);
+    --shadow-glow-success: 0 8px 16px -4px hsl(142 71% 45% / 0.15);
+    --shadow-glow-warning: 0 8px 16px -4px hsl(38 92% 50% / 0.15);
+    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-elevated: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-premium: 0 20px 25px -5px rgb(0 0 0 / 0.05), 0 8px 10px -6px rgb(0 0 0 / 0.05);
   }
 
   .dark {
