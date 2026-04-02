@@ -1,8 +1,9 @@
 """用量统计和额度告警 API 路由"""
 
 import logging
+from datetime import date, timedelta
 from typing import Dict, Any
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
 
@@ -43,6 +44,62 @@ async def get_quota_alert(req: Request, user_id: str = Depends(get_current_user_
         logger.error(f"Failed to fetch quota alert: {e}")
         # 这里返回静默成功，避免全局崩溃
         return api_success(data={"has_alert": False, "message": "暂时无法获取额度状态"})
+
+@router.get("/current")
+async def get_current_usage(req: Request, user_id: str = Depends(get_current_user_id)):
+    """获取当前用量摘要（token/费用/请求数 + 配额限制）"""
+    try:
+        db = getattr(req.state, "db", None)
+        org_id = getattr(req.state, "org_id", None)
+
+        if not db or not org_id:
+            return api_success(data={
+                "tokens_used": 0, "cost_usd": 0, "requests": 0,
+                "tokens_limit": 1000000, "cost_limit_usd": 100,
+            })
+
+        # 聚合本月用量
+        from datetime import date
+        first_of_month = date.today().replace(day=1).isoformat()
+        usage_res = (
+            await db.table("llm_usage_stats")
+            .select("total_input_tokens,total_output_tokens,total_calls,total_cost")
+            .eq("tenant_id", str(org_id))
+            .gte("stat_date", first_of_month)
+            .execute()
+        )
+        rows = usage_res.data or []
+        tokens_used = sum(r.get("total_input_tokens", 0) + r.get("total_output_tokens", 0) for r in rows)
+        cost_usd = float(sum(r.get("total_cost", 0) for r in rows))
+        requests = sum(r.get("total_calls", 0) for r in rows)
+
+        # 获取配额配置
+        quota_res = (
+            await db.table("llm_quota_config")
+            .select("monthly_token_limit,monthly_cost_limit")
+            .eq("tenant_id", str(org_id))
+            .eq("is_active", True)
+            .limit(1)
+            .execute()
+        )
+        quota = (quota_res.data or [{}])[0] if quota_res.data else {}
+        tokens_limit = quota.get("monthly_token_limit") or 1000000
+        cost_limit_usd = float(quota.get("monthly_cost_limit") or 100)
+
+        return api_success(data={
+            "tokens_used": tokens_used,
+            "cost_usd": cost_usd,
+            "requests": requests,
+            "tokens_limit": tokens_limit,
+            "cost_limit_usd": cost_limit_usd,
+        })
+    except Exception as e:
+        logger.error(f"Failed to fetch current usage: {e}")
+        return api_success(data={
+            "tokens_used": 0, "cost_usd": 0, "requests": 0,
+            "tokens_limit": 1000000, "cost_limit_usd": 100,
+        })
+
 
 @router.get("/stats")
 async def get_usage_stats(req: Request, user_id: str = Depends(get_current_user_id)):
