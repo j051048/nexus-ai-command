@@ -1,6 +1,0 @@
-THIS DIRECTORY IS DEPRECATED.
-
-All migrations have been consolidated into the canonical directory:
-  nexus_backend/supabase_migrations/migrations/
-
-Do NOT add new migration files here. Use the canonical directory above.

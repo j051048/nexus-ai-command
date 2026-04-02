@@ -76,3 +76,12 @@ NUL
 # Test repositories
 test_openclaw/
 test_openfang/
+
+# Temp / debug output
+tmp/
+*.log
+*_result.txt
+*_report.txt
+tmp_*.txt
+lint_output.txt
+*.ps1
