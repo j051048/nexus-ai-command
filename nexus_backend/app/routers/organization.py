@@ -3,6 +3,7 @@ P2 Optimization: Organization Structure API Routes
 Provides endpoints for managing organizational hierarchy and approval chains.
 """
 
+import logging
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 

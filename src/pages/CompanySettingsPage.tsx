@@ -28,6 +28,21 @@ interface OrgInfo {
   member_count?: number;
 }
 
+interface ApiResponse<T> {
+  status: number;
+  message: string;
+  data: T;
+}
+
+interface OrgDetailFromApi {
+  id: string;
+  name: string;
+  slug: string;
+  invite_code: string | null;
+  invite_code_enabled: boolean;
+  invite_code_expires_at: string | null;
+}
+
 // 安全提取字符串值（防止 React #301 崩溃）
 function safeStr(v: unknown): string {
   if (v == null) return '';
@@ -55,7 +70,7 @@ function CompanySettingsPage() {
     console.log('[CompanySettingsPage] v5 loaded, profile:', profile?.id);
   }, [profile?.id]);
 
-  const orgId = (profile as unknown as Record<string, unknown>)?.organization_id as string | undefined;
+  const orgId = profile?.organization_id;
 
   // Load organization data
   const loadOrg = useCallback(async () => {
@@ -68,7 +83,7 @@ function CompanySettingsPage() {
     try {
       setLoading(true);
       // 调用新的后端接口获取详情
-      const response = await httpClient.get('/api/organization/detail');
+      const response = await httpClient.get<ApiResponse<OrgDetailFromApi>>('/api/organization/detail');
       
       // 处理后端统一包装的 api_success 结构
       const orgDataFromApi = response.data?.data;
@@ -80,7 +95,7 @@ function CompanySettingsPage() {
       // 获取组织统计数据（可选，也可以扩展 detail 接口）
       let memberCount = 0;
       try {
-        const statsResponse = await httpClient.get('/api/organization/stats');
+        const statsResponse = await httpClient.get<ApiResponse<{ total_employees: number }>>('/api/organization/stats');
         memberCount = statsResponse.data?.data?.total_employees || 0;
       } catch (e) {
         console.warn('[CompanySettings] Failed to load stats:', e);
@@ -98,13 +113,14 @@ function CompanySettingsPage() {
 
       setOrg(orgData);
       setOrgName(orgData.name);
-    } catch (e: any) {
-      const msg = e.response?.data?.message || e.message || '未知错误';
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string }, status?: number }, message?: string };
+      const msg = err.response?.data?.message || err.message || '未知错误';
       console.error('[CompanySettings] Load failed:', msg, 'orgId:', orgId);
       toast.error(`加载企业信息失败: ${msg}`);
       
       // 如果后端没这个接口，给出更明确的提示
-      if (e.response?.status === 404) {
+      if (err.response?.status === 404) {
         console.error('[CompanySettings] Endpoint /api/organization/detail not found');
       }
     } finally {
@@ -121,7 +137,7 @@ function CompanySettingsPage() {
     if (!org || !orgName.trim()) return;
     try {
       setSaving(true);
-      const response = await httpClient.put('/api/organization/detail', { 
+      const response = await httpClient.put<{ status: number, message?: string }>('/api/organization/detail', { 
         name: orgName.trim() 
       });
       if (response.data?.status !== 200) {
@@ -129,8 +145,9 @@ function CompanySettingsPage() {
       }
       toast.success('企业名称已更新');
       setOrg(prev => prev ? { ...prev, name: orgName.trim() } : null);
-    } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || '更新失败';
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } }, message?: string };
+      const msg = error.response?.data?.message || error.message || '更新失败';
       toast.error(`更新企业名称失败: ${msg}`);
     } finally {
       setSaving(false);
@@ -142,13 +159,14 @@ function CompanySettingsPage() {
     if (!org) return;
     try {
       setRegenerating(true);
-      const response = await httpClient.post('/api/organization/invite-code/regenerate');
+      const response = await httpClient.post<ApiResponse<{ invite_code: string }>>('/api/organization/invite-code/regenerate');
       const result = response.data;
       if (result.status !== 200) throw new Error(result.message);
       toast.success('邀请码已重新生成');
       setOrg(prev => prev ? { ...prev, invite_code: result.data.invite_code } : null);
-    } catch (e: any) {
-      const msg = e.response?.data?.message || e.message || '未知错误';
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } }, message?: string };
+      const msg = err.response?.data?.message || err.message || '未知错误';
       toast.error(`重新生成邀请码失败: ${msg}`);
     } finally {
       setRegenerating(false);
@@ -159,13 +177,14 @@ function CompanySettingsPage() {
   const handleToggleInvite = async (enabled: boolean) => {
     if (!org) return;
     try {
-      const response = await httpClient.post('/api/organization/invite-code/toggle', { enabled });
+      const response = await httpClient.post<ApiResponse<{ enabled: boolean }>>('/api/organization/invite-code/toggle', { enabled });
       const result = response.data;
       if (result.status !== 200) throw new Error(result.message);
       setOrg(prev => prev ? { ...prev, invite_code_enabled: result.data.enabled } : null);
       toast.success(result.data.enabled ? '邀请码已启用' : '邀请码已禁用');
-    } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || '操作失败';
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } }, message?: string };
+      const msg = error.response?.data?.message || error.message || '操作失败';
       toast.error(`操作失败: ${msg}`);
     }
   };
