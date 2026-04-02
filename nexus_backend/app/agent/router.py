@@ -187,6 +187,19 @@ _EXECUTE_VERBS = {
     "操作",
     "处理",
     "办理",
+    # HR-sensitive actions (these keywords ARE the action verb)
+    "解雇",
+    "开除",
+    "辞退",
+    "降职",
+    "调岗",
+    "调动",
+    "升职",
+    "晋升",
+    # Announcement actions
+    "发公告",
+    "全员通知",
+    "发通知",
 }
 
 _CRITICAL_KEYWORDS = {
@@ -266,6 +279,15 @@ _COMPLEX_KEYWORDS = {
     "推广文",
     "千字",
     "万字",
+    # Multi-step planning keywords
+    "营销方案",
+    "营销计划",
+    "推广方案",
+    "品牌推广",
+    "品牌策划",
+    "上市计划",
+    "拜访计划",
+    "客户拜访",
 }
 
 _MODERATE_KEYWORDS = {
@@ -340,6 +362,11 @@ _MODERATE_KEYWORDS = {
     # User preferences
     "偏好",
     "通知设置",
+    # VMD / marketing domain
+    "媒介",
+    "投放",
+    "广告",
+    "合规",
 }
 
 # ─── Aggregate business indicators ─────────────────────────────────────────

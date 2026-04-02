@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 
 # 确保 nexus_backend 根目录在 Python 路径中，以便 import evals.*
-_backend_root = str(Path(__file__).parent.parent)
+_backend_root = str(Path(__file__).parent.parent.parent)
 if _backend_root not in sys.path:
     sys.path.insert(0, _backend_root)
 
@@ -38,7 +38,7 @@ from evals.evaluators.rag_quality import RAGQualityEvaluator
 @pytest.fixture
 def runner():
     """提供一个指向 evals/datasets/ 的评估运行器。"""
-    datasets_dir = Path(__file__).parent.parent / "evals" / "datasets"
+    datasets_dir = Path(__file__).parent.parent.parent / "evals" / "datasets"
     return EvalRunner(datasets_dir=str(datasets_dir))
 
 

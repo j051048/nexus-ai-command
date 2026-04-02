@@ -260,7 +260,7 @@ class TestExecuteNode:
         }
 
         # mock _execute_single_tool 以避免真正执行
-        async def fake_execute(record, config, cache=None):
+        async def fake_execute(record, config, cache=None, prior_completed_tools=None, trace_id=None):
             record.status = "success"
             record.result = "工具执行结果: 测试数据"
             record.duration_ms = 100
@@ -269,6 +269,8 @@ class TestExecuteNode:
         with (
             patch("app.agent.node_execute._execute_single_tool", side_effect=fake_execute),
             patch("app.agent.node_execute.plugin_system_service.run_hooks", new_callable=AsyncMock),
+            patch("app.services.content_moderation.check_user_input", return_value=(True, [])),
+            patch("app.agent.node_execute.agent_trace_service", MagicMock()),
         ):
             result = await execute_node(state)
 
@@ -296,7 +298,7 @@ class TestExecuteNode:
             "iteration": 2,
         }
 
-        async def fake_execute(record, config, cache=None):
+        async def fake_execute(record, config, cache=None, prior_completed_tools=None, trace_id=None):
             record.status = "success"
             record.result = "ok"
             return record
@@ -304,6 +306,8 @@ class TestExecuteNode:
         with (
             patch("app.agent.node_execute._execute_single_tool", side_effect=fake_execute),
             patch("app.agent.node_execute.plugin_system_service.run_hooks", new_callable=AsyncMock),
+            patch("app.services.content_moderation.check_user_input", return_value=(True, [])),
+            patch("app.agent.node_execute.agent_trace_service", MagicMock()),
         ):
             result = await execute_node(state)
 
@@ -348,7 +352,11 @@ class TestReflectNode:
             "needs_replanning": False,
         }
 
-        with patch("app.agent.node_reflect.scan_content", return_value=(True, [])):
+        with (
+            patch("app.agent.node_reflect.scan_content", return_value=(True, [])),
+            patch("app.agent.node_reflect._verify_tool_grounding", new_callable=AsyncMock, return_value=None),
+            patch("app.agent.node_reflect._check_data_source_primacy", return_value=None),
+        ):
             result = await reflect_node(state)
 
         assert result["is_hallucination"] is False

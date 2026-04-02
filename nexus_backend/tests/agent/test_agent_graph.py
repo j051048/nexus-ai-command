@@ -69,7 +69,7 @@ class TestAfterPlan:
 
     def test_tool_calls_go_to_execute(self):
         state = _make_state(requires_tools=True, pending_tool_calls=["tool1"])
-        assert _after_plan(state) == "execute"
+        assert _after_plan(state) == "slot_verify"
 
     def test_no_tools_goes_to_reflect(self):
         state = _make_state(requires_tools=False, pending_tool_calls=[])

@@ -94,7 +94,7 @@ class TestLoopDetectorPerformance:
             "completed_tool_calls": [],
         }
         start = time.time()
-        with patch("app.agent.loop_detector.get_completed_tools", return_value=[]):
+        with patch("app.agent.state.get_completed_tools", return_value=[]):
             detect_loop(state)
         elapsed = time.time() - start
         assert elapsed < 0.5, f"detect_loop on 500 items took {elapsed:.2f}s"
@@ -108,7 +108,7 @@ class TestLoopDetectorPerformance:
             "_tool_call_history": history,
             "completed_tool_calls": [],
         }
-        with patch("app.agent.loop_detector.get_completed_tools", return_value=[]):
+        with patch("app.agent.state.get_completed_tools", return_value=[]):
             result = detect_loop(state)
         assert result is False
 

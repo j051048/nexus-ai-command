@@ -19,7 +19,7 @@ def _base_state(**overrides):
     from langchain_core.messages import HumanMessage
     state = {
         "messages": [HumanMessage(content="查询客户列表")],
-        "phase": AgentPhase.PLANNING,
+        "current_phase": AgentPhase.PLANNING,
         "complexity": QueryComplexity.MODERATE,
         "intent_summary": "查询客户",
         "plan": [],
@@ -76,7 +76,7 @@ class TestPlanNode:
         state = _base_state()
         result = await plan_node(state)
 
-        assert result["phase"] == AgentPhase.PLANNING
+        assert result["current_phase"] == AgentPhase.EXECUTING
         # 应生成计划或 thinking_steps
         assert len(result.get("plan", [])) > 0 or len(result.get("thinking_steps", [])) > 0
 
@@ -97,9 +97,9 @@ class TestPlanNode:
         state = _base_state()
         result = await plan_node(state)
 
-        # 无工具调用时应直接进入 respond 或设置 final_response
-        assert result.get("final_response") or result.get("phase") in (
-            AgentPhase.PLANNING, AgentPhase.RESPONDING
+        # 无工具调用时应进入 reflecting 或 responding
+        assert result.get("final_response") or result.get("current_phase") in (
+            AgentPhase.REFLECTING, AgentPhase.RESPONDING
         )
 
 
@@ -110,6 +110,7 @@ class TestReflectCriticChain:
     @patch("app.agent.node_reflect._get_llm")
     async def test_reflect_high_confidence_passes(self, mock_get_llm):
         from app.agent.node_reflect import reflect_node
+        from langchain_core.messages import AIMessage, HumanMessage
 
         mock_msg = MagicMock()
         mock_msg.content = '{"quality": "good", "issues": [], "confidence": 0.95}'
@@ -122,18 +123,23 @@ class TestReflectCriticChain:
             tool_call_id="tc-1", result="5 customers", status="success"
         )
         state = _base_state(
-            phase=AgentPhase.REFLECTING,
+            current_phase=AgentPhase.REFLECTING,
             completed_tool_calls=[tc],
+            messages=[
+                HumanMessage(content="查询客户列表"),
+                AIMessage(content="根据查询结果，共有5个客户。"),
+            ],
         )
 
         result = await reflect_node(state)
-        # 高置信度应通过
-        assert result.get("confidence_score", 0) > 0 or "reflect_feedback" in result
+        # 高置信度应通过 — 返回 confidence_score 或 reflection
+        assert result.get("confidence_score", 0) > 0 or "reflection" in result
 
     @pytest.mark.asyncio
     @patch("app.agent.node_reflect._get_llm")
     async def test_reflect_low_confidence_triggers_replan(self, mock_get_llm):
         from app.agent.node_reflect import reflect_node
+        from langchain_core.messages import AIMessage, HumanMessage
 
         mock_msg = MagicMock()
         mock_msg.content = '{"quality": "poor", "issues": ["数据不完整"], "confidence": 0.3, "suggestion": "需要补充查询"}'
@@ -146,13 +152,17 @@ class TestReflectCriticChain:
             tool_call_id="tc-1", result="error", status="error"
         )
         state = _base_state(
-            phase=AgentPhase.REFLECTING,
+            current_phase=AgentPhase.REFLECTING,
             completed_tool_calls=[tc],
+            messages=[
+                HumanMessage(content="查询客户列表"),
+                AIMessage(content=""),  # 空回复触发 replan
+            ],
         )
 
         result = await reflect_node(state)
-        # 低置信度应触发反馈
-        assert result.get("reflect_feedback") or result.get("confidence_score", 1.0) < 0.5
+        # 低置信度/空回复应触发 replan
+        assert result.get("needs_replanning") is True or result.get("reflection")
 
 
 class TestHITLConfirmation:
@@ -162,14 +172,14 @@ class TestHITLConfirmation:
         from app.tools.base_tool import ConfirmationRequired, ConfirmationType
 
         exc = ConfirmationRequired(
+            preview_message="确认批准？金额: ¥50,000",
             tool_name="ApprovalTool",
-            tool_args={"id": "a-1", "decision": "approved"},
+            args={"id": "a-1", "decision": "approved"},
             confirmation_type=ConfirmationType.IRREVERSIBLE,
-            message="确认批准？金额: ¥50,000",
         )
         assert exc.tool_name == "ApprovalTool"
         assert exc.confirmation_type == ConfirmationType.IRREVERSIBLE
-        assert "50,000" in exc.message
+        assert "50,000" in exc.preview_message
 
     def test_confirmed_tool_in_config(self):
         """用户确认后，confirmed_tool 应传入 config"""

@@ -483,6 +483,7 @@ class TestRunPreChecks:
 # Known valid domain values
 _KNOWN_DOMAINS = {
     "oa_leave",
+    "oa_task",
     "attendance",
     "approval",
     "finance",

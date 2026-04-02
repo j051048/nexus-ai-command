@@ -46,6 +46,10 @@ async def patched_app():
     ):
         from app.main import app  # noqa: E402 -- intentionally late import
 
+        # Trigger one health refresh so the health cache is populated
+        from app.core.health_cache import health_cache
+        await health_cache._refresh_health()
+
         yield app
 
 
@@ -370,18 +374,23 @@ class TestMiddlewareOrder:
         """
         from starlette.middleware.cors import CORSMiddleware
 
+        from app.core.metrics_middleware import PrometheusMiddleware
         from app.core.rate_limiter import RateLimitMiddleware
 
         middleware_classes = [m.cls for m in patched_app.user_middleware]
         assert RateLimitMiddleware in middleware_classes, "RateLimitMiddleware not found in user_middleware"
         assert CORSMiddleware in middleware_classes, "CORSMiddleware not found in user_middleware"
-        # CORSMiddleware is outermost (index 0), RateLimitMiddleware is second (index 1).
+        # CORSMiddleware is outermost (index 0), PrometheusMiddleware is second (index 1),
+        # RateLimitMiddleware is third (index 2).
         assert middleware_classes[0] is CORSMiddleware, (
             "CORSMiddleware should be the outermost (index 0) middleware, "
             f"but found: {middleware_classes[0].__name__}"
         )
-        assert middleware_classes[1] is RateLimitMiddleware, (
-            "RateLimitMiddleware should be at index 1, " f"but found: {middleware_classes[1].__name__}"
+        assert middleware_classes[1] is PrometheusMiddleware, (
+            "PrometheusMiddleware should be at index 1, " f"but found: {middleware_classes[1].__name__}"
+        )
+        assert middleware_classes[2] is RateLimitMiddleware, (
+            "RateLimitMiddleware should be at index 2, " f"but found: {middleware_classes[2].__name__}"
         )
 
     @pytest.mark.asyncio
@@ -400,6 +409,7 @@ class TestMiddlewareOrder:
         from app.core.csrf_middleware import CSRFMiddleware
         from app.core.data_masking import DataMaskingMiddleware
         from app.core.idempotency_middleware import IdempotencyMiddleware
+        from app.core.metrics_middleware import PrometheusMiddleware
         from app.core.rate_limiter import RateLimitMiddleware
         from app.core.security_middleware import (
             RequestIDMiddleware,
@@ -410,6 +420,7 @@ class TestMiddlewareOrder:
         middleware_classes = [m.cls for m in patched_app.user_middleware]
         expected_order = [
             CORSMiddleware,
+            PrometheusMiddleware,
             RateLimitMiddleware,
             SecurityHeadersMiddleware,
             RequestIDMiddleware,
