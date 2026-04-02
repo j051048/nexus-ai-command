@@ -59,7 +59,7 @@ async def list_audit_logs(
 
         query = db.table("audit_logs").select("*").order("created_at", desc=True).limit(min(limit, 200))
         if org_id:
-            query = query.eq("tenant_id", org_id)
+            query = query.eq("organization_id", org_id)
 
         result = await query.execute()
         return api_success(data={"logs": result.data or []})

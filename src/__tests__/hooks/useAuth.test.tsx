@@ -30,6 +30,14 @@ vi.mock('@/integrations/supabase/client', () => {
   };
 });
 
+// Mock httpClient
+vi.mock('@/lib/httpClient', () => ({
+  httpClient: {
+    get: vi.fn().mockResolvedValue({ data: { data: { user: null } } }),
+    post: vi.fn(),
+  },
+}));
+
 // ─── Mock sonner toast ──────────────────────────────────────
 
 vi.mock('sonner', () => ({
@@ -59,13 +67,20 @@ function setupDefaultMocks() {
   mockSelect.mockReturnValue({ eq: mockEq });
   mockEq.mockReturnValue({ maybeSingle: mockMaybeSingle });
   mockMaybeSingle.mockResolvedValue({ data: null, error: null });
-  mockRpc.mockResolvedValue({ data: null, error: null });
+  
+  // Default mock for RPC handles both role and admin checks
+  mockRpc.mockImplementation((name) => {
+    if (name === 'get_user_role') return Promise.resolve({ data: 'employee', error: null });
+    if (name === 'is_super_admin') return Promise.resolve({ data: false, error: null });
+    return Promise.resolve({ data: null, error: null });
+  });
 }
 
 // ─── 测试用例 ──────────────────────────────────────────────
 
 describe('useAuth (AuthContext)', () => {
   beforeEach(() => {
+    vi.resetModules();
     vi.clearAllMocks();
     setupDefaultMocks();
   });
@@ -102,10 +117,11 @@ describe('useAuth (AuthContext)', () => {
     const mockSession = { user: mockUser, access_token: 'mock-token-123' };
 
     mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
-    mockRpc.mockResolvedValue({ data: 'manager', error: null });
-    mockMaybeSingle.mockResolvedValue({
-      data: { id: 'user-123', name: 'Test User', role: 'employee' },
-      error: null,
+    
+    // Inject custom RPC for this test
+    mockRpc.mockImplementation((name) => {
+      if (name === 'get_user_role') return Promise.resolve({ data: 'manager', error: null });
+      return Promise.resolve({ data: false, error: null });
     });
 
     const { AuthProvider, useAuth } = await import('@/components/auth/AuthContext');
@@ -126,9 +142,11 @@ describe('useAuth (AuthContext)', () => {
 
     mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
     mockRpc.mockResolvedValue({ data: null, error: null });
-    mockMaybeSingle.mockResolvedValue({
-      data: { id: 'user-456', name: 'Employee User' },
-      error: null,
+    
+    // AuthContext also uses httpClient.get('/api/users/profile')
+    const { httpClient } = await import('@/lib/httpClient');
+    (httpClient.get as any).mockResolvedValue({
+      data: { data: { user: { id: 'user-456', name: 'Employee User' } } }
     });
 
     const { AuthProvider, useAuth } = await import('@/components/auth/AuthContext');
@@ -137,9 +155,8 @@ describe('useAuth (AuthContext)', () => {
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
-    await waitFor(() => expect(result.current.loading).toBe(false), { timeout: 3000 });
-
-    expect(result.current.role).toBe('employee');
+    await waitFor(() => expect(result.current.role).toBe('employee'), { timeout: 3000 });
+    expect(result.current.loading).toBe(false);
   });
 
   it('RPC 返回 null 时，从 profile.role=founder 解析为 boss', async () => {
@@ -148,9 +165,11 @@ describe('useAuth (AuthContext)', () => {
 
     mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
     mockRpc.mockResolvedValue({ data: null, error: null });
-    mockMaybeSingle.mockResolvedValue({
-      data: { id: 'user-789', name: 'Boss User', role: 'founder' },
-      error: null,
+    
+    // Mock profile role
+    const { httpClient } = await import('@/lib/httpClient');
+    (httpClient.get as any).mockResolvedValue({
+      data: { data: { user: { id: 'user-789', name: 'Boss User', role: 'founder' } } }
     });
 
     const { AuthProvider, useAuth } = await import('@/components/auth/AuthContext');
@@ -159,8 +178,6 @@ describe('useAuth (AuthContext)', () => {
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
-    await waitFor(() => expect(result.current.loading).toBe(false), { timeout: 3000 });
-
-    expect(result.current.role).toBe('boss');
+    await waitFor(() => expect(result.current.role).toBe('boss'), { timeout: 3000 });
   });
 });

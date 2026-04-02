@@ -29,7 +29,7 @@ async def list_targets(
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
 
-        result = await db.table("sales_targets").select("*").eq("tenant_id", org_id).execute()
+        result = await db.table("sales_targets").select("*").eq("organization_id", org_id).execute()
         return api_success(data={"targets": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list targets: {e}")
@@ -50,7 +50,7 @@ async def create_target(
         db = getattr(req.state, "db", None)
 
         data = body.model_dump()
-        data["tenant_id"] = org_id
+        data["organization_id"] = org_id
         data["created_by"] = user_id
 
         result = await db.table("sales_targets").insert(data).execute()
@@ -73,7 +73,7 @@ async def delete_target(
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
 
-        await db.table("sales_targets").delete().eq("id", target_id).eq("tenant_id", org_id).execute()
+        await db.table("sales_targets").delete().eq("id", target_id).eq("organization_id", org_id).execute()
         return api_success(data={"deleted": True})
     except Exception as e:
         logger.error(f"Failed to delete target: {e}")
@@ -92,7 +92,7 @@ async def list_metrics(
 
         query = db.table("sales_metrics").select("*")
         if org_id:
-            query = query.eq("tenant_id", org_id)
+            query = query.eq("organization_id", org_id)
 
         result = await query.execute()
         return api_success(data={"metrics": result.data or []})

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import { LoadingState } from '@/components/common/LoadingState';
 import { iconColors, iconBackgrounds, typography } from '@/lib/design-tokens';
 import {

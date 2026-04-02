@@ -34,7 +34,7 @@ async def list_budgets(
 
         query = db.table("finance_budgets").select("*")
         if org_id:
-            query = query.eq("tenant_id", org_id)
+            query = query.eq("organization_id", org_id)
 
         result = await query.execute()
         return api_success(data={"budgets": result.data or []})
@@ -55,7 +55,7 @@ async def create_budget(
         db = getattr(req.state, "db", None)
 
         data = body.model_dump()
-        data["tenant_id"] = org_id
+        data["organization_id"] = org_id
         data["created_by"] = user_id
 
         result = await db.table("finance_budgets").insert(data).execute()
@@ -96,7 +96,7 @@ async def create_invoice(
         db = getattr(req.state, "db", None)
 
         data = body.model_dump()
-        data["tenant_id"] = org_id
+        data["organization_id"] = org_id
         data["created_by"] = user_id
 
         result = await db.table("finance_invoices").insert(data).execute()

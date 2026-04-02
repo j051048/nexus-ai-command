@@ -6,6 +6,12 @@ import { render, screen } from '@testing-library/react';
 //  Mock dependencies used across GenUI components
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// Mock LeadCard at top level to fix hoisting warning
+vi.mock('@/components/sales/components/LeadCard', () => ({
+  LeadCard: ({ lead }: { lead: { company_name: string } }) =>
+    React.createElement('div', { 'data-testid': 'lead-card' }, lead.company_name),
+}));
+
 // Mock recharts (used by DataChart)
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) =>
@@ -246,12 +252,6 @@ describe('AlertList', () => {
 
 describe('KanbanBoard', () => {
   it('renders stage columns', async () => {
-    // KanbanBoard imports LeadCard and SalesLead type, mock them
-    vi.mock('@/components/sales/components/LeadCard', () => ({
-      LeadCard: ({ lead }: { lead: { company_name: string } }) =>
-        React.createElement('div', { 'data-testid': 'lead-card' }, lead.company_name),
-    }));
-
     const { KanbanBoard } = await import('@/components/sales/sections/KanbanBoard');
 
     const leads = [

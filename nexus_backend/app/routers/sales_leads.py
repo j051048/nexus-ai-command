@@ -45,7 +45,7 @@ async def list_leads(
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
 
-        query = db.table("sales_leads").select("*").eq("tenant_id", org_id)
+        query = db.table("sales_leads").select("*").eq("organization_id", org_id)
         if stage:
             query = query.eq("stage", stage)
 
@@ -70,7 +70,7 @@ async def create_lead(
         db = getattr(req.state, "db", None)
 
         data = body.model_dump()
-        data["tenant_id"] = org_id
+        data["organization_id"] = org_id
         data["user_id"] = user_id
 
         result = await db.table("sales_leads").insert(data).execute()

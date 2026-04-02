@@ -86,7 +86,7 @@ async def list_leave_requests(
 
         query = db.table("oa_leave_requests").select("*")
         if org_id:
-            query = query.eq("tenant_id", org_id)
+            query = query.eq("organization_id", org_id)
         if status:
             query = query.eq("status", status)
 
