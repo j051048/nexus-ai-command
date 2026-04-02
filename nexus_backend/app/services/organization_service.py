@@ -42,6 +42,34 @@ class OrganizationService:
             logger.error(f"更新组织信息失败: {e}")
             raise
 
+    async def get_org_stats(self, org_id: str, db=None) -> dict:
+        """获取组织统计概览"""
+        if not db:
+            # 防御性逻辑
+            return {"member_count": 0, "department_count": 0, "role_count": 0}
+        try:
+            # 1. 统计员工总数
+            members = await db.table("users").select("id", count="exact").eq("organization_id", org_id).execute()
+            member_count = members.count or 0
+
+            # 2. 统计部门数
+            depts = await db.table("departments").select("id", count="exact").eq("organization_id", org_id).execute()
+            dept_count = depts.count or 0
+
+            # 3. 统计常见职位数 (基于 role 类型去重统计)
+            roles = await db.table("users").select("role").eq("organization_id", org_id).execute()
+            unique_roles = set(r["role"] for r in (roles.data or []) if r.get("role"))
+            role_count = len(unique_roles)
+
+            return {
+                "member_count": member_count,
+                "department_count": dept_count,
+                "role_count": role_count
+            }
+        except Exception as e:
+            logger.error(f"获取组织统计失败: {e}")
+            return {"error": str(e)}
+
     # ========================================================================
     # 部门管理
     # ========================================================================

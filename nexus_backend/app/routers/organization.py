@@ -120,11 +120,12 @@ async def get_organization_stats(req: Request, user_id: str = Depends(get_curren
     Get organization-wide statistics.
     """
     org_id = getattr(req.state, "org_id", None)
+    db = getattr(req.state, "db", None)
 
     if not org_id:
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "Organization not found")
 
-    stats = await organization_service.get_org_stats(org_id)
+    stats = await organization_service.get_org_stats(org_id, db=db)
     if "error" in stats:
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, stats["error"])
     return api_success(data=stats)
