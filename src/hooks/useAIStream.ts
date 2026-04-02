@@ -505,6 +505,17 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         setPendingConfirmation(null);
         setFollowUpSuggestions([]);
 
+        // 添加超时保护
+        const STREAM_TIMEOUT = 60000; // 60秒超时
+        let timeoutId = setTimeout(() => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+            setIsTyping(false);
+            setAiStatus(undefined);
+            toast.error('AI 响应超时（60秒），请简化请求或稍后重试', { duration: 5000 });
+        }, STREAM_TIMEOUT);
+
         // Support both old callback style and new object style
         const onUpdate = typeof callbacks === 'function' ? callbacks : callbacks?.onUpdate;
         const onThinkingStep = typeof callbacks === 'object' ? callbacks.onThinkingStep : undefined;
@@ -702,8 +713,14 @@ export function useAIStream({ userId }: UseAIStreamProps) {
             }
 
             toast.error(errorMessage);
+
+            // 关键修复：确保状态重置
+            setIsTyping(false);
+            setAiStatus(undefined);
+
             throw error;
         } finally {
+            clearTimeout(timeoutId);
             setIsTyping(false);
             setAiStatus(undefined);
         }

@@ -88,8 +88,12 @@ export function WorkflowDesigner() {
         const currentData = canvasRef.current.getWorkflowData();
         const updatedSteps = currentData.steps.map((step) => {
           if (step.id === nodeId) {
-            const { label, ...config } = data;
-            return { ...step, label: (label as string) || step.label, config };
+            // 修复：直接合并 data，不要拆分 label 和 config
+            return {
+              ...step,
+              label: (data.label as string) || step.label,
+              config: { ...step.config, ...data }, // 保留所有配置
+            };
           }
           return step;
         });
