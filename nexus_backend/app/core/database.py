@@ -85,11 +85,15 @@ try:
     class OrgFilteredClient:
         _ORG_TABLES = {
             "users", "documents", "document_embeddings", "sales_leads", "sales_metrics",
-            "approval_requests", "projects", "departments", "notifications", "oa_tasks",
+            "approval_requests", "projects", "departments", "notifications", 
+            "oa_tasks", "oa_leave_requests", "oa_meeting_bookings", "oa_meeting_rooms", "oa_work_handovers",
+            "business_clue", "clue_follow_up", 
+            "vmd_agent_config", "vmd_main_task", "vmd_sub_task", "vmd_task_audit_record",
+            "vmd_reports", "vmd_compliance", "vmd_compliance_issue",
             "ai_settings", "conversation_memories", "org_memories", "chat_sessions",
             "chat_messages", "contracts", "competitors", "knowledge_graph_triples",
             "entity_aliases", "agent_traces", "tenant_credits", "semantic_cache",
-            "webhook_subscriptions", "installed_plugins", "vmd_main_task", "vmd_sub_task",
+            "webhook_subscriptions", "installed_plugins", 
             "work_orders", "assets", "certificates", "inventory",
             "pending_confirmations",
         }

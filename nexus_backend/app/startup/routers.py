@@ -180,6 +180,7 @@ def register_routers(app: FastAPI) -> None:
 
     _optional_vmd_routers = [
         ("llm_models", "llm_models"),
+        ("vmd_clues", "vmd_clues"),
         ("vmd_tasks", "vmd_tasks"),
         ("vmd_compliance", "vmd_compliance"),
         ("vmd_dashboard", "vmd_dashboard"),

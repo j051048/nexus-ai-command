@@ -111,8 +111,6 @@ async def list_leave_requests(
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
         query = db.table("oa_leave_requests").select("*")
-        if org_id:
-            query = query.eq("organization_id", org_id)
         if status:
             query = query.eq("status", status)
 
@@ -138,7 +136,6 @@ async def create_leave_request(
 
         leave_data = request_data.model_dump()
         leave_data["user_id"] = user_id
-        leave_data["organization_id"] = org_id
         leave_data["status"] = "pending"
 
         result = await db.table("oa_leave_requests").insert(leave_data).execute()
@@ -181,7 +178,7 @@ async def list_meetings(
         if not org_id:
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
 
-        result = await db.table("oa_meeting_bookings").select("*").eq("organization_id", org_id).order("start_time", desc=True).execute()
+        result = await db.table("oa_meeting_bookings").select("*").order("start_time", desc=True).execute()
         return api_success(data={"meetings": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list meetings: {e}")
@@ -204,7 +201,6 @@ async def create_meeting(
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
 
         data = body.model_dump()
-        data["organization_id"] = org_id
         data["user_id"] = user_id
         data["status"] = "confirmed"
 
@@ -230,7 +226,7 @@ async def cancel_meeting(
         if not org_id:
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
 
-        result = await db.table("oa_meeting_bookings").update({"status": "cancelled"}).eq("id", meeting_id).eq("organization_id", org_id).execute()
+        result = await db.table("oa_meeting_bookings").update({"status": "cancelled"}).eq("id", meeting_id).execute()
         return api_success(data={"cancelled": True})
     except Exception as e:
         logger.error(f"Failed to cancel meeting: {e}")
@@ -255,7 +251,7 @@ async def list_oa_tasks(
         if not org_id:
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
 
-        query = db.table("oa_tasks").select("*").eq("organization_id", org_id)
+        query = db.table("oa_tasks").select("*")
         if assignee_id:
             query = query.eq("assignee_id", assignee_id)
         result = await query.order("created_at", desc=True).execute()
@@ -281,7 +277,6 @@ async def create_oa_task(
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
 
         data = body.model_dump()
-        data["organization_id"] = org_id
         data["created_by"] = user_id
         data["status"] = "pending"
 
@@ -312,7 +307,7 @@ async def update_oa_task(
         if not updates:
             raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "无可更新字段")
 
-        result = await db.table("oa_tasks").update(updates).eq("id", task_id).eq("organization_id", org_id).execute()
+        result = await db.table("oa_tasks").update(updates).eq("id", task_id).execute()
         return api_success(data={"task": result.data[0] if result.data else {}})
     except Exception as e:
         logger.error(f"Failed to update OA task: {e}")
@@ -342,7 +337,7 @@ async def approve_leave_request(
         if status not in ("approved", "rejected"):
             raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "status 必须为 approved 或 rejected")
 
-        result = await db.table("oa_leave_requests").update({"status": status}).eq("id", request_id).eq("organization_id", org_id).execute()
+        result = await db.table("oa_leave_requests").update({"status": status}).eq("id", request_id).execute()
         return api_success(data={"updated": True})
     except Exception as e:
         logger.error(f"Failed to approve/reject leave request: {e}")
