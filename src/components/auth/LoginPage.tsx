@@ -442,9 +442,9 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-[1.5fr_1fr] bg-background">
+    <div className="min-h-screen grid lg:grid-cols-2 bg-background overflow-x-hidden">
       {/* Left Side - Brand Presentation (Hidden on mobile) */}
-      <div className="hidden lg:flex flex-col justify-between p-12 bg-zinc-950 text-white relative overflow-hidden">
+      <div className="hidden lg:flex flex-col justify-between p-12 xl:p-20 bg-zinc-950 text-white relative overflow-hidden h-full">
         {/* Abstract Background Glowing Effects & Patterns */}
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
           {/* Animated Blob Gradients */}
@@ -476,7 +476,7 @@ export function LoginPage() {
           ))}
         </div>
 
-        <div className="relative z-10 flex flex-col gap-8">
+        <div className="relative z-10 flex flex-col gap-8 ml-auto max-w-xl w-full translate-x-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30 border border-white/10">
               <span className="text-xl font-bold font-sans">N</span>
@@ -500,7 +500,7 @@ export function LoginPage() {
           </div>
 
           {/* Feature Highlight List */}
-          <div className="mt-10 space-y-4 max-w-sm">
+          <div className="mt-10 space-y-4 max-w-md">
             {[
               { icon: <Sparkles className="w-5 h-5 text-blue-400" />, title: '深层智慧洞察', desc: '秒级解析高维数据，辅助制定战略级决策' },
               { icon: <Zap className="w-5 h-5 text-purple-400" />, title: '工作流自动化', desc: '通过智能 Agent 矩阵，无缝串联日常繁冗任务' },
@@ -521,18 +521,17 @@ export function LoginPage() {
         </div>
 
         {/* Footer */}
-        <div className="relative z-10 flex items-center justify-between text-sm text-zinc-500">
+        <div className="relative z-10 flex items-center justify-between text-sm text-zinc-500 ml-auto max-w-xl w-full translate-x-4">
           <p>© 2026 Nexus AI. All rights reserved.</p>
           <div className="flex gap-6">
             <a href="#" className="hover:text-zinc-300 transition-colors">隐私政策</a>
             <a href="#" className="hover:text-zinc-300 transition-colors">服务协议</a>
-            <a href="#" className="hover:text-zinc-300 transition-colors">系统日志</a>
           </div>
         </div>
       </div>
 
       {/* Right Side - Auth Forms Container */}
-      <div className="flex items-center justify-center p-6 sm:p-12 relative overflow-hidden bg-background">
+      <div className="flex items-center justify-start p-6 sm:p-12 xl:p-20 relative overflow-hidden bg-background h-full">
         {/* High-end ambient mesh gradient behind the form */}
         <div className="absolute top-0 right-0 w-full h-full overflow-hidden pointer-events-none z-0">
            <div className="absolute top-[-10%] right-[-5%] w-[50%] h-[50%] rounded-full bg-blue-500/10 dark:bg-blue-500/5 blur-[100px] animate-blob mix-blend-multiply dark:mix-blend-screen" />
@@ -540,7 +539,7 @@ export function LoginPage() {
            <div className="absolute top-[40%] left-[20%] w-[40%] h-[40%] rounded-full bg-emerald-500/5 dark:bg-emerald-500/5 blur-[100px] animate-blob mix-blend-multiply dark:mix-blend-screen" style={{ animationDelay: '5s' }} />
         </div>
 
-        <div className="w-full max-w-md space-y-8 relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-700 ease-out fill-mode-both">
+        <div className="w-full max-w-md space-y-8 relative z-10 animate-in fade-in slide-in-from-bottom-8 duration-700 ease-out fill-mode-both -translate-x-4">
           
           {/* Mobile Logo Only (Hidden on Desktop) */}
           <div className="lg:hidden text-center mb-8">
