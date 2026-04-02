@@ -73,9 +73,8 @@ async def get_dashboard_stats(req: Request, user_id: str = Depends(get_current_u
         tasks_res = await db.table("vmd_main_task").select("id", count="exact").neq("status", "completed").execute()
         tasks_count = tasks_res.count if tasks_res.count is not None else 0
 
-        # 3. 合规风险数 (vmd_compliance_issue)
-        # Note: 假设存在 vmd_compliance_issue 表或类似逻辑
-        compliance_res = await db.table("vmd_compliance_issue").select("id", count="exact").execute()
+        # 3. 合规风险数 (compliance_rule)
+        compliance_res = await db.table("compliance_rule").select("id", count="exact").execute()
         compliance_count = compliance_res.count if compliance_res.count is not None else 0
 
         # 4. 活跃 Agent 数

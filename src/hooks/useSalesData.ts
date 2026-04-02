@@ -69,9 +69,10 @@ export function useSalesMetrics(months: number = 7) {
       if (!session?.user?.id) return [];
 
       const startDate = format(subDays(new Date(), months * 30), 'yyyy-MM-dd');
+      const endDate = format(new Date(), 'yyyy-MM-dd');
 
       const response = await httpClient.get('/api/sales/metrics/range', {
-        params: { start_date: startDate },
+        params: { start_date: startDate, end_date: endDate },
       });
 
       return (response.data?.data || []) as SalesMetric[];
@@ -116,9 +117,10 @@ export function useWinRateHistory(weeks: number = 8) {
       if (!session?.user?.id) return [];
 
       const startDate = format(subWeeks(new Date(), weeks), 'yyyy-MM-dd');
+      const endDate = format(new Date(), 'yyyy-MM-dd');
 
       const response = await httpClient.get('/api/sales/metrics/range', {
-        params: { start_date: startDate, target_user_id: session.user.id },
+        params: { start_date: startDate, end_date: endDate, target_user_id: session.user.id },
       });
 
       const data = (response.data?.data || []) as Array<{ date: string; win_rate: number | null }>;
@@ -167,7 +169,8 @@ export function useRevenueData(months: number = 7) {
 
       const startDate = format(subDays(new Date(), months * 30), 'yyyy-MM-dd');
 
-      const params: Record<string, string> = { start_date: startDate };
+      const endDate = format(new Date(), 'yyyy-MM-dd');
+      const params: Record<string, string> = { start_date: startDate, end_date: endDate };
       if (role !== 'boss') {
         params.target_user_id = session.user.id;
       }

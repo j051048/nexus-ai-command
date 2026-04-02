@@ -1,0 +1,644 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="207" failures="0" errors="0" time="19.2532679">
+    <testsuite name="src/__tests__/contexts/UserContext.test.tsx" timestamp="2026-04-02T14:35:23.766Z" hostname="DESKTOP-Fei" tests="7" failures="0" errors="0" skipped="0" time="0.0378328">
+        <testcase classname="src/__tests__/contexts/UserContext.test.tsx" name="UserContext &gt; 应从 AuthContext 同步 profile 数据" time="0.0144686">
+        </testcase>
+        <testcase classname="src/__tests__/contexts/UserContext.test.tsx" name="UserContext &gt; setRole 应正确切换角色" time="0.0022664">
+        </testcase>
+        <testcase classname="src/__tests__/contexts/UserContext.test.tsx" name="UserContext &gt; addBonus 应正确累加奖金" time="0.0023831">
+        </testcase>
+        <testcase classname="src/__tests__/contexts/UserContext.test.tsx" name="UserContext &gt; updateScore 应正确更新分数" time="0.0016962">
+        </testcase>
+        <testcase classname="src/__tests__/contexts/UserContext.test.tsx" name="UserContext &gt; updateScore 应 clamp 到 0-100 范围 (上限)" time="0.0015332">
+        </testcase>
+        <testcase classname="src/__tests__/contexts/UserContext.test.tsx" name="UserContext &gt; updateScore 应 clamp 到 0-100 范围 (下限)" time="0.0011447">
+        </testcase>
+        <testcase classname="src/__tests__/contexts/UserContext.test.tsx" name="UserContext &gt; useUser 在 Provider 外使用应抛出错误" time="0.011545">
+            <system-err>
+The above error occurred in the &lt;TestComponent&gt; component:
+
+    at TestComponent (C:\Users\Fei\Desktop\AI应用\nexus-ai-command\node_modules\@testing-library\react\dist\pure.js:328:5)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+            </system-err>
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/hooks/sse-stream.test.ts" timestamp="2026-04-02T14:35:23.768Z" hostname="DESKTOP-Fei" tests="9" failures="0" errors="0" skipped="0" time="0.007608">
+        <testcase classname="src/__tests__/hooks/sse-stream.test.ts" name="SSE 流解析测试 &gt; 解析普通内容增量" time="0.0032215">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/sse-stream.test.ts" name="SSE 流解析测试 &gt; 解析 thinking_step 事件" time="0.0006735">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/sse-stream.test.ts" name="SSE 流解析测试 &gt; 解析 status 事件" time="0.0003167">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/sse-stream.test.ts" name="SSE 流解析测试 &gt; 解析 confirmation_required 事件 (HITL)" time="0.0004357">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/sse-stream.test.ts" name="SSE 流解析测试 &gt; 解析 sanitized_content 事件" time="0.0003556">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/sse-stream.test.ts" name="SSE 流解析测试 &gt; 忽略注释行和空行" time="0.00029">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/sse-stream.test.ts" name="SSE 流解析测试 &gt; 跳过非 data: 开头的行" time="0.0002209">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/sse-stream.test.ts" name="SSE 流解析测试 &gt; 处理无 content 的 delta 事件" time="0.0002107">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/sse-stream.test.ts" name="SSE 流解析测试 &gt; 累积内容增量还原完整消息" time="0.0002247">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/hooks/useAIStream.test.ts" timestamp="2026-04-02T14:35:23.769Z" hostname="DESKTOP-Fei" tests="5" failures="0" errors="0" skipped="0" time="12.6778318">
+        <testcase classname="src/__tests__/hooks/useAIStream.test.ts" name="useAIStream &gt; 初始状态：isTyping=false, aiStatus=undefined, thinkingSteps 为空" time="0.3388422">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useAIStream.test.ts" name="useAIStream &gt; 返回 streamChat 和 stopStream 函数" time="0.0014748">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useAIStream.test.ts" name="useAIStream &gt; 网络断开时抛出错误" time="0.0026024">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useAIStream.test.ts" name="useAIStream &gt; Tier 1a 成功时不触发后续 tier" time="0.0051592">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useAIStream.test.ts" name="useAIStream &gt; 三层全部失败时 isTyping 重置为 false" time="12.3271951">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/hooks/useApprovals.test.ts" timestamp="2026-04-02T14:35:23.769Z" hostname="DESKTOP-Fei" tests="8" failures="0" errors="0" skipped="0" time="0.5474236">
+        <testcase classname="src/__tests__/hooks/useApprovals.test.ts" name="useApprovals &gt; boss 角色正常获取待审批列表" time="0.1629451">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useApprovals.test.ts" name="useApprovals &gt; 非 boss 角色不触发查询" time="0.0106202">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useApprovals.test.ts" name="useApprovals &gt; Zod 校验失败时降级返回原始数据" time="0.0782988">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useApprovals.test.ts" name="useApprovals &gt; updateStatus mutation 成功后 invalidate 缓存" time="0.0923789">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useApprovals.test.ts" name="useApprovals &gt; updateStatus mutation 失败时 toast 错误" time="0.0949639">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useApprovals.test.ts" name="useApprovals &gt; organization_id 为空时返回空数组" time="0.0137713">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useApprovals.test.ts" name="useMyApprovals &gt; 获取当前用户的审批列表" time="0.0773564">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useApprovals.test.ts" name="useMyApprovals &gt; 未登录时不触发查询" time="0.014887">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/hooks/useAuth.test.tsx" timestamp="2026-04-02T14:35:23.771Z" hostname="DESKTOP-Fei" tests="5" failures="0" errors="0" skipped="0" time="0.574152">
+        <testcase classname="src/__tests__/hooks/useAuth.test.tsx" name="useAuth (AuthContext) &gt; 初始状态 loading=true" time="0.2597644">
+            <system-err>
+Warning: An update to AuthProvider inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() =&gt; {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you&apos;re testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
+    at AuthProvider (C:/Users/Fei/Desktop/AI应用/nexus-ai-command/src/components/auth/AuthContext.tsx:43:25)
+    at wrapper (C:/Users/Fei/Desktop/AI应用/nexus-ai-command/src/__tests__/hooks/useAuth.test.tsx:115:28)
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useAuth.test.tsx" name="useAuth (AuthContext) &gt; 无 session 时角色解析为 null，loading=false" time="0.0806005">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useAuth.test.tsx" name="useAuth (AuthContext) &gt; 通过 get_user_role RPC 解析角色" time="0.0764572">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useAuth.test.tsx" name="useAuth (AuthContext) &gt; RPC 返回 null 且 profile 无角色时，回退到 employee" time="0.0768129">
+            <system-out>
+[AuthContext] Fetched new profile data: {
+  id: [32m&apos;user-456&apos;[39m,
+  user_id: [32m&apos;user-456&apos;[39m,
+  name: [32m&apos;Employee User&apos;[39m,
+  avatar: [32m&apos;&apos;[39m,
+  department: [32m&apos;&apos;[39m,
+  score: [33m0[39m,
+  rank: [33m0[39m,
+  total_bonus: [33m0[39m,
+  organization_id: [32m&apos;&apos;[39m,
+  employee_number: [1mnull[22m,
+  job_title: [1mnull[22m
+}
+
+[AuthContext] Current profile state before update: [1mnull[22m
+[AuthContext] Setting next profile state: {
+  id: [32m&apos;user-456&apos;[39m,
+  user_id: [32m&apos;user-456&apos;[39m,
+  name: [32m&apos;Employee User&apos;[39m,
+  avatar: [32m&apos;&apos;[39m,
+  department: [32m&apos;&apos;[39m,
+  score: [33m0[39m,
+  rank: [33m0[39m,
+  total_bonus: [33m0[39m,
+  organization_id: [32m&apos;&apos;[39m,
+  employee_number: [1mnull[22m,
+  job_title: [1mnull[22m
+}
+
+            </system-out>
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useAuth.test.tsx" name="useAuth (AuthContext) &gt; RPC 返回 null 时，从 profile.role=founder 解析为 boss" time="0.0777478">
+            <system-out>
+[AuthContext] Fetched new profile data: {
+  id: [32m&apos;user-789&apos;[39m,
+  user_id: [32m&apos;user-789&apos;[39m,
+  name: [32m&apos;Boss User&apos;[39m,
+  avatar: [32m&apos;&apos;[39m,
+  department: [32m&apos;&apos;[39m,
+  score: [33m0[39m,
+  rank: [33m0[39m,
+  total_bonus: [33m0[39m,
+  organization_id: [32m&apos;&apos;[39m,
+  employee_number: [1mnull[22m,
+  job_title: [1mnull[22m
+}
+
+[AuthContext] Current profile state before update: [1mnull[22m
+[AuthContext] Setting next profile state: {
+  id: [32m&apos;user-789&apos;[39m,
+  user_id: [32m&apos;user-789&apos;[39m,
+  name: [32m&apos;Boss User&apos;[39m,
+  avatar: [32m&apos;&apos;[39m,
+  department: [32m&apos;&apos;[39m,
+  score: [33m0[39m,
+  rank: [33m0[39m,
+  total_bonus: [33m0[39m,
+  organization_id: [32m&apos;&apos;[39m,
+  employee_number: [1mnull[22m,
+  job_title: [1mnull[22m
+}
+
+            </system-out>
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/hooks/useConfirmDialog.test.ts" timestamp="2026-04-02T14:35:23.772Z" hostname="DESKTOP-Fei" tests="6" failures="0" errors="0" skipped="0" time="0.1480741">
+        <testcase classname="src/__tests__/hooks/useConfirmDialog.test.ts" name="useConfirmDialog &gt; should initialize with closed state" time="0.0150089">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useConfirmDialog.test.ts" name="useConfirmDialog &gt; should open dialog on confirm call" time="0.0023101">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useConfirmDialog.test.ts" name="useConfirmDialog &gt; should resolve true on confirm" time="0.063177">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useConfirmDialog.test.ts" name="useConfirmDialog &gt; should resolve false on cancel" time="0.0626344">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useConfirmDialog.test.ts" name="useConfirmDialog &gt; should use default text values" time="0.0017083">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useConfirmDialog.test.ts" name="useConfirmDialog &gt; should use custom text values" time="0.000932">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/hooks/useFormSchemas.test.ts" timestamp="2026-04-02T14:35:23.773Z" hostname="DESKTOP-Fei" tests="4" failures="0" errors="0" skipped="0" time="0.5886753">
+        <testcase classname="src/__tests__/hooks/useFormSchemas.test.ts" name="useFormSchemas &gt; 成功获取表单 schema 列表" time="0.3555468">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useFormSchemas.test.ts" name="useFormSchemas &gt; API 调用失败时返回错误" time="0.0754594">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useFormSchemas.test.ts" name="useFormSchemas &gt; useFormSchema 使用正确 ID 请求" time="0.0775176">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useFormSchemas.test.ts" name="useFormSchemas &gt; useFormSchemaByType 使用审批类型请求" time="0.0775983">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/hooks/useOfflineQueue.test.ts" timestamp="2026-04-02T14:35:23.773Z" hostname="DESKTOP-Fei" tests="5" failures="0" errors="0" skipped="0" time="0.4454694">
+        <testcase classname="src/__tests__/hooks/useOfflineQueue.test.ts" name="useOfflineQueue &gt; 初始化时调用 init 并获取 count" time="0.1495176">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useOfflineQueue.test.ts" name="useOfflineQueue &gt; isOnline 反映 navigator.onLine 状态" time="0.0024876">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useOfflineQueue.test.ts" name="useOfflineQueue &gt; enqueue 调用 offlineQueue.enqueue 并刷新计数" time="0.0599039">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useOfflineQueue.test.ts" name="useOfflineQueue &gt; replay 调用 offlineQueue.replay" time="0.0590492">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useOfflineQueue.test.ts" name="useOfflineQueue &gt; 网络恢复时自动重放队列" time="0.1715973">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/hooks/usePermission.test.ts" timestamp="2026-04-02T14:35:23.774Z" hostname="DESKTOP-Fei" tests="7" failures="0" errors="0" skipped="0" time="0.126121">
+        <testcase classname="src/__tests__/hooks/usePermission.test.ts" name="usePermission &gt; invalidatePermissionCache 应清除缓存且不抛异常" time="0.0474887">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/usePermission.test.ts" name="usePermission &gt; usePermissions 中 employee 角色 read 应被允许" time="0.021943">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/usePermission.test.ts" name="usePermission &gt; usePermissions 中 employee 角色 write chat/documents 应被允许" time="0.0157919">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/usePermission.test.ts" name="usePermission &gt; usePermissions 中 boss 角色应全部允许" time="0.0140605">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/usePermission.test.ts" name="usePermission &gt; usePermissions 中 employee 角色 delete 应被拒绝" time="0.0024912">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/usePermission.test.ts" name="usePermission &gt; usePermissions 中 manager 角色 system 应被拒绝但 projects 允许" time="0.0133768">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/usePermission.test.ts" name="usePermission &gt; usePermissions 空 checks 应立即返回 loading=false" time="0.0089675">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/hooks/useWebSocketPush.test.ts" timestamp="2026-04-02T14:35:23.775Z" hostname="DESKTOP-Fei" tests="3" failures="0" errors="0" skipped="0" time="0.1004952">
+        <testcase classname="src/__tests__/hooks/useWebSocketPush.test.ts" name="useWebSocketPush &gt; 构造正确的 wss:// URL" time="0.0927139">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useWebSocketPush.test.ts" name="useWebSocketPush &gt; NO_RECONNECT_CODES (1013/4001/4002/4003) 不触发重连" time="0.0033376">
+            <system-out>
+[WS Push] Connected
+[WS Push] Closed (code=1013)
+
+            </system-out>
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useWebSocketPush.test.ts" name="useWebSocketPush &gt; 组件卸载时关闭连接" time="0.0020779">
+            <system-out>
+[WS Push] Connected
+
+            </system-out>
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/hooks/useWorkflows.test.ts" timestamp="2026-04-02T14:35:23.775Z" hostname="DESKTOP-Fei" tests="5" failures="0" errors="0" skipped="0" time="0.5517324">
+        <testcase classname="src/__tests__/hooks/useWorkflows.test.ts" name="useWorkflows &gt; 成功获取工作流列表" time="0.316408">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useWorkflows.test.ts" name="useWorkflows &gt; API 失败时返回错误" time="0.0761848">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useWorkflows.test.ts" name="useWorkflows &gt; 请求包含 Authorization header" time="0.0773207">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useWorkflows.test.ts" name="useWorkflows &gt; useWorkflow 使用正确的 ID 获取单个工作流" time="0.0776107">
+        </testcase>
+        <testcase classname="src/__tests__/hooks/useWorkflows.test.ts" name="useWorkflows &gt; useWorkflow 当 id 为空时不发起请求" time="0.0016961">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/features/WorkflowCanvas.test.tsx" timestamp="2026-04-02T14:35:23.776Z" hostname="DESKTOP-Fei" tests="6" failures="0" errors="0" skipped="0" time="0.0357792">
+        <testcase classname="src/__tests__/features/WorkflowCanvas.test.tsx" name="WorkflowCanvas &gt; 注册所有 10 种自定义节点类型" time="0.0206228">
+        </testcase>
+        <testcase classname="src/__tests__/features/WorkflowCanvas.test.tsx" name="WorkflowCanvas &gt; 渲染控件、背景和小地图" time="0.0037253">
+        </testcase>
+        <testcase classname="src/__tests__/features/WorkflowCanvas.test.tsx" name="WorkflowCanvas &gt; getWorkflowData 返回 steps 和 conditions" time="0.0028115">
+        </testcase>
+        <testcase classname="src/__tests__/features/WorkflowCanvas.test.tsx" name="WorkflowCanvas &gt; loadWorkflowData 加载外部定义" time="0.0023721">
+        </testcase>
+        <testcase classname="src/__tests__/features/WorkflowCanvas.test.tsx" name="WorkflowCanvas &gt; loadWorkflowData 缺少 initiator/end 时自动补全" time="0.0022509">
+        </testcase>
+        <testcase classname="src/__tests__/features/WorkflowCanvas.test.tsx" name="WorkflowCanvas &gt; 固定节点 (initiator/end) 标记为 deletable: false" time="0.0015076">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/features/WorkflowDesigner.test.tsx" timestamp="2026-04-02T14:35:23.777Z" hostname="DESKTOP-Fei" tests="2" failures="0" errors="0" skipped="0" time="0.1067302">
+        <testcase classname="src/__tests__/features/WorkflowDesigner.test.tsx" name="WorkflowDesigner Persistence &amp; Visual Logic &gt; 正确渲染设计器页面" time="0.0816678">
+            <system-err>
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+
+            </system-err>
+        </testcase>
+        <testcase classname="src/__tests__/features/WorkflowDesigner.test.tsx" name="WorkflowDesigner Persistence &amp; Visual Logic &gt; 新建流程时显示默认名称" time="0.0231153">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/features/WorkflowNodes.test.tsx" timestamp="2026-04-02T14:35:23.777Z" hostname="DESKTOP-Fei" tests="4" failures="0" errors="0" skipped="0" time="0.2095875">
+        <testcase classname="src/__tests__/features/WorkflowNodes.test.tsx" name="工作流设计器画布测试 &gt; 渲染画布和基本控件" time="0.1993271">
+        </testcase>
+        <testcase classname="src/__tests__/features/WorkflowNodes.test.tsx" name="工作流设计器画布测试 &gt; 初始无节点时画布为空" time="0.0035928">
+        </testcase>
+        <testcase classname="src/__tests__/features/WorkflowNodes.test.tsx" name="工作流设计器画布测试 &gt; 通过 ref.loadWorkflowData 加载节点" time="0.0026006">
+        </testcase>
+        <testcase classname="src/__tests__/features/WorkflowNodes.test.tsx" name="工作流设计器画布测试 &gt; 注册了所有自定义节点类型" time="0.0023186">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/components/approval-submit.test.tsx" timestamp="2026-04-02T14:35:23.778Z" hostname="DESKTOP-Fei" tests="3" failures="0" errors="0" skipped="0" time="0.4249308">
+        <testcase classname="src/__tests__/components/approval-submit.test.tsx" name="审批提交流程测试 &gt; 选择审批类型后填写信息并提交" time="0.397409">
+        </testcase>
+        <testcase classname="src/__tests__/components/approval-submit.test.tsx" name="审批提交流程测试 &gt; 未选类型时点击提交应提示错误" time="0.0132029">
+        </testcase>
+        <testcase classname="src/__tests__/components/approval-submit.test.tsx" name="审批提交流程测试 &gt; 自动审批通过时显示成功提示" time="0.0119894">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/components/CommandPalette.test.tsx" timestamp="2026-04-02T14:35:23.778Z" hostname="DESKTOP-Fei" tests="1" failures="0" errors="0" skipped="0" time="0.071369">
+        <testcase classname="src/__tests__/components/CommandPalette.test.tsx" name="CommandPalette &gt; open=true 时渲染命令面板" time="0.0695532">
+            <system-err>
+⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+Warning: Unknown event handler property `onValueChange`. It will be ignored.
+    at input
+    at div
+    at div
+    at Command (C:/Users/Fei/Desktop/AI应用/nexus-ai-command/src/__tests__/components/CommandPalette.test.tsx:3:24)
+    at div
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-primitive/dist/index.mjs:28:13
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs:24:7
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-primitive/node_modules/@radix-ui/react-slot/dist/index.mjs:33:13
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-primitive/node_modules/@radix-ui/react-slot/dist/index.mjs:9:13
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-primitive/dist/index.mjs:28:13
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-focus-scope/dist/index.mjs:15:5
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-dialog/dist/index.mjs:206:13
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-dialog/dist/index.mjs:132:58
+    at Presence (file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-presence/dist/index.mjs:19:11)
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-dialog/dist/index.mjs:123:64
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-primitive/node_modules/@radix-ui/react-slot/dist/index.mjs:33:13
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-primitive/node_modules/@radix-ui/react-slot/dist/index.mjs:9:13
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-primitive/dist/index.mjs:28:13
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-portal/dist/index.mjs:11:22
+    at Presence (file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-presence/dist/index.mjs:19:11)
+    at Provider (file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-context/dist/index.mjs:27:15)
+    at DialogPortal (file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-dialog/dist/index.mjs:85:11)
+    at C:/Users/Fei/Desktop/AI应用/nexus-ai-command/src/components/ui/dialog.tsx:35:73
+    at Provider (file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-context/dist/index.mjs:27:15)
+    at Dialog (file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-dialog/dist/index.mjs:25:5)
+    at CommandPalette (C:/Users/Fei/Desktop/AI应用/nexus-ai-command/src/components/common/CommandPalette.tsx:18:27)
+    at Router (C:\Users\Fei\Desktop\AI应用\nexus-ai-command\node_modules\react-router\dist\umd\react-router.development.js:1207:17)
+    at MemoryRouter (C:\Users\Fei\Desktop\AI应用\nexus-ai-command\node_modules\react-router\dist\umd\react-router.development.js:1101:7)
+Warning: You provided a `value` prop to a form field without an `onChange` handler. This will render a read-only field. If the field should be mutable use `defaultValue`. Otherwise, set either `onChange` or `readOnly`.
+    at input
+    at div
+    at div
+    at Command (C:/Users/Fei/Desktop/AI应用/nexus-ai-command/src/__tests__/components/CommandPalette.test.tsx:3:24)
+    at div
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-primitive/dist/index.mjs:28:13
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs:24:7
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-primitive/node_modules/@radix-ui/react-slot/dist/index.mjs:33:13
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-primitive/node_modules/@radix-ui/react-slot/dist/index.mjs:9:13
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-primitive/dist/index.mjs:28:13
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-focus-scope/dist/index.mjs:15:5
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-dialog/dist/index.mjs:206:13
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-dialog/dist/index.mjs:132:58
+    at Presence (file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-presence/dist/index.mjs:19:11)
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-dialog/dist/index.mjs:123:64
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-primitive/node_modules/@radix-ui/react-slot/dist/index.mjs:33:13
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-primitive/node_modules/@radix-ui/react-slot/dist/index.mjs:9:13
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-primitive/dist/index.mjs:28:13
+    at file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-portal/dist/index.mjs:11:22
+    at Presence (file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-presence/dist/index.mjs:19:11)
+    at Provider (file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-context/dist/index.mjs:27:15)
+    at DialogPortal (file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-dialog/dist/index.mjs:85:11)
+    at C:/Users/Fei/Desktop/AI应用/nexus-ai-command/src/components/ui/dialog.tsx:35:73
+    at Provider (file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-context/dist/index.mjs:27:15)
+    at Dialog (file:///C:/Users/Fei/Desktop/AI%E5%BA%94%E7%94%A8/nexus-ai-command/node_modules/@radix-ui/react-dialog/dist/index.mjs:25:5)
+    at CommandPalette (C:/Users/Fei/Desktop/AI应用/nexus-ai-command/src/components/common/CommandPalette.tsx:18:27)
+    at Router (C:\Users\Fei\Desktop\AI应用\nexus-ai-command\node_modules\react-router\dist\umd\react-router.development.js:1207:17)
+    at MemoryRouter (C:\Users\Fei\Desktop\AI应用\nexus-ai-command\node_modules\react-router\dist\umd\react-router.development.js:1101:7)
+`DialogContent` requires a `DialogTitle` for the component to be accessible for screen reader users.
+
+If you want to hide the `DialogTitle`, you can wrap it with our VisuallyHidden component.
+
+For more information, see https://radix-ui.com/primitives/docs/components/dialog
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
+
+            </system-err>
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/components/DynamicFormRenderer.test.tsx" timestamp="2026-04-02T14:35:23.779Z" hostname="DESKTOP-Fei" tests="17" failures="0" errors="0" skipped="0" time="0.0943765">
+        <testcase classname="src/__tests__/components/DynamicFormRenderer.test.tsx" name="DynamicFormRenderer &gt; 字段类型渲染 &gt; 渲染 text 字段" time="0.0261075">
+        </testcase>
+        <testcase classname="src/__tests__/components/DynamicFormRenderer.test.tsx" name="DynamicFormRenderer &gt; 字段类型渲染 &gt; 渲染 number 字段" time="0.003292">
+        </testcase>
+        <testcase classname="src/__tests__/components/DynamicFormRenderer.test.tsx" name="DynamicFormRenderer &gt; 字段类型渲染 &gt; 渲染 textarea 字段" time="0.0030184">
+        </testcase>
+        <testcase classname="src/__tests__/components/DynamicFormRenderer.test.tsx" name="DynamicFormRenderer &gt; 字段类型渲染 &gt; 渲染 date 字段" time="0.0020389">
+        </testcase>
+        <testcase classname="src/__tests__/components/DynamicFormRenderer.test.tsx" name="DynamicFormRenderer &gt; 字段类型渲染 &gt; 渲染 select 字段及选项" time="0.023496">
+        </testcase>
+        <testcase classname="src/__tests__/components/DynamicFormRenderer.test.tsx" name="DynamicFormRenderer &gt; 字段类型渲染 &gt; 渲染 multiselect 字段" time="0.0082063">
+        </testcase>
+        <testcase classname="src/__tests__/components/DynamicFormRenderer.test.tsx" name="DynamicFormRenderer &gt; 字段类型渲染 &gt; 渲染空字段列表时显示提示" time="0.0010652">
+        </testcase>
+        <testcase classname="src/__tests__/components/DynamicFormRenderer.test.tsx" name="DynamicFormRenderer &gt; readOnly 模式 &gt; 文本字段只读时显示值" time="0.0024582">
+        </testcase>
+        <testcase classname="src/__tests__/components/DynamicFormRenderer.test.tsx" name="DynamicFormRenderer &gt; readOnly 模式 &gt; 空值只读时显示&quot;未填写&quot;" time="0.0014113">
+        </testcase>
+        <testcase classname="src/__tests__/components/DynamicFormRenderer.test.tsx" name="DynamicFormRenderer &gt; readOnly 模式 &gt; 数字字段只读时显示数字值" time="0.0015421">
+        </testcase>
+        <testcase classname="src/__tests__/components/DynamicFormRenderer.test.tsx" name="DynamicFormRenderer &gt; required 字段标记 &gt; 必填字段显示红色星号" time="0.0014374">
+        </testcase>
+        <testcase classname="src/__tests__/components/DynamicFormRenderer.test.tsx" name="DynamicFormRenderer &gt; required 字段标记 &gt; 非必填字段不显示星号" time="0.001192">
+        </testcase>
+        <testcase classname="src/__tests__/components/DynamicFormRenderer.test.tsx" name="DynamicFormRenderer &gt; onChange 回调 &gt; text 字段输入触发 onChange" time="0.0048952">
+        </testcase>
+        <testcase classname="src/__tests__/components/DynamicFormRenderer.test.tsx" name="DynamicFormRenderer &gt; onChange 回调 &gt; number 字段输入触发 onChange" time="0.0020314">
+        </testcase>
+        <testcase classname="src/__tests__/components/DynamicFormRenderer.test.tsx" name="DynamicFormRenderer &gt; onChange 回调 &gt; textarea 字段输入触发 onChange" time="0.0018405">
+        </testcase>
+        <testcase classname="src/__tests__/components/DynamicFormRenderer.test.tsx" name="DynamicFormRenderer &gt; onChange 回调 &gt; multiselect 字段点击触发 onChange" time="0.0060105">
+        </testcase>
+        <testcase classname="src/__tests__/components/DynamicFormRenderer.test.tsx" name="DynamicFormRenderer &gt; description 帮助文本 &gt; 渲染字段描述" time="0.001698">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/components/ErrorBoundary.test.tsx" timestamp="2026-04-02T14:35:23.780Z" hostname="DESKTOP-Fei" tests="14" failures="0" errors="0" skipped="0" time="0.1347012">
+        <testcase classname="src/__tests__/components/ErrorBoundary.test.tsx" name="ErrorBoundary &gt; 正常渲染子组件" time="0.0224349">
+        </testcase>
+        <testcase classname="src/__tests__/components/ErrorBoundary.test.tsx" name="ErrorBoundary &gt; 捕获渲染错误并显示错误页面" time="0.0231064">
+        </testcase>
+        <testcase classname="src/__tests__/components/ErrorBoundary.test.tsx" name="ErrorBoundary &gt; 显示重新加载按钮" time="0.0081545">
+        </testcase>
+        <testcase classname="src/__tests__/components/ErrorBoundary.test.tsx" name="ErrorBoundary &gt; 显示返回首页按钮" time="0.0070131">
+        </testcase>
+        <testcase classname="src/__tests__/components/ErrorBoundary.test.tsx" name="ErrorBoundary &gt; 重新加载按钮调用 window.location.reload" time="0.0125324">
+        </testcase>
+        <testcase classname="src/__tests__/components/ErrorBoundary.test.tsx" name="ErrorBoundary &gt; 返回首页按钮设置 location.href" time="0.0077958">
+        </testcase>
+        <testcase classname="src/__tests__/components/ErrorBoundary.test.tsx" name="ErrorBoundary &gt; 开发模式下可展开错误详情" time="0.0102412">
+        </testcase>
+        <testcase classname="src/__tests__/components/ErrorBoundary.test.tsx" name="ErrorBoundary &gt; 嵌套 ErrorBoundary 内层捕获" time="0.0073259">
+        </testcase>
+        <testcase classname="src/__tests__/components/ErrorBoundary.test.tsx" name="ErrorBoundary &gt; 多个子组件中一个出错不影响 ErrorBoundary 显示" time="0.0065602">
+        </testcase>
+        <testcase classname="src/__tests__/components/ErrorBoundary.test.tsx" name="ErrorBoundary 边缘案例 &gt; 空 children 不崩溃" time="0.0009527">
+        </testcase>
+        <testcase classname="src/__tests__/components/ErrorBoundary.test.tsx" name="ErrorBoundary 边缘案例 &gt; Error 对象无 stack 不崩溃" time="0.0061454">
+        </testcase>
+        <testcase classname="src/__tests__/components/ErrorBoundary.test.tsx" name="ErrorBoundary 边缘案例 &gt; 非 Error 对象抛出" time="0.0071156">
+        </testcase>
+        <testcase classname="src/__tests__/components/ErrorBoundary.test.tsx" name="ErrorBoundary 边缘案例 &gt; 超长错误消息不破坏布局" time="0.0052585">
+        </testcase>
+        <testcase classname="src/__tests__/components/ErrorBoundary.test.tsx" name="ErrorBoundary 边缘案例 &gt; rerender 触发错误后显示兜底 UI" time="0.0071224">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/components/GenUIComponents.test.tsx" timestamp="2026-04-02T14:35:23.781Z" hostname="DESKTOP-Fei" tests="21" failures="0" errors="0" skipped="0" time="1.135202">
+        <testcase classname="src/__tests__/components/GenUIComponents.test.tsx" name="DataChart &gt; renders bar chart with title and data" time="0.1120648">
+        </testcase>
+        <testcase classname="src/__tests__/components/GenUIComponents.test.tsx" name="DataChart &gt; renders with empty data without crashing" time="0.0016648">
+        </testcase>
+        <testcase classname="src/__tests__/components/GenUIComponents.test.tsx" name="DataTable &gt; renders columns and rows correctly" time="0.307516">
+        </testcase>
+        <testcase classname="src/__tests__/components/GenUIComponents.test.tsx" name="DataTable &gt; handles empty rows gracefully" time="0.0022769">
+        </testcase>
+        <testcase classname="src/__tests__/components/GenUIComponents.test.tsx" name="StatCards &gt; renders cards with values and trends" time="0.0571192">
+        </testcase>
+        <testcase classname="src/__tests__/components/GenUIComponents.test.tsx" name="StatCards &gt; returns null for empty cards array" time="0.0011225">
+        </testcase>
+        <testcase classname="src/__tests__/components/GenUIComponents.test.tsx" name="Timeline &gt; renders timeline items with status" time="0.0196438">
+        </testcase>
+        <testcase classname="src/__tests__/components/GenUIComponents.test.tsx" name="Timeline &gt; returns null for empty items" time="0.0007311">
+        </testcase>
+        <testcase classname="src/__tests__/components/GenUIComponents.test.tsx" name="TodoList &gt; renders todo items with priority" time="0.0146461">
+        </testcase>
+        <testcase classname="src/__tests__/components/GenUIComponents.test.tsx" name="TodoList &gt; returns null for empty items" time="0.0007615">
+        </testcase>
+        <testcase classname="src/__tests__/components/GenUIComponents.test.tsx" name="PieChart (GenUI) &gt; renders pie chart with data slices" time="0.0170775">
+        </testcase>
+        <testcase classname="src/__tests__/components/GenUIComponents.test.tsx" name="PieChart (GenUI) &gt; returns null for empty data" time="0.0006315">
+        </testcase>
+        <testcase classname="src/__tests__/components/GenUIComponents.test.tsx" name="AlertList &gt; renders alerts with different levels" time="0.0080104">
+        </testcase>
+        <testcase classname="src/__tests__/components/GenUIComponents.test.tsx" name="KanbanBoard &gt; renders stage columns" time="0.0092731">
+        </testcase>
+        <testcase classname="src/__tests__/components/GenUIComponents.test.tsx" name="GenUI Error Boundary Behavior &gt; DataChart handles malformed data without crashing" time="0.0007354">
+        </testcase>
+        <testcase classname="src/__tests__/components/GenUIComponents.test.tsx" name="GenUI Error Boundary Behavior &gt; StatCards handles undefined cards without crashing" time="0.0003883">
+        </testcase>
+        <testcase classname="src/__tests__/components/GenUIComponents.test.tsx" name="GenUI Error Boundary Behavior &gt; Timeline handles undefined items without crashing" time="0.0003871">
+        </testcase>
+        <testcase classname="src/__tests__/components/GenUIComponents.test.tsx" name="GenUI Error Boundary Behavior &gt; TodoList handles undefined items without crashing" time="0.00038">
+        </testcase>
+        <testcase classname="src/__tests__/components/GenUIComponents.test.tsx" name="GenUI Error Boundary Behavior &gt; PieChart handles undefined data without crashing" time="0.0003246">
+        </testcase>
+        <testcase classname="src/__tests__/components/GenUIComponents.test.tsx" name="GenUI Error Boundary Behavior &gt; DataTable renders with missing column keys in rows" time="0.0010372">
+        </testcase>
+        <testcase classname="src/__tests__/components/GenUIComponents.test.tsx" name="ApprovalCenter &gt; module is importable without crashing" time="0.5765234">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/components/InstallPrompt.test.tsx" timestamp="2026-04-02T14:35:23.783Z" hostname="DESKTOP-Fei" tests="4" failures="0" errors="0" skipped="0" time="0.2216182">
+        <testcase classname="src/__tests__/components/InstallPrompt.test.tsx" name="InstallPrompt &gt; 初始状态不可见（需要等 beforeinstallprompt 事件）" time="0.1852724">
+        </testcase>
+        <testcase classname="src/__tests__/components/InstallPrompt.test.tsx" name="InstallPrompt &gt; beforeinstallprompt 事件触发后显示安装提示" time="0.0235376">
+        </testcase>
+        <testcase classname="src/__tests__/components/InstallPrompt.test.tsx" name="InstallPrompt &gt; 关闭后在 localStorage 标记已处理" time="0.009094">
+        </testcase>
+        <testcase classname="src/__tests__/components/InstallPrompt.test.tsx" name="InstallPrompt &gt; 已被 dismissed 后不再显示" time="0.0015841">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/components/ModuleErrorBoundary.test.tsx" timestamp="2026-04-02T14:35:23.783Z" hostname="DESKTOP-Fei" tests="3" failures="0" errors="0" skipped="0" time="0.1199026">
+        <testcase classname="src/__tests__/components/ModuleErrorBoundary.test.tsx" name="ModuleErrorBoundary &gt; should render children when no error" time="0.0981956">
+        </testcase>
+        <testcase classname="src/__tests__/components/ModuleErrorBoundary.test.tsx" name="ModuleErrorBoundary &gt; should show error card with module name when child crashes" time="0.0167789">
+        </testcase>
+        <testcase classname="src/__tests__/components/ModuleErrorBoundary.test.tsx" name="ModuleErrorBoundary &gt; should render custom fallback when provided" time="0.0029856">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/components/ThinkingChain.test.tsx" timestamp="2026-04-02T14:35:23.783Z" hostname="DESKTOP-Fei" tests="7" failures="0" errors="0" skipped="0" time="0.1041885">
+        <testcase classname="src/__tests__/components/ThinkingChain.test.tsx" name="ThinkingChain &gt; 渲染所有阶段标签" time="0.0413733">
+        </testcase>
+        <testcase classname="src/__tests__/components/ThinkingChain.test.tsx" name="ThinkingChain &gt; 折叠状态显示工具名和耗时" time="0.0140316">
+        </testcase>
+        <testcase classname="src/__tests__/components/ThinkingChain.test.tsx" name="ThinkingChain &gt; 展开后显示步骤内容文本" time="0.0204534">
+        </testcase>
+        <testcase classname="src/__tests__/components/ThinkingChain.test.tsx" name="ThinkingChain &gt; 展开后点击工具步骤显示详情" time="0.0168395">
+        </testcase>
+        <testcase classname="src/__tests__/components/ThinkingChain.test.tsx" name="ThinkingChain &gt; 空步骤列表不崩溃" time="0.0009188">
+        </testcase>
+        <testcase classname="src/__tests__/components/ThinkingChain.test.tsx" name="ThinkingChain &gt; isComplete 为 true 时显示完成图标" time="0.004799">
+        </testcase>
+        <testcase classname="src/__tests__/components/ThinkingChain.test.tsx" name="ThinkingChain &gt; 未知 phase 降级到 planning 配置" time="0.002967">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/lib/apiConfig.test.ts" timestamp="2026-04-02T14:35:23.785Z" hostname="DESKTOP-Fei" tests="6" failures="0" errors="0" skipped="0" time="0.2413241">
+        <testcase classname="src/__tests__/lib/apiConfig.test.ts" name="getApiBaseUrl &gt; 使用 VITE_API_BASE_URL 环境变量（带 https）" time="0.2377571">
+        </testcase>
+        <testcase classname="src/__tests__/lib/apiConfig.test.ts" name="getApiBaseUrl &gt; 自动补全 https 协议" time="0.0005144">
+        </testcase>
+        <testcase classname="src/__tests__/lib/apiConfig.test.ts" name="getApiBaseUrl &gt; 保留 http 协议不覆盖" time="0.0004449">
+        </testcase>
+        <testcase classname="src/__tests__/lib/apiConfig.test.ts" name="getApiBaseUrl &gt; 去除尾部斜杠" time="0.0004489">
+        </testcase>
+        <testcase classname="src/__tests__/lib/apiConfig.test.ts" name="getApiBaseUrl &gt; 未配置时 localhost 回退到 http://localhost:8000" time="0.0003594">
+        </testcase>
+        <testcase classname="src/__tests__/lib/apiConfig.test.ts" name="getApiBaseUrl &gt; 未配置时生产环境回退到 window.location.origin" time="0.0002969">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/lib/httpClient-edge.test.ts" timestamp="2026-04-02T14:35:23.785Z" hostname="DESKTOP-Fei" tests="21" failures="0" errors="0" skipped="0" time="0.1747365">
+        <testcase classname="src/__tests__/lib/httpClient-edge.test.ts" name="httpClient 网络边缘场景 &gt; httpClient 是 axios 实例" time="0.1595101">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient-edge.test.ts" name="httpClient 网络边缘场景 &gt; baseURL 正确设置" time="0.000773">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient-edge.test.ts" name="httpClient 网络边缘场景 &gt; timeout 设置为 60 秒" time="0.0005922">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient-edge.test.ts" name="httpClient 网络边缘场景 &gt; withCredentials 启用" time="0.0005022">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient-edge.test.ts" name="httpClient 请求拦截器 &gt; 注入 Authorization header" time="0.000473">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient-edge.test.ts" name="httpClient 请求拦截器 &gt; POST 请求应注入幂等性 Key" time="0.0001569">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient-edge.test.ts" name="httpClient 请求拦截器 &gt; GET 请求不注入幂等性 Key" time="0.0001074">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient-edge.test.ts" name="httpClient 响应拦截器 - 错误处理 &gt; 401 错误应触发重定向（非 login 页）" time="0.0000939">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient-edge.test.ts" name="httpClient 响应拦截器 - 错误处理 &gt; 401 在 login 页不重定向" time="0.0001097">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient-edge.test.ts" name="httpClient 响应拦截器 - 错误处理 &gt; 429 限流应显示 toast" time="0.0001494">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient-edge.test.ts" name="httpClient 响应拦截器 - 错误处理 &gt; 500 服务器错误应显示 toast" time="0.0000988">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient-edge.test.ts" name="网络异常边缘场景 &gt; navigator.onLine 检测" time="0.0001209">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient-edge.test.ts" name="网络异常边缘场景 &gt; offline 事件可监听" time="0.0006415">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient-edge.test.ts" name="网络异常边缘场景 &gt; online 事件可监听" time="0.0002104">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient-edge.test.ts" name="网络异常边缘场景 &gt; localStorage 清理逻辑" time="0.0001655">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient-edge.test.ts" name="网络异常边缘场景 &gt; CSRF meta tag 读取" time="0.0072407">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient-edge.test.ts" name="网络异常边缘场景 &gt; 无 CSRF meta tag 时不崩溃" time="0.000302">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient-edge.test.ts" name="网络异常边缘场景 &gt; X-Org-ID 从 localStorage 读取" time="0.0001967">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient-edge.test.ts" name="网络异常边缘场景 &gt; 无 org_id 时不注入 header" time="0.0002084">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient-edge.test.ts" name="幂等性 Key 格式 &gt; 格式为 timestamp-random" time="0.0002087">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient-edge.test.ts" name="幂等性 Key 格式 &gt; 每次生成不同" time="0.0011183">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/lib/httpClient.test.ts" timestamp="2026-04-02T14:35:23.787Z" hostname="DESKTOP-Fei" tests="7" failures="0" errors="0" skipped="0" time="0.0209643">
+        <testcase classname="src/__tests__/lib/httpClient.test.ts" name="httpClient interceptors &gt; Request Interceptor &gt; 应该正确注入 Token、Org-ID 和全局标记" time="0.0053853">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient.test.ts" name="httpClient interceptors &gt; Request Interceptor &gt; 对于 POST 请求，应该注入 CSRF 和 幂等性 Key" time="0.008327">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient.test.ts" name="httpClient interceptors &gt; Request Interceptor &gt; 对于 GET 请求，不应该注入 CSRF 和 幂等性 Key" time="0.001704">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient.test.ts" name="httpClient interceptors &gt; Response Interceptor Error Handling &gt; 遇到 401 应该弹出错误、清除缓存并跳转登录" time="0.002038">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient.test.ts" name="httpClient interceptors &gt; Response Interceptor Error Handling &gt; 遇到 403 应该弹出权限不足错误" time="0.0007681">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient.test.ts" name="httpClient interceptors &gt; Response Interceptor Error Handling &gt; 遇到 429 应该弹流控提示" time="0.0006056">
+        </testcase>
+        <testcase classname="src/__tests__/lib/httpClient.test.ts" name="httpClient interceptors &gt; Response Interceptor Error Handling &gt; 遇到 500 应该弹出服务器内部错误" time="0.0006213">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/lib/schemas.test.ts" timestamp="2026-04-02T14:35:23.787Z" hostname="DESKTOP-Fei" tests="15" failures="0" errors="0" skipped="0" time="0.0075533">
+        <testcase classname="src/__tests__/lib/schemas.test.ts" name="salesLeadSchema &gt; 解析完整有效数据" time="0.0028597">
+        </testcase>
+        <testcase classname="src/__tests__/lib/schemas.test.ts" name="salesLeadSchema &gt; 缺失可选字段时填充默认值" time="0.000455">
+        </testcase>
+        <testcase classname="src/__tests__/lib/schemas.test.ts" name="salesLeadSchema &gt; 无效 UUID 拒绝" time="0.0005355">
+        </testcase>
+        <testcase classname="src/__tests__/lib/schemas.test.ts" name="salesLeadSchema &gt; win_probability 超出 0-100 范围拒绝" time="0.0002882">
+        </testcase>
+        <testcase classname="src/__tests__/lib/schemas.test.ts" name="salesLeadSchema &gt; 无效 stage 枚举拒绝" time="0.0002128">
+        </testcase>
+        <testcase classname="src/__tests__/lib/schemas.test.ts" name="salesLeadSchema &gt; company 为 null 时接受" time="0.0001364">
+        </testcase>
+        <testcase classname="src/__tests__/lib/schemas.test.ts" name="salesLeadSchema &gt; score 必须为整数" time="0.0002136">
+        </testcase>
+        <testcase classname="src/__tests__/lib/schemas.test.ts" name="approvalRequestSchema &gt; 解析完整有效数据" time="0.0002045">
+        </testcase>
+        <testcase classname="src/__tests__/lib/schemas.test.ts" name="approvalRequestSchema &gt; 默认值填充" time="0.0002269">
+        </testcase>
+        <testcase classname="src/__tests__/lib/schemas.test.ts" name="approvalRequestSchema &gt; amount 不能为负数" time="0.0001938">
+        </testcase>
+        <testcase classname="src/__tests__/lib/schemas.test.ts" name="approvalRequestSchema &gt; 无效 status 枚举拒绝" time="0.0001525">
+        </testcase>
+        <testcase classname="src/__tests__/lib/schemas.test.ts" name="approvalRequestSchema &gt; submitted_via 枚举验证" time="0.0002367">
+        </testcase>
+        <testcase classname="src/__tests__/lib/schemas.test.ts" name="approvalRequestSchema &gt; on_behalf_of 可为 null" time="0.0001276">
+        </testcase>
+        <testcase classname="src/__tests__/lib/schemas.test.ts" name="approvalRequestSchema &gt; description 为 null 时允许通过（nullable）" time="0.0001425">
+        </testcase>
+        <testcase classname="src/__tests__/lib/schemas.test.ts" name="approvalRequestSchema &gt; description 为 undefined 时默认为 &quot;无描述&quot;" time="0.0001224">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/security/permission-boundary.test.ts" timestamp="2026-04-02T14:35:23.788Z" hostname="DESKTOP-Fei" tests="4" failures="0" errors="0" skipped="0" time="0.247322">
+        <testcase classname="src/__tests__/security/permission-boundary.test.ts" name="权限边界测试 &gt; employee 无审批权限（后端返回 allowed:false）" time="0.0918823">
+        </testcase>
+        <testcase classname="src/__tests__/security/permission-boundary.test.ts" name="权限边界测试 &gt; boss 有审批权限（后端返回 allowed:true）" time="0.0604434">
+        </testcase>
+        <testcase classname="src/__tests__/security/permission-boundary.test.ts" name="权限边界测试 &gt; API 错误时降级为 fallback 角色检查" time="0.0773034">
+        </testcase>
+        <testcase classname="src/__tests__/security/permission-boundary.test.ts" name="权限边界测试 &gt; 未登录时无权限" time="0.0152319">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/utils/offlineQueue.test.ts" timestamp="2026-04-02T14:35:23.789Z" hostname="DESKTOP-Fei" tests="4" failures="0" errors="0" skipped="0" time="0.0940351">
+        <testcase classname="src/__tests__/utils/offlineQueue.test.ts" name="offlineQueue &gt; 模块导出 offlineQueue 单例" time="0.0903985">
+        </testcase>
+        <testcase classname="src/__tests__/utils/offlineQueue.test.ts" name="offlineQueue &gt; QueuedOperation 类型定义正确" time="0.0006824">
+        </testcase>
+        <testcase classname="src/__tests__/utils/offlineQueue.test.ts" name="offlineQueue &gt; replay 对失败请求增加 retries" time="0.0005128">
+        </testcase>
+        <testcase classname="src/__tests__/utils/offlineQueue.test.ts" name="offlineQueue &gt; 模块常量定义正确" time="0.0009737">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/__tests__/utils/traceId.test.ts" timestamp="2026-04-02T14:35:23.789Z" hostname="DESKTOP-Fei" tests="4" failures="0" errors="0" skipped="0" time="0.0035313">
+        <testcase classname="src/__tests__/utils/traceId.test.ts" name="aiClient TraceID &gt; should generate trace IDs with fe- prefix" time="0.0013016">
+        </testcase>
+        <testcase classname="src/__tests__/utils/traceId.test.ts" name="aiClient TraceID &gt; should generate unique trace IDs per call" time="0.0006434">
+        </testcase>
+        <testcase classname="src/__tests__/utils/traceId.test.ts" name="aiClient TraceID &gt; should share session prefix across calls" time="0.0001536">
+        </testcase>
+        <testcase classname="src/__tests__/utils/traceId.test.ts" name="aiClient TraceID &gt; should generate new session prefix after reset" time="0.0001699">
+        </testcase>
+    </testsuite>
+</testsuites>

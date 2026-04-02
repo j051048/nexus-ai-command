@@ -26,8 +26,8 @@ async def get_quota_alert(req: Request, user_id: str = Depends(get_current_user_
         # 1. 尝试从 tenant_quotas 获取配额信息 (假设 schema 中有这个表)
         # 这里使用简单逻辑：如果使用量超过 90% 则告警
         result = await db.table("llm_usage_stats").select("*").eq("tenant_id", str(org_id)).maybe_single().execute()
-        
-        if result.data:
+
+        if result and result.data:
             used = result.data.get("token_used", 0)
             limit = result.data.get("token_limit", 1000000) # 默认 1M tokens
             
