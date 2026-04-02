@@ -227,10 +227,10 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
                   to={`/${item.href}`}
                   onClick={handleClick}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 relative group border border-transparent",
+                    "flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-300 relative group border border-transparent",
                     isActive(item.href)
-                      ? "bg-primary/15 text-white shadow-[0_0_20px_rgba(59,130,246,0.15)] border-primary/30 font-semibold"
-                      : "text-white/50 hover:text-white hover:bg-white/8 hover:border-white/10"
+                      ? "bg-white/10 text-white shadow-[0_4px_20px_rgba(0,0,0,0.2)] border-white/10 font-bold"
+                      : "text-white/60 hover:text-white hover:bg-white/5 hover:border-white/5"
                   )}
                 >
                   {isActive(item.href) && (
@@ -241,9 +241,9 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
                   </span>
                   {!isCollapsed && (
                     <>
-                      <span className="text-sm font-bold tracking-tight truncate flex-1">{item.label}</span>
+                      <span className="text-sm font-semibold tracking-tight truncate flex-1">{item.label}</span>
                       {badge && (
-                        <span className="px-1.5 py-0.5 rounded-full bg-primary/20 text-primary text-[10px] font-black">{badge}</span>
+                        <span className="px-1.5 py-0.5 rounded-full bg-white/10 text-white/90 text-[10px] font-bold border border-white/5">{badge}</span>
                       )}
                     </>
                   )}
@@ -258,20 +258,20 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
 
   return (
     <aside className={cn(
-      "bg-gradient-to-b from-[#141b2e] to-[#0d1220] border-r border-white/10 flex flex-col transition-all duration-500 ease-in-out h-full z-40 relative group/sidebar shadow-2xl",
+      "bg-[#0d0f14]/95 backdrop-blur-xl border-r border-white/5 flex flex-col transition-all duration-500 ease-in-out h-full z-40 relative group/sidebar shadow-2xl",
       isCollapsed ? "w-[80px]" : "w-64"
     )}>
       <div className={cn("p-6 flex items-center gap-3", isCollapsed && "justify-center")}>
         <div 
           onClick={() => navigate("/")}
-          className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary via-primary/50 to-purple-600 flex items-center justify-center shadow-lg shadow-primary/20 cursor-pointer hover:rotate-6 transition-transform"
+          className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary via-primary/80 to-purple-600 flex items-center justify-center shadow-md shadow-primary/10 cursor-pointer hover:rotate-6 transition-transform"
         >
           <Bot className="w-6 h-6 text-white" />
         </div>
         {!isCollapsed && (
           <div className="animate-fade-in">
-            <h1 className="text-sm font-black text-white tracking-tighter uppercase">Nexus AI</h1>
-            <p className="text-[10px] text-primary/50 font-mono font-bold">COMMAND CENTER</p>
+            <h1 className="text-sm font-extrabold text-white tracking-tight uppercase">Nexus AI</h1>
+            <p className="text-[10px] text-white/40 font-mono font-bold tracking-wider">COMMAND CENTER</p>
           </div>
         )}
       </div>
@@ -284,7 +284,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
             <input
               type="text"
               placeholder="搜索功能 (⌘K)"
-              className="w-full pl-9 pr-3 h-9 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-primary/50 focus:bg-white/10 transition-all"
+              className="w-full pl-9 pr-3 h-10 bg-white/[0.03] border border-white/10 rounded-xl text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-white/20 focus:bg-white/5 transition-all shadow-inner"
               onFocus={() => {
                 const event = new KeyboardEvent('keydown', { key: 'k', metaKey: true });
                 document.dispatchEvent(event);
@@ -315,7 +315,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
               isCollapsed && "justify-center"
             )}
           >
-            <div className="relative shrink-0 w-9 h-9 rounded-full bg-primary/25 border border-primary/40 flex items-center justify-center overflow-hidden group-hover:border-primary/70 group-hover:shadow-[0_0_12px_rgba(59,130,246,0.4)] transition-all">
+            <div className="relative shrink-0 w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden group-hover:border-white/20 group-hover:shadow-[0_4px_12px_rgba(0,0,0,0.3)] transition-all">
               {profile?.avatar ? (
                 <img src={profile.avatar} alt="avatar" className="w-full h-full object-cover" />
               ) : (
@@ -344,7 +344,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
           {!isCollapsed && (
             <button 
               onClick={signOut}
-              className="flex items-center gap-2 mt-1 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-white/30 hover:text-red-400 hover:bg-red-500/15 rounded-xl transition-all duration-300 group/logout"
+              className="flex items-center gap-2 mt-1 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-white/50 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all duration-300 group/logout"
             >
               <LogOut size={12} className="group-hover:rotate-12 transition-transform" />
               <span>Sign Out Safely</span>
@@ -355,7 +355,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
       
       <button 
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-20 w-6 h-6 bg-primary rounded-full md:flex items-center justify-center text-white shadow-[0_0_16px_rgba(59,130,246,0.5)] hover:scale-110 hover:shadow-[0_0_24px_rgba(59,130,246,0.7)] active:scale-95 transition-all z-50 border-4 border-[#141b2e] hidden"
+        className="absolute -right-3 top-20 w-6 h-6 bg-primary rounded-full md:flex items-center justify-center text-white shadow-[0_0_16px_rgba(59,130,246,0.5)] hover:scale-110 hover:shadow-[0_0_24px_rgba(59,130,246,0.7)] active:scale-95 transition-all z-50 border-4 border-[#0d0f14] hidden"
       >
         {isCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
       </button>
