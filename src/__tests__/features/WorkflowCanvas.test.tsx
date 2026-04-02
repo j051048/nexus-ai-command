@@ -38,18 +38,17 @@ vi.mock('@xyflow/react', () => {
   };
 });
 
-// Mock all node components
-const nodeComponents = [
-  'ApproverNode', 'ConditionNode', 'ParallelNode', 'AutoApproveNode',
-  'NotifyNode', 'CcNotifyNode', 'TimerNode', 'SubWorkflowNode',
-  'InitiatorNode', 'EndNode',
-];
-for (const name of nodeComponents) {
-  const modulePath = `@/components/workflow/nodes/${name}`;
-  vi.mock(modulePath, () => ({
-    [name]: () => <div data-testid={`node-${name}`} />,
-  }));
-}
+// Mock all node components — vi.mock is hoisted, so must use string literals
+vi.mock('@/components/workflow/nodes/ApproverNode', () => ({ ApproverNode: () => <div data-testid="node-ApproverNode" /> }));
+vi.mock('@/components/workflow/nodes/ConditionNode', () => ({ ConditionNode: () => <div data-testid="node-ConditionNode" /> }));
+vi.mock('@/components/workflow/nodes/ParallelNode', () => ({ ParallelNode: () => <div data-testid="node-ParallelNode" /> }));
+vi.mock('@/components/workflow/nodes/AutoApproveNode', () => ({ AutoApproveNode: () => <div data-testid="node-AutoApproveNode" /> }));
+vi.mock('@/components/workflow/nodes/NotifyNode', () => ({ NotifyNode: () => <div data-testid="node-NotifyNode" /> }));
+vi.mock('@/components/workflow/nodes/CcNotifyNode', () => ({ CcNotifyNode: () => <div data-testid="node-CcNotifyNode" /> }));
+vi.mock('@/components/workflow/nodes/TimerNode', () => ({ TimerNode: () => <div data-testid="node-TimerNode" /> }));
+vi.mock('@/components/workflow/nodes/SubWorkflowNode', () => ({ SubWorkflowNode: () => <div data-testid="node-SubWorkflowNode" /> }));
+vi.mock('@/components/workflow/nodes/InitiatorNode', () => ({ InitiatorNode: () => <div data-testid="node-InitiatorNode" /> }));
+vi.mock('@/components/workflow/nodes/EndNode', () => ({ EndNode: () => <div data-testid="node-EndNode" /> }));
 
 import { WorkflowCanvas, type WorkflowCanvasRef } from '@/components/workflow/WorkflowCanvas';
 

@@ -5,91 +5,89 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
-import React from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-const mockHttpGet = vi.fn();
-vi.mock('@/lib/httpClient', () => ({
-  httpClient: { get: (...a: unknown[]) => mockHttpGet(...a) },
+// Mock supabase
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: {
+    auth: {
+      getSession: vi.fn().mockResolvedValue({
+        data: { session: { access_token: 'test-jwt' } },
+      }),
+    },
+  },
 }));
 
-const mockAuth: any = {
-  user: { id: 'u-1' },
-  profile: { organization_id: 'org-1' },
+// Mock apiConfig
+vi.mock('@/lib/apiConfig', () => ({
+  getApiBaseUrl: () => 'https://api.test.com',
+}));
+
+const mockUser: any = {
+  id: 'u-1',
   role: 'employee',
 };
-vi.mock('@/components/auth/AuthContext', () => ({
-  useAuth: () => mockAuth,
+vi.mock('@/contexts/UserContext', () => ({
+  useUser: () => ({ user: mockUser }),
 }));
 
-function wrapper({ children }: { children: React.ReactNode }) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return React.createElement(QueryClientProvider, { client: qc }, children);
-}
+// Mock global fetch
+const mockFetch = vi.fn();
+global.fetch = mockFetch;
+
+import { usePermission, invalidatePermissionCache } from '@/hooks/usePermission';
 
 describe('权限边界测试', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockAuth.role = 'employee';
+    mockUser.id = 'u-1';
+    mockUser.role = 'employee';
+    mockFetch.mockReset();
+    invalidatePermissionCache();
   });
 
-  it('employee 无审批权限', async () => {
-    mockHttpGet.mockResolvedValueOnce({
-      data: { data: { allowed: false } },
+  it('employee 无审批权限（后端返回 allowed:false）', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ allowed: false }),
     });
 
-    const { usePermission } = await import('@/hooks/usePermission');
-    const { result } = renderHook(
-      () => usePermission('approval', 'approve'),
-      { wrapper }
-    );
+    const { result } = renderHook(() => usePermission('approval', 'approve'));
 
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.hasPermission).toBe(false);
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.allowed).toBe(false);
   });
 
-  it('boss 有审批权限', async () => {
-    mockAuth.role = 'boss';
-    mockHttpGet.mockResolvedValueOnce({
-      data: { data: { allowed: true } },
+  it('boss 有审批权限（后端返回 allowed:true）', async () => {
+    mockUser.role = 'boss';
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ allowed: true }),
     });
 
-    const { usePermission } = await import('@/hooks/usePermission');
-    const { result } = renderHook(
-      () => usePermission('approval', 'approve'),
-      { wrapper }
-    );
+    const { result } = renderHook(() => usePermission('approval', 'approve'));
 
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.hasPermission).toBe(true);
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.allowed).toBe(true);
   });
 
-  it('API 错误时降级为无权限', async () => {
-    mockHttpGet.mockRejectedValueOnce(new Error('Network error'));
+  it('API 错误时降级为 fallback 角色检查', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-    const { usePermission } = await import('@/hooks/usePermission');
-    const { result } = renderHook(
-      () => usePermission('admin', 'delete'),
-      { wrapper }
-    );
+    const { result } = renderHook(() => usePermission('approval', 'approve'));
 
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    // 错误时应安全降级为无权限
-    expect(result.current.hasPermission).toBe(false);
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    // employee fallback: action=approve on resource=approval → false
+    expect(result.current.allowed).toBe(false);
   });
 
   it('未登录时无权限', async () => {
-    const saved = mockAuth.user;
-    mockAuth.user = null;
+    const saved = mockUser.id;
+    mockUser.id = null;
 
-    const { usePermission } = await import('@/hooks/usePermission');
-    const { result } = renderHook(
-      () => usePermission('any', 'action'),
-      { wrapper }
-    );
+    const { result } = renderHook(() => usePermission('any', 'action'));
 
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.hasPermission).toBe(false);
-    mockAuth.user = saved;
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.allowed).toBe(false);
+    mockUser.id = saved;
   });
 });

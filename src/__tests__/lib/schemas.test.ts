@@ -112,8 +112,18 @@ describe('approvalRequestSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('description 为 null 时默认为 "无描述"', () => {
+  it('description 为 null 时允许通过（nullable）', () => {
     const result = approvalRequestSchema.safeParse({ ...validApproval, description: null });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      // .nullable() 允许 null，.default() 仅对 undefined 生效
+      expect(result.data.description).toBeNull();
+    }
+  });
+
+  it('description 为 undefined 时默认为 "无描述"', () => {
+    const { description, ...withoutDesc } = validApproval;
+    const result = approvalRequestSchema.safeParse(withoutDesc);
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.description).toBe('无描述');

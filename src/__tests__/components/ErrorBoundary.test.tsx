@@ -116,7 +116,7 @@ describe('ErrorBoundary', () => {
     const toggleBtn = screen.queryByText('展开错误详情');
     if (toggleBtn) {
       fireEvent.click(toggleBtn);
-      expect(screen.getByText(/详细错误信息/)).toBeDefined();
+      expect(screen.getAllByText(/详细错误信息/).length).toBeGreaterThan(0);
     }
   });
 

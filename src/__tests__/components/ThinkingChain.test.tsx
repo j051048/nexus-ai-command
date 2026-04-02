@@ -50,29 +50,35 @@ const baseSteps: ThinkingStep[] = [
 describe('ThinkingChain', () => {
   it('渲染所有阶段标签', () => {
     render(React.createElement(ThinkingChain, { steps: baseSteps }));
+    // 折叠状态下 badge 显示 label 或 tool_name
     expect(screen.getByText('规划')).toBeInTheDocument();
-    expect(screen.getByText('执行')).toBeInTheDocument();
+    expect(screen.getByText(/GetCustomersTool/)).toBeInTheDocument(); // executing badge shows tool_name
     expect(screen.getByText('反思')).toBeInTheDocument();
     expect(screen.getByText('回复')).toBeInTheDocument();
   });
 
-  it('显示步骤内容文本', () => {
+  it('折叠状态显示工具名和耗时', () => {
     render(React.createElement(ThinkingChain, { steps: baseSteps }));
+    // 折叠状态下 badge 显示 tool_name 和 duration
+    expect(screen.getByText(/GetCustomersTool/)).toBeInTheDocument();
+    expect(screen.getByText(/230ms/)).toBeInTheDocument();
+  });
+
+  it('展开后显示步骤内容文本', () => {
+    render(React.createElement(ThinkingChain, { steps: baseSteps }));
+    // 点击 header 展开
+    fireEvent.click(screen.getByText('思考过程'));
     expect(screen.getByText('分析用户意图，准备查询客户数据')).toBeInTheDocument();
     expect(screen.getByText('调用 CRM 工具获取客户列表')).toBeInTheDocument();
   });
 
-  it('显示工具执行耗时', () => {
+  it('展开后点击工具步骤显示详情', () => {
     render(React.createElement(ThinkingChain, { steps: baseSteps }));
-    expect(screen.getByText('230ms')).toBeInTheDocument();
-  });
-
-  it('点击展开工具详情', () => {
-    render(React.createElement(ThinkingChain, { steps: baseSteps }));
-    // 执行步骤有 tool_name，点击应展开
-    const execStep = screen.getByText('调用 CRM 工具获取客户列表');
-    fireEvent.click(execStep.closest('[class*="cursor-pointer"]')!);
-    expect(screen.getByText('GetCustomersTool')).toBeInTheDocument();
+    // 先展开整个链
+    fireEvent.click(screen.getByText('思考过程'));
+    // 点击执行步骤展开工具详情
+    const execLabel = screen.getByText('执行');
+    fireEvent.click(execLabel.closest('[class*="cursor-pointer"]')!);
     expect(screen.getByText('找到 5 个客户')).toBeInTheDocument();
   });
 
