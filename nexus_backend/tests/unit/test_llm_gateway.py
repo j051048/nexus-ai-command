@@ -37,7 +37,7 @@ class TestPickHealthyModel:
             "backup_model_code": "gpt-4o-mini",
         }
 
-        with patch("app.services.llm_gateway_service.circuit_breaker_manager") as mock_cb:
+        with patch("app.services.llm_gateway.model_resolution.circuit_breaker_manager") as mock_cb:
             mock_cb.is_allowed.return_value = True
             result = service._pick_healthy_model(rule)
 
@@ -54,7 +54,7 @@ class TestPickHealthyModel:
             "backup_model_code": "gpt-4o-mini",
         }
 
-        with patch("app.services.llm_gateway_service.circuit_breaker_manager") as mock_cb:
+        with patch("app.services.llm_gateway.model_resolution.circuit_breaker_manager") as mock_cb:
             # primary 不健康, backup 健康
             mock_cb.is_allowed.side_effect = lambda model: model != "gpt-4o"
             result = service._pick_healthy_model(rule)
@@ -72,7 +72,7 @@ class TestPickHealthyModel:
             "backup_model_code": "gpt-4o-mini",
         }
 
-        with patch("app.services.llm_gateway_service.circuit_breaker_manager") as mock_cb:
+        with patch("app.services.llm_gateway.model_resolution.circuit_breaker_manager") as mock_cb:
             mock_cb.is_allowed.return_value = False
             result = service._pick_healthy_model(rule)
 
@@ -90,7 +90,7 @@ class TestPickHealthyModel:
             "backup_model_code": "backup-model",
         }
 
-        with patch("app.services.llm_gateway_service.circuit_breaker_manager") as mock_cb:
+        with patch("app.services.llm_gateway.model_resolution.circuit_breaker_manager") as mock_cb:
             mock_cb.is_allowed.return_value = True
             result = service._pick_healthy_model(rule)
 
@@ -108,7 +108,7 @@ class TestPickHealthyModel:
             "backup_model_code": "backup-model",
         }
 
-        with patch("app.services.llm_gateway_service.circuit_breaker_manager") as mock_cb:
+        with patch("app.services.llm_gateway.model_resolution.circuit_breaker_manager") as mock_cb:
             mock_cb.is_allowed.return_value = True
             result = service._pick_healthy_model(rule)
 
@@ -123,7 +123,7 @@ class TestPickHealthyModel:
 
         rule = {}
 
-        with patch("app.services.llm_gateway_service.circuit_breaker_manager") as mock_cb:
+        with patch("app.services.llm_gateway.model_resolution.circuit_breaker_manager") as mock_cb:
             mock_cb.is_allowed.return_value = True
             result = service._pick_healthy_model(rule)
 
@@ -138,6 +138,7 @@ class TestPickHealthyModel:
 class TestModelConfigCaching:
     """测试模型配置缓存"""
 
+    @pytest.mark.asyncio
     async def test_cache_hit_avoids_db_call(self):
         """缓存命中时不应再查询 DB"""
         from app.services.llm_gateway_service import LLMGatewayService
@@ -148,13 +149,14 @@ class TestModelConfigCaching:
         mock_config = MagicMock()
         service._model_cache["org-001:gpt-4o"] = (mock_config, time.time())
 
-        with patch("app.services.llm_gateway_service.supabase") as mock_db:
+        with patch("app.services.llm_gateway.model_resolution.supabase") as mock_db:
             result = await service._load_model_config("gpt-4o", "org-001")
 
         # DB 不应被调用
         mock_db.table.assert_not_called()
         assert result is mock_config
 
+    @pytest.mark.asyncio
     async def test_cache_expired_triggers_db_call(self):
         """缓存过期时应重新查询 DB"""
         from app.services.llm_gateway_service import LLMGatewayService
@@ -166,12 +168,13 @@ class TestModelConfigCaching:
         service._model_cache["org-002:gpt-4o"] = (mock_config, time.time() - 600)  # 10 分钟前
 
         # DB 返回空结果（模拟未找到）
-        with patch("app.services.llm_gateway_service.supabase", new=None):
+        with patch("app.services.llm_gateway.model_resolution.supabase", new=None):
             result = await service._load_model_config("gpt-4o", "org-002")
 
         # 无 DB 应返回 None
         assert result is None
 
+    @pytest.mark.asyncio
     async def test_cache_ttl_defaults_to_300s(self):
         """缓存 TTL 应默认为 300 秒"""
         from app.services.llm_gateway_service import LLMGatewayService
@@ -188,17 +191,19 @@ class TestModelConfigCaching:
 class TestResolveModelPriority:
     """测试模型解析优先级链"""
 
+    @pytest.mark.asyncio
     async def test_resolve_no_db_returns_none(self):
         """无 DB 连接时应返回 None"""
         from app.services.llm_gateway_service import LLMGatewayService
 
         service = LLMGatewayService()
 
-        with patch("app.services.llm_gateway_service.supabase", new=None):
+        with patch("app.services.llm_gateway.model_resolution.supabase", new=None):
             result = await service._resolve_model("chat", "default_agent", "org-001")
 
         assert result is None
 
+    @pytest.mark.asyncio
     async def test_resolve_cache_hit(self):
         """缓存命中时应直接返回"""
         from app.services.llm_gateway_service import LLMGatewayService
@@ -213,8 +218,8 @@ class TestResolveModelPriority:
         service._schedule_cache["org-001:chat:agent:_"] = (cached_rule, time.time())
 
         with (
-            patch("app.services.llm_gateway_service.supabase"),
-            patch("app.services.llm_gateway_service.circuit_breaker_manager") as mock_cb,
+            patch("app.services.llm_gateway.model_resolution.supabase"),
+            patch("app.services.llm_gateway.model_resolution.circuit_breaker_manager") as mock_cb,
         ):
             mock_cb.is_allowed.return_value = True
             result = await service._resolve_model("chat", "agent", "org-001")
@@ -265,6 +270,7 @@ class TestErrorResponse:
 class TestFillModelCodes:
     """测试 model_id → model_code 解析"""
 
+    @pytest.mark.asyncio
     async def test_fills_primary_code_from_id(self):
         """primary_model_code 为空时应从 primary_model_id 解析出 model_code"""
         from app.services.llm_gateway_service import LLMGatewayService
@@ -288,12 +294,13 @@ class TestFillModelCodes:
         mock_db = MagicMock()
         mock_db.table.return_value = mock_table
 
-        with patch("app.services.llm_gateway_service.supabase", new=mock_db):
+        with patch("app.services.llm_gateway.model_resolution.supabase", new=mock_db):
             await service._fill_model_codes(rule)
 
         assert rule["primary_model_code"] == "gpt-4o-mini"
         assert rule["backup_model_code"] == "backup-model"
 
+    @pytest.mark.asyncio
     async def test_skips_when_code_already_present(self):
         """primary_model_code 已存在时不应查询 DB"""
         from app.services.llm_gateway_service import LLMGatewayService
@@ -305,12 +312,13 @@ class TestFillModelCodes:
             "backup_model_code": "backup-model",
         }
 
-        with patch("app.services.llm_gateway_service.supabase") as mock_db:
+        with patch("app.services.llm_gateway.model_resolution.supabase") as mock_db:
             await service._fill_model_codes(rule)
             mock_db.table.assert_not_called()
 
         assert rule["primary_model_code"] == "existing-model"
 
+    @pytest.mark.asyncio
     async def test_handles_db_not_found(self):
         """DB 查询无结果时不应崩溃"""
         from app.services.llm_gateway_service import LLMGatewayService
@@ -333,7 +341,7 @@ class TestFillModelCodes:
         mock_db = MagicMock()
         mock_db.table.return_value = mock_table
 
-        with patch("app.services.llm_gateway_service.supabase", new=mock_db):
+        with patch("app.services.llm_gateway.model_resolution.supabase", new=mock_db):
             await service._fill_model_codes(rule)
 
         assert rule["primary_model_code"] == ""

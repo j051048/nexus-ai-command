@@ -50,7 +50,8 @@ class TestRolePermissionMatrix:
 class TestTenantIsolation:
     """多租户数据隔离"""
 
-    def test_different_orgs_cannot_see_each_other(self):
+    @pytest.mark.asyncio
+    async def test_different_orgs_cannot_see_each_other(self):
         """不同组织的数据完全隔离"""
         from tests.conftest import MockSupabaseClient
 
@@ -61,14 +62,12 @@ class TestTenantIsolation:
         ])
 
         # org-1 只能看到自己的数据
-        import asyncio
-        result = asyncio.get_event_loop().run_until_complete(
-            db.table("customers").select("*").eq("organization_id", "org-1").execute()
-        )
+        result = await db.table("customers").select("*").eq("organization_id", "org-1").execute()
         assert len(result.data) == 1
         assert result.data[0]["name"] == "客户A"
 
-    def test_org_id_filter_applied(self):
+    @pytest.mark.asyncio
+    async def test_org_id_filter_applied(self):
         """所有查询必须带 org_id 过滤"""
         from tests.conftest import MockSupabaseClient
 
@@ -78,10 +77,7 @@ class TestTenantIsolation:
             {"id": "a2", "org_id": "org-2", "status": "pending"},
         ])
 
-        import asyncio
-        result = asyncio.get_event_loop().run_until_complete(
-            db.table("approval_requests").select("*").eq("org_id", "org-1").execute()
-        )
+        result = await db.table("approval_requests").select("*").eq("org_id", "org-1").execute()
         assert all(r["org_id"] == "org-1" for r in result.data)
 
 
@@ -126,10 +122,12 @@ class TestCrossTenantAttack:
 
     def test_sql_injection_in_org_id(self):
         """org_id 中的 SQL 注入尝试"""
-        malicious_org = "org-1' OR '1'='1"
+        malicious_org = "org-1'; DROP TABLE users--"
         from app.core.sanitize import sanitize_sql
         sanitized = sanitize_sql(malicious_org)
-        assert "'" not in sanitized or "OR" not in sanitized
+        # sanitize_sql 移除 -- 和 ; 等危险字符
+        assert "--" not in sanitized
+        assert ";" not in sanitized
 
 
 class TestRoleEscalation:

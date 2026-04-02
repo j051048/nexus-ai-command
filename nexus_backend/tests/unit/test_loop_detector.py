@@ -12,13 +12,26 @@ from app.agent.loop_detector import (
     POLL_NO_PROGRESS_THRESHOLD,
     GLOBAL_CIRCUIT_BREAKER,
 )
+from app.agent.state import ToolCallRecord
 
 
 def _make_tc(name: str, args: dict | None = None):
+    """创建用于 fingerprint 测试的 MagicMock（仅需 tool_name/tool_args）"""
     tc = MagicMock()
     tc.tool_name = name
     tc.tool_args = args or {}
     return tc
+
+
+def _make_record(name: str, args: dict | None = None) -> ToolCallRecord:
+    """创建用于 detect_loop 测试的真实 ToolCallRecord"""
+    return ToolCallRecord(
+        tool_name=name,
+        tool_args=args or {},
+        tool_call_id=f"tc-{name}",
+        result="ok",
+        status="success",
+    )
 
 
 class TestToolCallFingerprint:
@@ -91,7 +104,7 @@ class TestDetectLoopPollNoProgress:
     """Detector 3: 轮询工具无进展"""
 
     def test_poll_tool_exceeds_threshold(self):
-        tcs = [_make_tc("get_pending_approvals")] * POLL_NO_PROGRESS_THRESHOLD
+        tcs = [_make_record("get_pending_approvals")] * POLL_NO_PROGRESS_THRESHOLD
         state = {
             "_tool_call_history": ["fp"] * 2,
             "completed_tool_calls": tcs,
@@ -99,7 +112,7 @@ class TestDetectLoopPollNoProgress:
         assert detect_loop(state) is True
 
     def test_non_poll_tool_not_flagged(self):
-        tcs = [_make_tc("GetCustomersTool")] * POLL_NO_PROGRESS_THRESHOLD
+        tcs = [_make_record("GetCustomersTool")] * POLL_NO_PROGRESS_THRESHOLD
         state = {
             "_tool_call_history": ["fp1", "fp2"],
             "completed_tool_calls": tcs,
@@ -111,7 +124,7 @@ class TestDetectLoopCircuitBreaker:
     """Detector 4: 全局断路器"""
 
     def test_circuit_breaker_triggered(self):
-        tcs = [_make_tc("SomeTool")] * GLOBAL_CIRCUIT_BREAKER
+        tcs = [_make_record("SomeTool")] * GLOBAL_CIRCUIT_BREAKER
         state = {
             "_tool_call_history": ["fp1", "fp2"],
             "completed_tool_calls": tcs,
@@ -119,7 +132,7 @@ class TestDetectLoopCircuitBreaker:
         assert detect_loop(state) is True
 
     def test_under_limit_ok(self):
-        tcs = [_make_tc("SomeTool")] * (GLOBAL_CIRCUIT_BREAKER - 1)
+        tcs = [_make_record("SomeTool")] * (GLOBAL_CIRCUIT_BREAKER - 1)
         state = {
             "_tool_call_history": ["fp1", "fp2"],
             "completed_tool_calls": tcs,

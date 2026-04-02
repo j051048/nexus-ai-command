@@ -3,7 +3,7 @@ import pytest
 import asyncio
 from typing import Any, List, Dict, Optional
 from httpx import AsyncClient
-from app.main import app
+from app.main import app as _fastapi_app
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -13,7 +13,7 @@ def event_loop():
 
 @pytest.fixture
 async def client():
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with AsyncClient(app=_fastapi_app, base_url="http://test") as ac:
         yield ac
 
 @pytest.fixture
@@ -91,17 +91,59 @@ class MockQueryBuilder:
         print(f"DEBUG: table={self.table_name} is_single={self._is_single} data_type={type(data)}")
         return MockResponse(data=data, count=count)
 
+class MockRpcBuilder:
+    """Mock RPC 调用构建器"""
+    def __init__(self, result: Any = None):
+        self._result = result
+
+    async def execute(self):
+        return MockResponse(data=self._result)
+
 class MockSupabaseClient:
     def __init__(self):
         self.tables = {}
+        self._rpc_results: Dict[str, Any] = {}
 
     def set_table_data(self, table_name: str, data: list):
         self.tables[table_name] = data
+
+    def set_rpc_result(self, func_name: str, result: Any):
+        self._rpc_results[func_name] = result
 
     def table(self, table_name: str):
         data = self.tables.get(table_name, [])
         return MockQueryBuilder(table_name, data)
 
+    def rpc(self, func_name: str, params: dict | None = None):
+        result = self._rpc_results.get(func_name, [])
+        return MockRpcBuilder(result)
+
 @pytest.fixture
 def mock_db():
     return MockSupabaseClient()
+
+# ── 缺失 fixture 补充 ──
+
+@pytest.fixture
+def mock_agent_config():
+    """被 test_agent_flow 等使用"""
+    from app.agent.state import AgentConfig
+    return AgentConfig(
+        user_id="test-123",
+        session_id="sess-1",
+        agent_name="test_agent",
+        org_id="org-456",
+        token="fake-token",
+        user_role="admin",
+    )
+
+@pytest.fixture
+async def async_client():
+    """被 test_api_smoke, test_billing, test_payments 等使用"""
+    async with AsyncClient(app=_fastapi_app, base_url="http://test") as ac:
+        yield ac
+
+@pytest.fixture
+def app():
+    """被 test_projects_permissions, test_competitors_permissions 等使用"""
+    return _fastapi_app

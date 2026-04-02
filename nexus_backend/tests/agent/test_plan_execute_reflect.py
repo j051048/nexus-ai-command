@@ -48,6 +48,7 @@ def _base_state(**overrides):
         "memory_context": "",
         "reflect_feedback": "",
         "critic_passed": False,
+        "config": _base_config(),
     }
     state.update(overrides)
     return state
@@ -73,7 +74,7 @@ class TestPlanNode:
         mock_get_llm.return_value = mock_llm
 
         state = _base_state()
-        result = await plan_node(state, _base_config())
+        result = await plan_node(state)
 
         assert result["phase"] == AgentPhase.PLANNING
         # 应生成计划或 thinking_steps
@@ -94,7 +95,7 @@ class TestPlanNode:
         mock_get_llm.return_value = mock_llm
 
         state = _base_state()
-        result = await plan_node(state, _base_config())
+        result = await plan_node(state)
 
         # 无工具调用时应直接进入 respond 或设置 final_response
         assert result.get("final_response") or result.get("phase") in (
@@ -125,7 +126,7 @@ class TestReflectCriticChain:
             completed_tool_calls=[tc],
         )
 
-        result = await reflect_node(state, _base_config())
+        result = await reflect_node(state)
         # 高置信度应通过
         assert result.get("confidence_score", 0) > 0 or "reflect_feedback" in result
 
@@ -149,7 +150,7 @@ class TestReflectCriticChain:
             completed_tool_calls=[tc],
         )
 
-        result = await reflect_node(state, _base_config())
+        result = await reflect_node(state)
         # 低置信度应触发反馈
         assert result.get("reflect_feedback") or result.get("confidence_score", 1.0) < 0.5
 
