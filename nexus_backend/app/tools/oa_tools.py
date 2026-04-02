@@ -71,8 +71,7 @@ class LeaveRequestTool(BaseTool):
     domain = "oa_leave"
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
-        token = config.get("token") if config else None
-        client = supabase.get_scoped_client(token) if token else supabase
+        client = _get_client(config)
 
         leave_type = args.get("leave_type", "personal")
         start_date = args.get("start_date")

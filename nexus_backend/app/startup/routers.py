@@ -49,6 +49,9 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(files.router)
     app.include_router(batch.router)
 
+    from app.routers import business_context
+    app.include_router(business_context.router)
+
     # ── 2. CRM / Sales ───────────────────────────────────────────────────
     from app.routers import crm, competitors, performance, incentive, dashboard
     from app.routers import sales_leads, sales
@@ -179,11 +182,9 @@ def register_routers(app: FastAPI) -> None:
         ("llm_models", "llm_models"),
         ("vmd_tasks", "vmd_tasks"),
         ("vmd_compliance", "vmd_compliance"),
-        ("vmd_clues", "vmd_clues"),
         ("vmd_dashboard", "vmd_dashboard"),
         ("admin_traces", "admin_traces"),
         ("admin_rag", "admin_rag"),
-        ("ai_feedback", "ai_feedback"),
     ]
     for module_name, label in _optional_vmd_routers:
         try:

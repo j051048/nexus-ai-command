@@ -12,6 +12,7 @@ interface ModuleErrorBoundaryProps {
 interface State {
   hasError: boolean;
   error: Error | null;
+  errorInfo: React.ErrorInfo | null;
 }
 
 /**
@@ -22,10 +23,10 @@ interface State {
 export class ModuleErrorBoundary extends React.Component<ModuleErrorBoundaryProps, State> {
   constructor(props: ModuleErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, errorInfo: null };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { hasError: true, error };
   }
 
@@ -44,6 +45,8 @@ export class ModuleErrorBoundary extends React.Component<ModuleErrorBoundaryProp
       }
     }
 
+    this.setState({ errorInfo });
+
     if (import.meta.env.PROD) {
       Sentry.captureException(error, {
         tags: { module: this.props.moduleName },
@@ -60,7 +63,7 @@ export class ModuleErrorBoundary extends React.Component<ModuleErrorBoundaryProp
   }
 
   private handleRetry = () => {
-    this.setState({ hasError: false, error: null });
+    this.setState({ hasError: false, error: null, errorInfo: null });
   };
 
   render() {
@@ -68,10 +71,6 @@ export class ModuleErrorBoundary extends React.Component<ModuleErrorBoundaryProp
       if (this.props.fallback) {
         return this.props.fallback;
       }
-
-      // 提取简洁的组件堆栈用于诊断（生产环境也需要）
-      const stack = this.state.error?.stack || '';
-      const componentStack = (this as unknown as { _errorInfo?: React.ErrorInfo })._errorInfo?.componentStack || '';
 
       return (
         <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-6 text-center">
@@ -81,7 +80,6 @@ export class ModuleErrorBoundary extends React.Component<ModuleErrorBoundaryProp
           <p className="text-xs text-muted-foreground max-w-sm break-all">
             {this.state.error?.message || '发生了未知错误'}
           </p>
-          {/* 生产环境也显示组件堆栈以帮助诊断 */}
           {this.state.errorInfo?.componentStack && (
             <details className="w-full max-w-md text-left">
               <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">

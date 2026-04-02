@@ -153,6 +153,7 @@ export interface Project {
   // UI Helpers
   stage?: string;
   type?: string;
+  member_ids?: string[];
 }
 
 export interface ProjectTimeline {
@@ -165,4 +166,13 @@ export interface ProjectTimeline {
   created_at: string;
   // UI Helper
   occurred_at?: string;
+}
+
+export interface ProjectTask {
+  id: string;
+  title: string;
+  status: 'todo' | 'in_progress' | 'done' | 'completed' | 'cancelled';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  due_date?: string;
+  assignee_id?: string;
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -41,7 +42,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { httpClient } from '@/lib/httpClient';
 
@@ -150,7 +150,7 @@ function AttendanceTab({ orgId, userId }: { orgId?: string; userId?: string }) {
     } finally {
       setLoading(false);
     }
-  }, [orgId, userId, today]);
+  }, [orgId, userId]);
 
   useEffect(() => { fetchRecords(); }, [fetchRecords]);
 
@@ -266,6 +266,7 @@ function AttendanceTab({ orgId, userId }: { orgId?: string; userId?: string }) {
 
 export function OACenter() {
   const { user, profile } = useAuth();
+  const { confirm, ConfirmDialog } = useConfirmDialog();
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get('tab') || 'leave';
   const [activeTab, setActiveTab] = useState(tabParam);
@@ -347,14 +348,8 @@ export function OACenter() {
   const fetchMeetings = useCallback(async () => {
     try {
       if (!profile?.organization_id) return;
-      const { data, error } = await supabase.from('oa_meeting_bookings')
-        .select('*')
-        .eq('organization_id', profile.organization_id)
-        .neq('status', 'cancelled')
-        .order('start_time', { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      setMeetings((data as MeetingBooking[]) || []);
+      const response = await httpClient.get('/api/oa/meetings');
+      setMeetings((response.data?.data?.items || response.data?.data || []) as MeetingBooking[]);
     } catch (error: unknown) {
       toast.error('加载会议记录失败');
     } finally {
@@ -373,16 +368,11 @@ export function OACenter() {
     }
     setMeetingSubmitting(true);
     try {
-      // @ts-expect-error Types not fully generated
-      const { error } = await supabase.from('oa_meeting_bookings').insert({
+      await httpClient.post('/api/oa/meetings', {
         title: meetingForm.title,
-        organizer_id: user?.id,
-        organization_id: profile?.organization_id,
         start_time: meetingForm.start_time,
         end_time: meetingForm.end_time,
-        status: 'confirmed',
       });
-      if (error) throw error;
       toast.success('会议已预约');
       setMeetingDialogOpen(false);
       setMeetingForm({ title: '', start_time: '', end_time: '' });
@@ -420,42 +410,21 @@ export function OACenter() {
   const fetchTasks = useCallback(async () => {
     try {
       if (!profile?.organization_id) return;
-      let query = supabase
-        .from('oa_tasks')
-        .select('*, creator:created_by(name)')
-        .eq('organization_id', profile.organization_id)
-        .order('created_at', { ascending: false });
-
-      // Show tasks assigned to the user, or created by them
-      if (user?.id) {
-        query = query.or(`assignee_id.eq.${user.id}`);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      // Flatten joined creator name
-      const mapped = (data || []).map((t: Record<string, unknown>) => ({
-        ...t,
-        creator_name: (t.creator as { name?: string } | null)?.name || undefined,
-      }));
-      setTasks(mapped as OATask[]);
+      const response = await httpClient.get('/api/oa/tasks');
+      const data = response.data?.data?.items || response.data?.data || [];
+      setTasks(data as OATask[]);
     } catch (error: unknown) {
       toast.error('加载任务列表失败');
     } finally {
       setTaskLoading(false);
     }
-  }, [profile?.organization_id, user?.id]);
+  }, [profile?.organization_id]);
 
   const fetchOrgMembers = useCallback(async () => {
     try {
       if (!profile?.organization_id) return;
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, name, role')
-        .eq('organization_id', profile.organization_id)
-        .order('name');
-      if (error) throw error;
-      setOrgMembers((data as OrgMember[]) || []);
+      const response = await httpClient.get('/api/users/org-members');
+      setOrgMembers((response.data?.data || []) as OrgMember[]);
     } catch {
       // non-critical
     }
@@ -468,17 +437,12 @@ export function OACenter() {
     }
     setTaskSubmitting(true);
     try {
-      // @ts-expect-error Types not fully generated
-      const { error } = await supabase.from('oa_tasks').insert({
+      await httpClient.post('/api/oa/tasks', {
         title: taskForm.title,
         description: taskForm.description || null,
         priority: taskForm.priority,
         due_date: taskForm.due_date || null,
-        assignee_id: user?.id,
-        organization_id: profile?.organization_id,
-        status: 'pending',
       });
-      if (error) throw error;
       toast.success('任务已创建');
       setTaskDialogOpen(false);
       setTaskForm({ title: '', description: '', priority: 'medium', due_date: '' });
@@ -498,26 +462,11 @@ export function OACenter() {
   }, [fetchLeaves, fetchMeetings, fetchTasks, fetchOrgMembers]);
 
   const handleCancelLeave = async (leaveId: string) => {
-    if (!window.confirm('确认要撤回这条请假申请吗？')) return;
+    if (!(await confirm('确认要撤回这条请假申请吗？'))) return;
     try {
       // 乐观更新：立即从列表移除
       setLeaves(prev => prev.filter(l => l.id !== leaveId));
-      const { error, count } = await supabase.from('oa_leave_requests')
-        // @ts-expect-error Types not fully generated
-        .update({ status: 'cancelled' })
-        .eq('id', leaveId)
-        // @ts-expect-error Types not fully generated
-        .select('id', { count: 'exact', head: true });
-      if (error) {
-        fetchLeaves();
-        throw error;
-      }
-      // RLS 策略可能导致 update 静默失败（匹配 0 行）
-      if (count === 0) {
-        fetchLeaves();
-        toast.error('撤回失败：权限不足，请联系管理员');
-        return;
-      }
+      await httpClient.patch(`/api/oa/leave-requests/${leaveId}`, { status: 'cancelled' });
       toast.success('请假申请已撤回');
     } catch (error: unknown) {
       fetchLeaves();
@@ -526,19 +475,13 @@ export function OACenter() {
   };
 
   const handleCancelMeeting = async (meetingId: string) => {
-    if (!window.confirm('确认要取消这场会议吗？')) return;
+    if (!(await confirm('确认要取消这场会议吗？'))) return;
     try {
       setMeetings(prev => prev.filter(m => m.id !== meetingId));
-      const { error } = await supabase.from('oa_meeting_bookings')
-        // @ts-expect-error Types not fully generated
-        .update({ status: 'cancelled' })
-        .eq('id', meetingId);
-      if (error) {
-        fetchMeetings();
-        throw error;
-      }
+      await httpClient.patch(`/api/oa/meetings/${meetingId}/cancel`);
       toast.success('会议已取消');
     } catch (error: unknown) {
+      fetchMeetings();
       toast.error((error instanceof Error ? error.message : null) || '取消失败');
     }
   };
@@ -552,12 +495,7 @@ export function OACenter() {
       return;
     }
     try {
-      const { error } = await supabase
-        .from('oa_tasks')
-        // @ts-expect-error Types not fully generated
-        .update({ status: newStatus })
-        .eq('id', taskId);
-      if (error) throw error;
+      await httpClient.patch(`/api/oa/tasks/${taskId}`, { status: newStatus });
       toast.success('任务状态已更新');
       fetchTasks();
     } catch (error: unknown) {
@@ -573,17 +511,12 @@ export function OACenter() {
     }
     setCompletionSubmitting(true);
     try {
-      // Update task status + completion notes
-      const { error: updateError } = await supabase
-        .from('oa_tasks')
-        // @ts-expect-error Types not fully generated
-        .update({
-          status: 'completed',
-          completion_notes: completionForm.notes,
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', completionTaskId);
-      if (updateError) throw updateError;
+      // Update task status + completion notes via API
+      await httpClient.patch(`/api/oa/tasks/${completionTaskId}`, {
+        status: 'completed',
+        completion_notes: completionForm.notes,
+        completed_at: new Date().toISOString(),
+      });
 
       // Get task details for notification
       const task = tasks.find((t) => t.id === completionTaskId);
@@ -591,15 +524,17 @@ export function OACenter() {
 
       // Send notification to CC'd user (if selected)
       if (completionForm.cc_user_id) {
-        // @ts-expect-error Types not fully generated
-        await supabase.from('notifications').insert({
-          user_id: completionForm.cc_user_id,
-          title: '任务完成通知',
-          content: `${myName} 已完成任务「${task?.title || ''}」\n完成说明: ${completionForm.notes}`,
-          type: 'info',
-          action_url: '/oa?tab=task',
-          organization_id: profile?.organization_id,
-        });
+        try {
+          await httpClient.post('/api/notifications/send', {
+            user_id: completionForm.cc_user_id,
+            title: '任务完成通知',
+            content: `${myName} 已完成任务「${task?.title || ''}」\n完成说明: ${completionForm.notes}`,
+            type: 'info',
+            action_url: '/oa?tab=task',
+          });
+        } catch {
+          // non-critical, notification send failure shouldn't block completion
+        }
       }
 
       // Also notify the task creator (if different from current user and CC'd user)
@@ -608,15 +543,17 @@ export function OACenter() {
         task.created_by !== user?.id &&
         task.created_by !== completionForm.cc_user_id
       ) {
-        // @ts-expect-error Types not fully generated
-        await supabase.from('notifications').insert({
-          user_id: task.created_by,
-          title: '任务完成通知',
-          content: `${myName} 已完成您分配的任务「${task.title}」\n完成说明: ${completionForm.notes}`,
-          type: 'success',
-          action_url: '/oa?tab=task',
-          organization_id: profile?.organization_id,
-        });
+        try {
+          await httpClient.post('/api/notifications/send', {
+            user_id: task.created_by,
+            title: '任务完成通知',
+            content: `${myName} 已完成您分配的任务「${task.title}」\n完成说明: ${completionForm.notes}`,
+            type: 'success',
+            action_url: '/oa?tab=task',
+          });
+        } catch {
+          // non-critical
+        }
       }
 
       toast.success('任务已标记为完成');
@@ -1290,6 +1227,7 @@ export function OACenter() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {ConfirmDialog}
     </div>
   );
 }

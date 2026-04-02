@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -56,11 +57,11 @@ function ContactRow({
   onEdit: () => void;
 }) {
   const deleteContact = useDeleteContact(customerId);
+  const { confirm, ConfirmDialog } = useConfirmDialog();
 
-  const handleDelete = () => {
-    if (window.confirm(`确认删除联系人「${contact.name}」？`)) {
-      deleteContact.mutate(contact.id);
-    }
+  const handleDelete = async () => {
+    if (!(await confirm(`确认删除联系人「${contact.name}」？`))) return;
+    deleteContact.mutate(contact.id);
   };
 
   return (
@@ -100,6 +101,7 @@ function ContactRow({
           </Button>
         </div>
       </div>
+      {ConfirmDialog}
     </div>
   );
 }

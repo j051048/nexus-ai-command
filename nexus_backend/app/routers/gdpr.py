@@ -5,8 +5,9 @@ P1 Task: Implement data deletion and export.
 """
 
 import logging
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from app.core.auth import get_current_user_id
+from app.core.errors import ErrorCode, api_error, api_success
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/gdpr", tags=["GDPR"])
@@ -24,14 +25,13 @@ async def delete_user_data(
     from app.core.database import supabase
 
     try:
-        # Call RPC function to delete all user data
-        result = await supabase.rpc("delete_user_data", {"user_id_param": user_id}).execute()
+        await supabase.rpc("delete_user_data", {"user_id_param": user_id}).execute()
 
         logger.info(f"[GDPR] Deleted all data for user {user_id}")
-        return {"message": "所有数据已删除", "user_id": user_id}
+        return api_success(data={"user_id": user_id}, message="所有数据已删除")
     except Exception as e:
         logger.error(f"[GDPR] Delete failed for {user_id}: {e}")
-        raise HTTPException(status_code=500, detail="数据删除失败")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据删除失败")
 
 
 @router.get("/export-my-data")
@@ -46,25 +46,21 @@ async def export_user_data(
     from app.core.database import supabase
 
     try:
-        # Collect all user data
         data = {}
 
-        # Profile (显式字段列表，排除敏感信息)
         profile = await supabase.table("users").select(
             "id, email, full_name, avatar_url, created_at, updated_at"
         ).eq("id", user_id).single().execute()
         data["profile"] = profile.data
 
-        # Conversations
         conversations = await supabase.table("chat_sessions").select("*").eq("user_id", user_id).execute()
         data["conversations"] = conversations.data
 
-        # Memories
         memories = await supabase.table("conversation_memories").select("*").eq("user_id", user_id).execute()
         data["memories"] = memories.data
 
         logger.info(f"[GDPR] Exported data for user {user_id}")
-        return data
+        return api_success(data=data, message="数据导出成功")
     except Exception as e:
         logger.error(f"[GDPR] Export failed for {user_id}: {e}")
-        raise HTTPException(status_code=500, detail="数据导出失败")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据导出失败")

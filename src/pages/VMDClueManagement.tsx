@@ -40,7 +40,6 @@ import {
 } from '@/hooks/useVMD';
 import { useAuth } from '@/components/auth/AuthContext';
 import { useConfirmDialog } from '@/hooks/useConfirmDialog';
-import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { toast } from 'sonner';
 
 // ---------- 配置 ----------
@@ -117,7 +116,7 @@ export default function VMDClueManagement() {
   const deleteClue = useDeleteVMDClue();
   const { role } = useAuth();
   const canDelete = role === 'boss' || role === 'admin';
-  const { confirm, ConfirmDialogProps } = useConfirmDialog();
+  const { confirm, ConfirmDialog } = useConfirmDialog();
 
   // Local search filter
   const filteredClues = useMemo(() => {
@@ -169,7 +168,7 @@ export default function VMDClueManagement() {
   };
 
   const handleConvert = async (clue: VMDClue) => {
-    if (!window.confirm(`确定要将线索"${clue.company_name}"转化为正式客户吗？`)) return;
+    if (!(await confirm(`确定要将线索"${clue.company_name}"转化为正式客户吗？`))) return;
     await convertClue.mutateAsync(clue.id);
     setDetailClue(null);
   };
@@ -615,7 +614,7 @@ export default function VMDClueManagement() {
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog {...ConfirmDialogProps} />
+      {ConfirmDialog}
     </div>
   );
 }

@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
+from app.core.dependencies import require_role
 from app.models.schemas import StandardResponse
 from app.services.approval_chain import approval_chain_service
 from app.services.organization_service import organization_service
@@ -391,7 +392,7 @@ async def toggle_invite_code(
 @router.get("/admin/pending-bosses", response_model=StandardResponse)
 async def admin_list_pending_bosses(
     req: Request,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_role(["boss", "founder"])),
 ):
     """列出待审批的Boss申请"""
     client = req.state.db
@@ -402,7 +403,7 @@ async def admin_list_pending_bosses(
 @router.get("/admin/organizations", response_model=StandardResponse)
 async def admin_list_organizations(
     req: Request,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_role(["boss", "founder"])),
 ):
     """列出所有组织"""
     client = req.state.db
@@ -414,33 +415,33 @@ async def admin_list_organizations(
 async def admin_approve_boss(
     target_user_id: str,
     req: Request,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_role(["boss", "founder"])),
 ):
     """批准Boss申请"""
     client = req.state.db
     await client.table("users").update({"status": "approved"}).eq("id", target_user_id).execute()
-    return api_success(message="已批准")
+    return api_success({}, message="已批准")
 
 
 @router.post("/admin/reject-boss/{target_user_id}", response_model=StandardResponse)
 async def admin_reject_boss(
     target_user_id: str,
     req: Request,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_role(["boss", "founder"])),
 ):
     """拒绝Boss申请"""
     client = req.state.db
     await client.table("users").update({"status": "rejected", "role": "employee"}).eq("id", target_user_id).execute()
-    return api_success(message="已拒绝")
+    return api_success({}, message="已拒绝")
 
 
 @router.delete("/admin/organization/{org_id}", response_model=StandardResponse)
 async def admin_delete_organization(
     org_id: str,
     req: Request,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_role(["boss", "founder"])),
 ):
     """删除组织"""
     client = req.state.db
     await client.table("organizations").delete().eq("id", org_id).execute()
-    return api_success(message="组织已删除")
+    return api_success({}, message="组织已删除")

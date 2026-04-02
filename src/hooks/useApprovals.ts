@@ -1,10 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthContext';
 import { approvalRequestSchema, ApprovalRequestSafe } from '@/lib/schemas';
-import { useEffect } from 'react';
 import { aiClient } from '@/api/aiClient';
 import { toast } from 'sonner';
+import { httpClient } from '@/lib/httpClient';
 
 export type ApprovalRequest = ApprovalRequestSafe;
 
@@ -19,25 +18,17 @@ export function useApprovals() {
     queryKey: ['approvals', 'pending', profile?.organization_id],
     queryFn: async () => {
       if (!profile?.organization_id) return [];
-      
-      const { data, error } = await supabase
-        .from('approval_requests')
-        .select(`
-          *,
-          users:submitted_by ( name )
-        `)
-        .eq('status', 'pending')
-        .eq('organization_id', profile.organization_id)
-        .order('created_at', { ascending: false });
 
-      if (error) {
-        throw new Error('获取审批列表失败，请刷新重试');
-      }
+      const response = await httpClient.get('/api/approval/list', {
+        params: { tab: 'pending' },
+      });
 
-      return (data || []).map((item) => {
+      const items = response.data?.data?.items || [];
+
+      return items.map((item: Record<string, unknown>) => {
         const dataToValidate = {
           ...item,
-          submitter_name: (item as unknown as { users: { name: string } | null }).users?.name || '未知用户',
+          submitter_name: (item.submitter_name as string) || '未知用户',
         };
         const result = approvalRequestSchema.safeParse(dataToValidate);
         return (result.success ? result.data : dataToValidate) as ApprovalRequestSafe;
@@ -48,15 +39,10 @@ export function useApprovals() {
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: 'approved' | 'rejected' }) => {
-      const { error } = await supabase
-        .from('approval_requests')
-        .update({ status })
-        .eq('id', id);
-
-      if (error) throw error;
+      await httpClient.post(`/api/approval/${id}/advance`, { decision: status });
       return { id, status };
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['approvals'] });
     },
     onError: (error: Error) => {
@@ -77,20 +63,12 @@ export function useMyApprovals() {
     queryKey: ['approvals', 'me', user?.id, profile?.organization_id],
     queryFn: async () => {
       if (!user?.id) return [];
-      
-      // 查询所有与当前用户相关的审批记录
-      // 包括：直接提交的 + AI代提交的（on_behalf_of）
-      const { data, error } = await supabase
-        .from('approval_requests')
-        .select('*')
-        .eq('organization_id', profile?.organization_id)
-        .or(`submitted_by.eq.${user.id},on_behalf_of.eq.${user.id}`)
-        .order('created_at', { ascending: false });
 
-      if (error) {
-        throw error;
-      }
-      return data as ApprovalRequest[];
+      const response = await httpClient.get('/api/approval/list', {
+        params: { tab: 'mine' },
+      });
+
+      return (response.data?.data?.items || []) as ApprovalRequest[];
     },
     enabled: !!user?.id && !!profile?.organization_id,
   });
@@ -103,22 +81,17 @@ export function useAllApprovals(statusFilter: string = 'all') {
     queryFn: async () => {
       if (!profile?.organization_id) return [];
 
-      let query = supabase
-        .from('approval_requests')
-        .select('*, users:submitted_by(name)')
-        .eq('organization_id', profile.organization_id)
-        .order('submitted_at', { ascending: false });
-
+      const params: Record<string, string> = { tab: 'handled' };
       if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
+        params.type_filter = statusFilter;
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
+      const response = await httpClient.get('/api/approval/list', { params });
 
-      return (data || []).map((item) => ({
+      const items = response.data?.data?.items || [];
+      return items.map((item: Record<string, unknown>) => ({
         ...item,
-        submitter_name: (item as unknown as { users: { name: string } | null }).users?.name || '未知用户',
+        submitter_name: (item.submitter_name as string) || '未知用户',
       })) as ApprovalRequest[];
     },
     enabled: !!profile?.organization_id,
@@ -134,42 +107,14 @@ export function useSubmitApproval() {
       if (!user?.id) throw new Error('未登录');
       if (!profile?.organization_id) throw new Error('缺少组织信息，无法提交申请');
 
-      // Task A: AI Orchestration Layer - Call Backend
-      let decision = 'pending';
-      let aiReason = '正在等待系统分析...';
+      const response = await httpClient.post('/api/approval/submit-with-form', {
+        type: payload.type,
+        amount: payload.amount || 0,
+        details: payload.description,
+        form_data: {},
+      });
 
-      try {
-        const result = await aiClient.processApproval({
-          requester_id: user.id,
-          type: payload.type,
-          amount: payload.amount,
-          details: payload.description
-        });
-
-        decision = result.decision === 'auto_approved' ? 'approved' : 'pending';
-        aiReason = result.reason;
-      } catch (err) {
-        console.warn('AI Orchestration layer unavailable or failed:', err);
-        aiReason = 'AI 服务暂时下线，已转入人工审批队列';
-      }
-
-      const { data, error } = await supabase
-        .from('approval_requests')
-        .insert({
-          submitted_by: user.id,
-          organization_id: profile?.organization_id, // P0 Fix: Force org isolation
-          type: payload.type,
-          description: payload.description,
-          amount: payload.amount,
-          status: decision as 'pending' | 'approved' | 'rejected',
-          ai_reason: aiReason,
-          submitted_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return { ...data, auto_approved: decision === 'approved' };
+      return response.data?.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['approvals'] });
@@ -181,11 +126,7 @@ export function useApproveRequest() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (requestId: string) => {
-      const { error } = await supabase
-        .from('approval_requests')
-        .update({ status: 'approved' })
-        .eq('id', requestId);
-      if (error) throw error;
+      await httpClient.post(`/api/approval/${requestId}/advance`, { decision: 'approved' });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['approvals'] });
@@ -197,14 +138,10 @@ export function useRejectRequest() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ requestId, reason }: { requestId: string; reason: string }) => {
-      const { error } = await supabase
-        .from('approval_requests')
-        .update({
-          status: 'rejected',
-          rejection_reason: reason
-        })
-        .eq('id', requestId);
-      if (error) throw error;
+      await httpClient.post(`/api/approval/${requestId}/advance`, {
+        decision: 'rejected',
+        comment: reason,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['approvals'] });
@@ -216,29 +153,19 @@ export function useApprovalsRealtime() {
   const queryClient = useQueryClient();
   const { user, profile } = useAuth();
 
-  useEffect(() => {
-    if (!user?.id || !profile?.organization_id) return;
-
-    const channel = supabase
-      .channel('approvals-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'approval_requests',
-          filter: `organization_id=eq.${profile.organization_id}`,
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['approvals'] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      channel.unsubscribe();
-    };
-  }, [user?.id, profile?.organization_id, queryClient]);
+  // Replace Supabase realtime with polling via refetchInterval on related queries
+  useQuery({
+    queryKey: ['approvals', 'realtime-poll', profile?.organization_id],
+    queryFn: async () => {
+      // Just trigger invalidation of approval queries
+      queryClient.invalidateQueries({ queryKey: ['approvals', 'pending'] });
+      queryClient.invalidateQueries({ queryKey: ['approvals', 'me'] });
+      queryClient.invalidateQueries({ queryKey: ['approvals', 'all'] });
+      return null;
+    },
+    enabled: !!user?.id && !!profile?.organization_id,
+    refetchInterval: 30000, // 30 seconds
+  });
 }
 
 // ---- P1: Approval Progress Tracker hooks ----
@@ -310,15 +237,9 @@ export function usePendingApprovalsCount() {
     queryKey: ['approvals', 'pending-count', profile?.organization_id],
     queryFn: async () => {
       if (!profile?.organization_id) return 0;
-      
-      const { count, error } = await supabase
-        .from('approval_requests')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending')
-        .eq('organization_id', profile.organization_id);
 
-      if (error) throw error;
-      return count || 0;
+      const response = await httpClient.get('/api/approval/tab-counts');
+      return response.data?.data?.pending || 0;
     }
   });
 }

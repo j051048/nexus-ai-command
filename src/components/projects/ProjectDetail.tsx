@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Avatar } from '@/components/ui/avatar';
 import {
     ArrowLeft, Calendar, CheckCircle2, Clock, Flag, Users, MessageSquare,
     Utensils, Zap, ListTodo, Loader2, Plus, X, ChevronRight,
@@ -16,11 +17,13 @@ import {
     useRecalcProgress, useAiPredictNextStep, useGenerateWeeklyReport, STAGE_OPTIONS, EVENT_TYPE_OPTIONS,
     TeamMember, ProjectTimeline,
 } from '@/hooks/useProjects';
+import { ProjectTask } from '@/types/nexus';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/contexts/UserContext';
 import { httpClient } from '@/lib/httpClient';
 import { useNavigate, useParams } from 'react-router-dom';
+import type { Database } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 
 interface ProjectDetailProps {
@@ -45,7 +48,7 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
     const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
 
     const openMembersDialog = () => {
-        const currentIds = (project as any)?.member_ids || [];
+        const currentIds = project?.member_ids || [];
         setSelectedMemberIds(currentIds);
         setMembersOpen(true);
     };
@@ -73,7 +76,8 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
     const { data: subtasks = [] } = useQuery({
         queryKey: ['project-subtasks', projectId],
         queryFn: async () => {
-            const response = await httpClient.get(`/api/projects/${projectId}/tasks`);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const response = await (httpClient as any).get(`/api/projects/${projectId}/tasks`);
             return response.data?.tasks || [];
         },
         enabled: !!projectId,
@@ -82,7 +86,7 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
     const handleAiAnalyze = () => {
         if (!project) return;
         setAiDialogOpen(true);
-        analyze(project, timeline, subtasks.map(t => ({ title: t.title, status: t.status })));
+        analyze(project, timeline, subtasks.map((t: ProjectTask) => ({ title: t.title, status: t.status })));
     };
 
     // ── Stage Transition ──
@@ -128,8 +132,8 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
         );
     }
 
-    const memberIds: string[] = (project as any)?.member_ids || [];
-    const memberProfiles = orgMembers.filter(m => memberIds.includes(m.user_id));
+    const memberIds: string[] = project?.member_ids || [];
+    const memberProfiles = orgMembers.filter((m: TeamMember) => memberIds.includes(m.user_id));
 
     const getEventIcon = (type: string) => {
         switch (type) {
@@ -239,16 +243,13 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
                                 <div>
                                     <span className="text-sm text-muted-foreground block mb-2">参与人员</span>
                                     <div className="flex flex-wrap gap-1">
-                                        {memberProfiles.slice(0, 5).map(m => (
-                                            <span key={m.user_id} className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
-                                                {m.name}
-                                            </span>
+                                        {memberProfiles.map((member: TeamMember) => (
+                                            <Avatar key={member.user_id} className="h-8 w-8 border-2 border-background">
+                                                <div className="w-full h-full flex items-center justify-center bg-muted text-xs font-medium">
+                                                    {member.name?.slice(0, 1)}
+                                                </div>
+                                            </Avatar>
                                         ))}
-                                        {memberProfiles.length > 5 && (
-                                            <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground">
-                                                +{memberProfiles.length - 5}
-                                            </span>
-                                        )}
                                     </div>
                                 </div>
                             )}
@@ -292,7 +293,7 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
                                     <div className="text-center py-12 text-sm text-muted-foreground">
                                         暂无进展记录，点击右上角"添加记录"开始
                                     </div>
-                                ) : timeline.map((event) => (
+                                ) : timeline.map((event: ProjectTimeline) => (
                                     <div key={event.id} className="relative pl-12 group">
                                         <div className={cn(
                                             "absolute left-0 top-0 w-10 h-10 rounded-xl border-2 flex items-center justify-center bg-card shadow-sm z-10 transition-all duration-300 group-hover:scale-110",
@@ -367,7 +368,7 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
                         <DialogTitle>管理参与人员</DialogTitle>
                     </DialogHeader>
                     <div className="max-h-80 overflow-y-auto space-y-1">
-                        {orgMembers.map(member => (
+                        {orgMembers.map((member: TeamMember) => (
                             <label
                                 key={member.user_id}
                                 className={cn(
@@ -430,7 +431,7 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
                         <Button variant="outline" onClick={() => setAiDialogOpen(false)}>关闭</Button>
                         {!analyzing && aiResult && (
                             <Button onClick={() => {
-                                if (project) analyze(project, timeline, subtasks.map(t => ({ title: t.title, status: t.status })));
+                                if (project) analyze(project, timeline, subtasks.map((t: ProjectTask) => ({ title: t.title, status: t.status })));
                             }}>
                                 重新分析
                             </Button>
@@ -522,14 +523,6 @@ export function ProjectDetail({ projectId: propId, onBack: propOnBack }: Project
 }
 
 /* ────────────────── Project Subtasks ────────────────── */
-interface OATask {
-    id: string;
-    title: string;
-    status: string;
-    priority: string;
-    assignee_id: string | null;
-    created_at: string;
-}
 
 const taskStatusConfig: Record<string, { label: string; color: string }> = {
     pending: { label: '待处理', color: 'text-yellow-500 bg-yellow-500/10' },
@@ -549,16 +542,16 @@ const priorityConfig: Record<string, { label: string; color: string }> = {
 
 function ProjectSubtasks({ projectId, tasks, onProgressChange }: {
     projectId: string;
-    tasks: OATask[];
+    tasks: ProjectTask[];
     onProgressChange: () => void;
 }) {
     const navigate = useNavigate();
 
-    const handleStatusToggle = async (task: OATask) => {
+    const handleStatusToggle = async (task: ProjectTask) => {
         const newStatus = (task.status === 'done' || task.status === 'completed') ? 'todo' : 'done';
-        const { error } = await supabase
-            .from('oa_tasks')
-            .update({ status: newStatus } as never)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase.from('oa_tasks') as any)
+            .update({ status: newStatus })
             .eq('id', task.id);
         if (error) { toast.error('更新任务状态失败'); return; }
         toast.success(newStatus === 'done' ? '任务已完成' : '任务已重新打开');

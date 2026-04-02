@@ -1,5 +1,4 @@
 import React from 'react';
-import { ThemeProvider } from '@/contexts/ThemeContext';
 import { UserProvider } from '@/contexts/UserContext';
 import { ChatFirstLayout } from '@/components/layout/ChatFirstLayout';
 import { MobileLayout } from '@/components/layout/MobileLayout';
@@ -13,21 +12,19 @@ const Index = () => {
   const isTablet = useIsTablet();
 
   return (
-    <ThemeProvider>
-      <UserProvider>
-        <SkipToContent />
-        <GlobalHotkeys />
-        {(isMobile || isTablet) ? (
-          <MobileLayout />
-        ) : (
-          <ChatFirstLayout>
-            <main id="main-content">
-              <Outlet />
-            </main>
-          </ChatFirstLayout>
-        )}
-      </UserProvider>
-    </ThemeProvider>
+    <UserProvider>
+      <SkipToContent />
+      <GlobalHotkeys />
+      {(isMobile || isTablet) ? (
+        <MobileLayout />
+      ) : (
+        <ChatFirstLayout>
+          <main id="main-content">
+            <Outlet />
+          </main>
+        </ChatFirstLayout>
+      )}
+    </UserProvider>
   );
 };
 

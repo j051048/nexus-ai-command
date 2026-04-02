@@ -2,8 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthContext';
 import { format, subDays, startOfWeek, subWeeks } from 'date-fns';
-import { useEffect } from 'react';
 import { toast } from 'sonner';
+import { httpClient } from '@/lib/httpClient';
 
 export interface SalesMetric {
   id: string;
@@ -38,40 +38,25 @@ export interface TeamMemberPerformance {
   user_id: string;
 }
 
-// Hook for real-time subscription to sales metrics
+// Hook for real-time subscription to sales metrics — replaced with polling
 export function useSalesMetricsRealtime() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
 
-  useEffect(() => {
-    if (!session?.user?.id) return;
-
-    const channel = supabase
-      .channel('sales-metrics-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'sales_metrics',
-          filter: `user_id=eq.${session.user.id}`,
-        },
-        (payload) => {
-          if (import.meta.env.DEV) console.log('Sales metrics changed:', payload);
-          // Invalidate all related queries to refetch fresh data
-          queryClient.invalidateQueries({ queryKey: ['sales-metrics'] });
-          queryClient.invalidateQueries({ queryKey: ['sales-metrics-range'] });
-          queryClient.invalidateQueries({ queryKey: ['win-rate-history'] });
-          queryClient.invalidateQueries({ queryKey: ['revenue-data'] });
-          queryClient.invalidateQueries({ queryKey: ['team-performance'] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      channel.unsubscribe();
-    };
-  }, [session?.user?.id, queryClient]);
+  useQuery({
+    queryKey: ['sales-metrics-realtime-poll', session?.user?.id],
+    queryFn: async () => {
+      // Invalidate all related queries to refetch fresh data
+      queryClient.invalidateQueries({ queryKey: ['sales-metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-metrics-range'] });
+      queryClient.invalidateQueries({ queryKey: ['win-rate-history'] });
+      queryClient.invalidateQueries({ queryKey: ['revenue-data'] });
+      queryClient.invalidateQueries({ queryKey: ['team-performance'] });
+      return null;
+    },
+    enabled: !!session?.user?.id,
+    refetchInterval: 30000, // 30 seconds
+  });
 }
 
 // Fetch user's sales metrics for the last N months
@@ -84,16 +69,12 @@ export function useSalesMetrics(months: number = 7) {
       if (!session?.user?.id) return [];
 
       const startDate = format(subDays(new Date(), months * 30), 'yyyy-MM-dd');
-      
-      const { data, error } = await supabase
-        .from('sales_metrics')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .gte('date', startDate)
-        .order('date', { ascending: true });
 
-      if (error) throw error;
-      return data as SalesMetric[];
+      const response = await httpClient.get('/api/sales/metrics/range', {
+        params: { start_date: startDate },
+      });
+
+      return (response.data?.data || []) as SalesMetric[];
     },
     enabled: !!session?.user?.id,
   });
@@ -108,24 +89,18 @@ export function useSalesMetricsByRange(startDate: string | null, endDate: string
     queryFn: async () => {
       if (!session?.user?.id || !startDate || !endDate) return [];
 
-      let query = supabase
-        .from('sales_metrics')
-        .select('*')
-        .gte('date', startDate)
-        .lte('date', endDate)
-        .order('date', { ascending: false });
+      const params: Record<string, string> = {
+        start_date: startDate,
+        end_date: endDate,
+      };
 
-        // If not boss, only get own metrics
+      // If not boss, request own metrics only
       if (role !== 'boss') {
-        query = query.eq('user_id', session.user.id);
-      } else if (profile?.organization_id) {
-        // Boss sees all in org
-        query = query.eq('organization_id', profile.organization_id);
+        params.target_user_id = session.user.id;
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as SalesMetric[];
+      const response = await httpClient.get('/api/sales/metrics/range', { params });
+      return (response.data?.data || []) as SalesMetric[];
     },
     enabled: !!session?.user?.id && !!startDate && !!endDate && !!profile?.organization_id,
   });
@@ -134,9 +109,6 @@ export function useSalesMetricsByRange(startDate: string | null, endDate: string
 // Fetch win rate data by week for the last N weeks
 export function useWinRateHistory(weeks: number = 8) {
   const { session } = useAuth();
-  
-  // Note: Win rate history is currently personal. If we want org-wide win rate, need to adjust.
-  // For now leaving as personal.
 
   return useQuery({
     queryKey: ['win-rate-history', session?.user?.id, weeks],
@@ -144,21 +116,18 @@ export function useWinRateHistory(weeks: number = 8) {
       if (!session?.user?.id) return [];
 
       const startDate = format(subWeeks(new Date(), weeks), 'yyyy-MM-dd');
-      
-      const { data, error } = await supabase
-        .from('sales_metrics')
-        .select('date, win_rate')
-        .eq('user_id', session.user.id)
-        .gte('date', startDate)
-        .order('date', { ascending: true });
 
-      if (error) throw error;
-      
+      const response = await httpClient.get('/api/sales/metrics/range', {
+        params: { start_date: startDate, target_user_id: session.user.id },
+      });
+
+      const data = (response.data?.data || []) as Array<{ date: string; win_rate: number | null }>;
+
       // Group by week and calculate average win rate per week
       const weeklyData: { week: string; rate: number; target: number }[] = [];
       const weekMap = new Map<string, number[]>();
-      
-      (data || []).forEach((item) => {
+
+      data.forEach((item) => {
         const weekStart = format(startOfWeek(new Date(item.date), { weekStartsOn: 1 }), 'yyyy-MM-dd');
         if (!weekMap.has(weekStart)) {
           weekMap.set(weekStart, []);
@@ -170,8 +139,8 @@ export function useWinRateHistory(weeks: number = 8) {
 
       let weekNum = 1;
       weekMap.forEach((rates, _weekStart) => {
-        const avgRate = rates.length > 0 
-          ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) 
+        const avgRate = rates.length > 0
+          ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length)
           : 0;
         weeklyData.push({
           week: `第${weekNum}周`,
@@ -197,28 +166,20 @@ export function useRevenueData(months: number = 7) {
       if (!session?.user?.id) return [];
 
       const startDate = format(subDays(new Date(), months * 30), 'yyyy-MM-dd');
-      
-      // If boss, get all metrics; if employee, get own metrics
-      let query = supabase
-        .from('sales_metrics')
-        .select('date, revenue')
-        .gte('date', startDate)
-        .order('date', { ascending: true });
 
+      const params: Record<string, string> = { start_date: startDate };
       if (role !== 'boss') {
-        query = query.eq('user_id', session.user.id);
-      } else if (profile?.organization_id) {
-        query = query.eq('organization_id', profile.organization_id);
+        params.target_user_id = session.user.id;
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
+      const response = await httpClient.get('/api/sales/metrics/range', { params });
+      const data = (response.data?.data || []) as Array<{ date: string; revenue: number | null }>;
 
       // Group by month
       const monthMap = new Map<string, number>();
       const targetPerMonth = 150; // Target in 万
 
-      (data || []).forEach((item) => {
+      data.forEach((item) => {
         const monthKey = format(new Date(item.date), 'M月');
         const current = monthMap.get(monthKey) || 0;
         monthMap.set(monthKey, current + (Number(item.revenue) || 0));
@@ -244,51 +205,8 @@ export function useTeamPerformance() {
     queryFn: async () => {
       if (!session?.user?.id || !profile?.organization_id) return [];
 
-      // Get all profiles with their scores and bonuses
-      // Note: profiles table is deprecated, use users join or just users.
-      // But assuming we are using 'users' table which has profile info now.
-      const { data: profiles, error: profilesError } = await supabase
-        .from('users')
-        .select('id, name, score, total_bonus')
-        .eq('organization_id', profile.organization_id)
-        .order('score', { ascending: false })
-        .limit(10);
-
-      if (profilesError) throw profilesError;
-
-      // Get latest sales metrics for each user
-      const userIds = (profiles || []).map((p: { id: string }) => p.id);
-      
-      const { data: metrics, error: metricsError } = await supabase
-        .from('sales_metrics')
-        .select('user_id, calls_made, conversions')
-        .in('user_id', userIds)
-        .order('date', { ascending: false });
-
-      if (metricsError) throw metricsError;
-
-      // Aggregate metrics per user
-      const metricsMap = new Map<string, { calls: number; conversions: number }>();
-      (metrics || []).forEach((m) => {
-        if (!m.user_id) return;
-        const current = metricsMap.get(m.user_id) || { calls: 0, conversions: 0 };
-        metricsMap.set(m.user_id, {
-          calls: current.calls + (m.calls_made || 0),
-          conversions: current.conversions + (m.conversions || 0),
-        });
-      });
-
-      return (profiles || []).map((p: { id: string; name: string; score: number | null; total_bonus: number | null }) => {
-        const userMetrics = metricsMap.get(p.id) || { calls: 0, conversions: 0 };
-        return {
-          name: p.name,
-          score: p.score || 0,
-          bonus: Number(p.total_bonus) || 0,
-          calls: userMetrics.calls,
-          conversions: userMetrics.conversions,
-          user_id: p.id,
-        } as TeamMemberPerformance;
-      });
+      const response = await httpClient.get('/api/sales/team-performance');
+      return (response.data?.data || []) as TeamMemberPerformance[];
     },
     enabled: !!session?.user?.id && role === 'boss' && !!profile?.organization_id,
   });
@@ -303,16 +221,12 @@ export function useLeaderboard(limit: number = 5) {
     queryFn: async () => {
       if (!profile?.organization_id) return [];
 
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, name, score, total_bonus, rank')
-        .eq('organization_id', profile.organization_id)
-        .order('score', { ascending: false })
-        .limit(limit);
+      const response = await httpClient.get('/api/sales/leaderboard', {
+        params: { limit },
+      });
 
-      if (error) throw error;
-
-      return (data || []).map((p: { id: string; name: string; score: number | null; total_bonus: number | null; rank: number | null }, index: number) => ({
+      const data = response.data?.data || [];
+      return data.map((p: { id: string; name: string; score: number | null; total_bonus: number | null; rank: number | null }, index: number) => ({
         rank: index + 1,
         name: p.name,
         score: p.score || 0,
@@ -342,23 +256,18 @@ export function useSaveSalesMetric() {
     }) => {
       if (!session?.user?.id) throw new Error('Not authenticated');
 
-      const { data, error } = await supabase
-        .from('sales_metrics')
-        .upsert({
-          user_id: session.user.id,
-          date: metric.date || format(new Date(), 'yyyy-MM-dd'),
-          leads_count: metric.leads_count || 0,
-          conversions: metric.conversions || 0,
-          revenue: metric.revenue || 0,
-          win_rate: metric.win_rate || 0,
-          calls_made: metric.calls_made || 0,
-          score: metric.score || 0,
-        }, { onConflict: 'user_id,date' })
-        .select()
-        .single();
+      const response = await httpClient.post('/api/sales/metrics', {
+        user_id: session.user.id,
+        date: metric.date || format(new Date(), 'yyyy-MM-dd'),
+        leads_count: metric.leads_count || 0,
+        conversions: metric.conversions || 0,
+        revenue: metric.revenue || 0,
+        win_rate: metric.win_rate || 0,
+        calls_made: metric.calls_made || 0,
+        score: metric.score || 0,
+      });
 
-      if (error) throw error;
-      return data;
+      return response.data?.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales-metrics'] });
@@ -375,7 +284,7 @@ export function useSaveSalesMetric() {
   });
 }
 
-// Update user's profile score and bonus
+// Update user's profile score and bonus — kept with supabase (special operation)
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
@@ -408,7 +317,7 @@ export function useUpdateProfile() {
   });
 }
 
-// Generate mock data for demo purposes
+// Generate mock data for demo purposes — kept with supabase (special operation)
 export function useSeedDemoData() {
   const queryClient = useQueryClient();
   const { session } = useAuth();

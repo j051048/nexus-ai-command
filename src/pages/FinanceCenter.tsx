@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -84,6 +85,7 @@ function FinanceApprovalBanner() {
 
 export function FinanceCenter() {
   const { user, profile } = useAuth();
+  const { confirm, ConfirmDialog } = useConfirmDialog();
   const [activeTab, setActiveTab] = useState('expense');
 
   // --- Expense tab (reuse existing hooks) ---
@@ -211,7 +213,7 @@ export function FinanceCenter() {
   };
 
   const handleDeleteBudget = async (budgetId: string) => {
-    if (!window.confirm('确认删除此预算？删除后不可恢复。')) return;
+    if (!(await confirm('确认删除此预算？删除后不可恢复。'))) return;
     try {
       await httpClient.delete(`/api/finance/budgets/${budgetId}`);
       toast.success('预算已删除');
@@ -795,6 +797,7 @@ export function FinanceCenter() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {ConfirmDialog}
     </div>
   );
 }

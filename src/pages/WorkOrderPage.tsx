@@ -33,7 +33,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { httpClient } from '@/lib/httpClient';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -93,22 +93,12 @@ export default function WorkOrderPage() {
     if (!orgId) return;
     setLoading(true);
     try {
-      let query = supabase
-        .from('work_orders')
-        .select('id, title, order_type, priority, status, description, created_at')
-        .eq('organization_id', orgId)
-        .order('created_at', { ascending: false });
+      const params: Record<string, string> = {};
+      if (filterType !== 'all') params.type = filterType;
+      if (search.trim()) params.search = search.trim();
 
-      if (filterType !== 'all') {
-        query = query.eq('order_type', filterType);
-      }
-      if (search.trim()) {
-        query = query.ilike('title', `%${search.trim()}%`);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      setOrders((data as WorkOrder[]) || []);
+      const response = await httpClient.get('/api/work-orders', { params });
+      setOrders((response.data?.data?.items || response.data?.data || []) as WorkOrder[]);
     } catch (e) {
       toast.error('加载工单失败: ' + (e as Error).message);
     } finally {
@@ -122,17 +112,12 @@ export default function WorkOrderPage() {
     if (!form.title.trim()) { toast.error('请填写工单标题'); return; }
     setSubmitting(true);
     try {
-      // @ts-expect-error Types not fully generated
-      const { error } = await supabase.from('work_orders').insert({
+      await httpClient.post('/api/work-orders', {
         title: form.title.trim(),
         order_type: form.order_type,
         priority: form.priority,
         description: form.description.trim() || null,
-        status: 'open',
-        organization_id: orgId,
-        creator_id: profile?.id,
       });
-      if (error) throw error;
       toast.success('工单创建成功');
       setDialogOpen(false);
       setForm({ title: '', order_type: 'repair', priority: 'medium', description: '' });

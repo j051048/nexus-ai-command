@@ -3,11 +3,11 @@
 """
 import logging
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from app.core.auth import get_current_user_id, get_current_org_id
-from app.core.responses import api_success, api_error
+from app.core.errors import api_success, api_error, ErrorCode
 from app.tools.batch_operation_tools import (
     batch_import_customers,
     batch_update_leads,
@@ -46,7 +46,7 @@ async def import_customers(
         return api_success(result) if result.get("success") else api_error(result.get("error"))
     except Exception as e:
         logger.error(f"批量导入失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "批量导入失败，请稍后重试")
 
 
 @router.post("/update-leads")
@@ -63,7 +63,7 @@ async def update_leads(
         return api_success(result) if result.get("success") else api_error(result.get("error"))
     except Exception as e:
         logger.error(f"批量更新失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "批量更新失败，请稍后重试")
 
 
 @router.post("/assign-leads")
@@ -80,4 +80,4 @@ async def assign_leads(
         return api_success(result) if result.get("success") else api_error(result.get("error"))
     except Exception as e:
         logger.error(f"批量分配失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "批量分配失败，请稍后重试")

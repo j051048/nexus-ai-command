@@ -19,8 +19,9 @@ export function BatchActions({ selectedIds = [], onSuccess }: BatchActionsProps)
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.csv,.xlsx';
-    input.onchange = async (e: any) => {
-      const file = e.target.files[0];
+    input.onchange = async (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const file = target.files?.[0];
       if (!file) return;
 
       // 简化：这里应该解析文件，暂时提示

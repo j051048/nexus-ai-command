@@ -419,6 +419,16 @@ jobs:
             exit 1
           fi
 
+          if [[ "${{ needs.security-scan.result }}" == "failure" ]]; then
+            echo "::error::Security scan failed"
+            exit 1
+          fi
+
+          if [[ "${{ needs.dependency-security.result }}" == "failure" ]]; then
+            echo "::error::Dependency security check failed"
+            exit 1
+          fi
+
           echo "CI Pipeline completed successfully"
 
   # ============== Deployment (#46 CD Pipeline) ==============

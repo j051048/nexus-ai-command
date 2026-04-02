@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import { Target, Plus, Trash2, Pencil, Loader2, TrendingUp, Users, DollarSign, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -174,6 +175,7 @@ export function TargetDashboard() {
   const { data: allTargets = [], isLoading } = useAllTargets();
   const upsertTarget = useUpsertTarget();
   const deleteTarget = useDeleteTarget();
+  const { confirm, ConfirmDialog } = useConfirmDialog();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ ...emptyForm });
@@ -219,7 +221,7 @@ export function TargetDashboard() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('确认要删除这个目标吗？删除后不可恢复。')) return;
+    if (!(await confirm('确认要删除这个目标吗？删除后不可恢复。'))) return;
     try {
       await deleteTarget.mutateAsync(id);
       toast.success('目标已删除');
@@ -405,6 +407,7 @@ export function TargetDashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {ConfirmDialog}
     </div>
   );
 }

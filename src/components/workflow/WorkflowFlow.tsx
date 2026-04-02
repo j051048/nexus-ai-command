@@ -3,18 +3,30 @@
  * Phase 2: React Flow节点状态高亮
  */
 import React from 'react';
-import ReactFlow, {
+import {
+  ReactFlow,
   Node,
   Edge,
   Background,
   Controls,
   MarkerType,
-} from 'reactflow';
-import 'reactflow/dist/style.css';
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
+
+interface NodeData {
+  status?: 'completed' | 'current' | 'pending';
+  label: string;
+  approver?: string;
+  completedAt?: string;
+  actionLabel?: string;
+  evidence?: string;
+  mode?: 'all' | 'one';
+  minApprovals?: number;
+}
 
 // 自定义审批节点
-function ApprovalNode({ data }: { data: any }) {
-  const statusColor = {
+function ApprovalNode({ data }: { data: NodeData }) {
+  const statusColor: Record<string, string> = {
     completed: 'bg-green-100 border-green-500',
     current: 'bg-blue-100 border-blue-500',
     pending: 'bg-gray-50 border-gray-300',
@@ -42,7 +54,7 @@ function ApprovalNode({ data }: { data: any }) {
 }
 
 // 自定义执行人节点
-function ExecutorNode({ data }: { data: any }) {
+function ExecutorNode({ data }: { data: NodeData }) {
   return (
     <div className="executor-node p-4 rounded-lg border-2 bg-purple-50 border-purple-500">
       <div className="flex items-center gap-2 mb-2">
@@ -64,7 +76,7 @@ function ExecutorNode({ data }: { data: any }) {
 }
 
 // 自定义并行网关节点
-function ParallelGatewayNode({ data }: { data: any }) {
+function ParallelGatewayNode({ data }: { data: NodeData }) {
   return (
     <div className="parallel-gateway p-3 rounded-lg border-2 bg-yellow-50 border-yellow-500">
       <div className="text-center">

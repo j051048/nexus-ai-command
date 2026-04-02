@@ -30,7 +30,6 @@ import {
   PackageCheck,
 } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { httpClient } from '@/lib/httpClient';
@@ -77,18 +76,12 @@ export default function InventoryPage() {
     if (!orgId) return;
     setLoading(true);
     try {
-      let query = supabase
-        .from('inventory')
-        .select('*')
-        .eq('organization_id', orgId)
-        .order('name', { ascending: true });
+      const params: Record<string, string> = {};
+      if (filterCategory !== 'all') params.category = filterCategory;
+      if (search.trim()) params.search = search.trim();
 
-      if (filterCategory !== 'all') query = query.eq('category', filterCategory);
-      if (search.trim()) query = query.ilike('name', `%${search.trim()}%`);
-
-      const { data, error } = await query;
-      if (error) throw error;
-      let result = (data as InventoryItem[]) || [];
+      const response = await httpClient.get('/api/inventory', { params });
+      let result = (response.data?.data?.items || response.data?.data || []) as InventoryItem[];
       if (lowStockOnly) result = result.filter((i) => i.quantity <= i.min_stock);
       setItems(result);
     } catch (e) {
@@ -139,13 +132,13 @@ export default function InventoryPage() {
     }
     setSubmitting(true);
     try {
+      const endpoint = ioType === 'in' ? '/api/inventory/in' : '/api/inventory/out';
+      await httpClient.post(endpoint, {
+        item_id: selectedItem.id,
+        quantity: qty,
+        reason: ioReason || undefined,
+      });
       const newQty = ioType === 'in' ? selectedItem.quantity + qty : selectedItem.quantity - qty;
-      const { error } = await supabase
-        .from('inventory')
-        // @ts-expect-error Types not fully generated
-        .update({ quantity: newQty })
-        .eq('id', selectedItem.id);
-      if (error) throw error;
       toast.success(`${ioType === 'in' ? '入库' : '出库'}成功，当前库存: ${newQty}`);
       setIoDialogOpen(false);
       setIoQuantity('');

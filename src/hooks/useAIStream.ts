@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { buildSystemPrompt, type UserProfile } from '@/services/agentPrompts';
 import { fetchBusinessContext } from '@/services/businessContext';
+import { httpClient } from '@/lib/httpClient';
 
 interface UseAIStreamProps {
     userId: string;
@@ -342,36 +343,25 @@ export function useAIStream({ userId }: UseAIStreamProps) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return false;
 
-        // Fetch user profile + AI settings in parallel
-        const [profileResult, settingsResult] = await Promise.all([
-            supabase
-                .from('users')
-                .select('organization_id, full_name, role, department, job_title')
-                .eq('id', user.id)
-                .maybeSingle(),
-            (() => {
-                // Need org_id for settings lookup — do a chained query
-                return supabase
-                    .from('users')
-                    .select('organization_id')
-                    .eq('id', user.id)
-                    .maybeSingle()
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    .then(({ data: profile }: { data: any }) => {
-                        let query = supabase
-                            .from('ai_settings')
-                            .select('base_url, api_key, model')
-                            .eq('user_id', user.id);
-                        if (profile?.organization_id) {
-                            query = query.eq('organization_id', profile.organization_id);
-                        }
-                        return query.maybeSingle();
-                    });
+        // Fetch user profile via httpClient + AI settings via supabase in parallel
+        const [profileResponse, settingsResult] = await Promise.all([
+            httpClient.get('/api/users/profile'),
+            (async () => {
+                // Get org_id first for settings lookup
+                const profileResp = await httpClient.get('/api/users/profile');
+                const orgId = profileResp.data?.data?.user?.organization_id;
+                let query = supabase
+                    .from('ai_settings')
+                    .select('base_url, api_key, model')
+                    .eq('user_id', user.id);
+                if (orgId) {
+                    query = query.eq('organization_id', orgId);
+                }
+                return query.maybeSingle();
             })(),
         ]);
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const profile = profileResult.data as any;
+        const profile = profileResponse.data?.data?.user;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const aiSettings = settingsResult.data as any;
 

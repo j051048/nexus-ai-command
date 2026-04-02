@@ -11,7 +11,6 @@ ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE certificates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
-ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE approval_requests ENABLE ROW LEVEL SECURITY;
 
 -- 2. 销售线索表 RLS 策略
@@ -195,5 +194,5 @@ WHERE schemaname = 'public'
   AND tablename IN (
     'sales_leads', 'customers', 'contracts', 'work_orders',
     'projects', 'approval_requests', 'assets', 'certificates',
-    'inventory', 'expenses'
+    'inventory'
   );

@@ -9,10 +9,18 @@ import { Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { analyzeData } from '@/lib/newFeaturesApi';
 
+interface SmartAnalysisResult {
+  success: boolean;
+  sql?: string;
+  insight?: string;
+  total_rows?: number;
+  error?: string;
+}
+
 export function SmartAnalysisPanel() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<SmartAnalysisResult | null>(null);
 
   const handleAnalyze = async () => {
     if (!query.trim()) {

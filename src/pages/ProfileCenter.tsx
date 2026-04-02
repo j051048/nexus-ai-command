@@ -195,9 +195,10 @@ export function ProfileCenter() {
         console.log('[ProfileCenter] refreshProfile completed');
 
         setIsEditing(false);
-      } catch (error: any) {
-        console.error('[ProfileCenter] Profile update API error:', error);
-        toast.error('保存失败: ' + (error?.response?.data?.message || error.message));
+      } catch (error: unknown) {
+        const err = error as { response?: { data?: { message?: string } }; message?: string };
+        console.error('[ProfileCenter] Profile update API error:', err);
+        toast.error('保存失败: ' + (err?.response?.data?.message || err.message || '未知错误'));
       }
     } catch (err) {
       toast.error('保存失败，请稍后重试');

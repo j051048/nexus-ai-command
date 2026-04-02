@@ -13,8 +13,11 @@ Selection logic:
 """
 
 import asyncio
+import httpx
 import logging
+import time
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
 from app.core.config import settings
 
@@ -88,7 +91,6 @@ class RerankerService:
         if len(documents) <= 3:
             return RerankResult(documents=documents[:top_k], backend_used="passthrough")
 
-        import time
         start = time.time()
 
         backend = self._backend
@@ -122,7 +124,6 @@ class RerankerService:
     _client: "httpx.AsyncClient" = None
 
     async def _get_client(self, timeout: float = 10.0) -> "httpx.AsyncClient":
-        import httpx
         if self._client is None or self._client.is_closed:
             self._client = httpx.AsyncClient(
                 timeout=timeout,

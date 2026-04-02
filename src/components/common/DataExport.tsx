@@ -325,22 +325,24 @@ export function DataExport<T extends Record<string, unknown>>({
           await onExport(config, data);
         } else {
           // 默认导出逻辑
-          let content: string;
-          let mimeType: string;
-          let extension: string;
-
           switch (format) {
-            case 'csv':
-              content = convertToCSV(data, columns);
-              mimeType = 'text/csv;charset=utf-8';
-              extension = 'csv';
+            case 'csv': {
+              const content = convertToCSV(data, columns);
+              const mimeType = 'text/csv;charset=utf-8';
+              const extension = 'csv';
+              const timestamp = new Date().toISOString().slice(0, 10);
+              downloadFile(content, `${filename}_${timestamp}.${extension}`, mimeType);
               break;
-            case 'json':
-              content = convertToJSON(data, columns);
-              mimeType = 'application/json';
-              extension = 'json';
+            }
+            case 'json': {
+              const content = convertToJSON(data, columns);
+              const mimeType = 'application/json';
+              const extension = 'json';
+              const timestamp = new Date().toISOString().slice(0, 10);
+              downloadFile(content, `${filename}_${timestamp}.${extension}`, mimeType);
               break;
-            case 'xlsx':
+            }
+            case 'xlsx': {
               // 调用后端 API
               const excelRes = await exportToExcel(data, filename);
               if (excelRes.data?.success) {
@@ -351,7 +353,8 @@ export function DataExport<T extends Record<string, unknown>>({
                 throw new Error(excelRes.data?.error || '导出失败');
               }
               break;
-            case 'pdf':
+            }
+            case 'pdf': {
               // 调用后端 API
               const pdfContent = convertToJSON(data, columns);
               const pdfRes = await exportToPDF(pdfContent, filename, filename);
@@ -363,12 +366,10 @@ export function DataExport<T extends Record<string, unknown>>({
                 throw new Error(pdfRes.data?.error || '导出失败');
               }
               break;
+            }
             default:
               throw new Error(`Unsupported format: ${format}`);
           }
-
-          const timestamp = new Date().toISOString().slice(0, 10);
-          downloadFile(content, `${filename}_${timestamp}.${extension}`, mimeType);
         }
 
         clearInterval(progressInterval);

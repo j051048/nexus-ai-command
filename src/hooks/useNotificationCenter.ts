@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getApiBaseUrl } from '@/lib/apiConfig';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -33,7 +34,7 @@ interface ApiResponse<T> {
 
 // ─── Constants ──────────────────────────────────────────────
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = getApiBaseUrl();
 
 // ─── Auth Fetch Helper ──────────────────────────────────────
 
@@ -42,9 +43,6 @@ async function authFetch<T>(url: string, options: RequestInit = {}): Promise<T> 
   const token = session?.access_token;
 
   let baseUrl = API_BASE_URL;
-  if (!baseUrl.startsWith('http')) {
-    baseUrl = baseUrl.includes('localhost') ? `http://${baseUrl}` : `https://${baseUrl}`;
-  }
   const cleanBase = baseUrl.replace(/\/$/, '');
   const cleanEndpoint = url.startsWith('/') ? url.slice(1) : url;
   const fullUrl = `${cleanBase}/${cleanEndpoint}`;

@@ -3,6 +3,8 @@
 .env.local
 .env.*.local
 nexus_backend/.env
+**/langfuse*.env
+**/*-zeabur.env
 
 # Ad-hoc test scripts with credentials
 chaos_test.py

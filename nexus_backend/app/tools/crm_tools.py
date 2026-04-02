@@ -413,11 +413,8 @@ class GetFollowUpsTool(BaseTool):
         if not customer_id:
             return "❌ 请提供客户ID（customer_id）"
 
-        # Validate UUID format
-        try:
-            _uuid.UUID(customer_id)
-        except (ValueError, TypeError, AttributeError):
-            return f"customer_id '{customer_id}' 不是有效的UUID格式，请检查客户ID。"
+        if err := _validate_uuid(customer_id, "customer_id"):
+            return f"❌ {err}"
 
         # Clamp limit to safe range
         try:

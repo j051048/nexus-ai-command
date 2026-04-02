@@ -1,14 +1,12 @@
 # #10: CI Integration Test Gate
-# Runs backend pytest and frontend vitest on every PR
-# Reports coverage summary and adds status badge
+# Frontend integration tests with coverage reporting.
+# NOTE: ci.yml already runs vitest + Playwright on push/PR to main/develop.
+# This workflow only triggers on manual dispatch to avoid duplicate runs.
 
 name: Integration Tests
 
 on:
-  pull_request:
-    branches: [main, develop]
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 env:
   NODE_VERSION: "20"

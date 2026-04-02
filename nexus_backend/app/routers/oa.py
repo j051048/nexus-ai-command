@@ -1,7 +1,8 @@
-"""OA办公 - 请假和会议预订 API 路由"""
+"""OA办公 - 请假、会议预订和任务 API 路由"""
 
 import logging
-from fastapi import APIRouter, Depends, Request
+from typing import Optional
+from fastapi import APIRouter, Depends, Request, Query
 from pydantic import BaseModel
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
@@ -90,7 +91,7 @@ async def clock_attendance(req: Request, user_id: str = Depends(get_current_user
                 record["location"] = "外勤"
             await db.table("attendance_records").insert(record).execute()
 
-        return api_success(message="打卡成功")
+        return api_success({}, message="打卡成功")
     except Exception as e:
         logger.error(f"Attendance clock failed: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"打卡失败: {str(e)}")
@@ -135,7 +136,7 @@ async def create_leave_request(
         if not db or not org_id:
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "上下文数据缺失")
 
-        leave_data = request_data.dict()
+        leave_data = request_data.model_dump()
         leave_data["user_id"] = user_id
         leave_data["organization_id"] = org_id
         leave_data["status"] = "pending"
@@ -145,3 +146,204 @@ async def create_leave_request(
     except Exception as e:
         logger.error(f"Failed to create leave request: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "提交请假申请失败")
+
+
+# ── Pydantic Models ─────────────────────────────────────────────────────
+
+
+class TaskCreate(BaseModel):
+    title: str
+    description: str | None = None
+    priority: str = "medium"
+    assignee_id: str | None = None
+    due_date: str | None = None
+
+
+class TaskUpdate(BaseModel):
+    status: str | None = None
+    assignee_id: str | None = None
+
+
+# ── 会议管理 ────────────────────────────────────────────────────────────
+
+
+@router.get("/meetings")
+async def list_meetings(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """获取会议列表"""
+    try:
+        db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
+
+        result = await db.table("oa_meeting_bookings").select("*").eq("organization_id", org_id).order("start_time", desc=True).execute()
+        return api_success(data={"meetings": result.data or []})
+    except Exception as e:
+        logger.error(f"Failed to list meetings: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "获取会议列表失败")
+
+
+@router.post("/meetings")
+async def create_meeting(
+    body: MeetingBookingCreate,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """创建会议预订"""
+    try:
+        db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
+
+        data = body.model_dump()
+        data["organization_id"] = org_id
+        data["user_id"] = user_id
+        data["status"] = "confirmed"
+
+        result = await db.table("oa_meeting_bookings").insert(data).execute()
+        return api_success(data={"meeting": result.data[0] if result.data else {}})
+    except Exception as e:
+        logger.error(f"Failed to create meeting: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "创建会议失败")
+
+
+@router.patch("/meetings/{meeting_id}/cancel")
+async def cancel_meeting(
+    meeting_id: str,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """取消会议"""
+    try:
+        db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
+
+        result = await db.table("oa_meeting_bookings").update({"status": "cancelled"}).eq("id", meeting_id).eq("organization_id", org_id).execute()
+        return api_success(data={"cancelled": True})
+    except Exception as e:
+        logger.error(f"Failed to cancel meeting: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "取消会议失败")
+
+
+# ── OA 任务管理 ─────────────────────────────────────────────────────────
+
+
+@router.get("/tasks")
+async def list_oa_tasks(
+    req: Request,
+    assignee_id: Optional[str] = Query(None),
+    user_id: str = Depends(get_current_user_id),
+):
+    """获取OA任务列表"""
+    try:
+        db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
+
+        query = db.table("oa_tasks").select("*").eq("organization_id", org_id)
+        if assignee_id:
+            query = query.eq("assignee_id", assignee_id)
+        result = await query.order("created_at", desc=True).execute()
+        return api_success(data={"tasks": result.data or []})
+    except Exception as e:
+        logger.error(f"Failed to list OA tasks: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "获取任务列表失败")
+
+
+@router.post("/tasks")
+async def create_oa_task(
+    body: TaskCreate,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """创建OA任务"""
+    try:
+        db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
+
+        data = body.model_dump()
+        data["organization_id"] = org_id
+        data["created_by"] = user_id
+        data["status"] = "pending"
+
+        result = await db.table("oa_tasks").insert(data).execute()
+        return api_success(data={"task": result.data[0] if result.data else {}})
+    except Exception as e:
+        logger.error(f"Failed to create OA task: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "创建任务失败")
+
+
+@router.patch("/tasks/{task_id}")
+async def update_oa_task(
+    task_id: str,
+    body: TaskUpdate,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """更新OA任务（状态、指派人等）"""
+    try:
+        db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
+
+        updates = body.model_dump(exclude_none=True)
+        if not updates:
+            raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "无可更新字段")
+
+        result = await db.table("oa_tasks").update(updates).eq("id", task_id).eq("organization_id", org_id).execute()
+        return api_success(data={"task": result.data[0] if result.data else {}})
+    except Exception as e:
+        logger.error(f"Failed to update OA task: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "更新任务失败")
+
+
+# ── 请假审批 ────────────────────────────────────────────────────────────
+
+
+@router.patch("/leave-requests/{request_id}")
+async def approve_leave_request(
+    request_id: str,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """审批请假申请（approve/reject）"""
+    try:
+        db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
+
+        body = await req.json()
+        status = body.get("status")
+        if status not in ("approved", "rejected"):
+            raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "status 必须为 approved 或 rejected")
+
+        result = await db.table("oa_leave_requests").update({"status": status}).eq("id", request_id).eq("organization_id", org_id).execute()
+        return api_success(data={"updated": True})
+    except Exception as e:
+        logger.error(f"Failed to approve/reject leave request: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "审批请假申请失败")

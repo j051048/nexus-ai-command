@@ -96,33 +96,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       }
 
-      const { data: roleData } = await supabase
-        .rpc('get_user_role', { _user_id: userId });
-
-      if (roleData) {
-        const roleStr = safeProfileStr(roleData, 'role');
-        if (roleStr === 'pending_boss') {
+      // Try to resolve role from profile data first (backend already returns it)
+      let roleResolved = false;
+      if (profileData && (profileData as unknown as Record<string, unknown>).role) {
+        const dbRole = String((profileData as unknown as Record<string, unknown>).role);
+        if (dbRole === 'pending_boss') {
           setRole('employee');
           setIsPendingBoss(true);
+        } else if (dbRole === 'founder' || dbRole === 'boss') {
+          setRole('boss');
+          setIsPendingBoss(false);
+        } else if (dbRole === 'manager') {
+          setRole('manager');
+          setIsPendingBoss(false);
+        } else if (dbRole === 'ai_assistant') {
+          setRole('ai_assistant');
+          setIsPendingBoss(false);
         } else {
-          setRole(roleStr as AppRole);
+          setRole('employee');
           setIsPendingBoss(false);
         }
-      } else {
-        // Fallback: default to employee for security
-        // P0 Security Fix: Do NOT trust user_metadata.role as it can be set by the user during signup
-        let resolvedRole: AppRole = 'employee';
+        roleResolved = true;
+      }
 
-        // Only trust the DB profile role (set by admin), not auth metadata
-        if (profileData && (profileData as unknown as Record<string, unknown>).role) {
-          const dbRole = (profileData as unknown as Record<string, unknown>).role;
-          if (dbRole === 'founder' || dbRole === 'boss') {
-            resolvedRole = 'boss';
-          } else if (dbRole === 'manager') {
-            resolvedRole = 'manager';
+      // Fallback to RPC if profile didn't provide role
+      if (!roleResolved) {
+        try {
+          const { data: roleData } = await supabase
+            .rpc('get_user_role', { _user_id: userId });
+
+          if (roleData) {
+            const roleStr = safeProfileStr(roleData, 'role');
+            if (roleStr === 'pending_boss') {
+              setRole('employee');
+              setIsPendingBoss(true);
+            } else {
+              setRole(roleStr as AppRole);
+              setIsPendingBoss(false);
+            }
+          } else {
+            setRole('employee');
           }
+        } catch {
+          setRole('employee');
         }
-        setRole(resolvedRole);
       }
 
       // Check super admin status (separate from role)

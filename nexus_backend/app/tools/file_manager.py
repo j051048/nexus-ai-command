@@ -129,7 +129,7 @@ def _parse_pdf(file_bytes: bytes) -> str:
         import io
         reader = PyPDF2.PdfReader(io.BytesIO(file_bytes))
         return "\n".join(page.extract_text() for page in reader.pages)
-    except:
+    except Exception:
         return ""
 
 
@@ -140,7 +140,7 @@ def _parse_word(file_bytes: bytes) -> str:
         import io
         doc = docx.Document(io.BytesIO(file_bytes))
         return "\n".join(p.text for p in doc.paragraphs)
-    except:
+    except Exception:
         return ""
 
 
@@ -151,6 +151,6 @@ def _parse_excel(file_bytes: bytes) -> str:
         import io
         df = pd.read_excel(io.BytesIO(file_bytes))
         return df.to_string()
-    except:
+    except Exception:
         return ""
 

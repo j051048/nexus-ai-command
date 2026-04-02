@@ -5,11 +5,11 @@
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id
-from app.core.responses import api_success, api_error
+from app.core.errors import api_success, api_error, ErrorCode
 from app.tools.export_tools import export_to_excel, export_to_pdf
 
 logger = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ async def export_excel(
 
     except Exception as e:
         logger.error(f"Excel 导出失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "Excel 导出失败，请稍后重试")
 
 
 @router.post("/pdf")
@@ -75,4 +75,4 @@ async def export_pdf(
 
     except Exception as e:
         logger.error(f"PDF 导出失败: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "PDF 导出失败，请稍后重试")

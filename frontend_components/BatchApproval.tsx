@@ -6,14 +6,18 @@ import React, { useState } from 'react';
 import { CheckSquare, XSquare, Sparkles } from 'lucide-react';
 
 interface BatchApprovalProps {
-  requests: any[];
+  requests: Array<{ id: string; title: string; amount: string | number; [key: string]: unknown }>;
   onBatchApprove: (ids: string[]) => void;
   onBatchReject: (ids: string[]) => void;
 }
 
 export function BatchApproval({ requests, onBatchApprove, onBatchReject }: BatchApprovalProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [aiSuggestions, setAiSuggestions] = useState<any>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<{
+    approve_count: number;
+    reject_count: number;
+    reason: string;
+  } | null>(null);
 
   // 全选/取消全选
   const toggleSelectAll = () => {

@@ -150,7 +150,7 @@ export function EmployeeDashboard() {
 
 
   const hasRealData = salesMetrics && salesMetrics.length > 0;
-  const progressToNextBadge = ((user.score - 80) / 20) * 100;
+  const progressToNextBadge = Math.max(0, Math.min(100, ((user.score - 80) / 20) * 100));
 
   return (
     <div

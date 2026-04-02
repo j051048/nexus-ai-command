@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 import { Mic, Zap, FileText, Calendar, Plane } from 'lucide-react';
 
 interface QuickActionProps {
-  onSubmit: (data: any) => void;
+  onSubmit: (data: Record<string, unknown>) => void;
 }
 
 export function QuickActions({ onSubmit }: QuickActionProps) {
@@ -18,11 +18,12 @@ export function QuickActions({ onSubmit }: QuickActionProps) {
     setIsListening(true);
 
     // 调用浏览器语音识别API
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const recognition = new (window as any).webkitSpeechRecognition();
     recognition.lang = 'zh-CN';
     recognition.continuous = false;
 
-    recognition.onresult = async (event: any) => {
+    recognition.onresult = async (event: { results: { transcript: string }[][] }) => {
       const text = event.results[0][0].transcript;
       setTranscript(text);
 
@@ -89,7 +90,7 @@ export function QuickActions({ onSubmit }: QuickActionProps) {
   );
 }
 
-function QuickButton({ icon, label, onClick }) {
+function QuickButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}

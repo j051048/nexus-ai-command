@@ -58,6 +58,6 @@ async def atomic_write(target_path: Union[str, Path], content: str, encoding: st
         # Cleanup on failure
         try:
             os.unlink(temp_path)
-        except:
+        except OSError:
             pass
         raise

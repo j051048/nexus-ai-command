@@ -3,26 +3,27 @@
  * Phase 2: React Flow节点状态高亮
  */
 import React from 'react';
-import ReactFlow, {
+import {
+  ReactFlow,
   Node,
   Edge,
   Background,
   Controls,
   MarkerType,
-} from 'reactflow';
-import 'reactflow/dist/style.css';
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 import { User, CheckCircle2, Clock } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '../src/lib/utils';
 
 // 自定义审批节点
-function ApprovalNode({ data }: { data: any }) {
-  const statusStyles = {
+function ApprovalNode({ data }: { data: { status?: 'completed' | 'current' | 'pending'; label: string; approver?: string; completedAt?: string } }) {
+  const statusStyles: Record<string, string> = {
     completed: 'bg-success/10 border-success/50 dark:bg-success/5',
     current: 'bg-primary/10 border-primary/50 dark:bg-primary/5 shadow-lg shadow-primary/20',
     pending: 'bg-muted/50 border-border dark:bg-muted/20',
   };
 
-  const statusIcons = {
+  const statusIcons: Record<string, React.ReactNode> = {
     completed: <CheckCircle2 className="w-4 h-4 text-success" />,
     current: <Clock className="w-4 h-4 text-primary animate-pulse" />,
     pending: <User className="w-4 h-4 text-muted-foreground" />,
@@ -56,7 +57,7 @@ function ApprovalNode({ data }: { data: any }) {
 }
 
 // 自定义执行人节点
-function ExecutorNode({ data }: { data: any }) {
+function ExecutorNode({ data }: { data: { label: string; actionLabel: string; status?: string; evidence?: string } }) {
   return (
     <div className="executor-node p-4 rounded-xl border-2 bg-purple-500/10 border-purple-500/50 dark:bg-purple-500/5 hover:shadow-lg transition-all cursor-pointer">
       <div className="flex items-center gap-3">
@@ -78,7 +79,7 @@ function ExecutorNode({ data }: { data: any }) {
 }
 
 // 自定义并行网关节点
-function ParallelGatewayNode({ data }: { data: any }) {
+function ParallelGatewayNode({ data }: { data: { mode?: 'all' | 'one'; minApprovals?: number } }) {
   return (
     <div className="parallel-gateway p-3 rounded-xl border-2 bg-warning/10 border-warning/50 dark:bg-warning/5 hover:shadow-lg transition-all cursor-pointer">
       <div className="text-center">

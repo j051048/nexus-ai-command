@@ -66,7 +66,7 @@ async def delete_saved_prompt(
         .maybe_single() \
         .execute()
     if not existing.data:
-        return api_error(ErrorCode.NOT_FOUND, "快捷指令不存在或无权限")
+        raise api_error(ErrorCode.NOT_FOUND, "快捷指令不存在或无权限")
 
     await client.table("user_saved_prompts") \
         .delete() \

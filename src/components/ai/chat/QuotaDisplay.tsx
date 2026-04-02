@@ -10,19 +10,19 @@ interface QuotaDisplayProps {
 }
 
 export function QuotaDisplay({ quotaInfo }: QuotaDisplayProps) {
+  const usagePercent = useMemo(() => {
+    if (!quotaInfo?.tokens_limit) return 0;
+    return Math.round(((quotaInfo.tokens_limit - quotaInfo.tokens_remaining) / quotaInfo.tokens_limit) * 100);
+  }, [quotaInfo?.tokens_limit, quotaInfo?.tokens_remaining]);
+
+  const remainPercent = useMemo(() => {
+    if (!quotaInfo?.tokens_limit) return 100;
+    return Math.round((quotaInfo.tokens_remaining / quotaInfo.tokens_limit) * 100);
+  }, [quotaInfo?.tokens_limit, quotaInfo?.tokens_remaining]);
+
   if (!quotaInfo) return null;
 
   const { tokens_used, tokens_limit, tokens_remaining, cost_usd, requests, requests_limit } = quotaInfo;
-
-  const usagePercent = useMemo(() => {
-    if (!tokens_limit) return 0;
-    return Math.round(((tokens_limit - tokens_remaining) / tokens_limit) * 100);
-  }, [tokens_limit, tokens_remaining]);
-
-  const remainPercent = useMemo(() => {
-    if (!tokens_limit) return 100;
-    return Math.round((tokens_remaining / tokens_limit) * 100);
-  }, [tokens_limit, tokens_remaining]);
 
   const statusColor = remainPercent > 20
     ? 'text-muted-foreground'

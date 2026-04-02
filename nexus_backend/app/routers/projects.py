@@ -227,15 +227,23 @@ async def add_timeline_event(
     user_id: str = Depends(get_current_user_id),
 ):
     """添加项目时间线事件"""
-    client = req.state.db
-    body = await req.json()
-    
-    event = {
-        "project_id": project_id,
-        "user_id": user_id,
-        "event_type": body.get("event_type"),
-        "description": body.get("description"),
-    }
-    
-    await client.table("project_timeline").insert(event).execute()
-    return api_success(message="时间线事件已添加")
+    try:
+        client = getattr(req.state, "db", None)
+        if not client:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
+        body = await req.json()
+
+        event = {
+            "project_id": project_id,
+            "user_id": user_id,
+            "event_type": body.get("event_type"),
+            "description": body.get("description"),
+        }
+
+        await client.table("project_timeline").insert(event).execute()
+        return api_success({}, message="时间线事件已添加")
+    except Exception as e:
+        if hasattr(e, "status_code"):
+            raise
+        logger.error(f"Add timeline event error: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "添加时间线事件失败")
