@@ -949,12 +949,14 @@ export function EnhancedAIChatPanel({
               messagesEndRef={messagesEndRef}
             />
 
-            <ChatSuggestions
-              showQuickReplies={showQuickReplies}
-              messagesCount={messages.length}
-              onQuickReply={handleQuickReply}
-              followUpSuggestions={followUpSuggestions}
-            />
+            {!showAgents && (
+              <ChatSuggestions
+                showQuickReplies={showQuickReplies}
+                messagesCount={messages.length}
+                onQuickReply={handleQuickReply}
+                followUpSuggestions={followUpSuggestions}
+              />
+            )}
 
             <QuotaDisplay quotaInfo={quotaInfo} />
 
