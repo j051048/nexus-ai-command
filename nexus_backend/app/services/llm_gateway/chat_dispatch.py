@@ -6,6 +6,7 @@ orchestrate model resolution, quota checks, circuit breakers, adapter
 calls, and usage recording.
 """
 
+import asyncio
 import logging
 import time
 import uuid
@@ -209,9 +210,13 @@ class ChatDispatchMixin:
             request_id=request_id,
         )
 
-        # --- Call adapter ---
+        # --- Call adapter (with timeout protection) ---
+        LLM_CALL_TIMEOUT = 60.0  # 60秒超时
         try:
-            response = await adapter.chat(chat_request)
+            response = await asyncio.wait_for(
+                adapter.chat(chat_request),
+                timeout=LLM_CALL_TIMEOUT,
+            )
             latency = int((time.monotonic() - start_ts) * 1000)
             response.exec_time_ms = latency
 

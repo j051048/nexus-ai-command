@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field, field_validator
 
 from app.core.auth import get_current_user_id
+from app.core.dependencies import require_role
 from app.core.errors import ErrorCode, api_error, api_list, api_success
 from app.services.crm_service import ACTIVITY_TYPES, CUSTOMER_STAGES, crm_service
 
@@ -98,8 +99,10 @@ async def list_customers(
     stage: str = Query(None, description="按阶段筛选"),
     industry: str = Query(None, description="按行业筛选"),
     search: str = Query(None, description="搜索关键词"),
+    offset: int = Query(0, ge=0, description="分页偏移量"),
+    limit: int = Query(50, ge=1, le=200, description="每页数量"),
 ):
-    """获取客户列表（支持筛选和搜索）"""
+    """获取客户列表（支持筛选、搜索和分页）"""
     try:
         org_id = getattr(req.state, "org_id", None)
         if not org_id:
@@ -116,7 +119,9 @@ async def list_customers(
                 filters["industry"] = industry
             customers = await crm_service.list_customers(org_id, filters, db=db)
 
-        return api_list(items=customers, total=len(customers))
+        total = len(customers)
+        paginated = customers[offset : offset + limit]
+        return api_list(items=paginated, total=total)
     except Exception as e:
         logger.error(f"List customers error: user={user_id} org={getattr(req.state, 'org_id', None)} err={e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "CRM操作失败")
@@ -256,9 +261,9 @@ async def delete_contact(
 async def delete_customer(
     customer_id: str,
     req: Request,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_role(["boss", "manager"])),
 ):
-    """删除客户（级联删除联系人和活动记录）"""
+    """删除客户（仅 boss/manager，级联删除联系人和活动记录）"""
     try:
         db = getattr(req.state, "db", None)
         await crm_service.delete_customer(customer_id, db=db)

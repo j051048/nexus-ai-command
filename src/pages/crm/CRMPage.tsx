@@ -89,8 +89,17 @@ function CRMPage() {
     return f;
   }, [stageFilter, debouncedSearch]);
 
-  const { data: customersData, isLoading } = useCustomers(filters);
-  const customers = (customersData || []) as Customer[];
+  const {
+    data: customersData,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useCustomers(filters);
+  const customers = useMemo(
+    () => (customersData?.pages ?? []).flatMap((p) => p.data),
+    [customersData],
+  ) as Customer[];
 
   const handleSelectCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
@@ -143,6 +152,14 @@ function CRMPage() {
           onEdit={(c) => setEditFromList(c)}
           onDelete={(c) => setDeleteFromList(c)}
         />
+      )}
+
+      {hasNextPage && (
+        <div className="flex justify-center">
+          <Button variant="outline" disabled={isFetchingNextPage} onClick={() => fetchNextPage()}>
+            {isFetchingNextPage ? <><Loader2 className="w-4 h-4 animate-spin mr-2" />加载中...</> : '加载更多'}
+          </Button>
+        </div>
       )}
 
       <CustomerDetailSheet

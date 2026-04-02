@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { aiClient } from '@/api/aiClient';
 import { toast } from 'sonner';
 
@@ -48,19 +48,32 @@ interface Filters {
 }
 
 export function useCustomers(filters: Filters = {}) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: ['crm-customers', filters],
-    queryFn: async () => {
+    queryFn: async ({ pageParam = 0 }) => {
       const params = new URLSearchParams();
       if (filters.stage) params.set('stage', filters.stage);
       if (filters.industry) params.set('industry', filters.industry);
       if (filters.search) params.set('search', filters.search);
-      const qs = params.toString();
-      const res = await aiClient.fetch<{ success: boolean; data: Customer[] }>(
-        `api/crm/customers${qs ? '?' + qs : ''}`
-      );
-      return res.data;
+      params.set('offset', String(pageParam * 50));
+      params.set('limit', '50');
+
+      const res = await aiClient.fetch<{
+        success: boolean;
+        data: Customer[];
+        total: number;
+      }>(`api/crm/customers?${params.toString()}`);
+
+      return {
+        data: res.data,
+        total: res.total,
+        hasMore: res.data.length === 50 && (pageParam + 1) * 50 < res.total
+      };
     },
+    getNextPageParam: (lastPage, pages) => {
+      return lastPage.hasMore ? pages.length : undefined;
+    },
+    initialPageParam: 0,
     staleTime: 30_000,
   });
 }
