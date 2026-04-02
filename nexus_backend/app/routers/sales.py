@@ -28,6 +28,8 @@ async def list_targets(
         if not org_id:
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
         result = await db.table("sales_targets").select("*").eq("organization_id", org_id).execute()
         return api_success(data={"targets": result.data or []})
@@ -48,6 +50,8 @@ async def create_target(
         if not org_id:
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
         data = body.model_dump()
         data["organization_id"] = org_id
@@ -72,6 +76,8 @@ async def delete_target(
         if not org_id:
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
         await db.table("sales_targets").delete().eq("id", target_id).eq("organization_id", org_id).execute()
         return api_success(data={"deleted": True})
@@ -88,13 +94,13 @@ async def list_metrics(
     """获取销售指标"""
     try:
         org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
-        query = db.table("sales_metrics").select("*")
-        if org_id:
-            query = query.eq("organization_id", org_id)
-
-        result = await query.execute()
+        result = await db.table("sales_metrics").select("*").eq("organization_id", org_id).execute()
         return api_success(data={"metrics": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list metrics: {e}")

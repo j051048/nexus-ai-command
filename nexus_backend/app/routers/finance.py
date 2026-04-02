@@ -30,18 +30,13 @@ async def list_budgets(
     """获取预算列表"""
     try:
         org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
-        # 确保遗漏的更新逻辑也同步为 organization_id
-        await db.execute(
-            "UPDATE finance_budgets SET current = $1 WHERE id = $2 AND organization_id = $3",
-            new_amount, budget_id, user["org_id"]
-        )
-        query = db.table("finance_budgets").select("*")
-        if org_id:
-            query = query.eq("organization_id", org_id)
-
-        result = await query.execute()
+        result = await db.table("finance_budgets").select("*").eq("organization_id", org_id).execute()
         return api_success(data={"budgets": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list budgets: {e}")
@@ -57,7 +52,11 @@ async def create_budget(
     """创建预算"""
     try:
         org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
         data = body.model_dump()
         data["organization_id"] = org_id
@@ -79,10 +78,15 @@ async def update_budget(
 ):
     """更新预算"""
     try:
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
         data = body.model_dump(exclude_none=True)
 
-        result = await db.table("finance_budgets").update(data).eq("id", budget_id).execute()
+        result = await db.table("finance_budgets").update(data).eq("id", budget_id).eq("organization_id", org_id).execute()
         return api_success(data={"budget": result.data[0] if result.data else None}, message="预算已更新")
     except Exception as e:
         logger.error(f"Failed to update budget: {e}")
@@ -98,7 +102,11 @@ async def create_invoice(
     """创建发票"""
     try:
         org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
         data = body.model_dump()
         data["organization_id"] = org_id

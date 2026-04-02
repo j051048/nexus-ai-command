@@ -44,6 +44,8 @@ async def list_leads(
         if not org_id:
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
         query = db.table("sales_leads").select("*").eq("organization_id", org_id)
         if stage:
@@ -68,6 +70,8 @@ async def create_lead(
         if not org_id:
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
         data = body.model_dump()
         data["organization_id"] = org_id
@@ -89,10 +93,15 @@ async def update_lead(
 ):
     """更新销售线索"""
     try:
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
         data = body.model_dump(exclude_none=True)
 
-        result = await db.table("sales_leads").update(data).eq("id", lead_id).execute()
+        result = await db.table("sales_leads").update(data).eq("id", lead_id).eq("organization_id", org_id).execute()
         return api_success(data={"lead": result.data[0] if result.data else None}, message="线索已更新")
     except Exception as e:
         logger.error(f"Failed to update lead: {e}")

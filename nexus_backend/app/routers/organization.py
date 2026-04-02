@@ -11,7 +11,7 @@ from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
 from app.models.schemas import StandardResponse
 from app.services.approval_chain import approval_chain_service
-from app.services.organization import organization_service
+from app.services.organization_service import organization_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/organization", tags=["Organization"])
@@ -28,52 +28,8 @@ async def get_organization_detail(
         if not org_id:
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
-        org = await organization_service.get_organization(org_id=org_id, db=db)
-        if not org:
-            raise api_error(ErrorCode.NOT_FOUND, "组织不存在")
-        return api_success(data=org)
-    except Exception as e:
-        logger.error(f"Failed to get organization detail: {e}")
-        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "获取组织信息失败")
-
-
-@router.put("/detail")
-async def update_organization_detail(
-    updates: dict,
-    req: Request,
-    user_id: str = Depends(get_current_user_id),
-):
-    """更新当前所属组织的详情"""
-"""
-P2 Optimization: Organization Structure API Routes
-Provides endpoints for managing organizational hierarchy and approval chains.
-"""
-
-import logging
-from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel
-
-from app.core.auth import get_current_user_id
-from app.core.errors import ErrorCode, api_error, api_success
-from app.models.schemas import StandardResponse
-from app.services.approval_chain import approval_chain_service
-from app.services.organization import organization_service
-
-logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/organization", tags=["Organization"])
-
-
-@router.get("/detail")
-async def get_organization_detail(
-    req: Request,
-    user_id: str = Depends(get_current_user_id),
-):
-    """获取当前所属组织的详情"""
-    try:
-        org_id = getattr(req.state, "org_id", None)
-        if not org_id:
-            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
-        db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
         org = await organization_service.get_organization(org_id=org_id, db=db)
         if not org:
             raise api_error(ErrorCode.NOT_FOUND, "组织不存在")
@@ -95,9 +51,10 @@ async def update_organization_detail(
         if not org_id:
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
         # 权限检查：只有 boss 和 founder 可以修改
-        query = db.table("sales_leads").select("*").eq("organization_id", org_id).maybe_single().execute()
-        profile = await db.table("profiles").select("role").eq("id", user_id).maybe_single().execute()
+        profile = await db.table("users").select("role").eq("id", user_id).maybe_single().execute()
         if not profile.data or profile.data.get("role") not in ["boss", "founder"]:
             raise api_error(ErrorCode.FORBIDDEN, "权限不足")
 
@@ -158,16 +115,11 @@ async def get_organization_tree(user_id: str = Depends(get_current_user_id)):
 
 
 @router.get("/stats", response_model=StandardResponse)
-async def get_organization_stats(user_id: str = Depends(get_current_user_id)):
+async def get_organization_stats(req: Request, user_id: str = Depends(get_current_user_id)):
     """
     Get organization-wide statistics.
     """
-    # P1 Fix #15: Pass org_id to stats
-    # Simple way to get org_id (fetch from users table)
-    from app.core.database import supabase
-
-    user_res = await supabase.table("users").select("org_id").eq("id", user_id).maybe_single().execute()
-    org_id = user_res.data.get("org_id") if user_res.data else None
+    org_id = getattr(req.state, "org_id", None)
 
     if not org_id:
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "Organization not found")
