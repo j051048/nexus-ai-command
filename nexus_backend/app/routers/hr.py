@@ -24,14 +24,8 @@ async def list_attendance(
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
         query = db.table("hr_attendance").select("*")
-        
-        # Enforce multi-tenancy if org_id is available
-        if org_id:
-            query = query.eq("organization_id", org_id)
-        else:
-            # Fallback: if no org_id, only allow seeing own records
-            logger.warning(f"No organization_id in context, filtering by user_id {user_id}")
-            query = query.eq("user_id", user_id)
+        # hr_attendance 表无 organization_id 列，通过 user_id 过滤
+        query = query.eq("user_id", user_id)
 
         result = await query.execute()
         return api_success(data={"records": result.data or []})
@@ -58,12 +52,8 @@ async def list_salary(
         query = db.table("hr_salary_records").select("*")
         
         # Security: Salary records should ALWAYS be filtered by user_id for regular users
-        # For cross-user views (HR/Boss), more complex role checks needed, 
-        # but defaulting to self-view for security.
+        # hr_salary_records 表无 organization_id 列
         query = query.eq("user_id", user_id)
-        
-        if org_id:
-            query = query.eq("organization_id", org_id)
 
         result = await query.execute()
         return api_success(data={"records": result.data or []})
@@ -87,13 +77,7 @@ async def list_performance(
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
         query = db.table("hr_performance_reviews").select("*")
-        
-        # Enforce multi-tenancy
-        if org_id:
-            query = query.eq("organization_id", org_id)
-            
-        # Security: regular users only see their own performance reviews
-        # Unless they are in a management or HR capacity
+        # hr_performance_reviews 表无 organization_id 列，通过 user_id 过滤
         query = query.eq("user_id", user_id)
 
         result = await query.execute()
