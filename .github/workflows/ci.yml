@@ -520,7 +520,7 @@ jobs:
           STAGING_DEPLOY_WEBHOOK_URL: ${{ secrets.STAGING_DEPLOY_WEBHOOK_URL }}
 
       - name: Run staging smoke tests
-        if: secrets.STAGING_API_URL != ''
+        if: ${{ secrets.STAGING_API_URL }}
         run: |
           echo "Running smoke tests against staging environment..."
           STAGING_URL="${{ secrets.STAGING_API_URL }}"
