@@ -7,7 +7,8 @@ import logging
 from typing import Any
 
 from app.services.organization_service import organization_service
-from app.services.organization import organization_service as org_hierarchy_service
+# Redundant import removed to prevent collision and 500 errors
+org_hierarchy_service = organization_service
 
 from .base_tool import BaseTool
 from ._shared import _get_client, _validate_uuid
