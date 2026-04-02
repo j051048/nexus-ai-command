@@ -32,6 +32,11 @@ async def list_budgets(
         org_id = getattr(req.state, "org_id", None)
         db = getattr(req.state, "db", None)
 
+        # 确保遗漏的更新逻辑也同步为 organization_id
+        await db.execute(
+            "UPDATE finance_budgets SET current = $1 WHERE id = $2 AND organization_id = $3",
+            new_amount, budget_id, user["org_id"]
+        )
         query = db.table("finance_budgets").select("*")
         if org_id:
             query = query.eq("organization_id", org_id)
