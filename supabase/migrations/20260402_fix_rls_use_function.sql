@@ -14,6 +14,12 @@ DROP POLICY IF EXISTS "租户隔离-查询" ON sales_leads;
 DROP POLICY IF EXISTS "租户隔离-插入" ON sales_leads;
 DROP POLICY IF EXISTS "租户隔离-更新" ON sales_leads;
 DROP POLICY IF EXISTS "租户隔离-删除" ON sales_leads;
+DROP POLICY IF EXISTS "Org Isolation for Sales Leads" ON sales_leads;
+DROP POLICY IF EXISTS "Tenant isolation policy" ON sales_leads;
+DROP POLICY IF EXISTS "org_isolation_select" ON sales_leads;
+DROP POLICY IF EXISTS "org_isolation_insert" ON sales_leads;
+DROP POLICY IF EXISTS "org_isolation_update" ON sales_leads;
+DROP POLICY IF EXISTS "org_isolation_delete" ON sales_leads;
 
 -- customers
 DROP POLICY IF EXISTS "租户隔离-查询" ON customers;
