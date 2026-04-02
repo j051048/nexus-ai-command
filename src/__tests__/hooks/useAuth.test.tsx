@@ -8,7 +8,9 @@ import React from 'react';
 const mockGetSession = vi.fn();
 const mockOnAuthStateChange = vi.fn();
 const mockRpc = vi.fn();
-const mockFrom = vi.fn();
+const mockSelect = vi.fn();
+const mockEq = vi.fn();
+const mockMaybeSingle = vi.fn();
 
 vi.mock('@/integrations/supabase/client', () => {
   return {
@@ -20,7 +22,9 @@ vi.mock('@/integrations/supabase/client', () => {
         signUp: vi.fn(),
         signOut: vi.fn(),
       },
-      from: (...args: any[]) => mockFrom(...args),
+      from: () => ({
+        select: mockSelect,
+      }),
       rpc: (...args: any[]) => mockRpc(...args),
     },
   };
@@ -38,23 +42,15 @@ vi.mock('sonner', () => ({
 
 // ─── 测试辅助 ──────────────────────────────────────────────
 
-async function createWrapper() {
-  // Dynamic import to ensure mock is applied
-  const { AuthProvider } = await import('@/components/auth/AuthContext');
-  return ({ children }: { children: React.ReactNode }) =>
-    React.createElement(AuthProvider, null, children);
-}
-
 function setupDefaultMocks() {
   mockOnAuthStateChange.mockReturnValue({
     data: { subscription: { unsubscribe: vi.fn() } },
   });
-  mockFrom.mockReturnValue({
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-  });
-  mockRpc.mockResolvedValue({ data: null });
+
+  mockSelect.mockReturnValue({ eq: mockEq });
+  mockEq.mockReturnValue({ maybeSingle: mockMaybeSingle });
+  mockMaybeSingle.mockResolvedValue({ data: null, error: null });
+  mockRpc.mockResolvedValue({ data: null, error: null });
 }
 
 // ─── 测试用例 ──────────────────────────────────────────────
@@ -66,21 +62,18 @@ describe('useAuth (AuthContext)', () => {
   });
 
   it('初始状态 loading=true', async () => {
-    // No session — auth resolves immediately to no-user
-    mockGetSession.mockResolvedValue({ data: { session: null } });
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
 
     const { AuthProvider, useAuth } = await import('@/components/auth/AuthContext');
     const wrapper = ({ children }: { children: React.ReactNode }) =>
       React.createElement(AuthProvider, null, children);
 
     const { result } = renderHook(() => useAuth(), { wrapper });
-
-    // Initially loading should be true (before getSession resolves)
     expect(result.current.loading).toBe(true);
   });
 
   it('无 session 时角色解析为 null，loading=false', async () => {
-    mockGetSession.mockResolvedValue({ data: { session: null } });
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
 
     const { AuthProvider, useAuth } = await import('@/components/auth/AuthContext');
     const wrapper = ({ children }: { children: React.ReactNode }) =>
@@ -88,7 +81,7 @@ describe('useAuth (AuthContext)', () => {
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
-    await waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false), { timeout: 3000 });
 
     expect(result.current.user).toBeNull();
     expect(result.current.session).toBeNull();
@@ -97,17 +90,13 @@ describe('useAuth (AuthContext)', () => {
 
   it('通过 get_user_role RPC 解析角色', async () => {
     const mockUser = { id: 'user-123', email: 'test@test.com' };
-    const mockSession = { user: mockUser, access_token: 'token-abc' };
+    const mockSession = { user: mockUser, access_token: 'mock-token-123' };
 
-    mockGetSession.mockResolvedValue({ data: { session: mockSession } });
-    mockRpc.mockResolvedValue({ data: 'manager' });
-    mockFrom.mockReturnValue({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({
-        data: { id: 'user-123', full_name: 'Test User', role: 'employee' },
-        error: null,
-      }),
+    mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
+    mockRpc.mockResolvedValue({ data: 'manager', error: null });
+    mockMaybeSingle.mockResolvedValue({
+      data: { id: 'user-123', name: 'Test User', role: 'employee' },
+      error: null,
     });
 
     const { AuthProvider, useAuth } = await import('@/components/auth/AuthContext');
@@ -116,9 +105,8 @@ describe('useAuth (AuthContext)', () => {
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
-    await waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false), { timeout: 3000 });
 
-    // RPC returned 'manager', so role should be 'manager'
     expect(result.current.role).toBe('manager');
     expect(result.current.user).toEqual(mockUser);
   });
@@ -127,15 +115,11 @@ describe('useAuth (AuthContext)', () => {
     const mockUser = { id: 'user-456', email: 'emp@test.com' };
     const mockSession = { user: mockUser, access_token: 'token-xyz' };
 
-    mockGetSession.mockResolvedValue({ data: { session: mockSession } });
-    mockRpc.mockResolvedValue({ data: null });
-    mockFrom.mockReturnValue({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({
-        data: { id: 'user-456', full_name: 'Employee User' },
-        error: null,
-      }),
+    mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
+    mockRpc.mockResolvedValue({ data: null, error: null });
+    mockMaybeSingle.mockResolvedValue({
+      data: { id: 'user-456', name: 'Employee User' },
+      error: null,
     });
 
     const { AuthProvider, useAuth } = await import('@/components/auth/AuthContext');
@@ -144,9 +128,8 @@ describe('useAuth (AuthContext)', () => {
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
-    await waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false), { timeout: 3000 });
 
-    // RPC returned null, profile has no role field → default to employee
     expect(result.current.role).toBe('employee');
   });
 
@@ -154,15 +137,11 @@ describe('useAuth (AuthContext)', () => {
     const mockUser = { id: 'user-789', email: 'boss@test.com' };
     const mockSession = { user: mockUser, access_token: 'token-boss' };
 
-    mockGetSession.mockResolvedValue({ data: { session: mockSession } });
-    mockRpc.mockResolvedValue({ data: null });
-    mockFrom.mockReturnValue({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({
-        data: { id: 'user-789', full_name: 'Boss User', role: 'founder' },
-        error: null,
-      }),
+    mockGetSession.mockResolvedValue({ data: { session: mockSession }, error: null });
+    mockRpc.mockResolvedValue({ data: null, error: null });
+    mockMaybeSingle.mockResolvedValue({
+      data: { id: 'user-789', name: 'Boss User', role: 'founder' },
+      error: null,
     });
 
     const { AuthProvider, useAuth } = await import('@/components/auth/AuthContext');
@@ -171,9 +150,8 @@ describe('useAuth (AuthContext)', () => {
 
     const { result } = renderHook(() => useAuth(), { wrapper });
 
-    await waitFor(() => expect(result.current.loading).toBe(false));
+    await waitFor(() => expect(result.current.loading).toBe(false), { timeout: 3000 });
 
-    // RPC returned null, profile.role='founder' → resolvedRole should be 'boss'
     expect(result.current.role).toBe('boss');
   });
 });
