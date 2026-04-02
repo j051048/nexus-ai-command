@@ -189,5 +189,5 @@ def register_routers(app: FastAPI) -> None:
         try:
             module = __import__(f"app.routers.{module_name}", fromlist=["router"])
             app.include_router(module.router)
-        except ImportError:
+        except (ImportError, AttributeError):
             logger.debug(f"{label} router not available, skipping")
