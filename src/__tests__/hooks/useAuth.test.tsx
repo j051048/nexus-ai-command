@@ -43,10 +43,19 @@ vi.mock('sonner', () => ({
 // ─── 测试辅助 ──────────────────────────────────────────────
 
 function setupDefaultMocks() {
-  mockOnAuthStateChange.mockReturnValue({
-    data: { subscription: { unsubscribe: vi.fn() } },
+  // Mock auth state change listener
+  mockOnAuthStateChange.mockImplementation((callback) => {
+    // Immediately trigger callback with SIGNED_IN event if session exists
+    setTimeout(() => {
+      const session = mockGetSession.mock.results[0]?.value?.data?.session;
+      if (session) {
+        callback('SIGNED_IN', { session });
+      }
+    }, 0);
+    return { data: { subscription: { unsubscribe: vi.fn() } } };
   });
 
+  // Mock database queries
   mockSelect.mockReturnValue({ eq: mockEq });
   mockEq.mockReturnValue({ maybeSingle: mockMaybeSingle });
   mockMaybeSingle.mockResolvedValue({ data: null, error: null });
