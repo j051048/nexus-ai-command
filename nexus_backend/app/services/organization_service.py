@@ -13,6 +13,36 @@ class OrganizationService:
     """组织架构管理服务"""
 
     # ========================================================================
+    # 组织基础信息
+    # ========================================================================
+
+    async def get_organization(self, org_id: str, db=None) -> dict | None:
+        """获取组织基础信息"""
+        if not db:
+            raise RuntimeError("数据库连接不可用")
+        try:
+            result = await db.table("organizations").select("*").eq("id", org_id).maybe_single().execute()
+            return result.data
+        except Exception as e:
+            logger.error(f"获取组织信息失败: {e}")
+            raise
+
+    async def update_organization(self, org_id: str, updates: dict, db=None) -> dict:
+        """更新组织信息"""
+        if not db:
+            raise RuntimeError("数据库连接不可用")
+        try:
+            result = await db.table("organizations").update(updates).eq("id", org_id).execute()
+            if result.data and len(result.data) > 0:
+                logger.info(f"组织已更新: id={org_id}")
+                invalidate_cache(f"org:cache:*get_organization*{org_id}*")
+                return result.data[0]
+            raise RuntimeError("组织更新失败")
+        except Exception as e:
+            logger.error(f"更新组织信息失败: {e}")
+            raise
+
+    # ========================================================================
     # 部门管理
     # ========================================================================
 

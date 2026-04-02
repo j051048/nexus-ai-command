@@ -12,7 +12,60 @@ from app.models.schemas import StandardResponse
 from app.services.approval_chain import approval_chain_service
 from app.services.organization import organization_service
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/organization", tags=["Organization"])
+
+
+@router.get("/detail")
+async def get_organization_detail(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """获取当前所属组织的详情"""
+    try:
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
+        db = getattr(req.state, "db", None)
+        org = await organization_service.get_organization(org_id=org_id, db=db)
+        if not org:
+            raise api_error(ErrorCode.NOT_FOUND, "组织不存在")
+        return api_success(data=org)
+    except Exception as e:
+        logger.error(f"Failed to get organization detail: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "获取组织信息失败")
+
+
+@router.put("/detail")
+async def update_organization_detail(
+    updates: dict,
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """更新当前所属组织的详情"""
+    try:
+        org_id = getattr(req.state, "org_id", None)
+        if not org_id:
+            raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
+        db = getattr(req.state, "db", None)
+        # 权限检查：只有 boss 和 founder 可以修改
+        profile = await db.table("profiles").select("role").eq("id", user_id).maybe_single().execute()
+        if not profile.data or profile.data.get("role") not in ["boss", "founder"]:
+            raise api_error(ErrorCode.FORBIDDEN, "权限不足")
+
+        # 过滤允许更新的字段
+        allowed_fields = {"name", "invite_code_enabled"}
+        filtered_updates = {k: v for k, v in updates.items() if k in allowed_fields}
+        if not filtered_updates:
+            raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "没有可更新的字段")
+
+        result = await organization_service.update_organization(
+            org_id=org_id, updates=filtered_updates, db=db
+        )
+        return api_success(data=result)
+    except Exception as e:
+        logger.error(f"Failed to update organization: {e}")
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "更新组织信息失败")
 
 
 @router.get("/departments", response_model=StandardResponse)

@@ -82,7 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchUserData = async (userId: string) => {
     try {
       const response = await httpClient.get('/api/users/profile');
-      const profileData = response.data?.user;
+      // 后端统一使用了 api_success 包装，数据在 data.user 中
+      const profileData = response.data?.data?.user;
 
       if (profileData) {
         const newProfile = sanitizeProfile(profileData as Record<string, unknown>);

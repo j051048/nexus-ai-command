@@ -15,8 +15,8 @@ import {
   Users,
   Loader2,
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthContext';
+import { httpClient } from '@/lib/httpClient';
 
 interface OrgInfo {
   id: string;
@@ -60,105 +60,53 @@ function CompanySettingsPage() {
   // Load organization data
   const loadOrg = useCallback(async () => {
     if (!orgId) {
-      // 如果用户没有组织，尝试查找默认组织或创建新组织
-      try {
-        // 先查找是否有默认组织
-        const { data: existingOrgs } = await supabase
-          .from('organizations')
-          .select('id, name')
-          .limit(1);
-
-        let targetOrgId: string | null = null;
-
-        if (existingOrgs && existingOrgs.length > 0) {
-          // 使用第一个找到的组织
-          targetOrgId = existingOrgs[0].id;
-          toast.info(`已关联到组织: ${existingOrgs[0].name}`);
-        } else {
-          // 创建新组织
-          const { data: newOrg, error: createError } = await supabase
-            .from('organizations')
-            .insert({ name: '我的企业', slug: `org-${Date.now()}` })
-            .select()
-            .single();
-
-          if (!createError && newOrg) {
-            targetOrgId = newOrg.id;
-            toast.success('已自动创建企业');
-          }
-        }
-
-        if (targetOrgId && profile?.id) {
-          // 更新用户的 organization_id
-          await supabase
-            .from('users')
-            .update({ organization_id: targetOrgId })
-            .eq('id', profile.id);
-
-          window.location.reload();
-        }
-      } catch (err) {
-        console.error('Failed to setup organization:', err);
-      }
+      console.warn('[CompanySettings] No organization_id found in profile');
       setLoading(false);
       return;
     }
+
     try {
       setLoading(true);
-
-      // Select only known base columns to avoid issues with missing invite_code columns
-      const { data, error } = await supabase
-        .from('organizations')
-        .select('id, name, slug, created_at, updated_at')
-        .eq('id', orgId)
-        .single();
-
-      if (error) throw error;
-
-      // Try to get invite_code fields separately (may not exist if migration not run)
-      let inviteCode: string | null = null;
-      let inviteEnabled = true;
-      let inviteExpires: string | null = null;
-      try {
-        const { data: fullData } = await supabase
-          .from('organizations')
-          .select('*')
-          .eq('id', orgId)
-          .single();
-        if (fullData) {
-          const fd = fullData as Record<string, unknown>;
-          inviteCode = (fd.invite_code as string) ?? null;
-          inviteEnabled = (fd.invite_code_enabled as boolean) ?? true;
-          inviteExpires = (fd.invite_code_expires_at as string) ?? null;
-        }
-      } catch {
-        // invite_code columns may not exist yet — that's OK
+      // 调用新的后端接口获取详情
+      const response = await httpClient.get('/api/organization/detail');
+      
+      // 处理后端统一包装的 api_success 结构
+      const orgDataFromApi = response.data?.data;
+      
+      if (!orgDataFromApi) {
+        throw new Error('未获取到组织数据');
       }
 
-      // Get member count
-      const { count } = await supabase
-        .from('users')
-        .select('id', { count: 'exact', head: true })
-        .eq('organization_id', orgId);
+      // 获取组织统计数据（可选，也可以扩展 detail 接口）
+      let memberCount = 0;
+      try {
+        const statsResponse = await httpClient.get('/api/organization/stats');
+        memberCount = statsResponse.data?.data?.total_employees || 0;
+      } catch (e) {
+        console.warn('[CompanySettings] Failed to load stats:', e);
+      }
 
       const orgData: OrgInfo = {
-        id: data.id,
-        name: safeStr(data.name),
-        slug: safeStr(data.slug),
-        invite_code: inviteCode ? safeStr(inviteCode) : null,
-        invite_code_enabled: inviteEnabled,
-        invite_code_expires_at: inviteExpires,
-        member_count: count ?? 0,
+        id: orgDataFromApi.id,
+        name: safeStr(orgDataFromApi.name),
+        slug: safeStr(orgDataFromApi.slug),
+        invite_code: orgDataFromApi.invite_code ? safeStr(orgDataFromApi.invite_code) : null,
+        invite_code_enabled: orgDataFromApi.invite_code_enabled ?? true,
+        invite_code_expires_at: orgDataFromApi.invite_code_expires_at,
+        member_count: memberCount,
       };
 
       setOrg(orgData);
       setOrgName(orgData.name);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message
-        : (e && typeof e === 'object' && 'message' in e) ? String((e as { message: unknown }).message)
-        : '未知错误';
-      console.error('[CompanySettings] Load failed:', msg, 'orgId:', orgId, 'error:', e);
+    } catch (e: any) {
+      const msg = e.response?.data?.message || e.message || '未知错误';
+      console.error('[CompanySettings] Load failed:', msg, 'orgId:', orgId);
       toast.error(`加载企业信息失败: ${msg}`);
+      
+      // 如果后端没这个接口，给出更明确的提示
+      if (e.response?.status === 404) {
+        console.error('[CompanySettings] Endpoint /api/organization/detail not found');
+      }
     } finally {
       setLoading(false);
     }
@@ -173,15 +121,17 @@ function CompanySettingsPage() {
     if (!org || !orgName.trim()) return;
     try {
       setSaving(true);
-      const { error } = await supabase
-        .from('organizations')
-        .update({ name: orgName.trim(), updated_at: new Date().toISOString() })
-        .eq('id', org.id);
-      if (error) throw error;
+      const response = await httpClient.put('/api/organization/detail', { 
+        name: orgName.trim() 
+      });
+      if (response.data?.status !== 200) {
+        throw new Error(response.data?.message || '更新失败');
+      }
       toast.success('企业名称已更新');
       setOrg(prev => prev ? { ...prev, name: orgName.trim() } : null);
-    } catch {
-      toast.error('更新企业名称失败');
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || '更新失败';
+      toast.error(`更新企业名称失败: ${msg}`);
     } finally {
       setSaving(false);
     }
@@ -192,16 +142,14 @@ function CompanySettingsPage() {
     if (!org) return;
     try {
       setRegenerating(true);
-      const response = await fetch('/api/organization/invite-code/regenerate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.message);
+      const response = await httpClient.post('/api/organization/invite-code/regenerate');
+      const result = response.data;
+      if (result.status !== 200) throw new Error(result.message);
       toast.success('邀请码已重新生成');
       setOrg(prev => prev ? { ...prev, invite_code: result.data.invite_code } : null);
-    } catch (e) {
-      toast.error(`重新生成邀请码失败: ${e instanceof Error ? e.message : '未知错误'}`);
+    } catch (e: any) {
+      const msg = e.response?.data?.message || e.message || '未知错误';
+      toast.error(`重新生成邀请码失败: ${msg}`);
     } finally {
       setRegenerating(false);
     }
@@ -211,16 +159,14 @@ function CompanySettingsPage() {
   const handleToggleInvite = async (enabled: boolean) => {
     if (!org) return;
     try {
-      const response = await fetch('/api/organization/invite-code/toggle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.message);
+      const response = await httpClient.post('/api/organization/invite-code/toggle', { enabled });
+      const result = response.data;
+      if (result.status !== 200) throw new Error(result.message);
       setOrg(prev => prev ? { ...prev, invite_code_enabled: result.data.enabled } : null);
       toast.success(result.data.enabled ? '邀请码已启用' : '邀请码已禁用');
-    } catch {
-      toast.error('操作失败');
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || '操作失败';
+      toast.error(`操作失败: ${msg}`);
     }
   };
 
