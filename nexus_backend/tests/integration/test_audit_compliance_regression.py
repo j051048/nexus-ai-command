@@ -4,7 +4,7 @@ Audit & Compliance - 法务、审计与合规工具专项回归
 
 import pytest
 from unittest.mock import AsyncMock, patch
-from tests.test_tool_e2e_regression import _load_tool
+from tests.e2e.test_tool_e2e_regression import _load_tool
 
 USER_ID = "auditor-01"
 ORG_ID = "audit-org"

@@ -67,6 +67,8 @@ vi.stubEnv('VITE_SUPABASE_URL', 'https://supabase.test.com');
 // ─── 测试用例 ──────────────────────────────────────────────
 
 describe('useAIStream', () => {
+  // 增加超时到 15s 以支持三层重试逻辑测试
+  vi.setConfig({ testTimeout: 15000 });
   beforeEach(() => {
     vi.clearAllMocks();
     mockFetchFn.mockReset();

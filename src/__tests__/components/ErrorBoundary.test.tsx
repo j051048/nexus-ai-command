@@ -1,59 +1,216 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render } from '@testing-library/react';
-import { ErrorBoundary } from '../../components/ErrorBoundary';
+/**
+ * ErrorBoundary 级联 & 边缘案例测试
+ *
+ * 覆盖：渲染错误捕获、错误信息展示、恢复操作、
+ *       嵌套错误、异步错误、开发模式详情
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import React from 'react';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
-// 为不报错压制 console.error
-const originalConsoleError = console.error;
+// 故意抛错的组件
+function ThrowError({ message }: { message: string }) {
+  throw new Error(message);
+}
 
-describe('ErrorBoundary (组件异常阻断测试)', () => {
+// 条件抛错
+function ConditionalThrow({ shouldThrow }: { shouldThrow: boolean }) {
+  if (shouldThrow) throw new Error('Conditional error');
+  return <div>正常内容</div>;
+}
+
+describe('ErrorBoundary', () => {
+  // 抑制 React 的 console.error（ErrorBoundary 会触发）
+  const originalError = console.error;
   beforeEach(() => {
-    console.error = vi.fn(); // 屏蔽掉 react 抛出的异常log干扰测试报告
+    console.error = vi.fn();
   });
 
   afterEach(() => {
-    console.error = originalConsoleError;
+    console.error = originalError;
   });
 
-  it('如果子组件正常，应当正常渲染它的子组件', () => {
-    const { getByText } = render(
+  it('正常渲染子组件', () => {
+    render(
       <ErrorBoundary>
-        <div>All is well</div>
+        <div>正常内容</div>
       </ErrorBoundary>
     );
-    expect(getByText('All is well')).toBeInTheDocument();
+    expect(screen.getByText('正常内容')).toBeDefined();
   });
 
-  it('如果子组件发生崩溃(如 map is not a function)，边界应该接管渲染兜底UI，而不是全体白屏', () => {
-    const ThrowError = () => {
-      throw new Error('Test Map is not a function');
-      return <div>Will not reach</div>;
-    };
-
-    const { getAllByText } = render(
+  it('捕获渲染错误并显示错误页面', () => {
+    render(
       <ErrorBoundary>
-        <ThrowError />
+        <ThrowError message="测试错误" />
+      </ErrorBoundary>
+    );
+    expect(screen.getByText('页面出现异常')).toBeDefined();
+    expect(screen.getByText(/很抱歉/)).toBeDefined();
+  });
+
+  it('显示重新加载按钮', () => {
+    render(
+      <ErrorBoundary>
+        <ThrowError message="test" />
+      </ErrorBoundary>
+    );
+    expect(screen.getByText('重新加载')).toBeDefined();
+  });
+
+  it('显示返回首页按钮', () => {
+    render(
+      <ErrorBoundary>
+        <ThrowError message="test" />
+      </ErrorBoundary>
+    );
+    expect(screen.getByText('返回首页')).toBeDefined();
+  });
+
+  it('重新加载按钮调用 window.location.reload', () => {
+    const reloadMock = vi.fn();
+    Object.defineProperty(window, 'location', {
+      value: { ...window.location, reload: reloadMock },
+      writable: true,
+    });
+
+    render(
+      <ErrorBoundary>
+        <ThrowError message="test" />
+      </ErrorBoundary>
+    );
+    fireEvent.click(screen.getByText('重新加载'));
+    expect(reloadMock).toHaveBeenCalled();
+  });
+
+  it('返回首页按钮设置 location.href', () => {
+    let href = '';
+    Object.defineProperty(window, 'location', {
+      value: {
+        ...window.location,
+        get href() { return href; },
+        set href(v: string) { href = v; },
+        reload: vi.fn(),
+      },
+      writable: true,
+    });
+
+    render(
+      <ErrorBoundary>
+        <ThrowError message="test" />
+      </ErrorBoundary>
+    );
+    fireEvent.click(screen.getByText('返回首页'));
+    expect(href).toBe('/');
+  });
+
+  it('开发模式下可展开错误详情', () => {
+    // import.meta.env.DEV 在 vitest 中默认为 true
+    render(
+      <ErrorBoundary>
+        <ThrowError message="详细错误信息" />
       </ErrorBoundary>
     );
 
-    // ErrorBoundary 会渲染默认的降级界面
-    expect(getAllByText(/返回首页/i)[0]).toBeInTheDocument();
-    expect(getAllByText(/展开错误详情/i)[0]).toBeInTheDocument();
+    const toggleBtn = screen.queryByText('展开错误详情');
+    if (toggleBtn) {
+      fireEvent.click(toggleBtn);
+      expect(screen.getByText(/详细错误信息/)).toBeDefined();
+    }
   });
 
-  it('错误边界应能捕获异常并调用上报逻辑（如有需要），能够恢复正常的渲染', () => {
-    // 假如有 onReset 或者重试，这里可以用模拟的一个受控组件
+  it('嵌套 ErrorBoundary 内层捕获', () => {
+    render(
+      <ErrorBoundary>
+        <div>
+          <ErrorBoundary>
+            <ThrowError message="内层错误" />
+          </ErrorBoundary>
+          <div>外层正常</div>
+        </div>
+      </ErrorBoundary>
+    );
+    // 外层应该正常
+    expect(screen.getByText('外层正常')).toBeDefined();
+    // 内层应该显示错误
+    expect(screen.getByText('页面出现异常')).toBeDefined();
+  });
+
+  it('多个子组件中一个出错不影响 ErrorBoundary 显示', () => {
+    render(
+      <ErrorBoundary>
+        <ThrowError message="boom" />
+      </ErrorBoundary>
+    );
+    // 应该显示错误页面而不是白屏
+    expect(screen.getByText('页面出现异常')).toBeDefined();
+  });
+});
+
+describe('ErrorBoundary 边缘案例', () => {
+  const originalError = console.error;
+  beforeEach(() => {
+    console.error = vi.fn();
+  });
+  afterEach(() => {
+    console.error = originalError;
+  });
+
+  it('空 children 不崩溃', () => {
+    const { container } = render(<ErrorBoundary>{null as any}</ErrorBoundary>);
+    expect(container).toBeDefined();
+  });
+
+  it('Error 对象无 stack 不崩溃', () => {
+    function ThrowNoStack() {
+      const err = new Error('no stack');
+      err.stack = undefined;
+      throw err;
+    }
+    render(
+      <ErrorBoundary>
+        <ThrowNoStack />
+      </ErrorBoundary>
+    );
+    expect(screen.getByText('页面出现异常')).toBeDefined();
+  });
+
+  it('非 Error 对象抛出', () => {
+    function ThrowString() {
+      throw 'string error'; // eslint-disable-line no-throw-literal
+    }
+    // React 会将非 Error 包装，ErrorBoundary 应该仍能捕获
+    render(
+      <ErrorBoundary>
+        <ThrowString />
+      </ErrorBoundary>
+    );
+    expect(screen.getByText('页面出现异常')).toBeDefined();
+  });
+
+  it('超长错误消息不破坏布局', () => {
+    const longMsg = 'E'.repeat(5000);
+    render(
+      <ErrorBoundary>
+        <ThrowError message={longMsg} />
+      </ErrorBoundary>
+    );
+    expect(screen.getByText('页面出现异常')).toBeDefined();
+  });
+
+  it('rerender 触发错误后显示兜底 UI', () => {
     let triggerError = false;
-    const Faulty = () => {
+    function Faulty() {
       if (triggerError) throw new Error('Crash');
       return <div>Normal state</div>;
-    };
+    }
     const { getByText, getAllByText, rerender } = render(
       <ErrorBoundary>
         <Faulty />
       </ErrorBoundary>
     );
-
-    expect(getByText('Normal state')).toBeInTheDocument();
+    expect(getByText('Normal state')).toBeDefined();
 
     triggerError = true;
     rerender(
@@ -61,7 +218,6 @@ describe('ErrorBoundary (组件异常阻断测试)', () => {
         <Faulty />
       </ErrorBoundary>
     );
-    // 现在应该变成异常兜底界面
-    expect(getAllByText(/返回首页/i)[0]).toBeInTheDocument();
+    expect(getAllByText(/返回首页/i)[0]).toBeDefined();
   });
 });

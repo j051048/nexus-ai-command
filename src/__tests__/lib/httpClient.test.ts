@@ -26,13 +26,24 @@ describe('httpClient interceptors', () => {
     
     // 模拟 localStorage 和 sessionStorage
     const mockGetItem = vi.fn((key) => {
-      if (key === 'supabase.auth.token') return 'mock-token-123';
       if (key === 'current_org_id') return 'mock-org-456';
       return null;
     });
     vi.spyOn(window.localStorage, 'getItem').mockImplementation(mockGetItem);
     vi.spyOn(window.sessionStorage, 'getItem').mockImplementation(() => null);
     vi.spyOn(window.localStorage, 'removeItem').mockImplementation(() => {});
+
+    // Mock Supabase 客户端
+    vi.mock('@/integrations/supabase/client', () => ({
+      supabase: {
+        auth: {
+          getSession: vi.fn().mockResolvedValue({
+            data: { session: { access_token: 'mock-token-123' } },
+            error: null
+          })
+        }
+      }
+    }));
 
     // 劫持 window.location
     originalLocation = window.location;

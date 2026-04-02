@@ -5,7 +5,7 @@ VMD (Virtual Marketing Department) Tool Regression Tests.
 
 import pytest
 from unittest.mock import AsyncMock, patch
-from tests.test_tool_e2e_regression import _load_tool, _assert_tool_metadata
+from tests.e2e.test_tool_e2e_regression import _load_tool, _assert_tool_metadata
 
 USER_ID = "user-vmd-001"
 ORG_ID = "org-vmd-001"

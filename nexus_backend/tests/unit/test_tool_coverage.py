@@ -10,7 +10,7 @@ except ImportError:
     # 适配不同导入路径
     from nexus_backend.app.tools import _TOOL_MODULES
 
-from tests.test_tool_e2e_regression import TestToolMetadataRegression
+from tests.e2e.test_tool_e2e_regression import TestToolMetadataRegression
 
 
 def test_audit_all_registered_tools_have_regression_tests():

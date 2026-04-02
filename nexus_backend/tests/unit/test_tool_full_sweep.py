@@ -7,7 +7,7 @@ import pytest
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 from app.tools import _TOOL_MODULES
-from tests.test_tool_e2e_regression import _load_tool
+from tests.e2e.test_tool_e2e_regression import _load_tool
 
 # 排除一些由于环境特殊、初始化极重或需要真实硬件连接的工具（如有）
 EXCLUDED_TOOLS = [] 

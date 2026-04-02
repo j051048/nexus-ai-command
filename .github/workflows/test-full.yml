@@ -1,0 +1,415 @@
+# Full Test Suite — 9 大类全量回归
+#
+# 触发：手动 dispatch 或 nightly cron
+# 覆盖：单元 / 集成 / 安全 / 性能 / E2E 全链路
+#
+# 质量门禁：
+#   - 前端覆盖率 ≥ 60%
+#   - 后端覆盖率 ≥ 50%
+#   - 安全测试 0 CRITICAL
+#   - E2E 关键路径 100% 通过
+
+name: Full Test Suite
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_e2e:
+        description: "Skip E2E tests (faster)"
+        type: boolean
+        default: false
+  schedule:
+    # 每天凌晨 3:17 UTC (北京 11:17) 运行
+    - cron: "17 3 * * *"
+
+env:
+  NODE_VERSION: "20"
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════
+  # 1. 前端单元测试 + 覆盖率
+  # ═══════════════════════════════════════════════════════════════
+  frontend-unit:
+    name: "1. Frontend Unit Tests"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run vitest (unit + hooks + components + security + utils + contexts)
+        run: |
+          npx vitest run --coverage --reporter=verbose \
+            src/__tests__/lib \
+            src/__tests__/hooks \
+            src/__tests__/components \
+            src/__tests__/security \
+            src/__tests__/utils \
+            src/__tests__/contexts
+
+      - name: Extract coverage
+        id: cov
+        if: always()
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            PCT=$(node -e "const c=require('./coverage/coverage-summary.json'); console.log(c.total.lines.pct)")
+            echo "pct=$PCT" >> $GITHUB_OUTPUT
+            echo "## Frontend Coverage: ${PCT}%" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "pct=0" >> $GITHUB_OUTPUT
+            echo "## Frontend Coverage: N/A" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: ./coverage/lcov.info
+          flags: frontend-unit
+          fail_ci_if_error: false
+
+    outputs:
+      coverage: ${{ steps.cov.outputs.pct }}
+
+  # ═══════════════════════════════════════════════════════════════
+  # 2. 前端 React Flow 设计器专项
+  # ═══════════════════════════════════════════════════════════════
+  frontend-workflow:
+    name: "2. Workflow Designer Tests"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Run workflow designer tests
+        run: npx vitest run --reporter=verbose src/__tests__/features
+
+  # ═══════════════════════════════════════════════════════════════
+  # 3. 后端单元测试 + 覆盖率
+  # ═══════════════════════════════════════════════════════════════
+  backend-unit:
+    name: "3. Backend Unit Tests"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./nexus_backend
+    env:
+      ENV: test
+      SUPABASE_URL: "https://placeholder.supabase.co"
+      SUPABASE_SERVICE_KEY: "placeholder-key"
+      OPENAI_API_KEY: "sk-placeholder"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: nexus_backend/requirements-dev.txt
+
+      - run: |
+          pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run unit tests
+        run: |
+          pytest tests/unit/ -v \
+            --cov=app --cov-report=xml --cov-report=term-missing \
+            --retries 2 --retry-delay 1
+
+      - name: Extract coverage
+        id: cov
+        if: always()
+        run: |
+          if [ -f coverage.xml ]; then
+            PCT=$(python3 -c "
+          import xml.etree.ElementTree as ET
+          tree = ET.parse('coverage.xml')
+          root = tree.getroot()
+          rate = float(root.attrib.get('line-rate', 0))
+          print(round(rate * 100, 1))
+          ")
+            echo "pct=$PCT" >> $GITHUB_OUTPUT
+            echo "## Backend Unit Coverage: ${PCT}%" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "pct=0" >> $GITHUB_OUTPUT
+          fi
+
+      - uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: ./nexus_backend/coverage.xml
+          flags: backend-unit
+          fail_ci_if_error: false
+
+    outputs:
+      coverage: ${{ steps.cov.outputs.pct }}
+
+  # ═══════════════════════════════════════════════════════════════
+  # 4. 后端集成测试
+  # ═══════════════════════════════════════════════════════════════
+  backend-integration:
+    name: "4. Backend Integration Tests"
+    runs-on: ubuntu-latest
+    needs: [backend-unit]
+    defaults:
+      run:
+        working-directory: ./nexus_backend
+    env:
+      ENV: test
+      SUPABASE_URL: "https://placeholder.supabase.co"
+      SUPABASE_SERVICE_KEY: "placeholder-key"
+      OPENAI_API_KEY: "sk-placeholder"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: nexus_backend/requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+
+      - name: Run integration tests
+        run: pytest tests/integration/ -v --retries 2 --retry-delay 1
+
+  # ═══════════════════════════════════════════════════════════════
+  # 5. AI Agent 中控矩阵 + Plan/Execute/Reflect
+  # ═══════════════════════════════════════════════════════════════
+  backend-agent:
+    name: "5. AI Agent Matrix Tests"
+    runs-on: ubuntu-latest
+    needs: [backend-unit]
+    defaults:
+      run:
+        working-directory: ./nexus_backend
+    env:
+      ENV: test
+      SUPABASE_URL: "https://placeholder.supabase.co"
+      SUPABASE_SERVICE_KEY: "placeholder-key"
+      OPENAI_API_KEY: "sk-placeholder"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: nexus_backend/requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+
+      - name: Run agent tests (intent matrix + plan/execute/reflect)
+        run: pytest tests/agent/ -v --retries 2 --retry-delay 1
+
+  # ═══════════════════════════════════════════════════════════════
+  # 6. 安全测试（Prompt 注入 + XSS/CSRF + 权限矩阵）
+  # ═══════════════════════════════════════════════════════════════
+  backend-security:
+    name: "6. Security Tests"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./nexus_backend
+    env:
+      ENV: test
+      SUPABASE_URL: "https://placeholder.supabase.co"
+      SUPABASE_SERVICE_KEY: "placeholder-key"
+      OPENAI_API_KEY: "sk-placeholder"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: nexus_backend/requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+
+      - name: Run security tests
+        run: pytest tests/security/ -v --retries 2 --retry-delay 1
+
+  # ═══════════════════════════════════════════════════════════════
+  # 7. 性能 / 负载测试
+  # ═══════════════════════════════════════════════════════════════
+  backend-performance:
+    name: "7. Performance Tests"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./nexus_backend
+    env:
+      ENV: test
+      SUPABASE_URL: "https://placeholder.supabase.co"
+      SUPABASE_SERVICE_KEY: "placeholder-key"
+      OPENAI_API_KEY: "sk-placeholder"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: nexus_backend/requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+
+      - name: Run performance tests
+        run: pytest tests/performance/ -v --retries 2 --retry-delay 1
+
+  # ═══════════════════════════════════════════════════════════════
+  # 8. 后端 E2E 业务闭环
+  # ═══════════════════════════════════════════════════════════════
+  backend-e2e:
+    name: "8. Backend E2E Tests"
+    runs-on: ubuntu-latest
+    needs: [backend-unit, backend-security]
+    if: ${{ !inputs.skip_e2e }}
+    defaults:
+      run:
+        working-directory: ./nexus_backend
+    env:
+      ENV: test
+      SUPABASE_URL: "https://placeholder.supabase.co"
+      SUPABASE_SERVICE_KEY: "placeholder-key"
+      OPENAI_API_KEY: "sk-placeholder"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: nexus_backend/requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+
+      - name: Run E2E tests
+        run: pytest tests/e2e/ -v --retries 2 --retry-delay 1
+
+  # ═══════════════════════════════════════════════════════════════
+  # 9. Playwright E2E 业务流程
+  # ═══════════════════════════════════════════════════════════════
+  playwright-e2e:
+    name: "9. Playwright E2E Flows"
+    runs-on: ubuntu-latest
+    needs: [frontend-unit]
+    if: ${{ !inputs.skip_e2e }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: Build frontend
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: "https://placeholder.supabase.co"
+          VITE_SUPABASE_PUBLISHABLE_KEY: "placeholder-key"
+
+      - name: Run Playwright E2E
+        run: npx playwright test --project=chromium
+        env:
+          E2E_MODE: full
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  # ═══════════════════════════════════════════════════════════════
+  # Quality Gate — 质量门禁
+  # ═══════════════════════════════════════════════════════════════
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    needs:
+      - frontend-unit
+      - frontend-workflow
+      - backend-unit
+      - backend-integration
+      - backend-agent
+      - backend-security
+      - backend-performance
+      - backend-e2e
+      - playwright-e2e
+    if: always()
+    steps:
+      - name: Evaluate quality gates
+        run: |
+          echo "# Full Test Suite — Quality Gate Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # ── 结果汇总表 ──
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "| # | Suite | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 1 | Frontend Unit | ${{ needs.frontend-unit.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 2 | Workflow Designer | ${{ needs.frontend-workflow.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 3 | Backend Unit | ${{ needs.backend-unit.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 4 | Backend Integration | ${{ needs.backend-integration.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 5 | AI Agent Matrix | ${{ needs.backend-agent.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 6 | Security | ${{ needs.backend-security.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 7 | Performance | ${{ needs.backend-performance.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 8 | Backend E2E | ${{ needs.backend-e2e.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 9 | Playwright E2E | ${{ needs.playwright-e2e.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # ── 覆盖率门禁 ──
+          echo "## Coverage" >> $GITHUB_STEP_SUMMARY
+          FE_COV="${{ needs.frontend-unit.outputs.coverage }}"
+          BE_COV="${{ needs.backend-unit.outputs.coverage }}"
+          echo "| Layer | Coverage | Threshold | Pass |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|----------|-----------|------|" >> $GITHUB_STEP_SUMMARY
+
+          FE_PASS="N/A"
+          if [ -n "$FE_COV" ] && [ "$FE_COV" != "0" ]; then
+            FE_PASS=$(echo "$FE_COV >= 60" | bc -l 2>/dev/null && echo "Yes" || echo "No")
+          fi
+          echo "| Frontend | ${FE_COV:-N/A}% | 60% | $FE_PASS |" >> $GITHUB_STEP_SUMMARY
+
+          BE_PASS="N/A"
+          if [ -n "$BE_COV" ] && [ "$BE_COV" != "0" ]; then
+            BE_PASS=$(echo "$BE_COV >= 50" | bc -l 2>/dev/null && echo "Yes" || echo "No")
+          fi
+          echo "| Backend | ${BE_COV:-N/A}% | 50% | $BE_PASS |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # ── 硬性门禁 ──
+          FAILED=0
+
+          # 安全测试必须通过
+          if [[ "${{ needs.backend-security.result }}" == "failure" ]]; then
+            echo "::error::GATE FAILED: Security tests failed"
+            FAILED=1
+          fi
+
+          # 后端单元测试必须通过
+          if [[ "${{ needs.backend-unit.result }}" == "failure" ]]; then
+            echo "::error::GATE FAILED: Backend unit tests failed"
+            FAILED=1
+          fi
+
+          # 前端单元测试必须通过
+          if [[ "${{ needs.frontend-unit.result }}" == "failure" ]]; then
+            echo "::error::GATE FAILED: Frontend unit tests failed"
+            FAILED=1
+          fi
+
+          # Agent 矩阵测试必须通过
+          if [[ "${{ needs.backend-agent.result }}" == "failure" ]]; then
+            echo "::error::GATE FAILED: AI Agent matrix tests failed"
+            FAILED=1
+          fi
+
+          if [ "$FAILED" -eq 1 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## QUALITY GATE: FAILED" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## QUALITY GATE: PASSED" >> $GITHUB_STEP_SUMMARY

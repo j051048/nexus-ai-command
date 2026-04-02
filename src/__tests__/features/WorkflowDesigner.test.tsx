@@ -1,7 +1,8 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { ReactFlowProvider } from 'reactflow';
+import { ReactFlowProvider } from '@xyflow/react';
 import WorkflowDesigner from '@/pages/WorkflowDesigner';
 import { describe, it, expect, vi } from 'vitest';
+import '@testing-library/jest-dom';
 
 // P1: 前端核心特色组件测试 (React Flow 设计器)
 
