@@ -19,7 +19,7 @@ export function useSalesLeads() {
             if (!session?.user?.id || !profile?.organization_id) return [];
 
             const response = await httpClient.get('/api/sales-leads');
-            const data = response.data?.leads || [];
+            const data = Array.isArray(response.data?.leads) ? response.data.leads : [];
 
             // 数据屏蔽层：使用 Zod 验证并提供默认值
             return (data || []).map(item => {

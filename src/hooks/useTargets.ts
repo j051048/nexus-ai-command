@@ -51,7 +51,8 @@ export function useCurrentTargets() {
     queryKey: ['sales-targets', 'current', profile?.organization_id],
     queryFn: async () => {
       const response = await httpClient.get('/api/sales/targets');
-      return response.data?.targets || [];
+      const result = response.data?.targets;
+      return Array.isArray(result) ? result : [];
     },
     enabled: !!profile?.organization_id
   });
@@ -64,7 +65,8 @@ export function useAllTargets() {
     queryKey: ['sales-targets', 'all', profile?.organization_id],
     queryFn: async () => {
       const response = await httpClient.get('/api/sales/targets');
-      return response.data?.targets || [];
+      const result = response.data?.targets;
+      return Array.isArray(result) ? result : [];
     },
     enabled: !!profile?.organization_id
   });

@@ -41,12 +41,12 @@ export function TeamPerformanceChart() {
   const { data: rawData, isLoading } = useTeamPerformance();
 
   const teamData = React.useMemo(() => {
-    if (!rawData || rawData.length === 0) return mockTeamData;
+    if (!Array.isArray(rawData) || rawData.length === 0) return mockTeamData;
     return rawData.slice(0, 5); // Top 5 performers
   }, [rawData]);
 
   const avgScore = Math.round(teamData.reduce((sum, m) => sum + m.score, 0) / teamData.length);
-  const hasRealData = rawData && rawData.length > 0;
+  const hasRealData = Array.isArray(rawData) && rawData.length > 0;
 
   if (isLoading) {
     return (

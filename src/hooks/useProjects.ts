@@ -18,7 +18,7 @@ export function useProjects() {
 
         setLoading(true);
         const response = await httpClient.get('/api/projects');
-        const data = response.data?.projects || [];
+        const data = Array.isArray(response.data?.projects) ? response.data.projects : [];
         const mapped = data.map(p => ({
             ...p,
             stage: p.status,
@@ -104,7 +104,8 @@ export function useOrgMembers() {
     queryFn: async () => {
       if (!profile?.organization_id) return [];
       const response = await httpClient.get('/api/organization/members');
-      return response.data?.members || [];
+      const result = response.data?.members;
+      return Array.isArray(result) ? result : [];
     },
     enabled: !!profile?.organization_id,
   });

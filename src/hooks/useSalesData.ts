@@ -75,7 +75,8 @@ export function useSalesMetrics(months: number = 7) {
         params: { start_date: startDate, end_date: endDate },
       });
 
-      return (response.data?.data || []) as SalesMetric[];
+      const result = response.data?.data;
+      return (Array.isArray(result) ? result : []) as SalesMetric[];
     },
     enabled: !!session?.user?.id,
   });
@@ -101,7 +102,8 @@ export function useSalesMetricsByRange(startDate: string | null, endDate: string
       }
 
       const response = await httpClient.get('/api/sales/metrics/range', { params });
-      return (response.data?.data || []) as SalesMetric[];
+      const result = response.data?.data;
+      return (Array.isArray(result) ? result : []) as SalesMetric[];
     },
     enabled: !!session?.user?.id && !!startDate && !!endDate && !!profile?.organization_id,
   });
@@ -123,7 +125,8 @@ export function useWinRateHistory(weeks: number = 8) {
         params: { start_date: startDate, end_date: endDate, target_user_id: session.user.id },
       });
 
-      const data = (response.data?.data || []) as Array<{ date: string; win_rate: number | null }>;
+      const raw = response.data?.data;
+      const data = (Array.isArray(raw) ? raw : []) as Array<{ date: string; win_rate: number | null }>;
 
       // Group by week and calculate average win rate per week
       const weeklyData: { week: string; rate: number; target: number }[] = [];
@@ -176,7 +179,8 @@ export function useRevenueData(months: number = 7) {
       }
 
       const response = await httpClient.get('/api/sales/metrics/range', { params });
-      const data = (response.data?.data || []) as Array<{ date: string; revenue: number | null }>;
+      const raw = response.data?.data;
+      const data = (Array.isArray(raw) ? raw : []) as Array<{ date: string; revenue: number | null }>;
 
       // Group by month
       const monthMap = new Map<string, number>();
@@ -209,7 +213,8 @@ export function useTeamPerformance() {
       if (!session?.user?.id || !profile?.organization_id) return [];
 
       const response = await httpClient.get('/api/sales/team-performance');
-      return (response.data?.data || []) as TeamMemberPerformance[];
+      const result = response.data?.data;
+      return (Array.isArray(result) ? result : []) as TeamMemberPerformance[];
     },
     enabled: !!session?.user?.id && role === 'boss' && !!profile?.organization_id,
   });
@@ -228,7 +233,7 @@ export function useLeaderboard(limit: number = 5) {
         params: { limit },
       });
 
-      const data = response.data?.data || [];
+      const data = Array.isArray(response.data?.data) ? response.data.data : [];
       return data.map((p: { id: string; name: string; score: number | null; total_bonus: number | null; rank: number | null }, index: number) => ({
         rank: index + 1,
         name: p.name,

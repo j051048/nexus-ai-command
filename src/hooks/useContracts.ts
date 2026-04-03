@@ -52,7 +52,8 @@ export function useContracts(filters?: { status?: string; search?: string }) {
       if (filters?.search) params.append('search', filters.search);
 
       const response = await httpClient.get(`/api/contracts?${params}`);
-      return response.data?.contracts || [];
+      const result = response.data?.contracts;
+      return Array.isArray(result) ? result : [];
     },
     enabled: !!orgId,
   });
@@ -65,7 +66,8 @@ export function useContractDetail(contractId: string | null) {
     queryFn: async () => {
       if (!contractId) return null;
       const response = await httpClient.get(`/api/contracts/${contractId}/events`);
-      return response.data?.events || [];
+      const result = response.data?.events;
+      return Array.isArray(result) ? result : [];
     },
     enabled: !!contractId,
   });

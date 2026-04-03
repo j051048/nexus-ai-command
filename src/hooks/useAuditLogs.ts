@@ -75,7 +75,8 @@ export function useAuditLogs(filters: AuditFilters) {
       if (filters.status && filters.status !== 'all') params.append('status', filters.status);
 
       const response = await httpClient.get(`/api/system/audit-logs?${params}`);
-      return response.data?.logs || [];
+      const result = response.data?.logs;
+      return Array.isArray(result) ? result : [];
     },
     staleTime: 30_000,
     retry: false,
@@ -108,7 +109,7 @@ export function useAuditActions() {
     queryFn: async () => {
       if (!(await isAuditTableAvailable())) return [];
       const response = await httpClient.get('/api/system/audit-logs');
-      const logs = response.data?.logs || [];
+      const logs = Array.isArray(response.data?.logs) ? response.data.logs : [];
       return [...new Set(logs.map((l: AuditLogEntry) => l.action))];
     },
     staleTime: 60_000,

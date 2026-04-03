@@ -109,7 +109,7 @@ function SalesTab({ dateRange }: { dateRange: { preset: string } }) {
   if (isLoading) return <ReportSkeleton />;
 
   const summary = report?.summary || {};
-  const chartData = (report?.data || []) as AnyData[];
+  const chartData = (Array.isArray(report?.data) ? report.data : []) as AnyData[];
 
   return (
     <div className="space-y-6">
@@ -247,7 +247,7 @@ function PerformanceTab({ dateRange }: { dateRange: { preset: string } }) {
   if (isLoading) return <ReportSkeleton />;
 
   const summary = report?.summary || {};
-  const rankings = (report?.rankings || []) as AnyData[];
+  const rankings = (Array.isArray(report?.rankings) ? report.rankings : []) as AnyData[];
 
   return (
     <div className="space-y-6">

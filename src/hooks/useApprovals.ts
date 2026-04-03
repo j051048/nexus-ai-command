@@ -23,7 +23,7 @@ export function useApprovals() {
         params: { tab: 'pending' },
       });
 
-      const items = response.data?.data?.items || [];
+      const items = Array.isArray(response.data?.data?.items) ? response.data.data.items : [];
 
       return items.map((item: Record<string, unknown>) => {
         const dataToValidate = {
@@ -68,7 +68,8 @@ export function useMyApprovals() {
         params: { tab: 'mine' },
       });
 
-      return (response.data?.data?.items || []) as ApprovalRequest[];
+      const result = response.data?.data?.items;
+      return (Array.isArray(result) ? result : []) as ApprovalRequest[];
     },
     enabled: !!user?.id && !!profile?.organization_id,
   });
@@ -88,7 +89,7 @@ export function useAllApprovals(statusFilter: string = 'all') {
 
       const response = await httpClient.get('/api/approval/list', { params });
 
-      const items = response.data?.data?.items || [];
+      const items = Array.isArray(response.data?.data?.items) ? response.data.data.items : [];
       return items.map((item: Record<string, unknown>) => ({
         ...item,
         submitter_name: (item.submitter_name as string) || '未知用户',

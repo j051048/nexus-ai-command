@@ -22,7 +22,7 @@ export function useExceptions() {
       // 1. 预算超支
       try {
         const response = await httpClient.get('/api/finance/budgets');
-        const budgets = response.data?.budgets || [];
+        const budgets = Array.isArray(response.data?.budgets) ? response.data.budgets : [];
         for (const b of budgets) {
           const total = Number(b.total_amount || 0);
           const used = Number(b.used_amount || 0);
@@ -43,7 +43,7 @@ export function useExceptions() {
       // 2. 停滞商机
       try {
         const response = await httpClient.get('/api/sales-leads');
-        const leads = response.data?.leads || [];
+        const leads = Array.isArray(response.data?.leads) ? response.data.leads : [];
         for (const l of leads) {
           const updatedAt = l.updated_at;
           if (!updatedAt) continue;
@@ -64,7 +64,7 @@ export function useExceptions() {
       // 3. 合同即将到期
       try {
         const response = await httpClient.get('/api/contracts');
-        const contracts = response.data?.contracts || [];
+        const contracts = Array.isArray(response.data?.contracts) ? response.data.contracts : [];
         for (const c of contracts) {
           if (c.status === 'active' && c.end_date) {
             const daysLeft = Math.floor((new Date(c.end_date).getTime() - Date.now()) / 86400000);

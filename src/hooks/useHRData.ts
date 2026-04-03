@@ -94,7 +94,8 @@ export function useAttendanceRecords(month?: string) {
     queryKey: ['hr-attendance', user?.id, month],
     queryFn: async () => {
       const response = await httpClient.get('/api/hr/attendance');
-      return response.data?.records || [];
+      const result = response.data?.records;
+      return Array.isArray(result) ? result : [];
     },
     enabled: !!user?.id,
   });
@@ -150,7 +151,8 @@ export function useRecruitmentList() {
     queryKey: ['hr-positions', profile?.organization_id],
     queryFn: async () => {
       const response = await httpClient.get('/api/hr/positions');
-      return response.data?.positions || [];
+      const result = response.data?.positions;
+      return Array.isArray(result) ? result : [];
     },
     enabled: !!profile?.organization_id,
   });
@@ -161,7 +163,8 @@ export function useCandidates(positionId: string | null) {
     queryKey: ['hr-candidates', positionId],
     queryFn: async () => {
       const response = await httpClient.get('/api/hr/candidates');
-      return response.data?.candidates || [];
+      const result = response.data?.candidates;
+      return Array.isArray(result) ? result : [];
     },
     enabled: !!positionId,
   });

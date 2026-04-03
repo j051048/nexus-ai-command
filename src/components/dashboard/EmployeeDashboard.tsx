@@ -96,7 +96,7 @@ export function EmployeeDashboard() {
 
   // Calculate performance metrics from real data
   const performanceMetrics = useMemo(() => {
-    const metrics = salesMetrics || [];
+    const metrics = Array.isArray(salesMetrics) ? salesMetrics : [];
     if (metrics.length === 0) {
       return defaultPerformanceMetrics;
     }
