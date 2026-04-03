@@ -33,6 +33,10 @@ def _mock_db(table_data=None):
         builder.select.return_value.eq.return_value.single.return_value.execute = AsyncMock(
             return_value=MagicMock(data=data[0] if data else None)
         )
+        # select maybe_single
+        builder.select.return_value.eq.return_value.maybe_single.return_value.execute = AsyncMock(
+            return_value=MagicMock(data=data[0] if data else None)
+        )
         # select list
         builder.select.return_value.eq.return_value.execute = AsyncMock(return_value=resp)
         builder.select.return_value.eq.return_value.order.return_value.execute = AsyncMock(return_value=resp)

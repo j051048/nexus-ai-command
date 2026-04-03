@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -92,7 +92,8 @@ interface OATask {
 
 interface OrgMember {
   id: string;
-  name: string;
+  name?: string;
+  full_name?: string;
   role: string;
 }
 
@@ -129,23 +130,28 @@ function AttendanceTab({ orgId, userId }: { orgId?: string; userId?: string }) {
     setLoading(true);
     try {
       const response = await httpClient.get('/api/oa/attendance/today');
-      const data = response.data?.records || [];
+      // 这里的 response.data 可能因为 404 等原因不是预期对象
+      const rawRecords = response.data?.records || response.data?.data || [];
+      const data = Array.isArray(rawRecords) ? rawRecords : [];
 
       const uiRecords: AttendanceRecord[] = [];
       if (data.length > 0) {
         const row = data[0];
-        if (row.check_in_time) {
-          uiRecords.push({ id: row.id + '_in', clock_type: 'clock_in', clock_time: row.check_in_time, location: row.location });
-        }
-        if (row.check_out_time) {
-          uiRecords.push({ id: row.id + '_out', clock_type: 'clock_out', clock_time: row.check_out_time, location: row.location });
-        }
-        if (row.location === '外勤' && !row.check_in_time && !row.check_out_time) {
-           uiRecords.push({ id: row.id + '_field', clock_type: 'field_work', clock_time: new Date().toISOString(), location: row.location });
+        if (row && typeof row === 'object') {
+          if (row.check_in_time) {
+            uiRecords.push({ id: row.id + '_in', clock_type: 'clock_in', clock_time: row.check_in_time, location: row.location });
+          }
+          if (row.check_out_time) {
+            uiRecords.push({ id: row.id + '_out', clock_type: 'clock_out', clock_time: row.check_out_time, location: row.location });
+          }
+          if (row.location === '外勤' && !row.check_in_time && !row.check_out_time) {
+             uiRecords.push({ id: row.id + '_field', clock_type: 'field_work', clock_time: new Date().toISOString(), location: row.location });
+          }
         }
       }
       setRecords(uiRecords);
-    } catch {
+    } catch (e) {
+      console.error('Fetch attendance records failed:', e);
       setRecords([]);
     } finally {
       setLoading(false);
@@ -171,8 +177,9 @@ function AttendanceTab({ orgId, userId }: { orgId?: string; userId?: string }) {
     }
   };
 
-  const clockedIn = records.some((r) => r.clock_type === 'clock_in');
-  const clockedOut = records.some((r) => r.clock_type === 'clock_out');
+  const isRecordsArray = Array.isArray(records);
+  const clockedIn = isRecordsArray && records.some((r) => r.clock_type === 'clock_in');
+  const clockedOut = isRecordsArray && records.some((r) => r.clock_type === 'clock_out');
 
   return (
     <div className="space-y-4">
@@ -428,10 +435,11 @@ export function OACenter() {
     try {
       if (!profile?.organization_id) return;
       const response = await httpClient.get('/api/users/org-members');
-      const data = response.data?.members || response.data?.data || [];
+      const data = response.data?.members || response.data?.data || response.data || [];
       setOrgMembers(Array.isArray(data) ? data : []);
-    } catch {
-      // non-critical
+    } catch (e) {
+      console.error('Fetch org members failed:', e);
+      setOrgMembers([]);
     }
   }, [profile?.organization_id]);
 
@@ -470,7 +478,7 @@ export function OACenter() {
     if (!(await confirm('确认要撤回这条请假申请吗？'))) return;
     try {
       // 乐观更新：立即从列表移除
-      setLeaves(prev => prev.filter(l => l.id !== leaveId));
+      setLeaves(prev => (Array.isArray(prev) ? prev.filter(l => l.id !== leaveId) : []));
       await httpClient.patch(`/api/oa/leave-requests/${leaveId}`, { status: 'cancelled' });
       toast.success('请假申请已撤回');
     } catch (error: unknown) {
@@ -482,7 +490,7 @@ export function OACenter() {
   const handleCancelMeeting = async (meetingId: string) => {
     if (!(await confirm('确认要取消这场会议吗？'))) return;
     try {
-      setMeetings(prev => prev.filter(m => m.id !== meetingId));
+      setMeetings(prev => (Array.isArray(prev) ? prev.filter(m => m.id !== meetingId) : []));
       await httpClient.patch(`/api/oa/meetings/${meetingId}/cancel`);
       toast.success('会议已取消');
     } catch (error: unknown) {
@@ -524,7 +532,8 @@ export function OACenter() {
       });
 
       // Get task details for notification
-      const task = tasks.find((t) => t.id === completionTaskId);
+      const safeTasks = Array.isArray(tasks) ? tasks : [];
+      const task = safeTasks.find((t) => t.id === completionTaskId);
       const myName = profile?.name || '某同事';
 
       // Send notification to CC'd user (if selected)
@@ -538,11 +547,11 @@ export function OACenter() {
             action_url: '/oa?tab=task',
           });
         } catch {
-          // non-critical, notification send failure shouldn't block completion
+          // non-critical
         }
       }
 
-      // Also notify the task creator (if different from current user and CC'd user)
+      // Also notify the task creator
       if (
         task?.created_by &&
         task.created_by !== user?.id &&
@@ -570,8 +579,6 @@ export function OACenter() {
       setCompletionSubmitting(false);
     }
   };
-
-  const filteredTasks = taskFilter === 'all' ? tasks : tasks.filter((t) => t.status === taskFilter);
 
   // --- Helpers ---
   const getLeaveTypeName = (type: string) => {
@@ -618,13 +625,21 @@ export function OACenter() {
     }
   };
 
-  const leaveStats = {
-    total: leaves.length,
-    pending: leaves.filter((l) => l.status === 'pending').length,
-    totalDays: leaves
-      .filter((l) => l.status === 'approved')
-      .reduce((sum, l) => sum + (l.days || 0), 0),
-  };
+  const filteredTasks = useMemo(() => {
+    if (!Array.isArray(tasks)) return [];
+    return taskFilter === 'all' ? tasks : tasks.filter((t) => t && t.status === taskFilter);
+  }, [tasks, taskFilter]);
+
+  const leaveStats = useMemo(() => {
+    const safeLeaves = Array.isArray(leaves) ? leaves : [];
+    return {
+      total: safeLeaves.length,
+      pending: safeLeaves.filter((l) => l.status === 'pending').length,
+      totalDays: safeLeaves
+        .filter((l) => l.status === 'approved')
+        .reduce((sum, l) => sum + (Number(l.days) || 0), 0),
+    };
+  }, [leaves]);
 
   return (
     <div className="space-y-6">
@@ -1202,13 +1217,13 @@ export function OACenter() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_none">不抄送</SelectItem>
-                  {Array.isArray(orgMembers) && orgMembers
-                    .filter((m) => m.id !== user?.id)
-                    .map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.name} ({m.role === 'boss' ? '老板' : m.role === 'admin' ? '管理员' : m.role === 'manager' ? '经理' : '员工'})
-                      </SelectItem>
-                    ))}
+                    {Array.isArray(orgMembers) && orgMembers
+                      .filter((m) => m.id !== user?.id)
+                      .map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.full_name || m.name} ({m.role === 'boss' ? '老板' : m.role === 'admin' ? '管理员' : m.role === 'manager' ? '经理' : '员工'})
+                        </SelectItem>
+                      ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">

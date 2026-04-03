@@ -376,12 +376,8 @@ async def get_oa_stats(req: Request, user_id: str = Depends(get_current_user_id)
         attendance_count = (
             await db.table("attendance_records").select("id", count="exact").eq("check_date", today).execute()
         )
-        leave_count = (
-            await db.table("oa_leave_requests").select("id", count="exact").eq("status", "pending").execute()
-        )
-        task_count = (
-            await db.table("oa_tasks").select("id", count="exact").not_.eq("status", "completed").execute()
-        )
+        leave_count = await db.table("oa_leave_requests").select("id", count="exact").eq("status", "pending").execute()
+        task_count = await db.table("oa_tasks").select("id", count="exact").not_.eq("status", "completed").execute()
 
         return api_success(
             data={
@@ -398,4 +394,3 @@ async def get_oa_stats(req: Request, user_id: str = Depends(get_current_user_id)
             data={"metrics": {"today_attendance": 0, "pending_leaves": 0, "active_tasks": 0}},
             message="使用默认统计数据",
         )
-

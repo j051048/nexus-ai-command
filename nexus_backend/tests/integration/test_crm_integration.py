@@ -55,14 +55,17 @@ async def crm_client():
 
     app.dependency_overrides[get_current_user_id] = _fake_user
 
-    # Bypass TenantContextMiddleware so it doesn't overwrite org_id/db
+    # Bypass TenantContextMiddleware so it doesn't overwrite org_id/db.
+    # Force middleware stack rebuild so the patch takes effect.
     with patch(
         "app.core.security_middleware.TenantContextMiddleware.dispatch",
         _passthrough_dispatch,
     ):
+        app.middleware_stack = None  # Force rebuild with patched dispatch
         wrapped = _OrgInjectApp(app)
         async with AsyncClient(transport=ASGITransport(app=wrapped), base_url="http://test") as ac:
             yield ac
+        app.middleware_stack = None  # Reset for other tests
 
     app.dependency_overrides.pop(get_current_user_id, None)
 

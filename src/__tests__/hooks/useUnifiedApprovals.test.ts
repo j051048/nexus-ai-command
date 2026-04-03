@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * useUnifiedApprovals / useTabCounts 单元测试
  * 覆盖: 各 tab 查询、筛选、分页、fallback 默认值、轮询配置
