@@ -56,12 +56,23 @@ pytest_output*.txt
 
 # Playwright
 playwright-report/
+playwright-results.json/
 test-results/
+
+# Test reports (CI artifacts)
+test-reports/
+nexus_backend/test-reports/
+vitest-results.json
 
 # Coverage reports
 coverage/
 htmlcov/
 *.lcov
+**/.coverage
+
+# Python caches
+.pytest_cache/
+.ruff_cache/
 
 # AI Tools
 .claude/
