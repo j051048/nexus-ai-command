@@ -117,12 +117,13 @@ MANAGER_USER_ID = "user-002"
 
 def _load_tool(tool_name: str) -> BaseTool:
     """从工具注册表动态加载工具实例"""
-    from app.tools import _TOOL_MODULES
+    from app.tools import _TOOL_MODULES, _VMD_TOOL_MODULES
 
-    if tool_name not in _TOOL_MODULES:
-        raise KeyError(f"Tool '{tool_name}' not registered in _TOOL_MODULES")
+    spec = _TOOL_MODULES.get(tool_name) or _VMD_TOOL_MODULES.get(tool_name)
+    if not spec:
+        raise KeyError(f"Tool '{tool_name}' not registered in _TOOL_MODULES or _VMD_TOOL_MODULES")
 
-    module_path, class_name = _TOOL_MODULES[tool_name]
+    module_path, class_name = spec
     import importlib
     mod = importlib.import_module(module_path)
     cls = getattr(mod, class_name)
