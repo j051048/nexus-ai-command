@@ -29,5 +29,6 @@ export function useHotkeys(key: string, handler: KeyHandler, deps: unknown[] = [
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, deps);
+  }, [key, handler, ...deps]);
 }
+

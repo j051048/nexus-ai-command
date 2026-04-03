@@ -4,7 +4,6 @@ import logging
 
 from fastapi import APIRouter, Header, Request, Response
 
-from app.core.errors import ErrorCode, api_error
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/webhooks", tags=["Webhooks"])
@@ -34,7 +33,7 @@ async def stripe_webhook(
     try:
         payload = await request.body()
         # 验证并处理 Webhook
-        event = await payment_gateway.handle_webhook(payload, stripe_signature)
+        _event = await payment_gateway.handle_webhook(payload, stripe_signature)
         return Response(content='{"status": "success"}', status_code=200, media_type="application/json")
     except ValueError as e:
         logger.error(f"Stripe webhook payload error: {e}")

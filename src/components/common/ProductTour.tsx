@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Joyride, Step, EventData, STATUS } from 'react-joyride';
+import { Joyride, Step, STATUS } from 'react-joyride';
 
 const tourSteps: Step[] = [
   {
@@ -30,16 +30,19 @@ export function ProductTour() {
 
   useEffect(() => {
     // 如果是测试环境，或者已经看过引导，则不开启
-    const isTest = import.meta.env.VITE_SKIP_TOUR === 'true';
+    const isTest = import.meta.env.VITE_SKIP_TOUR === 'true' || localStorage.getItem('nexus-joyride-seen') === 'true';
     const hasSeenTour = localStorage.getItem('hasSeenTour');
     if (!hasSeenTour && !isTest) {
-      setTimeout(() => setRun(true), 1000);
+      const timer = setTimeout(() => setRun(true), 1000);
+      return () => clearTimeout(timer);
     }
   }, []);
 
-  const handleJoyrideCallback = (data: EventData) => {
+  // Use any with eslint-disable for the complex Joyride callback data type
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleJoyrideCallback = (data: any) => {
     const { status } = data;
-    if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status as any)) {
+    if (([STATUS.FINISHED, STATUS.SKIPPED] as string[]).includes(status)) {
       localStorage.setItem('hasSeenTour', 'true');
       setRun(false);
     }
@@ -50,6 +53,9 @@ export function ProductTour() {
       steps={tourSteps}
       run={run}
       continuous
+      scrollToFirstStep={true}
+      showProgress={true}
+      showSkipButton={true}
       locale={{
         back: '上一步',
         close: '关闭',
@@ -58,12 +64,13 @@ export function ProductTour() {
         skip: '跳过',
       }}
       styles={{
+        // options is a top-level key in the styles prop for react-joyride
         options: {
           primaryColor: 'hsl(var(--primary))',
           zIndex: 10000,
         },
-      } as any}
-      onEvent={handleJoyrideCallback}
+      }}
+      callback={handleJoyrideCallback}
     />
   );
 }

@@ -357,3 +357,45 @@ async def approve_leave_request(
     except Exception as e:
         logger.error(f"Failed to approve/reject leave request: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "审批请假申请失败")
+
+
+@router.get("/stats")
+async def get_oa_stats(req: Request, user_id: str = Depends(get_current_user_id)):
+    """获取OA概览统计数据"""
+    try:
+        db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
+
+        # 此处模拟聚合统计，实际项目中应根据数据库表进行 count
+        # 统计：今日已打卡人数、待审批请假、进行中任务
+        from datetime import date
+
+        today = date.today().isoformat()
+
+        attendance_count = (
+            await db.table("attendance_records").select("id", count="exact").eq("check_date", today).execute()
+        )
+        leave_count = (
+            await db.table("oa_leave_requests").select("id", count="exact").eq("status", "pending").execute()
+        )
+        task_count = (
+            await db.table("oa_tasks").select("id", count="exact").not_.eq("status", "completed").execute()
+        )
+
+        return api_success(
+            data={
+                "metrics": {
+                    "today_attendance": attendance_count.count or 0,
+                    "pending_leaves": leave_count.count or 0,
+                    "active_tasks": task_count.count or 0,
+                }
+            }
+        )
+    except Exception as e:
+        logger.error(f"Failed to fetch OA stats: {e}")
+        return api_success(
+            data={"metrics": {"today_attendance": 0, "pending_leaves": 0, "active_tasks": 0}},
+            message="使用默认统计数据",
+        )
+

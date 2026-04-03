@@ -254,5 +254,6 @@ export function useWebSocketPush() {
         wsRef.current = null;
       }
     };
-  }, [connect, cleanup]);
+  }, [connect, cleanup, queryClient]);
 }
+
