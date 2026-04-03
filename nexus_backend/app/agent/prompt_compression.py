@@ -63,7 +63,7 @@ def _micro_compact_lc_messages(messages: list[BaseMessage]) -> list[BaseMessage]
             continue
 
         # Older messages — compact
-        if isinstance(msg, (SystemMessage,)) and len(content) > _LC_TOOL_RESULT_THRESHOLD:
+        if isinstance(msg, SystemMessage) and len(content) > _LC_TOOL_RESULT_THRESHOLD:
             # Tool result / context injection — summarize
             lines = content.split("\n", 3)
             first_line = lines[0][:120] if lines else content[:120]

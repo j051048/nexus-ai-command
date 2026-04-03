@@ -126,7 +126,7 @@ class AgentReplayService:
         replay_steps: list[dict] = []
         for i, step in enumerate(steps_raw):
             ts_raw = step.get("timestamp")
-            if isinstance(ts_raw, (int, float)):
+            if isinstance(ts_raw, int | float):
                 ts_str = datetime.fromtimestamp(ts_raw, tz=UTC).isoformat()
             elif isinstance(ts_raw, str):
                 ts_str = ts_raw

@@ -98,7 +98,7 @@ class RAGEvaluator:
                 metrics=[context_precision, answer_relevancy, faithfulness],
             )
             return {
-                "metrics": {k: round(v, 4) for k, v in dict(score).items() if isinstance(v, (int, float))},
+                "metrics": {k: round(v, 4) for k, v in dict(score).items() if isinstance(v, int | float)},
                 "sample_count": len(supervised),
                 "status": "ragas",
             }

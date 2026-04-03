@@ -75,7 +75,7 @@ def cache(ttl: int = 300, prefix: str = "nexus", exclude_params: list[str] | Non
             # 注意: 如果是实例方法，第一个参数是 self，通常也要排除或者只取其特定属性
             # 这里简单处理，排除第一个参数如果是类实例的情况（简单通过是否有 __dict__ 判断不太严谨，但常用）
             key_args = list(args)
-            if key_args and hasattr(key_args[0], "__class__") and not isinstance(key_args[0], (str, int, float, bool, list, dict)):
+            if key_args and hasattr(key_args[0], "__class__") and not isinstance(key_args[0], str | int | float | bool | list | dict):
                 key_args = key_args[1:]
 
             key_data = f"{func.__module__}:{func.__name__}:{key_args}:{safe_kwargs}"

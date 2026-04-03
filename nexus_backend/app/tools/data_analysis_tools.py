@@ -63,7 +63,7 @@ def _find_numeric_fields(records: list[dict]) -> list[str]:
     candidates = []
     sample = records[0]
     for key, val in sample.items():
-        if isinstance(val, (int, float)):
+        if isinstance(val, int | float):
             candidates.append(key)
         elif isinstance(val, str):
             try:
