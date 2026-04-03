@@ -49,3 +49,20 @@ async def update_profile(
     except Exception as e:
         logger.error(f"Failed to update profile: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "更新资料失败")
+
+
+@router.get("/org-members")
+async def get_org_members(
+    req: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """获取组织架构成员列表 (OA 中心使用)"""
+    try:
+        db = getattr(req.state, "db", None)
+        # 获取所有活跃用户信息，用于 OA 展示
+        result = await db.table("users").select("id, full_name, avatar_url, role, department").execute()
+        return api_success(data={"members": result.data if result.data else []})
+    except Exception as e:
+        logger.error(f"Failed to fetch org members: {e}")
+        # 降级处理：即使报错也返回空列表，防止前端白屏
+        return api_success(data={"members": []})

@@ -239,9 +239,9 @@ function AttendanceTab({ orgId, userId }: { orgId?: string; userId?: string }) {
             <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin" /></div>
           ) : records.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">今日暂无打卡记录</p>
-          ) : (
+          ) : (Array.isArray(records) && records.length > 0) ? (
             <div className="space-y-2">
-              {records.map((r) => (
+              {records?.map((r) => (
                 <div key={r.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                   <div className="flex items-center gap-3">
                     <Badge variant={r.clock_type === 'clock_in' ? 'default' : r.clock_type === 'clock_out' ? 'secondary' : 'outline'}>
@@ -257,6 +257,8 @@ function AttendanceTab({ orgId, userId }: { orgId?: string; userId?: string }) {
                 </div>
               ))}
             </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">今日暂无打卡记录</p>
           )}
         </CardContent>
       </Card>
@@ -292,7 +294,8 @@ export function OACenter() {
     try {
       if (!user?.id) return;
       const response = await httpClient.get('/api/oa/leave-requests');
-      setLeaves((response.data?.requests as LeaveRequest[]) || []);
+      const data = response.data?.requests || response.data?.data || [];
+      setLeaves(Array.isArray(data) ? data : []);
     } catch (error: unknown) {
       toast.error('加载请假记录失败');
     } finally {
@@ -349,7 +352,8 @@ export function OACenter() {
     try {
       if (!profile?.organization_id) return;
       const response = await httpClient.get('/api/oa/meetings');
-      setMeetings((response.data?.data?.items || response.data?.data || []) as MeetingBooking[]);
+      const data = response.data?.data?.items || response.data?.data || response.data || [];
+      setMeetings(Array.isArray(data) ? data : []);
     } catch (error: unknown) {
       toast.error('加载会议记录失败');
     } finally {
@@ -411,8 +415,8 @@ export function OACenter() {
     try {
       if (!profile?.organization_id) return;
       const response = await httpClient.get('/api/oa/tasks');
-      const data = response.data?.data?.items || response.data?.data || [];
-      setTasks(data as OATask[]);
+      const data = response.data?.data?.items || response.data?.data || response.data || [];
+      setTasks(Array.isArray(data) ? data : []);
     } catch (error: unknown) {
       toast.error('加载任务列表失败');
     } finally {
@@ -424,7 +428,8 @@ export function OACenter() {
     try {
       if (!profile?.organization_id) return;
       const response = await httpClient.get('/api/users/org-members');
-      setOrgMembers((response.data?.data || []) as OrgMember[]);
+      const data = response.data?.members || response.data?.data || [];
+      setOrgMembers(Array.isArray(data) ? data : []);
     } catch {
       // non-critical
     }
@@ -732,7 +737,7 @@ export function OACenter() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {leaves.map((leave) => (
+                  {Array.isArray(leaves) && leaves.map((leave) => (
                     <div
                       key={leave.id}
                       className="flex items-center justify-between p-3 rounded-lg border"
@@ -807,7 +812,7 @@ export function OACenter() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {meetings.map((meeting) => (
+                  {Array.isArray(meetings) && meetings.map((meeting) => (
                     <div
                       key={meeting.id}
                       className="flex items-center justify-between p-3 rounded-lg border"
@@ -889,7 +894,7 @@ export function OACenter() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {filteredTasks.map((task) => (
+                  {Array.isArray(filteredTasks) && filteredTasks.map((task) => (
                     <div
                       key={task.id}
                       className="flex items-center justify-between p-3 rounded-lg border"
@@ -1197,7 +1202,7 @@ export function OACenter() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="_none">不抄送</SelectItem>
-                  {orgMembers
+                  {Array.isArray(orgMembers) && orgMembers
                     .filter((m) => m.id !== user?.id)
                     .map((m) => (
                       <SelectItem key={m.id} value={m.id}>
