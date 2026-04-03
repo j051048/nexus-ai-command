@@ -24,7 +24,7 @@ export function PerformanceMetricsMonitor({ metrics }: PerformanceMetricsMonitor
                 </span>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                {metrics.map((metric) => (
+                {(Array.isArray(metrics) ? metrics : []).map((metric) => (
                     <div key={metric.name} className="space-y-2 sm:space-y-3">
                         <div className="flex items-center justify-between gap-1">
                             <p className="text-xs sm:text-sm text-muted-foreground truncate">{metric.name}</p>

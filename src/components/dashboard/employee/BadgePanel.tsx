@@ -17,7 +17,7 @@ export function BadgePanel({ badges }: BadgePanelProps) {
                 </button>
             </div>
             <div className="flex gap-2 sm:gap-4 overflow-x-auto pb-2">
-                {badges.map((badge, index) => (
+                {(Array.isArray(badges) ? badges : []).map((badge, index) => (
                     <div
                         key={badge.id}
                         className={cn(

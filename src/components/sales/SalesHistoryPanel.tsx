@@ -65,18 +65,19 @@ export function SalesHistoryPanel() {
 
   // Calculate summary stats
   const summary = React.useMemo(() => {
-    if (!data || data.length === 0) return null;
+    const safeData = Array.isArray(data) ? data : [];
+    if (safeData.length === 0) return null;
     
     return {
-      totalLeads: data.reduce((sum, d) => sum + (d.leads_count || 0), 0),
-      totalConversions: data.reduce((sum, d) => sum + (d.conversions || 0), 0),
-      totalRevenue: data.reduce((sum, d) => sum + (Number(d.revenue) || 0), 0),
+      totalLeads: safeData.reduce((sum, d) => sum + (d.leads_count || 0), 0),
+      totalConversions: safeData.reduce((sum, d) => sum + (d.conversions || 0), 0),
+      totalRevenue: safeData.reduce((sum, d) => sum + (Number(d.revenue) || 0), 0),
       avgWinRate: Math.round(
-        data.reduce((sum, d) => sum + (Number(d.win_rate) || 0), 0) / data.length
+        safeData.reduce((sum, d) => sum + (Number(d.win_rate) || 0), 0) / safeData.length
       ),
-      totalCalls: data.reduce((sum, d) => sum + (d.calls_made || 0), 0),
+      totalCalls: safeData.reduce((sum, d) => sum + (d.calls_made || 0), 0),
       avgScore: Math.round(
-        data.reduce((sum, d) => sum + (d.score || 0), 0) / data.length
+        safeData.reduce((sum, d) => sum + (d.score || 0), 0) / safeData.length
       ),
     };
   }, [data]);
@@ -248,7 +249,7 @@ export function SalesHistoryPanel() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.map((row) => (
+                {(Array.isArray(data) ? data : []).map((row) => (
                   <TableRow key={row.id}>
                     <TableCell className="font-medium">{row.date}</TableCell>
                     <TableCell className="text-right mono-number">{row.leads_count || 0}</TableCell>

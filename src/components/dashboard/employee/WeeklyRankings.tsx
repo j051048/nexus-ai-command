@@ -21,7 +21,7 @@ export function WeeklyRankings({ rankings }: WeeklyRankingsProps) {
                 <span className="text-xs text-muted-foreground">实时更新</span>
             </div>
             <div className="space-y-2 sm:space-y-3">
-                {rankings.map((item) => (
+                {(Array.isArray(rankings) ? rankings : []).map((item) => (
                     <div
                         key={item.rank}
                         className={cn(
