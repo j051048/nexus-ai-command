@@ -57,8 +57,6 @@ Architecture Evolution Roadmap (2026-03):
 """
 
 import asyncio
-import hashlib
-import json
 import logging
 import time
 from typing import Optional
@@ -76,18 +74,26 @@ from app.agent.middlewares import (
     tenant_context_middleware,
     token_limit_middleware,
 )
-from app.agent.nodes import critic_node, error_node, execute_node, plan_node, reflect_node, respond_node, simple_respond_node, slot_verify_node, synthesize_node
 from app.agent.node_parallel_context import parallel_context_and_plan
+from app.agent.nodes import (
+    critic_node,
+    error_node,
+    execute_node,
+    plan_node,
+    reflect_node,
+    respond_node,
+    simple_respond_node,
+    slot_verify_node,
+    synthesize_node,
+)
 from app.agent.nodes_orchestrator import orchestrate_node
 from app.agent.nodes_wbs import wbs_decompose_node
 from app.agent.router import route_node
-from app.agent.safety_guards import SLO_THRESHOLDS, has_irreversible_tool, is_mutation_fast_path, check_slo_budget
-from app.agent.state import AgentState, QueryComplexity, get_completed_tools, get_config, get_task_steps
+from app.agent.safety_guards import SLO_THRESHOLDS, has_irreversible_tool, is_mutation_fast_path
+from app.agent.state import AgentState, QueryComplexity, get_completed_tools, get_task_steps
+from app.core.agent_metrics import record_agent_execution
 from app.core.config import settings
 from app.core.timeout import with_timeout
-from app.core.agent_metrics import record_agent_execution
-import time
-from app.tools import get_tool
 
 logger = logging.getLogger(__name__)
 
@@ -848,7 +854,7 @@ class AgentGraph:
         # Check conversation turn limit
         messages = initial_state.get("messages", [])
         if len(messages) > 50:
-            logger.warning(f"Conversation exceeded 50 turns, rejecting request")
+            logger.warning("Conversation exceeded 50 turns, rejecting request")
             initial_state["final_response"] = "对话轮次已达上限（50轮），请开始新的对话。"
             initial_state["error"] = "MAX_TURNS_EXCEEDED"
             return initial_state
@@ -881,7 +887,7 @@ class AgentGraph:
             )
 
             return result
-        except Exception as e:
+        except Exception:
             duration = time.time() - start_time
             record_agent_execution(
                 user_id=initial_state.get("config", {}).get("user_id", "unknown"),

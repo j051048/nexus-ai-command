@@ -3,12 +3,13 @@ P2: 统一日历工具集
 提供日程查询、创建、修改/取消功能，统一所有时间相关数据到 calendar_events 表。
 """
 
+import contextlib
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from .base_tool import BaseTool
 from ._shared import _get_client
+from .base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
 
@@ -128,10 +129,8 @@ class CalendarQueryTool(BaseTool):
             et = evt.get("end_time")
             end_time_str = ""
             if et:
-                try:
+                with contextlib.suppress(Exception):
                     end_time_str = f"-{datetime.fromisoformat(et.replace('Z', '+00:00')).astimezone(CN_TZ).strftime('%H:%M')}"
-                except Exception:
-                    pass
 
             location = f" | 📍{evt['location']}" if evt.get("location") else ""
             attendees = evt.get("attendees") or []

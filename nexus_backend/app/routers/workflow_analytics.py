@@ -4,7 +4,9 @@ Phase 3: 费用趋势、审批效率分析
 """
 import logging
 from datetime import datetime, timedelta
+
 from fastapi import APIRouter, Depends, Request
+
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
 

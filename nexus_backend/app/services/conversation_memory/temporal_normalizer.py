@@ -1,8 +1,7 @@
 """P0 LoCoMo Fix: Temporal normalization - convert relative time to absolute dates."""
 
 import re
-from datetime import datetime, timedelta, UTC
-from typing import Dict, List, Optional
+from datetime import UTC, datetime, timedelta
 
 # Relative time patterns (Chinese + English)
 RELATIVE_TIME_PATTERNS = {
@@ -39,8 +38,8 @@ RELATIVE_TIME_PATTERNS = {
 def normalize_temporal_context(
     session_date: str,
     text: str,
-    metadata: Optional[Dict] = None
-) -> Dict:
+    metadata: dict | None = None
+) -> dict:
     """
     P0: 在存储前把相对时间转成绝对时间
 
@@ -91,7 +90,7 @@ def normalize_temporal_context(
     return meta
 
 
-def extract_time_range_from_query(query: str) -> Optional[List[str]]:
+def extract_time_range_from_query(query: str) -> list[str] | None:
     """
     P1: 从问题中提取时间范围
 
@@ -126,8 +125,8 @@ def extract_time_range_from_query(query: str) -> Optional[List[str]]:
 
 
 def calculate_temporal_overlap(
-    memory_anchors: Optional[List[str]],
-    query_time_range: Optional[List[str]]
+    memory_anchors: list[str] | None,
+    query_time_range: list[str] | None
 ) -> float:
     """
     P1: 计算记忆时间锚点与问题时间范围的重叠度
@@ -149,9 +148,9 @@ def calculate_temporal_overlap(
 
 def rerank_by_temporal_relevance(
     query: str,
-    memories: List[Dict],
+    memories: list[dict],
     boost_factor: float = 2.0
-) -> List[Dict]:
+) -> list[dict]:
     """
     P1: 针对时间敏感问题，重排检索结果
 

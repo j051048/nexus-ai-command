@@ -2,10 +2,10 @@ import uuid as _uuid
 from typing import Any
 
 from app.services.vector_service import vector_service
-
-from .base_tool import BaseTool
-from ._shared import _get_client
 from app.tools._shared import safe_tool_error
+
+from ._shared import _get_client
+from .base_tool import BaseTool
 
 
 class PerformanceReportTool(BaseTool):
@@ -187,7 +187,7 @@ class AwardBadgeTool(BaseTool):
         if org_id:
             check = await client.table("users").select("id").eq("id", target_id).eq("organization_id", org_id).maybe_single().execute()
             if not check.data:
-                return f"❌ 未找到该员工或该员工不属于本组织。"
+                return "❌ 未找到该员工或该员工不属于本组织。"
 
         try:
             badge_data = {"user_id": target_id, "name": badge_name, "icon": icon}

@@ -9,10 +9,10 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from app.services.ai_service import AIService
-
-from .base_tool import BaseTool
-from ._shared import _get_client
 from app.tools._shared import safe_tool_error
+
+from ._shared import _get_client
+from .base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +104,7 @@ class DataAttributionTool(BaseTool):
                 f"(变化: {((cur_revenue - prev_revenue) / max(prev_revenue, 1)) * 100:+.1f}%)"
             )
             data_context.append(f"线索: {period_name} {cur_leads} vs 上期 {prev_leads}")
-        except Exception as e:
+        except Exception:
             data_context.append("销售指标查询: 暂时不可用")
 
         # 商机阶段分布

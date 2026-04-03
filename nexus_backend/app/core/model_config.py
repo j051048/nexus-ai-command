@@ -40,7 +40,7 @@ def _load_yaml_config() -> dict[str, Any]:
         return _config_cache
 
     # 重新加载
-    with open(config_path, "r", encoding="utf-8") as f:
+    with open(config_path, encoding="utf-8") as f:
         _config_cache = yaml.safe_load(f) or {}
         _config_mtime = current_mtime
         logger.info(f"Loaded model config from {config_path}")

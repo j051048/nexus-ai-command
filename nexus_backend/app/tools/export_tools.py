@@ -41,7 +41,7 @@ async def export_to_excel(
     """
     try:
         from openpyxl import Workbook
-        from openpyxl.styles import Font, PatternFill, Alignment
+        from openpyxl.styles import Alignment, Font, PatternFill
 
         if not data:
             return {"success": False, "error": "数据为空"}
@@ -126,17 +126,17 @@ async def export_to_pdf(
     """
     try:
         from reportlab.lib.pagesizes import A4
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
         from reportlab.lib.units import cm
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
+        from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 
         # 注册中文字体（使用系统字体）
         try:
             pdfmetrics.registerFont(TTFont('SimSun', 'SimSun.ttf'))
             font_name = 'SimSun'
-        except:
+        except Exception:
             font_name = 'Helvetica'  # 回退到默认字体
 
         # 转换 Markdown 到 HTML

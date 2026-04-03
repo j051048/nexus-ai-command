@@ -2,9 +2,7 @@
 Agent 性能监控 - 提升可观测性
 """
 
-import time
-from typing import Dict
-from prometheus_client import Histogram, Counter
+from prometheus_client import Counter, Histogram
 
 # Prometheus 指标
 agent_node_duration = Histogram(

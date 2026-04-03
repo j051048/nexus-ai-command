@@ -1,7 +1,9 @@
 """HR人力资源 API 路由"""
 
 import logging
+
 from fastapi import APIRouter, Depends, Request
+
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
 
@@ -17,8 +19,8 @@ async def list_attendance(
     """获取HR考勤记录"""
     try:
         db = getattr(req.state, "db", None)
-        org_id = getattr(req.state, "org_id", None)
-        
+        getattr(req.state, "org_id", None)
+
         if not db:
             logger.error("Database connection not found in request state")
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
@@ -42,15 +44,15 @@ async def list_salary(
     """获取薪资记录"""
     try:
         db = getattr(req.state, "db", None)
-        org_id = getattr(req.state, "org_id", None)
-        
+        getattr(req.state, "org_id", None)
+
         if not db:
             logger.error("Database connection not found in request state")
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
         # Basic query
         query = db.table("hr_salary_records").select("*")
-        
+
         # Security: Salary records should ALWAYS be filtered by user_id for regular users
         # hr_salary_records 表无 organization_id 列
         query = query.eq("user_id", user_id)
@@ -70,8 +72,8 @@ async def list_performance(
     """获取绩效评审"""
     try:
         db = getattr(req.state, "db", None)
-        org_id = getattr(req.state, "org_id", None)
-        
+        getattr(req.state, "org_id", None)
+
         if not db:
             logger.error("Database connection not found in request state")
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
@@ -96,7 +98,7 @@ async def list_positions(
     try:
         db = getattr(req.state, "db", None)
         org_id = getattr(req.state, "org_id", None)
-        
+
         if not db:
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
@@ -120,7 +122,7 @@ async def list_candidates(
     try:
         db = getattr(req.state, "db", None)
         org_id = getattr(req.state, "org_id", None)
-        
+
         if not db:
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 

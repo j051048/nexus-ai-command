@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
 
@@ -25,7 +25,7 @@ async def calculate_performance(event: PerformanceEvent, user_id: str = Depends(
 
         return api_success(data=result, message="Performance Calculated Successfully")
 
-    except Exception as e:
+    except Exception:
         # Catch unexpected errors handled by service layer
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "绩效数据操作失败")
 
@@ -41,7 +41,7 @@ async def quality_trend(
     try:
         from app.core.database import supabase
 
-        since = datetime.now(timezone.utc) - timedelta(days=days)
+        since = datetime.now(UTC) - timedelta(days=days)
         query = (
             supabase.table("agent_quality_scores")
             .select("created_at, quality_score, completeness, relevance, accuracy, passed")
@@ -85,5 +85,5 @@ async def quality_trend(
             })
 
         return api_success(data={"days": days, "trend": trend})
-    except Exception as e:
+    except Exception:
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "绩效数据操作失败")

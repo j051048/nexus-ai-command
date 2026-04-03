@@ -1,5 +1,4 @@
 """成本监控"""
-from typing import Dict
 
 class CostTracker:
     async def track_llm_call(self, model: str, tokens: int):

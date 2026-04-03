@@ -26,4 +26,4 @@ class UTF8JSONResponse(JSONResponse):
 
 
 # Re-export from canonical source to avoid import confusion
-from app.core.errors import api_success, api_error  # noqa: F401, E402
+from app.core.errors import api_error, api_success  # noqa: F401, E402

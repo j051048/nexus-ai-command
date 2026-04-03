@@ -1,9 +1,10 @@
 """VMD 合规路由"""
 import logging
-from typing import Optional
-from fastapi import APIRouter, Depends, Request, Query
+
+from fastapi import APIRouter, Depends, Request
+
 from app.core.auth import get_current_user_id
-from app.core.errors import api_success, api_error
+from app.core.errors import api_error, api_success
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/vmd/compliance", tags=["VMD Compliance"])

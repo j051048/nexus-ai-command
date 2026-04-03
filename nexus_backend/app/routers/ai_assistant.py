@@ -4,6 +4,7 @@ P0-2: 批量审批建议
 P0-4: 语义搜索
 """
 from fastapi import APIRouter, Depends
+
 from app.core.auth import get_current_user
 from app.core.database import supabase
 from app.services.ai_voice_parser import parse_voice_intent

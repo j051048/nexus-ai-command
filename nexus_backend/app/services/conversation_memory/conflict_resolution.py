@@ -623,7 +623,7 @@ async def _find_matching_new_mem(text: str, new_memories: list[dict]) -> dict:
                 for mem in new_memories:
                     mem_emb = await vector_service.embed_text(mem.get("value", ""))
                     if mem_emb:
-                        score = sum(a * b for a, b in zip(text_emb, mem_emb))
+                        score = sum(a * b for a, b in zip(text_emb, mem_emb, strict=False))
                         if score > best_score:
                             best_score = score
                             best_match = mem

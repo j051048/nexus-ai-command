@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, status, Request
+import logging
+
+from fastapi import APIRouter, Depends, Request, status
 
 from app.core.auth import get_current_user_id
 from app.core.dependencies import get_db, require_role
 from app.core.errors import ErrorCode, api_error, api_success
 from app.models.schemas import ProjectCreate, ProjectUpdate, StandardResponse
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ async def get_projects(db=Depends(get_db), user_id: str = Depends(get_current_us
         res = await query.order("created_at", desc=True).execute()
 
         return api_success(data=res.data)
-    except Exception as e:
+    except Exception:
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "项目操作失败")
 
 
@@ -54,7 +54,7 @@ async def create_project(project: ProjectCreate, db=Depends(get_db), user_id: st
             raise api_error(ErrorCode.DB_ERROR, "Project creation failed")
 
         return api_success(data=res.data[0], message="Project created successfully")
-    except Exception as e:
+    except Exception:
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "项目操作失败")
 
 
@@ -80,7 +80,7 @@ async def update_project(project_id: str, updates: ProjectUpdate, db=Depends(get
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, f"Project {project_id} not found or update failed")
 
         return api_success(data=res.data[0], message="Project updated")
-    except Exception as e:
+    except Exception:
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "项目操作失败")
 
 
@@ -101,7 +101,7 @@ async def delete_project(
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "删除项目失败")
 
         return api_success(data=None, message="项目已删除")
-    except Exception as e:
+    except Exception:
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "项目操作失败")
 
 
@@ -175,7 +175,7 @@ async def generate_weekly_report(
 请用中文输出，格式清晰，每个板块用标题分隔。"""
 
         # 5. 调用 AI 生成
-        from app.services.llm_helpers import resolve_model_config, get_langchain_llm_sync
+        from app.services.llm_helpers import get_langchain_llm_sync, resolve_model_config
 
         config = await resolve_model_config(
             scene_code="content_generation",

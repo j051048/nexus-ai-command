@@ -179,11 +179,9 @@ async def synthesize_node(state: AgentState) -> dict:
         content = tool_summary if tool_summary else "工具执行完成，但无法生成摘要。"
 
     # ── Inline grounding check (replaces reflect Layer 3 + critic for this path) ──
-    is_hallucination = False
     if content and completed_tools:
         grounding_issue = _verify_grounding(content, completed_tools, user_question=user_question)
         if grounding_issue:
-            is_hallucination = True
             logger.warning(f"[Synthesize] Grounding issue detected: {grounding_issue}")
             record_hallucination("synthesize_node")
             # For COMPLEX, trigger replanning; for SIMPLE/MODERATE, just warn

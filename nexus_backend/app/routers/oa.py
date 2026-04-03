@@ -1,9 +1,10 @@
 """OA办公 - 请假、会议预订和任务 API 路由"""
 
 import logging
-from typing import Optional
-from fastapi import APIRouter, Depends, Request, Query
+
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
+
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
 
@@ -105,7 +106,7 @@ async def list_leave_requests(
 ):
     """获取请假申请列表"""
     try:
-        org_id = getattr(req.state, "org_id", None)
+        getattr(req.state, "org_id", None)
         db = getattr(req.state, "db", None)
         if not db:
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
@@ -226,7 +227,7 @@ async def cancel_meeting(
         if not org_id:
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
 
-        result = await db.table("oa_meeting_bookings").update({"status": "cancelled"}).eq("id", meeting_id).execute()
+        await db.table("oa_meeting_bookings").update({"status": "cancelled"}).eq("id", meeting_id).execute()
         return api_success(data={"cancelled": True})
     except Exception as e:
         logger.error(f"Failed to cancel meeting: {e}")
@@ -239,7 +240,7 @@ async def cancel_meeting(
 @router.get("/tasks")
 async def list_oa_tasks(
     req: Request,
-    assignee_id: Optional[str] = Query(None),
+    assignee_id: str | None = Query(None),
     user_id: str = Depends(get_current_user_id),
 ):
     """获取OA任务列表"""
@@ -337,7 +338,7 @@ async def approve_leave_request(
         if status not in ("approved", "rejected"):
             raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "status 必须为 approved 或 rejected")
 
-        result = await db.table("oa_leave_requests").update({"status": status}).eq("id", request_id).execute()
+        await db.table("oa_leave_requests").update({"status": status}).eq("id", request_id).execute()
         return api_success(data={"updated": True})
     except Exception as e:
         logger.error(f"Failed to approve/reject leave request: {e}")

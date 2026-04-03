@@ -1,11 +1,10 @@
 """深度反思机制 - Tree of Thoughts"""
-from typing import List, Dict
 import logging
 
 logger = logging.getLogger(__name__)
 
 class DeepReflector:
-    async def generate_alternatives(self, plan: str) -> List[Dict]:
+    async def generate_alternatives(self, plan: str) -> list[dict]:
         """生成多个候选方案"""
         # TODO: 集成LLM生成真实候选方案
         logger.warning("DeepReflector.generate_alternatives 使用占位实现")
@@ -15,7 +14,7 @@ class DeepReflector:
             {"approach": "方案C", "score": 0.7}
         ]
 
-    async def select_best(self, alternatives: List[Dict]) -> Dict:
+    async def select_best(self, alternatives: list[dict]) -> dict:
         """选择最优方案"""
         if not alternatives:
             return {}

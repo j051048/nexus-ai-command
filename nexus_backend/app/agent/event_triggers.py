@@ -8,8 +8,8 @@ P0-3: 事件驱动触发器 - 数据变化时自动执行
 """
 
 import logging
+from collections.abc import Callable
 from datetime import datetime, timedelta
-from typing import Callable, Optional
 
 from app.core.database import supabase
 from app.services.chat_service import ChatService

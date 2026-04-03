@@ -29,9 +29,10 @@ async def upload_file(
         包含文件URL和ID的字典
     """
     try:
-        from app.core.database import supabase
         import base64
         from datetime import datetime
+
+        from app.core.database import supabase
 
         # 解码文件内容
         file_bytes = base64.b64decode(file_content)
@@ -41,7 +42,7 @@ async def upload_file(
         storage_path = f"{org_id}/{file_type}/{timestamp}_{filename}"
 
         # 上传到 Supabase Storage
-        result = await supabase.storage.from_("documents").upload(
+        await supabase.storage.from_("documents").upload(
             storage_path, file_bytes, {"content-type": "application/octet-stream"}
         )
 
@@ -125,8 +126,9 @@ async def parse_file(
 def _parse_pdf(file_bytes: bytes) -> str:
     """解析PDF"""
     try:
-        import PyPDF2
         import io
+
+        import PyPDF2
         reader = PyPDF2.PdfReader(io.BytesIO(file_bytes))
         return "\n".join(page.extract_text() for page in reader.pages)
     except Exception:
@@ -136,8 +138,9 @@ def _parse_pdf(file_bytes: bytes) -> str:
 def _parse_word(file_bytes: bytes) -> str:
     """解析Word"""
     try:
-        import docx
         import io
+
+        import docx
         doc = docx.Document(io.BytesIO(file_bytes))
         return "\n".join(p.text for p in doc.paragraphs)
     except Exception:
@@ -147,8 +150,9 @@ def _parse_word(file_bytes: bytes) -> str:
 def _parse_excel(file_bytes: bytes) -> str:
     """解析Excel"""
     try:
-        import pandas as pd
         import io
+
+        import pandas as pd
         df = pd.read_excel(io.BytesIO(file_bytes))
         return df.to_string()
     except Exception:

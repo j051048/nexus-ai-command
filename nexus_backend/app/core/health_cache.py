@@ -6,6 +6,7 @@ G6: 健康探针 /health 改为 O(1) 缓存返回
 """
 
 import asyncio
+import contextlib
 import logging
 import time
 from typing import Any
@@ -52,10 +53,8 @@ class HealthCache:
         self._running = False
         if self._task and not self._task.done():
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
         self._task = None
         logger.info("[HealthCache] Background health checker stopped")
 
@@ -91,7 +90,7 @@ class HealthCache:
                     timeout=2.0,
                 )
                 return "connected"
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning("Health check DB timeout (>2s)")
                 return "error" if settings.IS_PRODUCTION else "error: timeout"
             except Exception as e:

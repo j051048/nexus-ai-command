@@ -10,7 +10,8 @@ P2: 工具调用缓存 - 提升响应速度
 import hashlib
 import json
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from app.services.cache_service import cache_service
 

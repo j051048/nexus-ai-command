@@ -7,11 +7,11 @@ for background tasks like report generation, data analysis, and proactive notifi
 
 import asyncio
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.agent.graph import get_agent_graph
-from app.agent.state import AgentConfig, AgentPhase, CURRENT_SCHEMA_VERSION, QueryComplexity
+from app.agent.state import CURRENT_SCHEMA_VERSION, AgentConfig, AgentPhase, QueryComplexity
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -66,8 +66,8 @@ async def run_proactive_agent(
     # 注入用户记忆，让主动任务结果更个性化
     memory_ctx = ""
     try:
-        from app.services.conversation_memory_service import conversation_memory_service
         from app.core.database import supabase as db_client
+        from app.services.conversation_memory_service import conversation_memory_service
 
         memory_ctx = await conversation_memory_service.build_memory_context(
             user_id=user_id, current_query=prompt, db=db_client,

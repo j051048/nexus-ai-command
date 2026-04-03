@@ -147,7 +147,7 @@ class CriticResult(BaseModel):
 # Lightweight interceptor system for: before_tool_call, after_tool_call,
 # before_prompt_build. Hooks can modify args, log telemetry, or block execution.
 
-from typing import Callable
+from collections.abc import Callable
 
 # Hook type: async (context_dict) -> context_dict | None
 # Return None to signal "block this action"
@@ -849,9 +849,7 @@ def _provider_key(llm) -> str:
 def _is_provider_cooled_down(key: str) -> bool:
     """Check if a provider is still in cooldown."""
     until = _provider_cooldowns.get(key, 0)
-    if until and time.time() < until:
-        return True
-    return False
+    return bool(until and time.time() < until)
 
 
 def _set_provider_cooldown(key: str):

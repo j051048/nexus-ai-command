@@ -4,6 +4,7 @@
 """
 
 import logging
+
 from app.core.cache import cache, invalidate_cache
 
 logger = logging.getLogger(__name__)
@@ -140,7 +141,7 @@ class OrganizationService:
             employees = await db.table("employees").select("*").eq("department_id", department_id).execute()
             if employees.data:
                 return employees.data
-            
+
             # 尝试根据名称匹配 (部分版本 users 表存的是 department 名称)
             dept = await self.get_department(department_id, db=db)
             if dept:
@@ -189,10 +190,7 @@ class OrganizationService:
                 .order("sort_order", desc=False)
             )
             if parent_id is not None:
-                if parent_id == "root":
-                    query = query.is_("parent_id", "null")
-                else:
-                    query = query.eq("parent_id", parent_id)
+                query = query.is_("parent_id", "null") if parent_id == "root" else query.eq("parent_id", parent_id)
             result = await query.execute()
             return result.data or []
         except Exception as e:
@@ -275,7 +273,7 @@ class OrganizationService:
             return {}
 
         root = {**manager.data, "children": []}
-        
+
         # 简单递归获取 2 层
         direct_reports = await self.get_direct_reports(manager_id, db=db)
         for report in direct_reports:
@@ -284,7 +282,7 @@ class OrganizationService:
             grand_reports = await self.get_direct_reports(report["id"], db=db)
             report_node["children"] = grand_reports
             root["children"].append(report_node)
-            
+
         return root
 
     # ========================================================================

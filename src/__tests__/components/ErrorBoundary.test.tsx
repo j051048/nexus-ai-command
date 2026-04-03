@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * ErrorBoundary 级联 & 边缘案例测试
  *
@@ -178,7 +179,7 @@ describe('ErrorBoundary 边缘案例', () => {
 
   it('非 Error 对象抛出', () => {
     function ThrowString() {
-      throw 'string error'; // eslint-disable-line no-throw-literal
+      throw 'string error';  
     }
     // React 会将非 Error 包装，ErrorBoundary 应该仍能捕获
     render(

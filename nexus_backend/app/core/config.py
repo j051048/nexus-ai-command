@@ -326,6 +326,7 @@ settings = Settings()
 # Sync critical env vars from Pydantic back to os.environ
 # so that modules using os.getenv() (celery_app, rate_limiter, etc.) can also read them
 import os as _os
+
 _sync_keys = ["REDIS_URL", "SUPABASE_URL", "SUPABASE_SERVICE_KEY", "OPENAI_API_KEY", "AI_BASE_URL"]
 for _key in _sync_keys:
     _val = getattr(settings, _key, None)

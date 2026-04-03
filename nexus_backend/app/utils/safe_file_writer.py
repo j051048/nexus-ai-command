@@ -4,13 +4,13 @@ Safe file writer with atomic operations.
 Prevents file corruption during write operations by using temp file + rename pattern.
 """
 
+import contextlib
 import os
 import tempfile
 from pathlib import Path
-from typing import Union
 
 
-async def atomic_write(target_path: Union[str, Path], content: str, encoding: str = "utf-8"):
+async def atomic_write(target_path: str | Path, content: str, encoding: str = "utf-8"):
     """
     Atomically write content to a file.
 
@@ -56,8 +56,6 @@ async def atomic_write(target_path: Union[str, Path], content: str, encoding: st
         os.replace(temp_path, target)
     except Exception:
         # Cleanup on failure
-        try:
+        with contextlib.suppress(OSError):
             os.unlink(temp_path)
-        except OSError:
-            pass
         raise

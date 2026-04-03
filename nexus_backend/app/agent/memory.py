@@ -17,14 +17,14 @@ import asyncio
 import logging
 import re
 from typing import Any
-import numpy as np
 
 _background_tasks: set[asyncio.Task] = set()
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
+from app.agent.query_transformer import QueryTransformer
+from app.agent.query_transformer import llm_rerank as _llm_rerank
 from app.agent.state import AgentConfig
-from app.agent.query_transformer import QueryTransformer, llm_rerank as _llm_rerank
 from app.core.config import settings
 from app.core.database import supabase
 from app.services.chat_service import ChatService
@@ -863,9 +863,10 @@ async def prepare_initial_state(
         _ct_args = config.confirmed_tool.get("args", {})
         if _ct_name and _ct_args:
             try:
-                import json as _json
-                from app.services.conversation_memory import conversation_memory_service
                 import asyncio
+                import json as _json
+
+                from app.services.conversation_memory import conversation_memory_service
                 _t = asyncio.create_task(
                     conversation_memory_service.save_memory(
                         user_id=config.user_id,
@@ -1155,7 +1156,7 @@ async def persist_result(
         results = await asyncio.gather(*coros, return_exceptions=True)
 
         # Log any failures (non-fatal)
-        for name, result in zip(task_names, results):
+        for name, result in zip(task_names, results, strict=False):
             if isinstance(result, Exception):
                 logger.error(f"[Memory] Parallel task '{name}' failed: {result}")
 

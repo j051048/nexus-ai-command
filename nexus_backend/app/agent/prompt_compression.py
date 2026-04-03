@@ -202,8 +202,9 @@ async def _summarize_messages(
 请用2-4句话概括以上对话的要点。不要遗漏关键事实和数字。"""
 
     try:
-        from app.core.config import settings
         from openai import AsyncOpenAI
+
+        from app.core.config import settings
 
         client = AsyncOpenAI(
             api_key=settings.OPENAI_API_KEY,

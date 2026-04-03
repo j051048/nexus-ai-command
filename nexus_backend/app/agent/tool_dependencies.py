@@ -3,12 +3,11 @@
 """
 
 import logging
-from typing import Dict, List, Set
 
 logger = logging.getLogger(__name__)
 
 # 工具依赖关系图
-TOOL_DEPENDENCIES: Dict[str, List[str]] = {
+TOOL_DEPENDENCIES: dict[str, list[str]] = {
     "create_order": ["get_customer", "check_inventory"],
     "send_invoice": ["create_order"],
     "approve_payment": ["get_invoice", "check_balance"],
@@ -20,14 +19,14 @@ TOOL_DEPENDENCIES: Dict[str, List[str]] = {
 class ToolDependencyManager:
     """工具依赖管理器"""
 
-    def get_dependencies(self, tool_name: str) -> List[str]:
+    def get_dependencies(self, tool_name: str) -> list[str]:
         """获取工具的依赖"""
         return TOOL_DEPENDENCIES.get(tool_name, [])
 
-    def resolve_execution_order(self, tools: List[str]) -> List[str]:
+    def resolve_execution_order(self, tools: list[str]) -> list[str]:
         """解析执行顺序（拓扑排序）"""
-        visited: Set[str] = set()
-        result: List[str] = []
+        visited: set[str] = set()
+        result: list[str] = []
 
         def dfs(tool: str):
             if tool in visited:

@@ -5,8 +5,8 @@ TurboQuant: 在线向量量化核心实现
 
 import hashlib
 import logging
+
 import numpy as np
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 

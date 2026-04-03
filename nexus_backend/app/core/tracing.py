@@ -6,7 +6,6 @@ OpenTelemetry 端到端追踪
 
 import logging
 from contextlib import contextmanager
-from typing import Optional
 
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -19,7 +18,7 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 # 全局 tracer
-_tracer: Optional[trace.Tracer] = None
+_tracer: trace.Tracer | None = None
 
 
 def init_tracing():

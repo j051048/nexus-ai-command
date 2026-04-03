@@ -5,13 +5,13 @@
 """
 
 import logging
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.core.database import supabase
 
-from .base_tool import BaseTool
 from ._shared import _get_client
+from .base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
 

@@ -21,9 +21,13 @@ except ImportError:
     logger.warning("tiktoken not installed. Using approximate token counting.")
 
 # ─── Re-export from canonical pricing module for backwards compatibility ────
+from app.core.model_pricing import (
+    DEFAULT_PRICE as DEFAULT_PRICE,
+)
 from app.core.model_pricing import (  # noqa: E402, F401
     MODEL_PRICES as MODEL_PRICES,
-    DEFAULT_PRICE as DEFAULT_PRICE,
+)
+from app.core.model_pricing import (
     estimate_cost as _estimate_cost,
 )
 

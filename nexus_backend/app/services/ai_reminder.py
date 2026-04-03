@@ -3,6 +3,7 @@
 Phase 3: 分析延迟原因并生成催办策略
 """
 import logging
+
 from app.core.database import supabase
 from app.services.llm_gateway import get_llm
 
@@ -21,10 +22,10 @@ async def generate_reminder_strategy(request_id: str, org_id: str):
             return {"error": "Request not found"}
 
         approver_id = request.data.get("current_approver")
-        timeout_at = request.data.get("timeout_at")
+        request.data.get("timeout_at")
 
         # 分析审批人历史审批速度
-        history = await supabase.table("approval_requests").select("*").eq(
+        await supabase.table("approval_requests").select("*").eq(
             "current_approver", approver_id
         ).eq("status", "approved").limit(10).execute()
 

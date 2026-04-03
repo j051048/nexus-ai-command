@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * useApprovals / useMyApprovals / useAllApprovals 单元测试
  *

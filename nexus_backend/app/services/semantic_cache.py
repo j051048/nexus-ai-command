@@ -2,8 +2,8 @@
 Semantic Cache Service - Cache AI responses for similar queries
 """
 
+import contextlib
 import hashlib
-import json as _json
 import logging
 import os
 import re
@@ -143,10 +143,7 @@ class SemanticCacheService:
                 return False
 
         # Rule 4: 长查询(>100字) 配 短回复(<50字) → 可疑的不完整回复
-        if len(query) > 100 and len(response_text) < 50:
-            return False
-
-        return True
+        return not (len(query) > 100 and len(response_text) < 50)
 
     @staticmethod
     def _query_hash(query: str) -> str:
@@ -216,14 +213,12 @@ class SemanticCacheService:
                 asyncio.create_task(self._update_hit_count(hash_res.data["id"]))
                 # Backfill Redis hot-cache
                 if r:
-                    try:
+                    with contextlib.suppress(Exception):
                         await r.setex(
                             _redis_cache_key(query_hash, user_id),
                             _REDIS_HOT_CACHE_TTL,
                             hash_res.data["response_text"],
                         )
-                    except Exception:
-                        pass
                 record_cache_hit()
                 self._hits += 1
                 return hash_res.data["response_text"]
@@ -256,14 +251,12 @@ class SemanticCacheService:
 
                 # Backfill Redis hot-cache for this query hash
                 if r:
-                    try:
+                    with contextlib.suppress(Exception):
                         await r.setex(
                             _redis_cache_key(query_hash, user_id),
                             _REDIS_HOT_CACHE_TTL,
                             match["response_text"],
                         )
-                    except Exception:
-                        pass
                 record_cache_hit()
                 self._hits += 1
                 return match["response_text"]

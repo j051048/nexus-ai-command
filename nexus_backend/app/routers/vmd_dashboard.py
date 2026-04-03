@@ -1,7 +1,9 @@
 """VMD 仪表盘路由"""
 
 import logging
+
 from fastapi import APIRouter, Depends, Request
+
 from app.core.auth import get_current_user_id
 from app.core.errors import api_success
 

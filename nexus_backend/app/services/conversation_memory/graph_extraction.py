@@ -8,7 +8,6 @@ Stores triples (source, relationship, destination) in PostgreSQL
 for lightweight knowledge graph functionality.
 """
 
-import json
 import logging
 from typing import Any
 
@@ -267,7 +266,7 @@ async def _store_triples(
         try:
             # Entity Resolution: normalize synonymous entities before storage
             try:
-                from .entity_resolution import resolve_triple, get_entity_embedding
+                from .entity_resolution import get_entity_embedding, resolve_triple
 
                 rel = await resolve_triple(org_id, rel, db)
             except Exception as e:

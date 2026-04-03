@@ -137,5 +137,5 @@ async def update_security_settings(
                 "note": "Security settings updated. Password changes require Supabase Auth.",
             }
         )
-    except Exception as e:
+    except Exception:
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "用户资料操作失败")

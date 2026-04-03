@@ -10,7 +10,7 @@ import logging
 from fastapi import APIRouter, Depends, File, Request, UploadFile
 
 from app.core.auth import get_current_user_id
-from app.core.errors import api_error, api_success, ErrorCode
+from app.core.errors import ErrorCode, api_error, api_success
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/chat", tags=["Chat"])

@@ -4,8 +4,6 @@ P1-3: 记忆重要性评分系统
 
 import logging
 
-from app.core.database import supabase
-
 logger = logging.getLogger(__name__)
 
 

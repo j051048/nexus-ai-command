@@ -9,7 +9,7 @@
 
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +88,7 @@ class UserPreferenceService:
             return False
 
         # 2) 活跃时段
-        now_hour = datetime.now(timezone.utc).hour  # 简化：用 UTC
+        now_hour = datetime.now(UTC).hour  # 简化：用 UTC
         start = settings.get("active_hours_start", 9)
         end = settings.get("active_hours_end", 18)
         if start <= end:
@@ -108,10 +108,7 @@ class UserPreferenceService:
         if today_count == 0:
             return True  # 每天至少 1 次
         accept_rate = await self._get_accept_rate(user_id, notification_type)
-        if accept_rate < _MIN_ACCEPT_RATE:
-            return False
-
-        return True
+        return not accept_rate < _MIN_ACCEPT_RATE
 
     # ── get_user_preferences ────────────────────────────────
     async def get_user_preferences(self, user_id: str) -> dict:
@@ -180,7 +177,7 @@ class UserPreferenceService:
 
         from app.core.database import supabase
 
-        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        today_str = datetime.now(UTC).strftime("%Y-%m-%d")
         resp = (
             supabase.table("user_notification_preferences")
             .select("id", count="exact")
@@ -242,7 +239,7 @@ class UserPreferenceService:
             if action in stats[nt]:
                 stats[nt][action] += 1
         # 计算接受率
-        for nt, s in stats.items():
+        for _nt, s in stats.items():
             s["accept_rate"] = round(s["clicked"] / s["total"], 2) if s["total"] else 0
         return stats
 

@@ -1,6 +1,7 @@
 import React, { ComponentType, LazyExoticComponent, Suspense } from 'react';
 
 // Lazy component type with optional preload method
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type PreloadableLazy<T extends ComponentType<any>> =
     LazyExoticComponent<T> & { preload: () => Promise<void> };
 
@@ -27,6 +28,7 @@ export const prefetchRoute = (component: { preload?: () => Promise<unknown> }) =
  *   where a page reload would be disruptive. The error will still be thrown and
  *   can be caught by a React ErrorBoundary.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function lazyWithRetry<T extends ComponentType<any>>(
     factory: () => Promise<{ default: T }>,
     retries = 2,

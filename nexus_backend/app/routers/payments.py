@@ -46,7 +46,7 @@ async def create_order(
         db = getattr(req.state, "db", None)
         order = await payment_service.create_order(org_id, plan_id, payment_method, float(amount), db=db)
         return api_success(data={"order": order})
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "支付参数校验失败")
     except Exception as e:
         logger.error(f"Create order error: {e}")
@@ -159,7 +159,7 @@ async def request_invoice(
         db = getattr(req.state, "db", None)
         result = await payment_service.generate_invoice_request(order_id, invoice_info, db=db)
         return api_success(data={"invoice_request": result})
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "支付参数校验失败")
     except Exception as e:
         logger.error(f"Invoice request error: {e}")

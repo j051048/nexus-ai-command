@@ -749,8 +749,8 @@ class ApprovalChainService:
                     if next_step_type == "executor":
                         executor_role = next_step_def.get("role")
                         action = next_step_def.get("action", "execute")
-                        action_label = next_step_def.get("action_label", "执行确认")
-                        require_evidence = next_step_def.get("require_evidence", False)
+                        next_step_def.get("action_label", "执行确认")
+                        next_step_def.get("require_evidence", False)
 
                         # Executor nodes wait for manual execution confirmation
                         # The executor_id will be passed when they confirm execution

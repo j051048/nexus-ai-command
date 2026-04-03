@@ -336,7 +336,7 @@ async def reflect_node(state: AgentState) -> dict:
     # ── Layer 2: Keyword-based hallucination detection ──
     is_hallucination = False
     hallucination_reason = ""
-    
+
     intent = state.get("intent_summary", "")
     # Sanitize to prevent keyword injection bypass (e.g. injecting "写作" to skip hallucination check)
     from app.agent.node_helpers import sanitize_prompt_field
@@ -495,12 +495,10 @@ AI 回复:
 
     if needs_replanning:
         # Provide escalating feedback: deeper iterations get more specific UI hints
-        if iteration >= 3:
-            thinking_content = f"🔄 深度验证第{iteration}轮: {hallucination_reason}，即将结束验证..."
-        elif iteration >= 2:
-            thinking_content = f"🔄 深度验证中 (第{iteration}轮): {hallucination_reason}，正在修正..."
+        if iteration >= 3 or iteration >= 2:
+            pass
         else:
-            thinking_content = f"⚠️ 检测到潜在事实错误: {hallucination_reason}，正在修正..."
+            pass
 
         # P0-3: Build structured correction guidance for plan_node
         guidance_parts = [f"## 反思修正指令 (第{iteration + 1}轮)"]

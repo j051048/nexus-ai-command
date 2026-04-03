@@ -146,7 +146,7 @@ def _strip_redundant_phrases(text: str) -> str:
         # Split around gen-ui blocks, only process non-block parts
         parts = _re.split(r"(```gen-ui[\s\S]*?```)", text)
         processed = []
-        for i, part in enumerate(parts):
+        for _i, part in enumerate(parts):
             if part.startswith("```gen-ui"):
                 processed.append(part)
             else:

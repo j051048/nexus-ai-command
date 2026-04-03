@@ -2,7 +2,7 @@
 简单进度反馈 - 通过 WebSocket 推送进度消息
 """
 import logging
-from typing import Optional, Callable
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class ProgressHelper:
     """进度反馈辅助类"""
 
-    def __init__(self, callback: Optional[Callable] = None):
+    def __init__(self, callback: Callable | None = None):
         """
         Args:
             callback: WebSocket 发送函数，签名为 async def send(message: str)

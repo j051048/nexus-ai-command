@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 
 interface ErrorDialogProps {
-  error: { message: string; details?: any } | null;
+  error: { message: string; details?: unknown } | null;
   onRetry?: () => void;
   onClose: () => void;
 }

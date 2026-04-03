@@ -5,10 +5,11 @@ Provides a lightweight Supabase client wrapper using PostgREST.
 Falls back gracefully when database is not configured.
 """
 
-import os
-import httpx
-import logging
 import hashlib
+import logging
+import os
+
+import httpx
 from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
@@ -23,8 +24,9 @@ key: str = os.getenv("SUPABASE_SERVICE_KEY", "")
 # We manage this manually inside MiniSupabaseClient since postgrest-py encapsulates its own client.
 
 try:
-    from collections import OrderedDict
+    from collections import OrderedDict  # noqa: F401
     from contextvars import ContextVar
+
     from postgrest import AsyncPostgrestClient
 
     # P1-3修复: 使用ContextVar替代全局字典,避免线程安全问题
@@ -85,15 +87,15 @@ try:
     class OrgFilteredClient:
         _ORG_TABLES = {
             "users", "documents", "document_embeddings", "sales_leads", "sales_metrics",
-            "approval_requests", "projects", "departments", "notifications", 
+            "approval_requests", "projects", "departments", "notifications",
             "oa_tasks", "oa_leave_requests", "oa_meeting_bookings", "oa_meeting_rooms", "oa_work_handovers",
-            "business_clue", "clue_follow_up", 
+            "business_clue", "clue_follow_up",
             "vmd_agent_config", "vmd_main_task", "vmd_sub_task", "vmd_task_audit_record",
             "vmd_reports", "vmd_compliance", "vmd_compliance_issue",
             "ai_settings", "conversation_memories", "org_memories", "chat_sessions",
             "chat_messages", "contracts", "competitors", "knowledge_graph_triples",
             "entity_aliases", "agent_traces", "tenant_credits", "semantic_cache",
-            "webhook_subscriptions", "installed_plugins", 
+            "webhook_subscriptions", "installed_plugins",
             "work_orders", "assets", "certificates", "inventory",
             "pending_confirmations",
         }

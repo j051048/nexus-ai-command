@@ -200,10 +200,7 @@ class ReportGeneratorTool(BaseTool):
         # 构建 Markdown
         md_content = _build_markdown(title, sections)
 
-        if fmt == "html":
-            content = _md_to_simple_html(md_content)
-        else:
-            content = md_content
+        content = _md_to_simple_html(md_content) if fmt == "html" else md_content
 
         result = {
             "format": fmt,

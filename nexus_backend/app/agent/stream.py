@@ -22,11 +22,12 @@ from typing import Any
 
 _background_tasks: set[asyncio.Task] = set()
 
+import contextlib
+
 from app.agent.graph import get_agent_graph
-from app.agent.safety_guards import is_mutation_fast_path as _is_mutation_fast_path
 from app.agent.memory import persist_result, prepare_initial_state
+from app.agent.safety_guards import is_mutation_fast_path as _is_mutation_fast_path
 from app.agent.sse_protocol import (
-    SSE_KEEPALIVE_INTERVAL,
     _chunk_text,
     _sse_ask_user,
     _sse_circuit_break,
@@ -40,10 +41,10 @@ from app.agent.sse_protocol import (
     _with_keepalive,
 )
 from app.agent.state import (
+    CURRENT_SCHEMA_VERSION,
     AgentConfig,
     AgentPhase,
     AgentState,
-    CURRENT_SCHEMA_VERSION,
     QueryComplexity,
     ThinkingStep,
 )
@@ -51,9 +52,9 @@ from app.agent.stream_checks import run_pre_checks
 from app.agent.think_tags import extract_clean_content, strip_think_tags
 from app.core.config import settings
 from app.core.database import supabase
+from app.core.tenant_throttle import tenant_throttle
 from app.core.trace_logger import TraceLogger
 from app.services.agent_trace_service import TraceStatus, agent_trace_service
-from app.core.tenant_throttle import tenant_throttle
 from app.services.token_service import (
     record_completion,
     token_counter,
@@ -79,10 +80,8 @@ async def _emit_error_and_cleanup(
     if tracer:
         tracer.log_error(str(error))
         tracer.log_end()
-    try:
+    with contextlib.suppress(Exception):
         agent_trace_service.end_trace(trace_id, TraceStatus.FAILED, error=str(error)[:500])
-    except Exception:
-        pass
 
 
 async def _cleanup_on_disconnect(
@@ -97,10 +96,8 @@ async def _cleanup_on_disconnect(
         logger.info(log_msg)
     if tracer:
         tracer.log_end(total_tokens=0)
-    try:
+    with contextlib.suppress(Exception):
         agent_trace_service.end_trace(trace_id, TraceStatus.CANCELLED)
-    except Exception:
-        pass
 
 
 def _filter_think_content(content: str) -> str:
@@ -292,7 +289,7 @@ async def run_agent_stream(
     early_complexity = None
     intent_summary = ""
     if last_user_content:
-        from app.agent.router import classify_query, _should_enable_rag
+        from app.agent.router import _should_enable_rag, classify_query
 
         early_complexity, intent_summary = classify_query(last_user_content)
         if early_complexity == QueryComplexity.SIMPLE:
@@ -1040,7 +1037,7 @@ async def run_agent_stream(
     )
 
     # SLO: Record end-to-end duration by complexity tier
-    from app.core.ai_metrics import record_agent_e2e, check_agent_success_rate
+    from app.core.ai_metrics import check_agent_success_rate, record_agent_e2e
     _tier = str(accumulated_state.get("complexity", "moderate"))
     _success = not accumulated_state.get("error")
     record_agent_e2e(_tier, duration_ms, _success)
@@ -1064,7 +1061,8 @@ async def run_agent_stream(
     # ── P2-13: Generate follow-up suggestions ──
     try:
         if final_response and len(final_response) > 30:
-            from langchain_core.messages import HumanMessage as _HMsg, SystemMessage as _SMsg
+            from langchain_core.messages import HumanMessage as _HMsg
+            from langchain_core.messages import SystemMessage as _SMsg
             from langchain_openai import ChatOpenAI as _ChatOAI
 
             _fu_llm = _ChatOAI(

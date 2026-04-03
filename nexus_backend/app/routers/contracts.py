@@ -61,7 +61,7 @@ async def create_contract(
         data["created_by"] = user_id
         result = await contract_service.create_contract(org_id=org_id, data=data, db=db)
         return api_success(data={"contract": result}, message="合同创建成功")
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "合同参数校验失败")
     except Exception as e:
         logger.error(f"Failed to create contract: {e}")
@@ -132,7 +132,7 @@ async def update_contract(
         data = body.model_dump(exclude_none=True)
         result = await contract_service.update_contract(contract_id=contract_id, data=data, db=db)
         return api_success(data={"contract": result}, message="合同已更新")
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "合同参数校验失败")
     except Exception as e:
         logger.error(f"Failed to update contract: {e}")

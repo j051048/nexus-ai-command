@@ -2,11 +2,12 @@
 智能数据分析路由
 """
 import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.core.auth import get_current_user_id, get_current_org_id
-from app.core.responses import api_success, api_error
+from app.core.auth import get_current_org_id, get_current_user_id
+from app.core.responses import api_error, api_success
 from app.tools.data_analysis_assistant import analyze_data_with_nl
 
 logger = logging.getLogger(__name__)

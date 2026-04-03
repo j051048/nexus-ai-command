@@ -9,9 +9,9 @@ import logging
 from typing import Any
 
 from app.services.ai_service import AIService
+from app.tools._shared import safe_tool_error
 
 from .base_tool import BaseTool
-from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 

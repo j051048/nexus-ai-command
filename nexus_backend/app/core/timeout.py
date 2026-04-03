@@ -4,8 +4,9 @@ Agent 超时控制装饰器
 """
 import asyncio
 import functools
-from typing import Any, Callable, TypeVar
 import logging
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +30,12 @@ def with_timeout(seconds: int = 60):
                     func(*args, **kwargs),
                     timeout=seconds
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.error(
                     f"函数 {func.__name__} 执行超时 ({seconds}秒)",
                     extra={"function": func.__name__, "timeout": seconds}
                 )
-                raise TimeoutError(f"操作超时，请稍后重试")
+                raise TimeoutError("操作超时，请稍后重试")
         return wrapper
     return decorator
 

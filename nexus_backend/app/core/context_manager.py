@@ -2,7 +2,7 @@
 简化版上下文管理器 - 保留最近N条消息，删除旧消息
 """
 import logging
-from typing import List, Dict
+
 from app.core.supabase import get_supabase_client
 
 logger = logging.getLogger(__name__)
@@ -32,30 +32,30 @@ class SimpleContextManager:
         logger.warning(f"trim_if_needed was called for {conversation_id} but ignored. Physical deletion of chats is strictly prohibited.")
         return False
 
-    async def get_recent_messages(self, conversation_id: str, limit: int = None) -> List[Dict]:
+    async def get_recent_messages(self, conversation_id: str, limit: int = None) -> list[dict]:
         """
         安全的上下文滑动窗口：获取最近 N 条消息记录，以组装 Prompt
-        
+
         Args:
             conversation_id: 对话 ID
             limit: 获取消息的最大条数，默认使用类的 MAX_MESSAGES (50条)
-            
+
         Returns:
             排好序的最近消息列表（按时间顺序从前往后）
         """
         client = await self._get_client()
         fetch_limit = limit or self.MAX_MESSAGES
-        
+
         result = await client.table('conversation_memories') \
             .select('*') \
             .eq('conversation_id', conversation_id) \
             .order('created_at', desc=True) \
             .limit(fetch_limit) \
             .execute()
-            
+
         if not result.data:
             return []
-            
+
         # 根据 DESC=True 获取的是最新 N 条，需反转以恢复聊天时间顺序
         return sorted(result.data, key=lambda x: x.get('created_at', ''))
 

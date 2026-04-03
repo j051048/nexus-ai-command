@@ -10,13 +10,13 @@ from langchain_core.messages import SystemMessage
 from langchain_core.runnables import RunnableConfig
 
 from app.agent.node_helpers import (
+    _ALWAYS_INCLUDE_TOOLS,
     AgentConfig,
     AgentPhase,
     AgentState,
     QueryComplexity,
     ThinkingStep,
     ToolCallRecord,
-    _ALWAYS_INCLUDE_TOOLS,
     _format_validation_error,
     _get_llm,
     _get_tool_schemas,
@@ -30,8 +30,8 @@ from app.agent.node_helpers import (
     record_llm_latency,
     run_hooks,
 )
-from app.services.plugin_system_service import ExtensionPoint
 from app.services.agent_trace_service import agent_trace_service
+from app.services.plugin_system_service import ExtensionPoint
 
 
 def _log_decision(trace_id: str | None, step_id: str, decision: str, reasoning: str, alternatives: list[str] | None = None):
@@ -70,6 +70,7 @@ async def _plan_with_self_consistency(
     of scored alternatives for Tree-of-Thought backtracking.
     """
     from collections import Counter
+
     from langchain_openai import ChatOpenAI
 
     async def _single_sample(i: int):
@@ -132,7 +133,7 @@ async def _plan_with_self_consistency(
         if sig == best_sig:
             continue  # Winner goes directly as return value
         # Find first sample with this signature
-        for s, s_sig in zip(samples, sigs):
+        for s, s_sig in zip(samples, sigs, strict=False):
             if s_sig == sig:
                 candidate_plans.append({
                     "sig": sig,
@@ -149,7 +150,7 @@ async def _plan_with_self_consistency(
     candidate_plans = candidate_plans[:1]
 
     # 选该签名的第一个样本
-    for s, sig in zip(samples, sigs):
+    for s, sig in zip(samples, sigs, strict=False):
         if sig == best_sig:
             # Aggregate token usage from all samples for accurate tracking
             total_sc_input = sum(
@@ -602,7 +603,6 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         ] or None
     else:
         tool_schemas = _get_tool_schemas(agent_config.user_role, intent_summary=state.get("intent_summary", ""), scene_code=state.get("scene_code"), intent_domains=state.get("intent_domains"))
-    last_error = None
     _sc_succeeded = False
     sc_candidates = []
     _sc_best_score = 1.0
@@ -640,7 +640,6 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                 llm_circuit_breaker.record_success()
                 break
             except Exception as e:
-                last_error = e
                 error_str = str(e).lower()
                 is_retryable = any(kw in error_str for kw in ("timeout", "timed out", "connection", "connect"))
                 if is_retryable and attempt < 2:

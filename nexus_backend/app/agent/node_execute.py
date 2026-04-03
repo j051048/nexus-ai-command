@@ -13,7 +13,6 @@ from enum import StrEnum
 from langchain_core.messages import ToolMessage
 from langchain_core.runnables import RunnableConfig
 
-
 # ── Error Classification for Structured Retry ────────────────────────────────
 
 
@@ -296,9 +295,9 @@ from app.agent.node_helpers import (
     run_hooks,
     tool_circuit_breaker,
 )
-from app.services.plugin_system_service import ExtensionPoint
 from app.agent.symbolic_guard import check_symbolic_policy
 from app.services.agent_trace_service import agent_trace_service
+from app.services.plugin_system_service import ExtensionPoint
 
 
 def _log_decision(trace_id: str | None, step_id: str, decision: str, reasoning: str, alternatives: list[str] | None = None):

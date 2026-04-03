@@ -9,8 +9,8 @@ import logging
 import re
 from typing import Any
 
-from app.tools.base_tool import BaseTool
 from app.tools._shared import safe_tool_error
+from app.tools.base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
 
@@ -98,10 +98,10 @@ class SearchLongTermMemoryTool(BaseTool):
                 limit=limit,
                 org_id=org_id,
             )
-            
+
             if category and category != "all":
                 memories = [m for m in memories if m.get("category") == category]
-            
+
             if memories:
                 results.append("[个人长期记忆]")
                 for m in memories:
@@ -116,7 +116,7 @@ class SearchLongTermMemoryTool(BaseTool):
                 )
                 if category and category != "all":
                     org_memories = [m for m in org_memories if m.get("category") == category]
-                
+
                 if org_memories:
                     results.append("[组织共享记忆]")
                     for m in org_memories:
@@ -124,7 +124,7 @@ class SearchLongTermMemoryTool(BaseTool):
 
             if not results:
                 return f"未找到与 '{query}' 相关的记忆记录。你可以尝试更换关键词再次搜索。"
-            
+
             logger.info(f"[SearchMemoryTool] Found {len(memories)} personal and {len(org_memories) if org_id else 0} org memories for query '{query}'")
             return "\n".join(results)
 

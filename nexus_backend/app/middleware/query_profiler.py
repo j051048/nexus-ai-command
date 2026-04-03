@@ -1,6 +1,6 @@
 """慢查询分析"""
-import time
 import logging
+import time
 from functools import wraps
 
 logger = logging.getLogger(__name__)

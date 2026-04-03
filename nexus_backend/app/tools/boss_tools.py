@@ -14,10 +14,10 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from app.services.ai_service import AIService
+from app.tools._shared import safe_tool_error
 
 from .base_tool import BaseTool
 from .boss_shared import MAX_BATCH_SIZE, _get_client, _parse_amount_from_condition
-from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 

@@ -6,13 +6,12 @@ Reduces user confirmation prompts for trusted tools.
 
 import json
 from pathlib import Path
-from typing import Dict, List, Optional
 
 
 class MCPPermissionService:
     """Manage MCP tool permissions and auto-approval"""
 
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: str | None = None):
         self.config_path = config_path or ".kiro/settings/mcp.json"
         self.config = self._load_config()
 
@@ -23,7 +22,7 @@ class MCPPermissionService:
             return {"mcpServers": {}}
 
         try:
-            with open(config_file, "r", encoding="utf-8") as f:
+            with open(config_file, encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
             return {"mcpServers": {}}
@@ -34,14 +33,14 @@ class MCPPermissionService:
         auto_approve_list = server_config.get("autoApprove", [])
         return tool_name in auto_approve_list
 
-    def get_auto_approve_tools(self, server_name: str) -> List[str]:
+    def get_auto_approve_tools(self, server_name: str) -> list[str]:
         """Get list of auto-approved tools for a server"""
         server_config = self.config.get("mcpServers", {}).get(server_name, {})
         return server_config.get("autoApprove", [])
 
     async def check_permission(
         self, server_name: str, tool_name: str, user_id: str
-    ) -> Dict[str, any]:
+    ) -> dict[str, any]:
         """
         Check if tool execution requires user confirmation.
 

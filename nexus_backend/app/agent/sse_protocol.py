@@ -7,7 +7,6 @@ AsyncGenerator[str, None] endpoint.
 
 import asyncio
 import json
-from collections.abc import AsyncGenerator
 from typing import Any
 
 from app.agent.state import ThinkingStep

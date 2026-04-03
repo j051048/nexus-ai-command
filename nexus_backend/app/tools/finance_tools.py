@@ -6,9 +6,10 @@
 from datetime import datetime
 from typing import Any
 
-from .base_tool import BaseTool
-from ._shared import _get_client
 from app.tools._shared import safe_tool_error
+
+from ._shared import _get_client
+from .base_tool import BaseTool
 
 
 class ExpenseClaimTool(BaseTool):
@@ -447,6 +448,7 @@ class InvoiceOCRTool(BaseTool):
 
         try:
             import httpx
+
             from app.core.config import settings
 
             type_hint = f"（提示类型: {invoice_type}）" if invoice_type != "auto" else ""

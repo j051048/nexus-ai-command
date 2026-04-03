@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from app.services.agent_trace_service import AgentTrace, agent_trace_service
+from app.services.agent_trace_service import agent_trace_service
 
 logger = logging.getLogger(__name__)
 

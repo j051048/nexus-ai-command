@@ -12,11 +12,13 @@ Falls back to local-only delivery when Redis is unavailable.
 """
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
 import time
-from typing import Any, Callable, Coroutine
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -102,17 +104,13 @@ class RedisWebSocketBridge:
 
         if self._listener_task and not self._listener_task.done():
             self._listener_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._listener_task
-            except asyncio.CancelledError:
-                pass
 
         if self._health_task and not self._health_task.done():
             self._health_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._health_task
-            except asyncio.CancelledError:
-                pass
 
         if self._pubsub:
             try:
@@ -122,10 +120,8 @@ class RedisWebSocketBridge:
                 pass
 
         if self._redis:
-            try:
+            with contextlib.suppress(Exception):
                 await self._redis.close()
-            except Exception:
-                pass
 
         logger.info("[WS-Redis] Pub/Sub bridge stopped")
 
@@ -237,7 +233,7 @@ class RedisWebSocketBridge:
             return
         try:
             await self._pubsub.subscribe(BROADCAST_CHANNEL)
-            logger.debug(f"[WS-Redis] Subscribed to broadcast channel")
+            logger.debug("[WS-Redis] Subscribed to broadcast channel")
         except Exception as e:
             logger.warning(f"[WS-Redis] Broadcast subscribe failed: {e}")
 

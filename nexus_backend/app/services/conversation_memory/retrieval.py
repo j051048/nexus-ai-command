@@ -1,11 +1,10 @@
 """Memory retrieval: get, search (semantic + keyword), context building."""
 
 import asyncio
-import os
-import contextlib
 import logging
+import os
 import re
-from datetime import UTC, datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from app.core.database import supabase
@@ -16,30 +15,11 @@ logger = logging.getLogger(__name__)
 
 # ── Chinese stop words for keyword extraction ────────────────────────────
 _STOP_WORDS = frozenset(
-    "的 了 么 吗 嘛 呢 吧 啊 呀 哦 是 在 有 和 与 或 不 也 都 就 还 又 能 可以 "
-    "要 会 把 被 让 给 从 到 对 向 为 我 你 他 她 它 我们 你们 他们 "
-    "这 那 什么 怎么 哪 几 多少 一个 一些 每 个 的话 以及 "
-    "记得 记住 还记得 知道 想起 回忆 前提 哪些 怎样 如何 为什么".split()
+    ["的", "了", "么", "吗", "嘛", "呢", "吧", "啊", "呀", "哦", "是", "在", "有", "和", "与", "或", "不", "也", "都", "就", "还", "又", "能", "可以", "要", "会", "把", "被", "让", "给", "从", "到", "对", "向", "为", "我", "你", "他", "她", "它", "我们", "你们", "他们", "这", "那", "什么", "怎么", "哪", "几", "多少", "一个", "一些", "每", "个", "的话", "以及", "记得", "记住", "还记得", "知道", "想起", "回忆", "前提", "哪些", "怎样", "如何", "为什么"]
 )
 
 _EN_STOP_WORDS = frozenset(
-    "a an the is are was were be been being have has had do does did will would "
-    "shall should can could may might must need dare ought to of in on at by for "
-    "with from as into about between through during before after above below "
-    "and or but not no nor so yet both either neither each every all any few "
-    "more most other some such than too very also just only even still already "
-    "again ever never always often usually sometimes i me my mine we us our ours "
-    "you your yours he him his she her hers it its they them their theirs "
-    "this that these those here there where when how what which who whom whose "
-    "if then else while until because since although though unless whether "
-    "up down out off over under way much many well back even go get make like "
-    "know think want say tell give take come see find use work call try ask "
-    "keep let begin seem help show hear play run move live believe hold bring "
-    "happen write provide sit stand lose pay meet include continue set learn "
-    "change lead understand watch follow stop create speak read grow open walk "
-    "win offer remember love consider appear buy wait serve die send expect "
-    "build stay fall cut reach kill remain suggest raise pass sell require "
-    "report decide pull develop".split()
+    ["a", "an", "the", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "do", "does", "did", "will", "would", "shall", "should", "can", "could", "may", "might", "must", "need", "dare", "ought", "to", "of", "in", "on", "at", "by", "for", "with", "from", "as", "into", "about", "between", "through", "during", "before", "after", "above", "below", "and", "or", "but", "not", "no", "nor", "so", "yet", "both", "either", "neither", "each", "every", "all", "any", "few", "more", "most", "other", "some", "such", "than", "too", "very", "also", "just", "only", "even", "still", "already", "again", "ever", "never", "always", "often", "usually", "sometimes", "i", "me", "my", "mine", "we", "us", "our", "ours", "you", "your", "yours", "he", "him", "his", "she", "her", "hers", "it", "its", "they", "them", "their", "theirs", "this", "that", "these", "those", "here", "there", "where", "when", "how", "what", "which", "who", "whom", "whose", "if", "then", "else", "while", "until", "because", "since", "although", "though", "unless", "whether", "up", "down", "out", "off", "over", "under", "way", "much", "many", "well", "back", "even", "go", "get", "make", "like", "know", "think", "want", "say", "tell", "give", "take", "come", "see", "find", "use", "work", "call", "try", "ask", "keep", "let", "begin", "seem", "help", "show", "hear", "play", "run", "move", "live", "believe", "hold", "bring", "happen", "write", "provide", "sit", "stand", "lose", "pay", "meet", "include", "continue", "set", "learn", "change", "lead", "understand", "watch", "follow", "stop", "create", "speak", "read", "grow", "open", "walk", "win", "offer", "remember", "love", "consider", "appear", "buy", "wait", "serve", "die", "send", "expect", "build", "stay", "fall", "cut", "reach", "kill", "remain", "suggest", "raise", "pass", "sell", "require", "report", "decide", "pull", "develop"]
 )
 
 # Minimum meaningful term length (Chinese characters)
@@ -89,9 +69,7 @@ def _extract_search_terms(query: str) -> list[str]:
                     if not w or len(w) < _MIN_TERM_LEN:
                         continue
                     # P1 Fix: 2-4字的中文词可能是人名，不过滤
-                    if 2 <= len(w) <= 4:
-                        terms.append(w)
-                    elif w not in _STOP_WORDS:
+                    if 2 <= len(w) <= 4 or w not in _STOP_WORDS:
                         terms.append(w)
             except ImportError:
                 chars = re.sub(r"\s+", "", cjk_text)
@@ -181,7 +159,7 @@ def _format_by_temperature(mem: dict) -> str:
     if mem.get("valid_until"):
         try:
             vu = datetime.fromisoformat(str(mem["valid_until"]).replace("Z", "+00:00"))
-            if vu < datetime.now(timezone.utc):
+            if vu < datetime.now(UTC):
                 status_attr = ' status="expired"'
         except (ValueError, TypeError):
             pass
@@ -289,7 +267,7 @@ async def search_memories(
 
         # ── Adaptive Time-Decay + Temporal Boost ─────────────────────────────
         # P0 LoCoMo Fix: Add temporal matching bonus for time-sensitive queries
-        from .temporal_normalizer import extract_time_range_from_query, calculate_temporal_overlap
+        from .temporal_normalizer import calculate_temporal_overlap, extract_time_range_from_query
 
         query_time_range = extract_time_range_from_query(query)
         is_temporal_query = any(kw in query.lower() for kw in ['when', 'what time', '什么时候', '何时', '哪天'])
@@ -337,10 +315,7 @@ async def search_memories(
                         if mem_emb and isinstance(mem_emb, list):
                             m_vec = np.array(mem_emb, dtype=np.float32)
                             m_norm = np.linalg.norm(m_vec)
-                            if m_norm > 0:
-                                cos_sim = float(np.dot(q_vec, m_vec) / (q_norm * m_norm))
-                            else:
-                                cos_sim = 0.0
+                            cos_sim = float(np.dot(q_vec, m_vec) / (q_norm * m_norm)) if m_norm > 0 else 0.0
                         else:
                             cos_sim = float(mem.get("similarity", 0) or 0)
                         # Blend: 0.6 * normalized_rrf + 0.4 * cosine_similarity
@@ -386,7 +361,7 @@ async def search_memories(
         sorted_ids = sorted(rrf_scores, key=lambda x: rrf_scores[x], reverse=True)
         memories = [id_to_mem[mid] for mid in sorted_ids]
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning(f"[Memory] Parallel search timeout for user {user_id}")
     except Exception as e:
         logger.warning(f"Memory search failed: {e}")
@@ -452,7 +427,7 @@ async def search_memories(
     # Feature 3: KG Spreading Activation — 脉冲式激活扩散
     # P1: Skip during heavy benchmarks to prevent DB connection pool exhaustion
     from app.core.config import settings
-    if not os.environ.get("RAG_BENCHMARK_MODE") == "1":
+    if os.environ.get("RAG_BENCHMARK_MODE") != "1":
         try:
             expanded = await _spreading_activation(memories[:5], user_id, db=client)
             if expanded:
@@ -523,7 +498,7 @@ async def _keyword_search(user_id: str, query: str, limit: int, org_id: str | No
     terms = _extract_search_terms(query)
     if not terms:
         terms = [query] if len(query) > 1 else []
-    
+
     if not terms:
         return []
 
@@ -532,9 +507,9 @@ async def _keyword_search(user_id: str, query: str, limit: int, org_id: str | No
     or_parts = []
     for t in terms[:4]:
         or_parts.append(f"key.ilike.%{t}%,value.ilike.%{t}%")
-    
+
     or_filter = ",".join(or_parts)
-    
+
     try:
         q = (
             client.table("conversation_memories")
@@ -546,7 +521,7 @@ async def _keyword_search(user_id: str, query: str, limit: int, org_id: str | No
         )
         if org_id:
             q = q.eq("organization_id", org_id)
-            
+
         result = await q.execute()
         return result.data or []
     except Exception as e:
@@ -589,7 +564,7 @@ async def _entity_precise_search(
     or_parts = []
     for e in entities[:5]:
         or_parts.append(f"key.ilike.%{e}%,value.ilike.%{e}%")
-    
+
     try:
         q = (
             client.table("conversation_memories")
@@ -601,10 +576,10 @@ async def _entity_precise_search(
         )
         if org_id:
             q = q.eq("organization_id", org_id)
-        
+
         result = await q.execute()
         memories = result.data or []
-        
+
         # Phase 2: Combo search (only if small results and multiple entities)
         # We keep this limited to 1 extra query if needed
         if len(memories) < limit and len(entities) >= 2:
@@ -626,7 +601,7 @@ async def _entity_precise_search(
                 for item in combo_res.data:
                     if item["id"] not in seen_ids:
                         memories.append(item)
-                        
+
         return memories[:limit]
     except Exception:
         return memories[:limit] if 'memories' in locals() else []
@@ -685,7 +660,6 @@ async def _spreading_activation(
     seed_ids = {m["id"] for m in seed_memories}
 
     # activation_map: node_id -> cumulative activation score
-    activation_map: dict[str, float] = {}
 
     # Initialize seeds with their importance as initial activation
     frontier: list[tuple[str, float]] = []  # (memory_id, activation_score)
@@ -709,7 +683,7 @@ async def _spreading_activation(
     visited: set[str] = set(seed_ids)
     all_activated: dict[str, float] = {}
 
-    for hop in range(max_hops):
+    for _hop in range(max_hops):
         if not frontier:
             break
 
@@ -860,7 +834,7 @@ async def _expand_top_connections(
                         break
             if len(hop2_ids) >= hop2_limit:
                 break
-        
+
         if hop2_ids:
             try:
                 result2 = (
@@ -974,7 +948,7 @@ async def build_memory_context(
         elif _c == "SIMPLE":
             relevant_limit = 3
             explicit_limit = 3
-            
+
     # 0) Directive memories — high-importance constraints injected separately
     directive_block = ""
 
@@ -1028,7 +1002,7 @@ async def build_memory_context(
             # Recency-first reranking: when user asks about recent events,
             # sort memories so that last-7-days items come first
             if is_recency_query and len(new_relevant) > 1:
-                now = datetime.now(UTC)
+                datetime.now(UTC)
                 def _recency_tier(m: dict) -> int:
                     ts = m.get("valid_from") or m.get("updated_at") or m.get("created_at") or ""
                     d = _days_since(ts) if ts else 999

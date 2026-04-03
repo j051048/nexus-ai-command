@@ -10,7 +10,7 @@ original public API for backward compatibility.
 """
 
 import hashlib
-import io
+import io  # noqa: F401
 import json
 import logging
 import re

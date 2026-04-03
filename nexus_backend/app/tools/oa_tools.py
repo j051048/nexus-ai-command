@@ -11,15 +11,16 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from .base_tool import BaseTool
-from ._shared import _get_client
-from app.tools._shared import safe_tool_error
 from app.services.notification_service import (
     Notification,
     NotificationChannel,
     NotificationPriority,
     notification_service,
 )
+from app.tools._shared import safe_tool_error
+
+from ._shared import _get_client
+from .base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
 

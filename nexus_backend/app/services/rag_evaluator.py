@@ -136,7 +136,7 @@ class RAGEvaluator:
 
         # Per-category breakdown
         categories: dict[str, list[float]] = {}
-        for r, score in zip(results, hit_scores if hit_scores else [0] * total):
+        for r, score in zip(results, hit_scores if hit_scores else [0] * total, strict=False):
             cat = r.get("category", "unknown")
             categories.setdefault(cat, []).append(score)
 

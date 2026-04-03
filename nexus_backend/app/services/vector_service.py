@@ -7,10 +7,9 @@ from collections import OrderedDict
 from datetime import datetime, timedelta
 from typing import Any
 
-from openai import AsyncOpenAI
 import httpx
-import os
 import numpy as np
+from openai import AsyncOpenAI
 
 from app.core.config import settings
 from app.core.database import supabase
@@ -142,7 +141,6 @@ class VectorService:
         if len(documents) <= 3:
             return documents[:top_n]
 
-        import httpx
 
         max_docs = settings.RERANK_MAX_DOCS
         rerank_timeout = settings.RERANK_TIMEOUT
@@ -572,7 +570,7 @@ class VectorService:
             api_key, base_url, model = await self._get_embedding_config(org_id)
             if not api_key:
                 api_key = settings.OPENAI_API_KEY
-            
+
             if not api_key:
                 return None
 
@@ -598,18 +596,18 @@ class VectorService:
                         "input": truncated,
                         "model": model or _DEFAULT_EMBEDDING_MODEL,
                     }
-                    
+
                     # Use reused global client
                     response = await self._benchmark_client.post(endpoint, headers=headers, json=payload)
                     print(f"DEBUG VECTOR: POST {endpoint} STAT={response.status_code} REUSED_CLIENT=True")
-                        
+
                     if response.status_code != 200:
                         logger.warning(f"Embedding API error {response.status_code}: {response.text}")
                         if attempt < 2:
                             await asyncio.sleep(2 * (attempt + 1))
                             continue
                         return None
-                        
+
                     result = response.json()
                     embedding = result["data"][0]["embedding"]
 

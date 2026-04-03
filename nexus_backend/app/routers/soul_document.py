@@ -4,9 +4,8 @@
 """
 
 import logging
-from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id

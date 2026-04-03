@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * 离线 / 网络异常 / 请求队列 边缘测试
  *

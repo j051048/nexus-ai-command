@@ -1,6 +1,5 @@
 import os
 import warnings
-from contextlib import suppress
 
 # 过滤第三方依赖的已知弃用警告（不影响功能）
 warnings.filterwarnings(

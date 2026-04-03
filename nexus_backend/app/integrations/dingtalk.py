@@ -1,5 +1,6 @@
 """钉钉集成"""
 import logging
+
 import httpx
 
 logger = logging.getLogger(__name__)

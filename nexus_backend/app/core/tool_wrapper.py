@@ -3,18 +3,19 @@
 """
 import asyncio
 import logging
-from typing import Any, Callable, Dict
+from collections.abc import Callable
 from functools import wraps
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 async def execute_tool_safely(
     tool_func: Callable,
-    params: Dict[str, Any],
+    params: dict[str, Any],
     timeout: int = 30,
     tool_name: str = None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     统一的工具执行包装器
 
@@ -42,7 +43,7 @@ async def execute_tool_safely(
             'data': result
         }
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         error_msg = f"工具执行超时（{timeout}秒），请稍后重试"
         logger.error(f"Tool '{name}' timeout after {timeout}s")
         return {

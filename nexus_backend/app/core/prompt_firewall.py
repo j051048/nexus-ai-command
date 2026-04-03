@@ -16,7 +16,7 @@ import base64
 import logging
 import re
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 #  Data structures
 # ---------------------------------------------------------------------------
 
-class RiskLevel(str, Enum):
+class RiskLevel(StrEnum):
     LOW = "LOW"
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"

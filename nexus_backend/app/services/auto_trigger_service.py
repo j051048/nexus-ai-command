@@ -555,9 +555,7 @@ class AutoTriggerService:
     def _check_memory_cooldown(self, key: str) -> bool:
         """Check in-memory cooldown. Returns True if still on cooldown."""
         expiry = self._memory_cooldowns.get(key)
-        if expiry and datetime.utcnow() < expiry:
-            return True
-        return False
+        return bool(expiry and datetime.utcnow() < expiry)
 
     def _set_memory_cooldown(self, key: str, ttl_seconds: int) -> None:
         """Set in-memory cooldown."""

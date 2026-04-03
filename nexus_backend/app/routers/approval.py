@@ -50,7 +50,7 @@ class SmartSubmitRequest(BaseModel):
     amount: float = Field(default=0.0, ge=0, description="金额")
     description: str = Field(..., min_length=1, description="申请说明")
     form_data: dict[str, Any] = Field(default_factory=dict, description="表单数据")
-    
+
     @field_validator("amount", mode="before")
     @classmethod
     def validate_amount(cls, v):
@@ -314,7 +314,7 @@ async def process_approval(request: ApprovalRequest, user_id: str = Depends(get_
         decision = await ApprovalService.process_approval(request)
 
         return api_success(data=decision.model_dump(), message="Approval Processed")
-    except Exception as e:
+    except Exception:
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "审批操作失败")
 
 

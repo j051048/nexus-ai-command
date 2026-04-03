@@ -13,11 +13,11 @@ Selection logic:
 """
 
 import asyncio
-import httpx
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+
+import httpx
 
 from app.core.config import settings
 
@@ -182,10 +182,7 @@ class RerankerService:
         # Build rerank API URL from base URL
         base_url = (settings.AI_BASE_URL or "https://api.apiyi.com/v1").rstrip("/")
         # Fix: ensure we have /v1/rerank or /rerank correctly
-        if "/v1" in base_url:
-            url = f"{base_url.split('/v1')[0]}/v1/rerank"
-        else:
-            url = f"{base_url}/rerank"
+        url = f"{base_url.split('/v1')[0]}/v1/rerank" if "/v1" in base_url else f"{base_url}/rerank"
 
         doc_texts = [doc.get("content", "")[:1000] for doc in documents[:max_docs]]
 

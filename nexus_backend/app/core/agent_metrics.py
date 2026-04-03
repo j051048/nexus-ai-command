@@ -2,14 +2,13 @@
 Agent 监控指标收集
 放在 nexus_backend/app/core/agent_metrics.py
 """
-from datetime import datetime
-from typing import Dict, Any
 import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 # 简单的内存指标存储（生产环境建议用 Prometheus）
-_metrics: Dict[str, Any] = {
+_metrics: dict[str, Any] = {
     "total_requests": 0,
     "total_tokens": 0,
     "total_cost": 0.0,
@@ -47,7 +46,7 @@ def record_agent_execution(
     )
 
 
-def get_metrics() -> Dict[str, Any]:
+def get_metrics() -> dict[str, Any]:
     """获取当前指标"""
     return _metrics.copy()
 

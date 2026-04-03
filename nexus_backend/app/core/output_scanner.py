@@ -16,8 +16,8 @@ Usage:
 """
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Sequence
 
 from app.core.logging_config import SecurityLogger, get_logger
 

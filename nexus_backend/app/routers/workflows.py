@@ -183,7 +183,7 @@ async def create_workflow(
             db=db,
         )
         return api_success(data=_enrich_response(workflow), message="Workflow created")
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "工作流参数校验失败")
     except Exception as e:
         if hasattr(e, "status_code"):
@@ -240,9 +240,9 @@ async def update_workflow(
             workflow_id=workflow_id, updates=updates, org_id=org_id, db=db,
         )
         return api_success(data=_enrich_response(workflow), message="Workflow updated")
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "工作流参数校验失败")
-    except RuntimeError as e:
+    except RuntimeError:
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "工作流操作失败")
     except Exception as e:
         if hasattr(e, "status_code"):
@@ -285,7 +285,7 @@ async def toggle_workflow(
 
         workflow = await workflow_definition_service.toggle_workflow(workflow_id=workflow_id, db=db)
         return api_success(data=_enrich_response(workflow), message="Workflow toggled")
-    except RuntimeError as e:
+    except RuntimeError:
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "工作流操作失败")
     except Exception as e:
         if hasattr(e, "status_code"):
@@ -310,7 +310,7 @@ async def set_default(
 
         workflow = await workflow_definition_service.set_default(workflow_id=workflow_id, org_id=org_id, db=db)
         return api_success(data=_enrich_response(workflow), message="Workflow set as default")
-    except RuntimeError as e:
+    except RuntimeError:
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "工作流操作失败")
     except Exception as e:
         if hasattr(e, "status_code"):

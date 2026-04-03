@@ -24,14 +24,13 @@ def register_routers(app: FastAPI) -> None:
     """
 
     # ── 1. AI / Chat ──────────────────────────────────────────────────────
-    from app.routers import chat, audio, memories, metrics
+    from app.routers import agent_proactive as agent_proactive_router
+    from app.routers import analysis, audio, batch, charts, chat, export, files, memories, metrics
     from app.routers import chat_upload as chat_upload_router
     from app.routers import saved_prompts as saved_prompts_router
-    from app.routers import soul_document as soul_document_router
     from app.routers import scheduled_tasks as scheduled_tasks_router
+    from app.routers import soul_document as soul_document_router
     from app.routers import ws as ws_router
-    from app.routers import agent_proactive as agent_proactive_router
-    from app.routers import export, charts, analysis, files, batch
 
     app.include_router(chat.router)
     app.include_router(chat_upload_router.router)
@@ -53,8 +52,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(business_context.router)
 
     # ── 2. CRM / Sales ───────────────────────────────────────────────────
-    from app.routers import crm, competitors, performance, incentive, dashboard
-    from app.routers import sales_leads, sales
+    from app.routers import competitors, crm, dashboard, incentive, performance, sales, sales_leads
 
     app.include_router(crm.router)
     app.include_router(sales_leads.router)
@@ -65,11 +63,10 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(dashboard.router)
 
     # ── 3. OA / Workflow ──────────────────────────────────────────────────
-    from app.routers import approval, projects, workflows, workflow_templates, form_schemas
+    from app.routers import approval, form_schemas, oa, projects, workflow_templates, workflows
     from app.routers import approval_flows as approval_flows_router
     from app.routers import attendance as attendance_router
     from app.routers import expenses as expenses_router
-    from app.routers import oa
 
     app.include_router(approval.router)
     app.include_router(approval_flows_router.router)
@@ -82,7 +79,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(oa.router)
 
     # ── 4. Documents / Knowledge ──────────────────────────────────────────
-    from app.routers import documents, training, reports, qa_pairs, import_data
+    from app.routers import documents, import_data, qa_pairs, reports, training
 
     app.include_router(documents.router)
     app.include_router(training.router)
@@ -91,10 +88,9 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(import_data.router)
 
     # ── 5. Organization / Users ───────────────────────────────────────────
-    from app.routers import organization, profile, permissions, onboarding, notifications
+    from app.routers import hr, notifications, onboarding, organization, permissions, profile, users
     from app.routers import notification_preferences as notification_preferences_router
     from app.routers import org_structure as org_structure_router
-    from app.routers import users, hr
 
     app.include_router(organization.router)
     app.include_router(org_structure_router.router)
@@ -107,9 +103,8 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(hr.router)
 
     # ── 6. Finance / Billing ──────────────────────────────────────────────
-    from app.routers import billing, payments, usage
+    from app.routers import billing, finance, payments, usage
     from app.routers import stripe_webhooks as stripe_webhooks_router
-    from app.routers import finance
 
     app.include_router(billing.router)
     app.include_router(payments.router)
@@ -118,11 +113,11 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(finance.router)
 
     # ── 7. Assets / Inventory / Contracts ─────────────────────────────────
-    from app.routers import contracts
     from app.routers import assets as assets_router
-    from app.routers import work_orders as work_orders_router
-    from app.routers import inventory as inventory_router
     from app.routers import certificates as certificates_router
+    from app.routers import contracts
+    from app.routers import inventory as inventory_router
+    from app.routers import work_orders as work_orders_router
 
     app.include_router(contracts.router)
     app.include_router(assets_router.router)
@@ -131,8 +126,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(certificates_router.router)
 
     # ── 8. IM / Integration ───────────────────────────────────────────────
-    from app.routers import im_chat, im_oauth, im_callbacks, im_settings
-    from app.routers import webhooks, oauth, push, plugins, kingdee
+    from app.routers import im_callbacks, im_chat, im_oauth, im_settings, kingdee, oauth, plugins, push, webhooks
     from app.routers import mcp as mcp_router
     from app.routers import robot as robot_router
 
@@ -149,10 +143,10 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(robot_router.router)
 
     # ── 9. System / Admin ─────────────────────────────────────────────────
-    from app.routers import super_admin, api_docs, api_keys, backups, compliance, data_transfer
-    from app.routers import system_configs as system_configs_router
+    from app.routers import api_docs, api_keys, backups, compliance, data_transfer, super_admin
     from app.routers import dsar as dsar_router
     from app.routers import system as system_router
+    from app.routers import system_configs as system_configs_router
 
     app.include_router(super_admin.router)
     app.include_router(api_docs.router)

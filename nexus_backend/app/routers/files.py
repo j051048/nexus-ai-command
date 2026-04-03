@@ -2,12 +2,13 @@
 文件管理路由
 """
 import logging
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from app.core.auth import get_current_user_id, get_current_org_id
-from app.core.errors import api_success, api_error, ErrorCode
-from app.tools.file_manager import upload_file, parse_file
+from app.core.auth import get_current_org_id, get_current_user_id
+from app.core.errors import ErrorCode, api_error, api_success
+from app.tools.file_manager import parse_file, upload_file
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/files", tags=["files"])

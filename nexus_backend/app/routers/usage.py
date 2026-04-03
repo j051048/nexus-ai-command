@@ -2,10 +2,11 @@
 
 import logging
 from datetime import date, timedelta
-from typing import Dict, Any
+
 from fastapi import APIRouter, Depends, Query, Request
+
 from app.core.auth import get_current_user_id
-from app.core.errors import ErrorCode, api_error, api_success
+from app.core.errors import api_success
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/usage", tags=["Usage"])
@@ -18,7 +19,7 @@ async def get_quota_alert(req: Request, user_id: str = Depends(get_current_user_
     try:
         db = getattr(req.state, "db", None)
         org_id = getattr(req.state, "org_id", None)
-        
+
         if not db or not org_id:
             # 基础数据缺失时不报错，返回空以便前端静默失败
             return api_success(data={"has_alert": False, "message": ""})
@@ -30,7 +31,7 @@ async def get_quota_alert(req: Request, user_id: str = Depends(get_current_user_
         if result and result.data:
             used = result.data.get("token_used", 0)
             limit = result.data.get("token_limit", 1000000) # 默认 1M tokens
-            
+
             if used > limit * 0.9:
                 return api_success(data={
                     "has_alert": True,
@@ -39,7 +40,7 @@ async def get_quota_alert(req: Request, user_id: str = Depends(get_current_user_
                 })
 
         return api_success(data={"has_alert": False, "message": ""})
-        
+
     except Exception as e:
         logger.error(f"Failed to fetch quota alert: {e}")
         # 这里返回静默成功，避免全局崩溃
@@ -156,7 +157,7 @@ async def get_usage_history(
             .execute()
         )
         # 按日聚合
-        daily: Dict[str, dict] = {}
+        daily: dict[str, dict] = {}
         for r in result.data or []:
             d = r.get("stat_date", "")
             if d not in daily:
@@ -198,7 +199,7 @@ async def get_cost_report(
         total_tokens = sum(r.get("total_input_tokens", 0) + r.get("total_output_tokens", 0) for r in rows)
         total_cost = float(sum(r.get("total_cost", 0) for r in rows))
 
-        by_department: Dict[str, dict] = {}
+        by_department: dict[str, dict] = {}
         for r in rows:
             dept = str(r.get("department_id") or "未分配")
             if dept not in by_department:
@@ -246,7 +247,7 @@ async def get_model_breakdown(
         )
         rows = result.data or []
 
-        agg: Dict[str, dict] = {}
+        agg: dict[str, dict] = {}
         for r in rows:
             mc = r.get("model_code", "unknown")
             if mc not in agg:

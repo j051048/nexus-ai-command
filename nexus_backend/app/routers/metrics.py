@@ -1,9 +1,11 @@
 """Agent metrics API endpoint."""
 import logging
+
 from fastapi import APIRouter, Depends
+
+from app.core.agent_metrics import get_metrics
 from app.core.auth import get_current_user_id
 from app.core.errors import api_success
-from app.core.agent_metrics import get_metrics
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/metrics", tags=["Metrics"])

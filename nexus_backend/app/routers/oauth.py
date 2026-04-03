@@ -101,5 +101,5 @@ async def revoke_token(body: OAuthRevokeRequest):
     try:
         success = await oauth_service.revoke_token(body.token)
         return api_success(data={"revoked": success})
-    except Exception as e:
+    except Exception:
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "OAuth授权操作失败")

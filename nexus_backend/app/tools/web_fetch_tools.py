@@ -4,14 +4,16 @@ WebFetch 工具 — 抓取指定 URL 的网页内容并返回纯文本摘要。
 安全限制：禁止访问内网地址。
 """
 
+import contextlib
 import logging
 import re
 from html.parser import HTMLParser
 from typing import Any
 from urllib.parse import urlparse
 
-from .base_tool import BaseTool
 from app.tools._shared import safe_tool_error
+
+from .base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
 
@@ -82,10 +84,8 @@ class _TextExtractor(HTMLParser):
 def _html_to_text(html: str) -> tuple[str, str]:
     """返回 (title, body_text)。"""
     extractor = _TextExtractor()
-    try:
+    with contextlib.suppress(Exception):
         extractor.feed(html)
-    except Exception:
-        pass
     return extractor.title, extractor.get_text()
 
 

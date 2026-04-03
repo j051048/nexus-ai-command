@@ -3,7 +3,6 @@ P1-1: 批量工具优化器
 """
 
 import logging
-from typing import Any
 
 logger = logging.getLogger(__name__)
 

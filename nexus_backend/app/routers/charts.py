@@ -5,10 +5,10 @@ import logging
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from app.core.auth import get_current_user_id
-from app.core.responses import api_success, api_error
+from app.core.responses import api_error, api_success
 from app.tools.chart_generation_tool import generate_chart
 
 logger = logging.getLogger(__name__)

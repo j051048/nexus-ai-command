@@ -7,10 +7,10 @@ from fastapi.responses import StreamingResponse
 from app.core.auth import get_current_user_id
 from app.core.config import settings
 from app.core.errors import ErrorCode, api_error, api_success
+from app.core.prompt_firewall import prompt_firewall
 from app.core.trace_logger import TraceLogger
 from app.models.schemas import ChatRequest
 from app.services.chat_service import ChatService
-from app.core.prompt_firewall import prompt_firewall
 from app.services.content_moderation import check_user_input, check_user_input_advanced
 from app.services.token_service import validate_request_tokens
 

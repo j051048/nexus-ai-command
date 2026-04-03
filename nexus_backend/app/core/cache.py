@@ -3,10 +3,12 @@ Redis 缓存装饰器
 放在 nexus_backend/app/core/cache.py
 """
 import functools
-import json
 import hashlib
+import json
 import logging
-from typing import Any, Callable, List, Optional
+from collections.abc import Callable
+from typing import Any
+
 import redis
 
 logger = logging.getLogger(__name__)
@@ -42,7 +44,7 @@ def _init_redis():
         redis_client = None
 
 
-def cache(ttl: int = 300, prefix: str = "nexus", exclude_params: Optional[List[str]] = None):
+def cache(ttl: int = 300, prefix: str = "nexus", exclude_params: list[str] | None = None):
     """
     增强版 Redis 缓存装饰器
 
@@ -68,7 +70,7 @@ def cache(ttl: int = 300, prefix: str = "nexus", exclude_params: Optional[List[s
 
             # 过滤不需要参与 key 生成的参数
             safe_kwargs = {k: v for k, v in kwargs.items() if k not in exclude_params}
-            
+
             # 生成缓存 key
             # 注意: 如果是实例方法，第一个参数是 self，通常也要排除或者只取其特定属性
             # 这里简单处理，排除第一个参数如果是类实例的情况（简单通过是否有 __dict__ 判断不太严谨，但常用）

@@ -180,7 +180,7 @@ def _format_labels(metric_name: str, label_values: list[str]) -> str:
         "agent_executions_total": ["complexity", "status"],
     }
     names = label_map.get(metric_name, [f"l{i}" for i in range(len(label_values))])
-    pairs = [f'{n}="{v}"' for n, v in zip(names, label_values)]
+    pairs = [f'{n}="{v}"' for n, v in zip(names, label_values, strict=False)]
     return "{" + ",".join(pairs) + "}"
 
 

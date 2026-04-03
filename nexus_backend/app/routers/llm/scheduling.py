@@ -1,7 +1,9 @@
 """LLM 调度规则子路由"""
 
 import logging
+
 from fastapi import APIRouter, Depends, Request
+
 from app.core.auth import get_current_user_id
 from app.core.errors import api_success
 

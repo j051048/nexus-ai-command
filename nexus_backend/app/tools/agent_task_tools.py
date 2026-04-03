@@ -9,8 +9,8 @@ survive context compression and give the agent a persistent "TODO board".
 import logging
 from typing import Any
 
-from app.tools.base_tool import BaseTool
 from app.tools._shared import safe_tool_error
+from app.tools.base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
 
@@ -155,10 +155,7 @@ class UpdateTaskTool(BaseTool):
             db = await _get_db()
             # Support partial ID matching (first 8 chars)
             query = db.table("agent_tasks").update(update_data).eq("user_id", user_id)
-            if len(task_id) < 36:
-                query = query.ilike("id", f"{task_id}%")
-            else:
-                query = query.eq("id", task_id)
+            query = query.ilike("id", f"{task_id}%") if len(task_id) < 36 else query.eq("id", task_id)
 
             result = await query.execute()
 

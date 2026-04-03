@@ -63,7 +63,7 @@ class AgentHealthMonitor:
 
     async def compress_old_states(self):
         """压缩旧状态"""
-        cutoff = datetime.utcnow() - timedelta(days=7)
+        datetime.utcnow() - timedelta(days=7)
         # 实现状态压缩逻辑
         pass
 

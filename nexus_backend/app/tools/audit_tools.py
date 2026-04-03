@@ -5,11 +5,12 @@
 
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from .base_tool import BaseTool
 from app.tools._shared import safe_tool_error
+
+from .base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,7 @@ class QueryAuditLogsTool(BaseTool):
         target_table = args.get("target_table")
         limit = min(args.get("limit", 50), 100)
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         start_date = now - timedelta(days=days)
 
         try:

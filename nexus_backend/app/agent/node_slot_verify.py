@@ -66,7 +66,7 @@ def _build_fields_from_schema(
     return fields
 
 
-async def slot_verify_node(state: "AgentState", config=None) -> dict:
+async def slot_verify_node(state: AgentState, config=None) -> dict:
     """检查 pending_tool_calls 的必填参数，缺失则构建 ask_user 追问。
 
     Returns:

@@ -23,13 +23,13 @@ from app.agent.blackboard import SharedBlackboard, TaskResult
 from app.agent.dependency_resolver import resolve_execution_layers
 from app.agent.node_helpers import _get_langfuse_callbacks, _get_trace_context
 from app.agent.roles.registry import get_role_config_sync
-from app.core.prompts_registry import SECURITY_GUARDRAILS
 from app.agent.state import (
     AgentConfig,
     AgentPhase,
     AgentState,
     ThinkingStep,
 )
+from app.core.prompts_registry import SECURITY_GUARDRAILS
 from app.tools import get_tool
 
 logger = logging.getLogger(__name__)
@@ -44,6 +44,7 @@ _MAX_SUB_TASK_TOOL_ROUNDS = 3
 _REPLAN_FAILURE_THRESHOLD = 0.3
 # Known long-running tools — imported from canonical definition
 from app.agent.node_helpers import LONG_RUNNING_TOOLS as _LONG_RUNNING_TOOLS
+
 # Total token budget for the entire orchestration pass
 _ORCHESTRATION_TOKEN_BUDGET = 30000
 
@@ -105,7 +106,7 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
     """
     config: AgentConfig = state["config"]
     _configurable = (runnable_config or {}).get("configurable", {})
-    trace_ctx = _get_trace_context(config, _configurable)
+    _get_trace_context(config, _configurable)
     wbs_structure = state.get("wbs_structure")
 
     if not wbs_structure or "sub_tasks" not in wbs_structure:
@@ -235,9 +236,7 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
 
                     # Quality gate (same as Attempt 1)
                     task_status = "completed"
-                    if not result or len(result.strip()) < 10:
-                        task_status = "degraded"
-                    elif result.lstrip().startswith(("Error:", "错误", "执行失败")):
+                    if not result or len(result.strip()) < 10 or result.lstrip().startswith(("Error:", "错误", "执行失败")):
                         task_status = "degraded"
 
                     return {
@@ -287,9 +286,9 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
         cancel_event = asyncio.Event()
         layer_results = []
 
-        async def _run_with_cancel(idx: int):
+        async def _run_with_cancel(idx: int, _cancel=cancel_event):
             """Wrapper that checks cancel event before/during execution."""
-            if cancel_event.is_set():
+            if _cancel.is_set():
                 return {
                     "task_idx": idx,
                     "status": "cancelled",
@@ -301,7 +300,7 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
             result = await _run_task_with_semaphore(idx)
             # Check if this is a FATAL error
             if result.get("status") == "failed" and "fatal" in result.get("result", "").lower():
-                cancel_event.set()  # Signal other tasks to stop
+                _cancel.set()  # Signal other tasks to stop
             return result
 
         # Use as_completed for early stop capability
@@ -494,7 +493,8 @@ async def _compress_sub_result(config: AgentConfig, task_title: str, text: str) 
             f"保留：关键数据点、结论、数字指标。删除：冗余描述、重复信息、格式装饰。\n\n"
             f"原始结果:\n{text[:3000]}"
         )
-        from langchain_core.messages import HumanMessage as _HM, SystemMessage as _SM
+        from langchain_core.messages import HumanMessage as _HM
+        from langchain_core.messages import SystemMessage as _SM
         resp = await llm.ainvoke([
             _SM(content="你是信息压缩专家，擅长提炼关键信息。只输出摘要，不加前缀。"),
             _HM(content=prompt),
@@ -744,7 +744,7 @@ async def _run_single_tool(tool_name: str, tool_args: dict, config: AgentConfig)
     # Tenant isolation: reject tools that require org_id without one
     if getattr(tool, "requires_org_id", True) and not config.org_id:
         logger.warning(f"[Orchestrate] Tool {tool_name} requires org_id but none provided")
-        return f"❌ 无法获取组织信息(org_id缺失)，请确保已正确登录。"
+        return "❌ 无法获取组织信息(org_id缺失)，请确保已正确登录。"
 
     # Execute with single retry
     last_error = None

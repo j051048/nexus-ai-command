@@ -1,9 +1,10 @@
 """销售目标和指标 API 路由"""
 
 import logging
-from typing import Optional
-from fastapi import APIRouter, Depends, Request, Query
+
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
+
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
 
@@ -128,7 +129,7 @@ async def list_metrics_by_range(
     req: Request,
     start_date: str = Query(..., description="开始日期 YYYY-MM-DD"),
     end_date: str = Query(..., description="结束日期 YYYY-MM-DD"),
-    user_id_filter: Optional[str] = Query(None, alias="user_id", description="可选用户ID过滤"),
+    user_id_filter: str | None = Query(None, alias="user_id", description="可选用户ID过滤"),
     user_id: str = Depends(get_current_user_id),
 ):
     """按日期范围查询销售指标"""

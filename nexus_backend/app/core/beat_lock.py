@@ -18,7 +18,6 @@ Usage in celery_app.py:
 import logging
 import os
 import threading
-import time
 import uuid
 
 logger = logging.getLogger(__name__)

@@ -8,7 +8,6 @@ Provides both:
 
 import logging
 import os
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +77,7 @@ def _get_langfuse_client():
         return None
 
 
-def create_trace(name: str, user_id: Optional[str] = None, metadata: Optional[dict] = None):
+def create_trace(name: str, user_id: str | None = None, metadata: dict | None = None):
     """Create a new Langfuse trace using the Langfuse client (NOT the CallbackHandler)."""
     client = _get_langfuse_client()
     if not client:

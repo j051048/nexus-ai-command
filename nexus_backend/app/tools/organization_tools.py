@@ -7,12 +7,14 @@ import logging
 from typing import Any
 
 from app.services.organization_service import organization_service
+
 # Redundant import removed to prevent collision and 500 errors
 org_hierarchy_service = organization_service
 
-from .base_tool import BaseTool
-from ._shared import _get_client, _validate_uuid
 from app.tools._shared import safe_tool_error
+
+from ._shared import _get_client, _validate_uuid
+from .base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
 
@@ -732,7 +734,7 @@ class GetReportingLineTool(BaseTool):
             )
 
             if not reporting_line:
-                return f"该用户没有上级汇报链（可能是最高管理者，或未设置上级关系）。"
+                return "该用户没有上级汇报链（可能是最高管理者，或未设置上级关系）。"
 
             lines = [f"📈 汇报链（共 {len(reporting_line)} 层）:\n"]
             for i, person in enumerate(reporting_line):

@@ -1,7 +1,9 @@
 """AI 业务上下文聚合 API - 按场景返回相关业务数据"""
 
 import logging
-from fastapi import APIRouter, Depends, Request, Query
+
+from fastapi import APIRouter, Depends, Query, Request
+
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
 

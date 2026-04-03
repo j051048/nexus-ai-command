@@ -7,7 +7,7 @@ Prevents garbage duplicate nodes like "Apple Inc." vs "苹果公司" by:
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from difflib import SequenceMatcher
 from typing import Any
 
@@ -156,7 +156,7 @@ async def batch_merge_similar_entities(
         }
 
         # Backfill embeddings
-        for name, etype in entities_to_embed.items():
+        for name, _etype in entities_to_embed.items():
             try:
                 emb = await get_entity_embedding(name, org_id)
                 if emb:

@@ -42,7 +42,7 @@ async function authFetch<T>(url: string, options: RequestInit = {}): Promise<T> 
   const { data: { session } } = await supabase.auth.getSession();
   const token = session?.access_token;
 
-  let baseUrl = API_BASE_URL;
+  const baseUrl = API_BASE_URL;
   const cleanBase = baseUrl.replace(/\/$/, '');
   const cleanEndpoint = url.startsWith('/') ? url.slice(1) : url;
   const fullUrl = `${cleanBase}/${cleanEndpoint}`;

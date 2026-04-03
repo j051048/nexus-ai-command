@@ -9,7 +9,6 @@ P1-1: 错误学习机制 - 从失败中改进
 
 import logging
 from datetime import datetime
-from typing import Optional
 
 from app.core.database import supabase
 

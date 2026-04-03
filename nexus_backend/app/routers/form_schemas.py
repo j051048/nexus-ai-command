@@ -98,7 +98,7 @@ async def create_schema(
             db=client,
         )
         return api_success(data=schema, message="表单 Schema 创建成功")
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "表单模板参数校验失败")
     except Exception as e:
         logger.error(f"Failed to create form schema: {e}")
@@ -178,7 +178,7 @@ async def update_schema(
         return api_success(data=schema, message="表单 Schema 更新成功")
     except HTTPException:
         raise
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "表单模板参数校验失败")
     except Exception as e:
         logger.error(f"Failed to update form schema: {e}")

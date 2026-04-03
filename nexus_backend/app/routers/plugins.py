@@ -68,7 +68,7 @@ async def install_plugin(
             org_id=org_id, plugin_id=plugin_id, config=body.config, db=db
         )
         return api_success(data={"plugin": result}, message="插件安装成功")
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "插件参数校验失败")
     except Exception as e:
         logger.error(f"Failed to install plugin: {e}")
@@ -111,7 +111,7 @@ async def update_plugin_config(
             org_id=org_id, plugin_id=plugin_id, config=body.config, db=db
         )
         return api_success(data={"plugin": result}, message="配置已更新")
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "插件参数校验失败")
     except Exception as e:
         logger.error(f"Failed to update plugin config: {e}")
@@ -157,7 +157,7 @@ async def execute_plugin_action(
         else:
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, result.get("error", "执行失败"))
 
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "插件参数校验失败")
     except Exception as e:
         if hasattr(e, "status_code"):

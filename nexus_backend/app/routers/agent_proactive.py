@@ -3,10 +3,10 @@ P0 主动性功能 API 路由
 """
 
 import logging
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from app.agent.event_triggers import event_trigger
 from app.agent.goal_tracker import goal_tracker
 from app.agent.proactive_scheduler import proactive_scheduler
 from app.core.auth import get_current_user_id

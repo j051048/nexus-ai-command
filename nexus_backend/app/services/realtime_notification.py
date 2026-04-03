@@ -1,12 +1,11 @@
 """实时通知服务 - WebSocket推送
 P0-3: 浏览器通知、钉钉/企微集成
 """
+
 from fastapi import WebSocket
-from typing import Dict
-import json
 
 # 活跃连接管理
-active_connections: Dict[str, WebSocket] = {}
+active_connections: dict[str, WebSocket] = {}
 
 
 async def connect_websocket(websocket: WebSocket, user_id: str):

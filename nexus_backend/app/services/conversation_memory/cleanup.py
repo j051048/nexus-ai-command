@@ -106,10 +106,7 @@ def mmr_rerank(
 
         for i in candidates:
             relevance = scores[i]
-            if selected:
-                max_sim = max(_jaccard(tokens[i], tokens[j]) for j in selected)
-            else:
-                max_sim = 0.0
+            max_sim = max(_jaccard(tokens[i], tokens[j]) for j in selected) if selected else 0.0
 
             mmr = lambda_param * relevance - (1 - lambda_param) * max_sim
             if mmr > best_mmr:

@@ -6,7 +6,7 @@ Each function is idempotent and safe to run multiple times per day.
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 from app.services.notification_service import (
     Notification,
@@ -182,7 +182,7 @@ async def check_inactive_customers():
             days_inactive = 60
             if last_activity:
                 last_dt = datetime.fromisoformat(last_activity.replace("Z", "+00:00"))
-                days_inactive = (datetime.now(timezone.utc) - last_dt).days
+                days_inactive = (datetime.now(UTC) - last_dt).days
 
             # Dedup: one notification per customer per week
             week_ago = (datetime.now(CN_TZ) - timedelta(days=7)).isoformat()
@@ -289,7 +289,7 @@ async def check_data_consistency():
         admins = admin_res.data or []
 
         week_ago = (datetime.now(CN_TZ) - timedelta(days=7)).isoformat()
-        
+
         for alert in alerts:
             for admin in admins:
                 # 限制此类预警最多7天发送一次

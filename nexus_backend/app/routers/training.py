@@ -71,7 +71,7 @@ async def update_progress(
             db=db,
         )
         return api_success(data={"progress": result}, message="进度已更新")
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "培训参数校验失败")
     except Exception as e:
         logger.error(f"Failed to update progress: {e}")
@@ -95,7 +95,7 @@ async def submit_quiz(
             db=db,
         )
         return api_success(data={"quiz_result": result})
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "培训参数校验失败")
     except Exception as e:
         logger.error(f"Failed to submit quiz: {e}")

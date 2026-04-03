@@ -13,10 +13,10 @@ from typing import Any
 
 from app.services.ai_service import AIService
 from app.services.vector_service import vector_service
+from app.tools._shared import safe_tool_error
 from app.tools.web_search_helper import search_web
 
 from .base_tool import BaseTool
-from app.tools._shared import safe_tool_error
 
 logger = logging.getLogger(__name__)
 

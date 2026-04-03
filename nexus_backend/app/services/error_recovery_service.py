@@ -422,8 +422,8 @@ class CircuitBreaker:
         try:
             from app.services.cache_service import cache_service
             if cache_service and self._redis_key:
-                import json as _json
                 import asyncio
+                import json as _json
                 data = _json.dumps({
                     "state": self._state.value,
                     "failure_count": self._failure_count,
@@ -461,8 +461,8 @@ class CircuitBreaker:
         try:
             from app.services.cache_service import cache_service
             if cache_service and self._redis_key:
-                import json as _json
                 import asyncio
+                import json as _json
 
                 async def _fetch():
                     try:

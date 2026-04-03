@@ -10,7 +10,8 @@ from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
-from app.core.sanitize import sanitize_html, validate_email
+
+from app.core.sanitize import sanitize_html
 
 # --- Common Models ---
 

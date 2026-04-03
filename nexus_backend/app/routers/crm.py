@@ -141,7 +141,7 @@ async def create_customer(
         db = getattr(req.state, "db", None)
         customer = await crm_service.create_customer(org_id, body.model_dump(exclude_none=True), db=db)
         return api_success(data={"customer": customer}, message="客户创建成功")
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "CRM参数校验失败")
     except Exception as e:
         logger.error(f"Create customer error: user={user_id} err={e}")
@@ -178,7 +178,7 @@ async def update_customer(
         db = getattr(req.state, "db", None)
         customer = await crm_service.update_customer(customer_id, body.model_dump(exclude_none=True), db=db)
         return api_success(data={"customer": customer}, message="客户信息已更新")
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "CRM参数校验失败")
     except Exception as e:
         logger.error(f"Update customer error: id={customer_id} user={user_id} err={e}")
@@ -213,7 +213,7 @@ async def create_contact(
         db = getattr(req.state, "db", None)
         contact = await crm_service.create_contact(customer_id, body.model_dump(), db=db)
         return api_success(data={"contact": contact}, message="联系人已添加")
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "CRM参数校验失败")
     except Exception as e:
         logger.error(f"Create contact error: customer={customer_id} user={user_id} err={e}")
@@ -233,7 +233,7 @@ async def update_contact(
         db = getattr(req.state, "db", None)
         contact = await crm_service.update_contact(contact_id, body.model_dump(exclude_none=True), db=db)
         return api_success(data={"contact": contact}, message="联系人已更新")
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "CRM参数校验失败")
     except Exception as e:
         logger.error(f"Update contact error: contact={contact_id} customer={customer_id} user={user_id} err={e}")
@@ -302,7 +302,7 @@ async def create_activity(
         db = getattr(req.state, "db", None)
         activity = await crm_service.create_activity(customer_id, body.activity_type, body.content, user_id, db=db)
         return api_success(data={"activity": activity}, message="活动记录已添加")
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "CRM参数校验失败")
     except Exception as e:
         logger.error(f"Create activity error: customer={customer_id} user={user_id} err={e}")

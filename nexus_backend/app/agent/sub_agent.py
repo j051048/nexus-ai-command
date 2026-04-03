@@ -7,8 +7,8 @@ from typing import Any
 
 from langgraph.graph import END, StateGraph
 
-from app.agent.state import AgentState
 from app.agent.nodes import execute_node, plan_node
+from app.agent.state import AgentState
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ class SubAgent:
                 timeout=30.0
             )
             return result
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(f"SubAgent {self.name} timeout after 30s")
             return {"error": "执行超时"}
         except Exception as e:

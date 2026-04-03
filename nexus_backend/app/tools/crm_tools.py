@@ -8,12 +8,11 @@ import logging
 from typing import Any
 
 from app.services.crm_service import ACTIVITY_TYPES, CUSTOMER_STAGES, crm_service
-
-from .base_tool import BaseTool
-from ._shared import _get_client, _validate_uuid
 from app.tools._shared import safe_tool_error
 from app.tools.registry import register_tool
 
+from ._shared import _get_client, _validate_uuid
+from .base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
 

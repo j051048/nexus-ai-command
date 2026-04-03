@@ -34,7 +34,7 @@ def _with_redis_lock(task_name: str, lock_ttl: int = 300):
                     redis_client = _redis.from_url(redis_url)
                     if not redis_client.set(lock_key, "1", nx=True, ex=lock_ttl):
                         logger.info("[%s] Another worker is executing, skipped", task_name)
-                        return f"skipped: locked by another worker"
+                        return "skipped: locked by another worker"
             except Exception as e:
                 logger.debug("[%s] Redis lock unavailable, proceeding: %s", task_name, e)
 

@@ -107,7 +107,7 @@ async def create_from_template(
         )
 
         return api_success(data=workflow, message="工作流已从模板创建")
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "工作流模板操作失败")
     except Exception as e:
         if hasattr(e, "status_code"):
@@ -138,7 +138,7 @@ async def share_as_template(
         )
 
         return api_success(data=template, message="工作流已分享为模板")
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "工作流模板操作失败")
     except Exception as e:
         if hasattr(e, "status_code"):

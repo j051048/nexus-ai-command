@@ -13,8 +13,8 @@ while giving the agent precise, purpose-driven access.
 import logging
 from typing import Any
 
-from app.tools.base_tool import BaseTool
 from app.tools._shared import safe_tool_error
+from app.tools.base_tool import BaseTool
 from app.tools.registry import register_tool
 
 logger = logging.getLogger(__name__)
@@ -127,7 +127,7 @@ class LoadKnowledgeTool(BaseTool):
         # Dedup check — avoid redundant loads in same session
         cache_key = (user_id, session_id, _query_hash(query))
         if cache_key in _loaded_cache:
-            return f"[知识已加载] 该查询在本会话中已检索过，请直接使用之前的结果。"
+            return "[知识已加载] 该查询在本会话中已检索过，请直接使用之前的结果。"
 
         try:
             from app.services.vector_service import vector_service

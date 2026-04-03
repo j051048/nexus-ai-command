@@ -9,8 +9,6 @@ P0-2: 目标追踪系统 - 让 Agent 记住长期目标
 
 import logging
 from datetime import datetime
-from typing import Optional
-from uuid import UUID
 
 from app.core.database import supabase
 

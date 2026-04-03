@@ -497,7 +497,7 @@ export function useAIStream({ userId }: UseAIStreamProps) {
 
         // 添加超时保护
         const STREAM_TIMEOUT = 60000; // 60秒超时
-        let timeoutId = setTimeout(() => {
+        const timeoutId = setTimeout(() => {
             if (abortControllerRef.current) {
                 abortControllerRef.current.abort();
             }

@@ -3,7 +3,6 @@ P0-2: 工具 RBAC 白名单系统
 """
 
 import logging
-from typing import Optional
 
 from app.core.database import supabase
 

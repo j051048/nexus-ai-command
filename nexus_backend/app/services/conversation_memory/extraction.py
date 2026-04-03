@@ -163,7 +163,7 @@ async def _update_behavior_preferences(
         # Ensure we always provide organization_id to match the UNIQUE(user_id, organization_id) constraint
         # Use the system default UUID if org_id is missing, as defined in migration 20260211
         effective_org_id = org_id or '00000000-0000-0000-0000-000000000000'
-        
+
         # Upsert (composite unique: user_id + organization_id)
         upsert_data = {
             "user_id": user_id,
@@ -171,7 +171,7 @@ async def _update_behavior_preferences(
             "base_url": "",  # 必填字段，空字符串表示使用默认
             "behavior_preferences": merged
         }
-        
+
         await (
             client.table("ai_settings")
             .upsert(upsert_data, on_conflict="user_id,organization_id")
@@ -465,12 +465,13 @@ async def extract_with_llm(
         return []
 
     try:
+        # Inject current date so LLM can resolve relative time references
+        from datetime import UTC
+        from datetime import datetime as _dt
+
         from app.services.ai_service import AIService
 
         from .llm_utils import parse_llm_json
-
-        # Inject current date so LLM can resolve relative time references
-        from datetime import UTC, datetime as _dt
         today_str = _dt.now(UTC).strftime("%Y-%m-%d")
 
         prompt = f"以下是用户在对话中说的话：\n\n{combined}"

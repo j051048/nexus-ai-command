@@ -7,10 +7,10 @@ import uuid as _uuid
 from typing import Any
 
 from app.services.ai_service import AIService
-
-from .base_tool import BaseTool
-from ._shared import _get_client
 from app.tools._shared import safe_tool_error
+
+from ._shared import _get_client
+from .base_tool import BaseTool
 
 
 class ContractAnalysisTool(BaseTool):

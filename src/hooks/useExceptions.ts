@@ -38,7 +38,7 @@ export function useExceptions() {
             });
           }
         }
-      } catch {}
+      } catch { /* non-critical */ }
 
       // 2. 停滞商机
       try {
@@ -59,7 +59,7 @@ export function useExceptions() {
             });
           }
         }
-      } catch {}
+      } catch { /* non-critical */ }
 
       // 3. 合同即将到期
       try {
@@ -80,7 +80,7 @@ export function useExceptions() {
             }
           }
         }
-      } catch {}
+      } catch { /* non-critical */ }
 
       const severityOrder = { high: 0, medium: 1, low: 2 };
       alerts.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);

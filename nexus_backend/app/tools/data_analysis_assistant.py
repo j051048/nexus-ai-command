@@ -34,7 +34,7 @@ async def analyze_data_with_nl(
     """
     try:
         from app.core.database import supabase
-        from app.services.llm_helpers import resolve_model_config, get_langchain_llm_sync
+        from app.services.llm_helpers import get_langchain_llm_sync, resolve_model_config
 
         # 1. 获取数据库 schema
         schema_info = await _get_schema_info(org_id)

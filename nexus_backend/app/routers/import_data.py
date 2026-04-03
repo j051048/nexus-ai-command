@@ -167,7 +167,7 @@ async def get_import_template(template_type: str, user_id: str = Depends(get_cur
             headers={"Content-Disposition": f"attachment; filename={template_type}_template.csv"},
         )
 
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "导入数据参数校验失败")
     except Exception as e:
         logger.error(f"获取模板失败: {e}")
@@ -198,7 +198,7 @@ async def preview_import_data(file: UploadFile = File(...), user_id: str = Depen
 
         return api_success(data=preview_data)
 
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "导入数据参数校验失败")
     except Exception as e:
         logger.error(f"预览数据失败: {e}")

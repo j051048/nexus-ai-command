@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_current_user_id
-from app.core.errors import api_success, api_error, ErrorCode
+from app.core.errors import ErrorCode, api_error, api_success
 
 router = APIRouter(prefix="/api/ai/saved-prompts", tags=["Saved Prompts"])
 

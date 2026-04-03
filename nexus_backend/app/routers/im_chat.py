@@ -22,11 +22,11 @@ import logging
 import httpx
 from fastapi import APIRouter, Request
 
+from app.agent.result_cache import _generate_cache_key
+from app.core.cache import redis_client
 from app.core.config import settings
 from app.core.database import supabase
 from app.core.errors import api_success
-from app.agent.result_cache import _generate_cache_key
-from app.core.cache import redis_client
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/im-chat", tags=["IM Chat Channel"])

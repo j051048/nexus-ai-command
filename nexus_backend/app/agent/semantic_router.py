@@ -5,8 +5,8 @@
 """
 
 import logging
+
 import numpy as np
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +142,7 @@ class SemanticRouter:
             )
 
             embeddings: dict[str, list[np.ndarray]] = {}
-            for (intent, _, _), result in zip(tasks, results):
+            for (intent, _, _), result in zip(tasks, results, strict=False):
                 if isinstance(result, Exception) or result is None:
                     continue
                 arr = np.array(result, dtype=np.float32)

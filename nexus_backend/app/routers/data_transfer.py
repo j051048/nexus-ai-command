@@ -127,7 +127,7 @@ async def export_data(
             },
         )
 
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "数据传输参数校验失败")
     except Exception as e:
         if hasattr(e, "status_code"):
@@ -190,7 +190,7 @@ async def download_template(
             },
         )
 
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "数据传输参数校验失败")
     except Exception as e:
         logger.error(f"Download template {template_type} failed: {e}")

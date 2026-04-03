@@ -1,13 +1,14 @@
 """自动备份任务"""
-import asyncio
 from datetime import datetime
+
 from app.core.database import supabase
+
 
 async def backup_database():
     """每日数据库备份"""
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    datetime.now().strftime("%Y%m%d_%H%M%S")
     tables = ["sales_leads", "customers", "contracts", "conversation_memories"]
-    
+
     for table in tables:
         data = await supabase.table(table).select("*").execute()
         # 备份到S3或本地

@@ -22,6 +22,6 @@ async def trigger_incentive(trigger: IncentiveTrigger, user_id: str = Depends(ge
         result = await IncentiveService.trigger_incentive(trigger)
 
         return api_success(data=result.model_dump(), message="Incentive Generated Successfully")
-    except Exception as e:
+    except Exception:
         # Catch unexpected errors handled by service layer
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "激励方案操作失败")

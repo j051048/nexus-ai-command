@@ -50,7 +50,7 @@ function calculateStats(logs: AuditLogEntry[]): AuditStats {
 }
 
 // ─── Table availability probe ──────────────────────────────
-let _auditTableAvailable: boolean | null = true; // 默认可用
+const _auditTableAvailable: boolean | null = true; // 默认可用
 
 async function isAuditTableAvailable(): Promise<boolean> {
   return _auditTableAvailable !== false;

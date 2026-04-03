@@ -10,6 +10,7 @@ Phase 3: TurboQuant integration for vector state compression (6x bandwidth reduc
 
 import asyncio
 from dataclasses import dataclass, field
+
 import numpy as np
 
 

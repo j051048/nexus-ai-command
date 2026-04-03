@@ -134,7 +134,7 @@ async def create_competitor(
             org_id, user_id, body.model_dump(exclude_none=True), db=req.state.db
         )
         return api_success(data=data, message="竞品创建成功")
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "竞品分析参数校验失败")
     except Exception as e:
         logger.error(f"Create competitor failed: {e}")
@@ -174,7 +174,7 @@ async def update_competitor(
             competitor_id, body.model_dump(exclude_none=True), db=req.state.db
         )
         return api_success(data=data, message="竞品更新成功")
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "竞品分析参数校验失败")
     except Exception as e:
         logger.error(f"Update competitor failed: {e}")
@@ -230,7 +230,7 @@ async def create_product(
             competitor_id, org_id, body.model_dump(exclude_none=True), db=req.state.db
         )
         return api_success(data=data, message="产品添加成功")
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "竞品分析参数校验失败")
     except Exception as e:
         logger.error(f"Create product failed: {e}")
@@ -303,7 +303,7 @@ async def upsert_feature(
             competitor_id, org_id, body.model_dump(exclude_none=True), db=req.state.db
         )
         return api_success(data=data, message="对比维度保存成功")
-    except ValueError as e:
+    except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "竞品分析参数校验失败")
     except Exception as e:
         logger.error(f"Upsert feature failed: {e}")
