@@ -68,9 +68,17 @@ export function UsageStats() {
     );
   }
 
-  const tokenPercentage = Math.min(100, (data.tokens_used / data.tokens_limit) * 100);
-  const costPercentage = Math.min(100, (data.cost_usd / data.cost_limit_usd) * 100);
-  const requestPercentage = Math.min(100, (data.requests / data.requests_limit) * 100);
+  const tokensUsed = data.tokens_used ?? 0;
+  const tokensLimit = data.tokens_limit ?? 1;
+  const tokensRemaining = data.tokens_remaining ?? 0;
+  const costUsd = data.cost_usd ?? 0;
+  const costLimitUsd = data.cost_limit_usd ?? 1;
+  const requests = data.requests ?? 0;
+  const requestsLimit = data.requests_limit ?? 1;
+
+  const tokenPercentage = Math.min(100, (tokensUsed / tokensLimit) * 100);
+  const costPercentage = Math.min(100, (costUsd / costLimitUsd) * 100);
+  const requestPercentage = Math.min(100, (requests / requestsLimit) * 100);
 
   const getStatusColor = (percentage: number) => {
     if (percentage >= 90) return 'text-destructive';
@@ -104,12 +112,12 @@ export function UsageStats() {
               <span className="text-sm font-medium">Token 使用量</span>
             </div>
             <span className={`text-sm font-medium ${getStatusColor(tokenPercentage)}`}>
-              {data.tokens_used.toLocaleString()} / {data.tokens_limit.toLocaleString()}
+              {tokensUsed.toLocaleString()} / {tokensLimit.toLocaleString()}
             </span>
           </div>
           <Progress value={tokenPercentage} className="h-2" />
           <p className="text-xs text-muted-foreground">
-            剩余 {data.tokens_remaining.toLocaleString()} tokens
+            剩余 {tokensRemaining.toLocaleString()} tokens
           </p>
         </div>
 
@@ -121,7 +129,7 @@ export function UsageStats() {
               <span className="text-sm font-medium">预估成本</span>
             </div>
             <span className={`text-sm font-medium ${getStatusColor(costPercentage)}`}>
-              ${data.cost_usd.toFixed(4)} / ${data.cost_limit_usd.toFixed(2)}
+              ${costUsd.toFixed(4)} / ${costLimitUsd.toFixed(2)}
             </span>
           </div>
           <Progress value={costPercentage} className="h-2" />
@@ -135,7 +143,7 @@ export function UsageStats() {
               <span className="text-sm font-medium">请求次数</span>
             </div>
             <span className={`text-sm font-medium ${getStatusColor(requestPercentage)}`}>
-              {data.requests} / {data.requests_limit}
+              {requests} / {requestsLimit}
             </span>
           </div>
           <Progress value={requestPercentage} className="h-2" />

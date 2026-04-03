@@ -35,7 +35,7 @@ class WorkOrderService:
         try:
             query = (
                 db.table("work_orders")
-                .select("*, assignee:users!assignee_id(id, name)")
+                .select("*")
                 .eq("organization_id", org_id)
                 .order("created_at", desc=True)
             )
@@ -83,7 +83,7 @@ class WorkOrderService:
         try:
             result = await (
                 db.table("work_orders")
-                .select("*, assignee:users!assignee_id(id, name)")
+                .select("*")
                 .eq("id", order_id)
                 .maybe_single()
                 .execute()
