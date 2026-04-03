@@ -33,12 +33,7 @@ class WorkOrderService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            query = (
-                db.table("work_orders")
-                .select("*")
-                .eq("organization_id", org_id)
-                .order("created_at", desc=True)
-            )
+            query = db.table("work_orders").select("*").eq("organization_id", org_id).order("created_at", desc=True)
 
             if filters:
                 if filters.get("order_type"):
@@ -81,13 +76,7 @@ class WorkOrderService:
             raise RuntimeError("数据库连接不可用")
 
         try:
-            result = await (
-                db.table("work_orders")
-                .select("*")
-                .eq("id", order_id)
-                .maybe_single()
-                .execute()
-            )
+            result = await db.table("work_orders").select("*").eq("id", order_id).maybe_single().execute()
 
             return result.data
 

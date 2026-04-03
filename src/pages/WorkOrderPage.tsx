@@ -98,7 +98,8 @@ export default function WorkOrderPage() {
       if (search.trim()) params.search = search.trim();
 
       const response = await httpClient.get('/api/work-orders', { params });
-      setOrders((response.data?.data?.items || response.data?.data || []) as WorkOrder[]);
+      const rawData = response.data?.data?.items || response.data?.data;
+      setOrders(Array.isArray(rawData) ? rawData : []);
     } catch (e) {
       toast.error('加载工单失败: ' + (e as Error).message);
     } finally {

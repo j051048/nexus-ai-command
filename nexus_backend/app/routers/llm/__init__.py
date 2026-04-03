@@ -10,9 +10,7 @@ from fastapi import APIRouter
 
 from .marketplace import router as marketplace_router
 from .models_crud import router as models_crud_router
-from .quotas import router as quotas_router
 from .scheduling import router as scheduling_router
-from .usage import router as usage_router
 
 router = APIRouter(prefix="/api/llm", tags=["LLM Models"])
 
@@ -20,6 +18,4 @@ router = APIRouter(prefix="/api/llm", tags=["LLM Models"])
 # paths relative to /api/llm, e.g. "/models", "/schedule-rules", etc.)
 router.include_router(models_crud_router)
 router.include_router(scheduling_router)
-router.include_router(usage_router)
-router.include_router(quotas_router)
 router.include_router(marketplace_router)

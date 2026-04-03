@@ -25,7 +25,17 @@ def register_routers(app: FastAPI) -> None:
 
     # ── 1. AI / Chat ──────────────────────────────────────────────────────
     from app.routers import agent_proactive as agent_proactive_router
-    from app.routers import analysis, audio, batch, charts, chat, export, files, memories, metrics
+    from app.routers import (
+        analysis,
+        audio,
+        batch,
+        charts,
+        chat,
+        export,
+        files,
+        memories,
+        metrics,
+    )
     from app.routers import chat_upload as chat_upload_router
     from app.routers import saved_prompts as saved_prompts_router
     from app.routers import scheduled_tasks as scheduled_tasks_router
@@ -53,7 +63,15 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(business_context.router)
 
     # ── 2. CRM / Sales ───────────────────────────────────────────────────
-    from app.routers import competitors, crm, dashboard, incentive, performance, sales, sales_leads
+    from app.routers import (
+        competitors,
+        crm,
+        dashboard,
+        incentive,
+        performance,
+        sales,
+        sales_leads,
+    )
 
     app.include_router(crm.router)
     app.include_router(sales_leads.router)
@@ -64,7 +82,14 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(dashboard.router)
 
     # ── 3. OA / Workflow ──────────────────────────────────────────────────
-    from app.routers import approval, form_schemas, oa, projects, workflow_templates, workflows
+    from app.routers import (
+        approval,
+        form_schemas,
+        oa,
+        projects,
+        workflow_templates,
+        workflows,
+    )
     from app.routers import approval_flows as approval_flows_router
     from app.routers import attendance as attendance_router
     from app.routers import expenses as expenses_router
@@ -89,7 +114,15 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(import_data.router)
 
     # ── 5. Organization / Users ───────────────────────────────────────────
-    from app.routers import hr, notifications, onboarding, organization, permissions, profile, users
+    from app.routers import (
+        hr,
+        notifications,
+        onboarding,
+        organization,
+        permissions,
+        profile,
+        users,
+    )
     from app.routers import notification_preferences as notification_preferences_router
     from app.routers import org_structure as org_structure_router
 
@@ -127,7 +160,17 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(certificates_router.router)
 
     # ── 8. IM / Integration ───────────────────────────────────────────────
-    from app.routers import im_callbacks, im_chat, im_oauth, im_settings, kingdee, oauth, plugins, push, webhooks
+    from app.routers import (
+        im_callbacks,
+        im_chat,
+        im_oauth,
+        im_settings,
+        kingdee,
+        oauth,
+        plugins,
+        push,
+        webhooks,
+    )
     from app.routers import mcp as mcp_router
     from app.routers import robot as robot_router
 
@@ -144,7 +187,14 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(robot_router.router)
 
     # ── 9. System / Admin ─────────────────────────────────────────────────
-    from app.routers import api_docs, api_keys, backups, compliance, data_transfer, super_admin
+    from app.routers import (
+        api_docs,
+        api_keys,
+        backups,
+        compliance,
+        data_transfer,
+        super_admin,
+    )
     from app.routers import dsar as dsar_router
     from app.routers import system as system_router
     from app.routers import system_configs as system_configs_router
@@ -159,34 +209,28 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(dsar_router.router)
     app.include_router(system_router.router)
 
-    # ── 10. Optional / VMD routers ────────────────────────────────────────
+    # ── 10. VMD / LLM Optional Routers ─────────────────────────────
+    from app.routers import llm
 
-    try:
-        from app.routers import agent_replay as agent_replay_router
+    app.include_router(llm.router)
 
-        app.include_router(agent_replay_router.router)
-    except ImportError:
-        logger.debug("agent_replay router not available, skipping")
-
-    try:
-        from app.routers import onboarding_agent as onboarding_agent_router
-
-        app.include_router(onboarding_agent_router.router)
-    except ImportError:
-        logger.debug("onboarding_agent router not available, skipping")
-
-    _optional_vmd_routers = [
-        ("llm_models", "llm_models"),
-        ("vmd_clues", "vmd_clues"),
-        ("vmd_tasks", "vmd_tasks"),
-        ("vmd_compliance", "vmd_compliance"),
-        ("vmd_dashboard", "vmd_dashboard"),
-        ("admin_traces", "admin_traces"),
-        ("admin_rag", "admin_rag"),
+    _vmd_modules = [
+        "vmd_tasks",
+        "vmd_clues",
+        "vmd_compliance",
+        "vmd_dashboard",
     ]
-    for module_name, label in _optional_vmd_routers:
+    for mod_name in _vmd_modules:
         try:
-            module = __import__(f"app.routers.{module_name}", fromlist=["router"])
+            module = __import__(f"app.routers.{mod_name}", fromlist=["router"])
             app.include_router(module.router)
         except (ImportError, AttributeError):
-            logger.debug(f"{label} router not available, skipping")
+            logger.debug(f"Router {mod_name} could not be loaded")
+
+    # Extra legacy ones
+    for mod_name in ["agent_replay", "onboarding_agent", "admin_traces", "admin_rag"]:
+        try:
+            module = __import__(f"app.routers.{mod_name}", fromlist=["router"])
+            app.include_router(module.router)
+        except (ImportError, AttributeError):
+            pass
