@@ -30,8 +30,8 @@ export function ProductTour() {
 
   useEffect(() => {
     // 如果是测试环境，或者已经看过引导，则不开启
-    const isTest = import.meta.env.VITE_SKIP_TOUR === 'true' || localStorage.getItem('nexus-joyride-seen') === 'true';
-    const hasSeenTour = localStorage.getItem('hasSeenTour');
+    const isTest = import.meta.env.VITE_SKIP_TOUR === 'true';
+    const hasSeenTour = localStorage.getItem('hasSeenTour') === 'true';
     if (!hasSeenTour && !isTest) {
       const timer = setTimeout(() => setRun(true), 1000);
       return () => clearTimeout(timer);
@@ -54,8 +54,12 @@ export function ProductTour() {
       run={run}
       continuous
       scrollToFirstStep={true}
-      showProgress={true}
-      showSkipButton={true}
+      options={{
+        showProgress: true,
+        primaryColor: 'hsl(var(--primary))',
+        zIndex: 10000,
+        buttons: ['back', 'close', 'primary', 'skip'],
+      }}
       locale={{
         back: '上一步',
         close: '关闭',
@@ -63,14 +67,7 @@ export function ProductTour() {
         next: '下一步',
         skip: '跳过',
       }}
-      styles={{
-        // options is a top-level key in the styles prop for react-joyride
-        options: {
-          primaryColor: 'hsl(var(--primary))',
-          zIndex: 10000,
-        },
-      }}
-      callback={handleJoyrideCallback}
+      onEvent={handleJoyrideCallback}
     />
   );
 }
