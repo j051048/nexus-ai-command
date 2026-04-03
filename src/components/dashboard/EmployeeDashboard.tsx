@@ -96,17 +96,22 @@ export function EmployeeDashboard() {
 
   // Calculate performance metrics from real data
   const performanceMetrics = useMemo(() => {
-    if (!salesMetrics || salesMetrics.length === 0) {
+    const metrics = salesMetrics || [];
+    if (metrics.length === 0) {
       return defaultPerformanceMetrics;
     }
 
-    const recent = salesMetrics.slice(-7); // Last 7 days
-    const avgWinRate = recent.reduce((sum, m) => sum + (Number(m.win_rate) || 0), 0) / recent.length;
-    const avgConversionRate = recent.reduce((sum, m) => {
-      const leads = m.leads_count || 1;
-      const conversions = m.conversions || 0;
-      return sum + (conversions / leads) * 100;
-    }, 0) / recent.length;
+    const recent = metrics.slice(-7); // Last 7 days
+    const avgWinRate = recent.length > 0
+      ? recent.reduce((sum, m) => sum + (Number(m.win_rate) || 0), 0) / recent.length
+      : 0;
+    const avgConversionRate = recent.length > 0
+      ? recent.reduce((sum, m) => {
+          const leads = m.leads_count || 1;
+          const conversions = m.conversions || 0;
+          return sum + (conversions / leads) * 100;
+        }, 0) / recent.length
+      : 0;
 
     return [
       { name: '跟进及时率', value: 92, target: 90, unit: '%', status: 'good' as const },

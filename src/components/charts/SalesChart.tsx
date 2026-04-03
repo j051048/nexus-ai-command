@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { useSalesMetrics } from '@/hooks/useSalesData';
-import { useCurrentTargets } from '@/hooks/useTargets';
+import { useCurrentTargets, SalesTarget } from '@/hooks/useTargets';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 
@@ -44,7 +44,8 @@ export function SalesChart() {
 
   // Get monthly target values
   const monthlyTarget = React.useMemo(() => {
-    const monthly = targets?.find(t => t.target_type === 'monthly');
+    const data = (targets || []) as SalesTarget[];
+    const monthly = data.find((t: SalesTarget) => t.target_type === 'monthly');
     return {
       leads: monthly?.leads_target || 0,
       conversions: monthly?.conversions_target || 0,
@@ -53,12 +54,17 @@ export function SalesChart() {
 
   // Transform raw data into monthly aggregates
   const salesData = React.useMemo(() => {
-    if (!rawData || rawData.length === 0) return mockSalesData;
+    const data = Array.isArray(rawData) ? rawData : [];
+    if (data.length === 0) return mockSalesData;
 
     const monthMap = new Map<string, { leads: number; conversions: number; revenue: number }>();
 
-    rawData.forEach((item) => {
-      const monthKey = format(new Date(item.date), 'M月');
+    data.forEach((item) => {
+      // Ensure date is valid before formatting
+      const dateObj = item.date ? new Date(item.date) : new Date();
+      if (isNaN(dateObj.getTime())) return;
+
+      const monthKey = format(dateObj, 'M月');
       const current = monthMap.get(monthKey) || { leads: 0, conversions: 0, revenue: 0 };
       monthMap.set(monthKey, {
         leads: current.leads + (item.leads_count || 0),
@@ -66,6 +72,8 @@ export function SalesChart() {
         revenue: current.revenue + (Number(item.revenue) || 0),
       });
     });
+
+    if (monthMap.size === 0) return mockSalesData;
 
     return Array.from(monthMap.entries()).map(([month, data]) => ({
       month,

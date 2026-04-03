@@ -12,7 +12,7 @@ import {
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { useWinRateHistory } from '@/hooks/useSalesData';
-import { useCurrentTargets } from '@/hooks/useTargets';
+import { useCurrentTargets, SalesTarget } from '@/hooks/useTargets';
 import { Skeleton } from '@/components/ui/skeleton';
 
 // Fallback mock data
@@ -44,13 +44,15 @@ export function WinRateChart() {
 
   // Get monthly target win rate
   const targetWinRate = React.useMemo(() => {
-    const monthly = targets?.find(t => t.target_type === 'monthly');
+    const data = (targets || []) as SalesTarget[];
+    const monthly = data.find((t: SalesTarget) => t.target_type === 'monthly');
     return monthly?.win_rate_target || 25; // Default to 25% if no target
   }, [targets]);
 
   const winRateData = React.useMemo(() => {
-    if (!rawData || rawData.length === 0) return mockWinRateData;
-    return rawData;
+    const data = Array.isArray(rawData) ? rawData : [];
+    if (data.length === 0) return mockWinRateData;
+    return data;
   }, [rawData]);
 
   const currentRate = winRateData[winRateData.length - 1]?.rate || 0;
