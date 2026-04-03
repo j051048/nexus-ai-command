@@ -2,6 +2,7 @@
 批量操作工具
 支持批量导入、更新、分配等操作
 """
+
 import logging
 from typing import Any
 
@@ -45,15 +46,17 @@ async def batch_import_customers(
 
         for idx, customer in enumerate(data):
             try:
-                await supabase.table("crm_customers").insert({
-                    "org_id": org_id,
-                    "name": customer.get("name"),
-                    "industry": customer.get("industry"),
-                    "contact_person": customer.get("contact"),
-                    "phone": customer.get("phone"),
-                    "email": customer.get("email"),
-                    "created_by": user_id,
-                }).execute()
+                await supabase.table("crm_customers").insert(
+                    {
+                        "org_id": org_id,
+                        "name": customer.get("name"),
+                        "industry": customer.get("industry"),
+                        "contact_person": customer.get("contact"),
+                        "phone": customer.get("phone"),
+                        "email": customer.get("email"),
+                        "created_by": user_id,
+                    }
+                ).execute()
                 success_count += 1
             except Exception as e:
                 failed_count += 1
@@ -123,7 +126,13 @@ async def batch_assign_leads(
     try:
         from app.core.database import supabase
 
-        result = await supabase.table("crm_leads").update({"owner_id": owner_id}).in_("id", lead_ids).eq("org_id", org_id).execute()
+        result = (
+            await supabase.table("crm_leads")
+            .update({"owner_id": owner_id})
+            .in_("id", lead_ids)
+            .eq("org_id", org_id)
+            .execute()
+        )
 
         return {
             "success": True,
@@ -134,4 +143,3 @@ async def batch_assign_leads(
     except Exception as e:
         logger.error(f"批量分配失败: {e}")
         return {"success": False, "error": str(e)}
-

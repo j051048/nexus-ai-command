@@ -2,7 +2,7 @@
 import pytest
 import asyncio
 from typing import Any, List, Dict, Optional
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 from app.main import app as _fastapi_app
 
 @pytest.fixture(scope="session")
@@ -13,7 +13,7 @@ def event_loop():
 
 @pytest.fixture
 async def client():
-    async with AsyncClient(app=_fastapi_app, base_url="http://test") as ac:
+    async with AsyncClient(transport=ASGITransport(app=_fastapi_app), base_url="http://test") as ac:
         yield ac
 
 @pytest.fixture
@@ -140,7 +140,7 @@ def mock_agent_config():
 @pytest.fixture
 async def async_client():
     """被 test_api_smoke, test_billing, test_payments 等使用"""
-    async with AsyncClient(app=_fastapi_app, base_url="http://test") as ac:
+    async with AsyncClient(transport=ASGITransport(app=_fastapi_app), base_url="http://test") as ac:
         yield ac
 
 @pytest.fixture

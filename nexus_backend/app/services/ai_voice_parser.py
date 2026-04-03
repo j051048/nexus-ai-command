@@ -1,6 +1,7 @@
 """AI语音意图解析服务
 P0-1: 解析"帮我报销昨天去广德的机票1926元"
 """
+
 import logging
 
 from app.services.llm_gateway import get_llm
@@ -35,6 +36,7 @@ async def parse_voice_intent(text: str, user_id: str, org_id: str):
 
         # 解析LLM返回的JSON
         import json
+
         data = json.loads(str(result))
 
         # 补充用户信息

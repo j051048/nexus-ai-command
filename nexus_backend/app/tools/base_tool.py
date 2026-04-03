@@ -179,8 +179,10 @@ class BaseTool(ABC):
         # ALL irreversible tools in non-persistent mode makes 15+ tools
         # completely unusable, which is far worse.
         from app.agent.checkpointer import is_checkpointer_persistent
+
         if not is_checkpointer_persistent():
             import logging as _log
+
             _log.getLogger(__name__).warning(
                 "[HITL] Non-persistent checkpointer: confirmation for %s will not survive restart",
                 self.name,

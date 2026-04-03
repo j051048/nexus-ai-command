@@ -198,7 +198,10 @@ class CreateCustomerTool(BaseTool):
     description = "创建新客户记录，支持设置阶段、来源和预估金额"
     examples = [
         {"input": {"name": "张三", "company": "华为", "stage": "lead"}, "output_summary": "创建名为张三的线索阶段客户"},
-        {"input": {"name": "李四", "source": "展会", "estimated_value": 50000}, "output_summary": "创建来源为展会、预估金额5万的客户"},
+        {
+            "input": {"name": "李四", "source": "展会", "estimated_value": 50000},
+            "output_summary": "创建来源为展会、预估金额5万的客户",
+        },
     ]
     gotchas = "name为必填字段。estimated_value不能为负数。stage默认为lead。创建后自动将assigned_to设为当前用户。"
     related_tools = ["get_customers", "update_customer", "add_follow_up"]
@@ -273,7 +276,10 @@ class UpdateCustomerTool(BaseTool):
     description = "更新已有客户的信息，支持修改名称、公司、阶段等字段"
     examples = [
         {"input": {"customer_id": "uuid-xxxx", "company": "新公司名"}, "output_summary": "更新指定客户的公司名称"},
-        {"input": {"customer_id": "uuid-xxxx", "stage": "customer", "estimated_value": 100000}, "output_summary": "同时更新客户阶段和预估金额"},
+        {
+            "input": {"customer_id": "uuid-xxxx", "stage": "customer", "estimated_value": 100000},
+            "output_summary": "同时更新客户阶段和预估金额",
+        },
     ]
     gotchas = "customer_id必须是有效UUID。至少提供一个要更新的字段，否则报错。不会自动记录阶段变更活动，推进阶段请用update_customer_stage。"
     related_tools = ["get_customer_detail", "update_customer_stage", "create_customer"]
@@ -334,8 +340,14 @@ class AddFollowUpTool(BaseTool):
     name = "add_follow_up"
     description = "为指定客户添加跟进记录，支持电话、邮件、会议、备注等类型"
     examples = [
-        {"input": {"customer_id": "uuid-xxxx", "activity_type": "call", "content": "电话沟通了产品报价"}, "output_summary": "为客户添加一条电话跟进记录"},
-        {"input": {"customer_id": "uuid-xxxx", "activity_type": "meeting", "content": "现场拜访讨论合作方案"}, "output_summary": "为客户添加一条会议跟进记录"},
+        {
+            "input": {"customer_id": "uuid-xxxx", "activity_type": "call", "content": "电话沟通了产品报价"},
+            "output_summary": "为客户添加一条电话跟进记录",
+        },
+        {
+            "input": {"customer_id": "uuid-xxxx", "activity_type": "meeting", "content": "现场拜访讨论合作方案"},
+            "output_summary": "为客户添加一条会议跟进记录",
+        },
     ]
     is_irreversible = True
     confirmation_message = "⚠️ 即将添加跟进记录，确认继续？"
@@ -454,7 +466,10 @@ class UpdateCustomerStageTool(BaseTool):
     description = "推进或变更客户的销售阶段，自动记录阶段变更活动并触发业务事件"
     examples = [
         {"input": {"customer_id": "uuid-xxxx", "new_stage": "opportunity"}, "output_summary": "将客户推进到商机阶段"},
-        {"input": {"customer_id": "uuid-xxxx", "new_stage": "customer"}, "output_summary": "将客户标记为成交，触发成交事件"},
+        {
+            "input": {"customer_id": "uuid-xxxx", "new_stage": "customer"},
+            "output_summary": "将客户标记为成交，触发成交事件",
+        },
     ]
     gotchas = "会自动创建一条deal_update类型的跟进记录。成交时触发DEAL_WON事件，进入商机阶段触发LEAD_QUALIFIED事件。不校验阶段跳转合理性（如可直接从线索跳到成交）。"
     related_tools = ["get_customer_detail", "update_customer", "get_sales_pipeline"]

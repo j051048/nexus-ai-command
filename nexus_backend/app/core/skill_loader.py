@@ -2,6 +2,7 @@
 Skills 动态加载机制
 根据场景按需加载工具，优化上下文使用
 """
+
 import logging
 from typing import Any
 
@@ -140,4 +141,3 @@ def get_scene_from_context(messages: list[dict] | None = None, agent_code: str =
             return "analysis"
 
     return "sales"  # 默认场景
-

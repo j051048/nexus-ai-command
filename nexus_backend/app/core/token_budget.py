@@ -254,8 +254,7 @@ class TokenBudgetManager:
             await self._incr(day_key, cost, ttl=86400)
 
         logger.debug(
-            f"[TokenBudget] Recorded: session={session_id} "
-            f"tokens={total_tokens} cost=${cost:.4f} model={model}"
+            f"[TokenBudget] Recorded: session={session_id} " f"tokens={total_tokens} cost=${cost:.4f} model={model}"
         )
 
     async def get_session_usage(self, session_id: str) -> UsageSummary:

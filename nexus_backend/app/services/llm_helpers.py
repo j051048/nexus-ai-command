@@ -92,7 +92,9 @@ def _build_tier_fallback(tier: str, scene_code: str = "") -> dict | None:
         provider = config.get("provider", "openai").lower()
         if provider == "anthropic":
             api_key = os.getenv("ANTHROPIC_API_KEY") or getattr(settings, "ANTHROPIC_API_KEY", "")
-            base_url = os.getenv("ANTHROPIC_BASE_URL") or getattr(settings, "ANTHROPIC_BASE_URL", "https://api.anthropic.com/v1")
+            base_url = os.getenv("ANTHROPIC_BASE_URL") or getattr(
+                settings, "ANTHROPIC_BASE_URL", "https://api.anthropic.com/v1"
+            )
         else:  # openai or compatible
             api_key = os.getenv("OPENAI_API_KEY") or settings.OPENAI_API_KEY
             base_url = os.getenv("AI_BASE_URL") or getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1")
@@ -155,7 +157,8 @@ async def resolve_model_config(
                 if complexity_tier in ("power", "flagship") and is_weak_model(resolved_model):
                     logger.info(
                         "Gateway returned weak model %s for %s tier, using tier fallback",
-                        resolved_model, complexity_tier,
+                        resolved_model,
+                        complexity_tier,
                     )
                 else:
                     return {

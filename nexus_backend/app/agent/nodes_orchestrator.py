@@ -152,12 +152,14 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
             ThinkingStep(
                 phase="orchestrate",
                 tool_name="__orch_meta",
-                content=json.dumps({
-                    "type": "layer_start",
-                    "layer_idx": layer_idx,
-                    "total_layers": len(execution_layers),
-                    "tasks": layer_tasks_info,
-                }),
+                content=json.dumps(
+                    {
+                        "type": "layer_start",
+                        "layer_idx": layer_idx,
+                        "total_layers": len(execution_layers),
+                        "tasks": layer_tasks_info,
+                    }
+                ),
             )
         )
 
@@ -206,10 +208,14 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
                     task_status = "completed"
                     if not result or len(result.strip()) < 10:
                         task_status = "degraded"
-                        logger.warning(f"[Orchestrate] Sub-task {task_idx} ({agent_code}) result too short, marking degraded")
+                        logger.warning(
+                            f"[Orchestrate] Sub-task {task_idx} ({agent_code}) result too short, marking degraded"
+                        )
                     elif result.lstrip().startswith(("Error:", "错误", "执行失败")):
                         task_status = "degraded"
-                        logger.warning(f"[Orchestrate] Sub-task {task_idx} ({agent_code}) result looks like error, marking degraded")
+                        logger.warning(
+                            f"[Orchestrate] Sub-task {task_idx} ({agent_code}) result looks like error, marking degraded"
+                        )
 
                     return {
                         **_base_result,
@@ -236,7 +242,11 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
 
                     # Quality gate (same as Attempt 1)
                     task_status = "completed"
-                    if not result or len(result.strip()) < 10 or result.lstrip().startswith(("Error:", "错误", "执行失败")):
+                    if (
+                        not result
+                        or len(result.strip()) < 10
+                        or result.lstrip().startswith(("Error:", "错误", "执行失败"))
+                    ):
                         task_status = "degraded"
 
                     return {
@@ -357,14 +367,16 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
                 ThinkingStep(
                     phase="orchestrate",
                     tool_name="__orch_meta",
-                    content=json.dumps({
-                        "type": "task_end",
-                        "sub_task_id": lr["sub_task_id"],
-                        "agent_code": lr["agent_code"],
-                        "title": lr["title"],
-                        "status": lr["status"],
-                        "layer_idx": layer_idx,
-                    }),
+                    content=json.dumps(
+                        {
+                            "type": "task_end",
+                            "sub_task_id": lr["sub_task_id"],
+                            "agent_code": lr["agent_code"],
+                            "title": lr["title"],
+                            "status": lr["status"],
+                            "layer_idx": layer_idx,
+                        }
+                    ),
                 )
             )
 
@@ -435,12 +447,14 @@ async def orchestrate_node(state: AgentState, runnable_config: dict | None = Non
         ThinkingStep(
             phase="orchestrate",
             tool_name="__orch_meta",
-            content=json.dumps({
-                "type": "complete",
-                "total_tasks": total_tasks,
-                "completed": len([r for r in delegation_results if r["status"] in ("completed", "degraded")]),
-                "failed": len([r for r in delegation_results if r["status"] == "failed"]),
-            }),
+            content=json.dumps(
+                {
+                    "type": "complete",
+                    "total_tasks": total_tasks,
+                    "completed": len([r for r in delegation_results if r["status"] in ("completed", "degraded")]),
+                    "failed": len([r for r in delegation_results if r["status"] == "failed"]),
+                }
+            ),
         )
     )
 
@@ -487,7 +501,9 @@ _RESULT_COMPRESS_THRESHOLD = 1500  # chars — compress result if longer
 async def _compress_sub_result(config: AgentConfig, task_title: str, text: str) -> str:
     """Compress a verbose sub-task result into a concise summary using mini_model."""
     try:
-        llm = await _create_orchestrator_llm(config, use_mini=True, temperature=0.2, timeout=20.0, trace_ctx=_get_trace_context(config))
+        llm = await _create_orchestrator_llm(
+            config, use_mini=True, temperature=0.2, timeout=20.0, trace_ctx=_get_trace_context(config)
+        )
         prompt = (
             f"请将以下子任务「{task_title}」的执行结果精炼为不超过500字的摘要。\n"
             f"保留：关键数据点、结论、数字指标。删除：冗余描述、重复信息、格式装饰。\n\n"
@@ -495,10 +511,13 @@ async def _compress_sub_result(config: AgentConfig, task_title: str, text: str) 
         )
         from langchain_core.messages import HumanMessage as _HM
         from langchain_core.messages import SystemMessage as _SM
-        resp = await llm.ainvoke([
-            _SM(content="你是信息压缩专家，擅长提炼关键信息。只输出摘要，不加前缀。"),
-            _HM(content=prompt),
-        ])
+
+        resp = await llm.ainvoke(
+            [
+                _SM(content="你是信息压缩专家，擅长提炼关键信息。只输出摘要，不加前缀。"),
+                _HM(content=prompt),
+            ]
+        )
         compressed = resp.content or text
         logger.debug(f"[Orchestrate] Compressed result for '{task_title}': {len(text)} -> {len(compressed)} chars")
         return compressed
@@ -696,12 +715,16 @@ async def _execute_sub_task_degraded(
         user_prompt += f"\n## 前置任务结果（供参考）\n{dep_context}"
 
     messages = [
-        SystemMessage(content=f"你是一位经验丰富的专业顾问。请基于专业知识回答以下问题。\n\n## 安全规则\n{SECURITY_GUARDRAILS}"),
+        SystemMessage(
+            content=f"你是一位经验丰富的专业顾问。请基于专业知识回答以下问题。\n\n## 安全规则\n{SECURITY_GUARDRAILS}"
+        ),
         HumanMessage(content=user_prompt),
     ]
 
     # P2-9: Use unified LLM factory
-    llm = await _create_orchestrator_llm(config, use_mini=True, temperature=0.7, timeout=30.0, trace_ctx=_get_trace_context(config))
+    llm = await _create_orchestrator_llm(
+        config, use_mini=True, temperature=0.7, timeout=30.0, trace_ctx=_get_trace_context(config)
+    )
 
     ai_msg = await llm.ainvoke(messages)
     usage = ai_msg.response_metadata.get("token_usage", {})
@@ -818,7 +841,9 @@ async def _check_and_adjust_plan(
 
     try:
         # P2-9: Use unified LLM factory
-        llm = await _create_orchestrator_llm(config, use_mini=True, temperature=0.3, timeout=30.0, trace_ctx=_get_trace_context(config))
+        llm = await _create_orchestrator_llm(
+            config, use_mini=True, temperature=0.3, timeout=30.0, trace_ctx=_get_trace_context(config)
+        )
 
         ai_msg = await llm.ainvoke(
             [

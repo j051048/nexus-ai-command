@@ -93,9 +93,7 @@ class InventoryService:
 
         try:
             # 获取当前库存
-            item_result = await (
-                db.table("inventory").select("id, quantity").eq("id", item_id).maybe_single().execute()
-            )
+            item_result = await db.table("inventory").select("id, quantity").eq("id", item_id).maybe_single().execute()
 
             if not item_result.data:
                 raise RuntimeError(f"库存物品不存在: {item_id}")
@@ -156,9 +154,7 @@ class InventoryService:
 
         try:
             # 获取当前库存
-            item_result = await (
-                db.table("inventory").select("id, quantity").eq("id", item_id).maybe_single().execute()
-            )
+            item_result = await db.table("inventory").select("id, quantity").eq("id", item_id).maybe_single().execute()
 
             if not item_result.data:
                 raise RuntimeError(f"库存物品不存在: {item_id}")
@@ -213,11 +209,7 @@ class InventoryService:
 
         try:
             result = await (
-                db.table("inventory")
-                .select("*")
-                .eq("organization_id", org_id)
-                .not_.is_("min_stock", "null")
-                .execute()
+                db.table("inventory").select("*").eq("organization_id", org_id).not_.is_("min_stock", "null").execute()
             )
 
             items = result.data or []

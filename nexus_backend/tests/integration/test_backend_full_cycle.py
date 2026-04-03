@@ -1,5 +1,5 @@
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 from app.main import app
 from unittest.mock import MagicMock
 
@@ -22,7 +22,7 @@ async def test_crm_leads_integration(mock_db, auth_token="mock_valid_token"):
     和 Auth 权限的透传。
     """
     # 模拟通过 Request.state 传递正确的 org_id 和 db 实例
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # 这个请求依赖于 auth.py 中 get_current_user_id 的依赖注入
         # 我们假设其在集成测试环境下会有 mock 掉 Token 验证的逻辑
         response = await ac.get(
@@ -43,7 +43,7 @@ async def test_crm_leads_integration(mock_db, auth_token="mock_valid_token"):
 @pytest.mark.asyncio
 async def test_organization_switching_security():
     """验证多租户切换时的安全性：试图访问非本组织的资源。"""
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # 当 org_id 不匹配时的 403 案例
         headers = {"Authorization": "Bearer mock_token_other_org", "X-Org-Id": "victim_org_id"}
         response = await ac.get("/api/organization/detail", headers=headers)

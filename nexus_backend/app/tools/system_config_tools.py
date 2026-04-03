@@ -28,9 +28,7 @@ class ListSystemConfigsTool(BaseTool):
     """查询系统配置列表"""
 
     name = "list_system_configs"
-    description = (
-        "查询租户的系统配置列表，支持按配置类型筛选"
-    )
+    description = "查询租户的系统配置列表，支持按配置类型筛选"
     domain = "admin"
     examples = [
         {"input": {}, "output_summary": "返回当前租户的所有配置项，按类型分组展示"},
@@ -100,8 +98,19 @@ class UpdateSystemConfigTool(BaseTool):
     description = "创建或更新租户的系统配置项"
     domain = "admin"
     examples = [
-        {"input": {"config_type": "asset_status", "config_key": "maintenance", "label": "维护中", "color": "#FFA500"}, "output_summary": "创建或更新一个资产状态配置项"},
-        {"input": {"config_type": "priority", "config_key": "urgent", "label": "紧急", "icon": "alert"}, "output_summary": "创建一个带图标的优先级配置项"},
+        {
+            "input": {
+                "config_type": "asset_status",
+                "config_key": "maintenance",
+                "label": "维护中",
+                "color": "#FFA500",
+            },
+            "output_summary": "创建或更新一个资产状态配置项",
+        },
+        {
+            "input": {"config_type": "priority", "config_key": "urgent", "label": "紧急", "icon": "alert"},
+            "output_summary": "创建一个带图标的优先级配置项",
+        },
     ]
     gotchas = "此操作不可逆，仅管理员可用。配置类型、配置键和显示标签为必填项。变更会影响全局行为。"
     related_tools = ["list_system_configs"]

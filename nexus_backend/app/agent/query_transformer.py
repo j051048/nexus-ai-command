@@ -203,10 +203,7 @@ async def llm_rerank(query: str, docs: list[dict], config: "AgentConfig", top_k:
 
     try:
         client = AsyncOpenAI(api_key=config.api_key, base_url=config.base_url)
-        doc_list = "\n".join(
-            f"[{i}] {doc.get('content', '')[:200]}"
-            for i, doc in enumerate(docs)
-        )
+        doc_list = "\n".join(f"[{i}] {doc.get('content', '')[:200]}" for i, doc in enumerate(docs))
         prompt = (
             f"用户问题: {query}\n\n"
             f"以下是检索到的文档片段，请对每个片段与用户问题的相关性打分（0-10），"

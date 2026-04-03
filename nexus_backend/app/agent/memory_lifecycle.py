@@ -15,10 +15,7 @@ async def cleanup_old_memories(days: int = 90):
     cutoff = datetime.utcnow() - timedelta(days=days)
 
     try:
-        result = await supabase.table("conversation_memories")\
-            .delete()\
-            .lt("created_at", cutoff.isoformat())\
-            .execute()
+        result = await supabase.table("conversation_memories").delete().lt("created_at", cutoff.isoformat()).execute()
 
         logger.info(f"Cleaned up memories older than {days} days")
         return result
@@ -32,21 +29,22 @@ async def compress_old_memories(days: int = 30):
     end = datetime.utcnow() - timedelta(days=30)
 
     try:
-        result = await supabase.table("conversation_memories")\
-            .select("id, content")\
-            .gte("created_at", start.isoformat())\
-            .lt("created_at", end.isoformat())\
-            .eq("compressed", False)\
-            .limit(100)\
+        result = (
+            await supabase.table("conversation_memories")
+            .select("id, content")
+            .gte("created_at", start.isoformat())
+            .lt("created_at", end.isoformat())
+            .eq("compressed", False)
+            .limit(100)
             .execute()
+        )
 
         for mem in result.data:
             # 简单压缩：截断到前 200 字符
             compressed = mem["content"][:200] + "..."
-            await supabase.table("conversation_memories")\
-                .update({"content": compressed, "compressed": True})\
-                .eq("id", mem["id"])\
-                .execute()
+            await supabase.table("conversation_memories").update({"content": compressed, "compressed": True}).eq(
+                "id", mem["id"]
+            ).execute()
 
         logger.info(f"Compressed {len(result.data)} memories")
     except Exception as e:

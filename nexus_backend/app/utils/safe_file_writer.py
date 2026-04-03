@@ -35,15 +35,11 @@ async def atomic_write(target_path: str | Path, content: str, encoding: str = "u
         existing_mode = target.stat().st_mode
 
     # 2. Create temp file in same directory (ensures same filesystem)
-    temp_fd, temp_path = tempfile.mkstemp(
-        dir=target.parent,
-        prefix=f".{target.name}.",
-        suffix=".tmp"
-    )
+    temp_fd, temp_path = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", suffix=".tmp")
 
     try:
         # 3. Write and flush
-        with os.fdopen(temp_fd, 'w', encoding=encoding) as f:
+        with os.fdopen(temp_fd, "w", encoding=encoding) as f:
             f.write(content)
             f.flush()
             os.fsync(f.fileno())  # Force write to disk

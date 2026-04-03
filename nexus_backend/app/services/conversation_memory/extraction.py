@@ -90,14 +90,38 @@ TOOL_USAGE_KEYWORDS: dict[str, str] = {
 
 # Signal words that indicate a message may contain memorizable content
 # Only trigger LLM extraction when these words are present
-MEMORY_SIGNAL_WORDS = frozenset({
-    "记住", "以后", "每次", "总是", "永远", "我是", "我负责",
-    "我们公司", "规定", "偏好", "习惯", "别给我", "不要",
-    "我喜欢", "我讨厌", "我倾向", "帮我记", "请记住",
-    "不是这个意思", "你又忘了", "你理解错了", "说了多少遍",
-    # P1 Fix: 添加查询类信号词，触发实体提取
-    "叫什么", "是什么", "喜欢什么", "讨厌什么", "负责什么",
-})
+MEMORY_SIGNAL_WORDS = frozenset(
+    {
+        "记住",
+        "以后",
+        "每次",
+        "总是",
+        "永远",
+        "我是",
+        "我负责",
+        "我们公司",
+        "规定",
+        "偏好",
+        "习惯",
+        "别给我",
+        "不要",
+        "我喜欢",
+        "我讨厌",
+        "我倾向",
+        "帮我记",
+        "请记住",
+        "不是这个意思",
+        "你又忘了",
+        "你理解错了",
+        "说了多少遍",
+        # P1 Fix: 添加查询类信号词，触发实体提取
+        "叫什么",
+        "是什么",
+        "喜欢什么",
+        "讨厌什么",
+        "负责什么",
+    }
+)
 
 # ── LLM 提取频率控制（进程内，无需持久化）─────────────────────
 _EXTRACT_COOLDOWN = 5  # 每 5 轮最多触发 1 次非信号词 LLM 提取
@@ -114,6 +138,7 @@ def _mark_extracted(user_id: str, current_turn: int) -> None:
         sorted_keys = sorted(_last_extract, key=_last_extract.get)
         for k in sorted_keys[:500]:
             del _last_extract[k]
+
 
 # Behavior preference patterns — auto-detect and write to ai_settings.behavior_preferences
 # Each entry: (pattern, preference_key, preference_value)
@@ -133,22 +158,22 @@ BEHAVIOR_PREF_PATTERNS: list[tuple[re.Pattern, str, str]] = [
 
 
 async def _update_behavior_preferences(
-    user_id: str, detected: dict[str, str], db: Any = None, org_id: str | None = None,
+    user_id: str,
+    detected: dict[str, str],
+    db: Any = None,
+    org_id: str | None = None,
 ) -> None:
     """Write detected behavior preferences to ai_settings.behavior_preferences (JSONB merge)."""
     if not detected:
         return
     try:
         from app.core.database import supabase
+
         client = db or supabase
         if not client:
             return
         # Read current preferences
-        query = (
-            client.table("ai_settings")
-            .select("behavior_preferences")
-            .eq("user_id", user_id)
-        )
+        query = client.table("ai_settings").select("behavior_preferences").eq("user_id", user_id)
         if org_id:
             query = query.eq("organization_id", org_id)
         result = await query.maybe_single().execute()
@@ -162,21 +187,17 @@ async def _update_behavior_preferences(
 
         # Ensure we always provide organization_id to match the UNIQUE(user_id, organization_id) constraint
         # Use the system default UUID if org_id is missing, as defined in migration 20260211
-        effective_org_id = org_id or '00000000-0000-0000-0000-000000000000'
+        effective_org_id = org_id or "00000000-0000-0000-0000-000000000000"
 
         # Upsert (composite unique: user_id + organization_id)
         upsert_data = {
             "user_id": user_id,
             "organization_id": effective_org_id,
             "base_url": "",  # 必填字段，空字符串表示使用默认
-            "behavior_preferences": merged
+            "behavior_preferences": merged,
         }
 
-        await (
-            client.table("ai_settings")
-            .upsert(upsert_data, on_conflict="user_id,organization_id")
-            .execute()
-        )
+        await client.table("ai_settings").upsert(upsert_data, on_conflict="user_id,organization_id").execute()
         logger.info(f"[BehaviorPref] Updated behavior preferences for {user_id} (Org: {effective_org_id}): {detected}")
     except Exception as e:
         logger.error(f"[BehaviorPref] Failed to update preferences: {e}")
@@ -198,17 +219,11 @@ async def _enrich_memory_values(
         return entries
 
     # 构建对话上下文摘要（最近 5 条消息，截取前 500 字符）
-    recent_msgs = [
-        f"{m.get('role', 'user')}: {m.get('content', '')}"
-        for m in messages[-5:]
-        if m.get("content")
-    ]
+    recent_msgs = [f"{m.get('role', 'user')}: {m.get('content', '')}" for m in messages[-5:] if m.get("content")]
     context_summary = "\n".join(recent_msgs)[:500]
 
     # 构建待补全列表
-    values_text = "\n".join(
-        f"[{i}] {entries[idx]['value']}" for i, (idx, _) in enumerate(enrichable)
-    )
+    values_text = "\n".join(f"[{i}] {entries[idx]['value']}" for i, (idx, _) in enumerate(enrichable))
 
     prompt = (
         f"以下是对话上下文和从中提取的记忆片段。\n"
@@ -218,7 +233,7 @@ async def _enrich_memory_values(
         f"3. 不要改变原意、不要添加新信息\n\n"
         f"[对话上下文]\n{context_summary}\n\n"
         f"[记忆片段]\n{values_text}\n\n"
-        f"按JSON数组返回补全后的文本，格式: [\"补全后的片段0\", \"补全后的片段1\", ...]"
+        f'按JSON数组返回补全后的文本，格式: ["补全后的片段0", "补全后的片段1", ...]'
     )
 
     try:
@@ -233,7 +248,7 @@ async def _enrich_memory_values(
         elif "```" in clean:
             clean = clean.split("```")[1].split("```")[0].strip()
 
-        json_match = re.search(r'\[.*\]', clean, re.DOTALL)
+        json_match = re.search(r"\[.*\]", clean, re.DOTALL)
         if json_match:
             results = _json.loads(json_match.group())
             enriched_count = 0
@@ -337,20 +352,14 @@ async def extract_preferences(
     # 3) LLM-assisted deep extraction
     #    Skip for subtask conversations — assistant response contains delegated
     #    tool output that may be misinterpreted as user preferences.
-    user_texts = " ".join(
-        msg.get("content", "") for msg in messages if msg.get("role") == "user"
-    )
+    user_texts = " ".join(msg.get("content", "") for msg in messages if msg.get("role") == "user")
     user_msg_count = sum(1 for m in messages if m.get("role") == "user")
 
     # 三条件触发（满足任一即可）：
     # 1. 信号词命中（快速路径，始终触发）
     has_signal = any(w in user_texts for w in MEMORY_SIGNAL_WORDS)
     # 2. 实质性对话（>= 50 字 + >= 3 轮）且未在冷却期内（捕获隐式偏好）
-    is_substantial = (
-        len(user_texts) >= 50
-        and user_msg_count >= 3
-        and not _recently_extracted(user_id, user_msg_count)
-    )
+    is_substantial = len(user_texts) >= 50 and user_msg_count >= 3 and not _recently_extracted(user_id, user_msg_count)
     should_extract = has_signal or is_substantial
 
     if not is_subtask and should_extract:
@@ -472,6 +481,7 @@ async def extract_with_llm(
         from app.services.ai_service import AIService
 
         from .llm_utils import parse_llm_json
+
         today_str = _dt.now(UTC).strftime("%Y-%m-%d")
 
         prompt = f"以下是用户在对话中说的话：\n\n{combined}"
@@ -531,7 +541,11 @@ async def extract_with_llm(
                     "importance": min(max(float(item.get("importance", 0.5)), 0.1), 1.0),
                     "pattern_key": item.get("pattern_key") or f"{category}:{key}",
                     "valid_from": item.get("valid_from") or today_str,
-                    "fact_type": item.get("fact_type", "fact") if item.get("fact_type") in ("fact", "opinion", "experience") else "fact",
+                    "fact_type": (
+                        item.get("fact_type", "fact")
+                        if item.get("fact_type") in ("fact", "opinion", "experience")
+                        else "fact"
+                    ),
                     "confidence": min(max(float(item.get("confidence", 1.0)), 0.0), 1.0),
                     **({"valid_until": item["valid_until"]} if item.get("valid_until") else {}),
                 }

@@ -121,9 +121,7 @@ class FailureLogService:
             # Never let logging failures crash the agent
             logger.warning(f"[FailureLog] Failed to write failure log: {e}")
 
-    async def get_top_failures(
-        self, org_id: str, days: int = 7, limit: int = 10
-    ) -> list[dict]:
+    async def get_top_failures(self, org_id: str, days: int = 7, limit: int = 10) -> list[dict]:
         """Get top failure patterns for an org in the last N days.
 
         Groups by pattern_key for better aggregation, falls back to

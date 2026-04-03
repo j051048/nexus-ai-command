@@ -299,6 +299,7 @@ class ApprovalChainService:
         # #16: Check organization auto-approval rules first
         try:
             from app.core.database import supabase as _sb
+
             _db = db or _sb
             if _db and org_id:
                 rules_res = await (
@@ -309,15 +310,15 @@ class ApprovalChainService:
                     .eq("is_active", True)
                     .execute()
                 )
-                for rule in (rules_res.data or []):
+                for rule in rules_res.data or []:
                     op = rule.get("condition_op", "lte")
                     val = float(rule.get("condition_value", 0))
                     matched = (
-                        (op == "lte" and amount <= val) or
-                        (op == "lt" and amount < val) or
-                        (op == "gte" and amount >= val) or
-                        (op == "gt" and amount > val) or
-                        (op == "eq" and amount == val)
+                        (op == "lte" and amount <= val)
+                        or (op == "lt" and amount < val)
+                        or (op == "gte" and amount >= val)
+                        or (op == "gt" and amount > val)
+                        or (op == "eq" and amount == val)
                     )
                     if matched:
                         return {
@@ -592,16 +593,22 @@ class ApprovalChainService:
         if decision == "rejected":
             # Check if workflow defines reject_to field
             current_node_def = None
-            chain_result = await client.table("workflow_templates").select("steps").eq(
-                "name", request_data.get("workflow_name", "")
-            ).maybe_single().execute()
+            chain_result = (
+                await client.table("workflow_templates")
+                .select("steps")
+                .eq("name", request_data.get("workflow_name", ""))
+                .maybe_single()
+                .execute()
+            )
             if chain_result.data:
                 chain_steps = chain_result.data.get("steps", [])
                 if current_step < len(chain_steps):
                     current_node_def = chain_steps[current_step]
 
             reject_to = current_node_def.get("reject_to", "start") if current_node_def else "start"
-            reject_to_step = 0 if reject_to == "start" else self._find_step_index(chain_steps, reject_to) if chain_result.data else 0
+            reject_to_step = (
+                0 if reject_to == "start" else self._find_step_index(chain_steps, reject_to) if chain_result.data else 0
+            )
 
             update_data = {
                 "status": "pending_resubmit",
@@ -766,9 +773,7 @@ class ApprovalChainService:
                         min_approvals = next_step_def.get("min_approvals", len(approvers))
 
                         # Record this parallel decision
-                        await self._record_parallel_decision(
-                            request_id, approver_id, decision, next_step, client
-                        )
+                        await self._record_parallel_decision(request_id, approver_id, decision, next_step, client)
 
                         # Get all decisions for this step
                         decisions = await self._get_parallel_decisions(request_id, next_step, client)
@@ -1073,36 +1078,30 @@ class ApprovalChainService:
 
         return escalated_count
 
-    async def _record_execution(
-        self, request_id: str, executor_id: str, action: str, evidence: str | None, db
-    ):
+    async def _record_execution(self, request_id: str, executor_id: str, action: str, evidence: str | None, db):
         """记录执行确认"""
         client = db or supabase
-        await client.table("workflow_executions").insert({
-            "request_id": request_id,
-            "executor_id": executor_id,
-            "action": action,
-            "evidence_url": evidence
-        }).execute()
+        await client.table("workflow_executions").insert(
+            {"request_id": request_id, "executor_id": executor_id, "action": action, "evidence_url": evidence}
+        ).execute()
 
-    async def _record_parallel_decision(
-        self, request_id: str, approver_id: str, decision: str, step_index: int, db
-    ):
+    async def _record_parallel_decision(self, request_id: str, approver_id: str, decision: str, step_index: int, db):
         """记录并行审批决策"""
         client = db or supabase
-        await client.table("parallel_approval_decisions").insert({
-            "request_id": request_id,
-            "step_index": step_index,
-            "approver_id": approver_id,
-            "decision": decision
-        }).execute()
+        await client.table("parallel_approval_decisions").insert(
+            {"request_id": request_id, "step_index": step_index, "approver_id": approver_id, "decision": decision}
+        ).execute()
 
     async def _get_parallel_decisions(self, request_id: str, step_index: int, db):
         """获取并行审批决策"""
         client = db or supabase
-        result = await client.table("parallel_approval_decisions").select("*").eq(
-            "request_id", request_id
-        ).eq("step_index", step_index).execute()
+        result = (
+            await client.table("parallel_approval_decisions")
+            .select("*")
+            .eq("request_id", request_id)
+            .eq("step_index", step_index)
+            .execute()
+        )
         return result.data or []
 
 

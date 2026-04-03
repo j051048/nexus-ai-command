@@ -54,6 +54,7 @@ def get_checkpointer():
         _checkpointer_instance = _create_postgres_checkpointer()
         # _create_postgres_checkpointer may fall back to memory on error
         from langgraph.checkpoint.memory import MemorySaver
+
         _checkpointer_persistent = not isinstance(_checkpointer_instance, MemorySaver)
     else:
         _checkpointer_instance = _create_memory_checkpointer()
@@ -105,12 +106,14 @@ def _create_postgres_checkpointer():
     except ImportError as e:
         logger.warning(f"[Checkpointer] langgraph-checkpoint-postgres not installed, falling back to memory: {e}")
         from app.core.degradation_registry import degradation_registry
+
         degradation_registry.register("checkpointer", str(e), fallback="MemorySaver")
         return _create_memory_checkpointer()
     except Exception as e:
         logger.error(f"[Checkpointer] Failed to create PostgreSQL checkpointer: {e}")
         logger.warning("[Checkpointer] Falling back to memory checkpointer")
         from app.core.degradation_registry import degradation_registry
+
         degradation_registry.register("checkpointer", str(e), fallback="MemorySaver")
         return _create_memory_checkpointer()
 

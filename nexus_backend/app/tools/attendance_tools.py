@@ -32,7 +32,10 @@ class ClockInOutTool(BaseTool):
     examples = [
         {"input": {"clock_type": "clock_in"}, "output_summary": "执行上班打卡"},
         {"input": {"clock_type": "clock_out"}, "output_summary": "执行下班打卡"},
-        {"input": {"clock_type": "field_work", "location": {"lat": 39.9, "lng": 116.4}}, "output_summary": "执行外勤打卡并记录位置"},
+        {
+            "input": {"clock_type": "field_work", "location": {"lat": 39.9, "lng": 116.4}},
+            "output_summary": "执行外勤打卡并记录位置",
+        },
     ]
     related_tools = ["get_attendance_record", "attendance_statistics"]
     gotchas = "打卡类型必填，可选值：clock_in/clock_out/field_work。系统会自动通过user_id查找员工信息，无需手动传employee_id。"
@@ -178,7 +181,10 @@ class CreateShiftScheduleTool(BaseTool):
     name = "create_shift_schedule"
     description = "为指定员工创建排班计划，需管理员权限"
     examples = [
-        {"input": {"employee_id": "uuid-xxxx", "shift_date": "2026-03-25", "shift_type_id": "uuid-yyyy"}, "output_summary": "为指定员工在指定日期创建排班"},
+        {
+            "input": {"employee_id": "uuid-xxxx", "shift_date": "2026-03-25", "shift_type_id": "uuid-yyyy"},
+            "output_summary": "为指定员工在指定日期创建排班",
+        },
     ]
     related_tools = ["list_shift_schedules", "get_attendance_record"]
     gotchas = "三个参数均为必填。employee_id和shift_type_id必须是有效UUID。需要admin权限。"
@@ -248,7 +254,10 @@ class ListShiftSchedulesTool(BaseTool):
     description = "查询排班表，支持按部门和日期范围筛选"
     examples = [
         {"input": {}, "output_summary": "返回全部排班记录"},
-        {"input": {"department_id": "uuid-xxxx", "start_date": "2026-03-01", "end_date": "2026-03-31"}, "output_summary": "返回指定部门本月的排班表"},
+        {
+            "input": {"department_id": "uuid-xxxx", "start_date": "2026-03-01", "end_date": "2026-03-31"},
+            "output_summary": "返回指定部门本月的排班表",
+        },
     ]
     related_tools = ["create_shift_schedule", "get_attendance_record"]
     gotchas = "不传筛选条件则返回全部排班。日期格式为YYYY-MM-DD。"
@@ -316,7 +325,10 @@ class AttendanceStatisticsTool(BaseTool):
     description = "获取考勤统计数据，包括准时率、迟到和早退次数"
     examples = [
         {"input": {}, "output_summary": "返回全组织的考勤统计"},
-        {"input": {"department_id": "uuid-xxxx", "start_date": "2026-03-01", "end_date": "2026-03-31"}, "output_summary": "返回指定部门本月的考勤统计"},
+        {
+            "input": {"department_id": "uuid-xxxx", "start_date": "2026-03-01", "end_date": "2026-03-31"},
+            "output_summary": "返回指定部门本月的考勤统计",
+        },
     ]
     related_tools = ["get_attendance_record", "list_shift_schedules"]
     gotchas = "不传筛选条件则统计全组织全时段数据。返回的on_time_rate为百分比数值。"
@@ -379,8 +391,19 @@ class RequestLeaveTool(BaseTool):
     name = "request_leave"
     description = "提交请假申请，支持年假、病假、事假、产假等类型，与排班系统联动"
     examples = [
-        {"input": {"leave_type": "annual", "start_date": "2026-04-01", "end_date": "2026-04-03", "reason": "家庭旅行"}, "output_summary": "提交3天年假申请"},
-        {"input": {"leave_type": "sick", "start_date": "2026-03-20", "end_date": "2026-03-20", "days": 1}, "output_summary": "提交1天病假申请"},
+        {
+            "input": {
+                "leave_type": "annual",
+                "start_date": "2026-04-01",
+                "end_date": "2026-04-03",
+                "reason": "家庭旅行",
+            },
+            "output_summary": "提交3天年假申请",
+        },
+        {
+            "input": {"leave_type": "sick", "start_date": "2026-03-20", "end_date": "2026-03-20", "days": 1},
+            "output_summary": "提交1天病假申请",
+        },
     ]
     related_tools = ["get_attendance_record", "list_shift_schedules"]
     gotchas = "leave_type可选值：annual/sick/personal/maternity。start_date和end_date均为必填。提交后状态为待审批。与create_leave_request功能相同，系统会自动选择其一。"

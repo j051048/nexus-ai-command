@@ -34,7 +34,8 @@ _MAX_SLOT_ROUNDS = 3
 
 
 def _build_fields_from_schema(
-    tool_schema: dict, missing_keys: list[str],
+    tool_schema: dict,
+    missing_keys: list[str],
 ) -> list[dict]:
     """从工具 JSON Schema 的 properties 构建 ask_user 表单字段。"""
     props = tool_schema.get("properties", {})
@@ -103,13 +104,15 @@ async def slot_verify_node(state: AgentState, config=None) -> dict:
         missing = [k for k in required_keys if k not in args or args[k] in (None, "")]
 
         if missing:
-            all_missing.append({
-                "tool_name": tc.tool_name,
-                "tool_call_id": tc.tool_call_id,
-                "missing_keys": missing,
-                "tool_schema": schema,
-                "filled_slots": {k: v for k, v in args.items() if v not in (None, "")},
-            })
+            all_missing.append(
+                {
+                    "tool_name": tc.tool_name,
+                    "tool_call_id": tc.tool_call_id,
+                    "missing_keys": missing,
+                    "tool_schema": schema,
+                    "filled_slots": {k: v for k, v in args.items() if v not in (None, "")},
+                }
+            )
 
     # 参数完整 → pass-through 到 execute
     if not all_missing:
@@ -117,9 +120,7 @@ async def slot_verify_node(state: AgentState, config=None) -> dict:
 
     # 超过最大澄清轮次 → 放弃追问，返回友好错误
     if slot_round >= _MAX_SLOT_ROUNDS:
-        logger.warning(
-            f"[SlotVerify] Giving up after {slot_round} rounds for {all_missing[0]['tool_name']}"
-        )
+        logger.warning(f"[SlotVerify] Giving up after {slot_round} rounds for {all_missing[0]['tool_name']}")
         missing_info = all_missing[0]
         return {
             "current_phase": AgentPhase.RESPONDING,
@@ -167,8 +168,7 @@ async def slot_verify_node(state: AgentState, config=None) -> dict:
     }
 
     logger.info(
-        f"[SlotVerify] Missing params for {target['tool_name']}: "
-        f"{target['missing_keys']} (round {slot_round + 1})"
+        f"[SlotVerify] Missing params for {target['tool_name']}: " f"{target['missing_keys']} (round {slot_round + 1})"
     )
 
     return {

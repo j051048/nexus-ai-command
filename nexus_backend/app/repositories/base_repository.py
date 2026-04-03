@@ -267,11 +267,7 @@ class BaseRepository:
         client = self._get_client()
 
         try:
-            query = (
-                client.table(self.table_name)
-                .update(data)
-                .eq(self.id_column, record_id)
-            )
+            query = client.table(self.table_name).update(data).eq(self.id_column, record_id)
             query = self._apply_tenant_filter(query, tenant_id)
 
             result = await query.execute()
@@ -300,17 +296,9 @@ class BaseRepository:
 
         try:
             if hard or not self.soft_delete:
-                query = (
-                    client.table(self.table_name)
-                    .delete()
-                    .eq(self.id_column, record_id)
-                )
+                query = client.table(self.table_name).delete().eq(self.id_column, record_id)
             else:
-                query = (
-                    client.table(self.table_name)
-                    .update({"is_deleted": True})
-                    .eq(self.id_column, record_id)
-                )
+                query = client.table(self.table_name).update({"is_deleted": True}).eq(self.id_column, record_id)
 
             query = self._apply_tenant_filter(query, tenant_id)
             result = await query.execute()

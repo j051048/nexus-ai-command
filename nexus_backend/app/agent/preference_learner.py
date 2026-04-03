@@ -18,33 +18,32 @@ logger = logging.getLogger(__name__)
 class PreferenceLearner:
     """用户偏好学习器"""
 
-    async def learn_from_feedback(
-        self,
-        user_id: str,
-        feedback_type: str,
-        content: dict,
-        org_id: str = "default"
-    ):
+    async def learn_from_feedback(self, user_id: str, feedback_type: str, content: dict, org_id: str = "default"):
         """从用户反馈学习"""
         try:
-            await supabase.table("user_preferences").upsert({
-                "user_id": user_id,
-                "org_id": org_id,
-                "preference_type": feedback_type,
-                "preference_data": content,
-                "updated_at": datetime.utcnow().isoformat()
-            }, on_conflict="user_id,preference_type").execute()
+            await supabase.table("user_preferences").upsert(
+                {
+                    "user_id": user_id,
+                    "org_id": org_id,
+                    "preference_type": feedback_type,
+                    "preference_data": content,
+                    "updated_at": datetime.utcnow().isoformat(),
+                },
+                on_conflict="user_id,preference_type",
+            ).execute()
         except Exception as e:
             logger.error(f"Failed to learn preference: {e}")
 
     async def get_preferences(self, user_id: str, org_id: str = "default") -> dict:
         """获取用户偏好"""
         try:
-            result = await supabase.table("user_preferences")\
-                .select("*")\
-                .eq("user_id", user_id)\
-                .eq("org_id", org_id)\
+            result = (
+                await supabase.table("user_preferences")
+                .select("*")
+                .eq("user_id", user_id)
+                .eq("org_id", org_id)
                 .execute()
+            )
 
             prefs = {}
             for row in result.data:

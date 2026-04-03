@@ -13,7 +13,18 @@ from app.core.database import supabase
 logger = logging.getLogger(__name__)
 
 # Valid node types for workflow steps
-VALID_NODE_TYPES = {"initiator", "approver", "condition", "parallel", "auto_approve", "notify", "cc_notify", "timer", "sub_workflow", "end"}
+VALID_NODE_TYPES = {
+    "initiator",
+    "approver",
+    "condition",
+    "parallel",
+    "auto_approve",
+    "notify",
+    "cc_notify",
+    "timer",
+    "sub_workflow",
+    "end",
+}
 
 # Valid approval types
 VALID_APPROVAL_TYPES = {"travel", "purchase", "expense", "leave", "event", "activity", "custom", "general", "contract"}
@@ -243,7 +254,12 @@ class WorkflowDefinitionService:
 
         new_active = not existing.get("is_active", True)
         write_client = supabase or client
-        result = await write_client.table("approval_chains").update({"is_active": new_active}).eq("id", workflow_id).execute()
+        result = (
+            await write_client.table("approval_chains")
+            .update({"is_active": new_active})
+            .eq("id", workflow_id)
+            .execute()
+        )
 
         if not result.data:
             raise RuntimeError(f"Failed to toggle workflow {workflow_id}")

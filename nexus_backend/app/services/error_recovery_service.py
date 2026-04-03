@@ -421,14 +421,18 @@ class CircuitBreaker:
         """Push current state to Redis for cross-worker consistency."""
         try:
             from app.services.cache_service import cache_service
+
             if cache_service and self._redis_key:
                 import asyncio
                 import json as _json
-                data = _json.dumps({
-                    "state": self._state.value,
-                    "failure_count": self._failure_count,
-                    "last_failure_time": self._last_failure_time,
-                })
+
+                data = _json.dumps(
+                    {
+                        "state": self._state.value,
+                        "failure_count": self._failure_count,
+                        "last_failure_time": self._last_failure_time,
+                    }
+                )
                 try:
                     loop = asyncio.get_running_loop()
                     loop.create_task(cache_service.set(self._redis_key, data, ttl=600))
@@ -460,6 +464,7 @@ class CircuitBreaker:
         # Phase 2: Schedule background fetch for next call
         try:
             from app.services.cache_service import cache_service
+
             if cache_service and self._redis_key:
                 import asyncio
                 import json as _json

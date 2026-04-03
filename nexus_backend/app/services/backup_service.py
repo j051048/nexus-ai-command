@@ -57,6 +57,7 @@ class BackupService:
         total_size = 0
 
         try:
+
             async def _query_table(table_name: str):
                 try:
                     result = await db.table(table_name).select("*").eq("organization_id", org_id).execute()

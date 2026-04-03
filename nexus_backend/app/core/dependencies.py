@@ -49,8 +49,6 @@ async def get_org_id(request: Request) -> str | None:
     return getattr(request.state, "org_id", None)
 
 
-
-
 # ============== Role-Based Access Control ==============
 
 
@@ -108,7 +106,4 @@ def require_admin(user_id: str = Depends(get_current_user_id)) -> str:
     return require_role(["admin", "founder", "boss"])(user_id)
 
 
-
 # ============== Optional Auth ==============
-
-

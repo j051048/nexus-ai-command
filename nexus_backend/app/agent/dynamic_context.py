@@ -20,7 +20,7 @@ class DynamicContextManager:
             QueryComplexity.SIMPLE: 5,
             QueryComplexity.MODERATE: 10,
             QueryComplexity.COMPLEX: 20,
-            QueryComplexity.CRITICAL: 30
+            QueryComplexity.CRITICAL: 30,
         }.get(complexity, 10)
 
     async def inject_business_context(self, user_id: str, query: str, org_id: str = "default") -> str:
@@ -29,15 +29,17 @@ class DynamicContextManager:
 
         try:
             # 1. 提取客户名
-            customer_match = re.search(r'客户[：:]\s*([^\s，,。.]+)', query)
+            customer_match = re.search(r"客户[：:]\s*([^\s，,。.]+)", query)
             if customer_match:
                 customer_name = customer_match.group(1)
-                result = await supabase.table("customers")\
-                    .select("name, stage, last_contact_date")\
-                    .eq("org_id", org_id)\
-                    .ilike("name", f"%{customer_name}%")\
-                    .limit(1)\
+                result = (
+                    await supabase.table("customers")
+                    .select("name, stage, last_contact_date")
+                    .eq("org_id", org_id)
+                    .ilike("name", f"%{customer_name}%")
+                    .limit(1)
                     .execute()
+                )
 
                 if result.data:
                     c = result.data[0]
@@ -47,15 +49,17 @@ class DynamicContextManager:
                     )
 
             # 2. 提取合同号
-            contract_match = re.search(r'合同[号編]?[：:]\s*([A-Z0-9-]+)', query)
+            contract_match = re.search(r"合同[号編]?[：:]\s*([A-Z0-9-]+)", query)
             if contract_match:
                 contract_no = contract_match.group(1)
-                result = await supabase.table("contracts")\
-                    .select("contract_number, status, end_date")\
-                    .eq("org_id", org_id)\
-                    .eq("contract_number", contract_no)\
-                    .limit(1)\
+                result = (
+                    await supabase.table("contracts")
+                    .select("contract_number, status, end_date")
+                    .eq("org_id", org_id)
+                    .eq("contract_number", contract_no)
+                    .limit(1)
                     .execute()
+                )
 
                 if result.data:
                     c = result.data[0]

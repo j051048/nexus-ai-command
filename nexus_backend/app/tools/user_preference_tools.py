@@ -138,14 +138,18 @@ class UpdateUserPreferencesTool(BaseTool):
 
             result = await user_preference_service.update_settings(user_id, updates)
 
-            return json.dumps({
-                "message": "✅ 偏好设置已更新",
-                "current_settings": {
-                    "active_hours": f"{result['active_hours'][0]}:00 - {result['active_hours'][1]}:00",
-                    "daily_limit": result["daily_limit"],
-                    "muted_types": result["muted_types"] if result["muted_types"] else "无",
+            return json.dumps(
+                {
+                    "message": "✅ 偏好设置已更新",
+                    "current_settings": {
+                        "active_hours": f"{result['active_hours'][0]}:00 - {result['active_hours'][1]}:00",
+                        "daily_limit": result["daily_limit"],
+                        "muted_types": result["muted_types"] if result["muted_types"] else "无",
+                    },
                 },
-            }, ensure_ascii=False, indent=2)
+                ensure_ascii=False,
+                indent=2,
+            )
 
         except Exception as e:
             logger.error(f"[PreferenceTool] Update failed: {e}")

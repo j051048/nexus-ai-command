@@ -10,10 +10,7 @@ logger = logging.getLogger(__name__)
 class MemoryImportanceScorer:
     """记忆重要性评分"""
 
-    BUSINESS_KEYWORDS = [
-        "合同", "付款", "客户", "订单", "审批",
-        "重要", "紧急", "关键", "必须", "deadline"
-    ]
+    BUSINESS_KEYWORDS = ["合同", "付款", "客户", "订单", "审批", "重要", "紧急", "关键", "必须", "deadline"]
 
     async def score(self, memory: dict) -> float:
         """综合评分 0-1"""

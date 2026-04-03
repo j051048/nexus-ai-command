@@ -203,8 +203,14 @@ class StrategySimulationTool(BaseTool):
     )
     domain = "analytics"
     examples = [
-        {"input": {"scenario": "如果提价10%对客户流失的影响"}, "output_summary": "基于当前经营数据推演提价10%的综合影响"},
-        {"input": {"scenario": "招聘10名销售对季度营收的提升", "focus": "sales"}, "output_summary": "从销售维度推演扩招的影响"},
+        {
+            "input": {"scenario": "如果提价10%对客户流失的影响"},
+            "output_summary": "基于当前经营数据推演提价10%的综合影响",
+        },
+        {
+            "input": {"scenario": "招聘10名销售对季度营收的提升", "focus": "sales"},
+            "output_summary": "从销售维度推演扩招的影响",
+        },
     ]
     related_tools = ["analyze_data_attribution", "get_business_dashboard", "generate_report"]
     gotchas = "需要boss角色权限。scenario至少5个字，最多500字。推演基于系统内基线数据，数据不足时会标注为行业平均估算。"

@@ -35,8 +35,18 @@ class GenerateMaintenanceReminderTool(BaseTool):
     description = "生成设备维护保养提醒和服务通知。当用户说'维护提醒'、'保养通知'、'售后提醒'时调用。"
     required_role = "all"
     examples = [
-        {"input": {"product_name": "ICP-MS 7800", "maintenance_type": "calibration", "customer_name": "中科院化学所"}, "output_summary": "生成ICP-MS校准维护提醒，含个性化客户称呼"},
-        {"input": {"product_name": "气相色谱仪GC-2030", "maintenance_type": "routine"}, "output_summary": "生成气相色谱仪常规保养提醒通知"},
+        {
+            "input": {
+                "product_name": "ICP-MS 7800",
+                "maintenance_type": "calibration",
+                "customer_name": "中科院化学所",
+            },
+            "output_summary": "生成ICP-MS校准维护提醒，含个性化客户称呼",
+        },
+        {
+            "input": {"product_name": "气相色谱仪GC-2030", "maintenance_type": "routine"},
+            "output_summary": "生成气相色谱仪常规保养提醒通知",
+        },
     ]
     related_tools = ["generate_faq_response", "generate_repurchase_campaign"]
     gotchas = "maintenance_type可选值: routine/calibration/repair/upgrade，传入其他值会报错。product_name和customer_name各截断到200字符。"
@@ -148,8 +158,18 @@ class GenerateFaqResponseTool(BaseTool):
     description = "基于知识库智能回答产品常见问题，生成精准的FAQ回复。当用户说'FAQ'、'常见问题'、'产品问题回复'时调用。"
     required_role = "all"
     examples = [
-        {"input": {"question": "ICP-MS的检出限是多少？", "product_name": "ICP-MS 7800", "response_style": "technical"}, "output_summary": "生成技术详尽风格的ICP-MS检出限回复"},
-        {"input": {"question": "仪器开机后无响应怎么办？", "response_style": "friendly"}, "output_summary": "生成友好亲切风格的故障排查回复"},
+        {
+            "input": {
+                "question": "ICP-MS的检出限是多少？",
+                "product_name": "ICP-MS 7800",
+                "response_style": "technical",
+            },
+            "output_summary": "生成技术详尽风格的ICP-MS检出限回复",
+        },
+        {
+            "input": {"question": "仪器开机后无响应怎么办？", "response_style": "friendly"},
+            "output_summary": "生成友好亲切风格的故障排查回复",
+        },
     ]
     related_tools = ["generate_maintenance_reminder", "aggregate_customer_feedback"]
     gotchas = "response_style可选值: formal/friendly/technical，不传默认friendly。知识库无匹配时会基于行业通识回答并标注来源。"
@@ -256,8 +276,14 @@ class GenerateRepurchaseCampaignTool(BaseTool):
     description = "生成老客户复购或增购的营销方案。当用户说'复购方案'、'老客户营销'、'增购计划'时调用。"
     required_role = "all"
     examples = [
-        {"input": {"customer_segment": "高校实验室", "campaign_type": "repurchase", "product_category": "光谱仪"}, "output_summary": "生成面向高校实验室的光谱仪复购营销方案"},
-        {"input": {"customer_segment": "制药企业", "campaign_type": "cross_sell"}, "output_summary": "生成面向制药企业的交叉销售方案"},
+        {
+            "input": {"customer_segment": "高校实验室", "campaign_type": "repurchase", "product_category": "光谱仪"},
+            "output_summary": "生成面向高校实验室的光谱仪复购营销方案",
+        },
+        {
+            "input": {"customer_segment": "制药企业", "campaign_type": "cross_sell"},
+            "output_summary": "生成面向制药企业的交叉销售方案",
+        },
     ]
     related_tools = ["customer_lifecycle_analysis", "generate_maintenance_reminder"]
     gotchas = "campaign_type可选值: repurchase/upgrade/cross_sell/referral。会自动查询CRM客户数据作为方案依据，无数据时仍可生成通用方案。"
@@ -389,8 +415,14 @@ class CustomerLifecycleAnalysisTool(BaseTool):
     description = "分析客户生命周期价值和健康度，生成数据驱动的分析报告。当用户说'客户分析'、'生命周期'、'客户健康度'、'LTV分析'时调用。"
     required_role = "all"
     examples = [
-        {"input": {"time_range": "last_year", "analysis_focus": "churn_risk"}, "output_summary": "生成近一年全部客户的流失风险预警报告"},
-        {"input": {"customer_id": "uuid-xxxx", "time_range": "all", "analysis_focus": "ltv"}, "output_summary": "生成指定客户的全周期LTV分析报告"},
+        {
+            "input": {"time_range": "last_year", "analysis_focus": "churn_risk"},
+            "output_summary": "生成近一年全部客户的流失风险预警报告",
+        },
+        {
+            "input": {"customer_id": "uuid-xxxx", "time_range": "all", "analysis_focus": "ltv"},
+            "output_summary": "生成指定客户的全周期LTV分析报告",
+        },
     ]
     related_tools = ["generate_repurchase_campaign", "aggregate_customer_feedback"]
     gotchas = "customer_id必须是有效UUID格式，不传则分析全部客户。time_range和analysis_focus均为必填。会查询CRM的customers和customer_activities表。"

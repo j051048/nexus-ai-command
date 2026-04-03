@@ -18,6 +18,7 @@ router = APIRouter(prefix="/api/agent/proactive", tags=["agent-proactive"])
 
 # ===== 定时任务 =====
 
+
 class ScheduleTaskRequest(BaseModel):
     name: str
     cron: str
@@ -26,19 +27,12 @@ class ScheduleTaskRequest(BaseModel):
 
 
 @router.post("/tasks")
-async def create_scheduled_task(
-    req: ScheduleTaskRequest,
-    user_id: str = Depends(get_current_user_id)
-):
+async def create_scheduled_task(req: ScheduleTaskRequest, user_id: str = Depends(get_current_user_id)):
     """创建定时任务"""
     try:
-        task_id = await proactive_scheduler.schedule_task({
-            "name": req.name,
-            "cron": req.cron,
-            "prompt": req.prompt,
-            "user_id": user_id,
-            "enabled": req.enabled
-        })
+        task_id = await proactive_scheduler.schedule_task(
+            {"name": req.name, "cron": req.cron, "prompt": req.prompt, "user_id": user_id, "enabled": req.enabled}
+        )
         return api_success({"task_id": task_id}, "定时任务创建成功")
     except Exception as e:
         logger.error(f"Create scheduled task failed: {e}")
@@ -58,6 +52,7 @@ async def stop_scheduled_task(task_id: str):
 
 # ===== 目标管理 =====
 
+
 class CreateGoalRequest(BaseModel):
     goal_text: str
     deadline: str | None = None
@@ -65,18 +60,12 @@ class CreateGoalRequest(BaseModel):
 
 
 @router.post("/goals")
-async def create_goal(
-    req: CreateGoalRequest,
-    user_id: str = Depends(get_current_user_id)
-):
+async def create_goal(req: CreateGoalRequest, user_id: str = Depends(get_current_user_id)):
     """创建目标"""
     try:
-        goal_id = await goal_tracker.create_goal({
-            "user_id": user_id,
-            "goal_text": req.goal_text,
-            "deadline": req.deadline,
-            "metadata": req.metadata
-        })
+        goal_id = await goal_tracker.create_goal(
+            {"user_id": user_id, "goal_text": req.goal_text, "deadline": req.deadline, "metadata": req.metadata}
+        )
         return api_success({"goal_id": goal_id}, "目标创建成功")
     except Exception as e:
         logger.error(f"Create goal failed: {e}")

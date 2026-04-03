@@ -81,13 +81,7 @@ class DSARService:
         async def _fetch_table(table: str) -> tuple[str, dict]:
             uid_col = _USER_ID_COLUMNS.get(table, "user_id")
             try:
-                resp = await (
-                    self.db.table(table)
-                    .select("*")
-                    .eq(uid_col, user_id)
-                    .limit(10000)
-                    .execute()
-                )
+                resp = await self.db.table(table).select("*").eq(uid_col, user_id).limit(10000).execute()
                 rows = resp.data if resp.data else []
                 return table, {"count": len(rows), "records": rows}
             except Exception as e:
@@ -148,12 +142,7 @@ class DSARService:
                     update_data = {field: _ANON_PLACEHOLDER for field in pii_fields}
                     update_data["email"] = f"deleted_{request_id[:8]}@gdpr.invalid"
                     update_data["status"] = "deleted"
-                    resp = await (
-                        self.db.table(table)
-                        .update(update_data)
-                        .eq(uid_col, user_id)
-                        .execute()
-                    )
+                    resp = await self.db.table(table).update(update_data).eq(uid_col, user_id).execute()
                     affected = len(resp.data) if resp.data else 0
                     summary["actions"][table] = {
                         "action": "anonymized",
@@ -179,12 +168,7 @@ class DSARService:
                 elif pii_fields:
                     # Anonymize PII fields in other tables
                     update_data = {field: _ANON_PLACEHOLDER for field in pii_fields}
-                    resp = await (
-                        self.db.table(table)
-                        .update(update_data)
-                        .eq(uid_col, user_id)
-                        .execute()
-                    )
+                    resp = await self.db.table(table).update(update_data).eq(uid_col, user_id).execute()
                     affected = len(resp.data) if resp.data else 0
                     summary["actions"][table] = {
                         "action": "pii_anonymized",

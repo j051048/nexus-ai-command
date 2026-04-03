@@ -31,60 +31,61 @@ class GoalTracker:
                 "metadata": {"target": 5, "current": 0}
             }
         """
-        result = await supabase.table("agent_goals").insert({
-            "user_id": goal_data["user_id"],
-            "org_id": goal_data.get("org_id", "default"),
-            "goal_text": goal_data["goal_text"],
-            "deadline": goal_data.get("deadline"),
-            "status": "pending",
-            "progress": goal_data.get("metadata", {}),
-            "created_at": datetime.utcnow().isoformat()
-        }).execute()
+        result = (
+            await supabase.table("agent_goals")
+            .insert(
+                {
+                    "user_id": goal_data["user_id"],
+                    "org_id": goal_data.get("org_id", "default"),
+                    "goal_text": goal_data["goal_text"],
+                    "deadline": goal_data.get("deadline"),
+                    "status": "pending",
+                    "progress": goal_data.get("metadata", {}),
+                    "created_at": datetime.utcnow().isoformat(),
+                }
+            )
+            .execute()
+        )
 
         return result.data[0]["id"]
 
     async def get_active_goals(self, user_id: str, org_id: str = "default") -> list[dict]:
         """获取用户的活跃目标"""
-        result = await supabase.table("agent_goals")\
-            .select("*")\
-            .eq("user_id", user_id)\
-            .eq("org_id", org_id)\
-            .in_("status", ["pending", "in_progress"])\
-            .order("deadline", desc=False)\
+        result = (
+            await supabase.table("agent_goals")
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("org_id", org_id)
+            .in_("status", ["pending", "in_progress"])
+            .order("deadline", desc=False)
             .execute()
+        )
 
         return result.data
 
     async def update_progress(self, goal_id: str, progress: dict):
         """更新目标进度"""
-        await supabase.table("agent_goals")\
-            .update({
-                "progress": progress,
-                "status": "in_progress",
-                "updated_at": datetime.utcnow().isoformat()
-            })\
-            .eq("id", goal_id)\
-            .execute()
+        await supabase.table("agent_goals").update(
+            {"progress": progress, "status": "in_progress", "updated_at": datetime.utcnow().isoformat()}
+        ).eq("id", goal_id).execute()
 
     async def complete_goal(self, goal_id: str):
         """标记目标完成"""
-        await supabase.table("agent_goals")\
-            .update({
-                "status": "completed",
-                "completed_at": datetime.utcnow().isoformat()
-            })\
-            .eq("id", goal_id)\
-            .execute()
+        await supabase.table("agent_goals").update(
+            {"status": "completed", "completed_at": datetime.utcnow().isoformat()}
+        ).eq("id", goal_id).execute()
 
     async def check_overdue_goals(self, user_id: str) -> list[dict]:
         """检查逾期目标"""
         now = datetime.utcnow().isoformat()
-        result = await supabase.table("agent_goals")\
-            .select("*")\
-            .eq("user_id", user_id)\
-            .in_("status", ["pending", "in_progress"])\
-            .lt("deadline", now)\
+        result = (
+            await supabase.table("agent_goals")
+            .select("*")
+            .eq("user_id", user_id)
+            .in_("status", ["pending", "in_progress"])
+            .lt("deadline", now)
             .execute()
+        )
 
         return result.data
 
@@ -99,9 +100,7 @@ class GoalTracker:
         for goal in goals:
             progress = goal.get("progress", {})
             deadline = goal.get("deadline", "无截止日期")
-            context_parts.append(
-                f"- {goal['goal_text']} (截止: {deadline}, 进度: {progress})"
-            )
+            context_parts.append(f"- {goal['goal_text']} (截止: {deadline}, 进度: {progress})")
 
         return "\n".join(context_parts)
 

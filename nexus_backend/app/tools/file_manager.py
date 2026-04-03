@@ -2,6 +2,7 @@
 文件管理系统
 支持文件上传、下载、解析
 """
+
 import logging
 from typing import Any, Literal
 
@@ -50,13 +51,19 @@ async def upload_file(
         file_url = supabase.storage.from_("documents").get_public_url(storage_path)
 
         # 记录到数据库
-        file_record = await supabase.table("file_uploads").insert({
-            "org_id": org_id,
-            "filename": filename,
-            "file_type": file_type,
-            "storage_path": storage_path,
-            "file_url": file_url,
-        }).execute()
+        file_record = (
+            await supabase.table("file_uploads")
+            .insert(
+                {
+                    "org_id": org_id,
+                    "filename": filename,
+                    "file_type": file_type,
+                    "storage_path": storage_path,
+                    "file_url": file_url,
+                }
+            )
+            .execute()
+        )
 
         return {
             "success": True,
@@ -88,7 +95,9 @@ async def parse_file(
         from app.core.database import supabase
 
         # 获取文件信息
-        file_info = await supabase.table("file_uploads").select("*").eq("id", file_id).eq("org_id", org_id).single().execute()
+        file_info = (
+            await supabase.table("file_uploads").select("*").eq("id", file_id).eq("org_id", org_id).single().execute()
+        )
 
         if not file_info.data:
             return {"success": False, "error": "文件不存在"}
@@ -129,6 +138,7 @@ def _parse_pdf(file_bytes: bytes) -> str:
         import io
 
         import PyPDF2
+
         reader = PyPDF2.PdfReader(io.BytesIO(file_bytes))
         return "\n".join(page.extract_text() for page in reader.pages)
     except Exception:
@@ -141,6 +151,7 @@ def _parse_word(file_bytes: bytes) -> str:
         import io
 
         import docx
+
         doc = docx.Document(io.BytesIO(file_bytes))
         return "\n".join(p.text for p in doc.paragraphs)
     except Exception:
@@ -153,8 +164,8 @@ def _parse_excel(file_bytes: bytes) -> str:
         import io
 
         import pandas as pd
+
         df = pd.read_excel(io.BytesIO(file_bytes))
         return df.to_string()
     except Exception:
         return ""
-

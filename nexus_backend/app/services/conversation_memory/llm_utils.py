@@ -109,7 +109,7 @@ def parse_llm_json(text: str) -> Any:
         return json.loads(clean)
     except json.JSONDecodeError:
         # Try to find JSON array or object in the text
-        json_match = re.search(r'(\{[\s\S]*\}|\[[\s\S]*\])', clean)
+        json_match = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", clean)
         if json_match:
             try:
                 return json.loads(json_match.group(1))

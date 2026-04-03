@@ -36,10 +36,7 @@ def _dsar_cache_cleanup() -> None:
     if len(_dsar_requests) <= _DSAR_CACHE_MAXSIZE:
         return
     now = time.time()
-    expired_keys = [
-        k for k, v in _dsar_requests.items()
-        if now - v.get("_ts", 0) > _DSAR_CACHE_TTL
-    ]
+    expired_keys = [k for k, v in _dsar_requests.items() if now - v.get("_ts", 0) > _DSAR_CACHE_TTL]
     for k in expired_keys:
         del _dsar_requests[k]
     # If still over limit after TTL eviction, remove oldest entries
@@ -100,16 +97,19 @@ async def initiate_export(
     Collects all user data across system tables and returns a downloadable JSON.
     """
     request_id = str(uuid.uuid4())
-    _dsar_cache_set(request_id, {
-        "request_id": request_id,
-        "type": "export",
-        "user_id": user_id,
-        "status": "processing",
-        "reason": body.reason,
-        "created_at": datetime.now(UTC).isoformat(),
-        "completed_at": None,
-        "result": None,
-    })
+    _dsar_cache_set(
+        request_id,
+        {
+            "request_id": request_id,
+            "type": "export",
+            "user_id": user_id,
+            "status": "processing",
+            "reason": body.reason,
+            "created_at": datetime.now(UTC).isoformat(),
+            "completed_at": None,
+            "result": None,
+        },
+    )
 
     try:
         service = _get_dsar_service()
@@ -177,16 +177,19 @@ async def initiate_delete(
         )
 
     request_id = str(uuid.uuid4())
-    _dsar_cache_set(request_id, {
-        "request_id": request_id,
-        "type": "delete",
-        "user_id": user_id,
-        "status": "processing",
-        "reason": body.reason,
-        "created_at": datetime.now(UTC).isoformat(),
-        "completed_at": None,
-        "result": None,
-    })
+    _dsar_cache_set(
+        request_id,
+        {
+            "request_id": request_id,
+            "type": "delete",
+            "user_id": user_id,
+            "status": "processing",
+            "reason": body.reason,
+            "created_at": datetime.now(UTC).isoformat(),
+            "completed_at": None,
+            "result": None,
+        },
+    )
 
     try:
         service = _get_dsar_service()

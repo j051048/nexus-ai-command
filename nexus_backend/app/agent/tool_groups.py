@@ -23,7 +23,7 @@ TOOL_GROUPS = {
         "search_web",
         "send_email",
         "create_calendar_event",
-    ]
+    ],
 }
 
 

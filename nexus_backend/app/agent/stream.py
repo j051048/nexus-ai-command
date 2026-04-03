@@ -168,6 +168,7 @@ async def run_agent_stream(
             break
     try:
         from app.agent.ab_testing import get_active_assignments
+
         _ab_assignments = get_active_assignments(user_id, user_role=agent_config.user_role)
     except Exception:
         _ab_assignments = {}
@@ -223,9 +224,7 @@ async def run_agent_stream(
         return
 
     # Estimate input tokens for later token tracking (was computed inside pre-checks)
-    input_tokens = token_counter.count_tokens(
-        " ".join(m.get("content", "") for m in messages), agent_config.model
-    )
+    input_tokens = token_counter.count_tokens(" ".join(m.get("content", "") for m in messages), agent_config.model)
 
     # ── 2b. Early SIMPLE detection — skip RAG for casual chat ──
     # Also gate RAG for MODERATE queries: only enable when query suggests
@@ -234,9 +233,14 @@ async def run_agent_stream(
     # ── 2a-bis. Load user behavior preferences ──
     _behavior_prefs: dict = {}
     try:
-        _prefs_res = await (db_client or supabase).table("ai_settings") \
-            .select("behavior_preferences") \
-            .eq("user_id", user_id).limit(1).execute()
+        _prefs_res = (
+            await (db_client or supabase)
+            .table("ai_settings")
+            .select("behavior_preferences")
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
         if _prefs_res.data and _prefs_res.data[0].get("behavior_preferences"):
             _behavior_prefs = _prefs_res.data[0]["behavior_preferences"]
     except Exception:
@@ -259,6 +263,7 @@ async def run_agent_stream(
     if _ab_assignments:
         try:
             from app.agent.ab_testing import get_experiment_config
+
             for exp_name in _ab_assignments:
                 exp_config = get_experiment_config(exp_name, user_id, user_role=agent_config.user_role)
                 suffix = exp_config.get("prompt_suffix")
@@ -342,6 +347,7 @@ async def run_agent_stream(
     if cached_response is not None and not system_confirmed:
         # Cache poisoning defense: sanitize cached content before returning
         from app.services.content_moderation import sanitize_output
+
         cached_response = sanitize_output(cached_response)
         logger.info("[Stream] Semantic cache hit, streaming cached response")
         words = cached_response.split(" ")
@@ -449,16 +455,18 @@ async def run_agent_stream(
         _throttle_ctx = tenant_throttle.acquire(org_id or "default")
         await _throttle_ctx.__aenter__()
 
-        async for event in _with_keepalive(_agent_graph.astream_events(
-            initial_state,
-            thread_id=scoped_thread_id,
-            config={
-                "configurable": {
-                    "trace_logger": tracer,
+        async for event in _with_keepalive(
+            _agent_graph.astream_events(
+                initial_state,
+                thread_id=scoped_thread_id,
+                config={
+                    "configurable": {
+                        "trace_logger": tracer,
+                    },
                 },
-            },
-            version="v2",
-        )):
+                version="v2",
+            )
+        ):
             if event is None:
                 yield _sse_keepalive()
                 continue
@@ -527,19 +535,23 @@ async def run_agent_stream(
                 if not _budget_breached and _streamed_chars // 3 > _output_token_budget:
                     _budget_breached = True
                     logger.warning(
-                        "[Stream] Output token budget breached: ~%d tokens "
-                        "(chars=%d, limit=%d) user=%s session=%s",
-                        _streamed_chars // 3, _streamed_chars,
-                        _output_token_budget, user_id, session_id,
+                        "[Stream] Output token budget breached: ~%d tokens " "(chars=%d, limit=%d) user=%s session=%s",
+                        _streamed_chars // 3,
+                        _streamed_chars,
+                        _output_token_budget,
+                        user_id,
+                        session_id,
                     )
-                    yield _sse_data({
-                        "budget_breaker": {
-                            "reason": "output_token_limit",
-                            "estimated_tokens": _streamed_chars // 3,
-                            "limit": _output_token_budget,
-                            "message": "回复已达到输出 token 上限，已自动截断。",
+                    yield _sse_data(
+                        {
+                            "budget_breaker": {
+                                "reason": "output_token_limit",
+                                "estimated_tokens": _streamed_chars // 3,
+                                "limit": _output_token_budget,
+                                "message": "回复已达到输出 token 上限，已自动截断。",
+                            }
                         }
-                    })
+                    )
                     yield _sse_content("\n\n⚠️ 回复已达到输出上限，已自动截断。")
                     break
 
@@ -613,10 +625,12 @@ async def run_agent_stream(
                         _node_name = event.get("metadata", {}).get("langgraph_node", "unknown")
                         _step_tools = []
                         for _tc in state_delta.get("completed_tool_calls", []):
-                            _step_tools.append({
-                                "name": getattr(_tc, "tool_name", ""),
-                                "status": getattr(_tc, "status", ""),
-                            })
+                            _step_tools.append(
+                                {
+                                    "name": getattr(_tc, "tool_name", ""),
+                                    "status": getattr(_tc, "status", ""),
+                                }
+                            )
                         agent_trace_service.add_step(
                             trace_id=_trace_id,
                             step_id=f"{_node_name}_{accumulated_state.get('iteration', 0)}",
@@ -640,14 +654,17 @@ async def run_agent_stream(
     except asyncio.CancelledError:
         duration_ms = int((time.time() - start_time) * 1000)
         await _cleanup_on_disconnect(
-            _throttle_ctx, _trace_id, tracer,
+            _throttle_ctx,
+            _trace_id,
+            tracer,
             f"[Stream] Client disconnected after {duration_ms}ms (user={user_id}, session={session_id})",
         )
         return
 
     except GeneratorExit:
         await _cleanup_on_disconnect(
-            _throttle_ctx, _trace_id,
+            _throttle_ctx,
+            _trace_id,
             log_msg=f"[Stream] Generator closed (user={user_id})",
         )
         return
@@ -660,13 +677,12 @@ async def run_agent_stream(
         # (e.g., old ToolCallRecord types, pickle errors), retry with a
         # fresh thread_id to bypass the corrupted checkpoint.
         if any(kw in error_str.lower() for kw in corrupt_state_keywords):
-            logger.warning(
-                f"[Stream] Checkpointer state corruption detected, retrying with fresh thread: {e}"
-            )
+            logger.warning(f"[Stream] Checkpointer state corruption detected, retrying with fresh thread: {e}")
             # Log corruption event to Langfuse for observability
             try:
                 if settings.LANGFUSE_ENABLED:
                     from langfuse import Langfuse
+
                     langfuse = Langfuse()
                     langfuse.event(
                         name="checkpointer_corruption",
@@ -683,12 +699,14 @@ async def run_agent_stream(
                 _streamed_chars = 0
                 _budget_breached = False
 
-                async for event in _with_keepalive(_agent_graph.astream_events(
-                    initial_state,
-                    thread_id=fresh_thread,
-                    config={"configurable": {"trace_logger": tracer, "trace_id": _trace_id}},
-                    version="v2",
-                )):
+                async for event in _with_keepalive(
+                    _agent_graph.astream_events(
+                        initial_state,
+                        thread_id=fresh_thread,
+                        config={"configurable": {"trace_logger": tracer, "trace_id": _trace_id}},
+                        version="v2",
+                    )
+                ):
                     if event is None:
                         yield _sse_keepalive()
                         continue
@@ -725,17 +743,21 @@ async def run_agent_stream(
                             logger.warning(
                                 "[Stream] Output token budget breached (retry): ~%d tokens "
                                 "(chars=%d, limit=%d) user=%s",
-                                _streamed_chars // 3, _streamed_chars,
-                                _output_token_budget, user_id,
+                                _streamed_chars // 3,
+                                _streamed_chars,
+                                _output_token_budget,
+                                user_id,
                             )
-                            yield _sse_data({
-                                "budget_breaker": {
-                                    "reason": "output_token_limit",
-                                    "estimated_tokens": _streamed_chars // 3,
-                                    "limit": _output_token_budget,
-                                    "message": "回复已达到输出 token 上限，已自动截断。",
+                            yield _sse_data(
+                                {
+                                    "budget_breaker": {
+                                        "reason": "output_token_limit",
+                                        "estimated_tokens": _streamed_chars // 3,
+                                        "limit": _output_token_budget,
+                                        "message": "回复已达到输出 token 上限，已自动截断。",
+                                    }
                                 }
-                            })
+                            )
                             yield _sse_content("\n\n⚠️ 回复已达到输出上限，已自动截断。")
                             break
                     elif kind == "on_chain_end":
@@ -805,13 +827,16 @@ async def run_agent_stream(
         complexity = accumulated_state.get("complexity")
         intent = accumulated_state.get("intent_summary", "")
         logger.warning(
-            "[Stream] No final_response found in accumulated state "
-            "(complexity=%s intent=%s model=%s)",
-            complexity, intent, accumulated_state.get("selected_model", "?"),
+            "[Stream] No final_response found in accumulated state " "(complexity=%s intent=%s model=%s)",
+            complexity,
+            intent,
+            accumulated_state.get("selected_model", "?"),
         )
         # If the user asked for long-form content, suggest shorter or split approach
-        if complexity and complexity.value in ("complex", "critical") and any(
-            kw in intent for kw in ("写作", "创作", "软文", "文章", "报告", "方案")
+        if (
+            complexity
+            and complexity.value in ("complex", "critical")
+            and any(kw in intent for kw in ("写作", "创作", "软文", "文章", "报告", "方案"))
         ):
             final_response = (
                 "抱歉，这次内容生成未能成功完成。可能是因为内容篇幅较大或模型处理超时。\n\n"
@@ -859,6 +884,7 @@ async def run_agent_stream(
 
     # ── 7. Emit thinking chain completion ──
     from app.core.ai_metrics import record_llm_latency
+
     _graph_elapsed_ms = (time.time() - _graph_start_time) * 1000
     record_llm_latency(agent_config.model, _graph_elapsed_ms)
 
@@ -897,17 +923,20 @@ async def run_agent_stream(
             # HITL: Persist confirmation to DB for async approval
             try:
                 from app.services.hitl_service import persist_confirmation
-                asyncio.create_task(persist_confirmation(
-                    org_id=agent_config.org_id or "",
-                    user_id=user_id,
-                    session_id=session_id or "default",
-                    thread_id=scoped_thread_id,
-                    tool_name=tc.tool_name,
-                    tool_args=tc.tool_args or {},
-                    tool_call_id=getattr(tc, "tool_call_id", ""),
-                    confirmation_type=getattr(tc, "confirmation_type", ""),
-                    message=tc.result or "",
-                ))
+
+                asyncio.create_task(
+                    persist_confirmation(
+                        org_id=agent_config.org_id or "",
+                        user_id=user_id,
+                        session_id=session_id or "default",
+                        thread_id=scoped_thread_id,
+                        tool_name=tc.tool_name,
+                        tool_args=tc.tool_args or {},
+                        tool_call_id=getattr(tc, "tool_call_id", ""),
+                        confirmation_type=getattr(tc, "confirmation_type", ""),
+                        message=tc.result or "",
+                    )
+                )
             except Exception:
                 pass  # non-fatal
     else:
@@ -944,6 +973,7 @@ async def run_agent_stream(
     # ── 8.1 G5: Record usage to token budget manager ──
     try:
         from app.core.token_budget import token_budget_manager
+
         await token_budget_manager.record_usage(
             session_id=session_id or "default",
             user_id=user_id,
@@ -989,6 +1019,7 @@ async def run_agent_stream(
     def _calc_cost_usd(mdl: str, in_tok: int, out_tok: int) -> float:
         try:
             from app.core.model_pricing import estimate_cost as _est
+
             return _est(in_tok, out_tok, mdl)
         except Exception:
             return 0.0
@@ -1038,6 +1069,7 @@ async def run_agent_stream(
 
     # SLO: Record end-to-end duration by complexity tier
     from app.core.ai_metrics import check_agent_success_rate, record_agent_e2e
+
     _tier = str(accumulated_state.get("complexity", "moderate"))
     _success = not accumulated_state.get("error")
     record_agent_e2e(_tier, duration_ms, _success)
@@ -1072,10 +1104,12 @@ async def run_agent_stream(
                 temperature=0.7,
                 timeout=10.0,
             )
-            _fu_resp = await _fu_llm.ainvoke([
-                _SMsg(content="基于AI的回复，生成3条用户可能继续追问的简短问题。每条一行，不带序号。"),
-                _HMsg(content=f"用户问: {last_user_content[:200]}\nAI回复: {final_response[:500]}"),
-            ])
+            _fu_resp = await _fu_llm.ainvoke(
+                [
+                    _SMsg(content="基于AI的回复，生成3条用户可能继续追问的简短问题。每条一行，不带序号。"),
+                    _HMsg(content=f"用户问: {last_user_content[:200]}\nAI回复: {final_response[:500]}"),
+                ]
+            )
             _fu_lines = [s.strip() for s in _fu_resp.content.strip().split("\n") if s.strip()][:3]
             if _fu_lines:
                 yield _sse_data({"follow_up_suggestions": _fu_lines})

@@ -5,13 +5,13 @@ E2E 审批全流程测试
 """
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 from app.main import app
 
 
 @pytest.fixture
 async def async_client():
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
 
 

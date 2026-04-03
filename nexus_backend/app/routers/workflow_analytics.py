@@ -2,6 +2,7 @@
 
 Phase 3: 费用趋势、审批效率分析
 """
+
 import logging
 from datetime import datetime, timedelta
 
@@ -29,9 +30,12 @@ async def get_department_expense_trend(
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
         start_date = datetime.now() - timedelta(days=months * 30)
-        query = db.table("approval_requests").select(
-            "amount, created_at, type"
-        ).eq("type", "expense").gte("created_at", start_date.isoformat())
+        query = (
+            db.table("approval_requests")
+            .select("amount, created_at, type")
+            .eq("type", "expense")
+            .gte("created_at", start_date.isoformat())
+        )
         if org_id:
             query = query.eq("organization_id", org_id)
         result = await query.execute()
@@ -43,14 +47,13 @@ async def get_department_expense_trend(
             month = r["created_at"][:7]
             monthly_data[month] = monthly_data.get(month, 0) + r.get("amount", 0)
 
-        return api_success(data={
-            "data": [
-                {"month": month, "amount": amount}
-                for month, amount in sorted(monthly_data.items())
-            ],
-            "total": sum(monthly_data.values()),
-            "avg_per_month": sum(monthly_data.values()) / len(monthly_data) if monthly_data else 0,
-        })
+        return api_success(
+            data={
+                "data": [{"month": month, "amount": amount} for month, amount in sorted(monthly_data.items())],
+                "total": sum(monthly_data.values()),
+                "avg_per_month": sum(monthly_data.values()) / len(monthly_data) if monthly_data else 0,
+            }
+        )
 
     except Exception as e:
         logger.error(f"Department expense trend error: {e}")
@@ -70,9 +73,11 @@ async def get_approval_efficiency(
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
         start_date = datetime.now() - timedelta(days=30)
-        query = db.table("approval_requests").select(
-            "status, created_at, approval_history"
-        ).gte("created_at", start_date.isoformat())
+        query = (
+            db.table("approval_requests")
+            .select("status, created_at, approval_history")
+            .gte("created_at", start_date.isoformat())
+        )
         if org_id:
             query = query.eq("organization_id", org_id)
         result = await query.execute()
@@ -84,14 +89,16 @@ async def get_approval_efficiency(
         rejected = sum(1 for r in records if r["status"] == "rejected")
         pending = sum(1 for r in records if r["status"] == "pending")
 
-        return api_success(data={
-            "total_requests": total,
-            "approved_count": approved,
-            "rejected_count": rejected,
-            "pending_count": pending,
-            "approval_rate": round(approved / total * 100, 1) if total > 0 else 0,
-            "avg_duration_hours": 24,
-        })
+        return api_success(
+            data={
+                "total_requests": total,
+                "approved_count": approved,
+                "rejected_count": rejected,
+                "pending_count": pending,
+                "approval_rate": round(approved / total * 100, 1) if total > 0 else 0,
+                "avg_duration_hours": 24,
+            }
+        )
 
     except Exception as e:
         logger.error(f"Approval efficiency error: {e}")

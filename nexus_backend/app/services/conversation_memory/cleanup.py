@@ -208,9 +208,9 @@ async def reevaluate_importance(
             boost = min(0.15 * math.log(count + 1), 0.4)
             new_imp = min(old_imp + boost, 1.0)
             if new_imp > old_imp + 0.01:
-                await client.table("conversation_memories").update(
-                    {"importance": round(new_imp, 3)}
-                ).eq("id", mem["id"]).execute()
+                await client.table("conversation_memories").update({"importance": round(new_imp, 3)}).eq(
+                    "id", mem["id"]
+                ).execute()
                 boosted += 1
 
         # Decay: never-accessed old memories with moderate importance
@@ -228,9 +228,9 @@ async def reevaluate_importance(
         for mem in decay_res.data or []:
             old_imp = float(mem.get("importance", 0.5) or 0.5)
             new_imp = max(old_imp - 0.15, 0.1)
-            await client.table("conversation_memories").update(
-                {"importance": round(new_imp, 3)}
-            ).eq("id", mem["id"]).execute()
+            await client.table("conversation_memories").update({"importance": round(new_imp, 3)}).eq(
+                "id", mem["id"]
+            ).execute()
             decayed += 1
 
         # Deep decay: zero access + 30+ days + still moderate -> drop to floor
@@ -246,9 +246,7 @@ async def reevaluate_importance(
             .execute()
         )
         for mem in deep_decay_res.data or []:
-            await client.table("conversation_memories").update(
-                {"importance": 0.15}
-            ).eq("id", mem["id"]).execute()
+            await client.table("conversation_memories").update({"importance": 0.15}).eq("id", mem["id"]).execute()
             decayed += 1
 
     except Exception as e:
@@ -298,11 +296,7 @@ async def decay_kg_strength(
 
         for triple in triples:
             # Determine last activity time
-            last_active = (
-                triple.get("last_reinforced_at")
-                or triple.get("updated_at")
-                or triple.get("created_at")
-            )
+            last_active = triple.get("last_reinforced_at") or triple.get("updated_at") or triple.get("created_at")
             if not last_active:
                 continue
 
@@ -319,7 +313,7 @@ async def decay_kg_strength(
                 continue  # Skip recently active triples
 
             old_strength = float(triple.get("strength", 0.5))
-            new_strength = old_strength * (decay_rate ** weeks_since)
+            new_strength = old_strength * (decay_rate**weeks_since)
             new_strength = round(new_strength, 4)
 
             if new_strength >= old_strength - 0.001:
@@ -356,11 +350,9 @@ async def decay_kg_strength(
         logger.warning(f"[KG Decay] Scan failed: {e}")
 
     if decayed_count or archived:
-        logger.info(
-            f"[KG Decay] scanned={len(triples)}, decayed={decayed_count}, archived={archived}"
-        )
+        logger.info(f"[KG Decay] scanned={len(triples)}, decayed={decayed_count}, archived={archived}")
 
-    return {"scanned": len(triples) if 'triples' in dir() else 0, "decayed": decayed_count, "archived": archived}
+    return {"scanned": len(triples) if "triples" in dir() else 0, "decayed": decayed_count, "archived": archived}
 
 
 async def promote_high_recurrence_memories(
@@ -406,8 +398,8 @@ async def promote_high_recurrence_memories(
         now = datetime.now(UTC).isoformat()
 
         # Risk classification by category
-        LOW_RISK = {"preference", "usage_pattern"}       # safe to auto-promote
-        MEDIUM_RISK = {"fact"}                            # boost importance only
+        LOW_RISK = {"preference", "usage_pattern"}  # safe to auto-promote
+        MEDIUM_RISK = {"fact"}  # boost importance only
         # HIGH_RISK: everything else (explicit_memory, policy, etc.)
 
         for mem in candidates:
@@ -419,11 +411,13 @@ async def promote_high_recurrence_memories(
                     # Low risk: full promotion to business_rule
                     await (
                         client.table("conversation_memories")
-                        .update({
-                            "category": "business_rule",
-                            "importance": 0.9,
-                            "updated_at": now,
-                        })
+                        .update(
+                            {
+                                "category": "business_rule",
+                                "importance": 0.9,
+                                "updated_at": now,
+                            }
+                        )
                         .eq("id", mem["id"])
                         .execute()
                     )
@@ -436,10 +430,12 @@ async def promote_high_recurrence_memories(
                     new_imp = max(old_imp, 0.8)
                     await (
                         client.table("conversation_memories")
-                        .update({
-                            "importance": new_imp,
-                            "updated_at": now,
-                        })
+                        .update(
+                            {
+                                "importance": new_imp,
+                                "updated_at": now,
+                            }
+                        )
                         .eq("id", mem["id"])
                         .execute()
                     )
@@ -454,10 +450,12 @@ async def promote_high_recurrence_memories(
                         continue
                     await (
                         client.table("conversation_memories")
-                        .update({
-                            "importance": new_imp,
-                            "updated_at": now,
-                        })
+                        .update(
+                            {
+                                "importance": new_imp,
+                                "updated_at": now,
+                            }
+                        )
                         .eq("id", mem["id"])
                         .execute()
                     )
@@ -468,6 +466,7 @@ async def promote_high_recurrence_memories(
                 # Audit log
                 try:
                     from .audit import log_memory_change
+
                     await log_memory_change(
                         memory_id=mem["id"],
                         user_id=mem.get("user_id", ""),
@@ -490,4 +489,4 @@ async def promote_high_recurrence_memories(
     except Exception as e:
         logger.warning(f"[Promote] Scan failed: {e}")
 
-    return {"scanned": len(candidates) if 'candidates' in dir() else 0, "promoted": promoted, "boosted": boosted}
+    return {"scanned": len(candidates) if "candidates" in dir() else 0, "promoted": promoted, "boosted": boosted}

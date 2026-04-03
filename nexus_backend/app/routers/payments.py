@@ -125,7 +125,9 @@ async def payment_callback(
         if _PAYMENT_CALLBACK_TOKEN:
             provided = req.headers.get("X-Payment-Token", "")
             if provided != _PAYMENT_CALLBACK_TOKEN:
-                logger.warning(f"Payment callback rejected: invalid token, platform={platform}, ip={req.client.host if req.client else 'unknown'}")
+                logger.warning(
+                    f"Payment callback rejected: invalid token, platform={platform}, ip={req.client.host if req.client else 'unknown'}"
+                )
                 raise api_error(ErrorCode.FORBIDDEN, "回调签名验证失败")
 
         body = await req.json()

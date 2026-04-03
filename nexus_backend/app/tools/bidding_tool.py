@@ -20,12 +20,13 @@ class BiddingSearchTool(BaseTool):
 
     name = "search_bidding_projects"
     domain = "tender"
-    description = (
-        "搜索国内招投标和政府采购公告数据，支持按关键词和日期筛选"
-    )
+    description = "搜索国内招投标和政府采购公告数据，支持按关键词和日期筛选"
     examples = [
         {"input": {"keyword": "人工智能"}, "output_summary": "返回最近30天内与人工智能相关的招投标项目列表"},
-        {"input": {"keyword": "服务器采购", "start_date": "2026-01-01", "end_date": "2026-03-01"}, "output_summary": "返回指定日期范围内的服务器采购招标公告"},
+        {
+            "input": {"keyword": "服务器采购", "start_date": "2026-01-01", "end_date": "2026-03-01"},
+            "output_summary": "返回指定日期范围内的服务器采购招标公告",
+        },
     ]
     gotchas = "关键词为必填项。默认查询最近30天数据。招投标查询应使用此工具而非网页搜索。最多展示前10条结果。"
     related_tools = ["analyze_tender_document"]

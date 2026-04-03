@@ -130,7 +130,9 @@ class CalendarQueryTool(BaseTool):
             end_time_str = ""
             if et:
                 with contextlib.suppress(Exception):
-                    end_time_str = f"-{datetime.fromisoformat(et.replace('Z', '+00:00')).astimezone(CN_TZ).strftime('%H:%M')}"
+                    end_time_str = (
+                        f"-{datetime.fromisoformat(et.replace('Z', '+00:00')).astimezone(CN_TZ).strftime('%H:%M')}"
+                    )
 
             location = f" | 📍{evt['location']}" if evt.get("location") else ""
             attendees = evt.get("attendees") or []
@@ -237,18 +239,23 @@ class CalendarCreateTool(BaseTool):
         # Conflict detection
         conflict_warning = ""
         try:
-            conflicts = await client.rpc("check_calendar_conflicts", {
-                "p_user_id": user_id,
-                "p_start_time": start_dt.isoformat(),
-                "p_end_time": end_dt.isoformat(),
-            }).execute()
+            conflicts = await client.rpc(
+                "check_calendar_conflicts",
+                {
+                    "p_user_id": user_id,
+                    "p_start_time": start_dt.isoformat(),
+                    "p_end_time": end_dt.isoformat(),
+                },
+            ).execute()
 
             if conflicts.data:
                 conflict_lines = ["⚠️ **检测到日程冲突：**"]
                 for c in conflicts.data:
                     c_start = c.get("start_time", "")
                     try:
-                        c_time = datetime.fromisoformat(c_start.replace("Z", "+00:00")).astimezone(CN_TZ).strftime("%H:%M")
+                        c_time = (
+                            datetime.fromisoformat(c_start.replace("Z", "+00:00")).astimezone(CN_TZ).strftime("%H:%M")
+                        )
                     except Exception:
                         c_time = "?"
                     conflict_lines.append(f"  - {c_time} {c['title']} ({c['event_type']})")
@@ -303,10 +310,7 @@ class CalendarUpdateTool(BaseTool):
     """日程修改/取消工具"""
 
     name = "update_calendar_event"
-    description = (
-        "修改或取消已有的日程事件。"
-        "用户说'改会议时间'、'取消明天的会'、'把周三的会推迟'时调用。"
-    )
+    description = "修改或取消已有的日程事件。" "用户说'改会议时间'、'取消明天的会'、'把周三的会推迟'时调用。"
     required_role = "all"
     domain = "schedule"
     confirmation_type = "IRREVERSIBLE"
@@ -364,12 +368,7 @@ class CalendarUpdateTool(BaseTool):
 
         if event_id:
             res = await (
-                client.table("calendar_events")
-                .select("*")
-                .eq("id", event_id)
-                .eq("user_id", user_id)
-                .limit(1)
-                .execute()
+                client.table("calendar_events").select("*").eq("id", event_id).eq("user_id", user_id).limit(1).execute()
             )
             if res.data:
                 event = res.data[0]
@@ -428,23 +427,21 @@ class CalendarUpdateTool(BaseTool):
             check_start = update_data.get("start_time", event["start_time"])
             check_end = update_data.get("end_time", event.get("end_time") or check_start)
             try:
-                conflicts = await client.rpc("check_calendar_conflicts", {
-                    "p_user_id": user_id,
-                    "p_start_time": check_start,
-                    "p_end_time": check_end,
-                    "p_exclude_id": event["id"],
-                }).execute()
+                conflicts = await client.rpc(
+                    "check_calendar_conflicts",
+                    {
+                        "p_user_id": user_id,
+                        "p_start_time": check_start,
+                        "p_end_time": check_end,
+                        "p_exclude_id": event["id"],
+                    },
+                ).execute()
                 if conflicts.data:
                     conflict_warning = f"\n⚠️ 注意：新时段与 {len(conflicts.data)} 个日程存在冲突。"
             except Exception:
                 pass
 
-        upd_res = await (
-            client.table("calendar_events")
-            .update(update_data)
-            .eq("id", event["id"])
-            .execute()
-        )
+        upd_res = await client.table("calendar_events").update(update_data).eq("id", event["id"]).execute()
         if not upd_res.data:
             return "❌ 更新日程失败，请稍后重试。"
 

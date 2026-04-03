@@ -129,14 +129,11 @@ async def audit_log_middleware(state: AgentState) -> dict[str, Any]:
         return {}
 
     # 记录新的工具调用
-    new_tools = completed_tools[state.get("_last_audit_count", 0):]
+    new_tools = completed_tools[state.get("_last_audit_count", 0) :]
     for tool_call in new_tools:
         tool_name = getattr(tool_call, "tool_name", None) or tool_call.get("tool_name", "unknown")
         status = getattr(tool_call, "status", None) or tool_call.get("status", "unknown")
-        logger.info(
-            f"[Audit] org={config.org_id} user={config.user_id} "
-            f"tool={tool_name} status={status}"
-        )
+        logger.info(f"[Audit] org={config.org_id} user={config.user_id} " f"tool={tool_name} status={status}")
 
     return {"_last_audit_count": len(completed_tools)}
 
@@ -170,6 +167,7 @@ async def memory_update_middleware(state: AgentState) -> dict[str, Any]:
         if user_message:
             # 异步保存记忆（不阻塞响应）
             import asyncio
+
             asyncio.create_task(
                 persist_result(
                     user_id=config.user_id,
@@ -185,5 +183,3 @@ async def memory_update_middleware(state: AgentState) -> dict[str, Any]:
         logger.error(f"[Middleware] Memory update failed: {e}")
 
     return {"_memory_updated": True}
-
-

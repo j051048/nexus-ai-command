@@ -66,7 +66,6 @@ class SearchParams(BaseModel):
         return self.q.strip() if self.q else ""
 
 
-
 class DateRangeParams(BaseModel):
     """
     Standard date range parameters.

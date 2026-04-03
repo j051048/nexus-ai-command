@@ -41,8 +41,14 @@ class WebSearchTool(BaseTool):
     )
     required_role = "all"
     examples = [
-        {"input": {"query": "2026年中国光伏行业趋势", "count": 5}, "output_summary": "返回5条关于光伏行业趋势的最新搜索结果"},
-        {"input": {"query": "华为最新产品发布", "freshness": "pw"}, "output_summary": "返回过去一周内华为产品发布的相关信息"},
+        {
+            "input": {"query": "2026年中国光伏行业趋势", "count": 5},
+            "output_summary": "返回5条关于光伏行业趋势的最新搜索结果",
+        },
+        {
+            "input": {"query": "华为最新产品发布", "freshness": "pw"},
+            "output_summary": "返回过去一周内华为产品发布的相关信息",
+        },
     ]
     gotchas = "仅用于需要实时外部信息的查询（如行业动态、竞品信息）；内部数据查询请用对应业务工具；需配置环境变量中的搜索服务密钥。"
     related_tools = ["load_knowledge", "web_fetch"]

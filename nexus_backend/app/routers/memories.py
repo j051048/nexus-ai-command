@@ -366,7 +366,9 @@ async def get_entity_profile(
         # Query triples where entity appears as source OR destination
         as_source = (
             await db.table("knowledge_graph_triples")
-            .select("id, source_entity, source_type, relationship, destination_entity, destination_type, strength, occurrences, updated_at")
+            .select(
+                "id, source_entity, source_type, relationship, destination_entity, destination_type, strength, occurrences, updated_at"
+            )
             .eq("organization_id", org_id)
             .ilike("source_entity", entity_clean)
             .order("strength", desc=True)
@@ -375,7 +377,9 @@ async def get_entity_profile(
         )
         as_dest = (
             await db.table("knowledge_graph_triples")
-            .select("id, source_entity, source_type, relationship, destination_entity, destination_type, strength, occurrences, updated_at")
+            .select(
+                "id, source_entity, source_type, relationship, destination_entity, destination_type, strength, occurrences, updated_at"
+            )
             .eq("organization_id", org_id)
             .ilike("destination_entity", entity_clean)
             .order("strength", desc=True)

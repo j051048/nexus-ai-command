@@ -39,9 +39,7 @@ async def evaluate_rag(
     ]
 
     try:
-        result = await rag_evaluator.evaluate_retrieval(
-            eval_qa_pairs, org_id="eval", user_id=user_id
-        )
+        result = await rag_evaluator.evaluate_retrieval(eval_qa_pairs, org_id="eval", user_id=user_id)
         return api_success(data=result)
     except Exception as e:
         logger.error(f"RAG evaluation failed: {e}")

@@ -77,11 +77,7 @@ def _micro_compact_lc_messages(messages: list[BaseMessage]) -> list[BaseMessage]
             if len(new_content) > _LC_ASSISTANT_MSG_THRESHOLD:
                 head = _LC_ASSISTANT_MSG_THRESHOLD * 2 // 3
                 tail = _LC_ASSISTANT_MSG_THRESHOLD // 3
-                new_content = (
-                    new_content[:head]
-                    + f"\n...(原文 {len(content)} 字符, 已省略)...\n"
-                    + new_content[-tail:]
-                )
+                new_content = new_content[:head] + f"\n...(原文 {len(content)} 字符, 已省略)...\n" + new_content[-tail:]
             result.append(AIMessage(content=new_content))
             compacted_chars += len(new_content)
         else:
@@ -91,8 +87,7 @@ def _micro_compact_lc_messages(messages: list[BaseMessage]) -> list[BaseMessage]
     if compacted_chars < original_chars:
         saved = original_chars - compacted_chars
         logger.info(
-            f"[MicroCompact-LC] {len(messages)} msgs: "
-            f"{original_chars} → {compacted_chars} chars (saved {saved})"
+            f"[MicroCompact-LC] {len(messages)} msgs: " f"{original_chars} → {compacted_chars} chars (saved {saved})"
         )
 
     return result
@@ -114,6 +109,7 @@ def _lc_code_replacer(match):
 def _count_tokens_approx(text: str) -> int:
     """Token count — delegates to the canonical TokenCounter."""
     from app.services.token_service import token_counter
+
     return token_counter.count_tokens(text)
 
 
@@ -212,6 +208,7 @@ async def _summarize_messages(
         )
 
         import asyncio
+
         response = await asyncio.wait_for(
             client.chat.completions.create(
                 model=model,
@@ -297,9 +294,7 @@ def _deduplicate_consecutive_replies(messages: list[BaseMessage]) -> list[BaseMe
         )
 
     if len(result) < len(messages):
-        logger.info(
-            f"[PromptCompression] Deduplicated {len(messages) - len(result)} repeated AI messages"
-        )
+        logger.info(f"[PromptCompression] Deduplicated {len(messages) - len(result)} repeated AI messages")
 
     return result
 
@@ -362,9 +357,7 @@ async def compress_conversation_history(
     # Reconstruct compressed message list
     compressed = list(system_msgs)
     if summary:
-        compressed.append(
-            SystemMessage(content=f"[对话历史摘要（前 {len(older_msgs)} 条消息）]\n{summary}")
-        )
+        compressed.append(SystemMessage(content=f"[对话历史摘要（前 {len(older_msgs)} 条消息）]\n{summary}"))
     compressed.extend(recent_msgs)
 
     new_token_count = _count_messages_tokens(compressed)

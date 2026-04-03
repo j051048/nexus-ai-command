@@ -56,6 +56,4 @@ def estimate_cost(input_tokens: int, output_tokens: int, model: str) -> float:
                 price = p
                 best_len = len(prefix)
 
-    return round(
-        (input_tokens * price[0] + output_tokens * price[1]) / 1_000_000, 6
-    )
+    return round((input_tokens * price[0] + output_tokens * price[1]) / 1_000_000, 6)

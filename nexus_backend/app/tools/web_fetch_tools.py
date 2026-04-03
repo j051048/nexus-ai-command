@@ -102,8 +102,14 @@ class WebFetchTool(BaseTool):
     )
     domain = "knowledge"
     examples = [
-        {"input": {"url": "https://example.com/article/123"}, "output_summary": "抓取该网页并返回标题和正文纯文本（默认最多2000字符）"},
-        {"input": {"url": "https://example.com/report.html", "max_length": 5000}, "output_summary": "抓取网页并返回最多5000字符的纯文本内容"},
+        {
+            "input": {"url": "https://example.com/article/123"},
+            "output_summary": "抓取该网页并返回标题和正文纯文本（默认最多2000字符）",
+        },
+        {
+            "input": {"url": "https://example.com/report.html", "max_length": 5000},
+            "output_summary": "抓取网页并返回最多5000字符的纯文本内容",
+        },
     ]
     related_tools = ["web_search"]
     gotchas = "禁止访问内网地址（会被安全拦截）；网址必须以 http:// 或 https:// 开头；max_length 范围 100-10000，超出自动截断。"

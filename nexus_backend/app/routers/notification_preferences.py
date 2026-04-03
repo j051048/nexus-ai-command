@@ -24,12 +24,8 @@ router = APIRouter(
 
 
 class FeedbackBody(BaseModel):
-    notification_type: str = Field(
-        ..., description="通知类型: smart_reminder | insight | recommendation | alert"
-    )
-    action: str = Field(
-        ..., description="用户行为: clicked | dismissed | ignored | muted"
-    )
+    notification_type: str = Field(..., description="通知类型: smart_reminder | insight | recommendation | alert")
+    action: str = Field(..., description="用户行为: clicked | dismissed | ignored | muted")
 
 
 class UpdatePreferencesBody(BaseModel):

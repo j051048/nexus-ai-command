@@ -39,9 +39,15 @@ EXTRACT_ENTITIES_TOOL = {
                             "entity_type": {
                                 "type": "string",
                                 "enum": [
-                                    "person", "organization", "project",
-                                    "product", "location", "event",
-                                    "concept", "tool", "document",
+                                    "person",
+                                    "organization",
+                                    "project",
+                                    "product",
+                                    "location",
+                                    "event",
+                                    "concept",
+                                    "tool",
+                                    "document",
                                 ],
                                 "description": "实体类型",
                             },
@@ -91,9 +97,11 @@ ESTABLISH_RELATIONS_TOOL = {
                             },
                         },
                         "required": [
-                            "source", "source_type",
+                            "source",
+                            "source_type",
                             "relationship",
-                            "destination", "destination_type",
+                            "destination",
+                            "destination_type",
                         ],
                     },
                 },
@@ -153,8 +161,7 @@ async def extract_graph_entities(
     conversation = f"用户: {user_message}\nAI助手: {ai_response}"
     if tool_outputs:
         tool_context = "\n".join(
-            f"工具({t.get('tool_name', '')}): {str(t.get('result', ''))[:200]}"
-            for t in tool_outputs[:3]
+            f"工具({t.get('tool_name', '')}): {str(t.get('result', ''))[:200]}" for t in tool_outputs[:3]
         )
         conversation += f"\n{tool_context}"
 
@@ -190,10 +197,7 @@ async def extract_graph_entities(
         )
 
         if saved:
-            logger.info(
-                f"[GraphExtract] Extracted {len(saved)} entity relations "
-                f"for org {org_id}"
-            )
+            logger.info(f"[GraphExtract] Extracted {len(saved)} entity relations " f"for org {org_id}")
 
         return saved
 
@@ -240,13 +244,15 @@ def _parse_extraction_response(response_text: str) -> list[dict]:
         if len(source) > 100 or len(destination) > 100 or len(relationship) > 50:
             continue
 
-        relations.append({
-            "source": source,
-            "source_type": rel.get("source_type", "concept"),
-            "relationship": relationship,
-            "destination": destination,
-            "destination_type": rel.get("destination_type", "concept"),
-        })
+        relations.append(
+            {
+                "source": source,
+                "source_type": rel.get("source_type", "concept"),
+                "relationship": relationship,
+                "destination": destination,
+                "destination_type": rel.get("destination_type", "concept"),
+            }
+        )
 
     return relations[:10]  # Max 10 relations per extraction
 
@@ -286,13 +292,16 @@ async def _store_triples(
                 try:
                     new_strength = min(float(existing.get("strength", 0.5)) + 0.1, 1.0)
                     from datetime import UTC, datetime
+
                     await (
                         db.table("knowledge_graph_triples")
-                        .update({
-                            "strength": new_strength,
-                            "occurrences": existing.get("occurrences", 1) + 1,
-                            "last_reinforced_at": datetime.now(UTC).isoformat(),
-                        })
+                        .update(
+                            {
+                                "strength": new_strength,
+                                "occurrences": existing.get("occurrences", 1) + 1,
+                                "last_reinforced_at": datetime.now(UTC).isoformat(),
+                            }
+                        )
                         .eq("id", existing["id"])
                         .execute()
                     )
@@ -320,8 +329,10 @@ async def _store_triples(
                     )
                     logger.info(
                         "[KG] Soft-expired triple: %s -%s-> %s (replaced by -> %s)",
-                        rel["source"], rel["relationship"],
-                        conflict.get("destination_entity"), rel["destination"],
+                        rel["source"],
+                        rel["relationship"],
+                        conflict.get("destination_entity"),
+                        rel["destination"],
                     )
             except Exception as e:
                 logger.error(f"[KG] Conflict check failed (non-critical): {e}")
@@ -444,6 +455,7 @@ async def query_entity_relations(
     # Resolve entity alias first
     try:
         from .entity_resolution import resolve_entity
+
         entity_name = await resolve_entity(org_id, entity_name, db=client)
     except Exception:
         pass
@@ -568,6 +580,7 @@ async def search_kg_hybrid(
     # Resolve query entities through alias table
     try:
         from .entity_resolution import resolve_entity
+
         resolved_query = await resolve_entity(org_id, query, db=client)
         if resolved_query != query:
             query = resolved_query
@@ -624,15 +637,12 @@ async def search_kg_hybrid(
                 .select("*")
                 .eq("organization_id", org_id)
                 .is_("valid_to", "null")
-                .or_(
-                    f"source_entity.eq.{entity},"
-                    f"destination_entity.eq.{entity}"
-                )
+                .or_(f"source_entity.eq.{entity}," f"destination_entity.eq.{entity}")
                 .order("strength", desc=True)
                 .limit(3)
                 .execute()
             )
-            for t in (neighbors.data or []):
+            for t in neighbors.data or []:
                 if t["id"] not in seen_ids:
                     t["hop"] = 2
                     t["strength"] = float(t.get("strength", 0.5)) * 0.6

@@ -91,7 +91,9 @@ def _sse_confirmation(tool_name: str, message: str, args: dict, confirmation_typ
     )
 
 
-def _sse_ask_user(question: str, options: list[str] | None = None, context: str = "", fields: list | None = None) -> str:
+def _sse_ask_user(
+    question: str, options: list[str] | None = None, context: str = "", fields: list | None = None
+) -> str:
     """P1-7: Emit an ask_user event for the agent to proactively ask the user."""
     return _sse_data(
         {
@@ -113,13 +115,15 @@ _CIRCUIT_BREAK_SUGGESTIONS = {
 
 def _sse_tool_progress(tool_name: str, status: str, duration_ms: int | None = None) -> str:
     """#15: Emit tool execution progress for frontend progress bar."""
-    return _sse_data({
-        "tool_progress": {
-            "tool_name": tool_name,
-            "status": status,  # running | success | error
-            "duration_ms": duration_ms,
+    return _sse_data(
+        {
+            "tool_progress": {
+                "tool_name": tool_name,
+                "status": status,  # running | success | error
+                "duration_ms": duration_ms,
+            }
         }
-    })
+    )
 
 
 def _sse_circuit_break(reason: str) -> str:

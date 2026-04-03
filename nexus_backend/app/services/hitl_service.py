@@ -99,11 +99,13 @@ async def resolve_confirmation(
     try:
         result = (
             await client.table("pending_confirmations")
-            .update({
-                "status": action,
-                "resolved_by": user_id,
-                "resolved_at": datetime.now(UTC).isoformat(),
-            })
+            .update(
+                {
+                    "status": action,
+                    "resolved_by": user_id,
+                    "resolved_at": datetime.now(UTC).isoformat(),
+                }
+            )
             .eq("id", confirmation_id)
             .eq("user_id", user_id)
             .eq("status", "pending")

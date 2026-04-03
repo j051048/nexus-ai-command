@@ -29,10 +29,7 @@ def init_tracing():
         return _tracer
 
     # 创建 Resource
-    resource = Resource.create({
-        "service.name": "nexus-agent",
-        "service.version": "1.0.0"
-    })
+    resource = Resource.create({"service.name": "nexus-agent", "service.version": "1.0.0"})
 
     # 创建 TracerProvider
     provider = TracerProvider(resource=resource)
@@ -40,9 +37,7 @@ def init_tracing():
     # 添加导出器
     if settings.OTEL_EXPORTER_OTLP_ENDPOINT:
         # 生产环境：导出到 OTLP
-        otlp_exporter = OTLPSpanExporter(
-            endpoint=settings.OTEL_EXPORTER_OTLP_ENDPOINT
-        )
+        otlp_exporter = OTLPSpanExporter(endpoint=settings.OTEL_EXPORTER_OTLP_ENDPOINT)
         provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
     else:
         # 开发环境：输出到控制台

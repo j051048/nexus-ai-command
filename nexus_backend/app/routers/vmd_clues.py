@@ -1,4 +1,5 @@
 """VMD 线索路由"""
+
 import logging
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -15,7 +16,7 @@ async def list_vmd_clues(
     req: Request,
     status: str | None = Query(None),
     priority: str | None = Query(None),
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
 ):
     """获取商机线索列表"""
     db = getattr(req.state, "db", None)
@@ -34,11 +35,7 @@ async def list_vmd_clues(
 
 
 @router.get("/{clue_id}")
-async def get_vmd_clue_detail(
-    req: Request,
-    clue_id: str,
-    user_id: str = Depends(get_current_user_id)
-):
+async def get_vmd_clue_detail(req: Request, clue_id: str, user_id: str = Depends(get_current_user_id)):
     """获取单个线索详情"""
     db = getattr(req.state, "db", None)
     if not db:

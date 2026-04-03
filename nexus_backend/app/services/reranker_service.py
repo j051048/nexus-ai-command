@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RerankResult:
     """Result of a rerank operation."""
+
     documents: list[dict]
     backend_used: str
     latency_ms: float = 0.0
@@ -126,16 +127,13 @@ class RerankerService:
     async def _get_client(self, timeout: float = 10.0) -> "httpx.AsyncClient":
         if self._client is None or self._client.is_closed:
             self._client = httpx.AsyncClient(
-                timeout=timeout,
-                limits=httpx.Limits(max_connections=50, max_keepalive_connections=20)
+                timeout=timeout, limits=httpx.Limits(max_connections=50, max_keepalive_connections=20)
             )
         return self._client
 
     # ── Cohere Backend ─────────────────────────────────────────────────────
 
-    async def _rerank_cohere(
-        self, query: str, documents: list[dict], top_k: int
-    ) -> list[dict]:
+    async def _rerank_cohere(self, query: str, documents: list[dict], top_k: int) -> list[dict]:
         """Rerank via Cohere Rerank API."""
         api_key = getattr(settings, "COHERE_API_KEY", "").strip()
         if not api_key:
@@ -171,9 +169,7 @@ class RerankerService:
 
     # ── BGE Backend (via OpenAI-compatible API proxy) ──────────────────────
 
-    async def _rerank_bge(
-        self, query: str, documents: list[dict], top_k: int
-    ) -> list[dict]:
+    async def _rerank_bge(self, query: str, documents: list[dict], top_k: int) -> list[dict]:
         """Rerank via BGE-Reranker model through API proxy (Cohere-compatible format)."""
         max_docs = getattr(settings, "RERANK_MAX_DOCS", 15)
         timeout = getattr(settings, "RERANK_TIMEOUT", 30)
@@ -209,9 +205,7 @@ class RerankerService:
 
     # ── LLM Backend (fallback) ─────────────────────────────────────────────
 
-    async def _rerank_llm(
-        self, query: str, documents: list[dict], top_k: int
-    ) -> list[dict]:
+    async def _rerank_llm(self, query: str, documents: list[dict], top_k: int) -> list[dict]:
         """Rerank using LLM to sort documents by relevance (existing VectorService approach)."""
         from openai import AsyncOpenAI
 
@@ -274,9 +268,7 @@ class RerankerService:
     # ── Shared Helper ──────────────────────────────────────────────────────
 
     @staticmethod
-    def _apply_rerank_indices(
-        documents: list[dict], results: list[dict], top_k: int
-    ) -> list[dict]:
+    def _apply_rerank_indices(documents: list[dict], results: list[dict], top_k: int) -> list[dict]:
         """Apply Cohere-format rerank results to original document list."""
         reranked = []
         seen: set[int] = set()

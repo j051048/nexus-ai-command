@@ -23,10 +23,7 @@ async def get_model_usage(req: Request, user_id: str = Depends(get_current_user_
 
         result = (
             await db.table("llm_usage_stats")
-            .select(
-                "model_code,total_input_tokens,total_output_tokens,"
-                "total_calls,total_cost"
-            )
+            .select("model_code,total_input_tokens,total_output_tokens," "total_calls,total_cost")
             .neq("model_code", "_all")
             .execute()
         )
@@ -54,18 +51,14 @@ async def get_model_usage(req: Request, user_id: str = Depends(get_current_user_
         logger.error(f"Failed to fetch model usage: {e}")
         return api_success(data={"usage": []})
 
+
 @router.get("/stats")
 async def get_dashboard_stats(req: Request, user_id: str = Depends(get_current_user_id)):
     """获取 VMD 仪表盘概览统计数据"""
     try:
         db = getattr(req.state, "db", None)
         if not db:
-            return api_success(data={
-                "clues_count": 0,
-                "tasks_count": 0,
-                "compliance_issues": 0,
-                "active_agents": 0
-            })
+            return api_success(data={"clues_count": 0, "tasks_count": 0, "compliance_issues": 0, "active_agents": 0})
 
         # 1. 商机线索数 (business_clue)
         clues_res = await db.table("business_clue").select("id", count="exact").execute()
@@ -83,17 +76,14 @@ async def get_dashboard_stats(req: Request, user_id: str = Depends(get_current_u
         agents_res = await db.table("vmd_agent_config").select("id", count="exact").eq("is_active", True).execute()
         active_agents = agents_res.count if agents_res.count is not None else 0
 
-        return api_success(data={
-            "clues_count": clues_count,
-            "tasks_count": tasks_count,
-            "compliance_issues": compliance_count,
-            "active_agents": active_agents
-        })
+        return api_success(
+            data={
+                "clues_count": clues_count,
+                "tasks_count": tasks_count,
+                "compliance_issues": compliance_count,
+                "active_agents": active_agents,
+            }
+        )
     except Exception as e:
         logger.error(f"Failed to fetch VMD dashboard stats: {e}")
-        return api_success(data={
-            "clues_count": 0,
-            "tasks_count": 0,
-            "compliance_issues": 0,
-            "active_agents": 0
-        })
+        return api_success(data={"clues_count": 0, "tasks_count": 0, "compliance_issues": 0, "active_agents": 0})

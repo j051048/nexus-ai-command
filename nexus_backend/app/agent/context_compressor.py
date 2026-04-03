@@ -26,7 +26,7 @@ class MicroCompressor:
                 continue
 
             # 保留最近的工具输出
-            if hasattr(msg, 'timestamp'):
+            if hasattr(msg, "timestamp"):
                 if msg.timestamp > cutoff_time:
                     compressed.append(msg)
             else:

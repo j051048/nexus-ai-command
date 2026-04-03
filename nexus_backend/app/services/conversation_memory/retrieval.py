@@ -15,11 +15,309 @@ logger = logging.getLogger(__name__)
 
 # ── Chinese stop words for keyword extraction ────────────────────────────
 _STOP_WORDS = frozenset(
-    ["的", "了", "么", "吗", "嘛", "呢", "吧", "啊", "呀", "哦", "是", "在", "有", "和", "与", "或", "不", "也", "都", "就", "还", "又", "能", "可以", "要", "会", "把", "被", "让", "给", "从", "到", "对", "向", "为", "我", "你", "他", "她", "它", "我们", "你们", "他们", "这", "那", "什么", "怎么", "哪", "几", "多少", "一个", "一些", "每", "个", "的话", "以及", "记得", "记住", "还记得", "知道", "想起", "回忆", "前提", "哪些", "怎样", "如何", "为什么"]
+    [
+        "的",
+        "了",
+        "么",
+        "吗",
+        "嘛",
+        "呢",
+        "吧",
+        "啊",
+        "呀",
+        "哦",
+        "是",
+        "在",
+        "有",
+        "和",
+        "与",
+        "或",
+        "不",
+        "也",
+        "都",
+        "就",
+        "还",
+        "又",
+        "能",
+        "可以",
+        "要",
+        "会",
+        "把",
+        "被",
+        "让",
+        "给",
+        "从",
+        "到",
+        "对",
+        "向",
+        "为",
+        "我",
+        "你",
+        "他",
+        "她",
+        "它",
+        "我们",
+        "你们",
+        "他们",
+        "这",
+        "那",
+        "什么",
+        "怎么",
+        "哪",
+        "几",
+        "多少",
+        "一个",
+        "一些",
+        "每",
+        "个",
+        "的话",
+        "以及",
+        "记得",
+        "记住",
+        "还记得",
+        "知道",
+        "想起",
+        "回忆",
+        "前提",
+        "哪些",
+        "怎样",
+        "如何",
+        "为什么",
+    ]
 )
 
 _EN_STOP_WORDS = frozenset(
-    ["a", "an", "the", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "do", "does", "did", "will", "would", "shall", "should", "can", "could", "may", "might", "must", "need", "dare", "ought", "to", "of", "in", "on", "at", "by", "for", "with", "from", "as", "into", "about", "between", "through", "during", "before", "after", "above", "below", "and", "or", "but", "not", "no", "nor", "so", "yet", "both", "either", "neither", "each", "every", "all", "any", "few", "more", "most", "other", "some", "such", "than", "too", "very", "also", "just", "only", "even", "still", "already", "again", "ever", "never", "always", "often", "usually", "sometimes", "i", "me", "my", "mine", "we", "us", "our", "ours", "you", "your", "yours", "he", "him", "his", "she", "her", "hers", "it", "its", "they", "them", "their", "theirs", "this", "that", "these", "those", "here", "there", "where", "when", "how", "what", "which", "who", "whom", "whose", "if", "then", "else", "while", "until", "because", "since", "although", "though", "unless", "whether", "up", "down", "out", "off", "over", "under", "way", "much", "many", "well", "back", "even", "go", "get", "make", "like", "know", "think", "want", "say", "tell", "give", "take", "come", "see", "find", "use", "work", "call", "try", "ask", "keep", "let", "begin", "seem", "help", "show", "hear", "play", "run", "move", "live", "believe", "hold", "bring", "happen", "write", "provide", "sit", "stand", "lose", "pay", "meet", "include", "continue", "set", "learn", "change", "lead", "understand", "watch", "follow", "stop", "create", "speak", "read", "grow", "open", "walk", "win", "offer", "remember", "love", "consider", "appear", "buy", "wait", "serve", "die", "send", "expect", "build", "stay", "fall", "cut", "reach", "kill", "remain", "suggest", "raise", "pass", "sell", "require", "report", "decide", "pull", "develop"]
+    [
+        "a",
+        "an",
+        "the",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "shall",
+        "should",
+        "can",
+        "could",
+        "may",
+        "might",
+        "must",
+        "need",
+        "dare",
+        "ought",
+        "to",
+        "of",
+        "in",
+        "on",
+        "at",
+        "by",
+        "for",
+        "with",
+        "from",
+        "as",
+        "into",
+        "about",
+        "between",
+        "through",
+        "during",
+        "before",
+        "after",
+        "above",
+        "below",
+        "and",
+        "or",
+        "but",
+        "not",
+        "no",
+        "nor",
+        "so",
+        "yet",
+        "both",
+        "either",
+        "neither",
+        "each",
+        "every",
+        "all",
+        "any",
+        "few",
+        "more",
+        "most",
+        "other",
+        "some",
+        "such",
+        "than",
+        "too",
+        "very",
+        "also",
+        "just",
+        "only",
+        "even",
+        "still",
+        "already",
+        "again",
+        "ever",
+        "never",
+        "always",
+        "often",
+        "usually",
+        "sometimes",
+        "i",
+        "me",
+        "my",
+        "mine",
+        "we",
+        "us",
+        "our",
+        "ours",
+        "you",
+        "your",
+        "yours",
+        "he",
+        "him",
+        "his",
+        "she",
+        "her",
+        "hers",
+        "it",
+        "its",
+        "they",
+        "them",
+        "their",
+        "theirs",
+        "this",
+        "that",
+        "these",
+        "those",
+        "here",
+        "there",
+        "where",
+        "when",
+        "how",
+        "what",
+        "which",
+        "who",
+        "whom",
+        "whose",
+        "if",
+        "then",
+        "else",
+        "while",
+        "until",
+        "because",
+        "since",
+        "although",
+        "though",
+        "unless",
+        "whether",
+        "up",
+        "down",
+        "out",
+        "off",
+        "over",
+        "under",
+        "way",
+        "much",
+        "many",
+        "well",
+        "back",
+        "even",
+        "go",
+        "get",
+        "make",
+        "like",
+        "know",
+        "think",
+        "want",
+        "say",
+        "tell",
+        "give",
+        "take",
+        "come",
+        "see",
+        "find",
+        "use",
+        "work",
+        "call",
+        "try",
+        "ask",
+        "keep",
+        "let",
+        "begin",
+        "seem",
+        "help",
+        "show",
+        "hear",
+        "play",
+        "run",
+        "move",
+        "live",
+        "believe",
+        "hold",
+        "bring",
+        "happen",
+        "write",
+        "provide",
+        "sit",
+        "stand",
+        "lose",
+        "pay",
+        "meet",
+        "include",
+        "continue",
+        "set",
+        "learn",
+        "change",
+        "lead",
+        "understand",
+        "watch",
+        "follow",
+        "stop",
+        "create",
+        "speak",
+        "read",
+        "grow",
+        "open",
+        "walk",
+        "win",
+        "offer",
+        "remember",
+        "love",
+        "consider",
+        "appear",
+        "buy",
+        "wait",
+        "serve",
+        "die",
+        "send",
+        "expect",
+        "build",
+        "stay",
+        "fall",
+        "cut",
+        "reach",
+        "kill",
+        "remain",
+        "suggest",
+        "raise",
+        "pass",
+        "sell",
+        "require",
+        "report",
+        "decide",
+        "pull",
+        "develop",
+    ]
 )
 
 # Minimum meaningful term length (Chinese characters)
@@ -63,6 +361,7 @@ def _extract_search_terms(query: str) -> list[str]:
         if cjk_text:
             try:
                 import jieba
+
                 words = jieba.lcut(cjk_text)
                 for w in words:
                     w = w.strip()
@@ -74,7 +373,7 @@ def _extract_search_terms(query: str) -> list[str]:
             except ImportError:
                 chars = re.sub(r"\s+", "", cjk_text)
                 for i in range(len(chars) - 1):
-                    bigram = chars[i:i + 2]
+                    bigram = chars[i : i + 2]
                     if bigram not in _STOP_WORDS:
                         terms.append(bigram)
 
@@ -94,12 +393,14 @@ def _days_since(date_str: str) -> int:
         return 0
     try:
         from datetime import UTC, datetime
+
         dt = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=UTC)
         return (datetime.now(UTC) - dt).days
     except Exception:
         return 0
+
 
 def _relative_age(date_str: str) -> str:
     if not date_str:
@@ -112,6 +413,7 @@ def _relative_age(date_str: str) -> str:
     elif days < 365:
         return f"{days // 30}个月前"
     return f"{days // 365}年前"
+
 
 def _absolute_date(date_str: str) -> str:
     """Extract absolute date (YYYY-MM-DD) from ISO timestamp for time anchoring."""
@@ -140,6 +442,7 @@ def _format_by_temperature(mem: dict) -> str:
 
     # Decrypt if the value was encrypted at rest
     from app.services.conversation_memory.storage import decrypt_memory_value
+
     value = decrypt_memory_value(value)
 
     # Time anchor: absolute date + relative age for LLM temporal reasoning
@@ -152,7 +455,11 @@ def _format_by_temperature(mem: dict) -> str:
         date_attr = f' date="{abs_date}"'
     else:
         date_attr = ""
-    fact_type_attr = f' fact_type="{mem.get("fact_type", "fact")}"' if mem.get("fact_type") and mem.get("fact_type") != "fact" else ""
+    fact_type_attr = (
+        f' fact_type="{mem.get("fact_type", "fact")}"'
+        if mem.get("fact_type") and mem.get("fact_type") != "fact"
+        else ""
+    )
 
     # Status annotation: expired (valid_until in the past) or possibly-outdated (same-key conflict)
     status_attr = ""
@@ -166,7 +473,9 @@ def _format_by_temperature(mem: dict) -> str:
     if not status_attr and mem.get("_outdated"):
         status_attr = ' status="possibly-outdated"'
 
-    parts = [f'  <memory type="{category}"{date_attr}{fact_type_attr}{status_attr} age="{age_str}" importance="{importance:.1f}">']
+    parts = [
+        f'  <memory type="{category}"{date_attr}{fact_type_attr}{status_attr} age="{age_str}" importance="{importance:.1f}">'
+    ]
     # P1 Fix: 严格限制每条记忆的最大长度，防止注入过大
     if days_old < 3 and importance > 0.7:
         parts.append(value[:300])  # 限制最新高重要性记忆为 300 字符
@@ -175,7 +484,7 @@ def _format_by_temperature(mem: dict) -> str:
     else:
         key = mem.get("key", "")
         parts.append(f"{key}: {value[:30]}... (需使用 search_long_term_memory 工具查看详情)")
-    parts.append('</memory>')
+    parts.append("</memory>")
     return "".join(parts)
 
 
@@ -228,6 +537,7 @@ async def search_memories(
     query_embedding = None
     try:
         from app.services.vector_service import vector_service
+
         query_embedding = await vector_service.embed_text(query)
     except Exception:
         pass
@@ -236,16 +546,21 @@ async def search_memories(
         # P1 LoCoMo Fix: Expand retrieval to combat context loss (Top-20 → Top-40)
         # When Reranker is offline, we need more candidates to ensure key memories aren't filtered out
         retrieval_multiplier = 4  # Increased from 2
-        sem_task = _semantic_search(user_id, query, limit * retrieval_multiplier, org_id, client, query_embedding=query_embedding)
+        sem_task = _semantic_search(
+            user_id, query, limit * retrieval_multiplier, org_id, client, query_embedding=query_embedding
+        )
         entity_task = _entity_precise_search(user_id, query, min(10, limit * 2), org_id, client)
         anchor_task = _user_anchor_search(user_id, min(10, limit * 2), org_id, client)
         keyword_task = _keyword_search(user_id, query, limit * 2, org_id, client)
         results = await asyncio.wait_for(
             asyncio.gather(
-                sem_task, entity_task, anchor_task, keyword_task,
+                sem_task,
+                entity_task,
+                anchor_task,
+                keyword_task,
                 return_exceptions=True,
             ),
-            timeout=20.0
+            timeout=20.0,
         )
 
         for r in results:
@@ -270,7 +585,7 @@ async def search_memories(
         from .temporal_normalizer import calculate_temporal_overlap, extract_time_range_from_query
 
         query_time_range = extract_time_range_from_query(query)
-        is_temporal_query = any(kw in query.lower() for kw in ['when', 'what time', '什么时候', '何时', '哪天'])
+        is_temporal_query = any(kw in query.lower() for kw in ["when", "what time", "什么时候", "何时", "哪天"])
 
         for mid, mem in id_to_mem.items():
             updated = mem.get("updated_at") or mem.get("created_at") or ""
@@ -306,6 +621,7 @@ async def search_memories(
         if query_embedding and len(id_to_mem) > 1:
             try:
                 import numpy as np
+
                 q_vec = np.array(query_embedding, dtype=np.float32)
                 q_norm = np.linalg.norm(q_vec)
                 if q_norm > 0:
@@ -328,6 +644,7 @@ async def search_memories(
         # Call reranker_service on top-15 candidates for query-doc interaction scoring.
         # Falls back silently to cosine rerank results on failure.
         from app.core.config import settings
+
         if settings.RERANK_ENABLED and len(id_to_mem) > 3:
             try:
                 from app.services.reranker_service import reranker_service
@@ -351,8 +668,10 @@ async def search_memories(
                             rrf_scores[mid] = 1.0 - rank * 0.05
                     logger.debug(
                         "[MemRerank] %d → %d via %s in %.0fms",
-                        len(rerank_docs), len(rr.documents),
-                        rr.backend_used, rr.latency_ms,
+                        len(rerank_docs),
+                        len(rr.documents),
+                        rr.backend_used,
+                        rr.latency_ms,
                     )
             except Exception as e:
                 logger.debug(f"[MemRerank] Reranker skipped: {e}")
@@ -378,11 +697,13 @@ async def search_memories(
                 new_importance = min(current_importance + delta, 1.0)
                 update_tasks.append(
                     client.table("conversation_memories")
-                    .update({
-                        "access_count": access_count + 1,
-                        "last_accessed_at": now,
-                        "importance": round(new_importance, 4),
-                    })
+                    .update(
+                        {
+                            "access_count": access_count + 1,
+                            "last_accessed_at": now,
+                            "importance": round(new_importance, 4),
+                        }
+                    )
                     .eq("id", mem["id"])
                     .execute()
                 )
@@ -412,6 +733,7 @@ async def search_memories(
 
     # P1 LoCoMo Fix: Temporal reranking for time-sensitive queries
     from .temporal_normalizer import rerank_by_temporal_relevance
+
     memories = rerank_by_temporal_relevance(query, memories, boost_factor=2.0)
 
     memories = mmr_rerank(memories, limit)
@@ -427,6 +749,7 @@ async def search_memories(
     # Feature 3: KG Spreading Activation — 脉冲式激活扩散
     # P1: Skip during heavy benchmarks to prevent DB connection pool exhaustion
     from app.core.config import settings
+
     if os.environ.get("RAG_BENCHMARK_MODE") != "1":
         try:
             expanded = await _spreading_activation(memories[:5], user_id, db=client)
@@ -443,7 +766,9 @@ async def search_memories(
     return memories
 
 
-async def _semantic_search(user_id: str, query: str, limit: int, org_id: str | None, client, *, query_embedding: list[float] | None = None) -> list[dict]:
+async def _semantic_search(
+    user_id: str, query: str, limit: int, org_id: str | None, client, *, query_embedding: list[float] | None = None
+) -> list[dict]:
     """Embedding-based semantic search on memories using pgvector.
     P1: 优先使用 search_memories_hybrid（向量+时间衰减），
     降级到 search_memories_by_embedding。
@@ -454,6 +779,7 @@ async def _semantic_search(user_id: str, query: str, limit: int, org_id: str | N
     try:
         if not query_embedding:
             from app.services.vector_service import vector_service
+
             query_embedding = await vector_service.embed_text(query)
         if not query_embedding:
             return []
@@ -542,7 +868,11 @@ _ENTITY_PATTERNS = [
 
 
 async def _entity_precise_search(
-    user_id: str, query: str, limit: int, org_id: str | None, client,
+    user_id: str,
+    query: str,
+    limit: int,
+    org_id: str | None,
+    client,
 ) -> list[dict]:
     """Extract entities and perform bulk ILIKE search.
     Optimized to avoid looping DB queries.
@@ -604,11 +934,14 @@ async def _entity_precise_search(
 
         return memories[:limit]
     except Exception:
-        return memories[:limit] if 'memories' in locals() else []
+        return memories[:limit] if "memories" in locals() else []
 
 
 async def _user_anchor_search(
-    user_id: str, limit: int, org_id: str | None, client,
+    user_id: str,
+    limit: int,
+    org_id: str | None,
+    client,
 ) -> list[dict]:
     """无条件拉取用户最重要的 TOP-N 记忆（不依赖查询语义）。
 
@@ -738,11 +1071,7 @@ async def _spreading_activation(
 
     try:
         result = await (
-            client.table("conversation_memories")
-            .select("*")
-            .eq("user_id", user_id)
-            .in_("id", top_ids)
-            .execute()
+            client.table("conversation_memories").select("*").eq("user_id", user_id).in_("id", top_ids).execute()
         )
         expanded = result.data or []
         # Attach activation score for downstream ranking
@@ -826,9 +1155,7 @@ async def _expand_top_connections(
             for conn in connections:
                 mid = conn.get("memory_id")
                 strength = float(conn.get("strength", 0))
-                if (mid and mid not in all_known
-                        and mid not in hop2_ids
-                        and strength > hop2_threshold):
+                if mid and mid not in all_known and mid not in hop2_ids and strength > hop2_threshold:
                     hop2_ids.add(mid)
                     if len(hop2_ids) >= hop2_limit:
                         break
@@ -1003,6 +1330,7 @@ async def build_memory_context(
             # sort memories so that last-7-days items come first
             if is_recency_query and len(new_relevant) > 1:
                 datetime.now(UTC)
+
                 def _recency_tier(m: dict) -> int:
                     ts = m.get("valid_from") or m.get("updated_at") or m.get("created_at") or ""
                     d = _days_since(ts) if ts else 999
@@ -1010,7 +1338,8 @@ async def build_memory_context(
                         return 0  # recent — top tier
                     if d <= 30:
                         return 1  # warm
-                    return 2      # older
+                    return 2  # older
+
                 new_relevant.sort(key=_recency_tier)
 
             if new_relevant:
@@ -1066,7 +1395,7 @@ async def build_memory_context(
             "When answering questions about the user based on their memories:\n"
             "- Respect negative sentiments faithfully. If a memory says the user had a bad experience, "
             "do NOT speculate they would want to repeat it.\n"
-            "- Use the exact dates from memory date attributes (date=\"YYYY-MM-DD\") for temporal reasoning. "
+            '- Use the exact dates from memory date attributes (date="YYYY-MM-DD") for temporal reasoning. '
             "Do NOT substitute the current system date for historical events.\n"
             "- For list/enumeration questions, gather evidence from ALL available memories across different dates, "
             "not just the most relevant single memory.\n"
@@ -1078,6 +1407,8 @@ async def build_memory_context(
     MAX_CONTEXT_SIZE = 30000  # 30KB 限制
     if len(final_context) > MAX_CONTEXT_SIZE:
         logger.warning(f"[MemoryContext] Truncated from {len(final_context)} to {MAX_CONTEXT_SIZE} chars")
-        final_context = final_context[:MAX_CONTEXT_SIZE] + "\n\n... (更多记忆已省略，使用 search_long_term_memory 工具查看)"
+        final_context = (
+            final_context[:MAX_CONTEXT_SIZE] + "\n\n... (更多记忆已省略，使用 search_long_term_memory 工具查看)"
+        )
 
     return final_context

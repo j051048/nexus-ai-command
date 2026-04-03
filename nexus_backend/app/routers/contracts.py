@@ -38,7 +38,9 @@ async def list_contracts(
             filters["contract_type"] = contract_type
         if search:
             filters["search"] = search
-        contracts = await contract_service.list_contracts(org_id=org_id, filters=filters if filters else None, db=db, skip=skip, limit=limit)
+        contracts = await contract_service.list_contracts(
+            org_id=org_id, filters=filters if filters else None, db=db, skip=skip, limit=limit
+        )
         return api_success(data={"contracts": contracts})
     except Exception as e:
         logger.error(f"Failed to list contracts: {e}")

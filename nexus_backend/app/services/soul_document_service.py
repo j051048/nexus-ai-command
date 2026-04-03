@@ -108,13 +108,7 @@ class SoulDocumentService:
     async def get_raw(self, org_id: str) -> dict[str, Any] | None:
         """获取原始灵魂文档记录。"""
         try:
-            res = (
-                await supabase.table("soul_documents")
-                .select("*")
-                .eq("tenant_id", org_id)
-                .maybe_single()
-                .execute()
-            )
+            res = await supabase.table("soul_documents").select("*").eq("tenant_id", org_id).maybe_single().execute()
             return res.data if res else None
         except Exception as e:
             logger.warning(f"[SoulDocService] get_raw failed: {e}")
@@ -142,19 +136,10 @@ class SoulDocumentService:
         # 检查是否已存在
         existing = await self.get_raw(org_id)
         if existing:
-            res = (
-                await supabase.table("soul_documents")
-                .update(payload)
-                .eq("tenant_id", org_id)
-                .execute()
-            )
+            res = await supabase.table("soul_documents").update(payload).eq("tenant_id", org_id).execute()
         else:
             payload["created_by"] = user_id
-            res = (
-                await supabase.table("soul_documents")
-                .insert(payload)
-                .execute()
-            )
+            res = await supabase.table("soul_documents").insert(payload).execute()
 
         await self.invalidate_cache(org_id)
         return res.data[0] if res.data else payload

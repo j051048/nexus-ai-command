@@ -2,6 +2,7 @@
 输入验证和 XSS 防护工具
 放在 nexus_backend/app/core/sanitize.py
 """
+
 import html
 import re
 
@@ -22,13 +23,13 @@ def sanitize_sql(text: str) -> str:
 
 def validate_email(email: str) -> bool:
     """验证邮箱格式"""
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
     return bool(re.match(pattern, email))
 
 
 def validate_phone(phone: str) -> bool:
     """验证手机号（中国）"""
-    pattern = r'^1[3-9]\d{9}$'
+    pattern = r"^1[3-9]\d{9}$"
     return bool(re.match(pattern, phone))
 
 

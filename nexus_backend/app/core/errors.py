@@ -263,7 +263,6 @@ ERROR_MESSAGES: dict[ErrorCode, str] = {
 }
 
 
-
 def api_error(
     code: ErrorCode,
     message: str | None = None,
@@ -310,7 +309,7 @@ def api_error(
             code=code.value,
             message=raw_error or error_message,
             details=details,
-            trace_id=details.get("trace_id") if details else None
+            trace_id=details.get("trace_id") if details else None,
         )
         logger.log(log_level, log_msg)
 

@@ -46,10 +46,15 @@ class DegradationRegistry:
         """Register a degradation event for a service."""
         with self._lock:
             self._active[service] = DegradationEvent(
-                service=service, reason=reason, fallback=fallback,
+                service=service,
+                reason=reason,
+                fallback=fallback,
             )
         logger.warning(
-            "[Degradation] %s degraded: %s (fallback=%s)", service, reason, fallback or "none",
+            "[Degradation] %s degraded: %s (fallback=%s)",
+            service,
+            reason,
+            fallback or "none",
         )
 
     def resolve(self, service: str) -> None:
@@ -57,8 +62,7 @@ class DegradationRegistry:
         with self._lock:
             removed = self._active.pop(service, None)
         if removed:
-            logger.info("[Degradation] %s recovered (was degraded for %.0fs)",
-                        service, time.time() - removed.timestamp)
+            logger.info("[Degradation] %s recovered (was degraded for %.0fs)", service, time.time() - removed.timestamp)
 
     @property
     def is_healthy(self) -> bool:

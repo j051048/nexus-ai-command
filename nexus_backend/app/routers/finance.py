@@ -88,7 +88,9 @@ async def update_budget(
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
         data = body.model_dump(exclude_none=True)
 
-        result = await db.table("finance_budgets").update(data).eq("id", budget_id).eq("organization_id", org_id).execute()
+        result = (
+            await db.table("finance_budgets").update(data).eq("id", budget_id).eq("organization_id", org_id).execute()
+        )
         return api_success(data={"budget": result.data[0] if result.data else None}, message="预算已更新")
     except Exception as e:
         logger.error(f"Failed to update budget: {e}")

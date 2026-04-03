@@ -124,10 +124,7 @@ class TenantCreditService:
         current_minute = int(now / 60)
 
         # Clean rate_limit_cache: remove keys from old minutes
-        expired_rate_keys = [
-            k for k in self._rate_limit_cache
-            if not k.endswith(f":{current_minute}")
-        ]
+        expired_rate_keys = [k for k in self._rate_limit_cache if not k.endswith(f":{current_minute}")]
         for k in expired_rate_keys:
             del self._rate_limit_cache[k]
         # Hard cap
@@ -144,8 +141,7 @@ class TenantCreditService:
 
         # Clean behavior_tracker: remove stale users (no activity in 1 hour)
         stale_users = [
-            uid for uid, data in self._behavior_tracker.items()
-            if now - data.get("last_action_time", 0) > 3600
+            uid for uid, data in self._behavior_tracker.items() if now - data.get("last_action_time", 0) > 3600
         ]
         for uid in stale_users:
             del self._behavior_tracker[uid]

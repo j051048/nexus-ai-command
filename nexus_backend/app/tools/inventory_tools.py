@@ -115,7 +115,10 @@ class InventoryInTool(BaseTool):
     description = "执行物品入库操作，增加指定物品的库存数量。当用户说'入库'、'物资入库'、'收货'时调用。"
     examples = [
         {"input": {"item_id": "uuid-xxx", "quantity": 100}, "output_summary": "将指定物品入库100个"},
-        {"input": {"item_id": "uuid-xxx", "quantity": 50, "reason": "采购到货"}, "output_summary": "入库50个并记录原因为采购到货"},
+        {
+            "input": {"item_id": "uuid-xxx", "quantity": 50, "reason": "采购到货"},
+            "output_summary": "入库50个并记录原因为采购到货",
+        },
     ]
     related_tools = ["list_inventory", "inventory_out", "inventory_statistics"]
     gotchas = "item_id必须是有效的UUID格式。入库数量必须大于0。入库前建议先用list_inventory确认物品存在。"
@@ -185,7 +188,10 @@ class InventoryOutTool(BaseTool):
     description = "执行物品出库操作，减少指定物品的库存数量。当用户说'出库'、'领用物资'、'物品出库'时调用。"
     examples = [
         {"input": {"item_id": "uuid-xxx", "quantity": 10}, "output_summary": "将指定物品出库10个"},
-        {"input": {"item_id": "uuid-xxx", "quantity": 5, "receiver_id": "user-uuid", "reason": "项目领用"}, "output_summary": "出库5个并记录领用人和原因"},
+        {
+            "input": {"item_id": "uuid-xxx", "quantity": 5, "receiver_id": "user-uuid", "reason": "项目领用"},
+            "output_summary": "出库5个并记录领用人和原因",
+        },
     ]
     related_tools = ["list_inventory", "inventory_in", "inventory_statistics"]
     gotchas = "出库数量不能超过当前库存。item_id和receiver_id都必须是有效的UUID格式。"
@@ -263,7 +269,9 @@ class InventoryStatisticsTool(BaseTool):
 
     name = "inventory_statistics"
     domain = "inventory"
-    description = "获取库存统计数据，包括物品总数、总价值和低库存预警数。当用户说'库存统计'、'库存概况'、'物资统计'时调用。"
+    description = (
+        "获取库存统计数据，包括物品总数、总价值和低库存预警数。当用户说'库存统计'、'库存概况'、'物资统计'时调用。"
+    )
     examples = [
         {"input": {}, "output_summary": "返回全部库存的统计概况"},
         {"input": {"category": "电子设备"}, "output_summary": "返回电子设备分类的库存统计"},

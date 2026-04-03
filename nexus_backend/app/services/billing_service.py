@@ -40,6 +40,7 @@ def _get_stripe():
 # Stripe Price IDs mapped by plan (read from settings — supports both legacy and canonical names)
 def _get_stripe_price_ids() -> dict[str, str]:
     from app.core.config import settings
+
     return {
         "starter": settings.STRIPE_PRICE_STARTER,
         "professional": settings.STRIPE_PRICE_PROFESSIONAL,
@@ -260,6 +261,7 @@ class BillingService:
         """
         try:
             from app.services.rate_limiting_service import rate_limiting_service
+
             # Invalidate all cached users for this org so they re-resolve on next request
             stale_keys = [uid for uid, _ in rate_limiting_service._tier_cache.items()]
             for uid in stale_keys:

@@ -38,9 +38,7 @@ class MCPPermissionService:
         server_config = self.config.get("mcpServers", {}).get(server_name, {})
         return server_config.get("autoApprove", [])
 
-    async def check_permission(
-        self, server_name: str, tool_name: str, user_id: str
-    ) -> dict[str, any]:
+    async def check_permission(self, server_name: str, tool_name: str, user_id: str) -> dict[str, any]:
         """
         Check if tool execution requires user confirmation.
 

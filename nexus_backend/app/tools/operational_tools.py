@@ -146,7 +146,10 @@ class AwardBadgeTool(BaseTool):
     domain = "hr"
     examples = [
         {"input": {"user_id": "uuid-xxx", "badge_name": "销售冠军"}, "output_summary": "为指定员工颁发销售冠军徽章"},
-        {"input": {"user_id": "uuid-xxx", "badge_name": "拼命三郎", "icon": "fire"}, "output_summary": "颁发拼命三郎徽章并使用fire图标"},
+        {
+            "input": {"user_id": "uuid-xxx", "badge_name": "拼命三郎", "icon": "fire"},
+            "output_summary": "颁发拼命三郎徽章并使用fire图标",
+        },
     ]
     related_tools = ["get_performance_report", "get_team_insight"]
     gotchas = "user_id必须是有效的UUID格式。badge_name最长100字符。icon默认为sparkles，可选trophy、rocket、fire等。"
@@ -185,7 +188,14 @@ class AwardBadgeTool(BaseTool):
 
         # 验证目标用户属于同一组织
         if org_id:
-            check = await client.table("users").select("id").eq("id", target_id).eq("organization_id", org_id).maybe_single().execute()
+            check = (
+                await client.table("users")
+                .select("id")
+                .eq("id", target_id)
+                .eq("organization_id", org_id)
+                .maybe_single()
+                .execute()
+            )
             if not check.data:
                 return "❌ 未找到该员工或该员工不属于本组织。"
 

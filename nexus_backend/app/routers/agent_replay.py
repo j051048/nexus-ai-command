@@ -32,9 +32,7 @@ async def compare_sessions(
     """对比两个会话的执行差异"""
     try:
         db = getattr(request.state, "db", None)
-        result = await agent_replay_service.compare_sessions(
-            thread_id_a, thread_id_b, db=db
-        )
+        result = await agent_replay_service.compare_sessions(thread_id_a, thread_id_b, db=db)
         return api_success(data=result)
     except Exception as e:
         logger.error(f"[Replay] compare_sessions error: {e}")
@@ -53,9 +51,7 @@ async def get_session_timeline(
         if not org_id:
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
         db = getattr(request.state, "db", None)
-        result = await agent_replay_service.get_session_timeline(
-            session_id, org_id, db=db
-        )
+        result = await agent_replay_service.get_session_timeline(session_id, org_id, db=db)
         return api_success(data=result)
     except HTTPException:
         raise
@@ -82,14 +78,17 @@ async def get_checkpoint_history(
             raise api_error(ErrorCode.FORBIDDEN, "无权访问该会话")
 
         from app.agent.graph import get_agent_graph
+
         agent_graph = get_agent_graph()
         states = await agent_graph.get_state_history(thread_id, limit=limit)
 
-        return api_success(data={
-            "thread_id": thread_id,
-            "checkpoints": states,
-            "total": len(states),
-        })
+        return api_success(
+            data={
+                "thread_id": thread_id,
+                "checkpoints": states,
+                "total": len(states),
+            }
+        )
     except HTTPException:
         raise
     except Exception as e:

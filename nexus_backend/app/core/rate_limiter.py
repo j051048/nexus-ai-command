@@ -457,9 +457,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # #35: Tenant-level rate limiting (org_id available after auth)
         if tenant_id:
             # Check per-minute tenant quota
-            t_min_allowed, t_min_meta = await _per_tenant_minute_limiter.is_allowed(
-                f"tenant:{tenant_id}"
-            )
+            t_min_allowed, t_min_meta = await _per_tenant_minute_limiter.is_allowed(f"tenant:{tenant_id}")
             if not t_min_allowed:
                 return UTF8JSONResponse(
                     status_code=429,
@@ -480,9 +478,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 )
 
             # Check per-hour tenant quota
-            t_hr_allowed, t_hr_meta = await _per_tenant_hour_limiter.is_allowed(
-                f"tenant:{tenant_id}"
-            )
+            t_hr_allowed, t_hr_meta = await _per_tenant_hour_limiter.is_allowed(f"tenant:{tenant_id}")
             if not t_hr_allowed:
                 return UTF8JSONResponse(
                     status_code=429,

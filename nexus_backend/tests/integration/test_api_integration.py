@@ -4,14 +4,15 @@ Integration tests for FastAPI endpoints.
 """
 
 import pytest
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 from unittest.mock import MagicMock, patch, AsyncMock
+from app.main import app
 
 
 @pytest.fixture
-def api_client():
-    from app.main import app
-    return TestClient(app)
+async def api_client():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        yield ac
 
 @pytest.fixture
 def mock_auth_user():
@@ -22,13 +23,14 @@ def mock_auth_user():
         "user_metadata": {"role": "boss"}
     }
 
-def test_health_check_endpoint(api_client):
+@pytest.mark.asyncio
+async def test_health_check_endpoint(api_client):
     """验证基础平稳性 (Smoke Test)."""
-    response = api_client.get("/health")
+    response = await api_client.get("/health")
     # 适配项目实际路径，可能是 /api/health 或 /health
     if response.status_code == 404:
-        response = api_client.get("/api/health")
-    
+        response = await api_client.get("/api/health")
+
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
 
@@ -42,27 +44,27 @@ async def test_chat_stream_endpoint_integration(api_client, mock_auth_user):
     # 1. Mock Auth Middleware
     with patch("app.core.auth.get_current_user", return_value=mock_auth_user), \
          patch("app.agent.graph.agent_graph.astream", new_callable=AsyncMock) as mock_stream:
-        
+
         # 模拟 LangGraph 流式输出
         async def mock_gen(*args, **kwargs):
             yield {"node": "plan", "content": "Thinking..."}
             yield {"node": "execute", "content": "Done."}
         mock_stream.side_effect = mock_gen
-        
+
         payload = {
             "message": "帮我看看上周的销售额",
             "stream": True,
             "thread_id": "test-thread-123"
         }
-        
+
         # 实际 API 调用
-        response = api_client.post(
-            "/api/v1/chat/stream", 
+        response = await api_client.post(
+            "/api/v1/chat/stream",
             json=payload,
             headers={"X-Tenant-ID": "org-test-01"}
         )
-        
+
         # 验证
         assert response.status_code in [200, 201]
-        # 注意：由于是流式，实际测试 TestClient 可能需要读取 response.iter_lines()
+        # 注意：由于是流式，实际测试 AsyncClient 可能需要读取 response.aiter_lines()
         # 这里验证入口逻辑正确触发即可

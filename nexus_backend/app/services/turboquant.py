@@ -43,7 +43,7 @@ class TurboQuant:
 
     def _precompute_codebook(self, bits: int) -> np.ndarray:
         """预计算 Lloyd-Max 码本（Beta 分布最优质心）"""
-        levels = 2 ** bits
+        levels = 2**bits
         # 简化：均匀量化 [-3, 3] 区间（实际应基于 Beta 分布）
         return np.linspace(-3, 3, levels)
 
@@ -64,11 +64,7 @@ class TurboQuant:
         qjl = np.sign(self.S @ r).astype(np.int8)
         gamma = np.linalg.norm(r) ** 2
 
-        return {
-            "idx": idx.astype(np.uint8),
-            "qjl": np.packbits((qjl + 1) // 2),  # 压缩为 bits
-            "gamma": float(gamma)
-        }
+        return {"idx": idx.astype(np.uint8), "qjl": np.packbits((qjl + 1) // 2), "gamma": float(gamma)}  # 压缩为 bits
 
     def dequantize(self, quantized: dict) -> np.ndarray:
         """反量化"""
@@ -80,7 +76,7 @@ class TurboQuant:
         x_mse = self.codebook[idx]
 
         # 恢复 QJL 残差
-        qjl = np.unpackbits(qjl_packed)[:self.d].astype(np.int8) * 2 - 1
+        qjl = np.unpackbits(qjl_packed)[: self.d].astype(np.int8) * 2 - 1
         x_qjl = np.sqrt(np.pi / (2 * self.d)) * gamma * (self.S.T @ qjl)
 
         # 逆旋转

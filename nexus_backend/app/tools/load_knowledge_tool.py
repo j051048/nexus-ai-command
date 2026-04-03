@@ -79,6 +79,7 @@ _CACHE_MAX_SIZE = 200
 def _query_hash(query: str) -> str:
     """Simple hash for dedup."""
     import hashlib
+
     return hashlib.md5(query.encode()).hexdigest()[:12]
 
 
@@ -91,7 +92,10 @@ class LoadKnowledgeTool(BaseTool):
         "同一会话中相同查询不会重复加载。"
     )
     examples = [
-        {"input": {"query": "客户报价审批流程", "domain": "company_policy"}, "output_summary": "从公司政策知识库中检索报价审批相关内容"},
+        {
+            "input": {"query": "客户报价审批流程", "domain": "company_policy"},
+            "output_summary": "从公司政策知识库中检索报价审批相关内容",
+        },
         {"input": {"query": "产品A的技术参数"}, "output_summary": "全域搜索产品A的技术参数信息"},
     ]
     related_tools = ["search_long_term_memory", "web_search"]
@@ -142,7 +146,7 @@ class LoadKnowledgeTool(BaseTool):
             # Mark as loaded
             if len(_loaded_cache) >= _CACHE_MAX_SIZE:
                 # Evict oldest entries
-                keys_to_remove = list(_loaded_cache.keys())[:_CACHE_MAX_SIZE // 2]
+                keys_to_remove = list(_loaded_cache.keys())[: _CACHE_MAX_SIZE // 2]
                 for k in keys_to_remove:
                     _loaded_cache.pop(k, None)
             _loaded_cache[cache_key] = True

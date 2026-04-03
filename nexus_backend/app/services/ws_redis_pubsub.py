@@ -79,13 +79,9 @@ class RedisWebSocketBridge:
             self._last_health_ok = time.time()
 
             # Start background listener
-            self._listener_task = asyncio.create_task(
-                self._listen_loop(), name="ws-redis-listener"
-            )
+            self._listener_task = asyncio.create_task(self._listen_loop(), name="ws-redis-listener")
             # Start health monitor
-            self._health_task = asyncio.create_task(
-                self._health_loop(), name="ws-redis-health"
-            )
+            self._health_task = asyncio.create_task(self._health_loop(), name="ws-redis-health")
 
             logger.info("[WS-Redis] Pub/Sub bridge started successfully")
             return True
@@ -152,9 +148,7 @@ class RedisWebSocketBridge:
             logger.warning(f"[WS-Redis] Publish failed for user {user_id}: {e}")
             return False
 
-    async def publish_broadcast(
-        self, message: dict, exclude_user: str | None = None
-    ) -> bool:
+    async def publish_broadcast(self, message: dict, exclude_user: str | None = None) -> bool:
         """
         Publish a broadcast message to the global channel.
 
@@ -216,9 +210,7 @@ class RedisWebSocketBridge:
         except Exception as e:
             logger.warning(f"[WS-Redis] Unsubscribe failed for {channel}: {e}")
 
-    def set_broadcast_callback(
-        self, callback: Callable[[dict, str | None], Coroutine]
-    ) -> None:
+    def set_broadcast_callback(self, callback: Callable[[dict, str | None], Coroutine]) -> None:
         """
         Register a callback for broadcast messages.
 
@@ -247,9 +239,7 @@ class RedisWebSocketBridge:
         logger.info("[WS-Redis] Listener loop started")
         while self._available:
             try:
-                message = await self._pubsub.get_message(
-                    ignore_subscribe_messages=True, timeout=1.0
-                )
+                message = await self._pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
                 if message is None:
                     await asyncio.sleep(0.05)
                     continue
@@ -270,18 +260,12 @@ class RedisWebSocketBridge:
                     if self._broadcast_callback:
                         msg = data.get("message", data)
                         exclude = data.get("exclude_user")
-                        asyncio.create_task(
-                            self._safe_callback(
-                                self._broadcast_callback, msg, exclude
-                            )
-                        )
+                        asyncio.create_task(self._safe_callback(self._broadcast_callback, msg, exclude))
                 elif channel.startswith(CHANNEL_PREFIX):
-                    user_id = channel[len(CHANNEL_PREFIX):]
+                    user_id = channel[len(CHANNEL_PREFIX) :]
                     callback = self._subscriptions.get(user_id)
                     if callback:
-                        asyncio.create_task(
-                            self._safe_callback(callback, data)
-                        )
+                        asyncio.create_task(self._safe_callback(callback, data))
 
             except asyncio.CancelledError:
                 break
@@ -303,15 +287,9 @@ class RedisWebSocketBridge:
                 break
             except Exception as e:
                 elapsed = time.time() - self._last_health_ok
-                logger.warning(
-                    f"[WS-Redis] Health check failed "
-                    f"(last OK {elapsed:.0f}s ago): {e}"
-                )
+                logger.warning(f"[WS-Redis] Health check failed " f"(last OK {elapsed:.0f}s ago): {e}")
                 if elapsed > HEALTH_CHECK_INTERVAL * 3:
-                    logger.error(
-                        "[WS-Redis] Redis unreachable for too long, "
-                        "marking bridge unavailable"
-                    )
+                    logger.error("[WS-Redis] Redis unreachable for too long, " "marking bridge unavailable")
                     self._available = False
 
     @staticmethod
@@ -330,8 +308,5 @@ class RedisWebSocketBridge:
             "available": self._available,
             "subscribed_users": list(self._subscriptions.keys()),
             "last_health_ok": self._last_health_ok,
-            "listener_running": (
-                self._listener_task is not None
-                and not self._listener_task.done()
-            ),
+            "listener_running": (self._listener_task is not None and not self._listener_task.done()),
         }

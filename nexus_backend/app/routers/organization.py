@@ -66,9 +66,7 @@ async def update_organization_detail(
         if not filtered_updates:
             raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "没有可更新的字段")
 
-        result = await organization_service.update_organization(
-            org_id=org_id, updates=filtered_updates, db=db
-        )
+        result = await organization_service.update_organization(org_id=org_id, updates=filtered_updates, db=db)
         return api_success(data=result)
     except Exception as e:
         logger.error(f"Failed to update organization: {e}")
@@ -337,6 +335,7 @@ async def update_user_manager(
 
 # ============== Invite Code Endpoints ==============
 
+
 @router.post("/invite-code/regenerate", response_model=StandardResponse)
 async def regenerate_invite_code(
     req: Request,
@@ -344,6 +343,7 @@ async def regenerate_invite_code(
 ):
     """重新生成邀请码"""
     import secrets
+
     client = req.state.db
 
     # 获取用户的组织ID
@@ -389,6 +389,7 @@ async def toggle_invite_code(
 
 
 # ============== Admin Endpoints ==============
+
 
 @router.get("/admin/pending-bosses", response_model=StandardResponse)
 async def admin_list_pending_bosses(

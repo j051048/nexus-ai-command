@@ -40,12 +40,7 @@ class ToolCache:
         hash_val = hashlib.md5(args_str.encode()).hexdigest()
         return f"tool_cache:{tool_name}:{hash_val}"
 
-    async def get_or_execute(
-        self,
-        tool_name: str,
-        args: dict,
-        executor: Callable
-    ) -> Any:
+    async def get_or_execute(self, tool_name: str, args: dict, executor: Callable) -> Any:
         """获取缓存或执行工具"""
         # 只缓存只读工具
         if tool_name not in READ_ONLY_TOOLS:

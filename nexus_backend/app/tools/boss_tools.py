@@ -41,9 +41,18 @@ class SmartApprovalTool(BaseTool):
     is_irreversible = True
     confirmation_message = "⚠️ 审批操作不可逆。请在弹出的确认框中确认后执行。"
     examples = [
-        {"input": {"action": "batch_approve", "confirm": False}, "output_summary": "返回所有待审批事项的预览列表，等待确认"},
-        {"input": {"action": "conditional_approve", "condition": "金额小于5000的全部通过", "confirm": True}, "output_summary": "批准所有金额小于5000的申请"},
-        {"input": {"action": "delegate", "delegate_to": "张三", "confirm": True}, "output_summary": "将待审批事项委托给张三处理"},
+        {
+            "input": {"action": "batch_approve", "confirm": False},
+            "output_summary": "返回所有待审批事项的预览列表，等待确认",
+        },
+        {
+            "input": {"action": "conditional_approve", "condition": "金额小于5000的全部通过", "confirm": True},
+            "output_summary": "批准所有金额小于5000的申请",
+        },
+        {
+            "input": {"action": "delegate", "delegate_to": "张三", "confirm": True},
+            "output_summary": "将待审批事项委托给张三处理",
+        },
     ]
     gotchas = "仅老板或创始人角色可用。必须先以 confirm=false 获取预览，再以 confirm=true 执行。单次批量上限由 MAX_BATCH_SIZE 控制。"
     related_tools = ["get_pending_approvals", "get_daily_briefing"]
@@ -693,7 +702,9 @@ class BusinessDashboardTool(BaseTool):
     """经营仪表盘工具"""
 
     name = "get_business_dashboard"
-    description = "获取公司经营核心指标，包含收入、签约、商机和人效数据。当领导说'看看经营情况'、'本月业绩怎么样'时调用。"
+    description = (
+        "获取公司经营核心指标，包含收入、签约、商机和人效数据。当领导说'看看经营情况'、'本月业绩怎么样'时调用。"
+    )
     required_role = "boss"
     domain = "analytics"
     examples = [
@@ -854,7 +865,11 @@ class TeamInsightTool(BaseTool):
             user_dept = dept_res.data.get("department") if dept_res.data else None
             if user_dept:
                 # Filter team to same department
-                team_query = client.table("users").select("id, name, role, department, position, status, score").eq("department", user_dept)
+                team_query = (
+                    client.table("users")
+                    .select("id, name, role, department, position, status, score")
+                    .eq("department", user_dept)
+                )
                 if org_id:
                     team_query = team_query.eq("organization_id", org_id)
                 team_res = await team_query.execute()
@@ -940,12 +955,20 @@ class AnnouncementTool(BaseTool):
     """公告发布工具"""
 
     name = "publish_announcement"
-    description = "发布全员或部门级公告通知。当领导说'发个通知'、'通知全员'时调用。注意：给特定个人发消息请用 send_notification。"
+    description = (
+        "发布全员或部门级公告通知。当领导说'发个通知'、'通知全员'时调用。注意：给特定个人发消息请用 send_notification。"
+    )
     required_role = "boss"
     domain = "admin"
     examples = [
-        {"input": {"title": "节假日安排", "content": "五一放假三天", "target": "all", "priority": "normal"}, "output_summary": "向全员发布节假日通知"},
-        {"input": {"title": "紧急通知", "content": "系统维护", "target": "managers", "priority": "urgent"}, "output_summary": "向管理层发布紧急维护通知"},
+        {
+            "input": {"title": "节假日安排", "content": "五一放假三天", "target": "all", "priority": "normal"},
+            "output_summary": "向全员发布节假日通知",
+        },
+        {
+            "input": {"title": "紧急通知", "content": "系统维护", "target": "managers", "priority": "urgent"},
+            "output_summary": "向管理层发布紧急维护通知",
+        },
     ]
     related_tools = ["send_notification", "smart_approve"]
     gotchas = "全员通知或紧急通知需要人工确认后才能发送。发布后不可撤回。通知按50条一批写入数据库。"
@@ -1083,7 +1106,9 @@ class CustomerProfileTool(BaseTool):
     """AI 客户画像自动生成"""
 
     name = "generate_customer_profile"
-    description = "根据客户关系管理数据生成客户画像分析，包含标签、偏好和跟进建议。当用户说'分析客户'、'客户画像'时调用。"
+    description = (
+        "根据客户关系管理数据生成客户画像分析，包含标签、偏好和跟进建议。当用户说'分析客户'、'客户画像'时调用。"
+    )
     required_role = "all"
     domain = "crm"
     examples = [

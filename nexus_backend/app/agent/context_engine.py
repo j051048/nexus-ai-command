@@ -80,10 +80,15 @@ class ContextEngine:
     def _estimate_tokens(text: str) -> int:
         """Token 估算 — 委托给 TokenCounter 统一实现。"""
         from app.services.token_service import token_counter
+
         return token_counter.count_tokens(text)
 
     async def build_context(
-        self, user_id: str, org_id: str | None, query: str, **kwargs: Any,
+        self,
+        user_id: str,
+        org_id: str | None,
+        query: str,
+        **kwargs: Any,
     ) -> str:
         """按优先级并行获取所有上下文，在 token 预算内拼接。"""
         if not self._providers:
@@ -95,7 +100,10 @@ class ContextEngine:
         async def _safe_get(prov: ContextProvider) -> tuple[ContextProvider, str]:
             try:
                 text = await prov.get_context(
-                    user_id=user_id, org_id=org_id, query=query, **kwargs,
+                    user_id=user_id,
+                    org_id=org_id,
+                    query=query,
+                    **kwargs,
                 )
                 return prov, text or ""
             except Exception as exc:
@@ -124,15 +132,18 @@ class ContextEngine:
             if used_tokens + text_tokens > self._total_budget:
                 remaining = self._total_budget - used_tokens
                 if remaining > 50:
-                    text = text[:remaining * 3] + "..."
+                    text = text[: remaining * 3] + "..."
                     parts.append(f"[{provider.name}]\n{text}")
                 break
 
             parts.append(f"[{provider.name}]\n{text}")
             used_tokens += text_tokens
 
-        logger.info(f"[ContextEngine] Built context: {len(parts)} providers, ~{used_tokens}/{self._total_budget} tokens")
+        logger.info(
+            f"[ContextEngine] Built context: {len(parts)} providers, ~{used_tokens}/{self._total_budget} tokens"
+        )
         return "\n\n".join(parts)
+
 
 # ---------------------------------------------------------------------------
 # 内置 Provider
@@ -149,9 +160,7 @@ class ChatHistoryProvider(ContextProvider):
     def max_tokens(self) -> int:
         return 1500
 
-    async def get_context(
-        self, user_id: str, org_id: str | None, query: str, **kwargs: Any
-    ) -> str:
+    async def get_context(self, user_id: str, org_id: str | None, query: str, **kwargs: Any) -> str:
         session_id: str | None = kwargs.get("session_id")
         if not user_id or not session_id:
             return ""
@@ -187,7 +196,7 @@ class ChatHistoryProvider(ContextProvider):
                 "抱歉，处理您的请求时遇到了问题",
                 "抱歉，系统处理出现异常",
                 "无法满足该请求",
-                "抱歉，我无法提供",       # generic refusals
+                "抱歉，我无法提供",  # generic refusals
                 "抱歉，我无法执行",
                 "抱歉，我目前无法",
                 "请稍后重试",
@@ -295,9 +304,7 @@ class UserProfileProvider(ContextProvider):
     def max_tokens(self) -> int:
         return 200
 
-    async def get_context(
-        self, user_id: str, org_id: str | None, query: str, **kwargs: Any
-    ) -> str:
+    async def get_context(self, user_id: str, org_id: str | None, query: str, **kwargs: Any) -> str:
         if not user_id:
             return ""
         try:
@@ -305,13 +312,7 @@ class UserProfileProvider(ContextProvider):
 
             parts: list[str] = []
 
-            user_res = (
-                await supabase.table("users")
-                .select("name, role")
-                .eq("id", user_id)
-                .limit(1)
-                .execute()
-            )
+            user_res = await supabase.table("users").select("name, role").eq("id", user_id).limit(1).execute()
             if user_res.data:
                 name = user_res.data[0].get("name", "")
                 role = user_res.data[0].get("role", "employee")
@@ -321,11 +322,7 @@ class UserProfileProvider(ContextProvider):
             if org_id:
                 try:
                     emp_res = (
-                        await supabase.table("users")
-                        .select("department")
-                        .eq("id", user_id)
-                        .maybe_single()
-                        .execute()
+                        await supabase.table("users").select("department").eq("id", user_id).maybe_single().execute()
                     )
                     if emp_res.data:
                         dept_name = emp_res.data.get("department")
@@ -349,9 +346,7 @@ class SemanticMemoryProvider(ContextProvider):
     def max_tokens(self) -> int:
         return 500
 
-    async def get_context(
-        self, user_id: str, org_id: str | None, query: str, **kwargs: Any
-    ) -> str:
+    async def get_context(self, user_id: str, org_id: str | None, query: str, **kwargs: Any) -> str:
         if not user_id or not query:
             return ""
         try:
@@ -388,9 +383,7 @@ class KnowledgeBaseProvider(ContextProvider):
     def max_tokens(self) -> int:
         return 200  # Reduced from 1000 — index is much smaller than full RAG
 
-    async def get_context(
-        self, user_id: str, org_id: str | None, query: str, **kwargs: Any
-    ) -> str:
+    async def get_context(self, user_id: str, org_id: str | None, query: str, **kwargs: Any) -> str:
         if not user_id or not query:
             return ""
         # Only inject index when org has a knowledge base
@@ -398,6 +391,7 @@ class KnowledgeBaseProvider(ContextProvider):
             return ""
         try:
             from app.tools.load_knowledge_tool import build_skill_index_prompt
+
             return build_skill_index_prompt()
         except Exception as e:
             logger.error(f"[KnowledgeBaseProvider] Failed to build skill index: {e}")
@@ -413,9 +407,7 @@ class CompletedTasksProvider(ContextProvider):
     def max_tokens(self) -> int:
         return 300
 
-    async def get_context(
-        self, user_id: str, org_id: str | None, query: str, **kwargs: Any
-    ) -> str:
+    async def get_context(self, user_id: str, org_id: str | None, query: str, **kwargs: Any) -> str:
         if not user_id:
             return ""
         try:
@@ -462,9 +454,7 @@ class BusinessRuleProvider(ContextProvider):
     def max_tokens(self) -> int:
         return 400
 
-    async def get_context(
-        self, user_id: str, org_id: str | None, query: str, **kwargs: Any
-    ) -> str:
+    async def get_context(self, user_id: str, org_id: str | None, query: str, **kwargs: Any) -> str:
         if not org_id:
             return ""
         try:
@@ -505,9 +495,7 @@ class CorrectionHistoryProvider(ContextProvider):
     def max_tokens(self) -> int:
         return 300
 
-    async def get_context(
-        self, user_id: str, org_id: str | None, query: str, **kwargs: Any
-    ) -> str:
+    async def get_context(self, user_id: str, org_id: str | None, query: str, **kwargs: Any) -> str:
         if not user_id:
             return ""
         try:
@@ -551,9 +539,7 @@ class SoulDocumentProvider(ContextProvider):
     def max_tokens(self) -> int:
         return 600
 
-    async def get_context(
-        self, user_id: str, org_id: str | None, query: str, **kwargs: Any
-    ) -> str:
+    async def get_context(self, user_id: str, org_id: str | None, query: str, **kwargs: Any) -> str:
         if not org_id:
             return ""
         try:

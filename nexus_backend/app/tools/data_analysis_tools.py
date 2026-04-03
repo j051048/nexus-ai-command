@@ -152,11 +152,13 @@ def _trend(records: list[dict], value_field: str | None) -> dict:
 
     trend_data = []
     for date_str, vals in daily.items():
-        trend_data.append({
-            "date": date_str,
-            "count": len(vals),
-            "sum": round(sum(vals), 2),
-        })
+        trend_data.append(
+            {
+                "date": date_str,
+                "count": len(vals),
+                "sum": round(sum(vals), 2),
+            }
+        )
 
     return {"time_field": time_field, "trend": trend_data}
 
@@ -186,17 +188,36 @@ class DataAnalysisTool(BaseTool):
     """对提供的数据集进行统计分析。"""
 
     name = "analyze_data"
-    description = (
-        "对数据集执行统计分析，支持汇总、分组聚合、时序趋势和排名"
-    )
+    description = "对数据集执行统计分析，支持汇总、分组聚合、时序趋势和排名"
     domain = "analytics"
     examples = [
-        {"input": {"data": [{"name": "A", "amount": 100}, {"name": "B", "amount": 200}], "analysis_type": "summary"}, "output_summary": "返回记录数、最小值、最大值、平均值、中位数等汇总统计"},
-        {"input": {"data": [{"region": "华东", "sales": 500}], "analysis_type": "group_by", "group_field": "region", "value_field": "sales"}, "output_summary": "按区域分组统计销售额的合计和平均值"},
-        {"input": {"data": [{"date": "2026-01-01", "revenue": 1000}], "analysis_type": "top_n", "value_field": "revenue", "n": 5}, "output_summary": "返回收入最高的前5条记录"},
+        {
+            "input": {"data": [{"name": "A", "amount": 100}, {"name": "B", "amount": 200}], "analysis_type": "summary"},
+            "output_summary": "返回记录数、最小值、最大值、平均值、中位数等汇总统计",
+        },
+        {
+            "input": {
+                "data": [{"region": "华东", "sales": 500}],
+                "analysis_type": "group_by",
+                "group_field": "region",
+                "value_field": "sales",
+            },
+            "output_summary": "按区域分组统计销售额的合计和平均值",
+        },
+        {
+            "input": {
+                "data": [{"date": "2026-01-01", "revenue": 1000}],
+                "analysis_type": "top_n",
+                "value_field": "revenue",
+                "n": 5,
+            },
+            "output_summary": "返回收入最高的前5条记录",
+        },
     ]
     related_tools = ["generate_report"]
-    gotchas = "数据必须是字典列表格式。分组分析必须指定分组字段。趋势分析需要数据中包含时间字段。排名分析必须指定数值字段。"
+    gotchas = (
+        "数据必须是字典列表格式。分组分析必须指定分组字段。趋势分析需要数据中包含时间字段。排名分析必须指定数值字段。"
+    )
 
     parameters = {
         "type": "object",
@@ -209,11 +230,19 @@ class DataAnalysisTool(BaseTool):
             "table_name": {
                 "type": "string",
                 "description": "直接查询的表名（无需预先传入 data）。支持: sales_leads, customers, approval_requests, attendance_records, contracts, projects, users",
-                "enum": ["sales_leads", "customers", "approval_requests", "attendance_records", "contracts", "projects", "users"],
+                "enum": [
+                    "sales_leads",
+                    "customers",
+                    "approval_requests",
+                    "attendance_records",
+                    "contracts",
+                    "projects",
+                    "users",
+                ],
             },
             "filters": {
                 "type": "object",
-                "description": "DB 查询过滤条件，键值对格式，如 {\"status\": \"active\"}。仅在指定 table_name 时生效",
+                "description": 'DB 查询过滤条件，键值对格式，如 {"status": "active"}。仅在指定 table_name 时生效',
             },
             "analysis_type": {
                 "type": "string",
@@ -238,8 +267,13 @@ class DataAnalysisTool(BaseTool):
 
     # 允许直查的表白名单
     _ALLOWED_TABLES = {
-        "sales_leads", "customers", "approval_requests",
-        "attendance_records", "contracts", "projects", "users",
+        "sales_leads",
+        "customers",
+        "approval_requests",
+        "attendance_records",
+        "contracts",
+        "projects",
+        "users",
     }
 
     async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
@@ -272,9 +306,11 @@ class DataAnalysisTool(BaseTool):
 
         handlers = {
             "summary": lambda: _summary(data, value_field),
-            "group_by": lambda: _group_by(data, group_field, value_field)
-            if group_field
-            else {"error": "group_by 分析需要指定 group_field 参数。"},
+            "group_by": lambda: (
+                _group_by(data, group_field, value_field)
+                if group_field
+                else {"error": "group_by 分析需要指定 group_field 参数。"}
+            ),
             "trend": lambda: _trend(data, value_field),
             "top_n": lambda: _top_n(data, value_field, n),
         }
@@ -296,9 +332,7 @@ class DataAnalysisTool(BaseTool):
             default=str,
         )
 
-    async def _query_table(
-        self, table_name: str, filters: dict | None, config: dict | None
-    ) -> list[dict]:
+    async def _query_table(self, table_name: str, filters: dict | None, config: dict | None) -> list[dict]:
         """Query a whitelisted Supabase table with multi-tenant isolation."""
         from app.core.database import supabase
 

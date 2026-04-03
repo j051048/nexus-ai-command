@@ -106,12 +106,12 @@ _MEMORY_RECALL_PATTERNS = re.compile(
 # "写一篇3000字FD-F1560食品安全推广软文" can accidentally match realtime
 # patterns (推荐 regex) and get misclassified as MODERATE.
 _LONGFORM_WRITING_RE = re.compile(
-    r"(\d{3,}\s*字|千字|万字|长文)"           # word-count indicators
-    r"|写一[篇份个]"                           # "写一篇..."
-    r"|(软文|推广文|公众号文案|营销文案)"       # content types
-    r"|(方案书|策划案|策划书)"                  # formal documents
-    r"|编写.{0,10}(报告|方案|计划|总结)"        # "编写XX报告"
-    r"|撰写.{0,10}(文章|报告|方案)"            # "撰写XX文章"
+    r"(\d{3,}\s*字|千字|万字|长文)"  # word-count indicators
+    r"|写一[篇份个]"  # "写一篇..."
+    r"|(软文|推广文|公众号文案|营销文案)"  # content types
+    r"|(方案书|策划案|策划书)"  # formal documents
+    r"|编写.{0,10}(报告|方案|计划|总结)"  # "编写XX报告"
+    r"|撰写.{0,10}(文章|报告|方案)"  # "撰写XX文章"
     r"|(写|生成|创作).{0,6}(文章|报告|文案|剧本|小说|故事)",  # "写/生成XX文章"
     re.IGNORECASE,
 )
@@ -472,7 +472,9 @@ _AGENT_ROLE_PATTERNS: list[tuple[re.Pattern, str, str]] = [
     # (pattern, agent_code, scene_code)
     # Content marketing
     (
-        re.compile(r"白皮书|案例文章|内容营销|SEO|文案|公众号|社交媒体|技术文档|软文|推广文|长文|方案书|策划案", re.IGNORECASE),
+        re.compile(
+            r"白皮书|案例文章|内容营销|SEO|文案|公众号|社交媒体|技术文档|软文|推广文|长文|方案书|策划案", re.IGNORECASE
+        ),
         "content_agent",
         "content_generation",
     ),
@@ -526,11 +528,9 @@ _AGENT_ROLE_PATTERNS: list[tuple[re.Pattern, str, str]] = [
 
 # Patterns that suggest the query needs multi-agent orchestration (WBS decomposition)
 _MULTI_AGENT_PATTERNS = re.compile(
-    r"营销方案|营销计划|推广方案|市场策略|整合营销|全案|年度计划|季度计划"
-    r"|Go.?to.?Market|上市计划|品牌策划|完整方案"
+    r"营销方案|营销计划|推广方案|市场策略|整合营销|全案|年度计划|季度计划" r"|Go.?to.?Market|上市计划|品牌策划|完整方案"
     # P1: 通用复杂场景（非营销）
-    r"|项目规划|出差行程|招投标全流程|产品上线|招聘计划|培训方案|年度预算"
-    r"|活动策划|展会筹备|客户拜访计划|团建方案",
+    r"|项目规划|出差行程|招投标全流程|产品上线|招聘计划|培训方案|年度预算" r"|活动策划|展会筹备|客户拜访计划|团建方案",
     re.IGNORECASE,
 )
 
@@ -553,7 +553,8 @@ def detect_agent_role(query: str, complexity: QueryComplexity) -> tuple[str, str
 
     # Check for multi-agent orchestration first (P1: COMPLEX or CRITICAL)
     needs_multi_agent = bool(_MULTI_AGENT_PATTERNS.search(text)) and complexity in (
-        QueryComplexity.COMPLEX, QueryComplexity.CRITICAL
+        QueryComplexity.COMPLEX,
+        QueryComplexity.CRITICAL,
     )
 
     # If multi-agent orchestration is needed, always route to director for WBS decomposition
@@ -788,7 +789,12 @@ async def _llm_classify_intent(
             if not isinstance(domains, list):
                 domains = []
             if complexity_str in [c.value for c in QueryComplexity]:
-                return QueryComplexity(complexity_str), f"LLM 识别: {data.get('reason', '未知原因')}", domains, multi_intent
+                return (
+                    QueryComplexity(complexity_str),
+                    f"LLM 识别: {data.get('reason', '未知原因')}",
+                    domains,
+                    multi_intent,
+                )
     except Exception as e:
         logger.error(f"[Router] LLM intent classification failed: {e}")
 
@@ -821,12 +827,13 @@ async def route_node(state: AgentState) -> dict:
     if hasattr(config, "user_id") and config.user_id:
         try:
             from app.agent.goal_tracker import goal_tracker
+
             goal_context = await goal_tracker.get_goal_context_for_agent(
-                config.user_id,
-                getattr(config, "org_id", "default")
+                config.user_id, getattr(config, "org_id", "default")
             )
             if goal_context:
                 from langchain_core.messages import SystemMessage
+
                 messages.insert(0, SystemMessage(content=goal_context))
         except Exception as e:
             logger.debug(f"Goal context injection skipped: {e}")
@@ -871,6 +878,7 @@ async def route_node(state: AgentState) -> dict:
         # Fast path: semantic router (embedding similarity, ~50ms)
         try:
             from app.agent.semantic_router import semantic_router
+
             sr_intent, sr_conf, sr_domains = await semantic_router.classify(
                 last_user_msg, org_id=config.org_id if hasattr(config, "org_id") else None
             )
@@ -879,12 +887,12 @@ async def route_node(state: AgentState) -> dict:
                 complexity = QueryComplexity(complexity_str)
                 intent_summary = sr_intent
                 intent_domains = sr_domains
-                logger.info(
-                    f"[Router] Semantic router hit: {sr_intent} (conf={sr_conf:.3f}), skipping LLM classify"
-                )
+                logger.info(f"[Router] Semantic router hit: {sr_intent} (conf={sr_conf:.3f}), skipping LLM classify")
             else:
                 # Slow path: LLM classify
-                complexity, intent_summary, intent_domains, multi_intent = await _llm_classify_intent(last_user_msg, config)
+                complexity, intent_summary, intent_domains, multi_intent = await _llm_classify_intent(
+                    last_user_msg, config
+                )
         except Exception:
             logger.error("[Router] Semantic router failed, falling back to LLM", exc_info=True)
             complexity, intent_summary, intent_domains, multi_intent = await _llm_classify_intent(last_user_msg, config)
@@ -896,8 +904,10 @@ async def route_node(state: AgentState) -> dict:
 
     # P1: Multi-intent detection — if LLM detected multiple independent intents,
     # escalate to WBS decomposition even without pattern match
-    if not needs_multi_agent and multi_intent and complexity in (
-        QueryComplexity.MODERATE, QueryComplexity.COMPLEX, QueryComplexity.CRITICAL
+    if (
+        not needs_multi_agent
+        and multi_intent
+        and complexity in (QueryComplexity.MODERATE, QueryComplexity.COMPLEX, QueryComplexity.CRITICAL)
     ):
         agent_code, scene_code, needs_multi_agent = "director_agent", "task_decompose", True
         logger.info("[Router] Multi-intent detected by LLM, escalating to WBS decomposition")

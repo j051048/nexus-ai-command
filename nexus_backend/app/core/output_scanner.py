@@ -29,6 +29,7 @@ security_logger = SecurityLogger()
 #  Data structures
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ScanResult:
     """Result of an output security scan."""
@@ -52,6 +53,7 @@ class _PatternRule:
 #  Configuration
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class OutputScannerConfig:
     """Toggle individual detection categories on/off."""
@@ -71,23 +73,26 @@ class OutputScannerConfig:
 
 _PROMPT_INJECTION_PATTERNS: list[tuple[str, str]] = [
     # English indirect injection
-    ("ignore (all |any )?(previous|prior|above|preceding) (instructions?|prompts?|directions?|rules)",
-     "[prompt injection detected]"),
+    (
+        "ignore (all |any )?(previous|prior|above|preceding) (instructions?|prompts?|directions?|rules)",
+        "[prompt injection detected]",
+    ),
     (r"(^|\n)\s*system\s*:", "[prompt injection detected]"),
     ("you are now (a |an )?", "[prompt injection detected]"),
-    ("(forget|disregard|override) (all |any )?(previous|prior|your) (instructions?|rules|constraints?)",
-     "[prompt injection detected]"),
+    (
+        "(forget|disregard|override) (all |any )?(previous|prior|your) (instructions?|rules|constraints?)",
+        "[prompt injection detected]",
+    ),
     ("new instructions?:", "[prompt injection detected]"),
-    ("(reveal|show|print|output|display) (your |the )?(system |original )?(prompt|instructions?)",
-     "[prompt injection detected]"),
-    ("(enter|switch to|enable) (developer|debug|admin|god|sudo|jailbreak) mode",
-     "[prompt injection detected]"),
-    ("do not (follow|obey|respect) (any |all )?(rules|restrictions?|guidelines|safety)",
-     "[prompt injection detected]"),
+    (
+        "(reveal|show|print|output|display) (your |the )?(system |original )?(prompt|instructions?)",
+        "[prompt injection detected]",
+    ),
+    ("(enter|switch to|enable) (developer|debug|admin|god|sudo|jailbreak) mode", "[prompt injection detected]"),
+    ("do not (follow|obey|respect) (any |all )?(rules|restrictions?|guidelines|safety)", "[prompt injection detected]"),
     ("pretend (you are|to be) ", "[prompt injection detected]"),
     (r"act as (if|though|a |an )", "[prompt injection detected]"),
-    ("bypass (all |any )?(safety|content|security) (filters?|restrictions?|measures?)",
-     "[prompt injection detected]"),
+    ("bypass (all |any )?(safety|content|security) (filters?|restrictions?|measures?)", "[prompt injection detected]"),
     # Chinese indirect injection
     (r"忽略(之前|以上|所有|先前)(的)?(指令|命令|提示|规则)", "[检测到提示注入]"),
     (r"你(现在|从现在开始)是(?!.*负责人|.*员工|.*用户|.*同事)", "[检测到提示注入]"),
@@ -102,11 +107,12 @@ _PII_PATTERNS: list[tuple[str, str]] = [
     # SSN (US Social Security Number) — xxx-xx-xxxx
     (r"(?<!\d)\d{3}-\d{2}-\d{4}(?!\d)", "[SSN已隐藏]"),
     # Credit card numbers (13-19 digits, with optional separators)
-    (r"(?<!\d)(?:4\d{3}|5[1-5]\d{2}|3[47]\d{2}|6(?:011|5\d{2}))[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{1,7}(?!\d)",
-     "[信用卡号已隐藏]"),
+    (
+        r"(?<!\d)(?:4\d{3}|5[1-5]\d{2}|3[47]\d{2}|6(?:011|5\d{2}))[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{1,7}(?!\d)",
+        "[信用卡号已隐藏]",
+    ),
     # Chinese ID card (18 digits, last may be X)
-    (r"(?<!\d)[1-9]\d{5}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dXx](?!\d)",
-     "[身份证号已隐藏]"),
+    (r"(?<!\d)[1-9]\d{5}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dXx](?!\d)", "[身份证号已隐藏]"),
     # Chinese phone number (11 digits starting with 1)
     (r"(?<![0-9a-zA-Z])1[3-9]\d{9}(?![0-9a-zA-Z])", "[手机号已隐藏]"),
     # US phone numbers — (xxx) xxx-xxxx or xxx-xxx-xxxx
@@ -119,8 +125,7 @@ _SENSITIVE_DATA_PATTERNS: list[tuple[str, str]] = [
     # AWS-style keys
     (r"(?:AKIA|ASIA)[A-Z0-9]{16}", "[AWS密钥已隐藏]"),
     # password = "...", password: "..."
-    (r'(?i)(?:password|passwd|pwd|secret|token)\s*[:=]\s*["\']?[^\s\n"\']{8,}["\']?',
-     "[敏感凭证已隐藏]"),
+    (r'(?i)(?:password|passwd|pwd|secret|token)\s*[:=]\s*["\']?[^\s\n"\']{8,}["\']?', "[敏感凭证已隐藏]"),
     # Connection strings (postgres://, mysql://, mongodb://, redis://)
     (r"(?i)(?:postgres|mysql|mongodb|redis|amqp)://[^\s]+", "[连接字符串已隐藏]"),
     # Private keys
@@ -159,6 +164,7 @@ _XSS_PATTERNS: list[tuple[str, str]] = [
 # ---------------------------------------------------------------------------
 #  OutputScanner
 # ---------------------------------------------------------------------------
+
 
 class OutputScanner:
     """

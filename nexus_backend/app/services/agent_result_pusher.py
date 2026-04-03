@@ -38,15 +38,18 @@ async def push_agent_result(
         from app.services.websocket_manager import ws_manager
 
         if ws_manager.is_connected(user_id):
-            await ws_manager.send_to_user(user_id, {
-                "type": "proactive_chat",
-                "data": {
-                    "session_id": session_id,
-                    "title": title,
-                    "message": message,
-                    **(metadata or {}),
+            await ws_manager.send_to_user(
+                user_id,
+                {
+                    "type": "proactive_chat",
+                    "data": {
+                        "session_id": session_id,
+                        "title": title,
+                        "message": message,
+                        **(metadata or {}),
+                    },
                 },
-            })
+            )
     except Exception as e:
         logger.error("[push_agent_result] WS push failed: %s", e)
 

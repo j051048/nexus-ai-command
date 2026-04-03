@@ -244,9 +244,10 @@ def check_agent_success_rate(success: bool) -> bool:
     if rate < _AGENT_ALERT_THRESHOLD:
         logger.warning(
             "[AgentAlert] Success rate %.1f%% (%d/%d) below %.0f%% threshold in last hour",
-            rate * 100, successes, len(_agent_outcomes), _AGENT_ALERT_THRESHOLD * 100,
+            rate * 100,
+            successes,
+            len(_agent_outcomes),
+            _AGENT_ALERT_THRESHOLD * 100,
         )
         return True
     return False
-
-

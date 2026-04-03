@@ -2,6 +2,7 @@
 Agent 监控指标收集
 放在 nexus_backend/app/core/agent_metrics.py
 """
+
 import logging
 from typing import Any
 
@@ -18,13 +19,7 @@ _metrics: dict[str, Any] = {
 
 
 def record_agent_execution(
-    user_id: str,
-    complexity: str,
-    model: str,
-    tokens: int,
-    cost: float,
-    duration: float,
-    success: bool
+    user_id: str, complexity: str, model: str, tokens: int, cost: float, duration: float, success: bool
 ):
     """记录 Agent 执行指标"""
     _metrics["total_requests"] += 1

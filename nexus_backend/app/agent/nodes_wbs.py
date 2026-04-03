@@ -29,9 +29,16 @@ logger = logging.getLogger(__name__)
 # ─── #14: WBS Quality Validation ────────────────────────────────────────────
 
 _KNOWN_AGENT_CODES = {
-    "director_agent", "content_agent", "design_agent", "media_agent",
-    "clue_agent", "sales_agent", "synergy_agent", "operation_agent",
-    "pr_agent", "compliance_agent",
+    "director_agent",
+    "content_agent",
+    "design_agent",
+    "media_agent",
+    "clue_agent",
+    "sales_agent",
+    "synergy_agent",
+    "operation_agent",
+    "pr_agent",
+    "compliance_agent",
 }
 
 
@@ -318,10 +325,17 @@ async def wbs_decompose_node(state: AgentState) -> dict:
                     content=f"任务拆解完成: {wbs_structure.get('title', '未命名')} → {task_count}个子任务",
                     duration_ms=duration_ms,
                 ),
-            ] + ([ThinkingStep(
-                phase="wbs_decompose",
-                content=f"⚠️ WBS校验警告: {'; '.join(wbs_warnings)}",
-            )] if wbs_warnings else []),
+            ]
+            + (
+                [
+                    ThinkingStep(
+                        phase="wbs_decompose",
+                        content=f"⚠️ WBS校验警告: {'; '.join(wbs_warnings)}",
+                    )
+                ]
+                if wbs_warnings
+                else []
+            ),
             "total_input_tokens": state.get("total_input_tokens", 0) + input_tokens,
             "total_output_tokens": state.get("total_output_tokens", 0) + output_tokens,
         }

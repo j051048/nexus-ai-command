@@ -95,7 +95,10 @@ class CreateDepartmentTool(BaseTool):
     required_role = "admin"
     examples = [
         {"input": {"name": "技术部"}, "output_summary": "创建名为技术部的顶级部门"},
-        {"input": {"name": "前端组", "parent_id": "abc123...", "manager_id": "def456..."}, "output_summary": "在指定父部门下创建前端组并设置负责人"},
+        {
+            "input": {"name": "前端组", "parent_id": "abc123...", "manager_id": "def456..."},
+            "output_summary": "在指定父部门下创建前端组并设置负责人",
+        },
     ]
     related_tools = ["list_departments", "update_department", "create_employee"]
     gotchas = "部门名称不能为空。parent_id 和 manager_id 必须是合法的UUID。仅管理员可操作。"
@@ -247,10 +250,12 @@ class ListEmployeesTool(BaseTool):
 
     name = "list_employees"
     domain = "hr"
-    description = "查询员工花名册，支持按部门、职位、状态和关键词筛选。当用户说'查看员工'、'员工列表'、'有哪些员工'时调用。"
+    description = (
+        "查询员工花名册，支持按部门、职位、状态和关键词筛选。当用户说'查看员工'、'员工列表'、'有哪些员工'时调用。"
+    )
     examples = [
         {"input": {"department_id": "abc123..."}, "output_summary": "返回指定部门的员工列表"},
-                {"input": {"status": "active", "search": "[关键词]"}, "output_summary": "返回符合条件的在职员工列表"},
+        {"input": {"status": "active", "search": "[关键词]"}, "output_summary": "返回符合条件的在职员工列表"},
     ]
     related_tools = ["get_employee_detail", "create_employee", "update_employee"]
     gotchas = "search 按姓名、手机、邮箱模糊匹配。所有ID参数必须是合法UUID。"
@@ -318,9 +323,7 @@ class ListEmployeesTool(BaseTool):
                 if emp.get("_source") == "users":
                     dept_display = emp.get("department", "未分配")
                     role = emp.get("role", "employee")
-                    lines.append(
-                        f"- **{name}** | 部门: {dept_display} | 角色: {role}"
-                    )
+                    lines.append(f"- **{name}** | 部门: {dept_display} | 角色: {role}")
                 else:
                     pos = emp.get("position", {})
                     dept_id = emp.get("department_id", "未分配")
@@ -410,8 +413,11 @@ class CreateEmployeeTool(BaseTool):
     description = "创建新员工并完成入职登记。当用户说'创建员工'、'新员工入职'、'录入员工'时调用。"
     required_role = "admin"
     examples = [
-                {"input": {"name": "[姓名]", "department_id": "[ID]"}, "output_summary": "创建员工并分配到指定部门"},
-        {"input": {"name": "[姓名]", "phone": "138xxxxxxxx", "hire_date": "2026-03-01"}, "output_summary": "创建员工并填写手机号和入职日期"},
+        {"input": {"name": "[姓名]", "department_id": "[ID]"}, "output_summary": "创建员工并分配到指定部门"},
+        {
+            "input": {"name": "[姓名]", "phone": "138xxxxxxxx", "hire_date": "2026-03-01"},
+            "output_summary": "创建员工并填写手机号和入职日期",
+        },
     ]
     related_tools = ["list_employees", "update_employee", "list_departments"]
     gotchas = "name 和 department_id 为必填项。department_id 必须是已存在的部门UUID。"
@@ -683,7 +689,9 @@ class GetOrgTreeTool(BaseTool):
             if org_id and client:
                 try:
                     stats = await organization_service.get_org_statistics(org_id=org_id, db=client)
-                    lines.append(f"\n📊 总计: {stats.get('total_employees', 0)} 名员工, {stats.get('total_departments', 0)} 个部门")
+                    lines.append(
+                        f"\n📊 总计: {stats.get('total_employees', 0)} 名员工, {stats.get('total_departments', 0)} 个部门"
+                    )
                 except Exception:
                     pass
 

@@ -50,9 +50,7 @@ async def get_next_suggestion(
     """基于已完成步骤，推荐下一步操作"""
     try:
         db = getattr(request.state, "db", None)
-        suggestion = await onboarding_agent_service.get_next_suggestion(
-            user_id, db=db
-        )
+        suggestion = await onboarding_agent_service.get_next_suggestion(user_id, db=db)
         return api_success(data=suggestion)
     except Exception as e:
         logger.error(f"[OnboardingAgent] get_next_suggestion error: {e}")

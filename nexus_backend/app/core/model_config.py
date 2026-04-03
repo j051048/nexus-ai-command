@@ -86,8 +86,11 @@ def get_model_config(
 def get_embedding_config() -> dict[str, Any]:
     """获取 Embedding 模型配置"""
     config = _load_yaml_config()
-    return config.get("embedding", {
-        "provider": "openai",
-        "model": "text-embedding-3-large",
-        "dimensions": 1536,
-    })
+    return config.get(
+        "embedding",
+        {
+            "provider": "openai",
+            "model": "text-embedding-3-large",
+            "dimensions": 1536,
+        },
+    )

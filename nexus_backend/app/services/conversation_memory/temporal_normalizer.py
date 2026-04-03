@@ -6,40 +6,32 @@ from datetime import UTC, datetime, timedelta
 # Relative time patterns (Chinese + English)
 RELATIVE_TIME_PATTERNS = {
     # Days
-    r'今天|today': 0,
-    r'昨天|yesterday': -1,
-    r'前天|day before yesterday': -2,
-    r'明天|tomorrow': 1,
-    r'后天|day after tomorrow': 2,
-
+    r"今天|today": 0,
+    r"昨天|yesterday": -1,
+    r"前天|day before yesterday": -2,
+    r"明天|tomorrow": 1,
+    r"后天|day after tomorrow": 2,
     # Weeks
-    r'上周一|last monday': -7,
-    r'上周二|last tuesday': -6,
-    r'上周三|last wednesday': -5,
-    r'上周四|last thursday': -4,
-    r'上周五|last friday': -3,
-    r'上周六|last saturday': -2,
-    r'上周日|上周天|last sunday': -1,
-
-    r'这周一|this monday': 0,
-    r'本周一|this monday': 0,
-
+    r"上周一|last monday": -7,
+    r"上周二|last tuesday": -6,
+    r"上周三|last wednesday": -5,
+    r"上周四|last thursday": -4,
+    r"上周五|last friday": -3,
+    r"上周六|last saturday": -2,
+    r"上周日|上周天|last sunday": -1,
+    r"这周一|this monday": 0,
+    r"本周一|this monday": 0,
     # Relative weeks
-    r'上周|last week': -7,
-    r'上上周|two weeks ago': -14,
-    r'下周|next week': 7,
-
+    r"上周|last week": -7,
+    r"上上周|two weeks ago": -14,
+    r"下周|next week": 7,
     # Months
-    r'上个?月|last month': -30,
-    r'下个?月|next month': 30,
+    r"上个?月|last month": -30,
+    r"下个?月|next month": 30,
 }
 
 
-def normalize_temporal_context(
-    session_date: str,
-    text: str,
-    metadata: dict | None = None
-) -> dict:
+def normalize_temporal_context(session_date: str, text: str, metadata: dict | None = None) -> dict:
     """
     P0: 在存储前把相对时间转成绝对时间
 
@@ -62,10 +54,7 @@ def normalize_temporal_context(
         base_dt = datetime.now(UTC)
 
     # Extract absolute dates already in text (YYYY-MM-DD, YYYY/MM/DD)
-    absolute_dates = re.findall(
-        r'\b(\d{4}[-/]\d{1,2}[-/]\d{1,2})\b',
-        text
-    )
+    absolute_dates = re.findall(r"\b(\d{4}[-/]\d{1,2}[-/]\d{1,2})\b", text)
 
     # Convert relative time expressions to absolute dates
     temporal_anchors = []
@@ -83,9 +72,9 @@ def normalize_temporal_context(
     temporal_anchors = list(set(temporal_anchors))
 
     # Update metadata
-    meta['session_absolute_date'] = base_dt.strftime("%Y-%m-%d")
+    meta["session_absolute_date"] = base_dt.strftime("%Y-%m-%d")
     if temporal_anchors:
-        meta['temporal_anchors'] = temporal_anchors
+        meta["temporal_anchors"] = temporal_anchors
 
     return meta
 
@@ -100,34 +89,31 @@ def extract_time_range_from_query(query: str) -> list[str] | None:
     time_keywords = []
 
     # Extract absolute dates
-    dates = re.findall(r'\b(\d{4}[-/]\d{1,2}[-/]\d{1,2})\b', query)
+    dates = re.findall(r"\b(\d{4}[-/]\d{1,2}[-/]\d{1,2})\b", query)
     time_keywords.extend(dates)
 
     # Extract year-month
-    year_months = re.findall(r'\b(\d{4}[-/]\d{1,2})\b', query)
+    year_months = re.findall(r"\b(\d{4}[-/]\d{1,2})\b", query)
     time_keywords.extend(year_months)
 
     # Extract relative time expressions
     relative_patterns = [
-        r'上周|last week',
-        r'上个月|last month',
-        r'昨天|yesterday',
-        r'今天|today',
-        r'本周|this week',
-        r'最近|recently',
+        r"上周|last week",
+        r"上个月|last month",
+        r"昨天|yesterday",
+        r"今天|today",
+        r"本周|this week",
+        r"最近|recently",
     ]
 
     for pattern in relative_patterns:
         if re.search(pattern, query.lower()):
-            time_keywords.append(pattern.split('|')[0])
+            time_keywords.append(pattern.split("|")[0])
 
     return time_keywords if time_keywords else None
 
 
-def calculate_temporal_overlap(
-    memory_anchors: list[str] | None,
-    query_time_range: list[str] | None
-) -> float:
+def calculate_temporal_overlap(memory_anchors: list[str] | None, query_time_range: list[str] | None) -> float:
     """
     P1: 计算记忆时间锚点与问题时间范围的重叠度
 
@@ -146,11 +132,7 @@ def calculate_temporal_overlap(
     return 0.0  # 无匹配
 
 
-def rerank_by_temporal_relevance(
-    query: str,
-    memories: list[dict],
-    boost_factor: float = 2.0
-) -> list[dict]:
+def rerank_by_temporal_relevance(query: str, memories: list[dict], boost_factor: float = 2.0) -> list[dict]:
     """
     P1: 针对时间敏感问题，重排检索结果
 
@@ -163,7 +145,7 @@ def rerank_by_temporal_relevance(
         重排后的记忆列表
     """
     # Check if query is time-sensitive
-    time_keywords = ['when', 'what time', '什么时候', '何时', '哪天', '几月', '几号']
+    time_keywords = ["when", "what time", "什么时候", "何时", "哪天", "几月", "几号"]
     is_temporal_query = any(kw in query.lower() for kw in time_keywords)
 
     if not is_temporal_query:
@@ -175,13 +157,13 @@ def rerank_by_temporal_relevance(
     # Score and rerank
     scored = []
     for mem in memories:
-        meta = mem.get('metadata', {})
-        temporal_anchors = meta.get('temporal_anchors', [])
+        meta = mem.get("metadata", {})
+        temporal_anchors = meta.get("temporal_anchors", [])
 
         time_score = calculate_temporal_overlap(temporal_anchors, query_time_range)
 
         # Boost score for time-matched memories
-        final_score = mem.get('_score', 0.5) * (1 + time_score * boost_factor)
+        final_score = mem.get("_score", 0.5) * (1 + time_score * boost_factor)
 
         scored.append((mem, final_score))
 

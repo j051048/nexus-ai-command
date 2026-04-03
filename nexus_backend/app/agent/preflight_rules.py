@@ -16,7 +16,7 @@ PRE_FLIGHT_RULES: dict[str, list[dict[str, Any]]] = {
             "name": "lead_exists",
             "query": "SELECT id FROM sales_leads WHERE id = :lead_id",
             "params": ["lead_id"],
-            "error": "销售线索不存在"
+            "error": "销售线索不存在",
         }
     ],
     "create_order": [
@@ -25,7 +25,7 @@ PRE_FLIGHT_RULES: dict[str, list[dict[str, Any]]] = {
             "query": "SELECT stock FROM products WHERE id = :product_id",
             "params": ["product_id"],
             "validator": lambda row: row and row.get("stock", 0) > 0,
-            "error": "库存不足"
+            "error": "库存不足",
         }
     ],
     "delete_sales_lead": [
@@ -33,7 +33,7 @@ PRE_FLIGHT_RULES: dict[str, list[dict[str, Any]]] = {
             "name": "lead_exists",
             "query": "SELECT id FROM sales_leads WHERE id = :lead_id",
             "params": ["lead_id"],
-            "error": "销售线索不存在"
+            "error": "销售线索不存在",
         }
     ],
 }

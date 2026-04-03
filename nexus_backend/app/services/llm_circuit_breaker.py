@@ -38,6 +38,7 @@ def _get_redis():
     """Lazy import Redis client; returns None if unavailable."""
     try:
         from app.services.cache_service import cache_service
+
         return cache_service
     except Exception:
         return None
@@ -169,8 +170,9 @@ class ModelCircuitBreaker:
         """Publish OPEN state to Redis so other workers see it."""
         try:
             redis = _get_redis()
-            if redis and hasattr(redis, '_redis') and redis._redis:
+            if redis and hasattr(redis, "_redis") and redis._redis:
                 import asyncio
+
                 key = f"{_REDIS_CB_PREFIX}{self.model_code}:open"
                 # Fire-and-forget: use synchronous set if available, otherwise skip
                 # This is best-effort; local state is always authoritative
@@ -184,8 +186,9 @@ class ModelCircuitBreaker:
         """Remove OPEN flag from Redis when circuit closes."""
         try:
             redis = _get_redis()
-            if redis and hasattr(redis, '_redis') and redis._redis:
+            if redis and hasattr(redis, "_redis") and redis._redis:
                 import asyncio
+
                 key = f"{_REDIS_CB_PREFIX}{self.model_code}:open"
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
@@ -305,7 +308,7 @@ class CircuitBreakerManager:
         """
         try:
             redis = _get_redis()
-            if not redis or not hasattr(redis, '_redis') or not redis._redis:
+            if not redis or not hasattr(redis, "_redis") or not redis._redis:
                 return
 
             for model_code, breaker in self._breakers.items():

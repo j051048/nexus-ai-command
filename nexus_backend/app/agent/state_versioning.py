@@ -13,20 +13,21 @@ logger = logging.getLogger(__name__)
 class StateVersionControl:
     """状态版本控制"""
 
-    async def save_snapshot(
-        self,
-        thread_id: str,
-        state: dict,
-        label: str = None
-    ) -> str:
+    async def save_snapshot(self, thread_id: str, state: dict, label: str = None) -> str:
         """保存状态快照"""
         try:
-            result = await supabase.table("state_snapshots").insert({
-                "thread_id": thread_id,
-                "state": state,
-                "label": label,
-                "created_at": datetime.utcnow().isoformat()
-            }).execute()
+            result = (
+                await supabase.table("state_snapshots")
+                .insert(
+                    {
+                        "thread_id": thread_id,
+                        "state": state,
+                        "label": label,
+                        "created_at": datetime.utcnow().isoformat(),
+                    }
+                )
+                .execute()
+            )
 
             snapshot_id = result.data[0]["id"]
             logger.info(f"State snapshot saved: {snapshot_id}")
@@ -39,11 +40,7 @@ class StateVersionControl:
     async def rollback(self, thread_id: str, snapshot_id: str) -> dict:
         """回滚到历史状态"""
         try:
-            result = await supabase.table("state_snapshots")\
-                .select("state")\
-                .eq("id", snapshot_id)\
-                .single()\
-                .execute()
+            result = await supabase.table("state_snapshots").select("state").eq("id", snapshot_id).single().execute()
 
             return result.data["state"]
 
@@ -53,11 +50,13 @@ class StateVersionControl:
 
     async def list_snapshots(self, thread_id: str) -> list[dict]:
         """列出所有快照"""
-        result = await supabase.table("state_snapshots")\
-            .select("id, label, created_at")\
-            .eq("thread_id", thread_id)\
-            .order("created_at", desc=True)\
+        result = (
+            await supabase.table("state_snapshots")
+            .select("id, label, created_at")
+            .eq("thread_id", thread_id)
+            .order("created_at", desc=True)
             .execute()
+        )
 
         return result.data
 
@@ -69,10 +68,7 @@ class StateVersionControl:
         state = await checkpointer.aget({"configurable": {"thread_id": thread_id}})
 
         if state:
-            await checkpointer.aput(
-                {"configurable": {"thread_id": new_thread_id}},
-                state
-            )
+            await checkpointer.aput({"configurable": {"thread_id": new_thread_id}}, state)
             logger.info(f"State branched: {thread_id} -> {new_thread_id}")
             return new_thread_id
 

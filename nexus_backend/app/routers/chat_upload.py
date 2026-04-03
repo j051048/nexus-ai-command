@@ -55,13 +55,19 @@ async def upload_chat_image(
     # 4. Persist to chat_attachments (NOT documents table)
     client = req.state.db
     try:
-        result = await client.table("chat_attachments").insert({
-            "user_id": user_id,
-            "filename": file.filename or "image",
-            "mime_type": content_type,
-            "base64_data": b64_data,
-            "size_bytes": len(content),
-        }).execute()
+        result = (
+            await client.table("chat_attachments")
+            .insert(
+                {
+                    "user_id": user_id,
+                    "filename": file.filename or "image",
+                    "mime_type": content_type,
+                    "base64_data": b64_data,
+                    "size_bytes": len(content),
+                }
+            )
+            .execute()
+        )
 
         attachment_id = result.data[0]["id"] if result.data else None
     except Exception as e:

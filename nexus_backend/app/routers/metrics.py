@@ -1,4 +1,5 @@
 """Agent metrics API endpoint."""
+
 import logging
 
 from fastapi import APIRouter, Depends

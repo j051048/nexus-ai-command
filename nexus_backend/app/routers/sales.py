@@ -141,7 +141,13 @@ async def list_metrics_by_range(
         if not db:
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
-        query = db.table("sales_metrics").select("*").eq("organization_id", org_id).gte("date", start_date).lte("date", end_date)
+        query = (
+            db.table("sales_metrics")
+            .select("*")
+            .eq("organization_id", org_id)
+            .gte("date", start_date)
+            .lte("date", end_date)
+        )
         if user_id_filter:
             query = query.eq("user_id", user_id_filter)
 
@@ -167,14 +173,27 @@ async def get_team_performance(
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
         # 查询团队成员 Top 10
-        users_result = await db.table("users").select("id, name, score, total_bonus").eq("organization_id", org_id).order("score", desc=True).limit(10).execute()
+        users_result = (
+            await db.table("users")
+            .select("id, name, score, total_bonus")
+            .eq("organization_id", org_id)
+            .order("score", desc=True)
+            .limit(10)
+            .execute()
+        )
         members = users_result.data or []
 
         # 批量查询这些用户的指标
         user_ids = [m["id"] for m in members]
         metrics = []
         if user_ids:
-            metrics_result = await db.table("sales_metrics").select("*").eq("organization_id", org_id).in_("user_id", user_ids).execute()
+            metrics_result = (
+                await db.table("sales_metrics")
+                .select("*")
+                .eq("organization_id", org_id)
+                .in_("user_id", user_ids)
+                .execute()
+            )
             metrics = metrics_result.data or []
 
         return api_success(data={"members": members, "metrics": metrics})
@@ -198,7 +217,14 @@ async def get_leaderboard(
         if not db:
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
-        result = await db.table("users").select("id, name, score, total_bonus, rank").eq("organization_id", org_id).order("score", desc=True).limit(limit).execute()
+        result = (
+            await db.table("users")
+            .select("id, name, score, total_bonus, rank")
+            .eq("organization_id", org_id)
+            .order("score", desc=True)
+            .limit(limit)
+            .execute()
+        )
         return api_success(data={"leaderboard": result.data or []})
     except Exception as e:
         logger.error(f"Failed to get leaderboard: {e}")

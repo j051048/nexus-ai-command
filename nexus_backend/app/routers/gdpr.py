@@ -50,9 +50,13 @@ async def export_user_data(
     try:
         data = {}
 
-        profile = await supabase.table("users").select(
-            "id, email, full_name, avatar_url, created_at, updated_at"
-        ).eq("id", user_id).single().execute()
+        profile = (
+            await supabase.table("users")
+            .select("id, email, full_name, avatar_url, created_at, updated_at")
+            .eq("id", user_id)
+            .single()
+            .execute()
+        )
         data["profile"] = profile.data
 
         conversations = await supabase.table("chat_sessions").select("*").eq("user_id", user_id).execute()

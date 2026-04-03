@@ -92,6 +92,7 @@ def create_app() -> FastAPI:
 
     # OpenTelemetry distributed tracing
     from app.core.telemetry import setup_telemetry
+
     setup_telemetry(application)
 
     # Global exception handlers (validation, HTTP, and generic 500)
@@ -120,7 +121,9 @@ def create_app() -> FastAPI:
         expected_token = os.getenv("HEALTH_CHECK_TOKEN", "")
         provided_token = request.headers.get("X-Health-Token", "")
         if not expected_token and settings.IS_PRODUCTION:
-            return UTF8JSONResponse(status_code=503, content={"status": "error", "detail": "HEALTH_CHECK_TOKEN not configured"})
+            return UTF8JSONResponse(
+                status_code=503, content={"status": "error", "detail": "HEALTH_CHECK_TOKEN not configured"}
+            )
         if expected_token and provided_token != expected_token:
             return UTF8JSONResponse(status_code=403, content={"error": "Forbidden"})
 
@@ -179,7 +182,9 @@ def create_app() -> FastAPI:
         expected_token = os.getenv("HEALTH_CHECK_TOKEN", "")
         provided_token = request.headers.get("X-Health-Token", "")
         if not expected_token and settings.IS_PRODUCTION:
-            return UTF8JSONResponse(status_code=503, content={"status": "error", "detail": "HEALTH_CHECK_TOKEN not configured"})
+            return UTF8JSONResponse(
+                status_code=503, content={"status": "error", "detail": "HEALTH_CHECK_TOKEN not configured"}
+            )
         if expected_token and provided_token != expected_token:
             return UTF8JSONResponse(status_code=403, content={"error": "Forbidden"})
 
@@ -214,6 +219,7 @@ def create_app() -> FastAPI:
             llm_status = "configured"
             try:
                 import httpx
+
                 base_url = settings.AI_BASE_URL or "https://api.openai.com/v1"
                 domain = base_url.split("/v1")[0].split("/chat")[0]
                 async with httpx.AsyncClient(timeout=3.0) as client:
@@ -244,6 +250,7 @@ def create_app() -> FastAPI:
 
         # 5. Degradation registry — aggregated fallback tracking
         from app.core.degradation_registry import degradation_registry
+
         degradation_summary = degradation_registry.summary()
         checks["degradations"] = degradation_summary
         if degradation_summary["degraded"] and overall == "healthy":

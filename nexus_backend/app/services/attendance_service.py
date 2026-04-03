@@ -72,10 +72,7 @@ class AttendanceService:
                     update_data["raw_data"] = raw
 
                 result = (
-                    await db.table("attendance_records")
-                    .update(update_data)
-                    .eq("id", existing.data["id"])
-                    .execute()
+                    await db.table("attendance_records").update(update_data).eq("id", existing.data["id"]).execute()
                 )
             else:
                 # Insert new record for today

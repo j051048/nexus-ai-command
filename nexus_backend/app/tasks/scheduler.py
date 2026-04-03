@@ -22,6 +22,7 @@ def _run_async(coro):
 
 def _with_redis_lock(task_name: str, lock_ttl: int = 300):
     """Decorator: acquire a Redis lock before executing. Skip if already locked."""
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -29,6 +30,7 @@ def _with_redis_lock(task_name: str, lock_ttl: int = 300):
             lock_key = f"celery_lock:{task_name}"
             try:
                 import redis as _redis
+
                 redis_url = os.getenv("REDIS_URL")
                 if redis_url:
                     redis_client = _redis.from_url(redis_url)
@@ -44,7 +46,9 @@ def _with_redis_lock(task_name: str, lock_ttl: int = 300):
                 if redis_client:
                     with contextlib.suppress(Exception):
                         redis_client.delete(lock_key)
+
         return wrapper
+
     return decorator
 
 
@@ -535,15 +539,17 @@ def decompose_vmd_task(task_id: str):
         tenant_id = task.get("tenant_id", "default")
         records = []
         for idx, st in enumerate(sub_tasks_data):
-            records.append({
-                "main_task_id": task_id,
-                "tenant_id": tenant_id,
-                "title": st.get("title", "未命名子任务"),
-                "agent_role": st.get("agent_role", "content_creator"),
-                "description": st.get("description", ""),
-                "sort_order": st.get("sort_order", idx + 1),
-                "status": "pending",
-            })
+            records.append(
+                {
+                    "main_task_id": task_id,
+                    "tenant_id": tenant_id,
+                    "title": st.get("title", "未命名子任务"),
+                    "agent_role": st.get("agent_role", "content_creator"),
+                    "description": st.get("description", ""),
+                    "sort_order": st.get("sort_order", idx + 1),
+                    "status": "pending",
+                }
+            )
         try:
             await supabase.table("vmd_sub_task").insert(records).execute()
             created_count = len(records)
@@ -611,9 +617,13 @@ def push_smart_recommendations():
         pushed = 0
         for user_id in connected_users:
             try:
-                user_result = await supabase.table("users").select(
-                    "organization_id, role"
-                ).eq("id", user_id).maybe_single().execute()
+                user_result = (
+                    await supabase.table("users")
+                    .select("organization_id, role")
+                    .eq("id", user_id)
+                    .maybe_single()
+                    .execute()
+                )
 
                 if not user_result.data:
                     continue
@@ -624,7 +634,10 @@ def push_smart_recommendations():
                 }
 
                 recs = await smart_recommendation_service.get_recommendations(
-                    user_id=user_id, context=context, limit=3, db=supabase,
+                    user_id=user_id,
+                    context=context,
+                    limit=3,
+                    db=supabase,
                 )
 
                 # Only push HIGH+ priority recommendations (priority value >= 3)
@@ -632,21 +645,24 @@ def push_smart_recommendations():
                 if not important_recs:
                     continue
 
-                await ws_manager.send_to_user(user_id, {
-                    "type": "recommendation",
-                    "data": [
-                        {
-                            "id": r.id,
-                            "type": r.type.value,
-                            "title": r.title,
-                            "description": r.description,
-                            "priority": r.priority.name.lower(),
-                            "action_url": r.action_url,
-                            "action_label": r.action_label,
-                        }
-                        for r in important_recs
-                    ],
-                })
+                await ws_manager.send_to_user(
+                    user_id,
+                    {
+                        "type": "recommendation",
+                        "data": [
+                            {
+                                "id": r.id,
+                                "type": r.type.value,
+                                "title": r.title,
+                                "description": r.description,
+                                "priority": r.priority.name.lower(),
+                                "action_url": r.action_url,
+                                "action_label": r.action_label,
+                            }
+                            for r in important_recs
+                        ],
+                    },
+                )
                 pushed += 1
             except Exception as e:
                 logger.error(f"Recommendation push failed for {user_id}: {e}")
@@ -654,6 +670,8 @@ def push_smart_recommendations():
         return f"pushed to {pushed}/{len(connected_users)} users"
 
     return _run_async(_run())
+
+
 # ---------------------------------------------------------------------------
 
 
@@ -754,19 +772,14 @@ def consolidate_memories():
 
         for uid in user_ids[:50]:  # Cap at 50 users per batch
             try:
-                r = await conversation_memory_service.consolidate_user_memories(
-                    user_id=uid, batch_size=30, db=supabase
-                )
+                r = await conversation_memory_service.consolidate_user_memories(user_id=uid, batch_size=30, db=supabase)
                 total_insights += r.get("insights_created", 0)
                 if r.get("processed", 0) > 0:
                     processed_users += 1
             except Exception as e:
                 logger.warning(f"Consolidation failed for user {uid}: {e}")
 
-        return (
-            f"Consolidated {total_insights} insights "
-            f"for {processed_users}/{len(user_ids[:50])} users"
-        )
+        return f"Consolidated {total_insights} insights " f"for {processed_users}/{len(user_ids[:50])} users"
 
     return _run_async(_run())
 
@@ -787,9 +800,7 @@ def reevaluate_memory_importance():
         if not supabase:
             return "skipped: no db"
 
-        result = await conversation_memory_service.reevaluate_importance(
-            batch_size=200, db=supabase
-        )
+        result = await conversation_memory_service.reevaluate_importance(batch_size=200, db=supabase)
         return f"Importance reeval: boosted={result['boosted']}, decayed={result['decayed']}"
 
     return _run_async(_run())
@@ -819,10 +830,7 @@ def decay_kg_strength():
             batch_size=500,
             db=supabase,
         )
-        return (
-            f"KG decay: scanned={result['scanned']}, "
-            f"decayed={result['decayed']}, archived={result['archived']}"
-        )
+        return f"KG decay: scanned={result['scanned']}, " f"decayed={result['decayed']}, archived={result['archived']}"
 
     return _run_async(_run())
 

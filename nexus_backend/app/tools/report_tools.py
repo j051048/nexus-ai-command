@@ -144,13 +144,25 @@ class ReportGeneratorTool(BaseTool):
     """将数据生成为格式化的 Markdown / HTML 报告。"""
 
     name = "generate_report"
-    description = (
-        "将数据生成为格式化的报告，支持输出为纯文本或网页格式"
-    )
+    description = "将数据生成为格式化的报告，支持输出为纯文本或网页格式"
     domain = "analytics"
     examples = [
-        {"input": {"title": "月度销售报告", "sections": [{"heading": "概览", "content": "本月销售额增长20%"}], "format": "markdown"}, "output_summary": "生成包含标题和章节的纯文本格式报告"},
-        {"input": {"title": "客户分析", "sections": [{"heading": "客户分布", "table_data": [{"区域": "华东", "数量": 50}]}], "format": "html"}, "output_summary": "生成包含表格的网页格式报告"},
+        {
+            "input": {
+                "title": "月度销售报告",
+                "sections": [{"heading": "概览", "content": "本月销售额增长20%"}],
+                "format": "markdown",
+            },
+            "output_summary": "生成包含标题和章节的纯文本格式报告",
+        },
+        {
+            "input": {
+                "title": "客户分析",
+                "sections": [{"heading": "客户分布", "table_data": [{"区域": "华东", "数量": 50}]}],
+                "format": "html",
+            },
+            "output_summary": "生成包含表格的网页格式报告",
+        },
     ]
     related_tools = ["analyze_data"]
     gotchas = "标题和章节列表为必填项。章节中的表格数据必须是字典列表格式。"

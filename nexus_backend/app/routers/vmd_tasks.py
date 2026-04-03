@@ -1,4 +1,5 @@
 """VMD 任务路由"""
+
 import logging
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -15,7 +16,7 @@ async def list_vmd_tasks(
     req: Request,
     status: str | None = Query(None),
     priority: str | None = Query(None),
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
 ):
     """获取 VMD 任务列表，支持状态和优先级过滤"""
     db = getattr(req.state, "db", None)
@@ -34,18 +35,14 @@ async def list_vmd_tasks(
 
 
 @router.get("/{task_id}")
-async def get_vmd_task_detail(
-    req: Request,
-    task_id: str,
-    user_id: str = Depends(get_current_user_id)
-):
+async def get_vmd_task_detail(req: Request, task_id: str, user_id: str = Depends(get_current_user_id)):
     """获取单个 VMD 任务详情"""
     db = getattr(req.state, "db", None)
     if not db:
         raise api_error(ErrorCode.DB_CONNECTION_ERROR, message="数据库连接未配置")
 
     # 支持 task_code 或 UUID
-    column = "task_code" if not task_id.replace('-', '').isalnum() or len(task_id) < 20 else "id"
+    column = "task_code" if not task_id.replace("-", "").isalnum() or len(task_id) < 20 else "id"
     result = await db.table("vmd_main_task").select("*").eq(column, task_id).maybe_single().execute()
 
     if not result.data:
@@ -55,11 +52,7 @@ async def get_vmd_task_detail(
 
 
 @router.post("/{task_id}/pause")
-async def pause_vmd_task(
-    req: Request,
-    task_id: str,
-    user_id: str = Depends(get_current_user_id)
-):
+async def pause_vmd_task(req: Request, task_id: str, user_id: str = Depends(get_current_user_id)):
     """暂停 VMD 任务"""
     db = getattr(req.state, "db", None)
     if not db:
@@ -79,11 +72,7 @@ async def pause_vmd_task(
 
 
 @router.post("/{task_id}/resume")
-async def resume_vmd_task(
-    req: Request,
-    task_id: str,
-    user_id: str = Depends(get_current_user_id)
-):
+async def resume_vmd_task(req: Request, task_id: str, user_id: str = Depends(get_current_user_id)):
     """恢复 VMD 任务"""
     db = getattr(req.state, "db", None)
     if not db:
@@ -101,11 +90,7 @@ async def resume_vmd_task(
 
 
 @router.post("/{task_id}/cancel")
-async def cancel_vmd_task(
-    req: Request,
-    task_id: str,
-    user_id: str = Depends(get_current_user_id)
-):
+async def cancel_vmd_task(req: Request, task_id: str, user_id: str = Depends(get_current_user_id)):
     """取消 VMD 任务"""
     db = getattr(req.state, "db", None)
     if not db:
@@ -123,15 +108,17 @@ async def cancel_vmd_task(
 
 
 @router.get("/{task_id}/sub-tasks")
-async def list_vmd_sub_tasks(
-    req: Request,
-    task_id: str,
-    user_id: str = Depends(get_current_user_id)
-):
+async def list_vmd_sub_tasks(req: Request, task_id: str, user_id: str = Depends(get_current_user_id)):
     """获取任务下的子任务审计日志"""
     db = getattr(req.state, "db", None)
     if not db:
         return api_success(data={"sub_tasks": []})
 
-    result = await db.table("vmd_sub_task_audit").select("*").eq("main_task_id", task_id).order("executed_at", desc=True).execute()
+    result = (
+        await db.table("vmd_sub_task_audit")
+        .select("*")
+        .eq("main_task_id", task_id)
+        .order("executed_at", desc=True)
+        .execute()
+    )
     return api_success(data={"sub_tasks": result.data or []})

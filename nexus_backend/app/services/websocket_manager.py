@@ -135,9 +135,7 @@ class ConnectionManager:
 
         # Subscribe to this user's Redis channel (first local connection)
         if len(self._connections[user_id]) == 1 and self._redis_bridge:
-            await self._redis_bridge.subscribe(
-                user_id, self._make_redis_deliver(user_id)
-            )
+            await self._redis_bridge.subscribe(user_id, self._make_redis_deliver(user_id))
 
         # Start heartbeat if not running
         if self._heartbeat_task is None or self._heartbeat_task.done():
@@ -254,8 +252,10 @@ class ConnectionManager:
 
     def _make_redis_deliver(self, user_id: str):
         """Create a callback for delivering Redis messages to local connections."""
+
         async def _deliver(message: dict) -> None:
             await self._local_send_to_user(user_id, message)
+
         return _deliver
 
     # ── Query Methods ────────────────────────────────────────────────────

@@ -2,6 +2,7 @@
 智能数据分析助手
 自然语言转SQL，自动执行查询并生成洞察
 """
+
 import logging
 from typing import Any
 
@@ -116,4 +117,3 @@ async def _generate_insight(llm, query: str, data: list) -> str:
 洞察:"""
 
     return llm.invoke(prompt).content.strip()
-

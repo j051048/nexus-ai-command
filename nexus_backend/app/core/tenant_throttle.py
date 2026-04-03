@@ -116,8 +116,7 @@ class TenantThrottle:
                 self._active[tenant_id] += 1
                 waiter.set()  # Wake the waiting coroutine
                 logger.debug(
-                    f"[TenantThrottle] Dispatched slot to tenant {tenant_id} "
-                    f"(active={self._active[tenant_id]})"
+                    f"[TenantThrottle] Dispatched slot to tenant {tenant_id} " f"(active={self._active[tenant_id]})"
                 )
 
                 # Clean up empty waiter queue
@@ -133,9 +132,7 @@ class TenantThrottle:
         return {
             "max_concurrent_per_tenant": self.max_concurrent,
             "active_tenants": {k: v for k, v in self._active.items() if v > 0},
-            "queued_tenants": {
-                k: len(v) for k, v in self._waiters.items() if v
-            },
+            "queued_tenants": {k: len(v) for k, v in self._waiters.items() if v},
             "total_active": sum(self._active.values()),
             "total_queued": sum(len(v) for v in self._waiters.values()),
         }

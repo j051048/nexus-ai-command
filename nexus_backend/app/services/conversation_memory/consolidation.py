@@ -55,7 +55,7 @@ async def consolidate_user_memories(
     mem_lines = []
     for i, m in enumerate(memories):
         # P0 Fix: Truncate value to prevent context_length_exceeded on long-session datasets (LoCoMo)
-        val = str(m.get('value', ''))
+        val = str(m.get("value", ""))
         if len(val) > 3000:
             val = val[:3000] + "... (truncated for consolidation)"
         mem_lines.append(f"[{i}] ({m['category']}) {m['key']}: {val}")
@@ -76,8 +76,8 @@ async def consolidate_user_memories(
         '- "importance": 0.0-1.0 重要性评分\n'
         '- "source_indices": 来源记忆的索引号数组，如 [0, 2, 5]\n'
         '- "connections": 记忆之间的关系数组，如 [{"from": 0, "to": 2, "relation": "supplements"}]\n'
-        '  relation 可选值: same_customer, same_project, causal, contradicts, supplements\n'
-        '  优先标注 causal（因果）关系\n\n'
+        "  relation 可选值: same_customer, same_project, causal, contradicts, supplements\n"
+        "  优先标注 causal（因果）关系\n\n"
         "只返回 JSON 数组。最多生成 5 条洞察。如果没有有意义的模式，返回 []。"
     )
 
@@ -101,9 +101,7 @@ async def consolidate_user_memories(
             # Map source indices to actual memory IDs
             source_indices = insight.get("source_indices", [])
             source_ids = [
-                str(memories[i]["id"])
-                for i in source_indices
-                if isinstance(i, int) and 0 <= i < len(memories)
+                str(memories[i]["id"]) for i in source_indices if isinstance(i, int) and 0 <= i < len(memories)
             ]
             if not source_ids:
                 continue
@@ -115,19 +113,22 @@ async def consolidate_user_memories(
 
             # Generate embedding for the insight
             from app.services.vector_service import vector_service
+
             embedding = await vector_service.embed_text(f"{title}: {content}")
 
             # Insert into memory_consolidations
-            await client.table("memory_consolidations").insert({
-                "user_id": user_id,
-                "organization_id": org_id,
-                "insight_type": insight.get("insight_type", "pattern"),
-                "title": title,
-                "content": content,
-                "source_memory_ids": source_ids,
-                "importance": float(insight.get("importance", 0.6)),
-                "embedding": embedding,
-            }).execute()
+            await client.table("memory_consolidations").insert(
+                {
+                    "user_id": user_id,
+                    "organization_id": org_id,
+                    "insight_type": insight.get("insight_type", "pattern"),
+                    "title": title,
+                    "content": content,
+                    "source_memory_ids": source_ids,
+                    "importance": float(insight.get("importance", 0.6)),
+                    "embedding": embedding,
+                }
+            ).execute()
             created += 1
 
             # Build connections between source memories (Feature 3)
@@ -141,19 +142,12 @@ async def consolidate_user_memories(
     if memories:
         mem_ids = [m["id"] for m in memories]
         try:
-            await (
-                client.table("conversation_memories")
-                .update({"is_consolidated": True})
-                .in_("id", mem_ids)
-                .execute()
-            )
+            await client.table("conversation_memories").update({"is_consolidated": True}).in_("id", mem_ids).execute()
         except Exception as e:
             logger.warning(f"Failed to mark memories as consolidated: {e}")
 
     if created:
-        logger.info(
-            f"Consolidation for user {user_id}: processed={len(memories)}, insights={created}"
-        )
+        logger.info(f"Consolidation for user {user_id}: processed={len(memories)}, insights={created}")
 
     return {"user_id": user_id, "processed": len(memories), "insights_created": created}
 
@@ -196,17 +190,14 @@ async def _write_connections(
                 # Avoid duplicates
                 if any(c.get("memory_id") == tgt_id for c in current):
                     continue
-                current.append({
-                    "memory_id": tgt_id,
-                    "relation": relation,
-                    "strength": strength,
-                })
-                await (
-                    client.table("conversation_memories")
-                    .update({"connections": current})
-                    .eq("id", src_id)
-                    .execute()
+                current.append(
+                    {
+                        "memory_id": tgt_id,
+                        "relation": relation,
+                        "strength": strength,
+                    }
                 )
+                await client.table("conversation_memories").update({"connections": current}).eq("id", src_id).execute()
         except Exception as e:
             logger.error(f"Failed to write memory connection: {e}")
 
@@ -249,7 +240,7 @@ async def generate_user_observation(
 
         mem_lines = []
         for m in memories:
-            val = str(m.get('value', ''))
+            val = str(m.get("value", ""))
             if len(val) > 2000:
                 val = val[:2000] + "..."
             mem_lines.append(f"- ({m['category']}) {m['key']}: {val}")
@@ -273,6 +264,7 @@ async def generate_user_observation(
 
         # Generate embedding
         from app.services.vector_service import vector_service
+
         embedding = await vector_service.embed_text(f"用户画像: {observation_text[:200]}")
 
         # Upsert: delete existing observation for this user, then insert new one

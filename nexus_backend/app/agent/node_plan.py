@@ -34,7 +34,9 @@ from app.services.agent_trace_service import agent_trace_service
 from app.services.plugin_system_service import ExtensionPoint
 
 
-def _log_decision(trace_id: str | None, step_id: str, decision: str, reasoning: str, alternatives: list[str] | None = None):
+def _log_decision(
+    trace_id: str | None, step_id: str, decision: str, reasoning: str, alternatives: list[str] | None = None
+):
     """Log a structured decision to the agent trace (fire-and-forget, never raises)."""
     if not trace_id:
         return
@@ -135,16 +137,20 @@ async def _plan_with_self_consistency(
         # Find first sample with this signature
         for s, s_sig in zip(samples, sigs, strict=False):
             if s_sig == sig:
-                candidate_plans.append({
-                    "sig": sig,
-                    "score": count / n,
-                    "tool_calls": [
-                        {"name": tc.get("name", "") if isinstance(tc, dict) else getattr(tc, "name", ""),
-                         "args": tc.get("args", {}) if isinstance(tc, dict) else getattr(tc, "args", {})}
-                        for tc in (getattr(s, "tool_calls", None) or [])
-                    ],
-                    "content": s.content or "",
-                })
+                candidate_plans.append(
+                    {
+                        "sig": sig,
+                        "score": count / n,
+                        "tool_calls": [
+                            {
+                                "name": tc.get("name", "") if isinstance(tc, dict) else getattr(tc, "name", ""),
+                                "args": tc.get("args", {}) if isinstance(tc, dict) else getattr(tc, "args", {}),
+                            }
+                            for tc in (getattr(s, "tool_calls", None) or [])
+                        ],
+                        "content": s.content or "",
+                    }
+                )
                 break
     # Keep at most 1 alternative (top-2 total: winner + 1 backup)
     candidate_plans = candidate_plans[:1]
@@ -188,14 +194,17 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         _wall_clock_extras["wall_clock_start"] = time.time()
 
     # Lifecycle Hook: before_prompt_build
-    hook_ctx = await run_hooks("before_prompt_build", {
-        "messages": messages,
-        "model": model,
-        "iteration": iteration,
-        "rag_context": rag_context,
-        "user_id": agent_config.user_id,
-        "scene_code": state.get("scene_code", ""),
-    })
+    hook_ctx = await run_hooks(
+        "before_prompt_build",
+        {
+            "messages": messages,
+            "model": model,
+            "iteration": iteration,
+            "rag_context": rag_context,
+            "user_id": agent_config.user_id,
+            "scene_code": state.get("scene_code", ""),
+        },
+    )
     if hook_ctx:
         # Allow hooks to inject extra context or modify messages
         messages = hook_ctx.get("messages", messages)
@@ -209,6 +218,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     if complexity == QueryComplexity.MODERATE and "complexity" not in state:
         try:
             from app.services.llm_helpers import auto_detect_tier
+
             tool_schemas_for_tier = _get_tool_schemas(agent_config.user_role, scene_code=state.get("scene_code"))
             detected_tier = auto_detect_tier(
                 messages=messages,
@@ -268,7 +278,12 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         if user_role:
             extra_lines.append(f"当前用户角色: {user_role}")
 
-        tool_schemas = _get_tool_schemas(agent_config.user_role, intent_summary=intent_summary, scene_code=state.get("scene_code"), intent_domains=state.get("intent_domains"))
+        tool_schemas = _get_tool_schemas(
+            agent_config.user_role,
+            intent_summary=intent_summary,
+            scene_code=state.get("scene_code"),
+            intent_domains=state.get("intent_domains"),
+        )
         if complexity == QueryComplexity.SIMPLE:
             # SIMPLE: only show universal tools in system prompt
             tool_schemas = [s for s in tool_schemas if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS]
@@ -279,8 +294,10 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         if extra_lines:
             injection = "\n".join(extra_lines)
             # 独立 SystemMessage，避免 Prompt Bloat（不再 append 到主 system prompt）
-            lc_msgs.insert(1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
-                           SystemMessage(content=f"[角色与工具]\n{injection}"))
+            lc_msgs.insert(
+                1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
+                SystemMessage(content=f"[角色与工具]\n{injection}"),
+            )
 
         # ── CoT 推理框架: 仅 COMPLEX/CRITICAL 注入，降低简单查询延迟 ──
         if complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL):
@@ -307,6 +324,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             # Try dynamic few-shot: retrieve golden_example from conversation_memories
             try:
                 from app.core.database import supabase as _mem_db
+
                 if _mem_db and agent_config.user_id:
                     golden_res = (
                         await _mem_db.table("conversation_memories")
@@ -320,6 +338,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                     )
                     if golden_res.data:
                         from app.services.conversation_memory.storage import decrypt_memory_value
+
                         ex_parts = [decrypt_memory_value(r["value"]) for r in golden_res.data]
                         few_shot = "【历史优秀对话参考】\n" + "\n---\n".join(ex_parts)
             except Exception:
@@ -330,14 +349,16 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                 few_shot = get_few_shot_examples(scene_code, intent_summary)
 
             if few_shot:
-                lc_msgs.insert(2 if len(lc_msgs) > 1 else len(lc_msgs),
-                               SystemMessage(content=f"[参考示例]\n{few_shot}"))
+                lc_msgs.insert(
+                    2 if len(lc_msgs) > 1 else len(lc_msgs), SystemMessage(content=f"[参考示例]\n{few_shot}")
+                )
         except Exception:
             pass  # Few-shot injection is optional, never block planning
 
         # #13: Role-specific few-shot examples from RoleConfig
         try:
             from app.agent.roles.registry import get_role_config_sync
+
             _agent_code = agent_config.agent_code or "director_agent"
             _role = get_role_config_sync(_agent_code)
             if _role.few_shot_examples:
@@ -361,12 +382,14 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                 f"请根据以上指令调整你的回复策略。当前是第{iteration + 1}轮规划。"
             )
             # 独立 SystemMessage，紧接在主 system prompt 之后
-            lc_msgs.insert(1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0,
-                           SystemMessage(content=guidance_content))
+            lc_msgs.insert(
+                1 if lc_msgs and isinstance(lc_msgs[0], SystemMessage) else 0, SystemMessage(content=guidance_content)
+            )
 
         # Inject current task board state so AI doesn't drift across iterations
         try:
             from app.core.database import supabase as _db
+
             _session_id = agent_config.session_id or "default"
             _tasks_res = (
                 await _db.table("agent_tasks")
@@ -472,7 +495,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
 
     if _decomp_done and _task_steps and _active_idx < len(_task_steps):
         current_step = _task_steps[_active_idx]
-        criteria = current_step.get('acceptance_criteria', '')
+        criteria = current_step.get("acceptance_criteria", "")
         criteria_line = f"\n验收标准: {criteria}\n请确保满足验收标准后再结束此步骤。" if criteria else ""
         step_instruction = (
             f"[当前执行步骤 {_active_idx + 1}/{len(_task_steps)}]\n"
@@ -487,11 +510,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         )
 
     # P1: On first iteration for COMPLEX+ queries, request task decomposition
-    if (
-        iteration == 0
-        and not _decomp_done
-        and complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL)
-    ):
+    if iteration == 0 and not _decomp_done and complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL):
         decomp_hint = (
             "\n\n[任务分解指令] 如果此任务涉及多个独立步骤（如先查询再分析再生成），"
             "请在回复开头用以下JSON格式输出任务分解（用```json包裹）：\n"
@@ -502,6 +521,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         # Append to last user message context
         if lc_msgs and hasattr(lc_msgs[-1], "content"):
             from langchain_core.messages import HumanMessage as _HM
+
             if isinstance(lc_msgs[-1], _HM):
                 lc_msgs[-1] = _HM(content=lc_msgs[-1].content + decomp_hint)
 
@@ -524,7 +544,8 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         # SIMPLE queries: only bind lightweight universal tools (web_search, llm_task)
         # so LLM can still search the web for "推荐电影" etc., without loading 130+ business tools
         simple_schemas = [
-            s for s in _get_tool_schemas(agent_config.user_role, scene_code=state.get("scene_code"))
+            s
+            for s in _get_tool_schemas(agent_config.user_role, scene_code=state.get("scene_code"))
             if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS
         ]
         if simple_schemas:
@@ -545,20 +566,28 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         ):
             bind_kwargs["tool_choice"] = "required"
         llm = llm.bind_tools(
-            _get_tool_schemas(agent_config.user_role, intent_summary=intent_summary, scene_code=state.get("scene_code"), intent_domains=state.get("intent_domains")),
+            _get_tool_schemas(
+                agent_config.user_role,
+                intent_summary=intent_summary,
+                scene_code=state.get("scene_code"),
+                intent_domains=state.get("intent_domains"),
+            ),
             **bind_kwargs,
         )
 
     # ── Explainability: log tool binding decision ──
     _configurable_early = (config or {}).get("configurable", {}) if isinstance(config, dict) else {}
     _trace_id = _configurable_early.get("trace_id")
-    _tool_choice_mode = bind_kwargs.get("tool_choice", "auto") if complexity != QueryComplexity.SIMPLE else "simple_only"
+    _tool_choice_mode = (
+        bind_kwargs.get("tool_choice", "auto") if complexity != QueryComplexity.SIMPLE else "simple_only"
+    )
     _log_decision(
         _trace_id,
         step_id=f"plan_tool_binding_iter{iteration}",
         decision=f"tool_choice={_tool_choice_mode}, complexity={complexity.value}",
         reasoning=(
-            "SIMPLE查询仅绑定轻量工具" if complexity == QueryComplexity.SIMPLE
+            "SIMPLE查询仅绑定轻量工具"
+            if complexity == QueryComplexity.SIMPLE
             else f"绑定完整工具集, tool_choice={'required(反思强制)' if bind_kwargs.get('tool_choice') == 'required' else 'auto'}"
         ),
         alternatives=["bind_no_tools", "bind_simple_only", "bind_all_tools"],
@@ -598,11 +627,17 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     _llm_start = time.time()
     if complexity == QueryComplexity.SIMPLE:
         tool_schemas = [
-            s for s in _get_tool_schemas(agent_config.user_role, scene_code=state.get("scene_code"))
+            s
+            for s in _get_tool_schemas(agent_config.user_role, scene_code=state.get("scene_code"))
             if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS
         ] or None
     else:
-        tool_schemas = _get_tool_schemas(agent_config.user_role, intent_summary=state.get("intent_summary", ""), scene_code=state.get("scene_code"), intent_domains=state.get("intent_domains"))
+        tool_schemas = _get_tool_schemas(
+            agent_config.user_role,
+            intent_summary=state.get("intent_summary", ""),
+            scene_code=state.get("scene_code"),
+            intent_domains=state.get("intent_domains"),
+        )
     _sc_succeeded = False
     sc_candidates = []
     _sc_best_score = 1.0
@@ -610,7 +645,11 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     # ── CRITICAL Self-Consistency: 多次采样投票（仅首轮） ──
     if complexity == QueryComplexity.CRITICAL and iteration == 0:
         sc_result, sc_candidates = await _plan_with_self_consistency(
-            lc_msgs, agent_config, model, tool_schemas, resolved_config=resolved,
+            lc_msgs,
+            agent_config,
+            model,
+            tool_schemas,
+            resolved_config=resolved,
         )
         if sc_result is not None:
             ai_msg = sc_result
@@ -679,13 +718,19 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     logger.info(
         "[PlanNode] LLM response: requested=%s actual=%s finish=%s content_len=%d "
         "tool_calls=%d in_tok=%d out_tok=%d",
-        requested_model, actual_api_model or "?", finish_reason, content_len,
-        tool_call_count, input_tokens, output_tokens,
+        requested_model,
+        actual_api_model or "?",
+        finish_reason,
+        content_len,
+        tool_call_count,
+        input_tokens,
+        output_tokens,
     )
     if actual_api_model and actual_api_model != requested_model and requested_model not in actual_api_model:
         logger.warning(
             "[PlanNode] MODEL MISMATCH: requested '%s' but API returned '%s' — provider may have downgraded",
-            requested_model, actual_api_model,
+            requested_model,
+            actual_api_model,
         )
 
     # Langfuse: log LLM generation
@@ -728,6 +773,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         )
         try:
             from app.agent.node_helpers import _get_fallback_llm
+
             fallback_llm = _get_fallback_llm(agent_config, model=model, streaming=True)
             if fallback_llm:
                 if tool_schemas:
@@ -837,7 +883,9 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                                     logger.warning(
                                         "[PlanNode] Skipping split tool '%s': "
                                         "required args %s not found in available %s",
-                                        ename, required, set(tc_args.keys()),
+                                        ename,
+                                        required,
+                                        set(tc_args.keys()),
                                     )
                             else:
                                 logger.warning(
@@ -851,6 +899,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             if tool_obj and tool_obj.parameters and tc_args:
                 try:
                     import jsonschema
+
                     jsonschema.validate(instance=tc_args, schema=tool_obj.parameters)
                 except Exception as ve:
                     error_msg = _format_validation_error(tc_name, ve, tool_obj.parameters)
@@ -917,6 +966,7 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
     ):
         import json as _json
         import re as _re
+
         json_match = _re.search(r"```json\s*(\{.*?\"task_steps\".*?\})\s*```", content, _re.DOTALL)
         if json_match:
             try:
@@ -925,9 +975,11 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
                 if isinstance(steps, list) and 2 <= len(steps) <= 8:
                     _new_task_steps = steps
                     # Remove the JSON block from content so it doesn't appear in the response
-                    content = content[:json_match.start()] + content[json_match.end():]
+                    content = content[: json_match.start()] + content[json_match.end() :]
                     content = content.strip()
-                    logger.info(f"[PlanNode] Task decomposed into {len(steps)} steps: {[s.get('title') for s in steps]}")
+                    logger.info(
+                        f"[PlanNode] Task decomposed into {len(steps)} steps: {[s.get('title') for s in steps]}"
+                    )
             except (_json.JSONDecodeError, KeyError):
                 pass  # Not valid JSON, ignore
 
@@ -950,7 +1002,8 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
         step_id=f"plan_outcome_iter{iteration}",
         decision=f"tools={[t.tool_name for t in pending_tools]}" if pending_tools else "direct_response",
         reasoning=(
-            f"LLM规划了{len(pending_tools)}个工具调用" if pending_tools
+            f"LLM规划了{len(pending_tools)}个工具调用"
+            if pending_tools
             else f"LLM直接回复(无工具), 内容长度={len(content)}"
         ),
     )

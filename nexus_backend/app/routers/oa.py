@@ -31,13 +31,16 @@ class MeetingBookingCreate(BaseModel):
 async def get_today_attendance(req: Request, user_id: str = Depends(get_current_user_id)):
     """获取今日打卡记录"""
     from datetime import date
+
     db = getattr(req.state, "db", None)
     if not db:
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
 
     today = date.today().isoformat()
     try:
-        result = await db.table("attendance_records").select("*").eq("user_id", user_id).eq("check_date", today).execute()
+        result = (
+            await db.table("attendance_records").select("*").eq("user_id", user_id).eq("check_date", today).execute()
+        )
         return api_success(data={"records": result.data or []})
     except Exception as e:
         logger.error(f"Failed to fetch today's attendance: {e}")
@@ -48,6 +51,7 @@ async def get_today_attendance(req: Request, user_id: str = Depends(get_current_
 async def clock_attendance(req: Request, user_id: str = Depends(get_current_user_id)):
     """打卡（上班/下班/外勤）"""
     from datetime import date, datetime
+
     db = getattr(req.state, "db", None)
     if not db:
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
@@ -63,7 +67,14 @@ async def clock_attendance(req: Request, user_id: str = Depends(get_current_user
         now_time = datetime.now().isoformat()
 
         # Fix #1: Correct method name 'maybe_single()'
-        existing = await db.table("attendance_records").select("id, check_in_time").eq("user_id", user_id).eq("check_date", today).maybe_single().execute()
+        existing = (
+            await db.table("attendance_records")
+            .select("id, check_in_time")
+            .eq("user_id", user_id)
+            .eq("check_date", today)
+            .maybe_single()
+            .execute()
+        )
 
         if existing.data:
             updates = {}
@@ -77,12 +88,7 @@ async def clock_attendance(req: Request, user_id: str = Depends(get_current_user
                     updates["check_in_time"] = now_time
             await db.table("attendance_records").update(updates).eq("id", existing.data["id"]).execute()
         else:
-            record = {
-                "user_id": user_id,
-                "organization_id": org_id,
-                "platform": "wecom",
-                "check_date": today
-            }
+            record = {"user_id": user_id, "organization_id": org_id, "platform": "wecom", "check_date": today}
             if clock_type == "clock_in":
                 record["check_in_time"] = now_time
             elif clock_type == "clock_out":

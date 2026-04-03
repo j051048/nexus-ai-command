@@ -46,9 +46,7 @@ async def _get_thresholds(org_id: str | None = None) -> dict:
     try:
         from app.services.system_config_service import system_config_service
 
-        config = await system_config_service.get_config(
-            config_type="event_sensor_thresholds", org_id=org_id
-        )
+        config = await system_config_service.get_config(config_type="event_sensor_thresholds", org_id=org_id)
         if config and config.get("value"):
             merged = dict(_DEFAULT_THRESHOLDS)
             merged.update(config["value"])
@@ -469,8 +467,12 @@ def sensor_approval_backlog():
                 continue
 
             # Build summary
-            low_amount = [i for i in items if float(i.get("amount", 0) or 0) < thresholds["approval_backlog_amount_threshold"]]
-            high_amount = [i for i in items if float(i.get("amount", 0) or 0) >= thresholds["approval_backlog_amount_threshold"]]
+            low_amount = [
+                i for i in items if float(i.get("amount", 0) or 0) < thresholds["approval_backlog_amount_threshold"]
+            ]
+            high_amount = [
+                i for i in items if float(i.get("amount", 0) or 0) >= thresholds["approval_backlog_amount_threshold"]
+            ]
 
             summary_parts = [f"您有 {len(items)} 条待审批事项积压"]
             if low_amount:

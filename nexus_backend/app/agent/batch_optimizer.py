@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 BATCH_TOOLS = {
     "get_customer": "get_customers_batch",
     "get_contract": "get_contracts_batch",
-    "get_sales_lead": "get_sales_leads_batch"
+    "get_sales_lead": "get_sales_leads_batch",
 }
 
 
@@ -36,14 +36,12 @@ class BatchOptimizer:
         batch_tool = BATCH_TOOLS[tool_name]
 
         # 提取所有 ID
-        ids = [call["args"].get("id") if call["args"].get("id") is not None
-               else call["args"].get("customer_id")
-               for call in tool_calls]
+        ids = [
+            call["args"].get("id") if call["args"].get("id") is not None else call["args"].get("customer_id")
+            for call in tool_calls
+        ]
 
-        return {
-            "tool": batch_tool,
-            "args": {"ids": ids}
-        }
+        return {"tool": batch_tool, "args": {"ids": ids}}
 
     async def optimize(self, tool_calls: list[dict]) -> list[dict]:
         """优化工具调用列表"""

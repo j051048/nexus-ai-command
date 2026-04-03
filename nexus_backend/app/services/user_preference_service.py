@@ -51,9 +51,7 @@ class UserPreferenceService:
     """追踪用户对主动消息的反馈，学习偏好"""
 
     # ── record_feedback ─────────────────────────────────────
-    async def record_feedback(
-        self, user_id: str, notification_type: str, action: str
-    ) -> None:
+    async def record_feedback(self, user_id: str, notification_type: str, action: str) -> None:
         """记录用户对通知的反馈
         action: clicked | dismissed | ignored | muted
         """
@@ -77,9 +75,7 @@ class UserPreferenceService:
         _cache_delete_prefix(f"pref:{user_id}")
 
     # ── should_notify ───────────────────────────────────────
-    async def should_notify(
-        self, user_id: str, notification_type: str
-    ) -> bool:
+    async def should_notify(self, user_id: str, notification_type: str) -> bool:
         """判断是否应该向该用户发送该类型的通知"""
         settings = await self._load_settings(user_id)
 
@@ -145,9 +141,7 @@ class UserPreferenceService:
         from app.core.database import supabase
 
         row = {"user_id": user_id, **updates, "updated_at": "now()"}
-        supabase.table("user_preference_settings").upsert(
-            row, on_conflict="user_id"
-        ).execute()
+        supabase.table("user_preference_settings").upsert(row, on_conflict="user_id").execute()
 
     async def _load_settings(self, user_id: str) -> dict:
         cache_key = f"pref:{user_id}:settings"
@@ -157,19 +151,12 @@ class UserPreferenceService:
 
         from app.core.database import supabase
 
-        resp = (
-            supabase.table("user_preference_settings")
-            .select("*")
-            .eq("user_id", user_id)
-            .execute()
-        )
+        resp = supabase.table("user_preference_settings").select("*").eq("user_id", user_id).execute()
         settings = resp.data[0] if resp.data else dict(_DEFAULTS)
         _cache_set(cache_key, settings)
         return settings
 
-    async def _get_today_count(
-        self, user_id: str, notification_type: str
-    ) -> int:
+    async def _get_today_count(self, user_id: str, notification_type: str) -> int:
         cache_key = f"pref:{user_id}:today:{notification_type}"
         cached = _cache_get(cache_key)
         if cached is not None:
@@ -190,9 +177,7 @@ class UserPreferenceService:
         _cache_set(cache_key, count, ttl=60)  # 1 分钟缓存
         return count
 
-    async def _get_accept_rate(
-        self, user_id: str, notification_type: str
-    ) -> float:
+    async def _get_accept_rate(self, user_id: str, notification_type: str) -> float:
         cache_key = f"pref:{user_id}:rate:{notification_type}"
         cached = _cache_get(cache_key)
         if cached is not None:

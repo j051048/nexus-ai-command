@@ -26,6 +26,7 @@ try:
 
         async def _run():
             from app.tools import get_tool
+
             tool = get_tool(tool_name)
             if not tool:
                 return f"工具 {tool_name} 不存在"

@@ -45,8 +45,14 @@ class ProcessOnboardingTool(BaseTool):
     )
     domain = "admin"
     examples = [
-                {"input": {"name": "[员工姓名]", "department_id": "[ID]"}, "output_summary": "触发自动化流程，返回各步骤执行结果"},
-                {"input": {"name": "[姓名]", "department_id": "[ID]", "asset_type": "laptop"}, "output_summary": "自动化流程并分配资产"},
+        {
+            "input": {"name": "[员工姓名]", "department_id": "[ID]"},
+            "output_summary": "触发自动化流程，返回各步骤执行结果",
+        },
+        {
+            "input": {"name": "[姓名]", "department_id": "[ID]", "asset_type": "laptop"},
+            "output_summary": "自动化流程并分配资产",
+        },
     ]
     related_tools = ["process_resignation", "onboarding_assistant", "process_asset_lifecycle"]
     gotchas = "不可逆操作，需确认后执行。无闲置设备时会跳过分配步骤而非失败。默认分配类型为电脑。"
@@ -322,12 +328,26 @@ class ProcessAssetLifecycleTool(BaseTool):
     )
     domain = "admin"
     examples = [
-        {"input": {"action": "batch_create", "assets_data": [{"asset_code": "PC001", "name": "台式电脑", "asset_type": "computer"}]}, "output_summary": "批量创建资产记录，状态默认为闲置"},
-        {"input": {"action": "batch_allocate", "asset_ids": ["uuid1", "uuid2"], "to_user_id": "uuid"}, "output_summary": "将指定资产分配给目标员工并记录转移"},
-        {"input": {"action": "batch_scrap", "asset_ids": ["uuid1"], "reason": "已过保"}, "output_summary": "报废指定资产并触发库存检查事件"},
+        {
+            "input": {
+                "action": "batch_create",
+                "assets_data": [{"asset_code": "PC001", "name": "台式电脑", "asset_type": "computer"}],
+            },
+            "output_summary": "批量创建资产记录，状态默认为闲置",
+        },
+        {
+            "input": {"action": "batch_allocate", "asset_ids": ["uuid1", "uuid2"], "to_user_id": "uuid"},
+            "output_summary": "将指定资产分配给目标员工并记录转移",
+        },
+        {
+            "input": {"action": "batch_scrap", "asset_ids": ["uuid1"], "reason": "已过保"},
+            "output_summary": "报废指定资产并触发库存检查事件",
+        },
     ]
     related_tools = ["process_onboarding", "process_resignation", "predictive_maintenance"]
-    gotchas = "不可逆操作，需确认后执行。批量分配需同时提供资产列表和目标员工。批量入库时每项数据需包含资产编码、名称、类型。"
+    gotchas = (
+        "不可逆操作，需确认后执行。批量分配需同时提供资产列表和目标员工。批量入库时每项数据需包含资产编码、名称、类型。"
+    )
     required_role = "admin"
     is_irreversible = True
     confirmation_message = "⚠️ 即将执行批量资产操作，确认继续？"

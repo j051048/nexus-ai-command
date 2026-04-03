@@ -53,9 +53,9 @@ _TOKEN_SAFETY_MARGIN = 1.2
 MICRO_COMPACT_PRESERVE_RECENT = 3  # keep last 3 user-assistant pairs intact
 
 # Per-message content thresholds (characters)
-_TOOL_RESULT_TRUNCATE_THRESHOLD = 2000   # single tool_result max chars
-_CODE_BLOCK_TRUNCATE_THRESHOLD = 1500    # code block max chars
-_ASSISTANT_MSG_TRUNCATE_THRESHOLD = 3000 # assistant message max chars
+_TOOL_RESULT_TRUNCATE_THRESHOLD = 2000  # single tool_result max chars
+_CODE_BLOCK_TRUNCATE_THRESHOLD = 1500  # code block max chars
+_ASSISTANT_MSG_TRUNCATE_THRESHOLD = 3000  # assistant message max chars
 
 # Regex patterns for micro-compaction
 _CODE_BLOCK_RE = re.compile(r"```(\w*)\n(.*?)```", re.DOTALL)
@@ -95,6 +95,7 @@ def _compact_tool_result(content: str) -> str:
 
 def _compact_code_blocks(content: str) -> str:
     """Replace large code blocks with compact placeholders."""
+
     def _replacer(match):
         lang = match.group(1) or "code"
         code = match.group(2)
@@ -106,6 +107,7 @@ def _compact_code_blocks(content: str) -> str:
         preview = "\n".join(code_lines[:3])
         tail = "\n".join(code_lines[-2:])
         return f"```{lang}\n{preview}\n... ({line_count} 行, 已省略中间部分) ...\n{tail}\n```"
+
     return _CODE_BLOCK_RE.sub(_replacer, content)
 
 
@@ -120,11 +122,7 @@ def _compact_long_assistant_msg(content: str) -> str:
     # Still too long — hard truncate with head + tail
     head_size = _ASSISTANT_MSG_TRUNCATE_THRESHOLD * 2 // 3
     tail_size = _ASSISTANT_MSG_TRUNCATE_THRESHOLD // 3
-    return (
-        content[:head_size]
-        + f"\n\n... (原文 {len(content)} 字符, 已省略中间部分) ...\n\n"
-        + content[-tail_size:]
-    )
+    return content[:head_size] + f"\n\n... (原文 {len(content)} 字符, 已省略中间部分) ...\n\n" + content[-tail_size:]
 
 
 def micro_compact_messages(messages: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -202,6 +200,7 @@ def _strip_reasoning_from_history(content: str) -> str:
     cleaned = cleaned.replace("<think>", "").replace("</think>", "")
     return cleaned.lstrip("\n")
 
+
 # Default context window sizes per model family (in tokens)
 _MODEL_CONTEXT_WINDOWS = {
     "gpt-4o": 128000,
@@ -245,6 +244,7 @@ async def decompress_message_embedding(msg: dict) -> dict:
     if "embedding_quantized" in msg and "embedding" not in msg:
         try:
             from app.services.vector_service import VectorService
+
             msg["embedding"] = VectorService.dequantize_embedding(msg["embedding_quantized"])
         except Exception as e:
             logger.error(f"Decompression failed: {e}")
@@ -407,6 +407,7 @@ async def prepare_initial_state(
             complexity = state.get("complexity") if state else None
             if not getattr(config, "_query_transform_override", False) and complexity:
                 from app.agent.node_helpers import QueryComplexity
+
                 if complexity == QueryComplexity.CRITICAL:
                     use_hyde = True
                     use_multi_query = True
@@ -417,9 +418,13 @@ async def prepare_initial_state(
             # ── 上下文感知 Query Rewriting（COMPLEX/CRITICAL + 含代词） ──
             _pronoun_hints = ("那个", "这个", "上次", "之前", "它", "他们", "她")
             _needs_rewrite = (
-                complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL)
-                and (len(last_user_msg) >= 10 or any(p in last_user_msg for p in _pronoun_hints))
-            ) if complexity else False
+                (
+                    complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL)
+                    and (len(last_user_msg) >= 10 or any(p in last_user_msg for p in _pronoun_hints))
+                )
+                if complexity
+                else False
+            )
             if _needs_rewrite:
                 try:
                     rewritten = await transformer.rewrite_query(last_user_msg, messages=raw_messages)
@@ -488,7 +493,10 @@ async def prepare_initial_state(
                         unique_docs.append(doc)
 
                 # LLM Reranking: MODERATE+ 查询用 mini_model 重排
-                if complexity in (QueryComplexity.MODERATE, QueryComplexity.COMPLEX, QueryComplexity.CRITICAL) and len(unique_docs) > 3:
+                if (
+                    complexity in (QueryComplexity.MODERATE, QueryComplexity.COMPLEX, QueryComplexity.CRITICAL)
+                    and len(unique_docs) > 3
+                ):
                     try:
                         rerank_top_k = 3 if complexity == QueryComplexity.MODERATE else 5
                         unique_docs = await _llm_rerank(last_user_msg, unique_docs, config, top_k=rerank_top_k)
@@ -497,7 +505,7 @@ async def prepare_initial_state(
                         logger.debug(f"[Memory] LLM rerank skipped: {e}")
 
                 # Limit per-snippet and total context length (OpenClaw-inspired)
-                max_snippet_chars = 700   # Per-document snippet limit
+                max_snippet_chars = 700  # Per-document snippet limit
                 max_injected_chars = 4000  # Total injection budget
                 context_parts = []
                 current_length = 0
@@ -532,16 +540,24 @@ async def prepare_initial_state(
     if config.user_id:
         try:
             parts: list[str] = []
-            user_res = await client.table("users").select(
-                "name, role, department"
-            ).eq("id", config.user_id).maybe_single().execute()
+            user_res = (
+                await client.table("users")
+                .select("name, role, department")
+                .eq("id", config.user_id)
+                .maybe_single()
+                .execute()
+            )
 
             dept_name = None
             if config.org_id:
                 try:
-                    emp_res = await client.table("users").select(
-                        "department"
-                    ).eq("id", config.user_id).maybe_single().execute()
+                    emp_res = (
+                        await client.table("users")
+                        .select("department")
+                        .eq("id", config.user_id)
+                        .maybe_single()
+                        .execute()
+                    )
                     if emp_res.data:
                         dept_name = emp_res.data.get("department")
                 except Exception:
@@ -567,11 +583,17 @@ async def prepare_initial_state(
     # where it is in a multi-step workflow, even after context compression.
     if config.user_id and config.session_id:
         try:
-            task_res = await client.table("agent_tasks").select(
-                "id, title, status, depends_on"
-            ).eq("user_id", config.user_id).eq(
-                "conversation_id", config.session_id
-            ).neq("status", "done").order("sort_order").order("created_at").limit(10).execute()
+            task_res = (
+                await client.table("agent_tasks")
+                .select("id, title, status, depends_on")
+                .eq("user_id", config.user_id)
+                .eq("conversation_id", config.session_id)
+                .neq("status", "done")
+                .order("sort_order")
+                .order("created_at")
+                .limit(10)
+                .execute()
+            )
 
             active_tasks = task_res.data or []
             if active_tasks:
@@ -581,9 +603,7 @@ async def prepare_initial_state(
                     icon = status_icons.get(t["status"], "❓")
                     task_lines.append(f"{icon} [{t['id'][:8]}] {t['title']}")
                 task_board = "\n".join(task_lines)
-                injected_contexts.append(
-                    f"[当前任务板 — {len(active_tasks)} 个待办]\n{task_board}\n[任务板结束]"
-                )
+                injected_contexts.append(f"[当前任务板 — {len(active_tasks)} 个待办]\n{task_board}\n[任务板结束]")
                 logger.info(f"[Memory] Injected {len(active_tasks)} active tasks into context")
         except Exception as e:
             logger.debug(f"[Memory] Task board injection skipped: {e}")
@@ -597,6 +617,7 @@ async def prepare_initial_state(
                 return None
             try:
                 from app.services.conversation_memory_service import conversation_memory_service
+
                 ctx = await conversation_memory_service.build_memory_context(
                     user_id=config.user_id,
                     current_query=last_user_msg,
@@ -616,8 +637,11 @@ async def prepare_initial_state(
                 return None
             try:
                 from app.services.conversation_memory_service import conversation_memory_service
+
                 ctx = await conversation_memory_service.build_org_memory_context(
-                    org_id=config.org_id, query=last_user_msg, db=client,
+                    org_id=config.org_id,
+                    query=last_user_msg,
+                    db=client,
                 )
                 if ctx:
                     logger.info(f"[Memory] Collected org memory context for org {config.org_id}")
@@ -634,8 +658,11 @@ async def prepare_initial_state(
             try:
                 # Primary: use new hybrid search (FTS + ILIKE + RRF)
                 from app.services.conversation_memory.graph_extraction import search_kg_hybrid
+
                 triples = await search_kg_hybrid(
-                    org_id=config.org_id, query=last_user_msg, limit=10,
+                    org_id=config.org_id,
+                    query=last_user_msg,
+                    limit=10,
                 )
                 parts: list[str] = []
                 if triples:
@@ -647,6 +674,7 @@ async def prepare_initial_state(
 
                 # Supplement: legacy entity_relations graph
                 from app.services.knowledge_graph_service import query_entity_context
+
                 legacy_ctx = await query_entity_context(query=last_user_msg, org_id=config.org_id)
                 if legacy_ctx:
                     parts.append(legacy_ctx)
@@ -666,8 +694,11 @@ async def prepare_initial_state(
                 return None
             try:
                 from app.services.knowledge_graph_service import get_pattern_suggestions
+
                 ctx = await get_pattern_suggestions(
-                    user_id=config.user_id, org_id=config.org_id, current_query=last_user_msg,
+                    user_id=config.user_id,
+                    org_id=config.org_id,
+                    current_query=last_user_msg,
                 )
                 if ctx:
                     logger.info(f"[Memory] Collected pattern suggestions for user {config.user_id}")
@@ -682,9 +713,13 @@ async def prepare_initial_state(
                 return None
             try:
                 from app.services.conversation_memory_service import episodic_memory_service
+
                 episodes = await episodic_memory_service.search_similar_episodes(
-                    user_id=config.user_id, query=last_user_msg, limit=3,
-                    org_id=config.org_id, db=client,
+                    user_id=config.user_id,
+                    query=last_user_msg,
+                    limit=3,
+                    org_id=config.org_id,
+                    db=client,
                 )
                 if episodes:
                     ctx = episodic_memory_service.build_episode_context(episodes)
@@ -742,14 +777,17 @@ async def prepare_initial_state(
         # Unified token budget: cap injected context to avoid unbounded growth
         # Mirrors ContextEngine._MAX_BUDGET to keep total context predictable.
         from app.services.token_service import token_counter
+
         _INJECT_BUDGET = 6000  # tokens — aligned with ContextEngine budget range
         budgeted: list[str] = []
         running_tokens = 0
         for block in injected_contexts:
             block_tokens = token_counter.count_tokens(block)
             if running_tokens + block_tokens > _INJECT_BUDGET and budgeted:
-                logger.info(f"[Memory] Context budget reached ({running_tokens}/{_INJECT_BUDGET}), "
-                            f"dropping {len(injected_contexts) - len(budgeted)} remaining blocks")
+                logger.info(
+                    f"[Memory] Context budget reached ({running_tokens}/{_INJECT_BUDGET}), "
+                    f"dropping {len(injected_contexts) - len(budgeted)} remaining blocks"
+                )
                 break
             budgeted.append(block)
             running_tokens += block_tokens
@@ -771,10 +809,7 @@ async def prepare_initial_state(
             from app.services.conversation_memory_service import conversation_memory_service
 
             older_msgs = raw_messages[:-SHORT_TERM_WINDOW]
-            user_msgs_to_flush = [
-                m for m in older_msgs
-                if m.get("role") == "user" and m.get("content")
-            ]
+            user_msgs_to_flush = [m for m in older_msgs if m.get("role") == "user" and m.get("content")]
             if user_msgs_to_flush:
                 extracted = await conversation_memory_service.extract_preferences(
                     user_id=config.user_id,
@@ -803,8 +838,7 @@ async def prepare_initial_state(
         non_system = [m for m in raw_messages if m.get("role") != "system"]
         raw_messages = system_msgs + non_system[-HARD_TURN_LIMIT:]
         logger.info(
-            f"[Memory] Hard-limited to {HARD_TURN_LIMIT} non-system messages "
-            f"+ {len(system_msgs)} system messages"
+            f"[Memory] Hard-limited to {HARD_TURN_LIMIT} non-system messages " f"+ {len(system_msgs)} system messages"
         )
 
     # ── 3b. Sliding Window with Summary ──
@@ -867,6 +901,7 @@ async def prepare_initial_state(
                 import json as _json
 
                 from app.services.conversation_memory import conversation_memory_service
+
                 _t = asyncio.create_task(
                     conversation_memory_service.save_memory(
                         user_id=config.user_id,
@@ -888,6 +923,7 @@ async def prepare_initial_state(
         tool_args = confirmed.get("args", {})
         if tool_name and tool_args:
             import json as _json
+
             args_str = _json.dumps(tool_args, ensure_ascii=False)
             lc_messages.append(
                 SystemMessage(
@@ -972,9 +1008,12 @@ async def persist_result(
 
     # Task: Semantic cache update
     if user_message and assistant_response and not skip_cache and not skip_semantic:
+
         async def _update_semantic_cache():
             from app.services.semantic_cache import semantic_cache_service
+
             await semantic_cache_service.set_cache(user_message, assistant_response, user_id)
+
         extraction_tasks.append(("semantic_cache", _update_semantic_cache()))
 
     # Task: Extract user-level long-term memories (with conflict resolution)
@@ -992,6 +1031,7 @@ async def persist_result(
 
         async def _extract_user_memories():
             from app.services.conversation_memory_service import conversation_memory_service
+
             messages_for_extraction = [
                 {"role": "user", "content": user_message},
             ]
@@ -1005,12 +1045,15 @@ async def persist_result(
             )
             if extracted:
                 logger.info(f"[Memory] Extracted {len(extracted)} long-term memories for user {user_id}")
+
         extraction_tasks.append(("user_memories", _extract_user_memories()))
 
     # Task: Extract organization-level memories
     if user_message and org_id and not skip_semantic:
+
         async def _extract_org_memories():
             from app.services.conversation_memory_service import conversation_memory_service
+
             org_extracted = await conversation_memory_service.extract_org_memories(
                 org_id=org_id,
                 user_id=user_id,
@@ -1020,12 +1063,15 @@ async def persist_result(
             )
             if org_extracted:
                 logger.info(f"[Memory] Extracted {len(org_extracted)} org memories for org {org_id} by user {user_id}")
+
         extraction_tasks.append(("org_memories", _extract_org_memories()))
 
     # Task: Extract entity relationships for knowledge graph
     if user_message and org_id and not skip_semantic:
+
         async def _extract_graph():
             from app.services.conversation_memory.graph_extraction import extract_graph_entities
+
             tool_output_list = []
             if completed_tool_calls:
                 tool_output_list = [
@@ -1044,12 +1090,15 @@ async def persist_result(
             )
             if entities:
                 logger.info(f"[Memory] Extracted {len(entities)} entity relations for org {org_id}")
+
         extraction_tasks.append(("graph_entities", _extract_graph()))
 
     # Task: Behavior pattern learning from tool usage
     if completed_tool_calls and org_id:
+
         async def _learn_patterns():
             from app.services.knowledge_graph_service import learn_tool_patterns
+
             patterns = await learn_tool_patterns(
                 user_id=user_id,
                 org_id=org_id,
@@ -1058,12 +1107,15 @@ async def persist_result(
             )
             if patterns:
                 logger.info(f"[Memory] Detected {len(patterns)} behavior patterns for org {org_id}")
+
         extraction_tasks.append(("tool_patterns", _learn_patterns()))
 
     # Task: Save interaction episode for experience recall
     if user_message and assistant_response and not skip_semantic:
+
         async def _save_episode():
             from app.services.conversation_memory_service import episodic_memory_service
+
             tools_used = []
             if completed_tool_calls:
                 tools_used = list({tc.get("tool_name", "") for tc in completed_tool_calls if tc.get("tool_name")})
@@ -1082,6 +1134,7 @@ async def persist_result(
                 org_id=org_id,
                 db=client,
             )
+
         extraction_tasks.append(("episode", _save_episode()))
 
     # Task: Save completed task summary as long-term memory (P1 memory fix)
@@ -1089,19 +1142,19 @@ async def persist_result(
     _has_tools = bool(completed_tool_calls and len(completed_tool_calls) > 0)
     _is_long_response = bool(assistant_response and len(assistant_response) > 300)
     if user_message and assistant_response and (_has_tools or _is_long_response) and not skip_semantic:
+
         async def _save_task_memory():
             from app.services.conversation_memory_service import conversation_memory_service
+
             # Build a concise task summary
             tool_names = []
             if completed_tool_calls:
                 tool_names = list({tc.get("tool_name", "") for tc in completed_tool_calls if tc.get("tool_name")})
             tool_part = f"（使用了工具: {', '.join(tool_names)}）" if tool_names else ""
             # Truncate for storage
-            task_summary = (
-                f"用户请求: {user_message[:200]}\n"
-                f"完成结果: {assistant_response[:300]}{tool_part}"
-            )
+            task_summary = f"用户请求: {user_message[:200]}\n" f"完成结果: {assistant_response[:300]}{tool_part}"
             import hashlib
+
             task_key = f"task_{hashlib.md5(user_message[:100].encode()).hexdigest()[:10]}"
             await conversation_memory_service.save_memory(
                 user_id=user_id,
@@ -1118,12 +1171,14 @@ async def persist_result(
                 },
             )
             logger.info(f"[Memory] Saved completed_task memory for user {user_id}: {task_key}")
+
         extraction_tasks.append(("task_memory", _save_task_memory()))
 
     # Generate/refresh user observation (throttle: skip if < 1 hour since last)
     async def _update_user_observation():
         try:
             from datetime import UTC, datetime, timedelta
+
             obs_check = await (
                 client.table("memory_consolidations")
                 .select("created_at")
@@ -1143,6 +1198,7 @@ async def persist_result(
                         return  # Throttled: too recent
 
             from app.services.conversation_memory.consolidation import generate_user_observation
+
             await generate_user_observation(user_id=user_id, org_id=org_id, db=client)
         except Exception as e:
             logger.error(f"[Memory] User observation generation failed: {e}")
@@ -1159,9 +1215,6 @@ async def persist_result(
         for name, result in zip(task_names, results, strict=False):
             if isinstance(result, Exception):
                 logger.error(f"[Memory] Parallel task '{name}' failed: {result}")
-
-
-
 
 
 # ─── Internal Helpers ────────────────────────────────────────────────────────

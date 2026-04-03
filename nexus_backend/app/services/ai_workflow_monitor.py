@@ -2,6 +2,7 @@
 
 Phase 2: 检测报销异常、频率异常、金额异常
 """
+
 import logging
 from datetime import datetime, timedelta
 
@@ -16,9 +17,14 @@ async def check_expense_anomaly(user_id: str, amount: float, expense_type: str, 
     try:
         # 获取用户近30天报销记录
         thirty_days_ago = datetime.now() - timedelta(days=30)
-        history = await supabase.table("approval_requests").select("*").eq(
-            "user_id", user_id
-        ).eq("type", "expense").gte("created_at", thirty_days_ago.isoformat()).execute()
+        history = (
+            await supabase.table("approval_requests")
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("type", "expense")
+            .gte("created_at", thirty_days_ago.isoformat())
+            .execute()
+        )
 
         records = history.data or []
         warnings = []
@@ -44,12 +50,7 @@ async def check_expense_anomaly(user_id: str, amount: float, expense_type: str, 
 请判断风险等级(低/中/高)并给出建议,限50字内。"""
 
             analysis = await llm.ainvoke(prompt)
-            return {
-                "has_anomaly": True,
-                "risk": "medium",
-                "warnings": warnings,
-                "suggestion": str(analysis)
-            }
+            return {"has_anomaly": True, "risk": "medium", "warnings": warnings, "suggestion": str(analysis)}
 
         return {"has_anomaly": False}
 

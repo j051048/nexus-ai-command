@@ -57,9 +57,7 @@ async def resolve_entity(
             return entity_name
 
         # Pre-filter with low embedding threshold, then composite scoring decides
-        candidates = await _find_similar_by_embedding(
-            org_id, embedding, EMBEDDING_PREFILTER_THRESHOLD, client
-        )
+        candidates = await _find_similar_by_embedding(org_id, embedding, EMBEDDING_PREFILTER_THRESHOLD, client)
         if candidates:
             best_score = 0.0
             best_candidate = None
@@ -68,7 +66,11 @@ async def resolve_entity(
                 if cand_name == entity_name:
                     continue
                 composite = await _composite_score(
-                    entity_name, cand_name, cand["similarity"], org_id, client,
+                    entity_name,
+                    cand_name,
+                    cand["similarity"],
+                    org_id,
+                    client,
                 )
                 if composite > best_score:
                     best_score = composite
@@ -76,12 +78,18 @@ async def resolve_entity(
 
             if best_candidate and best_score >= AUTO_MERGE_THRESHOLD:
                 await _register_alias(
-                    org_id, entity_name, best_candidate,
-                    entity_type, best_score, client,
+                    org_id,
+                    entity_name,
+                    best_candidate,
+                    entity_type,
+                    best_score,
+                    client,
                 )
                 logger.info(
                     "[EntityRes] Auto-merged '%s' -> '%s' (composite=%.3f)",
-                    entity_name, best_candidate, best_score,
+                    entity_name,
+                    best_candidate,
+                    best_score,
                 )
                 return best_candidate
     except Exception as e:
@@ -100,9 +108,7 @@ async def resolve_triple(
     Returns a new dict with resolved entity names.
     """
     resolved = dict(triple)
-    resolved["source"] = await resolve_entity(
-        org_id, triple["source"], triple.get("source_type", "concept"), db
-    )
+    resolved["source"] = await resolve_entity(org_id, triple["source"], triple.get("source_type", "concept"), db)
     resolved["destination"] = await resolve_entity(
         org_id, triple["destination"], triple.get("destination_type", "concept"), db
     )
@@ -116,6 +122,7 @@ async def get_entity_embedding(
     """Generate embedding for an entity name (for storage on triples)."""
     try:
         from .embedding import generate_embedding
+
         return await generate_embedding(entity_name, org_id)
     except Exception:
         return None
@@ -150,10 +157,7 @@ async def batch_merge_similar_entities(
             .execute()
         )
 
-        entities_to_embed = {
-            r["source_entity"]: r.get("source_type", "concept")
-            for r in (result.data or [])
-        }
+        entities_to_embed = {r["source_entity"]: r.get("source_type", "concept") for r in (result.data or [])}
 
         # Backfill embeddings
         for name, _etype in entities_to_embed.items():
@@ -173,10 +177,7 @@ async def batch_merge_similar_entities(
 
         # Now scan for similar pairs
         # Get all distinct entities with embeddings
-        all_entities = await (
-            client.rpc("get_distinct_kg_entities", {"p_org_id": org_id})
-            .execute()
-        )
+        all_entities = await client.rpc("get_distinct_kg_entities", {"p_org_id": org_id}).execute()
         # Fallback: if RPC doesn't exist, skip batch merge
         if not all_entities.data:
             return {"scanned": len(entities_to_embed), "merged": 0}
@@ -194,9 +195,7 @@ async def batch_merge_similar_entities(
             if not emb:
                 continue
 
-            similar = await _find_similar_by_embedding(
-                org_id, emb, threshold, client
-            )
+            similar = await _find_similar_by_embedding(org_id, emb, threshold, client)
 
             for match in similar:
                 match_name = match["entity_name"]
@@ -210,15 +209,17 @@ async def batch_merge_similar_entities(
 
                 # Three-signal composite scoring
                 composite = await _composite_score(
-                    name, match_name, match["similarity"], org_id, client,
+                    name,
+                    match_name,
+                    match["similarity"],
+                    org_id,
+                    client,
                 )
                 if composite < AUTO_MERGE_THRESHOLD:
                     continue
 
                 # Merge: keep the one with more occurrences as canonical
-                canonical, alias = await _pick_canonical(
-                    org_id, name, match_name, client
-                )
+                canonical, alias = await _pick_canonical(org_id, name, match_name, client)
                 await _merge_entities(org_id, canonical, alias, client)
                 merged += 1
 
@@ -228,7 +229,7 @@ async def batch_merge_similar_entities(
     if merged:
         logger.info(f"[EntityRes] Batch merge for org {org_id}: merged={merged}")
 
-    return {"scanned": len(entities_to_embed) if 'entities_to_embed' in dir() else 0, "merged": merged}
+    return {"scanned": len(entities_to_embed) if "entities_to_embed" in dir() else 0, "merged": merged}
 
 
 # ── Internal helpers ──
@@ -262,7 +263,10 @@ async def _composite_score(
 
 
 async def _cooccurrence_score(
-    name_a: str, name_b: str, org_id: str, db: Any,
+    name_a: str,
+    name_b: str,
+    org_id: str,
+    db: Any,
 ) -> float:
     """Count how many triples mention both entities. Returns min(count/3, 1.0)."""
     try:
@@ -296,7 +300,10 @@ async def _cooccurrence_score(
 
 
 async def _temporal_proximity(
-    name_a: str, name_b: str, org_id: str, db: Any,
+    name_a: str,
+    name_b: str,
+    org_id: str,
+    db: Any,
 ) -> float:
     """7-day decay: max(0, 1 - days_diff/7) between last occurrences."""
     try:

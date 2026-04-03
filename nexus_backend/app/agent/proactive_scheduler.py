@@ -40,15 +40,21 @@ class ProactiveScheduler:
             }
         """
         # 保存到数据库
-        result = await supabase.table("agent_scheduled_tasks").insert({
-            "name": task_config["name"],
-            "cron_expression": task_config["cron"],
-            "prompt_template": task_config["prompt"],
-            "user_id": task_config["user_id"],
-            "org_id": task_config.get("org_id", "default"),
-            "enabled": task_config.get("enabled", True),
-            "created_at": datetime.utcnow().isoformat()
-        }).execute()
+        result = (
+            await supabase.table("agent_scheduled_tasks")
+            .insert(
+                {
+                    "name": task_config["name"],
+                    "cron_expression": task_config["cron"],
+                    "prompt_template": task_config["prompt"],
+                    "user_id": task_config["user_id"],
+                    "org_id": task_config.get("org_id", "default"),
+                    "enabled": task_config.get("enabled", True),
+                    "created_at": datetime.utcnow().isoformat(),
+                }
+            )
+            .execute()
+        )
 
         task_id = result.data[0]["id"]
 
@@ -97,27 +103,31 @@ class ProactiveScheduler:
                 user_id=config["user_id"],
                 org_id=config.get("org_id", "default"),
                 message=config["prompt"],
-                session_id=f"scheduled_{task_id}"
+                session_id=f"scheduled_{task_id}",
             )
 
             # 记录执行历史
-            await supabase.table("agent_task_executions").insert({
-                "task_id": task_id,
-                "executed_at": datetime.utcnow().isoformat(),
-                "status": "success",
-                "result_summary": result.get("response", "")[:500]
-            }).execute()
+            await supabase.table("agent_task_executions").insert(
+                {
+                    "task_id": task_id,
+                    "executed_at": datetime.utcnow().isoformat(),
+                    "status": "success",
+                    "result_summary": result.get("response", "")[:500],
+                }
+            ).execute()
 
             logger.info(f"Scheduled task {task_id} executed successfully")
 
         except Exception as e:
             logger.error(f"Task execution failed: {e}")
-            await supabase.table("agent_task_executions").insert({
-                "task_id": task_id,
-                "executed_at": datetime.utcnow().isoformat(),
-                "status": "failed",
-                "error_message": str(e)
-            }).execute()
+            await supabase.table("agent_task_executions").insert(
+                {
+                    "task_id": task_id,
+                    "executed_at": datetime.utcnow().isoformat(),
+                    "status": "failed",
+                    "error_message": str(e),
+                }
+            ).execute()
 
     async def stop_task(self, task_id: str):
         """停止任务"""
@@ -127,18 +137,18 @@ class ProactiveScheduler:
 
     async def load_all_tasks(self):
         """启动时加载所有启用的任务"""
-        result = await supabase.table("agent_scheduled_tasks")\
-            .select("*")\
-            .eq("enabled", True)\
-            .execute()
+        result = await supabase.table("agent_scheduled_tasks").select("*").eq("enabled", True).execute()
 
         for task in result.data:
-            await self.start_task(task["id"], {
-                "cron": task["cron_expression"],
-                "prompt": task["prompt_template"],
-                "user_id": task["user_id"],
-                "org_id": task["org_id"]
-            })
+            await self.start_task(
+                task["id"],
+                {
+                    "cron": task["cron_expression"],
+                    "prompt": task["prompt_template"],
+                    "user_id": task["user_id"],
+                    "org_id": task["org_id"],
+                },
+            )
 
 
 # 全局实例

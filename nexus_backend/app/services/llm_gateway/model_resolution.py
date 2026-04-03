@@ -206,11 +206,7 @@ class ModelResolutionMixin:
 
                 # Fallback: org-level default (scene_code = '*')
                 if not rows:
-                    q = (
-                        supabase.table("llm_schedule_rule")
-                        .select("*")
-                        .in_("scene_code", ["*", ""])
-                    )
+                    q = supabase.table("llm_schedule_rule").select("*").in_("scene_code", ["*", ""])
                     q = q.eq("tenant_id", tid) if tid else q.is_("tenant_id", "null")
                     res = await q.execute()
                     rows = res.data or []
@@ -338,9 +334,7 @@ class ModelResolutionMixin:
         prompt and auto-upgrade to a larger model if available.
         """
         try:
-            estimated_tokens = token_counter.estimate_prompt_tokens(
-                system_prompt, messages, tools, config.model_code
-            )
+            estimated_tokens = token_counter.estimate_prompt_tokens(system_prompt, messages, tools, config.model_code)
             if estimated_tokens > config.context_window * 0.8:
                 larger = await self._find_larger_context_model(model_code, org_id, estimated_tokens)
                 if larger:

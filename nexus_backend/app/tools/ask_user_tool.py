@@ -18,6 +18,7 @@ class AskUserTool(BaseTool):
     当 Agent 需要用户提供额外信息或确认偏好时调用此工具。
     execute_node 会拦截此调用并转换为 SSE 事件发送到前端。
     """
+
     domain = "system"
     requires_org_id = False
 
@@ -28,8 +29,17 @@ class AskUserTool(BaseTool):
         "提供问题文本和可选的预设选项列表。"
     )
     examples = [
-        {"input": {"question": "您希望按哪个维度汇总销售数据？", "options": ["按月汇总", "按季度汇总", "按客户汇总"]}, "output_summary": "向用户展示选项列表并等待选择"},
-        {"input": {"question": "请确认您要删除的是哪个客户的记录？", "context": "搜索结果中有多个同名客户"}, "output_summary": "带上下文说明向用户提出澄清问题"},
+        {
+            "input": {
+                "question": "您希望按哪个维度汇总销售数据？",
+                "options": ["按月汇总", "按季度汇总", "按客户汇总"],
+            },
+            "output_summary": "向用户展示选项列表并等待选择",
+        },
+        {
+            "input": {"question": "请确认您要删除的是哪个客户的记录？", "context": "搜索结果中有多个同名客户"},
+            "output_summary": "带上下文说明向用户提出澄清问题",
+        },
     ]
     related_tools = ["save_memory"]
     gotchas = "此工具为伪工具，不会真正执行，由前端拦截处理；不要在用户意图明确时滥用此工具。"
@@ -64,7 +74,11 @@ class AskUserTool(BaseTool):
                         },
                         "required": {"type": "boolean", "description": "是否必填"},
                         "default_value": {"type": "string", "description": "AI预填的默认值"},
-                        "options": {"type": "array", "items": {"type": "string"}, "description": "select类型的选项列表"},
+                        "options": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "select类型的选项列表",
+                        },
                         "placeholder": {"type": "string", "description": "占位提示文本"},
                         "step": {"type": "integer", "description": "多步骤表单的步骤号(从1开始)"},
                     },

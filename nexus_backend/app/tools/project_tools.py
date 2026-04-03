@@ -45,7 +45,10 @@ class CreateProjectTool(BaseTool):
     description = "创建新项目立项记录，设置名称、描述和初始状态。当用户说'帮我新建一个项目'时调用。"
     examples = [
         {"input": {"name": "智慧园区项目"}, "output_summary": "创建项目，状态默认为规划中，进度为0%"},
-        {"input": {"name": "客户管理系统", "description": "搭建CRM系统", "status": "in_progress"}, "output_summary": "创建项目并设置初始状态为进行中"},
+        {
+            "input": {"name": "客户管理系统", "description": "搭建CRM系统", "status": "in_progress"},
+            "output_summary": "创建项目并设置初始状态为进行中",
+        },
     ]
     related_tools = ["get_projects", "create_project_event"]
     gotchas = "项目名称为必填项。初始状态仅支持规划中和进行中两种。创建后进度默认为0%。"
@@ -99,8 +102,24 @@ class CreateEventTool(BaseTool):
     domain = "project"
     description = "在指定项目中创建进度事件或关键节点，如里程碑、会议、宴请、任务等"
     examples = [
-        {"input": {"project_id": "uuid", "title": "签署合同", "content": "与客户正式签约", "event_type": "milestone"}, "output_summary": "在项目时间线中创建一条里程碑事件"},
-        {"input": {"project_id": "uuid", "title": "项目启动会", "content": "全员参会讨论分工", "event_type": "meeting"}, "output_summary": "创建一条会议类型事件"},
+        {
+            "input": {
+                "project_id": "uuid",
+                "title": "签署合同",
+                "content": "与客户正式签约",
+                "event_type": "milestone",
+            },
+            "output_summary": "在项目时间线中创建一条里程碑事件",
+        },
+        {
+            "input": {
+                "project_id": "uuid",
+                "title": "项目启动会",
+                "content": "全员参会讨论分工",
+                "event_type": "meeting",
+            },
+            "output_summary": "创建一条会议类型事件",
+        },
     ]
     related_tools = ["get_projects", "create_project", "generate_weekly_report"]
     gotchas = "项目ID必须是有效的UUID格式，可先调用查询项目列表获取。事件类型仅支持里程碑、会议、宴请、任务四种。"
@@ -169,7 +188,9 @@ class WeeklyReportTool(BaseTool):
 
     name = "generate_weekly_report"
     domain = "project"
-    description = "自动生成工作日报或周报，汇总任务完成情况、项目事件和下期计划。当用户说'帮我写周报'、'生成日报'时调用。"
+    description = (
+        "自动生成工作日报或周报，汇总任务完成情况、项目事件和下期计划。当用户说'帮我写周报'、'生成日报'时调用。"
+    )
     examples = [
         {"input": {}, "output_summary": "默认生成本周周报，汇总任务和项目数据"},
         {"input": {"report_type": "daily"}, "output_summary": "生成当日日报"},
@@ -239,7 +260,9 @@ class WeeklyReportTool(BaseTool):
         # 查询用户项目 — 限定本组织
         projects_data = []
         try:
-            proj_query = client.table("projects").select("name, stage, progress").eq("user_id", user_id).neq("stage", "archived")
+            proj_query = (
+                client.table("projects").select("name, stage, progress").eq("user_id", user_id).neq("stage", "archived")
+            )
             if org_id:
                 proj_query = proj_query.eq("organization_id", org_id)
             proj_res = await proj_query.execute()

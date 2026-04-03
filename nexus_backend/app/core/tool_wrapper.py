@@ -1,6 +1,7 @@
 """
 统一工具执行包装器 - 提供错误处理、超时控制和日志记录
 """
+
 import asyncio
 import logging
 from collections.abc import Callable
@@ -11,10 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 async def execute_tool_safely(
-    tool_func: Callable,
-    params: dict[str, Any],
-    timeout: int = 30,
-    tool_name: str = None
+    tool_func: Callable, params: dict[str, Any], timeout: int = 30, tool_name: str = None
 ) -> dict[str, Any]:
     """
     统一的工具执行包装器
@@ -32,32 +30,20 @@ async def execute_tool_safely(
 
     try:
         # 执行工具（带超时控制）
-        result = await asyncio.wait_for(
-            tool_func(**params),
-            timeout=timeout
-        )
+        result = await asyncio.wait_for(tool_func(**params), timeout=timeout)
 
         logger.info(f"Tool '{name}' executed successfully")
-        return {
-            'success': True,
-            'data': result
-        }
+        return {"success": True, "data": result}
 
     except TimeoutError:
         error_msg = f"工具执行超时（{timeout}秒），请稍后重试"
         logger.error(f"Tool '{name}' timeout after {timeout}s")
-        return {
-            'success': False,
-            'error': error_msg
-        }
+        return {"success": False, "error": error_msg}
 
     except Exception as e:
         error_msg = f"执行失败: {str(e)}"
         logger.error(f"Tool '{name}' failed: {e}", exc_info=True)
-        return {
-            'success': False,
-            'error': error_msg
-        }
+        return {"success": False, "error": error_msg}
 
 
 def safe_tool(timeout: int = 30):
@@ -69,14 +55,12 @@ def safe_tool(timeout: int = 30):
         async def my_tool(param1, param2):
             return result
     """
+
     def decorator(func: Callable):
         @wraps(func)
         async def wrapper(*args, **kwargs):
-            return await execute_tool_safely(
-                func,
-                kwargs,
-                timeout=timeout,
-                tool_name=func.__name__
-            )
+            return await execute_tool_safely(func, kwargs, timeout=timeout, tool_name=func.__name__)
+
         return wrapper
+
     return decorator

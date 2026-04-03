@@ -64,9 +64,7 @@ async def _retrieve_rag_context(state: AgentState) -> dict:
     return {"rag_context": "", "rag_sources": []}
 
 
-async def parallel_context_and_plan(
-    state: AgentState, config: RunnableConfig | None = None
-) -> dict:
+async def parallel_context_and_plan(state: AgentState, config: RunnableConfig | None = None) -> dict:
     """
     Run RAG context retrieval in parallel with LLM planning.
 
@@ -101,9 +99,7 @@ async def parallel_context_and_plan(
         rag_task = asyncio.create_task(_retrieve_rag_context(state))
         plan_task = asyncio.create_task(plan_node(state, config))
 
-        rag_result, plan_result = await asyncio.gather(
-            rag_task, plan_task, return_exceptions=True
-        )
+        rag_result, plan_result = await asyncio.gather(rag_task, plan_task, return_exceptions=True)
 
         # Handle exceptions
         if isinstance(plan_result, Exception):
@@ -119,8 +115,7 @@ async def parallel_context_and_plan(
         if rag_context and not plan_result.get("rag_context"):
             plan_result["rag_context"] = rag_context
             logger.info(
-                f"[ParallelContext] Injected {len(rag_context)} chars of RAG context "
-                f"from parallel retrieval"
+                f"[ParallelContext] Injected {len(rag_context)} chars of RAG context " f"from parallel retrieval"
             )
 
         # Add parallel execution thinking step

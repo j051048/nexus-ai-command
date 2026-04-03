@@ -108,34 +108,50 @@ async def dashboard_alerts(request: Request, user_id: str = Depends(get_current_
         won = await client.table("customers").select("id, name").eq("stage", "customer").execute()
         if won.data:
             ids = [c["id"] for c in won.data]
-            active = await client.table("contracts").select("customer_id").eq("status", "active").in_("customer_id", ids).execute()
+            active = (
+                await client.table("contracts")
+                .select("customer_id")
+                .eq("status", "active")
+                .in_("customer_id", ids)
+                .execute()
+            )
             contracted = {c["customer_id"] for c in (active.data or [])}
             missing = [c for c in won.data if c["id"] not in contracted]
             if missing:
-                alerts.append({
-                    "type": "customer_no_contract",
-                    "severity": "warning",
-                    "title": "已成交客户无活跃合同",
-                    "message": f"{len(missing)} 个已成交客户没有活跃合同",
-                    "items": [{"id": c["id"], "name": c["name"]} for c in missing[:10]],
-                    "action_url": "/crm",
-                })
+                alerts.append(
+                    {
+                        "type": "customer_no_contract",
+                        "severity": "warning",
+                        "title": "已成交客户无活跃合同",
+                        "message": f"{len(missing)} 个已成交客户没有活跃合同",
+                        "items": [{"id": c["id"], "name": c["name"]} for c in missing[:10]],
+                        "action_url": "/crm",
+                    }
+                )
     except Exception as e:
         logger.warning("Alert rule 1 failed: %s", e)
 
     # Rule 2: 合同已过期但状态仍为活跃
     try:
         today = datetime.now(CN_TZ).date().isoformat()
-        stale = await client.table("contracts").select("id, title, end_date").eq("status", "active").lt("end_date", today).execute()
+        stale = (
+            await client.table("contracts")
+            .select("id, title, end_date")
+            .eq("status", "active")
+            .lt("end_date", today)
+            .execute()
+        )
         if stale.data:
-            alerts.append({
-                "type": "contract_past_due",
-                "severity": "error",
-                "title": "合同已过期未更新",
-                "message": f"{len(stale.data)} 个合同已过期但状态仍为活跃",
-                "items": [{"id": c["id"], "title": c["title"], "end_date": c["end_date"]} for c in stale.data[:10]],
-                "action_url": "/contracts",
-            })
+            alerts.append(
+                {
+                    "type": "contract_past_due",
+                    "severity": "error",
+                    "title": "合同已过期未更新",
+                    "message": f"{len(stale.data)} 个合同已过期但状态仍为活跃",
+                    "items": [{"id": c["id"], "title": c["title"], "end_date": c["end_date"]} for c in stale.data[:10]],
+                    "action_url": "/contracts",
+                }
+            )
     except Exception as e:
         logger.warning("Alert rule 2 failed: %s", e)
 
@@ -152,14 +168,18 @@ async def dashboard_alerts(request: Request, user_id: str = Depends(get_current_
             .execute()
         )
         if expiring.data:
-            alerts.append({
-                "type": "contract_expiring_soon",
-                "severity": "info",
-                "title": "合同即将到期",
-                "message": f"{len(expiring.data)} 个合同将在30天内到期",
-                "items": [{"id": c["id"], "title": c["title"], "end_date": c["end_date"]} for c in expiring.data[:10]],
-                "action_url": "/contracts",
-            })
+            alerts.append(
+                {
+                    "type": "contract_expiring_soon",
+                    "severity": "info",
+                    "title": "合同即将到期",
+                    "message": f"{len(expiring.data)} 个合同将在30天内到期",
+                    "items": [
+                        {"id": c["id"], "title": c["title"], "end_date": c["end_date"]} for c in expiring.data[:10]
+                    ],
+                    "action_url": "/contracts",
+                }
+            )
     except Exception as e:
         logger.warning("Alert rule 3 failed: %s", e)
 
@@ -198,12 +218,7 @@ async def ai_activity_stats(request: Request, user_id: str = Depends(get_current
 
     try:
         # Count distinct active agent sessions this week
-        res = await (
-            client.table("agent_tasks")
-            .select("conversation_id")
-            .gte("created_at", week_start)
-            .execute()
-        )
+        res = await client.table("agent_tasks").select("conversation_id").gte("created_at", week_start).execute()
         if res.data:
             active_agents = len({r.get("conversation_id") for r in res.data if r.get("conversation_id")})
     except Exception as e:
@@ -212,8 +227,10 @@ async def ai_activity_stats(request: Request, user_id: str = Depends(get_current
     # Estimate: ~15 min saved per completed task
     estimated_hours = round(tasks_completed * 0.25, 1)
 
-    return api_success(data={
-        "tasks_completed": tasks_completed,
-        "estimated_hours_saved": estimated_hours,
-        "active_agents": max(active_agents, 1),
-    })
+    return api_success(
+        data={
+            "tasks_completed": tasks_completed,
+            "estimated_hours_saved": estimated_hours,
+            "active_agents": max(active_agents, 1),
+        }
+    )

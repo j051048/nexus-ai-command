@@ -78,10 +78,8 @@ async def _enrich_chunks(
     parent_summary = parent_text[:500] if len(parent_text) > 500 else parent_text
 
     for batch_start in range(0, len(enrichable), batch_size):
-        batch = enrichable[batch_start:batch_start + batch_size]
-        chunks_text = "\n---\n".join(
-            f"[chunk_{idx}]\n{text}" for idx, text in batch
-        )
+        batch = enrichable[batch_start : batch_start + batch_size]
+        chunks_text = "\n---\n".join(f"[chunk_{idx}]\n{text}" for idx, text in batch)
 
         prompt = (
             "你是文档预处理助手。下面是一篇文档的摘要和若干片段。"
@@ -91,11 +89,12 @@ async def _enrich_chunks(
             "3. 不要改变原意、不要添加新信息、不要翻译\n\n"
             f"[文档摘要]\n{parent_summary}\n\n"
             f"[片段列表]\n{chunks_text}\n\n"
-            "按JSON数组返回增强后的片段，格式: [\"chunk_0增强文本\", \"chunk_1增强文本\", ...]"
+            '按JSON数组返回增强后的片段，格式: ["chunk_0增强文本", "chunk_1增强文本", ...]'
         )
 
         try:
             from app.core.config import settings as app_settings
+
             mini_model = getattr(app_settings, "AI_MINI_MODEL", "gpt-4o-mini")
 
             resp = await client.post(
@@ -112,7 +111,7 @@ async def _enrich_chunks(
             if resp.status_code == 200:
                 content = resp.json()["choices"][0]["message"]["content"]
                 # Extract JSON array from response
-                json_match = re.search(r'\[.*\]', content, re.DOTALL)
+                json_match = re.search(r"\[.*\]", content, re.DOTALL)
                 if json_match:
                     results = json.loads(json_match.group())
                     for j, (orig_idx, _) in enumerate(batch):
@@ -252,7 +251,9 @@ async def generate_embeddings(
                     texts = [c[0] for c in current_batch_text]
                     pids = [c[1] for c in current_batch_text]
                     enr_texts = [c[2] for c in current_batch_text]
-                    if not await _process_batch(texts, chunk_type="child", parent_chunk_ids=pids, enriched_texts=enr_texts):
+                    if not await _process_batch(
+                        texts, chunk_type="child", parent_chunk_ids=pids, enriched_texts=enr_texts
+                    ):
                         all_success = False
                     current_batch_text = []
 

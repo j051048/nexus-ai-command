@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 class SaveMemoryTool(BaseTool):
     """主动保存一条用户记忆到长期记忆库。"""
+
     domain = "system"
     requires_org_id = False
 
@@ -37,8 +38,24 @@ class SaveMemoryTool(BaseTool):
     @property
     def examples(self) -> list[dict]:
         return [
-            {"input": {"key": "report_format_preference", "value": "用户偏好用表格形式展示数据，不喜欢纯文字", "category": "preference", "importance": 0.8}, "output_summary": "保存用户的报告格式偏好到长期记忆"},
-            {"input": {"key": "main_client_name", "value": "用户的主要客户是华为终端", "category": "fact", "importance": 0.6}, "output_summary": "保存用户的关键客户信息"},
+            {
+                "input": {
+                    "key": "report_format_preference",
+                    "value": "用户偏好用表格形式展示数据，不喜欢纯文字",
+                    "category": "preference",
+                    "importance": 0.8,
+                },
+                "output_summary": "保存用户的报告格式偏好到长期记忆",
+            },
+            {
+                "input": {
+                    "key": "main_client_name",
+                    "value": "用户的主要客户是华为终端",
+                    "category": "fact",
+                    "importance": 0.6,
+                },
+                "output_summary": "保存用户的关键客户信息",
+            },
         ]
 
     @property

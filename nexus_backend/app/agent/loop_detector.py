@@ -27,14 +27,17 @@ logger = logging.getLogger(__name__)
 # Sliding window size for tool call history analysis
 LOOP_WINDOW_SIZE = 30
 # Thresholds for different detection strategies
-GENERIC_REPEAT_THRESHOLD = 3       # Same tool+args N times → force reflect
-POLL_NO_PROGRESS_THRESHOLD = 5     # Polling tools with no progress → block
-GLOBAL_CIRCUIT_BREAKER = 15        # Absolute safety net: any single tool N times → block
+GENERIC_REPEAT_THRESHOLD = 3  # Same tool+args N times → force reflect
+POLL_NO_PROGRESS_THRESHOLD = 5  # Polling tools with no progress → block
+GLOBAL_CIRCUIT_BREAKER = 15  # Absolute safety net: any single tool N times → block
 
 # Tools known to cause polling loops (status checks, process waits)
 POLL_TOOLS: set[str] = {
-    "get_company_stats", "query_leave_status", "query_expense_status",
-    "query_attendance", "get_pending_approvals",
+    "get_company_stats",
+    "query_leave_status",
+    "query_expense_status",
+    "query_attendance",
+    "get_pending_approvals",
 }
 
 

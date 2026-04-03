@@ -26,8 +26,7 @@ _REDIS_HOT_CACHE_TTL = 3600
 # Queries matching these patterns should bypass cache entirely
 # (creative writing, long-form content — users expect unique output each time)
 _CACHE_BYPASS_RE = re.compile(
-    r"\d{3,}\s*字|千字|万字|长文|软文|推广文|写一[篇份]"
-    r"|方案书|策划案|创作|编写.{0,10}报告"
+    r"\d{3,}\s*字|千字|万字|长文|软文|推广文|写一[篇份]" r"|方案书|策划案|创作|编写.{0,10}报告"
 )
 
 # Error/rejection prefixes — never cache these responses
@@ -226,7 +225,9 @@ class SemanticCacheService:
             # --- Slow path: vector similarity search ---
             # 1. Resolve embedding model and get embedding for the new query
             await self._resolve_embedding_model()
-            response = await self.openai_client.embeddings.create(input=query, model=self._embedding_model, dimensions=1536)
+            response = await self.openai_client.embeddings.create(
+                input=query, model=self._embedding_model, dimensions=1536
+            )
             query_embedding = response.data[0].embedding
 
             # 2. Match in Supabase via RPC (TTL-filtered)
@@ -289,7 +290,9 @@ class SemanticCacheService:
         try:
             # 1. Resolve embedding model and get embedding
             await self._resolve_embedding_model()
-            response = await self.openai_client.embeddings.create(input=query, model=self._embedding_model, dimensions=1536)
+            response = await self.openai_client.embeddings.create(
+                input=query, model=self._embedding_model, dimensions=1536
+            )
             embedding = response.data[0].embedding
 
             # 2. Get org_id for multi-tenancy
@@ -357,7 +360,6 @@ class SemanticCacheService:
             #   $$ LANGUAGE plpgsql;
             logger.warning(f"Failed to atomically update cache hit count: {e}")
 
-
     # ── Event-driven cache invalidation ──
 
     async def invalidate_by_org(self, org_id: str) -> int:
@@ -373,10 +375,7 @@ class SemanticCacheService:
         try:
             # 1. 查出该 org 下的缓存条目（需要 user_ids 来清 Redis）
             rows = (
-                await supabase.table("semantic_cache")
-                .select("id, query_text, user_id")
-                .eq("org_id", org_id)
-                .execute()
+                await supabase.table("semantic_cache").select("id, query_text, user_id").eq("org_id", org_id).execute()
             )
             entries = rows.data or []
             if not entries:
@@ -424,10 +423,7 @@ class SemanticCacheService:
         try:
             # 查出该 org 的缓存并在 Python 端过滤关键词
             rows = (
-                await supabase.table("semantic_cache")
-                .select("id, query_text, user_id")
-                .eq("org_id", org_id)
-                .execute()
+                await supabase.table("semantic_cache").select("id, query_text, user_id").eq("org_id", org_id).execute()
             )
             entries = rows.data or []
             if not entries:
@@ -435,10 +431,7 @@ class SemanticCacheService:
 
             # 筛选包含任意关键词的条目
             kw_lower = [k.lower() for k in keywords]
-            matched = [
-                e for e in entries
-                if any(k in (e.get("query_text") or "").lower() for k in kw_lower)
-            ]
+            matched = [e for e in entries if any(k in (e.get("query_text") or "").lower() for k in kw_lower)]
             if not matched:
                 return 0
 
@@ -463,8 +456,7 @@ class SemanticCacheService:
                     pass
 
             logger.info(
-                f"[SemanticCache] Keyword-invalidated {deleted} entries "
-                f"for org={org_id}, keywords={keywords[:3]}"
+                f"[SemanticCache] Keyword-invalidated {deleted} entries " f"for org={org_id}, keywords={keywords[:3]}"
             )
 
         except Exception as e:
@@ -499,12 +491,7 @@ class SemanticCacheService:
         cutoff = self._ttl_cutoff()
         try:
             # Fetch expired entry count first for logging
-            rows = (
-                await supabase.table("semantic_cache")
-                .select("id", count="exact")
-                .lt("created_at", cutoff)
-                .execute()
-            )
+            rows = await supabase.table("semantic_cache").select("id", count="exact").lt("created_at", cutoff).execute()
             count = rows.count or 0
             if count == 0:
                 return 0

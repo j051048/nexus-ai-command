@@ -55,6 +55,7 @@ async def _load_rules(org_id: str, db: Any = None) -> list[dict]:
 
     try:
         from app.core.database import supabase
+
         client = db or supabase
         if not client:
             return []
@@ -120,13 +121,12 @@ async def check_dynamic_rules(
         # So violation means: the condition is NOT met → needs manual approval
         op_fn = _OPS.get(op)
         if op_fn and not op_fn(val, threshold):
-            reason = (
-                f"[动态规则] {rule_name}: {field}={val} 不满足自动审批条件 "
-                f"({field} {op} {threshold})"
-            )
+            reason = f"[动态规则] {rule_name}: {field}={val} 不满足自动审批条件 " f"({field} {op} {threshold})"
             logger.info(
                 "[ApprovalRuleEngine] BLOCKED %s: %s (org=%s)",
-                tool_name, reason, org_id,
+                tool_name,
+                reason,
+                org_id,
             )
             return {
                 "reason": reason,

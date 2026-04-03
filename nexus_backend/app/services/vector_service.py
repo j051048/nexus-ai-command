@@ -128,9 +128,7 @@ class VectorService:
             doc_type = meta.get("doc_type", "")
         return VectorService._DOC_TYPE_LABELS.get(doc_type, "")
 
-    async def _rerank_with_api(
-        self, query: str, documents: list[dict], top_n: int = 5
-    ) -> list[dict]:
+    async def _rerank_with_api(self, query: str, documents: list[dict], top_n: int = 5) -> list[dict]:
         """
         Use dedicated reranker model (bge-reranker-v2-m3) via API proxy.
         Expected latency: ~100ms vs 2-8s for LLM reranking.
@@ -140,7 +138,6 @@ class VectorService:
             return documents
         if len(documents) <= 3:
             return documents[:top_n]
-
 
         max_docs = settings.RERANK_MAX_DOCS
         rerank_timeout = settings.RERANK_TIMEOUT
@@ -357,7 +354,9 @@ class VectorService:
 
         async def run_vector_search():
             try:
-                response = await client.embeddings.create(input=query, model=_embedding_model, dimensions=_EMBEDDING_DIMENSIONS)
+                response = await client.embeddings.create(
+                    input=query, model=_embedding_model, dimensions=_EMBEDDING_DIMENSIONS
+                )
                 embedding = response.data[0].embedding
                 params = {
                     "query_embedding": embedding,
@@ -464,11 +463,7 @@ class VectorService:
 
         results = []
         # P2: Parent-document retriever — batch-fetch parent chunks to avoid N+1 queries
-        parent_id_set = {
-            item.get("parent_chunk_id")
-            for item in top_docs
-            if item.get("parent_chunk_id")
-        }
+        parent_id_set = {item.get("parent_chunk_id") for item in top_docs if item.get("parent_chunk_id")}
         parent_content_map: dict[str, str] = {}
         if parent_id_set:
             try:
@@ -575,12 +570,13 @@ class VectorService:
                 return None
 
             # G5 Optimization: Use a shared persistent client to avoid repeated TLS handshakes
-            if not hasattr(self, '_benchmark_client') or self._benchmark_client.is_closed:
+            if not hasattr(self, "_benchmark_client") or self._benchmark_client.is_closed:
                 import httpx
+
                 self._benchmark_client = httpx.AsyncClient(
                     timeout=httpx.Timeout(_OPENAI_TIMEOUT, connect=30.0),
                     limits=httpx.Limits(max_connections=50, max_keepalive_connections=20),
-                    http2=False
+                    http2=False,
                 )
 
             # Sanitize URL: ensure base_url exists and doesn't have trailing slash issues
@@ -588,10 +584,7 @@ class VectorService:
             endpoint = f"{clean_base}/embeddings"
             for attempt in range(3):
                 try:
-                    headers = {
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json"
-                    }
+                    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
                     payload = {
                         "input": truncated,
                         "model": model or _DEFAULT_EMBEDDING_MODEL,
@@ -746,7 +739,9 @@ class VectorService:
             # 4. Embed changed chunks
             if to_embed:
                 texts = [t[1] for t in to_embed]
-                response = await oai_client.embeddings.create(input=texts, model=embedding_model, dimensions=_EMBEDDING_DIMENSIONS)
+                response = await oai_client.embeddings.create(
+                    input=texts, model=embedding_model, dimensions=_EMBEDDING_DIMENSIONS
+                )
                 for idx, (chunk_index, chunk_text) in enumerate(to_embed):
                     embedding = response.data[idx].embedding
                     row_data = {

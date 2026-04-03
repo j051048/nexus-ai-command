@@ -1,6 +1,7 @@
 """
 智能数据分析路由
 """
+
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException

@@ -31,7 +31,14 @@ class SubmitExpenseTool(BaseTool):
     description = "提交报销申请，支持差旅、餐饮、办公用品、交通等类型"
     examples = [
         {"input": {"expense_type": "travel", "total_amount": 3500}, "output_summary": "提交一笔3500元的差旅费报销"},
-        {"input": {"expense_type": "meal", "total_amount": 280, "items": [{"description": "客户午餐", "amount": 280, "date": "2026-03-15"}]}, "output_summary": "提交一笔带明细的餐饮费报销"},
+        {
+            "input": {
+                "expense_type": "meal",
+                "total_amount": 280,
+                "items": [{"description": "客户午餐", "amount": 280, "date": "2026-03-15"}],
+            },
+            "output_summary": "提交一笔带明细的餐饮费报销",
+        },
     ]
     gotchas = "total_amount必须大于0。expense_type常用值：travel/meal/office/transport。提交后状态为pending（待审批）。建议先调用check_budget确认预算余额。"
     related_tools = ["list_expenses", "check_budget", "approve_expense"]
@@ -210,8 +217,14 @@ class ApproveExpenseTool(BaseTool):
     name = "approve_expense"
     description = "审批报销单，支持通过或驳回操作，需管理员权限"
     examples = [
-        {"input": {"expense_id": "uuid-xxxx", "action": "approve", "comment": "符合报销标准"}, "output_summary": "通过报销单并添加审批意见"},
-        {"input": {"expense_id": "uuid-xxxx", "action": "reject", "comment": "缺少发票附件"}, "output_summary": "驳回报销单并说明原因"},
+        {
+            "input": {"expense_id": "uuid-xxxx", "action": "approve", "comment": "符合报销标准"},
+            "output_summary": "通过报销单并添加审批意见",
+        },
+        {
+            "input": {"expense_id": "uuid-xxxx", "action": "reject", "comment": "缺少发票附件"},
+            "output_summary": "驳回报销单并说明原因",
+        },
     ]
     related_tools = ["list_expenses", "submit_expense", "check_budget"]
     gotchas = "expense_id和action均为必填。action仅支持approve和reject。此操作不可逆，需用户确认。需要admin权限。"
@@ -289,7 +302,10 @@ class CheckBudgetTool(BaseTool):
     description = "查询预算使用情况，包括总额、已用、剩余和使用率"
     examples = [
         {"input": {}, "output_summary": "返回全组织的预算使用情况"},
-        {"input": {"department_id": "uuid-xxxx", "period": "2026-03"}, "output_summary": "返回指定部门本月的预算使用情况"},
+        {
+            "input": {"department_id": "uuid-xxxx", "period": "2026-03"},
+            "output_summary": "返回指定部门本月的预算使用情况",
+        },
     ]
     related_tools = ["submit_expense", "list_expenses"]
     gotchas = "period格式为YYYY-MM。不传department_id则查全组织预算。建议在提交报销前先调用此工具确认预算余额。"

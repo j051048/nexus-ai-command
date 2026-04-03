@@ -28,30 +28,40 @@ from app.services.plugin_system_service import ExtensionPoint
 _SENSITIVE_FIELD_RULES = [
     # (pattern, mask_replacement, minimum_role_level)
     # Role levels: guest=0, employee=1, manager=2, boss=3, founder=4
-
     # --- 薪资/工资 (中文 + 英文 + 变体) ---
     (_re.compile(r"(薪[资酬水]|工资|月薪|年薪|底薪|基本工资)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[薪资信息已隐藏]", 3),
     (_re.compile(r"(月收入|年收入|税前收入|税后收入|到手)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[薪资信息已隐藏]", 3),
-    (_re.compile(r"\b(salary|wage|pay|income|compensation)\s*[:=]?\s*[\$￥¥]?\s*[\d,.]+", _re.IGNORECASE), "[SALARY HIDDEN]", 3),
-
+    (
+        _re.compile(r"\b(salary|wage|pay|income|compensation)\s*[:=]?\s*[\$￥¥]?\s*[\d,.]+", _re.IGNORECASE),
+        "[SALARY HIDDEN]",
+        3,
+    ),
     # --- 奖金/提成 ---
     (_re.compile(r"(提成|奖金|绩效奖|年终奖)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[奖金信息已隐藏]", 3),
     (_re.compile(r"\b(bonus|commission|incentive)\s*[:=]?\s*[\$￥¥]?\s*[\d,.]+", _re.IGNORECASE), "[BONUS HIDDEN]", 3),
-
     # --- 社保/公积金 ---
     (_re.compile(r"(社保|公积金|五险一金)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[社保信息已隐藏]", 3),
-
     # --- 合同金额 ---
     (_re.compile(r"(合同金额|签约金额|合同价)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[合同金额已隐藏]", 2),
-    (_re.compile(r"\b(contract\s*(?:amount|value|price))\s*[:=]?\s*[\$￥¥]?\s*[\d,.]+", _re.IGNORECASE), "[CONTRACT AMOUNT HIDDEN]", 2),
-
+    (
+        _re.compile(r"\b(contract\s*(?:amount|value|price))\s*[:=]?\s*[\$￥¥]?\s*[\d,.]+", _re.IGNORECASE),
+        "[CONTRACT AMOUNT HIDDEN]",
+        2,
+    ),
     # --- 成本价 ---
     (_re.compile(r"(成本价|进货价|底价)\s*[:：]?\s*[\d,.]+\s*[元万千]?"), "[成本信息已隐藏]", 2),
-    (_re.compile(r"\b(cost\s*price|wholesale\s*price|unit\s*cost)\s*[:=]?\s*[\$￥¥]?\s*[\d,.]+", _re.IGNORECASE), "[COST HIDDEN]", 2),
-
+    (
+        _re.compile(r"\b(cost\s*price|wholesale\s*price|unit\s*cost)\s*[:=]?\s*[\$￥¥]?\s*[\d,.]+", _re.IGNORECASE),
+        "[COST HIDDEN]",
+        2,
+    ),
     # --- 利润率 ---
     (_re.compile(r"(利润率|毛利率|净利率)\s*[:：]?\s*[\d,.]+\s*%?"), "[利润信息已隐藏]", 2),
-    (_re.compile(r"\b(profit\s*margin|gross\s*margin|net\s*margin)\s*[:=]?\s*[\d,.]+\s*%?", _re.IGNORECASE), "[MARGIN HIDDEN]", 2),
+    (
+        _re.compile(r"\b(profit\s*margin|gross\s*margin|net\s*margin)\s*[:=]?\s*[\d,.]+\s*%?", _re.IGNORECASE),
+        "[MARGIN HIDDEN]",
+        2,
+    ),
 ]
 
 _ROLE_LEVELS = {
@@ -115,9 +125,7 @@ _REDUNDANT_CLOSINGS = _re.compile(
 )
 
 # AI self-reference phrases to strip mid-text
-_AI_SELF_REFS = _re.compile(
-    r"作为(?:一[个位])?(?:AI|人工智能)?助手[，,\s]*"
-)
+_AI_SELF_REFS = _re.compile(r"作为(?:一[个位])?(?:AI|人工智能)?助手[，,\s]*")
 
 # Pattern: key metric with number + unit (for bolding)
 _KEY_METRIC = _re.compile(
@@ -127,9 +135,7 @@ _KEY_METRIC = _re.compile(
 )
 
 # Pattern: consecutive items separated by 、(for list conversion)
-_CONSECUTIVE_ITEMS = _re.compile(
-    r"(?:(?:[\u4e00-\u9fff\w]+)(?:、))+(?:[\u4e00-\u9fff\w]+)"
-)
+_CONSECUTIVE_ITEMS = _re.compile(r"(?:(?:[\u4e00-\u9fff\w]+)(?:、))+(?:[\u4e00-\u9fff\w]+)")
 
 
 def _strip_redundant_phrases(text: str) -> str:
@@ -213,8 +219,7 @@ async def simple_respond_node(state: AgentState) -> dict:
     lc_msgs = list(lc_msgs)  # make mutable copy
     if lc_msgs and isinstance(lc_msgs[0], SystemMessage):
         lc_msgs[0] = SystemMessage(
-            content=lc_msgs[0].content
-            + "\n\n【重要】你没有联网能力，不知道当前的电影、新闻、天气、股价等实时信息。"
+            content=lc_msgs[0].content + "\n\n【重要】你没有联网能力，不知道当前的电影、新闻、天气、股价等实时信息。"
             "如果用户询问此类信息，请坦诚说明你无法获取实时数据，建议用户使用搜索引擎或相关APP查看。"
             "严禁编造具体的电影名、新闻事件、天气数据或股价数字。"
         )
@@ -224,7 +229,11 @@ async def simple_respond_node(state: AgentState) -> dict:
 
     try:
         ai_msg = await invoke_with_fallback(
-            llm, lc_msgs, config=config, model=config.mini_model, streaming=True,
+            llm,
+            lc_msgs,
+            config=config,
+            model=config.mini_model,
+            streaming=True,
         )
         content = ai_msg.content or ""
     except Exception as e:
@@ -233,12 +242,15 @@ async def simple_respond_node(state: AgentState) -> dict:
 
     # Apply post-processing pipeline (full 5-stage output scan)
     from app.services.content_moderation import sanitize_output_advanced_safe
+
     content = await sanitize_output_advanced_safe(content)
     from app.agent.think_tags import strip_think_tags
+
     content = strip_think_tags(content)
 
     # P0 Security: LLM output scanner (indirect prompt injection, PII, SQLi, XSS)
     from app.core.output_scanner import output_scanner
+
     scan_result = await output_scanner.scan(content)
     if not scan_result.is_safe:
         logger.warning(
@@ -276,6 +288,7 @@ async def respond_node(state: AgentState) -> dict:
 
     if not final_response:
         from app.agent.think_tags import extract_clean_content
+
         for msg in reversed(state.get("messages", [])):
             if isinstance(msg, AIMessage) and msg.content:
                 final_response = extract_clean_content(msg)
@@ -283,14 +296,17 @@ async def respond_node(state: AgentState) -> dict:
 
     # Final moderation filter (full 5-stage output scan)
     from app.services.content_moderation import sanitize_output_advanced_safe
+
     final_response = await sanitize_output_advanced_safe(final_response)
 
     # Strip reasoning model <think>...</think> tags (belt-and-suspenders)
     from app.agent.think_tags import strip_think_tags
+
     final_response = strip_think_tags(final_response)
 
     # P0 Security: LLM output scanner (indirect prompt injection, PII, SQLi, XSS)
     from app.core.output_scanner import output_scanner
+
     scan_result = await output_scanner.scan(final_response)
     if not scan_result.is_safe:
         logger.warning(
@@ -409,7 +425,9 @@ async def error_node(state: AgentState) -> dict:
             "pending_tool_calls": [],
             "current_phase": AgentPhase.PLANNING,
             "messages": [
-                HumanMessage(content=f"[错误恢复L1] 前序操作失败: {error_msg}。{tool_hint or '请尝试一个不涉及此错误的替代方案。'}")
+                HumanMessage(
+                    content=f"[错误恢复L1] 前序操作失败: {error_msg}。{tool_hint or '请尝试一个不涉及此错误的替代方案。'}"
+                )
             ],
             "thinking_steps": [
                 ThinkingStep(
@@ -441,6 +459,7 @@ async def error_node(state: AgentState) -> dict:
 
     # Level 3: Give up gracefully — #16: use friendly error message
     from app.core.errors import friendly_error
+
     user_msg = friendly_error(raw_error=str(error_msg))
     return {
         "final_response": user_msg,

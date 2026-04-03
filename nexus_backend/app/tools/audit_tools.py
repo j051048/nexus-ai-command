@@ -19,9 +19,7 @@ class QueryAuditLogsTool(BaseTool):
     """查询审计日志"""
 
     name = "query_audit_logs"
-    description = (
-        "查询系统审计日志，支持按时间、用户、操作类型和目标表筛选"
-    )
+    description = "查询系统审计日志，支持按时间、用户、操作类型和目标表筛选"
 
     parameters = {
         "type": "object",
@@ -55,8 +53,14 @@ class QueryAuditLogsTool(BaseTool):
     domain = "admin"
     required_role = "boss"
     examples = [
-        {"input": {"days": 7, "action": "auth.failed"}, "output_summary": "返回最近7天内所有登录失败的审计记录及异常检测摘要"},
-        {"input": {"target_table": "contracts", "limit": 20}, "output_summary": "返回合同表相关的最近操作记录，最多20条"},
+        {
+            "input": {"days": 7, "action": "auth.failed"},
+            "output_summary": "返回最近7天内所有登录失败的审计记录及异常检测摘要",
+        },
+        {
+            "input": {"target_table": "contracts", "limit": 20},
+            "output_summary": "返回合同表相关的最近操作记录，最多20条",
+        },
         {"input": {"user_id": "abc123", "days": 30}, "output_summary": "返回指定用户最近30天的所有操作记录"},
     ]
     gotchas = "仅管理员角色可用。查询天数默认7天，最大90天。返回结果包含异常检测摘要。"
@@ -128,14 +132,16 @@ class QueryAuditLogsTool(BaseTool):
             # 最近的日志详情（取前10条）
             recent = []
             for log in logs[:10]:
-                recent.append({
-                    "time": log.get("timestamp", ""),
-                    "action": log.get("action", ""),
-                    "user": log.get("actor_user_id", "")[:8] + "..." if log.get("actor_user_id") else "system",
-                    "status": log.get("status", ""),
-                    "target": log.get("target_table", ""),
-                    "ip": log.get("ip_address", ""),
-                })
+                recent.append(
+                    {
+                        "time": log.get("timestamp", ""),
+                        "action": log.get("action", ""),
+                        "user": log.get("actor_user_id", "")[:8] + "..." if log.get("actor_user_id") else "system",
+                        "status": log.get("status", ""),
+                        "target": log.get("target_table", ""),
+                        "ip": log.get("ip_address", ""),
+                    }
+                )
 
             result = {
                 "summary": summary,

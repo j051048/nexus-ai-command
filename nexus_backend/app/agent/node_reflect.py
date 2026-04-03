@@ -71,33 +71,72 @@ def _check_data_source_primacy(ai_content: str, completed_tools: list) -> str | 
     _SENSITIVE_DOMAINS: dict[str, tuple[list[str], list[str]]] = {
         "finance": (
             ["元", "¥", "万元", "报销", "预算", "薪资", "工资", "发票", "费用", "收入", "利润"],
-            ["query_budget", "query_salary", "query_expense", "check_budget",
-             "submit_expense", "create_expense", "list_expenses", "approve_expense",
-             "recognize_invoice"],
+            [
+                "query_budget",
+                "query_salary",
+                "query_expense",
+                "check_budget",
+                "submit_expense",
+                "create_expense",
+                "list_expenses",
+                "approve_expense",
+                "recognize_invoice",
+            ],
         ),
         "crm": (
             ["客户", "合同", "商机", "线索", "转化率", "跟进率", "成交", "订单金额"],
-            ["get_customers", "get_customer_detail", "create_customer", "update_customer",
-             "get_contracts", "create_contract", "get_expiring_contracts", "analyze_contract",
-             "get_sales_pipeline", "update_customer_stage", "add_follow_up", "get_follow_ups",
-             "generate_customer_profile", "customer_lifecycle_analysis"],
+            [
+                "get_customers",
+                "get_customer_detail",
+                "create_customer",
+                "update_customer",
+                "get_contracts",
+                "create_contract",
+                "get_expiring_contracts",
+                "analyze_contract",
+                "get_sales_pipeline",
+                "update_customer_stage",
+                "add_follow_up",
+                "get_follow_ups",
+                "generate_customer_profile",
+                "customer_lifecycle_analysis",
+            ],
         ),
         "hr": (
             ["员工", "入职", "离职", "绩效", "薪酬", "人数", "编制"],
-            ["list_employees", "create_employee", "update_employee",
-             "process_onboarding", "process_resignation", "manage_recruitment",
-             "create_performance_review", "org_statistics"],
+            [
+                "list_employees",
+                "create_employee",
+                "update_employee",
+                "process_onboarding",
+                "process_resignation",
+                "manage_recruitment",
+                "create_performance_review",
+                "org_statistics",
+            ],
         ),
         "approval": (
             ["审批", "待审", "已批", "已驳回", "审批流"],
-            ["smart_approve", "approve_request", "reject_request",
-             "submit_approval_on_behalf", "list_approval_flows", "create_approval_flow"],
+            [
+                "smart_approve",
+                "approve_request",
+                "reject_request",
+                "submit_approval_on_behalf",
+                "list_approval_flows",
+                "create_approval_flow",
+            ],
         ),
         "attendance": (
             ["出勤", "迟到", "缺勤", "打卡", "加班时长"],
-            ["clock_in_out", "get_attendance_record", "query_attendance",
-             "query_team_attendance", "attendance_statistics",
-             "request_leave", "query_leave_status"],
+            [
+                "clock_in_out",
+                "get_attendance_record",
+                "query_attendance",
+                "query_team_attendance",
+                "attendance_statistics",
+                "request_leave",
+                "query_leave_status",
+            ],
         ),
         "inventory": (
             ["库存", "出库", "入库", "库存量", "存货"],
@@ -118,11 +157,13 @@ def _check_data_source_primacy(ai_content: str, completed_tools: list) -> str | 
     # Numeric data pattern — numbers that look like real data (>= 2 digits)
     _has_numeric = bool(re.search(r"\d{2,}", ai_content[:2000]))
     # Entity name pattern — Chinese company names, person names with titles, etc.
-    _has_entity_name = bool(re.search(
-        r"[\u4e00-\u9fff]{2,}(?:公司|集团|科技|企业|有限|股份)|"  # company names
-        r"[\u4e00-\u9fff]{2,4}(?:先生|女士|总|经理|主管)",       # person names with titles
-        ai_content[:2000],
-    ))
+    _has_entity_name = bool(
+        re.search(
+            r"[\u4e00-\u9fff]{2,}(?:公司|集团|科技|企业|有限|股份)|"  # company names
+            r"[\u4e00-\u9fff]{2,4}(?:先生|女士|总|经理|主管)",  # person names with titles
+            ai_content[:2000],
+        )
+    )
     # Either numbers or named entities count as "specific data claims"
     _has_specific_data = _has_numeric or _has_entity_name
 
@@ -245,14 +286,14 @@ async def reflect_node(state: AgentState) -> dict:
         max_reflections = min(max_reflections + 1, 4)
     if reflection_count >= max_reflections:
         logger.info(
-            f"[ReflectNode] Reflection budget exhausted "
-            f"({reflection_count}/{max_reflections}), skipping to respond"
+            f"[ReflectNode] Reflection budget exhausted " f"({reflection_count}/{max_reflections}), skipping to respond"
         )
         # Extract last AI content for final_response
         last_content = ""
         for msg in reversed(messages):
             if isinstance(msg, AIMessage):
                 from app.agent.think_tags import extract_clean_content
+
                 last_content = extract_clean_content(msg)
                 break
         return {
@@ -291,6 +332,7 @@ async def reflect_node(state: AgentState) -> dict:
         if isinstance(msg, AIMessage):
             # Use extract_clean_content to strip reasoning from reasoning models
             from app.agent.stream import extract_clean_content
+
             last_ai_content = extract_clean_content(msg)
             break
 
@@ -304,8 +346,19 @@ async def reflect_node(state: AgentState) -> dict:
     # demote the importance of recently accessed memories so they're less likely
     # to steer future responses in the same wrong direction.
     _NEGATIVE_KEYWORDS = (
-        "不对", "错了", "不是这样", "说错", "不准确", "胡说", "瞎说",
-        "答非所问", "不正确", "搞错了", "别乱说", "不是的", "信息有误",
+        "不对",
+        "错了",
+        "不是这样",
+        "说错",
+        "不准确",
+        "胡说",
+        "瞎说",
+        "答非所问",
+        "不正确",
+        "搞错了",
+        "别乱说",
+        "不是的",
+        "信息有误",
     )
     last_user_msg_text = ""
     for msg in reversed(messages):
@@ -315,6 +368,7 @@ async def reflect_node(state: AgentState) -> dict:
     if last_user_msg_text and any(kw in last_user_msg_text for kw in _NEGATIVE_KEYWORDS):
         # Fire-and-forget: demote recent memories for this user
         import asyncio
+
         asyncio.create_task(_demote_recent_memories(config.user_id))
 
     # ── Layer 1: Empty response check ──
@@ -340,12 +394,28 @@ async def reflect_node(state: AgentState) -> dict:
     intent = state.get("intent_summary", "")
     # Sanitize to prevent keyword injection bypass (e.g. injecting "写作" to skip hallucination check)
     from app.agent.node_helpers import sanitize_prompt_field
+
     intent = sanitize_prompt_field(intent)
     is_creative_writing = any(kw in intent for kw in ("写作", "创作", "软文", "文章", "报告", "方案", "推广"))
 
-    if not is_creative_writing and complexity in (QueryComplexity.MODERATE, QueryComplexity.COMPLEX, QueryComplexity.CRITICAL) and not completed_tools:
-        hallucination_keywords = ["查询到", "系统显示", "数据显示", "结果是", "找到", "检索到", "发现",
-                                  "目前没有", "只有一", "共有", "共计"]
+    if (
+        not is_creative_writing
+        and complexity in (QueryComplexity.MODERATE, QueryComplexity.COMPLEX, QueryComplexity.CRITICAL)
+        and not completed_tools
+    ):
+        hallucination_keywords = [
+            "查询到",
+            "系统显示",
+            "数据显示",
+            "结果是",
+            "找到",
+            "检索到",
+            "发现",
+            "目前没有",
+            "只有一",
+            "共有",
+            "共计",
+        ]
         if any(kw in last_ai_content for kw in hallucination_keywords):
             # Additional check: does it contain specific numbers/data or entity names?
             number_pattern = r"\d+(?:\.\d+)?(?:万|千|百|元|个|%|位)?"
@@ -435,7 +505,13 @@ AI回复:
 
     # ── Layer 5: LLM-based reflection ──
     # Skip LLM reflection if tools were involved — tool results are ground truth.
-    if not is_creative_writing and config.reflect_use_llm and last_ai_content and not is_hallucination and not has_any_tool_attempts:
+    if (
+        not is_creative_writing
+        and config.reflect_use_llm
+        and last_ai_content
+        and not is_hallucination
+        and not has_any_tool_attempts
+    ):
         messages_text = "\n".join([f"{m.type}: {m.content[:200]}" for m in messages[-3:]])
         prompt = f"""请评估 AI 的最新回复是否包含编造的信息（幻觉）。
 
@@ -581,8 +657,7 @@ AI 回复:
             "current_phase": AgentPhase.PLANNING,
             "iteration": iteration + 1,
             "reflection_count": reflection_count + 1,
-            "thinking_steps": [
-            ],
+            "thinking_steps": [],
             **_backtrack_extras,
         }
 
@@ -621,6 +696,7 @@ async def critic_node(state: AgentState) -> dict:
     final_response = state.get("final_response", "")
     if not final_response:
         from app.agent.stream import extract_clean_content
+
         for msg in reversed(state.get("messages", [])):
             if isinstance(msg, AIMessage) and msg.content:
                 final_response = extract_clean_content(msg)
@@ -637,6 +713,7 @@ async def critic_node(state: AgentState) -> dict:
     intent_summary = state.get("intent_summary", "")
     # Sanitize intent_summary before prompt injection (user-derived via LLM reflection)
     from app.agent.node_helpers import sanitize_prompt_field
+
     intent_summary = sanitize_prompt_field(intent_summary)
     tool_results_summary = []
     for tc in state.get("completed_tool_calls", []):
@@ -648,6 +725,7 @@ async def critic_node(state: AgentState) -> dict:
     history_lessons = ""
     try:
         from app.services.failure_log_service import failure_log_service
+
         _org_id = getattr(config, "org_id", None)
         if _org_id:
             failures = await failure_log_service.get_top_failures(_org_id, days=7, limit=5)
@@ -851,6 +929,7 @@ async def _persist_critic_score(
 
 
 # ── AgeMem: negative-feedback memory demotion ──────────────────────
+
 
 async def _demote_recent_memories(user_id: str, penalty: float = 0.3) -> None:
     """Lower the importance of recently accessed memories for *user_id*.

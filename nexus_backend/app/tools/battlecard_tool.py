@@ -14,7 +14,10 @@ class BattlecardTool(BaseTool):
     domain = "tender"
     description = "获取指定竞争对手的实时打击卡，含结构化数据和知识库补充"
     examples = [
-        {"input": {"competitor_name": "安捷伦"}, "output_summary": "返回安捷伦的竞品打击卡，含优劣势、产品对比和打击策略"},
+        {
+            "input": {"competitor_name": "安捷伦"},
+            "output_summary": "返回安捷伦的竞品打击卡，含优劣势、产品对比和打击策略",
+        },
         {"input": {"competitor_name": "赛默飞"}, "output_summary": "返回赛默飞的竞品打击卡及知识库中的相关分析"},
     ]
     gotchas = "竞品名称需与系统中录入的名称匹配。未录入的竞品仅返回通用策略建议。"

@@ -337,6 +337,7 @@ class AutoTriggerService:
         """Execute a trigger's action."""
         # Check cooldown (Redis-backed for multi-instance safety)
         from app.services.cache_service import cache_service
+
         cooldown_key = f"auto_trigger:cooldown:{trigger.trigger_id}"
         cached = await cache_service.get(cooldown_key)
         if cached:
@@ -568,6 +569,7 @@ class AutoTriggerService:
     def _check_push_dedup(self, user_id: str, content: str) -> bool:
         """Check if identical content was already pushed recently. Returns True if duplicate."""
         import hashlib
+
         content_hash = hashlib.md5(f"{user_id}:{content}".encode()).hexdigest()
         expiry = self._recent_push_hashes.get(content_hash)
         if expiry and datetime.utcnow() < expiry:
@@ -599,6 +601,7 @@ class AutoTriggerService:
             return
 
         from app.services.cache_service import cache_service
+
         try:
             cached = await cache_service.get(sr_cooldown_key)
             if cached:
@@ -661,7 +664,16 @@ class AutoTriggerService:
 
                 count = len(items)
                 oldest = items[0]
-                hours_ago = max(1, int((now - datetime.fromisoformat(oldest["submitted_at"].replace("Z", "+00:00")).astimezone(CN_TZ)).total_seconds() / 3600))
+                hours_ago = max(
+                    1,
+                    int(
+                        (
+                            now
+                            - datetime.fromisoformat(oldest["submitted_at"].replace("Z", "+00:00")).astimezone(CN_TZ)
+                        ).total_seconds()
+                        / 3600
+                    ),
+                )
 
                 summary_lines = []
                 for item in items[:3]:
@@ -760,10 +772,7 @@ class AutoTriggerService:
             all_leads = result.data or []
             # Exclude terminal stages regardless of column name
             terminal = {"won", "lost", "closed", "converted"}
-            leads = [
-                l for l in all_leads
-                if (l.get("stage") or l.get("status") or "").lower() not in terminal
-            ][:50]
+            leads = [l for l in all_leads if (l.get("stage") or l.get("status") or "").lower() not in terminal][:50]
             if not leads:
                 return
 
@@ -778,9 +787,23 @@ class AutoTriggerService:
                 lines = []
                 for lead in user_leads[:5]:
                     # Graceful label: try multiple possible name columns
-                    name = (lead.get("professor") or lead.get("company_name")
-                            or lead.get("source_paper") or lead.get("name") or "未命名")
-                    days = max(1, int((now - datetime.fromisoformat(lead["updated_at"].replace("Z", "+00:00")).astimezone(CN_TZ)).total_seconds() / 86400))
+                    name = (
+                        lead.get("professor")
+                        or lead.get("company_name")
+                        or lead.get("source_paper")
+                        or lead.get("name")
+                        or "未命名"
+                    )
+                    days = max(
+                        1,
+                        int(
+                            (
+                                now
+                                - datetime.fromisoformat(lead["updated_at"].replace("Z", "+00:00")).astimezone(CN_TZ)
+                            ).total_seconds()
+                            / 86400
+                        ),
+                    )
                     score = lead.get("match_score") or lead.get("score") or 0
                     lines.append(f"  • {name[:20]}（{days}天未跟进，匹配度{score}）")
 
@@ -803,9 +826,7 @@ class AutoTriggerService:
         except Exception as e:
             logger.error("[SmartReminder] Lead followup check failed: %s", e)
 
-    async def _push_proactive_reminder(
-        self, user_id: str, title: str, message: str, reminder_type: str
-    ):
+    async def _push_proactive_reminder(self, user_id: str, title: str, message: str, reminder_type: str):
         """Push a smart reminder as proactive chat message + notification."""
         cooldown_key = f"auto_trigger:cooldown:_reminder_{reminder_type}_{user_id}"
 
@@ -820,6 +841,7 @@ class AutoTriggerService:
 
         # Layer 3: Redis cooldown (for multi-instance safety)
         from app.services.cache_service import cache_service
+
         try:
             cached = await cache_service.get(cooldown_key)
             if cached:

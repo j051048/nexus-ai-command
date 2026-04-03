@@ -124,10 +124,13 @@ def _enrich_response(workflow: dict) -> dict:
         wf.setdefault("approval_type", applies_to[0])
     # definition: nest steps and conditions
     if "steps" in wf:
-        wf.setdefault("definition", {
-            "steps": wf.get("steps", []),
-            "conditions": wf.get("conditions") or [],
-        })
+        wf.setdefault(
+            "definition",
+            {
+                "steps": wf.get("steps", []),
+                "conditions": wf.get("conditions") or [],
+            },
+        )
     return wf
 
 
@@ -237,7 +240,10 @@ async def update_workflow(
             return api_success(data=None, message="No updates provided")
 
         workflow = await workflow_definition_service.update_workflow(
-            workflow_id=workflow_id, updates=updates, org_id=org_id, db=db,
+            workflow_id=workflow_id,
+            updates=updates,
+            org_id=org_id,
+            db=db,
         )
         return api_success(data=_enrich_response(workflow), message="Workflow updated")
     except ValueError:

@@ -98,8 +98,22 @@ class CreateApprovalFlowTool(BaseTool):
     description = "创建新的审批流模板。当用户说'创建审批流'、'配置审批流程'时调用。需要管理员权限。"
     required_role = "admin"
     examples = [
-        {"input": {"name": "请假审批流", "trigger_type": "leave", "steps": [{"approver_role": "manager"}, {"approver_role": "director"}]}, "output_summary": "创建包含两步审批的请假审批流模板"},
-        {"input": {"name": "大额报销审批", "trigger_type": "expense", "steps": [{"approver_role": "manager"}, {"approver_role": "cfo"}]}, "output_summary": "创建报销审批流模板"},
+        {
+            "input": {
+                "name": "请假审批流",
+                "trigger_type": "leave",
+                "steps": [{"approver_role": "manager"}, {"approver_role": "director"}],
+            },
+            "output_summary": "创建包含两步审批的请假审批流模板",
+        },
+        {
+            "input": {
+                "name": "大额报销审批",
+                "trigger_type": "expense",
+                "steps": [{"approver_role": "manager"}, {"approver_role": "cfo"}],
+            },
+            "output_summary": "创建报销审批流模板",
+        },
     ]
     related_tools = ["list_approval_flows"]
     gotchas = "需要管理员权限。steps 必须为非空数组。name 最大长度100字符。trigger_type 仅支持 leave/expense/asset/work_order 四种。"

@@ -147,8 +147,20 @@ class SubmitApprovalOnBehalfTool(BaseTool):
     description = "代表当前用户提交审批申请（出差、请假、报销、采购）。当用户说'提交审批'、'发起申请'时调用。注意：明确说'请假'请用 create_leave_request，明确说'报销'请用 create_expense_claim。"
     required_role = "ai_assistant"  # 允许通过 AI 调用
     examples = [
-        {"input": {"type": "travel", "description": "出差北京拜访客户", "amount": 3000, "start_date": "2026-03-25", "end_date": "2026-03-27"}, "output_summary": "已提交出差审批，等待部门经理审批"},
-        {"input": {"type": "purchase", "description": "采购10台显示器", "amount": 15000}, "output_summary": "已提交采购审批，审批链匹配为多级审批"},
+        {
+            "input": {
+                "type": "travel",
+                "description": "出差北京拜访客户",
+                "amount": 3000,
+                "start_date": "2026-03-25",
+                "end_date": "2026-03-27",
+            },
+            "output_summary": "已提交出差审批，等待部门经理审批",
+        },
+        {
+            "input": {"type": "purchase", "description": "采购10台显示器", "amount": 15000},
+            "output_summary": "已提交采购审批，审批链匹配为多级审批",
+        },
     ]
     related_tools = ["create_leave_request", "create_expense_claim", "get_pending_approvals"]
     gotchas = "用户明确说请假或报销时应优先使用专用工具而非本工具。老板角色无法通过此工具提交审批。同类型同金额的待审批申请会被防重复拦截。"
@@ -436,7 +448,10 @@ class GetEmployeeApprovalHistoryTool(BaseTool):
     description = "查询指定员工的审批申请历史记录。当用户说'审批记录'、'审批历史'时调用。"
     required_role = "ai_assistant"
     examples = [
-        {"input": {"employee_id": "a1b2c3d4-...", "limit": 5}, "output_summary": "返回该员工最近5条审批记录，含状态、类型、金额"},
+        {
+            "input": {"employee_id": "a1b2c3d4-...", "limit": 5},
+            "output_summary": "返回该员工最近5条审批记录，含状态、类型、金额",
+        },
         {"input": {"employee_id": "a1b2c3d4-..."}, "output_summary": "返回该员工最近5条审批记录（默认）"},
     ]
     related_tools = ["get_employee_info", "get_pending_approvals"]
@@ -509,8 +524,14 @@ class ApprovalTool(BaseTool):
     is_irreversible = True
     confirmation_message = "审批操作不可逆。请在弹出的确认框中确认后执行。"
     examples = [
-        {"input": {"request_id": "a1b2c3d4-...", "confirm": False}, "output_summary": "返回审批单预览信息，等待用户确认"},
-        {"input": {"request_id": "a1b2c3d4-...", "reason": "金额合理", "confirm": True}, "output_summary": "执行批准操作，推进审批链"},
+        {
+            "input": {"request_id": "a1b2c3d4-...", "confirm": False},
+            "output_summary": "返回审批单预览信息，等待用户确认",
+        },
+        {
+            "input": {"request_id": "a1b2c3d4-...", "reason": "金额合理", "confirm": True},
+            "output_summary": "执行批准操作，推进审批链",
+        },
     ]
     related_tools = ["reject_request", "get_pending_approvals"]
     gotchas = "部门经理审批上限为5000元，超额需更高级别审批。已处理的审批单无法重复操作。request_id 必须是有效的 UUID。"
@@ -778,8 +799,14 @@ class RejectTool(BaseTool):
     is_irreversible = True
     confirmation_message = "驳回操作不可逆。请在弹出的确认框中确认后执行。"
     examples = [
-        {"input": {"request_id": "a1b2c3d4-...", "reason": "金额不合理", "confirm": False}, "output_summary": "返回驳回预览信息，等待用户确认"},
-        {"input": {"request_id": "a1b2c3d4-...", "reason": "超出预算", "confirm": True}, "output_summary": "执行驳回操作并通知申请人"},
+        {
+            "input": {"request_id": "a1b2c3d4-...", "reason": "金额不合理", "confirm": False},
+            "output_summary": "返回驳回预览信息，等待用户确认",
+        },
+        {
+            "input": {"request_id": "a1b2c3d4-...", "reason": "超出预算", "confirm": True},
+            "output_summary": "执行驳回操作并通知申请人",
+        },
     ]
     related_tools = ["approve_request", "get_pending_approvals"]
     gotchas = "reason 为必填参数，必须说明驳回原因。部门经理审批上限为5000元，超额需更高级别处理。已处理的审批单无法重复操作。"

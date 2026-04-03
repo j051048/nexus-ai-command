@@ -83,6 +83,7 @@ class ScheduledTaskRunner:
 
         try:
             from app.services.system_tasks import run_all_system_tasks
+
             await run_all_system_tasks()
         except Exception as e:
             logger.error("[ScheduledTaskRunner] System tasks failed: %s", e, exc_info=True)
@@ -160,18 +161,14 @@ class ScheduledTaskRunner:
                         fail_update["is_active"] = False
                         logger.warning(
                             "[ScheduledTaskRunner] Task %s auto-disabled after %d consecutive failures",
-                            task.get("id", "?"), failures,
+                            task.get("id", "?"),
+                            failures,
                         )
                     else:
                         # Backoff: push next_execution_at forward by failures*5 minutes
                         backoff_time = now + timedelta(minutes=failures * 5)
                         fail_update["next_execution_at"] = backoff_time.isoformat()
-                    await (
-                        supabase.table("user_scheduled_tasks")
-                        .update(fail_update)
-                        .eq("id", task["id"])
-                        .execute()
-                    )
+                    await supabase.table("user_scheduled_tasks").update(fail_update).eq("id", task["id"]).execute()
 
     async def _execute_single(self, task: dict, supabase, now: datetime):
         from app.agent.proactive_runner import run_proactive_agent

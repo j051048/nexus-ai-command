@@ -159,9 +159,9 @@ def _after_plan(state: AgentState) -> str:
 
 def _after_slot_verify(state: AgentState) -> str:
     """After slot verification:
-      - slot_context is set (missing params) → respond (ask_user)
-      - slot_context is None (all filled) → execute
-      - error → error
+    - slot_context is set (missing params) → respond (ask_user)
+    - slot_context is None (all filled) → execute
+    - error → error
     """
     if state.get("error"):
         return "error"
@@ -197,10 +197,13 @@ def _after_execute(state: AgentState) -> str:
 
     # P2: Rich observation layer — log comprehensive state for debugging
     completed = get_completed_tools(state)
-    tool_summary = ", ".join(
-        f"{tc.tool_name}={'ok' if tc.status == 'success' else tc.status}"
-        for tc in completed[-5:]  # last 5 tools
-    ) if completed else "none"
+    tool_summary = (
+        ", ".join(
+            f"{tc.tool_name}={'ok' if tc.status == 'success' else tc.status}" for tc in completed[-5:]  # last 5 tools
+        )
+        if completed
+        else "none"
+    )
     complexity = state.get("complexity")
     logger.info(
         f"[Graph:Observe] after_execute: iter={iteration}/{max_iter} "
@@ -221,8 +224,7 @@ def _after_execute(state: AgentState) -> str:
         if not state.get("_loop_escape_attempted"):
             # First loop: inject strategy-reset guidance, give LLM one chance to try differently
             logger.warning(
-                f"[Graph] Loop detected after {iteration} iterations, "
-                f"attempting strategy reset (escape chance)"
+                f"[Graph] Loop detected after {iteration} iterations, " f"attempting strategy reset (escape chance)"
             )
             state["_loop_escape_attempted"] = True
             state["reflection_guidance"] = (
@@ -234,9 +236,7 @@ def _after_execute(state: AgentState) -> str:
             return "plan"
 
         # Second loop: real circuit break
-        logger.warning(
-            f"[Graph] Loop persists after strategy reset (iter={iteration}), forcing circuit break"
-        )
+        logger.warning(f"[Graph] Loop persists after strategy reset (iter={iteration}), forcing circuit break")
         # Set structured circuit break reason for frontend event
         state["circuit_break_reason"] = "loop_detected"
         # Persist loop failure for analytics
@@ -249,16 +249,18 @@ def _after_execute(state: AgentState) -> str:
                 if hasattr(msg, "type") and msg.type == "human":
                     user_message = msg.content
                     break
-            _t = asyncio.create_task(failure_log_service.log_failure(
-                org_id=getattr(config, "org_id", None) if config else None,
-                user_id=getattr(config, "user_id", None) if config else None,
-                user_message=user_message or "loop detected",
-                intent_summary=state.get("intent_summary"),
-                complexity=state.get("complexity", "").value if state.get("complexity") else None,
-                error_type="loop",
-                error_detail=f"Loop after {iteration} iterations",
-                severity="medium",
-            ))
+            _t = asyncio.create_task(
+                failure_log_service.log_failure(
+                    org_id=getattr(config, "org_id", None) if config else None,
+                    user_id=getattr(config, "user_id", None) if config else None,
+                    user_message=user_message or "loop detected",
+                    intent_summary=state.get("intent_summary"),
+                    complexity=state.get("complexity", "").value if state.get("complexity") else None,
+                    error_type="loop",
+                    error_detail=f"Loop after {iteration} iterations",
+                    severity="medium",
+                )
+            )
             _background_tasks.add(_t)
             _t.add_done_callback(_background_tasks.discard)
         except Exception:
@@ -273,21 +275,13 @@ def _after_execute(state: AgentState) -> str:
     # G1: irreversible tools MUST go through reflect→critic, never fast synthesize
     complexity = state.get("complexity")
     completed = get_completed_tools(state)
-    if (
-        completed
-        and all(
-            tc.status == "success"
-            for tc in completed
-        )
-    ):
+    if completed and all(tc.status == "success" for tc in completed):
         if _has_irreversible_tool(state):
             # G1 exception: if user already confirmed (system_confirmed=True),
             # skip critic review — user intent is clear, avoid SLO timeout
             config = state.get("config")
             if config and config.system_confirmed:
-                logger.info(
-                    "[Graph] Irreversible tool succeeded + user confirmed → fast synthesize (skip reflect)"
-                )
+                logger.info("[Graph] Irreversible tool succeeded + user confirmed → fast synthesize (skip reflect)")
                 return "synthesize"
             logger.info(
                 "[Graph] All tools succeeded but irreversible tool detected → reflect (G1: Critic review required)"
@@ -297,10 +291,7 @@ def _after_execute(state: AgentState) -> str:
         return "synthesize"
 
     # Some tools failed → back to plan with structured error guidance
-    failed_tools = [
-        tc for tc in completed
-        if (getattr(tc, "status", None) or tc.get("status")) == "error"
-    ]
+    failed_tools = [tc for tc in completed if (getattr(tc, "status", None) or tc.get("status")) == "error"]
     if failed_tools:
         lines = ["以下工具执行失败，请根据错误类型调整策略："]
         for ft in failed_tools[:5]:
@@ -498,8 +489,7 @@ def _after_error(state: AgentState) -> str:
     # Level 2+: recovery exhausted, respond with best-effort
     if recovery_level >= 2:
         logger.warning(
-            f"[Graph] Error recovery exhausted (level={recovery_level}), "
-            f"responding with graceful degradation"
+            f"[Graph] Error recovery exhausted (level={recovery_level}), " f"responding with graceful degradation"
         )
     return "respond"
 
@@ -536,10 +526,7 @@ def _after_router(state: AgentState) -> str:
 
     # Parallel optimization: for COMPLEX/CRITICAL queries with RAG enabled,
     # run context retrieval concurrently with planning
-    if (
-        complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL)
-        and settings.LANGGRAPH_ENABLE_RAG_INJECT
-    ):
+    if complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL) and settings.LANGGRAPH_ENABLE_RAG_INJECT:
         config = state.get("config")
         if config and config.enable_rag_inject:
             return "parallel_plan"
@@ -831,7 +818,9 @@ class AgentGraph:
         checkpointer_type = type(self._checkpointer).__name__
         logger.info(
             "[AgentGraph] Graph compiled with %s in %d ms (version %d)",
-            checkpointer_type, elapsed_ms, current_version,
+            checkpointer_type,
+            elapsed_ms,
+            current_version,
         )
 
         return self._compiled
@@ -883,7 +872,7 @@ class AgentGraph:
                 tokens=tokens,
                 cost=cost,
                 duration=duration,
-                success=not result.get("error")
+                success=not result.get("error"),
             )
 
             return result
@@ -896,7 +885,7 @@ class AgentGraph:
                 tokens=0,
                 cost=0,
                 duration=duration,
-                success=False
+                success=False,
             )
             raise
 
@@ -971,23 +960,22 @@ class AgentGraph:
                 values = state_snapshot.values or {}
                 metadata = state_snapshot.metadata or {}
 
-                states.append({
-                    "checkpoint_id": checkpoint_config.get("checkpoint_id"),
-                    "checkpoint_ns": checkpoint_config.get("checkpoint_ns", ""),
-                    "values_summary": {
-                        k: str(v)[:200] for k, v in values.items()
-                        if k != "messages"
-                    },
-                    "message_count": len(values.get("messages", [])),
-                    "next_nodes": list(state_snapshot.next) if state_snapshot.next else [],
-                    "created_at": metadata.get("created_at"),
-                    "step": metadata.get("step"),
-                    "parent_checkpoint_id": (
-                        state_snapshot.parent_config.get("configurable", {}).get("checkpoint_id")
-                        if getattr(state_snapshot, "parent_config", None)
-                        else None
-                    ),
-                })
+                states.append(
+                    {
+                        "checkpoint_id": checkpoint_config.get("checkpoint_id"),
+                        "checkpoint_ns": checkpoint_config.get("checkpoint_ns", ""),
+                        "values_summary": {k: str(v)[:200] for k, v in values.items() if k != "messages"},
+                        "message_count": len(values.get("messages", [])),
+                        "next_nodes": list(state_snapshot.next) if state_snapshot.next else [],
+                        "created_at": metadata.get("created_at"),
+                        "step": metadata.get("step"),
+                        "parent_checkpoint_id": (
+                            state_snapshot.parent_config.get("configurable", {}).get("checkpoint_id")
+                            if getattr(state_snapshot, "parent_config", None)
+                            else None
+                        ),
+                    }
+                )
                 if len(states) >= limit:
                     break
         except Exception as e:

@@ -13,60 +13,116 @@ logger = logging.getLogger(__name__)
 # ── Intent exemplars: representative queries for each intent ──
 INTENT_EXEMPLARS: dict[str, list[str]] = {
     "leave_request": [
-        "我想请假", "帮我请三天假", "年假还剩几天",
-        "请假申请", "明天请一天事假", "我要休年假",
+        "我想请假",
+        "帮我请三天假",
+        "年假还剩几天",
+        "请假申请",
+        "明天请一天事假",
+        "我要休年假",
     ],
     "expense_claim": [
-        "报销800块", "打车费报销", "出差费用报销",
-        "提交报销单", "报销申请", "差旅费用",
+        "报销800块",
+        "打车费报销",
+        "出差费用报销",
+        "提交报销单",
+        "报销申请",
+        "差旅费用",
     ],
     "approval": [
-        "帮我审批", "待审批列表", "审批流程",
-        "审批一下这个申请", "查看我的审批", "批准申请",
+        "帮我审批",
+        "待审批列表",
+        "审批流程",
+        "审批一下这个申请",
+        "查看我的审批",
+        "批准申请",
     ],
     "attendance": [
-        "考勤记录", "打卡", "上班签到",
-        "迟到记录", "出勤统计", "考勤异常",
+        "考勤记录",
+        "打卡",
+        "上班签到",
+        "迟到记录",
+        "出勤统计",
+        "考勤异常",
     ],
     "sales_query": [
-        "查看销售数据", "本月业绩怎么样", "销售漏斗",
-        "成交额统计", "客户转化率", "销售目标完成情况",
+        "查看销售数据",
+        "本月业绩怎么样",
+        "销售漏斗",
+        "成交额统计",
+        "客户转化率",
+        "销售目标完成情况",
     ],
     "crm_query": [
-        "客户列表", "客户信息", "跟进客户",
-        "添加新客户", "客户联系记录", "客户画像",
+        "客户列表",
+        "客户信息",
+        "跟进客户",
+        "添加新客户",
+        "客户联系记录",
+        "客户画像",
     ],
     "hr_query": [
-        "员工花名册", "招聘进度", "绩效考核",
-        "团队人员", "人事变动", "培训安排",
+        "员工花名册",
+        "招聘进度",
+        "绩效考核",
+        "团队人员",
+        "人事变动",
+        "培训安排",
     ],
     "finance_query": [
-        "财务报表", "预算查询", "资金流水",
-        "成本分析", "利润统计", "应收账款",
+        "财务报表",
+        "预算查询",
+        "资金流水",
+        "成本分析",
+        "利润统计",
+        "应收账款",
     ],
     "project_query": [
-        "项目进度", "任务分配", "项目列表",
-        "里程碑", "甘特图", "项目统计",
+        "项目进度",
+        "任务分配",
+        "项目列表",
+        "里程碑",
+        "甘特图",
+        "项目统计",
     ],
     "calendar_query": [
-        "今天有什么会议", "日程安排", "预约会议室",
-        "本周日程", "创建日程", "会议安排",
+        "今天有什么会议",
+        "日程安排",
+        "预约会议室",
+        "本周日程",
+        "创建日程",
+        "会议安排",
     ],
     "knowledge_query": [
-        "帮我查一下知识库", "搜索文档", "公司制度",
-        "操作手册", "查找资料", "知识库搜索",
+        "帮我查一下知识库",
+        "搜索文档",
+        "公司制度",
+        "操作手册",
+        "查找资料",
+        "知识库搜索",
     ],
     "greeting": [
-        "早上好", "你好", "在吗",
-        "嗨", "下午好", "晚上好",
+        "早上好",
+        "你好",
+        "在吗",
+        "嗨",
+        "下午好",
+        "晚上好",
     ],
     "asset_query": [
-        "固定资产查询", "资产盘点", "设备借用",
-        "资产列表", "资产转移", "资产统计",
+        "固定资产查询",
+        "资产盘点",
+        "设备借用",
+        "资产列表",
+        "资产转移",
+        "资产统计",
     ],
     "work_order": [
-        "创建工单", "工单列表", "工单进度",
-        "报修", "维修工单", "服务请求",
+        "创建工单",
+        "工单列表",
+        "工单进度",
+        "报修",
+        "维修工单",
+        "服务请求",
     ],
 }
 
@@ -137,9 +193,7 @@ class SemanticRouter:
             async def _embed(text: str) -> list[float] | None:
                 return await vector_service.embed_text(text, org_id or "default")
 
-            results = await asyncio.gather(
-                *[_embed(t[2]) for t in tasks], return_exceptions=True
-            )
+            results = await asyncio.gather(*[_embed(t[2]) for t in tasks], return_exceptions=True)
 
             embeddings: dict[str, list[np.ndarray]] = {}
             for (intent, _, _), result in zip(tasks, results, strict=False):
@@ -160,9 +214,7 @@ class SemanticRouter:
         finally:
             self._initializing = False
 
-    async def classify(
-        self, query: str, org_id: str | None = None
-    ) -> tuple[str | None, float, list[str]]:
+    async def classify(self, query: str, org_id: str | None = None) -> tuple[str | None, float, list[str]]:
         """Classify query intent via embedding cosine similarity.
 
         Returns:

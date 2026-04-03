@@ -109,9 +109,36 @@ class CreateScheduledTaskTool(BaseTool):
     required_role = "all"
     domain = "schedule"
     examples = [
-        {"input": {"name": "检查客户回复", "prompt": "检查最近的客户跟进情况并提醒我需要回复的客户", "schedule_type": "daily", "hour": 16, "minute": 0}, "output_summary": "创建每天16:00执行的定时任务"},
-        {"input": {"name": "周报提醒", "prompt": "提醒我准备本周工作总结", "schedule_type": "weekly", "hour": 17, "minute": 0, "day_of_week": 4}, "output_summary": "创建每周五17:00执行的定时任务"},
-        {"input": {"name": "会议提醒", "prompt": "提醒我参加产品评审会议", "schedule_type": "once", "delay_minutes": 30}, "output_summary": "创建30分钟后执行的一次性提醒"},
+        {
+            "input": {
+                "name": "检查客户回复",
+                "prompt": "检查最近的客户跟进情况并提醒我需要回复的客户",
+                "schedule_type": "daily",
+                "hour": 16,
+                "minute": 0,
+            },
+            "output_summary": "创建每天16:00执行的定时任务",
+        },
+        {
+            "input": {
+                "name": "周报提醒",
+                "prompt": "提醒我准备本周工作总结",
+                "schedule_type": "weekly",
+                "hour": 17,
+                "minute": 0,
+                "day_of_week": 4,
+            },
+            "output_summary": "创建每周五17:00执行的定时任务",
+        },
+        {
+            "input": {
+                "name": "会议提醒",
+                "prompt": "提醒我参加产品评审会议",
+                "schedule_type": "once",
+                "delay_minutes": 30,
+            },
+            "output_summary": "创建30分钟后执行的一次性提醒",
+        },
     ]
     related_tools = ["list_scheduled_tasks", "delete_scheduled_task"]
     gotchas = "每个用户最多20个活跃任务；相对时间（如'半小时后'）必须用 delay_minutes 而非手动算 hour/minute；hour 使用北京时间（0-23）。"
@@ -380,11 +407,19 @@ class DeleteScheduledTaskTool(BaseTool):
     is_irreversible = True
     confirmation_message = "确认要删除此定时任务吗？删除后不可恢复。"
     examples = [
-        {"input": {"task_name": "检查客户回复", "action": "delete"}, "output_summary": "按名称模糊匹配并永久删除该定时任务"},
-        {"input": {"task_id": "abcd1234", "action": "disable"}, "output_summary": "按任务编号停用该定时任务，可后续重新启用"},
+        {
+            "input": {"task_name": "检查客户回复", "action": "delete"},
+            "output_summary": "按名称模糊匹配并永久删除该定时任务",
+        },
+        {
+            "input": {"task_id": "abcd1234", "action": "disable"},
+            "output_summary": "按任务编号停用该定时任务，可后续重新启用",
+        },
     ]
     related_tools = ["list_scheduled_tasks", "create_scheduled_task"]
-    gotchas = "删除操作不可逆，需用户确认；停用和启用可反复切换；建议先调用 list_scheduled_tasks 获取任务名称或编号再操作。"
+    gotchas = (
+        "删除操作不可逆，需用户确认；停用和启用可反复切换；建议先调用 list_scheduled_tasks 获取任务名称或编号再操作。"
+    )
 
     parameters = {
         "type": "object",
@@ -473,7 +508,9 @@ class DeleteScheduledTaskTool(BaseTool):
                 pass  # 非关键路径，静默失败
             return f"已删除定时任务「{task['name']}」。"
         elif action == "disable":
-            dis_res = await client.table("user_scheduled_tasks").update({"is_active": False}).eq("id", task["id"]).execute()
+            dis_res = (
+                await client.table("user_scheduled_tasks").update({"is_active": False}).eq("id", task["id"]).execute()
+            )
             if not dis_res.data:
                 return f"❌ 停用定时任务「{task['name']}」失败，请稍后重试。"
             return f"已停用定时任务「{task['name']}」。可以随时重新启用。"

@@ -74,9 +74,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
                     from app.core.database import supabase
 
                     if supabase:
-                        request.state.db = supabase.get_org_filtered_client(
-                            key_info["organization_id"]
-                        )
+                        request.state.db = supabase.get_org_filtered_client(key_info["organization_id"])
                     else:
                         request.state.db = None
 

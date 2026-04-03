@@ -2,6 +2,7 @@
 数据可视化图表生成工具
 支持销售漏斗、趋势图、饼图等常见图表类型
 """
+
 import json
 import logging
 from typing import Any, Literal
@@ -69,9 +70,7 @@ async def generate_chart(
         return {"success": False, "error": str(e)}
 
 
-def _build_echarts_option(
-    chart_type: ChartType, data: dict, title: str, x_label: str, y_label: str
-) -> dict:
+def _build_echarts_option(chart_type: ChartType, data: dict, title: str, x_label: str, y_label: str) -> dict:
     """构建 ECharts 配置"""
     base_option = {
         "title": {"text": title, "left": "center"},
@@ -197,4 +196,3 @@ def _generate_html(option: dict, title: str) -> str:
     </script>
 </body>
 </html>"""
-

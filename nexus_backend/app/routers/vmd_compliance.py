@@ -1,4 +1,5 @@
 """VMD 合规路由"""
+
 import logging
 
 from fastapi import APIRouter, Depends, Request
@@ -11,10 +12,7 @@ router = APIRouter(prefix="/api/vmd/compliance", tags=["VMD Compliance"])
 
 
 @router.get("/history")
-async def list_vmd_compliance_history(
-    req: Request,
-    user_id: str = Depends(get_current_user_id)
-):
+async def list_vmd_compliance_history(req: Request, user_id: str = Depends(get_current_user_id)):
     """获取合规审计历史列表"""
     db = getattr(req.state, "db", None)
     if not db:
@@ -30,10 +28,7 @@ async def list_vmd_compliance_history(
 
 
 @router.get("/rules")
-async def list_vmd_compliance_rules(
-    req: Request,
-    user_id: str = Depends(get_current_user_id)
-):
+async def list_vmd_compliance_rules(req: Request, user_id: str = Depends(get_current_user_id)):
     """获取合规检查规则"""
     db = getattr(req.state, "db", None)
     if not db:

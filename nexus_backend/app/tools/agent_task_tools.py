@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 async def _get_db():
     from app.core.database import supabase
+
     return supabase
 
 
@@ -24,11 +25,10 @@ async def _get_db():
 # create_task
 # ---------------------------------------------------------------------------
 
+
 class CreateTaskTool(BaseTool):
     name = "create_task"
-    description = (
-        "创建持久化任务用于跟踪多步骤工作进度"
-    )
+    description = "创建持久化任务用于跟踪多步骤工作进度"
     parameters = {
         "type": "object",
         "properties": {
@@ -53,8 +53,14 @@ class CreateTaskTool(BaseTool):
     category = "system"
     domain = "schedule"
     examples = [
-        {"input": {"title": "分析本月销售数据", "description": "汇总各区域销售额并生成报告"}, "output_summary": "创建一个待办任务并返回任务编号"},
-        {"input": {"title": "更新客户资料", "depends_on": ["abc12345"]}, "output_summary": "创建依赖于指定任务的新任务"},
+        {
+            "input": {"title": "分析本月销售数据", "description": "汇总各区域销售额并生成报告"},
+            "output_summary": "创建一个待办任务并返回任务编号",
+        },
+        {
+            "input": {"title": "更新客户资料", "depends_on": ["abc12345"]},
+            "output_summary": "创建依赖于指定任务的新任务",
+        },
     ]
     gotchas = "标题不能为空。创建后状态默认为待办。任务跨会话持久化保存。"
     related_tools = ["list_tasks", "update_task"]
@@ -74,15 +80,21 @@ class CreateTaskTool(BaseTool):
 
         try:
             db = await _get_db()
-            result = await db.table("agent_tasks").insert({
-                "conversation_id": session_id,
-                "tenant_id": org_id,
-                "user_id": user_id,
-                "title": title,
-                "description": description,
-                "depends_on": depends_on,
-                "status": "pending",
-            }).execute()
+            result = (
+                await db.table("agent_tasks")
+                .insert(
+                    {
+                        "conversation_id": session_id,
+                        "tenant_id": org_id,
+                        "user_id": user_id,
+                        "title": title,
+                        "description": description,
+                        "depends_on": depends_on,
+                        "status": "pending",
+                    }
+                )
+                .execute()
+            )
 
             if result.data:
                 task = result.data[0]
@@ -101,13 +113,15 @@ class CreateTaskTool(BaseTool):
 # update_task
 # ---------------------------------------------------------------------------
 
+
 class UpdateTaskTool(BaseTool):
     name = "update_task"
-    description = (
-        "更新任务的状态或执行结果摘要"
-    )
+    description = "更新任务的状态或执行结果摘要"
     examples = [
-        {"input": {"task_id": "abc12345", "status": "done", "context_summary": "已完成数据分析"}, "output_summary": "将任务标记为已完成并记录结果摘要"},
+        {
+            "input": {"task_id": "abc12345", "status": "done", "context_summary": "已完成数据分析"},
+            "output_summary": "将任务标记为已完成并记录结果摘要",
+        },
         {"input": {"task_id": "abc12345", "status": "blocked"}, "output_summary": "将任务标记为阻塞状态"},
     ]
     gotchas = "任务编号至少提供前8位。至少需要提供状态或结果摘要中的一项。"
@@ -175,11 +189,10 @@ class UpdateTaskTool(BaseTool):
 # list_tasks
 # ---------------------------------------------------------------------------
 
+
 class ListTasksTool(BaseTool):
     name = "list_tasks"
-    description = (
-        "列出当前会话的所有任务及其状态"
-    )
+    description = "列出当前会话的所有任务及其状态"
     examples = [
         {"input": {}, "output_summary": "返回当前会话全部任务的状态面板"},
         {"input": {"status_filter": "pending"}, "output_summary": "仅返回待办状态的任务列表"},

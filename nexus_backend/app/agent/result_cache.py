@@ -30,10 +30,6 @@ async def cache_agent_result(user_id: str, query: str, result: dict, org_id: str
 
     try:
         cache_key = _generate_cache_key(user_id, query, org_id)
-        redis_client.setex(
-            cache_key,
-            1800,
-            json.dumps(result, ensure_ascii=False)
-        )
+        redis_client.setex(cache_key, 1800, json.dumps(result, ensure_ascii=False))
     except Exception as e:
         logger.warning(f"Failed to cache agent result: {e}")

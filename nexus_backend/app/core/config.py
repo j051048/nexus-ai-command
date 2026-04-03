@@ -108,7 +108,9 @@ class Settings(BaseSettings):
     LANGFUSE_PUBLIC_KEY: str = Field(default="", description="Langfuse public key")
     LANGFUSE_SECRET_KEY: str = Field(default="", description="Langfuse secret key")
     LANGFUSE_HOST: str = Field(default="https://cloud.langfuse.com", description="Langfuse host URL")
-    LANGFUSE_SAMPLE_RATE: float = Field(default=1.0, description="Langfuse trace sample rate 0.0-1.0. Set <1.0 in production to reduce overhead.")
+    LANGFUSE_SAMPLE_RATE: float = Field(
+        default=1.0, description="Langfuse trace sample rate 0.0-1.0. Set <1.0 in production to reduce overhead."
+    )
 
     # LangSmith (LangChain Observability)
     LANGCHAIN_TRACING_V2: bool = Field(default=False, description="Enable LangSmith tracing")
@@ -130,7 +132,9 @@ class Settings(BaseSettings):
     TOKEN_BUDGET_MAX_PER_SESSION: int = Field(default=100000, description="Max tokens per single chat session")
     TOKEN_BUDGET_MAX_PER_HOUR_PER_USER: int = Field(default=200000, description="Max tokens per user per hour")
     TOKEN_BUDGET_MAX_COST_PER_SESSION: float = Field(default=5.0, description="Max cost (USD) per single chat session")
-    TOKEN_BUDGET_MAX_COST_PER_DAY_PER_TENANT: float = Field(default=100.0, description="Max cost (USD) per tenant per day")
+    TOKEN_BUDGET_MAX_COST_PER_DAY_PER_TENANT: float = Field(
+        default=100.0, description="Max cost (USD) per tenant per day"
+    )
 
     # File upload
     MAX_FILE_SIZE_MB: int = Field(default=50, description="Maximum file upload size in MB")
@@ -163,7 +167,9 @@ class Settings(BaseSettings):
     RERANK_MAX_DOCS: int = Field(default=8, description="Maximum documents to send to reranker")
     RERANK_TIMEOUT: int = Field(default=8, description="Timeout in seconds for reranker call")
     COHERE_API_KEY: str = Field(default="", description="Cohere API key for Cohere Rerank backend")
-    RERANKER_BACKEND: str = Field(default="", description="Reranker backend override: 'cohere', 'bge', or 'llm'. Empty = auto-detect")
+    RERANKER_BACKEND: str = Field(
+        default="", description="Reranker backend override: 'cohere', 'bge', or 'llm'. Empty = auto-detect"
+    )
 
     # LangGraph Agent Configuration
     LANGGRAPH_MAX_ITERATIONS: int = Field(default=5, description="Maximum plan-execute-reflect loop iterations")
@@ -178,7 +184,9 @@ class Settings(BaseSettings):
         default=True, description="Use LLM for grounded hallucination detection in reflect node"
     )
     LANGGRAPH_CHECKPOINTER: str = Field(default="memory", description="Checkpointer backend: 'memory' or 'postgres'")
-    SEMANTIC_CACHE_THRESHOLD: float = Field(default=0.90, description="Similarity threshold for semantic cache hits (lowered from 0.95 to improve hit rate)")
+    SEMANTIC_CACHE_THRESHOLD: float = Field(
+        default=0.90, description="Similarity threshold for semantic cache hits (lowered from 0.95 to improve hit rate)"
+    )
 
     # SLO Definitions (Item 16)
     SLO_AI_RESPONSE_P95_MS: int = Field(default=5000, description="SLO: AI response P95 latency in ms")
@@ -187,10 +195,14 @@ class Settings(BaseSettings):
     SLO_ERROR_BUDGET_WINDOW_DAYS: int = Field(default=30, description="SLO: error budget rolling window in days")
 
     # Sentry per-endpoint sampling (Item 26)
-    SENTRY_SECURITY_SAMPLE_RATE: float = Field(default=1.0, description="Sentry trace sample rate for security-critical endpoints (auth/approval/billing)")
+    SENTRY_SECURITY_SAMPLE_RATE: float = Field(
+        default=1.0, description="Sentry trace sample rate for security-critical endpoints (auth/approval/billing)"
+    )
 
     # Migration control (Item 19)
-    RUN_MIGRATIONS_ON_STARTUP: bool = Field(default=False, description="Run DB migrations on app startup. Use CI/CD pipeline in production.")
+    RUN_MIGRATIONS_ON_STARTUP: bool = Field(
+        default=False, description="Run DB migrations on app startup. Use CI/CD pipeline in production."
+    )
 
     # Security
     # P1 Fix #42: Key for encryption
@@ -201,7 +213,9 @@ class Settings(BaseSettings):
     STRIPE_PUBLISHABLE_KEY: str = Field(default="", description="Stripe publishable key")
     STRIPE_WEBHOOK_SECRET: str = Field(default="", description="Stripe webhook signing secret")
     STRIPE_PRICE_BASIC: str = Field(default="", description="Stripe Price ID for Starter plan (legacy alias: basic)")
-    STRIPE_PRICE_PREMIUM: str = Field(default="", description="Stripe Price ID for Professional plan (legacy alias: premium)")
+    STRIPE_PRICE_PREMIUM: str = Field(
+        default="", description="Stripe Price ID for Professional plan (legacy alias: premium)"
+    )
     STRIPE_PRICE_ENTERPRISE: str = Field(default="", description="Stripe Price ID for Enterprise plan")
 
     # Canonical aliases — prefer these in new code
@@ -214,9 +228,7 @@ class Settings(BaseSettings):
         return self.STRIPE_PRICE_PREMIUM
 
     # G4: Prompt Firewall
-    PROMPT_FIREWALL_ENABLED: bool = Field(
-        default=True, description="Enable Prompt Firewall pre-agent input protection"
-    )
+    PROMPT_FIREWALL_ENABLED: bool = Field(default=True, description="Enable Prompt Firewall pre-agent input protection")
 
     # Observability (OpenTelemetry)
     OTEL_ENABLED: bool = Field(default=False, description="Enable OpenTelemetry distributed tracing")

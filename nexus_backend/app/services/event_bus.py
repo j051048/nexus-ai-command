@@ -477,7 +477,9 @@ async def handle_cache_invalidation(event: Event):
             count = await semantic_cache_service.invalidate_by_keywords(org_id, keywords)
         else:
             count = await semantic_cache_service.invalidate_by_org(org_id)
-        logger.info(f"[EventBus] Cache invalidation handled: org={org_id}, keywords={keywords[:3] if keywords else 'all'}, deleted={count}")
+        logger.info(
+            f"[EventBus] Cache invalidation handled: org={org_id}, keywords={keywords[:3] if keywords else 'all'}, deleted={count}"
+        )
     except Exception as e:
         logger.warning(f"[EventBus] Cache invalidation handler failed: {e}")
 

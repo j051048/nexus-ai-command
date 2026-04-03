@@ -2,6 +2,7 @@
 Redis 缓存装饰器
 放在 nexus_backend/app/core/cache.py
 """
+
 import functools
 import hashlib
 import json
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 redis_client = None
 _redis_initialized = False
 
+
 def _init_redis():
     """延迟初始化 Redis 连接"""
     global redis_client, _redis_initialized
@@ -26,13 +28,10 @@ def _init_redis():
     _redis_initialized = True
     try:
         from app.core.config import settings
+
         _redis_url = settings.REDIS_URL or "redis://localhost:6379/0"
         redis_client = redis.from_url(
-            _redis_url,
-            decode_responses=True,
-            socket_timeout=2,
-            socket_connect_timeout=2,
-            retry_on_timeout=True
+            _redis_url, decode_responses=True, socket_timeout=2, socket_connect_timeout=2, retry_on_timeout=True
         )
         # 测试连接
         redis_client.ping()
@@ -75,7 +74,11 @@ def cache(ttl: int = 300, prefix: str = "nexus", exclude_params: list[str] | Non
             # 注意: 如果是实例方法，第一个参数是 self，通常也要排除或者只取其特定属性
             # 这里简单处理，排除第一个参数如果是类实例的情况（简单通过是否有 __dict__ 判断不太严谨，但常用）
             key_args = list(args)
-            if key_args and hasattr(key_args[0], "__class__") and not isinstance(key_args[0], str | int | float | bool | list | dict):
+            if (
+                key_args
+                and hasattr(key_args[0], "__class__")
+                and not isinstance(key_args[0], str | int | float | bool | list | dict)
+            ):
                 key_args = key_args[1:]
 
             key_data = f"{func.__module__}:{func.__name__}:{key_args}:{safe_kwargs}"
@@ -97,17 +100,15 @@ def cache(ttl: int = 300, prefix: str = "nexus", exclude_params: list[str] | Non
             try:
                 # 存入缓存
                 if result is not None:
-                    redis_client.setex(
-                        cache_key,
-                        ttl,
-                        json.dumps(result, ensure_ascii=False)
-                    )
+                    redis_client.setex(cache_key, ttl, json.dumps(result, ensure_ascii=False))
                     logger.debug(f"Cache Set: {cache_key} (ttl={ttl})")
             except Exception as e:
                 logger.warning(f"设置缓存出错: {e}")
 
             return result
+
         return wrapper
+
     return decorator
 
 

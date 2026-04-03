@@ -78,6 +78,7 @@ def sanitize_prompt_field(value: str, max_len: int = 500) -> str:
         cleaned = cleaned[:max_len] + "..."
     return cleaned.strip()
 
+
 # Long-running tools that need extended timeout (120s instead of default 30s)
 # Canonical definition — also used by nodes_orchestrator.py
 LONG_RUNNING_TOOLS: set[str] = {
@@ -158,7 +159,6 @@ _hooks: dict[str, list[Callable]] = {
 }
 
 
-
 async def run_hooks(event: str, context: dict) -> dict | None:
     """Run all hooks for an event in registration order.
 
@@ -204,18 +204,34 @@ _ROLE_HIERARCHY = {
 # DataPrimacyGuard to prevent "OpenClaw syndrome" (asking the web when
 # internal data should be queried from Supabase).
 _ALWAYS_INCLUDE_TOOLS: set[str] = {
-    "ask_user", "compact_context", "llm_task", "save_memory",
+    "ask_user",
+    "compact_context",
+    "llm_task",
+    "save_memory",
 }
 
 # Domains where web search IS appropriate (non-enterprise-private data)
 _WEB_SEARCH_ALLOWED_DOMAINS: set[str] = {
-    "knowledge", "tender", "analytics", "vmd_market",
+    "knowledge",
+    "tender",
+    "analytics",
+    "vmd_market",
 }
 
 # Keywords in intent_summary that signal user explicitly wants web search
 _WEB_SEARCH_INTENT_KEYWORDS: set[str] = {
-    "搜索", "查一下", "网上", "搜一下", "百度", "谷歌", "google",
-    "最新", "新闻", "行业", "趋势", "市场",
+    "搜索",
+    "查一下",
+    "网上",
+    "搜一下",
+    "百度",
+    "谷歌",
+    "google",
+    "最新",
+    "新闻",
+    "行业",
+    "趋势",
+    "市场",
 }
 
 # ─── Scene-based Tool Policy (inspired by OpenClaw tool-policy-pipeline) ────
@@ -264,101 +280,177 @@ _SCENE_TOOL_POLICY: dict[str, dict] = {
 # Domain → tool name sets
 _DOMAIN_TOOL_MAP: dict[str, set[str]] = {
     "oa_leave": {
-        "create_leave_request", "query_leave_status", "request_leave",
-        "book_meeting", "create_work_handover",
+        "create_leave_request",
+        "query_leave_status",
+        "request_leave",
+        "book_meeting",
+        "create_work_handover",
         "generate_onboarding_checklist",
         "submit_approval_on_behalf",
     },
     "oa_task": {
-        "assign_task", "send_notification", "book_meeting",
-        "create_work_handover", "publish_announcement",
+        "assign_task",
+        "send_notification",
+        "book_meeting",
+        "create_work_handover",
+        "publish_announcement",
     },
     "attendance": {
-        "clock_in_out", "get_attendance_record", "attendance_statistics",
-        "create_shift_schedule", "list_shift_schedules", "request_leave",
-        "query_attendance", "query_team_attendance",
+        "clock_in_out",
+        "get_attendance_record",
+        "attendance_statistics",
+        "create_shift_schedule",
+        "list_shift_schedules",
+        "request_leave",
+        "query_attendance",
+        "query_team_attendance",
     },
     "approval": {
-        "approve_request", "reject_request", "get_pending_approvals",
-        "submit_approval_on_behalf", "get_employee_approval_history",
-        "smart_approve", "list_approval_flows", "create_approval_flow",
+        "approve_request",
+        "reject_request",
+        "get_pending_approvals",
+        "submit_approval_on_behalf",
+        "get_employee_approval_history",
+        "smart_approve",
+        "list_approval_flows",
+        "create_approval_flow",
         "approve_expense",
     },
     "finance": {
-        "create_expense_claim", "query_expense_status", "query_budget",
-        "query_salary", "recognize_invoice", "submit_expense",
-        "list_expenses", "approve_expense", "check_budget",
+        "create_expense_claim",
+        "query_expense_status",
+        "query_budget",
+        "query_salary",
+        "recognize_invoice",
+        "submit_expense",
+        "list_expenses",
+        "approve_expense",
+        "check_budget",
     },
     "project": {
-        "get_projects", "create_project", "create_project_event",
-        "generate_weekly_report", "assign_task",
-        "list_work_orders", "create_work_order", "get_work_order_detail",
-        "update_work_order", "work_order_statistics",
+        "get_projects",
+        "create_project",
+        "create_project_event",
+        "generate_weekly_report",
+        "assign_task",
+        "list_work_orders",
+        "create_work_order",
+        "get_work_order_detail",
+        "update_work_order",
+        "work_order_statistics",
     },
     "crm": {
-        "get_customers", "get_customer_detail", "create_customer",
-        "update_customer", "add_follow_up", "get_follow_ups",
-        "update_customer_stage", "get_sales_pipeline",
-        "get_contracts", "create_contract", "get_expiring_contracts",
-        "analyze_contract", "generate_customer_profile",
+        "get_customers",
+        "get_customer_detail",
+        "create_customer",
+        "update_customer",
+        "add_follow_up",
+        "get_follow_ups",
+        "update_customer_stage",
+        "get_sales_pipeline",
+        "get_contracts",
+        "create_contract",
+        "get_expiring_contracts",
+        "analyze_contract",
+        "generate_customer_profile",
     },
     "hr": {
-        "get_employee_profile", "get_employee_detail", "get_employee_info",
-        "list_employees", "create_employee", "update_employee",
-        "create_performance_review", "manage_recruitment",
-        "list_departments", "create_department", "update_department",
+        "get_employee_profile",
+        "get_employee_detail",
+        "get_employee_info",
+        "list_employees",
+        "create_employee",
+        "update_employee",
+        "create_performance_review",
+        "manage_recruitment",
+        "list_departments",
+        "create_department",
+        "update_department",
         "org_statistics",
     },
     "asset": {
-        "list_assets", "get_asset_detail", "create_asset",
-        "update_asset", "transfer_asset", "asset_statistics",
+        "list_assets",
+        "get_asset_detail",
+        "create_asset",
+        "update_asset",
+        "transfer_asset",
+        "asset_statistics",
     },
     "tender": {
-        "analyze_tender_document", "get_battlecard", "list_competitors",
+        "analyze_tender_document",
+        "get_battlecard",
+        "list_competitors",
         "search_bidding_projects",
-        "generate_bid_document", "generate_deviation_table",
-        "check_bid_compliance", "extract_bid_requirements",
+        "generate_bid_document",
+        "generate_deviation_table",
+        "check_bid_compliance",
+        "extract_bid_requirements",
     },
     "analytics": {
-        "get_performance_report", "get_company_stats",
-        "smart_report", "anomaly_detection",
-        "get_business_dashboard", "get_team_insight",
-        "analyze_data_attribution", "strategy_simulation",
+        "get_performance_report",
+        "get_company_stats",
+        "smart_report",
+        "anomaly_detection",
+        "get_business_dashboard",
+        "get_team_insight",
+        "analyze_data_attribution",
+        "strategy_simulation",
     },
     "knowledge": {
-        "query_knowledge_base", "batch_analyze_documents",
+        "query_knowledge_base",
+        "batch_analyze_documents",
         "load_knowledge",
     },
     "schedule": {
-        "create_scheduled_task", "list_scheduled_tasks",
-        "delete_scheduled_task", "get_daily_briefing",
-        "get_pending_approvals", "assign_task",
-        "create_task", "update_task", "list_tasks",
-        "get_user_preferences", "update_user_preferences",
+        "create_scheduled_task",
+        "list_scheduled_tasks",
+        "delete_scheduled_task",
+        "get_daily_briefing",
+        "get_pending_approvals",
+        "assign_task",
+        "create_task",
+        "update_task",
+        "list_tasks",
+        "get_user_preferences",
+        "update_user_preferences",
     },
     "vmd_content": {
-        "generate_product_manual", "generate_whitepaper",
-        "generate_application_note", "generate_social_post",
-        "generate_sales_script", "generate_competitor_comparison",
-        "generate_training_material", "generate_quotation_template",
+        "generate_product_manual",
+        "generate_whitepaper",
+        "generate_application_note",
+        "generate_social_post",
+        "generate_sales_script",
+        "generate_competitor_comparison",
+        "generate_training_material",
+        "generate_quotation_template",
     },
     "vmd_market": {
-        "monitor_industry_trends", "generate_market_research",
-        "generate_competitor_analysis", "aggregate_customer_feedback",
-        "generate_maintenance_reminder", "generate_faq_response",
-        "generate_repurchase_campaign", "customer_lifecycle_analysis",
+        "monitor_industry_trends",
+        "generate_market_research",
+        "generate_competitor_analysis",
+        "aggregate_customer_feedback",
+        "generate_maintenance_reminder",
+        "generate_faq_response",
+        "generate_repurchase_campaign",
+        "customer_lifecycle_analysis",
     },
     "admin": {
-        "list_system_configs", "update_system_config",
-        "list_certificates", "create_certificate",
-        "expiring_certificates", "renew_certificate",
-        "process_onboarding", "process_resignation",
+        "list_system_configs",
+        "update_system_config",
+        "list_certificates",
+        "create_certificate",
+        "expiring_certificates",
+        "renew_certificate",
+        "process_onboarding",
+        "process_resignation",
         "process_asset_lifecycle",
         "publish_announcement",
         "query_audit_logs",
     },
     "inventory": {
-        "list_inventory", "inventory_in", "inventory_out",
+        "list_inventory",
+        "inventory_in",
+        "inventory_out",
         "inventory_statistics",
     },
 }
@@ -366,79 +458,155 @@ _DOMAIN_TOOL_MAP: dict[str, set[str]] = {
 # Keyword → domain(s) mapping — reuses router.py keyword vocabulary
 _KEYWORD_DOMAIN_MAP: dict[str, list[str]] = {
     # OA / Leave
-    "请假": ["oa_leave"], "出差": ["oa_leave", "approval"], "会议": ["oa_leave"],
-    "日程": ["oa_leave", "schedule"], "交接": ["oa_leave"],
-    "调休": ["oa_leave", "attendance"], "年假": ["oa_leave"],
+    "请假": ["oa_leave"],
+    "出差": ["oa_leave", "approval"],
+    "会议": ["oa_leave"],
+    "日程": ["oa_leave", "schedule"],
+    "交接": ["oa_leave"],
+    "调休": ["oa_leave", "attendance"],
+    "年假": ["oa_leave"],
     "提醒": ["oa_task", "oa_leave", "schedule"],
     # OA Task / Administrative
-    "安排": ["oa_task", "project"], "去办": ["oa_task"],
-    "跑腿": ["oa_task"], "行政": ["oa_task", "admin"],
-    "送资料": ["oa_task"], "取文件": ["oa_task"],
-    "交付": ["oa_task", "project"], "派人": ["oa_task", "project"],
-    "吩咐": ["oa_task"], "交代": ["oa_task"],
+    "安排": ["oa_task", "project"],
+    "去办": ["oa_task"],
+    "跑腿": ["oa_task"],
+    "行政": ["oa_task", "admin"],
+    "送资料": ["oa_task"],
+    "取文件": ["oa_task"],
+    "交付": ["oa_task", "project"],
+    "派人": ["oa_task", "project"],
+    "吩咐": ["oa_task"],
+    "交代": ["oa_task"],
     # Attendance
-    "考勤": ["attendance"], "打卡": ["attendance"], "补卡": ["attendance"],
-    "加班": ["attendance"], "排班": ["attendance"],
+    "考勤": ["attendance"],
+    "打卡": ["attendance"],
+    "补卡": ["attendance"],
+    "加班": ["attendance"],
+    "排班": ["attendance"],
     # Approval
-    "审批": ["approval"], "批准": ["approval"], "拒绝": ["approval"],
-    "驳回": ["approval"], "批了": ["approval"], "不批": ["approval"],
-    "同意": ["approval"], "通过": ["approval"], "申请": ["approval"],
+    "审批": ["approval"],
+    "批准": ["approval"],
+    "拒绝": ["approval"],
+    "驳回": ["approval"],
+    "批了": ["approval"],
+    "不批": ["approval"],
+    "同意": ["approval"],
+    "通过": ["approval"],
+    "申请": ["approval"],
     # Finance
-    "报销": ["finance"], "预算": ["finance"], "工资": ["finance"],
-    "薪资": ["finance"], "发票": ["finance"], "开票": ["finance"],
-    "付款": ["finance"], "转账": ["finance"], "发工资": ["finance"],
-    "费用": ["finance"], "收入": ["finance", "analytics"],
+    "报销": ["finance"],
+    "预算": ["finance"],
+    "工资": ["finance"],
+    "薪资": ["finance"],
+    "发票": ["finance"],
+    "开票": ["finance"],
+    "付款": ["finance"],
+    "转账": ["finance"],
+    "发工资": ["finance"],
+    "费用": ["finance"],
+    "收入": ["finance", "analytics"],
     # Project
-    "项目": ["project"], "进度": ["project"], "任务": ["project", "schedule"],
-    "工单": ["project"], "维修": ["project", "asset"], "派工": ["project"],
+    "项目": ["project"],
+    "进度": ["project"],
+    "任务": ["project", "schedule"],
+    "工单": ["project"],
+    "维修": ["project", "asset"],
+    "派工": ["project"],
     # CRM / Sales
-    "客户": ["crm"], "合同": ["crm"], "商机": ["crm"],
-    "线索": ["crm"], "跟进": ["crm"], "漏斗": ["crm"],
-    "转化率": ["crm", "analytics"], "跟进率": ["crm", "analytics"],
+    "客户": ["crm"],
+    "合同": ["crm"],
+    "商机": ["crm"],
+    "线索": ["crm"],
+    "跟进": ["crm"],
+    "漏斗": ["crm"],
+    "转化率": ["crm", "analytics"],
+    "跟进率": ["crm", "analytics"],
     # HR
-    "员工": ["hr"], "通讯录": ["hr"], "培训": ["hr"],
-    "招聘": ["hr"], "绩效": ["hr", "analytics"], "部门": ["hr"],
-    "入职": ["hr", "admin"], "离职": ["hr", "admin"],
-    "组织架构": ["hr"], "人事": ["hr"],
+    "员工": ["hr"],
+    "通讯录": ["hr"],
+    "培训": ["hr"],
+    "招聘": ["hr"],
+    "绩效": ["hr", "analytics"],
+    "部门": ["hr"],
+    "入职": ["hr", "admin"],
+    "离职": ["hr", "admin"],
+    "组织架构": ["hr"],
+    "人事": ["hr"],
     # Asset
-    "设备": ["asset"], "资产": ["asset"], "车辆": ["asset"],
-    "快递": ["asset"], "印章": ["asset"],
+    "设备": ["asset"],
+    "资产": ["asset"],
+    "车辆": ["asset"],
+    "快递": ["asset"],
+    "印章": ["asset"],
     # Tender / Bidding
-    "招标": ["tender"], "投标": ["tender"], "标书": ["tender"],
-    "竞品": ["tender", "vmd_content"], "battlecard": ["tender"],
+    "招标": ["tender"],
+    "投标": ["tender"],
+    "标书": ["tender"],
+    "竞品": ["tender", "vmd_content"],
+    "battlecard": ["tender"],
     # Analytics
-    "分析": ["analytics"], "报告": ["analytics"], "统计": ["analytics"],
-    "趋势": ["analytics", "vmd_market"], "预测": ["analytics"],
-    "仪表盘": ["analytics"], "dashboard": ["analytics"],
-    "总结": ["analytics"], "经营": ["analytics"],
+    "分析": ["analytics"],
+    "报告": ["analytics"],
+    "统计": ["analytics"],
+    "趋势": ["analytics", "vmd_market"],
+    "预测": ["analytics"],
+    "仪表盘": ["analytics"],
+    "dashboard": ["analytics"],
+    "总结": ["analytics"],
+    "经营": ["analytics"],
     # Schedule
-    "待办": ["schedule", "approval"], "日报": ["schedule"],
-    "周报": ["project"], "简报": ["schedule", "analytics"],
+    "待办": ["schedule", "approval"],
+    "日报": ["schedule"],
+    "周报": ["project"],
+    "简报": ["schedule", "analytics"],
     "定时": ["schedule"],
-    "偏好": ["schedule"], "设置": ["schedule"], "通知设置": ["schedule"],
+    "偏好": ["schedule"],
+    "设置": ["schedule"],
+    "通知设置": ["schedule"],
     # VMD
-    "白皮书": ["vmd_content", "knowledge"], "文案": ["vmd_content", "knowledge"],
-    "话术": ["vmd_content", "knowledge"], "手册": ["vmd_content", "knowledge"],
-    "软文": ["vmd_content", "knowledge"], "推广文": ["vmd_content", "knowledge"],
-    "长文": ["vmd_content", "knowledge"], "文章": ["vmd_content", "knowledge"],
-    "写作": ["vmd_content", "knowledge"], "内容创作": ["vmd_content", "knowledge"],
-    "策划案": ["vmd_content", "knowledge"], "方案书": ["vmd_content", "knowledge"],
-    "市场": ["vmd_market"], "舆情": ["vmd_market"],
+    "白皮书": ["vmd_content", "knowledge"],
+    "文案": ["vmd_content", "knowledge"],
+    "话术": ["vmd_content", "knowledge"],
+    "手册": ["vmd_content", "knowledge"],
+    "软文": ["vmd_content", "knowledge"],
+    "推广文": ["vmd_content", "knowledge"],
+    "长文": ["vmd_content", "knowledge"],
+    "文章": ["vmd_content", "knowledge"],
+    "写作": ["vmd_content", "knowledge"],
+    "内容创作": ["vmd_content", "knowledge"],
+    "策划案": ["vmd_content", "knowledge"],
+    "方案书": ["vmd_content", "knowledge"],
+    "市场": ["vmd_market"],
+    "舆情": ["vmd_market"],
     # Admin
-    "证照": ["admin"], "盖章": ["admin"], "用印": ["admin"],
-    "签署": ["admin"], "公告": ["admin", "approval"],
+    "证照": ["admin"],
+    "盖章": ["admin"],
+    "用印": ["admin"],
+    "签署": ["admin"],
+    "公告": ["admin", "approval"],
     "通知": ["oa_task", "approval", "admin"],
-    "全员": ["admin", "oa_task"], "全体": ["admin", "oa_task"],
-    "放假": ["admin", "oa_task"], "公告通知": ["admin", "oa_task"],
-    "审计": ["admin"], "审计日志": ["admin"], "安全审计": ["admin"],
-    "异常登录": ["admin"], "数据导出": ["admin"],
+    "全员": ["admin", "oa_task"],
+    "全体": ["admin", "oa_task"],
+    "放假": ["admin", "oa_task"],
+    "公告通知": ["admin", "oa_task"],
+    "审计": ["admin"],
+    "审计日志": ["admin"],
+    "安全审计": ["admin"],
+    "异常登录": ["admin"],
+    "数据导出": ["admin"],
     # Knowledge
-    "知识库": ["knowledge"], "搜索": ["knowledge"], "文档": ["knowledge", "vmd_content"],
-    "RAG": ["knowledge"], "产品": ["knowledge", "crm", "vmd_content"],
+    "知识库": ["knowledge"],
+    "搜索": ["knowledge"],
+    "文档": ["knowledge", "vmd_content"],
+    "RAG": ["knowledge"],
+    "产品": ["knowledge", "crm", "vmd_content"],
     # Inventory
-    "库存": ["inventory"], "出库": ["inventory"], "入库": ["inventory"],
+    "库存": ["inventory"],
+    "出库": ["inventory"],
+    "入库": ["inventory"],
     # General high-frequency
-    "查询": ["analytics", "knowledge"], "怎么样": ["analytics"],
+    "查询": ["analytics", "knowledge"],
+    "怎么样": ["analytics"],
 }
 
 
@@ -571,8 +739,7 @@ def _get_tool_schemas(
         before_count = len(filtered)
         filtered = [s for s in filtered if s["function"]["name"] in relevant_tools]
         logger.debug(
-            f"[ToolFilter] Router LLM domains={intent_domains} "
-            f"→ {len(filtered)} tools (from {before_count})"
+            f"[ToolFilter] Router LLM domains={intent_domains} " f"→ {len(filtered)} tools (from {before_count})"
         )
     elif intent_summary:
         domains = _resolve_domains_from_intent(intent_summary)
@@ -589,8 +756,13 @@ def _get_tool_schemas(
         elif not scene_code:
             # Fallback: no keyword match + no scene policy → use high-frequency domains
             _FALLBACK_DOMAINS = [
-                "oa_leave", "crm", "approval", "finance",
-                "hr", "analytics", "knowledge",
+                "oa_leave",
+                "crm",
+                "approval",
+                "finance",
+                "hr",
+                "analytics",
+                "knowledge",
             ]
             relevant_tools = _ALWAYS_INCLUDE_TOOLS.copy()
             for d in _FALLBACK_DOMAINS:
@@ -627,9 +799,7 @@ def _get_tool_schemas(
     # Safety cap: if filtering still leaves too many tools, keep only the most relevant
     MAX_TOOLS = 30
     if len(filtered) > MAX_TOOLS:
-        logger.info(
-            f"[ToolFilter] Capping {len(filtered)} tools to {MAX_TOOLS} (always-include + domain-sorted)"
-        )
+        logger.info(f"[ToolFilter] Capping {len(filtered)} tools to {MAX_TOOLS} (always-include + domain-sorted)")
         # Prioritize always-include tools, then domain-matched, then the rest
         always = [s for s in filtered if s["function"]["name"] in _ALWAYS_INCLUDE_TOOLS]
         rest = [s for s in filtered if s["function"]["name"] not in _ALWAYS_INCLUDE_TOOLS]
@@ -665,6 +835,7 @@ def _get_langfuse_callbacks(
 
         if settings.LANGFUSE_ENABLED:
             import random
+
             if random.random() > settings.LANGFUSE_SAMPLE_RATE:
                 return None
             from langfuse.callback import CallbackHandler as LangfuseCallbackHandler
@@ -672,6 +843,7 @@ def _get_langfuse_callbacks(
             # Reuse cached Langfuse client for HTTP connection pooling
             if _langfuse_client is None:
                 from langfuse import Langfuse
+
                 _langfuse_client = Langfuse(
                     public_key=settings.LANGFUSE_PUBLIC_KEY,
                     secret_key=settings.LANGFUSE_SECRET_KEY,
@@ -718,8 +890,11 @@ def _get_trace_context(
 
 
 def _get_llm(
-    config: AgentConfig, model: str | None = None, streaming: bool = False,
-    resolved_config: dict | None = None, complexity_tier: str | None = None,
+    config: AgentConfig,
+    model: str | None = None,
+    streaming: bool = False,
+    resolved_config: dict | None = None,
+    complexity_tier: str | None = None,
 ):
     """Get a LangChain ChatOpenAI instance with the provided config.
 
@@ -805,20 +980,43 @@ def _get_fallback_llm(config: AgentConfig, model: str | None = None, streaming: 
 
 # Provider-level error keywords that warrant fallback (not content/format issues)
 _PROVIDER_ERROR_KEYWORDS: set[str] = {
-    "401", "402", "403", "429", "500", "502", "503",
-    "insufficient", "quota", "balance", "payment",
-    "rate limit", "rate_limit", "unauthorized", "authentication",
-    "billing", "exceeded", "connection", "timeout", "connect",
+    "401",
+    "402",
+    "403",
+    "429",
+    "500",
+    "502",
+    "503",
+    "insufficient",
+    "quota",
+    "balance",
+    "payment",
+    "rate limit",
+    "rate_limit",
+    "unauthorized",
+    "authentication",
+    "billing",
+    "exceeded",
+    "connection",
+    "timeout",
+    "connect",
 }
 
 # Auth errors should NOT retry same provider (skip to next)
 _AUTH_ERROR_KEYWORDS: set[str] = {
-    "401", "403", "unauthorized", "authentication", "invalid api key",
+    "401",
+    "403",
+    "unauthorized",
+    "authentication",
+    "invalid api key",
 }
 
 # Rate-limit errors can benefit from a short delay before next attempt
 _RATE_LIMIT_KEYWORDS: set[str] = {
-    "429", "rate limit", "rate_limit", "too many requests",
+    "429",
+    "rate limit",
+    "rate_limit",
+    "too many requests",
 }
 
 # Cooldown: track failed providers to avoid hammering them
@@ -897,6 +1095,7 @@ async def invoke_with_fallback(
     # ── Run before_llm_call hooks (PII sanitization, etc.) ──
     try:
         from app.agent.hooks import hook_registry
+
         messages = await hook_registry.run_before_llm(
             messages,
             {"user_id": config.user_id, "org_id": config.org_id, "model": model},

@@ -157,8 +157,8 @@ class DataExportService:
         "employees": {
             "headers": ["姓名", "邮箱", "部门", "角色", "手机号"],
             "sample_rows": [
-                                ["[姓名]", "[邮箱]", "[部门]", "employee", "[手机号]"],
-                                ["[员工B]", "example@email.com", "[部门]", "manager", "[手机号]"],
+                ["[姓名]", "[邮箱]", "[部门]", "employee", "[手机号]"],
+                ["[员工B]", "example@email.com", "[部门]", "manager", "[手机号]"],
             ],
             "description": "员工批量导入模板",
             "notes": "角色可选值: employee, manager, boss; 邮箱必填且唯一",

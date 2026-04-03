@@ -1,6 +1,7 @@
 """
 简化版上下文管理器 - 保留最近N条消息，删除旧消息
 """
+
 import logging
 
 from app.core.supabase import get_supabase_client
@@ -29,7 +30,9 @@ class SimpleContextManager:
         现在此方法仅做兼容性保留，不会删除任何数据，始终返回 False。
         请在组装 LLM Prompt 时改为使用 get_recent_messages 进行安全筛选。
         """
-        logger.warning(f"trim_if_needed was called for {conversation_id} but ignored. Physical deletion of chats is strictly prohibited.")
+        logger.warning(
+            f"trim_if_needed was called for {conversation_id} but ignored. Physical deletion of chats is strictly prohibited."
+        )
         return False
 
     async def get_recent_messages(self, conversation_id: str, limit: int = None) -> list[dict]:
@@ -46,18 +49,20 @@ class SimpleContextManager:
         client = await self._get_client()
         fetch_limit = limit or self.MAX_MESSAGES
 
-        result = await client.table('conversation_memories') \
-            .select('*') \
-            .eq('conversation_id', conversation_id) \
-            .order('created_at', desc=True) \
-            .limit(fetch_limit) \
+        result = (
+            await client.table("conversation_memories")
+            .select("*")
+            .eq("conversation_id", conversation_id)
+            .order("created_at", desc=True)
+            .limit(fetch_limit)
             .execute()
+        )
 
         if not result.data:
             return []
 
         # 根据 DESC=True 获取的是最新 N 条，需反转以恢复聊天时间顺序
-        return sorted(result.data, key=lambda x: x.get('created_at', ''))
+        return sorted(result.data, key=lambda x: x.get("created_at", ""))
 
 
 # 全局实例

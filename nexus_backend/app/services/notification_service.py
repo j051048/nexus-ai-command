@@ -175,24 +175,25 @@ class InAppNotificationAdapter(BaseNotificationAdapter):
 
             # P0-1: For HIGH/URGENT notifications with proactive_prompt, trigger AI chat
             proactive_prompt = notification.metadata.get("proactive_prompt") if notification.metadata else None
-            if proactive_prompt and notification.priority in (
-                NotificationPriority.HIGH, NotificationPriority.URGENT
-            ):
+            if proactive_prompt and notification.priority in (NotificationPriority.HIGH, NotificationPriority.URGENT):
                 try:
                     from app.services.websocket_manager import ws_manager
 
                     session_id = "default"
-                    await ws_manager.send_to_user(notification.target_user_id, {
-                        "type": "proactive_chat",
-                        "data": {
-                            "session_id": session_id,
-                            "title": notification.title,
-                            "message": proactive_prompt,
-                            "priority": notification.priority,
-                            "source": notification.metadata.get("source", "system"),
-                            "created_at": datetime.now().isoformat(),
-                        }
-                    })
+                    await ws_manager.send_to_user(
+                        notification.target_user_id,
+                        {
+                            "type": "proactive_chat",
+                            "data": {
+                                "session_id": session_id,
+                                "title": notification.title,
+                                "message": proactive_prompt,
+                                "priority": notification.priority,
+                                "source": notification.metadata.get("source", "system"),
+                                "created_at": datetime.now().isoformat(),
+                            },
+                        },
+                    )
                     logger.debug(f"Proactive chat triggered for user {notification.target_user_id}")
                 except Exception as pc_err:
                     logger.warning(f"Proactive chat push failed: {pc_err}")
@@ -356,7 +357,8 @@ class NotificationService:
                 if channel != NotificationChannel.IN_APP:
                     logger.debug(
                         "Quiet hours active for user %s, downgrading %s to IN_APP",
-                        notification.target_user_id, channel.value,
+                        notification.target_user_id,
+                        channel.value,
                     )
                     channel = NotificationChannel.IN_APP
                     notification = Notification(
@@ -372,7 +374,8 @@ class NotificationService:
             if not self._channel_allowed_by_prefs(channel, prefs):
                 logger.debug(
                     "Channel %s disabled by user %s preferences, skipping",
-                    channel.value, notification.target_user_id,
+                    channel.value,
+                    notification.target_user_id,
                 )
                 return True  # Not an error — user chose to disable
         except Exception as e:

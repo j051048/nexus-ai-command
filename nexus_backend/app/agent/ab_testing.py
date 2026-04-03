@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class ExperimentVariant:
     """A single variant in an experiment."""
+
     name: str
     weight: int = 50  # percentage weight (0-100)
     config: dict[str, Any] = field(default_factory=dict)
@@ -33,6 +34,7 @@ class ExperimentVariant:
 @dataclass(frozen=True)
 class Experiment:
     """An A/B experiment definition."""
+
     name: str
     description: str
     variants: tuple[ExperimentVariant, ...]
@@ -53,14 +55,18 @@ EXPERIMENTS: dict[str, Experiment] = {
         description="Compare default vs concise system prompt style for response quality",
         variants=(
             ExperimentVariant("control", weight=50),
-            ExperimentVariant("concise", weight=50, config={
-                "prompt_suffix": (
-                    "\n\n## 回复风格要求\n"
-                    "- 直入主题，省略寒暄和过渡语\n"
-                    "- 优先使用列表和表格展示信息\n"
-                    "- 每段回复不超过200字"
-                ),
-            }),
+            ExperimentVariant(
+                "concise",
+                weight=50,
+                config={
+                    "prompt_suffix": (
+                        "\n\n## 回复风格要求\n"
+                        "- 直入主题，省略寒暄和过渡语\n"
+                        "- 优先使用列表和表格展示信息\n"
+                        "- 每段回复不超过200字"
+                    ),
+                },
+            ),
         ),
         traffic_pct=10,  # Start with 10% of users
         enabled=True,

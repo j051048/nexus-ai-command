@@ -204,8 +204,20 @@ class CreateAssetTool(BaseTool):
     domain = "asset"
     description = "创建新资产记录，适用于车辆、电脑、设备、办公家具等任意类型"
     examples = [
-        {"input": {"asset_code": "PC-2026-001", "name": "联想笔记本", "asset_type": "computer"}, "output_summary": "创建一台电脑类型的资产"},
-        {"input": {"asset_code": "VH-2026-003", "name": "丰田商务车", "asset_type": "vehicle", "value": 280000, "purchase_date": "2026-01-15"}, "output_summary": "创建一辆带价值和购置日期的车辆资产"},
+        {
+            "input": {"asset_code": "PC-2026-001", "name": "联想笔记本", "asset_type": "computer"},
+            "output_summary": "创建一台电脑类型的资产",
+        },
+        {
+            "input": {
+                "asset_code": "VH-2026-003",
+                "name": "丰田商务车",
+                "asset_type": "vehicle",
+                "value": 280000,
+                "purchase_date": "2026-01-15",
+            },
+            "output_summary": "创建一辆带价值和购置日期的车辆资产",
+        },
     ]
     related_tools = ["list_assets", "update_asset", "transfer_asset"]
     gotchas = "asset_code、name、asset_type为必填。创建后默认状态为idle（闲置）。metadata可存储自定义扩展字段（如车牌号、序列号）。"
@@ -309,7 +321,10 @@ class UpdateAssetTool(BaseTool):
     description = "更新指定资产的信息或状态，支持修改名称、状态、部门和使用人"
     examples = [
         {"input": {"asset_id": "uuid-xxxx", "status": "maintenance"}, "output_summary": "将资产状态更新为维修中"},
-        {"input": {"asset_id": "uuid-xxxx", "current_user_id": "uuid-yyyy", "status": "in_use"}, "output_summary": "将资产分配给指定用户并设为使用中"},
+        {
+            "input": {"asset_id": "uuid-xxxx", "current_user_id": "uuid-yyyy", "status": "in_use"},
+            "output_summary": "将资产分配给指定用户并设为使用中",
+        },
     ]
     related_tools = ["get_asset_detail", "transfer_asset", "list_assets"]
     gotchas = "至少需要提供一个要更新的字段。状态可选值：idle/in_use/maintenance/scrapped。简单状态变更用此工具，涉及领用/归还/转移流程请用transfer_asset。"
@@ -389,9 +404,18 @@ class TransferAssetTool(BaseTool):
     domain = "asset"
     description = "执行资产领用、归还、转移或报废操作，自动记录流转历史"
     examples = [
-        {"input": {"asset_id": "uuid-xxxx", "transfer_type": "allocate", "to_user_id": "uuid-yyyy"}, "output_summary": "将资产领用给指定员工"},
-        {"input": {"asset_id": "uuid-xxxx", "transfer_type": "return", "reason": "项目结束"}, "output_summary": "归还资产并记录原因"},
-        {"input": {"asset_id": "uuid-xxxx", "transfer_type": "scrap", "reason": "设备老化无法使用"}, "output_summary": "报废指定资产"},
+        {
+            "input": {"asset_id": "uuid-xxxx", "transfer_type": "allocate", "to_user_id": "uuid-yyyy"},
+            "output_summary": "将资产领用给指定员工",
+        },
+        {
+            "input": {"asset_id": "uuid-xxxx", "transfer_type": "return", "reason": "项目结束"},
+            "output_summary": "归还资产并记录原因",
+        },
+        {
+            "input": {"asset_id": "uuid-xxxx", "transfer_type": "scrap", "reason": "设备老化无法使用"},
+            "output_summary": "报废指定资产",
+        },
     ]
     related_tools = ["get_asset_detail", "update_asset", "list_assets"]
     gotchas = "领用（allocate）和转移（transfer）操作必须指定to_user_id。归还（return）和报废（scrap）不需要to_user_id。此操作不可逆，需用户确认。"

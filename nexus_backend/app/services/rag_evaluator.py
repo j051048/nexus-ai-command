@@ -42,9 +42,7 @@ class RAGEvaluator:
         for case in test_cases:
             query = case["query"]
             try:
-                search_result = await vector_service.search(
-                    query, user_id, org_id=org_id, require_org_id=False
-                )
+                search_result = await vector_service.search(query, user_id, org_id=org_id, require_org_id=False)
             except Exception as e:
                 logger.warning(f"Search failed for eval query '{query}': {e}")
                 search_result = ""

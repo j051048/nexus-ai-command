@@ -17,12 +17,32 @@ logger = logging.getLogger(__name__)
 
 _ROLE_TEMPLATES: dict[str, list[dict[str, Any]]] = {
     "sales": [
-        {"key": "profile_complete", "title": "完善个人资料", "description": "填写姓名、手机、部门等基本信息", "weight": 10},
-        {"key": "crm_import", "title": "导入客户数据", "description": "通过 Excel 或 API 导入已有客户信息", "weight": 15},
-        {"key": "pipeline_setup", "title": "配置销售管道", "description": "设置销售阶段（线索→商机→成交）", "weight": 15},
+        {
+            "key": "profile_complete",
+            "title": "完善个人资料",
+            "description": "填写姓名、手机、部门等基本信息",
+            "weight": 10,
+        },
+        {
+            "key": "crm_import",
+            "title": "导入客户数据",
+            "description": "通过 Excel 或 API 导入已有客户信息",
+            "weight": 15,
+        },
+        {
+            "key": "pipeline_setup",
+            "title": "配置销售管道",
+            "description": "设置销售阶段（线索→商机→成交）",
+            "weight": 15,
+        },
         {"key": "first_lead", "title": "创建第一个销售线索", "description": "手动或通过 AI 创建一条线索", "weight": 10},
         {"key": "ai_chat", "title": "体验 AI 助手", "description": "向 AI 提问销售相关问题", "weight": 10},
-        {"key": "knowledge_base", "title": "上传产品知识库", "description": "上传产品手册/FAQ 供 AI 参考", "weight": 15},
+        {
+            "key": "knowledge_base",
+            "title": "上传产品知识库",
+            "description": "上传产品手册/FAQ 供 AI 参考",
+            "weight": 15,
+        },
         {"key": "notification_setup", "title": "设置通知偏好", "description": "开启待办提醒、审批通知", "weight": 10},
         {"key": "mobile_app", "title": "下载移动端 App", "description": "随时随地处理销售事务", "weight": 15},
     ],
@@ -122,9 +142,7 @@ class OnboardingAgentService:
         )
         return plan
 
-    async def get_next_suggestion(
-        self, user_id: str, *, db=None
-    ) -> dict[str, Any]:
+    async def get_next_suggestion(self, user_id: str, *, db=None) -> dict[str, Any]:
         """
         Based on the user's completed onboarding steps, recommend the next action.
 
@@ -152,13 +170,7 @@ class OnboardingAgentService:
         user_role = "sales"
         if db:
             try:
-                user_result = (
-                    await db.table("users")
-                    .select("role")
-                    .eq("id", user_id)
-                    .limit(1)
-                    .execute()
-                )
+                user_result = await db.table("users").select("role").eq("id", user_id).limit(1).execute()
                 if user_result.data:
                     user_role = user_result.data[0].get("role", "sales") or "sales"
             except Exception:
@@ -189,9 +201,7 @@ class OnboardingAgentService:
             "message": "所有引导步骤已完成！",
         }
 
-    async def evaluate_readiness(
-        self, tenant_id: str, *, db=None
-    ) -> dict[str, Any]:
+    async def evaluate_readiness(self, tenant_id: str, *, db=None) -> dict[str, Any]:
         """
         Evaluate the overall configuration readiness of a tenant (0-100%).
 

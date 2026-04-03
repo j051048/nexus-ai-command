@@ -291,18 +291,23 @@ class ETLService:
 
                         await (
                             supabase.table("documents")
-                            .update({
-                                "extracted_data": details,
-                                "doc_type": details.get("doc_type", "other"),
-                                "status": "processing",
-                            })
+                            .update(
+                                {
+                                    "extracted_data": details,
+                                    "doc_type": details.get("doc_type", "other"),
+                                    "status": "processing",
+                                }
+                            )
                             .eq("id", doc_id)
                             .execute()
                         )
                     else:
                         doc_id = await self._save_to_db(
-                            filename, details, text,
-                            user_id=user_id, status="processing",
+                            filename,
+                            details,
+                            text,
+                            user_id=user_id,
+                            status="processing",
                             organization_id=organization_id,
                         )
 
@@ -332,10 +337,12 @@ class ETLService:
                     else:
                         await (
                             supabase.table("documents")
-                            .update({
-                                "status": "failed",
-                                "error_log": "Embedding generation partially failed",
-                            })
+                            .update(
+                                {
+                                    "status": "failed",
+                                    "error_log": "Embedding generation partially failed",
+                                }
+                            )
                             .eq("id", doc_id)
                             .execute()
                         )
@@ -384,7 +391,17 @@ class ETLService:
         _fn_lower = filename.lower()
         _filename_hint = "other"
         _filename_keywords = {
-            "product": ["彩页", "产品资料", "产品手册", "产品说明", "规格书", "datasheet", "brochure", "产品目录", "catalog"],
+            "product": [
+                "彩页",
+                "产品资料",
+                "产品手册",
+                "产品说明",
+                "规格书",
+                "datasheet",
+                "brochure",
+                "产品目录",
+                "catalog",
+            ],
             "contract": ["合同", "协议", "contract"],
             "tender": ["招标", "招标文件", "tender", "招标公告", "采购需求"],
             "bid": ["投标", "投标书", "标书", "bid", "应标", "响应文件"],
@@ -558,7 +575,11 @@ class ETLService:
     ) -> bool:
         """Delegate to module-level generate_embeddings for backward compatibility."""
         return await generate_embeddings(
-            text, doc_id, filename, api_key, base_url,
+            text,
+            doc_id,
+            filename,
+            api_key,
+            base_url,
             organization_id=organization_id,
             default_embedding_model=self._DEFAULT_EMBEDDING_MODEL,
             chunk_size=self.chunk_size,

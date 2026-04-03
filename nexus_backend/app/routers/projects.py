@@ -59,7 +59,9 @@ async def create_project(project: ProjectCreate, db=Depends(get_db), user_id: st
 
 
 @router.patch("/{project_id}", response_model=StandardResponse)
-async def update_project(project_id: str, updates: ProjectUpdate, db=Depends(get_db), user_id: str = Depends(get_current_user_id)):
+async def update_project(
+    project_id: str, updates: ProjectUpdate, db=Depends(get_db), user_id: str = Depends(get_current_user_id)
+):
     """
     Update an existing project.
     """
@@ -139,10 +141,7 @@ async def generate_weekly_report(
 
         # 3. 获取关联任务统计
         tasks_res = await (
-            db.table("oa_tasks")
-            .select("status, title")
-            .contains("metadata", {"project_id": project_id})
-            .execute()
+            db.table("oa_tasks").select("status, title").contains("metadata", {"project_id": project_id}).execute()
         )
         tasks = tasks_res.data or []
         total_tasks = len(tasks)
@@ -150,10 +149,13 @@ async def generate_weekly_report(
         in_progress = sum(1 for t in tasks if t.get("status") == "in_progress")
 
         # 4. 构建 AI prompt
-        event_lines = "\n".join(
-            f"- [{e.get('created_at', '')[:10]}] [{e.get('event_type', '')}] {e.get('title', '')}: {(e.get('content') or '')[:100]}"
-            for e in events
-        ) or "本周无事件记录"
+        event_lines = (
+            "\n".join(
+                f"- [{e.get('created_at', '')[:10]}] [{e.get('event_type', '')}] {e.get('title', '')}: {(e.get('content') or '')[:100]}"
+                for e in events
+            )
+            or "本周无事件记录"
+        )
 
         prompt = f"""请为以下项目生成一份简洁的周报，包含四个板块：
 1. 本周进展摘要
@@ -193,13 +195,15 @@ async def generate_weekly_report(
         report_text = result.content if hasattr(result, "content") else str(result)
 
         # 6. 写入 timeline 作为记录
-        await db.table("project_timeline").insert({
-            "project_id": project_id,
-            "event_type": "ai_report",
-            "title": f"AI 周报 ({now.strftime('%m/%d')})",
-            "content": report_text[:2000],
-            "user_id": user_id,
-        }).execute()
+        await db.table("project_timeline").insert(
+            {
+                "project_id": project_id,
+                "event_type": "ai_report",
+                "title": f"AI 周报 ({now.strftime('%m/%d')})",
+                "content": report_text[:2000],
+                "user_id": user_id,
+            }
+        ).execute()
 
         return api_success(
             data={

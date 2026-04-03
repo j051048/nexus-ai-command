@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 #  Data structures
 # ---------------------------------------------------------------------------
 
+
 class RiskLevel(StrEnum):
     LOW = "LOW"
     MEDIUM = "MEDIUM"
@@ -36,15 +37,17 @@ class RiskLevel(StrEnum):
 @dataclass
 class FirewallViolation:
     """Single violation detected by the firewall."""
-    layer: str          # jailbreak | injection | role_reversal | context_overflow
+
+    layer: str  # jailbreak | injection | role_reversal | context_overflow
     rule_name: str
-    matched_text: str   # truncated for safety
+    matched_text: str  # truncated for safety
     risk_level: RiskLevel
 
 
 @dataclass
 class FirewallResult:
     """Result of a prompt firewall scan."""
+
     is_safe: bool
     risk_level: RiskLevel
     violations: list[FirewallViolation] = field(default_factory=list)
@@ -55,9 +58,11 @@ class FirewallResult:
 #  Configuration
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class FirewallConfig:
     """Per-layer toggles + thresholds."""
+
     enable_jailbreak: bool = True
     enable_injection: bool = True
     enable_role_reversal: bool = True
@@ -78,90 +83,80 @@ class FirewallConfig:
 # Layer 1 — Jailbreak
 _JAILBREAK_PATTERNS: list[tuple[str, str, RiskLevel]] = [
     # English
-    (r"ignore\s+(all\s+)?(previous|prior|above)\s+(instructions?|prompts?|rules)",
-     "jailbreak_ignore_instructions", RiskLevel.CRITICAL),
-    (r"you\s+are\s+now\s+",
-     "jailbreak_identity_override", RiskLevel.CRITICAL),
-    (r"DAN\s+(mode|prompt)",
-     "jailbreak_dan_mode", RiskLevel.CRITICAL),
-    (r"developer\s+mode\s+override",
-     "jailbreak_dev_override", RiskLevel.CRITICAL),
-    (r"(enter|enable|switch\s+to)\s+(jailbreak|god|sudo|unrestricted)\s+mode",
-     "jailbreak_mode_switch", RiskLevel.CRITICAL),
-    (r"from\s+now\s+on\s+you\s+(will|must|should|shall)\s+",
-     "jailbreak_behaviour_reset", RiskLevel.HIGH),
-    (r"(forget|disregard|override)\s+(all\s+)?(your\s+)?(rules|restrictions?|safety|guidelines)",
-     "jailbreak_forget_rules", RiskLevel.CRITICAL),
-    (r"do\s+(anything|whatever)\s+(i|we)\s+(say|ask|want)",
-     "jailbreak_compliance_demand", RiskLevel.HIGH),
-    (r"(no\s+)?content\s+policy",
-     "jailbreak_policy_bypass", RiskLevel.HIGH),
+    (
+        r"ignore\s+(all\s+)?(previous|prior|above)\s+(instructions?|prompts?|rules)",
+        "jailbreak_ignore_instructions",
+        RiskLevel.CRITICAL,
+    ),
+    (r"you\s+are\s+now\s+", "jailbreak_identity_override", RiskLevel.CRITICAL),
+    (r"DAN\s+(mode|prompt)", "jailbreak_dan_mode", RiskLevel.CRITICAL),
+    (r"developer\s+mode\s+override", "jailbreak_dev_override", RiskLevel.CRITICAL),
+    (
+        r"(enter|enable|switch\s+to)\s+(jailbreak|god|sudo|unrestricted)\s+mode",
+        "jailbreak_mode_switch",
+        RiskLevel.CRITICAL,
+    ),
+    (r"from\s+now\s+on\s+you\s+(will|must|should|shall)\s+", "jailbreak_behaviour_reset", RiskLevel.HIGH),
+    (
+        r"(forget|disregard|override)\s+(all\s+)?(your\s+)?(rules|restrictions?|safety|guidelines)",
+        "jailbreak_forget_rules",
+        RiskLevel.CRITICAL,
+    ),
+    (r"do\s+(anything|whatever)\s+(i|we)\s+(say|ask|want)", "jailbreak_compliance_demand", RiskLevel.HIGH),
+    (r"(no\s+)?content\s+policy", "jailbreak_policy_bypass", RiskLevel.HIGH),
     # Chinese
-    (r"忽略(之前|上面|以上|所有|先前)(的)?(指令|命令|提示|规则|限制)",
-     "jailbreak_ignore_cn", RiskLevel.CRITICAL),
-    (r"你(现在|从现在开始)?(是|变成|扮演)\s*[^\s]{1,30}",
-     "jailbreak_identity_cn", RiskLevel.HIGH),
-    (r"假装(你是|成为?|自己是)\s*",
-     "jailbreak_pretend_cn", RiskLevel.CRITICAL),
-    (r"(开启|进入|切换到?)(开发者|调试|管理员|上帝|无限制)\s*模式",
-     "jailbreak_mode_cn", RiskLevel.CRITICAL),
-    (r"不要?(遵守|遵循|执行|遵从)(任何|所有)?(规则|限制|安全)",
-     "jailbreak_bypass_cn", RiskLevel.CRITICAL),
-    (r"忘记(之前|上面|以前)(的)?(设定|身份|角色|规则)",
-     "jailbreak_forget_cn", RiskLevel.CRITICAL),
+    (r"忽略(之前|上面|以上|所有|先前)(的)?(指令|命令|提示|规则|限制)", "jailbreak_ignore_cn", RiskLevel.CRITICAL),
+    (r"你(现在|从现在开始)?(是|变成|扮演)\s*[^\s]{1,30}", "jailbreak_identity_cn", RiskLevel.HIGH),
+    (r"假装(你是|成为?|自己是)\s*", "jailbreak_pretend_cn", RiskLevel.CRITICAL),
+    (r"(开启|进入|切换到?)(开发者|调试|管理员|上帝|无限制)\s*模式", "jailbreak_mode_cn", RiskLevel.CRITICAL),
+    (r"不要?(遵守|遵循|执行|遵从)(任何|所有)?(规则|限制|安全)", "jailbreak_bypass_cn", RiskLevel.CRITICAL),
+    (r"忘记(之前|上面|以前)(的)?(设定|身份|角色|规则)", "jailbreak_forget_cn", RiskLevel.CRITICAL),
 ]
 
 # Layer 2 — Prompt injection (hidden payloads)
 _INJECTION_PATTERNS: list[tuple[str, str, RiskLevel]] = [
     # Special token markers used to inject system-level context
-    (r"<\|(?:im_start|im_end|system|endoftext)\|>",
-     "injection_special_token", RiskLevel.CRITICAL),
-    (r"\[INST\]|\[/INST\]|<<SYS>>|<</SYS>>",
-     "injection_llama_token", RiskLevel.CRITICAL),
+    (r"<\|(?:im_start|im_end|system|endoftext)\|>", "injection_special_token", RiskLevel.CRITICAL),
+    (r"\[INST\]|\[/INST\]|<<SYS>>|<</SYS>>", "injection_llama_token", RiskLevel.CRITICAL),
     # Markdown comment hiding
-    (r"<!--[\s\S]*?-->",
-     "injection_html_comment", RiskLevel.HIGH),
+    (r"<!--[\s\S]*?-->", "injection_html_comment", RiskLevel.HIGH),
     # Triple-backtick system block
-    (r"```\s*(system|prompt|instruction)",
-     "injection_code_block", RiskLevel.HIGH),
+    (r"```\s*(system|prompt|instruction)", "injection_code_block", RiskLevel.HIGH),
     # Markdown-heading injection
-    (r"###\s*(SYSTEM|INSTRUCTION|PROMPT|OVERRIDE)",
-     "injection_heading", RiskLevel.HIGH),
+    (r"###\s*(SYSTEM|INSTRUCTION|PROMPT|OVERRIDE)", "injection_heading", RiskLevel.HIGH),
     # Double-bracket / angle-bracket / curly-bracket directives
-    (r"\[\[\s*SYSTEM\b.*?\]\]",
-     "injection_bracket_system", RiskLevel.CRITICAL),
+    (r"\[\[\s*SYSTEM\b.*?\]\]", "injection_bracket_system", RiskLevel.CRITICAL),
     # Attempts to reveal system prompt
-    (r"(reveal|show|display|print|output|repeat|echo)\s+(your|the|my|full)\s+(system\s+)?(prompt|instructions?|directive|config)",
-     "injection_reveal_prompt", RiskLevel.HIGH),
-    (r"(透露|显示|输出|告诉我|泄露|打印)(你的)?(系统|原始|完整)?(提示词|指令|prompt|配置)",
-     "injection_reveal_prompt_cn", RiskLevel.HIGH),
+    (
+        r"(reveal|show|display|print|output|repeat|echo)\s+(your|the|my|full)\s+(system\s+)?(prompt|instructions?|directive|config)",
+        "injection_reveal_prompt",
+        RiskLevel.HIGH,
+    ),
+    (
+        r"(透露|显示|输出|告诉我|泄露|打印)(你的)?(系统|原始|完整)?(提示词|指令|prompt|配置)",
+        "injection_reveal_prompt_cn",
+        RiskLevel.HIGH,
+    ),
 ]
 
 # Layer 3 — Role reversal
 _ROLE_REVERSAL_PATTERNS: list[tuple[str, str, RiskLevel]] = [
-    (r"pretend\s+(to\s+be|you\s+are|you're)\s+",
-     "role_pretend", RiskLevel.HIGH),
-    (r"act\s+as\s+(if|though|a|an)\s+",
-     "role_act_as", RiskLevel.HIGH),
-    (r"role[- ]?play\s+(as|that)\s+",
-     "role_roleplay", RiskLevel.HIGH),
-    (r"simulate\s+(being|a)\s+",
-     "role_simulate", RiskLevel.MEDIUM),
-    (r"you\s+are\s+(a|an)\s+(?!(helpful|sales|assistant|AI))",
-     "role_identity_change", RiskLevel.HIGH),
-    (r"(from\s+now\s+on\s+)?respond\s+(only\s+)?as\s+",
-     "role_respond_as", RiskLevel.HIGH),
+    (r"pretend\s+(to\s+be|you\s+are|you're)\s+", "role_pretend", RiskLevel.HIGH),
+    (r"act\s+as\s+(if|though|a|an)\s+", "role_act_as", RiskLevel.HIGH),
+    (r"role[- ]?play\s+(as|that)\s+", "role_roleplay", RiskLevel.HIGH),
+    (r"simulate\s+(being|a)\s+", "role_simulate", RiskLevel.MEDIUM),
+    (r"you\s+are\s+(a|an)\s+(?!(helpful|sales|assistant|AI))", "role_identity_change", RiskLevel.HIGH),
+    (r"(from\s+now\s+on\s+)?respond\s+(only\s+)?as\s+", "role_respond_as", RiskLevel.HIGH),
     # Chinese
-    (r"(角色扮演|扮演|模拟|化身)(成|为|一个)?\s*",
-     "role_reversal_cn", RiskLevel.MEDIUM),
-    (r"你(不再|不是)(一个?)?(AI|助手|人工智能)",
-     "role_deny_identity_cn", RiskLevel.HIGH),
+    (r"(角色扮演|扮演|模拟|化身)(成|为|一个)?\s*", "role_reversal_cn", RiskLevel.MEDIUM),
+    (r"你(不再|不是)(一个?)?(AI|助手|人工智能)", "role_deny_identity_cn", RiskLevel.HIGH),
 ]
 
 
 # ---------------------------------------------------------------------------
 #  Firewall implementation
 # ---------------------------------------------------------------------------
+
 
 class PromptFirewall:
     """
@@ -184,6 +179,7 @@ class PromptFirewall:
 
     def _compile(self) -> None:
         """Pre-compile regex banks."""
+
         def _build(raw: list[tuple[str, str, RiskLevel]]) -> list[tuple[re.Pattern, str, RiskLevel]]:
             out = []
             for pat_str, name, level in raw:
@@ -226,12 +222,14 @@ class PromptFirewall:
                     snippet = m.group()
                     if len(snippet) > 60:
                         snippet = snippet[:57] + "..."
-                    violations.append(FirewallViolation(
-                        layer=layer_name,
-                        rule_name=rule_name,
-                        matched_text=snippet,
-                        risk_level=risk_level,
-                    ))
+                    violations.append(
+                        FirewallViolation(
+                            layer=layer_name,
+                            rule_name=rule_name,
+                            matched_text=snippet,
+                            risk_level=risk_level,
+                        )
+                    )
 
         # Layer 2b: zero-width / invisible unicode characters
         if self._config.enable_injection:
@@ -280,6 +278,7 @@ class PromptFirewall:
         # Security audit log
         try:
             from app.core.logging_config import SecurityLogger
+
             sec_logger = SecurityLogger()
             sec_logger.suspicious_activity(
                 user_id=user_id,
@@ -322,12 +321,14 @@ class PromptFirewall:
                     break
 
         if inv_count > self._config.max_invisible_chars:
-            violations.append(FirewallViolation(
-                layer="injection",
-                rule_name="injection_invisible_unicode",
-                matched_text=f"{inv_count} invisible chars detected",
-                risk_level=RiskLevel.HIGH,
-            ))
+            violations.append(
+                FirewallViolation(
+                    layer="injection",
+                    rule_name="injection_invisible_unicode",
+                    matched_text=f"{inv_count} invisible chars detected",
+                    risk_level=RiskLevel.HIGH,
+                )
+            )
 
         return violations
 
@@ -336,7 +337,7 @@ class PromptFirewall:
         violations: list[FirewallViolation] = []
 
         # Find base64-like blobs (>= 40 chars, with padding)
-        b64_pattern = re.compile(r'[A-Za-z0-9+/]{40,}={0,2}')
+        b64_pattern = re.compile(r"[A-Za-z0-9+/]{40,}={0,2}")
         for m in b64_pattern.finditer(text):
             blob = m.group()
             try:
@@ -346,18 +347,27 @@ class PromptFirewall:
 
             # Check if decoded content contains injection keywords
             suspicious_keywords = [
-                "ignore", "system prompt", "instructions",
-                "override", "jailbreak", "developer mode",
-                "忽略", "指令", "系统提示", "绕过",
+                "ignore",
+                "system prompt",
+                "instructions",
+                "override",
+                "jailbreak",
+                "developer mode",
+                "忽略",
+                "指令",
+                "系统提示",
+                "绕过",
             ]
             if any(kw in decoded for kw in suspicious_keywords):
                 snippet = decoded[:60] + "..." if len(decoded) > 60 else decoded
-                violations.append(FirewallViolation(
-                    layer="injection",
-                    rule_name="injection_base64_hidden",
-                    matched_text=f"base64 decoded: {snippet}",
-                    risk_level=RiskLevel.CRITICAL,
-                ))
+                violations.append(
+                    FirewallViolation(
+                        layer="injection",
+                        rule_name="injection_base64_hidden",
+                        matched_text=f"base64 decoded: {snippet}",
+                        risk_level=RiskLevel.CRITICAL,
+                    )
+                )
 
         return violations
 
@@ -366,25 +376,29 @@ class PromptFirewall:
         violations: list[FirewallViolation] = []
 
         if len(text) > self._config.max_input_length:
-            violations.append(FirewallViolation(
-                layer="context_overflow",
-                rule_name="overflow_max_length",
-                matched_text=f"input length {len(text)} > max {self._config.max_input_length}",
-                risk_level=RiskLevel.MEDIUM,
-            ))
+            violations.append(
+                FirewallViolation(
+                    layer="context_overflow",
+                    rule_name="overflow_max_length",
+                    matched_text=f"input length {len(text)} > max {self._config.max_input_length}",
+                    risk_level=RiskLevel.MEDIUM,
+                )
+            )
 
         # Check for excessive repetition (padding attacks)
         if len(text) > 200:
-            chunks = [text[i:i + 20] for i in range(0, min(len(text), 2000), 20)]
+            chunks = [text[i : i + 20] for i in range(0, min(len(text), 2000), 20)]
             if chunks:
                 unique_ratio = len(set(chunks)) / len(chunks)
                 if unique_ratio < 0.15:
-                    violations.append(FirewallViolation(
-                        layer="context_overflow",
-                        rule_name="overflow_repetition_attack",
-                        matched_text=f"repetition ratio {unique_ratio:.2f}",
-                        risk_level=RiskLevel.HIGH,
-                    ))
+                    violations.append(
+                        FirewallViolation(
+                            layer="context_overflow",
+                            rule_name="overflow_repetition_attack",
+                            matched_text=f"repetition ratio {unique_ratio:.2f}",
+                            risk_level=RiskLevel.HIGH,
+                        )
+                    )
 
         return violations
 
@@ -393,7 +407,7 @@ class PromptFirewall:
     @staticmethod
     def _strip_invisible(text: str) -> str:
         """Remove zero-width and invisible unicode characters."""
-        return re.sub(r'[\u200b-\u200f\u2028-\u202f\u2060-\u206f\ufeff]', '', text)
+        return re.sub(r"[\u200b-\u200f\u2028-\u202f\u2060-\u206f\ufeff]", "", text)
 
 
 # Risk ordering for comparison
@@ -409,22 +423,26 @@ _RISK_ORDER: dict[RiskLevel, int] = {
 #  Module-level singleton
 # ---------------------------------------------------------------------------
 
+
 def _build_firewall() -> PromptFirewall:
     """Build firewall with config-driven settings."""
     try:
         from app.core.config import settings
+
         enabled = getattr(settings, "PROMPT_FIREWALL_ENABLED", True)
     except Exception:
         enabled = True
 
     if not enabled:
         # Return a firewall with all layers disabled (passthrough)
-        return PromptFirewall(config=FirewallConfig(
-            enable_jailbreak=False,
-            enable_injection=False,
-            enable_role_reversal=False,
-            enable_context_overflow=False,
-        ))
+        return PromptFirewall(
+            config=FirewallConfig(
+                enable_jailbreak=False,
+                enable_injection=False,
+                enable_role_reversal=False,
+                enable_context_overflow=False,
+            )
+        )
 
     return PromptFirewall()
 

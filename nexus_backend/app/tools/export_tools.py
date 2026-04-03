@@ -2,6 +2,7 @@
 Excel/PDF 报表导出工具
 支持销售数据、分析报告的导出
 """
+
 import io
 import logging
 from datetime import datetime
@@ -85,6 +86,7 @@ async def export_to_excel(
         output.seek(0)
 
         import base64
+
         content_base64 = base64.b64encode(output.read()).decode()
 
         return {
@@ -134,41 +136,43 @@ async def export_to_pdf(
 
         # 注册中文字体（使用系统字体）
         try:
-            pdfmetrics.registerFont(TTFont('SimSun', 'SimSun.ttf'))
-            font_name = 'SimSun'
+            pdfmetrics.registerFont(TTFont("SimSun", "SimSun.ttf"))
+            font_name = "SimSun"
         except Exception:
-            font_name = 'Helvetica'  # 回退到默认字体
+            font_name = "Helvetica"  # 回退到默认字体
 
         # 转换 Markdown 到 HTML
         if format_type == "markdown":
             import markdown
+
             content = markdown.markdown(content)
 
         # 创建 PDF
         output = io.BytesIO()
-        doc = SimpleDocTemplate(output, pagesize=A4, topMargin=2*cm, bottomMargin=2*cm)
+        doc = SimpleDocTemplate(output, pagesize=A4, topMargin=2 * cm, bottomMargin=2 * cm)
 
         styles = getSampleStyleSheet()
-        styles.add(ParagraphStyle(name='Chinese', fontName=font_name, fontSize=12, leading=18))
+        styles.add(ParagraphStyle(name="Chinese", fontName=font_name, fontSize=12, leading=18))
 
         story = []
 
         # 添加标题
         if title:
-            title_style = ParagraphStyle('Title', parent=styles['Heading1'], fontName=font_name, fontSize=18)
+            title_style = ParagraphStyle("Title", parent=styles["Heading1"], fontName=font_name, fontSize=18)
             story.append(Paragraph(title, title_style))
-            story.append(Spacer(1, 0.5*cm))
+            story.append(Spacer(1, 0.5 * cm))
 
         # 添加内容（简化处理）
-        for line in content.split('\n'):
+        for line in content.split("\n"):
             if line.strip():
-                story.append(Paragraph(line, styles['Chinese']))
-                story.append(Spacer(1, 0.3*cm))
+                story.append(Paragraph(line, styles["Chinese"]))
+                story.append(Spacer(1, 0.3 * cm))
 
         doc.build(story)
         output.seek(0)
 
         import base64
+
         content_base64 = base64.b64encode(output.read()).decode()
 
         if not filename:
@@ -183,4 +187,3 @@ async def export_to_pdf(
     except Exception as e:
         logger.error(f"导出PDF失败: {e}")
         return {"success": False, "error": str(e)}
-

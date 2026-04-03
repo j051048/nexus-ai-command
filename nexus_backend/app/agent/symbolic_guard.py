@@ -31,8 +31,8 @@ class PolicyVerdict:
 
     allowed: bool = True
     reason: str = ""
-    escalation: str | None = None      # "needs_approval" | "needs_manager" | None
-    policy_name: str = ""              # which rule triggered
+    escalation: str | None = None  # "needs_approval" | "needs_manager" | None
+    policy_name: str = ""  # which rule triggered
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +129,9 @@ async def check_symbolic_policy(
                 reason = rule["reason_tpl"].format(val=val, limit=rule["max"])
                 logger.info(
                     "[SymbolicGuard] BLOCKED %s: %s (org=%s)",
-                    tool_name, reason, org_id,
+                    tool_name,
+                    reason,
+                    org_id,
                 )
                 return PolicyVerdict(
                     allowed=False,

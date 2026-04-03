@@ -25,7 +25,10 @@ class AttendanceQueryTool(BaseTool):
     required_role = "all"
     examples = [
         {"input": {"query_type": "my_record", "month": "2026-03"}, "output_summary": "返回当月个人考勤明细"},
-                {"input": {"query_type": "monthly_summary", "employee_name": "[员工姓名]"}, "output_summary": "返回该员工的月度出勤汇总（需管理者权限）"},
+        {
+            "input": {"query_type": "monthly_summary", "employee_name": "[员工姓名]"},
+            "output_summary": "返回该员工的月度出勤汇总（需管理者权限）",
+        },
     ]
     related_tools = ["query_team_attendance", "get_employee_profile"]
     gotchas = "非管理者只能查自己的考勤，不能通过 employee_name 查他人。考勤系统暂未接入，当前返回占位提示。"
@@ -118,8 +121,14 @@ class EmployeeProfileTool(BaseTool):
     description = "获取员工综合画像，包含绩效、考勤、成长轨迹和风险评估。当用户说'某某人怎么样'、'员工档案'时调用。注意：仅需查基本信息用 get_employee_detail。"
     required_role = "manager"
     examples = [
-        {"input": {"employee_name": "张三", "include_risk_analysis": True}, "output_summary": "返回张三的综合画像及AI风险分析"},
-        {"input": {"employee_name": "李四", "include_risk_analysis": False}, "output_summary": "返回李四的基本画像，不含风险分析"},
+        {
+            "input": {"employee_name": "张三", "include_risk_analysis": True},
+            "output_summary": "返回张三的综合画像及AI风险分析",
+        },
+        {
+            "input": {"employee_name": "李四", "include_risk_analysis": False},
+            "output_summary": "返回李四的基本画像，不含风险分析",
+        },
     ]
     related_tools = ["get_employee_detail", "create_performance_review", "query_attendance"]
     gotchas = "按姓名模糊匹配，重名时只返回第一个结果。include_risk_analysis 默认为真，会调用大模型生成分析。"
@@ -254,7 +263,10 @@ class PerformanceReviewTool(BaseTool):
     required_role = "manager"
     examples = [
         {"input": {"action": "view_team"}, "output_summary": "返回团队绩效排行榜前十名"},
-        {"input": {"action": "submit_rating", "employee_name": "张三", "rating": 4, "comment": "表现优秀"}, "output_summary": "提交张三的绩效评分4星（80分）"},
+        {
+            "input": {"action": "submit_rating", "employee_name": "张三", "rating": 4, "comment": "表现优秀"},
+            "output_summary": "提交张三的绩效评分4星（80分）",
+        },
     ]
     related_tools = ["get_employee_profile", "get_team_insight"]
     gotchas = "评分范围1到5，会自动乘以20转换为百分制写入数据库。submit_rating 必须提供 employee_name。"
@@ -281,12 +293,7 @@ class PerformanceReviewTool(BaseTool):
         if action == "view_team":
             client = _get_client(config)
             # 获取团队绩效概览 — 限定本组织
-            query = (
-                client.table("users")
-                .select("name, score, rank, total_bonus")
-                .order("score", desc=True)
-                .limit(10)
-            )
+            query = client.table("users").select("name, score, rank, total_bonus").order("score", desc=True).limit(10)
             if org_id:
                 query = query.eq("organization_id", org_id)
             team_res = await query.execute()
@@ -329,12 +336,7 @@ class PerformanceReviewTool(BaseTool):
             client = _get_client(config)
 
             # Find the employee — 限定本组织
-            query = (
-                client.table("users")
-                .select("id, name, score")
-                .ilike("name", f"%{employee_name}%")
-                .limit(1)
-            )
+            query = client.table("users").select("id, name, score").ilike("name", f"%{employee_name}%").limit(1)
             if org_id:
                 query = query.eq("organization_id", org_id)
             emp_res = await query.execute()
@@ -392,11 +394,19 @@ class RecruitmentTool(BaseTool):
 
     name = "manage_recruitment"
     domain = "hr"
-    description = "管理招聘流程，包含创建职位、查看候选人、安排面试和解析简历。当用户说'招人'、'招聘'、'面试安排'时调用。"
+    description = (
+        "管理招聘流程，包含创建职位、查看候选人、安排面试和解析简历。当用户说'招人'、'招聘'、'面试安排'时调用。"
+    )
     required_role = "manager"
     examples = [
-                {"input": {"action": "schedule_interview", "candidate_name": "[候选人]", "interview_time": "明天下午3点"}, "output_summary": "安排候选人的面试并发送邀请"},
-                {"input": {"action": "parse_resume", "resume_text": "本人拥有5年开发经验..."}, "output_summary": "返回简历分析评分"},
+        {
+            "input": {"action": "schedule_interview", "candidate_name": "[候选人]", "interview_time": "明天下午3点"},
+            "output_summary": "安排候选人的面试并发送邀请",
+        },
+        {
+            "input": {"action": "parse_resume", "resume_text": "本人拥有5年开发经验..."},
+            "output_summary": "返回简历分析评分",
+        },
     ]
     related_tools = ["get_employee_profile", "create_employee"]
     gotchas = "parse_resume 必须提供 resume_text，会调用大模型分析。候选人管理功能暂未完全开通。"

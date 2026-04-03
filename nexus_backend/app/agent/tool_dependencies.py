@@ -12,7 +12,7 @@ TOOL_DEPENDENCIES: dict[str, list[str]] = {
     "send_invoice": ["create_order"],
     "approve_payment": ["get_invoice", "check_balance"],
     "create_contract": ["get_customer", "get_template"],
-    "send_email": ["get_user_email"]
+    "send_email": ["get_user_email"],
 }
 
 

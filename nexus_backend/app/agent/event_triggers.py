@@ -30,7 +30,7 @@ class EventTrigger:
         condition: Callable[[dict], bool],
         prompt_template: str,
         user_id: str,
-        org_id: str = "default"
+        org_id: str = "default",
     ):
         """
         注册触发器
@@ -48,7 +48,7 @@ class EventTrigger:
             "condition": condition,
             "prompt": prompt_template,
             "user_id": user_id,
-            "org_id": org_id
+            "org_id": org_id,
         }
 
     async def check_and_trigger(self, table_name: str, record: dict):
@@ -75,7 +75,7 @@ class EventTrigger:
                 user_id=config["user_id"],
                 org_id=config["org_id"],
                 message=prompt,
-                session_id=f"trigger_{trigger_id}_{datetime.utcnow().timestamp()}"
+                session_id=f"trigger_{trigger_id}_{datetime.utcnow().timestamp()}",
             )
 
             logger.info(f"Trigger {trigger_id} executed for record {record.get('id')}")
@@ -87,11 +87,13 @@ class EventTrigger:
         """检查即将到期的合同"""
         seven_days_later = (datetime.utcnow() + timedelta(days=7)).isoformat()
 
-        result = await supabase.table("contracts")\
-            .select("*")\
-            .eq("status", "active")\
-            .lt("end_date", seven_days_later)\
+        result = (
+            await supabase.table("contracts")
+            .select("*")
+            .eq("status", "active")
+            .lt("end_date", seven_days_later)
             .execute()
+        )
 
         for contract in result.data:
             await self.check_and_trigger("contracts", contract)
@@ -119,7 +121,7 @@ def register_default_triggers():
         condition=lambda r: r.get("status") == "active",
         prompt_template="合同 {name} 将在 7 天后到期，请提醒相关人员续签",
         user_id="system",
-        org_id="default"
+        org_id="default",
     )
 
     # 销售里程碑
@@ -129,5 +131,5 @@ def register_default_triggers():
         condition=lambda r: r.get("total_amount", 0) >= 100000,
         prompt_template="恭喜！本月销售额已达到 {total_amount} 元，请生成庆祝通知",
         user_id="system",
-        org_id="default"
+        org_id="default",
     )

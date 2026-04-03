@@ -74,9 +74,7 @@ class AgentReplayService:
     3. LangGraph checkpointer state snapshots
     """
 
-    async def load_session_trace(
-        self, thread_id: str, *, db=None
-    ) -> dict[str, Any] | None:
+    async def load_session_trace(self, thread_id: str, *, db=None) -> dict[str, Any] | None:
         """
         Load the full execution trace for a session (thread_id).
 
@@ -108,9 +106,7 @@ class AgentReplayService:
 
         return None
 
-    async def get_replay_steps(
-        self, thread_id: str, *, db=None
-    ) -> list[dict]:
+    async def get_replay_steps(self, thread_id: str, *, db=None) -> list[dict]:
         """
         Return a list of replay steps (state snapshots) for a session.
 
@@ -149,9 +145,7 @@ class AgentReplayService:
 
         return replay_steps
 
-    async def replay_step(
-        self, thread_id: str, step_index: int, *, db=None
-    ) -> dict | None:
+    async def replay_step(self, thread_id: str, step_index: int, *, db=None) -> dict | None:
         """
         Get detailed state for a specific step in the replay.
 
@@ -162,9 +156,7 @@ class AgentReplayService:
             return None
         return steps[step_index]
 
-    async def get_session_timeline(
-        self, session_id: str, org_id: str, *, db=None
-    ) -> dict:
+    async def get_session_timeline(self, session_id: str, org_id: str, *, db=None) -> dict:
         """
         Build a Time Travel timeline for a chat session.
 
@@ -179,17 +171,20 @@ class AgentReplayService:
 
         # 1. Check in-memory traces (both active and completed)
         in_memory_traces = [
-            t for t in list(agent_trace_service._active_traces.values())
+            t
+            for t in list(agent_trace_service._active_traces.values())
             + list(agent_trace_service._completed_traces.values())
             if t.thread_id.startswith(thread_prefix)
         ]
         for trace in in_memory_traces:
-                nodes = [s.node_type for s in trace.steps] if trace.steps else []
-                timeline.append({
+            nodes = [s.node_type for s in trace.steps] if trace.steps else []
+            timeline.append(
+                {
                     "thread_id": trace.thread_id,
                     "trace_id": trace.trace_id,
-                    "timestamp": datetime.fromtimestamp(trace.start_time, tz=UTC).isoformat()
-                    if trace.start_time else None,
+                    "timestamp": (
+                        datetime.fromtimestamp(trace.start_time, tz=UTC).isoformat() if trace.start_time else None
+                    ),
                     "query": (trace.query or "")[:200],
                     "nodes_executed": nodes,
                     "status": trace.status.value,
@@ -198,15 +193,17 @@ class AgentReplayService:
                         "total": trace.total_tokens,
                     },
                     "duration_ms": trace.total_duration_ms,
-                })
+                }
+            )
 
         # 2. Fall back / supplement from DB
         if db:
             try:
                 result = (
                     await db.table("agent_traces")
-                    .select("trace_id, thread_id, query, status, start_time, "
-                            "total_tokens, total_duration_ms, steps_json")
+                    .select(
+                        "trace_id, thread_id, query, status, start_time, " "total_tokens, total_duration_ms, steps_json"
+                    )
                     .eq("org_id", org_id)
                     .like("thread_id", f"%::{session_id}::msg-%")
                     .order("start_time", desc=False)
@@ -214,24 +211,26 @@ class AgentReplayService:
                     .execute()
                 )
                 existing_trace_ids = {t["trace_id"] for t in timeline}
-                for row in (result.data or []):
+                for row in result.data or []:
                     if row.get("trace_id") in existing_trace_ids:
                         continue
                     steps_json = row.get("steps_json") or []
                     nodes = [s.get("node_type", "unknown") for s in steps_json] if steps_json else []
-                    timeline.append({
-                        "thread_id": row.get("thread_id", ""),
-                        "trace_id": row.get("trace_id", ""),
-                        "timestamp": row.get("start_time"),
-                        "query": (row.get("query") or "")[:200],
-                        "nodes_executed": nodes,
-                        "status": row.get("status", ""),
-                        "steps_count": len(steps_json),
-                        "token_usage": {
-                            "total": row.get("total_tokens", 0),
-                        },
-                        "duration_ms": row.get("total_duration_ms"),
-                    })
+                    timeline.append(
+                        {
+                            "thread_id": row.get("thread_id", ""),
+                            "trace_id": row.get("trace_id", ""),
+                            "timestamp": row.get("start_time"),
+                            "query": (row.get("query") or "")[:200],
+                            "nodes_executed": nodes,
+                            "status": row.get("status", ""),
+                            "steps_count": len(steps_json),
+                            "token_usage": {
+                                "total": row.get("total_tokens", 0),
+                            },
+                            "duration_ms": row.get("total_duration_ms"),
+                        }
+                    )
             except Exception as e:
                 logger.warning(f"[Replay] Session timeline DB query failed: {e}")
 
@@ -245,9 +244,7 @@ class AgentReplayService:
             "total_messages": len(timeline),
         }
 
-    async def compare_sessions(
-        self, thread_id_a: str, thread_id_b: str, *, db=None
-    ) -> dict:
+    async def compare_sessions(self, thread_id_a: str, thread_id_b: str, *, db=None) -> dict:
         trace_a = await self.load_session_trace(thread_id_a, db=db)
         trace_b = await self.load_session_trace(thread_id_b, db=db)
 
@@ -282,10 +279,8 @@ class AgentReplayService:
                 "total_duration_ms": trace_b.get("total_duration_ms"),
                 "step_count": len(steps_b),
             },
-            "delta_tokens": (trace_b.get("total_tokens", 0) or 0)
-            - (trace_a.get("total_tokens", 0) or 0),
-            "delta_duration_ms": (trace_b.get("total_duration_ms") or 0)
-            - (trace_a.get("total_duration_ms") or 0),
+            "delta_tokens": (trace_b.get("total_tokens", 0) or 0) - (trace_a.get("total_tokens", 0) or 0),
+            "delta_duration_ms": (trace_b.get("total_duration_ms") or 0) - (trace_a.get("total_duration_ms") or 0),
         }
 
         # Per-step comparison (zip to shorter list, then note extras)

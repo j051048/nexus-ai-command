@@ -117,6 +117,7 @@ class CacheService:
             except Exception as e:
                 logger.warning(f"Redis connection failed: {e}. Using in-memory cache.")
                 from app.core.degradation_registry import degradation_registry
+
                 degradation_registry.register("redis_cache", str(e), fallback="InMemoryCache")
                 self._client = InMemoryCache()
                 self._use_redis = False

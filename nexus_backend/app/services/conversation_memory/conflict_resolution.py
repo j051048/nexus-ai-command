@@ -139,24 +139,27 @@ async def resolve_memory_conflicts(
                 old = existing.data[0]
                 new_count = (old.get("recurrence_count") or 1) + 1
                 from datetime import UTC, datetime
+
                 await (
                     client.table("conversation_memories")
-                    .update({
-                        "recurrence_count": new_count,
-                        "updated_at": datetime.now(UTC).isoformat(),
-                    })
+                    .update(
+                        {
+                            "recurrence_count": new_count,
+                            "updated_at": datetime.now(UTC).isoformat(),
+                        }
+                    )
                     .eq("id", old["id"])
                     .execute()
                 )
-                results.append({
-                    "id": old["id"],
-                    "event": "DEDUP",
-                    "text": old.get("value", ""),
-                    "recurrence_count": new_count,
-                })
-                logger.debug(
-                    "[ConflictResolve] Pattern-key dedup: %s (count=%d)", pk, new_count
+                results.append(
+                    {
+                        "id": old["id"],
+                        "event": "DEDUP",
+                        "text": old.get("value", ""),
+                        "recurrence_count": new_count,
+                    }
                 )
+                logger.debug("[ConflictResolve] Pattern-key dedup: %s (count=%d)", pk, new_count)
                 continue
         except Exception as e:
             logger.error(f"Pattern-key dedup lookup failed for {pk}: {e}")
@@ -201,26 +204,32 @@ async def resolve_memory_conflicts(
             # Near-duplicate: bump recurrence_count on existing, skip LLM
             try:
                 from datetime import UTC, datetime
+
                 old_count = near_dup.get("recurrence_count") or near_dup.get("access_count") or 1
                 new_count = old_count + 1
                 await (
                     client.table("conversation_memories")
-                    .update({
-                        "access_count": new_count,
-                        "last_accessed_at": datetime.now(UTC).isoformat(),
-                    })
+                    .update(
+                        {
+                            "access_count": new_count,
+                            "last_accessed_at": datetime.now(UTC).isoformat(),
+                        }
+                    )
                     .eq("id", near_dup["id"])
                     .execute()
                 )
-                results.append({
-                    "id": near_dup["id"],
-                    "event": "DEDUP",
-                    "text": near_dup.get("value", ""),
-                    "similarity": near_dup.get("similarity"),
-                })
+                results.append(
+                    {
+                        "id": near_dup["id"],
+                        "event": "DEDUP",
+                        "text": near_dup.get("value", ""),
+                        "similarity": near_dup.get("similarity"),
+                    }
+                )
                 logger.debug(
                     "[ConflictResolve] Vector dedup: sim=%.3f for '%s'",
-                    near_dup.get("similarity", 0), value[:60],
+                    near_dup.get("similarity", 0),
+                    value[:60],
                 )
             except Exception as e:
                 logger.error(f"Vector dedup update failed: {e}")
@@ -334,12 +343,14 @@ async def resolve_memory_conflicts(
                     user_id=user_id,
                     db=client,
                 )
-                results.append({
-                    "id": action_id,
-                    "event": "UPDATE",
-                    "text": text,
-                    "previous_memory": old_memory_text,
-                })
+                results.append(
+                    {
+                        "id": action_id,
+                        "event": "UPDATE",
+                        "text": text,
+                        "previous_memory": old_memory_text,
+                    }
+                )
                 await log_memory_change(
                     memory_id=action_id,
                     user_id=user_id,
@@ -420,9 +431,7 @@ async def _search_similar(
         if org_id:
             params["match_org_id"] = org_id
 
-        result = await client.rpc(
-            "search_memories_by_embedding", params
-        ).execute()
+        result = await client.rpc("search_memories_by_embedding", params).execute()
         return result.data or []
     except Exception as e:
         logger.error(f"Vector memory search failed, falling back to keyword: {e}")
@@ -591,13 +600,7 @@ async def _delete_existing_memory(
     if not client:
         return
 
-    await (
-        client.table("conversation_memories")
-        .delete()
-        .eq("id", memory_id)
-        .eq("user_id", user_id)
-        .execute()
-    )
+    await client.table("conversation_memories").delete().eq("id", memory_id).eq("user_id", user_id).execute()
 
 
 async def _find_matching_new_mem(text: str, new_memories: list[dict]) -> dict:
@@ -684,7 +687,10 @@ async def _adjust_opinion_confidence(
             )
             logger.debug(
                 "[OpinionReinforce] %s: confidence %.2f → %.2f (%s)",
-                memory_id[:8], old_conf, new_conf, effect,
+                memory_id[:8],
+                old_conf,
+                new_conf,
+                effect,
             )
     except Exception as e:
         logger.error(f"Opinion confidence adjustment failed: {e}")

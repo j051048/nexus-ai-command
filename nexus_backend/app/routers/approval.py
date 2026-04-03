@@ -29,7 +29,8 @@ class SubmitWithFormRequest(BaseModel):
     @field_validator("amount", mode="before")
     @classmethod
     def validate_amount(cls, v):
-        if v is None or v == "": return 0.0
+        if v is None or v == "":
+            return 0.0
         try:
             return float(v)
         except (TypeError, ValueError):
@@ -54,7 +55,8 @@ class SmartSubmitRequest(BaseModel):
     @field_validator("amount", mode="before")
     @classmethod
     def validate_amount(cls, v):
-        if v is None or v == "": return 0.0
+        if v is None or v == "":
+            return 0.0
         try:
             return float(v)
         except (TypeError, ValueError):
@@ -785,6 +787,7 @@ async def list_auto_rules(
             return api_success(data=[], message="未关联组织")
 
         from app.core.database import supabase
+
         res = await (
             supabase.table("auto_approval_rules")
             .select("*")
@@ -815,15 +818,22 @@ async def create_auto_rule(
             raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "未关联组织")
 
         from app.core.database import supabase
-        res = await supabase.table("auto_approval_rules").insert({
-            "organization_id": org_id,
-            "name": body.name,
-            "approval_type": body.approval_type,
-            "condition_field": body.condition_field,
-            "condition_op": body.condition_op,
-            "condition_value": body.condition_value,
-            "created_by": user_id,
-        }).execute()
+
+        res = (
+            await supabase.table("auto_approval_rules")
+            .insert(
+                {
+                    "organization_id": org_id,
+                    "name": body.name,
+                    "approval_type": body.approval_type,
+                    "condition_field": body.condition_field,
+                    "condition_op": body.condition_op,
+                    "condition_value": body.condition_value,
+                    "created_by": user_id,
+                }
+            )
+            .execute()
+        )
 
         return api_success(data=res.data[0] if res.data else None, message="自动审批规则已创建")
     except Exception as e:
@@ -847,6 +857,7 @@ async def delete_auto_rule(
             raise api_error(ErrorCode.AUTH_PERMISSION_DENIED, "仅管理员可管理自动审批规则")
 
         from app.core.database import supabase
+
         res = await (
             supabase.table("auto_approval_rules")
             .update({"is_active": False})

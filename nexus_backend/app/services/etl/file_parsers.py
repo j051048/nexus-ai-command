@@ -150,9 +150,7 @@ async def parse_file_content(content: bytes, filename: str, call_ai_raw) -> tupl
                 raise ImportError("python-pptx 未安装，请运行: pip install python-pptx")
 
             if filename.lower().endswith(".ppt"):
-                raise ValueError(
-                    "不支持旧版 .ppt 格式（PowerPoint 97-2003）。请将文件另存为 .pptx 格式后重新上传。"
-                )
+                raise ValueError("不支持旧版 .ppt 格式（PowerPoint 97-2003）。请将文件另存为 .pptx 格式后重新上传。")
 
             prs = Presentation(io.BytesIO(content))
             parts = []

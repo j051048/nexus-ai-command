@@ -1,6 +1,7 @@
 """
 图表生成路由
 """
+
 import logging
 from typing import Any, Literal
 

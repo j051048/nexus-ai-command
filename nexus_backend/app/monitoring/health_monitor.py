@@ -23,9 +23,7 @@ class AgentHealthMonitor:
             else:
                 cutoff = datetime.utcnow() - timedelta(hours=1)
 
-            result = await supabase.rpc('get_tool_success_rate', {
-                'since': cutoff.isoformat()
-            }).execute()
+            result = await supabase.rpc("get_tool_success_rate", {"since": cutoff.isoformat()}).execute()
 
             return result.data if result.data else 0.0
 
@@ -44,7 +42,7 @@ class AgentHealthMonitor:
             "degraded": degraded,
             "recent_rate": recent,
             "baseline_rate": baseline,
-            "drop_percentage": ((baseline - recent) / baseline * 100) if baseline > 0 else 0
+            "drop_percentage": ((baseline - recent) / baseline * 100) if baseline > 0 else 0,
         }
 
     async def trigger_auto_recovery(self):

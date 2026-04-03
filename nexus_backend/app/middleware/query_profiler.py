@@ -1,9 +1,11 @@
 """慢查询分析"""
+
 import logging
 import time
 from functools import wraps
 
 logger = logging.getLogger(__name__)
+
 
 def profile_query(func):
     @wraps(func)
@@ -14,4 +16,5 @@ def profile_query(func):
         if duration > 1.0:
             logger.warning(f"慢查询: {func.__name__} took {duration:.2f}s")
         return result
+
     return wrapper

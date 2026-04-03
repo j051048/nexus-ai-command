@@ -141,7 +141,13 @@ async def refresh_report_cache(
     """手动刷新指定报表类型的缓存。"""
     from app.services.report_cache import invalidate_report
 
-    valid_types = {"get_sales_report", "get_approval_report", "get_performance_report", "get_usage_report", "get_overview_stats"}
+    valid_types = {
+        "get_sales_report",
+        "get_approval_report",
+        "get_performance_report",
+        "get_usage_report",
+        "get_overview_stats",
+    }
     method_name = f"get_{report_type}_report" if report_type != "overview" else "get_overview_stats"
 
     if method_name not in valid_types:

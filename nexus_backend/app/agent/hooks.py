@@ -16,6 +16,7 @@ logger = logging.getLogger("nexus.agent.hooks")
 
 # ─── 基础定义 ───────────────────────────────────────────────
 
+
 class HookPhase(StrEnum):
     BEFORE_TOOL_CALL = "before_tool_call"
     AFTER_TOOL_CALL = "after_tool_call"
@@ -46,6 +47,7 @@ class AgentHook(ABC):
 
 
 # ─── Hook 注册中心 ──────────────────────────────────────────
+
 
 class HookRegistry:
     """Manages and executes hooks in priority order."""
@@ -100,8 +102,15 @@ class HookRegistry:
 # viewer 角色禁止调用的写入类工具（前缀匹配）
 ROLE_TOOL_RESTRICTIONS: dict[str, list[str]] = {
     "viewer": [
-        "create_", "update_", "delete_", "remove_",
-        "insert_", "upsert_", "send_", "approve_", "reject_",
+        "create_",
+        "update_",
+        "delete_",
+        "remove_",
+        "insert_",
+        "upsert_",
+        "send_",
+        "approve_",
+        "reject_",
     ],
 }
 
@@ -116,9 +125,7 @@ class PermissionHook(AgentHook):
         blocked_prefixes = ROLE_TOOL_RESTRICTIONS.get(role, [])
         for prefix in blocked_prefixes:
             if tool_name.startswith(prefix):
-                raise PermissionError(
-                    f"角色 '{role}' 无权调用工具 '{tool_name}'"
-                )
+                raise PermissionError(f"角色 '{role}' 无权调用工具 '{tool_name}'")
         return params
 
 

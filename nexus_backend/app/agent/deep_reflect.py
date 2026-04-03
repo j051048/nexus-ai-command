@@ -1,7 +1,9 @@
 """深度反思机制 - Tree of Thoughts"""
+
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 class DeepReflector:
     async def generate_alternatives(self, plan: str) -> list[dict]:
@@ -11,7 +13,7 @@ class DeepReflector:
         return [
             {"approach": "方案A", "score": 0.8},
             {"approach": "方案B", "score": 0.9},
-            {"approach": "方案C", "score": 0.7}
+            {"approach": "方案C", "score": 0.7},
         ]
 
     async def select_best(self, alternatives: list[dict]) -> dict:
@@ -19,5 +21,6 @@ class DeepReflector:
         if not alternatives:
             return {}
         return max(alternatives, key=lambda x: x.get("score", 0))
+
 
 deep_reflector = DeepReflector()

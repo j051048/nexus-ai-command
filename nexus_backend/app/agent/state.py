@@ -199,12 +199,18 @@ class AgentConfig(BaseModel):
         # power / flagship — ensure a capable model
         model = self.model
         from app.services.llm_helpers import is_weak_model
+
         if is_weak_model(model):
             from app.core.config import settings as _settings
-            fallback = getattr(_settings, "AI_STRONG_MODEL", "") or getattr(_settings, "AI_DEFAULT_MODEL", "gemini-3-flash-preview")
+
+            fallback = getattr(_settings, "AI_STRONG_MODEL", "") or getattr(
+                _settings, "AI_DEFAULT_MODEL", "gemini-3-flash-preview"
+            )
             logger.info(
                 "Weak model '%s' for %s tier, upgrading to '%s'",
-                model, tier, fallback,
+                model,
+                tier,
+                fallback,
             )
             return fallback
         return model
@@ -229,9 +235,9 @@ class AgentConfig(BaseModel):
             }
 
         _tier_overrides = {
-            "economy":  {"temperature": 0.3, "timeout": 120, "supports_tools": False},
+            "economy": {"temperature": 0.3, "timeout": 120, "supports_tools": False},
             "balanced": {"temperature": 0.5, "timeout": 180, "supports_tools": True},
-            "power":    {"temperature": 0.7, "timeout": 300, "supports_tools": True},
+            "power": {"temperature": 0.7, "timeout": 300, "supports_tools": True},
             "flagship": {"temperature": 0.5, "timeout": 600, "supports_tools": True},
         }
         tier = complexity.model_tier
@@ -355,27 +361,27 @@ class AgentState(TypedDict, total=False):
     context_compacted_summary: str  # Summary produced by compact_context pseudo-tool
 
     # ── Task decomposition (P1) ──
-    _task_decomposition_done: bool   # Whether complex query has been decomposed
-    _task_steps: list[dict]          # Decomposed steps: [{title, description, tools}]
-    _active_step_index: int          # Current step being executed (0-based)
+    _task_decomposition_done: bool  # Whether complex query has been decomposed
+    _task_steps: list[dict]  # Decomposed steps: [{title, description, tools}]
+    _active_step_index: int  # Current step being executed (0-based)
 
     # ── SLO tracking ──
-    wall_clock_start: float          # time.time() at plan_node entry for dynamic SLO degradation
+    wall_clock_start: float  # time.time() at plan_node entry for dynamic SLO degradation
 
     # ── Circuit breaker (set by _after_execute on loop/iteration limit) ──
     circuit_break_reason: str | None
 
     # ── Slot filling / DST (Dialog State Tracking) ──
-    slot_context: dict | None      # {tool_name, tool_call_id, filled_slots, missing_slots, tool_schema}
-    slot_round: int                # 当前澄清轮次 (0=首次, max=3)
+    slot_context: dict | None  # {tool_name, tool_call_id, filled_slots, missing_slots, tool_schema}
+    slot_round: int  # 当前澄清轮次 (0=首次, max=3)
 
     # ── Tree-of-Thought (ToT) branch search ──
-    candidate_plans: list[dict]    # Top-N scored alternatives from self-consistency: [{sig, score, msg_snapshot}]
-    backtrack_depth: int           # Times we've backtracked to an alternative plan (max=1)
-    best_plan_score: float         # Votes / n for the winning plan (0.0-1.0)
+    candidate_plans: list[dict]  # Top-N scored alternatives from self-consistency: [{sig, score, msg_snapshot}]
+    backtrack_depth: int  # Times we've backtracked to an alternative plan (max=1)
+    best_plan_score: float  # Votes / n for the winning plan (0.0-1.0)
 
     # ── Schema version (for checkpoint restore compatibility) ──
-    _schema_version: int           # Current schema version; used to migrate stale checkpoints
+    _schema_version: int  # Current schema version; used to migrate stale checkpoints
 
 
 # ─── Schema Version & Migration ──────────────────────────────────────────────

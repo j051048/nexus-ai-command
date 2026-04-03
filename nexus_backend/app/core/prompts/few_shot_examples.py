@@ -15,13 +15,11 @@ _EXAMPLES: dict[str, str] = {
 
 用户: 你能做什么？
 助手: 我能帮你处理请假报销、审批流转、客户跟进、数据报表、知识检索等日常事务。直接说需求就行。""",
-
     "approval": """【参考对话风格 — 审批场景】
 用户: 5000以下的都批了
 助手: [调用 smart_approve 工具，条件: amount<5000, action=approve]
 已批准4笔：[员工A]差旅报销¥3,200、[员工B]办公采购¥1,800、[员工C]交通费¥960、[员工D]快递费¥450。
 剩余2笔超过¥5,000，需要单独审批。""",
-
     "crm": """【参考对话风格 — 客户场景】
 用户: 华东区这个月跟进情况怎么样
 助手: [调用 get_follow_ups + get_sales_pipeline 获取数据，整合后用 GenUI 展示]
@@ -32,7 +30,6 @@ _EXAMPLES: dict[str, str] = {
 ```gen-ui
 {"component":"FunnelChart","props":{"stages":[{"label":"线索","value":45},{"label":"跟进中","value":23},{"label":"报价","value":8},{"label":"成交","value":3}],"title":"华东区本月销售漏斗"}}
 ```""",
-
     "data_query": """【参考对话风格 — 数据查询】
 用户: 这个月业绩怎么样
 助手: [调用 get_company_stats 获取数据]
@@ -41,7 +38,6 @@ _EXAMPLES: dict[str, str] = {
 ```gen-ui
 {"component":"StatCards","props":{"title":"本月经营概览","cards":[{"label":"销售额","value":4280000,"change":12.3,"unit":"元"},{"label":"完成率","value":78,"unit":"%"},{"label":"新客户","value":15,"change":25}]}}
 ```""",
-
     "clarify": """【参考对话风格 — 信息不足时主动追问】
 用户: 帮我请假
 助手: [调用 ask_user 工具]
@@ -56,14 +52,12 @@ _EXAMPLES: dict[str, str] = {
 A) **华东水厂** — 上周刚跟进过
 B) **深圳光伏科技** — 本月新建线索
 C) 其他客户，请告诉我名称""",
-
     "multi_step": """【参考对话风格 — 多步操作】
 用户: 给华东水厂发个报价，顺便安排下周去拜访
 助手: [调用 get_customer_detail 查客户信息 → 调用 generate_quotation_template 生成报价 → 调用 book_meeting 安排拜访]
 两件事都安排好了：
 1. **报价单**已生成，基于最新产品目录（ZY-200系列），总价¥86万。需要你确认后发送。
 2. **拜访**已安排在下周三下午2点，地点：华东水厂（上海松江）。已同步到你的日历。""",
-
     "notification": """【参考对话风格 — 通知/提醒场景】
 用户: 通知某人明天上午10点开会
 助手: [调用 send_notification 工具, recipient_name="[参会人]", content="明天上午10点开会"]
@@ -71,7 +65,6 @@ C) 其他客户，请告诉我名称""",
 
 用户: 帮我草拟一个会议通知
 助手: [不调用工具，直接输出 EmailDraft 组件展示草稿供编辑]""",
-
     "oa_ops": """【参考对话风格 — OA操作场景】
 用户: 帮我请明天一天事假，家里有事
 助手: [调用 create_leave_request, leave_type="personal", start_date="2026-03-14", end_date="2026-03-14", reason="家里有事"]
@@ -80,17 +73,14 @@ C) 其他客户，请告诉我名称""",
 用户: 约个明天下午3点的会，叫上销售部
 助手: [调用 book_meeting, title="销售部会议", start_time="2026-03-14 15:00", participants=["销售部"]]
 会议已预约：明天下午3点，已通知销售部。""",
-
     "asset_inventory": """【参考对话风格 — 资产/库存场景】
 用户: 笔记本电脑还有多少库存
 助手: [调用 list_inventory, keyword="笔记本电脑"]
 当前笔记本电脑库存**12台**，其中ThinkPad T14 8台、MacBook Pro 4台。上月出库5台。""",
-
     "work_order": """【参考对话风格 — 工单场景】
 用户: 3楼会议室空调坏了，报个修
 助手: [调用 create_work_order, title="3楼会议室空调维修", type="maintenance", priority="normal"]
 工单已创建（编号WO-20260313-001），已派给设备维护组，预计24小时内处理。""",
-
     "content_generation": """【参考对话风格 — 内容生成场景】
 用户: 帮我写一篇关于FD-F1560食品安全检测仪的公众号推广软文，结合最近的食品安全热点
 助手: [调用 generate_social_post, topic="FD-F1560食品安全检测仪+食品安全热点", platform="wechat", tone="promotional", product_name="FD-F1560"]

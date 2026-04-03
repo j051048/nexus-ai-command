@@ -116,8 +116,19 @@ class CreateContractTool(BaseTool):
     domain = "crm"
     description = "创建新合同记录，支持设置类型、金额、日期和关联客户"
     examples = [
-        {"input": {"title": "华为年度服务合同", "contract_type": "service", "amount": 100000}, "output_summary": "创建一份金额10万的服务合同（草稿状态）"},
-        {"input": {"title": "保密协议", "customer_id": "uuid-xxxx", "start_date": "2026-01-01", "end_date": "2027-01-01"}, "output_summary": "创建关联客户的保密协议并设置有效期"},
+        {
+            "input": {"title": "华为年度服务合同", "contract_type": "service", "amount": 100000},
+            "output_summary": "创建一份金额10万的服务合同（草稿状态）",
+        },
+        {
+            "input": {
+                "title": "保密协议",
+                "customer_id": "uuid-xxxx",
+                "start_date": "2026-01-01",
+                "end_date": "2027-01-01",
+            },
+            "output_summary": "创建关联客户的保密协议并设置有效期",
+        },
     ]
     is_irreversible = True
     confirmation_message = "⚠️ 即将创建新合同记录，确认继续？"

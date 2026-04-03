@@ -58,11 +58,7 @@ async def list_scheduled_tasks(
     """获取当前用户的定时任务列表"""
     try:
         query = (
-            db.table("user_scheduled_tasks")
-            .select("*")
-            .eq("user_id", user_id)
-            .order("created_at", desc=True)
-            .limit(50)
+            db.table("user_scheduled_tasks").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(50)
         )
         if not include_inactive:
             query = query.eq("is_active", True)

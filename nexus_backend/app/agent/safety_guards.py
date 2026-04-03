@@ -60,9 +60,7 @@ def is_mutation_fast_path(state_or_dict: dict) -> bool:
         return False
     # G1: irreversible tools MUST go through Critic — never fast-path
     if has_irreversible_tool(state_or_dict):
-        logger.info(
-            "[Graph] Irreversible tool detected, blocking mutation fast-path → forcing Critic review"
-        )
+        logger.info("[Graph] Irreversible tool detected, blocking mutation fast-path → forcing Critic review")
         return False
     for tc in completed:
         if getattr(tc, "status", None) != "success":

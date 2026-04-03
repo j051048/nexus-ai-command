@@ -42,8 +42,14 @@ class SearchLongTermMemoryTool(BaseTool):
     @property
     def examples(self) -> list[dict]:
         return [
-            {"input": {"query": "报告格式偏好", "category": "preference"}, "output_summary": "返回用户关于报告格式的偏好记忆"},
-            {"input": {"query": "华为客户联系方式", "category": "all"}, "output_summary": "全类别检索与华为客户相关的记忆记录"},
+            {
+                "input": {"query": "报告格式偏好", "category": "preference"},
+                "output_summary": "返回用户关于报告格式的偏好记忆",
+            },
+            {
+                "input": {"query": "华为客户联系方式", "category": "all"},
+                "output_summary": "全类别检索与华为客户相关的记忆记录",
+            },
         ]
 
     @property
@@ -125,7 +131,9 @@ class SearchLongTermMemoryTool(BaseTool):
             if not results:
                 return f"未找到与 '{query}' 相关的记忆记录。你可以尝试更换关键词再次搜索。"
 
-            logger.info(f"[SearchMemoryTool] Found {len(memories)} personal and {len(org_memories) if org_id else 0} org memories for query '{query}'")
+            logger.info(
+                f"[SearchMemoryTool] Found {len(memories)} personal and {len(org_memories) if org_id else 0} org memories for query '{query}'"
+            )
             return "\n".join(results)
 
         except Exception as e:

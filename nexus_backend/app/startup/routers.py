@@ -49,6 +49,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(batch.router)
 
     from app.routers import business_context
+
     app.include_router(business_context.router)
 
     # ── 2. CRM / Sales ───────────────────────────────────────────────────
@@ -162,12 +163,14 @@ def register_routers(app: FastAPI) -> None:
 
     try:
         from app.routers import agent_replay as agent_replay_router
+
         app.include_router(agent_replay_router.router)
     except ImportError:
         logger.debug("agent_replay router not available, skipping")
 
     try:
         from app.routers import onboarding_agent as onboarding_agent_router
+
         app.include_router(onboarding_agent_router.router)
     except ImportError:
         logger.debug("onboarding_agent router not available, skipping")

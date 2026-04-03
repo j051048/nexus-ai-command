@@ -21,6 +21,7 @@ def _encrypt_value(value: str, category: str) -> str:
         return value
     try:
         from app.services.encryption_service import encryption_service
+
         return encryption_service.encrypt(value)
     except Exception as e:
         logger.warning(f"Memory encryption failed (storing plaintext): {e}")
@@ -33,6 +34,7 @@ def decrypt_memory_value(value: str) -> str:
         return value
     try:
         from app.services.encryption_service import EncryptionService
+
         if EncryptionService.is_encrypted(value):
             return EncryptionService.decrypt(value)
     except Exception as e:
@@ -68,11 +70,8 @@ async def save_memory(
 
     # P0 LoCoMo Fix: Normalize temporal context before storage
     from .temporal_normalizer import normalize_temporal_context
-    metadata = normalize_temporal_context(
-        session_date=valid_from or now,
-        text=value,
-        metadata=metadata
-    )
+
+    metadata = normalize_temporal_context(session_date=valid_from or now, text=value, metadata=metadata)
 
     # PII sanitization — mask sensitive data before persisting
     value = sanitize_pii(value)
@@ -85,6 +84,7 @@ async def save_memory(
     if valid_from:
         try:
             from datetime import datetime as _dt
+
             _vf = _dt.fromisoformat(str(valid_from).replace("Z", "+00:00"))
             embed_text = f"[Date: {_vf.strftime('%Y-%m-%d')} / {_vf.strftime('%d %B %Y')}] {embed_text}"
         except (ValueError, TypeError):
@@ -122,23 +122,19 @@ async def save_memory(
 
     # G5 LoCoMo Skip: Heavy DB checks during bench
     import os
+
     is_bench = os.getenv("LOCOMO_INGEST_MODE") == "1"
 
     # Semantic dedup: if no exact key match, check for semantically similar memories
     if not old_id and embedding and not is_bench:
         try:
-            similar = await _find_semantically_similar(
-                user_id, embedding, threshold=0.92, category=category, db=client
-            )
+            similar = await _find_semantically_similar(user_id, embedding, threshold=0.92, category=category, db=client)
             if similar:
                 # Found a semantically similar memory — merge into it
                 old_id = similar["id"]
                 old_version = similar.get("version", 1)
                 key = similar.get("key", key)  # reuse existing key for version chain
-                logger.info(
-                    f"Semantic dedup: merging '{key}' with similar memory "
-                    f"(id={old_id}, similarity≥0.92)"
-                )
+                logger.info(f"Semantic dedup: merging '{key}' with similar memory " f"(id={old_id}, similarity≥0.92)")
         except Exception:
             logger.error("Semantic dedup check failed, proceeding with normal insert", exc_info=True)
 
@@ -204,7 +200,11 @@ async def save_memory(
             insert_data.pop("version", None)
             insert_data.pop("superseded_by", None)
             if old_id:
-                update_data = {k: v for k, v in insert_data.items() if k not in ("user_id", "organization_id", "key", "created_at", "access_count", "last_accessed_at")}
+                update_data = {
+                    k: v
+                    for k, v in insert_data.items()
+                    if k not in ("user_id", "organization_id", "key", "created_at", "access_count", "last_accessed_at")
+                }
                 result = await client.table("conversation_memories").update(update_data).eq("id", old_id).execute()
             else:
                 result = await client.table("conversation_memories").insert(insert_data).execute()
@@ -217,12 +217,7 @@ async def save_memory(
         new_id = new_record.get("id")
         if new_id and new_id != old_id:
             try:
-                await (
-                    client.table("conversation_memories")
-                    .update({"superseded_by": new_id})
-                    .eq("id", old_id)
-                    .execute()
-                )
+                await client.table("conversation_memories").update({"superseded_by": new_id}).eq("id", old_id).execute()
             except Exception:
                 logger.error(f"Failed to mark old version {old_id} as superseded (column may not exist)")
 
@@ -235,6 +230,7 @@ async def save_memory(
     # Non-fatal audit logging
     try:
         from .audit import log_memory_change
+
         if old_id:
             await log_memory_change(
                 memory_id=str(saved.get("id", "")),
@@ -291,9 +287,7 @@ async def delete_memory(
     except Exception:
         pass
 
-    result = (
-        await client.table("conversation_memories").delete().eq("id", memory_id).eq("user_id", user_id).execute()
-    )
+    result = await client.table("conversation_memories").delete().eq("id", memory_id).eq("user_id", user_id).execute()
 
     deleted = bool(result.data)
     if deleted:
@@ -301,6 +295,7 @@ async def delete_memory(
         # Non-fatal audit logging
         try:
             from .audit import log_memory_change
+
             await log_memory_change(
                 memory_id=memory_id,
                 user_id=user_id,
@@ -403,9 +398,7 @@ async def _find_semantically_similar(
     return None
 
 
-async def _enforce_memory_limit(
-    user_id: str, db: Any, *, max_memories: int = 500
-) -> None:
+async def _enforce_memory_limit(user_id: str, db: Any, *, max_memories: int = 500) -> None:
     """Evict lowest-importance memories when a user exceeds the cap.
 
     Deletes the bottom 10% by importance to avoid evicting on every single insert.
@@ -419,7 +412,11 @@ async def _enforce_memory_limit(
             .is_("superseded_by", "null")
             .execute()
         )
-        total = count_res.count if hasattr(count_res, "count") and count_res.count is not None else len(count_res.data or [])
+        total = (
+            count_res.count
+            if hasattr(count_res, "count") and count_res.count is not None
+            else len(count_res.data or [])
+        )
         if total < max_memories:
             return
 
@@ -437,15 +434,13 @@ async def _enforce_memory_limit(
         )
         if victims.data:
             victim_ids = [v["id"] for v in victims.data]
-            await (
-                db.table("conversation_memories")
-                .delete()
-                .in_("id", victim_ids)
-                .execute()
-            )
+            await db.table("conversation_memories").delete().in_("id", victim_ids).execute()
             logger.info(
                 "[MemoryLimit] Evicted %d low-importance memories for user %s (total was %d, cap %d)",
-                len(victim_ids), user_id, total, max_memories,
+                len(victim_ids),
+                user_id,
+                total,
+                max_memories,
             )
     except Exception as e:
         logger.error("[MemoryLimit] Limit enforcement failed (non-fatal): %s", e)

@@ -5,34 +5,17 @@ Agent 性能监控 - 提升可观测性
 from prometheus_client import Counter, Histogram
 
 # Prometheus 指标
-agent_node_duration = Histogram(
-    'agent_node_duration_seconds',
-    'Agent node execution duration',
-    ['node_name']
-)
+agent_node_duration = Histogram("agent_node_duration_seconds", "Agent node execution duration", ["node_name"])
 
-agent_node_success = Counter(
-    'agent_node_success_total',
-    'Agent node success count',
-    ['node_name']
-)
+agent_node_success = Counter("agent_node_success_total", "Agent node success count", ["node_name"])
 
-agent_node_failure = Counter(
-    'agent_node_failure_total',
-    'Agent node failure count',
-    ['node_name']
-)
+agent_node_failure = Counter("agent_node_failure_total", "Agent node failure count", ["node_name"])
 
 
 class AgentMetrics:
     """Agent 性能指标收集"""
 
-    async def record_node_execution(
-        self,
-        node_name: str,
-        duration: float,
-        success: bool
-    ):
+    async def record_node_execution(self, node_name: str, duration: float, success: bool):
         """记录节点执行"""
         agent_node_duration.labels(node_name=node_name).observe(duration)
 

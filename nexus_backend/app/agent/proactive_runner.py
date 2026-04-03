@@ -70,7 +70,9 @@ async def run_proactive_agent(
         from app.services.conversation_memory_service import conversation_memory_service
 
         memory_ctx = await conversation_memory_service.build_memory_context(
-            user_id=user_id, current_query=prompt, db=db_client,
+            user_id=user_id,
+            current_query=prompt,
+            db=db_client,
         )
     except Exception as mem_err:
         logger.warning("[ProactiveRunner] Memory injection skipped: %s", mem_err)

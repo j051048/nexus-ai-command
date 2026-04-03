@@ -19,8 +19,24 @@ class ExpenseClaimTool(BaseTool):
     description = "创建费用报销申请并自动进行合规检查。当用户说'报销'、'我花了多少钱'、'帮我报个账'时调用。支持差旅、招待、办公等类型。"
     required_role = "all"
     examples = [
-        {"input": {"expense_type": "travel", "amount": 800, "description": "北京出差高铁票", "expense_date": "2026-03-20"}, "output_summary": "提交差旅报销申请，合规检查通过，等待审批"},
-        {"input": {"expense_type": "entertainment", "amount": 600, "description": "客户晚餐", "attendees": ["张总", "李总", "王经理"]}, "output_summary": "提交招待费报销，自动计算人均消费并检查是否超标"},
+        {
+            "input": {
+                "expense_type": "travel",
+                "amount": 800,
+                "description": "北京出差高铁票",
+                "expense_date": "2026-03-20",
+            },
+            "output_summary": "提交差旅报销申请，合规检查通过，等待审批",
+        },
+        {
+            "input": {
+                "expense_type": "entertainment",
+                "amount": 600,
+                "description": "客户晚餐",
+                "attendees": ["张总", "李总", "王经理"],
+            },
+            "output_summary": "提交招待费报销，自动计算人均消费并检查是否超标",
+        },
     ]
     related_tools = ["query_expense_status", "submit_approval_on_behalf", "recognize_invoice"]
     gotchas = "金额必须大于0。招待费用建议填写参与人员以通过合规检查。人均招待标准为200元，差旅单日上限1500元。"
@@ -360,7 +376,9 @@ class SalaryQueryTool(BaseTool):
     """薪资查询工具"""
 
     name = "query_salary"
-    description = "查询当前用户的个人薪资明细和到账记录。当用户说'这个月工资'、'薪资明细'、'工资条'时调用。仅能查询自己的薪资。"
+    description = (
+        "查询当前用户的个人薪资明细和到账记录。当用户说'这个月工资'、'薪资明细'、'工资条'时调用。仅能查询自己的薪资。"
+    )
     required_role = "all"
     examples = [
         {"input": {"month": "2026-03"}, "output_summary": "返回2026年3月的薪资明细，含基本工资、奖金、扣除、实发"},
@@ -416,11 +434,19 @@ class InvoiceOCRTool(BaseTool):
     """发票识别工具"""
 
     name = "recognize_invoice"
-    description = "识别上传的发票图片，自动提取金额、日期、类型等结构化信息。当用户上传发票图片或说'识别发票'、'发票识别'时调用。"
+    description = (
+        "识别上传的发票图片，自动提取金额、日期、类型等结构化信息。当用户上传发票图片或说'识别发票'、'发票识别'时调用。"
+    )
     required_role = "all"
     examples = [
-        {"input": {"image_url": "https://example.com/invoice.jpg"}, "output_summary": "识别发票并返回发票号码、金额、税额、开票单位等信息"},
-        {"input": {"image_url": "https://example.com/train.jpg", "invoice_type": "train"}, "output_summary": "识别火车票发票并提取结构化数据"},
+        {
+            "input": {"image_url": "https://example.com/invoice.jpg"},
+            "output_summary": "识别发票并返回发票号码、金额、税额、开票单位等信息",
+        },
+        {
+            "input": {"image_url": "https://example.com/train.jpg", "invoice_type": "train"},
+            "output_summary": "识别火车票发票并提取结构化数据",
+        },
     ]
     related_tools = ["create_expense_claim"]
     gotchas = "依赖大语言模型进行识别，结果可能不完全准确，建议人工核对。image_url 为必填参数。"
@@ -456,24 +482,30 @@ class InvoiceOCRTool(BaseTool):
             # P3: 使用 Vision API multimodal content 格式（之前只是把 URL 当文本传给 LLM）
             payload = {
                 "model": (config.get("model", "gpt-4o") if config else "gpt-4o"),
-                "messages": [{
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": (
-                                f"请识别以下发票信息，提取结构化数据{type_hint}：\n"
-                                "请提取：发票号码、开票日期、金额（不含税）、税额、价税合计、"
-                                "开票单位、发票类型。\n如无法识别某字段，标注'未识别'。以中文列表格式返回。"
-                            ),
-                        },
-                        {"type": "image_url", "image_url": {"url": image_url}},
-                    ],
-                }],
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": (
+                                    f"请识别以下发票信息，提取结构化数据{type_hint}：\n"
+                                    "请提取：发票号码、开票日期、金额（不含税）、税额、价税合计、"
+                                    "开票单位、发票类型。\n如无法识别某字段，标注'未识别'。以中文列表格式返回。"
+                                ),
+                            },
+                            {"type": "image_url", "image_url": {"url": image_url}},
+                        ],
+                    }
+                ],
                 "max_tokens": 2000,
             }
 
-            base_url = (config.get("base_url") if config else None) or getattr(settings, "AI_BASE_URL", "") or "https://api.openai.com/v1"
+            base_url = (
+                (config.get("base_url") if config else None)
+                or getattr(settings, "AI_BASE_URL", "")
+                or "https://api.openai.com/v1"
+            )
             api_key = (config.get("api_key") if config else None) or settings.OPENAI_API_KEY
             url = f"{base_url.rstrip('/')}/chat/completions"
 

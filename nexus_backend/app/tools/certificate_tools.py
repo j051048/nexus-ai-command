@@ -119,7 +119,18 @@ class CreateCertificateTool(BaseTool):
     description = "创建新的证照登记记录，需要管理员权限。当用户说'登记证照'、'添加证照'时调用。"
     domain = "admin"
     examples = [
-        {"input": {"cert_type": "营业执照", "cert_no": "BL-2024-001", "name": "营业执照", "holder_type": "company", "holder_id": "uuid-xxx", "issue_date": "2024-01-01", "expire_date": "2029-01-01"}, "output_summary": "创建一条营业执照记录"},
+        {
+            "input": {
+                "cert_type": "营业执照",
+                "cert_no": "BL-2024-001",
+                "name": "营业执照",
+                "holder_type": "company",
+                "holder_id": "uuid-xxx",
+                "issue_date": "2024-01-01",
+                "expire_date": "2029-01-01",
+            },
+            "output_summary": "创建一条营业执照记录",
+        },
     ]
     related_tools = ["list_certificates", "renew_certificate", "expiring_certificates"]
     gotchas = "所有字段均为必填。日期格式必须为YYYY-MM-DD。holder_id必须是有效的UUID。需要admin角色权限。"
@@ -286,7 +297,10 @@ class RenewCertificateTool(BaseTool):
     description = "更新证照的到期日期，执行续期操作，需要管理员权限。当用户说'续期证照'、'更新证照有效期'时调用。"
     domain = "admin"
     examples = [
-        {"input": {"cert_id": "uuid-xxx", "new_expire_date": "2030-12-31"}, "output_summary": "将指定证照的到期日期更新为2030-12-31"},
+        {
+            "input": {"cert_id": "uuid-xxx", "new_expire_date": "2030-12-31"},
+            "output_summary": "将指定证照的到期日期更新为2030-12-31",
+        },
     ]
     related_tools = ["list_certificates", "expiring_certificates", "create_certificate"]
     gotchas = "cert_id必须是有效的UUID格式。new_expire_date格式为YYYY-MM-DD。需要admin角色权限。续期前建议先用expiring_certificates确认证照信息。"

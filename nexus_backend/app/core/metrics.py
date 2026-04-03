@@ -101,7 +101,6 @@ def observe_http_request(method: str, path: str, status: int, duration_s: float)
         _hist_add(f"http_request_duration_seconds|{method}|{normalized}", duration_s)
 
 
-
 # ---------------------------------------------------------------------------
 # Metrics endpoint content generation
 # ---------------------------------------------------------------------------

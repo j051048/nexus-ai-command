@@ -4,18 +4,18 @@
 """
 
 import pytest
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 from typing import Optional
 from unittest.mock import patch
 
 
 class AuthenticatedTestClient:
     """
-    测试客户端装饰器，自动注入用户身份
+    测试客户端装饰器，自动注入用户身份（基于 httpx AsyncClient）
 
     用法:
         client = AuthenticatedTestClient(app, user_id="test-user", role="boss")
-        response = client.get("/api/projects")
+        response = await client.get("/api/projects")
     """
 
     def __init__(
@@ -25,7 +25,7 @@ class AuthenticatedTestClient:
         role: str = "employee",
         org_id: Optional[str] = "test-org-456",
     ):
-        self.client = TestClient(app)
+        self.app = app
         self.user_id = user_id
         self.role = role
         self.org_id = org_id
@@ -34,25 +34,30 @@ class AuthenticatedTestClient:
         """注入认证上下文"""
         return patch("app.core.auth.get_current_user_id", return_value=self.user_id)
 
-    def get(self, *args, **kwargs):
+    async def get(self, *args, **kwargs):
         with self._inject_auth():
-            return self.client.get(*args, **kwargs)
+            async with AsyncClient(transport=ASGITransport(app=self.app), base_url="http://test") as ac:
+                return await ac.get(*args, **kwargs)
 
-    def post(self, *args, **kwargs):
+    async def post(self, *args, **kwargs):
         with self._inject_auth():
-            return self.client.post(*args, **kwargs)
+            async with AsyncClient(transport=ASGITransport(app=self.app), base_url="http://test") as ac:
+                return await ac.post(*args, **kwargs)
 
-    def put(self, *args, **kwargs):
+    async def put(self, *args, **kwargs):
         with self._inject_auth():
-            return self.client.put(*args, **kwargs)
+            async with AsyncClient(transport=ASGITransport(app=self.app), base_url="http://test") as ac:
+                return await ac.put(*args, **kwargs)
 
-    def patch(self, *args, **kwargs):
+    async def patch(self, *args, **kwargs):
         with self._inject_auth():
-            return self.client.patch(*args, **kwargs)
+            async with AsyncClient(transport=ASGITransport(app=self.app), base_url="http://test") as ac:
+                return await ac.patch(*args, **kwargs)
 
-    def delete(self, *args, **kwargs):
+    async def delete(self, *args, **kwargs):
         with self._inject_auth():
-            return self.client.delete(*args, **kwargs)
+            async with AsyncClient(transport=ASGITransport(app=self.app), base_url="http://test") as ac:
+                return await ac.delete(*args, **kwargs)
 
 
 @pytest.fixture

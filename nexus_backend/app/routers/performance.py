@@ -56,10 +56,16 @@ async def quality_trend(
         rows = res.data or []
 
         # Aggregate by day
-        daily: dict[str, dict] = defaultdict(lambda: {
-            "quality_scores": [], "completeness": [], "relevance": [],
-            "accuracy": [], "passed": 0, "total": 0,
-        })
+        daily: dict[str, dict] = defaultdict(
+            lambda: {
+                "quality_scores": [],
+                "completeness": [],
+                "relevance": [],
+                "accuracy": [],
+                "passed": 0,
+                "total": 0,
+            }
+        )
         for row in rows:
             day_key = row["created_at"][:10]  # YYYY-MM-DD
             d = daily[day_key]
@@ -74,15 +80,17 @@ async def quality_trend(
         for day_key in sorted(daily.keys()):
             d = daily[day_key]
             n = d["total"]
-            trend.append({
-                "date": day_key,
-                "avg_quality_score": round(sum(d["quality_scores"]) / n, 3),
-                "avg_completeness": round(sum(d["completeness"]) / n, 3),
-                "avg_relevance": round(sum(d["relevance"]) / n, 3),
-                "avg_accuracy": round(sum(d["accuracy"]) / n, 3),
-                "pass_rate": round(d["passed"] / n, 3),
-                "total_evaluations": n,
-            })
+            trend.append(
+                {
+                    "date": day_key,
+                    "avg_quality_score": round(sum(d["quality_scores"]) / n, 3),
+                    "avg_completeness": round(sum(d["completeness"]) / n, 3),
+                    "avg_relevance": round(sum(d["relevance"]) / n, 3),
+                    "avg_accuracy": round(sum(d["accuracy"]) / n, 3),
+                    "pass_rate": round(d["passed"] / n, 3),
+                    "total_evaluations": n,
+                }
+            )
 
         return api_success(data={"days": days, "trend": trend})
     except Exception:

@@ -300,9 +300,7 @@ def _auto_discover():
     import app.tools as tools_pkg
 
     known = set(_TOOL_MODULES) | set(_VMD_TOOL_MODULES)
-    for _importer, modname, ispkg in pkgutil.iter_modules(
-        tools_pkg.__path__, "app.tools."
-    ):
+    for _importer, modname, ispkg in pkgutil.iter_modules(tools_pkg.__path__, "app.tools."):
         if ispkg or modname.endswith(("__init__", "base_tool")):
             continue
         try:
@@ -430,14 +428,16 @@ def get_tools_metadata(user_role: str = "all") -> list[dict]:
         # RBAC filter: skip tools the user cannot access
         if tool.required_role != "all" and tool.required_role != user_role and user_role != "boss":
             continue
-        result.append({
-            "name": tool.name,
-            "description": tool.description,
-            "domain": tool.domain,
-            "related_tools": tool.related_tools,
-            "required_role": tool.required_role,
-            "is_irreversible": tool.is_irreversible,
-            "examples": tool.examples,
-            "gotchas": tool.gotchas,
-        })
+        result.append(
+            {
+                "name": tool.name,
+                "description": tool.description,
+                "domain": tool.domain,
+                "related_tools": tool.related_tools,
+                "required_role": tool.required_role,
+                "is_irreversible": tool.is_irreversible,
+                "examples": tool.examples,
+                "gotchas": tool.gotchas,
+            }
+        )
     return result

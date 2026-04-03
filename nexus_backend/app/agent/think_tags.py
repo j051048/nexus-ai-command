@@ -40,7 +40,7 @@ def extract_clean_content(msg) -> str:
     reasoning = kwargs.get("reasoning_content", "")
     if reasoning and content.startswith(reasoning):
         # Proxy API merged reasoning into content — strip the reasoning prefix
-        content = content[len(reasoning):].lstrip("\n")
+        content = content[len(reasoning) :].lstrip("\n")
 
     # Case 2: <think> tags
     content = strip_think_tags(content)

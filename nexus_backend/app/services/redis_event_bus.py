@@ -45,9 +45,7 @@ class RedisEventBus(InMemoryEventBus):
             self._listener_task = asyncio.create_task(self._redis_listener())
             logger.info("[RedisEventBus] Redis Pub/Sub listener started")
         else:
-            logger.warning(
-                "[RedisEventBus] Redis not available, running in local-only mode"
-            )
+            logger.warning("[RedisEventBus] Redis not available, running in local-only mode")
 
     async def _connect_redis(self):
         """Try to connect to Redis for pub/sub."""
@@ -126,9 +124,7 @@ class RedisEventBus(InMemoryEventBus):
 
         while self._running:
             try:
-                message = await self._pubsub.get_message(
-                    ignore_subscribe_messages=True, timeout=1.0
-                )
+                message = await self._pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
                 if message is None:
                     await asyncio.sleep(0.1)
                     continue

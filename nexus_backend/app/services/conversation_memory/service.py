@@ -43,9 +43,17 @@ class ConversationMemoryService:
     ) -> dict:
         """保存用户记忆条目（upsert by user_id + key），同时生成 embedding 向量"""
         return await storage.save_memory(
-            user_id=user_id, key=key, value=value, category=category,
-            metadata=metadata, importance=importance, org_id=org_id, db=db,
-            enriched_value=enriched_value, valid_from=valid_from, **kwargs,
+            user_id=user_id,
+            key=key,
+            value=value,
+            category=category,
+            metadata=metadata,
+            importance=importance,
+            org_id=org_id,
+            db=db,
+            enriched_value=enriched_value,
+            valid_from=valid_from,
+            **kwargs,
         )
 
     async def _generate_embedding(self, text: str, org_id: str | None = None) -> list[float] | None:
@@ -72,7 +80,11 @@ class ConversationMemoryService:
     ) -> list[dict]:
         """搜索相关记忆（混合检索：embedding 语义搜索 + 关键字匹配）"""
         return await retrieval.search_memories(
-            user_id=user_id, query=query, limit=limit, org_id=org_id, db=db,
+            user_id=user_id,
+            query=query,
+            limit=limit,
+            org_id=org_id,
+            db=db,
         )
 
     async def delete_memory(
@@ -106,7 +118,10 @@ class ConversationMemoryService:
     ) -> list[dict]:
         """从对话中自动提取用户偏好。"""
         return await extraction.extract_preferences(
-            user_id=user_id, messages=messages, org_id=org_id, db=db,
+            user_id=user_id,
+            messages=messages,
+            org_id=org_id,
+            db=db,
             is_subtask=is_subtask,
         )
 
@@ -131,8 +146,13 @@ class ConversationMemoryService:
     ) -> dict | None:
         """Save an organization-level memory visible to all users in the tenant."""
         return await org_memory.save_org_memory(
-            org_id=org_id, category=category, key=key, value=value,
-            user_id=user_id, metadata=metadata, db=db,
+            org_id=org_id,
+            category=category,
+            key=key,
+            value=value,
+            user_id=user_id,
+            metadata=metadata,
+            db=db,
         )
 
     async def get_org_memories(
@@ -183,8 +203,11 @@ class ConversationMemoryService:
     ) -> list[dict]:
         """Extract potential organization-level knowledge from conversations."""
         return await extraction.extract_org_memories(
-            org_id=org_id, user_id=user_id, message=message,
-            ai_response=ai_response, db=db,
+            org_id=org_id,
+            user_id=user_id,
+            message=message,
+            ai_response=ai_response,
+            db=db,
         )
 
     # ─── 记忆上下文构建 ──────────────────────────────────────────
@@ -225,8 +248,10 @@ class ConversationMemoryService:
     ) -> dict:
         """Remove low-score memories that are older than min_age_days."""
         return await cleanup.cleanup_decayed_memories(
-            min_age_days=min_age_days, score_threshold=score_threshold,
-            batch_size=batch_size, db=db,
+            min_age_days=min_age_days,
+            score_threshold=score_threshold,
+            batch_size=batch_size,
+            db=db,
         )
 
     async def reevaluate_importance(
@@ -248,7 +273,10 @@ class ConversationMemoryService:
     ) -> dict:
         """Consolidate a user's unconsolidated memories into cross-memory insights."""
         return await consolidation.consolidate_user_memories(
-            user_id=user_id, org_id=org_id, batch_size=batch_size, db=db,
+            user_id=user_id,
+            org_id=org_id,
+            batch_size=batch_size,
+            db=db,
         )
 
     async def _write_connections(
@@ -270,7 +298,11 @@ class ConversationMemoryService:
     ) -> list[dict]:
         """Search consolidated insights via embedding similarity."""
         return await retrieval.search_consolidations(
-            user_id=user_id, query=query, limit=limit, org_id=org_id, db=db,
+            user_id=user_id,
+            query=query,
+            limit=limit,
+            org_id=org_id,
+            db=db,
         )
 
     async def _expand_top_connections(
@@ -282,5 +314,8 @@ class ConversationMemoryService:
     ) -> list[dict]:
         """1-hop expansion: fetch connected memories for top results."""
         return await retrieval._expand_top_connections(
-            memories=memories, user_id=user_id, limit=limit, db=db,
+            memories=memories,
+            user_id=user_id,
+            limit=limit,
+            db=db,
         )

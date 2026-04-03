@@ -36,20 +36,28 @@ async def _send_system_notification(
         metadata["action_url"] = action_url
     if org_id:
         metadata["organization_id"] = org_id
-    await notification_service.send(Notification(
-        title=title,
-        content=content,
-        target_user_id=user_id,
-        channel=NotificationChannel.IN_APP,
-        priority=priority,
-        metadata=metadata,
-    ))
+    await notification_service.send(
+        Notification(
+            title=title,
+            content=content,
+            target_user_id=user_id,
+            channel=NotificationChannel.IN_APP,
+            priority=priority,
+            metadata=metadata,
+        )
+    )
 
 
 async def run_all_system_tasks():
     """Entry point called by ScheduledTaskRunner once per day at ~09:00 CN."""
     logger.info("[SystemTasks] Starting daily system tasks")
-    for task_fn in [check_expiring_contracts, check_inactive_customers, check_data_consistency, check_pending_approvals, promote_memories]:
+    for task_fn in [
+        check_expiring_contracts,
+        check_inactive_customers,
+        check_data_consistency,
+        check_pending_approvals,
+        promote_memories,
+    ]:
         try:
             await task_fn()
         except Exception as e:
@@ -230,10 +238,7 @@ async def check_data_consistency():
     # Rule 1: Customers with stage='customer' but no active contract
     try:
         won_customers = await (
-            supabase.table("customers")
-            .select("id, name, organization_id")
-            .eq("stage", "customer")
-            .execute()
+            supabase.table("customers").select("id, name, organization_id").eq("stage", "customer").execute()
         )
         if won_customers.data:
             customer_ids = [c["id"] for c in won_customers.data]
@@ -247,11 +252,13 @@ async def check_data_consistency():
             contracted_ids = {c["customer_id"] for c in (active_contracts.data or [])}
             missing = [c for c in won_customers.data if c["id"] not in contracted_ids]
             if missing:
-                alerts.append({
-                    "type": "customer_no_contract",
-                    "message": f"{len(missing)} 个已成交客户没有活跃合同",
-                    "items": [{"id": c["id"], "name": c["name"]} for c in missing[:10]],
-                })
+                alerts.append(
+                    {
+                        "type": "customer_no_contract",
+                        "message": f"{len(missing)} 个已成交客户没有活跃合同",
+                        "items": [{"id": c["id"], "name": c["name"]} for c in missing[:10]],
+                    }
+                )
     except Exception as e:
         logger.warning("[SystemTasks] Consistency check rule 1 failed: %s", e)
 
@@ -266,11 +273,13 @@ async def check_data_consistency():
             .execute()
         )
         if stale.data:
-            alerts.append({
-                "type": "contract_past_due",
-                "message": f"{len(stale.data)} 个合同已过期但状态仍为活跃",
-                "items": [{"id": c["id"], "title": c["title"]} for c in stale.data[:10]],
-            })
+            alerts.append(
+                {
+                    "type": "contract_past_due",
+                    "message": f"{len(stale.data)} 个合同已过期但状态仍为活跃",
+                    "items": [{"id": c["id"], "title": c["title"]} for c in stale.data[:10]],
+                }
+            )
     except Exception as e:
         logger.warning("[SystemTasks] Consistency check rule 2 failed: %s", e)
 
@@ -281,10 +290,7 @@ async def check_data_consistency():
     try:
         # Get all org admins
         admin_res = await (
-            supabase.table("users")
-            .select("id, organization_id")
-            .in_("role", ["boss", "founder"])
-            .execute()
+            supabase.table("users").select("id, organization_id").in_("role", ["boss", "founder"]).execute()
         )
         admins = admin_res.data or []
 

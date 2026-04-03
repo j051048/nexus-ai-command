@@ -51,6 +51,7 @@ class SharedBlackboard:
         """Phase 3: Write compressed vector state (6x bandwidth reduction)"""
         try:
             from app.services.vector_service import VectorService
+
             quantized = VectorService.quantize_embedding(vector.tolist())
             async with self._lock:
                 if task_idx in self._results:
@@ -64,6 +65,7 @@ class SharedBlackboard:
         if result and result.vector_state:
             try:
                 from app.services.vector_service import VectorService
+
                 return np.array(VectorService.dequantize_embedding(result.vector_state))
             except Exception:
                 pass
