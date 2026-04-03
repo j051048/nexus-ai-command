@@ -4,7 +4,6 @@ import logging
 
 from fastapi import APIRouter, Header, Request, Response
 
-
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/webhooks", tags=["Webhooks"])
 
