@@ -1,59 +1,44 @@
-"""
-Stripe Webhook endpoint.
-
-POST /api/webhooks/stripe — receives Stripe events, verifies signature,
-and delegates to PaymentGatewayService for idempotent processing.
-
-No authentication required (Stripe sends webhooks directly).
-"""
+"""Stripe Webhooks API 端点"""
 
 import logging
 
-from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Header, Request, Response
+
+from app.core.errors import ErrorCode, api_error
 
 logger = logging.getLogger(__name__)
-router = APIRouter(tags=["Stripe Webhooks"])
+router = APIRouter(prefix="/api/webhooks", tags=["Webhooks"])
+
+# 延迟导入以避免可选依赖缺失导致启动失败
+try:
+    from app.services.payment_gateway import payment_gateway
+except ImportError:
+    logger.warning("Stripe payment gateway not available (missing dependencies)")
+    payment_gateway = None
 
 
-@router.post("/api/webhooks/stripe")
-async def stripe_webhook(request: Request):
-    """Process incoming Stripe webhook events.
+@router.post("/stripe")
+async def stripe_webhook(
+    request: Request,
+    stripe_signature: str = Header(None),
+):
+    """处理 Stripe 回调"""
+    if not stripe_signature:
+        return Response(content='{"error": "Missing Stripe-Signature"}', status_code=400, media_type="application/json")
 
-    Stripe sends raw body + Stripe-Signature header.
-    We verify the signature and dispatch to the payment gateway service.
-    Idempotency is guaranteed by Stripe event IDs — duplicate events
-    are safe because our handlers are upsert-based.
-    """
+    if not payment_gateway:
+        return Response(
+            content='{"error": "Payment gateway service unavailable"}', status_code=503, media_type="application/json"
+        )
+
     try:
-        from app.services.payment_gateway import payment_gateway
-    except Exception as exc:
-        logger.error("Failed to import payment_gateway: %s", exc)
-        return JSONResponse({"error": "service unavailable"}, status_code=503)
-
-    # Read raw body (Stripe requires the raw bytes for signature verification)
-    payload = await request.body()
-    signature = request.headers.get("Stripe-Signature", "")
-
-    if not signature:
-        return JSONResponse({"error": "Missing Stripe-Signature header"}, status_code=400)
-
-    try:
-        result = await payment_gateway.handle_webhook(payload, signature)
-        return JSONResponse({"status": "ok", **result}, status_code=200)
-
-    except RuntimeError as exc:
-        # Stripe not configured
-        logger.warning("Stripe webhook rejected: %s", exc)
-        return JSONResponse({"error": str(exc)}, status_code=503)
-
-    except ValueError as exc:
-        # Invalid payload
-        logger.warning("Stripe webhook invalid payload: %s", exc)
-        return JSONResponse({"error": "Invalid payload"}, status_code=400)
-
-    except Exception as exc:
-        # Signature verification failure or other Stripe error
-        error_name = type(exc).__name__
-        logger.error("Stripe webhook processing error (%s): %s", error_name, exc)
-        return JSONResponse({"error": "Webhook processing failed"}, status_code=400)
+        payload = await request.body()
+        # 验证并处理 Webhook
+        event = await payment_gateway.handle_webhook(payload, stripe_signature)
+        return Response(content='{"status": "success"}', status_code=200, media_type="application/json")
+    except ValueError as e:
+        logger.error(f"Stripe webhook payload error: {e}")
+        return Response(content=f'{{"error": "{str(e)}"}}', status_code=400, media_type="application/json")
+    except Exception as e:
+        logger.error(f"Stripe webhook processing error: {e}")
+        return Response(content='{"error": "Internal server error"}', status_code=500, media_type="application/json")

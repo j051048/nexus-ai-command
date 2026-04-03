@@ -4,9 +4,13 @@ import { test, expect } from '@playwright/test';
 test.describe('第一条生命链路：登录、鉴权与面板导航', () => {
 
 // TODO: 根据实际系统的启动端口和环境变量调整
-  const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
+  const BASE_URL = process.env.BASE_URL || 'http://localhost:4173';
 
   test.beforeEach(async ({ page }) => {
+    // Disable Joyride guides for testing
+    await page.addInitScript(() => {
+        window.localStorage.setItem('nexus-joyride-seen', 'true');
+    });
     // 拦截鉴权相关的 API 请求，确保即使后端没挂也能跑通逻辑
     await page.route('**/auth/v1/token*', async (route) => {
       const email = route.request().postDataJSON()?.email;

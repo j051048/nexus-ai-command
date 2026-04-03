@@ -17,8 +17,8 @@ class MockReadTool(BaseTool):
     required_role = None
     is_irreversible = False
 
-    async def _run(self, id: str = "", **kwargs):
-        return {"customer": {"id": id, "name": "张三"}}
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+        return {"customer": {"id": args.get("id", ""), "name": "张三"}}
 
 
 class MockWriteTool(BaseTool):
@@ -30,7 +30,7 @@ class MockWriteTool(BaseTool):
     required_role = "boss"
     is_irreversible = True
 
-    async def _run(self, id: str = "", **kwargs):
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
         return {"status": "approved"}
 
 
@@ -38,7 +38,7 @@ class TestBaseToolProtocol:
     @pytest.mark.asyncio
     async def test_read_tool_executes(self):
         tool = MockReadTool()
-        result = await tool._run(id="c-1")
+        result = await tool.run(args={"id": "c-1"}, user_id="u-1")
         assert result["customer"]["name"] == "张三"
 
     def test_tool_metadata(self):
@@ -56,10 +56,10 @@ class TestBaseToolProtocol:
 class TestConfirmationRequired:
     def test_confirmation_exception(self):
         exc = ConfirmationRequired(
+            preview_message="确认批准此审批？",
             tool_name="ApprovalTool",
-            tool_args={"id": "a-1", "decision": "approved"},
+            args={"id": "a-1", "decision": "approved"},
             confirmation_type=ConfirmationType.IRREVERSIBLE,
-            message="确认批准此审批？",
         )
         assert exc.tool_name == "ApprovalTool"
         assert exc.confirmation_type == ConfirmationType.IRREVERSIBLE
@@ -67,19 +67,19 @@ class TestConfirmationRequired:
     def test_confirmation_types(self):
         assert ConfirmationType.IRREVERSIBLE.value == "irreversible"
         assert ConfirmationType.HIGH_VALUE.value == "high_value"
-        assert ConfirmationType.BULK_OPERATION.value == "bulk_operation"
+        assert ConfirmationType.BULK_OPERATION.value == "bulk"
         assert ConfirmationType.EXTERNAL.value == "external"
-        assert ConfirmationType.PERMISSION_ESCALATION.value == "permission_escalation"
+        assert ConfirmationType.PERMISSION_ESCALATION.value == "escalation"
 
 
 class TestToolRegistry:
     def test_get_tool_returns_instance(self):
         from app.tools import get_tool
-        # 测试已注册的核心工具
-        tool = get_tool("GetCustomersTool")
+        # 测试已注册的核心工具 (使用小写 slug)
+        tool = get_tool("get_customers")
         if tool:  # 可能因导入问题为 None
             assert hasattr(tool, "name")
-            assert hasattr(tool, "_run")
+            assert hasattr(tool, "run")
 
     def test_get_tool_unknown_returns_none(self):
         from app.tools import get_tool

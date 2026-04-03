@@ -384,7 +384,7 @@ class TestStripeWebhook:
         )
 
         with patch(
-            "app.services.payment_gateway.payment_gateway", mock_gateway
+            "app.routers.stripe_webhooks.payment_gateway", mock_gateway
         ):
             result = await stripe_webhook(request=req)
 
@@ -404,7 +404,7 @@ class TestStripeWebhook:
         )
 
         with patch(
-            "app.services.payment_gateway.payment_gateway", mock_gateway
+            "app.routers.stripe_webhooks.payment_gateway", mock_gateway
         ):
             result = await stripe_webhook(request=req)
 

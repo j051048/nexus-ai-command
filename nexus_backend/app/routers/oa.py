@@ -28,9 +28,7 @@ class MeetingBookingCreate(BaseModel):
 
 
 @router.get("/attendance/today")
-async def get_today_attendance(
-    req: Request, user_id: str = Depends(get_current_user_id)
-):
+async def get_today_attendance(req: Request, user_id: str = Depends(get_current_user_id)):
     """获取今日打卡记录"""
     from datetime import date
 
@@ -41,11 +39,7 @@ async def get_today_attendance(
     today = date.today().isoformat()
     try:
         result = (
-            await db.table("attendance_records")
-            .select("*")
-            .eq("user_id", user_id)
-            .eq("check_date", today)
-            .execute()
+            await db.table("attendance_records").select("*").eq("user_id", user_id).eq("check_date", today).execute()
         )
         return api_success(data={"records": result.data or []})
     except Exception as e:
@@ -92,9 +86,7 @@ async def clock_attendance(req: Request, user_id: str = Depends(get_current_user
                 updates["location"] = "外勤"
                 if not existing.data.get("check_in_time"):
                     updates["check_in_time"] = now_time
-            await db.table("attendance_records").update(updates).eq(
-                "id", existing.data["id"]
-            ).execute()
+            await db.table("attendance_records").update(updates).eq("id", existing.data["id"]).execute()
         else:
             record = {
                 "user_id": user_id,
@@ -201,12 +193,7 @@ async def list_meetings(
         if not org_id:
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
 
-        result = (
-            await db.table("oa_meeting_bookings")
-            .select("*")
-            .order("start_time", desc=True)
-            .execute()
-        )
+        result = await db.table("oa_meeting_bookings").select("*").order("start_time", desc=True).execute()
         return api_success(data={"meetings": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list meetings: {e}")
@@ -254,9 +241,7 @@ async def cancel_meeting(
         if not org_id:
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
 
-        await db.table("oa_meeting_bookings").update({"status": "cancelled"}).eq(
-            "id", meeting_id
-        ).execute()
+        await db.table("oa_meeting_bookings").update({"status": "cancelled"}).eq("id", meeting_id).execute()
         return api_success(data={"cancelled": True})
     except Exception as e:
         logger.error(f"Failed to cancel meeting: {e}")
@@ -365,13 +350,9 @@ async def approve_leave_request(
         body = await req.json()
         status = body.get("status")
         if status not in ("approved", "rejected"):
-            raise api_error(
-                ErrorCode.VALIDATION_MISSING_FIELD, "status 必须为 approved 或 rejected"
-            )
+            raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "status 必须为 approved 或 rejected")
 
-        await db.table("oa_leave_requests").update({"status": status}).eq(
-            "id", request_id
-        ).execute()
+        await db.table("oa_leave_requests").update({"status": status}).eq("id", request_id).execute()
         return api_success(data={"updated": True})
     except Exception as e:
         logger.error(f"Failed to approve/reject leave request: {e}")

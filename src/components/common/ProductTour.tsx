@@ -29,15 +29,17 @@ export function ProductTour() {
   const [run, setRun] = useState(false);
 
   useEffect(() => {
+    // 如果是测试环境，或者已经看过引导，则不开启
+    const isTest = import.meta.env.VITE_SKIP_TOUR === 'true';
     const hasSeenTour = localStorage.getItem('hasSeenTour');
-    if (!hasSeenTour) {
+    if (!hasSeenTour && !isTest) {
       setTimeout(() => setRun(true), 1000);
     }
   }, []);
 
   const handleJoyrideCallback = (data: EventData) => {
     const { status } = data;
-    if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
+    if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status as any)) {
       localStorage.setItem('hasSeenTour', 'true');
       setRun(false);
     }
@@ -48,8 +50,6 @@ export function ProductTour() {
       steps={tourSteps}
       run={run}
       continuous
-      showProgress
-      showSkipButton
       locale={{
         back: '上一步',
         close: '关闭',
@@ -62,7 +62,7 @@ export function ProductTour() {
           primaryColor: 'hsl(var(--primary))',
           zIndex: 10000,
         },
-      }}
+      } as any}
       onEvent={handleJoyrideCallback}
     />
   );

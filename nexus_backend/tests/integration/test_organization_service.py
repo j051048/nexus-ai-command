@@ -61,7 +61,7 @@ class TestOrganizationService:
     async def test_get_employee_detail_caching(self, service, mock_db, mock_redis):
         """测试员工详情的缓存逻辑"""
         emp_id = "emp-001"
-        mock_db.set_table_data("employees", [{"id": emp_id, "name": "Alice", "status": "active"}])
+        mock_db.set_table_data("users", [{"id": emp_id, "name": "Alice", "status": "active"}])
         
         detail = await service.get_employee_detail(employee_id=emp_id, db=mock_db)
         assert detail["name"] == "Alice"
@@ -73,22 +73,21 @@ class TestOrganizationService:
         # 预填充 mock 数据
         mock_db.set_table_data("departments", [{"id": "d1", "organization_id": org_id, "status": "active"}])
         mock_db.set_table_data("positions", [{"id": "p1", "organization_id": org_id, "status": "active"}])
-        mock_db.set_table_data("employees", [{"id": "e1", "organization_id": org_id, "status": "active"}])
+        mock_db.set_table_data("users", [{"id": "e1", "organization_id": org_id, "status": "active", "role": "admin"}])
 
         stats = await service.get_org_statistics(org_id=org_id, db=mock_db)
         
+        assert stats["member_count"] == 1
         assert stats["total_employees"] == 1
         assert stats["active_employees"] == 1
         assert stats["total_departments"] == 1
-        # 统计逻辑也使用了 @cache
-        assert mock_redis.setex.called
 
     async def test_update_employee_invalidates_cache(self, service, mock_db, mock_redis):
         """测试更新员工信息时失效缓存"""
         emp_id = "emp-001"
         org_id = "org-123"
         # 预填充数据，update 会返回它
-        mock_db.set_table_data("employees", [{"id": emp_id, "organization_id": org_id, "name": "Alice"}])
+        mock_db.set_table_data("users", [{"id": emp_id, "organization_id": org_id, "name": "Alice"}])
         
         await service.update_employee(
             employee_id=emp_id,

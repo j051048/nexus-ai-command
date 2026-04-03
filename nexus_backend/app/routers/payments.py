@@ -49,6 +49,8 @@ async def create_order(
     except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "支付参数校验失败")
     except Exception as e:
+        if hasattr(e, "status_code"):
+            raise
         logger.error(f"Create order error: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "支付操作失败")
 
@@ -74,6 +76,8 @@ async def list_orders(
             page_size=result["page_size"],
         )
     except Exception as e:
+        if hasattr(e, "status_code"):
+            raise
         logger.error(f"List orders error: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "支付操作失败")
 
@@ -92,6 +96,8 @@ async def get_order(
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, order["error"])
         return api_success(data={"order": order})
     except Exception as e:
+        if hasattr(e, "status_code"):
+            raise
         logger.error(f"Get order error: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "支付操作失败")
 
@@ -110,6 +116,8 @@ async def get_bank_transfer_info(
         info = await payment_service.get_bank_transfer_info(org_id, plan_id)
         return api_success(data={"bank_info": info})
     except Exception as e:
+        if hasattr(e, "status_code"):
+            raise
         logger.error(f"Bank info error: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "支付操作失败")
 
@@ -164,5 +172,7 @@ async def request_invoice(
     except ValueError:
         raise api_error(ErrorCode.VALIDATION_INVALID_INPUT, "支付参数校验失败")
     except Exception as e:
+        if hasattr(e, "status_code"):
+            raise
         logger.error(f"Invoice request error: {e}")
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "支付操作失败")

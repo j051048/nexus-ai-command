@@ -95,3 +95,8 @@ def sanitize_pii(text: str) -> str:
     for pattern, replacer in _PIPELINE:
         result = pattern.sub(replacer, result)
     return result
+
+
+# 别名以保持向后兼容
+mask_pii = sanitize_pii
+mask_pii_for_storage = sanitize_pii

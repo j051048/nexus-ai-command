@@ -12,6 +12,15 @@ from .registry import (
     is_registered,  # noqa: F401
 )
 
+
+# 别名与查询接口
+def list_tools():
+    """获取所有已注册工具的名称列表。"""
+    _load_all()
+    # 合并旧字典与新注册表的名称
+    return sorted(list(TOOL_REGISTRY.keys()))
+
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
