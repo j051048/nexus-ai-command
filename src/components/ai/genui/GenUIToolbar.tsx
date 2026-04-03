@@ -17,7 +17,7 @@ const CHART_COMPONENTS = new Set([
 ]);
 
 // CRUD components that have a corresponding traditional page for manual fallback
-const CRUD_FALLBACK_ROUTES: Record<string, string> = {
+export const CRUD_FALLBACK_ROUTES: Record<string, string> = {
   ApprovalCenter: '/approval',
   ApprovalFlow: '/approval',
   FormBuilder: '/form-designer',
