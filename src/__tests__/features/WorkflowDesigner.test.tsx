@@ -4,18 +4,9 @@ import { MemoryRouter } from 'react-router-dom';
 import { ReactFlowProvider } from '@xyflow/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import WorkflowDesigner from '@/pages/WorkflowDesigner';
-import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import '@testing-library/jest-dom';
 import React from 'react';
-
-// Polyfill ResizeObserver for jsdom
-beforeAll(() => {
-  global.ResizeObserver = class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  } as any;
-});
 
 // Mock useWorkflows hooks
 vi.mock('@/hooks/useWorkflows', () => ({

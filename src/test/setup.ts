@@ -25,6 +25,15 @@ if (typeof window !== 'undefined') {
       clear: vi.fn(),
     },
   });
+
+  // ResizeObserver polyfill for components using it (e.g. ReactFlow, Radix)
+  if (!window.ResizeObserver) {
+    window.ResizeObserver = class ResizeObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    } as unknown as typeof globalThis.ResizeObserver;
+  }
 }
 
 // Mock environment variables for Supabase
