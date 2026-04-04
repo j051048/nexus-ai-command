@@ -9,7 +9,7 @@ test.describe('第一条生命链路：登录、鉴权与面板导航', () => {
   test.beforeEach(async ({ page }) => {
     // Disable Joyride guides for testing
     await page.addInitScript(() => {
-        window.localStorage.setItem('nexus-joyride-seen', 'true');
+        window.localStorage.setItem('hasSeenTour', 'true');
     });
     // 拦截鉴权相关的 API 请求，确保即使后端没挂也能跑通逻辑
     await page.route('**/auth/v1/token*', async (route) => {

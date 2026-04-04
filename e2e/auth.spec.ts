@@ -4,14 +4,14 @@ test.describe('Authentication Flow', () => {
     test.beforeEach(async ({ page }) => {
         // Disable Joyride guides to prevent overlay interception
         await page.addInitScript(() => {
-            window.localStorage.setItem('nexus-joyride-seen', 'true');
+            window.localStorage.setItem('hasSeenTour', 'true');
         });
         await page.goto('/login');
     });
 
     test('should display login page correctly', async ({ page }) => {
-        // Target the brand header specifically
-        await expect(page.getByRole('heading', { name: 'Project Nexus', exact: true }).first()).toBeVisible();
+        // Target the brand text (rendered as <span> on desktop, <h1> on mobile)
+        await expect(page.getByText('Project Nexus').first()).toBeVisible();
         await expect(page.getByTestId('login-email-input')).toBeVisible();
         await expect(page.getByTestId('login-password-input')).toBeVisible();
         await expect(page.getByTestId('login-submit-btn')).toBeVisible();

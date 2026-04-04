@@ -91,5 +91,7 @@ export async function mockLoggedInState(page: Page) {
     window.localStorage.setItem('supabase.auth.token', JSON.stringify(mockSession));
     // 有些版本可能使用这个 key
     window.localStorage.setItem('sb-hztpazmuejgbtixihcgj-auth-token', JSON.stringify(mockSession));
+    // Disable ProductTour Joyride overlay
+    window.localStorage.setItem('hasSeenTour', 'true');
   });
 }

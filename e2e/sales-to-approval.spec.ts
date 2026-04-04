@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { setupBusinessMocks, mockLoggedInState } from './fixtures/business-mocks';
 
 /**
  * P2: 模拟真实的 SaaS 业务全路径闭环。
@@ -6,6 +7,11 @@ import { test, expect } from '@playwright/test';
  * 此测试直接在 Chromium 浏览器中运行，验证 UI 与 API 的联调。
  */
 test.describe('Nexus AI 业务闭环 E2E (销售至审批)', () => {
+
+  test.beforeEach(async ({ page }) => {
+    await setupBusinessMocks(page);
+    await mockLoggedInState(page);
+  });
 
   test('全流程：销售线索一键转化为审批草案并提交', async ({ page }) => {
     // 1. 登录并进入线索模块 (模拟测试环境登录状态)
