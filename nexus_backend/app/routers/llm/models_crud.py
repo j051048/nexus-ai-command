@@ -2,10 +2,11 @@ import logging
 
 from fastapi import APIRouter, Depends, Request
 
-from ._shared import CreateModelRequest, UpdateModelRequest, _get_admin_client, _mask_model_record
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
 from app.services.encryption_service import encryption_service
+
+from ._shared import CreateModelRequest, UpdateModelRequest, _get_admin_client, _mask_model_record
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["LLM Models CRUD"])
@@ -150,8 +151,9 @@ async def delete_model(model_id: str, req: Request, user_id: str = Depends(get_c
 @router.post("/models/{model_id}/test")
 async def test_model(model_id: str, req: Request, user_id: str = Depends(get_current_user_id)):
     """测试模型连通性"""
-    import httpx
     import time
+
+    import httpx
 
     try:
         org_id = getattr(req.state, "org_id", None)

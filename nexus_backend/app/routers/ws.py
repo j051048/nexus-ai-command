@@ -122,13 +122,13 @@ async def websocket_push(
     token = websocket.query_params.get("token")
     if not token:
         logger.warning("WS Connection attempt without token")
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        await websocket.close(code=1008, reason="Policy violation")
         return
 
     user_id = await _authenticate_ws(token)
     if not user_id:
         logger.error(f"WS Auth failed for token starting with: {token[:10]}...")
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        await websocket.close(code=1008, reason="Policy violation")
         return
 
     connected = await ws_manager.connect(websocket, user_id)
@@ -177,9 +177,9 @@ async def _authenticate_ws(token: str) -> str | None:
     2. HS256 → shared secret (SUPABASE_JWT_SECRET / JWT_SECRET)
     """
     import os
+
     import jwt as pyjwt
     from jwt import PyJWKClient, PyJWTError
-    from fastapi import status
 
     try:
         supabase_jwt_secret = os.getenv("SUPABASE_JWT_SECRET")
@@ -223,7 +223,7 @@ async def _authenticate_ws(token: str) -> str | None:
             if not secrets:
                 logger.error("[WS/Auth] No JWT secrets configured in environment")
                 return None
-            
+
             for index, secret in enumerate(secrets):
                 try:
                     payload = pyjwt.decode(
@@ -250,7 +250,7 @@ async def _authenticate_ws(token: str) -> str | None:
         if not user_id:
             logger.error("[WS/Auth] Payload missing 'sub' field")
             return None
-            
+
         return str(user_id)
     except Exception as e:
         logger.error(f"[WS/Auth] Unexpected error: {e}", exc_info=True)

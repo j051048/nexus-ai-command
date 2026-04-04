@@ -6,9 +6,10 @@ from collections import defaultdict
 import httpx
 from fastapi import APIRouter, Query
 
-from ._shared import AvailableModel, AvailableModelsResponse, ModelCategory, _get_admin_client
 from app.core.config import settings
 from app.core.errors import api_success
+
+from ._shared import AvailableModel, AvailableModelsResponse, ModelCategory, _get_admin_client
 
 logger = logging.getLogger(__name__)
 
