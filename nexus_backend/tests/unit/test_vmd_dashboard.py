@@ -1,7 +1,9 @@
 import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock, AsyncMock, patch
 from fastapi import Request
 from app.routers.vmd_dashboard import get_model_usage, get_dashboard_stats
+
+PATCH_ADMIN_DB = "app.routers.vmd_dashboard._get_admin_db"
 
 @pytest.mark.asyncio
 class TestVMDDashboardUnit:
@@ -25,24 +27,25 @@ class TestVMDDashboardUnit:
                 "total_cost": 1.0
             }
         ]
-        
+
         mock_res = MagicMock()
         mock_res.data = mock_data
-        
+
         mock_query = MagicMock()
         mock_query.select.return_value = mock_query
+        mock_query.eq.return_value = mock_query
         mock_query.neq.return_value = mock_query
         mock_query.execute = AsyncMock(return_value=mock_res)
-        
+
         mock_db = MagicMock()
         mock_db.table.return_value = mock_query
-        
+
         mock_req = MagicMock(spec=Request)
-        mock_req.state.db = mock_db
         mock_req.state.org_id = "org-123"
 
-        response = await get_model_usage(mock_req, user_id="user-123")
-        
+        with patch(PATCH_ADMIN_DB, return_value=mock_db):
+            response = await get_model_usage(mock_req, user_id="user-123")
+
         assert response["success"] is True
         usage = response["data"]["usage"]
         assert len(usage) == 1
@@ -56,34 +59,35 @@ class TestVMDDashboardUnit:
         # Mock clues count
         clues_res = MagicMock()
         clues_res.count = 50
-        
+
         # Mock tasks count
         tasks_res = MagicMock()
         tasks_res.count = 5
-        
+
         # Mock compliance count
         compliance_res = MagicMock()
         compliance_res.count = 2
-        
+
         # Mock agents count
         agents_res = MagicMock()
         agents_res.count = 3
-        
+
         mock_query = MagicMock()
         mock_query.select.return_value = mock_query
         mock_query.neq.return_value = mock_query
         mock_query.eq.return_value = mock_query
         # Sequential execute calls
         mock_query.execute = AsyncMock(side_effect=[clues_res, tasks_res, compliance_res, agents_res])
-        
+
         mock_db = MagicMock()
         mock_db.table.return_value = mock_query
-        
-        mock_req = MagicMock(spec=Request)
-        mock_req.state.db = mock_db
 
-        response = await get_dashboard_stats(mock_req, user_id="user-123")
-        
+        mock_req = MagicMock(spec=Request)
+        mock_req.state.org_id = "org-123"
+
+        with patch(PATCH_ADMIN_DB, return_value=mock_db):
+            response = await get_dashboard_stats(mock_req, user_id="user-123")
+
         assert response["success"] is True
         assert response["data"]["clues_count"] == 50
         assert response["data"]["tasks_count"] == 5
