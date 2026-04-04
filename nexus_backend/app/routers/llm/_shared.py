@@ -153,3 +153,39 @@ def _mask_model_record(record: dict) -> dict:
     if "secret_key_encrypted" in result and result["secret_key_encrypted"]:
         result["secret_key_encrypted"] = "****"
     return result
+
+# ---------------------------------------------------------------------------
+# Marketplace response models
+# ---------------------------------------------------------------------------
+
+
+class AvailableModel(BaseModel):
+    model_id: str
+    name: str
+    provider: str
+    provider_label: str
+    type: str = "chat"
+    context_window: int
+    max_tokens: int
+    supports_tools: bool = True
+    supports_streaming: bool = True
+    input_price_per_1m: float = 0.0
+    output_price_per_1m: float = 0.0
+    tags: list[str] = Field(default_factory=list)
+    already_added: bool = False
+    has_metadata: bool = True
+    available_from: list[str] = Field(default_factory=list)
+
+
+class ModelCategory(BaseModel):
+    name: str = ""
+    icon: str = ""
+    models: list[AvailableModel] = Field(default_factory=list)
+
+
+class AvailableModelsResponse(BaseModel):
+    categories: list[ModelCategory] = Field(default_factory=list)
+    upstream_total: int = 0
+    catalog_matched: int = 0
+    already_added: int = 0
+    upstream_providers: list[str] = Field(default_factory=list)

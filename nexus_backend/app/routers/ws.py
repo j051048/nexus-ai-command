@@ -15,10 +15,10 @@ from app.services.websocket_manager import stream_agent_via_ws, ws_manager
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["WebSocket"])
+router = APIRouter(prefix="/ws", tags=["WebSocket"])
 
 
-@router.websocket("/ws/chat")
+@router.websocket("/chat")
 async def websocket_chat(
     websocket: WebSocket,
     token: str = Query(..., description="JWT access token"),
@@ -102,7 +102,7 @@ async def websocket_chat(
         ws_manager.disconnect(websocket, user_id)
 
 
-@router.websocket("/ws/push")
+@router.websocket("/push")
 async def websocket_push(
     websocket: WebSocket,
     token: str = Query(..., description="JWT access token"),
@@ -142,7 +142,7 @@ async def websocket_push(
         ws_manager.disconnect(websocket, user_id)
 
 
-@router.get("/api/ws/status")
+@router.get("/status")
 async def ws_status():
     """Get WebSocket connection statistics."""
     from app.services.websocket_manager import MAX_CONNECTIONS_GLOBAL, MAX_CONNECTIONS_PER_USER

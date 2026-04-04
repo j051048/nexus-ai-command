@@ -114,6 +114,11 @@ def create_app() -> FastAPI:
     async def favicon():
         return Response(status_code=204)
 
+    @application.get("/api/ping")
+    async def api_ping():
+        """Diagnostic endpoint to verify root /api connectivity."""
+        return {"status": "ok", "message": "API is reachable"}
+
     @application.get("/metrics", include_in_schema=False)
     async def prometheus_metrics(request: Request):
         """Prometheus-compatible metrics endpoint. Requires X-Health-Token header."""

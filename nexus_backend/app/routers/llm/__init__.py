@@ -12,10 +12,10 @@ from .marketplace import router as marketplace_router
 from .models_crud import router as models_crud_router
 from .scheduling import router as scheduling_router
 
-router = APIRouter(prefix="/api/llm", tags=["LLM Models"])
+router = APIRouter(tags=["LLM Models"])
 
-# Include all sub-routers (no extra prefix — each sub-module defines
-# paths relative to /api/llm, e.g. "/models", "/schedule-rules", etc.)
-router.include_router(models_crud_router)
-router.include_router(scheduling_router)
-router.include_router(marketplace_router)
+# Include sub-routers with explicit prefixes
+# These will be accessible at /api/llm/models, /api/llm/available-models, etc.
+router.include_router(models_crud_router, prefix="/api/llm")
+router.include_router(scheduling_router, prefix="/api/llm")
+router.include_router(marketplace_router, prefix="/api/llm")
