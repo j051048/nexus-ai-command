@@ -17,9 +17,9 @@ export function useHotkeys(key: string, handler: KeyHandler, deps: unknown[] = [
       const keyPressed = event.key.toLowerCase();
 
       if (
-        (!ctrl || ctrlPressed) &&
-        (!shift || shiftPressed) &&
-        (!alt || altPressed) &&
+        ctrl === ctrlPressed &&
+        shift === shiftPressed &&
+        alt === altPressed &&
         keyPressed === mainKey
       ) {
         event.preventDefault();

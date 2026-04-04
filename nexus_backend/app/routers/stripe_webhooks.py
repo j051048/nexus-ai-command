@@ -1,5 +1,6 @@
 """Stripe Webhooks API 端点"""
 
+import json
 import logging
 
 from fastapi import APIRouter, Header, Request, Response
@@ -36,7 +37,7 @@ async def stripe_webhook(
         return Response(content='{"status": "success"}', status_code=200, media_type="application/json")
     except ValueError as e:
         logger.error(f"Stripe webhook payload error: {e}")
-        return Response(content=f'{{"error": "{str(e)}"}}', status_code=400, media_type="application/json")
+        return Response(content=json.dumps({"error": str(e)}), status_code=400, media_type="application/json")
     except Exception as e:
         logger.error(f"Stripe webhook processing error: {e}")
-        return Response(content='{"error": "Internal server error"}', status_code=500, media_type="application/json")
+        return Response(content=json.dumps({"error": "Internal server error"}), status_code=500, media_type="application/json")

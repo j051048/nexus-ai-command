@@ -131,7 +131,7 @@ function AttendanceTab({ orgId, userId }: { orgId?: string; userId?: string }) {
     try {
       const response = await httpClient.get('/api/oa/attendance/today');
       // 这里的 response.data 可能因为 404 等原因不是预期对象
-      const rawRecords = response.data?.records || response.data?.data || [];
+      const rawRecords = response.data?.data?.records || [];
       const data = Array.isArray(rawRecords) ? rawRecords : [];
 
       const uiRecords: AttendanceRecord[] = [];
@@ -301,7 +301,7 @@ export function OACenter() {
     try {
       if (!user?.id) return;
       const response = await httpClient.get('/api/oa/leave-requests');
-      const data = response.data?.requests || response.data?.data || [];
+      const data = response.data?.data?.requests || [];
       setLeaves(Array.isArray(data) ? data : []);
     } catch (error: unknown) {
       toast.error('加载请假记录失败');
@@ -359,7 +359,7 @@ export function OACenter() {
     try {
       if (!profile?.organization_id) return;
       const response = await httpClient.get('/api/oa/meetings');
-      const data = response.data?.data?.items || response.data?.data || response.data || [];
+      const data = response.data?.data?.meetings || [];
       setMeetings(Array.isArray(data) ? data : []);
     } catch (error: unknown) {
       toast.error('加载会议记录失败');
@@ -422,7 +422,7 @@ export function OACenter() {
     try {
       if (!profile?.organization_id) return;
       const response = await httpClient.get('/api/oa/tasks');
-      const data = response.data?.data?.items || response.data?.data || response.data || [];
+      const data = response.data?.data?.tasks || [];
       setTasks(Array.isArray(data) ? data : []);
     } catch (error: unknown) {
       toast.error('加载任务列表失败');
@@ -435,7 +435,7 @@ export function OACenter() {
     try {
       if (!profile?.organization_id) return;
       const response = await httpClient.get('/api/users/org-members');
-      const data = response.data?.members || response.data?.data || response.data || [];
+      const data = response.data?.data?.members || [];
       setOrgMembers(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error('Fetch org members failed:', e);

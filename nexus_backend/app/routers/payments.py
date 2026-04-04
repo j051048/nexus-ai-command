@@ -130,13 +130,16 @@ async def payment_callback(
     """处理支付回调（微信/支付宝）- 需验证回调签名"""
     try:
         # 基本回调签名验证：要求配置 PAYMENT_CALLBACK_TOKEN
-        if _PAYMENT_CALLBACK_TOKEN:
-            provided = req.headers.get("X-Payment-Token", "")
-            if provided != _PAYMENT_CALLBACK_TOKEN:
-                logger.warning(
-                    f"Payment callback rejected: invalid token, platform={platform}, ip={req.client.host if req.client else 'unknown'}"
-                )
-                raise api_error(ErrorCode.FORBIDDEN, "回调签名验证失败")
+        if not _PAYMENT_CALLBACK_TOKEN:
+            logger.error("PAYMENT_CALLBACK_TOKEN not configured — rejecting callback")
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "支付回调未配置签名密钥")
+
+        provided = req.headers.get("X-Payment-Token", "")
+        if provided != _PAYMENT_CALLBACK_TOKEN:
+            logger.warning(
+                f"Payment callback rejected: invalid token, platform={platform}, ip={req.client.host if req.client else 'unknown'}"
+            )
+            raise api_error(ErrorCode.FORBIDDEN, "回调签名验证失败")
 
         body = await req.json()
         db = getattr(req.state, "db", None)

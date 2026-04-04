@@ -48,7 +48,10 @@ class WorkOrderService:
                     query = query.eq("creator_id", filters["creator_id"])
                 if filters.get("search"):
                     search = filters["search"]
-                    query = query.or_(f"title.ilike.%{search}%,description.ilike.%{search}%")
+                    # 清理用户输入，防止 PostgREST 过滤注入
+                    sanitized = search.replace(",", "").replace(".", "").replace("(", "").replace(")", "")
+                    if sanitized:
+                        query = query.or_(f"title.ilike.%{sanitized}%,description.ilike.%{sanitized}%")
 
             result = await query.execute()
             return result.data or []
