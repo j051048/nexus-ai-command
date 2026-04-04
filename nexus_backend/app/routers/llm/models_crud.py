@@ -1,6 +1,4 @@
 import logging
-from typing import Any
-from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
 
@@ -72,11 +70,9 @@ async def create_model(req: Request, body: CreateModelRequest, user_id: str = De
         return api_success(data=_mask_model_record(result.data[0]), message="模型已添加")
     except Exception as e:
         logger.error(f"Failed to create model: {e}")
-        if hasattr(e, "detail"): raise e
+        if hasattr(e, "status_code"):
+            raise
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
-
-
-@router.put("/models/{model_id}")
 async def update_model(
     model_id: str,
     req: Request,
@@ -96,7 +92,7 @@ async def update_model(
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "未找到该模型配置")
 
         update_data = body.model_dump(exclude_none=True, exclude={"api_key", "secret_key", "is_active"})
-        
+
         # 处理开关字段映射 (is_active -> status)
         if body.is_active is not None:
             update_data["status"] = "enabled" if body.is_active else "disabled"
@@ -107,12 +103,18 @@ async def update_model(
         if body.secret_key is not None:
             update_data["secret_key_encrypted"] = encryption_service.encrypt(body.secret_key)
 
+        if not update_data:
+            raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "无可更新字段")
+
         result = await db.table("llm_model_config").update(update_data).eq("id", model_id).execute()
-        
+        if not result.data:
+            raise api_error(ErrorCode.DB_QUERY_ERROR, "更新模型失败")
+
         return api_success(data=_mask_model_record(result.data[0]), message="配置已更新")
     except Exception as e:
         logger.error(f"Failed to update model {model_id}: {e}")
-        if hasattr(e, "detail"): raise e
+        if hasattr(e, "status_code"):
+            raise
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
@@ -125,11 +127,15 @@ async def delete_model(model_id: str, req: Request, user_id: str = Depends(get_c
         if not db or not org_id:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
 
-        await db.table("llm_model_config").update({"is_deleted": True}).eq("id", model_id).eq("tenant_id", str(org_id)).execute()
-        
+        result = await db.table("llm_model_config").update({"is_deleted": True}).eq("id", model_id).eq("tenant_id", str(org_id)).execute()
+        if not result.data:
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "未找到该模型配置")
+
         return api_success(data=None, message="模型已删除")
     except Exception as e:
         logger.error(f"Failed to delete model {model_id}: {e}")
+        if hasattr(e, "status_code"):
+            raise
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
 
 
@@ -194,5 +200,6 @@ async def test_model(model_id: str, req: Request, user_id: str = Depends(get_cur
 
     except Exception as e:
         logger.error(f"Model test error: {e}")
-        if hasattr(e, "detail"): raise e
+        if hasattr(e, "status_code"):
+            raise
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))

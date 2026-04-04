@@ -44,6 +44,8 @@ async def get_today_attendance(req: Request, user_id: str = Depends(get_current_
         return api_success(data={"records": result.data or []})
     except Exception as e:
         logger.error(f"Failed to fetch today's attendance: {e}")
+        if hasattr(e, "status_code"):
+            raise
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "获取打卡记录失败")
 
 
@@ -106,6 +108,8 @@ async def clock_attendance(req: Request, user_id: str = Depends(get_current_user
         return api_success({}, message="打卡成功")
     except Exception as e:
         logger.error(f"Attendance clock failed: {e}")
+        if hasattr(e, "status_code"):
+            raise
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, f"打卡失败: {str(e)}")
 
 
@@ -132,6 +136,8 @@ async def list_leave_requests(
         return api_success(data={"requests": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list leave requests: {e}")
+        if hasattr(e, "status_code"):
+            raise
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "获取请假申请失败")
 
 
@@ -157,6 +163,8 @@ async def create_leave_request(
         return api_success(data={"request": result.data[0] if result.data else {}})
     except Exception as e:
         logger.error(f"Failed to create leave request: {e}")
+        if hasattr(e, "status_code"):
+            raise
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "提交请假申请失败")
 
 
@@ -174,6 +182,8 @@ class TaskCreate(BaseModel):
 class TaskUpdate(BaseModel):
     status: str | None = None
     assignee_id: str | None = None
+    completion_notes: str | None = None
+    completed_at: str | None = None
 
 
 # ── 会议管理 ────────────────────────────────────────────────────────────
@@ -197,6 +207,8 @@ async def list_meetings(
         return api_success(data={"meetings": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list meetings: {e}")
+        if hasattr(e, "status_code"):
+            raise
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "获取会议列表失败")
 
 
@@ -217,12 +229,15 @@ async def create_meeting(
 
         data = body.model_dump()
         data["user_id"] = user_id
+        data["organization_id"] = str(org_id)
         data["status"] = "confirmed"
 
         result = await db.table("oa_meeting_bookings").insert(data).execute()
         return api_success(data={"meeting": result.data[0] if result.data else {}})
     except Exception as e:
         logger.error(f"Failed to create meeting: {e}")
+        if hasattr(e, "status_code"):
+            raise
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "创建会议失败")
 
 
@@ -241,10 +256,19 @@ async def cancel_meeting(
         if not org_id:
             raise api_error(ErrorCode.FORBIDDEN, "未关联组织")
 
+        # 校验当前用户是否为会议创建者
+        existing = await db.table("oa_meeting_bookings").select("id, user_id").eq("id", meeting_id).execute()
+        if not existing.data:
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "未找到该会议")
+        if existing.data[0].get("user_id") != user_id:
+            raise api_error(ErrorCode.FORBIDDEN, "只有会议创建者可以取消会议")
+
         await db.table("oa_meeting_bookings").update({"status": "cancelled"}).eq("id", meeting_id).execute()
         return api_success(data={"cancelled": True})
     except Exception as e:
         logger.error(f"Failed to cancel meeting: {e}")
+        if hasattr(e, "status_code"):
+            raise
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "取消会议失败")
 
 
@@ -273,6 +297,8 @@ async def list_oa_tasks(
         return api_success(data={"tasks": result.data or []})
     except Exception as e:
         logger.error(f"Failed to list OA tasks: {e}")
+        if hasattr(e, "status_code"):
+            raise
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "获取任务列表失败")
 
 
@@ -299,6 +325,8 @@ async def create_oa_task(
         return api_success(data={"task": result.data[0] if result.data else {}})
     except Exception as e:
         logger.error(f"Failed to create OA task: {e}")
+        if hasattr(e, "status_code"):
+            raise
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "创建任务失败")
 
 
@@ -326,6 +354,8 @@ async def update_oa_task(
         return api_success(data={"task": result.data[0] if result.data else {}})
     except Exception as e:
         logger.error(f"Failed to update OA task: {e}")
+        if hasattr(e, "status_code"):
+            raise
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "更新任务失败")
 
 
@@ -349,13 +379,15 @@ async def approve_leave_request(
 
         body = await req.json()
         status = body.get("status")
-        if status not in ("approved", "rejected"):
-            raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "status 必须为 approved 或 rejected")
+        if status not in ("approved", "rejected", "cancelled"):
+            raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "status 必须为 approved、rejected 或 cancelled")
 
         await db.table("oa_leave_requests").update({"status": status}).eq("id", request_id).execute()
         return api_success(data={"updated": True})
     except Exception as e:
         logger.error(f"Failed to approve/reject leave request: {e}")
+        if hasattr(e, "status_code"):
+            raise
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "审批请假申请失败")
 
 
@@ -377,7 +409,7 @@ async def get_oa_stats(req: Request, user_id: str = Depends(get_current_user_id)
             await db.table("attendance_records").select("id", count="exact").eq("check_date", today).execute()
         )
         leave_count = await db.table("oa_leave_requests").select("id", count="exact").eq("status", "pending").execute()
-        task_count = await db.table("oa_tasks").select("id", count="exact").not_.eq("status", "completed").execute()
+        task_count = await db.table("oa_tasks").select("id", count="exact").neq("status", "completed").execute()
 
         return api_success(
             data={

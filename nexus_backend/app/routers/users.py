@@ -27,10 +27,14 @@ async def get_profile(
     """获取用户资料"""
     try:
         db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
         result = await db.table("users").select("*").eq("id", user_id).single().execute()
         return api_success(data={"user": result.data})
     except Exception as e:
         logger.error(f"Failed to get profile: {e}")
+        if hasattr(e, "status_code"):
+            raise
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "获取用户资料失败")
 
 
@@ -43,11 +47,15 @@ async def update_profile(
     """更新用户资料"""
     try:
         db = getattr(req.state, "db", None)
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
         data = body.model_dump(exclude_none=True)
         result = await db.table("users").update(data).eq("id", user_id).execute()
         return api_success(data={"user": result.data[0] if result.data else None}, message="资料已更新")
     except Exception as e:
         logger.error(f"Failed to update profile: {e}")
+        if hasattr(e, "status_code"):
+            raise
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "更新资料失败")
 
 
@@ -59,10 +67,18 @@ async def get_org_members(
     """获取组织架构成员列表 (OA 中心使用)"""
     try:
         db = getattr(req.state, "db", None)
-        # 获取所有活跃用户信息，用于 OA 展示
-        result = await db.table("users").select("id, full_name, avatar_url, role, department").execute()
+        if not db:
+            raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
+        org_id = getattr(req.state, "org_id", None)
+
+        query = db.table("users").select("id, full_name, avatar_url, role, department")
+        if org_id:
+            query = query.eq("organization_id", str(org_id))
+        result = await query.execute()
         return api_success(data={"members": result.data if result.data else []})
     except Exception as e:
         logger.error(f"Failed to fetch org members: {e}")
+        if hasattr(e, "status_code"):
+            raise
         # 降级处理：即使报错也返回空列表，防止前端白屏
         return api_success(data={"members": []})

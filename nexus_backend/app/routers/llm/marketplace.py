@@ -1,8 +1,13 @@
 """LLM 模型市场子路由"""
 
+import logging
+
 from fastapi import APIRouter, Query
 
 from ._shared import AvailableModel, AvailableModelsResponse, ModelCategory, _get_admin_client
+from app.core.errors import ErrorCode, api_error, api_success
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["LLM Marketplace"])
 
@@ -126,14 +131,17 @@ async def list_available_models(
     tag: str | None = Query(None),
 ):
     """获取可用模型列表(市场)"""
-    client = _get_admin_client()
-    # 同时查询当前已经添加过的模型，用于显示 "already_added" 状态
-    added_res = client.table("llm_model_config").select("model_code").execute()
-    added_codes = {r["model_code"] for r in (added_res.data or [])}
+    try:
+        client = _get_admin_client()
+        # 同步调用放在 try 中，避免阻塞时未捕获异常
+        added_res = client.table("llm_model_config").select("model_code").execute()
+        added_codes = {r["model_code"] for r in (added_res.data or [])}
+    except Exception as e:
+        logger.warning(f"Failed to query added models, treating all as unadded: {e}")
+        added_codes = set()
 
     filtered_categories = []
     total_count = 0
-    catalog_matched = 0
 
     for cat in MODEL_CATALOG:
         matched_models = []
@@ -153,7 +161,6 @@ async def list_available_models(
             )
             matched_models.append(model_obj)
             total_count += 1
-            catalog_matched += 1
 
         if matched_models:
             filtered_categories.append(
@@ -164,13 +171,10 @@ async def list_available_models(
                 )
             )
 
-    return {
-        "success": True,
-        "data": AvailableModelsResponse(
-            categories=filtered_categories,
-            upstream_total=total_count,  # 简化起见，返回一致的
-            catalog_matched=catalog_matched,
-            already_added=len(added_codes),
-            upstream_providers=["OpenAI", "Anthropic", "DeepSeek", "Aliyun"],
-        ),
-    }
+    return api_success(data=AvailableModelsResponse(
+        categories=filtered_categories,
+        upstream_total=total_count,
+        catalog_matched=total_count,
+        already_added=len(added_codes),
+        upstream_providers=["OpenAI", "Anthropic", "DeepSeek", "Aliyun"],
+    ))
