@@ -4,6 +4,7 @@
 覆盖：BaseTool 协议、HITL 确认、权限检查、超时、重试、内部数据优先
 """
 import pytest
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from app.tools.base_tool import BaseTool, ConfirmationRequired, ConfirmationType
 

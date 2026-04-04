@@ -136,14 +136,29 @@ export async function setupBusinessMocks(page: Page) {
 /**
  * 快速注入登录状态至 localStorage
  * Supabase JS v2 使用 sb-{project-ref}-auth-token 作为 storage key
+ * access_token 必须是可解码的 JWT 格式，否则 Supabase 会认为 session 无效
  */
 export async function mockLoggedInState(page: Page, _role?: string) {
   await page.addInitScript(() => {
+    // 构造一个可解码的 fake JWT（Supabase JS v2 会 base64 decode 来检查 exp）
+    const now = Math.floor(Date.now() / 1000);
+    const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const payload = btoa(JSON.stringify({
+      sub: 'test-user-id',
+      email: 'test-admin@nexus-ai.com',
+      role: 'authenticated',
+      aud: 'authenticated',
+      exp: now + 3600,
+      iat: now
+    })).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const fakeJwt = `${header}.${payload}.fake-signature`;
+
     const mockSession = {
-      access_token: 'fake-token-content',
+      access_token: fakeJwt,
       token_type: 'bearer',
       expires_in: 3600,
-      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      expires_at: now + 3600,
       refresh_token: 'fake-refresh',
       user: {
         id: 'test-user-id',
