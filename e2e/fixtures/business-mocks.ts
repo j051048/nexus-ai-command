@@ -1,27 +1,84 @@
 /**
  * E2E 测试 Mock 拦截器
- * 
+ *
  * 为 core 业务流程提供基础的 API 模拟，支持在无后端环境下运行。
  */
 
 import { Page } from "@playwright/test";
 
 export async function setupBusinessMocks(page: Page) {
-  // 1. 拦截 Auth 状态 (已在 01-login-and-auth 中定义，这里作为全局复用)
+  // 1. 拦截 Auth token 请求（login + refresh）
+  await page.route('**/auth/v1/token*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        access_token: 'fake-token-content',
+        token_type: 'bearer',
+        expires_in: 3600,
+        refresh_token: 'fake-refresh',
+        user: {
+          id: 'test-user-id',
+          email: 'test-admin@nexus-ai.com',
+          user_metadata: { role: 'boss', name: 'E2E Admin' },
+          app_metadata: { provider: 'email' }
+        }
+      })
+    });
+  });
+
+  // 2. 拦截 Auth user 信息
   await page.route('**/auth/v1/user*', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ 
-        id: 'test-user-id', 
-        email: 'test-admin@nexus-ai.com', 
+      body: JSON.stringify({
+        id: 'test-user-id',
+        email: 'test-admin@nexus-ai.com',
         user_metadata: { role: 'boss', name: 'E2E Admin' },
         app_metadata: { provider: 'email' }
       })
     });
   });
 
-  // 2. 拦截组织信息
+  // 3. 拦截用户 profile API
+  await page.route('**/api/users/profile*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 200,
+        data: {
+          user: {
+            id: 'test-user-id',
+            email: 'test-admin@nexus-ai.com',
+            name: 'E2E Admin',
+            role: 'boss',
+            avatar_url: null
+          }
+        }
+      })
+    });
+  });
+
+  // 4. 拦截 RPC 调用 (get_user_role, is_super_admin)
+  await page.route('**/rest/v1/rpc/get_user_role*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ role: 'boss' })
+    });
+  });
+
+  await page.route('**/rest/v1/rpc/is_super_admin*', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(false)
+    });
+  });
+
+  // 5. 拦截组织信息
   await page.route('**/rest/v1/organizations*', async (route) => {
     await route.fulfill({
       status: 200,
@@ -30,7 +87,7 @@ export async function setupBusinessMocks(page: Page) {
     });
   });
 
-  // 3. 拦截流程列表 (Workflows)
+  // 6. 拦截流程列表 (Workflows)
   await page.route('**/rest/v1/workflows*', async (route) => {
     await route.fulfill({
       status: 200,
@@ -42,7 +99,7 @@ export async function setupBusinessMocks(page: Page) {
     });
   });
 
-  // 4. 拦截审批中心 (Approvals)
+  // 7. 拦截审批中心 (Approvals)
   await page.route('**/rest/v1/approvals*', async (route) => {
     await route.fulfill({
       status: 200,
@@ -53,7 +110,7 @@ export async function setupBusinessMocks(page: Page) {
     });
   });
 
-  // 5. 拦截销售目标 (Targets)
+  // 8. 拦截销售目标 (Targets)
   await page.route('**/rest/v1/sales_targets*', async (route) => {
     await route.fulfill({
       status: 200,
@@ -64,7 +121,7 @@ export async function setupBusinessMocks(page: Page) {
     });
   });
 
-  // 6. 拦截 CRM 数据
+  // 9. 拦截 CRM 数据
   await page.route('**/rest/v1/customers*', async (route) => {
     await route.fulfill({
       status: 200,
@@ -78,19 +135,30 @@ export async function setupBusinessMocks(page: Page) {
 
 /**
  * 快速注入登录状态至 localStorage
+ * Supabase JS v2 使用 sb-{project-ref}-auth-token 作为 storage key
  */
-export async function mockLoggedInState(page: Page) {
+export async function mockLoggedInState(page: Page, _role?: string) {
   await page.addInitScript(() => {
     const mockSession = {
       access_token: 'fake-token-content',
       token_type: 'bearer',
       expires_in: 3600,
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
       refresh_token: 'fake-refresh',
-      user: { id: 'test-user-id', email: 'test-admin@nexus-ai.com' }
+      user: {
+        id: 'test-user-id',
+        aud: 'authenticated',
+        email: 'test-admin@nexus-ai.com',
+        role: 'authenticated',
+        user_metadata: { role: 'boss', name: 'E2E Admin' },
+        app_metadata: { provider: 'email' }
+      }
     };
-    window.localStorage.setItem('supabase.auth.token', JSON.stringify(mockSession));
-    // 有些版本可能使用这个 key
-    window.localStorage.setItem('sb-hztpazmuejgbtixihcgj-auth-token', JSON.stringify(mockSession));
+    // Supabase JS v2 storage key format
+    window.localStorage.setItem(
+      'sb-hztpazmuejgbtixihcgj-auth-token',
+      JSON.stringify(mockSession)
+    );
     // Disable ProductTour Joyride overlay
     window.localStorage.setItem('hasSeenTour', 'true');
   });

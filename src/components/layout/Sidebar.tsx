@@ -257,7 +257,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
   };
 
   return (
-    <aside className={cn(
+    <aside data-testid="sidebar-main" className={cn(
       "bg-[#0d0f14]/95 backdrop-blur-xl border-r border-white/5 flex flex-col transition-all duration-500 ease-in-out h-full z-40 relative group/sidebar shadow-2xl",
       isCollapsed ? "w-[80px]" : "w-64"
     )}>

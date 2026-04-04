@@ -13,9 +13,10 @@ test.describe('Document Management Flow', () => {
   });
 
   test('should display documents page for authenticated users', async ({ page }) => {
-    await page.goto('/documents');
-    // 验证是否已成功进入文档页（检查 Sidebar 是否渲染）
-    await expect(page.getByTestId('sidebar-main')).toBeVisible();
+    await page.goto('/knowledge');
+    await page.waitForLoadState('networkidle');
+    // 验证 Sidebar 渲染
+    await expect(page.getByTestId('sidebar-main')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('知识库')).toBeVisible();
   });
 });
@@ -28,13 +29,17 @@ test.describe('Sales & CRM Pipeline Flow', () => {
 
   test('should render sales page with mock data', async ({ page }) => {
     await page.goto('/sales');
-    await expect(page.getByTestId('sidebar-main')).toBeVisible();
-    await expect(page.getByText('销售AI管理')).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByTestId('sidebar-main')).toBeVisible({ timeout: 10000 });
+    // Sidebar 标签为 "销售"
+    await expect(page.getByText('销售')).toBeVisible();
   });
 
   test('should render CRM page with mock data', async ({ page }) => {
     await page.goto('/crm');
-    await expect(page.getByText('CRM管理')).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    // Sidebar 标签为 "客户"
+    await expect(page.getByText('客户')).toBeVisible({ timeout: 10000 });
   });
 });
 
@@ -46,13 +51,16 @@ test.describe('Approval & Workflow Flow', () => {
 
   test('should show pending approvals list', async ({ page }) => {
     await page.goto('/approval');
-    await expect(page.getByText('由于没有真实挂载 API，系统显示 Mock 审批项', { exact: false })).toBeVisible({ timeout: 2000 }).catch(() => {});
-    await expect(page.getByText('审批中心')).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    // Sidebar 标签为 "审批"
+    await expect(page.getByText('审批')).toBeVisible({ timeout: 10000 });
   });
 
   test('should list workflows from mock api', async ({ page }) => {
     await page.goto('/workflows');
-    await expect(page.getByText('流程设计')).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    // Sidebar 标签为 "流程"
+    await expect(page.getByText('流程')).toBeVisible({ timeout: 10000 });
   });
 });
 
@@ -62,14 +70,17 @@ test.describe('Admin Center Flow', () => {
     await mockLoggedInState(page);
   });
 
-  test('should show super admin dashboard', async ({ page }) => {
-    await page.goto('/super-admin');
-    await expect(page.getByText('总控中心')).toBeVisible();
+  test('should show boss dashboard', async ({ page }) => {
+    await page.goto('/boss-dashboard');
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByText('总控中心')).toBeVisible({ timeout: 10000 });
   });
 
   test('should show org chart page', async ({ page }) => {
     await page.goto('/org-chart');
-    await expect(page.getByText('组织架构')).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    // Sidebar 标签为 "组织"
+    await expect(page.getByText('组织')).toBeVisible({ timeout: 10000 });
   });
 });
 

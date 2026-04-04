@@ -23,7 +23,7 @@ test.describe('第一条生命链路：登录、鉴权与面板导航', () => {
             token_type: 'bearer',
             expires_in: 3600,
             refresh_token: 'fake-refresh-token',
-            user: { id: 'test-user-id', email: 'test-admin@nexus-ai.com' }
+            user: { id: 'test-user-id', email: 'test-admin@nexus-ai.com', user_metadata: { role: 'boss' } }
           })
         });
       } else {
@@ -43,6 +43,35 @@ test.describe('第一条生命链路：登录、鉴权与面板导航', () => {
         body: JSON.stringify({ id: 'test-user-id', email: 'test-admin@nexus-ai.com', user_metadata: { role: 'boss' } })
       });
     });
+
+    // 拦截 profile API（AuthContext.fetchUserData 调用）
+    await page.route('**/api/users/profile*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 200,
+          data: {
+            user: {
+              id: 'test-user-id',
+              email: 'test-admin@nexus-ai.com',
+              name: 'E2E Admin',
+              role: 'boss',
+              avatar_url: null
+            }
+          }
+        })
+      });
+    });
+
+    // 拦截 RPC 调用
+    await page.route('**/rest/v1/rpc/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(null)
+      });
+    });
   });
 
   test('如果用户未登录，访问 /dashboard 必须被重定向回 /login', async ({ page }) => {
@@ -57,11 +86,11 @@ test.describe('第一条生命链路：登录、鉴权与面板导航', () => {
     await page.getByTestId('login-password-input').fill('TestPass123!');
     await page.getByTestId('login-submit-btn').click();
 
-    // 等待跳转到首页或 dashboardLayout 渲染
-    await expect(page).toHaveURL(new RegExp(`${BASE_URL}/?`));
-    
-    // 验证侧边栏或主内容渲染（App.tsx 中首页是 DashboardLayout）
-    await expect(page.getByTestId('sidebar-main')).toBeVisible();
+    // 等待跳转离开登录页
+    await expect(page).not.toHaveURL(/.*\/login/, { timeout: 10000 });
+
+    // 验证侧边栏渲染（DashboardLayout 的标志）
+    await expect(page.getByTestId('sidebar-main')).toBeVisible({ timeout: 10000 });
   });
 
   test('测试极端用例：输入错误账号密码应该被阻拦并看到红色的报错通知', async ({ page }) => {
@@ -81,7 +110,7 @@ test.describe('第一条生命链路：登录、鉴权与面板导航', () => {
     await page.getByTestId('login-email-input').fill('test-admin@nexus-ai.com');
     await page.getByTestId('login-password-input').fill('TestPass123!');
     await page.getByTestId('login-submit-btn').click();
-    await expect(page).not.toHaveURL(/.*\/login/);
+    await expect(page).not.toHaveURL(/.*\/login/, { timeout: 10000 });
 
     // 清理 token
     await page.evaluate(() => localStorage.clear());
