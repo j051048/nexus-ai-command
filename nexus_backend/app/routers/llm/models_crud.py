@@ -136,8 +136,63 @@ async def delete_model(model_id: str, req: Request, user_id: str = Depends(get_c
 @router.post("/models/{model_id}/test")
 async def test_model(model_id: str, req: Request, user_id: str = Depends(get_current_user_id)):
     """测试模型连通性"""
-    # 这里应该调用实际的模型适配器进行测试
-    # 暂时返回模拟结果
-    import asyncio
-    await asyncio.sleep(1) # 模拟延迟
-    return api_success(data={"connectivity": "ok", "latency_ms": 120}, message="连通性测试通过")
+    import httpx
+    import time
+    from app.services.encryption_service import encryption_service
+    
+    try:
+        db = getattr(req.state, "db", None)
+        org_id = getattr(req.state, "org_id", None)
+        if not db or not org_id:
+            raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+
+        # 1. 获取模型配置
+        res = await db.table("llm_model_config").select("*").eq("id", model_id).eq("tenant_id", str(org_id)).execute()
+        if not res.data:
+            raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "未找到该模型配置")
+        
+        config = res.data[0]
+        base_url = config.get("api_base_url") or "https://api.openai.com/v1"
+        # 确保 base_url 以 /v1 结尾（如果是 OpenAI 兼容）
+        if not base_url.endswith("/v1") and "openai" in (config.get("provider_type") or "").lower():
+            if not base_url.endswith("/"): base_url += "/"
+            base_url += "v1"
+
+        # 2. 解密 API Key
+        encrypted_key = config.get("api_key_encrypted")
+        api_key = ""
+        if encrypted_key:
+            try:
+                api_key = encryption_service.decrypt(encrypted_key)
+            except Exception as e:
+                logger.error(f"Failed to decrypt API key for model {model_id}: {e}")
+                raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "凭据解密失败，请重新输入 API Key")
+
+        # 3. 发送测试请求 (调用 /models 接口验证有效性)
+        start_time = time.time()
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+            # 兼容性处理：有些供应商路径不同，尝试最通用的 /models
+            test_url = f"{base_url.rstrip('/')}/models"
+            
+            try:
+                resp = await client.get(test_url, headers=headers)
+                latency = int((time.time() - start_time) * 1000)
+                
+                if resp.status_code == 200:
+                    return api_success(data={"connectivity": "ok", "latency_ms": latency}, message="连通性测试通过")
+                else:
+                    return api_success(
+                        data={"connectivity": "failed", "status_code": resp.status_code, "error": resp.text[:200]},
+                        message=f"测试失败: 供应商返回状态码 {resp.status_code}"
+                    )
+            except Exception as net_err:
+                return api_success(
+                    data={"connectivity": "error", "error": str(net_err)},
+                    message=f"网络连接失败: {str(net_err)}"
+                )
+
+    except Exception as e:
+        logger.error(f"Model test error: {e}")
+        if hasattr(e, "detail"): raise e
+        raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
