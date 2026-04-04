@@ -2,7 +2,7 @@ import logging
 
 from fastapi import APIRouter, Depends, Request
 
-from ._shared import CreateModelRequest, UpdateModelRequest, _mask_model_record
+from ._shared import CreateModelRequest, UpdateModelRequest, _get_admin_client, _mask_model_record
 from app.core.auth import get_current_user_id
 from app.core.errors import ErrorCode, api_error, api_success
 from app.services.encryption_service import encryption_service
@@ -15,11 +15,13 @@ router = APIRouter(tags=["LLM Models CRUD"])
 async def list_models(req: Request, user_id: str = Depends(get_current_user_id)):
     """获取当前租户的 LLM 模型配置列表"""
     try:
-        db = getattr(req.state, "db", None)
         org_id = getattr(req.state, "org_id", None)
-
-        if not db or not org_id:
+        if not org_id:
             return api_success(data=[])
+
+        # llm_model_config 的 RLS 依赖 app.current_org_id session 变量，
+        # scoped client 不设置此变量，所以统一用 admin client + 应用层 tenant_id 过滤
+        db = _get_admin_client()
 
         result = (
             await db.table("llm_model_config")
@@ -34,7 +36,7 @@ async def list_models(req: Request, user_id: str = Depends(get_current_user_id))
             .order("sort_order")
             .execute()
         )
-        
+
         # 对敏感数据进行脱敏处理
         masked_data = [_mask_model_record(r) for r in (result.data or [])]
         return api_success(data=masked_data)
@@ -47,10 +49,11 @@ async def list_models(req: Request, user_id: str = Depends(get_current_user_id))
 async def create_model(req: Request, body: CreateModelRequest, user_id: str = Depends(get_current_user_id)):
     """创建新的 LLM 模型配置"""
     try:
-        db = getattr(req.state, "db", None)
         org_id = getattr(req.state, "org_id", None)
-        if not db or not org_id:
+        if not org_id:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+
+        db = _get_admin_client()
 
         # 加密 API Key
         encrypted_key = encryption_service.encrypt(body.api_key) if body.api_key else None
@@ -73,18 +76,22 @@ async def create_model(req: Request, body: CreateModelRequest, user_id: str = De
         if hasattr(e, "status_code"):
             raise
         raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, str(e))
+
+
+@router.put("/models/{model_id}")
 async def update_model(
     model_id: str,
     req: Request,
     body: UpdateModelRequest,
-    user_id: str = Depends(get_current_user_id)
+    user_id: str = Depends(get_current_user_id),
 ):
     """更新 LLM 模型配置"""
     try:
-        db = getattr(req.state, "db", None)
         org_id = getattr(req.state, "org_id", None)
-        if not db or not org_id:
+        if not org_id:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+
+        db = _get_admin_client()
 
         # 检查是否存在
         existing = await db.table("llm_model_config").select("id").eq("id", model_id).eq("tenant_id", str(org_id)).execute()
@@ -106,7 +113,7 @@ async def update_model(
         if not update_data:
             raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "无可更新字段")
 
-        result = await db.table("llm_model_config").update(update_data).eq("id", model_id).execute()
+        result = await db.table("llm_model_config").update(update_data).eq("id", model_id).eq("tenant_id", str(org_id)).execute()
         if not result.data:
             raise api_error(ErrorCode.DB_QUERY_ERROR, "更新模型失败")
 
@@ -122,10 +129,11 @@ async def update_model(
 async def delete_model(model_id: str, req: Request, user_id: str = Depends(get_current_user_id)):
     """逻辑删除模型配置"""
     try:
-        db = getattr(req.state, "db", None)
         org_id = getattr(req.state, "org_id", None)
-        if not db or not org_id:
+        if not org_id:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+
+        db = _get_admin_client()
 
         result = await db.table("llm_model_config").update({"is_deleted": True}).eq("id", model_id).eq("tenant_id", str(org_id)).execute()
         if not result.data:
@@ -144,24 +152,25 @@ async def test_model(model_id: str, req: Request, user_id: str = Depends(get_cur
     """测试模型连通性"""
     import httpx
     import time
-    from app.services.encryption_service import encryption_service
-    
+
     try:
-        db = getattr(req.state, "db", None)
         org_id = getattr(req.state, "org_id", None)
-        if not db or not org_id:
+        if not org_id:
             raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库不可用")
+
+        db = _get_admin_client()
 
         # 1. 获取模型配置
         res = await db.table("llm_model_config").select("*").eq("id", model_id).eq("tenant_id", str(org_id)).execute()
         if not res.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "未找到该模型配置")
-        
+
         config = res.data[0]
         base_url = config.get("api_base_url") or "https://api.openai.com/v1"
         # 确保 base_url 以 /v1 结尾（如果是 OpenAI 兼容）
         if not base_url.endswith("/v1") and "openai" in (config.get("provider_type") or "").lower():
-            if not base_url.endswith("/"): base_url += "/"
+            if not base_url.endswith("/"):
+                base_url += "/"
             base_url += "v1"
 
         # 2. 解密 API Key
@@ -178,24 +187,23 @@ async def test_model(model_id: str, req: Request, user_id: str = Depends(get_cur
         start_time = time.time()
         async with httpx.AsyncClient(timeout=10.0) as client:
             headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
-            # 兼容性处理：有些供应商路径不同，尝试最通用的 /models
             test_url = f"{base_url.rstrip('/')}/models"
-            
+
             try:
                 resp = await client.get(test_url, headers=headers)
                 latency = int((time.time() - start_time) * 1000)
-                
+
                 if resp.status_code == 200:
                     return api_success(data={"connectivity": "ok", "latency_ms": latency}, message="连通性测试通过")
                 else:
                     return api_success(
                         data={"connectivity": "failed", "status_code": resp.status_code, "error": resp.text[:200]},
-                        message=f"测试失败: 供应商返回状态码 {resp.status_code}"
+                        message=f"测试失败: 供应商返回状态码 {resp.status_code}",
                     )
             except Exception as net_err:
                 return api_success(
                     data={"connectivity": "error", "error": str(net_err)},
-                    message=f"网络连接失败: {str(net_err)}"
+                    message=f"网络连接失败: {str(net_err)}",
                 )
 
     except Exception as e:

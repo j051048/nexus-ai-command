@@ -187,10 +187,10 @@ async def list_available_models(
 ):
     """获取可用模型列表(市场) — 动态从上游获取 + 硬编码兜底"""
 
-    # 1. 查询已添加的模型 codes
+    # 1. 查询已添加的模型 codes（admin 客户端是异步的，需要 await）
     try:
         client = _get_admin_client()
-        added_res = client.table("llm_model_config").select("model_code").execute()
+        added_res = await client.table("llm_model_config").select("model_code").execute()
         added_codes = {r["model_code"] for r in (added_res.data or [])}
     except Exception as e:
         logger.warning(f"Failed to query added models, treating all as unadded: {e}")
