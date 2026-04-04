@@ -11,11 +11,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["LLM Scheduling"])
 
 
+def _get_admin_db():
+    """获取 admin client (绕过 RLS, 因为 llm_schedule_rule 的 RLS 依赖 app.current_org_id)"""
+    from app.core.database import supabase
+
+    return supabase
+
+
 @router.get("/schedule-rules")
 async def list_schedule_rules(req: Request, user_id: str = Depends(get_current_user_id)):
     """获取当前租户的模型调度规则列表"""
     try:
-        db = getattr(req.state, "db", None)
+        db = _get_admin_db()
         org_id = getattr(req.state, "org_id", None)
 
         if not db or not org_id:

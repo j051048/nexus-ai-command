@@ -12,26 +12,30 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/usage", tags=["Usage"])
 
 
+def _get_admin_db():
+    """获取 admin client (绕过 RLS, 因为 llm_usage_stats 的 RLS 依赖 app.current_org_id)"""
+    from app.core.database import supabase
+
+    return supabase
+
+
 @router.get("/quota-alert")
 async def get_quota_alert(req: Request, user_id: str = Depends(get_current_user_id)):
     """
     检查组织的 LLM 额度并返回告警信息
     """
     try:
-        db = getattr(req.state, "db", None)
+        db = _get_admin_db()
         org_id = getattr(req.state, "org_id", None)
 
         if not db or not org_id:
-            # 基础数据缺失时不报错，返回空以便前端静默失败
             return api_success(data={"has_alert": False, "message": ""})
 
-        # 1. 尝试从 tenant_quotas 获取配额信息 (假设 schema 中有这个表)
-        # 这里使用简单逻辑：如果使用量超过 90% 则告警
         result = await db.table("llm_usage_stats").select("*").eq("tenant_id", str(org_id)).maybe_single().execute()
 
         if result and result.data:
             used = result.data.get("token_used", 0)
-            limit = result.data.get("token_limit", 1000000)  # 默认 1M tokens
+            limit = result.data.get("token_limit", 1000000)
 
             if used > limit * 0.9:
                 return api_success(
@@ -46,7 +50,6 @@ async def get_quota_alert(req: Request, user_id: str = Depends(get_current_user_
 
     except Exception as e:
         logger.error(f"Failed to fetch quota alert: {e}")
-        # 这里返回静默成功，避免全局崩溃
         return api_success(data={"has_alert": False, "message": "暂时无法获取额度状态"})
 
 
@@ -54,7 +57,7 @@ async def get_quota_alert(req: Request, user_id: str = Depends(get_current_user_
 async def get_current_usage(req: Request, user_id: str = Depends(get_current_user_id)):
     """获取当前用量摘要（token/费用/请求数 + 配额限制）"""
     try:
-        db = getattr(req.state, "db", None)
+        db = _get_admin_db()
         org_id = getattr(req.state, "org_id", None)
 
         if not db or not org_id:
@@ -67,9 +70,6 @@ async def get_current_usage(req: Request, user_id: str = Depends(get_current_use
                     "cost_limit_usd": 100,
                 }
             )
-
-        # 聚合本月用量
-        from datetime import date
 
         first_of_month = date.today().replace(day=1).isoformat()
         usage_res = (
@@ -123,7 +123,7 @@ async def get_current_usage(req: Request, user_id: str = Depends(get_current_use
 async def get_usage_stats(req: Request, user_id: str = Depends(get_current_user_id)):
     """获取详细用量统计"""
     try:
-        db = getattr(req.state, "db", None)
+        db = _get_admin_db()
         org_id = getattr(req.state, "org_id", None)
 
         if not db or not org_id:
@@ -159,7 +159,7 @@ async def get_usage_history(
 ):
     """获取按日聚合的历史用量"""
     try:
-        db = getattr(req.state, "db", None)
+        db = _get_admin_db()
         org_id = getattr(req.state, "org_id", None)
 
         if not db or not org_id:
@@ -198,7 +198,7 @@ async def get_cost_report(
 ):
     """获取费用报告（按部门 / 项目维度）"""
     try:
-        db = getattr(req.state, "db", None)
+        db = _get_admin_db()
         org_id = getattr(req.state, "org_id", None)
 
         if not db or not org_id:
@@ -246,7 +246,7 @@ async def get_model_breakdown(
 ):
     """获取按模型维度的详细分解"""
     try:
-        db = getattr(req.state, "db", None)
+        db = _get_admin_db()
         org_id = getattr(req.state, "org_id", None)
 
         if not db or not org_id:

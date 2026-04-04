@@ -621,14 +621,17 @@ async def bulk_import_documents(
             )
 
     # Update library doc_count for affected libraries
+    # 使用 admin client: knowledge_library 的 RLS 依赖 app.current_org_id session 变量
+    from app.core.database import supabase as admin_client
+
     affected_codes = {item.library_code for item in payload.documents if item.library_code}
     for code in affected_codes:
         lib_id = library_map.get(code)
         if lib_id:
             try:
-                count_res = await client.table("documents").select("id").eq("library_id", lib_id).execute()
+                count_res = await (admin_client or client).table("documents").select("id").eq("library_id", lib_id).execute()
                 doc_count = len(count_res.data) if count_res.data else 0
-                await client.table("knowledge_library").update({"doc_count": doc_count}).eq("id", lib_id).execute()
+                await (admin_client or client).table("knowledge_library").update({"doc_count": doc_count}).eq("id", lib_id).execute()
             except Exception as e:
                 logger.warning(f"Failed to update doc_count for library {code}: {e}")
 
@@ -654,7 +657,8 @@ async def list_knowledge_libraries(
     """获取所有知识库分类及其文档计数"""
     from app.core.database import supabase as global_supabase
 
-    client = getattr(req.state, "db", global_supabase)
+    # knowledge_library 的 RLS 依赖 app.current_org_id，scoped client 无法读取
+    client = global_supabase
     if not client:
         raise api_error(ErrorCode.DB_CONNECTION_ERROR, "数据库服务不可用")
 
