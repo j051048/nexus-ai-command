@@ -55,7 +55,14 @@ async def get_vmd_clue_detail(req: Request, clue_id: str, user_id: str = Depends
 
     # 支持 clue_code 或 ID
     column = "clue_code" if not clue_id.isdigit() and len(clue_id) < 15 else "id"
-    result = await db.table("business_clue").select("*").eq(column, clue_id).eq("tenant_id", str(org_id)).maybe_single().execute()
+    result = (
+        await db.table("business_clue")
+        .select("*")
+        .eq(column, clue_id)
+        .eq("tenant_id", str(org_id))
+        .maybe_single()
+        .execute()
+    )
 
     if not result.data:
         raise api_error(ErrorCode.RESOURCE_NOT_FOUND, message="线索不存在")

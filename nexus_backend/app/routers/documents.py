@@ -629,9 +629,13 @@ async def bulk_import_documents(
         lib_id = library_map.get(code)
         if lib_id:
             try:
-                count_res = await (admin_client or client).table("documents").select("id").eq("library_id", lib_id).execute()
+                count_res = (
+                    await (admin_client or client).table("documents").select("id").eq("library_id", lib_id).execute()
+                )
                 doc_count = len(count_res.data) if count_res.data else 0
-                await (admin_client or client).table("knowledge_library").update({"doc_count": doc_count}).eq("id", lib_id).execute()
+                await (admin_client or client).table("knowledge_library").update({"doc_count": doc_count}).eq(
+                    "id", lib_id
+                ).execute()
             except Exception as e:
                 logger.warning(f"Failed to update doc_count for library {code}: {e}")
 

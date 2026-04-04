@@ -40,4 +40,6 @@ async def stripe_webhook(
         return Response(content=json.dumps({"error": str(e)}), status_code=400, media_type="application/json")
     except Exception as e:
         logger.error(f"Stripe webhook processing error: {e}")
-        return Response(content=json.dumps({"error": "Internal server error"}), status_code=500, media_type="application/json")
+        return Response(
+            content=json.dumps({"error": "Internal server error"}), status_code=500, media_type="application/json"
+        )

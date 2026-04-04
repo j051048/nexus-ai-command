@@ -76,15 +76,29 @@ async def get_dashboard_stats(req: Request, user_id: str = Depends(get_current_u
         clues_count = clues_res.count if clues_res.count is not None else 0
 
         # 2. 正在执行的任务数 (vmd_main_task)
-        tasks_res = await db.table("vmd_main_task").select("id", count="exact").eq("tenant_id", tenant_id).neq("status", "completed").execute()
+        tasks_res = (
+            await db.table("vmd_main_task")
+            .select("id", count="exact")
+            .eq("tenant_id", tenant_id)
+            .neq("status", "completed")
+            .execute()
+        )
         tasks_count = tasks_res.count if tasks_res.count is not None else 0
 
         # 3. 合规风险数 (compliance_rule)
-        compliance_res = await db.table("compliance_rule").select("id", count="exact").eq("tenant_id", tenant_id).execute()
+        compliance_res = (
+            await db.table("compliance_rule").select("id", count="exact").eq("tenant_id", tenant_id).execute()
+        )
         compliance_count = compliance_res.count if compliance_res.count is not None else 0
 
         # 4. 活跃 Agent 数
-        agents_res = await db.table("vmd_agent_config").select("id", count="exact").eq("tenant_id", tenant_id).eq("is_active", True).execute()
+        agents_res = (
+            await db.table("vmd_agent_config")
+            .select("id", count="exact")
+            .eq("tenant_id", tenant_id)
+            .eq("is_active", True)
+            .execute()
+        )
         active_agents = agents_res.count if agents_res.count is not None else 0
 
         return api_success(

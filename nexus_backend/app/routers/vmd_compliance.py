@@ -30,7 +30,13 @@ async def list_vmd_compliance_history(req: Request, user_id: str = Depends(get_c
     db = _get_admin_db()
 
     try:
-        result = await db.table("vmd_reports").select("*").eq("tenant_id", str(org_id)).order("created_at", desc=True).execute()
+        result = (
+            await db.table("vmd_reports")
+            .select("*")
+            .eq("tenant_id", str(org_id))
+            .order("created_at", desc=True)
+            .execute()
+        )
         return api_success(data=result.data or [])
     except Exception as e:
         logger.error(f"Failed to list compliance history: {e}")

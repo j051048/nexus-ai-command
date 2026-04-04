@@ -154,6 +154,7 @@ def _mask_model_record(record: dict) -> dict:
         result["secret_key_encrypted"] = "****"
     return result
 
+
 # ---------------------------------------------------------------------------
 # Marketplace response models
 # ---------------------------------------------------------------------------

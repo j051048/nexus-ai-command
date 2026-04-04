@@ -61,11 +61,13 @@ async def create_model(req: Request, body: CreateModelRequest, user_id: str = De
         encrypted_secret = encryption_service.encrypt(body.secret_key) if body.secret_key else None
 
         data = body.model_dump(exclude={"api_key", "secret_key"})
-        data.update({
-            "tenant_id": str(org_id),
-            "api_key_encrypted": encrypted_key,
-            "secret_key_encrypted": encrypted_secret,
-        })
+        data.update(
+            {
+                "tenant_id": str(org_id),
+                "api_key_encrypted": encrypted_key,
+                "secret_key_encrypted": encrypted_secret,
+            }
+        )
 
         result = await db.table("llm_model_config").insert(data).execute()
         if not result.data:
@@ -95,7 +97,9 @@ async def update_model(
         db = _get_admin_client()
 
         # 检查是否存在
-        existing = await db.table("llm_model_config").select("id").eq("id", model_id).eq("tenant_id", str(org_id)).execute()
+        existing = (
+            await db.table("llm_model_config").select("id").eq("id", model_id).eq("tenant_id", str(org_id)).execute()
+        )
         if not existing.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "未找到该模型配置")
 
@@ -114,7 +118,13 @@ async def update_model(
         if not update_data:
             raise api_error(ErrorCode.VALIDATION_MISSING_FIELD, "无可更新字段")
 
-        result = await db.table("llm_model_config").update(update_data).eq("id", model_id).eq("tenant_id", str(org_id)).execute()
+        result = (
+            await db.table("llm_model_config")
+            .update(update_data)
+            .eq("id", model_id)
+            .eq("tenant_id", str(org_id))
+            .execute()
+        )
         if not result.data:
             raise api_error(ErrorCode.DB_QUERY_ERROR, "更新模型失败")
 
@@ -136,7 +146,13 @@ async def delete_model(model_id: str, req: Request, user_id: str = Depends(get_c
 
         db = _get_admin_client()
 
-        result = await db.table("llm_model_config").update({"is_deleted": True}).eq("id", model_id).eq("tenant_id", str(org_id)).execute()
+        result = (
+            await db.table("llm_model_config")
+            .update({"is_deleted": True})
+            .eq("id", model_id)
+            .eq("tenant_id", str(org_id))
+            .execute()
+        )
         if not result.data:
             raise api_error(ErrorCode.RESOURCE_NOT_FOUND, "未找到该模型配置")
 
