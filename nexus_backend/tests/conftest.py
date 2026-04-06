@@ -39,6 +39,7 @@ class MockQueryBuilder:
         self._filters = []
         self._do_count = False
         self._is_single = False
+        self._pending_update = None
 
     def select(self, *columns, **kwargs):
         if kwargs.get("count"):
@@ -67,23 +68,37 @@ class MockQueryBuilder:
         if isinstance(self._data, list):
             self._data = [d for d in self._data if isinstance(d, dict) and d.get(column) != value]
         return self
+
+    def ilike(self, column, value):
+        if isinstance(self._data, list):
+            pattern = value.strip("%").lower()
+            self._data = [d for d in self._data if isinstance(d, dict) and pattern in str(d.get(column, "")).lower()]
+        return self
     def order(self, column, desc=False): return self
     def limit(self, count): 
         if isinstance(self._data, list):
             self._data = self._data[:count]
         return self
     def insert(self, data):
+        # 模拟真实 Supabase 行为：插入时自动生成 id（如果未提供）
+        import uuid
+        if isinstance(data, dict) and "id" not in data:
+            data = {**data, "id": str(uuid.uuid4())}
         self._data = [data]
         return self
     def update(self, data):
-        for d in self._data:
-            d.update(data)
+        self._pending_update = data
         return self
     def delete(self):
         self._data = []
         return self
 
     async def execute(self):
+        # Apply deferred update after filters have run (matches real Supabase
+        # behavior: WHERE filters first, then UPDATE applies to matched rows)
+        if self._pending_update is not None:
+            for d in self._data:
+                d.update(self._pending_update)
         count = len(self._data) if self._do_count else None
         data = self._data
         if self._is_single:

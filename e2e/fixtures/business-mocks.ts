@@ -4,7 +4,7 @@
  * 为 core 业务流程提供基础的 API 模拟，支持在无后端环境下运行。
  */
 
-import { Page } from "@playwright/test";
+import { Page, expect } from "@playwright/test";
 
 export async function setupBusinessMocks(page: Page) {
   // 1. 拦截 Auth token 请求（login + refresh）
@@ -177,4 +177,17 @@ export async function mockLoggedInState(page: Page, _role?: string) {
     // Disable ProductTour Joyride overlay
     window.localStorage.setItem('hasSeenTour', 'true');
   });
+}
+
+/**
+ * 通过表单登录获取真实的 Supabase session（配合 setupBusinessMocks 的 API 拦截）
+ * 这比 localStorage 注入更可靠，因为 Supabase JS v2 会通过内部流程正确存储 session
+ */
+export async function loginViaForm(page: Page) {
+  await page.goto('/login');
+  await page.getByTestId('login-email-input').fill('test-admin@nexus-ai.com');
+  await page.getByTestId('login-password-input').fill('TestPass123!');
+  await page.getByTestId('login-submit-btn').click();
+  // 等待离开登录页
+  await expect(page).not.toHaveURL(/.*\/login/, { timeout: 10000 });
 }

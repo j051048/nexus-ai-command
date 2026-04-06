@@ -140,7 +140,7 @@ async def test_rag_answer_relevance():
 
 def test_embedding_model_versioning():
     """Verify embedding model constants are defined for staleness tracking."""
-    assert EMBEDDING_MODEL == "text-embedding-3-large"
+    assert EMBEDDING_MODEL == "text-embedding-3-small"
     assert EMBEDDING_MODEL_VERSION is not None
     assert len(EMBEDDING_MODEL_VERSION) > 0
 

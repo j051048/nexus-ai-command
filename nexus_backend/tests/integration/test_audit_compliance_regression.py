@@ -3,7 +3,7 @@ Audit & Compliance - 法务、审计与合规工具专项回归
 """
 
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from tests.e2e.test_tool_e2e_regression import _load_tool
 
 USER_ID = "auditor-01"
@@ -37,20 +37,25 @@ async def test_contract_retrieval_flow(audit_config):
 async def test_tender_analysis_flow(audit_config):
     """验证招标文件解析及风险评估工具"""
     tool = _load_tool("analyze_tender_document")
-    
-    with patch("app.services.ai_service.AIService.call_llm", new_callable=AsyncMock) as mock_llm:
-        mock_llm.return_value = "🚩 **投标风险提示**\n1. 垫资比例过高\n2. 违约金条款过严"
-        
-        args = {"tender_id": "T2026-X01", "focus_areas": ["legal", "financial"]}
-        result = await tool.run(args, USER_ID, audit_config)
-        
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "choices": [{"message": {"content": "🚩 **投标风险提示**\n1. 垫资比例过高\n2. 违约金条款过严"}}]
+    }
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock, return_value=mock_response):
+        args = {"tender_text": "投标人须具备ISO9001认证，最低注册资本500万"}
+        config = {**audit_config, "api_key": "test-key", "base_url": "https://api.test.com/v1"}
+        result = await tool.run(args, USER_ID, config)
+
         assert "投标风险提示" in result
         assert "违约金" in result
 
 
 def test_audit_tools_registration():
     """验证审计类工具是否注册在正确 Domain"""
-    tools = ["get_audit_logs", "query_compliance_status"]
-    for t_name in tools:
+    tools = {"query_audit_logs": "admin", "check_bid_compliance": "tender"}
+    for t_name, expected_domain in tools.items():
         tool = _load_tool(t_name)
-        assert tool.domain in ["audit", "compliance"]
+        assert tool.domain == expected_domain

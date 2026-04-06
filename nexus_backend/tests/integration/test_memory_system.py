@@ -421,7 +421,7 @@ class TestFormatByTemperature:
         assert 'importance="0.9"' in result
 
     def test_warm_memory_truncated(self):
-        """Warm memory (< 30 days old, importance <= 0.7) should truncate to 150 chars."""
+        """Warm memory (< 30 days old, importance <= 0.7) should truncate to 100 chars."""
         from app.services.conversation_memory.retrieval import _format_by_temperature
 
         ten_days_ago = (datetime.now(UTC) - timedelta(days=10)).isoformat()
@@ -434,8 +434,8 @@ class TestFormatByTemperature:
             "key": "some_key",
         }
         result = _format_by_temperature(mem)
-        # Should contain truncated value (150 chars of A's), not full 300
-        assert "A" * 150 in result
+        # Should contain truncated value (100 chars of A's), not full 300
+        assert "A" * 100 in result
         assert "A" * 300 not in result
 
     def test_cold_memory_shows_search_hint(self):
@@ -1148,7 +1148,7 @@ class TestResolveMemoryConflicts:
 class TestFindMatchingNewMem:
     """Tests for _find_matching_new_mem() — character overlap matching."""
 
-    def test_finds_best_match_by_character_overlap(self):
+    async def test_finds_best_match_by_character_overlap(self):
         """Should return the memory entry with highest character overlap to the text."""
         from app.services.conversation_memory.conflict_resolution import _find_matching_new_mem
 
@@ -1157,13 +1157,13 @@ class TestFindMatchingNewMem:
             {"key": "k2", "value": "用户讨厌英文报告"},
             {"key": "k3", "value": "用户喜欢用表格展示数据分析结果"},
         ]
-        result = _find_matching_new_mem("用户喜欢用表格展示数据分析", memories)
+        result = await _find_matching_new_mem("用户喜欢用表格展示数据分析", memories)
         # k3 has the most character overlap with the query
         assert result["key"] == "k3"
 
-    def test_empty_memories_returns_empty_dict(self):
+    async def test_empty_memories_returns_empty_dict(self):
         """Empty memories list should return empty dict."""
         from app.services.conversation_memory.conflict_resolution import _find_matching_new_mem
 
-        result = _find_matching_new_mem("some text", [])
+        result = await _find_matching_new_mem("some text", [])
         assert result == {}

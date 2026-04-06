@@ -19,7 +19,7 @@ from tests.conftest_auth import AuthenticatedTestClient
 async def test_list_competitors_by_role(app, role, user_id, expected_status):
     """测试不同角色获取竞品列表"""
     client = AuthenticatedTestClient(app, user_id=user_id, role=role)
-    response = await client.get("/api/competitors/")
+    response = await client.get("/api/competitors")
     assert response.status_code == expected_status
 
 
@@ -35,7 +35,7 @@ async def test_list_competitors_by_role(app, role, user_id, expected_status):
 async def test_create_competitor_by_role(app, role, user_id, can_create):
     """测试不同角色创建竞品的权限"""
     client = AuthenticatedTestClient(app, user_id=user_id, role=role)
-    response = await client.post("/api/competitors/", json={"name": "Test Competitor"})
+    response = await client.post("/api/competitors", json={"name": "Test Competitor"})
 
     if can_create:
         assert response.status_code in [200, 201, 400]

@@ -176,13 +176,24 @@ class TestGraphBuild:
 class TestAgentGraphSingleton:
     """Test AgentGraph singleton behavior."""
 
+    def setup_method(self):
+        """Reset singleton state before each test."""
+        AgentGraph._instance = None
+
+    def teardown_method(self):
+        """Reset singleton state after each test."""
+        AgentGraph._instance = None
+
     def test_singleton_returns_same_instance(self):
         g1 = AgentGraph()
         g2 = AgentGraph()
         assert g1 is g2
 
     def test_compiled_graph_is_cached(self):
-        g = AgentGraph()
-        compiled1 = g.compiled
-        compiled2 = g.compiled
-        assert compiled1 is compiled2
+        from unittest.mock import patch
+
+        with patch("app.agent.graph.get_checkpointer", return_value=None):
+            g = AgentGraph()
+            compiled1 = g.compiled
+            compiled2 = g.compiled
+            assert compiled1 is compiled2

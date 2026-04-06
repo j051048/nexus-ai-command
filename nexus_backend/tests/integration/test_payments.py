@@ -143,7 +143,7 @@ class TestListOrders:
             result = await list_orders(req=req, user_id="user-1", page=1, page_size=20)
 
         assert result["success"] is True
-        assert len(result["data"]["items"]) == 2
+        assert len(result["data"]) == 2
 
 
 class TestGetOrder:
@@ -260,8 +260,8 @@ class TestPaymentCallback:
         assert result["success"] is True
 
     @pytest.mark.asyncio
-    async def test_callback_no_token_configured_allows_request(self):
-        """When PAYMENT_CALLBACK_TOKEN is not set, callback should be accepted."""
+    async def test_callback_no_token_configured_rejects_request(self):
+        """When PAYMENT_CALLBACK_TOKEN is not set, callback should be rejected."""
         from app.routers.payments import payment_callback
 
         req = MagicMock()
@@ -276,9 +276,9 @@ class TestPaymentCallback:
             mock_svc.handle_payment_callback = AsyncMock(
                 return_value={"processed": True}
             )
-            result = await payment_callback(platform="alipay", req=req)
-
-        assert result["success"] is True
+            with pytest.raises(Exception) as exc_info:
+                await payment_callback(platform="alipay", req=req)
+            assert exc_info.value.status_code == 500
 
 
 class TestRequestInvoice:

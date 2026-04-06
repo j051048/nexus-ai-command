@@ -6,7 +6,7 @@ Agent Graph 流程集成测试
 """
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from app.agent.state import AgentPhase, QueryComplexity, AgentConfig, ThinkingStep
+from app.agent.state import AgentPhase, QueryComplexity, AgentConfig
 
 
 def _make_base_state(query: str, complexity: QueryComplexity = QueryComplexity.MODERATE):
@@ -14,6 +14,7 @@ def _make_base_state(query: str, complexity: QueryComplexity = QueryComplexity.M
     from langchain_core.messages import HumanMessage
     return {
         "messages": [HumanMessage(content=query)],
+        "config": AgentConfig(user_id="user-test"),
         "phase": AgentPhase.ROUTING,
         "complexity": complexity,
         "intent_summary": "",
@@ -55,9 +56,8 @@ class TestRouterNodeIntegration:
         from app.agent.router import route_node
 
         state = _make_base_state("你好")
-        config = AgentConfig(user_id="u-1")
 
-        result = await route_node(state, config)
+        result = await route_node(state)
 
         assert result["complexity"] == QueryComplexity.SIMPLE
         assert result["phase"] == AgentPhase.ROUTING
@@ -69,9 +69,8 @@ class TestRouterNodeIntegration:
         from app.agent.router import route_node
 
         state = _make_base_state("查一下本月客户列表")
-        config = AgentConfig(user_id="u-1")
 
-        result = await route_node(state, config)
+        result = await route_node(state)
 
         assert result["complexity"] in (QueryComplexity.MODERATE, QueryComplexity.COMPLEX)
 
@@ -81,9 +80,8 @@ class TestRouterNodeIntegration:
         from app.agent.router import route_node
 
         state = _make_base_state("批准张三的报销申请")
-        config = AgentConfig(user_id="u-1")
 
-        result = await route_node(state, config)
+        result = await route_node(state)
 
         assert result["complexity"] == QueryComplexity.CRITICAL
 
@@ -112,9 +110,8 @@ class TestPlanNodeIntegration:
         state = _make_base_state("查询客户列表", QueryComplexity.MODERATE)
         state["phase"] = AgentPhase.PLANNING
         state["intent_summary"] = "查询客户"
-        config = AgentConfig(user_id="u-1")
 
-        result = await plan_node(state, config)
+        result = await plan_node(state)
 
         assert result["phase"] == AgentPhase.PLANNING
         assert len(result.get("plan", [])) > 0 or len(result.get("thinking_steps", [])) > 0
@@ -140,9 +137,8 @@ class TestReflectNodeIntegration:
             MagicMock(tool_name="GetCustomersTool", status="success",
                       result="找到5个客户", tool_args={}, tool_call_id="tc-1")
         ]
-        config = AgentConfig(user_id="u-1")
 
-        result = await reflect_node(state, config)
+        result = await reflect_node(state)
 
         # 反思通过后应设置 confidence_score
         assert "confidence_score" in result or "reflect_feedback" in result
@@ -159,8 +155,7 @@ class TestErrorRecoveryIntegration:
         state["phase"] = AgentPhase.ERROR
         state["error_message"] = "工具调用超时"
         state["error_count"] = 1
-        config = AgentConfig(user_id="u-1")
 
-        result = await error_node(state, config)
+        result = await error_node(state)
 
         assert result.get("final_response") or result.get("phase") == AgentPhase.ERROR

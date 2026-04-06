@@ -57,7 +57,7 @@ class TestCRME2EFlow:
     @pytest.mark.asyncio
     async def test_crm_endpoints_exist(self, async_client):
         """CRM 端点存在"""
-        endpoints = ["/api/crm/customers", "/api/crm/pipeline"]
+        endpoints = ["/api/crm/customers", "/api/crm/stages"]
         for ep in endpoints:
             response = await async_client.get(ep)
             assert response.status_code != 404, f"{ep} should exist"
@@ -91,7 +91,7 @@ class TestAIChatE2EFlow:
     @pytest.mark.asyncio
     async def test_chat_stream_endpoint_exists(self, async_client):
         """聊天流端点存在"""
-        response = await async_client.post("/api/chat/stream", json={
+        response = await async_client.post("/api/chat", json={
             "message": "你好",
             "session_id": "test-session",
         })
@@ -101,7 +101,7 @@ class TestAIChatE2EFlow:
     @pytest.mark.asyncio
     async def test_chat_sessions_endpoint(self, async_client):
         """聊天会话端点"""
-        response = await async_client.get("/api/chat/sessions")
+        response = await async_client.get("/api/sessions")
         assert response.status_code != 404
 
 
