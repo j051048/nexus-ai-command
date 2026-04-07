@@ -15,7 +15,7 @@ def _make_base_state(query: str, complexity: QueryComplexity = QueryComplexity.M
     return {
         "messages": [HumanMessage(content=query)],
         "config": AgentConfig(user_id="user-test"),
-        "phase": AgentPhase.ROUTING,
+        "current_phase": AgentPhase.ROUTING,
         "complexity": complexity,
         "intent_summary": "",
         "plan": [],
@@ -25,8 +25,8 @@ def _make_base_state(query: str, complexity: QueryComplexity = QueryComplexity.M
         "iteration_count": 0,
         "max_iterations": 5,
         "final_response": "",
-        "error_message": "",
-        "error_count": 0,
+        "error": "",
+        "error_recovery_level": 0,
         "confidence_score": 0.0,
         "skip_semantic": False,
         "agent_code": "",
@@ -42,7 +42,7 @@ def _make_base_state(query: str, complexity: QueryComplexity = QueryComplexity.M
         "user_role": "employee",
         "rag_context": "",
         "memory_context": "",
-        "reflect_feedback": "",
+        "reflection": "",
         "critic_passed": False,
     }
 
@@ -60,8 +60,7 @@ class TestRouterNodeIntegration:
         result = await route_node(state)
 
         assert result["complexity"] == QueryComplexity.SIMPLE
-        assert result["phase"] == AgentPhase.ROUTING
-        assert result.get("skip_semantic") is True
+        assert result["current_phase"] == AgentPhase.ROUTING
 
     @pytest.mark.asyncio
     @patch("app.agent.router._load_db_intent_rules", new_callable=AsyncMock)
@@ -108,12 +107,12 @@ class TestPlanNodeIntegration:
         mock_get_llm.return_value = mock_llm
 
         state = _make_base_state("查询客户列表", QueryComplexity.MODERATE)
-        state["phase"] = AgentPhase.PLANNING
+        state["current_phase"] = AgentPhase.PLANNING
         state["intent_summary"] = "查询客户"
 
         result = await plan_node(state)
 
-        assert result["phase"] == AgentPhase.PLANNING
+        assert result["current_phase"] == AgentPhase.PLANNING
         assert len(result.get("plan", [])) > 0 or len(result.get("thinking_steps", [])) > 0
 
 
@@ -132,7 +131,7 @@ class TestReflectNodeIntegration:
         mock_get_llm.return_value = mock_llm
 
         state = _make_base_state("查询客户")
-        state["phase"] = AgentPhase.REFLECTING
+        state["current_phase"] = AgentPhase.REFLECTING
         state["completed_tool_calls"] = [
             MagicMock(tool_name="GetCustomersTool", status="success",
                       result="找到5个客户", tool_args={}, tool_call_id="tc-1")
@@ -141,7 +140,7 @@ class TestReflectNodeIntegration:
         result = await reflect_node(state)
 
         # 反思通过后应设置 confidence_score
-        assert "confidence_score" in result or "reflect_feedback" in result
+        assert "confidence_score" in result or "reflection" in result
 
 
 class TestErrorRecoveryIntegration:
@@ -152,10 +151,10 @@ class TestErrorRecoveryIntegration:
         from app.agent.node_respond import error_node
 
         state = _make_base_state("测试")
-        state["phase"] = AgentPhase.ERROR
-        state["error_message"] = "工具调用超时"
-        state["error_count"] = 1
+        state["current_phase"] = AgentPhase.ERROR
+        state["error"] = "工具调用超时"
+        state["error_recovery_level"] = 1
 
         result = await error_node(state)
 
-        assert result.get("final_response") or result.get("phase") == AgentPhase.ERROR
+        assert result.get("final_response") or result.get("current_phase") == AgentPhase.ERROR

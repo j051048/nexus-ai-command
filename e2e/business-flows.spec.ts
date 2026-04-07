@@ -20,7 +20,7 @@ test.describe('Document Management Flow', () => {
     await page.goto('/knowledge');
     await page.waitForLoadState('networkidle');
     await expect(page.getByTestId('sidebar-main')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('知识库')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '企业知识库管理' })).toBeVisible();
   });
 });
 
@@ -35,13 +35,13 @@ test.describe('Sales & CRM Pipeline Flow', () => {
     await page.goto('/sales');
     await page.waitForLoadState('networkidle');
     await expect(page.getByTestId('sidebar-main')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('销售')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '销售 AI 战绩中心' })).toBeVisible();
   });
 
   test('should render CRM page with mock data', async ({ page }) => {
     await page.goto('/crm');
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText('客户')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: '客户管理' })).toBeVisible({ timeout: 10000 });
   });
 });
 
@@ -55,13 +55,13 @@ test.describe('Approval & Workflow Flow', () => {
   test('should show pending approvals list', async ({ page }) => {
     await page.goto('/approval');
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText('审批')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: '审批中心' })).toBeVisible({ timeout: 10000 });
   });
 
   test('should list workflows from mock api', async ({ page }) => {
     await page.goto('/workflows');
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText('流程')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: '流程设计器' })).toBeVisible({ timeout: 10000 });
   });
 });
 
@@ -75,13 +75,13 @@ test.describe('Admin Center Flow', () => {
   test('should show boss dashboard', async ({ page }) => {
     await page.goto('/boss-dashboard');
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText('总控中心')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('banner').getByText('总控中心')).toBeVisible({ timeout: 10000 });
   });
 
   test('should show org chart page', async ({ page }) => {
     await page.goto('/org-chart');
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText('组织')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: '组织架构管理' })).toBeVisible({ timeout: 10000 });
   });
 });
 
