@@ -151,8 +151,21 @@ class AuthenticatedTestClient:
                     return_value=role,
                 ),
             ):
-                async with AsyncClient(transport=transport, base_url="http://test") as ac:
-                    return await getattr(ac, method)(*args, **kwargs)
+                # Force middleware stack rebuild so newly constructed instances
+                # capture the PATCHED dispatch methods.
+                # Starlette BaseHTTPMiddleware.__init__ does:
+                #     self.dispatch_func = self.dispatch
+                # capturing a bound-method at construction time. If the stack
+                # was already built by a prior test, dispatch_func holds the
+                # ORIGINAL dispatch and class-level patch has no effect.
+                self.app.middleware_stack = None
+                try:
+                    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+                        return await getattr(ac, method)(*args, **kwargs)
+                finally:
+                    # Invalidate the patched stack so the next test without
+                    # patches gets a clean rebuild with original methods.
+                    self.app.middleware_stack = None
         finally:
             self.app.dependency_overrides.pop(get_current_user_id, None)
             self.app.dependency_overrides.pop(get_db, None)
