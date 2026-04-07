@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { Download, ExternalLink, Maximize2, Minimize2, X } from 'lucide-react';
+import { Download, ExternalLink, Maximize2, X } from 'lucide-react';
 import { TABLE_COMPONENTS, CHART_COMPONENTS, CRUD_FALLBACK_ROUTES } from './GenUIConstants';
 
 interface GenUIToolbarProps {

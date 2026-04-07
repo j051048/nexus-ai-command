@@ -83,7 +83,7 @@ export default function ApprovalFlow({ steps: initialSteps, title, onSendMessage
 
     // Notify AI for context continuity
     if (onSendMessage) {
-      onSendMessage(`我已${action === 'approve' ? '同意' : '决绝'}了「${steps.find(s => s.id === stepId)?.name}」的审批。`);
+      onSendMessage(`我已${action === 'approve' ? '同意' : '拒绝'}了「${steps.find(s => s.id === stepId)?.name}」的审批。`);
     }
   }, [isProcessing, onSendMessage, steps]);
 

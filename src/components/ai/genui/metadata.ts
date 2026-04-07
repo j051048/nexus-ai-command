@@ -1,4 +1,4 @@
-import { LucideIcon, Briefcase, Users, LayoutDashboard, Search, FileText } from 'lucide-react';
+import { LucideIcon, Users, LayoutDashboard, Search, FileText } from 'lucide-react';
 
 export type GenUIDomain = 'CRM' | 'HR' | 'FINANCE' | 'GENERAL' | 'ADMIN';
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { LucideIcon, Loader2, CheckCircle2, ShieldCheck, Database, Search, Zap } from 'lucide-react';
+import { Loader2, CheckCircle2, ShieldCheck, Database, Search, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type PulseType = 'thinking' | 'searching' | 'processing' | 'verifying' | 'writing';

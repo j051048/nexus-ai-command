@@ -1,7 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { cn } from '@/lib/utils';
-import { motion } from 'framer-motion';
 import { MoreVertical, Tag, DollarSign, Calendar } from 'lucide-react';
 
 interface KanbanItem {
@@ -47,17 +46,24 @@ export default function KanbanMini({ columns: initialColumns, title, onSendMessa
     
     if (sourceColIndex === -1 || destColIndex === -1) return;
 
-    const sourceSteps = [...columns[sourceColIndex].items];
-    const destSteps = source.droppableId === destination.droppableId 
-      ? sourceSteps 
-      : [...columns[destColIndex].items];
-
-    const [movedItem] = sourceSteps.splice(source.index, 1);
-    destSteps.splice(destination.index, 0, movedItem);
-
+    const movedItem = columns[sourceColIndex].items[source.index];
     const newColumns = [...columns];
-    newColumns[sourceColIndex] = { ...newColumns[sourceColIndex], items: sourceSteps };
-    newColumns[destColIndex] = { ...newColumns[destColIndex], items: destSteps };
+
+    if (source.droppableId === destination.droppableId) {
+      // Same column reorder
+      const items = [...columns[sourceColIndex].items];
+      items.splice(source.index, 1);
+      items.splice(destination.index, 0, movedItem);
+      newColumns[sourceColIndex] = { ...newColumns[sourceColIndex], items };
+    } else {
+      // Cross-column move
+      const sourceItems = [...columns[sourceColIndex].items];
+      const destItems = [...columns[destColIndex].items];
+      sourceItems.splice(source.index, 1);
+      destItems.splice(destination.index, 0, movedItem);
+      newColumns[sourceColIndex] = { ...newColumns[sourceColIndex], items: sourceItems };
+      newColumns[destColIndex] = { ...newColumns[destColIndex], items: destItems };
+    }
 
     setColumns(newColumns);
 

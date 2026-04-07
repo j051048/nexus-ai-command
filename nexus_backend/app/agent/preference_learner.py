@@ -9,7 +9,7 @@
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from app.core.database import supabase
@@ -120,7 +120,7 @@ class UserProfileManager:
                     "org_id": org_id,
                     "preference_type": feedback_type,
                     "preference_data": content,
-                    "updated_at": datetime.utcnow().isoformat(),
+                    "updated_at": datetime.now(UTC).isoformat(),
                 },
                 on_conflict="user_id,preference_type",
             ).execute()
