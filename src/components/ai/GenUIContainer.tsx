@@ -4,7 +4,7 @@ import { lazyWithRetry } from '@/lib/lazyPreload';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GenUIToolbar } from './genui/GenUIToolbar';
 import { AlertTriangle, ExternalLink, RotateCcw } from 'lucide-react';
-import { CRUD_FALLBACK_ROUTES } from './genui/GenUIToolbar';
+import { CRUD_FALLBACK_ROUTES } from './genui/GenUIConstants';
 
 // Registry of components available for Generative UI
 // GenUI components use reloadOnFailure=false to prevent page reload on chunk failures;
