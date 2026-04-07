@@ -150,6 +150,37 @@ class ProactiveScheduler:
                 },
             )
 
+        # 启动系统级扫描任务
+        self._start_system_tasks()
+
+    def _start_system_tasks(self):
+        """启动系统级后台任务"""
+        # 启动审批超时扫描任务
+        task_id = "sys_approval_timeout_scan"
+        if task_id not in self.running_tasks:
+            self.running_tasks[task_id] = asyncio.create_task(self._scan_approval_timeouts_loop())
+
+    async def _scan_approval_timeouts_loop(self):
+        """周期性扫描审批超时任务"""
+        from app.services.approval_service import ApprovalService
+        from app.core.database import supabase
+
+        logger.info("Started system approval timeout scan loop.")
+        while True:
+            try:
+                # 每 15 分钟执行一次扫描
+                client = supabase
+                if client:
+                    escalated = await ApprovalService.check_approval_timeouts(client)
+                    if escalated:
+                        logger.info(f"System scan escalated {len(escalated)} stalled approvals.")
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Approval timeout scan error: {e}")
+
+            await asyncio.sleep(900)  # 15分钟
+
 
 # 全局实例
 proactive_scheduler = ProactiveScheduler()

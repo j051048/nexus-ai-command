@@ -621,3 +621,47 @@ class GetSalesPipelineTool(BaseTool):
             lines.append(f"| {label} | {count} | ¥{value:,.0f} |")
 
         return "\n".join(lines)
+
+
+@register_tool(name="get_pipeline_kanban", category="crm", description="获取看板视图的销售漏斗")
+class GetPipelineKanbanTool(BaseTool):
+    """获取销售漏斗看板视图"""
+
+    name = "get_pipeline_kanban"
+    description = (
+        "获取销售漏斗看板数据，包含每个阶段的客户列表和总金额，用于呈现 Kanban 视图或者了解各个阶段的具体客户组成"
+    )
+    examples = [
+        {"input": {}, "output_summary": "返回按阶段分组（看板）的详细列表及其总额"},
+    ]
+    gotchas = "不包含已流失的详细客户。返回较为结构化或列表呈现的数据。"
+    related_tools = ["get_customers", "get_sales_pipeline"]
+
+    parameters = {"type": "object", "properties": {}, "required": []}
+    domain = "crm"
+
+    async def run(self, args: dict[str, Any], user_id: str, config: dict[str, Any] = None) -> str:
+        client = _get_client(config)
+        org_id = _get_org_id(config)
+        if not org_id:
+            return "❌ 无法获取组织信息，请确保已正确登录。"
+
+        kanban_list = await crm_service.get_pipeline_kanban(org_id, db=client)
+        if not kanban_list:
+            return "当前暂无客户数据。您可以说「创建客户」来添加新客户。"
+
+        lines = ["## 🎯 销售漏斗 Kanban 视图\n"]
+        for stage in kanban_list:
+            if stage["id"] == "churned":
+                continue  # Kanban 视图通常不重点展示已流失，或者可折叠
+
+            lines.append(f"### {stage['name']} ({len(stage['customers'])}名客户) - ¥{stage['total_value']:,.0f}")
+            if not stage["customers"]:
+                lines.append("- 暂无预先商机\n")
+            else:
+                for c in stage["customers"]:
+                    val = float(c.get("estimated_value") or 0)
+                    lines.append(f"  - **{c.get('name', '未知')}** ({c.get('company', '')}) | ¥{val:,.0f}")
+                lines.append("")
+
+        return "\n".join(lines)

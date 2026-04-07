@@ -268,20 +268,24 @@ async def get_tools_capabilities():
         # 仅取前 3 个代表性工具
         if len(domain_map[domain]["tools"]) < 3:
             examples = tool.examples[:1] if tool.examples else []
-            domain_map[domain]["tools"].append({
-                "name": tool.name,
-                "description": tool.description[:80],
-                "examples": examples,
-            })
+            domain_map[domain]["tools"].append(
+                {
+                    "name": tool.name,
+                    "description": tool.description[:80],
+                    "examples": examples,
+                }
+            )
 
     capabilities = sorted(domain_map.values(), key=lambda x: x["tool_count"], reverse=True)
     total = sum(d["tool_count"] for d in capabilities)
 
-    return api_success(data={
-        "capabilities": capabilities,
-        "total_tools": total,
-        "version": "1.0.0",
-    })
+    return api_success(
+        data={
+            "capabilities": capabilities,
+            "total_tools": total,
+            "version": "1.0.0",
+        }
+    )
 
 
 @router.get("/history/{session_id}")

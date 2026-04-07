@@ -274,3 +274,109 @@ class ApprovalService:
             "historical_context": historical_context,
             "recommendation": recommendation,
         }
+
+    # ==========================
+    # P1: Urgency & Timeouts
+    # ==========================
+
+    @staticmethod
+    async def urge_approval(approval_id: str, user_id: str, reason: str, db=None) -> dict:
+        """
+        P1-5: Urge an existing pending approval.
+        Updates the urgency indicator and logs the reason.
+        """
+        if not db:
+            raise RuntimeError("Database client is required to urge an approval")
+
+        res = await db.table("approval_requests").select("*").eq("id", approval_id).execute()
+        if not res.data:
+            raise ValueError(f"ID为 {approval_id} 的审批请求未找到")
+
+        req = res.data[0]
+        if req.get("status") != "pending":
+            raise ValueError(f"只能催办待处理的审批，该审批当前状态为：{req.get('status')}")
+
+        # In a full data model, we might have an `urgency_level` or `comments` JSON field.
+        # Here we bump the `updated_at` time to push it up in the queue, and could store context.
+        # We will assume a `metadata` JSONB column exists, or just use `updated_at`.
+        current_metadata = req.get("metadata") or {}
+        urgency_count = current_metadata.get("urgency_count", 0) + 1
+        current_metadata["urgency_count"] = urgency_count
+        current_metadata["last_urgency_reason"] = reason
+        current_metadata["last_urgency_time"] = datetime.now(UTC).isoformat()
+        current_metadata["last_urged_by"] = user_id
+
+        update_res = (
+            await db.table("approval_requests")
+            .update({"metadata": current_metadata, "updated_at": datetime.now(UTC).isoformat()})
+            .eq("id", approval_id)
+            .execute()
+        )
+
+        # Emit business event for notifications
+        try:
+            from app.services.event_bus import EventType, event_bus
+
+            await event_bus.emit(
+                EventType.SYSTEM_ALERT.value,
+                {
+                    "source": "approval_service",
+                    "message": f"审批被催办: {req.get('type')} / {req.get('details')}",
+                    "approval_id": approval_id,
+                    "urgency_count": urgency_count,
+                },
+            )
+        except Exception as e:
+            logger.error(f"Event bus error while urging: {e}")
+
+        return {"success": True, "message": f"成功催办审批", "urgency_count": urgency_count}
+
+    @staticmethod
+    async def check_approval_timeouts(db=None) -> list[dict]:
+        """
+        P1-5: Proactive timeout detection logic.
+        Scans for pending approvals older than 24 hours (or SLA) and escalates them.
+        """
+        if not db:
+            raise RuntimeError("Database client is required to check timeouts")
+
+        timeout_threshold = (datetime.now(UTC) - timedelta(hours=24)).isoformat()
+
+        res = (
+            await db.table("approval_requests")
+            .select("*")
+            .eq("status", "pending")
+            .lt("created_at", timeout_threshold)
+            .execute()
+        )
+
+        escalated = []
+        for req in res.data or []:
+            current_metadata = req.get("metadata") or {}
+            if current_metadata.get("is_escalated"):
+                continue  # Already escalated
+
+            current_metadata["is_escalated"] = True
+            current_metadata["escalation_time"] = datetime.now(UTC).isoformat()
+
+            await db.table("approval_requests").update({"metadata": current_metadata}).eq("id", req["id"]).execute()
+
+            escalated.append({"id": req["id"], "type": req.get("type"), "details": req.get("details")})
+
+            # Send escalation alert
+            try:
+                from app.services.event_bus import EventType, event_bus
+
+                await event_bus.emit(
+                    EventType.SYSTEM_ALERT.value,
+                    {
+                        "source": "approval_service",
+                        "level": "warning",
+                        "message": f"⚠️ 审批已超时 24 小时并被升级: {req.get('type')}",
+                        "approval_id": req["id"],
+                    },
+                )
+            except Exception as e:
+                logger.error(f"Event bus error during timeout check: {e}")
+
+        return escalated

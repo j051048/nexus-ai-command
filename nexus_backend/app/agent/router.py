@@ -941,4 +941,34 @@ async def route_node(state: AgentState) -> dict:
         result["agent_code"] = agent_code
         result["scene_code"] = scene_code
 
+    # P1-7: Check for workflow recipes using regex
+    try:
+        import re
+        from app.agent.workflow_recipes import RECIPES
+
+        matched_recipe = None
+
+        contract_approval_pattern = re.compile(
+            r"(提交|发起|申请).*(合同|协议).*(审批|核准)|(合同|协议).*(提交|发起|申请).*(审批|核准)"
+        )
+        onboard_pattern = re.compile(r"(办理|给|为|新).*(入职|报到)")
+
+        if contract_approval_pattern.search(last_user_msg):
+            matched_recipe = "submit_contract_approval"
+        elif onboard_pattern.search(last_user_msg):
+            matched_recipe = "onboard_employee"
+
+        if matched_recipe and matched_recipe in RECIPES:
+            # Check if it's a pydantic model or dataclass
+            recipe = RECIPES[matched_recipe]
+            if hasattr(recipe, "model_dump"):
+                result["workflow_recipe"] = recipe.model_dump()
+            elif hasattr(recipe, "dict"):
+                result["workflow_recipe"] = recipe.dict()
+            else:
+                result["workflow_recipe"] = vars(recipe)
+            logger.info(f"[Router] Matched workflow recipe: {matched_recipe} for query '{last_user_msg}'")
+    except Exception as e:
+        logger.debug(f"[Router] Workflow recipe matching skipped: {e}")
+
     return result

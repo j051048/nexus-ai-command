@@ -180,3 +180,51 @@ class TestQueryComplexityModelTier:
 
     def test_critical_flagship(self):
         assert QueryComplexity.CRITICAL.model_tier == "flagship"
+
+class TestWorkflowRecipeMatching:
+    @pytest.mark.asyncio
+    async def test_contract_approval_recipe(self):
+        from app.agent.router import route_node
+        from langchain_core.messages import HumanMessage
+        from unittest.mock import MagicMock
+        config = MagicMock()
+        config.get_model_for_complexity.return_value = "gpt-4o-mini"
+        state = {"messages": [HumanMessage(content="我有一个合同需要提交审批")], "config": config}
+        result = await route_node(state)
+        assert "workflow_recipe" in result
+        assert result["workflow_recipe"]["name"] == "submit_contract_approval"
+
+    @pytest.mark.asyncio
+    async def test_contract_approval_recipe_alt(self):
+        from app.agent.router import route_node
+        from langchain_core.messages import HumanMessage
+        from unittest.mock import MagicMock
+        config = MagicMock()
+        config.get_model_for_complexity.return_value = "gpt-4o-mini"
+        state = {"messages": [HumanMessage(content="发起协议核准")], "config": config}
+        result = await route_node(state)
+        assert "workflow_recipe" in result
+        assert result["workflow_recipe"]["name"] == "submit_contract_approval"
+
+    @pytest.mark.asyncio
+    async def test_onboard_employee_recipe(self):
+        from app.agent.router import route_node
+        from langchain_core.messages import HumanMessage
+        from unittest.mock import MagicMock
+        config = MagicMock()
+        config.get_model_for_complexity.return_value = "gpt-4o-mini"
+        state = {"messages": [HumanMessage(content="给新员工办理入职")], "config": config}
+        result = await route_node(state)
+        assert "workflow_recipe" in result
+        assert result["workflow_recipe"]["name"] == "onboard_employee"
+
+    @pytest.mark.asyncio
+    async def test_no_recipe_matched(self):
+        from app.agent.router import route_node
+        from langchain_core.messages import HumanMessage
+        from unittest.mock import MagicMock
+        config = MagicMock()
+        config.get_model_for_complexity.return_value = "gpt-4o-mini"
+        state = {"messages": [HumanMessage(content="查询天气")], "config": config}
+        result = await route_node(state)
+        assert "workflow_recipe" not in result

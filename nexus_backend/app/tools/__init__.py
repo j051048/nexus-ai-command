@@ -42,6 +42,7 @@ _TOOL_MODULES: dict[str, tuple[str, str]] = {
     "submit_approval_on_behalf": ("app.tools.approval_tools", "SubmitApprovalOnBehalfTool"),
     "get_employee_info": ("app.tools.approval_tools", "GetEmployeeInfoTool"),
     "get_employee_approval_history": ("app.tools.approval_tools", "GetEmployeeApprovalHistoryTool"),
+    "urge_approval": ("app.tools.approval_tools", "UrgeApprovalTool"),
     # operational_tools
     "get_performance_report": ("app.tools.operational_tools", "PerformanceReportTool"),
     "get_company_stats": ("app.tools.operational_tools", "CompanyStatsTool"),

@@ -258,4 +258,3 @@ class BaseTool(ABC):
             "summary": summary,
             "actions": actions or [],
         }
-

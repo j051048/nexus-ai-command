@@ -295,7 +295,36 @@ class CRMService:
         # 无数据库连接时返回空列表
         return []
 
-    # ─── 客户统计 ──────────────────────────────────────────
+    # ─── 客户统计与看板 ──────────────────────────────────────────
+
+    async def get_pipeline_kanban(self, org_id: str, db=None) -> list[dict]:
+        """获取 Pipeline 看板数据 (Kanban Board)"""
+        customers = await self.list_customers(org_id, db=db)
+
+        kanban_data = {
+            stage_key: {
+                "id": stage_key,
+                "name": stage_info["name"],
+                "color": stage_info["color"],
+                "order": stage_info["order"],
+                "customers": [],
+                "total_value": 0.0,
+            }
+            for stage_key, stage_info in CUSTOMER_STAGES.items()
+        }
+
+        for c in customers:
+            stage = c.get("stage", "lead")
+            if stage in kanban_data:
+                kanban_data[stage]["customers"].append(c)
+                val = float(c.get("estimated_value") or 0)
+                kanban_data[stage]["total_value"] += val
+
+        # 按阶段顺序排序
+        kanban_list = list(kanban_data.values())
+        kanban_list.sort(key=lambda x: x["order"])
+
+        return kanban_list
 
     async def get_customer_stats(self, org_id: str, db=None) -> dict:
         """客户统计: 总数、各阶段分布、新增、转化率"""

@@ -246,3 +246,20 @@ class TestGetEmployeeApprovalHistoryTool:
             result = await tool.run({"employee_id": FAKE_USER_ID, "limit": 2}, FAKE_USER_ID, CONFIG)
         assert "2条审批记录" in result
         assert "AI代提交" in result
+
+class TestUrgeApprovalTool:
+    @pytest.mark.asyncio
+    async def test_urge_approval(self):
+        tool = _load_tool("urge_approval")
+        with patch("app.tools.approval_tools.ApprovalService", create=True) as mock_service:
+            with patch("app.services.approval_service.ApprovalService.urge_approval", new_callable=AsyncMock) as mock_method:
+                mock_method.return_value = {"message": "催办成功"}
+                result = await tool.run({"request_id": FAKE_REQ_ID, "reason": "urgency"}, FAKE_USER_ID, CONFIG)
+                assert "成功" in result or "催办" in result or "message" in result
+                
+    @pytest.mark.asyncio
+    async def test_invalid_uuid(self):
+        tool = _load_tool("urge_approval")
+        result = await tool.run({"request_id": "not-uuid", "reason": "x"}, FAKE_USER_ID, CONFIG)
+        assert "ID" in result or "UUID" in result
+
