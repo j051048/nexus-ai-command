@@ -232,6 +232,7 @@ export function useAdvanceApproval() {
   });
 }
 
+
 export function usePendingApprovalsCount() {
   const { profile } = useAuth();
   return useQuery({
@@ -244,3 +245,27 @@ export function usePendingApprovalsCount() {
     }
   });
 }
+
+export function useUrgeApproval() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (requestId: string) => {
+      const result = await aiClient.fetch<{ success: boolean; message?: string }>(
+        `api/approval/${requestId}/urge`,
+        {
+          method: 'POST',
+        }
+      );
+      return result;
+    },
+    onSuccess: (data) => {
+      toast.success(data.message || '已成功提醒审批人');
+      queryClient.invalidateQueries({ queryKey: ['approvals'] });
+      queryClient.invalidateQueries({ queryKey: ['approval-progress'] });
+    },
+    onError: (error: Error) => {
+      toast.error('催办失败: ' + error.message);
+    }
+  });
+}
+

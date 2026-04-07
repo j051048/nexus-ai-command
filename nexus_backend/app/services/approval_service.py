@@ -306,8 +306,8 @@ class ApprovalService:
         current_metadata["last_urgency_time"] = datetime.now(UTC).isoformat()
         current_metadata["last_urged_by"] = user_id
 
-        update_res = (
-            await db.table("approval_requests")
+        await (
+            db.table("approval_requests")
             .update({"metadata": current_metadata, "updated_at": datetime.now(UTC).isoformat()})
             .eq("id", approval_id)
             .execute()
@@ -329,7 +329,7 @@ class ApprovalService:
         except Exception as e:
             logger.error(f"Event bus error while urging: {e}")
 
-        return {"success": True, "message": f"成功催办审批", "urgency_count": urgency_count}
+        return {"success": True, "message": "成功催办审批", "urgency_count": urgency_count}
 
     @staticmethod
     async def check_approval_timeouts(db=None) -> list[dict]:

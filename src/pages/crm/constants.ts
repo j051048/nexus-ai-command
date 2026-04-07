@@ -8,13 +8,14 @@ import {
 } from 'lucide-react';
 import type { ExportColumn } from '@/components/common/DataExport';
 
-export const STAGES: Record<string, { name: string; color: string; bg: string }> = {
-  lead: { name: '线索', color: 'text-slate-600', bg: 'bg-slate-100 dark:bg-slate-800' },
-  prospect: { name: '意向', color: 'text-blue-600', bg: 'bg-blue-100 dark:bg-blue-900/30' },
-  opportunity: { name: '商机', color: 'text-amber-600', bg: 'bg-amber-100 dark:bg-amber-900/30' },
-  customer: { name: '成交', color: 'text-green-600', bg: 'bg-green-100 dark:bg-green-900/30' },
-  churned: { name: '流失', color: 'text-red-600', bg: 'bg-red-100 dark:bg-red-900/30' },
+export const STAGES: Record<string, { name: string; color: string; bg: string; border: string }> = {
+  lead: { name: '线索', color: 'text-slate-600', bg: 'bg-slate-100 dark:bg-slate-800', border: 'border-l-slate-400' },
+  prospect: { name: '意向', color: 'text-blue-600', bg: 'bg-blue-100 dark:bg-blue-900/30', border: 'border-l-blue-400' },
+  opportunity: { name: '商机', color: 'text-amber-600', bg: 'bg-amber-100 dark:bg-amber-900/30', border: 'border-l-amber-400' },
+  customer: { name: '成交', color: 'text-green-600', bg: 'bg-green-100 dark:bg-green-900/30', border: 'border-l-green-400' },
+  churned: { name: '流失', color: 'text-red-600', bg: 'bg-red-100 dark:bg-red-900/30', border: 'border-l-red-400' },
 };
+
 
 export const CRM_EXPORT_COLUMNS: ExportColumn[] = [
   { key: 'name', label: '客户名称' },

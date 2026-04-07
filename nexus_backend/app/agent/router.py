@@ -944,6 +944,7 @@ async def route_node(state: AgentState) -> dict:
     # P1-7: Check for workflow recipes using regex
     try:
         import re
+
         from app.agent.workflow_recipes import RECIPES
 
         matched_recipe = None

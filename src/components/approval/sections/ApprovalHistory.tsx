@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Clock, Loader2, CheckCircle2, XCircle, Bot, ChevronDown, ChevronUp } from 'lucide-react';
+import { Clock, Loader2, CheckCircle2, XCircle, Bot, ChevronDown, ChevronUp, BellRing, Plane, ShoppingCart, Receipt, Calendar as CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ApprovalRequest, useApprovalProgress } from '@/hooks/useApprovals';
+import { ApprovalRequest, useApprovalProgress, useUrgeApproval } from '@/hooks/useApprovals';
 import { AICopilotInsight } from '@/components/common/AICopilotInsight';
 import { ApprovalProgressTracker } from '../components/ApprovalProgressTracker';
-import { Plane, ShoppingCart, Receipt, Calendar as CalendarIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const approvalTypes = [
     { id: 'travel', icon: <Plane className="w-4 h-4" /> },
@@ -62,10 +63,12 @@ export function ApprovalHistory({
     isLoading
 }: ApprovalHistoryProps) {
     const [expandedId, setExpandedId] = useState<string | null>(null);
+    const urgeMutation = useUrgeApproval();
 
     const toggleExpand = (id: string) => {
         setExpandedId((prev) => (prev === id ? null : id));
     };
+
     if (isLoading) {
         return (
             <div className="bg-card rounded-2xl p-6 border border-border">
@@ -93,6 +96,8 @@ export function ApprovalHistory({
                         const status = statusConfig[item.status as keyof typeof statusConfig] || statusConfig.pending;
                         const typeInfo = approvalTypes.find(t => t.id === item.type);
                         const isExpanded = expandedId === item.id;
+                        const isPending = item.status === 'pending';
+                        const isUrging = urgeMutation.isPending && (urgeMutation.variables as string || null) === item.id;
 
                         return (
                             <div key={item.id} className="rounded-xl overflow-hidden">
@@ -120,7 +125,6 @@ export function ApprovalHistory({
                                             <p className="text-xs text-muted-foreground">
                                                 {new Date(item.created_at).toLocaleString('zh-CN')}
                                             </p>
-                                            {/* 显示AI代提交标识 */}
                                             {(item as unknown as { submitted_via?: string }).submitted_via === 'ai_assistant' && (
                                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-purple-500/10 text-purple-500">
                                                     <Bot className="w-3 h-3" />
@@ -129,13 +133,44 @@ export function ApprovalHistory({
                                             )}
                                         </div>
                                     </div>
-                                    {item.amount > 0 && (
-                                        <p className="text-sm font-bold text-foreground pr-2 font-mono">¥{item.amount.toLocaleString()}</p>
-                                    )}
-                                    <div className={cn("flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider", status.color)}>
-                                        {status.icon}
-                                        {status.label}
+
+                                    {/* Action Area */}
+                                    <div className="flex items-center gap-3 pr-2" onClick={e => e.stopPropagation()}>
+                                        {item.amount > 0 && (
+                                            <p className="text-sm font-bold text-foreground font-mono">¥{item.amount.toLocaleString()}</p>
+                                        )}
+                                        
+                                        {isPending && (
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button
+                                                            size="icon"
+                                                            variant="ghost"
+                                                            disabled={isUrging}
+                                                            onClick={() => urgeMutation.mutate(item.id)}
+                                                            className="h-8 w-8 rounded-full hover:bg-warning/10 hover:text-warning group/urge overflow-hidden relative"
+                                                        >
+                                                            {isUrging ? (
+                                                                <Loader2 className="h-4 w-4 animate-spin text-warning" />
+                                                            ) : (
+                                                                <BellRing className="h-4 w-4 group-hover/urge:animate-bounce" />
+                                                            )}
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <p>催办此流程 (AI将提醒审批人)</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        )}
+
+                                        <div className={cn("flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider", status.color)}>
+                                            {status.icon}
+                                            {status.label}
+                                        </div>
                                     </div>
+
                                     <div className="text-muted-foreground flex-shrink-0">
                                         {isExpanded ? (
                                             <ChevronUp className="w-4 h-4" />
@@ -144,7 +179,6 @@ export function ApprovalHistory({
                                         )}
                                     </div>
                                 </div>
-                                {/* Expandable progress tracker */}
                                 {isExpanded && (
                                     <div className="bg-secondary/20 border-x border-b border-border/30 rounded-b-xl -mt-2 pt-2">
                                         <HistoryItemProgress requestId={item.id} />

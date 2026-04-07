@@ -5,11 +5,11 @@ P1-7: Workflow Recipes
 当 router 识别出特定意图时，可跳过 planning，直接按这里定义的顺序执行。
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 
 class WorkflowRecipe:
-    def __init__(self, name: str, description: str, steps: List[Dict[str, Any]]):
+    def __init__(self, name: str, description: str, steps: list[dict[str, Any]]):
         self.name = name
         self.description = description
         self.steps = steps

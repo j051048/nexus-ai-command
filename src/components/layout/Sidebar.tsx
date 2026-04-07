@@ -130,17 +130,17 @@ function savePinnedItems(items: string[]) {
 }
 
 const NAV_CONFIG: NavItem[] = [
-  // 一级导航 (8项高频)
+  // 一级导航 (6项核心)
   { icon: <LayoutDashboard size={18} />, label: "工作台", href: "dashboard", group: "primary" },
   { icon: <Inbox size={18} />, label: "待办", href: "inbox", group: "primary" },
-  { icon: <TrendingUp size={18} />, label: "销售", href: "sales", group: "primary" },
-  { icon: <Contact size={18} />, label: "客户", href: "crm", group: "primary" },
-  { icon: <FileCheck size={18} />, label: "审批", href: "approval", group: "primary" },
-  { icon: <Briefcase size={18} />, label: "项目", href: "projects", group: "primary" },
+  { icon: <Contact size={18} />, label: "客户与销售", href: "crm", group: "primary" },
+  { icon: <Briefcase size={18} />, label: "项目管理", href: "projects", group: "primary" },
+  { icon: <FileCheck size={18} />, label: "审批中心", href: "approval", group: "primary" },
   { icon: <Bot size={18} />, label: "AI助手", href: "#ai-chat", group: "primary" },
-  { icon: <Settings size={18} />, label: "设置", href: "settings", group: "primary" },
 
   // 二级导航 (折叠在"更多"中)
+  { icon: <Settings size={18} />, label: "系统设置", href: "settings", group: "更多" },
+  { icon: <TrendingUp size={18} />, label: "销售管道", href: "sales", group: "更多" },
   { icon: <Crown size={18} />, label: "总控中心", href: "boss-dashboard", roles: ["boss", "founder"], group: "更多" },
   { icon: <Swords size={18} />, label: "竞品库", href: "battlecards", group: "更多" },
   { icon: <Target size={18} />, label: "目标看板", href: "target-dashboard", group: "更多" },
@@ -162,6 +162,7 @@ const NAV_CONFIG: NavItem[] = [
   { icon: <Building2 size={18} />, label: "公司设置", href: "company-settings", roles: ["boss", "founder"], group: "更多" },
   { icon: <Cpu size={18} />, label: "模型", href: "llm/models", roles: ["boss", "founder"], group: "更多" },
 ];
+
 
 const NAV_GROUPS = ["primary", "更多"];
 

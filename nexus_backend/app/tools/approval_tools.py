@@ -13,7 +13,7 @@ from typing import Any
 
 from app.tools._shared import safe_tool_error
 
-from ._shared import _get_client
+from ._shared import _get_client, _validate_uuid, _validate_uuid
 from .base_tool import BaseTool
 
 logger = logging.getLogger(__name__)

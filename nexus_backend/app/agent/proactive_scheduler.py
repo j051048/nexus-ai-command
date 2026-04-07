@@ -162,8 +162,8 @@ class ProactiveScheduler:
 
     async def _scan_approval_timeouts_loop(self):
         """周期性扫描审批超时任务"""
-        from app.services.approval_service import ApprovalService
         from app.core.database import supabase
+        from app.services.approval_service import ApprovalService
 
         logger.info("Started system approval timeout scan loop.")
         while True:
