@@ -14,15 +14,28 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 # Model codes too weak for power/flagship complexity tasks
-_WEAK_MODEL_PATTERNS = {"mini", "turbo", "haiku", "lite"}
-_WEAK_MODEL_CODES = {"deepseek-chat", "qwen-plus-latest"}
+_WEAK_MODEL_PATTERNS = {"mini", "flash", "turbo-mini", "haiku", "lite", "nano", "small", "instant"}
+_WEAK_MODEL_CODES = {"deepseek-chat", "qwen-plus-latest", "qwen-turbo", "glm-4-flash", "yi-lightning"}
 
 # Models that contain weak-sounding substrings but are actually capable
-_STRONG_MODEL_OVERRIDES = {"gemini-3-flash-preview", "gemini-2.0-flash", "gemini-2.5-flash-preview-05-20"}
+_STRONG_MODEL_OVERRIDES = {
+    "gemini-3-flash-preview",
+    "gemini-2.0-flash",
+    "gemini-2.5-flash-preview-05-20",
+    "claude-3.5-sonnet",  # contains no weak pattern but guard future renames
+}
 
 
 def is_weak_model(model_name: str) -> bool:
-    """Check if a model is too weak for power/flagship tier tasks."""
+    """Check if a model is too weak for power/flagship tier tasks.
+
+    Covers common weak model families: mini, flash, turbo-mini, haiku,
+    lite, nano, small, instant, and specific model codes known to be
+    economy-tier.  Strong model overrides are whitelisted to avoid
+    false positives (e.g. gemini-2.0-flash is capable despite 'flash').
+    """
+    if not model_name:
+        return True
     if model_name in _STRONG_MODEL_OVERRIDES:
         return False
     lower = model_name.lower()

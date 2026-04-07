@@ -13,7 +13,7 @@ Strategy:
 import logging
 import re
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 
 logger = logging.getLogger(__name__)
 
@@ -162,19 +162,11 @@ def _split_messages(
     return system_msgs, older, recent
 
 
-async def _summarize_messages(
-    messages: list[BaseMessage],
-    model: str = "gpt-4o-mini",
-) -> str:
-    """Use LLM to generate a concise summary of conversation messages."""
-    if not messages:
-        return ""
-
-    # Build conversation text for summarization
+def _build_conversation_text(messages: list[BaseMessage]) -> str:
+    """将消息列表转换为可读的对话文本。"""
     conv_parts = []
     for msg in messages:
         content = msg.content if isinstance(msg.content, str) else str(msg.content)
-        # Truncate very long messages
         if len(content) > 500:
             content = content[:500] + "..."
 
@@ -185,17 +177,115 @@ async def _summarize_messages(
         else:
             conv_parts.append(f"[{msg.type}]: {content}")
 
-    conversation_text = "\n".join(conv_parts)
+    return "\n".join(conv_parts)
 
-    summary_prompt = f"""请将以下对话历史压缩为简洁的摘要。保留关键信息：
-- 用户的主要问题和意图
-- 重要的数据和结论
-- 待处理的事项或未解决的问题
+
+async def _update_summary(
+    existing_summary: str,
+    new_messages: list[BaseMessage],
+    model: str = "gpt-4o-mini",
+) -> str:
+    """在已有摘要基础上增量更新，避免信息丢失。"""
+    if not new_messages:
+        return existing_summary
+
+    new_conversation_text = _build_conversation_text(new_messages)
+
+    update_prompt = f"""你需要在已有的对话摘要基础上进行增量更新。
+
+已有摘要:
+{existing_summary}
+
+新增对话:
+{new_conversation_text}
+
+请按以下规则更新摘要：
+1. 保留已有摘要中所有仍然相关的信息
+2. 将"待处理"中已在新对话中完成的事项移到"已完成"
+3. 添加新对话中出现的新信息
+4. 严格使用以下格式输出：
+
+## 目标
+用户的主要目标和意图（1-2句）
+
+## 已完成
+- 已经完成的操作和获得的结果
+
+## 关键决策
+- 做出的重要决策和原因
+
+## 待处理
+- 尚未完成的事项
+
+## 关键数据
+- 重要的数字、名称、ID等不可丢失的信息
+
+请保留所有关键事实和数字，不要遗漏。"""
+
+    try:
+        from openai import AsyncOpenAI
+
+        from app.core.config import settings
+
+        client = AsyncOpenAI(
+            api_key=settings.OPENAI_API_KEY,
+            base_url=settings.AI_BASE_URL,
+        )
+
+        import asyncio
+
+        response = await asyncio.wait_for(
+            client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": update_prompt}],
+                max_tokens=500,
+                temperature=0.3,
+            ),
+            timeout=10,
+        )
+        summary = response.choices[0].message.content.strip()
+        logger.info(
+            f"[PromptCompression] Incremental update: merged {len(new_messages)} new messages into existing summary"
+        )
+        return summary
+    except Exception as e:
+        logger.warning(f"[PromptCompression] Incremental update failed: {e}, appending new summary")
+        # Fallback: 在已有摘要后追加新消息的简单摘要
+        fallback = await _summarize_messages(new_messages, model=model)
+        return f"{existing_summary}\n\n[后续补充]\n{fallback}"
+
+
+async def _summarize_messages(
+    messages: list[BaseMessage],
+    model: str = "gpt-4o-mini",
+) -> str:
+    """Use LLM to generate a structured summary of conversation messages."""
+    if not messages:
+        return ""
+
+    conversation_text = _build_conversation_text(messages)
+
+    summary_prompt = f"""请将以下对话历史压缩为结构化摘要。使用以下格式：
+
+## 目标
+用户的主要目标和意图（1-2句）
+
+## 已完成
+- 已经完成的操作和获得的结果
+
+## 关键决策
+- 做出的重要决策和原因
+
+## 待处理
+- 尚未完成的事项
+
+## 关键数据
+- 重要的数字、名称、ID等不可丢失的信息
 
 对话历史:
 {conversation_text}
 
-请用2-4句话概括以上对话的要点。不要遗漏关键事实和数字。"""
+请严格按照上述格式输出，保留所有关键事实和数字。"""
 
     try:
         from openai import AsyncOpenAI
@@ -299,6 +389,36 @@ def _deduplicate_consecutive_replies(messages: list[BaseMessage]) -> list[BaseMe
     return result
 
 
+def _fix_orphaned_tool_pairs(messages: list[BaseMessage]) -> list[BaseMessage]:
+    """移除压缩后孤立的 tool call/result 对。
+
+    压缩可能导致 AIMessage（含 tool_calls）被摘要替换，
+    但对应的 ToolMessage 仍留在 recent 区间，造成孤立。
+    此函数清理这些不完整的配对。
+    """
+    # 收集所有 AIMessage 中的 tool_call_id
+    valid_tool_call_ids: set[str] = set()
+    for msg in messages:
+        if isinstance(msg, AIMessage) and hasattr(msg, "tool_calls"):
+            for tc in msg.tool_calls or []:
+                tc_id = tc.get("id", "")
+                if tc_id:
+                    valid_tool_call_ids.add(tc_id)
+
+    # 过滤掉没有对应 tool_call 的 ToolMessage
+    filtered = [
+        msg
+        for msg in messages
+        if not isinstance(msg, ToolMessage) or getattr(msg, "tool_call_id", "") in valid_tool_call_ids
+    ]
+
+    removed = len(messages) - len(filtered)
+    if removed > 0:
+        logger.info(f"[PromptCompression] Removed {removed} orphaned ToolMessage(s)")
+
+    return filtered
+
+
 async def compress_conversation_history(
     messages: list[BaseMessage],
     max_tokens: int = DEFAULT_MAX_TOKENS_BEFORE_COMPRESS,
@@ -351,8 +471,25 @@ async def compress_conversation_history(
         # Nothing to compress
         return messages
 
-    # Summarize older messages
-    summary = await _summarize_messages(older_msgs, model=model)
+    # Check if there's an existing summary from a previous compression (iterative update)
+    existing_summary = None
+    for msg in system_msgs:
+        content = msg.content if isinstance(msg.content, str) else str(msg.content)
+        if "[对话历史摘要" in content:
+            existing_summary = content
+            break
+
+    if existing_summary:
+        # Incremental update mode: merge new messages into existing summary
+        summary = await _update_summary(existing_summary, older_msgs, model=model)
+        # Remove the old summary from system_msgs to avoid duplication
+        system_msgs = [
+            msg
+            for msg in system_msgs
+            if "[对话历史摘要" not in (msg.content if isinstance(msg.content, str) else str(msg.content))
+        ]
+    else:
+        summary = await _summarize_messages(older_msgs, model=model)
 
     # Reconstruct compressed message list
     compressed = list(system_msgs)
@@ -366,5 +503,8 @@ async def compress_conversation_history(
         f"~{token_count} → ~{new_token_count} tokens "
         f"(saved ~{token_count - new_token_count} tokens)"
     )
+
+    # Fix orphaned tool call/result pairs caused by compression
+    compressed = _fix_orphaned_tool_pairs(compressed)
 
     return compressed

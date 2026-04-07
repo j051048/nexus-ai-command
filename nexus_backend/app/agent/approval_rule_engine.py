@@ -11,8 +11,74 @@ DB reads on every tool call.
 from __future__ import annotations
 
 import logging
+import threading
 import time
+from contextvars import ContextVar
+from enum import StrEnum
 from typing import Any
+
+
+# ---------------------------------------------------------------------------
+# Hermes-inspired three-tier approval scope
+# ---------------------------------------------------------------------------
+
+
+class ApprovalScope(StrEnum):
+    """审批范围 — Hermes-inspired three-tier approval."""
+
+    ONCE = "once"  # 仅本次操作
+    SESSION = "session"  # 当前会话内同类操作自动通过
+    PERMANENT = "permanent"  # 永久白名单（存入 DB）
+
+
+_session_id_var: ContextVar[str] = ContextVar("approval_session_id", default="")
+
+
+class SessionApprovalCache:
+    """会话级审批缓存 — 同类操作在同一会话内只需确认一次。"""
+
+    def __init__(self) -> None:
+        self._cache: dict[str, set[str]] = {}  # session_id -> set of approved operation patterns
+        self._lock = threading.Lock()
+
+    def is_approved(self, session_id: str, operation_pattern: str) -> bool:
+        """检查操作是否已在当前会话中被批准。"""
+        with self._lock:
+            return operation_pattern in self._cache.get(session_id, set())
+
+    def approve(self, session_id: str, operation_pattern: str, scope: ApprovalScope) -> None:
+        """记录审批决策。"""
+        if scope == ApprovalScope.ONCE:
+            return  # 单次审批不缓存
+
+        if scope == ApprovalScope.PERMANENT:
+            # 永久白名单 — 所有 session 都通过
+            with self._lock:
+                self._cache.setdefault("__permanent__", set()).add(operation_pattern)
+            return
+
+        with self._lock:
+            if session_id not in self._cache:
+                self._cache[session_id] = set()
+            self._cache[session_id].add(operation_pattern)
+
+    def is_permanently_approved(self, operation_pattern: str) -> bool:
+        """检查是否在永久白名单中。"""
+        with self._lock:
+            return operation_pattern in self._cache.get("__permanent__", set())
+
+    def clear_session(self, session_id: str) -> None:
+        """清除会话缓存（会话结束时调用）。"""
+        with self._lock:
+            self._cache.pop(session_id, None)
+
+    def _make_pattern(self, tool_name: str, action_type: str = "") -> str:
+        """生成操作模式指纹。"""
+        return f"{tool_name}:{action_type}" if action_type else tool_name
+
+
+# 全局实例
+session_approval_cache = SessionApprovalCache()
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +154,14 @@ async def check_dynamic_rules(
     Returns None if no rule matches (tool call allowed).
     Returns a dict with {reason, escalation, policy_name} if a rule blocks.
     """
+    # ---- 会话级缓存检查 (Hermes-style) ----
+    action_type = tool_args.get("action_type", "")
+    pattern = session_approval_cache._make_pattern(tool_name, action_type)
+    session_id = _session_id_var.get("")
+    if session_id and session_approval_cache.is_approved(session_id, pattern):
+        logger.info(f"[Approval] Session-cached approval for {pattern}")
+        return None  # 已在会话中批准，放行
+
     # Quick check: does this tool type have any associated approval types?
     relevant_types = _TOOL_TO_TYPES.get(tool_name)
     if not relevant_types:

@@ -600,6 +600,61 @@ def _filter_negated_keywords(text: str, keywords: set[str]) -> set[str]:
     return filtered
 
 
+# ─── Cheap Route Pre-check (Hermes-style heuristic) ───────────────────────
+# Before entering expensive keyword scanning or LLM fallback, use message
+# length and surface signals (code blocks, URLs, business keywords) to
+# short-circuit obviously cheap queries with zero LLM cost.
+
+_CODE_BLOCK_RE = re.compile(r"```")
+_URL_RE = re.compile(r"https?://\S+", re.IGNORECASE)
+
+
+def _try_cheap_route(text: str) -> tuple[QueryComplexity, str] | None:
+    """Hermes-style conservative heuristic pre-check before LLM classification.
+
+    Uses message length, word count, and surface-level signals (code blocks, URLs,
+    business keywords) to short-circuit cheap queries without any LLM cost.
+
+    Returns (complexity, intent_summary) if a cheap route is found, else None.
+    """
+    msg_len = len(text)
+    words = len(text.split())
+    has_code = bool(_CODE_BLOCK_RE.search(text))
+    has_url = bool(_URL_RE.search(text))
+
+    # Rule 1: Short, non-technical, non-business message -> SIMPLE
+    # Guard: skip if the message matches realtime-info or longform-writing patterns,
+    # which need their own dedicated classification paths downstream.
+    if msg_len < 100 and not has_code and not has_url:
+        biz_hits = _filter_negated_keywords(text, _ALL_BUSINESS_KEYWORDS)
+        if not biz_hits and not _REALTIME_INFO_PATTERNS.search(text) and not _LONGFORM_WRITING_RE.search(text):
+            logger.info(
+                "[Router] Cheap route: '%s' -> SIMPLE (len=%d, words=%d)",
+                text[:30],
+                msg_len,
+                words,
+            )
+            return QueryComplexity.SIMPLE, "一般对话(快速路由)"
+
+    # Rule 2: Medium-length, only MODERATE-level keywords -> MODERATE
+    if msg_len < 200 and not has_code and not has_url:
+        biz_hits = _filter_negated_keywords(text, _ALL_BUSINESS_KEYWORDS)
+        if biz_hits:
+            hits_critical = biz_hits.intersection(_CRITICAL_KEYWORDS)
+            hits_complex = biz_hits.intersection(_COMPLEX_KEYWORDS)
+            hits_moderate = biz_hits.intersection(_MODERATE_KEYWORDS)
+            if hits_moderate and not hits_critical and not hits_complex:
+                logger.info(
+                    "[Router] Cheap route: '%s' -> MODERATE (len=%d, words=%d)",
+                    text[:30],
+                    msg_len,
+                    words,
+                )
+                return QueryComplexity.MODERATE, f"工具查询(快速路由): {', '.join(biz_hits)}"
+
+    return None
+
+
 def classify_query(query: str) -> tuple[QueryComplexity, str]:
     """
     Fast heuristic classification of user intent.
@@ -625,6 +680,13 @@ def classify_query(query: str) -> tuple[QueryComplexity, str]:
     # 1c2. Memory / recall queries — need memory context, MUST NOT be SIMPLE
     if _MEMORY_RECALL_PATTERNS.search(text):
         return QueryComplexity.MODERATE, "记忆回顾/历史对话查询"
+
+    # 1c3. Cheap route pre-check — Hermes-style conservative heuristic.
+    # Before expensive keyword scanning or LLM fallback, use message length
+    # and surface signals to short-circuit obvious cheap queries.
+    cheap = _try_cheap_route(text)
+    if cheap is not None:
+        return cheap
 
     # 1d. Long-form writing / content creation — MUST be checked BEFORE realtime
     #     info patterns, because queries like "写3000字推广软文" can accidentally
@@ -852,6 +914,14 @@ async def route_node(state: AgentState) -> dict:
             break
 
     complexity, intent_summary = classify_query(last_user_msg)
+
+    # ── Cost-aware routing log ──
+    _routed_model = config.get_model_for_complexity(complexity)
+    logger.info(
+        f"[Router] '{last_user_msg[:30]}' → {complexity.value} "
+        f"(model={_routed_model}, "
+        f"tier={complexity.model_tier})"
+    )
 
     # ── Multi-turn context: inherit previous complexity for follow-up messages ──
     # If the current message is a short continuation ("好的"/"继续"/"就这样"),

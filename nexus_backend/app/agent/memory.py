@@ -578,6 +578,23 @@ async def prepare_initial_state(
         except Exception as e:
             logger.error(f"[Memory] User profile context failed: {e}")
 
+    # ── 2g-pref. 追加用户偏好画像（冻结快照） ──
+    if config.user_id:
+        try:
+            from app.agent.preference_learner import preference_learner
+
+            pref_snapshot = await preference_learner.build_profile_snapshot(
+                user_id=config.user_id, org_id=config.org_id or "default"
+            )
+            if pref_snapshot:
+                if user_profile_ctx:
+                    # 插入到 [用户画像结束] 之前
+                    user_profile_ctx = user_profile_ctx.replace("[用户画像结束]", pref_snapshot + "\n[用户画像结束]")
+                else:
+                    user_profile_ctx = pref_snapshot
+        except Exception as e:
+            logger.debug(f"[Memory] Preference snapshot skipped: {e}")
+
     # ── 2g-tasks. Agent Task Board injection (P1a) ──
     # Inject a compact task status summary so the agent always knows
     # where it is in a multi-step workflow, even after context compression.

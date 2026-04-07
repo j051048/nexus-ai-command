@@ -219,9 +219,16 @@ class AgentConfig(BaseModel):
         """Return full tier-aware config (model + temperature + timeout + tools).
 
         Uses pre-resolved Gateway configs when available, otherwise falls back
-        to local tier overrides.
+        to local tier overrides.  Includes cost_multiplier for cost tracking.
         """
         tier = complexity.model_tier
+        _cost_multipliers = {
+            "economy": 0.1,
+            "balanced": 0.3,
+            "power": 1.0,
+            "flagship": 1.5,
+        }
+        cost_multiplier = _cost_multipliers.get(tier, 1.0)
 
         # Prefer pre-resolved Gateway config
         if self.resolved_configs and tier in self.resolved_configs:
@@ -232,9 +239,12 @@ class AgentConfig(BaseModel):
                 "timeout": rc.get("timeout", 300),
                 "supports_tools": rc.get("supports_tools", True),
                 "tier": tier,
+                "cost_multiplier": cost_multiplier,
             }
 
         _tier_overrides = {
+            # economy: supports_tools=False is intentional — simple greetings and
+            # cheap-routed queries don't need tool calls, saving unnecessary overhead.
             "economy": {"temperature": 0.3, "timeout": 120, "supports_tools": False},
             "balanced": {"temperature": 0.5, "timeout": 180, "supports_tools": True},
             "power": {"temperature": 0.7, "timeout": 300, "supports_tools": True},
@@ -248,6 +258,7 @@ class AgentConfig(BaseModel):
             "timeout": overrides.get("timeout", self.tool_timeout * 10),  # fallback to higher limit
             "supports_tools": overrides.get("supports_tools", True),
             "tier": tier,
+            "cost_multiplier": cost_multiplier,
         }
 
 
