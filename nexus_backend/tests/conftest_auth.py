@@ -174,7 +174,12 @@ class AuthenticatedTestClient:
 
 
 async def _passthrough_dispatch(self, request, call_next):
-    """透传中间件 — 不做任何认证/状态修改，直接传递请求"""
+    """透传中间件 — 不做认证，但确保 scope state 值在 request.state 上可访问"""
+    # Starlette 的 BaseHTTPMiddleware 可能导致 scope state 传递不可靠，
+    # 这里主动将 scope state 中的值设置到 request.state 上
+    scope_state = request.scope.get("state", {})
+    for key, value in scope_state.items():
+        setattr(request.state, key, value)
     return await call_next(request)
 
 

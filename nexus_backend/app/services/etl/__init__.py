@@ -322,7 +322,6 @@ class ETLService:
                         organization_id=organization_id,
                     )
 
-
                     if embedding_success:
                         await self._update_progress(doc_id, 100, "completed", status="ready")
                         return {
