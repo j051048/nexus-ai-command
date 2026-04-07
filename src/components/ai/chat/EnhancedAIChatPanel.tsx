@@ -141,6 +141,37 @@ export function EnhancedAIChatPanel({
   const [showTrace, setShowTrace] = useState(false);
   const [showToolPalette, setShowToolPalette] = useState(false);
 
+  // P2-11: Body Scroll Lock when expanded/fullscreen
+  useEffect(() => {
+    const shouldLock = (isExpanded && isMobile) || isFullscreen;
+    if (shouldLock) {
+      const originalStyle = window.getComputedStyle(document.body).overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalStyle;
+      };
+    }
+  }, [isExpanded, isFullscreen, isMobile]);
+
+  // P2-8: Global ESC to close
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isExpanded) {
+        if (isFullscreen) {
+          setIsFullscreen(false);
+        } else if (showTrace) {
+          setShowTrace(false);
+        } else if (showHistory) {
+          setShowHistory(false);
+        } else {
+          onToggle();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isExpanded, isFullscreen, showTrace, showHistory, onToggle]);
+
   const { tools: toolMetadata, isLoading: toolsLoading } = useToolMetadata();
   const { savePrompt } = useSavedPrompts();
   const { data: aiSettings } = useAISettings();
@@ -906,6 +937,7 @@ export function EnhancedAIChatPanel({
               handleClearChat={handleClearChat}
               onExportChat={handleExportChat}
               onShowHistory={() => setShowHistory(true)}
+              aria-label="对话窗口顶部工具栏"
             />
 
             <ChatHistorySidebar

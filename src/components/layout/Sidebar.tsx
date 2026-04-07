@@ -200,6 +200,8 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
               setCollapsedGroups(next);
               saveCollapsedGroups(next);
             }}
+            aria-expanded={isOpen}
+            aria-label={`${title} 分组 ${isOpen ? "收起" : "展开"}`}
             className="flex items-center justify-between w-full px-3 py-2 text-[10px] font-black text-white/30 uppercase tracking-[0.2em] hover:text-white/50 transition-colors"
           >
             {title}
@@ -258,10 +260,14 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
   };
 
   return (
-    <aside data-testid="sidebar-main" className={cn(
-      "bg-[#0d0f14]/95 backdrop-blur-xl border-r border-white/5 flex flex-col transition-all duration-500 ease-in-out h-full z-40 relative group/sidebar shadow-2xl",
-      isCollapsed ? "w-[80px]" : "w-64"
-    )}>
+    <aside 
+      data-testid="sidebar-main" 
+      aria-label="主要系统导航"
+      className={cn(
+        "bg-[#0d0f14]/95 backdrop-blur-xl border-r border-white/5 flex flex-col transition-all duration-500 ease-in-out h-full z-40 relative group/sidebar shadow-2xl",
+        isCollapsed ? "w-[80px]" : "w-64"
+      )}
+    >
       <div className={cn("p-6 flex items-center gap-3", isCollapsed && "justify-center")}>
         <div 
           onClick={() => navigate("/")}
@@ -284,6 +290,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
+              aria-label="搜索系统功能 (快捷键 ⌘K)"
               placeholder="搜索功能 (⌘K)"
               className="w-full pl-9 pr-3 h-10 bg-white/[0.03] border border-white/10 rounded-xl text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-white/20 focus:bg-white/5 transition-all shadow-inner"
               onFocus={() => {
@@ -356,6 +363,8 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
       
       <button 
         onClick={() => setIsCollapsed(!isCollapsed)}
+        aria-label={isCollapsed ? "展开侧边栏" : "折叠侧边栏"}
+        aria-expanded={!isCollapsed}
         className="absolute -right-3 top-20 w-6 h-6 bg-primary rounded-full md:flex items-center justify-center text-white shadow-[0_0_16px_rgba(59,130,246,0.5)] hover:scale-110 hover:shadow-[0_0_24px_rgba(59,130,246,0.7)] active:scale-95 transition-all z-50 border-4 border-[#0d0f14] hidden"
       >
         {isCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}

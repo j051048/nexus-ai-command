@@ -323,7 +323,13 @@ export const ChatMessageList = React.memo(function ChatMessageList({
   // Virtual rendering for long conversations
   if (useVirtual) {
     return (
-      <div ref={scrollContainerRef} className="flex-1 overflow-auto px-4 md:px-6">
+      <div 
+        ref={scrollContainerRef} 
+        className="flex-1 overflow-auto px-4 md:px-6"
+        role="log"
+        aria-live="polite"
+        aria-label="实时聊天记录"
+      >
         <div
           className="py-4 relative"
           style={{ height: `${virtualizer.getTotalSize()}px` }}
@@ -374,7 +380,12 @@ export const ChatMessageList = React.memo(function ChatMessageList({
   // Default rendering for short conversations
   return (
     <ScrollArea className="flex-1 px-4 md:px-6">
-      <div className="py-4 space-y-4">
+      <div 
+        className="py-4 space-y-4"
+        role="log"
+        aria-live="polite"
+        aria-label="聊天记录"
+      >
         {messages.map((msg, index) => {
           const isLast = index === messages.length - 1;
           return (
