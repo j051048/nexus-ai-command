@@ -1,34 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { Download, ExternalLink, Maximize2, Minimize2, X } from 'lucide-react';
-
-// Table-like component names that support CSV export
-const TABLE_COMPONENTS = new Set([
-  'DataTable', 'ComparisonTable', 'DataChart',
-]);
-
-// Components that support PNG export (charts + visual components)
-const CHART_COMPONENTS = new Set([
-  'DataChart', 'PieChart', 'FunnelChart', 'StatCards',
-  'MetricComparison', 'ProgressTracker', 'OrgChart',
-  'ApprovalFlow', 'CalendarView', 'KanbanMini',
-  'StatusTimeline', 'Timeline', 'AlertList',
-  'UserProfileCard', 'QuoteCard', 'BadgePanel',
-  'TodoList', 'FormBuilder', 'FileList',
-]);
-
-// CRUD components that have a corresponding traditional page for manual fallback
-export const CRUD_FALLBACK_ROUTES: Record<string, string> = {
-  ApprovalCenter: '/approval',
-  ApprovalFlow: '/approval',
-  FormBuilder: '/form-designer',
-  TodoList: '/scheduled-tasks',
-  EmailDraft: '/oa',
-  KanbanBoard: '/sales',
-  PriorityLeads: '/crm',
-  ContractPreview: '/contracts',
-  InvoiceCard: '/finance',
-  CalendarView: '/schedule',
-};
+import { TABLE_COMPONENTS, CHART_COMPONENTS, CRUD_FALLBACK_ROUTES } from './GenUIConstants';
 
 interface GenUIToolbarProps {
   componentName: string;

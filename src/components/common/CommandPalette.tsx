@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUser } from '@/contexts/UserContext';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 interface CommandPaletteProps {
   open: boolean;
@@ -57,6 +57,10 @@ export function CommandPalette({ open, onOpenChange, onAIChat }: CommandPaletteP
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="overflow-hidden p-0 shadow-2xl sm:max-w-[500px]">
+        <DialogTitle className="sr-only">命令面板</DialogTitle>
+        <DialogDescription className="sr-only">
+          搜索并执行系统命令、跳转页面或与 AI 助手交流。
+        </DialogDescription>
         <Command className="flex h-full w-full flex-col overflow-hidden rounded-md bg-popover text-popover-foreground">
           <div className="flex items-center border-b px-3" cmdk-input-wrapper="">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />

@@ -5,7 +5,7 @@
 // manager: 部门经理
 // admin: 系统管理员
 // employee: 普通员工
-export type UserRole = 'boss' | 'manager' | 'employee' | 'admin';
+export type UserRole = 'boss' | 'manager' | 'employee' | 'admin' | 'sales';
 
 export interface User {
   id: string;
