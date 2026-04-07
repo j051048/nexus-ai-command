@@ -55,6 +55,7 @@ import { AIMessage } from '@/types/nexus';
 import { getEnterAnimationClass } from '@/lib/animations';
 import { GenUIContainer } from './GenUIContainer';
 import { InlineActions } from './genui/InlineActions';
+import { ExecutionPulse } from './ExecutionPulse';
 
 // ---------------------------------------------------------------------------
 // Layer 3: Infer GenUI component name from props structure
@@ -242,10 +243,15 @@ export const MessageBubble = React.memo(function MessageBubble({
               )}
             </div>
           ) : isTyping && isLatest && !message.content ? (
-            <div className="flex items-center gap-1.5 h-6">
-              <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="flex flex-col gap-2 min-w-[200px]">
+              <ExecutionPulse 
+                type={message.thinkingSteps?.some(s => s.tool_name?.includes('search')) ? 'searching' : 'thinking'}
+                label={message.thinkingSteps?.filter(s => s.tool_name).pop()?.tool_name 
+                  ? `正在调用: ${message.thinkingSteps.filter(s => s.tool_name).pop()?.tool_name}` 
+                  : "正在思考..."
+                }
+                sublabel="Nexus AI 处理中"
+              />
             </div>
           ) : (
             (() => {

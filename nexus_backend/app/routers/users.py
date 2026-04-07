@@ -13,8 +13,8 @@ router = APIRouter(prefix="/api/users", tags=["Users"])
 
 
 class UserUpdate(BaseModel):
-    full_name: str | None = None
-    avatar_url: str | None = None
+    name: str | None = None
+    avatar: str | None = None
     phone: str | None = None
     department: str | None = None
 
@@ -71,7 +71,7 @@ async def get_org_members(
             raise api_error(ErrorCode.SYSTEM_INTERNAL_ERROR, "数据库连接不可用")
         org_id = getattr(req.state, "org_id", None)
 
-        query = db.table("users").select("id, full_name, avatar_url, role, department")
+        query = db.table("users").select("id, name, avatar, role, department")
         if org_id:
             query = query.eq("organization_id", str(org_id))
         result = await query.execute()
