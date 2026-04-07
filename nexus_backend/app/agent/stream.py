@@ -38,6 +38,7 @@ from app.agent.sse_protocol import (
     _sse_status,
     _sse_thinking,
     _sse_tool_progress,
+    _sse_tool_result,
     _with_keepalive,
 )
 from app.agent.state import (
@@ -595,6 +596,13 @@ async def run_agent_stream(
                                         rec.status or "success",
                                         rec.duration_ms,
                                     )
+                                    # P0 FIX: Also push the raw result for GenUI/Data visualization
+                                    if rec.status == "success" and rec.result:
+                                        yield _sse_tool_result(
+                                            rec.tool_name,
+                                            rec.result,
+                                            rec.status
+                                        )
                         else:
                             accumulated_state[key] = value
 
@@ -793,6 +801,13 @@ async def run_agent_stream(
                                                 rec.status or "success",
                                                 rec.duration_ms,
                                             )
+                                            # P0 FIX: Also push results in retry path
+                                            if rec.status == "success" and rec.result:
+                                                yield _sse_tool_result(
+                                                    rec.tool_name,
+                                                    rec.result,
+                                                    rec.status
+                                                )
                                 else:
                                     accumulated_state[key] = value
             except Exception as retry_err:

@@ -12,7 +12,13 @@ interface ExecutionPulseProps {
   isComplete?: boolean;
 }
 
-const pulseConfig: Record<PulseType, { icon: LucideIcon, color: string, glow: string }> = {
+interface PulseConfig {
+  icon: React.ElementType;
+  color: string;
+  glow: string;
+}
+
+const pulseConfig: Record<PulseType, PulseConfig> = {
   thinking: { icon: Zap, color: 'text-amber-500', glow: 'bg-amber-500/20' },
   searching: { icon: Search, color: 'text-blue-500', glow: 'bg-blue-500/20' },
   processing: { icon: Database, color: 'text-purple-500', glow: 'bg-purple-500/20' },

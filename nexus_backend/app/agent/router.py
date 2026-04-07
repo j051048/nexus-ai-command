@@ -640,7 +640,15 @@ def _try_cheap_route(text: str) -> tuple[QueryComplexity, str] | None:
         # Check if the text contains ANY business keywords before allowing SIMPLE route.
         # This prevents "Customer Overview" (short but dense) from being short-circuited.
         biz_hits = _filter_negated_keywords(text, _ALL_BUSINESS_KEYWORDS)
-        if not biz_hits and not _REALTIME_INFO_PATTERNS.search(text) and not _LONGFORM_WRITING_RE.search(text):
+        
+        # P0 FIX: Explicitly block short intense business phrases from SIMPLE route
+        # These are usually 2-6 chars: "查业绩", "客户概况", "项目详情"
+        if biz_hits or _REALTIME_INFO_PATTERNS.search(text) or _LONGFORM_WRITING_RE.search(text):
+            logger.debug("[Router] Business/Realtime intent detected in short message, bypassing SIMPLE cheap route")
+            return None
+
+        # Truly trivial/short conversation
+        if msg_len < 30:
             logger.info(
                 "[Router] Cheap route: '%s' -> SIMPLE (len=%d, words=%d)",
                 text[:30],
@@ -648,10 +656,6 @@ def _try_cheap_route(text: str) -> tuple[QueryComplexity, str] | None:
                 words,
             )
             return QueryComplexity.SIMPLE, "一般对话(快速路由)"
-        elif biz_hits:
-            # If business keywords are present, do NOT allow SIMPLE.
-            # Fall through to more detailed complexity check or LLM.
-            pass
 
     # Rule 2: Medium-length, only MODERATE-level keywords -> MODERATE
     if msg_len < 200 and not has_code and not has_url:
@@ -659,8 +663,7 @@ def _try_cheap_route(text: str) -> tuple[QueryComplexity, str] | None:
         if biz_hits:
             hits_critical = biz_hits.intersection(_CRITICAL_KEYWORDS)
             hits_complex = biz_hits.intersection(_COMPLEX_KEYWORDS)
-            hits_moderate = biz_hits.intersection(_MODERATE_KEYWORDS)
-            if hits_moderate and not hits_critical and not hits_complex:
+            if not hits_critical and not hits_complex:
                 logger.info(
                     "[Router] Cheap route: '%s' -> MODERATE (len=%d, words=%d)",
                     text[:30],

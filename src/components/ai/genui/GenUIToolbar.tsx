@@ -8,7 +8,7 @@ interface GenUIToolbarProps {
   children: React.ReactNode;
 }
 
-function exportTableCSV(componentName: string, props: Record<string, unknown>) {
+const exportTableCSV = (componentName: string, props: Record<string, unknown>) => {
   let csvContent = '';
 
   if (componentName === 'DataTable') {
@@ -58,7 +58,7 @@ function exportTableCSV(componentName: string, props: Record<string, unknown>) {
   URL.revokeObjectURL(url);
 }
 
-async function exportPNG(element: HTMLElement, title: string) {
+const exportPNG = async (element: HTMLElement, title: string) => {
   const html2canvas = (await import('html2canvas')).default;
   const canvas = await html2canvas(element, {
     backgroundColor: null,

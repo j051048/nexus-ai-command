@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+import { forwardRef, useImperativeHandle } from 'react';
 import { WorkflowDesigner } from '@/pages/WorkflowDesigner';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -24,7 +25,13 @@ vi.mock('@/hooks/use-mobile', () => ({
 }));
 
 vi.mock('@/components/workflow/WorkflowCanvas', () => ({
-  WorkflowCanvas: () => <div data-testid="mock-canvas" />,
+  WorkflowCanvas: forwardRef((props, ref) => {
+    useImperativeHandle(ref, () => ({
+      getWorkflowData: vi.fn(() => ({ steps: [], conditions: [] })),
+      loadWorkflowData: vi.fn(),
+    }));
+    return <div data-testid="mock-canvas" />;
+  }),
 }));
 vi.mock('@/components/workflow/WorkflowSidebar', () => ({
   WorkflowSidebar: () => <div data-testid="mock-sidebar" />,

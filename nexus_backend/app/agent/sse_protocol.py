@@ -126,6 +126,19 @@ def _sse_tool_progress(tool_name: str, status: str, duration_ms: int | None = No
     )
 
 
+def _sse_tool_result(tool_name: str, result: Any, status: str = "success") -> str:
+    """Push the raw tool execution result to the frontend (e.g., for GenUI charts)."""
+    return _sse_data(
+        {
+            "tool_result": {
+                "tool_name": tool_name,
+                "result": result,
+                "status": status,
+            }
+        }
+    )
+
+
 def _sse_circuit_break(reason: str) -> str:
     """Emit a circuit break event when the agent hits a safety limit."""
     return _sse_data(

@@ -20,12 +20,15 @@ vi.mock('@tanstack/react-virtual', () => ({
     getVirtualItems: () => [],
     getTotalSize: () => 0,
     scrollToIndex: vi.fn(),
-  }),
+  } as unknown), // Use unknown then type assertion if needed elsewhere, reducing 'any' noise
 }));
 
 describe("ChatMessageList A11y", () => {
   const mockAgentTrace: AgentTrace = {
     steps: [],
+    totalTokens: 0,
+    startTime: null,
+    endTime: null,
     isActive: false,
   };
 
