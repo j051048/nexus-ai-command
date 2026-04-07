@@ -74,12 +74,36 @@ async def memory_inject_middleware(state: AgentState) -> dict[str, Any]:
                 current_query=user_message,
             )
 
+            updates: dict[str, Any] = {"_memory_injected": True}
+
             if memory_context:
                 logger.debug(f"[Middleware] Injected memory context ({len(memory_context)} chars)")
-                return {
-                    "_memory_injected": True,
-                    "_injected_memories": [memory_context],
-                }
+                updates["_injected_memories"] = [memory_context]
+
+            # P0-6: 技能匹配 — 检索已有技能模板，注入 planning 提示
+            try:
+                from app.agent.skill_library import skill_library
+
+                from app.core.database import supabase as db_client
+
+                matched = await skill_library.match_skill(
+                    user_message=user_message,
+                    user_id=config.user_id,
+                    org_id=config.org_id or "default",
+                    db=db_client,
+                )
+                if matched:
+                    hint = skill_library.skill_to_tool_hints(matched)
+                    if hint:
+                        existing = updates.get("_injected_memories", [])
+                        existing.append(hint)
+                        updates["_injected_memories"] = existing
+                        updates["_matched_skill"] = matched
+                        logger.info(f"[Middleware] Skill matched: {matched.get('intent_pattern', '')[:40]}")
+            except Exception as e:
+                logger.debug(f"[Middleware] Skill matching skipped: {e}")
+
+            return updates
 
     except Exception as e:
         logger.error(f"[Middleware] Memory injection failed: {e}")
@@ -178,6 +202,67 @@ async def memory_update_middleware(state: AgentState) -> dict[str, Any]:
                 )
             )
             logger.debug("[Middleware] Memory update scheduled")
+
+            # P0-6: 技能提炼 — 成功的多步工具链自动提炼为可复用技能
+            completed = state.get("completed_tool_calls", [])
+            if len(completed) >= 2:
+                try:
+                    from app.agent.skill_library import skill_library
+                    from app.core.database import supabase as db_client
+
+                    # 转换为 dict 列表
+                    tc_dicts = []
+                    for tc in completed:
+                        tc_dicts.append(
+                            {
+                                "tool_name": getattr(tc, "tool_name", "")
+                                or (tc.get("tool_name", "") if isinstance(tc, dict) else ""),
+                                "status": getattr(tc, "status", "")
+                                or (tc.get("status", "") if isinstance(tc, dict) else ""),
+                                "args": getattr(tc, "args", {}) or (tc.get("args", {}) if isinstance(tc, dict) else {}),
+                            }
+                        )
+
+                    complexity = state.get("complexity")
+                    complexity_str = complexity.value if hasattr(complexity, "value") else str(complexity or "")
+
+                    asyncio.create_task(
+                        skill_library.extract_skill(
+                            intent_summary=state.get("intent_summary", user_message[:60]),
+                            tool_chain=tc_dicts,
+                            complexity=complexity_str,
+                            user_id=config.user_id,
+                            org_id=config.org_id or "default",
+                            db=db_client,
+                        )
+                    )
+                    logger.debug("[Middleware] Skill extraction scheduled")
+                except Exception as e:
+                    logger.debug(f"[Middleware] Skill extraction skipped: {e}")
+
+            # P0-7: 轻量快照 — 每轮对话结束时自动拍快照
+            try:
+                from app.agent.state_versioning import state_version_control
+
+                session_id = getattr(config, "session_id", "")
+                if session_id:
+                    tool_names = []
+                    for tc in completed:
+                        name = getattr(tc, "tool_name", None) or (tc.get("tool_name") if isinstance(tc, dict) else None)
+                        if name:
+                            tool_names.append(name)
+
+                    asyncio.create_task(
+                        state_version_control.save_lightweight_snapshot(
+                            thread_id=session_id,
+                            state=state,
+                            label="auto_turn",
+                            tool_names=tool_names,
+                        )
+                    )
+                    logger.debug("[Middleware] Turn-end snapshot scheduled")
+            except Exception as e:
+                logger.debug(f"[Middleware] Turn-end snapshot skipped: {e}")
 
     except Exception as e:
         logger.error(f"[Middleware] Memory update failed: {e}")
