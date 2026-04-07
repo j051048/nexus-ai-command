@@ -28,9 +28,9 @@ async def test_vision_api_payload():
     # Mock extract_metadata_via_ai to pass the metadata step
     service.extract_metadata_via_ai = AsyncMock(return_value=(True, {"doc_type": "invoice"}))
     # Mock _save_to_db as async
-    service._save_to_db = AsyncMock(return_value="doc_123")
+    service._save_to_db = AsyncMock(return_value="00000000-0000-0000-0000-000000000123")
     # Mock _generate_embeddings
-    service._generate_embeddings = AsyncMock()
+    service._generate_embeddings = AsyncMock(return_value=True)
 
     # 2. Execute
     file_content = await mock_file.read()

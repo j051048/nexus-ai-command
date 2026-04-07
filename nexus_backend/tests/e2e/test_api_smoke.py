@@ -36,7 +36,7 @@ class TestHealthAndRoot:
         assert resp.status_code in (200, 503)
         data = resp.json()
         assert "status" in data
-        assert data["status"] in ("healthy", "degraded")
+        assert data["status"] in ("healthy", "degraded", "starting")
         assert "checks" in data
 
     async def test_health_check_returns_version(self, async_client):

@@ -312,19 +312,16 @@ class ETLService:
                         )
 
                     safe_text_for_embedding = self._scrub_pii(text)
-
                     # 3. Generate embeddings (delegated to embedding_gen module)
-                    embedding_success = await generate_embeddings(
+                    embedding_success = await self._generate_embeddings(
                         safe_text_for_embedding,
                         doc_id,
                         filename,
                         active_key,
                         active_url,
                         organization_id=organization_id,
-                        default_embedding_model=self._DEFAULT_EMBEDDING_MODEL,
-                        chunk_size=self.chunk_size,
-                        chunk_overlap=self.chunk_overlap,
                     )
+
 
                     if embedding_success:
                         await self._update_progress(doc_id, 100, "completed", status="ready")
