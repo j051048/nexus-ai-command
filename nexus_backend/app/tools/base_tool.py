@@ -229,3 +229,33 @@ class BaseTool(ABC):
         :return: Text result to be fed back to the LLM
         """
         pass
+
+    # ── P0-2: Standardized output schema ──
+
+    @property
+    def category(self) -> str:
+        """Tool category for UI grouping. Falls back to domain."""
+        return self.domain or "general"
+
+    @staticmethod
+    def format_result(
+        data: Any,
+        summary: str,
+        actions: list[dict[str, str]] | None = None,
+    ) -> dict[str, Any]:
+        """标准化工具输出结构，供 LLM 和前端统一解析。
+
+        Args:
+            data: 结构化数据（列表、字典等），LLM 可据此生成自然语言回复
+            summary: 一句话摘要，供前端 toast / 通知使用
+            actions: 推荐后续操作列表，如 [{"label": "查看详情", "tool": "get_customer_detail", "args": {...}}]
+
+        Returns:
+            {"data": ..., "summary": "...", "actions": [...]}
+        """
+        return {
+            "data": data,
+            "summary": summary,
+            "actions": actions or [],
+        }
+

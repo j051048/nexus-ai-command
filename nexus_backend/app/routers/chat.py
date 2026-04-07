@@ -229,6 +229,61 @@ async def get_tools_metadata_endpoint(req: Request, user_id: str = Depends(get_c
     return api_success(data={"tools": metadata, "count": len(metadata)})
 
 
+@router.get("/tools/capabilities")
+async def get_tools_capabilities():
+    """P0-3: AI 能力发现 API — 无需认证，供前端引导页和 onboarding 使用。
+
+    按 domain 分组返回可用能力总览，包含代表性示例。
+    """
+    from app.tools import TOOL_REGISTRY, _load_all
+
+    _load_all()
+
+    # 按 domain 聚合
+    domain_map: dict[str, dict] = {}
+    domain_labels = {
+        "crm": {"label": "客户管理", "icon": "👥", "color": "#3B82F6"},
+        "approval": {"label": "智能审批", "icon": "✅", "color": "#10B981"},
+        "finance": {"label": "财务管理", "icon": "💰", "color": "#F59E0B"},
+        "hr": {"label": "人力资源", "icon": "🏢", "color": "#8B5CF6"},
+        "schedule": {"label": "日程管理", "icon": "📅", "color": "#EC4899"},
+        "knowledge": {"label": "知识检索", "icon": "🔍", "color": "#6366F1"},
+        "project": {"label": "项目管理", "icon": "📊", "color": "#14B8A6"},
+        "general": {"label": "通用能力", "icon": "🤖", "color": "#64748B"},
+    }
+
+    for tool in TOOL_REGISTRY.values():
+        domain = tool.domain or "general"
+        if domain not in domain_map:
+            meta = domain_labels.get(domain, {"label": domain, "icon": "🔧", "color": "#94A3B8"})
+            domain_map[domain] = {
+                "domain": domain,
+                "label": meta["label"],
+                "icon": meta["icon"],
+                "color": meta["color"],
+                "tool_count": 0,
+                "tools": [],
+            }
+        domain_map[domain]["tool_count"] += 1
+        # 仅取前 3 个代表性工具
+        if len(domain_map[domain]["tools"]) < 3:
+            examples = tool.examples[:1] if tool.examples else []
+            domain_map[domain]["tools"].append({
+                "name": tool.name,
+                "description": tool.description[:80],
+                "examples": examples,
+            })
+
+    capabilities = sorted(domain_map.values(), key=lambda x: x["tool_count"], reverse=True)
+    total = sum(d["tool_count"] for d in capabilities)
+
+    return api_success(data={
+        "capabilities": capabilities,
+        "total_tools": total,
+        "version": "1.0.0",
+    })
+
+
 @router.get("/history/{session_id}")
 async def get_chat_history(session_id: str, req: Request, user_id: str = Depends(get_current_user_id)):
     """Fetch persistent chat history for a session"""
