@@ -7,10 +7,11 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { InstallPrompt } from '@/components/common/InstallPrompt';
 import { WelcomeTour } from '@/components/common/WelcomeTour';
 import { NotificationCenter } from '@/components/common/NotificationCenter';
-import { PanelRightClose, PanelRightOpen, Clock, PanelLeftOpen } from 'lucide-react';
+import { PanelRightClose, PanelRightOpen, Clock } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { useWebSocketPush } from '@/hooks/useWebSocketPush';
 import { Breadcrumbs } from './Breadcrumbs';
+import { GlobalAIBall } from '@/components/ai/GlobalAIBall';
 
 interface ChatFirstLayoutProps {
     children?: React.ReactNode;
@@ -109,7 +110,13 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
                     <main className="flex-1 overflow-y-auto no-scrollbar p-6 bg-background">
                         <div className="max-w-[1600px] mx-auto min-h-full pb-20">
                             <div className="mb-6 opacity-60">
-                                <Breadcrumbs />
+                                <Breadcrumbs items={[
+                                    { label: 'Nexus AI', href: '/' },
+                                    ...location.pathname.split('/').filter(Boolean).map((segment, idx, arr) => ({
+                                        label: segment.charAt(0).toUpperCase() + segment.slice(1),
+                                        href: '/' + arr.slice(0, idx + 1).join('/')
+                                    }))
+                                ]} />
                             </div>
                             {children || <Outlet />}
                         </div>
@@ -118,14 +125,11 @@ export const ChatFirstLayout = ({ children }: ChatFirstLayoutProps) => {
             </div>
 
             {/* Float Triggers */}
-            {!isChatOpen && (
-                <button
-                    onClick={() => setIsChatOpen(true)}
-                    className="fixed bottom-8 left-8 z-50 w-12 h-12 bg-primary rounded-2xl shadow-2xl shadow-primary/30 flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-all"
-                >
-                    <PanelLeftOpen className="w-6 h-6" />
-                </button>
-            )}
+            {/* Global AI Magic Ball Trigger */}
+            <GlobalAIBall 
+                isOpen={isChatOpen} 
+                onClick={() => setIsChatOpen(true)} 
+            />
 
             {!isCanvasOpen && isPageRoute && (
                 <button

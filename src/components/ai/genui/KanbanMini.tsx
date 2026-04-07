@@ -52,15 +52,15 @@ export default function KanbanMini({ columns, title }: KanbanMiniProps) {
   return (
     <div className="p-4">
       {title && <h4 className="text-sm font-semibold mb-3">{title}</h4>}
-      <div className="overflow-x-auto">
-        <div className="inline-flex gap-3 min-w-fit pb-2">
+      <div className="overflow-x-auto snap-x snap-mandatory scrollbar-hide">
+        <div className="inline-flex gap-4 px-4 min-w-full pb-4">
           {columns.map((column, colIdx) => {
             const colorSet = defaultColumnColors[colIdx % defaultColumnColors.length];
 
             return (
               <div
                 key={colIdx}
-                className="w-56 flex-shrink-0 rounded-lg border bg-card overflow-hidden"
+                className="w-[280px] sm:w-64 flex-shrink-0 snap-center rounded-2xl border bg-card/50 backdrop-blur-sm overflow-hidden shadow-sm"
               >
                 {/* Column header */}
                 <div

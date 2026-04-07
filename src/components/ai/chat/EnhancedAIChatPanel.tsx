@@ -947,6 +947,7 @@ export function EnhancedAIChatPanel({
               trace={trace}
               orchestration={orchestration}
               messagesEndRef={messagesEndRef}
+              onSendMessage={handleSend}
             />
 
             {!showAgents && (

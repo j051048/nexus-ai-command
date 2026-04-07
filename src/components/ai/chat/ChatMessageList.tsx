@@ -19,6 +19,9 @@ import { aiClient } from '@/api/aiClient';
 import { ConfirmationCard } from './ConfirmationCard';
 import FormBuilder from '../genui/FormBuilder';
 
+import { CapabilityCards } from './CapabilityCards';
+import { WorkflowStepper } from './WorkflowStepper';
+
 const VIRTUAL_THRESHOLD = 30;
 
 interface ChatMessageListProps {
@@ -126,21 +129,19 @@ export const ChatMessageList = React.memo(function ChatMessageList({
   // Shared footer content (status, trace, confirmations, etc.)
   const footerContent = (
     <>
-      {isAiTyping && aiStatus && (
+      {(isAiTyping || trace.isActive || trace.steps.length > 0) && !showTrace && (
+        <WorkflowStepper 
+          steps={trace.steps} 
+          isActive={isAiTyping || trace.isActive} 
+          onOpenTrace={() => setShowTrace(true)}
+        />
+      )}
+
+      {isAiTyping && aiStatus && !showTrace && (
          <div className="flex items-center gap-2 px-4 py-2 mb-2 text-xs text-muted-foreground bg-secondary/30 rounded-lg mx-4 animate-pulse w-fit">
            <Loader2 className="w-3 h-3 animate-spin text-primary" />
            <span className="font-mono">{aiStatus}</span>
          </div>
-      )}
-
-      {isAiTyping && trace.steps.length > 0 && !showTrace && (
-        <button
-          onClick={() => setShowTrace(true)}
-          className="mx-4 mb-2 px-3 py-1.5 text-xs text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1.5"
-        >
-          <Zap className="w-3 h-3" />
-          已完成 {trace.steps.length} 个推理步骤 · 点击查看
-        </button>
       )}
 
       {pendingConfirmation && (
@@ -338,21 +339,28 @@ export const ChatMessageList = React.memo(function ChatMessageList({
                 className="absolute left-0 right-0 pb-4"
                 style={{ transform: `translateY(${virtualItem.start}px)` }}
               >
-                <MessageBubble
-                  message={msg}
-                  onCopy={handleCopy}
-                  onRegenerate={
-                    isLast && msg.role === 'assistant'
-                      ? handleRegenerate
-                      : undefined
-                  }
-                  onRetry={msg.status === 'error' ? handleRetry : undefined}
-                  onFeedback={handleFeedback}
-                  onDelete={handleDeleteMessage}
-                  onSendMessage={onSendMessage}
-                  isLatest={isLast}
-                  isTyping={isLast && isAiTyping}
-                />
+                <>
+                  <MessageBubble
+                    message={msg}
+                    onCopy={handleCopy}
+                    onRegenerate={
+                      isLast && msg.role === 'assistant'
+                        ? handleRegenerate
+                        : undefined
+                    }
+                    onRetry={msg.status === 'error' ? handleRetry : undefined}
+                    onFeedback={handleFeedback}
+                    onDelete={handleDeleteMessage}
+                    onSendMessage={onSendMessage}
+                    isLatest={isLast}
+                    isTyping={isLast && isAiTyping}
+                  />
+                  {virtualItem.index === 0 && messages.length <= 1 && onSendMessage && (
+                    <div className="mt-4 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300 fill-mode-both">
+                      <CapabilityCards onSelect={onSendMessage} />
+                    </div>
+                  )}
+                </>
               </div>
             );
           })}
@@ -370,22 +378,28 @@ export const ChatMessageList = React.memo(function ChatMessageList({
         {messages.map((msg, index) => {
           const isLast = index === messages.length - 1;
           return (
-          <MessageBubble
-            key={msg.id}
-            message={msg}
-            onCopy={handleCopy}
-            onRegenerate={
-              isLast && msg.role === 'assistant'
-                ? handleRegenerate
-                : undefined
-            }
-            onRetry={msg.status === 'error' ? handleRetry : undefined}
-            onFeedback={handleFeedback}
-            onDelete={handleDeleteMessage}
-            onSendMessage={onSendMessage}
-            isLatest={isLast}
-            isTyping={isLast && isAiTyping}
-          />
+            <React.Fragment key={msg.id}>
+              <MessageBubble
+                message={msg}
+                onCopy={handleCopy}
+                onRegenerate={
+                  isLast && msg.role === 'assistant'
+                    ? handleRegenerate
+                    : undefined
+                }
+                onRetry={msg.status === 'error' ? handleRetry : undefined}
+                onFeedback={handleFeedback}
+                onDelete={handleDeleteMessage}
+                onSendMessage={onSendMessage}
+                isLatest={isLast}
+                isTyping={isLast && isAiTyping}
+              />
+              {index === 0 && messages.length <= 1 && onSendMessage && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300 fill-mode-both">
+                  <CapabilityCards onSelect={onSendMessage} />
+                </div>
+              )}
+            </React.Fragment>
           );
         })}
 
