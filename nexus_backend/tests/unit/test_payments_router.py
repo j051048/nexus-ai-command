@@ -1,7 +1,10 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from fastapi import Request, HTTPException
+
+import pytest
+from fastapi import HTTPException, Request
+
 from app.routers.payments import create_order, get_order, list_orders
+
 
 @pytest.fixture
 def mock_request():

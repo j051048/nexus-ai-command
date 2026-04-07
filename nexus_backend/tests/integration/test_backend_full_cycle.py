@@ -1,7 +1,8 @@
+
 import pytest
 from httpx import ASGITransport, AsyncClient
+
 from app.main import app
-from unittest.mock import MagicMock
 from tests.conftest_auth import AuthenticatedTestClient
 
 # P1: 后端全路径集成测试 (Integration)
@@ -33,7 +34,7 @@ async def test_organization_switching_security():
         # 当 org_id 不匹配时的 403 案例
         headers = {"Authorization": "Bearer mock_token_other_org", "X-Org-Id": "victim_org_id"}
         response = await ac.get("/api/organization/detail", headers=headers)
-        
+
         assert response.status_code in [401, 403], "多租户越权漏洞：应拒绝通过跨组织访问请求"
 
 if __name__ == "__main__":

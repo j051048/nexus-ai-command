@@ -92,11 +92,10 @@ class TestCreateFromTemplate:
         resp.data = None
         mock_db.table.return_value.select.return_value.eq.return_value.single.return_value.execute = AsyncMock(return_value=resp)
 
-        with patch("app.services.workflow_template_service.supabase", mock_db):
-            with pytest.raises(ValueError):
-                await self.svc.create_workflow_from_template(
-                    "nonexistent", "org-1", "Test", "user-1", db=mock_db
-                )
+        with patch("app.services.workflow_template_service.supabase", mock_db), pytest.raises(ValueError):
+            await self.svc.create_workflow_from_template(
+                "nonexistent", "org-1", "Test", "user-1", db=mock_db
+            )
 
 
 class TestCategories:

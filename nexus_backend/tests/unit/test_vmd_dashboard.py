@@ -1,7 +1,9 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
 from fastapi import Request
-from app.routers.vmd_dashboard import get_model_usage, get_dashboard_stats
+
+from app.routers.vmd_dashboard import get_dashboard_stats, get_model_usage
 
 PATCH_ADMIN_DB = "app.routers.vmd_dashboard._get_admin_db"
 

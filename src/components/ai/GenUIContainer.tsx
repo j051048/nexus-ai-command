@@ -5,6 +5,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { GenUIToolbar } from './genui/GenUIToolbar';
 import { AlertTriangle, ExternalLink, RotateCcw } from 'lucide-react';
 import { CRUD_FALLBACK_ROUTES } from './genui/GenUIConstants';
+import { ReasoningTrace } from './genui/ReasoningTrace';
+import type { ThinkingStep } from './ThinkingChain';
 
 // Registry of components available for Generative UI
 // GenUI components use reloadOnFailure=false to prevent page reload on chunk failures;
@@ -68,6 +70,7 @@ interface GenUIContainerProps {
   componentName: string;
   props: Record<string, unknown>;
   onSendMessage?: (prompt: string) => void;
+  thinkingSteps?: ThinkingStep[];
 }
 
 // ErrorBoundary that catches render errors locally within GenUI components,
@@ -155,7 +158,7 @@ class GenUIErrorBoundary extends React.Component<GenUIErrorBoundaryProps, GenUIE
   }
 }
 
-export const GenUIContainer = React.memo(function GenUIContainer({ componentName, props, onSendMessage }: GenUIContainerProps) {
+export const GenUIContainer = React.memo(function GenUIContainer({ componentName, props, onSendMessage, thinkingSteps }: GenUIContainerProps) {
   const Component = GEN_UI_COMPONENTS[componentName];
   const contentRef = useRef<HTMLDivElement>(null);
   const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
@@ -203,6 +206,9 @@ export const GenUIContainer = React.memo(function GenUIContainer({ componentName
           </Suspense>
         </GenUIErrorBoundary>
       </div>
+      {thinkingSteps && thinkingSteps.length > 0 && (
+        <ReasoningTrace thinkingSteps={thinkingSteps} />
+      )}
     </div>
   );
 });

@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.services.crm_service import CRMService, CUSTOMER_STAGES
+from app.services.crm_service import CRMService
 
 
 def _mock_db(table_data=None):

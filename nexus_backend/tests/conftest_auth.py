@@ -9,10 +9,10 @@
    在 ASGI scope 中预注入 request.state 值 (org_id, user_role, db)
 """
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from httpx import ASGITransport, AsyncClient
-from typing import Optional
-from unittest.mock import AsyncMock, patch
 
 from app.core.auth import get_current_user_id
 from app.core.dependencies import get_db
@@ -101,7 +101,7 @@ class AuthenticatedTestClient:
         app,
         user_id: str = "test-user-123",
         role: str = "employee",
-        org_id: Optional[str] = "test-org-456",
+        org_id: str | None = "test-org-456",
     ):
         self.app = app
         self.user_id = user_id

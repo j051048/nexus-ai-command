@@ -3,9 +3,10 @@ Performance & Latency Baseline Tests.
 验证关键子系统的性能基准。
 """
 
-import pytest
 import time
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import patch
+
+import pytest
 
 
 @pytest.mark.benchmark
@@ -15,8 +16,9 @@ async def test_agent_graph_latency_baseline():
     Agent Graph 编译与初始化延迟基准测试。
     目标：graph compile（不含外部 IO）应在 5s 内完成。
     """
-    from app.agent.graph import AgentGraph, build_agent_graph
     from langgraph.checkpoint.memory import InMemorySaver
+
+    from app.agent.graph import AgentGraph, build_agent_graph
 
     # 重置单例
     AgentGraph._instance = None

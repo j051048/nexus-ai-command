@@ -3,9 +3,11 @@ Integration tests for FastAPI endpoints.
 对标大厂标准：验证从 HTTP 入口到 Agent 核心逻辑的完整集成链路。
 """
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from httpx import ASGITransport, AsyncClient
-from unittest.mock import MagicMock, patch, AsyncMock
+
 from app.main import app
 
 

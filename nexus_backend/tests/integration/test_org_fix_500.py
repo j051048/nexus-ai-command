@@ -1,9 +1,11 @@
 """
 回归测试：修复 500 AttributeError — OrganizationService.get_organization
 """
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 from fastapi import Request
+
 from app.routers.organization import get_organization_detail
 
 

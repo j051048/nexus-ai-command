@@ -8,10 +8,8 @@ P2-1: 状态版本控制系统
 - 清理策略：每线程最多保留 N 个快照，超限淘汰旧的
 """
 
-import json
 import logging
 from datetime import UTC, datetime, timedelta
-from typing import Any
 
 from app.core.database import supabase
 

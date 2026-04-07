@@ -4,7 +4,6 @@ P0-2: BaseTool.format_result 标准化输出测试
 验证 format_result 静态方法输出结构一致性。
 """
 
-import pytest
 from app.tools.base_tool import BaseTool
 
 
@@ -63,7 +62,7 @@ class TestBasetoolCategory:
         tool = MagicMock(spec=BaseTool)
         # 直接测试属性逻辑
         # 因为 category 是 property，我们通过实际子类测试
-        from app.tools import get_tool, _load_all
+        from app.tools import _load_all, get_tool
         _load_all()
         crm_tool = get_tool("get_customers")
         assert crm_tool is not None
@@ -71,7 +70,7 @@ class TestBasetoolCategory:
 
     def test_category_general_fallback(self):
         """无 domain 时回退到 general"""
-        from app.tools import get_tool, _load_all
+        from app.tools import _load_all, get_tool
         _load_all()
         # compact_context 没有 domain
         tool = get_tool("compact_context")

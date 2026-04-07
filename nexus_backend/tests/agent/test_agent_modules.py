@@ -3,13 +3,11 @@
 import importlib
 import inspect
 import pkgutil
-import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from app.agent.think_tags import extract_clean_content, strip_think_tags
-
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -554,10 +552,9 @@ class TestToolDomainCoverage:
         )
 
     def test_sync_tool_domains_registers_tools(self):
-        from app.agent.node_helpers import _DOMAIN_TOOL_MAP, _sync_tool_domains
-
         # Reset sync state so we can re-run
         import app.agent.node_helpers as nh
+        from app.agent.node_helpers import _DOMAIN_TOOL_MAP, _sync_tool_domains
 
         nh._domains_synced = False
         _sync_tool_domains()

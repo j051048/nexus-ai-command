@@ -5,9 +5,13 @@ Prompt 注入 / 越狱 深度安全测试
       组合攻击、边界条件、误报控制
 """
 import base64
+
 import pytest
+
 from app.core.prompt_firewall import (
-    PromptFirewall, FirewallConfig, FirewallResult, RiskLevel,
+    FirewallConfig,
+    PromptFirewall,
+    RiskLevel,
 )
 
 

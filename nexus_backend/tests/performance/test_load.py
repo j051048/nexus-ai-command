@@ -6,16 +6,17 @@
 """
 import asyncio
 import time
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
-from app.agent.state import AgentPhase, QueryComplexity, AgentConfig, ToolCallRecord
-from app.agent.safety_guards import SLO_THRESHOLDS, check_slo_budget
+import pytest
+
 from app.agent.loop_detector import (
-    tool_call_fingerprint, detect_loop,
-    GENERIC_REPEAT_THRESHOLD, GLOBAL_CIRCUIT_BREAKER, LOOP_WINDOW_SIZE,
+    detect_loop,
+    tool_call_fingerprint,
 )
-from app.core.prompt_firewall import PromptFirewall, FirewallConfig
+from app.agent.safety_guards import SLO_THRESHOLDS, check_slo_budget
+from app.agent.state import AgentConfig, QueryComplexity, ToolCallRecord
+from app.core.prompt_firewall import PromptFirewall
 
 
 def _base_config(**overrides):

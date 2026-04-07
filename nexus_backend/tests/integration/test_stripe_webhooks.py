@@ -6,7 +6,6 @@ Stripe Webhooks 路由集成测试
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from httpx import ASGITransport, AsyncClient
 
 
 class TestStripeWebhook:

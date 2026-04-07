@@ -44,10 +44,9 @@ async def patched_app():
         patch("app.services.event_bus.event_bus.stop", new_callable=AsyncMock),
         patch("app.services.audit_logger.audit_logger.force_flush", new_callable=AsyncMock),
     ):
-        from app.main import app  # noqa: E402 -- intentionally late import
-
         # Trigger one health refresh so the health cache is populated
         from app.core.health_cache import health_cache
+        from app.main import app  # noqa: E402 -- intentionally late import
         await health_cache._refresh_health()
 
         yield app

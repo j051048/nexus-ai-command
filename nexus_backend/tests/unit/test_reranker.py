@@ -81,9 +81,8 @@ class TestRerankWithApi:
         mock_http_client.__aenter__ = AsyncMock(return_value=mock_http_client)
         mock_http_client.__aexit__ = AsyncMock(return_value=False)
 
-        with patch("httpx.AsyncClient", return_value=mock_http_client):
-            with pytest.raises(httpx.HTTPStatusError):
-                await vector_service._rerank_with_api("测试", sample_documents, top_n=3)
+        with patch("httpx.AsyncClient", return_value=mock_http_client), pytest.raises(httpx.HTTPStatusError):
+            await vector_service._rerank_with_api("测试", sample_documents, top_n=3)
 
     @pytest.mark.asyncio
     async def test_empty_documents(self, vector_service):

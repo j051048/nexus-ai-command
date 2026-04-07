@@ -11,13 +11,10 @@
 """
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
+from unittest.mock import AsyncMock, patch
 
 from app.agent.state import AgentConfig, ToolCallRecord
 from app.tools.base_tool import BaseTool
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Helper: 测试用工具

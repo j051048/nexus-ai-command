@@ -3,9 +3,11 @@
 
 覆盖：BaseTool 协议、HITL 确认、权限检查、超时、重试、内部数据优先
 """
-import pytest
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
+
+import pytest
+
 from app.tools.base_tool import BaseTool, ConfirmationRequired, ConfirmationType
 
 
@@ -99,11 +101,10 @@ class TestToolExecution:
     @patch("app.agent.node_execute._execute_single_tool")
     async def test_tool_timeout_handled(self, mock_exec):
         """工具超时应返回错误而非崩溃"""
-        import asyncio
-        mock_exec.side_effect = asyncio.TimeoutError()
+        mock_exec.side_effect = TimeoutError()
 
         from app.agent.node_execute import execute_node
-        from app.agent.state import AgentPhase, AgentConfig
+        from app.agent.state import AgentConfig, AgentPhase
 
         state = {
             "phase": AgentPhase.EXECUTING,

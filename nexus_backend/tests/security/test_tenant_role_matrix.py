@@ -4,10 +4,8 @@
 覆盖：Boss/Manager/Employee 数据隔离、跨租户越权、RLS 模拟、
       工具级 RBAC、API 端点权限矩阵
 """
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from httpx import AsyncClient
 
+import pytest
 
 # ── 角色权限矩阵 ────────────────────────────────────────────────────────────
 

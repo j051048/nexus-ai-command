@@ -17,7 +17,6 @@ from contextvars import ContextVar
 from enum import StrEnum
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # Hermes-inspired three-tier approval scope
 # ---------------------------------------------------------------------------

@@ -4,9 +4,11 @@ Agent Graph 流程集成测试
 覆盖：SIMPLE 快速路径、MODERATE 标准流程、COMPLEX 并行计划、
       CRITICAL HITL 确认、错误恢复、循环检测中断
 """
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from app.agent.state import AgentPhase, QueryComplexity, AgentConfig
+
+import pytest
+
+from app.agent.state import AgentConfig, AgentPhase, QueryComplexity
 
 
 def _make_base_state(query: str, complexity: QueryComplexity = QueryComplexity.MODERATE):

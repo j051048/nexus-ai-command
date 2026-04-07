@@ -9,8 +9,9 @@ Boss & Finance 工具层测试
 """
 
 import uuid
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 FAKE_USER_ID = str(uuid.uuid4())
 CONFIG = {"org_id": "org-test-001", "token": None}
@@ -38,7 +39,7 @@ def _mock_db():
 
 
 def _load_tool(name: str):
-    from app.tools import get_tool, _load_all
+    from app.tools import _load_all, get_tool
     _load_all()
     tool = get_tool(name)
     assert tool is not None, f"工具 {name} 未注册"
@@ -233,7 +234,6 @@ class TestWebSearchTool:
     @pytest.mark.asyncio
     async def test_empty_results(self):
         """搜索无结果"""
-        import httpx
         tool = _load_tool("web_search")
 
         mock_response = MagicMock()

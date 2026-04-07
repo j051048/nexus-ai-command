@@ -640,7 +640,7 @@ def _try_cheap_route(text: str) -> tuple[QueryComplexity, str] | None:
         # Check if the text contains ANY business keywords before allowing SIMPLE route.
         # This prevents "Customer Overview" (short but dense) from being short-circuited.
         biz_hits = _filter_negated_keywords(text, _ALL_BUSINESS_KEYWORDS)
-        
+
         # P0 FIX: Explicitly block short intense business phrases from SIMPLE route
         # These are usually 2-6 chars: "查业绩", "客户概况", "项目详情"
         if biz_hits or _REALTIME_INFO_PATTERNS.search(text) or _LONGFORM_WRITING_RE.search(text):

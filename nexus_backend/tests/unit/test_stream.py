@@ -4,11 +4,8 @@ Tests for SSE streaming — format functions, state building, text chunking.
 
 import json
 
-import pytest
-
 from app.agent.sse_protocol import _chunk_text, _sse_content, _sse_data, _sse_status, _sse_thinking
 from app.agent.state import ThinkingStep
-
 
 # ── SSE Format Functions ──
 

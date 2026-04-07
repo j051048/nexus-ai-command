@@ -3,9 +3,11 @@ E2E 审批全流程测试
 
 覆盖：提交审批 → 审批人审批 → 状态更新 → 通知 → 审计日志
 """
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from httpx import ASGITransport, AsyncClient
+
 from app.main import app
 
 

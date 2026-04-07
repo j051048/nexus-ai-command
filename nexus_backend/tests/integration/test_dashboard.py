@@ -2,10 +2,10 @@
 
 from dataclasses import dataclass
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi import HTTPException
-from unittest.mock import MagicMock
 
 
 @dataclass

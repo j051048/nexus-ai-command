@@ -1,7 +1,9 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
-from fastapi import Request, HTTPException
-from app.routers.vmd_clues import list_vmd_clues, get_vmd_clue_detail
+from fastapi import HTTPException, Request
+
+from app.routers.vmd_clues import get_vmd_clue_detail, list_vmd_clues
 
 PATCH_ADMIN_DB = "app.routers.vmd_clues._get_admin_db"
 
@@ -102,9 +104,8 @@ class TestVMDCluesUnit:
         mock_req = MagicMock(spec=Request)
         mock_req.state.org_id = "org-123"
 
-        with patch(PATCH_ADMIN_DB, return_value=mock_db):
-            with pytest.raises(HTTPException) as excinfo:
-                await get_vmd_clue_detail(mock_req, clue_id="999", user_id="user-123")
+        with patch(PATCH_ADMIN_DB, return_value=mock_db), pytest.raises(HTTPException) as excinfo:
+            await get_vmd_clue_detail(mock_req, clue_id="999", user_id="user-123")
 
         assert excinfo.value.status_code == 404
         assert "不存在" in excinfo.value.detail["message"]

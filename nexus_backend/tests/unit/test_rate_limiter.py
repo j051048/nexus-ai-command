@@ -5,8 +5,6 @@ Tests for rate limiter — token bucket algorithm, memory cleanup, IP extraction
 import time
 from unittest.mock import MagicMock
 
-import pytest
-
 from app.core.rate_limiter import RateLimiter
 
 

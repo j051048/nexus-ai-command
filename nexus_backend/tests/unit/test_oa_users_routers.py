@@ -1,8 +1,11 @@
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import Request
+
 from app.routers.oa import get_oa_stats, get_today_attendance
 from app.routers.users import get_org_members
+
 
 @pytest.fixture
 def mock_request():

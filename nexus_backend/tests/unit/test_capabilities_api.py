@@ -4,8 +4,6 @@ P0-3: /api/tools/capabilities 能力发现 API 测试
 验证端点返回的结构正确性和分组逻辑。
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 
 class TestCapabilitiesEndpoint:
@@ -13,7 +11,7 @@ class TestCapabilitiesEndpoint:
 
     def test_capabilities_data_structure(self):
         """验证 capabilities 返回结构"""
-        from app.tools import _load_all, TOOL_REGISTRY
+        from app.tools import TOOL_REGISTRY, _load_all
 
         _load_all()
 
@@ -54,14 +52,14 @@ class TestCapabilitiesEndpoint:
 
     def test_total_tools_count(self):
         """验证总工具数大于 0"""
-        from app.tools import _load_all, TOOL_REGISTRY
+        from app.tools import TOOL_REGISTRY, _load_all
 
         _load_all()
         assert len(TOOL_REGISTRY) > 0
 
     def test_tool_examples_included(self):
         """验证代表性工具包含示例"""
-        from app.tools import _load_all, TOOL_REGISTRY
+        from app.tools import TOOL_REGISTRY, _load_all
 
         _load_all()
 

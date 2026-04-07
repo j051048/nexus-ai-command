@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-
 # ── Payments Router Tests ──
 
 
@@ -339,7 +338,6 @@ class TestStripeWebhook:
 
     @pytest.mark.asyncio
     async def test_import_failure_returns_503(self):
-        from app.routers.stripe_webhooks import stripe_webhook
 
         req = MagicMock()
         req.body = AsyncMock(return_value=b'{"type": "test"}')
@@ -350,7 +348,6 @@ class TestStripeWebhook:
             side_effect=ImportError("no module"),
         ):
             # Force import to fail inside the function
-            import importlib
 
             import app.routers.stripe_webhooks as sw
 

@@ -6,9 +6,10 @@ Multi-Tenant Security Matrix - 隔离审计与权限泄露测试
 import asyncio
 import json
 import re
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+
 
 @pytest.mark.security
 @pytest.mark.asyncio

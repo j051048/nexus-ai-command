@@ -4,7 +4,6 @@ Validates the horizontal business flow:
 Lead → Analysis → Approval → Contract → Payment
 """
 
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -13,8 +12,6 @@ from app.services.event_bus import (
     Event,
     EventType,
     InMemoryEventBus,
-    emit,
-    event_bus,
 )
 
 

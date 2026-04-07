@@ -25,14 +25,14 @@ if _backend_root not in sys.path:
 
 from evals.eval_metrics import EvalDimension, MetricsReporter
 from evals.eval_runner import EvalRunner
+from evals.evaluators.e2e_golden import E2EGoldenEvaluator
 from evals.evaluators.hallucination import HallucinationEvaluator
+from evals.evaluators.latency_cost import LatencyCostEvaluator
+from evals.evaluators.rag_quality import RAGQualityEvaluator
 from evals.evaluators.router_accuracy import RouterAccuracyEvaluator
 from evals.evaluators.safety import SafetyEvaluator
 from evals.evaluators.task_completion import TaskCompletionEvaluator
-from evals.evaluators.e2e_golden import E2EGoldenEvaluator
 from evals.evaluators.tool_selection import ToolSelectionEvaluator
-from evals.evaluators.latency_cost import LatencyCostEvaluator
-from evals.evaluators.rag_quality import RAGQualityEvaluator
 
 
 @pytest.fixture

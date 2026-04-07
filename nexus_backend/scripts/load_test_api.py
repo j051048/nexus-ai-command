@@ -1,9 +1,11 @@
 import asyncio
-import time
-import httpx
-import statistics
 import collections
+import statistics
 import sys
+import time
+
+import httpx
+
 
 async def fetch(client, url):
     start = time.perf_counter()
@@ -18,16 +20,16 @@ async def fetch(client, url):
         return str(type(e).__name__), latency
 
 async def load_test(url, concurrency, total_requests):
-    print(f"==================================================")
-    print(f"🚀 [性能 & 压力测试] 启动高并发接口压测...")
+    print("==================================================")
+    print("🚀 [性能 & 压力测试] 启动高并发接口压测...")
     print(f"🎯 目标端点: {url}")
     print(f"⚡ 模拟用户并发数 (Concurrency): {concurrency}")
     print(f"📦 总发包次数 (Total Requests): {total_requests}")
-    print(f"==================================================\n")
-    
+    print("==================================================\n")
+
     timeout = httpx.Timeout(10.0)
     limits = httpx.Limits(max_connections=concurrency, max_keepalive_connections=concurrency)
-    
+
     async with httpx.AsyncClient(limits=limits, timeout=timeout) as client:
         # Warmup (预热建立连接)
         try:
@@ -36,22 +38,22 @@ async def load_test(url, concurrency, total_requests):
         except Exception as e:
             print(f"❌ [错误] 预热请求失败: {e}，请检查目标服务是否已启动。")
             return
-            
+
         start_time = time.perf_counter()
         sem = asyncio.Semaphore(concurrency)
-        
+
         async def bounded_fetch():
             async with sem:
                 return await fetch(client, url)
-                
+
         tasks = [bounded_fetch() for _ in range(total_requests)]
         results = await asyncio.gather(*tasks)
-        
+
         total_time = time.perf_counter() - start_time
-        
+
         status_codes = [r[0] for r in results]
         latencies = [r[1] for r in results]
-        
+
         print("-" * 50)
         print("📊 压测结果分析报告 (Load Test Report)")
         print("-" * 50)
@@ -59,7 +61,7 @@ async def load_test(url, concurrency, total_requests):
         print(f"线程并发度            : {concurrency}")
         print(f"总测试耗时            : {total_time:.3f} 秒")
         print(f"🏆 吞吐量 (QPS)       : {total_requests / total_time:.2f} req/s")
-        
+
         print("\n⏱ 延迟与首Token统计 (Latency Metrics):")
         print(f"  最短响应时间 (Min)   : {min(latencies)*1000:.2f} ms")
         print(f"  最长响应时间 (Max)   : {max(latencies)*1000:.2f} ms")
@@ -71,7 +73,7 @@ async def load_test(url, concurrency, total_requests):
                 p99 = statistics.quantiles(latencies, n=100)[98]
                 print(f"  🔥 95分位 (P95)      : {p95*1000:.2f} ms")
                 print(f"  🚨 99分位 (P99)      : {p99*1000:.2f} ms")
-        
+
         print("\n📈 状态码与熔断情况 (Status Codes Distribution):")
         counter = collections.Counter(status_codes)
         for code, count in counter.items():
@@ -84,5 +86,5 @@ if __name__ == "__main__":
     url = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8123/health"
     concurrency = int(sys.argv[2]) if len(sys.argv) > 2 else 50
     total = int(sys.argv[3]) if len(sys.argv) > 3 else 1000
-    
+
     asyncio.run(load_test(url, concurrency, total))

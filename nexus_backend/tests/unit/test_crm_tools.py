@@ -13,9 +13,9 @@ CRM 工具层集成测试
 """
 
 import uuid
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 # ── helpers ────────────────────────────────────────────────
 
@@ -64,7 +64,7 @@ def _mock_db_chain():
 
 def _load_tool(name: str):
     """按名称加载工具实例"""
-    from app.tools import get_tool, _load_all
+    from app.tools import _load_all, get_tool
     _load_all()
     tool = get_tool(name)
     assert tool is not None, f"工具 {name} 未注册"

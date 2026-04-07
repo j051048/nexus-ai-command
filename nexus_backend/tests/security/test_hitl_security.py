@@ -10,10 +10,8 @@
 - RBAC: employee 调用 manager 专用工具 -> 阻止
 """
 
-import pytest
 
-from app.tools.base_tool import BaseTool, ConfirmationType, CONFIRMATION_THRESHOLDS
-
+from app.tools.base_tool import CONFIRMATION_THRESHOLDS, BaseTool
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Helper: 测试用工具定义
@@ -306,7 +304,7 @@ class TestRBAC:
             tool_call_id="tc-002",
         )
 
-        from unittest.mock import patch, AsyncMock
+        from unittest.mock import patch
 
         with (
             patch("app.agent.node_execute.get_tool", return_value=MockManagerTool()),

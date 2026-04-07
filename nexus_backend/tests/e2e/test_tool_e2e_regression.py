@@ -18,12 +18,11 @@ Tool E2E Regression Tests — 工具端到端回归测试
 """
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from app.tools.base_tool import BaseTool
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Fixtures
@@ -600,7 +599,6 @@ class TestToolRegistration:
 
     def test_registered_tools_importable(self):
         """注册表中的工具均可成功导入"""
-        from app.tools import _TOOL_MODULES
 
         for tool_name in TestToolMetadataRegression.TOP_20_TOOLS:
             tool = _load_tool(tool_name)

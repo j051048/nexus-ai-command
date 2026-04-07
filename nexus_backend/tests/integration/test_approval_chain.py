@@ -13,12 +13,10 @@
 - evaluate_condition: 条件评估逻辑
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from tests.conftest import MockQueryBuilder, MockResponse, MockSupabaseClient
-
+from tests.conftest import MockSupabaseClient
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Helper: 构建带审批链数据的 mock DB

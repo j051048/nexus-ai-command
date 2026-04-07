@@ -17,7 +17,6 @@
 
 import logging
 import re
-from typing import Any
 
 from app.core.database import supabase
 

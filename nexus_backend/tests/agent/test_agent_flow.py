@@ -12,18 +12,14 @@
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.agent.state import (
     AgentConfig,
     AgentPhase,
-    AgentState,
     QueryComplexity,
-    ThinkingStep,
     ToolCallRecord,
 )
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Route Node 测试

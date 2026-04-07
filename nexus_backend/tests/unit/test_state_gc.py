@@ -1,6 +1,5 @@
 """Unit tests for _gc_state() — State auto-compression / garbage collection."""
 
-import pytest
 
 from app.agent.graph import _gc_state
 from app.agent.state import ToolCallRecord

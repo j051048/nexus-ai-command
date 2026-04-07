@@ -9,10 +9,7 @@
 - 调度规则按 tenant_id 隔离
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
-
+from unittest.mock import patch
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Vector Service 租户隔离

@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ─── Encrypt / Decrypt Round-trip ──────────────────────────────
 
 
@@ -125,13 +124,13 @@ class TestKeyProvider:
 
     def test_resolve_key_provider_default_is_env(self):
         with patch.dict("os.environ", {"KEY_PROVIDER": "env"}, clear=False):
-            from app.services.encryption_service import _resolve_key_provider, EnvKeyProvider
+            from app.services.encryption_service import EnvKeyProvider, _resolve_key_provider
             provider = _resolve_key_provider()
             assert isinstance(provider, EnvKeyProvider)
 
     def test_resolve_key_provider_vault(self):
         with patch.dict("os.environ", {"KEY_PROVIDER": "vault"}, clear=False):
-            from app.services.encryption_service import _resolve_key_provider, VaultKeyProvider
+            from app.services.encryption_service import VaultKeyProvider, _resolve_key_provider
             provider = _resolve_key_provider()
             assert isinstance(provider, VaultKeyProvider)
 

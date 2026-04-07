@@ -83,7 +83,6 @@ async def memory_inject_middleware(state: AgentState) -> dict[str, Any]:
             # P0-6: 技能匹配 — 检索已有技能模板，注入 planning 提示
             try:
                 from app.agent.skill_library import skill_library
-
                 from app.core.database import supabase as db_client
 
                 matched = await skill_library.match_skill(
@@ -239,6 +238,66 @@ async def memory_update_middleware(state: AgentState) -> dict[str, Any]:
                     logger.debug("[Middleware] Skill extraction scheduled")
                 except Exception as e:
                     logger.debug(f"[Middleware] Skill extraction skipped: {e}")
+
+            # P1-1: 错误学习 — 记录工具调用成功/失败到 LearningSystem
+            try:
+                from app.agent.learning_system import learning_system
+
+                for tc in completed:
+                    tc_name = (
+                        getattr(tc, "tool_name", None)
+                        or (tc.get("tool_name") if isinstance(tc, dict) else None)
+                        or "unknown"
+                    )
+                    tc_status = (
+                        getattr(tc, "status", None)
+                        or (tc.get("status") if isinstance(tc, dict) else None)
+                        or "unknown"
+                    )
+                    tc_args = (
+                        getattr(tc, "args", None)
+                        or (tc.get("args") if isinstance(tc, dict) else None)
+                        or {}
+                    )
+                    param_keys = list(tc_args.keys()) if isinstance(tc_args, dict) else []
+
+                    if tc_status == "success":
+                        ctx = {
+                            "tool_name": tc_name,
+                            "param_keys": param_keys,
+                            "intent": state.get("intent_summary", "")[:60],
+                        }
+                        asyncio.create_task(
+                            learning_system.record_success(
+                                tool_name=tc_name,
+                                solution=f"called {tc_name} with keys {param_keys}",
+                                context=ctx,
+                                org_id=config.org_id or "default",
+                            )
+                        )
+                    elif tc_status == "error":
+                        tc_error = (
+                            getattr(tc, "error", None)
+                            or (tc.get("error") if isinstance(tc, dict) else None)
+                            or "unknown_error"
+                        )
+                        ctx = {
+                            "tool_name": tc_name,
+                            "error_type": type(tc_error).__name__ if not isinstance(tc_error, str) else tc_error[:120],
+                            "param_keys": param_keys,
+                        }
+                        asyncio.create_task(
+                            learning_system.record_failure(
+                                tool_name=tc_name,
+                                error_pattern=str(tc_error)[:200],
+                                context=ctx,
+                                user_id=config.user_id,
+                                org_id=config.org_id or "default",
+                            )
+                        )
+                logger.debug("[Middleware] Learning system recording scheduled")
+            except Exception as e:
+                logger.debug(f"[Middleware] Learning system recording skipped: {e}")
 
             # P0-7: 轻量快照 — 每轮对话结束时自动拍快照
             try:

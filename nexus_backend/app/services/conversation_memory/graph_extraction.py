@@ -12,6 +12,13 @@ import logging
 from typing import Any
 
 from app.core.database import supabase
+from app.services.conversation_memory.ontology import (
+    get_allowed_entity_types,
+    get_extraction_prompt_hint,
+    normalize_entity_type,
+    normalize_relationship,
+    validate_triple,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,18 +45,8 @@ EXTRACT_ENTITIES_TOOL = {
                             },
                             "entity_type": {
                                 "type": "string",
-                                "enum": [
-                                    "person",
-                                    "organization",
-                                    "project",
-                                    "product",
-                                    "location",
-                                    "event",
-                                    "concept",
-                                    "tool",
-                                    "document",
-                                ],
-                                "description": "实体类型",
+                                "enum": get_allowed_entity_types(),
+                                "description": "实体类型（受 Ontology 约束）",
                             },
                         },
                         "required": ["name", "entity_type"],
@@ -112,7 +109,9 @@ ESTABLISH_RELATIONS_TOOL = {
 }
 
 
-EXTRACT_SYSTEM_PROMPT = """你是知识图谱提取专家。从用户与 AI 助手的对话中提取有价值的实体和关系。
+EXTRACT_SYSTEM_PROMPT = f"""你是知识图谱提取专家。从用户与 AI 助手的对话中提取有价值的实体和关系。
+
+{get_extraction_prompt_hint()}
 
 注意：
 - 只提取明确出现在对话中的实体和关系
@@ -238,19 +237,30 @@ def _parse_extraction_response(response_text: str) -> list[dict]:
         relationship = rel.get("relationship", "").strip()
         destination = rel.get("destination", "").strip()
 
-        # Validate triple
+        # Validate basic structure
         if not all([source, relationship, destination]):
             continue
         if len(source) > 100 or len(destination) > 100 or len(relationship) > 50:
             continue
 
+        # Ontology normalization: map free-form types to controlled vocabulary
+        source_type = normalize_entity_type(rel.get("source_type", "concept"))
+        dest_type = normalize_entity_type(rel.get("destination_type", "concept"))
+        relationship = normalize_relationship(relationship)
+
+        # Validate triple against Ontology constraints
+        is_valid, reason = validate_triple(source_type, relationship, dest_type)
+        if not is_valid:
+            logger.debug(f"[GraphExtract] Skipping invalid triple: {source} -{relationship}-> {destination}: {reason}")
+            continue
+
         relations.append(
             {
                 "source": source,
-                "source_type": rel.get("source_type", "concept"),
+                "source_type": source_type,
                 "relationship": relationship,
                 "destination": destination,
-                "destination_type": rel.get("destination_type", "concept"),
+                "destination_type": dest_type,
             }
         )
 

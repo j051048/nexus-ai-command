@@ -9,8 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.services.api_key_service import APIKeyService, API_KEY_PREFIX
-
+from app.services.api_key_service import API_KEY_PREFIX, APIKeyService
 
 # ─── Key Generation ────────────────────────────────────────────
 

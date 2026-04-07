@@ -1,8 +1,8 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
-from fastapi import Request, HTTPException
-from app.routers.crm import router
-from app.core.errors import ErrorCode
+from fastapi import HTTPException, Request
+
 
 @pytest.fixture
 def mock_db():

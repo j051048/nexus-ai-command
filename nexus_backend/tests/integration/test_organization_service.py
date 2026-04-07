@@ -3,9 +3,12 @@
 验证部门、职位、员工管理功能，特别关注 Redis 缓存与失效逻辑。
 """
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from app.services.organization_service import OrganizationService
+
 
 @pytest.mark.asyncio
 class TestOrganizationService:
@@ -32,23 +35,23 @@ class TestOrganizationService:
         res1 = await service.list_departments(org_id=org_id, db=mock_db)
         assert len(res1) == 1
         assert res1[0]["name"] == "Tech"
-        
+
         # 验证 @cache 装饰器是否尝试写入 Redis (prefix="org")
         assert mock_redis.setex.called
 
     async def test_create_department_invalidates_cache(self, service, mock_db, mock_redis):
         """测试创建部门时是否失效相关缓存"""
         org_id = "org-123"
-        
+
         # 模拟插入成功会返回数据
         mock_db.set_table_data("departments", [])
-        
+
         await service.create_department(
             org_id=org_id,
             name="New Dept",
             db=mock_db
         )
-        
+
         # 验证是否调用了失效逻辑
         # invalidate_cache(f"org:cache:*list_departments*{org_id}*") -> redis_client.keys
         assert mock_redis.keys.called
@@ -77,7 +80,7 @@ class TestOrganizationService:
         mock_db.set_table_data("users", [{"id": "e1", "organization_id": org_id, "status": "active", "role": "admin"}])
 
         stats = await service.get_org_statistics(org_id=org_id, db=mock_db)
-        
+
         assert stats["member_count"] == 1
         assert stats["total_employees"] == 1
         assert stats["active_employees"] == 1

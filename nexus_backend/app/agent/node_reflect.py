@@ -625,27 +625,24 @@ AI 回复:
 
         record_hallucination("reflect_grounding_check")
 
-        # ToT backtrack: if alternative plans exist and haven't been tried, switch to backup
-        candidate_plans = state.get("candidate_plans", [])
-        backtrack_depth = state.get("backtrack_depth", 0)
+        # P2.2: Use backtrack_strategy module for structured ToT backtracking
+        from app.agent.backtrack_strategy import execute_backtrack, should_backtrack
+
         _backtrack_extras = {}
-        if candidate_plans and backtrack_depth < 1:
-            alt = candidate_plans[0]
-            alt_sig = alt.get("sig", "unknown")
-            alt_tool_names = [tc.get("name", "") for tc in alt.get("tool_calls", [])]
-            logger.info(
-                f"[ReflectNode] ToT backtrack: switching to alternative plan "
-                f"(sig={alt_sig}, score={alt.get('score', 0):.2f})"
-            )
-            reflection_guidance = (
-                f"上一方案存在问题: {hallucination_reason}。"
-                f"请改用以下工具组合重新执行: {', '.join(alt_tool_names) or '纯文本回答'}。"
-                + (f"\n参考内容: {alt.get('content', '')[:200]}" if alt.get("content") else "")
-            )
-            _backtrack_extras = {
-                "backtrack_depth": backtrack_depth + 1,
-                "candidate_plans": candidate_plans[1:],  # consume the used alternative
-            }
+        if should_backtrack(state):
+            bt_updates = execute_backtrack(state)
+            if bt_updates:
+                _backtrack_extras = {
+                    k: v for k, v in bt_updates.items()
+                    if k in ("backtrack_depth", "candidate_plans", "completed_tool_calls", "pending_tool_calls")
+                }
+                # Override reflection_guidance with backtrack-aware guidance
+                if bt_updates.get("reflection_guidance"):
+                    reflection_guidance = bt_updates["reflection_guidance"]
+                logger.info(
+                    "[ReflectNode:Backtrack] Switching plan via backtrack_strategy "
+                    f"(depth={_backtrack_extras.get('backtrack_depth', '?')})"
+                )
 
         return {
             "messages": [HumanMessage(content=f"[自我指引] {reflection_guidance}")],
@@ -660,6 +657,40 @@ AI 回复:
             "thinking_steps": [],
             **_backtrack_extras,
         }
+
+    # ── P2.2: Conditional backtrack for non-hallucination but low confidence ──
+    # Even if no hallucination was detected, if confidence is very low and
+    # alternative plans exist, trigger a proactive backtrack rather than
+    # returning a low-quality answer.
+    from app.agent.backtrack_strategy import should_backtrack as _should_bt
+
+    if confidence < 0.5 and _should_bt({"confidence_score": confidence, **state}):
+        from app.agent.backtrack_strategy import execute_backtrack as _exec_bt
+
+        bt_updates = _exec_bt(state)
+        if bt_updates:
+            logger.info(
+                "[ReflectNode:Backtrack] Low confidence (%.2f) triggered proactive backtrack",
+                confidence,
+            )
+            return {
+                "reflection": f"低置信度回溯 (confidence={confidence:.2f})",
+                "is_hallucination": False,
+                "needs_replanning": True,
+                "confidence_score": confidence,
+                "current_phase": AgentPhase.PLANNING,
+                "iteration": iteration + 1,
+                "reflection_count": reflection_count + 1,
+                "reflection_guidance": bt_updates.get("reflection_guidance", ""),
+                "thinking_steps": [
+                    ThinkingStep(
+                        phase=AgentPhase.REFLECTING.value,
+                        content=f"置信度过低 ({confidence:.0%})，触发寻路回溯到替代方案",
+                    )
+                ],
+                **{k: v for k, v in bt_updates.items()
+                   if k in ("backtrack_depth", "candidate_plans", "completed_tool_calls", "pending_tool_calls")},
+            }
 
     return {
         "reflection": "通过质量校验",

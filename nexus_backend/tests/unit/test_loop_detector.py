@@ -3,14 +3,14 @@ Loop Detector 单元测试
 
 覆盖：4 种检测策略 + 指纹生成 + 边界条件
 """
-import pytest
 from unittest.mock import MagicMock
+
 from app.agent.loop_detector import (
-    tool_call_fingerprint,
-    detect_loop,
     GENERIC_REPEAT_THRESHOLD,
-    POLL_NO_PROGRESS_THRESHOLD,
     GLOBAL_CIRCUIT_BREAKER,
+    POLL_NO_PROGRESS_THRESHOLD,
+    detect_loop,
+    tool_call_fingerprint,
 )
 from app.agent.state import ToolCallRecord
 

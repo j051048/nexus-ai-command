@@ -4,9 +4,11 @@ Plan → Execute → Reflect → Critic 全链路测试
 覆盖：计划生成、工具执行、反思自纠正、Critic 质量门禁、
       HITL 确认流程、循环检测中断、错误恢复
 """
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from app.agent.state import AgentPhase, QueryComplexity, AgentConfig, ThinkingStep, ToolCallRecord
+
+import pytest
+
+from app.agent.state import AgentConfig, AgentPhase, QueryComplexity, ToolCallRecord
 
 
 def _base_config(**overrides):
@@ -109,8 +111,9 @@ class TestReflectCriticChain:
     @pytest.mark.asyncio
     @patch("app.agent.node_reflect._get_llm")
     async def test_reflect_high_confidence_passes(self, mock_get_llm):
-        from app.agent.node_reflect import reflect_node
         from langchain_core.messages import AIMessage, HumanMessage
+
+        from app.agent.node_reflect import reflect_node
 
         mock_msg = MagicMock()
         mock_msg.content = '{"quality": "good", "issues": [], "confidence": 0.95}'
@@ -138,8 +141,9 @@ class TestReflectCriticChain:
     @pytest.mark.asyncio
     @patch("app.agent.node_reflect._get_llm")
     async def test_reflect_low_confidence_triggers_replan(self, mock_get_llm):
-        from app.agent.node_reflect import reflect_node
         from langchain_core.messages import AIMessage, HumanMessage
+
+        from app.agent.node_reflect import reflect_node
 
         mock_msg = MagicMock()
         mock_msg.content = '{"quality": "poor", "issues": ["数据不完整"], "confidence": 0.3, "suggestion": "需要补充查询"}'

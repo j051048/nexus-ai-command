@@ -1,16 +1,13 @@
 """Tests for token_service: counting, cost estimation, limits, and billing logic."""
 
-import pytest
+from app.core.model_pricing import DEFAULT_PRICE, MODEL_PRICES
 from app.services.token_service import (
-    TokenCounter,
     TokenUsage,
     UsageLimits,
     UsageTracker,
-    validate_request_tokens,
     token_counter,
+    validate_request_tokens,
 )
-from app.core.model_pricing import MODEL_PRICES, DEFAULT_PRICE
-
 
 # ─── TokenCounter Tests ─────────────────────────────────────────────────────
 

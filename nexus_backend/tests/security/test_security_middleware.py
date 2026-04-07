@@ -5,9 +5,8 @@ Tests for security middleware optimizations:
 - CSRF validation
 """
 
-import asyncio
 import secrets
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 

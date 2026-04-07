@@ -8,6 +8,7 @@ from app.core.database import supabase
 
 from .embedding import generate_embedding
 from .pii_filter import sanitize_pii
+from .visibility import determine_visibility
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,7 @@ async def save_memory(
     fact_type: str = "fact",
     confidence: float = 1.0,
     valid_until: str | None = None,
+    visibility: str | None = None,
 ) -> dict:
     """保存用户记忆条目（upsert by user_id + key），同时生成 embedding 向量"""
     client = db or supabase
@@ -142,6 +144,14 @@ async def save_memory(
     if not old_id and not is_bench:
         await _enforce_memory_limit(user_id, client, max_memories=5000)
 
+    # P1.1: Auto-determine visibility level for RBAC
+    resolved_visibility = determine_visibility(category, importance, visibility)
+
+    # P2.1: Generate semantic tags for pre-filtering
+    from .semantic_tags import generate_semantic_tags
+
+    semantic_tags = generate_semantic_tags(category, key, value, fact_type=fact_type)
+
     # Always insert a new record (append-only versioning)
     insert_data = {
         "user_id": user_id,
@@ -173,6 +183,12 @@ async def save_memory(
         insert_data["confidence"] = confidence
     if valid_until:
         insert_data["valid_until"] = valid_until
+    # P1.1: Visibility field (graceful — skip if column doesn't exist yet)
+    if resolved_visibility != "private":
+        insert_data["visibility"] = resolved_visibility
+    # P2.1: Semantic tags (graceful — skip if column doesn't exist yet)
+    if semantic_tags:
+        insert_data["semantic_tags"] = semantic_tags
     try:
         result = await client.table("conversation_memories").insert(insert_data).execute()
     except Exception as insert_err:

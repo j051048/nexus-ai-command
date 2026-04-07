@@ -4,13 +4,15 @@ Safety Guards 单元测试
 覆盖：不可逆工具检测、mutation fast-path、SLO 预算检查
 """
 import time
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from app.agent.safety_guards import (
+    SLO_THRESHOLDS,
+    check_slo_budget,
     has_irreversible_tool,
     is_mutation_fast_path,
-    check_slo_budget,
-    SLO_THRESHOLDS,
 )
 from app.agent.state import QueryComplexity
 

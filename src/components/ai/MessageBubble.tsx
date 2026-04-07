@@ -257,7 +257,7 @@ export const MessageBubble = React.memo(function MessageBubble({
             (() => {
               // Layer 0: Use memoized bare JSON detection result
               if (bareGenUI) {
-                return <GenUIContainer componentName={bareGenUI.component} props={bareGenUI.props} onSendMessage={onSendMessage} />;
+                return <GenUIContainer componentName={bareGenUI.component} props={bareGenUI.props} onSendMessage={onSendMessage} thinkingSteps={message.thinkingSteps} />;
               }
               return null;
             })() ||
@@ -282,14 +282,14 @@ export const MessageBubble = React.memo(function MessageBubble({
                       try {
                         const config = JSON.parse(raw);
                         if (config.component && typeof config.component === 'string') {
-                          return <GenUIContainer componentName={config.component} props={config.props || {}} onSendMessage={onSendMessage} />;
+                          return <GenUIContainer componentName={config.component} props={config.props || {}} onSendMessage={onSendMessage} thinkingSteps={message.thinkingSteps} />;
                         }
 
                         // Layer 3: Auto-detect component from props structure when "component" field is missing
                         // LLMs sometimes output just the props JSON without the wrapper
                         const inferred = inferGenUIComponent(config);
                         if (inferred && inferred.confidence >= 0.6) {
-                          return <GenUIContainer componentName={inferred.component} props={config} onSendMessage={onSendMessage} />;
+                          return <GenUIContainer componentName={inferred.component} props={config} onSendMessage={onSendMessage} thinkingSteps={message.thinkingSteps} />;
                         }
                         
                         // Fallback for LLMs generating generic JSON without "component"

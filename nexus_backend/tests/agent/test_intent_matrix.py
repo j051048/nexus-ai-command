@@ -4,6 +4,7 @@ AI Agent 意图路由极致测试矩阵
 50+ 真实企业场景，覆盖 4 级复杂度 × 多业务域 × 边缘案例
 """
 import pytest
+
 from app.agent.router import classify_query, detect_agent_role
 from app.agent.state import QueryComplexity
 

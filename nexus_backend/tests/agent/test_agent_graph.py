@@ -2,7 +2,6 @@
 Tests for Agent graph — compilation, conditional edges, state machine topology.
 """
 
-import pytest
 
 from app.agent.graph import (
     AgentGraph,
@@ -15,7 +14,6 @@ from app.agent.graph import (
     _after_wbs,
     build_agent_graph,
 )
-from app.agent.state import AgentPhase, QueryComplexity
 
 
 def _make_state(**overrides) -> dict:

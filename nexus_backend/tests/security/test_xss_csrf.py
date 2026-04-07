@@ -5,8 +5,8 @@ XSS / CSRF / 输入验证 安全测试
       HTTP Header 注入、路径遍历、JSON 注入
 """
 import pytest
-from app.core.sanitize import sanitize_html, sanitize_sql, validate_email, validate_phone
 
+from app.core.sanitize import sanitize_html, sanitize_sql, validate_email, validate_phone
 
 # ── XSS 防护 ──────────────────────────────────────────────────────────────────
 

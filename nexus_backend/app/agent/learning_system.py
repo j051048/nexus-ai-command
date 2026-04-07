@@ -8,7 +8,7 @@ P1-1: 错误学习机制 - 从失败中改进
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from app.core.database import supabase
 
@@ -48,7 +48,7 @@ class LearningSystem:
                         "user_id": user_id,
                         "org_id": org_id,
                         "frequency": 1,
-                        "created_at": datetime.utcnow().isoformat(),
+                        "created_at": datetime.now(UTC).isoformat(),
                     }
                 ).execute()
 
@@ -64,7 +64,7 @@ class LearningSystem:
                     "solution": solution,
                     "context": context,
                     "org_id": org_id,
-                    "created_at": datetime.utcnow().isoformat(),
+                    "created_at": datetime.now(UTC).isoformat(),
                 }
             ).execute()
         except Exception as e:

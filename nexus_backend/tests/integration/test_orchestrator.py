@@ -2,10 +2,9 @@
 Tests for orchestrator — execution layers, parallel topology, dependency resolution.
 """
 
-import pytest
 
-from app.agent.dependency_resolver import resolve_execution_layers as _resolve_execution_layers, resolve_execution_order as _resolve_execution_order
-
+from app.agent.dependency_resolver import resolve_execution_layers as _resolve_execution_layers
+from app.agent.dependency_resolver import resolve_execution_order as _resolve_execution_order
 
 # ── Execution Order (Legacy) ──
 

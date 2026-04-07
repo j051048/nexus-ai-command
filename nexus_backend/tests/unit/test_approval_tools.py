@@ -9,8 +9,9 @@
 """
 
 import uuid
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 FAKE_USER_ID = str(uuid.uuid4())
 FAKE_ORG_ID = "org-test-001"
@@ -43,7 +44,7 @@ def _mock_db():
 
 
 def _load_tool(name: str):
-    from app.tools import get_tool, _load_all
+    from app.tools import _load_all, get_tool
     _load_all()
     tool = get_tool(name)
     assert tool is not None, f"工具 {name} 未注册"
@@ -256,7 +257,7 @@ class TestUrgeApprovalTool:
                 mock_method.return_value = {"message": "催办成功"}
                 result = await tool.run({"request_id": FAKE_REQ_ID, "reason": "urgency"}, FAKE_USER_ID, CONFIG)
                 assert "成功" in result or "催办" in result or "message" in result
-                
+
     @pytest.mark.asyncio
     async def test_invalid_uuid(self):
         tool = _load_tool("urge_approval")

@@ -2,8 +2,10 @@
 Audit & Compliance - 法务、审计与合规工具专项回归
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
 from tests.e2e.test_tool_e2e_regression import _load_tool
 
 USER_ID = "auditor-01"
@@ -17,7 +19,7 @@ def audit_config():
 async def test_contract_retrieval_flow(audit_config):
     """验证合约查询及状态展示"""
     tool = _load_tool("get_contracts")
-    
+
     with patch("app.tools._shared.supabase.table") as mock_table:
         # Mock 数据库返回 2 条合约
         mock_query = MagicMock()
@@ -26,7 +28,7 @@ async def test_contract_retrieval_flow(audit_config):
             {"id": "c1", "title": "科学仪器采购协议-A", "status": "active", "amount": 50000},
             {"id": "c2", "title": "维保服务合同-B", "status": "pending", "amount": 12000}
         ]
-        
+
         # 让整个链条都返回这个 mock_query
         mock_table.return_value = mock_query
         mock_query.select.return_value = mock_query
@@ -34,10 +36,10 @@ async def test_contract_retrieval_flow(audit_config):
         mock_query.order.return_value = mock_query
         mock_query.range.return_value = mock_query
         mock_query.execute = mock_execute
-        
+
         args = {"status": "all"}
         result = await tool.run(args, USER_ID, audit_config)
-        
+
         assert "科学仪器采购" in result
         assert "维保服务" in result
         # 验证是否正确设置了 status 过滤

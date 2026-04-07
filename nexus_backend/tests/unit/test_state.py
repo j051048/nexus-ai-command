@@ -5,16 +5,15 @@ AgentState / AgentConfig / ThinkingStep / WBS 数据结构单元测试
 """
 import pytest
 from pydantic import ValidationError
+
 from app.agent.state import (
+    AgentConfig,
     AgentPhase,
     QueryComplexity,
     ThinkingStep,
     ToolCallRecord,
-    WBSSubTask,
     WBSStructure,
-    DelegationResult,
-    TaskStep,
-    AgentConfig,
+    WBSSubTask,
 )
 
 

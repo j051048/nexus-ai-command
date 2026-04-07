@@ -493,13 +493,27 @@ async def get_memories(
     category: str | None = None,
     limit: int = 20,
     db: Any = None,
+    org_id: str | None = None,
+    user_role: str = "employee",
 ) -> list[dict]:
-    """获取用户记忆列表（仅最新版本）"""
+    """获取用户记忆列表（仅最新版本）
+
+    P1.1: 支持 RBAC 可见性过滤，根据用户角色展示不同级别的记忆。
+    """
     client = db or supabase
     if not client:
         return []
 
-    query = client.table("conversation_memories").select("*").eq("user_id", user_id)
+    query = client.table("conversation_memories").select("*")
+
+    # P1.1: Apply visibility-based RBAC filtering
+    try:
+        from .visibility import apply_visibility_filter
+
+        query = apply_visibility_filter(query, user_id, org_id, user_role)
+    except Exception:
+        # Fallback to simple user filter if visibility column doesn't exist
+        query = query.eq("user_id", user_id)
 
     if category:
         query = query.eq("category", category)
@@ -518,11 +532,14 @@ async def search_memories(
     limit: int = 5,
     org_id: str | None = None,
     db: Any = None,
+    user_role: str = "employee",
 ) -> list[dict]:
     """搜索相关记忆（混合检索：embedding 语义搜索 + 关键字匹配）
 
     P0 Security: 强制 org_id 过滤，防止跨租户记忆泄露。
     P1 Enhancement: 优先使用 embedding 向量搜索，关键字匹配作为 fallback。
+    P1.1: RBAC 可见性过滤，根据角色控制记忆访问权。
+    P2.1: 语义标签预筛，在向量检索前通过标签重叠度预过滤候选集。
     """
     client = db or supabase
     if not client:
@@ -614,6 +631,23 @@ async def search_memories(
             # Apply decay factor softly (0.8 base + 0.2 freshness variation)
             confidence = float(mem.get("confidence", 1.0) or 1.0)
             rrf_scores[mid] = rrf_scores[mid] * (0.8 + 0.2 * freshness) * confidence * temporal_boost
+
+        # ── P2.1: Semantic tag pre-filtering boost ──────────────────────
+        # Boost memories whose semantic_tags overlap with query-extracted tags
+        try:
+            from .semantic_tags import compute_tag_overlap, extract_query_tags
+
+            q_tags = extract_query_tags(query)
+            if q_tags:
+                for mid, mem in id_to_mem.items():
+                    mem_tags = mem.get("semantic_tags") or mem.get("metadata", {}).get("semantic_tags", [])
+                    if mem_tags and isinstance(mem_tags, list):
+                        overlap = compute_tag_overlap(q_tags, mem_tags)
+                        if overlap > 0:
+                            # 1.0 + 0.5 * overlap → max 1.5x boost for perfect tag match
+                            rrf_scores[mid] = rrf_scores[mid] * (1.0 + 0.5 * overlap)
+        except Exception as e:
+            logger.debug(f"[SemanticTag] Tag boost skipped: {e}")
 
         # ── Embedding-based rerank (lightweight cross-encoder substitute) ──
         # For candidates from non-semantic arms that lack similarity scores,

@@ -2,11 +2,9 @@
 Tests for auth module — JWT validation, algorithm whitelist, security controls.
 """
 
-import os
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
-
 
 # ── Test JWT validation ──
 
@@ -64,10 +62,10 @@ class TestGetCurrentUserId:
     @pytest.mark.asyncio
     async def test_valid_hs256_token(self):
         """Should accept a valid HS256 JWT with correct secret."""
-        import jwt as pyjwt
-
         # Reload module to pick up env var
         import importlib
+
+        import jwt as pyjwt
 
         import app.core.auth as auth_module
 
@@ -91,9 +89,9 @@ class TestGetCurrentUserId:
     @pytest.mark.asyncio
     async def test_expired_token_rejected(self):
         """Should reject expired JWT."""
-        import jwt as pyjwt
-
         import importlib
+
+        import jwt as pyjwt
 
         import app.core.auth as auth_module
 
@@ -118,9 +116,9 @@ class TestGetCurrentUserId:
     @pytest.mark.asyncio
     async def test_wrong_secret_rejected(self):
         """Should reject JWT signed with wrong secret."""
-        import jwt as pyjwt
-
         import importlib
+
+        import jwt as pyjwt
 
         import app.core.auth as auth_module
 

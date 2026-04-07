@@ -1,6 +1,8 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
 from fastapi import Request
+
 from app.routers.vmd_compliance import list_vmd_compliance_history, list_vmd_compliance_rules
 
 PATCH_ADMIN_DB = "app.routers.vmd_compliance._get_admin_db"

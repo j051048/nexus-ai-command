@@ -4,6 +4,7 @@
 """
 
 import pytest
+
 from tests.conftest_auth import AuthenticatedTestClient
 
 

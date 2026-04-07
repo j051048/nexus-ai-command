@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.services.dsar_service import DSARService, _ANON_PLACEHOLDER
+from app.services.dsar_service import DSARService
 
 
 def _make_mock_db(table_data=None):

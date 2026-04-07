@@ -1,6 +1,6 @@
 """Tests for agent memory — persist_result with org_id passthrough."""
 
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 

@@ -1,6 +1,6 @@
 """Agent 测试"""
-import pytest
 from app.agent.tool_dependencies import tool_dependency_manager
+
 
 def test_resolve_execution_order():
     order = tool_dependency_manager.resolve_execution_order(["send_invoice"])

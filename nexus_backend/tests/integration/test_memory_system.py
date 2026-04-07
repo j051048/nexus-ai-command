@@ -1,10 +1,9 @@
 """Comprehensive tests for conversation memory system: extraction, retrieval, cleanup, conflict resolution."""
 
-import math
-import pytest
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime, UTC, timedelta
 
+import pytest
 
 # ════════════════════════════════════════════════════════════════
 # Section 1: Extraction

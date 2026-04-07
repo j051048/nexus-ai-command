@@ -314,6 +314,29 @@ async def plan_node(state: AgentState, config: RunnableConfig | None = None) -> 
             insert_pos = 2 if len(lc_msgs) > 1 else len(lc_msgs)
             lc_msgs.insert(insert_pos, SystemMessage(content=cot_prompt))
 
+        # P1-1: 错误学习 — 注入历史失败教训，帮助规划避坑
+        try:
+            from app.agent.learning_system import learning_system
+
+            _org_id = agent_config.org_id or "default"
+            _tool_names_list = [t["function"]["name"] for t in tool_schemas] if tool_schemas else []
+            _warnings: list[str] = []
+            for _tn in _tool_names_list:
+                _patterns = await learning_system.get_learned_patterns(_tn, _org_id)
+                if _patterns:
+                    top = _patterns[0]
+                    _warnings.append(
+                        f"- {_tn}: 历史常见错误「{top.get('error_pattern', '')[:80]}」(出现{top.get('frequency', 0)}次)"
+                    )
+            if _warnings:
+                _warn_text = "[历史失败教训]\n以下工具曾出现过错误，请注意规避：\n" + "\n".join(_warnings[:5])
+                lc_msgs.insert(
+                    2 if len(lc_msgs) > 1 else len(lc_msgs),
+                    SystemMessage(content=_warn_text),
+                )
+        except Exception:
+            pass  # Learning system injection is optional, never block planning
+
         # Few-shot example injection — dynamic golden examples + static fallback
         try:
             from app.core.prompts.few_shot_examples import get_few_shot_examples

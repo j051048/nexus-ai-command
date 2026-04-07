@@ -5,7 +5,8 @@ Intent Router classify_query 单元测试
       查询/执行动词语义区分、Agent 角色检测、多 Agent 编排检测
 """
 import pytest
-from app.agent.router import classify_query, detect_agent_role, _filter_negated_keywords
+
+from app.agent.router import _filter_negated_keywords, classify_query, detect_agent_role
 from app.agent.state import QueryComplexity
 
 
@@ -184,9 +185,11 @@ class TestQueryComplexityModelTier:
 class TestWorkflowRecipeMatching:
     @pytest.mark.asyncio
     async def test_contract_approval_recipe(self):
-        from app.agent.router import route_node
-        from langchain_core.messages import HumanMessage
         from unittest.mock import MagicMock
+
+        from langchain_core.messages import HumanMessage
+
+        from app.agent.router import route_node
         config = MagicMock()
         config.get_model_for_complexity.return_value = "gpt-4o-mini"
         state = {"messages": [HumanMessage(content="我有一个合同需要提交审批")], "config": config}
@@ -196,9 +199,11 @@ class TestWorkflowRecipeMatching:
 
     @pytest.mark.asyncio
     async def test_contract_approval_recipe_alt(self):
-        from app.agent.router import route_node
-        from langchain_core.messages import HumanMessage
         from unittest.mock import MagicMock
+
+        from langchain_core.messages import HumanMessage
+
+        from app.agent.router import route_node
         config = MagicMock()
         config.get_model_for_complexity.return_value = "gpt-4o-mini"
         state = {"messages": [HumanMessage(content="发起协议核准")], "config": config}
@@ -208,9 +213,11 @@ class TestWorkflowRecipeMatching:
 
     @pytest.mark.asyncio
     async def test_onboard_employee_recipe(self):
-        from app.agent.router import route_node
-        from langchain_core.messages import HumanMessage
         from unittest.mock import MagicMock
+
+        from langchain_core.messages import HumanMessage
+
+        from app.agent.router import route_node
         config = MagicMock()
         config.get_model_for_complexity.return_value = "gpt-4o-mini"
         state = {"messages": [HumanMessage(content="给新员工办理入职")], "config": config}
@@ -220,9 +227,11 @@ class TestWorkflowRecipeMatching:
 
     @pytest.mark.asyncio
     async def test_no_recipe_matched(self):
-        from app.agent.router import route_node
-        from langchain_core.messages import HumanMessage
         from unittest.mock import MagicMock
+
+        from langchain_core.messages import HumanMessage
+
+        from app.agent.router import route_node
         config = MagicMock()
         config.get_model_for_complexity.return_value = "gpt-4o-mini"
         state = {"messages": [HumanMessage(content="查询天气")], "config": config}

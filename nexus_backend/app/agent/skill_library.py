@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 _MIN_TOOL_CALLS = 2  # 至少 2 个工具调用才值得提炼
 _MAX_SKILLS_PER_USER = 50  # 每用户最多保存的技能数
 _MATCH_THRESHOLD = 0.75  # 关键词匹配阈值
+_SEMANTIC_THRESHOLD = 0.78  # 语义向量匹配阈值
 _SKILL_CATEGORY = "skill"
 
 
@@ -115,7 +116,8 @@ class SkillLibrary:
         """
         根据用户消息匹配已有技能。
 
-        使用关键词重叠度做轻量匹配（不调用 LLM）。
+        优先使用 embedding 语义匹配（通过 search_memories_by_embedding RPC），
+        失败或无结果时回退到关键词重叠度匹配。
 
         Returns:
             匹配到的技能 dict（含 confidence），或 None
@@ -123,6 +125,77 @@ class SkillLibrary:
         if not db or not user_message:
             return None
 
+        # ── 1. 尝试语义向量匹配 ──
+        try:
+            semantic_result = await self._match_skill_semantic(
+                user_message, user_id, org_id, db
+            )
+            if semantic_result:
+                return semantic_result
+        except Exception as e:
+            logger.debug(f"[SkillLibrary] Semantic match unavailable, falling back to keyword: {e}")
+
+        # ── 2. 回退：关键词重叠度匹配 ──
+        return await self._match_skill_keyword(user_message, user_id, db)
+
+    async def _match_skill_semantic(
+        self,
+        user_message: str,
+        user_id: str,
+        org_id: str,
+        db,
+    ) -> dict | None:
+        """通过 embedding + pgvector RPC 做语义匹配。"""
+        from app.services.conversation_memory.embedding import generate_embedding
+
+        query_embedding = await generate_embedding(user_message, org_id)
+        if not query_embedding:
+            return None
+
+        params: dict[str, Any] = {
+            "query_embedding": query_embedding,
+            "match_user_id": user_id,
+            "match_limit": 10,
+        }
+        if org_id:
+            params["match_org_id"] = org_id
+
+        result = await db.rpc("search_memories_by_embedding", params).execute()
+        if not result.data:
+            return None
+
+        # 过滤：只保留 category='skill' 且相似度 >= 阈值
+        for row in result.data:
+            if row.get("category") != _SKILL_CATEGORY:
+                continue
+            similarity = row.get("similarity", 0.0)
+            if similarity < _SEMANTIC_THRESHOLD:
+                continue
+
+            try:
+                skill_data = json.loads(row.get("value", "{}"))
+            except (json.JSONDecodeError, TypeError):
+                skill_data = row.get("metadata") or {}
+
+            skill_data["confidence"] = round(similarity, 2)
+            skill_data["skill_key"] = row.get("key", "")
+            skill_data["match_method"] = "semantic"
+            logger.info(
+                f"[SkillLibrary] Semantic matched skill: "
+                f"{skill_data.get('intent_pattern', '')[:40]} "
+                f"(similarity={similarity:.2f})"
+            )
+            return skill_data
+
+        return None
+
+    async def _match_skill_keyword(
+        self,
+        user_message: str,
+        user_id: str,
+        db,
+    ) -> dict | None:
+        """关键词重叠度匹配（原始逻辑，作为回退）。"""
         try:
             result = (
                 await db.table("conversation_memories")
@@ -173,14 +246,16 @@ class SkillLibrary:
 
                 skill_data["confidence"] = round(best_score, 2)
                 skill_data["skill_key"] = best_match.get("key", "")
+                skill_data["match_method"] = "keyword"
                 logger.info(
-                    f"[SkillLibrary] Matched skill: {skill_data.get('intent_pattern', '')[:40]} "
+                    f"[SkillLibrary] Keyword matched skill: "
+                    f"{skill_data.get('intent_pattern', '')[:40]} "
                     f"(confidence={best_score:.2f})"
                 )
                 return skill_data
 
         except Exception as e:
-            logger.warning(f"[SkillLibrary] Match failed: {e}")
+            logger.warning(f"[SkillLibrary] Keyword match failed: {e}")
 
         return None
 
@@ -270,7 +345,18 @@ class SkillLibrary:
         skill_key: str,
         skill: dict,
     ) -> None:
-        """插入或更新技能记录。"""
+        """插入或更新技能记录（含 embedding 生成）。"""
+        # 生成 intent_pattern 的 embedding（失败不阻塞保存）
+        embedding = None
+        try:
+            from app.services.conversation_memory.embedding import generate_embedding
+
+            intent_text = skill.get("intent_pattern", "")
+            if intent_text:
+                embedding = await generate_embedding(intent_text, org_id)
+        except Exception as e:
+            logger.debug(f"[SkillLibrary] Embedding generation skipped: {e}")
+
         # 检查是否已存在
         existing = (
             await db.table("conversation_memories")
@@ -289,16 +375,18 @@ class SkillLibrary:
             skill["success_count"] = old_count + 1
             new_importance = min(0.95, 0.5 + skill["success_count"] * 0.05)
 
+            update_data = {
+                "value": json.dumps(skill, ensure_ascii=False),
+                "metadata": skill,
+                "importance": new_importance,
+                "updated_at": datetime.now(UTC).isoformat(),
+            }
+            if embedding is not None:
+                update_data["embedding"] = embedding
+
             await (
                 db.table("conversation_memories")
-                .update(
-                    {
-                        "value": json.dumps(skill, ensure_ascii=False),
-                        "metadata": skill,
-                        "importance": new_importance,
-                        "updated_at": datetime.now(UTC).isoformat(),
-                    }
-                )
+                .update(update_data)
                 .eq("id", existing.data[0]["id"])
                 .execute()
             )
@@ -326,19 +414,21 @@ class SkillLibrary:
                 if oldest.data:
                     await db.table("conversation_memories").delete().eq("id", oldest.data[0]["id"]).execute()
 
+            insert_data = {
+                "user_id": user_id,
+                "organization_id": org_id,
+                "category": _SKILL_CATEGORY,
+                "key": skill_key,
+                "value": json.dumps(skill, ensure_ascii=False),
+                "metadata": skill,
+                "importance": 0.5,
+            }
+            if embedding is not None:
+                insert_data["embedding"] = embedding
+
             await (
                 db.table("conversation_memories")
-                .insert(
-                    {
-                        "user_id": user_id,
-                        "organization_id": org_id,
-                        "category": _SKILL_CATEGORY,
-                        "key": skill_key,
-                        "value": json.dumps(skill, ensure_ascii=False),
-                        "metadata": skill,
-                        "importance": 0.5,
-                    }
-                )
+                .insert(insert_data)
                 .execute()
             )
 

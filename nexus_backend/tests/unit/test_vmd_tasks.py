@@ -1,13 +1,14 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
-from fastapi import Request, HTTPException
+from fastapi import HTTPException, Request
+
 from app.routers.vmd_tasks import (
-    list_vmd_tasks,
-    get_vmd_task_detail,
-    pause_vmd_task,
-    resume_vmd_task,
     cancel_vmd_task,
-    list_vmd_sub_tasks
+    get_vmd_task_detail,
+    list_vmd_sub_tasks,
+    list_vmd_tasks,
+    pause_vmd_task,
 )
 
 PATCH_ADMIN_DB = "app.routers.vmd_tasks._get_admin_db"
@@ -116,9 +117,8 @@ class TestVMDTasksUnit:
         mock_req = MagicMock(spec=Request)
         mock_req.state.org_id = "org-123"
 
-        with patch(PATCH_ADMIN_DB, return_value=mock_db):
-            with pytest.raises(HTTPException) as excinfo:
-                await pause_vmd_task(mock_req, task_id="t1", user_id="user-123")
+        with patch(PATCH_ADMIN_DB, return_value=mock_db), pytest.raises(HTTPException) as excinfo:
+            await pause_vmd_task(mock_req, task_id="t1", user_id="user-123")
 
         assert excinfo.value.status_code == 400
         # Fix assertion to match actual message "只有进行中的任务可以暂停"

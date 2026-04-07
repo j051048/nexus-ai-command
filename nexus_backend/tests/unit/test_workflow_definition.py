@@ -8,7 +8,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.services.workflow_definition_service import (
-    VALID_NODE_TYPES,
     WorkflowDefinitionService,
 )
 
