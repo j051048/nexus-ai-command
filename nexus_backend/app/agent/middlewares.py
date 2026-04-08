@@ -102,6 +102,26 @@ async def memory_inject_middleware(state: AgentState) -> dict[str, Any]:
             except Exception as e:
                 logger.debug(f"[Middleware] Skill matching skipped: {e}")
 
+            # 工作状态注入 — 轻量摘要（仅计数 + key 名称）
+            try:
+                from app.agent.working_directory import working_directory
+
+                active_states = await working_directory.list_active(
+                    user_id=config.user_id, limit=20
+                )
+                if active_states:
+                    key_names = ", ".join(s["key"] for s in active_states[:5])
+                    if len(active_states) > 5:
+                        summary = f"[工作状态] 你有 {len(active_states)} 个进行中的任务状态可用: {key_names} 等"
+                    else:
+                        summary = f"[工作状态] 你有 {len(active_states)} 个进行中的任务状态可用: {key_names}"
+                    existing = updates.get("_injected_memories", [])
+                    existing.append(summary)
+                    updates["_injected_memories"] = existing
+                    logger.debug(f"[Middleware] Working directory: {len(active_states)} active states")
+            except Exception as e:
+                logger.debug(f"[Middleware] Working directory injection skipped: {e}")
+
             return updates
 
     except Exception as e:

@@ -598,6 +598,37 @@ AI 回复:
                 tool_summary.append(f"  - {t_name}: {t_result}")
             guidance_parts.append("**可用工具结果**:\n" + "\n".join(tool_summary))
 
+        # Deep reflection: when replanning is needed on COMPLEX/CRITICAL queries,
+        # use Tree of Thoughts to generate alternative approaches
+        if complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL):
+            try:
+                from app.agent.deep_reflect import deep_reflector
+
+                alternatives = await deep_reflector.generate_alternatives(
+                    plan=hallucination_reason,
+                    context={
+                        "intent": state.get("intent_summary", ""),
+                        "tools_used": [
+                            tc.tool_name
+                            for tc in completed_tools[:5]
+                            if hasattr(tc, "tool_name")
+                        ],
+                    },
+                    config=config,
+                )
+                if alternatives:
+                    best = deep_reflector.select_best(alternatives)
+                    if best:
+                        guidance_parts.append(
+                            f"**推荐替代方案**: {best.get('approach', '')}"
+                        )
+                        if best.get("tool_chain"):
+                            guidance_parts.append(
+                                f"**建议工具链**: {', '.join(best['tool_chain'][:5])}"
+                            )
+            except Exception as e:
+                logger.debug(f"[ReflectNode] Deep reflection skipped: {e}")
+
         reflection_guidance = "\n".join(guidance_parts)
 
         # ── Log hallucination failure ──
