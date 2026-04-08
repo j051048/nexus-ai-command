@@ -94,6 +94,9 @@ describe('useAuth (AuthContext)', () => {
 
     const { result } = renderHook(() => useAuth(), { wrapper });
     expect(result.current.loading).toBe(true);
+    
+    // 等待状态 settling 完成，避免产生 act 警告
+    await waitFor(() => expect(result.current.loading).toBe(false), { timeout: 3000 });
   });
 
   it('无 session 时角色解析为 null，loading=false', async () => {

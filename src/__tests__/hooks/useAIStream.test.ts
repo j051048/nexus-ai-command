@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 
 // ─── Mock supabase ──────────────────────────────────────────
 
@@ -159,14 +159,19 @@ describe('useAIStream', () => {
     const { result } = renderHook(() => useAIStream({ userId: 'user-123' }));
 
     const history: any[] = [];
+    const onUpdate = vi.fn();
 
-    try {
-      await act(() => result.current.streamChat('测试', history));
-    } catch {
-      // Expected to fail
-    }
+    // 应使用 async act
+    await act(async () => {
+      try {
+        await result.current.streamChat('测试', history, undefined, onUpdate);
+      } catch (e) {
+        // Expected
+      }
+    });
 
     // isTyping should be reset to false after failure
-    expect(result.current.isTyping).toBe(false);
+    // 使用 waitFor 确保异步状态已经同步到 hook 的 result 中
+    await waitFor(() => expect(result.current.isTyping).toBe(false), { timeout: 3000 });
   });
 });
