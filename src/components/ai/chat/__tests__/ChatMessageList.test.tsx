@@ -73,7 +73,7 @@ describe("ChatMessageList A11y", () => {
       </TooltipProvider>
     );
 
-    const messageList = screen.getByLabelText("聊天消息列表");
+    const messageList = screen.getByLabelText("聊天记录");
     expect(messageList).toBeInTheDocument();
   });
 });

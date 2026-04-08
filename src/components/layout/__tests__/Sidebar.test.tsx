@@ -9,13 +9,10 @@ vi.mock("../RecentAgents", () => ({ default: () => <div>Recent</div> }));
 vi.mock("../ProfileSummary", () => ({ default: () => <div>Profile</div> }));
 vi.mock("../../auth/AuthContext", () => ({ useAuth: () => ({ profile: {} }) }));
 vi.mock("../../../contexts/UserContext", () => ({ useUser: () => ({ user: {} }) }));
-vi.mock("lucide-react", () => ({
-  Search: () => <svg />,
-  ChevronDown: () => <svg />,
-  Menu: () => <svg />,
-  PanelLeftClose: () => <svg />,
-  PanelLeftOpen: () => <svg />,
-}));
+vi.mock("lucide-react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("lucide-react")>();
+  return { ...actual };
+});
 
 describe("Sidebar Accessibility", () => {
   it("should render with correct ARIA roles", () => {

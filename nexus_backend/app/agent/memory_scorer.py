@@ -61,7 +61,7 @@ class MemoryImportanceScorer:
 
         # 4. 原始 importance 字段（如果有，作为锚点）
         original_importance = memory.get("importance")
-        if isinstance(original_importance, (int, float)) and original_importance > 0:
+        if isinstance(original_importance, int | float) and original_importance > 0:
             # 将原始 importance 与计算值加权融合
             score = 0.4 * original_importance + 0.6 * score
 

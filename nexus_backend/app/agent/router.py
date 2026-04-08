@@ -590,9 +590,11 @@ def _filter_negated_keywords(text: str, keywords: set[str]) -> set[str]:
     E.g. text="不需要报销了", keywords={"报销"} → returns empty set
     because "不需要" negates "报销".
     """
-    # Hybrid matching: substring + jieba tokens
+    # Hybrid matching: substring + jieba tokens (case-insensitive for English keywords)
     tokens = _tokenize(text)
-    matched = {kw for kw in keywords if kw in text or kw in tokens}
+    text_lower = text.lower()
+    tokens_lower = {t.lower() for t in tokens}
+    matched = {kw for kw in keywords if kw.lower() in text_lower or kw.lower() in tokens_lower}
     if not matched:
         return matched
     # Check each matched keyword for negation prefix

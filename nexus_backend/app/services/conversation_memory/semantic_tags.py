@@ -2,7 +2,7 @@
 
 Generates semantic tags from memory content for pre-filtering before
 expensive vector search. Tags enable coarse-grained routing so that
-retrieval can first filter by tag overlap, then do fine-grained cosine 
+retrieval can first filter by tag overlap, then do fine-grained cosine
 similarity within the smaller candidate set.
 
 Tag taxonomy:
