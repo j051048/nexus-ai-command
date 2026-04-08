@@ -598,34 +598,57 @@ AI 回复:
                 tool_summary.append(f"  - {t_name}: {t_result}")
             guidance_parts.append("**可用工具结果**:\n" + "\n".join(tool_summary))
 
-        # Deep reflection: when replanning is needed on COMPLEX/CRITICAL queries,
-        # use Tree of Thoughts to generate alternative approaches
-        if complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL):
+        # Deep reflection (Tree of Thoughts): when COMPLEX/CRITICAL queries
+        # fail multiple iterations, generate alternative approaches via LLM
+        _deep_thinking_steps = []
+        if (
+            complexity in (QueryComplexity.COMPLEX, QueryComplexity.CRITICAL)
+            and iteration >= 2
+        ):
             try:
                 from app.agent.deep_reflect import deep_reflector
 
+                # Build context for deep reflection
+                _tool_results_summary = "; ".join(
+                    f"{(t.tool_name if hasattr(t, 'tool_name') else t.get('tool_name', ''))}: "
+                    f"{(t.result if hasattr(t, 'result') else t.get('result', ''))[:100]}"
+                    for t in completed_tools[-3:]
+                )
+                _deep_ctx = {
+                    "intent_summary": state.get("intent_summary", ""),
+                    "tool_results": _tool_results_summary or "无工具结果",
+                    "error_info": hallucination_reason,
+                }
+
                 alternatives = await deep_reflector.generate_alternatives(
-                    plan=hallucination_reason,
-                    context={
-                        "intent": state.get("intent_summary", ""),
-                        "tools_used": [
-                            tc.tool_name
-                            for tc in completed_tools[:5]
-                            if hasattr(tc, "tool_name")
-                        ],
-                    },
+                    plan="\n".join(guidance_parts),
+                    context=_deep_ctx,
                     config=config,
                 )
                 if alternatives:
                     best = deep_reflector.select_best(alternatives)
-                    if best:
+                    if best and best.get("approach"):
                         guidance_parts.append(
-                            f"**推荐替代方案**: {best.get('approach', '')}"
+                            f"**深度反思推荐方案**: {best['approach']}"
                         )
-                        if best.get("tool_chain"):
+                        if best.get("tools"):
                             guidance_parts.append(
-                                f"**建议工具链**: {', '.join(best['tool_chain'][:5])}"
+                                f"**建议工具链**: {', '.join(str(t) for t in best['tools'][:5])}"
                             )
+                        _deep_thinking_steps.append(
+                            ThinkingStep(
+                                phase="reflecting",
+                                content=(
+                                    f"Tree of Thoughts 深度反思: 生成 {len(alternatives)} 个候选方案，"
+                                    f"选择最优方案 (score={best.get('score', 0):.2f}): "
+                                    f"{best['approach'][:200]}"
+                                ),
+                            )
+                        )
+                        logger.info(
+                            f"[ReflectNode:DeepReflect] 选择方案 score={best.get('score', 0):.2f}: "
+                            f"{best['approach'][:100]}"
+                        )
             except Exception as e:
                 logger.debug(f"[ReflectNode] Deep reflection skipped: {e}")
 
@@ -685,7 +708,7 @@ AI 回复:
             "current_phase": AgentPhase.PLANNING,
             "iteration": iteration + 1,
             "reflection_count": reflection_count + 1,
-            "thinking_steps": [],
+            "thinking_steps": _deep_thinking_steps,
             **_backtrack_extras,
         }
 
