@@ -1446,3 +1446,150 @@ async def build_memory_context(
         )
 
     return final_context
+
+
+# ── Tiered Memory Retrieval (L0-L3 Stack) ──────────────────────────────
+# L0 = user identity (handled in memory.py via users table, always in system_prompt)
+# L1 = critical facts / directives / anti-patterns (~120 tokens, always injected)
+# L2 = query-relevant contextual memories (~300 tokens, budget-aware)
+# L3 = on-demand deep search (existing search_long_term_memory tool)
+
+
+async def get_l1_critical_facts(
+    user_id: str,
+    db: Any = None,
+) -> str:
+    """L1: 高重要性记忆 + 用户指令 + 纠正记录。~120 tokens，始终注入。
+
+    Returns a compact <constraints> block with the user's most critical
+    directives and anti-patterns that must never be truncated.
+    """
+    client = db or supabase
+    if not client:
+        return ""
+
+    lines: list[str] = []
+
+    try:
+        # 1) High-importance directives (importance >= 0.85, any category)
+        directive_res = await (
+            client.table("conversation_memories")
+            .select("value, enriched_value, importance, category")
+            .eq("user_id", user_id)
+            .gte("importance", 0.85)
+            .is_("superseded_by", "null")
+            .order("importance", desc=True)
+            .limit(5)
+            .execute()
+        )
+        for m in directive_res.data or []:
+            val = m.get("enriched_value") or m.get("value", "")
+            if val:
+                lines.append(f"  - {val[:120]}")
+
+        # 2) Anti-patterns (user corrections — always high signal)
+        anti_res = await (
+            client.table("conversation_memories")
+            .select("value, enriched_value")
+            .eq("user_id", user_id)
+            .eq("category", "anti_pattern")
+            .is_("superseded_by", "null")
+            .order("updated_at", desc=True)
+            .limit(3)
+            .execute()
+        )
+        seen = {l for l in lines}  # dedup against directives
+        for m in anti_res.data or []:
+            val = m.get("enriched_value") or m.get("value", "")
+            candidate = f"  - [纠正] {val[:100]}"
+            if val and candidate not in seen:
+                lines.append(candidate)
+    except Exception as e:
+        logger.debug(f"[L1] Critical facts retrieval failed: {e}")
+
+    if not lines:
+        return ""
+
+    return "<constraints>\n" + "\n".join(lines) + "\n</constraints>"
+
+
+async def get_l2_contextual(
+    user_id: str,
+    query: str,
+    complexity: str | None = None,
+    db: Any = None,
+) -> str:
+    """L2: 查询相关记忆，预算感知 ~300 tokens。
+
+    Performs semantic search and consolidation lookup, excluding items
+    already covered by L1 (high-importance directives, anti-patterns).
+    """
+    if not query or len(query) < 2:
+        return ""
+
+    # Adaptive limits based on complexity
+    relevant_limit = 5
+    consolidated_limit = 3
+    if complexity:
+        _c = str(complexity).upper()
+        if _c in ("CRITICAL", "COMPLEX"):
+            relevant_limit = 8
+            consolidated_limit = 4
+        elif _c == "SIMPLE":
+            relevant_limit = 3
+
+    parts: list[str] = []
+
+    try:
+        # Semantic search across all categories
+        relevant = await search_memories(
+            user_id=user_id,
+            query=query,
+            limit=relevant_limit,
+            db=db,
+        )
+        if relevant:
+            # Exclude L1 items: high-importance directives and anti-patterns
+            filtered = [
+                m for m in relevant
+                if not (
+                    (m.get("importance") or 0) >= 0.85
+                    or m.get("category") == "anti_pattern"
+                )
+            ]
+            for m in filtered:
+                parts.append(_format_by_temperature(m))
+    except Exception as e:
+        logger.debug(f"[L2] Contextual search failed: {e}")
+
+    # Consolidated insights
+    try:
+        consolidations = await search_consolidations(
+            user_id=user_id,
+            query=query,
+            limit=consolidated_limit,
+            db=db,
+        )
+        if consolidations:
+            for c in consolidations:
+                parts.append(
+                    f'  <insight type="{c["insight_type"]}" '
+                    f'title="{c["title"]}">{c["content"][:150]}</insight>'
+                )
+    except Exception as e:
+        logger.debug(f"[L2] Consolidation search failed: {e}")
+
+    if not parts:
+        return ""
+
+    context = "<user-memories>\n" + "\n".join(parts) + "\n</user-memories>"
+
+    # Budget cap: ~300 tokens ≈ 900 chars
+    _L2_MAX_CHARS = 900
+    if len(context) > _L2_MAX_CHARS:
+        context = (
+            context[:_L2_MAX_CHARS]
+            + "\n... (更多记忆可用 search_long_term_memory 工具查看)"
+        )
+
+    return context

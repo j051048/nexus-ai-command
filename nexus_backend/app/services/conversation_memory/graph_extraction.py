@@ -331,9 +331,12 @@ async def _store_triples(
                 )
                 if conflict and conflict.get("destination_entity") != rel["destination"]:
                     # Soft-expire: set valid_to instead of DELETE
+                    from datetime import UTC, datetime
+
+                    now_iso = datetime.now(UTC).isoformat()
                     await (
                         db.table("knowledge_graph_triples")
-                        .update({"valid_to": "now()"})
+                        .update({"valid_to": now_iso})
                         .eq("id", conflict["id"])
                         .execute()
                     )
@@ -348,6 +351,8 @@ async def _store_triples(
                 logger.error(f"[KG] Conflict check failed (non-critical): {e}")
 
             # Insert new triple (with entity embeddings for similarity search)
+            from datetime import UTC, datetime
+
             insert_data = {
                 "organization_id": org_id,
                 "source_entity": rel["source"],
@@ -358,6 +363,7 @@ async def _store_triples(
                 "strength": 0.5,
                 "occurrences": 1,
                 "source_context": source_context,
+                "valid_from": datetime.now(UTC).isoformat(),
             }
             if user_id:
                 insert_data["created_by"] = user_id
@@ -446,6 +452,7 @@ async def query_entity_relations(
     limit: int = 20,
     hops: int = 2,
     db: Any = None,
+    include_historical: bool = False,
 ) -> list[dict]:
     """查询某个实体的关系，支持多跳扩散。
 
@@ -454,9 +461,7 @@ async def query_entity_relations(
         entity_name: 实体名称
         limit: 最大返回条数
         hops: 跳数 (1=直接关系, 2=含邻居关系)
-
-    Returns:
-        关系三元组列表，含 hop 标记
+        include_historical: 是否包含已过期的历史三元组
     """
     client = db or supabase
     if not client:
@@ -489,30 +494,29 @@ async def query_entity_relations(
     # Fallback: Python-side multi-hop
     try:
         # Hop 1: direct relations
-        outgoing = (
-            await client.table("knowledge_graph_triples")
+        out_q = (
+            client.table("knowledge_graph_triples")
             .select("*")
             .eq("organization_id", org_id)
             .eq("source_entity", entity_name)
-            .is_("valid_to", "null")
-            .order("strength", desc=True)
-            .limit(limit)
-            .execute()
         )
-        incoming = (
-            await client.table("knowledge_graph_triples")
+        in_q = (
+            client.table("knowledge_graph_triples")
             .select("*")
             .eq("organization_id", org_id)
             .eq("destination_entity", entity_name)
-            .is_("valid_to", "null")
-            .order("strength", desc=True)
-            .limit(limit)
-            .execute()
         )
+        if not include_historical:
+            out_q = out_q.is_("valid_to", "null")
+            in_q = in_q.is_("valid_to", "null")
+        outgoing = await out_q.order("strength", desc=True).limit(limit).execute()
+        incoming = await in_q.order("strength", desc=True).limit(limit).execute()
 
         hop1 = (outgoing.data or []) + (incoming.data or [])
         for t in hop1:
             t["hop"] = 1
+            if include_historical and t.get("valid_to"):
+                t["_historical"] = True
 
         if hops < 2 or not hop1:
             return hop1[:limit]
@@ -577,10 +581,12 @@ async def search_kg_hybrid(
     limit: int = 10,
     expand_hops: bool = True,
     db: Any = None,
+    include_historical: bool = False,
 ) -> list[dict]:
     """Search knowledge graph triples using hybrid FTS + entity match with RRF fusion.
 
     When expand_hops=True, expands 1-hop neighbors from initial results for richer context.
+    When include_historical=True, includes expired triples annotated with _historical=True.
     Falls back to simple ILIKE query if the RPC is not yet deployed.
     """
     client = db or supabase
@@ -610,11 +616,15 @@ async def search_kg_hybrid(
         logger.error(f"[KG] Hybrid search RPC failed, falling back to ILIKE: {e}")
         try:
             pattern = f"%{query}%"
-            result = (
-                await client.table("knowledge_graph_triples")
+            fallback_q = (
+                client.table("knowledge_graph_triples")
                 .select("*")
                 .eq("organization_id", org_id)
-                .is_("valid_to", "null")
+            )
+            if not include_historical:
+                fallback_q = fallback_q.is_("valid_to", "null")
+            result = await (
+                fallback_q
                 .or_(
                     f"source_entity.ilike.{pattern},"
                     f"destination_entity.ilike.{pattern},"
@@ -667,4 +677,76 @@ async def search_kg_hybrid(
 
     combined = direct_results + expanded
     combined.sort(key=lambda t: (-float(t.get("strength", 0))))
+    # Annotate historical triples when include_historical is enabled
+    if include_historical:
+        for t in combined:
+            if t.get("valid_to"):
+                t["_historical"] = True
     return combined[:limit]
+
+
+async def query_entity_at_time(
+    org_id: str,
+    entity_name: str,
+    target_time: str,
+    db: Any = None,
+) -> list[dict]:
+    """查询某时间点有效的知识图谱三元组，支持时间回溯。
+
+    例如: "张三去年在哪家公司？" → target_time="2025-04-01"
+    返回 valid_from <= target_time AND (valid_to IS NULL OR valid_to > target_time) 的三元组。
+    """
+    client = db or supabase
+    if not client or not entity_name:
+        return []
+
+    # Resolve entity alias
+    try:
+        from .entity_resolution import resolve_entity
+
+        entity_name = await resolve_entity(org_id, entity_name, db=client)
+    except Exception:
+        pass
+
+    results: list[dict] = []
+
+    try:
+        # Outgoing relations at target_time
+        out_res = await (
+            client.table("knowledge_graph_triples")
+            .select("*")
+            .eq("organization_id", org_id)
+            .eq("source_entity", entity_name)
+            .lte("valid_from", target_time)
+            .order("valid_from", desc=True)
+            .limit(20)
+            .execute()
+        )
+        for t in out_res.data or []:
+            vt = t.get("valid_to")
+            if vt is None or vt > target_time:
+                t["_historical"] = vt is not None
+                results.append(t)
+
+        # Incoming relations at target_time
+        in_res = await (
+            client.table("knowledge_graph_triples")
+            .select("*")
+            .eq("organization_id", org_id)
+            .eq("destination_entity", entity_name)
+            .lte("valid_from", target_time)
+            .order("valid_from", desc=True)
+            .limit(20)
+            .execute()
+        )
+        for t in in_res.data or []:
+            vt = t.get("valid_to")
+            if vt is None or vt > target_time:
+                t["_historical"] = vt is not None
+                results.append(t)
+
+    except Exception as e:
+        logger.error(f"[KG] Temporal query failed for {entity_name}@{target_time}: {e}")
+
+    results.sort(key=lambda t: t.get("valid_from", ""), reverse=True)
+    return results

@@ -156,6 +156,51 @@ BEHAVIOR_PREF_PATTERNS: list[tuple[re.Pattern, str, str]] = [
     (re.compile(r"(?:用|我喜欢|偏好)(?:面积图|区域图)"), "preferred_chart", "area"),
 ]
 
+# ── Mining Mode Detection ───────────────────────────────────────────────
+# Auto-detect conversation scene to select specialized extraction prompts.
+_ENTITY_HINT_PATTERN = re.compile(
+    r"[\u4e00-\u9fa5]{2,4}(?:的|负责|管理|在|属于|是)"
+    r"|(?:公司|部门|团队|项目|客户)[\u4e00-\u9fa5]{2,8}"
+)
+
+
+def _detect_mining_mode(messages: list[dict[str, str]]) -> str:
+    """检测对话挖掘模式，选择最优提取策略。
+
+    Returns:
+        'work_ops'    — 含工具调用的工作流对话，重点提取决策和操作模式
+        'entity_info' — 涉及人物/组织/项目的实体对话，重点提取事实和关系
+        'casual'      — 默认闲聊/偏好对话
+    """
+    tool_signals = 0
+    entity_signals = 0
+
+    for msg in messages:
+        role = msg.get("role", "")
+        content = msg.get("content", "")
+
+        # work_ops: tool messages or tool_call JSON in content
+        if role == "tool":
+            tool_signals += 2
+        elif '"tool_call"' in content or '"function_call"' in content:
+            tool_signals += 1
+
+        # work_ops: business operation keywords
+        if role == "user":
+            for kw in TOOL_USAGE_KEYWORDS:
+                if kw in content:
+                    tool_signals += 1
+
+            # entity_info: person/org/project mentions
+            if _ENTITY_HINT_PATTERN.search(content):
+                entity_signals += 1
+
+    if tool_signals >= 2:
+        return "work_ops"
+    if entity_signals >= 1:
+        return "entity_info"
+    return "casual"
+
 
 async def _update_behavior_preferences(
     user_id: str,
@@ -363,7 +408,8 @@ async def extract_preferences(
     should_extract = has_signal or is_substantial
 
     if not is_subtask and should_extract:
-        llm_extracted = await extract_with_llm(messages)
+        mining_mode = _detect_mining_mode(messages)
+        llm_extracted = await extract_with_llm(messages, mining_mode=mining_mode)
         if not has_signal:
             _mark_extracted(user_id, user_msg_count)
     else:
@@ -455,14 +501,13 @@ async def extract_preferences(
 
 async def extract_with_llm(
     messages: list[dict[str, str]],
+    mining_mode: str = "casual",
 ) -> list[dict]:
     """Use LLM to extract implicit preferences and facts from conversation.
 
-    Only processes user messages, returns structured memory entries.
-    Designed to catch semantics that regex patterns miss, such as:
-    - "我们的主要客户群体是制造业中大型企业"
-    - "报告用表格形式比较好"
-    - "我负责华东区的大客户"
+    Args:
+        messages: Conversation messages
+        mining_mode: 'work_ops' | 'entity_info' | 'casual' — selects specialized prompt
     """
     user_texts = [msg["content"] for msg in messages if msg.get("role") == "user" and msg.get("content")]
     if not user_texts:
@@ -485,23 +530,9 @@ async def extract_with_llm(
         today_str = _dt.now(UTC).strftime("%Y-%m-%d")
 
         prompt = f"以下是用户在对话中说的话：\n\n{combined}"
-        system = (
-            f"你是记忆提取专家。当前日期: {today_str}。从用户的对话中提取值得长期记住的信息。\n"
-            "提取以下类型的信息：\n"
-            "- 用户的身份、职位、负责区域等个人信息\n"
-            "- 用户的工作习惯和偏好（如报告格式、沟通方式）\n"
-            "- 用户提到的重要事实（如客户群体、业务方向）\n"
-            "- 用户的明确要求和指令（如'以后都用表格'）\n"
-            "- P1 Fix: 用户查询的实体信息（如'张三的宠物'、'李四喜欢什么'），即使查询结果为空也要记录\n\n"
-            "不要提取：临时性的问题、一次性的查询、礼貌用语。\n"
-            "如果没有值得提取的信息，返回空数组 []。\n\n"
-            "反例（不要提取）：\n"
-            "- ❌ '今天天气怎么样' → 临时查询\n"
-            "- ❌ '谢谢你的帮助' → 礼貌用语\n"
-            "正例（应该提取）：\n"
-            "- ✅ '我是华东区销售经理' → fact, confidence=1.0\n"
-            "- ✅ '我喜欢用表格展示数据' → opinion, confidence=0.8\n"
-            "- ✅ '张三的宠物叫什么' → entity_query, confidence=0.7（记录用户关心的实体）\n\n"
+
+        # Shared JSON output format instructions (appended to all modes)
+        _json_format = (
             "严格以JSON数组格式返回，每个元素包含：\n"
             '- "category": "preference" 或 "explicit_memory" 或 "fact" 或 "entity_query"\n'
             '- "fact_type": "fact"（客观事实）/ "opinion"（主观偏好）/ "experience"（个人经历）/ "entity_query"（实体查询）\n'
@@ -514,6 +545,53 @@ async def extract_with_llm(
             '- "valid_until": 该信息的结束日期（可选）\n\n'
             "只返回JSON数组，不要其他文字。最多提取5条。"
         )
+
+        if mining_mode == "work_ops":
+            system = (
+                f"你是工作流记忆提取专家。当前日期: {today_str}。\n"
+                "从用户的工具操作对话中提取值得长期记住的工作模式：\n"
+                "- 决策模式（用户选择了什么方案、为什么选择）\n"
+                "- 工具链偏好（用户习惯的操作顺序和组合）\n"
+                "- 操作上下文（涉及的项目、客户、数据范围）\n"
+                "- 失败/重试模式（什么操作失败了、用户如何修正）\n\n"
+                "不要提取：工具的原始输出数据、临时性查询结果。\n"
+                "如果没有值得提取的信息，返回空数组 []。\n"
+                "importance 范围建议: 0.5-0.8（操作模式比闲聊更重要）\n"
+                "fact_type 偏向: experience（工作经验）\n\n" + _json_format
+            )
+        elif mining_mode == "entity_info":
+            system = (
+                f"你是实体信息提取专家。当前日期: {today_str}。\n"
+                "从对话中提取关于人物、组织、项目的事实信息：\n"
+                "- 实体属性（某人的职位、某公司的地址、某项目的状态）\n"
+                "- 实体关系（谁负责什么、谁汇报给谁、谁是谁的客户）\n"
+                "- 实体状态变化（某人从A部门调到B部门、某项目从进行中变为完成）\n"
+                "- 用户关心的实体查询（即使答案未知也记录问题本身）\n\n"
+                "不要提取：临时性的问题、礼貌用语。\n"
+                "如果没有值得提取的信息，返回空数组 []。\n"
+                "importance 范围建议: 0.6-0.9（实体事实通常较重要）\n"
+                "fact_type 偏向: fact（客观事实）\n\n" + _json_format
+            )
+        else:  # casual
+            system = (
+                f"你是记忆提取专家。当前日期: {today_str}。从用户的对话中提取值得长期记住的信息。\n"
+                "提取以下类型的信息：\n"
+                "- 用户的身份、职位、负责区域等个人信息\n"
+                "- 用户的工作习惯和偏好（如报告格式、沟通方式）\n"
+                "- 用户提到的重要事实（如客户群体、业务方向）\n"
+                "- 用户的明确要求和指令（如'以后都用表格'）\n"
+                "- 用户查询的实体信息（如'张三的宠物'、'李四喜欢什么'），即使查询结果为空也要记录\n\n"
+                "不要提取：临时性的问题、一次性的查询、礼貌用语。\n"
+                "如果没有值得提取的信息，返回空数组 []。\n\n"
+                "反例（不要提取）：\n"
+                "- ❌ '今天天气怎么样' → 临时查询\n"
+                "- ❌ '谢谢你的帮助' → 礼貌用语\n"
+                "正例（应该提取）：\n"
+                "- ✅ '我是华东区销售经理' → fact, confidence=1.0\n"
+                "- ✅ '我喜欢用表格展示数据' → opinion, confidence=0.8\n"
+                "- ✅ '张三的宠物叫什么' → entity_query, confidence=0.7（记录用户关心的实体）\n\n"
+                + _json_format
+            )
 
         result_text = await AIService.call_llm(prompt, system)
 

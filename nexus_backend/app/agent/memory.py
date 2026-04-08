@@ -628,24 +628,42 @@ async def prepare_initial_state(
     if last_user_msg and not skip_semantic:
         # All 5 context lookups are independent — run them concurrently
 
-        async def _fetch_long_term_memory():
-            """2b. Long-term Memory"""
+        async def _fetch_l1_critical():
+            """2b-L1. Critical facts & directives — always injected, never truncated."""
             if not config.user_id:
                 return None
             try:
-                from app.services.conversation_memory_service import conversation_memory_service
+                from app.services.conversation_memory.retrieval import get_l1_critical_facts
 
-                ctx = await conversation_memory_service.build_memory_context(
+                ctx = await get_l1_critical_facts(
                     user_id=config.user_id,
-                    current_query=last_user_msg,
                     db=client,
-                    complexity=str(state.get("complexity", "")) if state else None,
                 )
                 if ctx:
-                    logger.info(f"[Memory] Collected long-term memory context for user {config.user_id}")
+                    logger.info(f"[Memory] L1 critical facts collected for user {config.user_id}")
                 return ctx
             except Exception as e:
-                logger.debug(f"[Memory] Long-term memory injection skipped: {e}")
+                logger.debug(f"[Memory] L1 critical facts skipped: {e}")
+                return None
+
+        async def _fetch_l2_contextual():
+            """2b-L2. Query-relevant contextual memories — budget-aware."""
+            if not config.user_id:
+                return None
+            try:
+                from app.services.conversation_memory.retrieval import get_l2_contextual
+
+                ctx = await get_l2_contextual(
+                    user_id=config.user_id,
+                    query=last_user_msg,
+                    complexity=str(state.get("complexity", "")) if state else None,
+                    db=client,
+                )
+                if ctx:
+                    logger.info(f"[Memory] L2 contextual memories collected for user {config.user_id}")
+                return ctx
+            except Exception as e:
+                logger.debug(f"[Memory] L2 contextual memories skipped: {e}")
                 return None
 
         async def _fetch_org_memory():
@@ -688,6 +706,40 @@ async def prepare_initial_state(
                         rel = t.get("relationship", "")
                         dst = t.get("destination_entity", "")
                         parts.append(f"{src} —{rel}→ {dst}")
+
+                # Temporal supplement: detect time intent and query historical KG
+                import re
+
+                _TEMPORAL_RE = re.compile(
+                    r"(之前|以前|过去|去年|前年|上个月|曾经|历史|原来|以往"
+                    r"|previously|before|last year|used to|formerly)"
+                )
+                if _TEMPORAL_RE.search(last_user_msg):
+                    try:
+                        from app.services.conversation_memory.graph_extraction import query_entity_at_time
+                        from app.services.conversation_memory.temporal_normalizer import extract_time_range_from_query
+
+                        time_range = extract_time_range_from_query(last_user_msg)
+                        target = (time_range or {}).get("start")
+                        if target:
+                            # Extract entity name: first 2-4 char Chinese name in query
+                            entity_match = re.search(r"([\u4e00-\u9fa5]{2,4})(?:之前|以前|过去|曾经|原来|去年)", last_user_msg)
+                            entity = entity_match.group(1) if entity_match else None
+                            if entity:
+                                temporal_triples = await query_entity_at_time(
+                                    org_id=config.org_id,
+                                    entity_name=entity,
+                                    target_time=target,
+                                )
+                                for t in temporal_triples:
+                                    src = t.get("source_entity", "")
+                                    rel = t.get("relationship", "")
+                                    dst = t.get("destination_entity", "")
+                                    vf = (t.get("valid_from") or "")[:10]
+                                    vt = (t.get("valid_to") or "至今")[:10]
+                                    parts.append(f"{src} —{rel}→ {dst} [{vf} ~ {vt}]")
+                    except Exception as e:
+                        logger.debug(f"[Memory] Temporal KG query skipped: {e}")
 
                 # Supplement: legacy entity_relations graph
                 from app.services.knowledge_graph_service import query_entity_context
@@ -748,17 +800,20 @@ async def prepare_initial_state(
                 logger.error(f"[Memory] Episode recall failed: {e}")
                 return None
 
-        # Fire all 5 lookups concurrently (profile already fetched above)
+        # Fire all 6 lookups concurrently (profile already fetched above)
+        # L1/L2 replace the old monolithic _fetch_long_term_memory()
         results = await asyncio.gather(
-            _fetch_long_term_memory(),
-            _fetch_org_memory(),
-            _fetch_kg_context(),
-            _fetch_pattern_suggestions(),
-            _fetch_episodic_memory(),
+            _fetch_l1_critical(),        # [0] L1: directives — highest priority
+            _fetch_l2_contextual(),      # [1] L2: query-relevant memories
+            _fetch_org_memory(),         # [2] org memory
+            _fetch_kg_context(),         # [3] knowledge graph
+            _fetch_pattern_suggestions(),  # [4] behavior patterns
+            _fetch_episodic_memory(),    # [5] episodic recall
             return_exceptions=True,
         )
 
-        # Collect context results (profile already handled above)
+        # Collect context results — insertion order = budget priority (FIFO)
+        # L1 (index 0) goes first, then L2 (index 1), then the rest
         for r in results:
             if isinstance(r, str) and r:
                 injected_contexts.append(r)
