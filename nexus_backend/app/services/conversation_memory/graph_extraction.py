@@ -366,7 +366,7 @@ async def _store_triples(
                 "valid_from": datetime.now(UTC).isoformat(),
             }
             if user_id:
-                insert_data["created_by"] = user_id
+                insert_data["user_id"] = user_id
             if session_id:
                 insert_data["source_session_id"] = session_id
 

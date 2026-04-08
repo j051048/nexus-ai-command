@@ -2,8 +2,10 @@
 -- Enables time-travel queries like "Where was 张三 working last year?"
 
 -- valid_from: when this fact became true (backfilled from created_at)
+-- valid_to: when this fact ceased to be true (NULL means still true)
 ALTER TABLE knowledge_graph_triples
-    ADD COLUMN IF NOT EXISTS valid_from TIMESTAMPTZ DEFAULT NOW();
+    ADD COLUMN IF NOT EXISTS valid_from TIMESTAMPTZ DEFAULT NOW(),
+    ADD COLUMN IF NOT EXISTS valid_to TIMESTAMPTZ;
 
 -- Backfill: existing rows get valid_from = created_at
 UPDATE knowledge_graph_triples
