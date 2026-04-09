@@ -44,6 +44,10 @@ class QueryTransformer:
 
                 from app.core.config import settings
 
+                api_key = ""
+                base_url = ""
+                model = self.config.mini_model
+
                 # Try gateway resolution first
                 try:
                     from app.services.llm_helpers import resolve_model_config
@@ -51,25 +55,26 @@ class QueryTransformer:
                     resolved = await resolve_model_config(
                         org_id=getattr(self.config, "org_id", None) or "default",
                     )
-                    api_key = resolved.get("api_key") or self.config.api_key or settings.OPENAI_API_KEY
-                    base_url = resolved.get("base_url") or self.config.base_url or settings.AI_BASE_URL
-
-                    if not api_key:
-                        logger.warning("[QueryTransformer] No API key found in prompt resolution, config, or settings")
-
-                    self._llm_client = AsyncOpenAI(
-                        api_key=api_key,
-                        base_url=base_url,
-                    )
-                    self._resolved_model = resolved.get("model", self.config.mini_model)
-                    return self._llm_client
+                    api_key = resolved.get("api_key", "") or ""
+                    base_url = resolved.get("base_url", "") or ""
+                    model = resolved.get("model") or model
                 except Exception:
                     logger.debug("LLM gateway model config unavailable, using default fallback")
 
-                # Fallback to config explicitly or global settings
-                api_key = self.config.api_key or settings.OPENAI_API_KEY
-                base_url = self.config.base_url or settings.AI_BASE_URL
+                # Fallback chain: gateway → AgentConfig → global settings
+                api_key = api_key or self.config.api_key or settings.OPENAI_API_KEY
+                base_url = (
+                    base_url
+                    or self.config.base_url
+                    or getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1")
+                )
+
+                if not api_key:
+                    logger.warning("[QueryTransformer] No API key resolved from gateway, config, or settings")
+                    return None
+
                 self._llm_client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+                self._resolved_model = model
             except Exception as e:
                 logger.warning(f"Failed to init LLM for query transformation: {e}", exc_info=True)
         return self._llm_client
@@ -214,8 +219,20 @@ async def llm_rerank(query: str, docs: list[dict], config: "AgentConfig", top_k:
 
     try:
         from app.core.config import settings
-        api_key = config.api_key or settings.OPENAI_API_KEY
-        base_url = config.base_url or settings.AI_BASE_URL
+
+        api_key = (
+            config.api_key
+            or settings.OPENAI_API_KEY
+        )
+        base_url = (
+            config.base_url
+            or getattr(settings, "AI_BASE_URL", "https://api.openai.com/v1")
+        )
+
+        if not api_key:
+            logger.warning("[LLMRerank] No API key available, skipping rerank")
+            return docs[:top_k]
+
         client = AsyncOpenAI(api_key=api_key, base_url=base_url)
         doc_list = "\n".join(f"[{i}] {doc.get('content', '')[:200]}" for i, doc in enumerate(docs))
         prompt = (
