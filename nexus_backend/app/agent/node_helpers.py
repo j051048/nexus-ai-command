@@ -1072,7 +1072,7 @@ async def invoke_with_fallback(
     streaming: bool = False,
     tool_schemas: list | None = None,
     complexity_tier: str | None = None,
-    invoke_timeout: float = 90.0,
+    invoke_timeout: float = 45.0,
 ):
     """Invoke LLM with cascade fallback on provider-level failures.
 
