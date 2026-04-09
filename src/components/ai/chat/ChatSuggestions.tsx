@@ -88,8 +88,8 @@ export const ChatSuggestions = React.memo(function ChatSuggestions({
     return items.slice(0, 4);
   }, [approvalCount, unreadCount]);
 
-  const showSavedSuggestions = savedPrompts.length > 0 && messagesCount <= 3;
-  const showBuiltinReplies = showQuickReplies && messagesCount <= 1;
+  const showSavedSuggestions = savedPrompts.length > 0;
+  const showBuiltinReplies = showQuickReplies;
   const hasFollowUps = followUpSuggestions && followUpSuggestions.length > 0;
 
   if (!showBuiltinReplies && !showSavedSuggestions && !hasFollowUps) return null;

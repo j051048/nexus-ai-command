@@ -185,14 +185,6 @@ export const ChatInputArea = React.memo(function ChatInputArea({
             </div>
 
             <div className="flex-1 relative flex items-center min-w-0">
-              {currentAgent && (
-                <div className="absolute left-2 inset-y-2 z-10">
-                  <Badge variant="secondary" className="h-full px-2 gap-1 bg-primary/20 text-primary-foreground border-none text-[10px] font-bold">
-                    @{currentAgent}
-                    <X className="w-3 h-3 cursor-pointer" onClick={() => setCurrentAgent(undefined)} />
-                  </Badge>
-                </div>
-              )}
               <input
                 ref={inputRef}
                 type="text"
@@ -211,11 +203,8 @@ export const ChatInputArea = React.memo(function ChatInputArea({
                     handleSend();
                   }
                 }}
-                placeholder={currentAgent ? "" : "输入指令并回车 / 或输入 @ 召唤专家..."}
-                className={cn(
-                  "w-full bg-black/20 dark:bg-white/5 rounded-xl py-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all placeholder:text-muted-foreground/40",
-                  currentAgent ? "pl-20 pr-4" : "px-4"
-                )}
+                placeholder={currentAgent ? `对话专家: ${currentAgent}` : "输入指令并回车 / 或输入 @ 召唤专家..."}
+                className="w-full bg-black/20 dark:bg-white/5 rounded-xl py-3 px-4 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all placeholder:text-muted-foreground/40"
               />
             </div>
 
