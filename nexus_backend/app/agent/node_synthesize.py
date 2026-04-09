@@ -167,7 +167,10 @@ async def synthesize_node(state: AgentState) -> dict:
     ]
 
     try:
-        synth_model = state.get("selected_model", config.model) if is_complex else config.mini_model
+        # Synthesis only formats tool results — mini_model is sufficient even for
+        # complex queries.  Using the heavy selected_model (e.g. gemini-3.1-pro)
+        # risks hanging on an unresponsive proxy and wasting the budget.
+        synth_model = config.mini_model
         llm = _get_llm(config, model=synth_model, streaming=True)
         ai_msg = await invoke_with_fallback(
             llm,
@@ -175,6 +178,7 @@ async def synthesize_node(state: AgentState) -> dict:
             config=config,
             model=synth_model,
             streaming=True,
+            complexity_tier="economy",
         )
         content = ai_msg.content or ""
     except Exception as e:
